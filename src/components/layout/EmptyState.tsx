@@ -100,7 +100,7 @@ export function EmptyState({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
-          className="text-[11px] text-muted-foreground/50 max-w-[260px] mt-1.5 leading-relaxed"
+          className="text-[11px] text-muted-foreground/60 max-w-[260px] mt-1.5 leading-relaxed"
         >
           {hint}
         </motion.p>
@@ -113,7 +113,7 @@ export function EmptyState({
           className="w-full max-w-[200px] mt-5 mb-2"
         >
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
+            <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">
               {progress.label}
             </span>
             <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">

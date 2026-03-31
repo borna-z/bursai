@@ -157,7 +157,7 @@ export function TravelFormView({
           </>
         ) : (
           <>
-            <Card surface="editorial" className="space-y-4 p-5">
+            <Card className="space-y-4 p-5">
               <div className="space-y-2">
                 <Label className="label-editorial">{t('capsule.destination')}</Label>
                 <LocationAutocomplete
@@ -184,7 +184,7 @@ export function TravelFormView({
               ) : null}
 
               {weatherForecast && !isFetchingWeather && destination ? (
-                <div className="surface-inset flex items-center gap-3 rounded-[1.35rem] border px-4 py-3">
+                <div className="flex items-center gap-3 rounded-[1.35rem] border px-4 py-3">
                   <WeatherMiniIcon condition={weatherForecast.condition} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">{destination}</p>
@@ -196,7 +196,7 @@ export function TravelFormView({
               ) : null}
             </Card>
 
-            <Card surface="utility" className="space-y-5 p-5">
+            <Card className="space-y-5 p-5">
               <div className="space-y-2">
                 <Label className="label-editorial">{t('capsule.travel_dates')}</Label>
                 <Popover>
@@ -227,15 +227,15 @@ export function TravelFormView({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="surface-inset rounded-[1.35rem] border p-4">
+                <div className="rounded-[1.35rem] border p-4">
                   <p className="label-editorial">Trip days</p>
                   <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{tripDays || 0}</p>
                 </div>
-                <div className="surface-inset rounded-[1.35rem] border p-4">
+                <div className="rounded-[1.35rem] border p-4">
                   <p className="label-editorial">Planned looks</p>
                   <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{planningLookCount || 0}</p>
                 </div>
-                <div className="surface-inset rounded-[1.35rem] border p-4">
+                <div className="rounded-[1.35rem] border p-4">
                   <p className="label-editorial">Travel days</p>
                   <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{includeTravelDays ? 'On' : 'Off'}</p>
                 </div>
@@ -256,7 +256,7 @@ export function TravelFormView({
                       setOutfitsPerDay(Math.max(1, outfitsPerDay - 1));
                     }}
                     disabled={outfitsPerDay <= 1}
-                    className="surface-inset flex h-11 w-11 items-center justify-center rounded-[1rem] border disabled:opacity-35"
+                    className="flex h-11 w-11 items-center justify-center rounded-[1rem] border disabled:opacity-35"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
@@ -268,7 +268,7 @@ export function TravelFormView({
                       setOutfitsPerDay(Math.min(4, outfitsPerDay + 1));
                     }}
                     disabled={outfitsPerDay >= 4}
-                    className="surface-inset flex h-11 w-11 items-center justify-center rounded-[1rem] border disabled:opacity-35"
+                    className="flex h-11 w-11 items-center justify-center rounded-[1rem] border disabled:opacity-35"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -277,7 +277,7 @@ export function TravelFormView({
             </Card>
 
             {(allGarments?.length ?? 0) > 0 ? (
-              <Card surface="utility" className="space-y-4 p-5">
+              <Card className="space-y-4 p-5">
                 <div className="space-y-2">
                   <Label className="label-editorial">{t('capsule.must_haves')}</Label>
                   <p className="text-sm leading-6 text-muted-foreground">{t('capsule.must_haves_desc')}</p>
@@ -310,7 +310,7 @@ export function TravelFormView({
                       );
                     })}
                     {mustHaveItems.length > 8 ? (
-                      <div className="surface-inset flex aspect-square items-center justify-center rounded-[1rem] border">
+                      <div className="flex aspect-square items-center justify-center rounded-[1rem] border">
                         <span className="text-xs font-medium text-muted-foreground">+{mustHaveItems.length - 8}</span>
                       </div>
                     ) : null}
@@ -350,7 +350,7 @@ export function TravelFormView({
               </Card>
             ) : null}
 
-            <Card surface="utility" className="space-y-4 p-5">
+            <Card className="space-y-4 p-5">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
                 <p className="label-editorial">{t('capsule.preferences')}</p>

@@ -92,7 +92,7 @@ function SwapSheet({
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-muted-foreground/50 text-center">
+          <p className="text-[11px] text-muted-foreground/60 text-center">
             {modeDescriptions[mode]}
           </p>
         </div>
@@ -177,7 +177,7 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
   const categorySlotLabel = t(`outfit.slot.${slot}`) || slot;
 
   return (
-    <div className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 mb-3 group">
+    <div className="rounded-[1.25rem] p-3 flex items-center gap-4 mb-3 group border border-border/40">
       <div
         className="relative w-16 h-20 rounded-[1rem] overflow-hidden flex-shrink-0 cursor-pointer bg-muted/20"
         onClick={() => navigate(`/wardrobe/${garmentId}`)}
@@ -191,11 +191,11 @@ function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, rende
         <RenderPendingOverlay renderStatus={renderStatus} variant="overlay" className="[&>span]:hidden" />
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/wardrobe/${garmentId}`)}>
-        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-[0.12em] font-body mb-0.5">
+        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-[0.12em] font-body mb-0.5">
           {roleLabel}
         </p>
         <p className="font-medium text-[14px] truncate tracking-tight">{stripBrands(garmentTitle || '') || t('outfit.unknown')}</p>
-        {garmentColor && <p className="text-[11px] text-muted-foreground/50 capitalize mt-0.5 font-body">{garmentColor}</p>}
+        {garmentColor && <p className="text-[11px] text-muted-foreground/60 capitalize mt-0.5 font-body">{garmentColor}</p>}
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); hapticLight(); onSwap(); }}
@@ -567,20 +567,20 @@ export default function OutfitDetailPage() {
       <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
+          className="h-11 w-11 rounded-full border border-border/40 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex gap-2">
           <button
             onClick={handleToggleSave}
-            className="h-11 w-11 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
+            className="h-11 w-11 rounded-full border border-border/40 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
           >
             {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
           </button>
           <button
             onClick={() => setShareSheetOpen(true)}
-            className="h-11 w-11 rounded-full border border-border/30 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
+            className="h-11 w-11 rounded-full border border-border/40 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
           >
             <Share2 className="w-5 h-5" />
           </button>
@@ -622,7 +622,7 @@ export default function OutfitDetailPage() {
         transition={{ delay: 0.1, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
         className="px-5 pt-5 pb-4"
       >
-        <p className="label-editorial text-muted-foreground/45 mb-1">
+        <p className="label-editorial text-muted-foreground/60 mb-1">
           {genOccasionSubmode || displayOccasion}
         </p>
         <h1 className="font-display italic text-[1.5rem] leading-tight text-foreground tracking-tight">
@@ -634,7 +634,7 @@ export default function OutfitDetailPage() {
           </p>
         )}
         {metaParts.length > 0 && (
-          <p className="text-[11px] font-body text-muted-foreground/40 mt-2 tracking-wide">
+          <p className="text-[11px] font-body text-muted-foreground/60 mt-2 tracking-wide">
             {metaParts.join(' · ')}
           </p>
         )}
@@ -642,7 +642,7 @@ export default function OutfitDetailPage() {
 
       {/* ── 3-Tab row ── */}
       <div className="px-5 pb-4">
-        <div className="surface-inset flex rounded-full border border-border/30 p-1">
+        <div className="flex rounded-full border border-border/40 p-1">
           {(['wear', 'swap', 'why'] as const).map((tab) => (
             <button
               key={tab}
@@ -722,7 +722,7 @@ export default function OutfitDetailPage() {
 
             {/* ── Star rating ── */}
             <div className="pt-3">
-              <p className="label-editorial text-muted-foreground/40 mb-2">RATE THIS LOOK</p>
+              <p className="label-editorial text-muted-foreground/60 mb-2">RATE THIS LOOK</p>
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button

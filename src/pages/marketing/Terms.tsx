@@ -48,7 +48,7 @@ export default function Terms() {
       <main className="flex-1 max-w-xl mx-auto px-4 py-10 w-full">
         {/* Hero */}
         <motion.div className="text-center mb-10" {...fadeUp(0)}>
-          <div className="w-14 h-14 flex items-center justify-center mx-auto mb-6 surface-secondary rounded-[1.25rem]">
+          <div className="w-14 h-14 flex items-center justify-center mx-auto mb-6 rounded-[1.25rem] border border-border/40">
             <Scale className="w-7 h-7 text-muted-foreground/50" />
           </div>
           <p className="label-editorial text-muted-foreground/60 mb-2">Legal</p>
@@ -61,7 +61,7 @@ export default function Terms() {
 
         {/* Legal content card */}
         <motion.div
-          className="surface-secondary rounded-[1.25rem] p-5 md:p-8"
+          className="rounded-[1.25rem] p-5 md:p-8 border border-border/40"
           {...fadeUp(0.08)}
         >
           <div className="space-y-10 text-[15px] leading-relaxed text-muted-foreground">

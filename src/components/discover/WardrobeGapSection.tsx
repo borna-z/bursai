@@ -170,7 +170,7 @@ export function WardrobeGapSection() {
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-[18px] font-bold text-primary leading-none">+{gap.new_outfits}</span>
-                    <p className="text-[9px] text-muted-foreground/50 mt-0.5">{t('discover.gap_outfits')}</p>
+                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">{t('discover.gap_outfits')}</p>
                   </div>
                 </div>
 
@@ -181,7 +181,7 @@ export function WardrobeGapSection() {
 
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-muted-foreground/50">{gap.price_range}</span>
+                  <span className="text-[11px] text-muted-foreground/60">{gap.price_range}</span>
                   <Button
                     variant="outline"
                     size="sm"

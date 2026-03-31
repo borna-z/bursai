@@ -24,7 +24,7 @@ function PasswordRequirements({ password, t }: { password: string; t: (k: string
           {r.met
             ? <Check className="w-3 h-3 text-accent shrink-0" />
             : <div className="w-3 h-3 rounded-full border border-border/50 shrink-0" />}
-          <span className={`text-[11px] font-body transition-colors duration-200 ${r.met ? 'text-foreground' : 'text-muted-foreground/40'}`}>{t(r.key)}</span>
+          <span className={`text-[11px] font-body transition-colors duration-200 ${r.met ? 'text-foreground' : 'text-muted-foreground/60'}`}>{t(r.key)}</span>
         </div>
       ))}
     </div>
@@ -186,7 +186,7 @@ export default function AuthPage() {
             </h1>
             <div className="flex items-center gap-4">
               <div className="h-px w-10 bg-accent/25" />
-              <p className="label-editorial text-muted-foreground/50 text-[9px] tracking-[0.3em]">
+              <p className="label-editorial text-muted-foreground/60 text-[9px] tracking-[0.3em]">
                 {t('auth.tagline') || 'The Digital Atelier'}
               </p>
               <div className="h-px w-10 bg-accent/25" />
@@ -195,7 +195,7 @@ export default function AuthPage() {
 
           {/* Tab switcher */}
           <motion.div {...animate(STAGGER_DELAY * 2)} className="mb-8">
-            <div className="flex border-b border-border/30">
+            <div className="flex border-b border-border/40">
               {(['login', 'signup'] as const).map((v) => (
                 <button
                   key={v}
@@ -215,7 +215,7 @@ export default function AuthPage() {
 
           {/* Auth form card */}
           <motion.div {...animate(STAGGER_DELAY * 4)}>
-            <div className="surface-secondary rounded-[1.25rem] p-5" onKeyDown={handleKeyDown}>
+            <div className="rounded-[1.25rem] p-5" onKeyDown={handleKeyDown}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={tab}

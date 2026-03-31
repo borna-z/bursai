@@ -92,9 +92,9 @@ export default function SettingsAccount() {
               </div>
             </div>
             <div className="px-5 py-4">
-              <p className="label-editorial text-muted-foreground/50 mb-1">{t('settings.email_label') || 'EMAIL ADDRESS'}</p>
+              <p className="label-editorial text-muted-foreground/60 mb-1">{t('settings.email_label') || 'EMAIL ADDRESS'}</p>
               <p className="text-sm font-body text-foreground">{user?.email}</p>
-              <p className="text-[11px] text-muted-foreground/50 mt-1 font-body">{t('settings.email_change_note') || 'Email cannot be changed manually. Contact support.'}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1 font-body">{t('settings.email_change_note') || 'Email cannot be changed manually. Contact support.'}</p>
             </div>
           </SettingsGroup>
         </motion.div>
@@ -128,7 +128,7 @@ export default function SettingsAccount() {
           transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 4 }}
           className="pt-2"
         >
-          <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
+          <div className="rounded-[1.25rem] overflow-hidden border border-border/40">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button type="button" className="w-full">

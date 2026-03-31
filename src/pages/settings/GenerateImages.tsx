@@ -154,19 +154,19 @@ export default function GenerateImages() {
 
         {/* Stats strip */}
         <motion.div className="flex gap-3" {...stagger(1)}>
-          <div className="surface-secondary rounded-[1.25rem] px-4 py-4 flex-1 text-center">
+          <div className="rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-border/40">
             <p className="text-2xl font-semibold tracking-tight">{garments?.length || 0}</p>
-            <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50 mt-1">{t('genimg.total')}</p>
+            <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/60 mt-1">{t('genimg.total')}</p>
           </div>
           {total > 0 && (
             <>
-              <div className="surface-secondary rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-emerald-500/20">
+              <div className="rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-emerald-500/20">
                 <p className="text-2xl font-semibold tracking-tight text-emerald-600">{completed}</p>
-                <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50 mt-1">{t('genimg.generated')}</p>
+                <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/60 mt-1">{t('genimg.generated')}</p>
               </div>
-              <div className="surface-secondary rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-destructive/20">
+              <div className="rounded-[1.25rem] px-4 py-4 flex-1 text-center border border-destructive/20">
                 <p className="text-2xl font-semibold tracking-tight text-destructive">{failed}</p>
-                <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50 mt-1">{t('genimg.failed')}</p>
+                <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/60 mt-1">{t('genimg.failed')}</p>
               </div>
             </>
           )}
@@ -175,9 +175,9 @@ export default function GenerateImages() {
         {/* Progress bar */}
         {total > 0 && (
           <motion.div className="space-y-2" {...stagger(2)}>
-            <div className="surface-secondary rounded-[1.25rem] p-5 space-y-3">
+            <div className="rounded-[1.25rem] p-5 space-y-3 border border-border/40">
               <div className="flex items-center justify-between">
-                <p className="label-editorial text-muted-foreground/50 text-[10px]">Progress</p>
+                <p className="label-editorial text-muted-foreground/60 text-[10px]">Progress</p>
                 <span className="text-sm font-semibold tabular-nums">{progress}%</span>
               </div>
               <Progress value={progress} className="h-2" />
@@ -211,9 +211,9 @@ export default function GenerateImages() {
 
         {/* Item list */}
         {items.length > 0 && (
-          <motion.div className="surface-secondary rounded-[1.25rem] overflow-hidden" {...stagger(4)}>
+          <motion.div className="rounded-[1.25rem] overflow-hidden border border-border/40" {...stagger(4)}>
             <div className="px-5 py-3 border-b border-border/40">
-              <p className="label-editorial text-muted-foreground/50 text-[10px]">Processing Queue</p>
+              <p className="label-editorial text-muted-foreground/60 text-[10px]">Processing Queue</p>
             </div>
             <div className="max-h-[50vh] overflow-y-auto divide-y divide-border/30">
               {items.map(item => (

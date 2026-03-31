@@ -153,7 +153,7 @@ export default function ShareOutfitPage() {
       <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="font-display italic text-lg">{t('share.title')}</h1>
-          <span className="text-[10px] font-body uppercase tracking-[0.16em] text-muted-foreground/50">BURS</span>
+          <span className="text-[10px] font-body uppercase tracking-[0.16em] text-muted-foreground/60">BURS</span>
         </div>
       </div>
 
@@ -206,7 +206,7 @@ export default function ShareOutfitPage() {
         </motion.div>
 
         {/* Share actions */}
-        <motion.div className="mt-6 surface-secondary rounded-[1.25rem] divide-y divide-border/40" {...stagger(2)}>
+        <motion.div className="mt-6 rounded-[1.25rem] divide-y divide-border/40" {...stagger(2)}>
           <button
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={handleCopyLink}
@@ -243,7 +243,7 @@ export default function ShareOutfitPage() {
 
         {/* CTA cards */}
         <div className="mt-8 space-y-4">
-          <motion.div className="surface-editorial rounded-[1.25rem] p-5 text-center space-y-3" {...stagger(3)}>
+          <motion.div className="rounded-[1.25rem] p-5 text-center space-y-3" {...stagger(3)}>
             <Sparkles className="w-8 h-8 mx-auto text-primary" />
             <h3 className="font-display italic text-lg">{t('share.cta_free_title')}</h3>
             <p className="text-sm text-muted-foreground font-body">{t('share.cta_free_desc')}</p>
@@ -254,7 +254,7 @@ export default function ShareOutfitPage() {
             </Link>
           </motion.div>
 
-          <motion.div className="surface-editorial rounded-[1.25rem] p-5 text-center space-y-3 border border-accent/20" {...stagger(4)}>
+          <motion.div className="rounded-[1.25rem] p-5 text-center space-y-3 border border-accent/20" {...stagger(4)}>
             <Crown className="w-8 h-8 mx-auto text-accent" />
             <h3 className="font-display italic text-lg">{t('share.cta_premium_title')}</h3>
             <ul className="text-sm text-muted-foreground font-body space-y-1.5">

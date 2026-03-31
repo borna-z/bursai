@@ -152,7 +152,7 @@
                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
              </button>
              <div>
-               <p className="label-editorial text-muted-foreground/50 text-[10px]">System Overview</p>
+               <p className="label-editorial text-muted-foreground/60 text-[10px]">System Overview</p>
                <h1 className="font-display italic text-xl">Admin</h1>
              </div>
            </div>
@@ -161,25 +161,25 @@
          <div className="max-w-6xl mx-auto px-4 pt-6 pb-24 space-y-6">
            {/* KPI metrics strip */}
            <motion.div className="grid grid-cols-3 gap-3" {...motionProps(0)}>
-             <div className="surface-secondary rounded-[1.25rem] p-4 text-center space-y-1">
+             <div className="rounded-[1.25rem] p-4 text-center space-y-1 border border-border/40">
                <Eye className="w-4 h-4 mx-auto text-muted-foreground/50" />
                <p className="text-2xl font-semibold tracking-tight">{totalPageViews}</p>
-               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">{t('admin.page_views')}</p>
+               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.page_views')}</p>
              </div>
-             <div className="surface-secondary rounded-[1.25rem] p-4 text-center space-y-1">
+             <div className="rounded-[1.25rem] p-4 text-center space-y-1 border border-border/40">
                <Users className="w-4 h-4 mx-auto text-muted-foreground/50" />
                <p className="text-2xl font-semibold tracking-tight">{totalLeads}</p>
-               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">{t('admin.leads')}</p>
+               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.leads')}</p>
              </div>
-             <div className="surface-secondary rounded-[1.25rem] p-4 text-center space-y-1">
+             <div className="rounded-[1.25rem] p-4 text-center space-y-1 border border-border/40">
                <BarChart3 className="w-4 h-4 mx-auto text-muted-foreground/50" />
                <p className="text-2xl font-semibold tracking-tight">{totalClicks}</p>
-               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/50">{t('admin.app_clicks')}</p>
+               <p className="text-[10px] font-body uppercase tracking-[0.14em] text-muted-foreground/60">{t('admin.app_clicks')}</p>
              </div>
            </motion.div>
 
            {/* Events breakdown */}
-           <motion.div className="surface-secondary rounded-[1.25rem] p-5 space-y-4" {...motionProps(1)}>
+           <motion.div className="rounded-[1.25rem] p-5 space-y-4 border border-border/40" {...motionProps(1)}>
              <h2 className="font-display italic text-[1.15rem]">{t('admin.events')}</h2>
              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2">
                {eventCounts.map(event => (
@@ -192,7 +192,7 @@
            </motion.div>
 
            {/* Leads table */}
-           <motion.div className="surface-secondary rounded-[1.25rem] p-5 space-y-4" {...motionProps(2)}>
+           <motion.div className="rounded-[1.25rem] p-5 space-y-4 border border-border/40" {...motionProps(2)}>
              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                <h2 className="font-display italic text-[1.15rem]">{t('admin.leads')} ({filteredLeads.length})</h2>
                <div className="flex gap-2">
@@ -223,7 +223,7 @@
                  </thead>
                  <tbody>
                    {filteredLeads.map(lead => (
-                     <tr key={lead.id} className="border-b border-border/30">
+                     <tr key={lead.id} className="border-b border-border/40">
                        <td className="py-3 px-5 font-medium">{lead.email}</td>
                        <td className="py-3 px-5 text-muted-foreground">{lead.source}</td>
                        <td className="py-3 px-5 text-muted-foreground">

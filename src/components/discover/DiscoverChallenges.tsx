@@ -101,7 +101,7 @@ export function DiscoverChallenges({ challenges, participations, garmentCount, t
               </h4>
 
               {/* Status text */}
-              <span className="text-[10px] text-muted-foreground/50 block">
+              <span className="text-[10px] text-muted-foreground/60 block">
                 {isLocked
                   ? `${garmentCount}/${threshold}`
                   : isCompleted

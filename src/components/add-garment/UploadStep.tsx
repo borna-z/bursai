@@ -90,7 +90,7 @@ export function UploadStep({
           </button>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="surface-secondary rounded-[1.15rem] p-3.5">
+            <div className="border border-border/40 rounded-[1.15rem] p-3.5">
               <div className="flex items-start gap-3.5">
                 <div className="flex h-10.5 w-10.5 shrink-0 items-center justify-center rounded-[0.9rem] bg-secondary text-foreground">
                   <ImageIcon className="h-5 w-5" />
@@ -127,7 +127,7 @@ export function UploadStep({
             <button
               type="button"
               onClick={() => { hapticLight(); batchInputRef.current?.click(); }}
-              className="surface-secondary flex items-start gap-3.5 rounded-[1.15rem] p-3.5 text-left cursor-pointer"
+              className="border border-border/40 flex items-start gap-3.5 rounded-[1.15rem] p-3.5 text-left cursor-pointer"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.95rem] bg-secondary text-foreground">
                 <Upload className="h-5 w-5" />

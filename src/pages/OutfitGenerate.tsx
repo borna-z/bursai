@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { motion, LayoutGroup, useReducedMotion, type Transition } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -269,7 +268,7 @@ export default function OutfitGeneratePage() {
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
       <AppLayout>
         <div className="page-shell !max-w-md !pt-16">
-          <div className="surface-editorial space-y-6 p-5">
+          <div className="space-y-6 p-5">
             <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground tracking-tight">{t('unlock.outfit_gen')}</h2>
             <WardrobeProgress message={t('unlock.outfit_gen_message')} />
           </div>
@@ -384,12 +383,12 @@ export default function OutfitGeneratePage() {
                 transition={{ duration: DURATION_SLOW, ease: EASE_CURVE }}
                 className="mb-6"
               >
-                <p className="label-editorial text-muted-foreground/50 mb-1">YOUR LOOK</p>
+                <p className="label-editorial text-muted-foreground/60 mb-1">YOUR LOOK</p>
                 <h1 className="font-display italic text-[1.6rem] leading-tight text-foreground tracking-tight">
                   The Daily Edit
                 </h1>
                 {contextSubtitle && (
-                  <p className="text-[12px] font-body text-muted-foreground/50 mt-1.5">{contextSubtitle}</p>
+                  <p className="text-[12px] font-body text-muted-foreground/60 mt-1.5">{contextSubtitle}</p>
                 )}
               </motion.div>
 
@@ -407,7 +406,7 @@ export default function OutfitGeneratePage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * STAGGER_DELAY * 2, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
                     onClick={() => { hapticLight(); navigate(`/wardrobe/${item.garment.id}`); }}
-                    className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
+                    className="rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform border border-border/40"
                   >
                     <div className="w-16 h-20 rounded-[1rem] overflow-hidden flex-shrink-0 bg-muted/20">
                       <LazyImageSimple
@@ -418,14 +417,14 @@ export default function OutfitGeneratePage() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/45 mb-0.5">
+                      <p className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/60 mb-0.5">
                         {item.slot}
                       </p>
                       <p className="text-[14px] font-medium text-foreground truncate">
                         {item.garment.title || item.slot}
                       </p>
                       {item.garment.colors?.[0] && (
-                        <p className="text-[11px] font-body text-muted-foreground/50 mt-0.5 truncate">
+                        <p className="text-[11px] font-body text-muted-foreground/60 mt-0.5 truncate">
                           {item.garment.colors[0]}{item.garment.material ? ` · ${item.garment.material}` : ''}
                         </p>
                       )}
@@ -439,7 +438,7 @@ export default function OutfitGeneratePage() {
                   <div
                     key={`missing-${slot}`}
                     onClick={() => { hapticLight(); navigate(`/wardrobe?category=${slot === 'bottom' ? 'bottoms' : slot}`); }}
-                    className="surface-secondary rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer border border-dashed border-foreground/10"
+                    className="rounded-[1.25rem] p-3 flex items-center gap-4 cursor-pointer border border-dashed border-foreground/10"
                   >
                     <div className="w-16 h-20 rounded-[1rem] flex items-center justify-center bg-muted/10">
                       <Shirt className="w-5 h-5 text-muted-foreground/20" />
@@ -468,7 +467,7 @@ export default function OutfitGeneratePage() {
               {/* ── Weather context ── */}
               {weather && (
                 <div className="mt-3 px-1">
-                  <p className="text-[10px] font-body uppercase tracking-[0.1em] text-muted-foreground/40">
+                  <p className="text-[10px] font-body uppercase tracking-[0.1em] text-muted-foreground/60">
                     Styled for {weather.temperature}°C{weather.precipitation && weather.precipitation !== 'none' ? ` · ${weather.precipitation}` : ''}
                   </p>
                 </div>
@@ -513,7 +512,7 @@ export default function OutfitGeneratePage() {
                 <Button
                   onClick={() => { hapticLight(); handleRefineInChat(); }}
                   variant="ghost"
-                  className="h-10 w-full text-[13px] font-body text-muted-foreground/50"
+                  className="h-10 w-full text-[13px] font-body text-muted-foreground/60"
                 >
                   Refine in chat
                 </Button>
@@ -542,10 +541,10 @@ export default function OutfitGeneratePage() {
                   className="mt-8"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <p className="label-editorial text-muted-foreground/40">
+                    <p className="label-editorial text-muted-foreground/60">
                       STYLIST OPTIONS
                     </p>
-                    <p className="text-[11px] text-muted-foreground/40 font-body">
+                    <p className="text-[11px] text-muted-foreground/60 font-body">
                       {primaryIndex + 1} of {generatedResults.length}
                     </p>
                   </div>
@@ -558,7 +557,7 @@ export default function OutfitGeneratePage() {
                           key={option.id}
                           whileTap={prefersReduced ? undefined : { scale: 0.98 }}
                           onClick={() => { hapticLight(); setPrimaryIndex(optionIndex); }}
-                          className="w-full surface-secondary rounded-[1.25rem] p-3 text-left"
+                          className="w-full rounded-[1.25rem] p-3 text-left border border-border/40"
                         >
                           <div className="flex gap-2">
                             {option.items.slice(0, 4).map((item) => (
@@ -580,7 +579,7 @@ export default function OutfitGeneratePage() {
                               <p className="text-[12px] font-medium text-foreground">
                                 Option {optionIndex + 1}
                               </p>
-                              <p className="text-[11px] font-body text-muted-foreground/45 mt-0.5">
+                              <p className="text-[11px] font-body text-muted-foreground/60 mt-0.5">
                                 {option.family_label ? `${option.family_label} · ` : ''}
                                 {OCCASIONS.find(o => o.key === option.occasion)?.label ?? option.occasion}
                               </p>
@@ -600,7 +599,7 @@ export default function OutfitGeneratePage() {
               <Button
                 variant="ghost"
                 onClick={() => { hapticLight(); setPhase('picking'); }}
-                className="text-[13px] font-body text-muted-foreground/40"
+                className="text-[13px] font-body text-muted-foreground/60"
               >
                 Start over
               </Button>
@@ -621,7 +620,7 @@ export default function OutfitGeneratePage() {
             initial={prefersReduced ? false : { opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-            className="surface-editorial rounded-[1.25rem] max-w-sm w-full p-6 text-center"
+            className="rounded-[1.25rem] max-w-sm w-full p-6 text-center"
           >
             <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-4 opacity-70" />
             <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
@@ -677,7 +676,7 @@ export default function OutfitGeneratePage() {
                 {weather.temperature}°C · {t(weather.condition) || weather.location}
               </span>
               {weatherAdvice && (
-                <p className="pt-1.5 text-[11px] text-muted-foreground/45 font-body">
+                <p className="pt-1.5 text-[11px] text-muted-foreground/60 font-body">
                   {weatherAdvice}
                 </p>
               )}
@@ -685,7 +684,7 @@ export default function OutfitGeneratePage() {
           )}
           {preferredGarmentSummary && (
             <div className="pt-1.5">
-              <div className="surface-secondary inline-flex max-w-full items-center gap-3 rounded-[1.25rem] px-3 py-2.5 text-left">
+              <div className="inline-flex max-w-full items-center gap-3 rounded-[1.25rem] border border-border/40 px-3 py-2.5 text-left">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
                   <Shirt className="h-4 w-4" />
                 </div>
@@ -713,7 +712,7 @@ export default function OutfitGeneratePage() {
           transition={{ delay: 0.05, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           className="space-y-3 pb-8"
         >
-          <p className="label-editorial text-muted-foreground/50">SELECT OCCASION</p>
+          <p className="label-editorial text-muted-foreground/60">SELECT OCCASION</p>
           <div className="flex flex-wrap gap-2">
             {OCCASIONS.map(({ key, label }) => {
               const isSelected = selectedOccasion === key;
@@ -745,7 +744,7 @@ export default function OutfitGeneratePage() {
           transition={{ delay: 0.1, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
           className="pb-8 space-y-3"
         >
-          <p className="label-editorial text-muted-foreground/50">MOOD & AESTHETIC</p>
+          <p className="label-editorial text-muted-foreground/60">MOOD & AESTHETIC</p>
           <div className="flex flex-wrap gap-2">
             {STYLES.map((style) => {
               const isSelected = selectedStyles.includes(style);
@@ -789,7 +788,7 @@ export default function OutfitGeneratePage() {
               whileTap={prefersReduced ? undefined : { scale: 0.97 }}
               onClick={() => { hapticLight(); setGenerationMode('standard'); }}
               className={cn(
-                'surface-secondary rounded-[1.25rem] relative p-4 text-left transition-all',
+                'rounded-[1.25rem] relative p-4 text-left transition-all border border-border/40',
                 generationMode === 'standard' && 'ring-1 ring-foreground/10'
               )}
             >
@@ -798,7 +797,7 @@ export default function OutfitGeneratePage() {
                 generationMode === 'standard' ? 'text-foreground' : 'text-muted-foreground/30'
               )} />
               <p className="text-[13px] font-semibold text-foreground">Quick Look</p>
-              <p className="text-[11px] text-muted-foreground/45 mt-0.5 leading-snug font-body">
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-snug font-body">
                 Fast, balanced, everyday
               </p>
               {generationMode === 'standard' && (
@@ -820,7 +819,7 @@ export default function OutfitGeneratePage() {
                 setGenerationMode('stylist');
               }}
               className={cn(
-                'surface-secondary rounded-[1.25rem] relative p-4 text-left transition-all',
+                'rounded-[1.25rem] relative p-4 text-left transition-all border border-border/40',
                 generationMode === 'stylist' && 'ring-1 ring-premium/14'
               )}
             >
@@ -829,7 +828,7 @@ export default function OutfitGeneratePage() {
                 generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/30'
               )} />
               <p className="text-[13px] font-semibold text-foreground">Stylist Mode</p>
-              <p className="text-[11px] text-muted-foreground/45 mt-0.5 leading-snug font-body">
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-snug font-body">
                 Deeper curation, editorial
               </p>
               {!isPremium && (
@@ -856,7 +855,7 @@ export default function OutfitGeneratePage() {
         <div className="px-4 pt-3 pb-4">
           <div className="max-w-md mx-auto space-y-2">
             {contextSubtitle && (
-              <p className="text-[11px] text-muted-foreground/50 text-center tracking-wide font-body">
+              <p className="text-[11px] text-muted-foreground/60 text-center tracking-wide font-body">
                 {contextSubtitle}
               </p>
             )}
@@ -886,7 +885,7 @@ export default function OutfitGeneratePage() {
               </Button>
             </CoachMark>
             {!isPremium && remainingOutfits() < Infinity && (
-              <p className="text-[11px] text-muted-foreground/40 text-center font-body">
+              <p className="text-[11px] text-muted-foreground/60 text-center font-body">
                 <Zap className="w-3 h-3 inline mr-0.5 -mt-0.5" />
                 {remainingOutfits()} outfits remaining
               </p>

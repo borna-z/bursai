@@ -38,7 +38,7 @@ export function PageHeader({
             </button>
           )}
           <div className="min-w-0">
-            {eyebrow && <p className="caption-upper mb-0.5 text-muted-foreground/45">{eyebrow}</p>}
+            {eyebrow && <p className="caption-upper mb-0.5 text-muted-foreground/60">{eyebrow}</p>}
             <AnimatePresence mode="wait">
               <motion.h1
                 key={title}

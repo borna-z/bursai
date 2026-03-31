@@ -40,7 +40,7 @@ npm run build          # production build (Vite)
 npm run build:dev      # development build
 npm run lint           # ESLint (ignores supabase/**)
 npm run typecheck      # tsc --noEmit
-npm test               # Vitest + jsdom (512 tests, 91 files)
+npm test               # Vitest + jsdom (513 tests, 92 files)
 npm run test:watch     # watch mode
 npx vitest run src/path/to/File.test.tsx  # single test file
 npm run test:coverage  # 30% line threshold
@@ -65,12 +65,15 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - Never use: Inter, Roboto, Arial, Space Grotesk (legacy, replaced)
 - CSS comment in index.css says "Inter + Sora" — stale/wrong
 
-### Surface Classes (use these, don't invent new ones)
+### Surface Classes
 `.surface-hero` `.surface-secondary` `.surface-inset` `.surface-interactive` `.surface-editorial` `.surface-utility` `.topbar-frost` `.app-dock` `.eyebrow-chip` `.label-editorial`
 
+**Post-flattening (branch `cleanup/flat-premium-pass`):** Most pages no longer use surface classes. Surfaces were removed from 33 pages and 13 components. The classes still exist in CSS for Home, Plan, Insights, and any future use — but the default pattern is now flat with `border border-border/40` for visual separation.
+
 ### Design Principles
-- Light mode: flat surfaces, minimal shadows, editorial feel — Scandinavian magazine aesthetic
-- Dark mode: rich, warm charcoal — not cold/blue
+- Light mode: flat surfaces, no shadows, editorial feel — Scandinavian magazine aesthetic
+- Dark mode: rich, warm charcoal with subtle shadows — not cold/blue
+- Borders: use `border-border/40` (not /30 — too faint in dark mode)
 - Radius: `--radius: 1.125rem` — rounded but not bubbly
 - Motion: Framer Motion throughout. Use `EASE_CURVE` from `src/lib/motion.ts`
 - Micro-interactions: `hapticLight()` on every tap (`src/lib/haptics.ts`)
@@ -271,10 +274,11 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 - V4 editorial redesign (branch `v4/editorial-redesign`): 37/44 pages redesigned with Scandinavian editorial magazine aesthetic (all actionable pages done)
 - Home shortcuts: replaced week planner with 5 quick-access cards (AI Chat, Style Me, Travel Capsule, Wardrobe Gaps, Discover)
 - Wardrobe: warm gold accent on category chips, tab switcher, "+" button; editorial count label; staggered motion
+- Flat premium pass (branch `cleanup/flat-premium-pass`): removed surface wrappers from 33 pages + 13 components, full light/dark mode contrast audit (shadow reduction, border visibility, WCAG AA text contrast)
 
 ### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
 
-**Status:** 37/44 pages redesigned. 0 TODO, 1 SKIP (SeedWardrobe — not in repo), 3 N/A (redirects). TypeScript 0 errors, 91 test files / 511 tests passing.
+**Status:** 37/44 pages redesigned. 0 TODO, 1 SKIP (SeedWardrobe — not in repo), 3 N/A (redirects). TypeScript 0 errors, 92 test files / 513 tests passing.
 
 The V4 redesign applies Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel): serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces.
 
@@ -334,13 +338,14 @@ Fetch designs with `mcp__stitch__get_screen` using `name: "projects/811771638416
 
 **V4 design principles:**
 - Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
-- Eyebrow labels: `label-editorial text-muted-foreground/60` uppercase tracking
-- Cards: `surface-secondary rounded-[1.25rem]` or `surface-hero`
+- Eyebrow labels: `label-editorial text-muted-foreground/75` uppercase tracking
+- Cards: flat with `border border-border/40 rounded-[1.25rem]` (surfaces removed in flat-premium-pass). Only Home/Plan/Insights retain `surface-hero`/`surface-secondary`.
 - Buttons: `rounded-full` with hapticLight() on tap
 - Motion: Framer Motion with staggered entrances, `EASE_CURVE` from motion.ts, gated by `useReducedMotion()`
 - Spacing: generous padding (`p-4` to `p-6`), `gap-3` to `gap-4` between sections
 - No visual clutter: remove redundant labels, badge spam, dense grids
 - Each page uses `AppLayout > PageHeader > PullToRefresh > AnimatedPage` pattern
+- Text contrast: minimum `text-muted-foreground/60` for readable text (WCAG AA). Icons/placeholders can be lower.
 
 ### What Still Needs Doing
 - Keyboard accessibility on SwipeableGarmentCard (swipe has no keyboard alternative)
@@ -348,7 +353,7 @@ Fetch designs with `mcp__stitch__get_screen` using `name: "projects/811771638416
 - AI stylist truncation — `style_chat/index.ts` ~line 1572 hard-caps at 6 sentences/900 chars (should be 9/1400)
 - Milestone celebrations — first outfit, 10 garments, first wear (hook + overlay component)
 - Reduced motion guards on AnimatedPage and BursLoadingScreen (most V4 pages now have `useReducedMotion`, but these two core components still lack it)
-- Contrast ratios — CardEyebrow text-foreground/35 fails WCAG AA on cream background
+- Contrast ratios — CardEyebrow text-foreground/35 may still fail WCAG AA on cream background (other text contrast issues fixed in flat-premium-pass)
 
 ## Known Bugs (confirmed, fix when touching related code)
 

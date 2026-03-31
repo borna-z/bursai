@@ -48,7 +48,7 @@ export function CapsuleSummary({
       transition={{ duration: 0.25, ease: EASE_CURVE }}
       className="space-y-4 pt-3"
     >
-      <Card surface="utility" className="space-y-4 p-4">
+      <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="label-editorial">Packing Progress</p>
@@ -83,7 +83,7 @@ export function CapsuleSummary({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: categoryIndex * STAGGER_DELAY, duration: 0.35 }}
           >
-            <Card surface="utility" className="space-y-3 p-4">
+            <Card className="space-y-3 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="label-editorial">{category}</p>
@@ -100,7 +100,7 @@ export function CapsuleSummary({
                     key={garment.id}
                     onClick={() => toggleChecked(garment.id)}
                     className={cn(
-                      'surface-inset flex w-full items-center gap-3 rounded-[1.35rem] border p-3 text-left transition-all',
+                      'flex w-full items-center gap-3 rounded-[1.35rem] border p-3 text-left transition-all',
                       checkedItems.has(garment.id)
                         ? 'border-accent/25 bg-accent/5'
                         : 'hover:bg-secondary/60',
@@ -150,7 +150,7 @@ export function CapsuleSummary({
         );
       })}
 
-      <Card surface="inset" className="flex items-center justify-center gap-2 px-4 py-3">
+      <Card className="flex items-center justify-center gap-2 px-4 py-3">
         <Shirt className="h-3.5 w-3.5 text-muted-foreground/40" />
         <span className="text-xs text-muted-foreground/60">
           {totalItems} {t('capsule.items')} • {t('capsule.creates')} {result.outfits.length} {t('capsule.unique_outfits')}
@@ -175,7 +175,7 @@ export function CapsuleSummary({
       </Button>
 
       {(result.coverage_gaps?.length || 0) > 0 ? (
-        <Card surface="inset" className="space-y-3 p-4">
+        <Card className="space-y-3 p-4">
           <h3 className="label-editorial">Coverage Gaps</h3>
           <ul className="space-y-1.5">
             {result.coverage_gaps?.map((gap) => (
@@ -189,7 +189,7 @@ export function CapsuleSummary({
       ) : null}
 
       {result.packing_tips.length > 0 ? (
-        <Card surface="inset" className="space-y-3 p-4">
+        <Card className="space-y-3 p-4">
           <h3 className="label-editorial flex items-center gap-1.5">
             <LightbulbIcon className="h-3 w-3" />
             {t('capsule.tips')}

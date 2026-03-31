@@ -142,7 +142,7 @@ export default function MoodOutfitPage() {
               transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM }}
               className="space-y-1"
             >
-              <p className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+              <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                 {t(`ai.mood_${generatedOutfit.mood}`)}
               </p>
               <h2 className="font-display italic text-[1.4rem] leading-tight text-foreground">
@@ -156,8 +156,8 @@ export default function MoodOutfitPage() {
                 {...motionProps}
                 transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.08 }}
               >
-                <Card surface="secondary" className="space-y-3 rounded-[1.25rem] p-5">
-                  <p className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+                <Card className="space-y-3 rounded-[1.25rem] p-5">
+                  <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                     Why it works
                   </p>
                   <p className="font-body text-sm leading-7 text-muted-foreground">{generatedOutfit.explanation}</p>
@@ -203,9 +203,9 @@ export default function MoodOutfitPage() {
               {...motionProps}
               transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.16 }}
             >
-              <Card surface="editorial" className="space-y-4 rounded-[1.25rem] p-5">
+              <Card className="space-y-4 rounded-[1.25rem] p-5">
                 <div>
-                  <p className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+                  <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                     Next move
                   </p>
                   <h2 className="mt-2 font-display italic text-[1.3rem] text-foreground leading-tight">
@@ -243,7 +243,7 @@ export default function MoodOutfitPage() {
               <h1 className="font-display italic text-[1.5rem] leading-tight text-foreground">
                 How are you feeling?
               </h1>
-              <p className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+              <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                 Select your current aesthetic frequency
               </p>
             </motion.section>
@@ -272,7 +272,6 @@ export default function MoodOutfitPage() {
                     className="text-left cursor-pointer"
                   >
                     <Card
-                      surface="secondary"
                       className={cn(
                         'h-full min-h-[5.5rem] overflow-hidden rounded-[1.25rem] p-4 transition-transform duration-200',
                         isSelected && 'bg-foreground text-background',

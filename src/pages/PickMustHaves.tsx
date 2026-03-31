@@ -133,7 +133,7 @@ export default function PickMustHaves() {
           {...motionProps}
           transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.04 }}
         >
-          <Card surface="secondary" className="space-y-4 rounded-[1.25rem] p-4">
+          <Card className="space-y-4 rounded-[1.25rem] p-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
               <Input
@@ -197,7 +197,6 @@ export default function PickMustHaves() {
                 className="text-left"
               >
                 <Card
-                  surface="secondary"
                   className={cn(
                     'overflow-hidden rounded-[1.25rem] p-2 transition-all',
                     isSelected ? 'ring-2 ring-foreground/20 shadow-[0_16px_34px_rgba(28,25,23,0.08)]' : '',
@@ -219,7 +218,7 @@ export default function PickMustHaves() {
                     <p className="font-body text-[0.82rem] font-medium leading-5 text-foreground line-clamp-1">
                       {garment.title}
                     </p>
-                    <p className="label-editorial text-muted-foreground/50 text-[0.65rem] uppercase tracking-[0.16em]">
+                    <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                       {garment.category}
                     </p>
                   </div>
@@ -230,7 +229,7 @@ export default function PickMustHaves() {
         </section>
 
         {filtered.length === 0 ? (
-          <Card surface="editorial" className="rounded-[1.25rem] p-8 text-center">
+          <Card className="rounded-[1.25rem] p-8 text-center">
             <p className="font-body text-sm text-muted-foreground">
               {t('wardrobe.empty')}
             </p>

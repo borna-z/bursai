@@ -97,7 +97,7 @@ export function GarmentEnrichmentPanel({
     <>
       {/* Enrichment pending */}
       {isEnrichmentPending && !enrichment && (
-        <div className="p-4 surface-utility">
+        <div className="p-4 border border-border/40">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-foreground/60 animate-pulse" />
             <p className="font-body text-xs text-foreground/70 font-medium m-0">{t('garment.enrichment.deep_analysis_progress')}</p>
@@ -111,7 +111,7 @@ export function GarmentEnrichmentPanel({
 
       {/* Enrichment failed */}
       {enrichmentStatus === 'failed' && !enrichment && (
-        <div className="p-4 surface-utility flex items-center justify-between">
+        <div className="p-4 border border-border/40 flex items-center justify-between">
           <p className="font-body text-xs text-foreground/70 m-0">{t('garment.enrichment.analysis_incomplete')}</p>
           <Button variant="outline" size="sm" className="text-xs h-7 gap-1.5" onClick={onRetryEnrichment} disabled={isRetrying}>
             {isRetrying ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}

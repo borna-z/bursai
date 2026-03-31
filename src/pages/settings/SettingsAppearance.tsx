@@ -39,8 +39,8 @@ export default function SettingsAppearance() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
         >
-          <p className="label-editorial text-muted-foreground/50 px-1 mb-2.5">{t('settings.visual_preview') || 'VISUAL PREVIEW'}</p>
-          <div className="surface-secondary rounded-[1.25rem] p-5 flex flex-col items-center gap-3">
+          <p className="label-editorial text-muted-foreground/60 px-1 mb-2.5">{t('settings.visual_preview') || 'VISUAL PREVIEW'}</p>
+          <div className="rounded-[1.25rem] p-5 flex flex-col items-center gap-3">
             <div className="w-full max-w-[220px] rounded-xl border border-border/40 bg-background p-4 space-y-2.5 shadow-sm">
               <div className="h-2.5 w-3/4 rounded-full bg-muted/60" />
               <div className="h-2 w-1/2 rounded-full bg-muted/40" />
@@ -48,7 +48,7 @@ export default function SettingsAppearance() {
                 {t('settings.action_button') || 'Action Button'}
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground/50 font-body">{t('settings.preview_desc') || 'Changes reflect in real-time'}</p>
+            <p className="text-[11px] text-muted-foreground/60 font-body">{t('settings.preview_desc') || 'Changes reflect in real-time'}</p>
           </div>
         </motion.div>
 
@@ -58,7 +58,7 @@ export default function SettingsAppearance() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY }}
         >
-          <p className="label-editorial text-muted-foreground/50 px-1 mb-2.5">{t('settings.interface_mode') || 'INTERFACE MODE'}</p>
+          <p className="label-editorial text-muted-foreground/60 px-1 mb-2.5">{t('settings.interface_mode') || 'INTERFACE MODE'}</p>
           <div className="grid grid-cols-3 gap-3">
             {themeOptions.map(({ key, icon: Icon, label }) => (
               <button
@@ -66,7 +66,7 @@ export default function SettingsAppearance() {
                 type="button"
                 onClick={() => { hapticLight(); setTheme(key); }}
                 className={cn(
-                  'surface-secondary rounded-[1.25rem] p-4 flex flex-col items-center gap-2.5 transition-all duration-200',
+                  'rounded-[1.25rem] p-4 flex flex-col items-center gap-2.5 transition-all duration-200 border border-border/40',
                   theme === key && 'ring-2 ring-accent ring-offset-2 ring-offset-background'
                 )}
               >
@@ -83,8 +83,8 @@ export default function SettingsAppearance() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 2 }}
         >
-          <p className="label-editorial text-muted-foreground/50 px-1 mb-2.5">{t('settings.accent_color') || 'ACCENT COLOR'}</p>
-          <div className="surface-secondary rounded-[1.25rem] overflow-hidden px-5 py-4">
+          <p className="label-editorial text-muted-foreground/60 px-1 mb-2.5">{t('settings.accent_color') || 'ACCENT COLOR'}</p>
+          <div className="rounded-[1.25rem] overflow-hidden px-5 py-4">
             <AccentColorPicker />
           </div>
         </motion.div>
@@ -96,8 +96,8 @@ export default function SettingsAppearance() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 3 }}
           >
-            <p className="label-editorial text-muted-foreground/50 px-1 mb-2.5">{t('settings.display_language') || 'DISPLAY LANGUAGE'}</p>
-            <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
+            <p className="label-editorial text-muted-foreground/60 px-1 mb-2.5">{t('settings.display_language') || 'DISPLAY LANGUAGE'}</p>
+            <div className="rounded-[1.25rem] overflow-hidden border border-border/40">
               <SettingsRow icon={<Globe />} label={t('settings.language')} last>
                 <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
                   <SelectTrigger className="w-[150px] h-11 text-xs border-0 bg-background/60 rounded-xl font-body">

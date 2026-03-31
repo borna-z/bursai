@@ -15,7 +15,7 @@ export function SettingsGroup({ title, children, className }: SettingsGroupProps
           {title}
         </p>
       )}
-      <div className="surface-editorial overflow-hidden rounded-[1.25rem]">
+      <div className="border border-border/40 overflow-hidden rounded-[1.25rem]">
         {children}
       </div>
     </section>

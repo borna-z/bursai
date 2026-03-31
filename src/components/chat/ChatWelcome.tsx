@@ -128,13 +128,13 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
     >
       <motion.div
         variants={itemVariants}
-        className="w-16 h-16 rounded-[1.25rem] border border-border/30 flex items-center justify-center mb-5"
+        className="w-16 h-16 rounded-[1.25rem] border border-border/40 flex items-center justify-center mb-5"
       >
         <Sparkles className="w-6 h-6 text-primary/60" />
       </motion.div>
       
       {name && (
-        <motion.p variants={itemVariants} className="text-[13px] text-muted-foreground/40 mb-0.5 tracking-wide">
+        <motion.p variants={itemVariants} className="text-[13px] text-muted-foreground/60 mb-0.5 tracking-wide">
           {t('chat.greeting_prefix')}, {name}
         </motion.p>
       )}
@@ -148,7 +148,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       
       <motion.p
         variants={itemVariants}
-        className="text-[14px] text-muted-foreground/50 max-w-[220px] leading-relaxed"
+        className="text-[14px] text-muted-foreground/60 max-w-[220px] leading-relaxed"
       >
         {t('chat.welcome_subtitle')}
       </motion.p>
@@ -160,7 +160,7 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
             key={chip}
             variants={itemVariants}
             onClick={() => onSuggestion(chip)}
-            className="w-full rounded-[1.25rem] px-5 py-2.5 text-[13px] leading-snug border border-border/20 surface-editorial hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97] min-h-[52px]"
+            className="w-full rounded-[1.25rem] px-5 py-2.5 text-[13px] leading-snug border border-border/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97] min-h-[52px]"
             whileTap={{ scale: 0.97 }}
           >
             {chip}

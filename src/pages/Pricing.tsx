@@ -78,7 +78,7 @@ export default function PricingPage() {
 
       <div className="px-4 space-y-6 pb-24 max-w-lg mx-auto pt-2">
         {/* Trial banner */}
-        <motion.div className="surface-editorial rounded-[1.25rem] p-6 text-center space-y-3" {...stagger(0)}>
+        <motion.div className="rounded-[1.25rem] p-6 text-center space-y-3" {...stagger(0)}>
           <Badge className="bg-primary text-primary-foreground rounded-full px-3">{t('trial.badge')}</Badge>
           <h2 className="font-display italic text-[1.4rem]">{t('trial.banner_title')}</h2>
           <p className="text-sm text-muted-foreground font-body">{t('trial.banner_desc')}</p>
@@ -118,7 +118,7 @@ export default function PricingPage() {
         </motion.div>
 
         {/* Pricing card */}
-        <motion.div className="surface-secondary rounded-[1.25rem] p-6 space-y-5" {...stagger(3)}>
+        <motion.div className="rounded-[1.25rem] border border-border/40 p-6 space-y-5" {...stagger(3)}>
           <h3 className="text-center font-display italic text-[1.2rem] flex items-center justify-center gap-2">
             <Crown className="w-5 h-5" /> Premium
           </h3>
@@ -174,13 +174,13 @@ export default function PricingPage() {
         {/* Feature comparison */}
         <motion.div className="space-y-3" {...stagger(6)}>
           <h3 className="font-display italic text-[1.2rem]">{t('pricing.compare_title') || 'Free vs Premium'}</h3>
-          <div className="surface-secondary rounded-[1.25rem] overflow-hidden">
+          <div className="rounded-[1.25rem] border border-border/40 overflow-hidden">
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-border/50">
-                  <th className="text-left p-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 font-medium">{t('pricing.feature') || 'Feature'}</th>
-                  <th className="text-center p-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 font-medium">{t('pricing.free_title')}</th>
-                  <th className="text-center p-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 font-medium">Premium</th>
+                  <th className="text-left p-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-medium">{t('pricing.feature') || 'Feature'}</th>
+                  <th className="text-center p-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-medium">{t('pricing.free_title')}</th>
+                  <th className="text-center p-4 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60 font-medium">Premium</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -204,7 +204,7 @@ export default function PricingPage() {
         </motion.div>
 
         {/* Free plan summary */}
-        <motion.div className="surface-secondary rounded-[1.25rem] p-5" {...stagger(7)}>
+        <motion.div className="rounded-[1.25rem] p-5" {...stagger(7)}>
           <h4 className="font-display italic text-base mb-3">{t('pricing.free_title')}</h4>
           <ul className="text-sm text-muted-foreground font-body space-y-2">
             <li className="flex items-start gap-2"><span className="text-muted-foreground/40 mt-0.5">·</span> {t('pricing.free_1')}</li>

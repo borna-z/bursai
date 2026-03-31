@@ -30,7 +30,7 @@ function DuplicateCard({ match, onReplace }: { match: DuplicateMatch; onReplace:
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex gap-3 p-3 rounded-[1.25rem] surface-utility"
+      className="flex gap-3 p-3 rounded-[1.25rem] border border-border/40"
     >
       <div className="w-16 h-20 rounded-[1.1rem] overflow-hidden bg-muted flex-shrink-0">
         <LazyImage imagePath={match.image_path} alt={match.title} className="w-full h-full object-cover" aspectRatio="3/4" />

@@ -55,7 +55,7 @@ export function WardrobeProgress({ message, compact = false }: Props) {
             <span className="text-[12px] font-medium text-foreground">
               {currentCount} {t('unlock.garments_count')}
             </span>
-            <span className="text-[11px] text-muted-foreground/50">
+            <span className="text-[11px] text-muted-foreground/60">
               {garmentsNeeded} {t('unlock.more_to_next')}
             </span>
           </div>
@@ -101,7 +101,7 @@ export function WardrobeProgress({ message, compact = false }: Props) {
                   {tierGroup.map(t => t.labelKey).map(k => t(k)).join(' · ')}
                 </span>
                 {!unlocked && (
-                  <span className="text-[10px] text-muted-foreground/40">
+                  <span className="text-[10px] text-muted-foreground/60">
                     {t('unlock.add_x_to_unlock').replace('{count}', String(minGarments - currentCount))}
                   </span>
                 )}

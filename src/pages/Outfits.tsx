@@ -93,7 +93,7 @@ export default function OutfitsPage() {
               <h1 className="font-display italic text-[1.55rem] leading-tight">
                 {t('outfits.title')}
                 {outfits && outfits.length > 0 && (
-                  <span className="ml-2 align-middle text-[0.9rem] not-italic text-muted-foreground/50">
+                  <span className="ml-2 align-middle text-[0.9rem] not-italic text-muted-foreground/60">
                     {outfits.length}
                   </span>
                 )}
@@ -115,7 +115,7 @@ export default function OutfitsPage() {
           <OutfitsOnboardingEmpty />
         ) : (
           <>
-            <section className="surface-utility rounded-[1.25rem] px-4 py-3">
+            <section className="px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="app-chip-row">
                   {([

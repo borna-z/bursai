@@ -84,7 +84,7 @@ export default function UsedGarments() {
                 }}
                 className="text-left"
               >
-                <Card surface="utility" className="surface-secondary h-full overflow-hidden rounded-[1.25rem] p-2">
+                <Card className="h-full overflow-hidden rounded-[1.25rem] p-2">
                   <div className="relative overflow-hidden rounded-[1.1rem]">
                     <LazyImageSimple
                       imagePath={getPreferredGarmentImagePath(garment)}
