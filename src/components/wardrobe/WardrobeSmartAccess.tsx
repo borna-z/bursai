@@ -22,18 +22,7 @@ export function WardrobeSmartAccess({ tiles, onSelect }: WardrobeSmartAccessProp
   if (tiles.length === 0) return null;
 
   return (
-    <section className="space-y-3" aria-label="Smart access">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40">
-            {t('wardrobe.smart_access')}
-          </p>
-          <p className="mt-1 max-w-[34ch] text-sm leading-6 text-muted-foreground">
-            {t('wardrobe.smart_access_desc')}
-          </p>
-        </div>
-      </div>
-
+    <section aria-label={t('wardrobe.smart_access')}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {tiles.map((tile, index) => {
           const Icon = TILE_ICONS[tile.key];

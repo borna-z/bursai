@@ -34,13 +34,13 @@ export function InsightsValueTracker({
     <div className={cn('surface-secondary space-y-3 p-4', !isPremium && 'relative overflow-hidden')}>
       <div className={cn(!isPremium && 'blur-sm select-none')}>
         <p className="label-editorial mb-3 text-muted-foreground/60">Value</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 text-center">
           {stats.map((stat) => (
-            <div key={stat.label} className="rounded-[0.95rem] bg-background/55 p-2.5">
+            <div key={stat.label}>
               <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/60">
                 {stat.label}
               </p>
-              <div className="mt-1 flex items-center gap-1">
+              <div className="mt-1 flex items-center justify-center gap-1">
                 <span className="text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
                   {stat.value}
                 </span>

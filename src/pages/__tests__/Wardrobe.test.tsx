@@ -96,7 +96,7 @@ describe('Wardrobe page', () => {
   it('shows smart access when garments are available', () => {
     renderWardrobe();
 
-    expect(screen.getByLabelText('Smart access')).toBeInTheDocument();
+    expect(screen.getByLabelText('wardrobe.smart_access')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /wardrobe\.rarely_worn/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /wardrobe\.most_worn/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /wardrobe\.recently_added/i })).toBeInTheDocument();

@@ -75,31 +75,15 @@ export function UploadStep({
       </header>
 
       <AnimatedPage className="page-shell !max-w-xl flex flex-1 flex-col gap-3.5 !pt-3">
-        <section className="surface-secondary rounded-[1.25rem] p-3.5">
-          <div className="space-y-1.5">
-            <p className="label-editorial text-muted-foreground/60">
-              {prompt}
-            </p>
-            <h2 className="text-[1.2rem] font-semibold tracking-[-0.05em] text-foreground">
-              {t('addgarment.hero_title')}
-            </h2>
-          </div>
-        </section>
-
         <section className="grid gap-3">
           <button
             type="button"
             onClick={() => { hapticLight(); onOpenLiveScan(); }}
             className="surface-hero premium-highlight flex w-full items-center justify-between gap-3.5 rounded-[1.25rem] p-3.5 text-left cursor-pointer"
           >
-            <div className="space-y-1">
-              <p className="label-editorial text-muted-foreground/60">
-                {t('addgarment.live_scan_label')}
-              </p>
-              <h3 className="text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
-                {t('addgarment.live_scan_title')}
-              </h3>
-            </div>
+            <h3 className="text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
+              {t('addgarment.live_scan_title')}
+            </h3>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.95rem] bg-accent/18 text-accent">
               <Camera className="h-5 w-5" />
             </div>
@@ -112,14 +96,9 @@ export function UploadStep({
                   <ImageIcon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-2.5">
-                  <div className="space-y-1">
-                    <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
-                      {photoLabel}
-                    </p>
-                    <p className="text-[0.84rem] text-muted-foreground">
-                      {helperText}
-                    </p>
-                  </div>
+                  <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
+                    {photoLabel}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -153,14 +132,9 @@ export function UploadStep({
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.95rem] bg-secondary text-foreground">
                 <Upload className="h-5 w-5" />
               </div>
-              <div className="space-y-1">
-                <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
-                  {batchLabel}
-                </p>
-                <p className="text-[0.84rem] text-muted-foreground">
-                  {t('addgarment.batch_desc')}
-                </p>
-              </div>
+              <p className="text-[0.98rem] font-medium tracking-[-0.02em] text-foreground">
+                {batchLabel}
+              </p>
             </button>
           </div>
         </section>

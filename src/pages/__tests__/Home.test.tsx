@@ -164,14 +164,13 @@ describe('Home page V4', () => {
     });
   });
 
-  it('renders editorial greeting with user name, stats strip, and shortcuts', () => {
+  it('renders editorial greeting with user name and shortcuts', () => {
     renderHome();
 
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
 
-    expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
     expect(screen.getByText('Ask stylist')).toBeInTheDocument();
     expect(screen.getByText('Discover')).toBeInTheDocument();
   });

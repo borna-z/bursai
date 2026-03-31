@@ -301,11 +301,6 @@ export default function PlanPage() {
               ))}
             </div>
 
-            {outfit.explanation ? (
-              <p className="line-clamp-3 text-[0.86rem] leading-5 text-foreground/80">
-                {outfit.explanation}
-              </p>
-            ) : null}
           </div>
 
           {additionalPlanned.length > 0 ? (
@@ -390,12 +385,6 @@ export default function PlanPage() {
             <h2 className="text-[1.22rem] font-semibold tracking-[-0.04em] text-foreground">
               {emptyWeek ? t('plan.nothing_planned') : t('plan.nothing_planned_for').replace('{date}', dateLabel)}
             </h2>
-            <p className="line-clamp-2 min-h-[2.5rem] max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
-              {daySummary?.summary
-                ?? (emptyWeek
-                  ? t('plan.empty_week_hint')
-                  : t('plan.empty_day_hint'))}
-            </p>
           </div>
 
           <div className="space-y-2.5">
