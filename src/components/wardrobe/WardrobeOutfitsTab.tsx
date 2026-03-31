@@ -259,9 +259,9 @@ export function WardrobeOutfitsTab() {
 
   return (
     <>
-      <div className="space-y-4">
-        <section className="overflow-hidden rounded-[28px] border border-border/12 bg-card/92 px-4 py-4 shadow-[0_14px_34px_rgba(28,25,23,0.04)]">
-          <div className="space-y-3.5">
+      <div className="space-y-3.5">
+        <section className="overflow-hidden rounded-[24px] border border-border/12 bg-card/92 px-4 py-3.5 shadow-[0_12px_26px_rgba(28,25,23,0.04)]">
+          <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <CardPill label={translateOrFallback(t, 'outfits.header_kicker', 'Outfits')} tone="muted" size="md" />
@@ -271,24 +271,21 @@ export function WardrobeOutfitsTab() {
               <Button
                 variant="outline"
                 onClick={() => navigate('/plan')}
-                className="h-9 rounded-full border-border/20 bg-background/72 px-4 text-xs"
+                className="h-8.5 rounded-full border-border/20 bg-background/72 px-3.5 text-xs"
               >
                 {translateOrFallback(t, 'outfits.open_planner', 'Open plan')}
               </Button>
             </div>
 
-            <div className="max-w-[28rem] space-y-1.5">
-              <h2 className="text-[25px] font-medium leading-[0.95] tracking-[-0.04em] text-foreground">
+            <div className="max-w-[28rem] space-y-1">
+              <h2 className="text-[22px] font-medium leading-[0.95] tracking-[-0.04em] text-foreground">
                 {translateOrFallback(t, 'outfits.header_title', 'Look archive')}
               </h2>
-              <p className="text-[13px] leading-relaxed text-muted-foreground/72">
-                {translateOrFallback(t, 'outfits.header_desc', 'Saved and planned looks stay together here.')}
-              </p>
             </div>
 
             <Button
               onClick={() => navigate('/ai/generate')}
-              className="h-10 rounded-full bg-foreground px-4 text-background"
+              className="h-9.5 rounded-full bg-foreground px-4 text-background"
             >
               <Sparkles className="mr-2 h-4 w-4" />
               {translateOrFallback(t, 'outfits.create', 'Generate look')}
@@ -302,7 +299,7 @@ export function WardrobeOutfitsTab() {
               key={item.key}
               onClick={() => setFilter(item.key)}
               className={cn(
-                'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium transition-all duration-200',
+                'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-all duration-200',
                 filter === item.key
                   ? 'border-foreground bg-foreground text-background'
                   : 'border-border/15 bg-secondary/55 text-foreground/62 hover:border-border/25 hover:bg-secondary/75',
@@ -329,7 +326,6 @@ export function WardrobeOutfitsTab() {
           icon={Sparkles}
           title={translateOrFallback(t, 'outfits.empty_all_title', 'No wardrobe looks yet')}
           description={translateOrFallback(t, 'outfits.empty_all_desc', 'Generate your first outfit and it will start the archive here.')}
-          hint={translateOrFallback(t, 'outfits.empty_all_hint', 'Saved looks and planned dates will show up as quick details on each card.')}
           action={{ label: t('outfits.create'), onClick: () => navigate('/ai/generate'), icon: Sparkles }}
           secondaryAction={{ label: translateOrFallback(t, 'outfits.open_planner', 'Open planner'), onClick: () => navigate('/plan') }}
           variant="editorial"
@@ -358,9 +354,6 @@ export function WardrobeOutfitsTab() {
           icon={filter === 'saved' ? Bookmark : CalendarDays}
           title={filterEmptyTitle}
           description={filterEmptyDescription}
-          hint={filter === 'saved'
-            ? translateOrFallback(t, 'outfits.saved_hint_long', 'Saved looks are easiest to build from Style Me or any outfit detail view.')
-            : translateOrFallback(t, 'outfits.planned_hint_long', 'Planning a look adds its date and keeps it visible here.')}
           action={filterEmptyAction}
           secondaryAction={{ label: translateOrFallback(t, 'outfits.show_all', 'Show all looks'), onClick: () => setFilter('all') }}
           compact

@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, useReducedMotion } from 'framer-motion';
 import { format } from 'date-fns';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,7 +52,6 @@ export default function HomePage() {
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
-  const reducedMotion = !!useReducedMotion();
 
   const homeState = deriveHomeState(
     garmentCount,
@@ -161,7 +159,7 @@ export default function HomePage() {
     return (
       <AppLayout>
         <PullToRefresh onRefresh={handleRefresh}>
-          <AnimatedPage className="page-shell !pt-4">
+          <AnimatedPage className="page-shell !pt-3.5">
             <HomePageSkeleton />
           </AnimatedPage>
         </PullToRefresh>
@@ -172,35 +170,30 @@ export default function HomePage() {
   return (
     <AppLayout>
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-shell !pt-3 page-cluster">
+        <AnimatedPage className="page-shell !pt-2.5 page-cluster">
           {/* Editorial header */}
-          <motion.header
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35 }}
-            className="flex items-start justify-between gap-3"
-          >
+          <header className="flex items-start justify-between gap-2.5">
             <div>
-              <p className="caption-upper mb-1 text-muted-foreground/50">
+              <p className="caption-upper mb-0.5 text-muted-foreground/50">
                 {formattedDate}
               </p>
-              <h1 className="font-display italic text-[1.55rem] leading-tight tracking-[-0.01em] text-foreground">
+              <h1 className="font-display italic text-[1.45rem] leading-tight tracking-[-0.01em] text-foreground sm:text-[1.55rem]">
                 {getGreeting()}
               </h1>
             </div>
-            <div className="flex shrink-0 items-center gap-2 pt-1">
+            <div className="flex shrink-0 items-center gap-2 pt-0.5">
               <WeatherPill />
               {profile?.display_name && (
                 <button
                   onClick={() => { hapticLight(); navigate('/settings'); }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary/60 text-[14px] font-semibold text-foreground transition-transform active:scale-95 cursor-pointer"
+                  className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-secondary/60 text-[13px] font-semibold text-foreground transition-transform active:scale-95 cursor-pointer"
                   aria-label={t('home.settings_aria')}
                 >
                   {profile.display_name.charAt(0).toUpperCase()}
                 </button>
               )}
             </div>
-          </motion.header>
+          </header>
 
           {/* Hero: Today's Look */}
           <HomeTodayLookCard
@@ -217,22 +210,17 @@ export default function HomePage() {
           />
 
           {(todayOutfit?.explanation || weatherSummary || homeState === 'weather_alert') ? (
-            <motion.section
-              initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 4 }}
-              className="surface-secondary rounded-[1.35rem] p-4"
-            >
-              <p className="label-editorial mb-2 text-muted-foreground/60">
-                {t('home.ai_review') || 'WHY THIS WORKS'}
+            <section className="surface-secondary rounded-[1.35rem] p-3.5">
+              <p className="label-editorial mb-1.5 text-muted-foreground/60">
+                {t('home.ai_review') || 'Why'}
               </p>
-              <p className="text-[0.95rem] leading-7 text-foreground/82">
+              <p className="line-clamp-2 text-[0.9rem] leading-6 text-foreground/82">
                 {todayOutfit?.explanation
                   || (weatherSummary
-                    ? `${t('home.weather_desc') || 'Built around the conditions for today.'} ${weatherSummary}`
-                    : t('home.no_outfit_desc') || 'BURS keeps the recommendation focused, calm, and ready to wear.')}
+                    ? `${t('home.weather_desc') || 'Built for today.'} ${weatherSummary}`
+                    : t('home.no_outfit_desc') || 'Ready fast.')}
               </p>
-            </motion.section>
+            </section>
           ) : null}
 
           <HomeStatsStrip
@@ -242,7 +230,7 @@ export default function HomePage() {
           />
 
           {/* Quick Shortcuts */}
-          <QuickShortcuts shortcuts={shortcuts} navigate={navigate} t={t} reducedMotion={reducedMotion} />
+          <QuickShortcuts shortcuts={shortcuts} navigate={navigate} t={t} />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
@@ -255,41 +243,28 @@ function QuickShortcuts({
   shortcuts,
   navigate,
   t,
-  reducedMotion,
 }: {
   shortcuts: Array<{ label: string; icon: LucideIcon; path: string }>;
   navigate: ReturnType<typeof useNavigate>;
   t: (key: string) => string;
-  reducedMotion: boolean;
 }) {
   return (
-    <motion.section
-      initial={reducedMotion ? false : { opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE, delay: STAGGER_DELAY * 6 }}
-    >
-      <p className="label-editorial text-muted-foreground/60 mb-3">
+    <section>
+      <p className="label-editorial mb-2.5 text-muted-foreground/60">
         {t('home.quick_actions')}
       </p>
-      <div className="grid grid-cols-2 gap-3">
-        {shortcuts.map((s, i) => (
-          <motion.button
+      <div className="grid grid-cols-2 gap-2.5">
+        {shortcuts.map((s) => (
+          <button
             key={s.path}
-            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: DURATION_MEDIUM,
-              ease: EASE_CURVE,
-              delay: STAGGER_DELAY * (7 + i),
-            }}
             onClick={() => { hapticLight(); navigate(s.path); }}
-            className="surface-secondary flex items-center gap-3 rounded-[1.25rem] px-4 py-4 text-left transition-transform active:scale-[0.97] cursor-pointer"
+            className="surface-secondary flex min-h-[4.15rem] items-center gap-3 rounded-[1.2rem] px-3.5 py-3.5 text-left transition-transform active:scale-[0.97] cursor-pointer"
           >
             <s.icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.6} />
             <span className="text-[0.9rem] font-medium text-foreground">{s.label}</span>
-          </motion.button>
+          </button>
         ))}
       </div>
-    </motion.section>
+    </section>
   );
 }

@@ -43,10 +43,10 @@ const COLOR_I18N: Record<string, string> = {
 };
 
 function getPaletteSummary(dominantPalette: ColorTemperatureData['dominantPalette']) {
-  if (dominantPalette === 'warm') return 'Warm tones lead the wardrobe.';
-  if (dominantPalette === 'cool') return 'Cool tones dominate the wardrobe.';
-  if (dominantPalette === 'neutral') return 'Neutral tones carry most of the wardrobe.';
-  return 'Warm and cool tones are balanced.';
+  if (dominantPalette === 'warm') return 'Warm-led';
+  if (dominantPalette === 'cool') return 'Cool-led';
+  if (dominantPalette === 'neutral') return 'Neutral-led';
+  return 'Balanced';
 }
 
 export function InsightsPalettePanel({
@@ -61,49 +61,43 @@ export function InsightsPalettePanel({
   if (total === 0 || bars.length === 0) return null;
 
   return (
-    <div className={cn('surface-secondary relative space-y-4 p-4', !isPremium && 'overflow-hidden')}>
-      <div className={cn('space-y-4', !isPremium && 'blur-sm select-none')}>
-        <div className="space-y-1">
-          <h3 className="text-[1.05rem] font-semibold tracking-[-0.03em] text-foreground">
-            Palette balance
+    <div className={cn('surface-secondary relative space-y-3 p-4', !isPremium && 'overflow-hidden')}>
+      <div className={cn('space-y-3', !isPremium && 'blur-sm select-none')}>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[1rem] font-semibold tracking-[-0.03em] text-foreground">
+            Palette
           </h3>
-          <p className="text-[0.84rem] leading-5 text-muted-foreground">
+          <p className="text-[0.78rem] text-muted-foreground">
             {getPaletteSummary(colorTemperature.dominantPalette)}
           </p>
         </div>
 
         <ColorBar colors={bars} total={total} />
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-[1rem] bg-background/55 p-3">
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-              Warm
-            </p>
-            <p className="mt-1 text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-[0.95rem] bg-background/55 p-2.5">
+            <p className="text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground/65">Warm</p>
+            <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
               {colorTemperature.warmCount}
             </p>
           </div>
-          <div className="rounded-[1rem] bg-background/55 p-3">
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-              Cool
-            </p>
-            <p className="mt-1 text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+          <div className="rounded-[0.95rem] bg-background/55 p-2.5">
+            <p className="text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground/65">Cool</p>
+            <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
               {colorTemperature.coolCount}
             </p>
           </div>
-          <div className="rounded-[1rem] bg-background/55 p-3">
-            <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/65">
-              Neutral
-            </p>
-            <p className="mt-1 text-[1.2rem] font-semibold tracking-[-0.04em] text-foreground">
+          <div className="rounded-[0.95rem] bg-background/55 p-2.5">
+            <p className="text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground/65">Neutral</p>
+            <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
               {colorTemperature.neutralCount}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
           {entries.map(([color, count]) => (
-            <div key={color} className="flex items-center justify-between gap-3 text-[0.82rem]">
+            <div key={color} className="flex items-center justify-between gap-3 text-[0.78rem]">
               <span className="truncate capitalize text-muted-foreground">
                 {t(COLOR_I18N[color] || color)}
               </span>

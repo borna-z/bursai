@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-import { motion } from 'framer-motion';
 import { Dna, Fingerprint } from 'lucide-react';
 
 import type { StyleDNA } from '@/hooks/useInsightsDashboard';
@@ -34,20 +33,17 @@ const COLOR_MAP: Record<string, string> = {
 
 function PatternBar({ pattern }: { pattern: { label: string; strength: number; detail: string } }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-[12px] font-medium text-foreground/80">{pattern.label}</span>
         <span className="text-[11px] tabular-nums text-muted-foreground/50">{pattern.strength}%</span>
       </div>
       <div className="h-[3px] overflow-hidden rounded-full bg-muted/20">
-        <motion.div
+        <div
           className="h-full rounded-full bg-primary/60"
-          initial={{ width: 0 }}
-          animate={{ width: `${pattern.strength}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+          style={{ width: `${pattern.strength}%` }}
         />
       </div>
-      <p className="text-[10px] leading-relaxed text-muted-foreground/40">{pattern.detail}</p>
     </div>
   );
 }
@@ -86,13 +82,8 @@ export function StyleDNACard({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={cn('overflow-hidden rounded-[1.25rem] border border-border/10 bg-card/60 backdrop-blur-sm', className)}
-    >
-      <div className="space-y-3 px-5 pb-4 pt-5">
+    <div className={cn('overflow-hidden rounded-[1.2rem] border border-border/10 bg-card/60', className)}>
+      <div className="space-y-3 px-4 pb-4 pt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dna className="w-4 h-4 text-primary" />
@@ -101,7 +92,7 @@ export function StyleDNACard({
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground/30">
-            {dna.outfitsAnalyzed} outfits
+            {dna.outfitsAnalyzed} looks
           </span>
         </div>
 
@@ -113,19 +104,19 @@ export function StyleDNACard({
             <p className="text-[18px] font-bold tracking-tight text-foreground">{dna.archetype}</p>
             <p className="text-[11px] text-muted-foreground/50">
               {dna.formalitySpread === 'narrow'
-                ? 'Consistent formality'
+                ? 'Consistent'
                 : dna.formalitySpread === 'wide'
-                  ? 'Wide range dresser'
-                  : 'Balanced range'}
+                  ? 'Wide range'
+                  : 'Balanced'}
               {' \u00b7 '}F{dna.formalityCenter.toFixed(1)}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="px-5 pb-4">
+      <div className="px-4 pb-4">
         <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
-          Signature palette
+          Palette
         </p>
         <div className="flex items-center gap-1.5">
           {dna.signatureColors.map(({ color, percentage }) => (
@@ -145,12 +136,12 @@ export function StyleDNACard({
       </div>
 
       {dna.uniformCombos.length > 0 ? (
-        <div className="px-5 pb-4">
+        <div className="px-4 pb-4">
           <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
-            Go-to formulas
+            Formulas
           </p>
           <div className="space-y-1.5">
-            {dna.uniformCombos.map(({ combo, count }, index) => (
+            {dna.uniformCombos.slice(0, 2).map(({ combo, count }, index) => (
               <div key={index} className="flex items-center justify-between py-1.5">
                 <span className="text-[12px] capitalize text-foreground/70">
                   {combo.join(' + ')}
@@ -165,15 +156,15 @@ export function StyleDNACard({
       ) : null}
 
       {dna.patterns.length > 0 ? (
-        <div className="space-y-3 px-5 pb-5">
+        <div className="space-y-2.5 px-4 pb-4">
           <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/30">
-            Detected patterns
+            Patterns
           </p>
-          {dna.patterns.map((pattern, index) => (
+          {dna.patterns.slice(0, 2).map((pattern, index) => (
             <PatternBar key={index} pattern={pattern} />
           ))}
         </div>
       ) : null}
-    </motion.div>
+    </div>
   );
 }

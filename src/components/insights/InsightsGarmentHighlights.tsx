@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Heart, Clock } from 'lucide-react';
 
 import { LazyImageSimple } from '@/components/ui/lazy-image';
@@ -32,30 +31,30 @@ export function InsightsGarmentHighlights({ mostWorn, forgotten, onSelectGarment
   if (!mostWorn && !forgotten) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.08 }}
-      className="grid grid-cols-2 gap-3"
-    >
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {mostWorn && (
         <button
           type="button"
           onClick={() => { hapticLight(); onSelectGarment(mostWorn.id); }}
-          className="surface-secondary flex flex-col items-center gap-2 rounded-[1.25rem] p-3 text-center transition-colors cursor-pointer"
+          className="surface-secondary flex items-center gap-3 rounded-[1.1rem] p-2.5 text-left transition-colors cursor-pointer"
         >
-          <Heart className="h-4 w-4 text-accent" />
-          <div className="h-16 w-16 overflow-hidden rounded-[0.85rem] bg-secondary/40">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
+            <Heart className="h-4 w-4" />
+          </div>
+          <div className="h-12 w-12 overflow-hidden rounded-[0.8rem] bg-secondary/40">
             <LazyImageSimple
               imagePath={getPreferredGarmentImagePath(mostWorn as Parameters<typeof getPreferredGarmentImagePath>[0])}
               alt={mostWorn.title || ''}
               className="h-full w-full"
             />
           </div>
-          <p className="truncate text-[13px] font-semibold text-foreground">{mostWorn.title}</p>
-          <p className="text-[11px] text-muted-foreground/60">
-            {(mostWorn as HighlightGarment & { wearCountLast30?: number }).wearCountLast30 ?? mostWorn.wear_count ?? 0}x worn
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">Most worn</p>
+            <p className="truncate text-[13px] font-semibold text-foreground">{mostWorn.title}</p>
+            <p className="text-[11px] text-muted-foreground/60">
+              {(mostWorn as HighlightGarment & { wearCountLast30?: number }).wearCountLast30 ?? mostWorn.wear_count ?? 0}x worn
+            </p>
+          </div>
         </button>
       )}
 
@@ -63,22 +62,27 @@ export function InsightsGarmentHighlights({ mostWorn, forgotten, onSelectGarment
         <button
           type="button"
           onClick={() => { hapticLight(); onSelectGarment(forgotten.id); }}
-          className="surface-secondary flex flex-col items-center gap-2 rounded-[1.25rem] p-3 text-center transition-colors cursor-pointer"
+          className="surface-secondary flex items-center gap-3 rounded-[1.1rem] p-2.5 text-left transition-colors cursor-pointer"
         >
-          <Clock className="h-4 w-4 text-muted-foreground/50" />
-          <div className="h-16 w-16 overflow-hidden rounded-[0.85rem] bg-secondary/40">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background/75 text-muted-foreground/60">
+            <Clock className="h-4 w-4" />
+          </div>
+          <div className="h-12 w-12 overflow-hidden rounded-[0.8rem] bg-secondary/40">
             <LazyImageSimple
               imagePath={getPreferredGarmentImagePath(forgotten as Parameters<typeof getPreferredGarmentImagePath>[0])}
               alt={forgotten.title || ''}
               className="h-full w-full"
             />
           </div>
-          <p className="truncate text-[13px] font-semibold text-foreground">{forgotten.title}</p>
-          <p className="text-[11px] text-muted-foreground/60">
-            {daysSince(forgotten.created_at)}d ago
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">Needs attention</p>
+            <p className="truncate text-[13px] font-semibold text-foreground">{forgotten.title}</p>
+            <p className="text-[11px] text-muted-foreground/60">
+              {daysSince(forgotten.created_at)}d ago
+            </p>
+          </div>
         </button>
       )}
-    </motion.div>
+    </div>
   );
 }
