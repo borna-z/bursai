@@ -42,7 +42,7 @@ function RouteTab({
           {isActive ? (
             <motion.div
               layoutId={prefersReduced ? undefined : 'dock-active-pill'}
-              className="absolute inset-0 rounded-[1.25rem] border border-border/70 bg-card shadow-[0_14px_24px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.04)]"
+              className="absolute inset-0 rounded-[1.15rem] border border-border/70 bg-card shadow-[0_10px_18px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]"
               transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.8 }}
             />
           ) : null}
@@ -52,7 +52,7 @@ function RouteTab({
               strokeWidth={isActive ? 2.3 : 2.0}
             />
             <span className={cn(
-              'text-[11px] tracking-[0.06em] transition-colors',
+              'text-[10px] tracking-[0.05em] transition-colors',
               isActive ? 'font-medium text-foreground' : 'text-muted-foreground/60'
             )}>
               {t(labelKey)}
@@ -122,7 +122,7 @@ export function BottomNav() {
                 setAddSheetOpen(true);
               }}
               className={cn(
-                'flex h-[3.6rem] w-[3.6rem] items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-[0_18px_34px_rgba(0,0,0,0.32)] transition-transform active:scale-[0.97]',
+                'flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-[0_14px_26px_rgba(0,0,0,0.28)] transition-transform active:scale-[0.97]',
                 addSheetOpen && 'scale-[1.02]',
               )}
             >
