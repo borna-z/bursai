@@ -36,7 +36,7 @@ export function InsightsGarmentHighlights({ mostWorn, forgotten, onSelectGarment
         <button
           type="button"
           onClick={() => { hapticLight(); onSelectGarment(mostWorn.id); }}
-          className="surface-secondary flex items-center gap-3 rounded-[1.1rem] p-2.5 text-left transition-colors cursor-pointer"
+          className="flex items-center gap-3 rounded-[0.75rem] py-2 text-left transition-colors active:bg-secondary/40 cursor-pointer"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
             <Heart className="h-4 w-4" />
@@ -62,7 +62,7 @@ export function InsightsGarmentHighlights({ mostWorn, forgotten, onSelectGarment
         <button
           type="button"
           onClick={() => { hapticLight(); onSelectGarment(forgotten.id); }}
-          className="surface-secondary flex items-center gap-3 rounded-[1.1rem] p-2.5 text-left transition-colors cursor-pointer"
+          className="flex items-center gap-3 rounded-[0.75rem] py-2 text-left transition-colors active:bg-secondary/40 cursor-pointer"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background/75 text-muted-foreground/60">
             <Clock className="h-4 w-4" />

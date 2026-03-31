@@ -217,7 +217,7 @@ function QuickShortcuts({
           <button
             key={s.path}
             onClick={() => { hapticLight(); navigate(s.path); }}
-            className="surface-secondary flex min-h-[4.15rem] items-center gap-3 rounded-[1.2rem] px-3.5 py-3.5 text-left transition-transform active:scale-[0.97] cursor-pointer"
+            className="flex min-h-[4.15rem] items-center gap-3 rounded-[1.2rem] px-3.5 py-3.5 text-left transition-colors active:bg-secondary/50 cursor-pointer"
           >
             <s.icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.6} />
             <span className="text-[0.9rem] font-medium text-foreground">{s.label}</span>
