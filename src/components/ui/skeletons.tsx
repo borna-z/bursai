@@ -110,7 +110,7 @@ export function StatGridSkeleton() {
 /* ─── Home page skeleton — mirrors status strip + workspace + compact modules ─── */
 export function HomePageSkeleton() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <StaggerIn index={0}>
         <div className="space-y-3">
           <Skeleton className="h-6 w-40" />
@@ -119,7 +119,7 @@ export function HomePageSkeleton() {
       </StaggerIn>
 
       <StaggerIn index={1}>
-        <div className="rounded-[1.25rem] border border-border/20 p-5 space-y-4">
+        <div className="surface-editorial rounded-[1.25rem] p-5 space-y-4">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-8 w-3/5" />
           <Skeleton className="h-4 w-4/5" />
@@ -162,13 +162,13 @@ export function HomePageSkeleton() {
 /* ─── Insights page skeleton ─── */
 export function InsightsPageSkeleton() {
   return (
-    <div className="max-w-lg mx-auto px-4 pb-8 pt-6 space-y-10">
+    <div className="page-shell page-cluster !pt-4">
       {/* Usage ring */}
       <StaggerIn index={0}>
-        <div className="flex flex-col items-center pb-10">
+        <div className="surface-editorial flex flex-col items-center gap-5 p-6">
           <Skeleton className="w-[140px] h-[140px] rounded-full" />
-          <Skeleton className="h-3 w-24 mt-3" />
-          <div className="flex items-center w-full mt-8 gap-4">
+          <Skeleton className="h-3 w-24" />
+          <div className="flex items-center w-full gap-3">
             {[1, 2, 3].map(i => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <Skeleton className="h-7 w-10" />
@@ -180,7 +180,7 @@ export function InsightsPageSkeleton() {
       </StaggerIn>
       {/* Top worn */}
       <StaggerIn index={1}>
-        <div className="space-y-4">
+        <div className="surface-secondary rounded-[1.35rem] p-4 space-y-4">
           <Skeleton className="h-3 w-28" />
           {[1, 2, 3].map(i => (
             <div key={i} className="flex items-center gap-3 py-3">
@@ -197,7 +197,7 @@ export function InsightsPageSkeleton() {
       </StaggerIn>
       {/* Color bar */}
       <StaggerIn index={2}>
-        <div className="space-y-4">
+        <div className="surface-secondary rounded-[1.35rem] p-4 space-y-4">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-3 w-full rounded-full" />
           <div className="grid grid-cols-2 gap-2">
@@ -214,14 +214,14 @@ export function InsightsPageSkeleton() {
 /* ─── Plan page skeleton — includes week strip ─── */
 export function PlanPageSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <StaggerIn index={0}>
         <div className="flex items-center justify-between">
           <Skeleton className="h-6 w-28 rounded-full" />
         </div>
       </StaggerIn>
       <StaggerIn index={1}>
-        <div className="space-y-3">
+        <div className="surface-secondary rounded-[1.35rem] p-4 space-y-3">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-3 w-4/5" />

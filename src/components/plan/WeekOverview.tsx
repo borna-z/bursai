@@ -27,7 +27,7 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
   }, []);
 
   return (
-    <div className={cn('grid grid-cols-7 gap-2', className)}>
+    <div className={cn('grid grid-cols-7 gap-1.5', className)}>
       {days.map((date, idx) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         const isSelected = isSameDay(date, selectedDate);
@@ -46,16 +46,16 @@ export function WeekOverview({ selectedDate, onSelectDate, plannedOutfits, class
             animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
             transition={{ duration: 0.24, delay: idx * STAGGER_DELAY, ease: EASE_CURVE }}
             className={cn(
-              'flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-[1.1rem] border transition-colors cursor-pointer',
+              'flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-[1.15rem] border transition-colors cursor-pointer',
               isSelected
-                ? 'border-foreground bg-foreground text-background shadow-[0_4px_12px_rgba(28,25,23,0.18)]'
+                ? 'border-accent bg-accent text-accent-foreground shadow-[0_14px_26px_rgba(0,0,0,0.26)]'
                 : isTodayDate
-                  ? 'border-accent/40 bg-card text-foreground'
-                  : 'border-border/40 bg-background/60 text-foreground',
+                  ? 'border-accent/35 bg-card text-foreground'
+                  : 'border-border/65 bg-background/78 text-foreground',
             )}
           >
             <span className={cn(
-              'text-[9px] font-semibold uppercase tracking-[0.16em]',
+              'text-[8px] font-semibold uppercase tracking-[0.16em]',
               isSelected ? 'text-background/65' : 'text-muted-foreground/55',
             )}>
               {format(date, 'EEE', { locale: dateLocale }).charAt(0)}

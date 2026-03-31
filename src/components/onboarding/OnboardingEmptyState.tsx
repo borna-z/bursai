@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { EASE_CURVE } from '@/lib/motion';
 import { useGarmentCount } from '@/hooks/useGarments';
 import { useOutfits } from '@/hooks/useOutfits';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const MIN_GARMENTS = 3;
 
@@ -31,7 +32,6 @@ function ProgressStep({ step, index, isLast }: { step: StepItem; index: number; 
         step.done && 'opacity-50',
       )}
     >
-      {/* Step indicator */}
       <div className="flex flex-col items-center shrink-0">
         <div
           className={cn(
@@ -54,7 +54,6 @@ function ProgressStep({ step, index, isLast }: { step: StepItem; index: number; 
         )}
       </div>
 
-      {/* Content */}
       <div className={cn('flex-1 min-w-0', !isLast && 'pb-6')}>
         <p className={cn(
           'text-[13px] font-medium',
@@ -67,7 +66,6 @@ function ProgressStep({ step, index, isLast }: { step: StepItem; index: number; 
         </p>
       </div>
 
-      {/* Arrow for actionable steps */}
       {step.action && !step.done && (
         <ChevronRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />
       )}
@@ -75,9 +73,9 @@ function ProgressStep({ step, index, isLast }: { step: StepItem; index: number; 
   );
 }
 
-/** Context-specific onboarding empty state for the Wardrobe page */
 export function WardrobeOnboardingEmpty() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: garmentCount = 0 } = useGarmentCount();
 
   return (
@@ -85,10 +83,9 @@ export function WardrobeOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="px-2 pt-4"
+      className="px-2 pt-2"
     >
-      {/* Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-7">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -104,7 +101,7 @@ export function WardrobeOnboardingEmpty() {
           transition={{ delay: 0.2 }}
           className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
         >
-          Build your wardrobe
+          {t('wardrobe.empty_title')}
         </motion.h3>
         <motion.p
           initial={{ opacity: 0 }}
@@ -112,21 +109,19 @@ export function WardrobeOnboardingEmpty() {
           transition={{ delay: 0.3 }}
           className="text-[13px] text-muted-foreground/70 max-w-[280px] mx-auto leading-relaxed"
         >
-          Add at least {MIN_GARMENTS} pieces so BURS can start styling you.
-          A top, a bottom, and shoes is all you need.
+          {t('wardrobe.empty_desc')}
         </motion.p>
       </div>
 
-      {/* Progress bar */}
       <motion.div
         initial={{ opacity: 0, scaleX: 0.8 }}
         animate={{ opacity: 1, scaleX: 1 }}
         transition={{ delay: 0.35, duration: 0.4, ease: EASE_CURVE }}
-        className="max-w-[280px] mx-auto mb-8"
+        className="max-w-[280px] mx-auto mb-7"
       >
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
-            Garments added
+            {t('wardrobe.onboarding_progress')}
           </span>
           <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">
             {garmentCount}/{MIN_GARMENTS}
@@ -142,7 +137,6 @@ export function WardrobeOnboardingEmpty() {
         </div>
       </motion.div>
 
-      {/* Action cards */}
       <div className="space-y-2.5 max-w-[320px] mx-auto">
         <motion.button
           initial={{ opacity: 0, y: 8 }}
@@ -156,8 +150,8 @@ export function WardrobeOnboardingEmpty() {
             <Camera className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-medium">Scan a garment</p>
-            <p className="text-[11px] opacity-60 mt-0.5">Point your camera — AI handles the rest</p>
+            <p className="text-[14px] font-medium">{t('wardrobe.onboarding_scan_title')}</p>
+            <p className="text-[11px] opacity-60 mt-0.5">{t('wardrobe.onboarding_scan_desc')}</p>
           </div>
           <ChevronRight className="w-4 h-4 opacity-40 shrink-0" />
         </motion.button>
@@ -174,8 +168,8 @@ export function WardrobeOnboardingEmpty() {
             <Upload className="w-5 h-5 text-foreground/60" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-medium text-foreground">Upload a photo</p>
-            <p className="text-[11px] text-muted-foreground/60 mt-0.5">From your camera roll or gallery</p>
+            <p className="text-[14px] font-medium text-foreground">{t('wardrobe.onboarding_upload_title')}</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-0.5">{t('wardrobe.onboarding_upload_desc')}</p>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />
         </motion.button>
@@ -184,9 +178,9 @@ export function WardrobeOnboardingEmpty() {
   );
 }
 
-/** Context-specific onboarding empty state for the Outfits page */
 export function OutfitsOnboardingEmpty() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: garmentCount = 0 } = useGarmentCount();
   const hasEnoughGarments = garmentCount >= MIN_GARMENTS;
 
@@ -195,7 +189,7 @@ export function OutfitsOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-16 px-6 text-center"
+      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-14 px-6 text-center"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
@@ -213,7 +207,7 @@ export function OutfitsOnboardingEmpty() {
         transition={{ delay: 0.2 }}
         className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
       >
-        {hasEnoughGarments ? 'Ready for your first look' : 'No looks yet'}
+        {hasEnoughGarments ? t('outfits.empty_ready_title') : t('outfits.empty_locked_title')}
       </motion.h3>
 
       <motion.p
@@ -222,9 +216,7 @@ export function OutfitsOnboardingEmpty() {
         transition={{ delay: 0.3 }}
         className="text-[13px] text-muted-foreground/70 max-w-[260px] mx-auto leading-relaxed mb-6"
       >
-        {hasEnoughGarments
-          ? 'Your wardrobe has enough pieces. Let AI create a styled outfit from what you own.'
-          : `Add at least ${MIN_GARMENTS} garments to your wardrobe, then BURS will style them into looks.`}
+        {hasEnoughGarments ? t('outfits.empty_ready_desc') : t('outfits.empty_locked_desc')}
       </motion.p>
 
       {!hasEnoughGarments && (
@@ -236,7 +228,7 @@ export function OutfitsOnboardingEmpty() {
         >
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-medium">
-              Garments
+              {t('outfits.progress_label')}
             </span>
             <span className="text-[10px] text-muted-foreground/60 tabular-nums font-medium">
               {garmentCount}/{MIN_GARMENTS}
@@ -265,12 +257,12 @@ export function OutfitsOnboardingEmpty() {
           {hasEnoughGarments ? (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              Create a look
+              {t('outfits.empty_cta_ready')}
             </>
           ) : (
             <>
               <Shirt className="w-4 h-4 mr-2" />
-              Add garments
+              {t('outfits.empty_cta_locked')}
             </>
           )}
         </Button>
@@ -279,9 +271,9 @@ export function OutfitsOnboardingEmpty() {
   );
 }
 
-/** Context-specific onboarding empty state for the Plan page (no garments) */
 export function PlanOnboardingEmpty() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: garmentCount = 0 } = useGarmentCount();
   const { data: outfits = [] } = useOutfits(true);
   const hasEnoughGarments = garmentCount >= MIN_GARMENTS;
@@ -289,22 +281,22 @@ export function PlanOnboardingEmpty() {
 
   const steps: StepItem[] = [
     {
-      label: `Add ${MIN_GARMENTS}+ garments`,
-      description: 'A top, bottom, and shoes to get started',
+      label: t('plan.empty_step_add_title'),
+      description: t('plan.empty_step_add_desc'),
       icon: Shirt,
       done: hasEnoughGarments,
       action: !hasEnoughGarments ? () => navigate('/wardrobe/add') : undefined,
     },
     {
-      label: 'Generate an outfit',
-      description: 'Let AI style what you own into a look',
+      label: t('plan.empty_step_generate_title'),
+      description: t('plan.empty_step_generate_desc'),
       icon: Sparkles,
       done: hasOutfits,
       action: hasEnoughGarments && !hasOutfits ? () => navigate('/ai/generate') : undefined,
     },
     {
-      label: 'Plan your week',
-      description: 'Assign looks to days and never repeat',
+      label: t('plan.empty_step_plan_title'),
+      description: t('plan.empty_step_plan_desc'),
       icon: CalendarDays,
       done: false,
       action: hasOutfits ? () => navigate('/plan') : undefined,
@@ -316,16 +308,16 @@ export function PlanOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-10 px-6"
+      className="rounded-[1.25rem] bg-gradient-to-b from-primary/[0.04] to-transparent border border-border/10 py-9 px-6"
     >
-      <div className="text-center mb-8">
+      <div className="text-center mb-7">
         <motion.h3
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15 }}
           className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
         >
-          Get ready to plan
+          {t('plan.empty_title')}
         </motion.h3>
         <motion.p
           initial={{ opacity: 0 }}
@@ -333,7 +325,7 @@ export function PlanOnboardingEmpty() {
           transition={{ delay: 0.25 }}
           className="text-[13px] text-muted-foreground/70 max-w-[260px] mx-auto leading-relaxed"
         >
-          Complete these steps and you'll have a styled week in minutes.
+          {t('plan.empty_desc')}
         </motion.p>
       </div>
 
@@ -346,9 +338,9 @@ export function PlanOnboardingEmpty() {
   );
 }
 
-/** Context-specific onboarding empty state for the Insights page */
 export function InsightsOnboardingEmpty() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { data: garmentCount = 0 } = useGarmentCount();
   const hasEnoughGarments = garmentCount >= MIN_GARMENTS;
 
@@ -357,7 +349,7 @@ export function InsightsOnboardingEmpty() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_CURVE }}
-      className="flex flex-col items-center justify-center py-20 px-6 text-center"
+      className="flex flex-col items-center justify-center py-16 px-6 text-center"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
@@ -374,7 +366,7 @@ export function InsightsOnboardingEmpty() {
         transition={{ delay: 0.2 }}
         className="font-display italic text-lg font-bold tracking-[-0.02em] mb-2"
       >
-        Insights unlock with wear data
+        {t('insights.empty_title')}
       </motion.h3>
 
       <motion.p
@@ -383,9 +375,7 @@ export function InsightsOnboardingEmpty() {
         transition={{ delay: 0.3 }}
         className="text-[13px] text-muted-foreground/70 max-w-[280px] leading-relaxed mb-2"
       >
-        {hasEnoughGarments
-          ? 'Mark outfits as worn and BURS will track your style DNA, color palette, and wardrobe health.'
-          : 'Add garments and start wearing them. BURS will reveal your style DNA, color balance, and wardrobe gaps.'}
+        {hasEnoughGarments ? t('insights.empty_desc_ready') : t('insights.empty_desc_locked')}
       </motion.p>
 
       <motion.p
@@ -394,7 +384,7 @@ export function InsightsOnboardingEmpty() {
         transition={{ delay: 0.35 }}
         className="text-[11px] text-muted-foreground/40 max-w-[240px] leading-relaxed mb-8"
       >
-        Style DNA · Color palette · Usage heatmap · Wardrobe gaps
+        {t('insights.empty_meta')}
       </motion.p>
 
       <motion.div
@@ -409,12 +399,12 @@ export function InsightsOnboardingEmpty() {
           {hasEnoughGarments ? (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              Generate & wear an outfit
+              {t('insights.empty_cta_ready')}
             </>
           ) : (
             <>
               <Shirt className="w-4 h-4 mr-2" />
-              Add garments first
+              {t('insights.empty_cta_locked')}
             </>
           )}
         </Button>

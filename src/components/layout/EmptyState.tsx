@@ -52,10 +52,10 @@ export function EmptyState({
       transition={{ duration: 0.5, ease: EASE_CURVE }}
       className={cn(
         'flex flex-col items-center justify-center px-6 text-center',
-        compact ? 'py-14' : 'py-28',
+        compact ? 'py-12' : 'py-24',
         isEditorial && 'surface-editorial',
         isEditorial && 'px-5',
-        isEditorial && (compact ? 'py-10' : 'py-16'),
+        isEditorial && (compact ? 'py-9' : 'py-14'),
         className,
       )}
     >

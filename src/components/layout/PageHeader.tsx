@@ -23,7 +23,7 @@ export function PageHeader({
   return (
     <header className={cn('topbar-frost z-20', sticky && 'sticky top-0', className)}>
       <div className={cn(
-        'mx-auto flex w-full max-w-md items-center justify-between gap-3 px-5',
+        'mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-5',
         subtitle || eyebrow ? 'min-h-[72px] py-3' : 'h-[64px]',
       )}>
         <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -31,7 +31,7 @@ export function PageHeader({
             <button
               type="button"
               onClick={() => { hapticLight(); navigate(-1); }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/35 bg-background/80 active:scale-95 transition-transform"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/88 active:scale-95 transition-transform"
               aria-label="Go back"
             >
               <ArrowLeft className="w-[18px] h-[18px]" />
@@ -52,7 +52,7 @@ export function PageHeader({
               </motion.h1>
             </AnimatePresence>
             {subtitle && (
-              <p className="mt-0.5 max-w-[30ch] text-[0.76rem] leading-relaxed text-muted-foreground/60">{subtitle}</p>
+              <p className="mt-1 max-w-[32ch] text-[0.8rem] leading-6 text-muted-foreground/62">{subtitle}</p>
             )}
           </div>
         </div>

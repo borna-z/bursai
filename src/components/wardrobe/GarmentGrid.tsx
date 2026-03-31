@@ -412,6 +412,7 @@ export function GarmentGrid({
         description={t('wardrobe.try_other')}
         action={hasActiveFilters ? { label: t('wardrobe.clear_filters'), onClick: onClearFilters } : undefined}
         compact
+        variant="editorial"
       />
     );
   }
