@@ -337,32 +337,35 @@ export default function PlanPage() {
               {isToday(selectedDate) ? t('plan.wear_today') : t('plan.open_outfit')}
             </Button>
 
-            <div className="flex flex-wrap items-center gap-3.5 text-[0.82rem] font-medium text-muted-foreground">
-              <button
-                type="button"
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
                 onClick={() => {
                   setCurrentOutfitId(outfit.id);
                   setSwapSheetOpen(true);
                 }}
-                className="underline underline-offset-4"
               >
                 {t('plan.restyle')}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
                 onClick={() => void handleRemove(primaryPlanned.id)}
-                className="underline underline-offset-4"
               >
                 {t('plan.clear')}
-              </button>
+              </Button>
               {canAddMore ? (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
                   onClick={() => setQuickGenerateSheetOpen(true)}
-                  className="underline underline-offset-4"
                 >
                   {t('plan.add_another')}
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
@@ -395,14 +398,15 @@ export default function PlanPage() {
               {emptyWeek ? t('plan.plan_the_week') : t('plan.plan_this_day')}
             </Button>
 
-            <div className="flex flex-wrap items-center gap-3.5 text-[0.82rem] font-medium text-muted-foreground">
-              <button
-                type="button"
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
                 onClick={() => emptyWeek ? setQuickGenerateSheetOpen(true) : setQuickPlanSheetOpen(true)}
-                className="underline underline-offset-4"
               >
                 {emptyWeek ? t('plan.plan_today_only') : t('plan.auto_plan_week')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
