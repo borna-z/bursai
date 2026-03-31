@@ -75,7 +75,7 @@ export default function InsightsPage() {
       />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell page-cluster pb-24">
-          <section className="surface-editorial rounded-[1.25rem] p-3.5">
+          <section className="pb-1">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <p className="label-editorial text-muted-foreground/60">{t('insights.hero_label')}</p>

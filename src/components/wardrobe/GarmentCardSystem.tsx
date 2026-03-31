@@ -6,7 +6,6 @@ import { type Garment } from '@/hooks/useGarments';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { categoryLabel, colorLabel, humanize } from '@/lib/humanize';
 import { cn } from '@/lib/utils';
-import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 import { CardEyebrow, CardPill } from '@/components/ui/card-language';
 
@@ -180,15 +179,6 @@ function WardrobeGarmentImage({
         <WardrobeWearBadge label={model.wearBadgeText} />
       </div>
 
-      {!showRenderOverlay && !model.stateLabel && !isSelecting && (
-        <div className="absolute bottom-2.5 left-2.5 z-[3]">
-          <GarmentProcessingBadge
-            status={garment.image_processing_status}
-            renderStatus={garment.render_status}
-            className="bg-background/85"
-          />
-        </div>
-      )}
     </div>
   );
 }
