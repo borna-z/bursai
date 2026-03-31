@@ -139,116 +139,108 @@ export function FormStep(props: FormStepProps) {
           </Card>
         ) : null}
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">{t('addgarment.form.identity')}</p>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>{t('addgarment.form.title')} *</Label>
-                <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('addgarment.form.title_placeholder')} />
-              </div>
+        <div className="surface-secondary divide-y divide-border/30 rounded-[1.25rem]">
+          {/* Identity */}
+          <div className="space-y-4 px-5 py-6">
+            <div className="space-y-2">
+              <Label>{t('addgarment.form.title')} *</Label>
+              <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('addgarment.form.title_placeholder')} />
+            </div>
 
+            <div className="space-y-2">
+              <Label>{t('addgarment.form.category')} *</Label>
+              <Select value={category} onValueChange={(value) => { setCategory(value); setSubcategory(''); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('addgarment.form.select_category')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {t(CATEGORY_I18N[item.id] || item.id)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {category && subcategories[category] ? (
               <div className="space-y-2">
-                <Label>{t('addgarment.form.category')} *</Label>
-                <Select value={category} onValueChange={(value) => { setCategory(value); setSubcategory(''); }}>
+                <Label>{t('addgarment.form.subcategory')}</Label>
+                <Select value={subcategory} onValueChange={setSubcategory}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t('addgarment.form.select_category')} />
+                    <SelectValue placeholder={t('addgarment.form.select_subcategory')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {t(CATEGORY_I18N[item.id] || item.id)}
+                    {subcategories[category].map((item) => (
+                      <SelectItem key={item} value={item.toLowerCase()}>
+                        {t(SUBCATEGORY_I18N[item.toLowerCase()] || item)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
-              {category && subcategories[category] ? (
-                <div className="space-y-2">
-                  <Label>{t('addgarment.form.subcategory')}</Label>
-                  <Select value={subcategory} onValueChange={setSubcategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('addgarment.form.select_subcategory')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subcategories[category].map((item) => (
-                        <SelectItem key={item} value={item.toLowerCase()}>
-                          {t(SUBCATEGORY_I18N[item.toLowerCase()] || item)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-            </div>
+            ) : null}
           </div>
-        </Card>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">{t('addgarment.form.color_story')}</p>
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <Label>{t('addgarment.form.primary_color')} *</Label>
-                <div className="flex flex-wrap gap-2.5">
-                  {colors.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setColorPrimary(item.id)}
-                      className={cn(
-                        'h-11 w-11 rounded-full border-2 transition-all',
-                        colorPrimary === item.id
-                          ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
-                          : 'border-border hover:scale-105',
-                      )}
-                      style={{ backgroundColor: item.color }}
-                      title={t(COLOR_I18N[item.id] || item.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>{t('addgarment.form.secondary_color')}</Label>
-                <div className="flex flex-wrap gap-2.5">
+          {/* Color */}
+          <div className="space-y-4 px-5 py-6">
+            <div className="space-y-3">
+              <Label>{t('addgarment.form.primary_color')} *</Label>
+              <div className="flex flex-wrap gap-2.5">
+                {colors.map((item) => (
                   <button
+                    key={item.id}
                     type="button"
-                    onClick={() => setColorSecondary('')}
+                    onClick={() => setColorPrimary(item.id)}
                     className={cn(
-                      'flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all',
-                      !colorSecondary
+                      'h-11 w-11 rounded-full border-2 transition-all',
+                      colorPrimary === item.id
                         ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
-                        : 'border-border',
+                        : 'border-border hover:scale-105',
                     )}
-                  >
-                    <X className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  {colors.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setColorSecondary(item.id)}
-                      className={cn(
-                        'h-11 w-11 rounded-full border-2 transition-all',
-                        colorSecondary === item.id
-                          ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
-                          : 'border-border hover:scale-105',
-                      )}
-                      style={{ backgroundColor: item.color }}
-                      title={t(COLOR_I18N[item.id] || item.id)}
-                    />
-                  ))}
-                </div>
+                    style={{ backgroundColor: item.color }}
+                    title={t(COLOR_I18N[item.id] || item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label>{t('addgarment.form.secondary_color')}</Label>
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setColorSecondary('')}
+                  className={cn(
+                    'flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all',
+                    !colorSecondary
+                      ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                      : 'border-border',
+                  )}
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+                {colors.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setColorSecondary(item.id)}
+                    className={cn(
+                      'h-11 w-11 rounded-full border-2 transition-all',
+                      colorSecondary === item.id
+                        ? 'border-foreground ring-2 ring-foreground/20 ring-offset-2 ring-offset-background'
+                        : 'border-border hover:scale-105',
+                    )}
+                    style={{ backgroundColor: item.color }}
+                    title={t(COLOR_I18N[item.id] || item.id)}
+                  />
+                ))}
               </div>
             </div>
           </div>
-        </Card>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-2">
-            <p className="label-editorial">{t('addgarment.form.construction')}</p>
+          {/* Construction */}
+          <div className="px-5 py-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>{t('addgarment.form.pattern')}</Label>
@@ -299,45 +291,46 @@ export function FormStep(props: FormStepProps) {
               </div>
             </div>
           </div>
-        </Card>
 
-        <Card surface="utility" className="space-y-5 p-5">
-          <div className="space-y-3">
-            <Label>{t('addgarment.form.season')}</Label>
-            <div className="flex flex-wrap gap-2">
-              {seasons.map((season) => (
-                <Badge
-                  key={season}
-                  variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
-                  className="cursor-pointer px-4 py-2"
-                  onClick={() => toggleSeason(season.toLowerCase())}
-                >
-                  {t(SEASON_I18N[season.toLowerCase()] || season)}
-                </Badge>
-              ))}
+          {/* Season, Formality & Laundry */}
+          <div className="space-y-6 px-5 py-6">
+            <div className="space-y-3">
+              <Label>{t('addgarment.form.season')}</Label>
+              <div className="flex flex-wrap gap-2">
+                {seasons.map((season) => (
+                  <Badge
+                    key={season}
+                    variant={selectedSeasons.includes(season.toLowerCase()) ? 'default' : 'outline'}
+                    className="cursor-pointer px-4 py-2"
+                    onClick={() => toggleSeason(season.toLowerCase())}
+                  >
+                    {t(SEASON_I18N[season.toLowerCase()] || season)}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>{t('addgarment.form.formality')}</Label>
+                <span className="text-sm text-muted-foreground">{formality[0]} / 5</span>
+              </div>
+              <Slider value={formality} onValueChange={setFormality} max={5} min={1} step={1} />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{t('addgarment.form.casual')}</span>
+                <span>{t('addgarment.form.formal')}</span>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
-              <Label>{t('addgarment.form.formality')}</Label>
-              <span className="text-sm text-muted-foreground">{formality[0]} / 5</span>
-            </div>
-            <Slider value={formality} onValueChange={setFormality} max={5} min={1} step={1} />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{t('addgarment.form.casual')}</span>
-              <span>{t('addgarment.form.formal')}</span>
+              <div>
+                <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('addgarment.form.laundry_hint')}</p>
+              </div>
+              <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
             </div>
           </div>
-
-          <div className="flex items-center justify-between rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">{t('addgarment.form.in_laundry')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('addgarment.form.laundry_hint')}</p>
-            </div>
-            <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
-          </div>
-        </Card>
+        </div>
       </div>
 
       <div className="bottom-safe-nav fixed inset-x-4 z-20">
