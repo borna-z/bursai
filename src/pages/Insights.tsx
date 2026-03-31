@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -13,8 +14,11 @@ import { StyleDNACard } from '@/components/insights/StyleDNACard';
 import { useInsightsDashboardAdapter } from '@/components/insights/useInsightsDashboardAdapter';
 import { InsightsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { Button } from '@/components/ui/button';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { hapticLight } from '@/lib/haptics';
+import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 
 export default function InsightsPage() {
   const navigate = useNavigate();
@@ -134,6 +138,33 @@ export default function InsightsPage() {
             forgotten={forgotten}
             onSelectGarment={(id) => navigate(`/wardrobe/${id}`)}
           />
+
+          {(forgotten || insights.totalGarments > 0) && (
+            <div className="flex flex-wrap gap-2">
+              {forgotten && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => {
+                    hapticLight();
+                    navigate(`/ai/chat${buildStyleFlowSearch(forgotten.id)}`, { state: buildStyleAroundState(forgotten.id) });
+                  }}
+                >
+                  <Sparkles className="mr-2 h-3.5 w-3.5" />
+                  {t('insights.style_forgotten') || 'Style forgotten piece'}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => { hapticLight(); navigate('/gaps'); }}
+              >
+                {t('insights.fill_gaps') || 'Fill wardrobe gaps'}
+              </Button>
+            </div>
+          )}
 
           <InsightsValueTracker
             costPerWear={sustainability?.avgWearCount ? Number((100 / sustainability.avgWearCount).toFixed(2)) : undefined}

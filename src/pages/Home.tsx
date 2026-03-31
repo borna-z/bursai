@@ -18,7 +18,7 @@ import { hapticLight } from '@/lib/haptics';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
-import { CalendarDays, Compass, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Compass, MessageCircle, Search, Sparkles, type LucideIcon } from 'lucide-react';
 import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { HomeState } from '@/components/home/homeTypes';
 
@@ -97,6 +97,7 @@ export default function HomePage() {
     { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
     { label: t('home.shortcut_plan'), icon: CalendarDays, path: '/plan' },
     { label: t('home.shortcut_discover'), icon: Compass, path: '/discover' },
+    { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/gaps' },
   ]), [t]);
 
   const primaryAction = useMemo(() => {
