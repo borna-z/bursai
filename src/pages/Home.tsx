@@ -209,24 +209,9 @@ export default function HomePage() {
             onTertiaryAction={tertiaryAction ? () => { hapticLight(); tertiaryAction.onClick(); } : undefined}
           />
 
-          {(todayOutfit?.explanation || weatherSummary || homeState === 'weather_alert') ? (
-            <section className="surface-secondary rounded-[1.35rem] p-3.5">
-              <p className="label-editorial mb-1.5 text-muted-foreground/60">
-                {t('home.ai_review') || 'Why'}
-              </p>
-              <p className="line-clamp-2 text-[0.9rem] leading-6 text-foreground/82">
-                {todayOutfit?.explanation
-                  || (weatherSummary
-                    ? `${t('home.weather_desc') || 'Built for today.'} ${weatherSummary}`
-                    : t('home.no_outfit_desc') || 'Ready fast.')}
-              </p>
-            </section>
-          ) : null}
-
           <HomeStatsStrip
             garmentCount={garmentCount ?? 0}
             outfitCount={allOutfits?.length ?? 0}
-            streakDays={todayOutfits?.filter(o => o.status === 'worn').length ? 1 : 0}
           />
 
           {/* Quick Shortcuts */}

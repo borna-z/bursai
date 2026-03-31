@@ -51,11 +51,6 @@ import { logger } from '@/lib/logger';
 
 const MAX_OUTFITS_PER_DAY = 4;
 
-function formatEventLine(eventCount: number, t: (key: string) => string) {
-  if (eventCount === 0) return null;
-  return eventCount === 1 ? t('plan.calendar_event_one') : t('plan.calendar_event_many').replace('{count}', String(eventCount));
-}
-
 export default function PlanPage() {
   useBackgroundSyncNotification();
   const navigate = useNavigate();
@@ -87,7 +82,7 @@ export default function PlanPage() {
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const { data: dayPlannedOutfits = [], isLoading: isDayLoading } = usePlannedOutfitsForDate(selectedDateStr);
   const { data: daySummary } = useDaySummary(selectedDateStr);
-  const { data: calendarEvents = [] } = useCalendarEvents(selectedDateStr);
+  useCalendarEvents(selectedDateStr);
 
   const upsertPlanned = useUpsertPlannedOutfit();
   const deletePlanned = useDeletePlannedOutfit();
@@ -285,11 +280,9 @@ export default function PlanPage() {
               <h2 className="text-[1.22rem] font-semibold tracking-[-0.04em] text-foreground">
                 {isToday(selectedDate) ? t('plan.today_styled') : t('plan.date_planned').replace('{date}', dateLabel)}
               </h2>
-              {daySummary?.summary ? (
-                <p className="line-clamp-2 max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
-                  {daySummary.summary}
-                </p>
-              ) : null}
+              <p className="line-clamp-2 min-h-[2.5rem] max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
+                {daySummary?.summary ?? '\u00A0'}
+              </p>
             </div>
 
             <WeatherForecastBadge date={selectedDateStr} compact={false} />
@@ -397,7 +390,7 @@ export default function PlanPage() {
             <h2 className="text-[1.22rem] font-semibold tracking-[-0.04em] text-foreground">
               {emptyWeek ? t('plan.nothing_planned') : t('plan.nothing_planned_for').replace('{date}', dateLabel)}
             </h2>
-            <p className="line-clamp-2 max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
+            <p className="line-clamp-2 min-h-[2.5rem] max-w-[34ch] text-[0.88rem] leading-5 text-muted-foreground">
               {daySummary?.summary
                 ?? (emptyWeek
                   ? t('plan.empty_week_hint')
@@ -486,27 +479,6 @@ export default function PlanPage() {
             onSelectDate={setSelectedDate}
             plannedOutfits={plannedOutfits}
           />
-
-          <section className="surface-secondary rounded-[1.2rem] p-3.5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
-                <p className="label-editorial text-muted-foreground/60">
-                  {dateLabel.toUpperCase()}
-                </p>
-                <h2 className="text-[1.02rem] font-semibold tracking-[-0.04em] text-foreground">
-                  {hasOutfits
-                    ? (t('plan.planned_day') || 'Planned day')
-                    : (t('plan.open_day') || 'Open day')}
-                </h2>
-              </div>
-              <div className="flex min-w-[10rem] flex-wrap items-center justify-end gap-2 text-[0.78rem] text-muted-foreground">
-                <span className="rounded-full bg-background/70 px-3 py-1.5">
-                  {calendarEvents.length > 0 ? formatEventLine(calendarEvents.length, t) : t('plan.no_events')}
-                </span>
-                <WeatherForecastBadge date={selectedDateStr} compact />
-              </div>
-            </div>
-          </section>
 
           <div className="app-notice-stack">
             <CalendarConnectBanner />

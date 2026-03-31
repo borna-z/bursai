@@ -121,42 +121,6 @@ export default function WardrobePage() {
       />
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell page-cluster">
-          <section className="surface-secondary mb-2.5 rounded-[1.2rem] p-3.5">
-            <div className="flex flex-wrap items-start justify-between gap-2.5">
-              <div className="space-y-1">
-                <p className="label-editorial text-muted-foreground/60">
-                  {activeTab === 'garments'
-                    ? (t('wardrobe.inventory_label') || 'Wardrobe inventory')
-                    : (t('wardrobe.tab_outfits') || 'Outfits')}
-                </p>
-                <h2 className="text-[1.05rem] font-semibold tracking-[-0.04em] text-foreground">
-                  {activeTab === 'garments'
-                    ? (t('wardrobe.title') || 'Your Wardrobe')
-                    : (t('wardrobe.outfits_caption') || 'Saved looks and stylable combinations')}
-                </h2>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="premium-inline-stat min-w-[4.8rem] px-3 py-2 text-center">
-                  <p className="label-editorial text-muted-foreground/60">
-                    {t('wardrobe.pieces_count')?.replace('{count}', '') || 'Pieces'}
-                  </p>
-                  <p className="mt-0.5 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
-                    {totalCount ?? 0}
-                  </p>
-                </div>
-                <div className="premium-inline-stat min-w-[4.8rem] px-3 py-2 text-center">
-                  <p className="label-editorial text-muted-foreground/60">
-                    {t('wardrobe.filter') || 'Visible'}
-                  </p>
-                  <p className="mt-0.5 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
-                    {displayCount}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
           <WardrobeToolbar
             t={t}
             commandState={commandState}
