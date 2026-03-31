@@ -265,7 +265,7 @@ export default function PlanPage() {
     const tagLine = [occasionText, styleText].filter(Boolean).join(' · ');
 
     return (
-      <section className="surface-editorial premium-highlight rounded-[1.35rem] p-4.5">
+      <section className="pb-1">
         <div className="space-y-3.5">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5">
@@ -378,7 +378,7 @@ export default function PlanPage() {
     const emptyWeek = weekPlannedCount === 0;
 
     return (
-      <section className="surface-editorial premium-highlight rounded-[1.35rem] p-4.5">
+      <section className="pb-1">
         <div className="space-y-3.5">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">

@@ -56,7 +56,7 @@ export function HomeTodayLookCard({
 
   if (state === 'empty_wardrobe') {
     return (
-      <div className="surface-hero premium-highlight relative overflow-hidden rounded-[1.35rem] p-5">
+      <div className="relative overflow-hidden pb-2">
         <div className="space-y-4">
           <div className="space-y-1.5">
             <p className="caption-upper text-muted-foreground/55">
@@ -95,8 +95,8 @@ export function HomeTodayLookCard({
 
   if (state === 'outfit_planned' && todayOutfit) {
     return (
-      <div className="surface-hero premium-highlight relative overflow-hidden rounded-[1.35rem]">
-        <div className="space-y-3.5 p-3.5">
+      <div className="relative overflow-hidden">
+        <div className="space-y-3.5 pb-1">
           <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
             <span className="eyebrow-chip">{t('plan.today')}</span>
           </div>
@@ -104,7 +104,7 @@ export function HomeTodayLookCard({
           <OutfitComposition items={todayOutfit.outfit_items} className="rounded-[1rem]" />
         </div>
 
-        <div className="space-y-3.5 px-4.5 pb-4.5">
+        <div className="space-y-3.5 pb-2">
           <div className="space-y-1.5">
             <p className="caption-upper text-muted-foreground/55">
               {t('home.todays_look') || "Today's look"}
@@ -134,7 +134,7 @@ export function HomeTodayLookCard({
   }
 
   return (
-    <div className="surface-hero premium-highlight relative overflow-hidden rounded-[1.35rem] p-5">
+    <div className="relative overflow-hidden pb-2">
       <div className="space-y-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-secondary/70">
           <Sparkles className="h-6 w-6 text-accent" />
