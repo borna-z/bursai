@@ -63,13 +63,6 @@ export default function InsightsPage() {
       case 'outfit':
         navigate(`/outfits/${action.target.outfitId}`);
         return;
-      case 'plan':
-        navigate('/plan', {
-          state: action.target.dormantGarmentIds?.length
-            ? { suggestedGarmentIds: action.target.dormantGarmentIds }
-            : undefined,
-        });
-        return;
       case 'pricing':
         navigate('/pricing');
         return;
@@ -105,8 +98,8 @@ export default function InsightsPage() {
             {viewModel.state === 'no-wear-data' ? (
               <InsightsStatePanel
                 kind="no-wear-data"
-                onPrimary={() => navigate('/plan')}
-                onSecondary={() => navigate('/outfits')}
+                onPrimary={() => navigate('/outfits')}
+                onSecondary={() => navigate('/wardrobe')}
               />
             ) : null}
 

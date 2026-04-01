@@ -164,21 +164,30 @@ export function InsightsPageSkeleton() {
   return (
     <div className="page-shell page-cluster !pt-4">
       <StaggerIn index={0}>
-        <div className="surface-editorial rounded-[1.75rem] p-6 space-y-5">
+        <div className="surface-editorial rounded-[1.75rem] p-6 space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-3">
               <Skeleton className="h-3 w-28" />
               <Skeleton className="h-10 w-72" />
               <Skeleton className="h-4 w-80" />
-              <Skeleton className="h-4 w-64" />
+              <Skeleton className="h-4 w-56" />
             </div>
             <Skeleton className="h-10 w-28 rounded-full" />
           </div>
-          <div className="grid gap-4 lg:grid-cols-[1fr_1.7fr]">
-            <Skeleton className="h-40 rounded-[1.3rem]" />
-            <div className="grid gap-2.5 sm:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-[0.82fr_1.18fr]">
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-20 w-32" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-32 rounded-[1.2rem]" />
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-14" />
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-2 rounded-full" />
+                  <Skeleton className="h-2 rounded-full" />
+                </div>
               ))}
             </div>
           </div>
@@ -186,36 +195,53 @@ export function InsightsPageSkeleton() {
       </StaggerIn>
 
       <StaggerIn index={1}>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-8 w-60" />
-          <Skeleton className="h-4 w-80" />
-          <div className="surface-secondary rounded-[1.6rem] p-5 grid gap-4 lg:grid-cols-2">
-            <Skeleton className="h-72 rounded-[1.2rem]" />
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-72" />
+          <div className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-4">
-              <Skeleton className="h-32 rounded-[1.2rem]" />
-              <Skeleton className="h-32 rounded-[1.2rem]" />
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-28 rounded-[1.2rem]" />
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-24 rounded-[1.2rem]" />
+              <Skeleton className="h-24 rounded-[1.2rem]" />
             </div>
           </div>
         </div>
       </StaggerIn>
 
       <StaggerIn index={2}>
-        <div className="surface-secondary rounded-[1.6rem] p-5 grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-64 rounded-[1.2rem]" />
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-[1.2rem]" />
-            ))}
+        <div className="space-y-4">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-36" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Skeleton className="h-56 rounded-[1.2rem]" />
+            <div className="space-y-5">
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+            </div>
           </div>
         </div>
       </StaggerIn>
 
       <StaggerIn index={3}>
-        <div className="surface-secondary rounded-[1.6rem] p-5">
-          <div className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-40" />
+          <div className="divide-y divide-border/25">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-40 rounded-[1.2rem]" />
+              <div key={i} className="grid gap-3 py-4 sm:grid-cols-[10px_1fr_auto] sm:items-center">
+                <Skeleton className="hidden h-10 rounded-full sm:block" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-72" />
+                </div>
+                <Skeleton className="h-9 w-32 rounded-full" />
+              </div>
             ))}
           </div>
         </div>

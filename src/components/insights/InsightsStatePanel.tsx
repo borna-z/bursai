@@ -36,9 +36,9 @@ export function InsightsStatePanel({
       <EmptyState
         icon={CalendarDays}
         title="Your wardrobe is ready, but wear history is still quiet"
-        description="You already have enough wardrobe data to start. Log outfits or plan the week so BURS can read repeat behavior, formulas, and dormant pieces."
-        action={{ label: 'Open planner', onClick: onPrimary, icon: Sparkles }}
-        secondaryAction={onSecondary ? { label: 'Go to outfits', onClick: onSecondary } : undefined}
+        description="Start from the outfits you already wear. As activity comes in, Insights will unlock repeat behavior, formulas, and dormant pieces."
+        action={{ label: 'Go to outfits', onClick: onPrimary, icon: Sparkles }}
+        secondaryAction={onSecondary ? { label: 'Open wardrobe', onClick: onSecondary } : undefined}
         variant="editorial"
         compact
         className="rounded-[1.6rem]"

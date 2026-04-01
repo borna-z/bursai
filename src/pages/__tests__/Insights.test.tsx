@@ -120,20 +120,40 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
     hero: {
       score: 82,
       eyebrow: 'Wardrobe intelligence',
-      title: 'A clearer read on how your wardrobe behaves.',
-      summary: 'Minimalist energy is coming through, but 4 pieces are sitting dormant and ready for rotation.',
+      title: 'Wardrobe operating view.',
+      summary: '4 pieces are dormant right now and ready for rotation.',
       metrics: [
-        { label: 'Active 30d', value: '8/12', hint: 'Pieces in active rotation' },
-        { label: 'Usage rate', value: '67%', hint: 'Wardrobe touched in the last month' },
-        { label: 'Looks / formulas', value: '9 / 2', hint: 'Saved looks and recurring formulas' },
+        {
+          label: 'Active 30d',
+          value: '8/12',
+          hint: 'Pieces in active rotation',
+          rails: [{ label: 'Active', value: 8, max: 12 }],
+        },
+        {
+          label: 'Usage rate',
+          value: '67%',
+          hint: 'Wardrobe touched in the last month',
+          rails: [{ label: 'Usage', value: 67, max: 100 }],
+        },
+        {
+          label: 'Looks / formulas',
+          value: '9 / 2',
+          hint: 'Saved looks and recurring formulas',
+          rails: [
+            { label: 'Looks', value: 9, max: 9 },
+            { label: 'Formulas', value: 2, max: 9 },
+          ],
+        },
       ],
     },
     style: {
       ready: true,
       archetype: 'Minimalist',
-      detail: 'Neutral palette dominates your recent wear and the core formulas are repeating clearly.',
+      caption: '78% of your worn pieces stay in neutral tones.',
       formalityLabel: 'Balanced range',
-      formalityValue: 'Moves across casual and elevated · 3.1/5',
+      formalityValue: 'Moves across casual and elevated / 3.1 of 5',
+      formalityCenter: 3.1,
+      formalitySpread: 'moderate',
       signatureColors: [
         { color: 'black', label: 'Black', count: 4, percentage: 50, swatch: '#171717' },
         { color: 'navy', label: 'Navy', count: 2, percentage: 25, swatch: '#223256' },
@@ -147,11 +167,12 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
       ],
     },
     palette: {
-      summary: 'Balanced palette with black leading the mix.',
+      summary: 'Balanced palette with black leading.',
       dominantLabel: 'Balanced palette',
       warmCount: 2,
       coolCount: 3,
       neutralCount: 7,
+      totalCount: 12,
       entries: [
         { color: 'black', label: 'Black', count: 4, percentage: 33, swatch: '#171717' },
         { color: 'navy', label: 'Navy', count: 2, percentage: 17, swatch: '#223256' },
@@ -165,19 +186,6 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
     behavior: {
       streak: 5,
       consistency: 61,
-      cadenceLabel: 'Consistent weekly wear',
-      repeatLead: {
-        id: 'outfit-1',
-        occasion: 'Office look',
-        wornCount: 3,
-        lastWorn: '2026-03-27',
-        daysSince: 6,
-      },
-      staleLead: {
-        id: 'outfit-2',
-        occasion: 'Dinner look',
-        daysSince: 74,
-      },
       repeats: [
         { id: 'outfit-1', occasion: 'Office look', wornCount: 3, lastWorn: '2026-03-27', daysSince: 6 },
       ],
@@ -202,7 +210,7 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
           imagePath: null,
           eyebrow: 'Forgotten gem',
           detail: 'Outerwear',
-          meta: 'Last worn 2026-01-10',
+          meta: 'Last worn Jan 10',
         },
       ],
       topPerformers: [
@@ -217,8 +225,9 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
       ],
       usedCount: 8,
       unusedCount: 4,
+      totalCount: 12,
       pressureLabel: 'Category concentration',
-      pressureDetail: 'Tops make up 42% of the wardrobe, which may be crowding out balance.',
+      pressureDetail: 'Tops holds 42% of the wardrobe.',
     },
     value: {
       hasSpendData: true,
@@ -232,6 +241,7 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
         detail: '20 wears',
         meta: '$80',
         cpwLabel: '$4.00',
+        cpwValue: 4,
       },
       worstCostPerWear: {
         id: 'garment-worst',
@@ -241,17 +251,20 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
         detail: '2 wears',
         meta: '$600',
         cpwLabel: '$300.00',
+        cpwValue: 300,
       },
       sustainabilityScore: 82,
       utilizationLabel: '67% active',
       efficiencyLabel: '7.4 average wears',
+      utilizationRate: 67,
+      avgWearCount: 7.4,
       locked: false,
     },
     actions: [
       {
         id: 'forgotten-piece',
         title: 'Style Grey Blazer',
-        detail: 'Bring a dormant garment back into the rotation with a look built around it.',
+        detail: 'Bring one dormant garment back into rotation.',
         cta: 'Style forgotten piece',
         tone: 'warning',
         target: { kind: 'style-garment', garmentId: 'garment-forgotten' },
@@ -259,7 +272,7 @@ function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): Ins
       {
         id: 'gap-scan',
         title: 'Fill wardrobe gaps',
-        detail: 'Run the gaps tool to identify the missing category or silhouette that would add the most lift.',
+        detail: 'Run the gap scan to find the category or silhouette under pressure.',
         cta: 'Open gap scan',
         tone: 'warning',
         target: { kind: 'gaps', autorun: true },
@@ -294,17 +307,18 @@ describe('Insights page', () => {
     dashboardAdapterMock.mockReturnValue(baseViewModel());
   });
 
-  it('renders the redesigned hero, style DNA, palette, behavior, wardrobe health, value, and action center', () => {
+  it('renders the minimal graph-led hero, style, palette, behavior, health, value, and action sections', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
-    expect(screen.getByText('A clearer read on how your wardrobe behaves.')).toBeInTheDocument();
-    expect(screen.getByText('Minimalist')).toBeInTheDocument();
-    expect(screen.getByText('Balanced palette')).toBeInTheDocument();
-    expect(screen.getByText('Consistent weekly wear')).toBeInTheDocument();
-    expect(screen.getByText('Category balance')).toBeInTheDocument();
-    expect(screen.getByText('Total wardrobe value')).toBeInTheDocument();
-    expect(screen.getByText('What to do next, based on the wardrobe you actually have.')).toBeInTheDocument();
+    expect(screen.getByText('Wardrobe operating view.')).toBeInTheDocument();
+    expect(screen.getByTestId('hero-metric-active-30d')).toBeInTheDocument();
+    expect(screen.getByText('Style DNA')).toBeInTheDocument();
+    expect(screen.getByText('Color balance')).toBeInTheDocument();
+    expect(screen.getByText('Usage rhythm')).toBeInTheDocument();
+    expect(screen.getByText('Coverage and pressure')).toBeInTheDocument();
+    expect(screen.getByText('Cost and utilization')).toBeInTheDocument();
+    expect(screen.getByText('What to do next')).toBeInTheDocument();
   });
 
   it('shows the loading shell while the dashboard is still resolving', () => {
@@ -328,7 +342,7 @@ describe('Insights page', () => {
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe/add');
   });
 
-  it('shows the no-wear-data state separately from the empty state', () => {
+  it('shows the no-wear-data state separately and removes planner calls to action', () => {
     dashboardAdapterMock.mockReturnValue(baseViewModel({
       state: 'no-wear-data',
       behavior: {
@@ -341,7 +355,8 @@ describe('Insights page', () => {
     renderPage();
 
     expect(screen.getByText('Your wardrobe is ready, but wear history is still quiet')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open planner' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Go to outfits' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open planner' })).not.toBeInTheDocument();
   });
 
   it('renders palette details and category balance from the adapter model', () => {
@@ -355,7 +370,7 @@ describe('Insights page', () => {
     expect(screen.getAllByText('Trousers').length).toBeGreaterThan(0);
   });
 
-  it('renders the behavior section with the heatmap and repeat signals', () => {
+  it('renders the behavior section with the heatmap and ranked repeat signals', () => {
     renderPage();
 
     expect(screen.getByTestId('behavior-heatmap')).toBeInTheDocument();
@@ -363,7 +378,7 @@ describe('Insights page', () => {
     expect(screen.getByText('Dinner look')).toBeInTheDocument();
   });
 
-  it('renders the value section with total value and best or worst cost-per-wear', () => {
+  it('renders the value section with total value and cost-per-wear rows', () => {
     renderPage();
 
     expect(screen.getByText('$1,850')).toBeInTheDocument();
@@ -386,7 +401,7 @@ describe('Insights page', () => {
     );
   });
 
-  it('shows premium gating elegantly and routes to pricing from a locked section', () => {
+  it('shows premium gating inline and routes to pricing from a locked section', () => {
     dashboardAdapterMock.mockReturnValue(baseViewModel({
       isPremium: false,
       palette: { ...baseViewModel().palette, locked: true },

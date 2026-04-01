@@ -5,6 +5,11 @@ import type { InsightsDashboardViewModel, InsightsSpotlightGarment } from '@/com
 import { Button } from '@/components/ui/button';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 
+function widthFor(value: number, max: number) {
+  if (max <= 0) return 0;
+  return Math.max(Math.min((value / max) * 100, 100), 6);
+}
+
 function SpotlightRail({
   title,
   items,
@@ -15,11 +20,17 @@ function SpotlightRail({
   onOpenGarment: (id: string) => void;
 }) {
   return (
-    <div className="rounded-[1.2rem] bg-background/62 p-4">
-      <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/64">
-        {title}
-      </p>
-      <div className="mt-4 space-y-3">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+          {title}
+        </p>
+        <p className="text-[0.8rem] text-muted-foreground/70">
+          Tap to open
+        </p>
+      </div>
+
+      <div className="space-y-3">
         {items.length > 0 ? items.map((item) => (
           <button
             key={item.id}
@@ -31,23 +42,23 @@ function SpotlightRail({
               <LazyImageSimple imagePath={item.imagePath} alt={item.title} className="h-full w-full object-cover" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/62">
+              <p className="text-[0.72rem] uppercase tracking-[0.16em] text-muted-foreground/54">
                 {item.eyebrow}
               </p>
               <p className="truncate text-[0.92rem] font-medium text-foreground">
                 {item.title}
               </p>
-              <p className="truncate text-[0.8rem] text-muted-foreground">
+              <p className="truncate text-[0.8rem] text-muted-foreground/72">
                 {item.detail}
               </p>
             </div>
-            <span className="text-[0.78rem] text-muted-foreground/72">
+            <span className="text-[0.78rem] text-muted-foreground/66">
               {item.meta}
             </span>
           </button>
         )) : (
-          <p className="text-[0.88rem] leading-6 text-muted-foreground">
-            This section will populate once more garment behavior is available.
+          <p className="text-[0.86rem] leading-6 text-muted-foreground">
+            This list fills in once garment behavior is available.
           </p>
         )}
       </div>
@@ -68,8 +79,7 @@ export function InsightsWardrobeHealthSection({
     <InsightsSection
       id="wardrobe-health"
       eyebrow="Wardrobe health"
-      title="Coverage, pressure points, and what is quietly being ignored."
-      description="This is the operational view: what gets worn, what is forgotten, and where category balance starts to limit outfit range."
+      title="Coverage and pressure"
       action={(
         <Button variant="outline" size="sm" className="rounded-full px-4" onClick={onOpenGapScan}>
           Open gaps tool
@@ -77,70 +87,80 @@ export function InsightsWardrobeHealthSection({
         </Button>
       )}
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <div className="surface-secondary rounded-[1.6rem] p-5 sm:p-6">
-          <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  label: 'Used recently',
-                  value: String(health.usedCount),
-                  hint: 'Pieces active in 30d',
-                },
-                {
-                  label: 'Dormant',
-                  value: String(health.unusedCount),
-                  hint: 'Pieces ready for rotation',
-                },
-                {
-                  label: 'Pressure',
-                  value: health.pressureLabel,
-                  hint: health.pressureDetail,
-                },
-              ].map((item) => (
-                <div key={item.label} className="rounded-[1.1rem] bg-background/62 p-4">
-                  <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/64">
-                    {item.label}
-                  </p>
-                  <p className="mt-3 text-[1.02rem] font-semibold tracking-[-0.04em] text-foreground">
-                    {item.value}
-                  </p>
-                  <p className="mt-1 text-[0.82rem] leading-5 text-muted-foreground">
-                    {item.hint}
-                  </p>
-                </div>
-              ))}
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
+        <div className="space-y-5">
+          <div className="space-y-3 rounded-[1.2rem] bg-background/55 px-4 py-4">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+                  Used vs dormant
+                </p>
+                <p className="mt-2 text-[1rem] font-medium tracking-[-0.04em] text-foreground">
+                  {health.usedCount} active / {health.unusedCount} dormant
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/54">
+                  Pressure
+                </p>
+                <p className="mt-2 text-[0.86rem] text-foreground/82">
+                  {health.pressureLabel}
+                </p>
+              </div>
             </div>
 
-            <div className="rounded-[1.2rem] bg-background/62 p-4" data-testid="category-balance-section">
-              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/64">
+            <div className="overflow-hidden rounded-full bg-secondary/80">
+              <div className="flex h-3">
+                <div
+                  className="bg-foreground/74"
+                  style={{ width: `${widthFor(health.usedCount, Math.max(health.totalCount, 1))}%` }}
+                />
+                <div
+                  className="bg-foreground/22"
+                  style={{ width: `${widthFor(health.unusedCount, Math.max(health.totalCount, 1))}%` }}
+                />
+              </div>
+            </div>
+
+            <p className="text-[0.82rem] leading-5 text-muted-foreground">
+              {health.pressureDetail}
+            </p>
+          </div>
+
+          <div className="space-y-3" data-testid="category-balance-section">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                 Category balance
               </p>
-              <div className="mt-4 space-y-3">
-                {health.categoryBalance.map((category) => (
-                  <div key={category.name} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[0.9rem] text-foreground">
-                        {category.label}
-                      </span>
-                      <span className="text-[0.8rem] text-muted-foreground/72">
-                        {category.count} · {category.percentage}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
-                      <div
-                        className="h-full rounded-full bg-foreground/72"
-                        style={{ width: `${Math.max(category.percentage, 6)}%` }}
-                      />
-                    </div>
+              <p className="text-[0.8rem] text-muted-foreground/70">
+                Share of wardrobe
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {health.categoryBalance.map((category) => (
+                <div key={category.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-[0.9rem] text-foreground">
+                      {category.label}
+                    </span>
+                    <span className="text-[0.8rem] text-muted-foreground/70">
+                      {category.count} / {category.percentage}%
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
+                    <div
+                      className="h-full rounded-full bg-foreground/68"
+                      style={{ width: `${Math.max(category.percentage, 6)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-6">
           <SpotlightRail title="Top performers" items={health.topPerformers} onOpenGarment={onOpenGarment} />
           <SpotlightRail title="Forgotten gems" items={health.forgottenGems} onOpenGarment={onOpenGarment} />
         </div>

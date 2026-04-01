@@ -170,7 +170,7 @@ function makeDashboard(overrides: Partial<InsightsDashboardData> = {}): Insights
 }
 
 describe('createInsightsDashboardViewModel', () => {
-  it('normalizes the dashboard into a premium-ready page model', () => {
+  it('normalizes the dashboard into a graph-ready page model', () => {
     const viewModel = createInsightsDashboardViewModel({
       dashboard: makeDashboard(),
       isPremium: true,
@@ -183,20 +183,26 @@ describe('createInsightsDashboardViewModel', () => {
     expect(viewModel.state).toBe('ready');
     expect(viewModel.hero.score).toBe(82);
     expect(viewModel.hero.metrics[0].value).toBe('8/12');
+    expect(viewModel.hero.metrics[0].rails[0]).toMatchObject({ value: 8, max: 12 });
     expect(viewModel.style.archetype).toBe('Minimalist');
+    expect(viewModel.style.formalityCenter).toBe(3.1);
+    expect(viewModel.palette.totalCount).toBe(2);
     expect(viewModel.palette.entries[0]).toMatchObject({
       color: 'black',
       percentage: 50,
     });
     expect(viewModel.health.pressureLabel).toBe('Category concentration');
+    expect(viewModel.behavior.repeats[0]).toMatchObject({ wornCount: 3 });
     expect(viewModel.actions[0]).toMatchObject({
       id: 'forgotten-piece',
       target: { kind: 'style-garment', garmentId: 'garment-forgotten' },
     });
     expect(viewModel.value.totalValue).toContain('$');
+    expect(viewModel.value.utilizationRate).toBe(67);
   });
 
-  it('moves into the no-wear-data state when garments exist but nothing has been worn recently', () => {
+  it('moves into the no-wear-data state and emits no planner actions', () => {
+    const base = makeDashboard();
     const viewModel = createInsightsDashboardViewModel({
       dashboard: makeDashboard({
         overview: {
@@ -215,7 +221,7 @@ describe('createInsightsDashboardViewModel', () => {
           streak: 0,
         },
         wardrobeHealth: {
-          ...makeDashboard().wardrobeHealth,
+          ...base.wardrobeHealth,
           usedGarments: [],
           topFiveWorn: [],
         },
@@ -228,8 +234,10 @@ describe('createInsightsDashboardViewModel', () => {
     });
 
     expect(viewModel.state).toBe('no-wear-data');
-    expect(viewModel.hero.summary).toContain('Start logging wears');
-    expect(viewModel.actions.some((action) => action.id === 'plan-week')).toBe(true);
+    expect(viewModel.hero.summary).toContain('Start logging wear');
+    expect(viewModel.actions.some((action) => action.target.kind === 'generate-garments')).toBe(true);
+    expect(viewModel.actions.some((action) => action.id === 'plan-week')).toBe(false);
+    expect(viewModel.actions.some((action) => action.target.kind === 'pricing')).toBe(false);
   });
 
   it('preserves premium lock signals for locked sections on free plans', () => {
