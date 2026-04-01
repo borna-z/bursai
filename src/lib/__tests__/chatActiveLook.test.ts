@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findLatestActiveLookMessageIndex } from '../chatActiveLook';
+import { findLatestActiveLookMessageIndex, getLatestActiveLook } from '../chatActiveLook';
 
 describe('chatActiveLook', () => {
   it('keeps searching past later assistant prose to find the latest outfit card', () => {
@@ -63,5 +63,49 @@ describe('chatActiveLook', () => {
         },
       },
     ])).toBe(0);
+  });
+
+  it('normalizes resolved active-look ids while preserving anchor metadata', () => {
+    const latest = getLatestActiveLook([
+      {
+        role: 'assistant' as const,
+        content: 'Keep the blazer and sharpen the shoes.',
+        stylistMeta: {
+          kind: 'stylist_response' as const,
+          mode: 'ACTIVE_LOOK_REFINEMENT' as const,
+          response_kind: 'style_result' as const,
+          card_policy: 'required' as const,
+          card_state: 'updated' as const,
+          assistant_text: 'Keep the blazer and sharpen the shoes.',
+          outfit_ids: ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333'],
+          outfit_explanation: 'Sharper finish',
+          garment_mentions: [],
+          suggestion_chips: [],
+          truncated: false,
+          active_look_status: 'updated' as const,
+          active_look: {
+            garment_ids: [],
+            explanation: null,
+            source: 'frontend_active_look',
+            status: 'updated' as const,
+            card_state: 'updated' as const,
+            anchor_garment_id: '11111111-1111-1111-1111-111111111111',
+            anchor_locked: true,
+          },
+          fallback_used: false,
+          degraded_reason: null,
+          render_outfit_card: true,
+        },
+      },
+    ]);
+
+    expect(latest?.active_look.garment_ids).toEqual([
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+      '33333333-3333-3333-3333-333333333333',
+    ]);
+    expect(latest?.active_look.explanation).toBe('Sharper finish');
+    expect(latest?.active_look.anchor_garment_id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(latest?.active_look.anchor_locked).toBe(true);
   });
 });

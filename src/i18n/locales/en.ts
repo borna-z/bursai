@@ -418,6 +418,7 @@ const en: Record<string, string> = {
     'home.shortcut_chat': 'Ask stylist',
     'home.shortcut_style': 'Style me',
     'home.shortcut_plan': 'Plan week',
+    'home.shortcut_travel_capsule': 'Travel Capsule',
     'home.shortcut_discover': 'Mood outfits',
     'home.shortcut_gaps': 'Wardrobe gaps',
 
