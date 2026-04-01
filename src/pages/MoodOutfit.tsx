@@ -8,10 +8,12 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { OutfitPreviewCard } from '@/components/ui/OutfitPreviewCard';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useOutfit } from '@/hooks/useOutfits';
 import { useWeather } from '@/hooks/useWeather';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,6 +54,8 @@ export default function MoodOutfitPage() {
     mood: string;
     garmentIds: string[];
   } | null>(null);
+
+  const { data: outfitData } = useOutfit(generatedOutfit?.id);
 
   const generate = async (mood: string) => {
     if (!isPremium) {
@@ -157,11 +161,30 @@ export default function MoodOutfitPage() {
               </h2>
             </motion.div>
 
+            {/* Outfit preview card */}
+            <motion.div
+              {...motionProps}
+              transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.06 }}
+              className="cursor-pointer"
+              onClick={() => {
+                hapticLight();
+                navigate(`/outfits/${generatedOutfit.id}`);
+              }}
+            >
+              <OutfitPreviewCard
+                items={outfitData?.outfit_items ?? null}
+                density="compact"
+                mediaLayout="square"
+                className="rounded-[1.25rem]"
+                compositionClassName="rounded-[1rem]"
+              />
+            </motion.div>
+
             {/* Explanation card with accent left border */}
             {generatedOutfit.explanation ? (
               <motion.div
                 {...motionProps}
-                transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.08 }}
+                transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.1 }}
               >
                 <Card
                   surface="default"
@@ -179,7 +202,7 @@ export default function MoodOutfitPage() {
             {/* Action buttons */}
             <motion.div
               {...motionProps}
-              transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.12 }}
+              transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.14 }}
               className="flex flex-col gap-3"
             >
               <Button
@@ -189,7 +212,7 @@ export default function MoodOutfitPage() {
                   navigate(`/outfits/${generatedOutfit.id}`);
                 }}
               >
-                Save outfit
+                View outfit
               </Button>
               <Button
                 variant="outline"
@@ -207,33 +230,13 @@ export default function MoodOutfitPage() {
               >
                 Refine in chat
               </Button>
-            </motion.div>
-
-            {/* Next move card */}
-            <motion.div
-              {...motionProps}
-              transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.16 }}
-            >
-              <Card surface="default" className="space-y-4 rounded-[1.25rem] p-5">
-                <div>
-                  <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
-                    Next move
-                  </p>
-                  <h2 className="mt-2 font-display italic text-[1.3rem] text-foreground leading-tight">
-                    Keep the energy, adjust the details.
-                  </h2>
-                  <p className="mt-2 font-body text-sm leading-6 text-muted-foreground">
-                    Jump into chat if you want the look to feel sharper, softer, more formal, or more weather-aware.
-                  </p>
-                </div>
-                <Button
-                  variant="quiet"
-                  className="w-full justify-center rounded-full sm:w-auto"
-                  onClick={() => { hapticLight(); handleReMood(); }}
-                >
-                  Generate another
-                </Button>
-              </Card>
+              <Button
+                variant="quiet"
+                className="w-full justify-center rounded-full"
+                onClick={() => { hapticLight(); handleReMood(); }}
+              >
+                Generate another
+              </Button>
             </motion.div>
           </>
         ) : (
