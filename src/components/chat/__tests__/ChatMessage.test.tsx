@@ -140,6 +140,67 @@ describe('ChatMessage', () => {
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
   });
 
+  it('renders an outfit card from structured stylist metadata even without an outfit tag in the text', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'This is the sharper version.',
+        stylistMeta: {
+          kind: 'stylist_response',
+          mode: 'ACTIVE_LOOK_REFINEMENT',
+          assistant_text: 'This is the sharper version.',
+          outfit_ids: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+            '33333333-3333-3333-3333-333333333333',
+          ],
+          outfit_explanation: 'Sharper finish',
+          garment_mentions: [],
+          suggestion_chips: [],
+          truncated: false,
+          active_look_status: 'updated',
+          fallback_used: false,
+          degraded_reason: null,
+          render_outfit_card: true,
+        },
+      },
+    });
+
+    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+    expect(screen.getByText('This is the sharper version.')).toBeInTheDocument();
+  });
+
+  it('shows a loading-safe fallback card when stylist metadata arrives before garment data', () => {
+    renderMessage({
+      garmentMap: new Map(),
+      message: {
+        role: 'assistant',
+        content: 'Sharpened it.',
+        stylistMeta: {
+          kind: 'stylist_response',
+          mode: 'ACTIVE_LOOK_REFINEMENT',
+          assistant_text: 'Sharpened it.',
+          outfit_ids: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+            '33333333-3333-3333-3333-333333333333',
+          ],
+          outfit_explanation: 'Sharper finish',
+          garment_mentions: [],
+          suggestion_chips: [],
+          truncated: false,
+          active_look_status: 'updated',
+          fallback_used: false,
+          degraded_reason: null,
+          render_outfit_card: true,
+        },
+      },
+    });
+
+    expect(screen.getByText('Sharper finish')).toBeInTheDocument();
+    expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
+  });
+
   it('does not render outfit suggestion cards for incomplete outfits', () => {
     renderMessage({
       message: {
