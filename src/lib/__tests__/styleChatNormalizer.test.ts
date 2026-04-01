@@ -18,6 +18,7 @@ const BOTTOM = garment("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2", "Black Trousers",
 const DRESS = garment("cccccccc-cccc-4ccc-8ccc-ccccccccccc3", "Slip Dress", "dress");
 const SHOES = garment("dddddddd-dddd-4ddd-8ddd-ddddddddddd4", "Loafers", "shoes");
 const OUTERWEAR = garment("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5", "Blazer", "outerwear");
+const ALT_SHOES = garment("ffffffff-ffff-4fff-8fff-fffffffffff6", "Chelsea Boots", "shoes");
 
 const EMPTY_ACTIVE_LOOK: StyleChatActiveLookContext = {
   summary: "",
@@ -140,9 +141,62 @@ describe("styleChatNormalizer", () => {
       authoritativeExplanation: "Unified look wins",
     });
 
-    const tags = reply.text.match(/\[\[outfit:[^\]]+\]\]/g) || [];
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toContain(`${TOP.id},${BOTTOM.id},${SHOES.id}`);
-    expect(tags[0]).toContain("Unified look wins");
+    expect(reply.text).toBe("Try this.");
+    expect(reply.outfitTag).toContain(`${TOP.id},${BOTTOM.id},${SHOES.id}`);
+    expect(reply.outfitTag).toContain("Unified look wins");
+  });
+
+  it("keeps prose-only stylist advice prose-only", () => {
+    const reply = normalizeStyleChatAssistantReply({
+      rawText: "The cleaner proportion here is to keep the hem crisp and avoid over-accessorising.",
+      validGarmentIds: new Set([TOP.id, BOTTOM.id, SHOES.id]),
+      rankedGarments: [TOP, BOTTOM, SHOES],
+      anchor: null,
+      activeLook: EMPTY_ACTIVE_LOOK,
+      includeOutfitTag: false,
+    });
+
+    expect(reply.text).toBe("The cleaner proportion here is to keep the hem crisp and avoid over-accessorising.");
+    expect(reply.outfitIds).toEqual([TOP.id, BOTTOM.id, SHOES.id]);
+    expect(reply.outfitTag).toBeNull();
+  });
+
+  it("keeps refinement turns aligned with the authoritative saved outfit", () => {
+    const reply = normalizeStyleChatAssistantReply({
+      rawText: `Keep the ${TOP.title} and ${BOTTOM.title}, but change the shoes for a sharper finish [[outfit:${TOP.id},${BOTTOM.id},${SHOES.id}|Old look]].`,
+      validGarmentIds: new Set([TOP.id, BOTTOM.id, SHOES.id, ALT_SHOES.id]),
+      rankedGarments: [TOP, BOTTOM, SHOES, ALT_SHOES],
+      anchor: null,
+      activeLook: {
+        summary: `${TOP.title} + ${BOTTOM.title} + ${SHOES.title}`,
+        garmentIds: [TOP.id, BOTTOM.id, SHOES.id],
+        source: "assistant_outfit_tag",
+        garmentLines: [],
+      },
+      includeOutfitTag: true,
+      authoritativeOutfitIds: [TOP.id, BOTTOM.id, ALT_SHOES.id],
+      authoritativeExplanation: "Sharper finish with cleaner footwear",
+    });
+
+    expect(reply.text).toContain(`Keep the ${TOP.title} and ${BOTTOM.title}, but change the shoes for a sharper finish`);
+    expect(reply.text).not.toContain("[[outfit:");
+    expect(reply.outfitIds).toEqual([TOP.id, BOTTOM.id, ALT_SHOES.id]);
+    expect(reply.outfitTag).toContain(`${TOP.id},${BOTTOM.id},${ALT_SHOES.id}`);
+    expect(reply.outfitTag).toContain("Sharper finish with cleaner footwear");
+  });
+
+  it("fails safely when the assistant emits a malformed outfit tag", () => {
+    const reply = normalizeStyleChatAssistantReply({
+      rawText: `Let's tighten this up [[outfit:${TOP.id},${BOTTOM.id}|Almost complete`,
+      validGarmentIds: new Set([TOP.id, BOTTOM.id]),
+      rankedGarments: [TOP, BOTTOM],
+      anchor: null,
+      activeLook: EMPTY_ACTIVE_LOOK,
+      includeOutfitTag: true,
+    });
+
+    expect(reply.outfitIds).toEqual([]);
+    expect(reply.outfitTag).toBeNull();
+    expect(reply.text).toBe("Let's tighten this up");
   });
 });

@@ -22,4 +22,11 @@ describe('chatActiveLook', () => {
       { role: 'user' as const, content: 'Need help' },
     ])).toBe(-1);
   });
+
+  it('ignores malformed or truncated outfit fragments', () => {
+    expect(findLatestActiveLookMessageIndex([
+      { role: 'assistant' as const, content: '[[outfit:11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222|Almost there' },
+      { role: 'assistant' as const, content: 'Still thinking through it.' },
+    ])).toBe(-1);
+  });
 });

@@ -108,18 +108,36 @@ export async function invokeUnifiedStylistEngine(params: {
     other_items: otherItems,
   };
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/burs_style_engine`, {
-    method: "POST",
-    headers: {
-      ...CORS_HEADERS,
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${params.authToken}`,
-      apikey: serviceRoleKey,
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  let response: Response;
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/burs_style_engine`, {
+      method: "POST",
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.authToken}`,
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Unified stylist request timed out");
+    }
+    throw error;
+  }
+  clearTimeout(timeout);
 
-  const data = await response.json();
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Unified stylist request returned malformed JSON (${response.status})`);
+  }
   if (!response.ok || data?.error) {
     throw new Error(data?.error || `Unified stylist request failed (${response.status})`);
   }

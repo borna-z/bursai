@@ -102,13 +102,7 @@ function stripPartialTagStarts(text: string): string {
       continue;
     }
 
-    let cursor = nextStart + 2;
-    while (cursor < text.length && text[cursor] !== ':' ) cursor += 1;
-    if (cursor < text.length && text[cursor] === ':') cursor += 1;
-    while (cursor < text.length && PARTIAL_TAG_CHAR_RE.test(text[cursor])) {
-      cursor += 1;
-    }
-    index = cursor;
+    index = text.length;
   }
 
   return output;

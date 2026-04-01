@@ -12,7 +12,7 @@ export function findLatestActiveLookMessageIndex(messages: ChatActiveLookMessage
     if (message.role !== 'assistant') continue;
 
     const text = getTextContent(message.content);
-    if (parseOutfitTags(text).length > 0 || text.includes('[[outfit:')) {
+    if (parseOutfitTags(text).length > 0) {
       return index;
     }
   }

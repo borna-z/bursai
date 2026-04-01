@@ -140,7 +140,7 @@ describe('ChatMessage', () => {
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
   });
 
-  it('renders outfit suggestion cards even without shoes (base outfit)', () => {
+  it('does not render outfit suggestion cards for incomplete outfits', () => {
     renderMessage({
       message: {
         role: 'assistant',
@@ -148,7 +148,7 @@ describe('ChatMessage', () => {
       },
     });
 
-    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+    expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
   });
 
   it('renders complete dress-led outfit suggestion cards', () => {
@@ -198,7 +198,7 @@ describe('ChatMessage', () => {
       },
     });
 
-    expect(screen.getByText('Change the pants and make it sharper.')).toBeInTheDocument();
+    expect(screen.getByText('Change the pants')).toBeInTheDocument();
     expect(screen.queryByText(/\[\[garment:/)).not.toBeInTheDocument();
   });
 

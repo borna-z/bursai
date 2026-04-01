@@ -169,13 +169,7 @@ function stripPartialTagStarts(text: string): string {
       continue;
     }
 
-    let cursor = nextStart + 2;
-    while (cursor < text.length && text[cursor] !== ":") cursor += 1;
-    if (cursor < text.length && text[cursor] === ":") cursor += 1;
-    while (cursor < text.length && PARTIAL_TAG_CHAR_RE.test(text[cursor])) {
-      cursor += 1;
-    }
-    index = cursor;
+    index = text.length;
   }
 
   return output;
@@ -406,14 +400,9 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
   const outfitTag = shouldIncludeOutfitTag && outfitIds.length > 0
     ? `[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`
     : null;
-  const finalText = outfitTag
-    ? params.placeOutfitTagFirst
-      ? `${outfitTag}\n\n${prose}`.trim()
-      : `${prose}\n\n${outfitTag}`.trim()
-    : prose;
 
   return {
-    text: finalText,
+    text: prose,
     outfitIds,
     outfitTag,
   };
