@@ -3,9 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
+  if (checkOverload("style_twin")) {
+    return overloadResponse(CORS_HEADERS);
+  }
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -29,6 +34,8 @@ serve(async (req) => {
       });
     }
     const userId = userData.user.id;
+
+    await enforceRateLimit(serviceClient, userId, "style_twin");
 
     // Parallel DB queries
     const [garmentsRes, sharedRes] = await Promise.all([
@@ -69,7 +76,12 @@ serve(async (req) => {
     const avgFormality = formalityCount > 0 ? Math.round(formalitySum / formalityCount * 10) / 10 : 3;
 
     const { locale = "sv" } = await req.json();
-    const langName = locale === "sv" ? "svenska" : "English";
+    const LANG_NAMES: Record<string, string> = {
+      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "suomi",
+      de: "Deutsch", fr: "français", es: "español", it: "italiano",
+      pt: "português", nl: "Nederlands", pl: "polski", ar: "العربية", fa: "فارسی",
+    };
+    const langName = LANG_NAMES[locale] || "English";
 
     const { data: result } = await callBursAI({
       complexity: "trivial",
@@ -115,6 +127,9 @@ STYLE VECTOR: colors:${topColors.join(",")} materials:${topMaterials.join(",")} 
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("style_twin error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

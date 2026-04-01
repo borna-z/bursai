@@ -3,9 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { classifySlot } from "../_shared/burs-slots.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
-import { validateCompleteOutfit } from "../../../src/lib/outfitValidation.ts";
-import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../../../src/lib/styleSignals.ts";
+import { validateCompleteOutfit } from "../_shared/outfit-validation.ts";
+import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../_shared/style-signals.ts";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -1672,28 +1673,11 @@ function textureDepthScore(items: ComboItem[]): number {
 }
 
 // ─────────────────────────────────────────────
-// SLOT CATEGORIZATION
+// SLOT CATEGORIZATION — delegated to _shared/burs-slots.ts
 // ─────────────────────────────────────────────
 
-const TOP_CATS = ["top", "shirt", "t-shirt", "blouse", "sweater", "hoodie", "polo", "tank_top", "cardigan", "tröja", "skjorta"];
-const BOTTOM_CATS = ["bottom", "pants", "jeans", "trousers", "shorts", "skirt", "chinos", "byxor", "kjol"];
-const SHOES_CATS = ["shoes", "sneakers", "boots", "loafers", "sandals", "heels", "skor", "stövlar"];
-const OUTERWEAR_CATS = ["outerwear", "jacket", "coat", "blazer", "parka", "windbreaker", "jacka", "kappa", "rock", "vest", "väst"];
-const DRESS_CATS = ["dress", "jumpsuit", "overall", "klänning"];
-const ACCESSORY_CATS = ["accessory", "scarf", "hat", "belt", "bag", "watch", "jewelry", "halsduk", "mössa", "bälte", "väska"];
-
 function categorizeSlot(category: string, subcategory: string | null): string | null {
-  const cat = (category || "").toLowerCase();
-  const sub = (subcategory || "").toLowerCase();
-  const both = `${cat} ${sub}`;
-
-  if (DRESS_CATS.some(d => both.includes(d))) return "dress";
-  if (OUTERWEAR_CATS.some(o => both.includes(o))) return "outerwear";
-  if (ACCESSORY_CATS.some(a => both.includes(a))) return "accessory";
-  if (TOP_CATS.some(t => both.includes(t))) return "top";
-  if (BOTTOM_CATS.some(b => both.includes(b))) return "bottom";
-  if (SHOES_CATS.some(s => both.includes(s))) return "shoes";
-  return null;
+  return classifySlot(category, subcategory);
 }
 
 // ─────────────────────────────────────────────

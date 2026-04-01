@@ -4,9 +4,14 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_GAP_ANALYSIS } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
+  if (checkOverload("wardrobe_gap_analysis")) {
+    return overloadResponse(CORS_HEADERS);
+  }
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -22,6 +27,8 @@ serve(async (req) => {
     const { data: userData, error: userError } = await authClient.auth.getUser(token);
     if (userError || !userData?.user) throw new Error("Unauthorized");
     const user = { id: userData.user.id };
+
+    await enforceRateLimit(supabase, user.id, "wardrobe_gap_analysis");
 
     // Parse optional locale from body
     let locale = "en";
@@ -167,6 +174,9 @@ CRITICAL RULES:
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("wardrobe_gap_analysis error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
