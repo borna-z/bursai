@@ -6,8 +6,8 @@ import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine } from "../_sha
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
-import { normalizeStyleChatAssistantReply } from "../../../src/lib/styleChatNormalizer.ts";
-import { resolveCompleteOutfitIds } from "../../../src/lib/completeOutfitIds.ts";
+import { normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
+import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 
 // ---------- i18n ----------
 

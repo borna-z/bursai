@@ -5,6 +5,7 @@ import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { classifySlot } from "../_shared/burs-slots.ts";
 function hasCompleteOutfit(items: Array<{ slot: string }>): boolean {
   const slots = new Set(items.map(i => i.slot.toLowerCase()));
   return slots.has('dress') || (slots.has('top') && slots.has('bottom'));
@@ -33,22 +34,8 @@ const MOOD_MAP: Record<string, { formality: string; colors: string; materials: s
 };
 
 
-const SHOES_TOKENS = ["shoes", "shoe", "sneakers", "boots", "heels", "sandals", "loafers", "skor", "stövlar"];
-const OUTERWEAR_TOKENS = ["outerwear", "coat", "jacket", "blazer", "trench", "jacka", "kappa"];
-const DRESS_TOKENS = ["dress", "jumpsuit", "overall", "klänning"];
-const BOTTOM_TOKENS = ["bottom", "pants", "jeans", "trousers", "shorts", "skirt", "byxor", "kjol"];
-
-function normalizeValue(value: unknown): string {
-  return String(value || "").trim().toLowerCase();
-}
-
 function inferSlotFromGarment(garment: { category?: string | null; subcategory?: string | null }): string {
-  const value = `${normalizeValue(garment.category)} ${normalizeValue(garment.subcategory)}`.trim();
-  if (DRESS_TOKENS.some((token) => value.includes(token))) return "dress";
-  if (SHOES_TOKENS.some((token) => value.includes(token))) return "shoes";
-  if (OUTERWEAR_TOKENS.some((token) => value.includes(token))) return "outerwear";
-  if (BOTTOM_TOKENS.some((token) => value.includes(token))) return "bottom";
-  return "top";
+  return classifySlot(garment.category, garment.subcategory) || "top";
 }
 
 function requiresOuterwear(weather?: { temperature?: number; precipitation?: string | null }): boolean {
