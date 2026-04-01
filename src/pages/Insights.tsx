@@ -2,21 +2,26 @@ import { useCallback } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
 
+import { InsightsActionCenter } from '@/components/insights/InsightsActionCenter';
+import { InsightsBehaviorSection } from '@/components/insights/InsightsBehaviorSection';
+import { InsightsHeroSection } from '@/components/insights/InsightsHeroSection';
+import { InsightsPalettePanel } from '@/components/insights/InsightsPalettePanel';
+import { InsightsStatePanel } from '@/components/insights/InsightsStatePanel';
+import { InsightsStyleIdentitySection } from '@/components/insights/InsightsStyleIdentitySection';
+import { InsightsValueSection } from '@/components/insights/InsightsValueSection';
+import { InsightsWardrobeHealthSection } from '@/components/insights/InsightsWardrobeHealthSection';
+import {
+  type InsightsActionItem,
+  useInsightsDashboardAdapter,
+} from '@/components/insights/useInsightsDashboardAdapter';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
-import { InsightsGarmentHighlights } from '@/components/insights/InsightsGarmentHighlights';
-import { InsightsPalettePanel } from '@/components/insights/InsightsPalettePanel';
-import { InsightsValueTracker } from '@/components/insights/InsightsValueTracker';
-import { StyleDNACard } from '@/components/insights/StyleDNACard';
-import { useInsightsDashboardAdapter } from '@/components/insights/useInsightsDashboardAdapter';
-import { InsightsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { Button } from '@/components/ui/button';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { buildGapsPath } from '@/components/gaps/gapRouteState';
 import { hapticLight } from '@/lib/haptics';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 
@@ -24,157 +29,136 @@ export default function InsightsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useLanguage();
-  const {
-    overview,
-    insights,
-    dna,
-    sustainability,
-    isPremium,
-    isLoading,
-    colorBreakdown,
-  } = useInsightsDashboardAdapter();
+  const viewModel = useInsightsDashboardAdapter();
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] }),
-      queryClient.invalidateQueries({ queryKey: ['category-balance'] }),
-      queryClient.invalidateQueries({ queryKey: ['outfit-repeats'] }),
-      queryClient.invalidateQueries({ queryKey: ['wear-heatmap'] }),
-      queryClient.invalidateQueries({ queryKey: ['spending'] }),
-    ]);
+    await queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] });
   }, [queryClient]);
 
-  const wardrobeScore = sustainability?.score ?? (insights ? Math.round(insights.usageRate) : 0);
-  const mostWorn = insights?.topFiveWorn?.[0] ?? null;
-  const forgotten = insights?.unusedGarments?.[0] ?? null;
+  const handleGarmentOpen = useCallback((garmentId: string) => {
+    hapticLight();
+    navigate(`/wardrobe/${garmentId}`);
+  }, [navigate]);
 
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <PageHeader title={t('insights.title') || 'Style Intelligence'} subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'} />
-        <InsightsPageSkeleton />
-      </AppLayout>
-    );
-  }
+  const handleOpenPricing = useCallback(() => {
+    hapticLight();
+    navigate('/pricing');
+  }, [navigate]);
 
-  if (!insights || insights.totalGarments === 0) {
-    return (
-      <AppLayout>
-        <PageHeader title={t('insights.title') || 'Style Intelligence'} subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'} />
-        <InsightsOnboardingEmpty />
-      </AppLayout>
-    );
-  }
+  const handleAction = useCallback((action: InsightsActionItem) => {
+    hapticLight();
+
+    switch (action.target.kind) {
+      case 'style-garment':
+        navigate(`/ai/chat${buildStyleFlowSearch(action.target.garmentId)}`, {
+          state: buildStyleAroundState(action.target.garmentId),
+        });
+        return;
+      case 'generate-garments':
+        navigate(`/ai/generate${buildStyleFlowSearch(action.target.garmentIds)}`);
+        return;
+      case 'gaps':
+        navigate(buildGapsPath({ autorun: action.target.autorun }));
+        return;
+      case 'outfit':
+        navigate(`/outfits/${action.target.outfitId}`);
+        return;
+      case 'plan':
+        navigate('/plan', {
+          state: action.target.dormantGarmentIds?.length
+            ? { suggestedGarmentIds: action.target.dormantGarmentIds }
+            : undefined,
+        });
+        return;
+      case 'pricing':
+        navigate('/pricing');
+        return;
+      default:
+        return;
+    }
+  }, [navigate]);
+
+  const title = t('insights.title') || 'Style Intelligence';
+  const subtitle = t('insights.subtitle') || 'Your wardrobe, decoded';
 
   return (
     <AppLayout>
       <PageHeader
-        title={t('insights.title') || 'Style Intelligence'}
-        subtitle={t('insights.subtitle') || 'Your wardrobe, decoded'}
+        title={title}
+        subtitle={subtitle}
         titleClassName="text-[1.5rem] sm:text-[1.65rem]"
       />
+
       <PullToRefresh onRefresh={handleRefresh}>
-        <AnimatedPage className="page-shell page-cluster pb-24">
-          <section className="pb-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <p className="label-editorial text-muted-foreground/60">{t('insights.hero_label')}</p>
-                <h2 className="text-[1.05rem] font-semibold tracking-[-0.04em] text-foreground">
-                  {t('insights.hero_title')}
-                </h2>
-              </div>
-              <div className="text-right">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[1.55rem] font-semibold tracking-[-0.06em] text-foreground">
-                    {wardrobeScore}
-                  </span>
-                  <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/50">
-                    /100
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground/60">
-                  {t('insights.metric_usage')}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2.5 grid w-full grid-cols-3 gap-2 text-center">
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  {t('insights.metric_versatility')}
-                </p>
-                <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
-                  {sustainability?.utilizationRate ?? Math.round(insights.usageRate)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  {t('insights.metric_balance')}
-                </p>
-                <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
-                  {overview?.savedLooks ?? 0}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60">
-                  {t('insights.metric_active_30d') || '30d Active'}
-                </p>
-                <p className="mt-1 text-[1rem] font-semibold tracking-[-0.04em] text-foreground">
-                  {insights.garmentsUsedLast30Days}/{insights.totalGarments}
-                </p>
-              </div>
-            </div>
-          </section>
+        {viewModel.state === 'loading' ? (
+          <InsightsPageSkeleton />
+        ) : (
+          <AnimatedPage className="page-shell page-cluster pb-24">
+            {viewModel.state === 'empty' ? (
+              <InsightsStatePanel
+                kind="empty"
+                onPrimary={() => navigate('/wardrobe/add')}
+                onSecondary={() => navigate('/wardrobe')}
+              />
+            ) : null}
 
-          <InsightsPalettePanel
-            bars={colorBreakdown.bars}
-            entries={colorBreakdown.entries}
-            total={colorBreakdown.total}
-            colorTemperature={insights.colorTemperature}
-            isPremium={isPremium}
-          />
+            {viewModel.state === 'no-wear-data' ? (
+              <InsightsStatePanel
+                kind="no-wear-data"
+                onPrimary={() => navigate('/plan')}
+                onSecondary={() => navigate('/outfits')}
+              />
+            ) : null}
 
-          <InsightsGarmentHighlights
-            mostWorn={mostWorn}
-            forgotten={forgotten}
-            onSelectGarment={(id) => navigate(`/wardrobe/${id}`)}
-          />
+            {viewModel.state === 'error' ? (
+              <InsightsStatePanel
+                kind="error"
+                onPrimary={() => { void handleRefresh(); }}
+                onSecondary={() => navigate('/wardrobe')}
+              />
+            ) : null}
 
-          {(forgotten || insights.totalGarments > 0) && (
-            <div className="flex flex-wrap gap-2">
-              {forgotten && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  onClick={() => {
-                    hapticLight();
-                    navigate(`/ai/chat${buildStyleFlowSearch(forgotten.id)}`, { state: buildStyleAroundState(forgotten.id) });
-                  }}
-                >
-                  <Sparkles className="mr-2 h-3.5 w-3.5" />
-                  {t('insights.style_forgotten') || 'Style forgotten piece'}
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={() => { hapticLight(); navigate('/gaps'); }}
-              >
-                {t('insights.fill_gaps') || 'Fill wardrobe gaps'}
-              </Button>
-            </div>
-          )}
+            {(viewModel.state === 'ready' || viewModel.state === 'no-wear-data') ? (
+              <>
+                <InsightsHeroSection
+                  hero={viewModel.hero}
+                  generatedAtLabel={viewModel.generatedAtLabel}
+                  isRefreshing={viewModel.isRefreshing}
+                  onOpenWardrobe={() => navigate('/wardrobe')}
+                />
 
-          <InsightsValueTracker
-            costPerWear={sustainability?.avgWearCount ? Number((100 / sustainability.avgWearCount).toFixed(2)) : undefined}
-            sustainabilityScore={sustainability?.score}
-            utilizationRate={sustainability?.utilizationRate}
-            isPremium={isPremium}
-          />
+                <InsightsStyleIdentitySection style={viewModel.style} />
 
-          <StyleDNACard dna={dna} />
-        </AnimatedPage>
+                <InsightsPalettePanel
+                  palette={viewModel.palette}
+                  upgrade={viewModel.upgrade}
+                  onOpenPricing={handleOpenPricing}
+                />
+
+                <InsightsBehaviorSection
+                  behavior={viewModel.behavior}
+                  upgrade={viewModel.upgrade}
+                  onOpenPricing={handleOpenPricing}
+                />
+
+                <InsightsWardrobeHealthSection
+                  health={viewModel.health}
+                  onOpenGarment={handleGarmentOpen}
+                  onOpenGapScan={() => navigate(buildGapsPath({ autorun: true }))}
+                />
+
+                <InsightsValueSection
+                  value={viewModel.value}
+                  upgrade={viewModel.upgrade}
+                  onOpenGarment={handleGarmentOpen}
+                  onOpenPricing={handleOpenPricing}
+                />
+
+                <InsightsActionCenter actions={viewModel.actions} onAction={handleAction} />
+              </>
+            ) : null}
+          </AnimatedPage>
+        )}
       </PullToRefresh>
     </AppLayout>
   );

@@ -2,8 +2,10 @@ import type { PropsWithChildren } from 'react';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+
+import type { InsightsDashboardViewModel } from '@/components/insights/useInsightsDashboardAdapter';
 
 type Locale = 'en' | 'sv';
 
@@ -20,18 +22,16 @@ const translations: Record<Locale, Record<string, string>> = {
 
 let currentLocale: Locale = 'en';
 
-const dashboardAdapterMock = vi.fn();
+const dashboardAdapterMock = vi.fn<() => InsightsDashboardViewModel>();
+const navigateMock = vi.fn();
 
 vi.mock('framer-motion', () => ({
   motion: {
+    div: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+    section: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => <section {...props}>{children}</section>,
     circle: (props: Record<string, unknown>) => <circle {...props} />,
-    div: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => (
-      <div {...props}>{children}</div>
-    ),
-    section: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => (
-      <section {...props}>{children}</section>
-    ),
   },
+  useReducedMotion: () => true,
 }));
 
 vi.mock('@/contexts/LanguageContext', () => ({
@@ -40,6 +40,14 @@ vi.mock('@/contexts/LanguageContext', () => ({
     t: (key: string) => translations[currentLocale][key] ?? key,
   }),
 }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 vi.mock('@/components/layout/AppLayout', () => ({
   AppLayout: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -68,33 +76,204 @@ vi.mock('@/components/ui/skeletons', () => ({
   InsightsPageSkeleton: () => <div data-testid="insights-loading">loading</div>,
 }));
 
-vi.mock('@/components/onboarding/OnboardingEmptyState', () => ({
-  InsightsOnboardingEmpty: () => <div data-testid="insights-empty">empty</div>,
+vi.mock('@/components/layout/EmptyState', () => ({
+  EmptyState: ({
+    title,
+    description,
+    action,
+    secondaryAction,
+  }: {
+    title: string;
+    description: string;
+    action?: { label: string; onClick: () => void };
+    secondaryAction?: { label: string; onClick: () => void };
+  }) => (
+    <div>
+      <h2>{title}</h2>
+      <p>{description}</p>
+      {action ? <button onClick={action.onClick}>{action.label}</button> : null}
+      {secondaryAction ? <button onClick={secondaryAction.onClick}>{secondaryAction.label}</button> : null}
+    </div>
+  ),
+}));
+
+vi.mock('@/components/ui/lazy-image', () => ({
+  LazyImageSimple: ({ alt }: { alt: string }) => <div data-testid="mock-image">{alt}</div>,
 }));
 
 vi.mock('@/components/insights/useInsightsDashboardAdapter', () => ({
   useInsightsDashboardAdapter: () => dashboardAdapterMock(),
 }));
 
-vi.mock('@/components/insights/InsightsPalettePanel', () => ({
-  InsightsPalettePanel: () => <section data-testid="palette-panel">Palette</section>,
-}));
-
-vi.mock('@/components/insights/InsightsGarmentHighlights', () => ({
-  InsightsGarmentHighlights: () => <section data-testid="garment-highlights">Highlights</section>,
-}));
-
-vi.mock('@/components/insights/InsightsValueTracker', () => ({
-  InsightsValueTracker: () => <section data-testid="value-tracker">Value</section>,
-}));
-
-vi.mock('@/components/insights/StyleDNACard', () => ({
-  StyleDNACard: ({ dna }: { dna?: { archetype?: string } | null }) => (
-    <section data-testid="style-dna">{dna?.archetype ?? 'No DNA'}</section>
-  ),
+vi.mock('@/lib/haptics', () => ({
+  hapticLight: vi.fn(),
 }));
 
 import InsightsPage from '../Insights';
+
+function baseViewModel(overrides: Partial<InsightsDashboardViewModel> = {}): InsightsDashboardViewModel {
+  return {
+    state: 'ready',
+    isPremium: true,
+    isRefreshing: false,
+    generatedAtLabel: 'Apr 2, 10:30 AM',
+    hero: {
+      score: 82,
+      eyebrow: 'Wardrobe intelligence',
+      title: 'A clearer read on how your wardrobe behaves.',
+      summary: 'Minimalist energy is coming through, but 4 pieces are sitting dormant and ready for rotation.',
+      metrics: [
+        { label: 'Active 30d', value: '8/12', hint: 'Pieces in active rotation' },
+        { label: 'Usage rate', value: '67%', hint: 'Wardrobe touched in the last month' },
+        { label: 'Looks / formulas', value: '9 / 2', hint: 'Saved looks and recurring formulas' },
+      ],
+    },
+    style: {
+      ready: true,
+      archetype: 'Minimalist',
+      detail: 'Neutral palette dominates your recent wear and the core formulas are repeating clearly.',
+      formalityLabel: 'Balanced range',
+      formalityValue: 'Moves across casual and elevated · 3.1/5',
+      signatureColors: [
+        { color: 'black', label: 'Black', count: 4, percentage: 50, swatch: '#171717' },
+        { color: 'navy', label: 'Navy', count: 2, percentage: 25, swatch: '#223256' },
+      ],
+      formulas: [
+        { label: 'Shirt + Trousers + Loafers', count: 4 },
+        { label: 'Knitwear + Jeans + Boots', count: 3 },
+      ],
+      patterns: [
+        { label: 'Neutral palette', strength: 78, detail: '78% of recent wears stay in neutral tones.' },
+      ],
+    },
+    palette: {
+      summary: 'Balanced palette with black leading the mix.',
+      dominantLabel: 'Balanced palette',
+      warmCount: 2,
+      coolCount: 3,
+      neutralCount: 7,
+      entries: [
+        { color: 'black', label: 'Black', count: 4, percentage: 33, swatch: '#171717' },
+        { color: 'navy', label: 'Navy', count: 2, percentage: 17, swatch: '#223256' },
+      ],
+      bars: [
+        { color: 'black', label: 'Black', count: 4, percentage: 33, swatch: '#171717' },
+        { color: 'navy', label: 'Navy', count: 2, percentage: 17, swatch: '#223256' },
+      ],
+      locked: false,
+    },
+    behavior: {
+      streak: 5,
+      consistency: 61,
+      cadenceLabel: 'Consistent weekly wear',
+      repeatLead: {
+        id: 'outfit-1',
+        occasion: 'Office look',
+        wornCount: 3,
+        lastWorn: '2026-03-27',
+        daysSince: 6,
+      },
+      staleLead: {
+        id: 'outfit-2',
+        occasion: 'Dinner look',
+        daysSince: 74,
+      },
+      repeats: [
+        { id: 'outfit-1', occasion: 'Office look', wornCount: 3, lastWorn: '2026-03-27', daysSince: 6 },
+      ],
+      staleOutfits: [
+        { id: 'outfit-2', occasion: 'Dinner look', daysSince: 74 },
+      ],
+      heatmapDays: Array.from({ length: 14 }, (_, index) => ({
+        date: `2026-03-${String(index + 1).padStart(2, '0')}`,
+        status: index % 3 === 0 ? 'planned' : index % 2 === 0 ? 'improvised' : 'none',
+      })),
+      locked: false,
+    },
+    health: {
+      categoryBalance: [
+        { name: 'tops', label: 'Tops', count: 5, percentage: 42 },
+        { name: 'trousers', label: 'Trousers', count: 3, percentage: 25 },
+      ],
+      forgottenGems: [
+        {
+          id: 'garment-forgotten',
+          title: 'Grey Blazer',
+          imagePath: null,
+          eyebrow: 'Forgotten gem',
+          detail: 'Outerwear',
+          meta: 'Last worn 2026-01-10',
+        },
+      ],
+      topPerformers: [
+        {
+          id: 'garment-top',
+          title: 'Black Tee',
+          imagePath: null,
+          eyebrow: 'Top performer',
+          detail: '6 wears in 30d',
+          meta: 'Tops',
+        },
+      ],
+      usedCount: 8,
+      unusedCount: 4,
+      pressureLabel: 'Category concentration',
+      pressureDetail: 'Tops make up 42% of the wardrobe, which may be crowding out balance.',
+    },
+    value: {
+      hasSpendData: true,
+      totalValue: '$1,850',
+      avgCostPerWear: '$12.50',
+      bestCostPerWear: {
+        id: 'garment-best',
+        title: 'Black Tee',
+        imagePath: null,
+        eyebrow: 'Best cost per wear',
+        detail: '20 wears',
+        meta: '$80',
+        cpwLabel: '$4.00',
+      },
+      worstCostPerWear: {
+        id: 'garment-worst',
+        title: 'Statement Coat',
+        imagePath: null,
+        eyebrow: 'Needs more rotation',
+        detail: '2 wears',
+        meta: '$600',
+        cpwLabel: '$300.00',
+      },
+      sustainabilityScore: 82,
+      utilizationLabel: '67% active',
+      efficiencyLabel: '7.4 average wears',
+      locked: false,
+    },
+    actions: [
+      {
+        id: 'forgotten-piece',
+        title: 'Style Grey Blazer',
+        detail: 'Bring a dormant garment back into the rotation with a look built around it.',
+        cta: 'Style forgotten piece',
+        tone: 'warning',
+        target: { kind: 'style-garment', garmentId: 'garment-forgotten' },
+      },
+      {
+        id: 'gap-scan',
+        title: 'Fill wardrobe gaps',
+        detail: 'Run the gaps tool to identify the missing category or silhouette that would add the most lift.',
+        cta: 'Open gap scan',
+        tone: 'warning',
+        target: { kind: 'gaps', autorun: true },
+      },
+    ],
+    upgrade: {
+      show: false,
+      title: 'Unlock premium depth',
+      detail: 'See richer palette, behavior, and value analysis.',
+      cta: 'View premium',
+    },
+    ...overrides,
+  };
+}
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -110,111 +289,130 @@ function renderPage() {
 
 describe('Insights page', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     currentLocale = 'en';
-    dashboardAdapterMock.mockReturnValue({
-      overview: {
-        savedLooks: 9,
-        plannedThisWeek: 4,
-      },
-      insights: {
-        usageRate: 74,
-        totalGarments: 12,
-        garmentsUsedLast30Days: 8,
-        topFiveWorn: [{ id: 'top-1', title: 'Black Tee', color_primary: 'black', wearCountLast30: 6 }],
-        unusedGarments: [{ id: 'unused-1', title: 'Blue Shirt', color_primary: 'blue' }],
-        usedGarments: [{ id: 'used-1', title: 'Grey Trousers', color_primary: 'black', wearCountLast30: 4 }],
-        colorTemperature: 'neutral',
-      },
-      dna: {
-        archetype: 'Minimalist',
-        outfitsAnalyzed: 12,
-        signatureColors: [
-          { color: 'black', percentage: 50 },
-          { color: 'blue', percentage: 25 },
-        ],
-        uniformCombos: [{ combo: ['tee', 'trousers', 'sneakers'], count: 4 }],
-        patterns: [{ label: 'Neutral palette', strength: 78, detail: 'Mostly dark neutrals' }],
-        formalityCenter: 2.8,
-        formalitySpread: 'moderate',
-      },
-      sustainability: {
-        score: 82,
-        utilizationRate: 68,
-        avgWearCount: 7,
-        underusedCount: 2,
-      },
-      colorBreakdown: {
-        total: 2,
-        entries: [['black', 1], ['blue', 1]],
-        bars: [
-          { color: 'black', count: 1, colorClass: 'bg-gray-900' },
-          { color: 'blue', count: 1, colorClass: 'bg-blue-500' },
-        ],
-      },
-      isPremium: true,
-      isLoading: false,
-      isRefreshing: false,
-    });
+    dashboardAdapterMock.mockReturnValue(baseViewModel());
   });
 
-  it('renders the V4 insights layout with the summary card, palette, highlights, value tracker, and DNA', () => {
+  it('renders the redesigned hero, style DNA, palette, behavior, wardrobe health, value, and action center', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
-    expect(screen.getByText('Your wardrobe, decoded')).toBeInTheDocument();
-    expect(screen.getByText('82')).toBeInTheDocument();
-    expect(screen.getByTestId('palette-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('garment-highlights')).toBeInTheDocument();
-    expect(screen.getByTestId('value-tracker')).toBeInTheDocument();
-    expect(screen.getByTestId('style-dna')).toBeInTheDocument();
+    expect(screen.getByText('A clearer read on how your wardrobe behaves.')).toBeInTheDocument();
     expect(screen.getByText('Minimalist')).toBeInTheDocument();
-  }, 10000);
+    expect(screen.getByText('Balanced palette')).toBeInTheDocument();
+    expect(screen.getByText('Consistent weekly wear')).toBeInTheDocument();
+    expect(screen.getByText('Category balance')).toBeInTheDocument();
+    expect(screen.getByText('Total wardrobe value')).toBeInTheDocument();
+    expect(screen.getByText('What to do next, based on the wardrobe you actually have.')).toBeInTheDocument();
+  });
 
   it('shows the loading shell while the dashboard is still resolving', () => {
-    dashboardAdapterMock.mockReturnValue({
-      overview: null,
-      insights: null,
-      dna: null,
-      sustainability: null,
-      colorBreakdown: { total: 0, entries: [], bars: [] },
-      isPremium: true,
-      isLoading: true,
-      isRefreshing: false,
-    });
+    dashboardAdapterMock.mockReturnValue(baseViewModel({ state: 'loading' }));
 
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
     expect(screen.getByTestId('insights-loading')).toBeInTheDocument();
-  }, 10000);
+  });
 
-  it('shows the onboarding empty state when the dashboard has no garments to analyze', () => {
-    dashboardAdapterMock.mockReturnValue({
-      overview: {
-        savedLooks: 0,
-        plannedThisWeek: 0,
+  it('shows the empty wardrobe state and routes to add garments', () => {
+    dashboardAdapterMock.mockReturnValue(baseViewModel({
+      state: 'empty',
+      hero: { ...baseViewModel().hero, summary: 'Add garments first.' },
+    }));
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Add garments' }));
+
+    expect(screen.getByText('Build your wardrobe first')).toBeInTheDocument();
+    expect(navigateMock).toHaveBeenCalledWith('/wardrobe/add');
+  });
+
+  it('shows the no-wear-data state separately from the empty state', () => {
+    dashboardAdapterMock.mockReturnValue(baseViewModel({
+      state: 'no-wear-data',
+      behavior: {
+        ...baseViewModel().behavior,
+        streak: 0,
+        consistency: 0,
       },
-      insights: {
-        usageRate: 0,
-        totalGarments: 0,
-        garmentsUsedLast30Days: 0,
-        topFiveWorn: [],
-        unusedGarments: [],
-        usedGarments: [],
-      },
-      dna: null,
-      sustainability: null,
-      colorBreakdown: { total: 0, entries: [], bars: [] },
-      isPremium: false,
-      isLoading: false,
-      isRefreshing: false,
-    });
+    }));
 
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Style Intelligence' })).toBeInTheDocument();
-    expect(screen.getByTestId('insights-empty')).toBeInTheDocument();
-  }, 10000);
+    expect(screen.getByText('Your wardrobe is ready, but wear history is still quiet')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open planner' })).toBeInTheDocument();
+  });
+
+  it('renders palette details and category balance from the adapter model', () => {
+    renderPage();
+
+    expect(screen.getByTestId('palette-section')).toBeInTheDocument();
+    expect(screen.getAllByText('Black').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Navy').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('category-balance-section')).toBeInTheDocument();
+    expect(screen.getAllByText('Tops').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Trousers').length).toBeGreaterThan(0);
+  });
+
+  it('renders the behavior section with the heatmap and repeat signals', () => {
+    renderPage();
+
+    expect(screen.getByTestId('behavior-heatmap')).toBeInTheDocument();
+    expect(screen.getByText('Office look')).toBeInTheDocument();
+    expect(screen.getByText('Dinner look')).toBeInTheDocument();
+  });
+
+  it('renders the value section with total value and best or worst cost-per-wear', () => {
+    renderPage();
+
+    expect(screen.getByText('$1,850')).toBeInTheDocument();
+    expect(screen.getByText('$12.50')).toBeInTheDocument();
+    expect(screen.getAllByText('Statement Coat').length).toBeGreaterThan(0);
+  });
+
+  it('routes the forgotten piece CTA into the styling flow', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Style forgotten piece' }));
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/ai/chat?selectedGarmentId=garment-forgotten&garments=garment-forgotten',
+      expect.objectContaining({
+        state: expect.objectContaining({
+          selectedGarmentId: 'garment-forgotten',
+          prefillMessage: 'Style around this garment and build a complete look around it.',
+        }),
+      }),
+    );
+  });
+
+  it('shows premium gating elegantly and routes to pricing from a locked section', () => {
+    dashboardAdapterMock.mockReturnValue(baseViewModel({
+      isPremium: false,
+      palette: { ...baseViewModel().palette, locked: true },
+      behavior: { ...baseViewModel().behavior, locked: true },
+      value: { ...baseViewModel().value, locked: true },
+      upgrade: {
+        show: true,
+        title: 'Unlock premium depth',
+        detail: 'See richer palette, behavior, and value analysis.',
+        cta: 'View premium',
+      },
+    }));
+
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'View premium' })[0]);
+
+    expect(screen.getAllByText('Premium depth').length).toBeGreaterThan(0);
+    expect(navigateMock).toHaveBeenCalledWith('/pricing');
+  });
+
+  it('routes the gap action CTA into the gaps flow with autorun enabled', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Open gap scan' }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/gaps?autorun=1');
+  });
 
   it('switches key page copy between English and Swedish', () => {
     const { rerender } = renderPage();
@@ -233,5 +431,5 @@ describe('Insights page', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Stilintelligens' })).toBeInTheDocument();
     expect(screen.getByText('Din garderob, avkodad')).toBeInTheDocument();
-  }, 10000);
+  });
 });
