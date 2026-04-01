@@ -163,46 +163,59 @@ export function HomePageSkeleton() {
 export function InsightsPageSkeleton() {
   return (
     <div className="page-shell page-cluster !pt-4">
-      {/* Usage ring */}
       <StaggerIn index={0}>
-        <div className="surface-editorial flex flex-col items-center gap-5 p-6">
-          <Skeleton className="w-[140px] h-[140px] rounded-full" />
+        <div className="surface-editorial rounded-[1.75rem] p-6 space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-10 w-72" />
+              <Skeleton className="h-4 w-80" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-10 w-28 rounded-full" />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.7fr]">
+            <Skeleton className="h-40 rounded-[1.3rem]" />
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32 rounded-[1.2rem]" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={1}>
+        <div className="space-y-3">
           <Skeleton className="h-3 w-24" />
-          <div className="flex items-center w-full gap-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <Skeleton className="h-7 w-10" />
-                <Skeleton className="h-2.5 w-12" />
-              </div>
+          <Skeleton className="h-8 w-60" />
+          <Skeleton className="h-4 w-80" />
+          <div className="surface-secondary rounded-[1.6rem] p-5 grid gap-4 lg:grid-cols-2">
+            <Skeleton className="h-72 rounded-[1.2rem]" />
+            <div className="space-y-4">
+              <Skeleton className="h-32 rounded-[1.2rem]" />
+              <Skeleton className="h-32 rounded-[1.2rem]" />
+            </div>
+          </div>
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={2}>
+        <div className="surface-secondary rounded-[1.6rem] p-5 grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-64 rounded-[1.2rem]" />
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-[1.2rem]" />
             ))}
           </div>
         </div>
       </StaggerIn>
-      {/* Top worn */}
-      <StaggerIn index={1}>
-        <div className="surface-secondary rounded-[1.35rem] p-4 space-y-4">
-          <Skeleton className="h-3 w-28" />
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex items-center gap-3 py-3">
-              <Skeleton className="w-6 h-4" />
-              <Skeleton className="w-12 h-14 rounded-xl" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/3" />
-              </div>
-              <Skeleton className="h-5 w-8 rounded-full" />
-            </div>
-          ))}
-        </div>
-      </StaggerIn>
-      {/* Color bar */}
-      <StaggerIn index={2}>
-        <div className="surface-secondary rounded-[1.35rem] p-4 space-y-4">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-3 w-full rounded-full" />
-          <div className="grid grid-cols-2 gap-2">
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="h-3 w-full" />
+
+      <StaggerIn index={3}>
+        <div className="surface-secondary rounded-[1.6rem] p-5">
+          <div className="grid gap-3 lg:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-40 rounded-[1.2rem]" />
             ))}
           </div>
         </div>
