@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const TONE_CLASS: Record<InsightsActionItem['tone'], string> = {
-  neutral: 'bg-background/62',
-  positive: 'bg-emerald-400/8',
-  warning: 'bg-amber-400/10',
+  neutral: 'bg-foreground/40',
+  positive: 'bg-foreground/54',
+  warning: 'bg-foreground/66',
 };
 
 export function InsightsActionCenter({
@@ -22,37 +22,31 @@ export function InsightsActionCenter({
     <InsightsSection
       id="action-center"
       eyebrow="Action center"
-      title="What to do next, based on the wardrobe you actually have."
-      description="Insights only matters if it moves the user forward. Every action here is anchored to a real signal from the dashboard."
+      title="What to do next"
     >
-      <div className="surface-secondary rounded-[1.6rem] p-5 sm:p-6">
-        <div className="grid gap-3 lg:grid-cols-2" data-testid="action-center">
-          {actions.map((action) => (
-            <div
-              key={action.id}
-              className={cn('rounded-[1.2rem] border border-border/45 p-4', TONE_CLASS[action.tone])}
-            >
-              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/64">
-                Recommended move
-              </p>
-              <h3 className="mt-3 text-[1rem] font-semibold tracking-[-0.03em] text-foreground">
+      <div className="divide-y divide-border/35" data-testid="action-center">
+        {actions.map((action) => (
+          <div key={action.id} className="grid gap-4 py-4 sm:grid-cols-[10px_minmax(0,1fr)_auto] sm:items-center sm:gap-5">
+            <div className={cn('hidden h-10 rounded-full sm:block', TONE_CLASS[action.tone])} />
+            <div className="space-y-1">
+              <h3 className="text-[0.98rem] font-medium tracking-[-0.03em] text-foreground">
                 {action.title}
               </h3>
-              <p className="mt-2 text-[0.88rem] leading-6 text-muted-foreground">
+              <p className="text-[0.86rem] leading-6 text-muted-foreground">
                 {action.detail}
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4 rounded-full px-4"
-                onClick={() => onAction(action)}
-              >
-                {action.cta}
-                <ArrowRight className="size-4" />
-              </Button>
             </div>
-          ))}
-        </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-self-start rounded-full px-4 sm:justify-self-end"
+              onClick={() => onAction(action)}
+            >
+              {action.cta}
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        ))}
       </div>
     </InsightsSection>
   );

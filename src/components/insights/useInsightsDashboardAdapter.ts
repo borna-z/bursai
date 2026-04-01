@@ -100,7 +100,6 @@ type ActionTarget =
   | { kind: 'pricing' }
   | { kind: 'gaps'; autorun?: boolean }
   | { kind: 'outfit'; outfitId: string }
-  | { kind: 'plan'; dormantGarmentIds?: string[] }
   | { kind: 'style-garment'; garmentId: string }
   | { kind: 'generate-garments'; garmentIds: string[] };
 
@@ -126,10 +125,17 @@ export interface InsightsFormulaEntry {
   count: number;
 }
 
+export interface InsightsMetricRail {
+  label: string;
+  value: number;
+  max: number;
+}
+
 export interface InsightsMetric {
   label: string;
   value: string;
   hint: string;
+  rails: InsightsMetricRail[];
 }
 
 export interface InsightsActionItem {
@@ -139,6 +145,11 @@ export interface InsightsActionItem {
   cta: string;
   tone: 'neutral' | 'positive' | 'warning';
   target: ActionTarget;
+}
+
+interface InsightsValueSpotlight extends InsightsSpotlightGarment {
+  cpwLabel: string;
+  cpwValue: number;
 }
 
 export interface InsightsDashboardViewModel {
@@ -156,9 +167,11 @@ export interface InsightsDashboardViewModel {
   style: {
     ready: boolean;
     archetype: string;
-    detail: string;
+    caption: string;
     formalityLabel: string;
     formalityValue: string;
+    formalityCenter: number | null;
+    formalitySpread: StyleDNA['formalitySpread'] | null;
     signatureColors: InsightsColorEntry[];
     formulas: InsightsFormulaEntry[];
     patterns: Array<{ label: string; strength: number; detail: string }>;
@@ -169,6 +182,7 @@ export interface InsightsDashboardViewModel {
     warmCount: number;
     coolCount: number;
     neutralCount: number;
+    totalCount: number;
     entries: InsightsColorEntry[];
     bars: InsightsColorEntry[];
     locked: boolean;
@@ -176,9 +190,6 @@ export interface InsightsDashboardViewModel {
   behavior: {
     streak: number;
     consistency: number;
-    cadenceLabel: string;
-    repeatLead: DashboardRepeatOutfit | null;
-    staleLead: DashboardStaleOutfit | null;
     repeats: DashboardRepeatOutfit[];
     staleOutfits: DashboardStaleOutfit[];
     heatmapDays: DashboardHeatmapDay[];
@@ -195,6 +206,7 @@ export interface InsightsDashboardViewModel {
     topPerformers: InsightsSpotlightGarment[];
     usedCount: number;
     unusedCount: number;
+    totalCount: number;
     pressureLabel: string;
     pressureDetail: string;
   };
@@ -202,11 +214,13 @@ export interface InsightsDashboardViewModel {
     hasSpendData: boolean;
     totalValue: string;
     avgCostPerWear: string;
-    bestCostPerWear: (InsightsSpotlightGarment & { cpwLabel: string }) | null;
-    worstCostPerWear: (InsightsSpotlightGarment & { cpwLabel: string }) | null;
+    bestCostPerWear: InsightsValueSpotlight | null;
+    worstCostPerWear: InsightsValueSpotlight | null;
     sustainabilityScore: number | null;
     utilizationLabel: string;
     efficiencyLabel: string;
+    utilizationRate: number | null;
+    avgWearCount: number | null;
     locked: boolean;
   };
   actions: InsightsActionItem[];
@@ -250,44 +264,13 @@ function colorSwatch(value: string) {
   return COLOR_SWATCHES[value.toLowerCase().trim()] ?? '#8b8b89';
 }
 
-function formalitySummary(dna: StyleDNA | null) {
-  if (!dna) {
-    return {
-      label: 'Still forming',
-      value: 'Need more repeat wear',
-    };
-  }
-
-  const spreadLabel = dna.formalitySpread === 'narrow'
-    ? 'Focused range'
-    : dna.formalitySpread === 'wide'
-      ? 'Wide range'
-      : 'Balanced range';
-
-  const centerLabel = dna.formalityCenter <= 2.5
-    ? 'Leans relaxed'
-    : dna.formalityCenter >= 3.8
-      ? 'Leans polished'
-      : 'Moves across casual and elevated';
-
-  return {
-    label: spreadLabel,
-    value: `${centerLabel} · ${dna.formalityCenter.toFixed(1)}/5`,
-  };
-}
-
-function dominantPaletteLabel(dominantPalette: InsightsDashboardData['wardrobeHealth']['colorTemperature']['dominantPalette']) {
+function dominantPaletteLabel(
+  dominantPalette: InsightsDashboardData['wardrobeHealth']['colorTemperature']['dominantPalette'],
+) {
   if (dominantPalette === 'warm') return 'Warm-led palette';
   if (dominantPalette === 'cool') return 'Cool-led palette';
   if (dominantPalette === 'neutral') return 'Neutral-led palette';
   return 'Balanced palette';
-}
-
-function cadenceLabel(consistency: number, streak: number) {
-  if (streak >= 7) return 'Strong current rhythm';
-  if (consistency >= 60) return 'Consistent weekly wear';
-  if (consistency >= 35) return 'Building better cadence';
-  return 'Low recent cadence';
 }
 
 function buildColorEntries(garments: Garment[]) {
@@ -354,43 +337,78 @@ function getGeneratedAtLabel(timestamp: string | null | undefined, locale = 'en'
   }
 }
 
+function formatShortDate(value: string | null | undefined, locale = 'en') {
+  if (!value) return 'Not worn recently';
+
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
 function buildHeroSummary(dashboard: InsightsDashboardData, styleDna: StyleDNA | null) {
   const usageRate = dashboard.overview.usageRate;
   const dormantCount = dashboard.wardrobeHealth.unusedGarments.length;
-  const savedLooks = dashboard.overview.savedLooks;
+  const leadFormula = styleDna?.uniformCombos[0];
 
   if (dashboard.overview.garmentsUsedLast30Days === 0) {
-    return 'Your wardrobe is loaded. Start logging wears to reveal formulas, pressure points, and value.';
+    return 'Start logging wear to unlock behavior, formulas, and value.';
   }
 
-  if (styleDna?.archetype && dormantCount > 0) {
-    return `${styleDna.archetype} energy is coming through, but ${dormantCount} pieces are sitting dormant and ready for rotation.`;
+  if (dormantCount > 0) {
+    return `${dormantCount} pieces are dormant right now and ready for rotation.`;
   }
 
-  if (usageRate >= 60) {
-    return `Your wardrobe is working with real momentum: ${usageRate}% of pieces were active in the last 30 days.`;
+  if (leadFormula) {
+    return `${leadFormula.combo.join(' + ')} is the clearest formula in your wardrobe.`;
   }
 
-  if (savedLooks > 0) {
-    return `${savedLooks} saved looks are in the system. The next unlock is getting more of the wardrobe into regular use.`;
+  if (usageRate > 0) {
+    return `${usageRate}% of the wardrobe was active in the last 30 days.`;
   }
 
-  return 'The foundation is there. A few sharper rotations will make the wardrobe feel more intentional and versatile.';
+  return 'Wear history is starting to take shape.';
 }
 
-function buildStyleDetail(dna: StyleDNA | null) {
+function buildStyleCaption(dna: StyleDNA | null) {
+  if (!dna) return 'Style DNA appears once enough outfits repeat.';
+  if (dna.patterns[0]?.detail) return dna.patterns[0].detail;
+  if (dna.uniformCombos[0]) return `${dna.uniformCombos[0].combo.join(' + ')} repeats ${dna.uniformCombos[0].count} times.`;
+  return `${dna.archetype} is starting to emerge through repeat wear.`;
+}
+
+function formalitySummary(dna: StyleDNA | null) {
   if (!dna) {
-    return 'Wear history is still too light to decode a stable signature. A few more repeats will make the identity sharper.';
+    return {
+      label: 'Still forming',
+      value: 'Need more repeat wear',
+      center: null,
+      spread: null,
+    };
   }
 
-  const leadingPattern = dna.patterns[0]?.detail;
-  if (leadingPattern) return leadingPattern;
+  const spreadLabel = dna.formalitySpread === 'narrow'
+    ? 'Focused range'
+    : dna.formalitySpread === 'wide'
+      ? 'Wide range'
+      : 'Balanced range';
 
-  if (dna.uniformCombos[0]) {
-    return `${dna.uniformCombos[0].combo.join(' + ')} is already repeating enough to count as a real formula.`;
-  }
+  const centerLabel = dna.formalityCenter <= 2.5
+    ? 'Leans relaxed'
+    : dna.formalityCenter >= 3.8
+      ? 'Leans polished'
+      : 'Moves across casual and elevated';
 
-  return `${dna.archetype} is emerging through color, silhouette, and repeat behavior.`;
+  return {
+    label: spreadLabel,
+    value: `${centerLabel} / ${dna.formalityCenter.toFixed(1)} of 5`,
+    center: dna.formalityCenter,
+    spread: dna.formalitySpread,
+  };
 }
 
 function buildPressureDetail(dashboard: InsightsDashboardData) {
@@ -401,35 +419,37 @@ function buildPressureDetail(dashboard: InsightsDashboardData) {
   if (total === 0) {
     return {
       label: 'No wardrobe data yet',
-      detail: 'Add garments to start balancing categories and rotation.',
+      detail: 'Add garments to read balance and rotation.',
     };
   }
 
   if (unused / total >= 0.45) {
     return {
       label: 'High dormant share',
-      detail: `${unused} pieces have not been worn in the last 30 days, which is suppressing wardrobe efficiency.`,
+      detail: `${unused} of ${total} pieces are currently inactive.`,
     };
   }
 
   if (topCategory && topCategory.percentage >= 35) {
     return {
       label: 'Category concentration',
-      detail: `${categoryLabel(topCategory.name)} makes up ${topCategory.percentage}% of the wardrobe, which may be crowding out balance.`,
+      detail: `${categoryLabel(topCategory.name)} holds ${topCategory.percentage}% of the wardrobe.`,
     };
   }
 
   return {
     label: 'Healthy spread',
-    detail: 'Coverage and rotation look reasonably balanced, with room to sharpen underused areas.',
+    detail: 'Rotation and coverage are reasonably balanced.',
   };
 }
 
-function buildActions(dashboard: InsightsDashboardData, viewModel: Omit<InsightsDashboardViewModel, 'actions' | 'upgrade' | 'state' | 'isPremium' | 'isRefreshing' | 'generatedAtLabel'>): InsightsActionItem[] {
+function buildActions(
+  dashboard: InsightsDashboardData,
+  viewModel: Omit<InsightsDashboardViewModel, 'actions' | 'upgrade' | 'state' | 'isPremium' | 'isRefreshing' | 'generatedAtLabel'>,
+): InsightsActionItem[] {
   const forgotten = dashboard.wardrobeHealth.forgottenGems[0] ?? dashboard.wardrobeHealth.unusedGarments[0] ?? null;
   const underusedIds = dashboard.wardrobeHealth.unusedGarments.slice(0, 6).map((garment) => garment.id);
   const staleOutfit = dashboard.behavior.staleOutfits[0] ?? null;
-  const weakCadence = dashboard.behavior.consistency < 40 || dashboard.behavior.streak < 3;
   const gapPressure = viewModel.health.pressureLabel !== 'Healthy spread';
 
   const actions: InsightsActionItem[] = [];
@@ -438,7 +458,7 @@ function buildActions(dashboard: InsightsDashboardData, viewModel: Omit<Insights
     actions.push({
       id: 'forgotten-piece',
       title: `Style ${forgotten.title || 'a forgotten piece'}`,
-      detail: 'Bring a dormant garment back into the rotation with a look built around it.',
+      detail: 'Bring one dormant garment back into rotation.',
       cta: 'Style forgotten piece',
       tone: 'warning',
       target: { kind: 'style-garment', garmentId: forgotten.id },
@@ -449,7 +469,7 @@ function buildActions(dashboard: InsightsDashboardData, viewModel: Omit<Insights
     actions.push({
       id: 'underused-generation',
       title: 'Generate from underused pieces',
-      detail: 'Use dormant garments as the starting point instead of defaulting to the same staples.',
+      detail: 'Start with dormant garments instead of the usual staples.',
       cta: 'Generate outfits',
       tone: 'neutral',
       target: { kind: 'generate-garments', garmentIds: underusedIds },
@@ -460,7 +480,7 @@ function buildActions(dashboard: InsightsDashboardData, viewModel: Omit<Insights
     actions.push({
       id: 'stale-outfit',
       title: `Rotate ${staleOutfit.occasion}`,
-      detail: `One saved look has been untouched for ${staleOutfit.daysSince} days and is ready for a fresh pass.`,
+      detail: `${staleOutfit.daysSince} days since this saved outfit was last worn.`,
       cta: 'Open stale outfit',
       tone: 'neutral',
       target: { kind: 'outfit', outfitId: staleOutfit.id },
@@ -471,36 +491,91 @@ function buildActions(dashboard: InsightsDashboardData, viewModel: Omit<Insights
     actions.push({
       id: 'gap-scan',
       title: 'Fill wardrobe gaps',
-      detail: 'Run the gaps tool to identify the missing category or silhouette that would add the most lift.',
+      detail: 'Run the gap scan to find the category or silhouette under pressure.',
       cta: 'Open gap scan',
       tone: 'warning',
       target: { kind: 'gaps', autorun: true },
     });
   }
 
-  if (weakCadence) {
-    actions.push({
-      id: 'plan-week',
-      title: 'Plan this week around underused pieces',
-      detail: 'A more deliberate weekly plan will raise consistency without buying anything new.',
-      cta: 'Open planner',
-      tone: 'positive',
-      target: { kind: 'plan', dormantGarmentIds: underusedIds },
-    });
-  }
+  return actions.slice(0, 4);
+}
 
-  if (actions.length < 4) {
-    actions.push({
-      id: 'refresh-rotation',
-      title: 'Sharpen your next rotation',
-      detail: 'Use saved looks and your strongest formula to build a tighter week ahead.',
-      cta: 'Plan next looks',
-      tone: 'neutral',
-      target: { kind: 'plan', dormantGarmentIds: underusedIds },
-    });
-  }
-
-  return actions.slice(0, 5);
+function createLoadingViewModel(isPremium: boolean, isRefreshing: boolean): InsightsDashboardViewModel {
+  return {
+    state: 'loading',
+    isPremium,
+    isRefreshing,
+    generatedAtLabel: null,
+    hero: {
+      score: 0,
+      summary: '',
+      eyebrow: 'Wardrobe intelligence',
+      title: 'Wardrobe operating view.',
+      metrics: [],
+    },
+    style: {
+      ready: false,
+      archetype: 'Style DNA',
+      caption: '',
+      formalityLabel: 'Still forming',
+      formalityValue: 'Need more wear data',
+      formalityCenter: null,
+      formalitySpread: null,
+      signatureColors: [],
+      formulas: [],
+      patterns: [],
+    },
+    palette: {
+      summary: '',
+      dominantLabel: 'Balanced palette',
+      warmCount: 0,
+      coolCount: 0,
+      neutralCount: 0,
+      totalCount: 0,
+      entries: [],
+      bars: [],
+      locked: !isPremium,
+    },
+    behavior: {
+      streak: 0,
+      consistency: 0,
+      repeats: [],
+      staleOutfits: [],
+      heatmapDays: [],
+      locked: !isPremium,
+    },
+    health: {
+      categoryBalance: [],
+      forgottenGems: [],
+      topPerformers: [],
+      usedCount: 0,
+      unusedCount: 0,
+      totalCount: 0,
+      pressureLabel: 'Loading',
+      pressureDetail: '',
+    },
+    value: {
+      hasSpendData: false,
+      totalValue: 'Unavailable',
+      avgCostPerWear: 'Unavailable',
+      bestCostPerWear: null,
+      worstCostPerWear: null,
+      sustainabilityScore: null,
+      utilizationLabel: 'Unavailable',
+      efficiencyLabel: 'Unavailable',
+      utilizationRate: null,
+      avgWearCount: null,
+      locked: !isPremium,
+    },
+    actions: [],
+    upgrade: {
+      show: !isPremium,
+      title: 'Unlock premium depth',
+      detail: 'Open richer behavior, palette, and value diagnostics once you upgrade.',
+      cta: 'View premium',
+    },
+  };
 }
 
 export function createInsightsDashboardViewModel({
@@ -512,93 +587,16 @@ export function createInsightsDashboardViewModel({
   locale = 'en',
 }: BuildViewModelParams): InsightsDashboardViewModel {
   if (isLoading) {
-    return {
-      state: 'loading',
-      isPremium,
-      isRefreshing,
-      generatedAtLabel: null,
-      hero: {
-        score: 0,
-        summary: '',
-        eyebrow: 'Wardrobe intelligence',
-        title: 'Insights',
-        metrics: [],
-      },
-      style: {
-        ready: false,
-        archetype: 'Style DNA',
-        detail: '',
-        formalityLabel: 'Still forming',
-        formalityValue: 'Need more wear data',
-        signatureColors: [],
-        formulas: [],
-        patterns: [],
-      },
-      palette: {
-        summary: '',
-        dominantLabel: 'Balanced palette',
-        warmCount: 0,
-        coolCount: 0,
-        neutralCount: 0,
-        entries: [],
-        bars: [],
-        locked: !isPremium,
-      },
-      behavior: {
-        streak: 0,
-        consistency: 0,
-        cadenceLabel: 'Loading',
-        repeatLead: null,
-        staleLead: null,
-        repeats: [],
-        staleOutfits: [],
-        heatmapDays: [],
-        locked: !isPremium,
-      },
-      health: {
-        categoryBalance: [],
-        forgottenGems: [],
-        topPerformers: [],
-        usedCount: 0,
-        unusedCount: 0,
-        pressureLabel: 'Loading',
-        pressureDetail: '',
-      },
-      value: {
-        hasSpendData: false,
-        totalValue: 'Unavailable',
-        avgCostPerWear: 'Unavailable',
-        bestCostPerWear: null,
-        worstCostPerWear: null,
-        sustainabilityScore: null,
-        utilizationLabel: 'Unavailable',
-        efficiencyLabel: 'Unavailable',
-        locked: !isPremium,
-      },
-      actions: [],
-      upgrade: {
-        show: !isPremium,
-        title: 'Unlock premium depth',
-        detail: 'Open richer behavior, palette, and value breakdowns once you upgrade.',
-        cta: 'View premium',
-      },
-    };
+    return createLoadingViewModel(isPremium, isRefreshing);
   }
 
   if (hasError && !dashboard) {
     return {
-      ...createInsightsDashboardViewModel({
-        dashboard: null,
-        isPremium,
-        isLoading: false,
-        isRefreshing,
-        hasError: false,
-        locale,
-      }),
+      ...createLoadingViewModel(isPremium, isRefreshing),
       state: 'error',
       hero: {
         score: 0,
-        summary: 'Insights could not be refreshed right now. Pull to refresh and we will try again.',
+        summary: 'Insights could not be refreshed right now. Pull to refresh and try again.',
         eyebrow: 'Wardrobe intelligence',
         title: 'Insights unavailable',
         metrics: [],
@@ -608,18 +606,11 @@ export function createInsightsDashboardViewModel({
 
   if (!dashboard || dashboard.overview.totalGarments === 0) {
     return {
-      ...createInsightsDashboardViewModel({
-        dashboard: null,
-        isPremium,
-        isLoading: false,
-        isRefreshing,
-        hasError: false,
-        locale,
-      }),
+      ...createLoadingViewModel(isPremium, isRefreshing),
       state: 'empty',
       hero: {
         score: 0,
-        summary: 'Add a wardrobe first. Insights becomes useful once BURS can read your real closet.',
+        summary: 'Add a wardrobe first. Insights starts once BURS can read your real closet.',
         eyebrow: 'Wardrobe intelligence',
         title: 'No wardrobe yet',
         metrics: [],
@@ -630,7 +621,9 @@ export function createInsightsDashboardViewModel({
   const styleDna = dashboard.styleDna;
   const allGarments = [
     ...dashboard.wardrobeHealth.usedGarments,
-    ...dashboard.wardrobeHealth.unusedGarments.filter((garment) => !dashboard.wardrobeHealth.usedGarments.some((used) => used.id === garment.id)),
+    ...dashboard.wardrobeHealth.unusedGarments.filter(
+      (garment) => !dashboard.wardrobeHealth.usedGarments.some((used) => used.id === garment.id),
+    ),
   ];
   const paletteEntries = buildColorEntries(allGarments);
   const formality = formalitySummary(styleDna);
@@ -642,6 +635,8 @@ export function createInsightsDashboardViewModel({
   const avgCostPerWear = spending && totalWearsAcrossPriced > 0
     ? spending.totalValue / totalWearsAcrossPriced
     : null;
+  const formulaCount = styleDna?.uniformCombos.length ?? 0;
+  const looksToFormulaMax = Math.max(dashboard.overview.savedLooks, formulaCount, 1);
 
   const bestCostPerWear = spending?.topCostPerWear[0]
     ? {
@@ -651,6 +646,7 @@ export function createInsightsDashboardViewModel({
         meta: formatCurrency(spending.topCostPerWear[0].price, currency, locale),
       })!,
       cpwLabel: formatCurrency(spending.topCostPerWear[0].cpw, currency, locale),
+      cpwValue: spending.topCostPerWear[0].cpw,
     }
     : null;
 
@@ -662,6 +658,7 @@ export function createInsightsDashboardViewModel({
         meta: formatCurrency(spending.worstCostPerWear[0].price, currency, locale),
       })!,
       cpwLabel: formatCurrency(spending.worstCostPerWear[0].cpw, currency, locale),
+      cpwValue: spending.worstCostPerWear[0].cpw,
     }
     : null;
 
@@ -670,31 +667,59 @@ export function createInsightsDashboardViewModel({
       score: dashboard.value.sustainability?.score ?? dashboard.overview.usageRate,
       summary: buildHeroSummary(dashboard, styleDna),
       eyebrow: 'Wardrobe intelligence',
-      title: 'A clearer read on how your wardrobe behaves.',
+      title: 'Wardrobe operating view.',
       metrics: [
         {
           label: 'Active 30d',
           value: `${dashboard.overview.garmentsUsedLast30Days}/${dashboard.overview.totalGarments}`,
           hint: 'Pieces in active rotation',
+          rails: [
+            {
+              label: 'Active',
+              value: dashboard.overview.garmentsUsedLast30Days,
+              max: Math.max(dashboard.overview.totalGarments, 1),
+            },
+          ],
         },
         {
           label: 'Usage rate',
           value: `${dashboard.overview.usageRate}%`,
           hint: 'Wardrobe touched in the last month',
+          rails: [
+            {
+              label: 'Usage',
+              value: dashboard.overview.usageRate,
+              max: 100,
+            },
+          ],
         },
         {
           label: 'Looks / formulas',
-          value: `${dashboard.overview.savedLooks} / ${styleDna?.uniformCombos.length ?? 0}`,
+          value: `${dashboard.overview.savedLooks} / ${formulaCount}`,
           hint: 'Saved looks and recurring formulas',
+          rails: [
+            {
+              label: 'Looks',
+              value: dashboard.overview.savedLooks,
+              max: looksToFormulaMax,
+            },
+            {
+              label: 'Formulas',
+              value: formulaCount,
+              max: looksToFormulaMax,
+            },
+          ],
         },
       ],
     },
     style: {
       ready: Boolean(styleDna),
       archetype: styleDna?.archetype ?? 'Style DNA still forming',
-      detail: buildStyleDetail(styleDna),
+      caption: buildStyleCaption(styleDna),
       formalityLabel: formality.label,
       formalityValue: formality.value,
+      formalityCenter: formality.center,
+      formalitySpread: formality.spread,
       signatureColors: (styleDna?.signatureColors ?? paletteEntries).slice(0, 5).map((entry) => ({
         color: entry.color,
         label: colorLabel(entry.color),
@@ -702,18 +727,19 @@ export function createInsightsDashboardViewModel({
         percentage: entry.percentage,
         swatch: colorSwatch(entry.color),
       })),
-      formulas: (styleDna?.uniformCombos ?? []).slice(0, 3).map((formula) => ({
+      formulas: (styleDna?.uniformCombos ?? []).slice(0, 4).map((formula) => ({
         label: formula.combo.join(' + '),
         count: formula.count,
       })),
       patterns: (styleDna?.patterns ?? []).slice(0, 4),
     },
     palette: {
-      summary: `${dominantPaletteLabel(dashboard.wardrobeHealth.colorTemperature.dominantPalette)} with ${paletteEntries[0]?.label?.toLowerCase() ?? 'neutral tones'} leading the mix.`,
+      summary: `${dominantPaletteLabel(dashboard.wardrobeHealth.colorTemperature.dominantPalette)} with ${paletteEntries[0]?.label?.toLowerCase() ?? 'neutral tones'} leading.`,
       dominantLabel: dominantPaletteLabel(dashboard.wardrobeHealth.colorTemperature.dominantPalette),
       warmCount: dashboard.wardrobeHealth.colorTemperature.warmCount,
       coolCount: dashboard.wardrobeHealth.colorTemperature.coolCount,
       neutralCount: dashboard.wardrobeHealth.colorTemperature.neutralCount,
+      totalCount: allGarments.length,
       entries: paletteEntries,
       bars: paletteEntries.slice(0, 5),
       locked: !isPremium,
@@ -721,9 +747,6 @@ export function createInsightsDashboardViewModel({
     behavior: {
       streak: dashboard.behavior.streak,
       consistency: dashboard.behavior.consistency,
-      cadenceLabel: cadenceLabel(dashboard.behavior.consistency, dashboard.behavior.streak),
-      repeatLead: dashboard.behavior.repeats[0] ?? null,
-      staleLead: dashboard.behavior.staleOutfits[0] ?? null,
       repeats: dashboard.behavior.repeats.slice(0, 4),
       staleOutfits: dashboard.behavior.staleOutfits.slice(0, 4),
       heatmapDays: dashboard.behavior.heatmapDays,
@@ -737,7 +760,7 @@ export function createInsightsDashboardViewModel({
       forgottenGems: dashboard.wardrobeHealth.forgottenGems.slice(0, 3).map((garment) => garmentSpotlight(garment, {
         eyebrow: 'Forgotten gem',
         detail: categoryLabel(garment.category),
-        meta: garment.last_worn_at ? `Last worn ${garment.last_worn_at}` : 'Not worn recently',
+        meta: `Last worn ${formatShortDate(garment.last_worn_at, locale)}`,
       })!).filter(Boolean),
       topPerformers: dashboard.wardrobeHealth.topFiveWorn.slice(0, 3).map((garment) => garmentSpotlight(garment, {
         eyebrow: 'Top performer',
@@ -746,18 +769,21 @@ export function createInsightsDashboardViewModel({
       })!).filter(Boolean),
       usedCount: dashboard.wardrobeHealth.usedGarments.length,
       unusedCount: dashboard.wardrobeHealth.unusedGarments.length,
+      totalCount: dashboard.overview.totalGarments,
       pressureLabel: pressure.label,
       pressureDetail: pressure.detail,
     },
     value: {
       hasSpendData: Boolean(spending),
-      totalValue: spending ? formatCurrency(spending.totalValue, currency, locale) : 'No purchase data yet',
+      totalValue: spending ? formatCurrency(spending.totalValue, currency, locale) : 'No price history yet',
       avgCostPerWear: avgCostPerWear != null ? formatCurrency(avgCostPerWear, currency, locale) : 'Need price and wear data',
       bestCostPerWear,
       worstCostPerWear,
       sustainabilityScore: dashboard.value.sustainability?.score ?? null,
       utilizationLabel: dashboard.value.sustainability ? `${dashboard.value.sustainability.utilizationRate}% active` : 'Need wear data',
       efficiencyLabel: dashboard.value.sustainability ? `${dashboard.value.sustainability.avgWearCount.toFixed(1)} average wears` : 'Need wear data',
+      utilizationRate: dashboard.value.sustainability?.utilizationRate ?? null,
+      avgWearCount: dashboard.value.sustainability?.avgWearCount ?? null,
       locked: !isPremium,
     },
   };
@@ -772,7 +798,7 @@ export function createInsightsDashboardViewModel({
     upgrade: {
       show: !isPremium,
       title: 'Unlock premium depth',
-      detail: 'See repeat risk, stale outfit detail, and deeper value diagnostics without leaving Insights.',
+      detail: 'See deeper palette, behavior, and value context without leaving Insights.',
       cta: 'View premium',
     },
   };
