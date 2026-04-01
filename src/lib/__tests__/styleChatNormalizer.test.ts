@@ -216,4 +216,28 @@ describe("styleChatNormalizer", () => {
     expect(reply.outfitIds).toEqual([]);
     expect(reply.outfitTag).toBeNull();
   });
+
+  it('keeps a locked selected garment in the deterministic rescue outfit across refinements', () => {
+    const fallbackIds = buildStyleChatFallbackOutfitIds(
+      [OUTERWEAR, TOP, BOTTOM, SHOES, ALT_SHOES],
+      OUTERWEAR,
+      {
+        summary: `${OUTERWEAR.title} + ${TOP.title} + ${BOTTOM.title} + ${SHOES.title}`,
+        garmentIds: [OUTERWEAR.id, TOP.id, BOTTOM.id, SHOES.id],
+        source: 'frontend_active_look',
+        garmentLines: [],
+      },
+      {
+        lockedGarmentIds: [OUTERWEAR.id],
+        requestedEditSlots: ['shoes'],
+        preferGarmentIds: [OUTERWEAR.id, TOP.id, BOTTOM.id, ALT_SHOES.id],
+      },
+    );
+
+    expect(fallbackIds).toContain(OUTERWEAR.id);
+    expect(fallbackIds).toContain(TOP.id);
+    expect(fallbackIds).toContain(BOTTOM.id);
+    expect(fallbackIds).toContain(ALT_SHOES.id);
+    expect(fallbackIds).not.toContain(SHOES.id);
+  });
 });

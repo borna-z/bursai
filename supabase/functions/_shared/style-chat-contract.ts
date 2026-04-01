@@ -8,7 +8,13 @@ export type StylistChatMode =
   | "LOOK_EXPLANATION"
   | "PLANNING";
 
-export type StyleChatActiveLookStatus = "none" | "new" | "preserved" | "updated";
+export type StyleChatCardPolicy = "required" | "preserve_if_exists" | "optional";
+
+export type StyleChatCardState = "new" | "updated" | "preserved" | "unavailable";
+
+export type StyleChatResponseKind = "style_result" | "style_explanation" | "style_repair" | "analysis";
+
+export type StyleChatActiveLookStatus = "new" | "preserved" | "updated" | "replaced" | "unavailable";
 
 export interface StyleChatActiveLookInput {
   garment_ids?: string[];
@@ -16,9 +22,22 @@ export interface StyleChatActiveLookInput {
   source?: string | null;
 }
 
+export interface StyleChatResolvedActiveLook {
+  garment_ids: string[];
+  explanation: string | null;
+  source: string | null;
+  status: StyleChatActiveLookStatus;
+  card_state: StyleChatCardState;
+  anchor_garment_id: string | null;
+  anchor_locked: boolean;
+}
+
 export interface StyleChatResponseEnvelope {
   kind: "stylist_response";
   mode: StylistChatMode;
+  response_kind: StyleChatResponseKind;
+  card_policy: StyleChatCardPolicy;
+  card_state: StyleChatCardState;
   assistant_text: string;
   outfit_ids: string[];
   outfit_explanation: string;
@@ -26,9 +45,39 @@ export interface StyleChatResponseEnvelope {
   suggestion_chips: string[];
   truncated: boolean;
   active_look_status: StyleChatActiveLookStatus;
+  active_look: StyleChatResolvedActiveLook;
   fallback_used: boolean;
   degraded_reason: string | null;
   render_outfit_card: boolean;
+}
+
+export function isStylingMode(mode: StylistChatMode): boolean {
+  return mode === "ACTIVE_LOOK_REFINEMENT"
+    || mode === "GARMENT_FIRST_STYLING"
+    || mode === "OUTFIT_GENERATION"
+    || mode === "LOOK_EXPLANATION";
+}
+
+export function resolveStyleCardPolicy(params: {
+  mode: StylistChatMode;
+  hasActiveLook: boolean;
+  hasAnchor: boolean;
+}): StyleChatCardPolicy {
+  const { mode, hasActiveLook, hasAnchor } = params;
+
+  if (mode === "ACTIVE_LOOK_REFINEMENT" || mode === "GARMENT_FIRST_STYLING" || mode === "OUTFIT_GENERATION") {
+    return "required";
+  }
+
+  if (mode === "LOOK_EXPLANATION") {
+    return hasActiveLook || hasAnchor ? "preserve_if_exists" : "optional";
+  }
+
+  if (hasActiveLook) {
+    return "preserve_if_exists";
+  }
+
+  return "optional";
 }
 
 export function detectStylistChatModeFromSignals(params: {
@@ -68,7 +117,17 @@ export function detectStylistChatModeFromSignals(params: {
 }
 
 export function resolveActiveLookStatus(previousIds: string[], nextIds: string[]): StyleChatActiveLookStatus {
-  if (!nextIds.length) return "none";
+  if (!nextIds.length) return "unavailable";
+  if (!previousIds.length) return "new";
+  if (previousIds.length === nextIds.length && previousIds.every((id, index) => id === nextIds[index])) {
+    return "preserved";
+  }
+  const overlap = nextIds.filter((id) => previousIds.includes(id)).length;
+  return overlap > 0 ? "updated" : "replaced";
+}
+
+export function resolveStyleCardState(previousIds: string[], nextIds: string[]): StyleChatCardState {
+  if (!nextIds.length) return "unavailable";
   if (!previousIds.length) return "new";
   if (previousIds.length === nextIds.length && previousIds.every((id, index) => id === nextIds[index])) {
     return "preserved";
@@ -76,13 +135,58 @@ export function resolveActiveLookStatus(previousIds: string[], nextIds: string[]
   return "updated";
 }
 
+export function resolveStyleResponseKind(params: {
+  mode: StylistChatMode;
+  cardState: StyleChatCardState;
+  fallbackUsed: boolean;
+  degradedReason: string | null;
+}): StyleChatResponseKind {
+  const { mode, cardState, fallbackUsed, degradedReason } = params;
+
+  if (cardState === "unavailable" && isStylingMode(mode)) {
+    return "style_repair";
+  }
+
+  if (mode === "LOOK_EXPLANATION") {
+    return "style_explanation";
+  }
+
+  if (cardState === "unavailable") {
+    return "analysis";
+  }
+
+  if (fallbackUsed || Boolean(degradedReason)) {
+    return "style_repair";
+  }
+
+  if (isStylingMode(mode)) {
+    return "style_result";
+  }
+
+  return "analysis";
+}
+
+export function shouldRenderStyleCardFromPolicy(params: {
+  cardPolicy: StyleChatCardPolicy;
+  cardState: StyleChatCardState;
+  outfitIds: string[];
+}): boolean {
+  if (!params.outfitIds.length) return false;
+  if (params.cardState === "unavailable") return false;
+  return params.cardPolicy !== "optional" || params.outfitIds.length > 0;
+}
+
 export function shouldRenderStyleCard(mode: StylistChatMode, outfitIds: string[], hasActiveLook: boolean): boolean {
-  if (!outfitIds.length) return false;
-  if (mode === "OUTFIT_GENERATION" || mode === "GARMENT_FIRST_STYLING" || mode === "ACTIVE_LOOK_REFINEMENT") {
-    return true;
+  if (mode === "LOOK_EXPLANATION" && !hasActiveLook) {
+    return false;
   }
-  if (mode === "LOOK_EXPLANATION" && hasActiveLook) {
-    return true;
-  }
-  return false;
+  return shouldRenderStyleCardFromPolicy({
+    cardPolicy: resolveStyleCardPolicy({
+      mode,
+      hasActiveLook,
+      hasAnchor: false,
+    }),
+    cardState: resolveStyleCardState(hasActiveLook ? outfitIds : [], outfitIds),
+    outfitIds,
+  });
 }

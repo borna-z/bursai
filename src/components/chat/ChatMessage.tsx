@@ -51,14 +51,30 @@ interface ChatMessageProps {
   isCreatingOutfit?: boolean;
   showStyleCards?: boolean;
   onGarmentClick?: (garmentId: string) => void;
+  displayMetaOverride?: StyleChatResponseEnvelope | null;
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick }: ChatMessageProps) {
+function getResolvedOutfitIds(meta?: StyleChatResponseEnvelope | null): string[] {
+  if (!meta) return [];
+  return meta.active_look?.garment_ids?.length
+    ? meta.active_look.garment_ids
+    : meta.outfit_ids;
+}
+
+function getResolvedOutfitExplanation(meta?: StyleChatResponseEnvelope | null): string {
+  if (!meta) return '';
+  return meta.active_look?.explanation || meta.outfit_explanation || '';
+}
+
+export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick, displayMetaOverride }: ChatMessageProps) {
   const navigate = useNavigate();
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
   const images = getImageUrls(message.content);
-  const stylistMeta = message.stylistMeta ?? null;
+  const messageHasRenderableMeta = Boolean(message.stylistMeta?.render_outfit_card && getResolvedOutfitIds(message.stylistMeta).length > 0);
+  const stylistMeta = showStyleCards && displayMetaOverride && !messageHasRenderableMeta
+    ? displayMetaOverride
+    : message.stylistMeta ?? null;
 
   const { textParts, garmentCards, outfitCards, unresolvedOutfitCard, rejectionLine } = useMemo(() => {
     if (!text && !stylistMeta) {
@@ -70,11 +86,12 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     let unresolvedOutfitCard: { explanation: string } | null = null;
 
     let cleanText = text;
-    const outfitMatches = stylistMeta?.render_outfit_card && stylistMeta.outfit_ids.length > 0
+    const resolvedMetaOutfitIds = getResolvedOutfitIds(stylistMeta);
+    const outfitMatches = stylistMeta?.render_outfit_card && resolvedMetaOutfitIds.length > 0
       ? [{
         fullMatch: '',
-        ids: stylistMeta.outfit_ids,
-        explanation: stylistMeta.outfit_explanation,
+        ids: resolvedMetaOutfitIds,
+        explanation: getResolvedOutfitExplanation(stylistMeta),
       }]
       : parseOutfitTags(text);
 
@@ -119,7 +136,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
 
     if (stylistMeta?.garment_mentions?.length) {
       stylistMeta.garment_mentions
-        .filter((id) => !stylistMeta.outfit_ids.includes(id))
+        .filter((id) => !resolvedMetaOutfitIds.includes(id))
         .forEach((id) => {
           const garment = garmentMap.get(id);
           if (garment && !cards.some((card) => card.id === garment.id)) {

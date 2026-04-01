@@ -8,7 +8,13 @@ export type StylistChatMode =
   | "LOOK_EXPLANATION"
   | "PLANNING";
 
-export type StyleChatActiveLookStatus = "none" | "new" | "preserved" | "updated";
+export type StyleChatCardPolicy = "required" | "preserve_if_exists" | "optional";
+
+export type StyleChatCardState = "new" | "updated" | "preserved" | "unavailable";
+
+export type StyleChatResponseKind = "style_result" | "style_explanation" | "style_repair" | "analysis";
+
+export type StyleChatActiveLookStatus = "new" | "preserved" | "updated" | "replaced" | "unavailable";
 
 export interface StyleChatActiveLookInput {
   garment_ids?: string[];
@@ -16,9 +22,22 @@ export interface StyleChatActiveLookInput {
   source?: string | null;
 }
 
+export interface StyleChatResolvedActiveLook {
+  garment_ids: string[];
+  explanation: string | null;
+  source: string | null;
+  status: StyleChatActiveLookStatus;
+  card_state: StyleChatCardState;
+  anchor_garment_id: string | null;
+  anchor_locked: boolean;
+}
+
 export interface StyleChatResponseEnvelope {
   kind: "stylist_response";
   mode: StylistChatMode;
+  response_kind: StyleChatResponseKind;
+  card_policy: StyleChatCardPolicy;
+  card_state: StyleChatCardState;
   assistant_text: string;
   outfit_ids: string[];
   outfit_explanation: string;
@@ -26,6 +45,7 @@ export interface StyleChatResponseEnvelope {
   suggestion_chips: string[];
   truncated: boolean;
   active_look_status: StyleChatActiveLookStatus;
+  active_look: StyleChatResolvedActiveLook;
   fallback_used: boolean;
   degraded_reason: string | null;
   render_outfit_card: boolean;
@@ -47,5 +67,9 @@ export function isStyleChatResponseEnvelope(value: unknown): value is StyleChatR
 
 export function collectStyleChatGarmentIds(meta?: StyleChatResponseEnvelope | null): string[] {
   if (!meta) return [];
-  return Array.from(new Set([...(meta.outfit_ids || []), ...(meta.garment_mentions || [])].filter(Boolean)));
+  return Array.from(new Set([
+    ...(meta.active_look?.garment_ids || []),
+    ...(meta.outfit_ids || []),
+    ...(meta.garment_mentions || []),
+  ].filter(Boolean)));
 }
