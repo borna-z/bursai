@@ -24,17 +24,19 @@ function ActionRow({
   onSecondaryAction,
 }: Pick<HomeTodayLookCardProps, 'primaryLabel' | 'secondaryLabel' | 'onPrimaryAction' | 'onSecondaryAction'>) {
   return (
-    <div className="premium-action-row pt-1">
+    <div className="premium-action-row pt-0.5">
       <Button
         onClick={onPrimaryAction}
-        className="h-11 min-w-[9.25rem] flex-1 rounded-full text-[14px] font-semibold"
+        size="sm"
+        className="min-w-[8rem] flex-1 rounded-full text-[13px] font-semibold"
       >
         {primaryLabel}
       </Button>
       <Button
         onClick={onSecondaryAction}
         variant="outline"
-        className="h-11 rounded-full px-4.5 text-[13px]"
+        size="sm"
+        className="rounded-full px-4 text-[12px]"
       >
         {secondaryLabel}
       </Button>
@@ -56,16 +58,16 @@ export function HomeTodayLookCard({
 
   if (state === 'empty_wardrobe') {
     return (
-      <div className="relative overflow-hidden pb-2">
-        <div className="space-y-4">
-          <div className="space-y-1.5">
+      <div className="relative overflow-hidden pb-1">
+        <div className="space-y-3">
+          <div className="space-y-1">
             <p className="caption-upper text-muted-foreground/55">
               {t('home.command_status_setup') || 'Getting started'}
             </p>
-            <h2 className="font-display italic text-[1.45rem] leading-tight tracking-[-0.02em] text-foreground">
+            <h2 className="font-display italic text-[1.2rem] leading-tight tracking-[-0.02em] text-foreground">
               {t('home.setup_title') || 'Build your wardrobe'}
             </h2>
-            <p className="max-w-[30ch] text-[0.92rem] leading-6 text-muted-foreground">
+            <p className="max-w-[30ch] text-[0.85rem] leading-5 text-muted-foreground">
               {t('home.setup_desc') || 'Add at least 3 pieces to unlock your first outfit.'}
             </p>
           </div>
@@ -96,20 +98,20 @@ export function HomeTodayLookCard({
   if (state === 'outfit_planned' && todayOutfit) {
     return (
       <div className="relative overflow-hidden">
-        <div className="space-y-3.5 pb-1">
-          <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
+        <div className="space-y-2.5 pb-1">
+          <div className="flex flex-wrap items-center gap-2 px-1 pt-0.5">
             <span className="eyebrow-chip">{t('plan.today')}</span>
           </div>
 
-          <OutfitComposition items={todayOutfit.outfit_items} className="rounded-[1rem]" />
+          <OutfitComposition items={todayOutfit.outfit_items} className="rounded-[0.85rem]" />
         </div>
 
-        <div className="space-y-3.5 pb-2">
-          <div className="space-y-1.5">
+        <div className="space-y-2.5 pb-1">
+          <div className="space-y-1">
             <p className="caption-upper text-muted-foreground/55">
               {t('home.todays_look') || "Today's look"}
             </p>
-            <h2 className="font-display italic text-[1.5rem] leading-tight tracking-[-0.02em] text-foreground">
+            <h2 className="font-display italic text-[1.25rem] leading-tight tracking-[-0.02em] text-foreground">
               {todayOutfit.occasion || t('home.todays_look') || "Today's Look"}
             </h2>
           </div>
@@ -134,24 +136,24 @@ export function HomeTodayLookCard({
   }
 
   return (
-    <div className="relative overflow-hidden pb-2">
-      <div className="space-y-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-secondary/70">
-          <Sparkles className="h-6 w-6 text-accent" />
+    <div className="relative overflow-hidden pb-1">
+      <div className="space-y-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-[0.85rem] bg-secondary/70">
+          <Sparkles className="h-5 w-5 text-accent" />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <p className="caption-upper text-muted-foreground/55">
             {state === 'weather_alert'
               ? t('home.command_status_weather') || 'Weather alert'
               : t('home.command_status_open') || 'Open day'}
           </p>
-          <h2 className="font-display italic text-[1.45rem] leading-tight tracking-[-0.02em] text-foreground">
+          <h2 className="font-display italic text-[1.2rem] leading-tight tracking-[-0.02em] text-foreground">
             {state === 'weather_alert'
               ? t('home.weather_title') || 'Dress for the weather'
               : t('home.no_outfit_title') || 'Find your fit'}
           </h2>
-          <p className="max-w-[30ch] text-[0.92rem] leading-6 text-muted-foreground">
+          <p className="max-w-[30ch] text-[0.85rem] leading-5 text-muted-foreground">
             {state === 'weather_alert'
               ? t('home.weather_desc') || 'Let AI pick an outfit for the conditions.'
               : t('home.no_outfit_desc') || 'Generate a look for today in seconds.'}
@@ -161,15 +163,17 @@ export function HomeTodayLookCard({
         <div className="premium-action-row">
           <Button
             onClick={onPrimaryAction}
-            className="h-11 min-w-[9.25rem] flex-1 rounded-full text-[14px] font-semibold"
+            size="sm"
+            className="min-w-[8rem] flex-1 rounded-full text-[13px] font-semibold"
           >
-            <Sparkles className="mr-2 h-4 w-4" />
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
             {primaryLabel}
           </Button>
           <Button
             onClick={onSecondaryAction}
             variant="outline"
-            className="h-11 rounded-full px-4.5 text-[13px]"
+            size="sm"
+            className="rounded-full px-4 text-[12px]"
           >
             {secondaryLabel}
           </Button>

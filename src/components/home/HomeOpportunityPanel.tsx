@@ -10,6 +10,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
+import { saveGapSnapshot } from '@/components/gaps/gapRouteState';
 import type { HomeGapResultSummary, HomeOpportunityState } from '@/components/home/homeTypes';
 import { Button } from '@/components/ui/button';
 
@@ -71,7 +72,10 @@ export function HomeOpportunityPanel() {
 
   async function runScan() {
     const data = await gapAnalysis.mutateAsync({ locale });
-    setResults(data.gaps || []);
+    const nextResults = data.gaps || [];
+    const analyzedAt = new Date().toISOString();
+    setResults(nextResults);
+    saveGapSnapshot(user?.id, { analyzedAt, results: nextResults });
   }
 
   return (
