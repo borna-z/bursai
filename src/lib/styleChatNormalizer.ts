@@ -15,6 +15,8 @@ export interface NormalizedStyleChatAssistantReply {
   text: string;
   outfitIds: string[];
   outfitTag: string | null;
+  outfitExplanation: string;
+  garmentMentionIds: string[];
 }
 
 const VALID_GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
@@ -375,28 +377,37 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
   includeOutfitTag?: boolean;
   authoritativeOutfitIds?: string[];
   authoritativeExplanation?: string | null;
+  fallbackOutfitIds?: string[];
 }): NormalizedStyleChatAssistantReply {
   const candidate = pickStyleChatOutfitIdsFromText(
     params.rawText,
     params.validGarmentIds,
     params.rankedGarments,
   );
-  const fallbackIds = buildStyleChatFallbackOutfitIds(
-    params.rankedGarments,
-    params.anchor,
-    params.activeLook,
-  );
+  const fallbackIds = Array.isArray(params.fallbackOutfitIds)
+    ? uniqueIds(params.fallbackOutfitIds).slice(0, 5)
+    : buildStyleChatFallbackOutfitIds(
+      params.rankedGarments,
+      params.anchor,
+      params.activeLook,
+    );
   const authoritativeIds = uniqueIds(params.authoritativeOutfitIds || []).slice(0, 5);
   const rawIds = (authoritativeIds.length ? authoritativeIds : (candidate?.ids.length ? candidate.ids : fallbackIds)).slice(0, 5);
   const deduplicatedIds = deduplicateStyleChatOutfitBySlot(rawIds, params.rankedGarments, params.anchor).slice(0, 5);
   const outfitIds = isCompleteStyleChatOutfitIds(deduplicatedIds, params.rankedGarments)
     ? deduplicatedIds
     : [];
-  const explanation = (params.authoritativeExplanation || candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
-    .replace(/[[\]\n\r|]+/g, " ")
-    .trim();
+  const explanation = outfitIds.length > 0
+    ? (params.authoritativeExplanation || candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
+      .replace(/[[\]\n\r|]+/g, " ")
+      .trim()
+    : "";
   const prose = stripRawIdReferences(stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, "")));
   const shouldIncludeOutfitTag = params.includeOutfitTag ?? true;
+  const garmentMentionIds = uniqueIds([
+    ...parseStyleChatGarmentIds(params.rawText).filter((id) => params.validGarmentIds.has(id)),
+    ...outfitIds,
+  ]);
   const outfitTag = shouldIncludeOutfitTag && outfitIds.length > 0
     ? `[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`
     : null;
@@ -405,5 +416,7 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
     text: prose,
     outfitIds,
     outfitTag,
+    outfitExplanation: explanation,
+    garmentMentionIds,
   };
 }

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
+import { detectStylistChatModeFromSignals, resolveActiveLookStatus, shouldRenderStyleCard, type StyleChatActiveLookInput, type StyleChatResponseEnvelope, type StylistChatMode } from "../_shared/style-chat-contract.ts";
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
@@ -151,16 +152,6 @@ interface StructuredRefinementPlan {
   excludeGarmentIds: string[];
   preferGarmentIds: string[];
 }
-
-type StylistChatMode =
-  | "ACTIVE_LOOK_REFINEMENT"
-  | "GARMENT_FIRST_STYLING"
-  | "OUTFIT_GENERATION"
-  | "WARDROBE_GAP_ANALYSIS"
-  | "PURCHASE_PRIORITIZATION"
-  | "STYLE_IDENTITY_ANALYSIS"
-  | "LOOK_EXPLANATION"
-  | "PLANNING";
 
 function getMessageText(content: string | unknown[]): string {
   if (typeof content === "string") return content;
@@ -452,26 +443,20 @@ function normalizeAssistantReply(params: {
   };
 }
 
-function createSseTextResponse(text: string, priorityChunk?: string | null, suggestionChips?: string[], truncated?: boolean): Response {
+function createSseTextResponse(envelope: StyleChatResponseEnvelope): Response {
   const encoder = new TextEncoder();
-  const chunks: string[] = [];
-  const normalizedPriorityChunk = priorityChunk?.trim();
-  const remainingText = normalizedPriorityChunk && text.startsWith(normalizedPriorityChunk)
-    ? text.slice(normalizedPriorityChunk.length).trimStart()
-    : text;
-
-  if (normalizedPriorityChunk) chunks.push(normalizedPriorityChunk);
-  chunks.push(...(remainingText.match(/.{1,180}(?:\s|$)|\S+/g) || []));
+  const chunks = (envelope.assistant_text.match(/.{1,180}(?:\s|$)|\S+/g) || []).map((chunk) => chunk.trim()).filter(Boolean);
 
   const stream = new ReadableStream({
     start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "stylist_response", payload: envelope })}\n\n`));
       for (const chunk of chunks) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
       }
-      if (suggestionChips?.length) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "suggestions", chips: suggestionChips })}\n\n`));
+      if (envelope.suggestion_chips.length) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "suggestions", chips: envelope.suggestion_chips })}\n\n`));
       }
-      if (truncated) {
+      if (envelope.truncated) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "metadata", truncated: true })}\n\n`));
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -638,16 +623,14 @@ function detectAnchorGarment(garments: GarmentRecord[], messages: MessageInput[]
 }
 
 function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord | null): string {
-  const recent = messages.slice(-6);
+  const recent = messages.slice(-4);
   const userTurns = recent.filter((m) => m.role === "user").map((m) => getMessageText(m.content)).filter(Boolean);
-  const assistantTurns = recent.filter((m) => m.role === "assistant").map((m) => getMessageText(m.content)).filter(Boolean);
   const latestUser = userTurns[userTurns.length - 1] || "";
-  const priorGoals = userTurns.slice(0, -1).slice(-2);
+  const priorGoals = userTurns.slice(0, -1).slice(-1);
 
   const lines = [
     latestUser ? `Latest user ask: ${latestUser}` : "",
     priorGoals.length ? `Recent user goals: ${priorGoals.join(" | ")}` : "",
-    assistantTurns.length ? `Recent assistant commitments: ${assistantTurns.slice(-2).join(" | ")}` : "",
     anchor ? `Current anchor garment: ${anchor.title} [ID:${anchor.id}]` : "No confirmed anchor garment yet.",
   ].filter(Boolean);
 
@@ -679,7 +662,7 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(cooler|less warm|lighter version|summerize|summerise|too hot|hotter weather|make it cooler)/i.test(latestUser)) {
     return { mode: "cooler", raw: latestUser };
   }
-  if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance)/i.test(latestUser)) {
+  if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance|more premium|more expensive-looking)/i.test(latestUser)) {
     return { mode: "more_elegant", raw: latestUser };
   }
   if (/(less formal|more casual|relax it|dress it down|tone it down|make it easier|relaxed version)/i.test(latestUser)) {
@@ -688,7 +671,7 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(more formal|formal version|dressier|black tie|make it formal)/i.test(latestUser)) {
     return { mode: "more_formal", raw: latestUser };
   }
-  if (/(more elevated|more polished|dress it up|make it smarter|elevate it)/i.test(latestUser)) {
+  if (/(more elevated|more polished|dress it up|make it smarter|elevate it|make it more premium|make it more polished)/i.test(latestUser)) {
     return { mode: "more_elevated", raw: latestUser };
   }
   if (/(sharper|sharpen it|cleaner|make it sharper)/i.test(latestUser)) {
@@ -725,33 +708,12 @@ function detectStylistChatMode(params: {
   refinementIntent: RefinementIntent;
 }): StylistChatMode {
   const latestUser = normalizeTerm(getMessageText(params.messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
-  if (!latestUser) return "OUTFIT_GENERATION";
-
-  const hasActiveLook = params.activeLook.garmentIds.length >= 2;
-  const hasAnchor = !!params.anchor;
-
-  if (/(what should i buy|what to buy|buy next|top\s*\d+\s*(things|pieces).{0,20}buy|purchase priority|biggest upgrade per purchase|best purchases?|cheap(est)? high-impact|stop buying)/i.test(latestUser)) {
-    return "PURCHASE_PRIORITIZATION";
-  }
-  if (/(what am i missing|style missing|wardrobe gap|gap analysis|underrepresented|overrepresented|closet audit|wardrobe audit|pieces are weak|doing too much work|missing building blocks|upgrade my wardrobe)/i.test(latestUser)) {
-    return "WARDROBE_GAP_ANALYSIS";
-  }
-  if (/(what is my style|describe my style|style identity|more elevated|more masculine|more minimal|more premium|more expensive-looking|style direction)/i.test(latestUser)) {
-    return "STYLE_IDENTITY_ANALYSIS";
-  }
-  if (/(why does this work|why this works|explain why|break down the look|analyze this look|what makes this better)/i.test(latestUser)) {
-    return "LOOK_EXPLANATION";
-  }
-  if (/(what should i wear this week|build me \d+ .*looks|plan my week|weekly looks|week of outfits|capsule for this week)/i.test(latestUser)) {
-    return "PLANNING";
-  }
-  if (params.refinementIntent.mode !== "new_look" && hasActiveLook) {
-    return "ACTIVE_LOOK_REFINEMENT";
-  }
-  if (/(style around|build around|based on this|with these chinos|with this blazer|around this|anchor on)/i.test(latestUser) || (hasAnchor && !hasActiveLook)) {
-    return "GARMENT_FIRST_STYLING";
-  }
-  return "OUTFIT_GENERATION";
+  return detectStylistChatModeFromSignals({
+    latestUser,
+    hasActiveLook: params.activeLook.garmentIds.length >= 2,
+    hasAnchor: !!params.anchor,
+    refinementMode: params.refinementIntent.mode,
+  });
 }
 
 function buildModeContract(mode: StylistChatMode, lang: { name: string }): string {
@@ -819,8 +781,29 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
   ].join("\n");
 }
 
-function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecord[], explicitGarmentIds: string[] = []): ActiveLookContext {
+function buildActiveLookContext(
+  messages: MessageInput[],
+  garments: GarmentRecord[],
+  explicitGarmentIds: string[] = [],
+  explicitActiveLook: StyleChatActiveLookInput | null = null,
+): ActiveLookContext {
   const garmentById = new Map(garments.map((g) => [g.id, g]));
+  const explicitActiveLookIds = resolveCompleteOutfitIds(
+    Array.isArray(explicitActiveLook?.garment_ids) ? explicitActiveLook.garment_ids.filter((id): id is string => typeof id === "string") : [],
+    garmentById,
+  );
+  if (explicitActiveLookIds.length > 0) {
+    const garmentsInLook = explicitActiveLookIds
+      .map((id) => garmentById.get(id))
+      .filter(Boolean) as GarmentRecord[];
+    return {
+      summary: garmentsInLook.map((item) => `${item.title} [ID:${item.id}]`).join(" + "),
+      garmentIds: garmentsInLook.map((item) => item.id),
+      source: explicitActiveLook?.source || "frontend_active_look",
+      garmentLines: garmentsInLook.map(formatGarmentLine),
+    };
+  }
+
   const explicitLookIds = resolveCompleteOutfitIds(explicitGarmentIds, garmentById);
   if (explicitLookIds.length > 0) {
     const garmentsInLook = explicitLookIds
@@ -1061,23 +1044,100 @@ function buildStructuredRefinementPlan(params: {
   };
 }
 
-function buildUnifiedReplyText(locale: string, outfit: UnifiedStylistResponse["outfits"][number] | null): string {
-  if (!outfit) {
-    return locale === "sv"
-      ? "Jag kunde inte säkra en tydlig look just nu. Försök igen eller justera önskemålet lite."
-      : "I couldn't lock a clear look just now. Try again or tweak the request a bit.";
+function formatGarmentList(garments: GarmentRecord[]): string {
+  const titles = garments.map((garment) => garment.title).filter(Boolean);
+  if (titles.length <= 1) return titles[0] || "";
+  if (titles.length === 2) return `${titles[0]} + ${titles[1]}`;
+  return `${titles.slice(0, -1).join(", ")} + ${titles[titles.length - 1]}`;
+}
+
+function trimToSentences(text: string, maxSentences = 3): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  const sentences = clean.match(/[^.!?…]+[.!?…]?/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [clean];
+  return sentences.slice(0, maxSentences).map((sentence) => /[.!?…]$/.test(sentence) ? sentence : `${sentence}.`).join(" ");
+}
+
+function buildVisualReasoning(garments: GarmentRecord[], locale: string): string {
+  const colors = Array.from(new Set(garments.map((garment) => garment.color_primary).filter(Boolean))).slice(0, 2);
+  const materials = Array.from(new Set(garments.map((garment) => garment.material).filter(Boolean))).slice(0, 2);
+  const hasOuterwear = garments.some((garment) => getSlotKey(garment.category) === "outerwear");
+  if (locale === "sv") {
+    const colorLine = colors.length > 0 ? `paletten håller sig till ${colors.join(" och ")}` : "paletten hålls ren";
+    const materialLine = materials.length > 0 ? `materialen ${materials.join(" och ")} ger djup` : "texturen ger djup utan att störa linjen";
+    return hasOuterwear
+      ? `Det ger mer struktur uppåt, ${colorLine}, och ${materialLine}.`
+      : `Silhuetten känns ren, ${colorLine}, och ${materialLine}.`;
   }
 
-  const parts = [String(outfit.rationale || "").trim()];
-  if (outfit.limitations.length > 0) {
-    parts.push(outfit.limitations[0]);
-  }
-  const prose = parts.filter(Boolean).join(" ");
-  if (prose) return prose;
+  const colorLine = colors.length > 0 ? `the palette stays tight around ${colors.join(" and ")}` : "the palette stays tight";
+  const materialLine = materials.length > 0 ? `${materials.join(" and ")} add depth without noise` : "the texture adds depth without adding noise";
+  return hasOuterwear
+    ? `That adds structure up top, ${colorLine}, and ${materialLine}.`
+    : `The line stays clean, ${colorLine}, and ${materialLine}.`;
+}
 
-  return locale === "sv"
-    ? "Här är den starkaste kompletta looken jag kunde säkra från garderoben."
-    : "Here is the strongest complete look I could secure from the wardrobe.";
+function buildCardFirstStylistText(params: {
+  locale: string;
+  mode: StylistChatMode;
+  outfit: UnifiedStylistResponse["outfits"][number] | null;
+  outfitGarments: GarmentRecord[];
+  activeLookGarments: GarmentRecord[];
+  anchor: GarmentRecord | null;
+  refinementIntent: RefinementIntent;
+}): string {
+  const { locale, mode, outfit, outfitGarments, activeLookGarments, anchor, refinementIntent } = params;
+  const isSwedish = locale === "sv";
+  if (!outfitGarments.length) {
+    return isSwedish
+      ? "Jag kunde inte låsa en stark komplett look här. Justera önskemålet lite så bygger jag om den."
+      : "I couldn't lock a strong complete look here. Nudge the request a little and I'll rebuild it.";
+  }
+
+  const outfitLine = formatGarmentList(outfitGarments);
+  const activeIds = new Set(activeLookGarments.map((garment) => garment.id));
+  const changed = outfitGarments.filter((garment) => !activeIds.has(garment.id));
+  const kept = outfitGarments.filter((garment) => activeIds.has(garment.id));
+  const rationale = trimToSentences(String(outfit?.rationale || ""), 1);
+  const visualReasoning = buildVisualReasoning(outfitGarments, locale);
+  const limitation = outfit?.limitations?.[0] ? trimToSentences(outfit.limitations[0], 1) : "";
+
+  if (mode === "LOOK_EXPLANATION") {
+    const first = isSwedish
+      ? `Det här funkar eftersom ${outfitLine} bygger en tydlig och bärbar helhet.`
+      : `This works because ${outfitLine} builds a clear, wearable whole.`;
+    const third = isSwedish
+      ? "Det känns genomtänkt snarare än övertänkt, vilket håller looken stark i verkligheten."
+      : "It feels intentional rather than overworked, which is what keeps the look strong in real life.";
+    return trimToSentences([first, visualReasoning, third].join(" "), 3);
+  }
+
+  if (mode === "ACTIVE_LOOK_REFINEMENT") {
+    const first = changed.length > 0
+      ? (isSwedish
+        ? `Behåll ${kept.length > 0 ? formatGarmentList(kept) : "grunden"} och byt in ${formatGarmentList(changed)}.`
+        : `Keep ${kept.length > 0 ? formatGarmentList(kept) : "the core"} and switch in ${formatGarmentList(changed)}.`)
+      : (isSwedish
+        ? "Jag håller den nuvarande looken intakt och stramar upp den utan att starta om."
+        : "I'm keeping the current look intact and tightening it up without restarting it.");
+    return trimToSentences([first, rationale || visualReasoning, limitation].filter(Boolean).join(" "), 3);
+  }
+
+  if (mode === "GARMENT_FIRST_STYLING" && anchor && outfitGarments.some((garment) => garment.id === anchor.id)) {
+    const first = isSwedish
+      ? `Bygg looken runt ${anchor.title}: ${outfitLine}.`
+      : `Build the look around ${anchor.title}: ${outfitLine}.`;
+    return trimToSentences([first, rationale || visualReasoning, limitation].filter(Boolean).join(" "), 3);
+  }
+
+  const first = isSwedish
+    ? `Gå på ${outfitLine}.`
+    : `Go with ${outfitLine}.`;
+  const second = rationale || visualReasoning;
+  const third = limitation || (isSwedish
+    ? "Det här är den renaste starka looken jag kan säkra från garderoben."
+    : "This is the cleanest strong look I can secure from the wardrobe.");
+  return trimToSentences([first, second, third].join(" "), 3);
 }
 
 function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
@@ -1504,7 +1564,14 @@ serve(async (req) => {
     }
     log.info("request.start", { requestId, userId: user.id });
 
-    const { messages, locale: rawLocale, selected_garment_ids, garmentCount: _clientGarmentCount, archetype: _clientArchetype } = await req.json();
+    const {
+      messages,
+      locale: rawLocale,
+      selected_garment_ids,
+      active_look,
+      garmentCount: _clientGarmentCount,
+      archetype: _clientArchetype,
+    } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
         status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
@@ -1514,6 +1581,7 @@ serve(async (req) => {
     const locale = (typeof rawLocale === "string" && LANG_CONFIG[rawLocale]) ? rawLocale : "sv";
     const lang = getLang(locale);
     const selectedGarmentIds = Array.isArray(selected_garment_ids) ? selected_garment_ids.filter((id) => typeof id === "string") : [];
+    const explicitActiveLook = active_look && typeof active_look === "object" ? active_look as StyleChatActiveLookInput : null;
 
     // ── Scale guard: rate limit + overload protection ──
     if (checkOverload("style_chat")) {
@@ -1636,7 +1704,7 @@ serve(async (req) => {
     const identityBlock = identityParts.join("\n");
 
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
-    const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds);
+    const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
     const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
     const refinementPlan = buildStructuredRefinementPlan({
       intent: refinementIntent,
@@ -1656,18 +1724,17 @@ serve(async (req) => {
     const chatComplexity = chooseChatComplexity(messages as MessageInput[], wardrobeCtx.anchor);
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
-    const shouldForceOutfitTags = stylistMode === "OUTFIT_GENERATION"
+    const hasStableActiveLook = activeLook.garmentIds.length >= 2;
+    const shouldPreserveStyleCard = stylistMode === "OUTFIT_GENERATION"
       || stylistMode === "GARMENT_FIRST_STYLING"
-      || stylistMode === "ACTIVE_LOOK_REFINEMENT";
+      || stylistMode === "ACTIVE_LOOK_REFINEMENT"
+      || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook);
 
-    const taggingContract = shouldForceOutfitTags
+    const taggingContract = shouldPreserveStyleCard
       ? `GARMENT TAGS:
-- When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
-- For the active outfit snapshot, use exactly one [[outfit:id1,id2,id3|Why this works]] tag in every reply
-- The explanation after | must be in ${lang.name}
-- ALWAYS return the outfit tag, including refinement turns, so the UI can update the active look card
-- Garment tags are optional support detail; the single outfit tag is mandatory and authoritative
-- Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.`
+- The current active look is rendered from structured response metadata first.
+- Only use garment tags sparingly if they genuinely clarify a specific garment reference.
+- Never rely on raw outfit tag prose as the only source of outfit truth.`
       : `GARMENT TAGS:
 - Do NOT emit outfit tags in this mode unless the user explicitly asks for one concrete outfit.
 - You may still use [[garment:ID]] tags sparingly where they improve clarity.
@@ -1714,7 +1781,14 @@ serve(async (req) => {
       }
     }
     const unifiedOutfit = unified?.outfits[0] || null;
-    const authoritativeOutfitIds = unifiedOutfit?.garment_ids || [];
+    const activeLookGarments = activeLook.garmentIds
+      .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
+      .filter(Boolean) as GarmentRecord[];
+    const authoritativeOutfitIds = unifiedOutfit?.garment_ids?.length
+      ? unifiedOutfit.garment_ids
+      : shouldPreserveStyleCard
+        ? activeLook.garmentIds
+        : [];
     const authoritativeOutfitTag = buildAuthoritativeOutfitTag(
       authoritativeOutfitIds,
       unifiedOutfit?.rationale || "",
@@ -1722,6 +1796,11 @@ serve(async (req) => {
     const unifiedCandidateLine = authoritativeOutfitTag
       ? `\nUNIFIED OUTFIT DECISION (authoritative): ${authoritativeOutfitTag}`
       : "";
+    const authoritativeOutfitGarments = authoritativeOutfitIds
+      .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
+      .filter(Boolean) as GarmentRecord[];
+    const shouldUseStructuredStylistText = shouldCallUnifiedEngine
+      || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook);
 
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
@@ -1793,19 +1872,27 @@ ${refinementContract}`;
       usedUnifiedEngine: shouldCallUnifiedEngine,
     });
 
-    let rawAssistantText = shouldCallUnifiedEngine
-      ? buildUnifiedReplyText(locale, unifiedOutfit)
+    let rawAssistantText = shouldUseStructuredStylistText
+      ? buildCardFirstStylistText({
+        locale,
+        mode: stylistMode,
+        outfit: unifiedOutfit,
+        outfitGarments: authoritativeOutfitGarments,
+        activeLookGarments,
+        anchor: wardrobeCtx.anchor,
+        refinementIntent,
+      })
       : "";
     let aiFinishReason: string | undefined;
 
-    if (!shouldCallUnifiedEngine || !rawAssistantText.trim()) {
+    if (!shouldUseStructuredStylistText || !rawAssistantText.trim()) {
       const aiResponse = await callBursAI({
         messages: [
           { role: "system", content: systemPrompt },
           ...preparedMessages,
         ],
         complexity: chatComplexity,
-        max_tokens: chatComplexity === "complex" ? 1400 : 1100,
+        max_tokens: chatComplexity === "complex" ? 800 : 420,
         functionName: "style_chat",
       });
 
@@ -1827,16 +1914,7 @@ ${refinementContract}`;
     if (aiFinishReason === "length") {
       console.warn("style_chat: response truncated by output token limit (finish_reason=length)");
       truncatedByTokenLimit = true;
-      // Clean up partial sentence at the end if the model was cut off mid-thought
-      const lastPunctuation = Math.max(
-        rawAssistantText.lastIndexOf("."),
-        rawAssistantText.lastIndexOf("!"),
-        rawAssistantText.lastIndexOf("?"),
-        rawAssistantText.lastIndexOf("…"),
-      );
-      if (lastPunctuation > rawAssistantText.length * 0.6) {
-        rawAssistantText = rawAssistantText.slice(0, lastPunctuation + 1).trim();
-      }
+      rawAssistantText = trimToSentences(rawAssistantText, 4);
     }
 
     // ── Post-processing validation ──────────────────────────────
@@ -1857,18 +1935,7 @@ ${refinementContract}`;
     }
 
     // c. Trim overly long non-outfit replies — language-safe sentence splitting
-    const hasOutfitTag = rawAssistantText.includes("[[outfit:");
-    if (rawAssistantText.length > 1400 && !hasOutfitTag) {
-      // Split on sentence-ending punctuation followed by a space or end-of-string.
-      // This preserves trailing text that lacks final punctuation (common in Swedish, etc.)
-      const sentences = rawAssistantText.split(/(?<=[.!?…])\s+/).filter(Boolean);
-      if (sentences.length > 9) {
-        rawAssistantText = sentences.slice(0, 9).join(" ").trim();
-        if (truncatedByTokenLimit) {
-          rawAssistantText += " …";
-        }
-      }
-    }
+    rawAssistantText = trimToSentences(rawAssistantText, shouldPreserveStyleCard ? 3 : 5);
 
     const normalizedReply = normalizeStyleChatAssistantReply({
       rawText: rawAssistantText,
@@ -1877,16 +1944,32 @@ ${refinementContract}`;
       anchor: wardrobeCtx.anchor,
       activeLook,
       placeOutfitTagFirst: refinementTurn,
-      includeOutfitTag: shouldForceOutfitTags,
-      authoritativeOutfitIds,
+      includeOutfitTag: false,
+      authoritativeOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
       authoritativeExplanation: unifiedOutfit?.rationale || null,
+      fallbackOutfitIds: hasStableActiveLook ? activeLook.garmentIds : [],
     });
 
+    const renderOutfitCard = shouldRenderStyleCard(stylistMode, normalizedReply.outfitIds, hasStableActiveLook);
     const chips = buildSuggestionChips(
       stylistMode,
-      !!normalizedReply.outfitTag,
+      renderOutfitCard,
       locale,
     );
+    const envelope: StyleChatResponseEnvelope = {
+      kind: "stylist_response",
+      mode: stylistMode,
+      assistant_text: normalizedReply.text,
+      outfit_ids: renderOutfitCard ? normalizedReply.outfitIds : [],
+      outfit_explanation: normalizedReply.outfitExplanation,
+      garment_mentions: normalizedReply.garmentMentionIds,
+      suggestion_chips: chips,
+      truncated: truncatedByTokenLimit,
+      active_look_status: resolveActiveLookStatus(activeLook.garmentIds, renderOutfitCard ? normalizedReply.outfitIds : []),
+      fallback_used: Boolean(shouldUseStructuredStylistText && !unifiedOutfit && hasStableActiveLook),
+      degraded_reason: unifiedOutfit?.limitations?.[0] || null,
+      render_outfit_card: renderOutfitCard,
+    };
 
     log.info("request.complete", {
       requestId,
@@ -1895,16 +1978,11 @@ ${refinementContract}`;
       durationMs: Date.now() - requestStartedAt,
       degraded: Boolean(unifiedOutfit?.limitations.length),
       usedUnifiedEngine: shouldCallUnifiedEngine,
-      hasOutfitTag: Boolean(normalizedReply.outfitTag),
+      hasOutfitTag: Boolean(envelope.outfit_ids.length),
       truncated: truncatedByTokenLimit,
     });
 
-    return createSseTextResponse(
-      normalizedReply.text,
-      normalizedReply.outfitTag ?? null,
-      chips,
-      truncatedByTokenLimit,
-    );
+    return createSseTextResponse(envelope);
   } catch (e) {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);

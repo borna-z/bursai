@@ -40,6 +40,7 @@ describe("styleChatNormalizer", () => {
 
     expect(reply.outfitIds).toEqual([]);
     expect(reply.outfitTag).toBeNull();
+    expect(reply.outfitExplanation).toBe('');
     expect(reply.text).not.toContain("[[outfit:");
   });
 
@@ -95,6 +96,7 @@ describe("styleChatNormalizer", () => {
     expect(reply.outfitIds).toEqual([TOP.id, BOTTOM.id, SHOES.id]);
     expect(reply.outfitTag).toContain(`[[outfit:${TOP.id},${BOTTOM.id},${SHOES.id}|`);
     expect(isCompleteStyleChatOutfitIds(reply.outfitIds, [TOP, BOTTOM, SHOES])).toBe(true);
+    expect(reply.garmentMentionIds).toEqual([TOP.id, BOTTOM.id, SHOES.id]);
   });
 
   it("keeps valid complete dress looks authoritative", () => {
@@ -198,5 +200,20 @@ describe("styleChatNormalizer", () => {
     expect(reply.outfitIds).toEqual([]);
     expect(reply.outfitTag).toBeNull();
     expect(reply.text).toBe("Let's tighten this up");
+  });
+
+  it('respects explicit fallback outfit ids instead of inventing a new wardrobe fallback', () => {
+    const reply = normalizeStyleChatAssistantReply({
+      rawText: 'No valid look here.',
+      validGarmentIds: new Set([TOP.id, BOTTOM.id, SHOES.id]),
+      rankedGarments: [TOP, BOTTOM, SHOES],
+      anchor: null,
+      activeLook: EMPTY_ACTIVE_LOOK,
+      includeOutfitTag: true,
+      fallbackOutfitIds: [],
+    });
+
+    expect(reply.outfitIds).toEqual([]);
+    expect(reply.outfitTag).toBeNull();
   });
 });
