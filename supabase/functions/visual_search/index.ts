@@ -64,7 +64,12 @@ serve(async (req) => {
       return parts.join(" | ");
     }).join("\n");
 
-    const langName = locale === "sv" ? "svenska" : "English";
+    const LANG_NAMES: Record<string, string> = {
+      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "suomi",
+      de: "Deutsch", fr: "français", es: "español", it: "italiano",
+      pt: "português", nl: "Nederlands", pl: "polski", ar: "العربية", fa: "فارسی",
+    };
+    const langName = LANG_NAMES[locale] || "English";
 
     const { data: result } = await callBursAI({
       messages: [

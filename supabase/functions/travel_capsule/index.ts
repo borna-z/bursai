@@ -11,7 +11,7 @@ import {
   type TravelCapsuleGarmentLike,
   type TravelCapsuleOutfitKind,
   type TravelCapsulePlanSlot,
-} from "../../../src/lib/travelCapsulePlanner.ts";
+} from "../_shared/travel-capsule-planner.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";

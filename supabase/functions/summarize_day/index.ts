@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { VOICE_DAY_SUMMARY } from "../_shared/burs-voice.ts";
-import { buildDayIntelligence } from "../../../src/lib/dayIntelligence.ts";
+import { buildDayIntelligence } from "../_shared/day-intelligence.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
