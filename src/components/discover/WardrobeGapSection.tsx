@@ -6,6 +6,7 @@ import { useGarmentCount } from '@/hooks/useGarments';
 import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
+import { saveGapSnapshot } from '@/components/gaps/gapRouteState';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
@@ -62,8 +63,11 @@ export function WardrobeGapSection() {
     hapticSuccess();
     try {
       const data = await gapAnalysis.mutateAsync({ locale });
-      setResults(data?.gaps || []);
-      setAnalysisTimestamp(new Date().toISOString());
+      const nextResults = data?.gaps || [];
+      const analyzedAt = new Date().toISOString();
+      setResults(nextResults);
+      setAnalysisTimestamp(analyzedAt);
+      saveGapSnapshot(user.id, { analyzedAt, results: nextResults });
     } catch {
       // error handled by mutation state
     }

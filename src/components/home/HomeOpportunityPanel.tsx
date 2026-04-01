@@ -8,8 +8,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
+import { saveGapSnapshot } from '@/components/gaps/gapRouteState';
 import type { HomeGapResultSummary, HomeOpportunityState } from '@/components/home/homeTypes';
 import { Button } from '@/components/ui/button';
 
@@ -42,6 +44,7 @@ function getProgressPercentage(currentCount: number, targetCount: number) {
 export function HomeOpportunityPanel() {
   const navigate = useNavigate();
   const { t, locale } = useLanguage();
+  const { user } = useAuth();
   const { isUnlocked, garmentsNeeded, currentCount } = useWardrobeUnlocks();
   const gapAnalysis = useWardrobeGapAnalysis();
   const [results, setResults] = useState<GapResult[] | null>(null);
@@ -71,7 +74,10 @@ export function HomeOpportunityPanel() {
 
   async function runScan() {
     const data = await gapAnalysis.mutateAsync({ locale });
-    setResults(data.gaps || []);
+    const nextResults = data.gaps || [];
+    const analyzedAt = new Date().toISOString();
+    setResults(nextResults);
+    saveGapSnapshot(user?.id, { analyzedAt, results: nextResults });
   }
 
   return (
