@@ -31,6 +31,12 @@ const MOOD_MAP: Record<string, { formality: string; colors: string; materials: s
   invisible: { formality: "neutral, blending", colors: "muted neutrals, grey, navy, black, white", materials: "standard, unremarkable", vibe: "understated, minimal, no-attention" },
   romantic: { formality: "soft elegant", colors: "pastels, blush, soft white, dusty rose", materials: "silk, lace, flowing fabrics", vibe: "gentle, feminine, dreamy" },
   energetic: { formality: "casual, sporty-chic", colors: "bright, vibrant — yellow, orange, electric blue", materials: "lightweight, breathable", vibe: "active, upbeat, fun" },
+  grounded: { formality: "casual, relaxed", colors: "olive, khaki, tan, warm brown, sage", materials: "cotton, linen, canvas, suede", vibe: "earthy, authentic, natural" },
+  sharp: { formality: "formal, tailored", colors: "black, charcoal, cream, gold accents", materials: "tailored wool, crisp cotton, structured fabrics", vibe: "precise, polished, intentional" },
+  soft: { formality: "casual-elegant, low contrast", colors: "powder blue, lavender, light grey, off-white", materials: "cashmere, soft knit, silk blend", vibe: "muted, gentle, calming" },
+  bold: { formality: "statement, high-impact", colors: "red, deep black, white, high contrast", materials: "leather, structured fabrics, bold textures", vibe: "maximum, unapologetic, attention-commanding" },
+  editorial: { formality: "avant-garde, fashion-forward", colors: "navy, gold, deep teal, monochrome", materials: "architectural fabrics, unusual cuts, layering", vibe: "magazine-ready, conceptual, curated" },
+  playful: { formality: "casual, fun", colors: "pink, orange, purple, unexpected color combos", materials: "mixed prints, playful textures", vibe: "fun, spontaneous, joyful" },
 };
 
 
