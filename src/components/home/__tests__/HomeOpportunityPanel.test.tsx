@@ -19,6 +19,10 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ locale: 'en', t: (value: string) => value }),
 }));
 
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'test-user-id' } }),
+}));
+
 vi.mock('@/hooks/useWardrobeUnlocks', () => ({
   useWardrobeUnlocks: () => useWardrobeUnlocksMock(),
 }));
