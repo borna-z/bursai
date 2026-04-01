@@ -2,7 +2,9 @@ import { Sparkles } from 'lucide-react';
 
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import type { HomeState } from '@/components/home/homeTypes';
-import { OutfitComposition } from '@/components/ui/OutfitComposition';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
+import { BursMonogram } from '@/components/ui/BursMonogram';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -40,6 +42,43 @@ function ActionRow({
       >
         {secondaryLabel}
       </Button>
+    </div>
+  );
+}
+
+const MAX_THUMBS = 3;
+
+function OutfitThumbnailStrip({ items }: { items: OutfitWithItems['outfit_items'] }) {
+  const visible = items.filter((i) => i.garment).slice(0, MAX_THUMBS);
+  const overflow = Math.max(0, items.filter((i) => i.garment).length - MAX_THUMBS);
+
+  if (visible.length === 0) {
+    return (
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border/30 bg-secondary/40">
+        <BursMonogram size={8} className="opacity-10" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-1.5">
+      {visible.map((item) => (
+        <div
+          key={item.id}
+          className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border/30 bg-background"
+        >
+          <LazyImageSimple
+            imagePath={getPreferredGarmentImagePath(item.garment)}
+            alt={item.garment?.title || item.slot}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ))}
+      {overflow > 0 && (
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border/30 bg-secondary/40">
+          <span className="text-[11px] font-medium text-muted-foreground">+{overflow}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -97,32 +136,23 @@ export function HomeTodayLookCard({
 
   if (state === 'outfit_planned' && todayOutfit) {
     return (
-      <div className="relative overflow-hidden">
-        <div className="space-y-2.5 pb-1">
-          <div className="flex flex-wrap items-center gap-2 px-1 pt-0.5">
-            <span className="eyebrow-chip">{t('plan.today')}</span>
-          </div>
-
-          <OutfitComposition items={todayOutfit.outfit_items} className="rounded-[0.85rem]" />
-        </div>
-
-        <div className="space-y-2.5 pb-1">
-          <div className="space-y-1">
-            <p className="caption-upper text-muted-foreground/55">
-              {t('home.todays_look') || "Today's look"}
-            </p>
-            <h2 className="font-display italic text-[1.25rem] leading-tight tracking-[-0.02em] text-foreground">
-              {todayOutfit.occasion || t('home.todays_look') || "Today's Look"}
-            </h2>
-          </div>
-
-          {weatherSummary || todayOutfit.occasion ? (
-            <div className="premium-inline-stat flex flex-wrap items-center gap-2 text-[0.82rem] text-muted-foreground">
-              {todayOutfit.occasion ? <span>{todayOutfit.occasion}</span> : null}
-              {todayOutfit.occasion && weatherSummary ? <span>·</span> : null}
-              {weatherSummary ? <span>{weatherSummary}</span> : null}
+      <div className="relative overflow-hidden pb-1">
+        <div className="space-y-3">
+          {/* Compact horizontal preview */}
+          <div className="flex items-center gap-3.5">
+            <OutfitThumbnailStrip items={todayOutfit.outfit_items} />
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="caption-upper text-muted-foreground/55">
+                {t('home.todays_look') || "Today's look"}
+              </p>
+              <h2 className="truncate font-display italic text-[1.1rem] leading-tight tracking-[-0.02em] text-foreground">
+                {todayOutfit.occasion || t('home.todays_look') || "Today's Look"}
+              </h2>
+              {weatherSummary ? (
+                <p className="text-[0.78rem] text-muted-foreground/60">{weatherSummary}</p>
+              ) : null}
             </div>
-          ) : null}
+          </div>
 
           <ActionRow
             primaryLabel={primaryLabel}
