@@ -31,7 +31,7 @@ import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
 import { finalizeAssistantText, getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
 import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
-import { findLatestActiveLookMessageIndex, getLatestActiveLook } from '@/lib/chatActiveLook';
+import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLook';
 import { collectStyleChatGarmentIds, isStyleChatResponseEnvelope, type PersistedStyleChatMessage, type StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 
 type Message = {
@@ -173,6 +173,8 @@ export default function AIChat() {
   const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
   const [planActionPayload, setPlanActionPayload] = useState<PlanActionPayload | null>(null);
   const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
+  const [lastConfirmedLook, setLastConfirmedLook] = useState<StyleChatResponseEnvelope | null>(null);
+  const [pendingLookUpdate, setPendingLookUpdate] = useState<StyleChatResponseEnvelope | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
@@ -212,10 +214,24 @@ export default function AIChat() {
 
   const anchoredGarment = useMemo(() => anchoredGarmentId ? garmentMap.get(anchoredGarmentId) ?? null : null, [anchoredGarmentId, garmentMap]);
   const latestActiveLook = useMemo(() => getLatestActiveLook(messages), [messages]);
-  const latestActiveLookMessageIndex = useMemo(() => findLatestActiveLookMessageIndex(messages), [messages]);
+  const currentVisibleLook = useMemo(
+    () => pendingLookUpdate ?? lastConfirmedLook ?? latestActiveLook,
+    [pendingLookUpdate, lastConfirmedLook, latestActiveLook],
+  );
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (isStreaming) return;
+    if (latestActiveLook && hasRenderableActiveLook(latestActiveLook)) {
+      setLastConfirmedLook(latestActiveLook);
+      return;
+    }
+    if (!messages.some((message) => message.role === 'assistant' && hasRenderableActiveLook(message.stylistMeta))) {
+      setLastConfirmedLook(null);
+    }
+  }, [isStreaming, latestActiveLook, messages]);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -273,6 +289,7 @@ export default function AIChat() {
     setPendingImage(null);
     setPlanActionPayload(null);
     setSuggestionChips([]);
+    setPendingLookUpdate(null);
     setIsStreaming(true);
 
     const welcomeText = t('chat.welcome');
@@ -306,11 +323,13 @@ export default function AIChat() {
           garmentCount: garmentCount ?? 0,
           archetype: styleDNA?.archetype ?? null,
           selected_garment_ids: anchoredGarmentId ? [anchoredGarmentId] : undefined,
-          active_look: latestActiveLook
+          active_look: currentVisibleLook
             ? {
-              garment_ids: latestActiveLook.outfit_ids,
-              explanation: latestActiveLook.outfit_explanation,
-              source: latestActiveLook.active_look_status,
+              garment_ids: currentVisibleLook.active_look?.garment_ids?.length
+                ? currentVisibleLook.active_look.garment_ids
+                : currentVisibleLook.outfit_ids,
+              explanation: currentVisibleLook.active_look?.explanation || currentVisibleLook.outfit_explanation,
+              source: currentVisibleLook.active_look?.source || currentVisibleLook.active_look_status,
             }
             : undefined,
         }),
@@ -355,6 +374,9 @@ export default function AIChat() {
             const parsed = JSON.parse(jsonStr);
             if (parsed.type === 'stylist_response' && isStyleChatResponseEnvelope(parsed.payload)) {
               assistantMeta = parsed.payload;
+              if (hasRenderableActiveLook(assistantMeta)) {
+                setPendingLookUpdate(assistantMeta);
+              }
               setMessages(prev => {
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
@@ -426,6 +448,10 @@ export default function AIChat() {
           }
           : null,
       };
+      if (hasRenderableActiveLook(assistantMsg.stylistMeta)) {
+        setLastConfirmedLook(assistantMsg.stylistMeta);
+      }
+      setPendingLookUpdate(null);
       setMessages(prev => {
         const updated = [...prev];
         const lastIdx = updated.length - 1;
@@ -443,17 +469,31 @@ export default function AIChat() {
         ? (t('chat.stylist_timeout') || 'I hit a delay, but I kept the current look live.')
         : (t('chat.stylist_fallback') || 'Something went wrong on my end. Try asking again or rephrase your request.');
       const preservedMeta = assistantMeta
-        ?? (latestActiveLook
+        ?? (currentVisibleLook
           ? {
-            ...latestActiveLook,
+            ...currentVisibleLook,
             assistant_text: fallbackText,
             suggestion_chips: [],
             truncated: true,
+            response_kind: 'style_repair',
+            card_policy: currentVisibleLook.card_policy,
+            card_state: currentVisibleLook.card_state === 'unavailable' ? 'unavailable' : 'preserved',
             fallback_used: true,
             degraded_reason: isAbort ? 'request_timeout' : 'request_failed',
-            active_look_status: latestActiveLook.outfit_ids.length > 0 ? 'preserved' : latestActiveLook.active_look_status,
+            active_look_status: currentVisibleLook.outfit_ids.length > 0 ? 'preserved' : currentVisibleLook.active_look_status,
+            active_look: currentVisibleLook.active_look?.garment_ids?.length
+              ? {
+                ...currentVisibleLook.active_look,
+                status: currentVisibleLook.outfit_ids.length > 0 ? 'preserved' : currentVisibleLook.active_look.status,
+                card_state: currentVisibleLook.outfit_ids.length > 0 ? 'preserved' : currentVisibleLook.active_look.card_state,
+              }
+              : currentVisibleLook.active_look,
           }
           : null);
+      if (hasRenderableActiveLook(preservedMeta)) {
+        setLastConfirmedLook(preservedMeta);
+      }
+      setPendingLookUpdate(null);
       setMessages(prev => {
         const updated = [...prev];
         const lastIdx = updated.length - 1;
@@ -619,6 +659,7 @@ export default function AIChat() {
               }
               const isStreamingMsg = isStreaming && idx === messages.length - 1 && msg.role === 'assistant';
               const isEmpty = getTextContent(msg.content) === '';
+              const shouldShowVisibleLook = msg.role === 'assistant' && idx === messages.length - 1;
               return (
                 <motion.div
                   key={idx}
@@ -627,7 +668,7 @@ export default function AIChat() {
                   animate="animate"
                   transition={PRESETS.MESSAGE.transition}
                 >
-                  {isStreamingMsg && isEmpty ? (
+                  {isStreamingMsg && isEmpty && !currentVisibleLook ? (
                     <StylistReplyPlaceholder />
                   ) : (
                     <ChatMessage
@@ -636,7 +677,8 @@ export default function AIChat() {
                       garmentMap={garmentMap}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
-                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg}
+                      showStyleCards={msg.role !== 'assistant' || shouldShowVisibleLook}
+                      displayMetaOverride={shouldShowVisibleLook ? currentVisibleLook : null}
                     />
                   )}
                 </motion.div>

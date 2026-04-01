@@ -2,12 +2,22 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
-import { detectStylistChatModeFromSignals, resolveActiveLookStatus, shouldRenderStyleCard, type StyleChatActiveLookInput, type StyleChatResponseEnvelope, type StylistChatMode } from "../_shared/style-chat-contract.ts";
+import {
+  detectStylistChatModeFromSignals,
+  resolveActiveLookStatus,
+  resolveStyleCardState,
+  resolveStyleCardPolicy,
+  resolveStyleResponseKind,
+  shouldRenderStyleCardFromPolicy,
+  type StyleChatActiveLookInput,
+  type StyleChatResponseEnvelope,
+  type StylistChatMode,
+} from "../_shared/style-chat-contract.ts";
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
-import { normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
+import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
 
@@ -148,6 +158,8 @@ interface StructuredRefinementPlan {
   style: string | null;
   weather?: StyleChatWeatherOverride;
   lockedGarmentIds: string[];
+  anchorLocked: boolean;
+  anchorGarmentId: string | null;
   requestedEditSlots: string[];
   excludeGarmentIds: string[];
   preferGarmentIds: string[];
@@ -622,6 +634,82 @@ function detectAnchorGarment(garments: GarmentRecord[], messages: MessageInput[]
   return { anchor: null, explicitIds: [], source: null };
 }
 
+function didUserExplicitlyReleaseAnchor(messages: MessageInput[], anchor: GarmentRecord | null, selectedGarmentIds: string[] = []): boolean {
+  if (!anchor || !selectedGarmentIds.includes(anchor.id)) return false;
+
+  const latestUser = normalizeTerm(getMessageText(messages.filter((message) => message.role === "user").slice(-1)[0]?.content || ""));
+  if (!latestUser) return false;
+  if (!/(remove|replace|swap out|change|drop|without|not this|don't use|do not use)/i.test(latestUser)) {
+    return false;
+  }
+
+  const anchorTerms = [
+    normalizeTerm(anchor.title),
+    normalizeTerm(anchor.category),
+    normalizeTerm(anchor.subcategory),
+    "selected garment",
+    "selected piece",
+    "anchor",
+    "hero piece",
+  ].filter(Boolean);
+
+  return anchorTerms.some((term) => term && latestUser.includes(term));
+}
+
+function buildRankedGarmentSubset(
+  ranked: Array<{ garment: GarmentRecord; score: number }>,
+  anchor: GarmentRecord | null,
+): GarmentRecord[] {
+  const slotTargets = new Map<string, number>([
+    ["top", 4],
+    ["bottom", 4],
+    ["shoes", 4],
+    ["dress", 2],
+    ["outerwear", 3],
+    ["accessory", 2],
+  ]);
+  const selected: GarmentRecord[] = [];
+  const selectedIds = new Set<string>();
+  const selectedSlotCounts = new Map<string, number>();
+
+  const pushGarment = (garment: GarmentRecord | null | undefined) => {
+    if (!garment || selectedIds.has(garment.id)) return;
+    selected.push(garment);
+    selectedIds.add(garment.id);
+    const slot = getSlotKey(garment.category);
+    selectedSlotCounts.set(slot, (selectedSlotCounts.get(slot) || 0) + 1);
+  };
+
+  pushGarment(anchor);
+
+  for (const entry of ranked) {
+    const slot = getSlotKey(entry.garment.category);
+    const target = slotTargets.get(slot);
+    if (!target) continue;
+    if ((selectedSlotCounts.get(slot) || 0) >= target) continue;
+    pushGarment(entry.garment);
+  }
+
+  for (const entry of ranked) {
+    if (selected.length >= 24) break;
+    pushGarment(entry.garment);
+  }
+
+  return selected;
+}
+
+function resolveValidatedOutfitIds(
+  ids: string[],
+  garments: GarmentRecord[],
+  lockedGarmentIds: string[],
+): string[] {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean))).slice(0, 5);
+  if (!uniqueIds.length) return [];
+  if (!isCompleteStyleChatOutfitIds(uniqueIds, garments)) return [];
+  if (lockedGarmentIds.some((id) => !uniqueIds.includes(id))) return [];
+  return uniqueIds;
+}
+
 function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord | null): string {
   const recent = messages.slice(-4);
   const userTurns = recent.filter((m) => m.role === "user").map((m) => getMessageText(m.content)).filter(Boolean);
@@ -981,6 +1069,8 @@ function buildStructuredRefinementPlan(params: {
   rankedGarments: GarmentRecord[];
   anchor: GarmentRecord | null;
   dominantArchetype: string | null;
+  selectedGarmentIds: string[];
+  anchorReleased: boolean;
 }): StructuredRefinementPlan {
   const garmentById = new Map(params.rankedGarments.map((garment) => [garment.id, garment]));
   const activeLookGarments = params.activeLook.garmentIds
@@ -993,6 +1083,10 @@ function buildStructuredRefinementPlan(params: {
   const lockedGarmentIds = activeLookGarments
     .filter((garment) => !editableSlotSet.has(getSlotKey(garment.category)))
     .map((garment) => garment.id);
+  const anchorLocked = Boolean(params.anchor && params.selectedGarmentIds.includes(params.anchor.id) && !params.anchorReleased);
+  if (anchorLocked && params.anchor && !lockedGarmentIds.includes(params.anchor.id)) {
+    lockedGarmentIds.unshift(params.anchor.id);
+  }
 
   const excludeGarmentIds: string[] = [];
   if (params.intent.mode === "swap_shoes") {
@@ -1037,7 +1131,9 @@ function buildStructuredRefinementPlan(params: {
     occasion: occasionMap[params.intent.mode] || "everyday",
     style: styleMap[params.intent.mode] || params.dominantArchetype,
     weather: weatherMap[params.intent.mode],
-    lockedGarmentIds,
+    lockedGarmentIds: Array.from(new Set(lockedGarmentIds)),
+    anchorLocked,
+    anchorGarmentId: params.anchor?.id || null,
     requestedEditSlots: editableSlots,
     excludeGarmentIds,
     preferGarmentIds,
@@ -1339,8 +1435,8 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     .map((g) => ({ garment: g, ...rankGarmentForPrompt(g, queryTerms, anchorSelection.anchor, explicitIds) }))
     .sort((a, b) => b.score - a.score || (a.garment.title || "").localeCompare(b.garment.title || ""));
 
-  const rankedGarments = ranked.slice(0, 18).map((entry) => entry.garment);
-  const detailPool = rankedGarments.length ? rankedGarments : typedGarments.slice(0, 18);
+  const rankedGarments = buildRankedGarmentSubset(ranked, anchorSelection.anchor);
+  const detailPool = rankedGarments.length ? rankedGarments : typedGarments.slice(0, 24);
   const details = detailPool.map(formatGarmentLine).join("\n");
 
   let insightLines = "";
@@ -1706,12 +1802,15 @@ serve(async (req) => {
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
     const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
     const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
+    const anchorReleased = didUserExplicitlyReleaseAnchor(messages as MessageInput[], wardrobeCtx.anchor, selectedGarmentIds);
     const refinementPlan = buildStructuredRefinementPlan({
       intent: refinementIntent,
       activeLook,
       rankedGarments: wardrobeCtx.rankedGarments,
       anchor: wardrobeCtx.anchor,
       dominantArchetype: wardrobeCtx.dominantArchetype,
+      selectedGarmentIds,
+      anchorReleased,
     });
     const stylistMode = detectStylistChatMode({
       messages: messages as MessageInput[],
@@ -1725,10 +1824,12 @@ serve(async (req) => {
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
     const hasStableActiveLook = activeLook.garmentIds.length >= 2;
-    const shouldPreserveStyleCard = stylistMode === "OUTFIT_GENERATION"
-      || stylistMode === "GARMENT_FIRST_STYLING"
-      || stylistMode === "ACTIVE_LOOK_REFINEMENT"
-      || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook);
+    const cardPolicy = resolveStyleCardPolicy({
+      mode: stylistMode,
+      hasActiveLook: hasStableActiveLook,
+      hasAnchor: refinementPlan.anchorLocked || Boolean(wardrobeCtx.anchor),
+    });
+    const shouldPreserveStyleCard = cardPolicy !== "optional";
 
     const taggingContract = shouldPreserveStyleCard
       ? `GARMENT TAGS:
@@ -1740,9 +1841,7 @@ serve(async (req) => {
 - You may still use [[garment:ID]] tags sparingly where they improve clarity.
 - Prioritize mode-specific analysis structure over card markup in this mode.`;
 
-    const shouldCallUnifiedEngine = stylistMode === "OUTFIT_GENERATION"
-      || stylistMode === "GARMENT_FIRST_STYLING"
-      || stylistMode === "ACTIVE_LOOK_REFINEMENT";
+    const shouldCallUnifiedEngine = cardPolicy === "required";
     const candidateOutfits = (!shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS")
       ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor)
       : "";
@@ -1751,6 +1850,7 @@ serve(async (req) => {
       ? (refinementIntent.mode === "swap_shoes" ? "swap" : "refine")
       : "generate";
     let unified: UnifiedStylistResponse | null = null;
+    let unifiedFailureReason: string | null = null;
     if (shouldCallUnifiedEngine) {
       try {
         unified = await invokeUnifiedStylistEngine({
@@ -1772,11 +1872,12 @@ serve(async (req) => {
           },
         });
       } catch (error) {
+        unifiedFailureReason = error instanceof Error ? error.message : String(error);
         log.warn("unified_engine.degraded", {
           requestId,
           userId: user.id,
           stage: "unified_engine_failed",
-          error: error instanceof Error ? error.message : String(error),
+          error: unifiedFailureReason,
         });
       }
     }
@@ -1784,11 +1885,35 @@ serve(async (req) => {
     const activeLookGarments = activeLook.garmentIds
       .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
       .filter(Boolean) as GarmentRecord[];
-    const authoritativeOutfitIds = unifiedOutfit?.garment_ids?.length
-      ? unifiedOutfit.garment_ids
-      : shouldPreserveStyleCard
-        ? activeLook.garmentIds
-        : [];
+    const validatedActiveLookIds = resolveValidatedOutfitIds(
+      activeLook.garmentIds,
+      wardrobeCtx.rankedGarments,
+      refinementPlan.anchorLocked && refinementPlan.anchorGarmentId ? [refinementPlan.anchorGarmentId] : [],
+    );
+    const validatedUnifiedOutfitIds = resolveValidatedOutfitIds(
+      unifiedOutfit?.garment_ids || [],
+      wardrobeCtx.rankedGarments,
+      refinementPlan.lockedGarmentIds,
+    );
+    const deterministicRescueOutfitIds = shouldPreserveStyleCard
+      ? buildStyleChatFallbackOutfitIds(
+        wardrobeCtx.rankedGarments,
+        wardrobeCtx.anchor,
+        activeLook,
+        {
+          lockedGarmentIds: refinementPlan.lockedGarmentIds,
+          requestedEditSlots: refinementPlan.requestedEditSlots,
+          preferGarmentIds: refinementPlan.preferGarmentIds,
+        },
+      )
+      : [];
+    const authoritativeOutfitIds = validatedUnifiedOutfitIds.length > 0
+      ? validatedUnifiedOutfitIds
+      : deterministicRescueOutfitIds.length > 0
+        ? deterministicRescueOutfitIds
+        : shouldPreserveStyleCard
+          ? validatedActiveLookIds
+          : [];
     const authoritativeOutfitTag = buildAuthoritativeOutfitTag(
       authoritativeOutfitIds,
       unifiedOutfit?.rationale || "",
@@ -1799,8 +1924,15 @@ serve(async (req) => {
     const authoritativeOutfitGarments = authoritativeOutfitIds
       .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
       .filter(Boolean) as GarmentRecord[];
-    const shouldUseStructuredStylistText = shouldCallUnifiedEngine
-      || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook);
+    const canUseCardFirstText = stylistMode === "OUTFIT_GENERATION"
+      || stylistMode === "GARMENT_FIRST_STYLING"
+      || stylistMode === "ACTIVE_LOOK_REFINEMENT"
+      || stylistMode === "LOOK_EXPLANATION";
+    const shouldUseStructuredStylistText = canUseCardFirstText && (
+      shouldCallUnifiedEngine
+      || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook)
+      || (authoritativeOutfitIds.length > 0 && !validatedUnifiedOutfitIds.length)
+    );
 
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
@@ -1824,7 +1956,11 @@ ${weatherCtx}
 
 STYLIST OPERATING CONTRACT:
 - Primary operating mode for this user turn: ${stylistMode}
+- Card policy for this turn: ${cardPolicy}
 - Act like a premium stylist, not a general assistant.
+- Think in this order: current live look -> locked anchor -> create/update/explain intent -> next valid outfit card -> prose.
+- If this turn is styling-related, the card is the primary output and the prose is secondary.
+- If a selected garment is locked as the anchor, it must remain in the outfit unless the user explicitly asks to remove or replace it.
 - Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
 - In OUTFIT_GENERATION and ACTIVE_LOOK_REFINEMENT, default to complete looks whenever the wardrobe allows it (separates need top + bottom + shoes; dress-led needs dress + shoes).
 - Do not normalize incomplete outfits as the ideal outcome.
@@ -1947,10 +2083,35 @@ ${refinementContract}`;
       includeOutfitTag: false,
       authoritativeOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
       authoritativeExplanation: unifiedOutfit?.rationale || null,
-      fallbackOutfitIds: hasStableActiveLook ? activeLook.garmentIds : [],
+      fallbackOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
     });
 
-    const renderOutfitCard = shouldRenderStyleCard(stylistMode, normalizedReply.outfitIds, hasStableActiveLook);
+    const cardState = resolveStyleCardState(validatedActiveLookIds, normalizedReply.outfitIds);
+    const renderOutfitCard = shouldRenderStyleCardFromPolicy({
+      cardPolicy,
+      cardState,
+      outfitIds: normalizedReply.outfitIds,
+    });
+    const resolvedOutfitIds = renderOutfitCard ? normalizedReply.outfitIds : [];
+    const activeLookStatus = resolveActiveLookStatus(validatedActiveLookIds, resolvedOutfitIds);
+    const usedDeterministicRescue = !validatedUnifiedOutfitIds.length
+      && deterministicRescueOutfitIds.length > 0
+      && deterministicRescueOutfitIds.length === authoritativeOutfitIds.length
+      && deterministicRescueOutfitIds.every((id, index) => id === authoritativeOutfitIds[index]);
+    const preservedExistingLook = !validatedUnifiedOutfitIds.length
+      && validatedActiveLookIds.length > 0
+      && validatedActiveLookIds.length === authoritativeOutfitIds.length
+      && validatedActiveLookIds.every((id, index) => id === authoritativeOutfitIds[index]);
+    const fallbackUsed = shouldPreserveStyleCard && !validatedUnifiedOutfitIds.length && authoritativeOutfitIds.length > 0;
+    const degradedReason = unifiedOutfit?.limitations?.[0]
+      || unifiedFailureReason
+      || (shouldPreserveStyleCard && !authoritativeOutfitIds.length ? "no_valid_outfit_card" : null);
+    const responseKind = resolveStyleResponseKind({
+      mode: stylistMode,
+      cardState,
+      fallbackUsed,
+      degradedReason,
+    });
     const chips = buildSuggestionChips(
       stylistMode,
       renderOutfitCard,
@@ -1959,15 +2120,35 @@ ${refinementContract}`;
     const envelope: StyleChatResponseEnvelope = {
       kind: "stylist_response",
       mode: stylistMode,
+      response_kind: responseKind,
+      card_policy: cardPolicy,
+      card_state: cardState,
       assistant_text: normalizedReply.text,
-      outfit_ids: renderOutfitCard ? normalizedReply.outfitIds : [],
+      outfit_ids: resolvedOutfitIds,
       outfit_explanation: normalizedReply.outfitExplanation,
       garment_mentions: normalizedReply.garmentMentionIds,
       suggestion_chips: chips,
       truncated: truncatedByTokenLimit,
-      active_look_status: resolveActiveLookStatus(activeLook.garmentIds, renderOutfitCard ? normalizedReply.outfitIds : []),
-      fallback_used: Boolean(shouldUseStructuredStylistText && !unifiedOutfit && hasStableActiveLook),
-      degraded_reason: unifiedOutfit?.limitations?.[0] || null,
+      active_look_status: activeLookStatus,
+      active_look: {
+        garment_ids: resolvedOutfitIds,
+        explanation: normalizedReply.outfitExplanation || null,
+        source: resolvedOutfitIds.length > 0
+          ? validatedUnifiedOutfitIds.length > 0
+            ? "unified_stylist_engine"
+            : usedDeterministicRescue
+              ? "deterministic_rescue"
+              : preservedExistingLook
+                ? (activeLook.source || "preserved_active_look")
+                : "style_chat_normalizer"
+          : null,
+        status: activeLookStatus,
+        card_state: cardState,
+        anchor_garment_id: refinementPlan.anchorGarmentId,
+        anchor_locked: refinementPlan.anchorLocked,
+      },
+      fallback_used: fallbackUsed,
+      degraded_reason: degradedReason,
       render_outfit_card: renderOutfitCard,
     };
 
