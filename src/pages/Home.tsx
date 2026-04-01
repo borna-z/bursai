@@ -192,6 +192,7 @@ export default function HomePage() {
             secondaryLabel={secondaryAction.label}
             onPrimaryAction={() => { hapticLight(); primaryAction.onClick(); }}
             onSecondaryAction={() => { hapticLight(); secondaryAction.onClick(); }}
+            onOutfitTap={todayOutfit ? () => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); } : undefined}
           />
         </AnimatedPage>
       </PullToRefresh>
