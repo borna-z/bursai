@@ -330,6 +330,8 @@ export default function AIChat() {
                 : currentVisibleLook.outfit_ids,
               explanation: currentVisibleLook.active_look?.explanation || currentVisibleLook.outfit_explanation,
               source: currentVisibleLook.active_look?.source || currentVisibleLook.active_look_status,
+              anchor_garment_id: currentVisibleLook.active_look?.anchor_garment_id ?? anchoredGarmentId ?? null,
+              anchor_locked: currentVisibleLook.active_look?.anchor_locked ?? Boolean(anchoredGarmentId),
             }
             : undefined,
         }),

@@ -16,10 +16,14 @@ export type StyleChatResponseKind = "style_result" | "style_explanation" | "styl
 
 export type StyleChatActiveLookStatus = "new" | "preserved" | "updated" | "replaced" | "unavailable";
 
+export type StyleChatIntentKind = "create" | "refine" | "explain" | "clarify";
+
 export interface StyleChatActiveLookInput {
   garment_ids?: string[];
   explanation?: string | null;
   source?: string | null;
+  anchor_garment_id?: string | null;
+  anchor_locked?: boolean;
 }
 
 export interface StyleChatResolvedActiveLook {

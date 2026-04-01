@@ -4,6 +4,7 @@ import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 import {
   detectStylistChatModeFromSignals,
+  resolveStyleChatIntentFromSignals,
   resolveActiveLookStatus,
   resolveStyleCardState,
   resolveStyleCardPolicy,
@@ -138,6 +139,7 @@ interface RefinementIntent {
     | "dinner"
     | "work"
     | "weekend"
+    | "travel"
     | "simpler"
     | "bolder"
     | "use_less_worn"
@@ -729,6 +731,9 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   const latestUser = normalizeTerm(getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
   if (!latestUser) return { mode: "new_look", raw: "" };
 
+  if (/(style this garment|style this piece|style this item)/i.test(latestUser)) {
+    return { mode: "targeted_refinement", raw: latestUser };
+  }
   if (/(swap|change|switch).{0,20}(shoe|sneaker|boot|loafer|heel|trainer)/i.test(latestUser)) {
     return { mode: "swap_shoes", raw: latestUser };
   }
@@ -783,7 +788,10 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(for weekend|weekend version|off-duty|casual weekend|brunch|errands)/i.test(latestUser)) {
     return { mode: "weekend", raw: latestUser };
   }
-  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner|simpler|bolder)/i.test(latestUser)) {
+  if (/(for travel|travel version|airport|plane|packing|capsule for travel)/i.test(latestUser)) {
+    return { mode: "travel", raw: latestUser };
+  }
+  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|premium|minimal|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner|travel|simpler|bolder)/i.test(latestUser)) {
     return { mode: "targeted_refinement", raw: latestUser };
   }
   return { mode: "new_look", raw: latestUser };
@@ -809,6 +817,9 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
     `MODE=${mode}. Obey this mode first, then style quality.`,
     "- Do not collapse every request into generic outfit generation.",
     "- Keep output decisive and premium; no generic assistant filler.",
+    "- Prefer styling action over abstract analysis whenever the user is clearly asking for a look or a refinement.",
+    "- Default styling reply shape: one clear decision, one short visual reason, and one short change note only if a change is relevant.",
+    "- If the request is genuinely ambiguous, ask exactly one short clarifying question and stop there.",
     "- Use wardrobe evidence: category balance, wear frequency, layering role, archetype, texture, drape, structure, versatility.",
   ];
 
@@ -1003,6 +1014,9 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     weekend: [
       "- WEEKEND SHIFT: relax the look without making it sloppy. Ease the fabrication, footwear, or outer layer while keeping balance intact.",
     ],
+    travel: [
+      "- TRAVEL SHIFT: keep the outfit easy to move in, low-friction to pack, and clean enough to survive transit without feeling sloppy.",
+    ],
     simpler: [
       "- SIMPLER: remove visual noise first. Fewer statements, cleaner lines, and one clear focal point beat extra styling tricks.",
     ],
@@ -1052,6 +1066,7 @@ function getRefinementEditableSlots(intent: RefinementIntent, activeLookGarments
     case "dinner":
     case "work":
     case "weekend":
+    case "travel":
     case "simpler":
     case "bolder":
     case "targeted_refinement":
@@ -1104,6 +1119,7 @@ function buildStructuredRefinementPlan(params: {
     dinner: "dinner",
     work: "work",
     weekend: "weekend",
+    travel: "travel",
   };
   const styleMap: Partial<Record<RefinementIntent["mode"], string>> = {
     less_formal: "casual",
@@ -1113,6 +1129,7 @@ function buildStructuredRefinementPlan(params: {
     softer: "soft",
     more_elegant: "elegant",
     simpler: "minimal",
+    travel: "minimal",
     bolder: "bold",
   };
   const weatherMap: Partial<Record<RefinementIntent["mode"], StyleChatWeatherOverride>> = {
@@ -1234,6 +1251,26 @@ function buildCardFirstStylistText(params: {
     ? "Det här är den renaste starka looken jag kan säkra från garderoben."
     : "This is the cleanest strong look I can secure from the wardrobe.");
   return trimToSentences([first, second, third].join(" "), 3);
+}
+
+function buildStyleClarifierText(locale: string, latestUser: string): string {
+  const isSwedish = locale === "sv";
+
+  if (/(why|explain|break down|what makes)/i.test(latestUser)) {
+    return isSwedish
+      ? "Vilken look vill du att jag förklarar?"
+      : "Which look do you want me to explain?";
+  }
+
+  if (/(change|make it|style this|style it|swap|replace|remove|drop)/i.test(latestUser)) {
+    return isSwedish
+      ? "Vilket plagg eller vilken look ska jag utgå från?"
+      : "Which garment or look should I work from?";
+  }
+
+  return isSwedish
+    ? "Vilket plagg eller vilken look vill du att jag stylar?"
+    : "Which garment or look do you want me to style?";
 }
 
 function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
@@ -1676,8 +1713,13 @@ serve(async (req) => {
 
     const locale = (typeof rawLocale === "string" && LANG_CONFIG[rawLocale]) ? rawLocale : "sv";
     const lang = getLang(locale);
-    const selectedGarmentIds = Array.isArray(selected_garment_ids) ? selected_garment_ids.filter((id) => typeof id === "string") : [];
     const explicitActiveLook = active_look && typeof active_look === "object" ? active_look as StyleChatActiveLookInput : null;
+    const selectedGarmentIds = Array.from(new Set([
+      ...(Array.isArray(selected_garment_ids) ? selected_garment_ids.filter((id) => typeof id === "string") : []),
+      ...(explicitActiveLook?.anchor_locked && typeof explicitActiveLook.anchor_garment_id === "string"
+        ? [explicitActiveLook.anchor_garment_id]
+        : []),
+    ]));
 
     // ── Scale guard: rate limit + overload protection ──
     if (checkOverload("style_chat")) {
@@ -1801,7 +1843,14 @@ serve(async (req) => {
 
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
     const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
+    const latestUser = normalizeTerm(getMessageText(messages.filter((message) => message.role === "user").slice(-1)[0]?.content || ""));
     const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
+    const styleIntent = resolveStyleChatIntentFromSignals({
+      latestUser,
+      hasActiveLook: activeLook.garmentIds.length >= 2,
+      hasAnchor: Boolean(wardrobeCtx.anchor),
+      refinementMode: refinementIntent.mode,
+    });
     const anchorReleased = didUserExplicitlyReleaseAnchor(messages as MessageInput[], wardrobeCtx.anchor, selectedGarmentIds);
     const refinementPlan = buildStructuredRefinementPlan({
       intent: refinementIntent,
@@ -1824,11 +1873,15 @@ serve(async (req) => {
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
     const hasStableActiveLook = activeLook.garmentIds.length >= 2;
-    const cardPolicy = resolveStyleCardPolicy({
+    const shouldAskClarifyingQuestion = styleIntent === "clarify";
+    const resolvedCardPolicy = resolveStyleCardPolicy({
       mode: stylistMode,
       hasActiveLook: hasStableActiveLook,
       hasAnchor: refinementPlan.anchorLocked || Boolean(wardrobeCtx.anchor),
     });
+    const cardPolicy = shouldAskClarifyingQuestion
+      ? (hasStableActiveLook ? "preserve_if_exists" : "optional")
+      : resolvedCardPolicy;
     const shouldPreserveStyleCard = cardPolicy !== "optional";
 
     const taggingContract = shouldPreserveStyleCard
@@ -1841,8 +1894,8 @@ serve(async (req) => {
 - You may still use [[garment:ID]] tags sparingly where they improve clarity.
 - Prioritize mode-specific analysis structure over card markup in this mode.`;
 
-    const shouldCallUnifiedEngine = cardPolicy === "required";
-    const candidateOutfits = (!shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS")
+    const shouldCallUnifiedEngine = cardPolicy === "required" && !shouldAskClarifyingQuestion;
+    const candidateOutfits = (!shouldAskClarifyingQuestion && !shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS")
       ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor)
       : "";
 
@@ -1907,13 +1960,15 @@ serve(async (req) => {
         },
       )
       : [];
-    const authoritativeOutfitIds = validatedUnifiedOutfitIds.length > 0
-      ? validatedUnifiedOutfitIds
-      : deterministicRescueOutfitIds.length > 0
-        ? deterministicRescueOutfitIds
-        : shouldPreserveStyleCard
-          ? validatedActiveLookIds
-          : [];
+    const authoritativeOutfitIds = shouldAskClarifyingQuestion
+      ? (shouldPreserveStyleCard ? validatedActiveLookIds : [])
+      : validatedUnifiedOutfitIds.length > 0
+        ? validatedUnifiedOutfitIds
+        : deterministicRescueOutfitIds.length > 0
+          ? deterministicRescueOutfitIds
+          : shouldPreserveStyleCard
+            ? validatedActiveLookIds
+            : [];
     const authoritativeOutfitTag = buildAuthoritativeOutfitTag(
       authoritativeOutfitIds,
       unifiedOutfit?.rationale || "",
@@ -1960,6 +2015,8 @@ STYLIST OPERATING CONTRACT:
 - Act like a premium stylist, not a general assistant.
 - Think in this order: current live look -> locked anchor -> create/update/explain intent -> next valid outfit card -> prose.
 - If this turn is styling-related, the card is the primary output and the prose is secondary.
+- If the user is clearly asking for styling, resolve it as create a look, update the current look, or explain the current look. Do not drift into abstract style commentary.
+- If the ask is genuinely ambiguous, ask exactly one short clarifying question. Preserve the current card if one is already valid.
 - If a selected garment is locked as the anchor, it must remain in the outfit unless the user explicitly asks to remove or replace it.
 - Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
 - In OUTFIT_GENERATION and ACTIVE_LOOK_REFINEMENT, default to complete looks whenever the wardrobe allows it (separates need top + bottom + shoes; dress-led needs dress + shoes).
@@ -1974,7 +2031,7 @@ STYLIST OPERATING CONTRACT:
 - Treat the active look as the default working look for refinements.
 - If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
 - Keep the tone editorial, concise, and premium. No generic helper phrasing.
-- Default to 2-4 short sentences. Shorter and more decisive beats longer and safer.
+- Default to 2-3 short sentences: one decision, one visual reason, one short change note if needed.
 - 'Why this works' should read like a stylist's visual rationale, not a generic explainer.
 ${modeContract}
 ${taggingContract}
@@ -2008,7 +2065,9 @@ ${refinementContract}`;
       usedUnifiedEngine: shouldCallUnifiedEngine,
     });
 
-    let rawAssistantText = shouldUseStructuredStylistText
+    let rawAssistantText = shouldAskClarifyingQuestion
+      ? buildStyleClarifierText(locale, latestUser)
+      : shouldUseStructuredStylistText
       ? buildCardFirstStylistText({
         locale,
         mode: stylistMode,
@@ -2021,7 +2080,7 @@ ${refinementContract}`;
       : "";
     let aiFinishReason: string | undefined;
 
-    if (!shouldUseStructuredStylistText || !rawAssistantText.trim()) {
+    if (!shouldAskClarifyingQuestion && (!shouldUseStructuredStylistText || !rawAssistantText.trim())) {
       const aiResponse = await callBursAI({
         messages: [
           { role: "system", content: systemPrompt },
@@ -2082,7 +2141,9 @@ ${refinementContract}`;
       placeOutfitTagFirst: refinementTurn,
       includeOutfitTag: false,
       authoritativeOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
-      authoritativeExplanation: unifiedOutfit?.rationale || null,
+      authoritativeExplanation: shouldAskClarifyingQuestion
+        ? explicitActiveLook?.explanation || null
+        : unifiedOutfit?.rationale || null,
       fallbackOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
     });
 
@@ -2102,16 +2163,23 @@ ${refinementContract}`;
       && validatedActiveLookIds.length > 0
       && validatedActiveLookIds.length === authoritativeOutfitIds.length
       && validatedActiveLookIds.every((id, index) => id === authoritativeOutfitIds[index]);
-    const fallbackUsed = shouldPreserveStyleCard && !validatedUnifiedOutfitIds.length && authoritativeOutfitIds.length > 0;
-    const degradedReason = unifiedOutfit?.limitations?.[0]
-      || unifiedFailureReason
-      || (shouldPreserveStyleCard && !authoritativeOutfitIds.length ? "no_valid_outfit_card" : null);
-    const responseKind = resolveStyleResponseKind({
-      mode: stylistMode,
-      cardState,
-      fallbackUsed,
-      degradedReason,
-    });
+    const fallbackUsed = !shouldAskClarifyingQuestion
+      && shouldPreserveStyleCard
+      && !validatedUnifiedOutfitIds.length
+      && authoritativeOutfitIds.length > 0;
+    const degradedReason = shouldAskClarifyingQuestion
+      ? null
+      : unifiedOutfit?.limitations?.[0]
+        || unifiedFailureReason
+        || (shouldPreserveStyleCard && !authoritativeOutfitIds.length ? "no_valid_outfit_card" : null);
+    const responseKind = shouldAskClarifyingQuestion
+      ? (renderOutfitCard ? "style_result" : "analysis")
+      : resolveStyleResponseKind({
+        mode: stylistMode,
+        cardState,
+        fallbackUsed,
+        degradedReason,
+      });
     const chips = buildSuggestionChips(
       stylistMode,
       renderOutfitCard,

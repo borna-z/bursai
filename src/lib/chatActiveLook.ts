@@ -20,6 +20,18 @@ function getResolvedOutfitExplanation(meta?: StyleChatResponseEnvelope | null): 
   return meta.active_look?.explanation || meta.outfit_explanation || '';
 }
 
+function buildResolvedActiveLook(meta: StyleChatResponseEnvelope, garmentIds: string[], explanation: string) {
+  return {
+    garment_ids: garmentIds,
+    explanation,
+    source: meta.active_look?.source || meta.active_look_status || 'preserved',
+    status: meta.active_look?.status || meta.active_look_status || 'preserved',
+    card_state: meta.active_look?.card_state || meta.card_state || 'preserved',
+    anchor_garment_id: meta.active_look?.anchor_garment_id ?? null,
+    anchor_locked: meta.active_look?.anchor_locked ?? false,
+  };
+}
+
 export function hasRenderableActiveLook(meta?: StyleChatResponseEnvelope | null): boolean {
   return Boolean(meta?.render_outfit_card && getResolvedOutfitIds(meta).length > 0);
 }
@@ -57,15 +69,7 @@ export function getLatestActiveLook(messages: ChatActiveLookMessage[]): StyleCha
       card_state: message.stylistMeta.card_state || 'preserved',
       outfit_ids: resolvedIds,
       outfit_explanation: resolvedExplanation,
-      active_look: message.stylistMeta.active_look || {
-        garment_ids: resolvedIds,
-        explanation: resolvedExplanation,
-        source: message.stylistMeta.active_look_status || 'preserved',
-        status: message.stylistMeta.active_look_status || 'preserved',
-        card_state: message.stylistMeta.card_state || 'preserved',
-        anchor_garment_id: null,
-        anchor_locked: false,
-      },
+      active_look: buildResolvedActiveLook(message.stylistMeta, resolvedIds, resolvedExplanation),
     };
   }
 
