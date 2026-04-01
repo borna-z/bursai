@@ -6,7 +6,6 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PaywallModal } from '@/components/PaywallModal';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
-import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -22,12 +21,18 @@ import { toast } from 'sonner';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 
 const MOODS = [
-  { key: 'confident', emoji: '✨', swatchColor: '#8B4B4B' },
-  { key: 'cozy', emoji: '☁️', swatchColor: '#C4A882' },
-  { key: 'creative', emoji: '🔥', swatchColor: '#7B6B8B' },
-  { key: 'invisible', emoji: '🎈', swatchColor: '#888888' },
-  { key: 'romantic', emoji: '🌹', swatchColor: '#C4869A' },
-  { key: 'energetic', emoji: '⚡', swatchColor: '#C4A040' },
+  { key: 'confident', accent: '#2C2C2C', palette: ['#2C2C2C', '#8B0000', '#F5F0E8'], hint: 'Sharp. Owned.' },
+  { key: 'cozy',      accent: '#C4A882', palette: ['#C4A882', '#8B6B4A', '#F5EDE0'], hint: 'Warm. Enveloping.' },
+  { key: 'creative',  accent: '#7B5EA7', palette: ['#7B5EA7', '#D4A843', '#2D1B4E'], hint: 'Unexpected. Artful.' },
+  { key: 'invisible', accent: '#888888', palette: ['#888888', '#C8C4BC', '#1C1917'], hint: 'Quiet. Tonal.' },
+  { key: 'romantic',  accent: '#D4537E', palette: ['#D4537E', '#E8A0B8', '#FFF0F5'], hint: 'Soft. Dreamy.' },
+  { key: 'grounded',  accent: '#4A7C4A', palette: ['#4A7C4A', '#8B6B3D', '#C4A87A'], hint: 'Earthy. Real.' },
+  { key: 'sharp',     accent: '#C9A86C', palette: ['#1C1917', '#C9A86C', '#F5F0E8'], hint: 'Tailored. Precise.' },
+  { key: 'soft',      accent: '#85B7EB', palette: ['#85B7EB', '#B4C8D8', '#E8EDF2'], hint: 'Muted. Gentle.' },
+  { key: 'bold',      accent: '#C0392B', palette: ['#C0392B', '#1C1917', '#FFE0E0'], hint: 'Statement. Maximum.' },
+  { key: 'editorial', accent: '#185FA5', palette: ['#185FA5', '#C9A86C', '#0A2438'], hint: 'Avant-garde.' },
+  { key: 'energetic', accent: '#D85A30', palette: ['#EF9F27', '#D85A30', '#1C1917'], hint: 'Vibrant. Moving.' },
+  { key: 'playful',   accent: '#9B59B6', palette: ['#D4537E', '#EF9F27', '#534AB7'], hint: 'Unexpected. Fun.' },
 ] as const;
 
 export default function MoodOutfitPage() {
@@ -120,6 +125,8 @@ export default function MoodOutfitPage() {
     setIsGenerating(false);
   };
 
+  const selectedMoodData = MOODS.find((m) => m.key === generatedOutfit?.mood);
+
   const motionProps = prefersReduced
     ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
     : { initial: { opacity: 0, y: DISTANCE.md }, animate: { opacity: 1, y: 0 } };
@@ -150,13 +157,17 @@ export default function MoodOutfitPage() {
               </h2>
             </motion.div>
 
-            {/* Explanation card */}
+            {/* Explanation card with accent left border */}
             {generatedOutfit.explanation ? (
               <motion.div
                 {...motionProps}
                 transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.08 }}
               >
-                <Card className="space-y-3 rounded-[1.25rem] p-5">
+                <Card
+                  surface="default"
+                  className="space-y-3 rounded-[1.25rem] p-5"
+                  style={{ borderLeft: `3px solid ${selectedMoodData?.accent ?? '#C9A86C'}` }}
+                >
                   <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                     Why it works
                   </p>
@@ -203,7 +214,7 @@ export default function MoodOutfitPage() {
               {...motionProps}
               transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.16 }}
             >
-              <Card className="space-y-4 rounded-[1.25rem] p-5">
+              <Card surface="default" className="space-y-4 rounded-[1.25rem] p-5">
                 <div>
                   <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                     Next move
@@ -272,27 +283,40 @@ export default function MoodOutfitPage() {
                     className="text-left cursor-pointer"
                   >
                     <Card
+                      surface="default"
+                      tone={isSelected ? 'inverse' : 'default'}
                       className={cn(
-                        'h-full min-h-[5.5rem] overflow-hidden rounded-[1.25rem] p-4 transition-transform duration-200',
-                        isSelected && 'bg-foreground text-background',
+                        'h-full min-h-[5.5rem] overflow-hidden rounded-[1.25rem] p-4 transition-colors duration-200',
                         isGenerating && !isSelected ? 'opacity-55' : '',
                       )}
+                      style={{ borderTop: `2px solid ${mood.accent}` }}
                     >
                       {isSelected ? (
-                        <OutfitGenerationState
-                          variant="compact"
-                          tone="expressive"
-                          subtitle={t(`ai.mood_${mood.key}`)}
-                          className="border-0 bg-transparent p-0"
-                        />
+                        <div className="flex h-full items-center justify-center">
+                          <motion.div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: mood.accent }}
+                            animate={{ scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] }}
+                            transition={{ duration: 1.4, repeat: Infinity }}
+                          />
+                        </div>
                       ) : (
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl" role="img" aria-label={mood.key}>
-                            {mood.emoji}
-                          </span>
-                          <span className="font-body text-sm font-medium text-foreground uppercase tracking-wide">
+                        <div className="flex flex-col gap-2">
+                          <span className="font-display italic text-[0.95rem] text-foreground">
                             {t(`ai.mood_${mood.key}`)}
                           </span>
+                          <span className="label-editorial text-muted-foreground/60 text-[0.6rem]">
+                            {mood.hint}
+                          </span>
+                          <div className="flex gap-1.5 pt-1">
+                            {mood.palette.map((color, i) => (
+                              <span
+                                key={i}
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
                         </div>
                       )}
                     </Card>
