@@ -2,12 +2,13 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
-import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
+import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
+import { logger } from "../_shared/logger.ts";
 
 // ---------- i18n ----------
 
@@ -30,6 +31,30 @@ const LANG_CONFIG: Record<string, { name: string; weatherLabel: string; todayLab
 
 function getLang(locale: string) {
   return LANG_CONFIG[locale] || LANG_CONFIG["en"];
+}
+
+const log = logger("style_chat");
+
+function createRequestId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `style-chat-${Date.now()}`;
+  }
+}
+
+async function fetchJsonWithTimeout<T>(input: string, init: RequestInit = {}, timeoutMs = 2500): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json() as T;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ---------- helpers ----------
@@ -89,8 +114,11 @@ interface ActiveLookContext {
 interface RefinementIntent {
   mode:
     | "swap_shoes"
+    | "swap_layer"
     | "keep_jacket"
+    | "cooler"
     | "less_formal"
+    | "more_formal"
     | "more_elevated"
     | "warmer"
     | "sharper"
@@ -99,11 +127,29 @@ interface RefinementIntent {
     | "dinner"
     | "work"
     | "weekend"
+    | "simpler"
+    | "bolder"
     | "use_less_worn"
     | "explain_why"
     | "targeted_refinement"
     | "new_look";
   raw: string;
+}
+
+interface StyleChatWeatherOverride {
+  temperature?: number;
+  precipitation?: string;
+  wind?: string;
+}
+
+interface StructuredRefinementPlan {
+  occasion: string;
+  style: string | null;
+  weather?: StyleChatWeatherOverride;
+  lockedGarmentIds: string[];
+  requestedEditSlots: string[];
+  excludeGarmentIds: string[];
+  preferGarmentIds: string[];
 }
 
 type StylistChatMode =
@@ -615,6 +661,9 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(swap|change|switch).{0,20}(shoe|sneaker|boot|loafer|heel|trainer)/i.test(latestUser)) {
     return { mode: "swap_shoes", raw: latestUser };
   }
+  if (/(swap|change|switch).{0,20}(layer|jacket|coat|blazer|outerwear|cardigan|hoodie|overshirt)/i.test(latestUser)) {
+    return { mode: "swap_layer", raw: latestUser };
+  }
   if (/(keep|leave|save|stick with).{0,20}(jacket|coat|blazer|outerwear)/i.test(latestUser)) {
     return { mode: "keep_jacket", raw: latestUser };
   }
@@ -627,11 +676,17 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(warmer|more warm|add warmth|too cold|colder weather|winterize|warmer version)/i.test(latestUser)) {
     return { mode: "warmer", raw: latestUser };
   }
+  if (/(cooler|less warm|lighter version|summerize|summerise|too hot|hotter weather|make it cooler)/i.test(latestUser)) {
+    return { mode: "cooler", raw: latestUser };
+  }
   if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance)/i.test(latestUser)) {
     return { mode: "more_elegant", raw: latestUser };
   }
   if (/(less formal|more casual|relax it|dress it down|tone it down|make it easier|relaxed version)/i.test(latestUser)) {
     return { mode: "less_formal", raw: latestUser };
+  }
+  if (/(more formal|formal version|dressier|black tie|make it formal)/i.test(latestUser)) {
+    return { mode: "more_formal", raw: latestUser };
   }
   if (/(more elevated|more polished|dress it up|make it smarter|elevate it)/i.test(latestUser)) {
     return { mode: "more_elevated", raw: latestUser };
@@ -642,6 +697,12 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(softer|soften it|less sharp|make it softer)/i.test(latestUser)) {
     return { mode: "softer", raw: latestUser };
   }
+  if (/(make it simpler|simpler version|strip it back|minimal version|more minimal)/i.test(latestUser)) {
+    return { mode: "simpler", raw: latestUser };
+  }
+  if (/(make it bolder|bolder version|more bold|more daring|push it more)/i.test(latestUser)) {
+    return { mode: "bolder", raw: latestUser };
+  }
   if (/(for dinner|dinner version|make it dinner|evening version|date night|night out)/i.test(latestUser)) {
     return { mode: "dinner", raw: latestUser };
   }
@@ -651,7 +712,7 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(for weekend|weekend version|off-duty|casual weekend|brunch|errands)/i.test(latestUser)) {
     return { mode: "weekend", raw: latestUser };
   }
-  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner)/i.test(latestUser)) {
+  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner|simpler|bolder)/i.test(latestUser)) {
     return { mode: "targeted_refinement", raw: latestUser };
   }
   return { mode: "new_look", raw: latestUser };
@@ -829,11 +890,17 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     swap_shoes: [
       "- SWAP SHOES: keep the jacket/top/bottom unless there is a direct conflict; only change footwear and explain the effect on formality/proportion.",
     ],
+    swap_layer: [
+      "- SWAP LAYER: preserve the core look and change only the visible layering piece unless the user asks for a broader reset.",
+    ],
     keep_jacket: [
       "- KEEP THE JACKET: preserve the current jacket or outer layer and rebuild only the supporting pieces around it.",
     ],
     less_formal: [
       "- LESS FORMAL: relax fabrication, footwear, or base layer before replacing the hero piece.",
+    ],
+    more_formal: [
+      "- MORE FORMAL: increase polish through cleaner structure, dressier footwear, and less visual noise without breaking continuity.",
     ],
     more_elevated: [
       "- MORE ELEVATED: sharpen structure, cleaner footwear, or sleeker base layers while preserving the active look's core identity.",
@@ -841,6 +908,10 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     warmer: [
       "- WARMER: add warmth through layer weight, knit texture, or more closed footwear before changing the outfit's character.",
       "- Protect the vibe while making the look physically warmer.",
+    ],
+    cooler: [
+      "- COOLER: lighten weight, open the silhouette, or swap into easier footwear while keeping the look coherent.",
+      "- Protect the vibe while making the outfit feel physically lighter.",
     ],
     sharper: [
       "- SHARPER: clean the line with more structure, cleaner footwear, or tighter contrast. Think precision, not extra formality by default.",
@@ -861,6 +932,12 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     weekend: [
       "- WEEKEND SHIFT: relax the look without making it sloppy. Ease the fabrication, footwear, or outer layer while keeping balance intact.",
     ],
+    simpler: [
+      "- SIMPLER: remove visual noise first. Fewer statements, cleaner lines, and one clear focal point beat extra styling tricks.",
+    ],
+    bolder: [
+      "- BOLDER: increase impact through contrast, sharper shape, richer texture, or a stronger focal piece without making the outfit chaotic.",
+    ],
     use_less_worn: [
       "- USE SOMETHING I WEAR LESS: swap in the strongest underused garment only if it improves or preserves outfit quality. Do not force a weak piece into the look.",
     ],
@@ -880,6 +957,127 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
   return `${activeLookLine}
 REFINEMENT MODE: ${intent.mode}
 ${[...targetedRules, ...(modeRuleMap[intent.mode] || [])].join("\n")}`;
+}
+
+function getRefinementEditableSlots(intent: RefinementIntent, activeLookGarments: GarmentRecord[]): string[] {
+  const activeSlots = new Set(activeLookGarments.map((garment) => getSlotKey(garment.category)));
+  const baseTopSlot = activeSlots.has("dress") ? "dress" : "top";
+
+  switch (intent.mode) {
+    case "swap_shoes":
+      return ["shoes"];
+    case "swap_layer":
+      return activeSlots.has("outerwear") ? ["outerwear"] : [baseTopSlot];
+    case "keep_jacket":
+      return ["shoes", baseTopSlot, "bottom", "dress", "accessory"];
+    case "warmer":
+    case "cooler":
+    case "less_formal":
+    case "more_formal":
+    case "more_elevated":
+    case "more_elegant":
+    case "sharper":
+    case "softer":
+    case "dinner":
+    case "work":
+    case "weekend":
+    case "simpler":
+    case "bolder":
+    case "targeted_refinement":
+      return Array.from(new Set(["shoes", "outerwear", baseTopSlot, "accessory"]));
+    case "use_less_worn":
+      return Array.from(new Set([baseTopSlot, "bottom", "dress", "shoes", "outerwear", "accessory"]));
+    default:
+      return [];
+  }
+}
+
+function buildStructuredRefinementPlan(params: {
+  intent: RefinementIntent;
+  activeLook: ActiveLookContext;
+  rankedGarments: GarmentRecord[];
+  anchor: GarmentRecord | null;
+  dominantArchetype: string | null;
+}): StructuredRefinementPlan {
+  const garmentById = new Map(params.rankedGarments.map((garment) => [garment.id, garment]));
+  const activeLookGarments = params.activeLook.garmentIds
+    .map((id) => garmentById.get(id))
+    .filter(Boolean) as GarmentRecord[];
+  const editableSlots = getRefinementEditableSlots(params.intent, activeLookGarments);
+  const editableSlotSet = new Set(editableSlots);
+  const activeSlotMap = new Map(activeLookGarments.map((garment) => [getSlotKey(garment.category), garment]));
+
+  const lockedGarmentIds = activeLookGarments
+    .filter((garment) => !editableSlotSet.has(getSlotKey(garment.category)))
+    .map((garment) => garment.id);
+
+  const excludeGarmentIds: string[] = [];
+  if (params.intent.mode === "swap_shoes") {
+    const currentShoes = activeSlotMap.get("shoes");
+    if (currentShoes) excludeGarmentIds.push(currentShoes.id);
+  }
+  if (params.intent.mode === "swap_layer") {
+    const currentLayer = activeSlotMap.get("outerwear") || activeSlotMap.get("top") || activeSlotMap.get("dress");
+    if (currentLayer) excludeGarmentIds.push(currentLayer.id);
+  }
+
+  const occasionMap: Partial<Record<RefinementIntent["mode"], string>> = {
+    less_formal: "casual",
+    more_formal: "formal",
+    dinner: "dinner",
+    work: "work",
+    weekend: "weekend",
+  };
+  const styleMap: Partial<Record<RefinementIntent["mode"], string>> = {
+    less_formal: "casual",
+    more_formal: "sharp",
+    more_elevated: "sharp",
+    sharper: "sharp",
+    softer: "soft",
+    more_elegant: "elegant",
+    simpler: "minimal",
+    bolder: "bold",
+  };
+  const weatherMap: Partial<Record<RefinementIntent["mode"], StyleChatWeatherOverride>> = {
+    warmer: { temperature: 5, precipitation: "none", wind: "medium" },
+    cooler: { temperature: 26, precipitation: "none", wind: "low" },
+  };
+
+  const preferGarmentIds = Array.from(new Set(
+    [
+      ...params.activeLook.garmentIds,
+      ...(params.anchor ? [params.anchor.id] : []),
+    ].filter((id) => !excludeGarmentIds.includes(id)),
+  ));
+
+  return {
+    occasion: occasionMap[params.intent.mode] || "everyday",
+    style: styleMap[params.intent.mode] || params.dominantArchetype,
+    weather: weatherMap[params.intent.mode],
+    lockedGarmentIds,
+    requestedEditSlots: editableSlots,
+    excludeGarmentIds,
+    preferGarmentIds,
+  };
+}
+
+function buildUnifiedReplyText(locale: string, outfit: UnifiedStylistResponse["outfits"][number] | null): string {
+  if (!outfit) {
+    return locale === "sv"
+      ? "Jag kunde inte säkra en tydlig look just nu. Försök igen eller justera önskemålet lite."
+      : "I couldn't lock a clear look just now. Try again or tweak the request a bit.";
+  }
+
+  const parts = [String(outfit.rationale || "").trim()];
+  if (outfit.limitations.length > 0) {
+    parts.push(outfit.limitations[0]);
+  }
+  const prose = parts.filter(Boolean).join(" ");
+  if (prose) return prose;
+
+  return locale === "sv"
+    ? "Här är den starkaste kompletta looken jag kunde säkra från garderoben."
+    : "Here is the strongest complete look I could secure from the wardrobe.";
 }
 
 function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
@@ -972,27 +1170,24 @@ function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentR
 }
 
 async function geocodeCity(city: string): Promise<{ lat: number; lon: number } | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
-      { headers: { "User-Agent": "BURS-App/1.0" } }
-    );
-    const data = await res.json();
-    if (data?.[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-  } catch { /* ignore */ }
+  const data = await fetchJsonWithTimeout<Array<{ lat?: string; lon?: string }>>(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
+    { headers: { "User-Agent": "BURS-App/1.0" } },
+    2500,
+  );
+  if (data?.[0]) return { lat: parseFloat(data[0].lat || "0"), lon: parseFloat(data[0].lon || "0") };
   return null;
 }
 
 async function fetchWeather(lat: number, lon: number, lang: typeof LANG_CONFIG[string]): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,weather_code`
-    );
-    const d = await res.json();
-    const c = d?.current;
-    if (!c) return "";
-    return `${lang.weatherLabel}: ${c.temperature_2m}°C, wind ${c.wind_speed_10m} km/h, precipitation ${c.precipitation} mm, code ${c.weather_code}.`;
-  } catch { return ""; }
+  const weather = await fetchJsonWithTimeout<{ current?: { temperature_2m?: number; wind_speed_10m?: number; precipitation?: number; weather_code?: number } }>(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,weather_code`,
+    {},
+    2500,
+  );
+  const current = weather?.current;
+  if (!current) return "";
+  return `${lang.weatherLabel}: ${current.temperature_2m}°C, wind ${current.wind_speed_10m} km/h, precipitation ${current.precipitation} mm, code ${current.weather_code}.`;
 }
 
 async function getCalendarContext(supabase: ReturnType<typeof createClient>, userId: string, lang: typeof LANG_CONFIG[string]): Promise<string> {
@@ -1018,6 +1213,8 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     .from("garments")
     .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path, ai_raw")
     .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
     .limit(120);
   if (!garments?.length) {
     return {
@@ -1283,6 +1480,8 @@ serve(async (req) => {
   }
 
   try {
+    const requestId = createRequestId();
+    const requestStartedAt = Date.now();
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -1303,6 +1502,7 @@ serve(async (req) => {
         status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
+    log.info("request.start", { requestId, userId: user.id });
 
     const { messages, locale: rawLocale, selected_garment_ids, garmentCount: _clientGarmentCount, archetype: _clientArchetype } = await req.json();
     if (!messages || !Array.isArray(messages)) {
@@ -1356,7 +1556,14 @@ serve(async (req) => {
     let weatherCtx = "";
     if (profile?.home_city) {
       const coords = await geocodeCity(profile.home_city);
-      if (coords) weatherCtx = await fetchWeather(coords.lat, coords.lon, lang);
+      if (coords) {
+        weatherCtx = await fetchWeather(coords.lat, coords.lon, lang);
+        if (!weatherCtx) {
+          log.warn("weather.degraded", { requestId, userId: user.id, stage: "weather_unavailable" });
+        }
+      } else {
+        log.warn("weather.degraded", { requestId, userId: user.id, stage: "geocode_unavailable" });
+      }
     }
 
     const heightCm = profile?.height_cm;
@@ -1431,6 +1638,13 @@ serve(async (req) => {
     const threadBrief = buildThreadBrief(messages as MessageInput[], wardrobeCtx.anchor);
     const activeLook = buildActiveLookContext(messages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds);
     const refinementIntent = detectRefinementIntent(messages as MessageInput[]);
+    const refinementPlan = buildStructuredRefinementPlan({
+      intent: refinementIntent,
+      activeLook,
+      rankedGarments: wardrobeCtx.rankedGarments,
+      anchor: wardrobeCtx.anchor,
+      dominantArchetype: wardrobeCtx.dominantArchetype,
+    });
     const stylistMode = detectStylistChatMode({
       messages: messages as MessageInput[],
       activeLook,
@@ -1469,27 +1683,36 @@ serve(async (req) => {
     const unifiedRequestMode = stylistMode === "ACTIVE_LOOK_REFINEMENT"
       ? (refinementIntent.mode === "swap_shoes" ? "swap" : "refine")
       : "generate";
-    const unified = shouldCallUnifiedEngine
-      ? await invokeUnifiedStylistEngine({
-        authToken: token,
-        request: {
-          mode: unifiedRequestMode,
-          generator_mode: "stylist",
-          occasion: "chat",
-          style: wardrobeCtx.dominantArchetype,
-          weather: undefined,
-          locale,
-          prefer_garment_ids: wardrobeCtx.anchor ? [wardrobeCtx.anchor.id] : [],
-          active_look_garment_ids: activeLook.garmentIds,
-          locked_garment_ids: refinementIntent.mode === "keep_jacket" && activeLook.garmentIds.length > 0
-            ? [activeLook.garmentIds[0]]
-            : [],
-          requested_edit_slots: refinementIntent.mode === "swap_shoes" ? ["shoes"] : [],
-          output_count: 1,
-          explanation_mode: "short",
-        },
-      })
-      : null;
+    let unified: UnifiedStylistResponse | null = null;
+    if (shouldCallUnifiedEngine) {
+      try {
+        unified = await invokeUnifiedStylistEngine({
+          authToken: token,
+          request: {
+            mode: unifiedRequestMode,
+            generator_mode: "stylist",
+            occasion: refinementPlan.occasion,
+            style: refinementPlan.style,
+            weather: refinementPlan.weather,
+            locale,
+            prefer_garment_ids: refinementPlan.preferGarmentIds,
+            exclude_garment_ids: refinementPlan.excludeGarmentIds,
+            active_look_garment_ids: activeLook.garmentIds,
+            locked_garment_ids: refinementPlan.lockedGarmentIds,
+            requested_edit_slots: refinementPlan.requestedEditSlots,
+            output_count: 1,
+            explanation_mode: "short",
+          },
+        });
+      } catch (error) {
+        log.warn("unified_engine.degraded", {
+          requestId,
+          userId: user.id,
+          stage: "unified_engine_failed",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     const unifiedOutfit = unified?.outfits[0] || null;
     const authoritativeOutfitIds = unifiedOutfit?.garment_ids || [];
     const authoritativeOutfitTag = buildAuthoritativeOutfitTag(
@@ -1560,18 +1783,35 @@ ${refinementContract}`;
       return m;
     });
 
-    console.log(`style_chat: ${messages.length} messages in thread`);
-    const aiResponse = await callBursAI({
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...preparedMessages,
-      ],
-      complexity: chatComplexity,
-      max_tokens: chatComplexity === "complex" ? 1400 : 1100,
-      functionName: "style_chat",
+    log.info("stylist.mode", {
+      requestId,
+      userId: user.id,
+      stage: "mode_resolved",
+      stylistMode,
+      refinementMode: refinementIntent.mode,
+      hasActiveLook: activeLook.garmentIds.length > 0,
+      usedUnifiedEngine: shouldCallUnifiedEngine,
     });
 
-    let rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+    let rawAssistantText = shouldCallUnifiedEngine
+      ? buildUnifiedReplyText(locale, unifiedOutfit)
+      : "";
+    let aiFinishReason: string | undefined;
+
+    if (!shouldCallUnifiedEngine || !rawAssistantText.trim()) {
+      const aiResponse = await callBursAI({
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...preparedMessages,
+        ],
+        complexity: chatComplexity,
+        max_tokens: chatComplexity === "complex" ? 1400 : 1100,
+        functionName: "style_chat",
+      });
+
+      rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+      aiFinishReason = aiResponse.finish_reason;
+    }
 
     // ── Empty response guard ─────────────────────────────────────
     if (!rawAssistantText.trim()) {
@@ -1584,7 +1824,7 @@ ${refinementContract}`;
 
     // ── Truncation detection ─────────────────────────────────────
     let truncatedByTokenLimit = false;
-    if (aiResponse.finish_reason === "length") {
+    if (aiFinishReason === "length") {
       console.warn("style_chat: response truncated by output token limit (finish_reason=length)");
       truncatedByTokenLimit = true;
       // Clean up partial sentence at the end if the model was cut off mid-thought
@@ -1648,6 +1888,17 @@ ${refinementContract}`;
       locale,
     );
 
+    log.info("request.complete", {
+      requestId,
+      userId: user.id,
+      stage: "response_ready",
+      durationMs: Date.now() - requestStartedAt,
+      degraded: Boolean(unifiedOutfit?.limitations.length),
+      usedUnifiedEngine: shouldCallUnifiedEngine,
+      hasOutfitTag: Boolean(normalizedReply.outfitTag),
+      truncated: truncatedByTokenLimit,
+    });
+
     return createSseTextResponse(
       normalizedReply.text,
       normalizedReply.outfitTag ?? null,
@@ -1658,7 +1909,8 @@ ${refinementContract}`;
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("style_chat error:", e);
+    recordError("style_chat");
+    log.exception("request.failed", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

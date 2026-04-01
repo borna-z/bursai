@@ -4,24 +4,15 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
-function hasCompleteOutfit(items: Array<{ slot: string }>): boolean {
-  const slots = new Set(items.map(i => i.slot.toLowerCase()));
-  return slots.has('dress') || (slots.has('top') && slots.has('bottom'));
-}
+import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
+import { logger } from "../_shared/logger.ts";
 
-function validateCompleteOutfitInline(items: Array<{ slot: string }>): { isValid: boolean; missing: string[] } {
-  const slots = new Set(items.map(i => i.slot.toLowerCase()));
-  const missing: string[] = [];
-  if (!slots.has('shoes')) missing.push('shoes');
-  const hasDress = slots.has('dress');
-  const hasTopBottom = slots.has('top') && slots.has('bottom');
-  if (!hasDress && !hasTopBottom) {
-    if (!slots.has('top')) missing.push('top');
-    if (!slots.has('bottom')) missing.push('bottom');
-  }
-  return { isValid: missing.length === 0, missing };
+const log = logger("mood_outfit");
+
+function normalizeValue(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
 }
 
 const MOOD_MAP: Record<string, { formality: string; colors: string; materials: string; vibe: string }> = {
@@ -147,6 +138,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
+    const requestId = crypto.randomUUID();
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -168,6 +160,7 @@ serve(async (req) => {
       });
     }
     const userId = user.id;
+    log.info("request.start", { requestId, userId });
 
     // ── Scale guard ──
     if (checkOverload("mood_outfit")) {
@@ -183,7 +176,9 @@ serve(async (req) => {
       .from("garments")
       .select("id, title, category, subcategory, color_primary, material, formality, pattern, wear_count")
       .eq("user_id", userId)
-      .eq("in_laundry", false);
+      .eq("in_laundry", false)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true });
 
     if (gErr) throw gErr;
     if (!garments || garments.length === 0) {
@@ -191,7 +186,7 @@ serve(async (req) => {
         status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
-    if (!hasCompleteOutfit(garments.map(g => ({ slot: inferSlotFromGarment(g) })))) {
+    if (!canBuildCompleteOutfitPath(garments)) {
       return new Response(JSON.stringify({
         error: "You need either top + bottom + shoes, or dress + shoes, to create a mood outfit",
       }), {
@@ -263,7 +258,12 @@ WARDROBE:\n${garmentList}` },
       weather,
     );
 
-    const completeValidation = validateCompleteOutfitInline(normalizedItems);
+    const completeValidation = validateCompleteOutfit(
+      normalizedItems.map((item) => ({
+        slot: item.slot,
+        garment: garmentsById.get(item.garment_id) || null,
+      })),
+    );
     if (!completeValidation.isValid) {
       return new Response(JSON.stringify({
         error: `Not enough garments to build a complete mood outfit. Missing: ${completeValidation.missing.join(', ')}`,
@@ -274,6 +274,14 @@ WARDROBE:\n${garmentList}` },
     }
 
     const limitationNote = result.limitation_note || buildMoodLimitationNote(normalizedItems, weather);
+
+    log.info("request.complete", {
+      requestId,
+      userId,
+      stage: "response_ready",
+      itemCount: normalizedItems.length,
+      degraded: Boolean(limitationNote),
+    });
 
     return new Response(JSON.stringify({
       ...result,
@@ -286,7 +294,8 @@ WARDROBE:\n${garmentList}` },
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("mood_outfit error:", e);
+    recordError("mood_outfit");
+    log.exception("request.failed", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });
