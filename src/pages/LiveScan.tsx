@@ -724,7 +724,7 @@ export default function LiveScan() {
       </div>
 
       {/* Shutter button — only in camera stream mode */}
-      {!useFileInputMode && cameraReady && (
+      {!useFileInputMode && cameraReady && !lastResult && !isProcessing && !showAccepted && (
         <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
           <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
