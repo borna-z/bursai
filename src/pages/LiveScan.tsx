@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
@@ -22,6 +21,7 @@ import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { logger } from '@/lib/logger';
+import { GarmentSaveChoiceSheet } from '@/components/garment/GarmentSaveChoiceSheet';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -329,10 +329,10 @@ export default function LiveScan() {
   const [cameraStarted, setCameraStarted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [showSaveChoice, setShowSaveChoice] = useState(false);
   const [isSavingAccepted, setIsSavingAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
   const [scanThumbnails, setScanThumbnails] = useState<string[]>([]);
-  const [studioQualityEnabled, setStudioQualityEnabled] = useState(true);
 
   const isMedian = isMedianApp();
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
@@ -441,11 +441,12 @@ export default function LiveScan() {
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
 
-  const handleAccept = useCallback(async () => {
+  const handleAccept = useCallback(async (enableStudioQuality: boolean) => {
     if (isSavingAccepted) return;
+    setShowSaveChoice(false);
     setIsSavingAccepted(true);
 
-    const saved = await accept(studioQualityEnabled);
+    const saved = await accept(enableStudioQuality);
     setIsSavingAccepted(false);
 
     if (!saved) {
@@ -457,7 +458,7 @@ export default function LiveScan() {
       setScanThumbnails(prev => [...prev, lastResult.thumbnailUrl]);
     }
     setShowAccepted(true);
-  }, [accept, isSavingAccepted, lastResult, studioQualityEnabled, t]);
+  }, [accept, isSavingAccepted, lastResult, t]);
 
   const handleAcceptedDone = useCallback(() => {
     setShowAccepted(false);
@@ -667,18 +668,11 @@ export default function LiveScan() {
                 <div className="rounded-[1.2rem] border border-border/55 bg-background/84 p-4 shadow-[0_14px_28px_rgba(28,25,23,0.08)]">
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">Studio quality</p>
+                      <p className="text-sm font-medium text-foreground">Ready to save</p>
                       <p className="text-xs text-muted-foreground">
-                        {studioQualityEnabled
-                          ? 'Create the shadow mannequin version in the background after save.'
-                          : 'Save the original photo as-is without studio processing.'}
+                        Choose studio quality or original photo after you tap save.
                       </p>
                     </div>
-                    <Switch
-                      checked={studioQualityEnabled}
-                      onCheckedChange={setStudioQualityEnabled}
-                      disabled={isSavingAccepted}
-                    />
                   </div>
                 </div>
 
@@ -695,7 +689,7 @@ export default function LiveScan() {
                     variant="editorial"
                     className="flex-1 h-12 rounded-full"
                     disabled={isSavingAccepted}
-                    onClick={() => { hapticLight(); void handleAccept(); }}
+                    onClick={() => { hapticLight(); setShowSaveChoice(true); }}
                   >
                     {isSavingAccepted ? (
                       <>
@@ -703,7 +697,7 @@ export default function LiveScan() {
                       </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
+                        <Check className="w-4 h-4 mr-2" />{t('addgarment.save')}
                       </>
                     )}
                   </Button>
@@ -798,6 +792,14 @@ export default function LiveScan() {
           </div>
         </div>
       )}
+
+      <GarmentSaveChoiceSheet
+        open={showSaveChoice}
+        isSaving={isSavingAccepted}
+        onOpenChange={setShowSaveChoice}
+        onSelectStudio={() => { void handleAccept(true); }}
+        onSelectOriginal={() => { void handleAccept(false); }}
+      />
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </div>

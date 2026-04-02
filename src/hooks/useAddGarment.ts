@@ -168,8 +168,6 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
-  const [studioQualityEnabled, setStudioQualityEnabled] = useState(true);
-
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
@@ -310,7 +308,16 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     );
   };
 
-  const handleSave = async () => {
+  const openSaveChoice = () => {
+    if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
+      toast.error(t('addgarment.fill_required'));
+      return;
+    }
+
+    setShowConfirmSheet(true);
+  };
+
+  const handleSave = async (enableStudioQuality: boolean) => {
     if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
       toast.error(t('addgarment.fill_required'));
       return;
@@ -341,12 +348,12 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         }),
         ...buildGarmentIntelligenceFields({
           storagePath,
-          enableRender: studioQualityEnabled,
+          enableRender: enableStudioQuality,
           skipImageProcessing: true,
         }),
       });
 
-      if (storagePath && garmentId && studioQualityEnabled) {
+      if (storagePath && garmentId && enableStudioQuality) {
         triggerGarmentPostSaveIntelligence({
           garmentId,
           storagePath,
@@ -360,7 +367,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       const newCount = (garmentCount || 0) + 1;
       if (newCount === 10) {
         toast.success(t('addgarment.milestone'), {
-          description: studioQualityEnabled
+          description: enableStudioQuality
             ? resolveCopy(
               'addgarment.added_desc',
               'Studio-quality image is processing in the background. You can keep adding garments.',
@@ -372,7 +379,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         });
       } else {
         toast.success(resolveCopy('addgarment.added', 'Saved.'), {
-          description: studioQualityEnabled
+          description: enableStudioQuality
             ? resolveCopy(
               'addgarment.added_desc',
               'Studio-quality image is processing in the background. You can keep adding garments.',
@@ -395,6 +402,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
 
   const resetForm = () => {
     setStep('upload');
+    setShowConfirmSheet(false);
     setImageFile(null);
     setImagePreview(null);
     setStoragePath(null);
@@ -452,8 +460,6 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     analysisError,
     batchFiles,
     setBatchFiles,
-    studioQualityEnabled,
-    setStudioQualityEnabled,
     title,
     setTitle,
     category,
@@ -480,6 +486,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     handleRetryAnalysis,
     handleReanalyze: handleRetryAnalysis,
     handleSave,
+    openSaveChoice,
     resetForm,
     toggleSeason,
     duplicates,

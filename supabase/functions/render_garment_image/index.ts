@@ -525,7 +525,7 @@ serve(async (req) => {
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, ' +
-        'original_image_path, processed_image_path, image_path, image_processing_status, render_status, render_error, rendered_image_path, render_presentation_used',
+        'original_image_path, image_path, render_status, render_error, rendered_image_path, render_presentation_used',
       )
       .eq('id', garmentId)
       .eq('user_id', user.id)
@@ -546,12 +546,8 @@ serve(async (req) => {
       );
     }
 
-    // ── Resolve best source image ──
-    // Prefer background-removed image (cleaner input for Gemini), fall back to original
-    const sourceImagePath =
-      (garment.image_processing_status === 'ready' && garment.processed_image_path)
-        ? garment.processed_image_path
-        : garment.original_image_path || garment.image_path;
+    // ── Resolve source image ──
+    const sourceImagePath = garment.original_image_path || garment.image_path;
 
     if (!sourceImagePath) {
       await safeMarkRenderFailed(supabase, garment.id, {
@@ -584,7 +580,6 @@ serve(async (req) => {
       model: GEMINI_IMAGE_MODEL,
       endpoint: GEMINI_IMAGE_API_URL,
       sourceImagePath,
-      usedProcessedSource: sourceImagePath === garment.processed_image_path,
       mannequinPresentation,
     });
 

@@ -7,7 +7,6 @@ describe('garmentImage', () => {
       getPreferredGarmentImagePath({
         image_path: 'original.jpg',
         original_image_path: 'original.jpg',
-        processed_image_path: 'processed.png',
         image_processing_status: 'ready',
         rendered_image_path: 'rendered.png',
         render_status: 'ready',
@@ -15,29 +14,27 @@ describe('garmentImage', () => {
     ).toBe('rendered.png');
   });
 
-  it('falls back to processed image when render not ready', () => {
+  it('falls back to the original image when render is still pending', () => {
     expect(
       getPreferredGarmentImagePath({
         image_path: 'original.jpg',
         original_image_path: 'original.jpg',
-        processed_image_path: 'processed.png',
         image_processing_status: 'ready',
         rendered_image_path: null,
         render_status: 'pending',
       } as never),
-    ).toBe('processed.png');
+    ).toBe('original.jpg');
   });
 
-  it('prefers processed image when ready and render is none', () => {
+  it('prefers the original image when no studio render is requested', () => {
     expect(
       getPreferredGarmentImagePath({
         image_path: 'original.jpg',
         original_image_path: 'original.jpg',
-        processed_image_path: 'processed.png',
         image_processing_status: 'ready',
         render_status: 'none',
       } as never),
-    ).toBe('processed.png');
+    ).toBe('original.jpg');
   });
 
   it('falls back to original image when processing is not ready', () => {
@@ -45,7 +42,6 @@ describe('garmentImage', () => {
       getPreferredGarmentImagePath({
         image_path: 'legacy.jpg',
         original_image_path: 'original.jpg',
-        processed_image_path: 'processed.png',
         image_processing_status: 'processing',
       } as never),
     ).toBe('original.jpg');
@@ -92,17 +88,12 @@ describe('garmentImage', () => {
   });
 
   it('falls through to processing message when render is none', () => {
-    expect(getGarmentProcessingMessage('pending', 'none')).toEqual({
-      label: 'Preparing image in background',
-      tone: 'muted',
-    });
+    expect(getGarmentProcessingMessage('pending', 'none')).toBeNull();
   });
 
   it('reports rendered as the display source when rendered asset is active', () => {
     expect(
       getPreferredGarmentImageSource({
-        image_processing_status: 'ready',
-        processed_image_path: 'processed.png',
         render_status: 'ready',
         rendered_image_path: 'rendered.png',
       } as never),
@@ -111,16 +102,8 @@ describe('garmentImage', () => {
 
   it('returns truthful rendered-source copy when rendered asset is visible', () => {
     expect(getGarmentProcessingMessage('ready', 'ready', 'rendered')).toEqual({
-      label: 'Using rendered mannequin image',
+      label: 'Using studio-quality image',
       tone: 'success',
     });
   });
-
-  it('returns truthful processed-source copy when render failed but cutout is visible', () => {
-    expect(getGarmentProcessingMessage('ready', 'failed', 'processed')).toEqual({
-      label: 'Using cleaned cutout',
-      tone: 'muted',
-    });
-  });
-
 });

@@ -2854,7 +2854,7 @@ const en: Record<string, string> = {
     'batch.low_confidence': 'Low-confidence match — review before adding.',
     'batch.multi_review_item': 'Multiple garments detected — review item {current} of {total}.',
     'batch.skipped_count': '{count} items were skipped during review.',
-    'batch.added_cleanup': 'Added to wardrobe. Background cleanup continues automatically.',
+    'batch.added_cleanup': 'Added to wardrobe. Studio-quality images continue in the background.',
     'batch.added_label': 'added',
     'batch.pending_review': 'pending review',
     'batch.review_complete': 'Review complete',

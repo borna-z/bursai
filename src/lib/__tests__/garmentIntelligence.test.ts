@@ -86,15 +86,15 @@ describe('standardizeGarmentAiRaw', () => {
 
 
 describe('buildGarmentIntelligenceFields', () => {
-  it('marks render-only add photo records as skipped for background removal', () => {
+  it('marks save-first render records as ready for original-photo display until studio render finishes', () => {
     expect(buildGarmentIntelligenceFields({
       storagePath: 'user-1/photo.jpg',
       enableRender: true,
       skipImageProcessing: true,
     })).toEqual(expect.objectContaining({
       original_image_path: 'user-1/photo.jpg',
-      image_processing_status: 'failed',
-      image_processing_error: 'Background removal skipped for Gemini render pilot; original photo remains until render succeeds.',
+      image_processing_status: 'ready',
+      image_processing_error: null,
       render_status: 'pending',
     }));
   });
@@ -126,22 +126,21 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('process_garment_image', expect.anything());
   });
 
-  it('keeps background removal enabled for batch add and also triggers render', async () => {
+  it('allows batch add to skip image processing and still trigger render', async () => {
     triggerGarmentPostSaveIntelligence({
       garmentId: 'garment-2',
       storagePath: 'user-1/photo.jpg',
       source: 'batch_add',
-      imageProcessing: { mode: 'edge' },
+      imageProcessing: { mode: 'skip' },
     });
 
     await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('process_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-2', source: 'batch_add' },
-      }));
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
         body: { garmentId: 'garment-2', source: 'batch_add' },
       }));
     });
+
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('process_garment_image', expect.anything());
   });
 
   it('triggers studio rendering for live scan without waiting for completion', async () => {
@@ -149,7 +148,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
       garmentId: 'garment-live',
       storagePath: 'user-1/photo-live.jpg',
       source: 'live_scan',
-      imageProcessing: { mode: 'local', run: vi.fn().mockResolvedValue(undefined) },
+      imageProcessing: { mode: 'skip' },
     });
 
     await vi.waitFor(() => {
