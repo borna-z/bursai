@@ -266,15 +266,18 @@ export function buildGarmentIntelligenceFields({
   | 'image_processed_at'
   | 'render_status'
 > {
+  const imageProcessingSkippedForRender = skipImageProcessing && enableRender;
+  const imageProcessingSkippedForOriginalOnly = skipImageProcessing && !enableRender;
+
   return {
     enrichment_status: 'pending',
     original_image_path: storagePath,
     processed_image_path: null,
-    image_processing_status: skipImageProcessing ? 'failed' : 'pending',
+    image_processing_status: imageProcessingSkippedForOriginalOnly ? 'ready' : skipImageProcessing ? 'failed' : 'pending',
     image_processing_provider: null,
     image_processing_version: GARMENT_IMAGE_PROCESSING_VERSION,
     image_processing_confidence: null,
-    image_processing_error: skipImageProcessing
+    image_processing_error: imageProcessingSkippedForRender
       ? 'Background removal skipped for Gemini render pilot; original photo remains until render succeeds.'
       : null,
     image_processed_at: null,

@@ -815,6 +815,7 @@ serve(async (req) => {
 
     // ── Update garment record ──
     await updateGarmentRenderState(supabase, garment.id, {
+      image_path: renderedPath,
       rendered_image_path: renderedPath,
       render_presentation_used: mannequinPresentation,
       render_status: 'ready',

@@ -141,6 +141,7 @@ describe('useAddGarment', () => {
       'addgarment.ai_review': 'Review the detected details.',
       'addgarment.added': 'Saved.',
       'addgarment.added_desc': 'Studio-quality image is processing in the background. You can keep adding garments.',
+      'addgarment.added_original_desc': 'Saved with the original photo. You can keep adding garments.',
       'addgarment.fill_required': 'Fill required fields',
       'common.something_wrong': 'Something went wrong',
     }[key] ?? key);
@@ -180,5 +181,47 @@ describe('useAddGarment', () => {
     expect(result.current.step).toBe('upload');
     expect(result.current.title).toBe('');
     expect(result.current.imagePreview).toBeNull();
+  });
+
+  it('saves with the original photo only when studio quality is turned off', async () => {
+    const t = (key: string) => ({
+      'addgarment.ai_success': 'AI ready',
+      'addgarment.ai_review': 'Review the detected details.',
+      'addgarment.added': 'Saved.',
+      'addgarment.added_desc': 'Studio-quality image is processing in the background. You can keep adding garments.',
+      'addgarment.added_original_desc': 'Saved with the original photo. You can keep adding garments.',
+      'addgarment.fill_required': 'Fill required fields',
+      'common.something_wrong': 'Something went wrong',
+    }[key] ?? key);
+
+    const { result } = renderHook(() => useAddGarment({ t }));
+    const file = new File(['image'], 'garment.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      const selectPromise = result.current.handleImageSelect({
+        target: { files: [file] },
+      } as ChangeEvent<HTMLInputElement>);
+      await Promise.resolve();
+      await vi.runAllTimersAsync();
+      await selectPromise;
+    });
+
+    expect(result.current.step).toBe('form');
+
+    await act(async () => {
+      result.current.setStudioQualityEnabled(false);
+    });
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
+      render_status: 'none',
+    }));
+    expect(triggerGarmentPostSaveIntelligenceMock).not.toHaveBeenCalled();
+    expect(toastSuccessMock).toHaveBeenCalledWith('Saved.', {
+      description: 'Saved with the original photo. You can keep adding garments.',
+    });
   });
 });

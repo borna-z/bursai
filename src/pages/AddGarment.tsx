@@ -98,6 +98,7 @@ export default function AddGarmentPage() {
         selectedSeasons={garment.selectedSeasons}
         formality={garment.formality}
         inLaundry={garment.inLaundry}
+        studioQualityEnabled={garment.studioQualityEnabled}
         onReset={garment.resetForm}
         onReanalyze={garment.handleReanalyze}
         onSave={garment.handleSave}
@@ -113,6 +114,7 @@ export default function AddGarmentPage() {
         toggleSeason={garment.toggleSeason}
         setFormality={garment.setFormality}
         setInLaundry={garment.setInLaundry}
+        setStudioQualityEnabled={garment.setStudioQualityEnabled}
       />
 
       <PaywallModal isOpen={garment.showPaywall} onClose={() => garment.setShowPaywall(false)} reason="garments" />
