@@ -28,10 +28,31 @@ vi.mock('@/contexts/SeedContext', () => ({
   SeedProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock('@/components/onboarding/LanguageStep', () => ({
+  LanguageStep: () => <div>language step</div>,
+}));
+
+vi.mock('@/components/onboarding/QuickStyleQuiz', () => ({
+  QuickStyleQuiz: () => <div>quiz step</div>,
+}));
+
+vi.mock('@/components/onboarding/QuickUploadStep', () => ({
+  QuickUploadStep: () => <div>upload step</div>,
+}));
+
+vi.mock('@/components/onboarding/GetStartedStep', () => ({
+  GetStartedStep: () => <div>get started step</div>,
+}));
+
+vi.mock('@/components/ui/card', () => ({
+  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+import OnboardingPage from '../Onboarding';
+
 describe('Onboarding', () => {
-  it('renders without crashing', async () => {
+  it('renders without crashing', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const OnboardingPage = (await import('../Onboarding')).default;
     const { container } = render(
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={['/onboarding']}>
@@ -40,5 +61,5 @@ describe('Onboarding', () => {
       </QueryClientProvider>
     );
     expect(container).toBeTruthy();
-  }, 10000);
+  });
 });

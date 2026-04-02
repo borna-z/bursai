@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 
 vi.mock('@/lib/offlineQueue', () => ({
   getQueueLength: vi.fn(() => 0),
+  hydrateQueueSummary: vi.fn(async () => 0),
   replayQueue: vi.fn(async () => 0),
 }));
 
@@ -65,6 +66,9 @@ describe('useOfflineQueue', () => {
     act(() => {
       window.dispatchEvent(new CustomEvent('offline-queue-change', { detail: { count: 3 } }));
     });
-    expect(result.current.queueCount).toBe(3);
+
+    await waitFor(() => {
+      expect(result.current.queueCount).toBe(3);
+    });
   });
 });

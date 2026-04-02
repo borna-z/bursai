@@ -10,11 +10,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 export function useOfflineQueue() {
   const { t } = useLanguage();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [queueCount, setQueueCount] = useState(getQueueLength);
+  const [queueCount, setQueueCount] = useState(0);
   const [isReplaying, setIsReplaying] = useState(false);
 
+  const refreshQueueCount = useCallback(() => {
+    setQueueCount(getQueueLength());
+  }, []);
+
   const handleReplay = useCallback(async () => {
-    const pending = getQueueLength();
+    const pending = await getQueueLength();
     if (pending === 0) return;
 
     setIsReplaying(true);
@@ -23,11 +27,11 @@ export function useOfflineQueue() {
       if (synced > 0) {
         toast.success(t('offline.synced_changes').replace('{count}', String(synced)));
       }
-      setQueueCount(getQueueLength());
+      refreshQueueCount();
     } finally {
       setIsReplaying(false);
     }
-  }, [t]);
+  }, [refreshQueueCount, t]);
 
   // Track online/offline
   useEffect(() => {
@@ -47,13 +51,19 @@ export function useOfflineQueue() {
 
   // Track queue count changes
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      setQueueCount(detail?.count ?? getQueueLength());
+    refreshQueueCount();
+
+    const handler = (event: Event) => {
+      const count = (event as CustomEvent<{ count?: number }>).detail?.count;
+      if (typeof count === 'number') {
+        setQueueCount(count);
+        return;
+      }
+      refreshQueueCount();
     };
     window.addEventListener('offline-queue-change', handler);
     return () => window.removeEventListener('offline-queue-change', handler);
-  }, []);
+  }, [refreshQueueCount]);
 
   return { isOffline, queueCount, isReplaying };
 }

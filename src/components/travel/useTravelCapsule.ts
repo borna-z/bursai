@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { format, differenceInCalendarDays, addDays } from 'date-fns';
+import type { Locale as DateFnsLocale } from 'date-fns';
 import { Shirt, Globe, Package, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -10,7 +11,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
 import { toast } from 'sonner';
-import { formatLocalizedDate, getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
+import { fallbackDateFnsLocale, loadDateFnsLocale } from '@/lib/dateFnsLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/lib/logger';
@@ -62,7 +64,7 @@ export function useTravelCapsule() {
   const { t, locale } = useLanguage();
   const { data: profile } = useProfile();
   const { data: allGarments } = useFlatGarments();
-  const dateLocale = getDateFnsLocale(locale);
+  const [dateLocale, setDateLocale] = useState<DateFnsLocale>(fallbackDateFnsLocale);
 
   // ── Form state ──
   const [destination, setDestination] = useState('');
@@ -96,6 +98,26 @@ export function useTravelCapsule() {
   const [addedToCalendar, setAddedToCalendar] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const restoredRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadDateFnsLocale(locale)
+      .then((loadedLocale) => {
+        if (!cancelled) {
+          setDateLocale(loadedLocale);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDateLocale(fallbackDateFnsLocale);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locale]);
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false);

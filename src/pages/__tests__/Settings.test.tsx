@@ -34,10 +34,50 @@ vi.mock('@/contexts/SeedContext', () => ({
   SeedProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock('@/components/layout/AppLayout', () => ({
+  AppLayout: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
+}));
+
+vi.mock('@/components/ui/animated-page', () => ({
+  AnimatedPage: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/components/layout/PageHeader', () => ({
+  PageHeader: ({ title }: { title: string }) => <header>{title}</header>,
+}));
+
+vi.mock('@/components/settings/ProfileCard', () => ({
+  ProfileCard: () => <div>Test User</div>,
+}));
+
+vi.mock('@/components/settings/SettingsGroup', () => ({
+  SettingsGroup: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
+}));
+
+vi.mock('@/components/settings/SettingsRow', () => ({
+  SettingsRow: ({
+    label,
+    children,
+  }: {
+    label: string;
+    children?: React.ReactNode;
+  }) => (
+    <div>
+      <span>{label}</span>
+      {children}
+    </div>
+  ),
+}));
+
+vi.mock('@/hooks/useFirstRunCoach', () => ({
+  useFirstRunCoach: () => ({ restartCoach: vi.fn() }),
+}));
+
+import SettingsPage from '../Settings';
+
 describe('Settings', () => {
-  it('renders without crashing and shows profile name', async () => {
+  it('renders without crashing and shows profile name', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const SettingsPage = (await import('../Settings')).default;
     const { container } = render(
       <QueryClientProvider client={qc}>
         <MemoryRouter>
@@ -47,5 +87,5 @@ describe('Settings', () => {
     );
     expect(container.querySelector('main')).toBeTruthy();
     expect(container.textContent).toContain('Test User');
-  }, 15000);
+  });
 });
