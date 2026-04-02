@@ -21,6 +21,7 @@ import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { logger } from '@/lib/logger';
+import { GarmentSaveChoiceSheet } from '@/components/garment/GarmentSaveChoiceSheet';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -328,6 +329,7 @@ export default function LiveScan() {
   const [cameraStarted, setCameraStarted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [showSaveChoice, setShowSaveChoice] = useState(false);
   const [isSavingAccepted, setIsSavingAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
   const [scanThumbnails, setScanThumbnails] = useState<string[]>([]);
@@ -336,7 +338,7 @@ export default function LiveScan() {
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
   const coach = useFirstRunCoach();
-  const { scanCount, isProcessing, lastResult, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
@@ -439,11 +441,12 @@ export default function LiveScan() {
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
 
-  const handleAccept = useCallback(async () => {
+  const handleAccept = useCallback(async (enableStudioQuality: boolean) => {
     if (isSavingAccepted) return;
+    setShowSaveChoice(false);
     setIsSavingAccepted(true);
 
-    const saved = await accept();
+    const saved = await accept(enableStudioQuality);
     setIsSavingAccepted(false);
 
     if (!saved) {
@@ -461,9 +464,11 @@ export default function LiveScan() {
     setShowAccepted(false);
     clearLastAccepted();
     toast.success(t('scan.added'), {
-      description: 'Studio-quality image is processing in the background. You can keep scanning.',
+      description: lastAccepted?.studioQualityEnabled
+        ? 'Studio-quality image is processing in the background. You can keep scanning.'
+        : 'Saved with the original photo. You can keep scanning.',
     });
-  }, [clearLastAccepted, t]);
+  }, [clearLastAccepted, lastAccepted?.studioQualityEnabled, t]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -660,6 +665,17 @@ export default function LiveScan() {
                 </div>
 
                 {/* Actions */}
+                <div className="rounded-[1.2rem] border border-border/55 bg-background/84 p-4 shadow-[0_14px_28px_rgba(28,25,23,0.08)]">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">Ready to save</p>
+                      <p className="text-xs text-muted-foreground">
+                        Choose studio quality or original photo after you tap save.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
@@ -673,7 +689,7 @@ export default function LiveScan() {
                     variant="editorial"
                     className="flex-1 h-12 rounded-full"
                     disabled={isSavingAccepted}
-                    onClick={() => { hapticLight(); void handleAccept(); }}
+                    onClick={() => { hapticLight(); setShowSaveChoice(true); }}
                   >
                     {isSavingAccepted ? (
                       <>
@@ -681,7 +697,7 @@ export default function LiveScan() {
                       </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
+                        <Check className="w-4 h-4 mr-2" />{t('addgarment.save')}
                       </>
                     )}
                   </Button>
@@ -776,6 +792,14 @@ export default function LiveScan() {
           </div>
         </div>
       )}
+
+      <GarmentSaveChoiceSheet
+        open={showSaveChoice}
+        isSaving={isSavingAccepted}
+        onOpenChange={setShowSaveChoice}
+        onSelectStudio={() => { void handleAccept(true); }}
+        onSelectOriginal={() => { void handleAccept(false); }}
+      />
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </div>

@@ -232,7 +232,7 @@ interface BuildGarmentIntelligenceFieldsOptions {
   storagePath: string;
   /** Set render_status to 'pending' on insert for studio render flows. */
   enableRender?: boolean;
-  /** Opt out of background-removal pipeline initialization for render-only flows. */
+  /** Opt out of image preprocessing for save-first flows. */
   skipImageProcessing?: boolean;
 }
 
@@ -270,13 +270,11 @@ export function buildGarmentIntelligenceFields({
     enrichment_status: 'pending',
     original_image_path: storagePath,
     processed_image_path: null,
-    image_processing_status: skipImageProcessing ? 'failed' : 'pending',
+    image_processing_status: skipImageProcessing ? 'ready' : 'pending',
     image_processing_provider: null,
     image_processing_version: GARMENT_IMAGE_PROCESSING_VERSION,
     image_processing_confidence: null,
-    image_processing_error: skipImageProcessing
-      ? 'Background removal skipped for Gemini render pilot; original photo remains until render succeeds.'
-      : null,
+    image_processing_error: null,
     image_processed_at: null,
     render_status: enableRender ? 'pending' : 'none',
   };

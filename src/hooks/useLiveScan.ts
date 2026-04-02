@@ -21,6 +21,7 @@ export interface AcceptedGarmentInfo {
   garmentId: string;
   imagePath: string;
   analysis: GarmentAnalysis;
+  studioQualityEnabled: boolean;
 }
 
 export function useLiveScan() {
@@ -126,7 +127,7 @@ export function useLiveScan() {
   /**
    * Accept the last scanned result: upload image + save garment + trigger Stage 2 enrichment in background.
    */
-  const accept = useCallback(async () => {
+  const accept = useCallback(async (enableStudioQuality = true) => {
     if (!lastResult || !user) return false;
     const result = lastResult;
     const garmentId = crypto.randomUUID();
@@ -134,7 +135,7 @@ export function useLiveScan() {
     const ext = isPng ? 'png' : 'jpg';
     const imagePath = `${user.id}/${garmentId}.${ext}`;
 
-    const savePromise = saveGarmentInBackground(result, user.id, garmentId);
+    const savePromise = saveGarmentInBackground(result, user.id, garmentId, { enableStudioQuality });
     savingRef.current.push(savePromise);
 
     const savedGarment = await savePromise;
@@ -147,7 +148,7 @@ export function useLiveScan() {
     setLastResult(null);
     setScanCount((c) => c + 1);
     hapticSuccess();
-    setLastAccepted({ garmentId, imagePath, analysis: result.analysis });
+    setLastAccepted({ garmentId, imagePath, analysis: result.analysis, studioQualityEnabled: enableStudioQuality });
     invalidateWardrobeQueries(queryClient, user.id);
     queryClient.invalidateQueries({ queryKey: ['subscription', user.id] });
 

@@ -135,12 +135,69 @@ describe('useAddGarment', () => {
     vi.useRealTimers();
   });
 
-  it('saves immediately, shows background-processing feedback, and resets the flow for another garment', async () => {
+  it('opens a save-choice sheet before saving and then saves studio quality in the background', async () => {
     const t = (key: string) => ({
       'addgarment.ai_success': 'AI ready',
       'addgarment.ai_review': 'Review the detected details.',
       'addgarment.added': 'Saved.',
       'addgarment.added_desc': 'Studio-quality image is processing in the background. You can keep adding garments.',
+      'addgarment.added_original_desc': 'Saved with the original photo. You can keep adding garments.',
+      'addgarment.fill_required': 'Fill required fields',
+      'common.something_wrong': 'Something went wrong',
+    }[key] ?? key);
+
+    const { result } = renderHook(() => useAddGarment({ t }));
+    const file = new File(['image'], 'garment.jpg', { type: 'image/jpeg' });
+
+    await act(async () => {
+      const selectPromise = result.current.handleImageSelect({
+        target: { files: [file] },
+      } as ChangeEvent<HTMLInputElement>);
+      await Promise.resolve();
+      await vi.runAllTimersAsync();
+      await selectPromise;
+    });
+
+    expect(result.current.step).toBe('form');
+    expect(result.current.showConfirmSheet).toBe(false);
+
+    await act(async () => {
+      result.current.openSaveChoice();
+    });
+
+    expect(result.current.showConfirmSheet).toBe(true);
+
+    await act(async () => {
+      await result.current.handleSave(true);
+    });
+
+    expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
+      image_path: 'user-1/garment-1/original.jpg',
+      title: 'Navy blazer',
+      render_status: 'pending',
+    }));
+    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith(expect.objectContaining({
+      garmentId: expect.any(String),
+      source: 'add_photo',
+    }));
+    expect(refreshSubscriptionMock).toHaveBeenCalled();
+    expect(toastSuccessMock).toHaveBeenCalledWith('Saved.', {
+      description: 'Studio-quality image is processing in the background. You can keep adding garments.',
+    });
+    expect(navigateMock).not.toHaveBeenCalledWith('/wardrobe');
+    expect(result.current.step).toBe('upload');
+    expect(result.current.showConfirmSheet).toBe(false);
+    expect(result.current.title).toBe('');
+    expect(result.current.imagePreview).toBeNull();
+  });
+
+  it('saves with the original photo only when that choice is selected', async () => {
+    const t = (key: string) => ({
+      'addgarment.ai_success': 'AI ready',
+      'addgarment.ai_review': 'Review the detected details.',
+      'addgarment.added': 'Saved.',
+      'addgarment.added_desc': 'Studio-quality image is processing in the background. You can keep adding garments.',
+      'addgarment.added_original_desc': 'Saved with the original photo. You can keep adding garments.',
       'addgarment.fill_required': 'Fill required fields',
       'common.something_wrong': 'Something went wrong',
     }[key] ?? key);
@@ -160,25 +217,21 @@ describe('useAddGarment', () => {
     expect(result.current.step).toBe('form');
 
     await act(async () => {
-      await result.current.handleSave();
+      result.current.openSaveChoice();
+    });
+
+    expect(result.current.showConfirmSheet).toBe(true);
+
+    await act(async () => {
+      await result.current.handleSave(false);
     });
 
     expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-      image_path: 'user-1/garment-1/original.jpg',
-      title: 'Navy blazer',
-      render_status: 'pending',
+      render_status: 'none',
     }));
-    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith(expect.objectContaining({
-      garmentId: expect.any(String),
-      source: 'add_photo',
-    }));
-    expect(refreshSubscriptionMock).toHaveBeenCalled();
+    expect(triggerGarmentPostSaveIntelligenceMock).not.toHaveBeenCalled();
     expect(toastSuccessMock).toHaveBeenCalledWith('Saved.', {
-      description: 'Studio-quality image is processing in the background. You can keep adding garments.',
+      description: 'Saved with the original photo. You can keep adding garments.',
     });
-    expect(navigateMock).not.toHaveBeenCalledWith('/wardrobe');
-    expect(result.current.step).toBe('upload');
-    expect(result.current.title).toBe('');
-    expect(result.current.imagePreview).toBeNull();
   });
 });
