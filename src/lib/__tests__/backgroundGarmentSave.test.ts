@@ -198,4 +198,32 @@ describe('saveGarmentInBackground', () => {
       });
     });
   });
+
+  it('stores the original photo as-is when studio quality is disabled', async () => {
+    const uploadMock = vi.fn().mockResolvedValue({ error: null });
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(supabase.storage.from).mockReturnValue({ upload: uploadMock } as any);
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'garments') {
+        return { insert: insertMock } as any;
+      }
+      return { insert: vi.fn().mockResolvedValue({ error: null }) } as any;
+    });
+
+    await saveGarmentInBackground(makeResult(), 'user-1', undefined, { enableStudioQuality: false });
+
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
+      render_status: 'none',
+      image_processing_status: 'ready',
+      image_path: 'user-1/test-uuid.jpg',
+      original_image_path: 'user-1/test-uuid.jpg',
+      processed_image_path: null,
+    }));
+
+    await Promise.resolve();
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith(
+      'render_garment_image',
+      expect.anything(),
+    );
+  });
 });

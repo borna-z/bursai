@@ -168,6 +168,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
+  const [studioQualityEnabled, setStudioQualityEnabled] = useState(true);
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -340,12 +341,12 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         }),
         ...buildGarmentIntelligenceFields({
           storagePath,
-          enableRender: true,
+          enableRender: studioQualityEnabled,
           skipImageProcessing: true,
         }),
       });
 
-      if (storagePath && garmentId) {
+      if (storagePath && garmentId && studioQualityEnabled) {
         triggerGarmentPostSaveIntelligence({
           garmentId,
           storagePath,
@@ -359,17 +360,27 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       const newCount = (garmentCount || 0) + 1;
       if (newCount === 10) {
         toast.success(t('addgarment.milestone'), {
-          description: resolveCopy(
-            'addgarment.added_desc',
-            'Studio-quality image is processing in the background. You can keep adding garments.',
-          ),
+          description: studioQualityEnabled
+            ? resolveCopy(
+              'addgarment.added_desc',
+              'Studio-quality image is processing in the background. You can keep adding garments.',
+            )
+            : resolveCopy(
+              'addgarment.added_original_desc',
+              'Saved with the original photo. You can keep adding garments.',
+            ),
         });
       } else {
         toast.success(resolveCopy('addgarment.added', 'Saved.'), {
-          description: resolveCopy(
-            'addgarment.added_desc',
-            'Studio-quality image is processing in the background. You can keep adding garments.',
-          ),
+          description: studioQualityEnabled
+            ? resolveCopy(
+              'addgarment.added_desc',
+              'Studio-quality image is processing in the background. You can keep adding garments.',
+            )
+            : resolveCopy(
+              'addgarment.added_original_desc',
+              'Saved with the original photo. You can keep adding garments.',
+            ),
         });
       }
       setShowConfirmSheet(false);
@@ -441,6 +452,8 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     analysisError,
     batchFiles,
     setBatchFiles,
+    studioQualityEnabled,
+    setStudioQualityEnabled,
     title,
     setTitle,
     category,

@@ -16,6 +16,10 @@ export interface SavedGarmentRecord {
   storagePath: string;
 }
 
+interface BackgroundSaveOptions {
+  enableStudioQuality?: boolean;
+}
+
 /**
  * Persist a scanned garment, then trigger non-blocking enrichment,
  * duplicate detection, and studio rendering in the background.
@@ -24,9 +28,11 @@ export async function saveGarmentInBackground(
   result: SaveableResult,
   userId: string,
   externalGarmentId?: string,
+  options: BackgroundSaveOptions = {},
 ): Promise<SavedGarmentRecord | null> {
   let garmentId = '';
   let storagePath = '';
+  const enableStudioQuality = options.enableStudioQuality ?? true;
 
   try {
     garmentId = externalGarmentId || crypto.randomUUID();
@@ -70,7 +76,11 @@ export async function saveGarmentInBackground(
         source: 'live_scan',
       }),
       imported_via: 'live_scan',
-      ...buildGarmentIntelligenceFields({ storagePath, enableRender: true }),
+      ...buildGarmentIntelligenceFields({
+        storagePath,
+        enableRender: enableStudioQuality,
+        skipImageProcessing: !enableStudioQuality,
+      }),
     });
 
     if (insertError) {
@@ -78,15 +88,17 @@ export async function saveGarmentInBackground(
       return null;
     }
 
-    triggerGarmentPostSaveIntelligence({
-      garmentId,
-      storagePath,
-      source: 'live_scan',
-      imageProcessing: {
-        mode: 'local',
-        run: () => removeBackgroundAsync(garmentId, userId, result.blob, storagePath),
-      },
-    });
+    if (enableStudioQuality) {
+      triggerGarmentPostSaveIntelligence({
+        garmentId,
+        storagePath,
+        source: 'live_scan',
+        imageProcessing: {
+          mode: 'local',
+          run: () => removeBackgroundAsync(garmentId, userId, result.blob, storagePath),
+        },
+      });
+    }
 
     // Duplicate detection in background (never blocks)
     detectDuplicates(result.analysis, garmentId, storagePath).catch((err) => {
