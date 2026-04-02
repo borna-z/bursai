@@ -21,6 +21,7 @@ import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, rec
 import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
+import { buildStylistMemorySummary } from "../_shared/stylist-memory.ts";
 
 // ---------- i18n ----------
 
@@ -1704,6 +1705,7 @@ serve(async (req) => {
 
     const {
       messages,
+      conversation_summary,
       locale: rawLocale,
       selected_garment_ids,
       active_look,
@@ -1736,12 +1738,24 @@ serve(async (req) => {
     );
     await enforceRateLimit(serviceClient, user.id, "style_chat");
 
-    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx] = await Promise.all([
+    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, feedbackSignalsRes, pairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getCalendarContext(supabase, user.id, lang),
       getRecentOutfitsContext(supabase, user.id),
       getRejectionsContext(supabase, user.id),
       getWardrobeContext(supabase, user.id, messages as MessageInput[], selectedGarmentIds),
+      supabase
+        .from("feedback_signals")
+        .select("signal_type, value, metadata, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(40),
+      supabase
+        .from("garment_pair_memory")
+        .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
+        .eq("user_id", user.id)
+        .or("positive_count.gte.2,negative_count.gte.2")
+        .limit(20),
     ]);
 
     // --- Taste memory ---
@@ -1753,14 +1767,24 @@ serve(async (req) => {
       ? formalityValues.reduce((a, b) => a + b, 0) / formalityValues.length
       : null;
     const dna = { archetype: wardrobeCtx.dominantArchetype, formalityCenter };
-    const rawSignals = rejectionsCtx.raw;
-    const shouldIncludeTasteMemory =
-      (rawSignals.filter((s: any) => s.signal_type === 'reject').length >= 1) ||
-      (rawSignals.filter((s: any) => s.signal_type === 'wear').length >= 3) ||
-      !!(dna?.archetype || (dna as any)?.signatureColors?.length);
-    const tasteMemoryBlock = shouldIncludeTasteMemory
-      ? buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna)
-      : "";
+    const rawSignals = feedbackSignalsRes.data || rejectionsCtx.raw;
+    const legacyTasteMemoryBlock = buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna);
+    const stylistMemory = buildStylistMemorySummary({
+      signals: rawSignals,
+      garments: wardrobeCtx.rankedGarments.map((garment) => ({
+        id: garment.id,
+        title: garment.title,
+        category: garment.category,
+        color_primary: garment.color_primary,
+        formality: garment.formality,
+        wear_count: garment.wear_count,
+      })),
+      pairMemory: pairMemoryRes.data || [],
+      dna,
+    });
+    const tasteMemoryBlock = [stylistMemory.promptBlock, legacyTasteMemoryBlock]
+      .filter(Boolean)
+      .join("\n");
 
     const profile = profileRes.data;
 
@@ -2010,6 +2034,9 @@ ${profile?.display_name ? `Client: ${profile.display_name}` : ""}${profile?.home
 USER IDENTITY:
 ${identityBlock}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
+${typeof conversation_summary === "string" && conversation_summary.trim()
+  ? `\nCONVERSATION MEMORY:\n${conversation_summary.trim()}`
+  : ""}
 
 ${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
 ${candidateOutfits ? `\n\n${candidateOutfits}` : ""}${unifiedCandidateLine}
@@ -2039,6 +2066,7 @@ STYLIST OPERATING CONTRACT:
 - Explain silhouette, proportion, balance, color harmony, contrast, texture, visual weight, and occasion fit in concrete terms.
 - Distinguish clearly between elevate, relax, warm up, sharpen, soften, and occasion shifts.
 - Preserve continuity with the thread brief; do not reset the user's goal each turn.
+- Use conversation memory and long-term taste memory to keep advice consistent across turns without repeating yourself verbatim.
 - Treat the active look as the default working look for refinements.
 - If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
 - Keep the tone editorial, concise, and premium. No generic helper phrasing.
