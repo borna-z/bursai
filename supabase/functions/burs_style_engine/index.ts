@@ -7,6 +7,27 @@ import { classifySlot } from "../_shared/burs-slots.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../_shared/style-signals.ts";
+import { logger } from "../_shared/logger.ts";
+
+const log = logger("burs_style_engine");
+
+function createRequestId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `burs-style-engine-${Date.now()}`;
+  }
+}
+
+function normalizeIdList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(
+    value
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  ));
+}
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -1796,6 +1817,80 @@ function isCompleteOutfit(
     required_slots: requiredSlots,
     present_slots: presentSlots,
   };
+}
+
+function buildActiveLookSlotMap(garments: GarmentRow[], garmentIds: string[]): Map<string, string> {
+  const garmentById = new Map(garments.map((garment) => [garment.id, garment]));
+  const slotMap = new Map<string, string>();
+
+  for (const garmentId of garmentIds) {
+    const garment = garmentById.get(garmentId);
+    if (!garment) continue;
+    const slot = categorizeSlot(garment.category, garment.subcategory);
+    if (!slot || slotMap.has(slot)) continue;
+    slotMap.set(slot, garment.id);
+  }
+
+  return slotMap;
+}
+
+function rankCombosForRefinement(
+  combos: ScoredCombo[],
+  params: {
+    activeLookSlotMap: Map<string, string>;
+    lockedGarmentIds: Set<string>;
+    requestedEditSlots: Set<string>;
+  },
+): ScoredCombo[] {
+  if (!combos.length || params.activeLookSlotMap.size === 0) return combos;
+
+  const scored = combos.map((combo) => {
+    const comboSlotMap = new Map(combo.items.map((item) => [item.slot, item.garment.id]));
+    const comboIds = new Set(combo.items.map((item) => item.garment.id));
+
+    if (Array.from(params.lockedGarmentIds).some((id) => !comboIds.has(id))) {
+      return { combo, score: Number.NEGATIVE_INFINITY };
+    }
+
+    let continuityScore = 0;
+    let changedRequestedSlots = 0;
+
+    for (const [slot, activeGarmentId] of params.activeLookSlotMap.entries()) {
+      const comboGarmentId = comboSlotMap.get(slot);
+      const requested = params.requestedEditSlots.has(slot);
+
+      if (comboGarmentId === activeGarmentId) {
+        continuityScore += requested ? -1 : 5;
+        continue;
+      }
+
+      if (requested && comboGarmentId) {
+        changedRequestedSlots += 1;
+        continuityScore += 7;
+        continue;
+      }
+
+      if (!requested && comboGarmentId && comboGarmentId !== activeGarmentId) {
+        continuityScore -= 8;
+      }
+    }
+
+    if (params.requestedEditSlots.size > 0 && changedRequestedSlots === 0) {
+      continuityScore -= 40;
+    }
+
+    return { combo, score: continuityScore };
+  });
+
+  const viable = scored.filter((entry) => Number.isFinite(entry.score));
+  if (!viable.length) return combos;
+
+  return viable
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      return right.combo.totalScore - left.combo.totalScore;
+    })
+    .map((entry) => entry.combo);
 }
 
 function explainMissingRequiredSlots(missing: string[]): string {
@@ -4166,6 +4261,8 @@ serve(async (req) => {
       });
     }
     const userId = user.id;
+    const requestId = createRequestId();
+    const requestStartedAt = Date.now();
 
     const body = await req.json();
     const mode: string = body.mode || "generate"; // "generate" | "suggest" | "swap" | "record_pair"
@@ -4221,7 +4318,28 @@ serve(async (req) => {
     const eventTitle: string | null = body.event_title || null; // Social context
     const eventTitleFromDayContext = dayContext?.anchor_event?.title || dayContext?.first_important_event?.title || null;
     const effectiveEventTitle: string | null = eventTitle || eventTitleFromDayContext;
-    const preferGarmentIds: Set<string> = new Set(body.prefer_garment_ids || []);
+    const preferGarmentIds: Set<string> = new Set(normalizeIdList(body.prefer_garment_ids));
+    const excludeGarmentIds: Set<string> = new Set(normalizeIdList(body.exclude_garment_ids));
+    const activeLookGarmentIds = normalizeIdList(body.active_look_garment_ids);
+    const lockedGarmentIds: Set<string> = new Set(normalizeIdList(body.locked_garment_ids));
+    const requestedEditSlots: Set<string> = new Set(
+      normalizeIdList(body.requested_edit_slots).map((slot) => normalizeSignalText(slot)),
+    );
+
+    log.info("request.start", {
+      requestId,
+      userId,
+      stage: "request_received",
+      mode,
+      generatorMode,
+      occasion,
+      locale,
+      preferCount: preferGarmentIds.size,
+      excludeCount: excludeGarmentIds.size,
+      activeLookCount: activeLookGarmentIds.length,
+      lockedCount: lockedGarmentIds.size,
+      requestedEditSlots: Array.from(requestedEditSlots),
+    });
 
     // For swap mode
     const swapSlot: string | null = body.swap_slot || null;
@@ -4241,7 +4359,9 @@ serve(async (req) => {
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, created_at, enrichment_status, image_processing_status, image_processing_confidence, ai_raw")
         .eq("user_id", userId)
-        .eq("in_laundry", false),
+        .eq("in_laundry", false)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true }),
       supabase.from("profiles").select("preferences, height_cm, weight_kg").eq("id", userId).single(),
       serviceSupabase
         .from("outfit_items")
@@ -4297,6 +4417,7 @@ serve(async (req) => {
 
     if (garmentsRawRes.error) throw garmentsRawRes.error;
     const garments = (garmentsRawRes.data || []).map(hydrateEnrichment) as GarmentRow[];
+    const activeLookSlotMap = buildActiveLookSlotMap(garments, activeLookGarmentIds);
 
     if (garments.length < 3) {
       return new Response(
@@ -4481,6 +4602,14 @@ serve(async (req) => {
       );
 
       const swapConf = computeSwapConfidence(candidates, swapSlot, weather);
+      log.info("request.complete", {
+        requestId,
+        userId,
+        stage: "swap_complete",
+        durationMs: Date.now() - requestStartedAt,
+        candidateCount: candidates.length,
+        requestedEditSlots: Array.from(requestedEditSlots),
+      });
 
       return new Response(JSON.stringify({
         candidates: candidates.slice(0, 10).map(c => ({
@@ -4625,6 +4754,14 @@ serve(async (req) => {
       const laundryItems = (laundryCountRes.data || []) as { id: string; title: string; category: string }[];
       const laundryCount = laundryItems.length;
 
+      log.info("request.complete", {
+        requestId,
+        userId,
+        stage: "plan_week_complete",
+        durationMs: Date.now() - requestStartedAt,
+        dayCount: results.length,
+      });
+
       return new Response(JSON.stringify({
         days: results,
         laundry: laundryCount > 0 ? {
@@ -4640,6 +4777,7 @@ serve(async (req) => {
     // Score all garments per slot
     const slotCandidates: Record<string, ScoredGarment[]> = {};
     for (const garment of garments) {
+      if (excludeGarmentIds.has(garment.id)) continue;
       const slot = categorizeSlot(garment.category, garment.subcategory);
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
@@ -4680,6 +4818,14 @@ serve(async (req) => {
       }
 
       activeCombos = preferredCombos;
+    }
+
+    if (activeLookSlotMap.size > 0) {
+      activeCombos = rankCombosForRefinement(activeCombos, {
+        activeLookSlotMap,
+        lockedGarmentIds,
+        requestedEditSlots,
+      });
     }
 
     if (activeCombos.length === 0) {
@@ -4799,6 +4945,17 @@ serve(async (req) => {
       const chosenLayering = validateLayeringCompleteness(chosen.items);
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
       const chosenNote = buildBaseGenerationLimitationNote(chosen, weather, gaps, chosenConf);
+      log.info("request.complete", {
+        requestId,
+        userId,
+        stage: "generate_complete",
+        durationMs: Date.now() - requestStartedAt,
+        candidateCount,
+        fallbackLevel,
+        lockedCount: lockedGarmentIds.size,
+        requestedEditSlots: Array.from(requestedEditSlots),
+        degraded: Boolean(chosenNote),
+      });
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
         explanation: aiResult.data.explanation || "",
@@ -4872,6 +5029,19 @@ serve(async (req) => {
       });
     }
 
+    log.info("request.complete", {
+      requestId,
+      userId,
+      stage: "suggest_complete",
+      durationMs: Date.now() - requestStartedAt,
+      candidateCount,
+      suggestionCount: suggestions.length,
+      fallbackLevel,
+      lockedCount: lockedGarmentIds.size,
+      requestedEditSlots: Array.from(requestedEditSlots),
+      degraded: Boolean(limitationNote),
+    });
+
     return new Response(JSON.stringify({
       suggestions,
       confidence_score: confidence.confidence_score,
@@ -4886,7 +5056,10 @@ serve(async (req) => {
     if (error instanceof RateLimitError) {
       return rateLimitResponse(error, CORS_HEADERS);
     }
-    console.error("BURS Style Engine error:", error);
+    recordError("burs_style_engine");
+    log.exception("request.failed", error, {
+      stage: "request_failed",
+    });
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Unknown error",
     }), { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });

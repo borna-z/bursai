@@ -3,7 +3,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import type { Json } from '@/integrations/supabase/types';
-import { buildGarmentIntelligenceFields, GARMENT_IMAGE_PROCESSING_VERSION, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 
 export interface SaveableResult {
   analysis: GarmentAnalysis;
@@ -11,17 +11,28 @@ export interface SaveableResult {
   blob: Blob;
 }
 
+export interface SavedGarmentRecord {
+  garmentId: string;
+  storagePath: string;
+}
+
+interface BackgroundSaveOptions {
+  enableStudioQuality?: boolean;
+}
+
 /**
- * Upload a garment image to storage, insert the garment record,
- * then trigger Stage 2 enrichment + duplicate detection in background.
+ * Persist a scanned garment, then trigger non-blocking enrichment,
+ * duplicate detection, and studio rendering in the background.
  */
 export async function saveGarmentInBackground(
   result: SaveableResult,
   userId: string,
   externalGarmentId?: string,
-): Promise<void> {
+  options: BackgroundSaveOptions = {},
+): Promise<SavedGarmentRecord | null> {
   let garmentId = '';
   let storagePath = '';
+  const enableStudioQuality = options.enableStudioQuality ?? true;
 
   try {
     garmentId = externalGarmentId || crypto.randomUUID();
@@ -29,7 +40,6 @@ export async function saveGarmentInBackground(
     const ext = isPng ? 'png' : 'jpg';
     storagePath = `${userId}/${garmentId}.${ext}`;
 
-    // Upload to storage
     const { error: uploadError } = await supabase.storage
       .from('garments')
       .upload(storagePath, result.blob, {
@@ -39,10 +49,9 @@ export async function saveGarmentInBackground(
 
     if (uploadError) {
       logger.error('Upload error:', uploadError);
-      return;
+      return null;
     }
 
-    // Save garment record
     const { error: insertError } = await supabase.from('garments').insert({
       id: garmentId,
       user_id: userId,
@@ -65,89 +74,38 @@ export async function saveGarmentInBackground(
         source: 'live_scan',
       }),
       imported_via: 'live_scan',
-      ...buildGarmentIntelligenceFields({ storagePath }),
+      ...buildGarmentIntelligenceFields({
+        storagePath,
+        enableRender: enableStudioQuality,
+        skipImageProcessing: true,
+      }),
     });
 
     if (insertError) {
       logger.error('Insert error:', insertError);
-      return;
+      return null;
     }
 
-    triggerGarmentPostSaveIntelligence({
-      garmentId,
-      storagePath,
-      source: 'live_scan',
-      imageProcessing: {
-        mode: 'local',
-        run: () => removeBackgroundAsync(garmentId, userId, result.blob, storagePath),
-      },
-    });
+    if (enableStudioQuality) {
+      triggerGarmentPostSaveIntelligence({
+        garmentId,
+        storagePath,
+        source: 'live_scan',
+        imageProcessing: { mode: 'skip' },
+      });
+    }
 
-    // Duplicate detection in background (never blocks)
     detectDuplicates(result.analysis, garmentId, storagePath).catch((err) => {
       logger.error('Duplicate detection error (non-blocking):', err);
     });
+
+    return { garmentId, storagePath };
   } catch (err) {
     logger.error('Background save error:', err);
+    return null;
   } finally {
     URL.revokeObjectURL(result.thumbnailUrl);
   }
-}
-
-/**
- * Remove background from the garment image async after save.
- * Updates the stored image in-place. Never throws — failures are silently logged.
- */
-async function removeBackgroundAsync(
-  garmentId: string,
-  userId: string,
-  originalBlob: Blob,
-  originalStoragePath: string,
-): Promise<void> {
-  await supabase.from('garments').update({
-    image_processing_status: 'processing',
-    image_processing_provider: 'local-remove-background',
-    image_processing_version: GARMENT_IMAGE_PROCESSING_VERSION,
-    image_processing_error: null,
-  }).eq('id', garmentId);
-
-  const { removeBackground } = await import('@/lib/removeBackground');
-  const processedBlob = await removeBackground(originalBlob);
-  if (processedBlob === originalBlob) {
-    await supabase.from('garments').update({
-      image_path: originalStoragePath,
-      original_image_path: originalStoragePath,
-      processed_image_path: null,
-      image_processing_status: 'failed',
-      image_processing_provider: 'local-remove-background',
-      image_processing_version: GARMENT_IMAGE_PROCESSING_VERSION,
-      image_processing_confidence: null,
-      image_processing_error: 'Original photo kept after local background removal fallback.',
-      image_processed_at: null,
-    }).eq('id', garmentId);
-    return;
-  }
-  const isPng = processedBlob.type === 'image/png';
-  const ext = isPng ? 'png' : 'jpg';
-  const storagePath = `${userId}/${garmentId}.${ext}`;
-  await supabase.storage.from('garments').update(storagePath, processedBlob, {
-    contentType: isPng ? 'image/png' : 'image/jpeg',
-    upsert: true,
-  });
-  await supabase
-    .from('garments')
-    .update({
-      image_path: storagePath,
-      original_image_path: originalStoragePath,
-      processed_image_path: storagePath,
-      image_processing_status: 'ready',
-      image_processing_provider: 'local-remove-background',
-      image_processing_version: GARMENT_IMAGE_PROCESSING_VERSION,
-      image_processing_confidence: 0.7,
-      image_processing_error: null,
-      image_processed_at: new Date().toISOString(),
-    })
-    .eq('id', garmentId);
 }
 
 /**
@@ -169,5 +127,4 @@ async function detectDuplicates(
       exclude_garment_id: excludeGarmentId,
     },
   });
-  // Result is logged server-side; no UI action needed
 }

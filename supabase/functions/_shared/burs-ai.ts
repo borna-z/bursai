@@ -12,7 +12,10 @@
  * caching layer.
  */
 
+import { logger } from "./logger.ts";
+
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const log = logger("burs_ai");
 
 // ─── Complexity-based model routing ───────────────────────────
 type Complexity = "trivial" | "standard" | "complex";
@@ -89,6 +92,27 @@ export interface BursAIResponse {
   model_used: string;
   from_cache: boolean;
   finish_reason?: string;
+  cache_key?: string;
+}
+
+export interface BursAICacheShape {
+  ns: string;
+  messages: Array<{ role: string; content: any }>;
+  tools: any[] | null;
+  tool_choice: any;
+  complexity: Complexity | null;
+  modelType: string | null;
+  models: string[] | null;
+  max_tokens: number | null;
+  temperature: number | null;
+  extraBody: Record<string, any>;
+}
+
+export interface ParsedBursAIProviderResponse {
+  ok: boolean;
+  result?: any;
+  finishReason?: string;
+  error?: string;
 }
 
 export class BursAIError extends Error {
@@ -159,12 +183,53 @@ async function hashKey(input: string): Promise<string> {
     .join("");
 }
 
+function stableSerialize(value: unknown): string {
+  return JSON.stringify(value, (_key, current) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return current;
+    return Object.keys(current)
+      .sort()
+      .reduce<Record<string, unknown>>((accumulator, key) => {
+        accumulator[key] = (current as Record<string, unknown>)[key];
+        return accumulator;
+      }, {});
+  });
+}
+
+export function buildBursAICacheShape(params: {
+  options: BursAIOptions;
+  modelChain: string[];
+  maxTokens?: number;
+  temperature?: number;
+}): BursAICacheShape {
+  return {
+    ns: params.options.cacheNamespace || "",
+    messages: params.options.messages,
+    tools: params.options.tools || null,
+    tool_choice: params.options.tool_choice ?? null,
+    complexity: params.options.complexity || null,
+    modelType: params.options.modelType || null,
+    models: params.options.models || (params.modelChain.length ? params.modelChain : null),
+    max_tokens: params.maxTokens ?? null,
+    temperature: params.temperature ?? params.options.extraBody?.temperature ?? null,
+    extraBody: params.options.extraBody || {},
+  };
+}
+
+export async function createBursAICacheKey(params: {
+  options: BursAIOptions;
+  modelChain: string[];
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<string> {
+  return hashKey(stableSerialize(buildBursAICacheShape(params)));
+}
+
 // ─── DB Cache (Tier 2) ────────────────────────────────────────
 async function checkCache(supabase: any, cacheKey: string): Promise<any | null> {
   try {
     const { data } = await supabase
       .from("ai_response_cache")
-      .select("response, model_used")
+      .select("response, model_used, hit_count")
       .eq("cache_key", cacheKey)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
@@ -292,6 +357,36 @@ function resolveTemperature(options: BursAIOptions): number | undefined {
   return undefined;
 }
 
+export function parseBursAIProviderResponse(aiData: any): ParsedBursAIProviderResponse {
+  const choice = aiData?.choices?.[0];
+  const message = choice?.message;
+  if (!choice || !message) {
+    return { ok: false, error: "Malformed provider response: missing choices[0].message" };
+  }
+
+  const toolCall = message.tool_calls?.[0];
+  let result: any;
+  if (toolCall?.function?.arguments) {
+    try {
+      result = JSON.parse(toolCall.function.arguments);
+    } catch {
+      return { ok: false, error: "Malformed provider response: invalid tool call JSON" };
+    }
+  } else if (message.content !== undefined) {
+    result = message.content;
+  } else {
+    return { ok: false, error: "Malformed provider response: missing content and tool call arguments" };
+  }
+
+  const images = message.images;
+  if (images) result = { __raw: aiData, content: result, images };
+  return {
+    ok: true,
+    result,
+    finishReason: typeof choice.finish_reason === "string" ? choice.finish_reason : undefined,
+  };
+}
+
 export async function callBursAI(
   options: BursAIOptions,
   supabaseServiceClient?: any
@@ -302,7 +397,7 @@ export async function callBursAI(
   const startTime = Date.now();
   const {
     messages, tools, tool_choice, stream = false,
-    cacheTtlSeconds = 0, cacheNamespace = "",
+    cacheTtlSeconds = 0,
     extraBody = {},
   } = options;
 
@@ -312,11 +407,15 @@ export async function callBursAI(
   const timeout = options.timeout ?? 30000;
 
   // ── Build cache key ──
-  const cacheInput = JSON.stringify({ ns: cacheNamespace, messages, tools });
   let cacheKey = "";
 
   if ((cacheTtlSeconds > 0 || !stream) && !stream) {
-    cacheKey = await hashKey(cacheInput);
+    cacheKey = await createBursAICacheKey({
+      options,
+      modelChain,
+      maxTokens,
+      temperature,
+    });
 
     // Tier 1: in-memory cache removed — Edge Function isolates are
     // stateless, so in-memory Maps reset on every cold start.
@@ -329,7 +428,12 @@ export async function callBursAI(
           functionName: options.functionName, model_used: cached.model_used,
           latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
         });
-        return { data: cached.response, model_used: cached.model_used, from_cache: true };
+        return {
+          data: cached.response,
+          model_used: cached.model_used,
+          from_cache: true,
+          cache_key: cacheKey,
+        };
       }
     }
 
@@ -400,22 +504,6 @@ export async function callBursAI(
     return body;
   }
 
-  function parseResult(aiData: any): any {
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let result: any;
-    if (toolCall?.function?.arguments) {
-      try { result = JSON.parse(toolCall.function.arguments); }
-      catch { return { __parseError: true }; }
-    } else if (aiData.choices?.[0]?.message?.content !== undefined) {
-      result = aiData.choices[0].message.content;
-    } else {
-      result = aiData;
-    }
-    const images = aiData.choices?.[0]?.message?.images;
-    if (images) result = { __raw: aiData, content: result, images };
-    return result;
-  }
-
   const executeCall = async (): Promise<BursAIResponse> => {
     let lastError: Error | null = null;
     let gatewayHad5xxOrTimeout = false;
@@ -443,16 +531,28 @@ export async function callBursAI(
 
         // Success
         const resp = outcome.resp;
-        if (stream) return { data: resp, model_used: model, from_cache: false };
+        if (stream) return { data: resp, model_used: model, from_cache: false, cache_key: cacheKey || undefined };
 
-        const aiData = await resp.json();
-        const result = parseResult(aiData);
-        if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
-
-        const finishReason = aiData.choices?.[0]?.finish_reason as string | undefined;
+        let aiData: any;
+        try {
+          aiData = await resp.json();
+        } catch {
+          lastError = new Error("Malformed provider response: invalid JSON body");
+          break;
+        }
+        const parsed = parseBursAIProviderResponse(aiData);
+        if (!parsed.ok) {
+          lastError = new Error(parsed.error || "Failed to parse AI provider response");
+          log.warn("provider.response.invalid", {
+            functionName: options.functionName || "unknown",
+            model,
+            error: lastError.message,
+          });
+          break;
+        }
 
         if (cacheTtlSeconds > 0 && cacheKey) {
-          if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);
+          if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, parsed.result, model, cacheTtlSeconds);
         }
         const costInfo = extractUsageAndCost(aiData, model);
         logUsage(supabaseServiceClient, {
@@ -464,7 +564,13 @@ export async function callBursAI(
           complexity: options.complexity,
           retry_count: attempt,
         });
-        return { data: result, model_used: model, from_cache: false, finish_reason: finishReason };
+        return {
+          data: parsed.result,
+          model_used: model,
+          from_cache: false,
+          finish_reason: parsed.finishReason,
+          cache_key: cacheKey || undefined,
+        };
       }
     }
 
@@ -473,6 +579,12 @@ export async function callBursAI(
       functionName: options.functionName, model_used: modelChain[0] || "unknown",
       latency_ms: Date.now() - startTime, from_cache: false, status: "error",
       error_message: lastError?.message,
+    });
+    log.warn("call.failed", {
+      functionName: options.functionName || "unknown",
+      cacheKey: cacheKey || undefined,
+      modelChain,
+      error: lastError?.message || "All AI models failed",
     });
 
     throw lastError || new BursAIError("All AI models failed", 503);

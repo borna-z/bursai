@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getTextContent, mergeAssistantContent, type MessageContent } from '@/lib/chatStream';
+import { finalizeAssistantText, getTextContent, mergeAssistantContent, type MessageContent } from '@/lib/chatStream';
 
 describe('chatStream', () => {
   it('keeps text-only streaming content as a string', () => {
@@ -29,5 +29,13 @@ describe('chatStream', () => {
 
   it('ignores unsupported delta payloads', () => {
     expect(mergeAssistantContent('', { foo: 'bar' })).toBe('');
+  });
+
+  it('finalizes truncated content to the last clean sentence boundary', () => {
+    expect(finalizeAssistantText('Keep the blazer. Swap the shoes for loafers and', true)).toBe('Keep the blazer.');
+  });
+
+  it('strips leaked partial outfit markup during finalization', () => {
+    expect(finalizeAssistantText('Keep the blazer [[outfit:aaa,bbb|Almost', true)).toBe('Keep the blazer…');
   });
 });

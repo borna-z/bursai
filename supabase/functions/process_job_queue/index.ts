@@ -5,7 +5,7 @@
  * Claims and processes pending jobs with concurrency control.
  *
  * Supported job types:
- * - image_processing: background removal / render for garment images
+ * - image_processing: legacy garment image-processing jobs
  * - garment_enrichment: deep AI enrichment of garment metadata
  * - batch_analysis: bulk wardrobe analysis jobs
  *
@@ -163,8 +163,7 @@ serve(async (req) => {
 // ── Job Handlers ─────────────────────────────────────────────────
 
 /**
- * Image processing handler: background removal for garment photos.
- * Delegates to the existing garment-image-processing provider.
+ * Image processing handler: marks legacy jobs as skipped.
  */
 async function handleImageProcessing(
   supabase: any,
@@ -174,82 +173,28 @@ async function handleImageProcessing(
   const garmentId = payload.garment_id as string;
   if (!garmentId) throw new Error("Missing garment_id in payload");
 
-  // Fetch garment
   const { data: garment, error } = await supabase
     .from("garments")
-    .select("id, image_path, category, subcategory, title, image_processing_status")
+    .select("id, image_path")
     .eq("id", garmentId)
     .single();
 
   if (error || !garment) throw new Error(`Garment not found: ${garmentId}`);
   if (!garment.image_path) throw new Error("No image_path for garment");
 
-  // Mark as processing
   await supabase
     .from("garments")
-    .update({ image_processing_status: "processing" })
+    .update({
+      image_processing_status: "ready",
+      processed_image_path: null,
+      image_processing_provider: "disabled",
+      image_processing_confidence: null,
+      image_processing_error: null,
+      image_processed_at: new Date().toISOString(),
+    })
     .eq("id", garmentId);
 
-  try {
-    // Import and use the provider
-    const { garmentImageProvider, getGarmentEligibility } = await import(
-      "../_shared/garment-image-processing/provider.ts"
-    );
-
-    const eligibility = getGarmentEligibility(garment.category, garment.subcategory, garment.title);
-    if (!eligibility.eligible) {
-      await supabase
-        .from("garments")
-        .update({ image_processing_status: "ineligible" })
-        .eq("id", garmentId);
-      return { status: "ineligible", reason: eligibility.reason };
-    }
-
-    // Get signed URL for original image
-    const { data: signedData } = await supabase.storage
-      .from("garments")
-      .createSignedUrl(garment.image_path, 600);
-
-    if (!signedData?.signedUrl) throw new Error("Could not get signed URL");
-
-    const result = await garmentImageProvider.process({
-      imageUrl: signedData.signedUrl,
-      category: garment.category,
-      subcategory: garment.subcategory,
-    });
-
-    if (result.success && result.processedImageUrl) {
-      // Upload processed image
-      const processedPath = garment.image_path.replace(/\.[^.]+$/, "_processed.png");
-      const response = await fetch(result.processedImageUrl);
-      const blob = await response.arrayBuffer();
-
-      await supabase.storage
-        .from("garments")
-        .upload(processedPath, new Uint8Array(blob), {
-          contentType: "image/png",
-          upsert: true,
-        });
-
-      await supabase
-        .from("garments")
-        .update({
-          image_processing_status: "completed",
-          image_processing_confidence: result.confidence ?? null,
-        })
-        .eq("id", garmentId);
-
-      return { status: "completed", processedPath };
-    }
-
-    throw new Error(result.error || "Processing failed");
-  } catch (err) {
-    await supabase
-      .from("garments")
-      .update({ image_processing_status: "failed" })
-      .eq("id", garmentId);
-    throw err;
-  }
+  return { status: "skipped", garmentId, userId };
 }
 
 /**

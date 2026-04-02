@@ -27,14 +27,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
-import { extractGarmentIdsFromText, parseOutfitTags } from '@/lib/garmentTokens';
-import { getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
+import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
+import { finalizeAssistantText, getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
 import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
+import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLook';
+import { collectStyleChatGarmentIds, isStyleChatResponseEnvelope, type PersistedStyleChatMessage, type StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 
 type Message = {
   role: 'user' | 'assistant';
   content: MessageContent;
+  stylistMeta?: StyleChatResponseEnvelope | null;
 };
 
 interface PlanActionPayload {
@@ -53,6 +56,20 @@ async function loadMessages(userId: string): Promise<Message[]> {
   if (!res.ok) return [];
   const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
   return rows.map(r => {
+    if (r.content.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(r.content) as PersistedStyleChatMessage;
+        if (parsed?.kind === 'stylist_message') {
+          return {
+            role: r.role,
+            content: parsed.content,
+            stylistMeta: isStyleChatResponseEnvelope(parsed.stylistMeta) ? parsed.stylistMeta : null,
+          };
+        }
+      } catch {
+        // fall through to legacy parsing
+      }
+    }
     if (r.content.startsWith('[')) {
       try { const parsed = JSON.parse(r.content); if (Array.isArray(parsed)) return { role: r.role, content: parsed }; } catch { /* fallback */ }
     }
@@ -64,7 +81,18 @@ async function persistMessages(userId: string, msgs: Message[], accessToken: str
   await fetch(getSupabaseRestUrl('chat_messages'), {
     method: 'POST',
     headers: { ...(await createSupabaseRestHeaders(accessToken)), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content), mode: 'stylist' }))),
+    body: JSON.stringify(msgs.map((m) => {
+      const content = m.stylistMeta
+        ? JSON.stringify({
+          kind: 'stylist_message',
+          content: m.content,
+          stylistMeta: m.stylistMeta,
+        } satisfies PersistedStyleChatMessage)
+        : typeof m.content === 'string'
+          ? m.content
+          : JSON.stringify(m.content);
+      return { user_id: userId, role: m.role, content, mode: 'stylist' };
+    })),
   });
 }
 
@@ -79,11 +107,12 @@ function extractGarmentIds(messages: Message[]): string[] {
   const ids = new Set<string>();
   for (const m of messages) {
     extractGarmentIdsFromText(getTextContent(m.content)).forEach((id) => ids.add(id));
+    collectStyleChatGarmentIds(m.stylistMeta).forEach((id) => ids.add(id));
   }
   return Array.from(ids);
 }
 
-function buildRequestMessages(messages: Message[]): Message[] {
+function buildRequestMessages(messages: Message[]): Array<Pick<Message, 'role' | 'content'>> {
   const filtered = messages.filter((message, index) => {
     const text = getTextContent(message.content).trim();
     if (!text && typeof message.content === 'string') return false;
@@ -91,22 +120,17 @@ function buildRequestMessages(messages: Message[]): Message[] {
     return true;
   });
 
-  return filtered.slice(-16);
-}
-
-
-function findLatestActiveLookMessageIndex(messages: Message[]): number {
-  // Find the most recent assistant message that contains outfit tags.
-  // Unlike before, keep searching past non-outfit assistant messages so
-  // follow-up turns don't collapse the outfit card from a prior turn.
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== 'assistant') continue;
+  return filtered.slice(-10).map((message, index, list) => {
     const text = getTextContent(message.content);
-    if (parseOutfitTags(text).length > 0) return index;
-  }
-
-  return -1;
+    const keepFull = index >= list.length - 4;
+    const compactText = !keepFull && text.length > 320
+      ? `${text.slice(0, 317).trim()}...`
+      : text;
+    return {
+      role: message.role,
+      content: typeof message.content === 'string' ? compactText : message.content,
+    };
+  });
 }
 
 function AIChatFallback() {
@@ -149,6 +173,8 @@ export default function AIChat() {
   const [anchoredGarmentId, setAnchoredGarmentId] = useState<string | null>(null);
   const [planActionPayload, setPlanActionPayload] = useState<PlanActionPayload | null>(null);
   const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
+  const [lastConfirmedLook, setLastConfirmedLook] = useState<StyleChatResponseEnvelope | null>(null);
+  const [pendingLookUpdate, setPendingLookUpdate] = useState<StyleChatResponseEnvelope | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
@@ -187,10 +213,25 @@ export default function AIChat() {
   }, [garmentsList]);
 
   const anchoredGarment = useMemo(() => anchoredGarmentId ? garmentMap.get(anchoredGarmentId) ?? null : null, [anchoredGarmentId, garmentMap]);
-  const latestActiveLookMessageIndex = useMemo(() => findLatestActiveLookMessageIndex(messages), [messages]);
+  const latestActiveLook = useMemo(() => getLatestActiveLook(messages), [messages]);
+  const currentVisibleLook = useMemo(
+    () => pendingLookUpdate ?? lastConfirmedLook ?? latestActiveLook,
+    [pendingLookUpdate, lastConfirmedLook, latestActiveLook],
+  );
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (isStreaming) return;
+    if (latestActiveLook && hasRenderableActiveLook(latestActiveLook)) {
+      setLastConfirmedLook(latestActiveLook);
+      return;
+    }
+    if (!messages.some((message) => message.role === 'assistant' && hasRenderableActiveLook(message.stylistMeta))) {
+      setLastConfirmedLook(null);
+    }
+  }, [isStreaming, latestActiveLook, messages]);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -248,6 +289,7 @@ export default function AIChat() {
     setPendingImage(null);
     setPlanActionPayload(null);
     setSuggestionChips([]);
+    setPendingLookUpdate(null);
     setIsStreaming(true);
 
     const welcomeText = t('chat.welcome');
@@ -257,17 +299,20 @@ export default function AIChat() {
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
     let assistantContent: MessageContent = '';
+    let assistantMeta: StyleChatResponseEnvelope | null = null;
     let sawDone = false;
+    let sawTruncatedMetadata = false;
+    let sawFirstDelta = false;
     let streamTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
       const controller = new AbortController();
       activeStreamControllerRef.current = controller;
-      const resetStreamTimeout = () => {
+      const resetStreamTimeout = (timeoutMs: number) => {
         if (streamTimeoutId) clearTimeout(streamTimeoutId);
-        streamTimeoutId = setTimeout(() => controller.abort(), 45000);
+        streamTimeoutId = setTimeout(() => controller.abort(), timeoutMs);
       };
-      resetStreamTimeout();
+      resetStreamTimeout(90000);
 
       const resp = await fetch(STYLE_CHAT_URL, {
         method: 'POST',
@@ -278,6 +323,17 @@ export default function AIChat() {
           garmentCount: garmentCount ?? 0,
           archetype: styleDNA?.archetype ?? null,
           selected_garment_ids: anchoredGarmentId ? [anchoredGarmentId] : undefined,
+          active_look: currentVisibleLook
+            ? {
+              garment_ids: currentVisibleLook.active_look?.garment_ids?.length
+                ? currentVisibleLook.active_look.garment_ids
+                : currentVisibleLook.outfit_ids,
+              explanation: currentVisibleLook.active_look?.explanation || currentVisibleLook.outfit_explanation,
+              source: currentVisibleLook.active_look?.source || currentVisibleLook.active_look_status,
+              anchor_garment_id: currentVisibleLook.active_look?.anchor_garment_id ?? anchoredGarmentId ?? null,
+              anchor_locked: currentVisibleLook.active_look?.anchor_locked ?? Boolean(anchoredGarmentId),
+            }
+            : undefined,
         }),
         signal: controller.signal,
       });
@@ -286,6 +342,7 @@ export default function AIChat() {
         throw new Error(errData.error || `HTTP ${resp.status}`);
       }
       if (!resp.body) throw new Error(t('chat.no_response'));
+      resetStreamTimeout(30000);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -317,21 +374,51 @@ export default function AIChat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
+            if (parsed.type === 'stylist_response' && isStyleChatResponseEnvelope(parsed.payload)) {
+              assistantMeta = parsed.payload;
+              if (hasRenderableActiveLook(assistantMeta)) {
+                setPendingLookUpdate(assistantMeta);
+              }
+              setMessages(prev => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === 'assistant') {
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    stylistMeta: assistantMeta,
+                  };
+                }
+                return updated;
+              });
+            }
             if (parsed.type === 'plan_action' && parsed.payload?.can_plan) {
               setPlanActionPayload(parsed.payload as PlanActionPayload);
             }
             if (parsed.type === 'suggestions' && Array.isArray(parsed.chips)) {
               setSuggestionChips(parsed.chips as string[]);
             }
+            if (parsed.type === 'metadata' && parsed.truncated) {
+              sawTruncatedMetadata = true;
+            }
             const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta != null) resetStreamTimeout();
+            if (delta != null) {
+              sawFirstDelta = true;
+              resetStreamTimeout(20000);
+            }
             const nextAssistantContent = mergeAssistantContent(assistantContent, delta);
             if (nextAssistantContent !== assistantContent) {
               assistantContent = nextAssistantContent;
               setMessages(prev => {
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
-                if (updated[lastIdx]?.role === 'assistant') updated[lastIdx] = { role: 'assistant', content: assistantContent };
+                if (updated[lastIdx]?.role === 'assistant') {
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    role: 'assistant',
+                    content: assistantContent,
+                    stylistMeta: assistantMeta ?? updated[lastIdx].stylistMeta ?? null,
+                  };
+                }
                 return updated;
               });
             }
@@ -344,25 +431,83 @@ export default function AIChat() {
         }
       }
 
-      if (!sawDone && !getTextContent(assistantContent).trim()) {
+      if (!sawDone && !getTextContent(assistantContent).trim() && !assistantMeta?.assistant_text) {
         throw new Error(t('chat.no_response'));
       }
 
-      const assistantMsg: Message = { role: 'assistant', content: assistantContent };
-      if (user && session && getTextContent(assistantMsg.content).trim()) {
-        await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+      const finalizedText = finalizeAssistantText(
+        getTextContent(assistantContent).trim() || assistantMeta?.assistant_text || '',
+        sawTruncatedMetadata,
+      );
+      const assistantMsg: Message = {
+        role: 'assistant',
+        content: finalizedText,
+        stylistMeta: assistantMeta
+          ? {
+            ...assistantMeta,
+            assistant_text: finalizedText || assistantMeta.assistant_text,
+            truncated: assistantMeta.truncated || sawTruncatedMetadata,
+          }
+          : null,
+      };
+      if (hasRenderableActiveLook(assistantMsg.stylistMeta)) {
+        setLastConfirmedLook(assistantMsg.stylistMeta);
       }
-    } catch (err) {
-      const isAbort = err instanceof DOMException && err.name === 'AbortError';
-      // Show a graceful in-chat fallback instead of just a toast + blank space
-      const fallbackText = isAbort
-        ? (t('chat.stylist_timeout') || 'I lost my train of thought — could you try that again?')
-        : (t('chat.stylist_fallback') || 'Something went wrong on my end. Try asking again or rephrase your request.');
+      setPendingLookUpdate(null);
       setMessages(prev => {
         const updated = [...prev];
         const lastIdx = updated.length - 1;
         if (updated[lastIdx]?.role === 'assistant') {
-          updated[lastIdx] = { role: 'assistant', content: fallbackText };
+          updated[lastIdx] = assistantMsg;
+        }
+        return updated;
+      });
+      if (user && session && (getTextContent(assistantMsg.content).trim() || assistantMsg.stylistMeta?.render_outfit_card)) {
+        await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+      }
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      const fallbackText = isAbort
+        ? (t('chat.stylist_timeout') || 'I hit a delay, but I kept the current look live.')
+        : (t('chat.stylist_fallback') || 'Something went wrong on my end. Try asking again or rephrase your request.');
+      const preservedMeta = assistantMeta
+        ?? (currentVisibleLook
+          ? {
+            ...currentVisibleLook,
+            assistant_text: fallbackText,
+            suggestion_chips: [],
+            truncated: true,
+            response_kind: 'style_repair',
+            card_policy: currentVisibleLook.card_policy,
+            card_state: currentVisibleLook.card_state === 'unavailable' ? 'unavailable' : 'preserved',
+            fallback_used: true,
+            degraded_reason: isAbort ? 'request_timeout' : 'request_failed',
+            active_look_status: currentVisibleLook.outfit_ids.length > 0 ? 'preserved' : currentVisibleLook.active_look_status,
+            active_look: currentVisibleLook.active_look?.garment_ids?.length
+              ? {
+                ...currentVisibleLook.active_look,
+                status: currentVisibleLook.outfit_ids.length > 0 ? 'preserved' : currentVisibleLook.active_look.status,
+                card_state: currentVisibleLook.outfit_ids.length > 0 ? 'preserved' : currentVisibleLook.active_look.card_state,
+              }
+              : currentVisibleLook.active_look,
+          }
+          : null);
+      if (hasRenderableActiveLook(preservedMeta)) {
+        setLastConfirmedLook(preservedMeta);
+      }
+      setPendingLookUpdate(null);
+      setMessages(prev => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        if (updated[lastIdx]?.role === 'assistant') {
+          updated[lastIdx] = {
+            role: 'assistant',
+            content: finalizeAssistantText(
+              getTextContent(assistantContent).trim() || fallbackText,
+              true,
+            ),
+            stylistMeta: preservedMeta,
+          };
         }
         return updated;
       });
@@ -516,6 +661,7 @@ export default function AIChat() {
               }
               const isStreamingMsg = isStreaming && idx === messages.length - 1 && msg.role === 'assistant';
               const isEmpty = getTextContent(msg.content) === '';
+              const shouldShowVisibleLook = msg.role === 'assistant' && idx === messages.length - 1;
               return (
                 <motion.div
                   key={idx}
@@ -524,7 +670,7 @@ export default function AIChat() {
                   animate="animate"
                   transition={PRESETS.MESSAGE.transition}
                 >
-                  {isStreamingMsg && isEmpty ? (
+                  {isStreamingMsg && isEmpty && !currentVisibleLook ? (
                     <StylistReplyPlaceholder />
                   ) : (
                     <ChatMessage
@@ -533,7 +679,8 @@ export default function AIChat() {
                       garmentMap={garmentMap}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
-                      showStyleCards={msg.role !== 'assistant' || idx === latestActiveLookMessageIndex || isStreamingMsg}
+                      showStyleCards={msg.role !== 'assistant' || shouldShowVisibleLook}
+                      displayMetaOverride={shouldShowVisibleLook ? currentVisibleLook : null}
                     />
                   )}
                 </motion.div>

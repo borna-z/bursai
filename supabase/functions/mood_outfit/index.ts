@@ -4,38 +4,28 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
+import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
+import { logger } from "../_shared/logger.ts";
+
+const log = logger("mood_outfit");
 
 const KEEPALIVE_INTERVAL_MS = 2000;
 const HARD_ABORT_TIMEOUT_MS = 28000;
 const AI_TIMEOUT_MS = 26000;
 
-function hasCompleteOutfit(items: Array<{ slot: string }>): boolean {
-  const slots = new Set(items.map((i) => i.slot.toLowerCase()));
-  return slots.has("dress") || (slots.has("top") && slots.has("bottom"));
-}
-
-function validateCompleteOutfitInline(items: Array<{ slot: string }>): { isValid: boolean; missing: string[] } {
-  const slots = new Set(items.map((i) => i.slot.toLowerCase()));
-  const missing: string[] = [];
-  if (!slots.has("shoes")) missing.push("shoes");
-  const hasDress = slots.has("dress");
-  const hasTopBottom = slots.has("top") && slots.has("bottom");
-  if (!hasDress && !hasTopBottom) {
-    if (!slots.has("top")) missing.push("top");
-    if (!slots.has("bottom")) missing.push("bottom");
-  }
-  return { isValid: missing.length === 0, missing };
+function normalizeValue(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
 }
 
 const MOOD_MAP: Record<string, { formality: string; colors: string; materials: string; vibe: string }> = {
   cozy: { formality: "casual, low", colors: "warm earth tones, cream, beige, soft browns", materials: "knit, fleece, cashmere, cotton", vibe: "soft, comfortable, enveloping" },
-  confident: { formality: "smart-casual to formal", colors: "strong, saturated â€” black, red, navy, white", materials: "structured fabrics, leather, tailored wool", vibe: "powerful, sharp, put-together" },
+  confident: { formality: "smart-casual to formal", colors: "strong, saturated - black, red, navy, white", materials: "structured fabrics, leather, tailored wool", vibe: "powerful, sharp, put-together" },
   creative: { formality: "relaxed, expressive", colors: "unexpected combos, bold accents, patterns", materials: "mixed textures, statement pieces", vibe: "artistic, unique, eye-catching" },
   invisible: { formality: "neutral, blending", colors: "muted neutrals, grey, navy, black, white", materials: "standard, unremarkable", vibe: "understated, minimal, no-attention" },
   romantic: { formality: "soft elegant", colors: "pastels, blush, soft white, dusty rose", materials: "silk, lace, flowing fabrics", vibe: "gentle, feminine, dreamy" },
-  energetic: { formality: "casual, sporty-chic", colors: "bright, vibrant â€” yellow, orange, electric blue", materials: "lightweight, breathable", vibe: "active, upbeat, fun" },
+  energetic: { formality: "casual, sporty-chic", colors: "bright, vibrant - yellow, orange, electric blue", materials: "lightweight, breathable", vibe: "active, upbeat, fun" },
   grounded: { formality: "casual, relaxed", colors: "olive, khaki, tan, warm brown, sage", materials: "cotton, linen, canvas, suede", vibe: "earthy, authentic, natural" },
   sharp: { formality: "formal, tailored", colors: "black, charcoal, cream, gold accents", materials: "tailored wool, crisp cotton, structured fabrics", vibe: "precise, polished, intentional" },
   soft: { formality: "casual-elegant, low contrast", colors: "powder blue, lavender, light grey, off-white", materials: "cashmere, soft knit, silk blend", vibe: "muted, gentle, calming" },
@@ -48,16 +38,12 @@ function inferSlotFromGarment(garment: { category?: string | null; subcategory?:
   return classifySlot(garment.category, garment.subcategory) || "top";
 }
 
-function normalizeValue(value?: string | null): string {
-  return (value || "").toLowerCase().trim();
-}
-
 function requiresOuterwear(weather?: { temperature?: number; precipitation?: string | null }): boolean {
   const temp = weather?.temperature;
   const precipitation = normalizeValue(weather?.precipitation);
   const coldEnough = temp !== undefined && temp < 8;
   const wet = precipitation !== "" && !["none", "ingen"].includes(precipitation);
-  const snowy = precipitation.includes("snow") || precipitation.includes("snÃ¶");
+  const snowy = precipitation.includes("snow") || precipitation.includes("sno");
   return coldEnough || wet || snowy;
 }
 
@@ -251,7 +237,11 @@ async function readMoodOutfitToolResult(response: Response, signal: AbortSignal)
   throw new Error("AI did not return structured result");
 }
 
-async function generateMoodOutfitPayload(req: Request, signal: AbortSignal): Promise<Record<string, unknown>> {
+async function generateMoodOutfitPayload(
+  req: Request,
+  signal: AbortSignal,
+  requestId: string,
+): Promise<Record<string, unknown>> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return { error: "Unauthorized" };
@@ -270,6 +260,7 @@ async function generateMoodOutfitPayload(req: Request, signal: AbortSignal): Pro
     return { error: "Unauthorized" };
   }
   const userId = user.id;
+  log.info("request.start", { requestId, userId });
 
   if (checkOverload("mood_outfit")) {
     return await responseToPayload(overloadResponse(CORS_HEADERS));
@@ -285,14 +276,16 @@ async function generateMoodOutfitPayload(req: Request, signal: AbortSignal): Pro
     .from("garments")
     .select("id, title, category, subcategory, color_primary, material, formality, pattern, wear_count")
     .eq("user_id", userId)
-    .eq("in_laundry", false);
+    .eq("in_laundry", false)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true });
 
   throwIfAborted(signal);
   if (gErr) throw gErr;
   if (!garments || garments.length === 0) {
     return { error: "Need garments in your wardrobe" };
   }
-  if (!hasCompleteOutfit(garments.map((g) => ({ slot: inferSlotFromGarment(g) })))) {
+  if (!canBuildCompleteOutfitPath(garments)) {
     return {
       error: "You need either top + bottom + shoes, or dress + shoes, to create a mood outfit",
     };
@@ -312,8 +305,8 @@ async function generateMoodOutfitPayload(req: Request, signal: AbortSignal): Pro
     messages: [
       { role: "system", content: `${VOICE_MOOD_OUTFIT}
 
-Mood:"${mood}" â€” Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
-${weather?.temperature !== undefined ? `Weather: ${weather.temperature}Â°C` : ""}
+Mood:"${mood}" - Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
+${weather?.temperature !== undefined ? `Weather: ${weather.temperature}C` : ""}
 Rules: return a complete, wearable outfit only. Valid cores are top+bottom+shoes or dress+shoes. If weather-appropriate outerwear exists and the weather calls for it, include outerwear. Never return a base outfit without shoes. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
 WARDROBE:\n${garmentList}` },
       { role: "user", content: `Feeling ${mood}. Create outfit.` },
@@ -367,7 +360,12 @@ WARDROBE:\n${garmentList}` },
     weather,
   );
 
-  const completeValidation = validateCompleteOutfitInline(normalizedItems);
+  const completeValidation = validateCompleteOutfit(
+    normalizedItems.map((item) => ({
+      slot: item.slot,
+      garment: garmentsById.get(item.garment_id) || null,
+    })),
+  );
   if (!completeValidation.isValid) {
     return {
       error: `Not enough garments to build a complete mood outfit. Missing: ${completeValidation.missing.join(", ")}`,
@@ -376,6 +374,14 @@ WARDROBE:\n${garmentList}` },
   }
 
   const limitationNote = result.limitation_note || buildMoodLimitationNote(normalizedItems, weather);
+
+  log.info("request.complete", {
+    requestId,
+    userId,
+    stage: "response_ready",
+    itemCount: normalizedItems.length,
+    degraded: Boolean(limitationNote),
+  });
 
   return {
     ...result,
@@ -391,6 +397,7 @@ serve(async (req) => {
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
   const abortController = new AbortController();
+  const requestId = crypto.randomUUID();
 
   const sendChunk = async (chunk: string) => {
     await writer.write(encoder.encode(chunk));
@@ -417,14 +424,16 @@ serve(async (req) => {
 
   void (async () => {
     try {
-      const payload = await generateMoodOutfitPayload(req, abortController.signal);
+      const payload = await generateMoodOutfitPayload(req, abortController.signal, requestId);
       await sendData(payload);
     } catch (e) {
-      const payload = e instanceof RateLimitError
-        ? await responseToPayload(rateLimitResponse(e, CORS_HEADERS))
-        : await responseToPayload(bursAIErrorResponse(e, CORS_HEADERS));
-      console.error("mood_outfit error:", e);
-      await sendData(payload);
+      if (e instanceof RateLimitError) {
+        await sendData(await responseToPayload(rateLimitResponse(e, CORS_HEADERS)));
+      } else {
+        recordError("mood_outfit");
+        log.exception("request.failed", e);
+        await sendData(await responseToPayload(bursAIErrorResponse(e, CORS_HEADERS)));
+      }
     } finally {
       cleanup(keepaliveId, timeoutId);
       try {

@@ -13,8 +13,6 @@ import { compressImage } from '@/lib/imageCompression';
 import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 import { logger } from '@/lib/logger';
-import { asPreferences } from '@/types/preferences';
-import { useProfile } from '@/hooks/useProfile';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -153,7 +151,6 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   const { user } = useAuth();
   const { canAddGarment, remainingGarments, refresh: refreshSubscription } = useSubscription();
   const { checkDuplicates, duplicates, clearDuplicates } = useDuplicateDetection();
-  const { data: profile } = useProfile();
 
   const { takePhoto, pickFromGallery } = useMedianCamera({ fileInputRef });
 
@@ -171,7 +168,6 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
-
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
@@ -183,6 +179,11 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   const [selectedSeasons, setSelectedSeasons] = useState<string[]>([]);
   const [formality, setFormality] = useState([3]);
   const [inLaundry, setInLaundry] = useState(false);
+
+  const resolveCopy = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated && translated !== key ? translated : fallback;
+  };
 
   const applyAIAnalysis = (analysis: GarmentAnalysis) => {
     setAiAnalysis(analysis);
@@ -307,7 +308,16 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     );
   };
 
-  const handleSave = async () => {
+  const openSaveChoice = () => {
+    if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
+      toast.error(t('addgarment.fill_required'));
+      return;
+    }
+
+    setShowConfirmSheet(true);
+  };
+
+  const handleSave = async (enableStudioQuality: boolean) => {
     if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
       toast.error(t('addgarment.fill_required'));
       return;
@@ -338,12 +348,12 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         }),
         ...buildGarmentIntelligenceFields({
           storagePath,
-          enableRender: true,
+          enableRender: enableStudioQuality,
           skipImageProcessing: true,
         }),
       });
 
-      if (storagePath && garmentId) {
+      if (storagePath && garmentId && enableStudioQuality) {
         triggerGarmentPostSaveIntelligence({
           garmentId,
           storagePath,
@@ -352,23 +362,36 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         });
       }
 
+      refreshSubscription();
+
       const newCount = (garmentCount || 0) + 1;
       if (newCount === 10) {
         toast.success(t('addgarment.milestone'), {
-          description: t('addgarment.milestone_desc'),
+          description: enableStudioQuality
+            ? resolveCopy(
+              'addgarment.added_desc',
+              'Studio-quality image is processing in the background. You can keep adding garments.',
+            )
+            : resolveCopy(
+              'addgarment.added_original_desc',
+              'Saved with the original photo. You can keep adding garments.',
+            ),
         });
       } else {
-        toast.success(t('addgarment.added'), {
-          description: t('addgarment.added_desc'),
+        toast.success(resolveCopy('addgarment.added', 'Saved.'), {
+          description: enableStudioQuality
+            ? resolveCopy(
+              'addgarment.added_desc',
+              'Studio-quality image is processing in the background. You can keep adding garments.',
+            )
+            : resolveCopy(
+              'addgarment.added_original_desc',
+              'Saved with the original photo. You can keep adding garments.',
+            ),
         });
       }
-
-      const prefs = asPreferences(profile?.preferences);
-      if (prefs.showRenderPrompt !== false && garmentId) {
-        setShowConfirmSheet(true);
-      } else {
-        navigate('/wardrobe');
-      }
+      setShowConfirmSheet(false);
+      resetForm();
     } catch (error) {
       logger.error('Error saving garment:', error);
       toast.error(t('common.something_wrong'));
@@ -379,6 +402,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
 
   const resetForm = () => {
     setStep('upload');
+    setShowConfirmSheet(false);
     setImageFile(null);
     setImagePreview(null);
     setStoragePath(null);
@@ -462,6 +486,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     handleRetryAnalysis,
     handleReanalyze: handleRetryAnalysis,
     handleSave,
+    openSaveChoice,
     resetForm,
     toggleSeason,
     duplicates,
