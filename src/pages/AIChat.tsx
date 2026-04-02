@@ -34,6 +34,9 @@ import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
 import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLook';
 import { collectStyleChatGarmentIds, isStyleChatResponseEnvelope, type PersistedStyleChatMessage, type StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 import { invokeEdgeFunctionStream } from '@/lib/edgeFunctionClient';
+import { buildStyleChatRequest } from '@/lib/styleChatRequest';
+import { deleteStyleChatHistory, persistStyleChatMessages } from '@/lib/styleChatHistory';
+import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -146,32 +149,6 @@ async function loadMessages(userId: string): Promise<Message[]> {
   return rows.map((row) => parseStoredMessage(row));
 }
 
-async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
-  await fetch(getSupabaseRestUrl('chat_messages'), {
-    method: 'POST',
-    headers: { ...(await createSupabaseRestHeaders(accessToken)), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(msgs.map((m) => {
-      const content = m.stylistMeta
-        ? JSON.stringify({
-          kind: 'stylist_message',
-          content: m.content,
-          stylistMeta: m.stylistMeta,
-        } satisfies PersistedStyleChatMessage)
-        : typeof m.content === 'string'
-          ? m.content
-          : JSON.stringify(m.content);
-      return { user_id: userId, role: m.role, content, mode: 'stylist' };
-    })),
-  });
-}
-
-async function deleteHistory(userId: string, accessToken: string) {
-  await fetch(`${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist`, {
-    method: 'DELETE',
-    headers: await createSupabaseRestHeaders(accessToken),
-  });
-}
-
 function extractGarmentIds(messages: Message[]): string[] {
   const ids = new Set<string>();
   for (const m of messages) {
@@ -179,27 +156,6 @@ function extractGarmentIds(messages: Message[]): string[] {
     collectStyleChatGarmentIds(m.stylistMeta).forEach((id) => ids.add(id));
   }
   return Array.from(ids);
-}
-
-function buildRequestMessages(messages: Message[]): Array<Pick<Message, 'role' | 'content'>> {
-  const filtered = messages.filter((message, index) => {
-    const text = getTextContent(message.content).trim();
-    if (!text && typeof message.content === 'string') return false;
-    if (index === 0 && message.role === 'assistant') return false;
-    return true;
-  });
-
-  return filtered.slice(-10).map((message, index, list) => {
-    const text = getTextContent(message.content);
-    const keepFull = index >= list.length - 4;
-    const compactText = !keepFull && text.length > 320
-      ? `${text.slice(0, 317).trim()}...`
-      : text;
-    return {
-      role: message.role,
-      content: typeof message.content === 'string' ? compactText : message.content,
-    };
-  });
 }
 
 function AIChatFallback() {
@@ -222,6 +178,7 @@ export default function AIChat() {
   const createOutfit = useCreateOutfit();
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
+  const { record: recordSignal } = useFeedbackSignals();
 
   const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: t('chat.welcome') }), [t]);
 
@@ -373,7 +330,7 @@ export default function AIChat() {
     const welcomeText = t('chat.welcome');
     const baseMessages = messages.filter((m, i) => !(i === 0 && getTextContent(m.content) === welcomeText));
     const newMessages = [...baseMessages, userMsg];
-    const requestMessages = buildRequestMessages(newMessages);
+    const { messages: requestMessages, conversationSummary } = buildStyleChatRequest(newMessages);
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
     let assistantContent: MessageContent = '';
@@ -396,6 +353,7 @@ export default function AIChat() {
         accessToken: token,
         body: {
           messages: requestMessages,
+          conversation_summary: conversationSummary,
           locale,
           garmentCount: garmentCount ?? 0,
           archetype: styleDNA?.archetype ?? null,
@@ -541,7 +499,20 @@ export default function AIChat() {
         return updated;
       });
       if (user && session && (getTextContent(assistantMsg.content).trim() || assistantMsg.stylistMeta?.render_outfit_card)) {
-        await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+        try {
+          await persistStyleChatMessages(
+            fetch,
+            getSupabaseRestUrl('chat_messages'),
+            user.id,
+            [userMsg, assistantMsg],
+            await createSupabaseRestHeaders(session.access_token),
+          );
+        } catch (persistError) {
+          logger.warn('Stylist history sync failed', persistError);
+          toast.error(t('chat.history_error'), {
+            description: 'Your reply is still available locally on this device.',
+          });
+        }
       }
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
@@ -614,7 +585,11 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
-      await deleteHistory(user.id, session.access_token);
+      await deleteStyleChatHistory(
+        fetch,
+        `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${user.id}&mode=eq.stylist`,
+        await createSupabaseRestHeaders(session.access_token),
+      );
       sessionStorage.removeItem('burs_chat_history');
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));
@@ -652,8 +627,16 @@ export default function AIChat() {
   }, [garmentMap, createOutfit, navigate, t]);
 
   const handleAddToPlan = useCallback((payload: PlanActionPayload) => {
+    recordSignal({
+      signal_type: 'planned_follow_through',
+      metadata: {
+        garment_ids: currentVisibleLook?.outfit_ids || [],
+        mode: payload.mode,
+        calendar_days: payload.calendar_days.map((day) => day.date).slice(0, 7),
+      },
+    });
     navigate('/plan', { state: { planningMode: true, calendar_days: payload.calendar_days } });
-  }, [navigate]);
+  }, [currentVisibleLook?.outfit_ids, navigate, recordSignal]);
 
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
@@ -783,7 +766,17 @@ export default function AIChat() {
                     variant="outline"
                     size="sm"
                     className="flex-1 rounded-full cursor-pointer border-border/35"
-                    onClick={() => { hapticLight(); setPlanActionPayload(null); }}
+                    onClick={() => {
+                      hapticLight();
+                      recordSignal({
+                        signal_type: 'planned_skip',
+                        metadata: {
+                          garment_ids: currentVisibleLook?.outfit_ids || [],
+                          reason: 'dismissed_in_chat',
+                        },
+                      });
+                      setPlanActionPayload(null);
+                    }}
                   >
                     Dismiss
                   </Button>
