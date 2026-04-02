@@ -170,6 +170,7 @@ describe('BatchUploadProgress', () => {
     await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Blue shirt',
       image_path: 'user-1/actual-upload.webp',
+      render_status: 'none',
     })));
     expect(screen.queryByText('batch.quick_review')).not.toBeInTheDocument();
   });
@@ -311,5 +312,83 @@ describe('BatchUploadProgress', () => {
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves originals first and lets the user request studio quality for selected batch items', async () => {
+    const fileA = new File(['image-a'], 'look-a.jpg', { type: 'image/jpeg' });
+    const fileB = new File(['image-b'], 'look-b.jpg', { type: 'image/jpeg' });
+    const queuedGarmentIds: string[] = [];
+
+    analyzeGarmentMock
+      .mockResolvedValueOnce({
+        data: {
+          title: 'Blue shirt',
+          category: 'top',
+          subcategory: 'shirt',
+          color_primary: 'blue',
+          season_tags: ['spring'],
+          formality: 3,
+          ai_provider: 'burs_ai',
+          confidence: 0.9,
+          ai_raw: { source: 'test' },
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          title: 'Black blazer',
+          category: 'outerwear',
+          subcategory: 'blazer',
+          color_primary: 'black',
+          season_tags: ['autumn'],
+          formality: 4,
+          ai_provider: 'burs_ai',
+          confidence: 0.92,
+          ai_raw: { source: 'test' },
+        },
+        error: null,
+      });
+
+    createGarmentMock.mockImplementation(async (payload) => {
+      queuedGarmentIds.push(payload.id);
+      return { id: payload.id };
+    });
+
+    render(<BatchUploadProgress files={[fileA, fileB]} onComplete={vi.fn()} onCancel={vi.fn()} />);
+
+    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText('Upgrade selected items to studio quality')).toBeInTheDocument());
+
+    expect(createGarmentMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ render_status: 'none' }));
+    expect(createGarmentMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ render_status: 'none' }));
+
+    fireEvent.click(screen.getByLabelText('Select for studio quality: Black blazer'));
+    fireEvent.click(screen.getByRole('button', { name: 'Studio quality for selected item' }));
+
+    await waitFor(() => {
+      expect(updateMock).toHaveBeenCalledWith({
+        render_status: 'pending',
+        rendered_image_path: null,
+      });
+    });
+    await waitFor(() => {
+      expect(eqMock).toHaveBeenCalledWith('id', queuedGarmentIds[1]);
+    });
+    await waitFor(() => {
+      expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('render_garment_image', {
+        timeout: 1000,
+        retries: 0,
+        body: {
+          garmentId: queuedGarmentIds[1],
+          source: 'manual_enhance',
+        },
+      });
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      '1 item queued for studio quality',
+      expect.objectContaining({
+        description: 'Original photos stay saved now while the selected studio versions finish in the background.',
+      }),
+    );
   });
 });

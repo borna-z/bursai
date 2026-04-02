@@ -21,6 +21,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 import { useAuth } from '@/contexts/AuthContext';
+import { enqueue } from '@/lib/offlineQueue';
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -143,6 +144,52 @@ describe('useGarments', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
+  });
+
+  it('still attempts a live create when navigator reports offline', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    vi.stubGlobal('navigator', { onLine: false });
+    const chain = mockChain([{ id: 'g1', title: 'Shirt', category: 'top', color_primary: 'blue' }]);
+    mockFrom.mockReturnValue(chain);
+
+    const { useCreateGarment } = await import('../useGarments');
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreateGarment(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ title: 'Shirt', category: 'top', color_primary: 'blue' } as never);
+    });
+
+    expect(chain.insert).toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the offline queue when create fails with a network error', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    vi.stubGlobal('navigator', { onLine: false });
+    const failingInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockRejectedValue(new Error('Failed to fetch')),
+      }),
+    });
+    mockFrom.mockReturnValue({
+      insert: failingInsert,
+    });
+
+    const { useCreateGarment } = await import('../useGarments');
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreateGarment(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ title: 'Shirt', category: 'top', color_primary: 'blue' } as never);
+    });
+
+    expect(failingInsert).toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      table: 'garments',
+      type: 'insert',
+      payload: expect.objectContaining({ user_id: 'user-1', title: 'Shirt' }),
+    }));
   });
 
   it('invalidates garment list and garment count after delete', async () => {

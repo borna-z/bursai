@@ -88,6 +88,15 @@ function chooseBestOptionalGarment<T extends { wear_count?: number | null; categ
   })[0] || null;
 }
 
+function chooseBestCoreGarment<T extends { wear_count?: number | null }>(garments: T[]): T | null {
+  if (garments.length === 0) return null;
+  return [...garments].sort((a, b) => {
+    const aWear = a.wear_count ?? 0;
+    const bWear = b.wear_count ?? 0;
+    return aWear - bWear;
+  })[0] || null;
+}
+
 function enrichMoodOutfitItems(
   items: { slot: string; garment_id: string }[],
   garments: Array<{ id: string; category?: string | null; subcategory?: string | null; wear_count?: number | null }>,
@@ -96,6 +105,32 @@ function enrichMoodOutfitItems(
   const enriched = [...items];
   const garmentIds = new Set(enriched.map((item) => item.garment_id));
   const slots = new Set(enriched.map((item) => item.slot));
+
+  const addBestCoreSlot = (slot: "top" | "bottom" | "dress") => {
+    if (slots.has(slot)) return;
+    const garment = chooseBestCoreGarment(
+      garments.filter((candidate) => !garmentIds.has(candidate.id) && inferSlotFromGarment(candidate) === slot),
+    );
+    if (!garment) return;
+    enriched.push({ slot, garment_id: garment.id });
+    garmentIds.add(garment.id);
+    slots.add(slot);
+  };
+
+  const hasDress = slots.has("dress");
+  const hasTop = slots.has("top");
+  const hasBottom = slots.has("bottom");
+
+  if (!hasDress && !hasTop && !hasBottom) {
+    addBestCoreSlot("dress");
+    if (!slots.has("dress")) {
+      addBestCoreSlot("top");
+      addBestCoreSlot("bottom");
+    }
+  } else if (!hasDress) {
+    if (!hasTop) addBestCoreSlot("top");
+    if (!hasBottom) addBestCoreSlot("bottom");
+  }
 
   if (!slots.has("shoes")) {
     const shoe = chooseBestOptionalGarment(
