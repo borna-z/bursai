@@ -1510,6 +1510,7 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
 interface RecentOutfitsResult {
   text: string;
   occasions: string[];
+  recentGarmentSets: string[][];
 }
 
 async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<RecentOutfitsResult> {
@@ -1519,7 +1520,7 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     .eq("user_id", userId)
     .order("generated_at", { ascending: false })
     .limit(5);
-  if (!outfits?.length) return { text: "", occasions: [] };
+  if (!outfits?.length) return { text: "", occasions: [], recentGarmentSets: [] };
 
   const occasions = [...new Set(outfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
 
@@ -1531,7 +1532,11 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
   });
 
-  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions };
+  const recentGarmentSets: string[][] = outfits.map((o: any) =>
+    (o.outfit_items || []).map((i: any) => i.garment_id).filter(Boolean)
+  ).filter((ids: string[]) => ids.length > 0);
+
+  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets };
 }
 
 async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ text: string; raw: RawSignal[] }> {
@@ -1918,7 +1923,12 @@ serve(async (req) => {
             prefer_garment_ids: refinementPlan.preferGarmentIds,
             exclude_garment_ids: refinementPlan.excludeGarmentIds,
             active_look_garment_ids: activeLook.garmentIds,
-            locked_garment_ids: refinementPlan.lockedGarmentIds,
+            locked_garment_ids: [
+              ...refinementPlan.lockedGarmentIds,
+              ...(refinementPlan.anchorLocked && refinementPlan.anchorGarmentId
+                ? [refinementPlan.anchorGarmentId]
+                : []),
+            ],
             requested_edit_slots: refinementPlan.requestedEditSlots,
             output_count: 1,
             explanation_mode: "short",
@@ -2004,6 +2014,7 @@ ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 ${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
 ${candidateOutfits ? `\n\n${candidateOutfits}` : ""}${unifiedCandidateLine}
 ${recentOutfitsCtx.text}
+${recentOutfitsCtx.recentGarmentSets && recentOutfitsCtx.recentGarmentSets.length > 0 ? `\nRECENT OUTFIT COMBINATIONS — DO NOT REPEAT THESE EXACT GARMENT COMBINATIONS:\n${recentOutfitsCtx.recentGarmentSets.slice(0, 5).map((ids: string[], i: number) => `Outfit ${i+1}: ${ids.join(", ")}`).join("\n")}\nEach new outfit MUST include at least 2 garments not in the previous suggestion.` : ""}
 ${rejectionsCtx.text}
 ${tasteMemoryBlock ? `\nTASTE MEMORY (learned from behavior — reference this naturally in replies):\n${tasteMemoryBlock}` : ""}
 ${calendarCtx}
@@ -2036,6 +2047,7 @@ STYLIST OPERATING CONTRACT:
 ${modeContract}
 ${taggingContract}
 
+${refinementPlan.anchorLocked && refinementPlan.anchorGarmentId ? `ANCHOR OVERRIDE — ABSOLUTE RULE: Every outfit you suggest MUST contain garment ID ${refinementPlan.anchorGarmentId}. Any outfit tag missing this ID is invalid. The user has locked this as their anchor piece.` : ""}
 OUTFIT SLOT RULES — CRITICAL:
 - An outfit must have AT MOST ONE garment per slot: top · bottom · shoes · outerwear · dress
 - A dress REPLACES top + bottom — never combine dress + pants or dress + jeans
@@ -2148,11 +2160,17 @@ ${refinementContract}`;
     });
 
     const cardState = resolveStyleCardState(validatedActiveLookIds, normalizedReply.outfitIds);
-    const renderOutfitCard = shouldRenderStyleCardFromPolicy({
+    const renderOutfitCardBase = shouldRenderStyleCardFromPolicy({
       cardPolicy,
       cardState,
       outfitIds: normalizedReply.outfitIds,
     });
+    const isStylingTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT"
+      || stylistMode === "GARMENT_FIRST_STYLING"
+      || stylistMode === "OUTFIT_GENERATION"
+      || stylistMode === "LOOK_EXPLANATION";
+    const renderOutfitCard = renderOutfitCardBase
+      || (isStylingTurn && normalizedReply.outfitIds.length > 0);
     const resolvedOutfitIds = renderOutfitCard ? normalizedReply.outfitIds : [];
     const activeLookStatus = resolveActiveLookStatus(validatedActiveLookIds, resolvedOutfitIds);
     const usedDeterministicRescue = !validatedUnifiedOutfitIds.length
