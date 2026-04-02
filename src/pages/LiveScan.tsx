@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
@@ -331,12 +332,13 @@ export default function LiveScan() {
   const [isSavingAccepted, setIsSavingAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
   const [scanThumbnails, setScanThumbnails] = useState<string[]>([]);
+  const [studioQualityEnabled, setStudioQualityEnabled] = useState(true);
 
   const isMedian = isMedianApp();
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
   const coach = useFirstRunCoach();
-  const { scanCount, isProcessing, lastResult, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
@@ -443,7 +445,7 @@ export default function LiveScan() {
     if (isSavingAccepted) return;
     setIsSavingAccepted(true);
 
-    const saved = await accept();
+    const saved = await accept(studioQualityEnabled);
     setIsSavingAccepted(false);
 
     if (!saved) {
@@ -455,15 +457,17 @@ export default function LiveScan() {
       setScanThumbnails(prev => [...prev, lastResult.thumbnailUrl]);
     }
     setShowAccepted(true);
-  }, [accept, isSavingAccepted, lastResult, t]);
+  }, [accept, isSavingAccepted, lastResult, studioQualityEnabled, t]);
 
   const handleAcceptedDone = useCallback(() => {
     setShowAccepted(false);
     clearLastAccepted();
     toast.success(t('scan.added'), {
-      description: 'Studio-quality image is processing in the background. You can keep scanning.',
+      description: lastAccepted?.studioQualityEnabled
+        ? 'Studio-quality image is processing in the background. You can keep scanning.'
+        : 'Saved with the original photo. You can keep scanning.',
     });
-  }, [clearLastAccepted, t]);
+  }, [clearLastAccepted, lastAccepted?.studioQualityEnabled, t]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -660,6 +664,24 @@ export default function LiveScan() {
                 </div>
 
                 {/* Actions */}
+                <div className="rounded-[1.2rem] border border-border/55 bg-background/84 p-4 shadow-[0_14px_28px_rgba(28,25,23,0.08)]">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">Studio quality</p>
+                      <p className="text-xs text-muted-foreground">
+                        {studioQualityEnabled
+                          ? 'Create the shadow mannequin version in the background after save.'
+                          : 'Save the original photo as-is without studio processing.'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={studioQualityEnabled}
+                      onCheckedChange={setStudioQualityEnabled}
+                      disabled={isSavingAccepted}
+                    />
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
