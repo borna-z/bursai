@@ -23,7 +23,7 @@ import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
 import { buildStylistMemorySummary } from "../_shared/stylist-memory.ts";
 import { deriveStylistBehaviorProfile, scoreBehavioralCandidate, type StylistBehaviorProfile } from "../_shared/stylist-behavior.ts";
-import { deriveStylistOutfitMemory } from "../_shared/stylist-outfit-memory.ts";
+import { deriveStylistOutfitMemory, rankArchivedSuccessfulOutfits } from "../_shared/stylist-outfit-memory.ts";
 
 // ---------- i18n ----------
 
@@ -1862,11 +1862,6 @@ serve(async (req) => {
       outfits: recentOutfitsCtx.outfits,
       signals: rawSignals,
     });
-    const tasteMemoryBlock = [stylistMemory.promptBlock, legacyTasteMemoryBlock]
-      .concat(outfitMemory.promptBlock ? [outfitMemory.promptBlock] : [])
-      .concat(behaviorProfile.summaryLines)
-      .filter(Boolean)
-      .join("\n");
 
     const profile = profileRes.data;
 
@@ -1972,6 +1967,23 @@ serve(async (req) => {
       selectedGarmentIds,
       anchorReleased,
     });
+    const archivedLookMemory = rankArchivedSuccessfulOutfits({
+      outfits: recentOutfitsCtx.outfits,
+      signals: rawSignals,
+      request: {
+        occasion: refinementPlan.occasion,
+        style: refinementPlan.style,
+        anchorGarmentId: refinementPlan.anchorGarmentId,
+        activeLookGarmentIds: activeLook.garmentIds,
+        preferredGarmentIds: refinementPlan.preferGarmentIds,
+      },
+    });
+    const tasteMemoryBlock = [stylistMemory.promptBlock, legacyTasteMemoryBlock]
+      .concat(outfitMemory.promptBlock ? [outfitMemory.promptBlock] : [])
+      .concat(archivedLookMemory.promptBlock ? [archivedLookMemory.promptBlock] : [])
+      .concat(behaviorProfile.summaryLines)
+      .filter(Boolean)
+      .join("\n");
     const stylistMode = detectStylistChatMode({
       messages: messages as MessageInput[],
       activeLook,
@@ -2008,7 +2020,10 @@ serve(async (req) => {
     const shouldCallUnifiedEngine = cardPolicy === "required" && !shouldAskClarifyingQuestion;
     const behavioralPreferredGarmentIds = behaviorProfile.preferredGarmentIds
       .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
-    const formulaPreferredGarmentIds = outfitMemory.preferredGarmentIds
+    const formulaPreferredGarmentIds = Array.from(new Set([
+      ...archivedLookMemory.preferredGarmentIds,
+      ...outfitMemory.preferredGarmentIds,
+    ]))
       .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
     const behavioralAvoidedGarmentIds = behaviorProfile.avoidedGarmentIds
       .filter((garmentId) =>
@@ -2028,7 +2043,10 @@ serve(async (req) => {
         wardrobeCtx.anchor,
         behaviorProfile,
         recentOutfitsCtx.recentGarmentSets,
-        outfitMemory.successfulGarmentSets,
+        Array.from(new Set([
+          ...archivedLookMemory.successfulGarmentSets.map((garmentSet) => garmentSet.join("::")),
+          ...outfitMemory.successfulGarmentSets.map((garmentSet) => garmentSet.join("::")),
+        ])).map((serialized) => serialized.split("::").filter(Boolean)),
       )
       : "";
 
