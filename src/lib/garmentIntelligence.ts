@@ -13,7 +13,7 @@ import {
 
 export { GARMENT_IMAGE_PROCESSING_VERSION };
 
-type RenderTriggerSource = 'add_photo' | 'batch_add';
+type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan';
 
 const queuedRenderKickoffs: Array<{ garmentId: string; source: string }> = [];
 const queuedRenderGarmentIds = new Set<string>();
@@ -73,7 +73,11 @@ function getResumeRenderSource(aiRaw: Json | null | undefined): RenderTriggerSou
   }
 
   const source = (systemSignals as Record<string, unknown>).source;
-  return source === 'add_photo' ? 'add_photo' : 'batch_add';
+  if (source === 'add_photo' || source === 'live_scan') {
+    return source;
+  }
+
+  return 'batch_add';
 }
 
 export async function resumePendingGarmentRenders(userId: string): Promise<void> {
@@ -226,7 +230,7 @@ export function getGarmentReviewDecision(
 
 interface BuildGarmentIntelligenceFieldsOptions {
   storagePath: string;
-  /** Set render_status to 'pending' on insert (pilot: Add Photo only) */
+  /** Set render_status to 'pending' on insert for studio render flows. */
   enableRender?: boolean;
   /** Opt out of background-removal pipeline initialization for render-only flows. */
   skipImageProcessing?: boolean;
@@ -300,7 +304,12 @@ export function triggerGarmentPostSaveIntelligence({
   }
 
   // Gemini render pipeline
-  const shouldRender = !skipRender && (source === 'add_photo' || source === 'batch_add' || source === 'manual_enhance');
+  const shouldRender = !skipRender && (
+    source === 'add_photo'
+    || source === 'batch_add'
+    || source === 'live_scan'
+    || source === 'manual_enhance'
+  );
   if (shouldRender) {
     startGarmentRenderInBackground(garmentId, source).catch((err) => {
       logger.error(`[${source}] garment render trigger error (non-blocking):`, err);

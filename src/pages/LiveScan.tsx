@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Check, RotateCcw, Camera, Zap, ZapOff, ImagePlus, Shirt } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -19,9 +20,6 @@ import { EASE_CURVE } from '@/lib/motion';
 import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
-import { GarmentConfirmSheet } from '@/components/garment/GarmentConfirmSheet';
-import { useProfile } from '@/hooks/useProfile';
-import { asPreferences } from '@/types/preferences';
 import { logger } from '@/lib/logger';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
@@ -330,6 +328,7 @@ export default function LiveScan() {
   const [cameraStarted, setCameraStarted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [isSavingAccepted, setIsSavingAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
   const [scanThumbnails, setScanThumbnails] = useState<string[]>([]);
 
@@ -337,10 +336,8 @@ export default function LiveScan() {
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
   const coach = useFirstRunCoach();
-  const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, lastResult, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
-  const { data: profile } = useProfile();
-  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
   const remainingSlots = isPremium ? Infinity : isSubLoading ? 0 : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
@@ -442,33 +439,42 @@ export default function LiveScan() {
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
 
-  const handleAccept = useCallback(() => {
-    // Save thumbnail for history strip
+  const handleAccept = useCallback(async () => {
+    if (isSavingAccepted) return;
+    setIsSavingAccepted(true);
+
+    const saved = await accept();
+    setIsSavingAccepted(false);
+
+    if (!saved) {
+      toast.error(t('common.something_wrong'));
+      return;
+    }
+
     if (lastResult?.thumbnailUrl) {
       setScanThumbnails(prev => [...prev, lastResult.thumbnailUrl]);
     }
-    accept();
     setShowAccepted(true);
-  }, [accept, lastResult]);
+  }, [accept, isSavingAccepted, lastResult, t]);
 
   const handleAcceptedDone = useCallback(() => {
     setShowAccepted(false);
-    const prefs = asPreferences(profile?.preferences);
-    if (prefs.showRenderPrompt !== false && lastAccepted) {
-      setShowConfirmSheet(true);
-    } else {
-      navigate('/wardrobe');
-    }
-  }, [profile, lastAccepted, navigate]);
+    clearLastAccepted();
+    toast.success(t('scan.added'), {
+      description: 'Studio-quality image is processing in the background. You can keep scanning.',
+    });
+  }, [clearLastAccepted, t]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    await finish(); navigate('/wardrobe');
+    void finish();
+    navigate('/wardrobe');
   }, [finish, navigate]);
 
   const handleClose = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    finish(); navigate('/wardrobe');
+    void finish();
+    navigate('/wardrobe');
   }, [finish, navigate]);
 
   const isLocked = autoMode && autoProgress > 0;
@@ -655,11 +661,29 @@ export default function LiveScan() {
 
                 {/* Actions */}
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12 rounded-full border-border/40" onClick={() => { hapticLight(); retake(); }}>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-12 rounded-full border-border/40"
+                    disabled={isSavingAccepted}
+                    onClick={() => { hapticLight(); retake(); }}
+                  >
                     <RotateCcw className="w-4 h-4 mr-2" />{t('scan.retake')}
                   </Button>
-                  <Button variant="editorial" className="flex-1 h-12 rounded-full" onClick={() => { hapticLight(); handleAccept(); }}>
-                    <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
+                  <Button
+                    variant="editorial"
+                    className="flex-1 h-12 rounded-full"
+                    disabled={isSavingAccepted}
+                    onClick={() => { hapticLight(); void handleAccept(); }}
+                  >
+                    {isSavingAccepted ? (
+                      <>
+                        <RotateCcw className="w-4 h-4 mr-2 animate-spin" />{t('addgarment.saving')}
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
+                      </>
+                    )}
                   </Button>
                 </div>
               </motion.div>
@@ -754,26 +778,6 @@ export default function LiveScan() {
       )}
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
-
-      {lastAccepted && (
-        <GarmentConfirmSheet
-          open={showConfirmSheet}
-          garmentId={lastAccepted.garmentId}
-          garmentImagePath={lastAccepted.imagePath}
-          detectedTitle={lastAccepted.analysis.title}
-          detectedCategory={lastAccepted.analysis.category}
-          detectedColor={lastAccepted.analysis.color_primary}
-          detectedMaterial={lastAccepted.analysis.material || null}
-          detectedFit={lastAccepted.analysis.fit || null}
-          formalityScore={lastAccepted.analysis.formality ?? null}
-          onClose={() => {
-            setShowConfirmSheet(false);
-            clearLastAccepted();
-            streamRef.current?.getTracks().forEach((t) => t.stop());
-            finish();
-          }}
-        />
-      )}
     </div>
     </PageErrorBoundary>
   );

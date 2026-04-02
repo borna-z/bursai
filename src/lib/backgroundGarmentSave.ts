@@ -11,15 +11,20 @@ export interface SaveableResult {
   blob: Blob;
 }
 
+export interface SavedGarmentRecord {
+  garmentId: string;
+  storagePath: string;
+}
+
 /**
- * Upload a garment image to storage, insert the garment record,
- * then trigger Stage 2 enrichment + duplicate detection in background.
+ * Persist a scanned garment, then trigger non-blocking enrichment,
+ * duplicate detection, and studio rendering in the background.
  */
 export async function saveGarmentInBackground(
   result: SaveableResult,
   userId: string,
   externalGarmentId?: string,
-): Promise<void> {
+): Promise<SavedGarmentRecord | null> {
   let garmentId = '';
   let storagePath = '';
 
@@ -39,7 +44,7 @@ export async function saveGarmentInBackground(
 
     if (uploadError) {
       logger.error('Upload error:', uploadError);
-      return;
+      return null;
     }
 
     // Save garment record
@@ -65,12 +70,12 @@ export async function saveGarmentInBackground(
         source: 'live_scan',
       }),
       imported_via: 'live_scan',
-      ...buildGarmentIntelligenceFields({ storagePath }),
+      ...buildGarmentIntelligenceFields({ storagePath, enableRender: true }),
     });
 
     if (insertError) {
       logger.error('Insert error:', insertError);
-      return;
+      return null;
     }
 
     triggerGarmentPostSaveIntelligence({
@@ -87,8 +92,11 @@ export async function saveGarmentInBackground(
     detectDuplicates(result.analysis, garmentId, storagePath).catch((err) => {
       logger.error('Duplicate detection error (non-blocking):', err);
     });
+
+    return { garmentId, storagePath };
   } catch (err) {
     logger.error('Background save error:', err);
+    return null;
   } finally {
     URL.revokeObjectURL(result.thumbnailUrl);
   }
