@@ -44,6 +44,11 @@ function chooseBestOptionalGarment<T extends { wear_count?: number | null }>(gar
   return [...garments].sort((a, b) => (a.wear_count ?? 0) - (b.wear_count ?? 0))[0] || null;
 }
 
+function chooseBestCoreGarment<T extends { wear_count?: number | null }>(garments: T[]): T | null {
+  if (garments.length === 0) return null;
+  return [...garments].sort((a, b) => (a.wear_count ?? 0) - (b.wear_count ?? 0))[0] || null;
+}
+
 function enrichMoodOutfitItems(
   items: { slot: string; garment_id: string }[],
   garments: GarmentLike[],
@@ -52,6 +57,32 @@ function enrichMoodOutfitItems(
   const enriched = [...items];
   const garmentIds = new Set(enriched.map((item) => item.garment_id));
   const slots = new Set(enriched.map((item) => item.slot));
+
+  const addBestCoreSlot = (slot: 'top' | 'bottom' | 'dress') => {
+    if (slots.has(slot)) return;
+    const garment = chooseBestCoreGarment(
+      garments.filter((candidate) => !garmentIds.has(candidate.id) && inferSlotFromGarment(candidate) === slot),
+    );
+    if (!garment) return;
+    enriched.push({ slot, garment_id: garment.id });
+    garmentIds.add(garment.id);
+    slots.add(slot);
+  };
+
+  const hasDress = slots.has('dress');
+  const hasTop = slots.has('top');
+  const hasBottom = slots.has('bottom');
+
+  if (!hasDress && !hasTop && !hasBottom) {
+    addBestCoreSlot('dress');
+    if (!slots.has('dress')) {
+      addBestCoreSlot('top');
+      addBestCoreSlot('bottom');
+    }
+  } else if (!hasDress) {
+    if (!hasTop) addBestCoreSlot('top');
+    if (!hasBottom) addBestCoreSlot('bottom');
+  }
 
   if (!slots.has('shoes')) {
     const shoe = chooseBestOptionalGarment(
@@ -126,6 +157,23 @@ describe('generator resilience mirrors', () => {
 
     expect(enriched.map((item) => item.slot)).toContain('shoes');
     expect(enriched.find((item) => item.slot === 'shoes')?.garment_id).toBe('shoe-2');
+  });
+
+  it('mood outfit enrichment repairs a missing top before failing the outfit', () => {
+    const items = [
+      { slot: 'bottom', garment_id: 'bottom-1' },
+      { slot: 'shoes', garment_id: 'shoe-1' },
+    ];
+    const garments: GarmentLike[] = [
+      { id: 'top-1', category: 'top', wear_count: 2 },
+      { id: 'bottom-1', category: 'bottom', wear_count: 3 },
+      { id: 'shoe-1', category: 'shoes', wear_count: 4 },
+    ];
+
+    const enriched = enrichMoodOutfitItems(items, garments, { temperature: 18, precipitation: 'none' });
+
+    expect(enriched.map((item) => item.slot)).toEqual(expect.arrayContaining(['top', 'bottom', 'shoes']));
+    expect(enriched.find((item) => item.slot === 'top')?.garment_id).toBe('top-1');
   });
 
   it('weather-aware optional shoes reject sandals for rainy mood outfits', () => {

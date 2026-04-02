@@ -9,6 +9,7 @@ import { compressCenterCrop } from '@/lib/compressFrame';
 import { saveGarmentInBackground } from '@/lib/backgroundGarmentSave';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import { invalidateWardrobeQueries } from '@/hooks/useGarments';
+import { buildOriginalGarmentImagePath } from '@/lib/garmentImagePath';
 
 export interface ScanResult {
   analysis: GarmentAnalysis;
@@ -133,7 +134,7 @@ export function useLiveScan() {
     const garmentId = crypto.randomUUID();
     const isPng = result.blob.type === 'image/png';
     const ext = isPng ? 'png' : 'jpg';
-    const imagePath = `${user.id}/${garmentId}.${ext}`;
+    const imagePath = buildOriginalGarmentImagePath(user.id, garmentId, ext);
 
     const savePromise = saveGarmentInBackground(result, user.id, garmentId, { enableStudioQuality });
     savingRef.current.push(savePromise);

@@ -87,12 +87,12 @@ describe('saveGarmentInBackground', () => {
 
     expect(saved).toEqual({
       garmentId: 'test-uuid',
-      storagePath: 'user-1/test-uuid.jpg',
+      storagePath: 'user-1/test-uuid/original.jpg',
     });
 
     expect(supabase.storage.from).toHaveBeenCalledWith('garments');
     expect(uploadMock).toHaveBeenCalledWith(
-      'user-1/test-uuid.jpg',
+      'user-1/test-uuid/original.jpg',
       expect.any(Blob),
       expect.objectContaining({ contentType: 'image/jpeg' }),
     );
@@ -120,7 +120,7 @@ describe('saveGarmentInBackground', () => {
     // The enrichment call is non-blocking so we just verify it was called
     await vi.waitFor(() => {
       expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
-        body: { storagePath: 'user-1/test-uuid.jpg', mode: 'enrich' },
+        body: { storagePath: 'user-1/test-uuid/original.jpg', mode: 'enrich' },
       });
       expect(invokeEdgeFunction).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
         body: { garmentId: 'test-uuid', source: 'live_scan' },
@@ -190,7 +190,7 @@ describe('saveGarmentInBackground', () => {
       expect(dupCall).toBeDefined();
       expect(dupCall![1]).toEqual({
         body: expect.objectContaining({
-          image_path: 'user-1/test-uuid.jpg',
+          image_path: 'user-1/test-uuid/original.jpg',
           category: 'tops',
           color_primary: '#1a2a5e',
           exclude_garment_id: 'test-uuid',
@@ -215,8 +215,8 @@ describe('saveGarmentInBackground', () => {
     expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
       render_status: 'none',
       image_processing_status: 'ready',
-      image_path: 'user-1/test-uuid.jpg',
-      original_image_path: 'user-1/test-uuid.jpg',
+      image_path: 'user-1/test-uuid/original.jpg',
+      original_image_path: 'user-1/test-uuid/original.jpg',
       processed_image_path: null,
     }));
 

@@ -249,7 +249,7 @@ describe('useLiveScan', () => {
 
     expect(supabase.storage.from).toHaveBeenCalledWith('garments');
     expect(uploadMock).toHaveBeenCalledWith(
-      'user-1/mock-garment-uuid.jpg',
+      'user-1/mock-garment-uuid/original.jpg',
       expect.any(Blob),
       expect.objectContaining({ contentType: 'image/jpeg' }),
     );
