@@ -27,6 +27,7 @@ describe('stylist behavior evals', () => {
       garments,
       profile,
       recentGarmentSets: [['red-shirt', 'white-sneaker', 'navy-bottom']],
+      successfulGarmentSets: [['cream-top', 'navy-bottom', 'black-loafer']],
     });
 
     const weakRepeat = scoreBehavioralCandidate({
@@ -34,6 +35,7 @@ describe('stylist behavior evals', () => {
       garments,
       profile,
       recentGarmentSets: [['red-shirt', 'white-sneaker', 'navy-bottom']],
+      successfulGarmentSets: [['cream-top', 'navy-bottom', 'black-loafer']],
     });
 
     expect(polished.score).toBeGreaterThan(weakRepeat.score);
@@ -45,6 +47,7 @@ describe('stylist behavior evals', () => {
       garments,
       profile,
       recentGarmentSets: [['cream-top', 'navy-bottom', 'black-loafer']],
+      successfulGarmentSets: [['cream-top', 'navy-bottom', 'black-loafer']],
     });
 
     const offProfile = scoreBehavioralCandidate({
@@ -52,9 +55,11 @@ describe('stylist behavior evals', () => {
       garments,
       profile,
       recentGarmentSets: [],
+      successfulGarmentSets: [['cream-top', 'navy-bottom', 'black-loafer']],
     });
 
     expect(freshVariation.score).toBeGreaterThan(offProfile.score);
     expect(freshVariation.reasons).toContain('preferred-colors:2');
+    expect(freshVariation.reasons).toContain('successful-formula:2');
   });
 });

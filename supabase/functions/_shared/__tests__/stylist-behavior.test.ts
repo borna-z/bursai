@@ -63,6 +63,7 @@ describe('scoreBehavioralCandidate', () => {
         summaryLines: [],
       },
       recentGarmentSets: [['g-avoid-top', 'g-old-shoes']],
+      successfulGarmentSets: [['g-top', 'g-bottom', 'g-shoes']],
     });
 
     const avoidedScore = scoreBehavioralCandidate({
@@ -78,10 +79,12 @@ describe('scoreBehavioralCandidate', () => {
         summaryLines: [],
       },
       recentGarmentSets: [['g-avoid-top', 'g-bottom', 'g-old-shoes']],
+      successfulGarmentSets: [['g-top', 'g-bottom', 'g-shoes']],
     });
 
     expect(preferredScore.score).toBeGreaterThan(avoidedScore.score);
     expect(preferredScore.reasons).toContain('favored-pair');
+    expect(preferredScore.reasons).toContain('successful-formula:3');
     expect(avoidedScore.reasons).toContain('avoided-pair');
     expect(avoidedScore.reasons.some((reason) => reason.startsWith('avoided-colors:'))).toBe(true);
     expect(avoidedScore.reasons).toContain('exact-repeat');
