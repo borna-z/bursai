@@ -15,8 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useOutfit } from '@/hooks/useOutfits';
 import { useWeather } from '@/hooks/useWeather';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import { supabase } from '@/integrations/supabase/client';
+import { createSupabaseRestHeaders, getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -36,6 +35,99 @@ const MOODS = [
   { key: 'energetic', accent: '#D85A30', palette: ['#EF9F27', '#D85A30', '#1C1917'], hint: 'Vibrant. Moving.' },
   { key: 'playful',   accent: '#9B59B6', palette: ['#D4537E', '#EF9F27', '#534AB7'], hint: 'Unexpected. Fun.' },
 ] as const;
+
+type MoodOutfitResponse = {
+  items?: { garment_id: string; slot: string }[];
+  explanation?: string;
+  mood_match_score?: number;
+  limitation_note?: string | null;
+  error?: string;
+};
+
+async function readMoodOutfitSse(
+  mood: string,
+  weather: { temperature?: number; precipitation?: string | null } | undefined,
+  locale: string,
+): Promise<MoodOutfitResponse> {
+  const session = (await supabase.auth.getSession()).data.session;
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    throw new Error('Unauthorized');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(getSupabaseFunctionUrl('mood_outfit'), {
+      method: 'POST',
+      headers: {
+        ...(await createSupabaseRestHeaders(accessToken)),
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({ mood, weather, locale }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Missing streaming response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let sawDone = false;
+    let result: MoodOutfitResponse | null = null;
+    let streamClosed = false;
+
+    while (!streamClosed) {
+      const { done, value } = await reader.read();
+      if (done) {
+        buffer += decoder.decode();
+        streamClosed = true;
+      } else {
+        buffer += decoder.decode(value, { stream: true });
+      }
+
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        let line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.slice(5).trim();
+        if (!data) continue;
+        if (data === '[DONE]') {
+          sawDone = true;
+          continue;
+        }
+
+        result = JSON.parse(data) as MoodOutfitResponse;
+      }
+    }
+
+    if (!sawDone || !result) {
+      throw new Error('Mood outfit generation did not complete');
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Mood outfit request timed out');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 
 export default function MoodOutfitPage() {
   const { t, locale } = useLanguage();
@@ -68,22 +160,11 @@ export default function MoodOutfitPage() {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await invokeEdgeFunction<{
-        items?: { garment_id: string; slot: string }[];
-        explanation?: string;
-        mood_match_score?: number;
-        limitation_note?: string | null;
-        error?: string;
-      }>('mood_outfit', {
-        timeout: 45000,
-        body: {
-          mood,
-          weather: weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
-          locale,
-        },
-      });
-
-      if (error) throw error;
+      const data = await readMoodOutfitSse(
+        mood,
+        weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
+        locale,
+      );
       if (data?.error) throw new Error(data.error);
       if (!data?.items?.length) throw new Error(t('generate.error_desc'));
 
