@@ -42,6 +42,11 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const resolveCopy = useCallback((key: string, fallback: string) => {
+    const translated = t(key);
+    return translated && translated !== key ? translated : fallback;
+  }, [t]);
+
   // Initialize items with previews
   useEffect(() => {
     const newItems: BatchItem[] = files.map(file => ({
@@ -285,7 +290,10 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     toast.success(`${doneCount}/${items.length} ${t('batch.complete_toast')}`, {
       description: skippedCount > 0
         ? t('batch.skipped_count').replace('{count}', String(skippedCount))
-        : t('batch.added_cleanup'),
+        : resolveCopy(
+          'batch.added_cleanup',
+          'Saved to wardrobe. Studio-quality images continue in the background.',
+        ),
     });
 
     onComplete();

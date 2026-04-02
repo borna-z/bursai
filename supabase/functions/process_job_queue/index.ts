@@ -200,9 +200,12 @@ async function handleImageProcessing(
     if (!eligibility.eligible) {
       await supabase
         .from("garments")
-        .update({ image_processing_status: "ineligible" })
+        .update({
+          image_processing_status: "failed",
+          image_processing_error: eligibility.reason ?? "Unsupported garment type for image processing.",
+        })
         .eq("id", garmentId);
-      return { status: "ineligible", reason: eligibility.reason };
+      return { status: "failed", reason: eligibility.reason };
     }
 
     // Get signed URL for original image
@@ -234,12 +237,13 @@ async function handleImageProcessing(
       await supabase
         .from("garments")
         .update({
-          image_processing_status: "completed",
+          processed_image_path: processedPath,
+          image_processing_status: "ready",
           image_processing_confidence: result.confidence ?? null,
         })
         .eq("id", garmentId);
 
-      return { status: "completed", processedPath };
+      return { status: "ready", processedPath };
     }
 
     throw new Error(result.error || "Processing failed");

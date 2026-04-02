@@ -235,8 +235,9 @@ describe('useLiveScan', () => {
       body: { base64Image: expect.stringContaining('data:image/jpeg'), mode: 'fast' },
     });
 
-    act(() => {
-      result.current.accept();
+    await act(async () => {
+      const saved = await result.current.accept();
+      expect(saved).toBe(true);
     });
 
     expect(result.current.lastResult).toBeNull();
@@ -407,9 +408,10 @@ describe('useLiveScan', () => {
     });
     await waitFor(() => expect(result.current.lastResult).not.toBeNull());
 
-    // Accept — triggers background save
-    act(() => {
-      result.current.accept();
+    // Accept — confirms the save, then invalidates caches immediately
+    await act(async () => {
+      const saved = await result.current.accept();
+      expect(saved).toBe(true);
     });
 
     expect(result.current.scanCount).toBe(1);
@@ -452,5 +454,39 @@ describe('useLiveScan', () => {
       'subscription|user-1',
       'garments-search|user-1',
     ]));
+  });
+
+  it('accept() keeps the garment on screen when the save could not be confirmed', async () => {
+    mockAuthUser();
+    setupCanvasMock();
+    setupFileReaderMock();
+    setupUrlMock();
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: MOCK_ANALYSIS,
+      error: null,
+    });
+
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      upload: vi.fn().mockResolvedValue({ error: { message: 'Storage full' } }),
+    } as any);
+
+    const { result } = renderHook(() => useLiveScan(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.capture(makeFakeVideo());
+    });
+
+    await waitFor(() => expect(result.current.lastResult).not.toBeNull());
+
+    await act(async () => {
+      const saved = await result.current.accept();
+      expect(saved).toBe(false);
+    });
+
+    expect(result.current.lastResult).not.toBeNull();
+    expect(result.current.scanCount).toBe(0);
   });
 });
