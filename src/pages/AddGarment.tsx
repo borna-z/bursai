@@ -4,19 +4,17 @@ import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAddGarment } from '@/hooks/useAddGarment';
-import { getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
 import { DuplicateWarningSheet } from '@/components/wardrobe/DuplicateWarningSheet';
 import { PaywallModal } from '@/components/PaywallModal';
 import { UploadStep } from '@/components/add-garment/UploadStep';
 import { AnalyzingStep } from '@/components/add-garment/AnalyzingStep';
 import { FormStep } from '@/components/add-garment/FormStep';
+import { GarmentSaveChoiceSheet } from '@/components/garment/GarmentSaveChoiceSheet';
 
 export default function AddGarmentPage() {
   const { t } = useLanguage();
   const { isPremium } = useSubscription();
-  const processingMessage = getGarmentProcessingMessage('processing');
-
   const garment = useAddGarment({ t });
 
   if (garment.step === 'batch') {
@@ -69,7 +67,7 @@ export default function AddGarmentPage() {
         analysisSummary={garment.analysisSummary}
         imagePreview={garment.imagePreview}
         reviewText={t('addgarment.ai_review')}
-        processingLabel={processingMessage?.label ?? 'Creating clean wardrobe image'}
+        processingLabel="Reviewing garment details"
         retryLabel={t('addgarment.retry')}
         cancelLabel={t('common.cancel')}
         onRetry={garment.handleRetryAnalysis}
@@ -98,10 +96,9 @@ export default function AddGarmentPage() {
         selectedSeasons={garment.selectedSeasons}
         formality={garment.formality}
         inLaundry={garment.inLaundry}
-        studioQualityEnabled={garment.studioQualityEnabled}
         onReset={garment.resetForm}
         onReanalyze={garment.handleReanalyze}
-        onSave={garment.handleSave}
+        onSave={garment.openSaveChoice}
         onCancel={() => garment.navigate('/wardrobe')}
         setTitle={garment.setTitle}
         setCategory={garment.setCategory}
@@ -114,7 +111,14 @@ export default function AddGarmentPage() {
         toggleSeason={garment.toggleSeason}
         setFormality={garment.setFormality}
         setInLaundry={garment.setInLaundry}
-        setStudioQualityEnabled={garment.setStudioQualityEnabled}
+      />
+
+      <GarmentSaveChoiceSheet
+        open={garment.showConfirmSheet}
+        isSaving={garment.isLoading}
+        onOpenChange={garment.setShowConfirmSheet}
+        onSelectStudio={() => { void garment.handleSave(true); }}
+        onSelectOriginal={() => { void garment.handleSave(false); }}
       />
 
       <PaywallModal isOpen={garment.showPaywall} onClose={() => garment.setShowPaywall(false)} reason="garments" />

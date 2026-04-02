@@ -135,7 +135,7 @@ describe('useAddGarment', () => {
     vi.useRealTimers();
   });
 
-  it('saves immediately, shows background-processing feedback, and resets the flow for another garment', async () => {
+  it('opens a save-choice sheet before saving and then saves studio quality in the background', async () => {
     const t = (key: string) => ({
       'addgarment.ai_success': 'AI ready',
       'addgarment.ai_review': 'Review the detected details.',
@@ -159,9 +159,16 @@ describe('useAddGarment', () => {
     });
 
     expect(result.current.step).toBe('form');
+    expect(result.current.showConfirmSheet).toBe(false);
 
     await act(async () => {
-      await result.current.handleSave();
+      result.current.openSaveChoice();
+    });
+
+    expect(result.current.showConfirmSheet).toBe(true);
+
+    await act(async () => {
+      await result.current.handleSave(true);
     });
 
     expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -179,11 +186,12 @@ describe('useAddGarment', () => {
     });
     expect(navigateMock).not.toHaveBeenCalledWith('/wardrobe');
     expect(result.current.step).toBe('upload');
+    expect(result.current.showConfirmSheet).toBe(false);
     expect(result.current.title).toBe('');
     expect(result.current.imagePreview).toBeNull();
   });
 
-  it('saves with the original photo only when studio quality is turned off', async () => {
+  it('saves with the original photo only when that choice is selected', async () => {
     const t = (key: string) => ({
       'addgarment.ai_success': 'AI ready',
       'addgarment.ai_review': 'Review the detected details.',
@@ -209,11 +217,13 @@ describe('useAddGarment', () => {
     expect(result.current.step).toBe('form');
 
     await act(async () => {
-      result.current.setStudioQualityEnabled(false);
+      result.current.openSaveChoice();
     });
 
+    expect(result.current.showConfirmSheet).toBe(true);
+
     await act(async () => {
-      await result.current.handleSave();
+      await result.current.handleSave(false);
     });
 
     expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({

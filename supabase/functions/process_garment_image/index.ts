@@ -1,15 +1,6 @@
 import { serve } from 'https://deno.land/std@0.220.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { CORS_HEADERS } from '../_shared/cors.ts';
-import { garmentImageProvider, getGarmentEligibility } from '../_shared/garment-image-processing/provider.ts';
-import { assessProcessedImageQuality } from '../_shared/garment-image-processing/quality.ts';
-
-function guessExtension(contentType: string | undefined): string {
-  if (!contentType) return 'png';
-  if (contentType.includes('webp')) return 'webp';
-  if (contentType.includes('jpeg') || contentType.includes('jpg')) return 'jpg';
-  return 'png';
-}
 
 serve(async (req) => {
   let supabase: ReturnType<typeof createClient> | null = null;
@@ -61,7 +52,7 @@ serve(async (req) => {
 
     const { data: garment, error: garmentError } = await supabase
       .from('garments')
-      .select('id, user_id, title, category, subcategory, original_image_path, image_path, image_processing_status')
+      .select('id, user_id, original_image_path, image_path')
       .eq('id', garmentId)
       .eq('user_id', user.id)
       .single();
@@ -77,7 +68,7 @@ serve(async (req) => {
     if (!originalImagePath) {
       await supabase.from('garments').update({
         image_processing_status: 'failed',
-        image_processing_provider: garmentImageProvider.name,
+        image_processing_provider: 'disabled',
         image_processing_error: 'Missing original garment image.',
       }).eq('id', garment.id);
 
@@ -87,98 +78,16 @@ serve(async (req) => {
       });
     }
 
-    const eligibility = getGarmentEligibility(garment.category, garment.subcategory, garment.title);
-    if (!eligibility.eligible || eligibility.profile === 'unsupported') {
-      await supabase.from('garments').update({
-        image_processing_status: 'failed',
-        image_processing_provider: 'skip',
-        image_processing_confidence: null,
-        image_processing_error: eligibility.reason || 'Unsupported garment type for background removal.',
-      }).eq('id', garment.id);
-
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: eligibility.reason }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
     await supabase.from('garments').update({
-      image_processing_status: 'processing',
-      image_processing_provider: garmentImageProvider.name,
-      image_processing_error: null,
-    }).eq('id', garment.id);
-
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('garments')
-      .createSignedUrl(originalImagePath, 900);
-
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      throw signedUrlError || new Error('Unable to read original garment image.');
-    }
-
-    const result = await garmentImageProvider.process({
-      garmentId: garment.id,
-      userId: garment.user_id,
-      originalImageUrl: signedUrlData.signedUrl,
-      originalImagePath,
-      category: garment.category,
-      subcategory: garment.subcategory,
-      title: garment.title,
-      supportProfile: eligibility.profile,
-    });
-
-    if (!result.success || !result.outputBytes) {
-      await supabase.from('garments').update({
-        image_processing_status: 'failed',
-        image_processing_provider: result.provider,
-        image_processing_confidence: result.confidence,
-        image_processing_error: result.error || 'Garment image processing failed.',
-      }).eq('id', garment.id);
-
-      return new Response(JSON.stringify({ ok: true, processed: false, error: result.error }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const quality = await assessProcessedImageQuality(result.outputBytes, result.outputContentType, eligibility.profile);
-    if (!quality.accepted) {
-      const qualityIssues = quality.issues.slice(0, 4).join(' | ');
-      await supabase.from('garments').update({
-        image_processing_status: 'failed',
-        image_processing_provider: result.provider,
-        image_processing_confidence: quality.confidence,
-        image_processing_error: qualityIssues || 'Processed garment output did not pass wardrobe-quality checks.',
-      }).eq('id', garment.id);
-
-      return new Response(JSON.stringify({ ok: true, processed: false, rejected: true, error: qualityIssues, quality }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const ext = guessExtension(result.outputContentType);
-    const processedPath = `${garment.user_id}/${garment.id}/processed.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('garments')
-      .upload(processedPath, result.outputBytes, {
-        contentType: result.outputContentType || 'image/png',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    await supabase.from('garments').update({
-      processed_image_path: processedPath,
+      processed_image_path: null,
       image_processing_status: 'ready',
-      image_processing_provider: result.provider,
-      image_processing_version: 'background-removal-v1',
-      image_processing_confidence: quality.confidence,
+      image_processing_provider: 'disabled',
+      image_processing_confidence: null,
       image_processing_error: null,
       image_processed_at: new Date().toISOString(),
     }).eq('id', garment.id);
 
-    return new Response(JSON.stringify({ ok: true, processed: true, processedImagePath: processedPath, quality }), {
+    return new Response(JSON.stringify({ ok: true, skipped: true, originalImagePath }), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   } catch (error) {

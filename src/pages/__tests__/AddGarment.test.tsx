@@ -61,8 +61,8 @@ vi.mock('@/components/wardrobe/DuplicateWarningSheet', () => ({
   DuplicateWarningSheet: () => null,
 }));
 
-vi.mock('@/components/garment/GarmentConfirmSheet', () => ({
-  GarmentConfirmSheet: () => null,
+vi.mock('@/components/garment/GarmentSaveChoiceSheet', () => ({
+  GarmentSaveChoiceSheet: () => null,
 }));
 
 vi.mock('@/components/ui/animated-page', () => ({
@@ -98,6 +98,7 @@ describe('Add garment page', () => {
       clearDuplicates: vi.fn(),
       showConfirmSheet: false,
       setShowConfirmSheet: vi.fn(),
+      openSaveChoice: vi.fn(),
       garmentId: null,
       storagePath: null,
       imagePreview: null,

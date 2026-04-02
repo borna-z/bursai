@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { PageIntro } from '@/components/ui/page-intro';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
   categories,
@@ -47,7 +46,6 @@ interface FormStepProps {
   selectedSeasons: string[];
   formality: number[];
   inLaundry: boolean;
-  studioQualityEnabled: boolean;
   onReset: () => void;
   onReanalyze: () => void;
   onSave: () => void;
@@ -63,7 +61,6 @@ interface FormStepProps {
   toggleSeason: (value: string) => void;
   setFormality: (value: number[]) => void;
   setInLaundry: (value: boolean) => void;
-  setStudioQualityEnabled: (value: boolean) => void;
 }
 
 export function FormStep(props: FormStepProps) {
@@ -85,7 +82,6 @@ export function FormStep(props: FormStepProps) {
     selectedSeasons,
     formality,
     inLaundry,
-    studioQualityEnabled,
     onReset,
     onReanalyze,
     onSave,
@@ -101,7 +97,6 @@ export function FormStep(props: FormStepProps) {
     toggleSeason,
     setFormality,
     setInLaundry,
-    setStudioQualityEnabled,
   } = props;
 
   return (
@@ -332,18 +327,6 @@ export function FormStep(props: FormStepProps) {
                 <p className="mt-1 text-xs text-muted-foreground">{t('addgarment.form.laundry_hint')}</p>
               </div>
               <Switch checked={inLaundry} onCheckedChange={setInLaundry} />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Studio quality</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {studioQualityEnabled
-                    ? 'Create the shadow mannequin version in the background after save.'
-                    : 'Save the original photo as-is without studio processing.'}
-                </p>
-              </div>
-              <Switch checked={studioQualityEnabled} onCheckedChange={setStudioQualityEnabled} />
             </div>
           </div>
         </div>
