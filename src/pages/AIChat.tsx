@@ -6,7 +6,7 @@ import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { createSupabaseRestHeaders, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -35,7 +35,7 @@ import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLo
 import { collectStyleChatGarmentIds, isStyleChatResponseEnvelope, type PersistedStyleChatMessage, type StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 import { invokeEdgeFunctionStream } from '@/lib/edgeFunctionClient';
 import { buildStyleChatRequest } from '@/lib/styleChatRequest';
-import { deleteStyleChatHistory, persistStyleChatMessages } from '@/lib/styleChatHistory';
+import { deleteStyleChatHistory, loadStyleChatMessages, persistStyleChatMessages } from '@/lib/styleChatHistory';
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 
 type Message = {
@@ -140,12 +140,7 @@ async function hydrateMessages(messages: Message[]): Promise<Message[]> {
 }
 
 async function loadMessages(userId: string): Promise<Message[]> {
-  const res = await fetch(
-    `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
-    { headers: await createSupabaseRestHeaders() }
-  );
-  if (!res.ok) return [];
-  const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
+  const rows = await loadStyleChatMessages(supabase, userId);
   return rows.map((row) => parseStoredMessage(row));
 }
 
@@ -185,6 +180,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage]));
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
@@ -230,7 +226,8 @@ export default function AIChat() {
       setIsLoading(false);
     };
 
-    restoreMessages().catch(() => {
+    restoreMessages().catch((error) => {
+      logger.warn('Stylist history restore failed', error);
       if (!cancelled) setIsLoading(false);
     });
 
@@ -254,7 +251,11 @@ export default function AIChat() {
     [pendingLookUpdate, lastConfirmedLook, latestActiveLook],
   );
 
-  const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
+  const scrollToBottom = useCallback(() => {
+    if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   useEffect(() => {
@@ -271,11 +272,21 @@ export default function AIChat() {
   useEffect(() => {
     if (messages.length === 0) return;
     try {
+      const isOnlyWelcomeMessage =
+        messages.length === 1 &&
+        messages[0].role === 'assistant' &&
+        getTextContent(messages[0].content) === getTextContent(welcomeMessage);
+
+      if (isOnlyWelcomeMessage) {
+        sessionStorage.removeItem('burs_chat_history');
+        return;
+      }
+
       sessionStorage.setItem('burs_chat_history', JSON.stringify(messages));
     } catch {
       // ignore quota errors
     }
-  }, [messages]);
+  }, [messages, welcomeMessage]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -501,11 +512,9 @@ export default function AIChat() {
       if (user && session && (getTextContent(assistantMsg.content).trim() || assistantMsg.stylistMeta?.render_outfit_card)) {
         try {
           await persistStyleChatMessages(
-            fetch,
-            getSupabaseRestUrl('chat_messages'),
+            supabase,
             user.id,
             [userMsg, assistantMsg],
-            await createSupabaseRestHeaders(session.access_token),
           );
         } catch (persistError) {
           logger.warn('Stylist history sync failed', persistError);
@@ -581,19 +590,22 @@ export default function AIChat() {
   }, [pendingPrefill, isLoading]);
 
   const clearHistory = async () => {
-    if (!user) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!user || isClearingHistory) return;
+    setIsClearingHistory(true);
     try {
       await deleteStyleChatHistory(
-        fetch,
-        `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${user.id}&mode=eq.stylist`,
-        await createSupabaseRestHeaders(session.access_token),
+        supabase,
+        user.id,
       );
       sessionStorage.removeItem('burs_chat_history');
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));
-    } catch { toast.error(t('chat.history_error')); }
+    } catch (error) {
+      logger.warn('Stylist history clear failed', error);
+      toast.error(t('chat.history_error'));
+    } finally {
+      setIsClearingHistory(false);
+    }
   };
 
   const handleTryOutfit = useCallback(async (garmentIds: string[]) => {
@@ -657,7 +669,11 @@ export default function AIChat() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={clearHistory} className="text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={clearHistory}
+                disabled={isClearingHistory}
+                className="text-destructive focus:text-destructive"
+              >
                 <Trash2 className="w-4 h-4 mr-2" />
                 {t('chat.clear_history')}
               </DropdownMenuItem>
