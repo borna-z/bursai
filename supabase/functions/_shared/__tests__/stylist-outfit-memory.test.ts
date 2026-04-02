@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveStylistOutfitMemory } from '../stylist-outfit-memory';
+import { deriveStylistOutfitMemory, rankArchivedSuccessfulOutfits } from '../stylist-outfit-memory';
 
 describe('deriveStylistOutfitMemory', () => {
   it('extracts reusable successful formulas from worn and positively rated looks', () => {
@@ -55,5 +55,54 @@ describe('deriveStylistOutfitMemory', () => {
     );
     expect(memory.promptBlock).toContain('Historically successful look formulas');
     expect(memory.promptBlock).toContain('office/polished');
+  });
+
+  it('retrieves the best archived analog for an office-polished ask with an anchor', () => {
+    const retrieval = rankArchivedSuccessfulOutfits({
+      outfits: [
+        {
+          id: 'o-office',
+          occasion: 'office',
+          style_vibe: 'polished',
+          worn_at: '2026-03-28T09:00:00.000Z',
+          outfit_items: [
+            { slot: 'top', garment_id: 'g-top', garments: { title: 'Cream Tee', color_primary: 'cream' } },
+            { slot: 'bottom', garment_id: 'g-bottom', garments: { title: 'Navy Trouser', color_primary: 'navy' } },
+            { slot: 'shoes', garment_id: 'g-anchor', garments: { title: 'Black Loafer', color_primary: 'black' } },
+          ],
+        },
+        {
+          id: 'o-weekend',
+          occasion: 'weekend',
+          style_vibe: 'relaxed',
+          worn_at: '2026-03-27T09:00:00.000Z',
+          outfit_items: [
+            { slot: 'top', garment_id: 'g-knit', garments: { title: 'Soft Knit', color_primary: 'cream' } },
+            { slot: 'bottom', garment_id: 'g-jean', garments: { title: 'Blue Jean', color_primary: 'blue' } },
+            { slot: 'shoes', garment_id: 'g-sneaker', garments: { title: 'White Sneaker', color_primary: 'white' } },
+          ],
+        },
+      ],
+      signals: [
+        { signal_type: 'save', outfit_id: 'o-office' },
+        { signal_type: 'wear_confirm', outfit_id: 'o-office' },
+        { signal_type: 'save', outfit_id: 'o-weekend' },
+      ],
+      request: {
+        occasion: 'office',
+        style: 'polished',
+        anchorGarmentId: 'g-anchor',
+        activeLookGarmentIds: ['g-anchor'],
+        preferredGarmentIds: ['g-top'],
+      },
+    });
+
+    expect(retrieval.promptBlock).toContain('Best archived analogs for this ask');
+    expect(retrieval.promptBlock).toContain('occasion-match');
+    expect(retrieval.promptBlock).toContain('anchor-match');
+    expect(retrieval.preferredGarmentIds[0]).toBe('g-anchor');
+    expect(retrieval.successfulGarmentSets[0]).toEqual(
+      expect.arrayContaining(['g-top', 'g-bottom', 'g-anchor']),
+    );
   });
 });
