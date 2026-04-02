@@ -538,6 +538,7 @@ describe('useLiveScan', () => {
       render_status: 'none',
       image_processing_status: 'ready',
       processed_image_path: null,
+      in_laundry: false,
     }));
 
     await vi.waitFor(() => {

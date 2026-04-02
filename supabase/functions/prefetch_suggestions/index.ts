@@ -70,7 +70,7 @@ serve(async (req) => {
           .from("garments")
           .select("id, title, category, subcategory, color_primary, material, formality, season_tags, in_laundry")
           .eq("user_id", user.id)
-          .eq("in_laundry", false);
+          .or("in_laundry.is.null,in_laundry.eq.false");
 
         if (!garments || garments.length < 5) {
           skipped++;

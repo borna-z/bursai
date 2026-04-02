@@ -216,6 +216,38 @@ describe('useGarments', () => {
     }));
   });
 
+  it('treats a duplicate-key create as success when the garment already exists', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: 'garment-123', user_id: 'user-1', title: 'Shirt', category: 'top', color_primary: 'blue' },
+      error: null,
+    });
+    const secondEq = vi.fn().mockReturnValue({ maybeSingle });
+    const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
+
+    mockFrom.mockReturnValue({
+      insert: vi.fn().mockResolvedValue({ error: { message: 'duplicate key value violates unique constraint "garments_pkey"' } }),
+      select: vi.fn().mockReturnValue({ eq: firstEq }),
+    });
+
+    const { useCreateGarment } = await import('../useGarments');
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreateGarment(), { wrapper });
+
+    let created: Awaited<ReturnType<typeof result.current.mutateAsync>>;
+    await act(async () => {
+      created = await result.current.mutateAsync({
+        id: 'garment-123',
+        title: 'Shirt',
+        category: 'top',
+        color_primary: 'blue',
+      } as never);
+    });
+
+    expect(created!.id).toBe('garment-123');
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
   it('invalidates garment list and garment count after delete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     mockFrom.mockReturnValue(mockChain());
