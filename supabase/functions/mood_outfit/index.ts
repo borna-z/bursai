@@ -11,8 +11,6 @@ import { logger } from "../_shared/logger.ts";
 
 const log = logger("mood_outfit");
 
-const KEEPALIVE_INTERVAL_MS = 2000;
-const HARD_ABORT_TIMEOUT_MS = 28000;
 const AI_TIMEOUT_MS = 26000;
 
 function normalizeValue(value: unknown): string {
@@ -178,16 +176,6 @@ function throwIfAborted(signal: AbortSignal): void {
   throw new Error(typeof reason === "string" ? reason : "Request aborted");
 }
 
-async function responseToPayload(response: Response): Promise<Record<string, unknown>> {
-  const text = await response.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    return { error: text };
-  }
-}
-
 async function readMoodOutfitToolResult(response: Response, signal: AbortSignal): Promise<any> {
   if (!response.body) throw new Error("AI stream did not include a response body");
 
@@ -311,7 +299,7 @@ async function generateMoodOutfitPayload(
     .from("garments")
     .select("id, title, category, subcategory, color_primary, material, formality, pattern, wear_count")
     .eq("user_id", userId)
-    .eq("in_laundry", false)
+    .or("in_laundry.is.null,in_laundry.eq.false")
     .order("created_at", { ascending: false })
     .order("id", { ascending: true });
 
@@ -428,68 +416,29 @@ WARDROBE:\n${garmentList}` },
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
   const abortController = new AbortController();
   const requestId = crypto.randomUUID();
-
-  const sendChunk = async (chunk: string) => {
-    await writer.write(encoder.encode(chunk));
-  };
-
-  const sendData = async (payload: unknown) => {
-    await sendChunk(`data: ${JSON.stringify(payload)}\n\n`);
-  };
-
-  const cleanup = (keepaliveId: number, timeoutId: number) => {
-    clearInterval(keepaliveId);
-    clearTimeout(timeoutId);
-  };
-
-  const keepaliveId = setInterval(() => {
-    void sendChunk(": keepalive\n\n").catch(() => {
-      abortController.abort(new Error("Client disconnected"));
-    });
-  }, KEEPALIVE_INTERVAL_MS) as unknown as number;
-
   const timeoutId = setTimeout(() => {
     abortController.abort(new Error("Mood outfit request timed out"));
-  }, HARD_ABORT_TIMEOUT_MS) as unknown as number;
+  }, 28000) as unknown as number;
 
-  void (async () => {
-    try {
-      const payload = await generateMoodOutfitPayload(req, abortController.signal, requestId);
-      await sendData(payload);
-    } catch (e) {
-      if (e instanceof RateLimitError) {
-        await sendData(await responseToPayload(rateLimitResponse(e, CORS_HEADERS)));
-      } else {
-        recordError("mood_outfit");
-        log.exception("request.failed", e);
-        await sendData(await responseToPayload(bursAIErrorResponse(e, CORS_HEADERS)));
-      }
-    } finally {
-      cleanup(keepaliveId, timeoutId);
-      try {
-        await sendChunk("data: [DONE]\n\n");
-      } catch {
-        // Ignore shutdown failures.
-      }
-      try {
-        await writer.close();
-      } catch {
-        // Ignore double-close and disconnect errors.
-      }
+  try {
+    const payload = await generateMoodOutfitPayload(req, abortController.signal, requestId);
+    return new Response(JSON.stringify(payload), {
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
     }
-  })();
 
-  return new Response(readable, {
-    headers: {
-      ...CORS_HEADERS,
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+    recordError("mood_outfit");
+    log.exception("request.failed", e);
+    return bursAIErrorResponse(e, CORS_HEADERS);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 });

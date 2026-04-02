@@ -63,7 +63,7 @@ serve(async (req) => {
         .from("garments")
         .select("id, title, category, subcategory, color_primary, material, formality, last_worn_at, wear_count, image_path")
         .eq("user_id", user.id)
-        .eq("in_laundry", false),
+        .or("in_laundry.is.null,in_laundry.eq.false"),
       supabase.from("profiles").select("preferences").eq("id", user.id).single(),
       supabase
         .from("outfit_items")

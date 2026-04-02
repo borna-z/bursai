@@ -67,6 +67,7 @@ export async function saveGarmentInBackground(
       fit: result.analysis.fit || null,
       season_tags: result.analysis.season_tags || [],
       formality: result.analysis.formality || 3,
+      in_laundry: false,
       ai_analyzed_at: new Date().toISOString(),
       ai_provider: result.analysis.ai_provider || 'unknown',
       ai_raw: standardizeGarmentAiRaw({
