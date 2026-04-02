@@ -210,15 +210,19 @@ export function useCreateGarment() {
     mutationFn: async (garment: Omit<TablesInsert<'garments'>, 'user_id'>) => {
       if (!user) throw new Error('Not authenticated');
 
+      const payload = {
+        ...garment,
+        id: garment.id ?? crypto.randomUUID(),
+        user_id: user.id,
+      } satisfies TablesInsert<'garments'>;
+
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('garments')
-          .insert({ ...garment, user_id: user.id })
-          .select()
-          .single();
+          .insert(payload);
 
         if (error) throw error;
-        return data;
+        return payload as Tables<'garments'>;
       } catch (error) {
         if (!shouldQueueOfflineFallback(error)) {
           throw error;
@@ -227,9 +231,10 @@ export function useCreateGarment() {
         await enqueue({
           table: 'garments',
           type: 'insert',
-          payload: { ...garment, user_id: user.id },
+          payload,
         });
-        return { ...garment, user_id: user.id, id: crypto.randomUUID() } as Tables<'garments'>;
+
+        return payload as Tables<'garments'>;
       }
     },
     retry: 2,
