@@ -628,20 +628,20 @@ export default function LiveScan() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-20 bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center p-6"
+              className="fixed inset-0 z-[70] overflow-y-auto bg-background/92 backdrop-blur-xl"
             >
               <motion.div
                 initial={{ opacity: 0, y: 20, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: EASE_CURVE }}
-                className="w-full max-w-sm space-y-5"
+                className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-end gap-5 px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:justify-center"
               >
                 {/* Image with editorial overlay */}
                 <div className="relative rounded-[1.25rem] overflow-hidden bg-[hsl(36_33%_93%)]">
                   <img
                     src={lastResult.thumbnailUrl}
                     alt="Scanned garment"
-                    className="w-full aspect-[3/4] object-contain"
+                    className="mx-auto aspect-[3/4] max-h-[44vh] w-full object-contain sm:max-h-[52vh]"
                   />
                   {/* Gradient overlay at bottom for text */}
                   <div className="absolute bottom-0 inset-x-0 h-2/5 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
@@ -724,7 +724,7 @@ export default function LiveScan() {
       </div>
 
       {/* Shutter button — only in camera stream mode */}
-      {!useFileInputMode && cameraReady && (
+      {!useFileInputMode && cameraReady && !lastResult && !isProcessing && !showAccepted && (
         <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
           <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
