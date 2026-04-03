@@ -109,6 +109,7 @@ export default function WardrobePage() {
       <PageHeader
         title={t('wardrobe.title') || 'Your Wardrobe'}
         titleClassName="text-[1.5rem] sm:text-[1.65rem]"
+        sticky={false}
         actions={
           <button
             onClick={() => { hapticLight(); navigate('/wardrobe/add'); }}
