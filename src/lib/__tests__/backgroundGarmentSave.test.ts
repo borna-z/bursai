@@ -102,7 +102,6 @@ describe('saveGarmentInBackground', () => {
         user_id: 'user-1',
         title: 'Navy Blazer',
         category: 'tops',
-        in_laundry: false,
         imported_via: 'live_scan',
         ai_provider: 'unknown',
         ai_raw: expect.objectContaining({
@@ -219,7 +218,6 @@ describe('saveGarmentInBackground', () => {
       image_path: 'user-1/test-uuid/original.jpg',
       original_image_path: 'user-1/test-uuid/original.jpg',
       processed_image_path: null,
-      in_laundry: false,
     }));
 
     await Promise.resolve();

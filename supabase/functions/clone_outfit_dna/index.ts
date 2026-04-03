@@ -36,7 +36,7 @@ serve(async (req) => {
         .from("garments")
         .select("id, title, category, color_primary, color_secondary, material, pattern, formality, fit, in_laundry")
         .eq("user_id", user.id)
-        .or("in_laundry.is.null,in_laundry.eq.false"),
+        .eq("in_laundry", false),
     ]);
 
     const outfit = outfitRes.data;

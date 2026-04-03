@@ -4360,7 +4360,7 @@ serve(async (req) => {
         .from("garments")
         .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, created_at, enrichment_status, image_processing_status, image_processing_confidence, ai_raw")
         .eq("user_id", userId)
-        .or("in_laundry.is.null,in_laundry.eq.false")
+        .eq("in_laundry", false)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true }),
       supabase.from("profiles").select("preferences, height_cm, weight_kg").eq("id", userId).single(),

@@ -25,29 +25,13 @@ function shouldQueueOfflineFallback(error: unknown): boolean {
     return true;
   }
 
-  const message = typeof error === 'object' && error !== null && 'message' in error
-    ? String((error as { message?: unknown }).message ?? '')
-    : error instanceof Error
-      ? error.message
-      : String(error ?? '');
+  const message = error instanceof Error ? error.message : String(error ?? '');
   const normalized = message.toLowerCase();
   return normalized.includes('failed to fetch')
     || normalized.includes('network request failed')
     || normalized.includes('networkerror')
     || normalized.includes('load failed')
     || normalized.includes('offline');
-}
-
-function isDuplicateGarmentInsert(error: unknown): boolean {
-  const message = typeof error === 'object' && error !== null && 'message' in error
-    ? String((error as { message?: unknown }).message ?? '')
-    : error instanceof Error
-      ? error.message
-      : String(error ?? '');
-  const normalized = message.toLowerCase();
-  return normalized.includes('duplicate key')
-    || normalized.includes('unique constraint')
-    || normalized.includes('already exists');
 }
 
 function sanitizeIlikeSearchTerm(value: string) {
@@ -240,19 +224,6 @@ export function useCreateGarment() {
         if (error) throw error;
         return payload as Tables<'garments'>;
       } catch (error) {
-        if (isDuplicateGarmentInsert(error)) {
-          const { data: existing, error: existingError } = await supabase
-            .from('garments')
-            .select('*')
-            .eq('id', payload.id)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (!existingError && existing) {
-            return existing as Tables<'garments'>;
-          }
-        }
-
         if (!shouldQueueOfflineFallback(error)) {
           throw error;
         }
@@ -266,7 +237,8 @@ export function useCreateGarment() {
         return payload as Tables<'garments'>;
       }
     },
-    retry: 0,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticSuccess();
       invalidateWardrobeQueries(queryClient, user?.id);
