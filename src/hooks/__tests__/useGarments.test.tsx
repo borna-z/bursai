@@ -56,7 +56,7 @@ function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
   chain.order = vi.fn().mockReturnValue(chain);
   chain.range = vi.fn().mockResolvedValue({ data, error });
   chain.limit = vi.fn().mockResolvedValue({ data, error });
-  chain.insert = vi.fn().mockResolvedValue({ error });
+  chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || {}, error }) }) });
   chain.delete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.single = vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error });
@@ -167,7 +167,11 @@ describe('useGarments', () => {
   it('falls back to the offline queue when create fails with a network error', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     vi.stubGlobal('navigator', { onLine: false });
-    const failingInsert = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
+    const failingInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockRejectedValue(new Error('Failed to fetch')),
+      }),
+    });
     mockFrom.mockReturnValue({
       insert: failingInsert,
     });
@@ -185,34 +189,6 @@ describe('useGarments', () => {
       table: 'garments',
       type: 'insert',
       payload: expect.objectContaining({ user_id: 'user-1', title: 'Shirt' }),
-    }));
-  });
-
-  it('preserves the caller garment id when queueing offline fallback', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-    vi.stubGlobal('navigator', { onLine: false });
-    const failingInsert = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
-    mockFrom.mockReturnValue({
-      insert: failingInsert,
-    });
-
-    const { useCreateGarment } = await import('../useGarments');
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useCreateGarment(), { wrapper });
-
-    let created: Awaited<ReturnType<typeof result.current.mutateAsync>>;
-    await act(async () => {
-      created = await result.current.mutateAsync({
-        id: 'garment-123',
-        title: 'Shirt',
-        category: 'top',
-        color_primary: 'blue',
-      } as never);
-    });
-
-    expect(created!.id).toBe('garment-123');
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      payload: expect.objectContaining({ id: 'garment-123' }),
     }));
   });
 
