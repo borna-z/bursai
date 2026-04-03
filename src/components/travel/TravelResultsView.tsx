@@ -85,7 +85,7 @@ export function TravelResultsView({
   return (
     <AppLayout hideNav>
       <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
-        <Card className="space-y-5 p-5">
+        <Card surface="plain" className="space-y-5 border-b border-border/28 pb-5">
           <div className="flex items-center justify-between gap-3">
             <Button variant="quiet" size="icon" onClick={() => navigate(-1)} aria-label="Back">
               <ArrowLeft className="h-4 w-4" />
@@ -103,22 +103,22 @@ export function TravelResultsView({
           />
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[1.35rem] border p-4">
+            <div className="rounded-[1.2rem] border border-border/30 bg-background/18 p-4">
               <p className="label-editorial">Packed pieces</p>
               <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{totalItems}</p>
             </div>
-            <div className="rounded-[1.35rem] border p-4">
+            <div className="rounded-[1.2rem] border border-border/30 bg-background/18 p-4">
               <p className="label-editorial">Looks planned</p>
               <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{result.outfits.length}</p>
             </div>
-            <div className="rounded-[1.35rem] border p-4">
+            <div className="rounded-[1.2rem] border border-border/30 bg-background/18 p-4">
               <p className="label-editorial">Trip status</p>
               <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{packedCount}/{totalItems}</p>
             </div>
           </div>
 
           {weatherForecast ? (
-            <div className="flex items-center gap-3 rounded-[1.35rem] border px-4 py-3">
+            <div className="flex items-center gap-3 rounded-[1.2rem] border border-border/35 px-4 py-3">
               <WeatherMiniIcon condition={weatherForecast.condition} className="h-4 w-4" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-foreground">Forecast snapshot</p>
@@ -137,7 +137,7 @@ export function TravelResultsView({
                 return (
                   <div
                     key={`forecast-${index}`}
-                    className="min-w-0 rounded-[1.2rem] border px-3 py-2 text-center"
+                    className="min-w-0 rounded-[1.1rem] border border-border/30 bg-background/14 px-3 py-2 text-center"
                   >
                     <p className="label-editorial !text-[0.58rem]">
                       {dayDate ? format(dayDate, 'EEE', { locale: dateLocale }) : '—'}
@@ -155,7 +155,7 @@ export function TravelResultsView({
           ) : null}
         </Card>
 
-        <div className="flex rounded-full border p-1.5">
+        <div className="flex rounded-full border border-border/32 bg-background/14 p-1.5">
           {(['packing', 'outfits'] as const).map((tab) => (
             <button
               key={tab}
@@ -212,7 +212,7 @@ export function TravelResultsView({
                 return [...outfitsByDay.entries()]
                   .sort((first, second) => first[0] - second[0])
                   .map(([day, outfits]) => (
-                    <Card key={`day-${day}`} className="space-y-3 p-4">
+                    <Card key={`day-${day}`} surface="plain" className="space-y-3 border-t border-border/24 pt-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="label-editorial">Day {day}</p>

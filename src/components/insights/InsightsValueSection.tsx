@@ -98,10 +98,10 @@ export function InsightsValueSection({
 
           {value.hasSpendData ? (
             <>
-              <div className="space-y-3 rounded-[1.2rem] bg-background/55 px-4 py-4">
+              <div className="space-y-3 border-y border-border/24 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+                    <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                       Average cost per wear
                     </p>
                     <p className="mt-2 text-[1.05rem] font-medium tracking-[-0.04em] text-foreground">
@@ -109,7 +109,7 @@ export function InsightsValueSection({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/54">
+                    <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/54">
                       Sustainability
                     </p>
                     <p className="mt-2 text-[0.96rem] text-foreground/82">
@@ -121,12 +121,12 @@ export function InsightsValueSection({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[0.8rem] text-muted-foreground/72">Utilization</span>
-                      <span className="text-[0.8rem] text-muted-foreground/72">{value.utilizationLabel}</span>
+                      <span className="text-[0.78rem] text-muted-foreground/68">Utilization</span>
+                      <span className="text-[0.78rem] text-muted-foreground/68">{value.utilizationLabel}</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary/75">
                       <div
-                        className="h-full rounded-full bg-foreground/70"
+                        className="h-full rounded-full bg-accent"
                         style={{ width: `${widthFor(value.utilizationRate ?? 0, 100)}%` }}
                       />
                     </div>
@@ -134,12 +134,12 @@ export function InsightsValueSection({
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[0.8rem] text-muted-foreground/72">Efficiency</span>
-                      <span className="text-[0.8rem] text-muted-foreground/72">{value.efficiencyLabel}</span>
+                      <span className="text-[0.78rem] text-muted-foreground/68">Efficiency</span>
+                      <span className="text-[0.78rem] text-muted-foreground/68">{value.efficiencyLabel}</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary/75">
                       <div
-                        className="h-full rounded-full bg-foreground/48"
+                        className="h-full rounded-full bg-foreground/34"
                         style={{ width: `${widthFor((value.avgWearCount ?? 0) * 10, 100)}%` }}
                       />
                     </div>
@@ -153,7 +153,7 @@ export function InsightsValueSection({
               </div>
             </>
           ) : (
-            <div className="rounded-[1.2rem] bg-background/55 px-4 py-4">
+            <div className="border-y border-border/24 py-4">
               <p className="text-[0.86rem] leading-6 text-muted-foreground">
                 No price history yet. Add purchase values to unlock cost-per-wear and utilization comparisons.
               </p>
