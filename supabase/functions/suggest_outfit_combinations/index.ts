@@ -153,6 +153,13 @@ WARDROBE:\n${garmentList}` },
       tool_choice: { type: "function", function: { name: "suggest_outfits" } },
     }, serviceClient);
 
+    if (!result || typeof result !== "object" || !Array.isArray(result.suggestions)) {
+      console.warn("suggest_outfit_combinations: unexpected AI response shape, returning empty");
+      return new Response(JSON.stringify({ suggestions: [] }), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     const garmentMap = new Map(garments.map(g => [g.id, g]));
     const enrichedSuggestions = (result.suggestions || [])
       .map((s: any) => {
