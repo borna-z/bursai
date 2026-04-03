@@ -21,19 +21,10 @@ export function PageHeader({
 }: PageHeaderProps) {
   const navigate = useNavigate();
   return (
-    <header
-      className={cn(
-        sticky
-          ? 'topbar-frost sticky top-0 z-20'
-          : 'relative z-10',
-        className,
-      )}
-    >
+    <header className={cn('topbar-frost z-20', sticky && 'sticky top-0', className)}>
       <div className={cn(
         'mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-4 sm:px-5',
-        subtitle || eyebrow
-          ? (sticky ? 'min-h-[68px] py-2.5' : 'min-h-[60px] py-1.5')
-          : (sticky ? 'h-[60px]' : 'min-h-[52px] py-1'),
+        subtitle || eyebrow ? 'min-h-[68px] py-2.5' : 'h-[60px]',
       )}>
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {showBack && (
