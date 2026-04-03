@@ -32,6 +32,7 @@ import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
 import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb';
+import { readCachedOutfitMetadata, type CachedOutfitMetadata } from '@/lib/outfitMetadataCache';
 
 /* ── Swap Sheet ─────────────────────────────────────── */
 
@@ -166,6 +167,10 @@ interface SlotRowProps {
   layerRole?: string;
 }
 
+interface OutfitDetailGenerationState extends CachedOutfitMetadata {
+  justGenerated?: boolean;
+}
+
 function SlotRow({ slot, garmentId, garmentTitle, garmentColor, imagePath, renderStatus, onSwap, t, layerRole }: SlotRowProps) {
   const navigate = useNavigate();
   // Use layering role label for top-area slots when available
@@ -248,14 +253,16 @@ export default function OutfitDetailPage() {
   const prefersReduced = useReducedMotion();
   const outfitRef = useRef<HTMLDivElement>(null);
 
-  const justGenerated = (location.state as { justGenerated?: boolean })?.justGenerated;
-  const genLimitationNote = (location.state as { limitation_note?: string | null })?.limitation_note;
-  const genFamilyLabel = (location.state as { family_label?: string })?.family_label;
-  const genWardrobeInsights = (location.state as { wardrobe_insights?: string[] })?.wardrobe_insights;
-  const genLayerOrder = (location.state as { layer_order?: { slot: string; garment_id: string; layer_role: string }[] })?.layer_order;
-  const genNeedsBaseLayer = (location.state as { needs_base_layer?: boolean })?.needs_base_layer;
-  const genOutfitReasoning = (location.state as { outfit_reasoning?: { why_it_works?: string; occasion_fit?: string; weather_logic?: string | null; color_note?: string } })?.outfit_reasoning;
-  const genOccasionSubmode = (location.state as { occasion_submode?: string | null })?.occasion_submode;
+  const generatedState = (location.state as OutfitDetailGenerationState | null) ?? null;
+  const cachedMetadata = readCachedOutfitMetadata(id);
+  const justGenerated = generatedState?.justGenerated ?? cachedMetadata?.justGenerated;
+  const genLimitationNote = generatedState?.limitation_note ?? cachedMetadata?.limitation_note;
+  const genFamilyLabel = generatedState?.family_label ?? cachedMetadata?.family_label;
+  const genWardrobeInsights = generatedState?.wardrobe_insights ?? cachedMetadata?.wardrobe_insights;
+  const genLayerOrder = generatedState?.layer_order ?? cachedMetadata?.layer_order;
+  const genNeedsBaseLayer = generatedState?.needs_base_layer ?? cachedMetadata?.needs_base_layer;
+  const genOutfitReasoning = generatedState?.outfit_reasoning ?? cachedMetadata?.outfit_reasoning;
+  const genOccasionSubmode = generatedState?.occasion_submode ?? cachedMetadata?.occasion_submode;
   const shareUrl = outfit ? `${window.location.origin}/share/${outfit.id}` : '';
   const outfitItems = Array.isArray(outfit?.outfit_items) ? outfit.outfit_items : [];
 

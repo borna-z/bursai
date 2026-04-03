@@ -8,6 +8,26 @@ import { logger } from "../_shared/logger.ts";
 
 const log = logger("prefetch_suggestions");
 
+function isAuthorizedInternalRequest(req: Request): boolean {
+  const authHeader = req.headers.get("Authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : null;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (serviceRoleKey && bearerToken === serviceRoleKey) {
+    return true;
+  }
+
+  const configuredSecrets = [
+    Deno.env.get("CRON_SECRET"),
+    Deno.env.get("INTERNAL_FUNCTION_SECRET"),
+  ].filter((value): value is string => Boolean(value));
+  const providedSecret = req.headers.get("x-cron-secret") ?? req.headers.get("x-internal-secret");
+
+  return Boolean(providedSecret && configuredSecrets.includes(providedSecret));
+}
+
 /**
  * Prefetch daily outfit suggestions for active users.
  * Designed to run on a cron schedule (e.g., daily at 06:00).
@@ -30,6 +50,13 @@ serve(async (req) => {
   const runStart = Date.now();
 
   try {
+    if (!isAuthorizedInternalRequest(req)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

@@ -36,6 +36,13 @@ function inferSlotFromGarment(garment: { category?: string | null; subcategory?:
   return classifySlot(garment.category, garment.subcategory) || "top";
 }
 
+const MOOD_OUTFIT_SLOTS = new Set(["top", "bottom", "shoes", "outerwear", "accessory", "dress"]);
+
+function normalizeMoodOutfitSlot(slot: unknown): string | null {
+  const normalized = normalizeValue(slot);
+  return MOOD_OUTFIT_SLOTS.has(normalized) ? normalized : null;
+}
+
 function requiresOuterwear(weather?: { temperature?: number; precipitation?: string | null }): boolean {
   const temp = weather?.temperature;
   const precipitation = normalizeValue(weather?.precipitation);
@@ -285,9 +292,6 @@ async function generateMoodOutfitPayload(
   const userId = user.id;
   log.info("request.start", { requestId, userId });
 
-  if (checkOverload("mood_outfit")) {
-    return await responseToPayload(overloadResponse(CORS_HEADERS));
-  }
   await enforceRateLimit(serviceClient, userId, "mood_outfit");
   throwIfAborted(signal);
 
@@ -375,10 +379,11 @@ WARDROBE:\n${garmentList}` },
     (result.items || [])
       .filter((i: any) => garmentsById.has(i.garment_id))
       .map((i: any) => {
-        const garment = garmentsById.get(i.garment_id);
-        const inferredSlot = garment ? inferSlotFromGarment(garment) : i.slot;
-        return { slot: inferredSlot, garment_id: i.garment_id };
-      }),
+        const explicitSlot = normalizeMoodOutfitSlot(i.slot);
+        if (!explicitSlot) return null;
+        return { slot: explicitSlot, garment_id: i.garment_id };
+      })
+      .filter((item: { slot: string; garment_id: string } | null): item is { slot: string; garment_id: string } => Boolean(item)),
     garments,
     weather,
   );
@@ -386,13 +391,15 @@ WARDROBE:\n${garmentList}` },
   const completeValidation = validateCompleteOutfit(
     normalizedItems.map((item) => ({
       slot: item.slot,
-      garment: garmentsById.get(item.garment_id) || null,
     })),
   );
   if (!completeValidation.isValid) {
+    const limitationNote = result.limitation_note || buildMoodLimitationNote(normalizedItems, weather);
     return {
       error: `Not enough garments to build a complete mood outfit. Missing: ${completeValidation.missing.join(", ")}`,
       missing_slots: completeValidation.missing,
+      mood_match_score: result.mood_match_score ?? null,
+      limitation_note: limitationNote,
     };
   }
 
@@ -415,6 +422,7 @@ WARDROBE:\n${garmentList}` },
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  if (checkOverload("mood_outfit")) return overloadResponse(CORS_HEADERS);
 
   const abortController = new AbortController();
   const requestId = crypto.randomUUID();
