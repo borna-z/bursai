@@ -7,7 +7,6 @@ import { classifySlot } from "../_shared/burs-slots.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
 import { validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../_shared/style-signals.ts";
-import { mergeStylePreferenceOverrides } from "../_shared/style-preference-overrides.ts";
 import { logger } from "../_shared/logger.ts";
 
 const log = logger("burs_style_engine");
@@ -4431,12 +4430,7 @@ serve(async (req) => {
     const laundryItems = (laundryCountRes.data || []) as { id: string; title: string; category: string }[];
     const laundryCount = laundryItems.length;
 
-    const preferences = mergeStylePreferenceOverrides(
-      (profileRes.data?.preferences as Record<string, any>) || null,
-      body.preference_overrides && typeof body.preference_overrides === "object"
-        ? body.preference_overrides
-        : null,
-    );
+    const preferences = (profileRes.data?.preferences as Record<string, any>) || null;
     const bodyProfile = buildBodyProfile(profileRes.data);
 
     // Build feedback penalties from historical ratings

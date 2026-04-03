@@ -20,10 +20,6 @@ export interface UnifiedStylistRequest {
   active_look_garment_ids?: string[];
   locked_garment_ids?: string[];
   requested_edit_slots?: string[];
-  preference_overrides?: {
-    favoriteColors?: string[];
-    dislikedColors?: string[];
-  };
   output_count?: number;
   explanation_mode?: "short" | "detailed";
 }
@@ -108,7 +104,6 @@ export async function invokeUnifiedStylistEngine(params: {
     active_look_garment_ids: activeLookIds,
     locked_garment_ids: lockedGarmentIds,
     requested_edit_slots: editSlots,
-    preference_overrides: request.preference_overrides || null,
     output_count: typeof request.output_count === "number" ? request.output_count : undefined,
     explanation_mode: request.explanation_mode || "short",
     swap_slot: swapSlot,

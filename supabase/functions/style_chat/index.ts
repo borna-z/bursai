@@ -22,7 +22,6 @@ import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normaliz
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
 import { buildStylistMemorySummary } from "../_shared/stylist-memory.ts";
-import { deriveStylistBehaviorProfile, scoreBehavioralCandidate, type StylistBehaviorProfile } from "../_shared/stylist-behavior.ts";
 
 // ---------- i18n ----------
 
@@ -98,8 +97,6 @@ interface GarmentRecord {
 
 interface RawSignal {
   signal_type: string;
-  outfit_id: string | null;
-  garment_id: string | null;
   value: string | null;
   metadata: Record<string, any> | null;
   created_at: string | null;
@@ -1277,7 +1274,7 @@ function buildStyleClarifierText(locale: string, latestUser: string): string {
     : "Which garment or look do you want me to style?";
 }
 
-function buildCandidateOutfitsBase(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
+function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
   // Group garments by canonical slot key (not raw category) to avoid cross-slot confusion
   const slots = new Map<string, GarmentRecord[]>();
   for (const garment of rankedGarments) {
@@ -1364,48 +1361,6 @@ function buildCandidateOutfitsBase(rankedGarments: GarmentRecord[], anchor: Garm
   }
 
   return candidates.length ? `PREBUILT OUTFIT CANDIDATES:\n${candidates.join("\n")}` : "";
-}
-
-function buildCandidateOutfits(
-  rankedGarments: GarmentRecord[],
-  anchor: GarmentRecord | null,
-  behaviorProfile: StylistBehaviorProfile,
-  recentGarmentSets: string[][],
-): string {
-  const base = buildCandidateOutfitsBase(rankedGarments, anchor);
-  if (!base) return "";
-
-  const lines = base.split("\n").filter((line) => line.startsWith("- Candidate "));
-  if (lines.length === 0) return base;
-
-  const scoredLines = lines
-    .map((line) => {
-      const garmentIds = Array.from(line.matchAll(/\[ID:([a-f0-9-]+)\]/gi)).map((match) => match[1]);
-      return {
-        line,
-        behavior: scoreBehavioralCandidate({
-          garmentIds,
-          garments: rankedGarments.map((garment) => ({
-            id: garment.id,
-            title: garment.title,
-            category: garment.category,
-            color_primary: garment.color_primary,
-          })),
-          profile: behaviorProfile,
-          recentGarmentSets,
-        }),
-      };
-    })
-    .sort((left, right) => right.behavior.score - left.behavior.score)
-    .slice(0, 3)
-    .map((entry, index) => {
-      const reasonSuffix = entry.behavior.reasons.length > 0
-        ? ` [behavioral score ${entry.behavior.score}: ${entry.behavior.reasons.join(", ")}]`
-        : "";
-      return entry.line.replace(/^- Candidate \d+:/, `- Candidate ${index + 1}:`) + reasonSuffix;
-    });
-
-  return scoredLines.length ? `PREBUILT OUTFIT CANDIDATES:\n${scoredLines.join("\n")}` : "";
 }
 
 async function geocodeCity(city: string): Promise<{ lat: number; lon: number } | null> {
@@ -1588,7 +1543,7 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
 async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ text: string; raw: RawSignal[] }> {
   const { data: signals } = await supabase
     .from("feedback_signals")
-    .select("signal_type, outfit_id, garment_id, value, metadata, created_at")
+    .select("signal_type, value, metadata, created_at")
     .eq("user_id", userId)
     .in("signal_type", ["swap", "reject", "dislike", "thumbs_down"])
     .order("created_at", { ascending: false })
@@ -1791,10 +1746,10 @@ serve(async (req) => {
       getWardrobeContext(supabase, user.id, messages as MessageInput[], selectedGarmentIds),
       supabase
         .from("feedback_signals")
-        .select("signal_type, outfit_id, garment_id, value, metadata, created_at")
+        .select("signal_type, value, metadata, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(60),
+        .limit(40),
       supabase
         .from("garment_pair_memory")
         .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
@@ -1802,18 +1757,6 @@ serve(async (req) => {
         .or("positive_count.gte.2,negative_count.gte.2")
         .limit(20),
     ]);
-
-    const signalOutfitIds = Array.from(new Set(
-      (feedbackSignalsRes.data || [])
-        .map((signal) => signal.outfit_id)
-        .filter((outfitId): outfitId is string => typeof outfitId === "string" && outfitId.length > 0),
-    )).slice(0, 40);
-    const signalOutfitItemsRes = signalOutfitIds.length > 0
-      ? await serviceClient
-        .from("outfit_items")
-        .select("outfit_id, garment_id")
-        .in("outfit_id", signalOutfitIds)
-      : { data: [], error: null };
 
     // --- Taste memory ---
     const wornCount = wardrobeCtx.rankedGarments.filter(g => (g.wear_count ?? 0) > 0).length;
@@ -1839,22 +1782,7 @@ serve(async (req) => {
       pairMemory: pairMemoryRes.data || [],
       dna,
     });
-    const behaviorProfile = deriveStylistBehaviorProfile({
-      signals: rawSignals,
-      outfitItems: (signalOutfitItemsRes.data || []).map((item) => ({
-        outfit_id: item.outfit_id,
-        garment_id: item.garment_id,
-      })),
-      garments: wardrobeCtx.rankedGarments.map((garment) => ({
-        id: garment.id,
-        title: garment.title,
-        category: garment.category,
-        color_primary: garment.color_primary,
-      })),
-      pairMemory: pairMemoryRes.data || [],
-    });
     const tasteMemoryBlock = [stylistMemory.promptBlock, legacyTasteMemoryBlock]
-      .concat(behaviorProfile.summaryLines)
       .filter(Boolean)
       .join("\n");
 
@@ -1996,27 +1924,8 @@ serve(async (req) => {
 - Prioritize mode-specific analysis structure over card markup in this mode.`;
 
     const shouldCallUnifiedEngine = cardPolicy === "required" && !shouldAskClarifyingQuestion;
-    const behavioralPreferredGarmentIds = behaviorProfile.preferredGarmentIds
-      .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
-    const behavioralAvoidedGarmentIds = behaviorProfile.avoidedGarmentIds
-      .filter((garmentId) =>
-        !activeLook.garmentIds.includes(garmentId)
-        && garmentId !== refinementPlan.anchorGarmentId
-        && !refinementPlan.lockedGarmentIds.includes(garmentId),
-      );
-    const behaviorPreferenceOverrides = behaviorProfile.preferredColors.length > 0 || behaviorProfile.avoidedColors.length > 0
-      ? {
-          favoriteColors: behaviorProfile.preferredColors,
-          dislikedColors: behaviorProfile.avoidedColors,
-        }
-      : null;
     const candidateOutfits = (!shouldAskClarifyingQuestion && !shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS")
-      ? buildCandidateOutfits(
-        wardrobeCtx.rankedGarments,
-        wardrobeCtx.anchor,
-        behaviorProfile,
-        recentOutfitsCtx.recentGarmentSets,
-      )
+      ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor)
       : "";
 
     const unifiedRequestMode = stylistMode === "ACTIVE_LOOK_REFINEMENT"
@@ -2035,15 +1944,8 @@ serve(async (req) => {
             style: refinementPlan.style,
             weather: refinementPlan.weather,
             locale,
-            prefer_garment_ids: Array.from(new Set([
-              ...behavioralPreferredGarmentIds,
-              ...refinementPlan.preferGarmentIds,
-            ])),
-            exclude_garment_ids: Array.from(new Set([
-              ...refinementPlan.excludeGarmentIds,
-              ...behavioralAvoidedGarmentIds,
-            ])),
-            preference_overrides: behaviorPreferenceOverrides || undefined,
+            prefer_garment_ids: refinementPlan.preferGarmentIds,
+            exclude_garment_ids: refinementPlan.excludeGarmentIds,
             active_look_garment_ids: activeLook.garmentIds,
             locked_garment_ids: [
               ...refinementPlan.lockedGarmentIds,
