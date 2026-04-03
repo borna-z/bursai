@@ -373,7 +373,17 @@ export function parseBursAIProviderResponse(aiData: any): ParsedBursAIProviderRe
       return { ok: false, error: "Malformed provider response: invalid tool call JSON" };
     }
   } else if (message.content !== undefined) {
-    result = message.content;
+    const rawContent = typeof message.content === "string" ? message.content.trim() : "";
+    if (rawContent.startsWith("{") || rawContent.startsWith("[")) {
+      try {
+        result = JSON.parse(rawContent);
+        console.warn("burs-ai: tool_call returned as content, parsed as JSON fallback");
+      } catch {
+        result = message.content;
+      }
+    } else {
+      result = message.content;
+    }
   } else {
     return { ok: false, error: "Malformed provider response: missing content and tool call arguments" };
   }
@@ -540,7 +550,7 @@ export async function callBursAI(
           lastError = new Error("Malformed provider response: invalid JSON body");
           break;
         }
-        const parsed = parseBursAIProviderResponse(aiData);
+        let parsed = parseBursAIProviderResponse(aiData);
         if (!parsed.ok) {
           lastError = new Error(parsed.error || "Failed to parse AI provider response");
           log.warn("provider.response.invalid", {
@@ -549,6 +559,32 @@ export async function callBursAI(
             error: lastError.message,
           });
           break;
+        }
+
+        // If response was truncated by token limit, retry once with more tokens
+        if (parsed.finishReason === "length" && attempt === 0 && !stream) {
+          log.warn("provider.response.truncated", {
+            functionName: options.functionName || "unknown",
+            model,
+          });
+          const retryBody = { ...body, max_tokens: Math.min(Math.round((maxTokens || 600) * 1.5), 2000) };
+          const retryOutcome = await tryModel(
+            GEMINI_URL,
+            { Authorization: `Bearer ${apiKey}` },
+            model, retryBody, timeout,
+          );
+          if (!("error" in retryOutcome) && !("retry" in retryOutcome) && !("fatal" in retryOutcome)) {
+            try {
+              const retryData = await retryOutcome.resp.json();
+              const retryParsed = parseBursAIProviderResponse(retryData);
+              if (retryParsed.ok) {
+                parsed = retryParsed;
+                aiData = retryData;
+              }
+            } catch {
+              // Use original parsed result
+            }
+          }
         }
 
         if (cacheTtlSeconds > 0 && cacheKey) {

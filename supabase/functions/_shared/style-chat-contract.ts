@@ -6,7 +6,8 @@ export type StylistChatMode =
   | "PURCHASE_PRIORITIZATION"
   | "STYLE_IDENTITY_ANALYSIS"
   | "LOOK_EXPLANATION"
-  | "PLANNING";
+  | "PLANNING"
+  | "CONVERSATIONAL";
 
 export type StyleChatCardPolicy = "required" | "preserve_if_exists" | "optional";
 

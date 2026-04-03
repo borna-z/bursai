@@ -20,6 +20,7 @@ interface BackgroundSaveOptions {
   enableStudioQuality?: boolean;
 }
 
+
 /**
  * Persist a scanned garment, then trigger non-blocking enrichment,
  * duplicate detection, and studio rendering in the background.

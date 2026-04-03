@@ -6,7 +6,7 @@ import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { createSupabaseRestHeaders, getSupabaseFunctionUrl, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -138,20 +138,21 @@ async function hydrateMessages(messages: Message[]): Promise<Message[]> {
 }
 
 async function loadMessages(userId: string): Promise<Message[]> {
-  const res = await fetch(
-    `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
-    { headers: await createSupabaseRestHeaders() }
-  );
-  if (!res.ok) return [];
-  const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
-  return rows.map((row) => parseStoredMessage(row));
+  const { data } = await supabase
+    .from('chat_messages')
+    .select('role, content')
+    .eq('user_id', userId)
+    .eq('mode', 'stylist')
+    .order('created_at', { ascending: true })
+    .limit(100);
+  if (!data) return [];
+  return (data as { role: 'user' | 'assistant'; content: string }[]).map((row) => parseStoredMessage(row));
 }
 
-async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
-  await fetch(getSupabaseRestUrl('chat_messages'), {
-    method: 'POST',
-    headers: { ...(await createSupabaseRestHeaders(accessToken)), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(msgs.map((m) => {
+async function persistMessages(userId: string, msgs: Message[]) {
+  await supabase
+    .from('chat_messages')
+    .insert(msgs.map(m => {
       const content = m.stylistMeta
         ? JSON.stringify({
           kind: 'stylist_message',
@@ -161,16 +162,16 @@ async function persistMessages(userId: string, msgs: Message[], accessToken: str
         : typeof m.content === 'string'
           ? m.content
           : JSON.stringify(m.content);
-      return { user_id: userId, role: m.role, content, mode: 'stylist' };
-    })),
-  });
+      return { user_id: userId, role: m.role, content, mode: 'stylist' as const };
+    }));
 }
 
-async function deleteHistory(userId: string, accessToken: string) {
-  await fetch(`${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist`, {
-    method: 'DELETE',
-    headers: await createSupabaseRestHeaders(accessToken),
-  });
+async function deleteHistory(userId: string) {
+  await supabase
+    .from('chat_messages')
+    .delete()
+    .eq('user_id', userId)
+    .eq('mode', 'stylist');
 }
 
 function extractGarmentIds(messages: Message[]): string[] {
@@ -615,7 +616,7 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
-      await deleteHistory(user.id, session.access_token);
+      await deleteHistory(user.id);
       sessionStorage.removeItem('burs_chat_history');
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));

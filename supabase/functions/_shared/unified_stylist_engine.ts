@@ -112,7 +112,7 @@ export async function invokeUnifiedStylistEngine(params: {
   };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 20000);
   let response: Response;
   try {
     response = await fetch(`${supabaseUrl}/functions/v1/burs_style_engine`, {

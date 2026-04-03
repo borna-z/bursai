@@ -143,12 +143,15 @@ export function isCompleteStyleChatOutfitIds<TGarment extends StyleChatGarmentLi
     seenSlots.add(slot);
   }
 
+  // If the wardrobe has no shoes at all, don't require them for outfit completeness
+  const wardrobeHasShoes = garments.some(g => getStyleChatSlotKey(g.category) === "shoes");
+
   if (seenSlots.has("dress")) {
     if (seenSlots.has("top") || seenSlots.has("bottom")) return false;
-    return seenSlots.has("shoes");
+    return wardrobeHasShoes ? seenSlots.has("shoes") : true;
   }
 
-  return seenSlots.has("top") && seenSlots.has("bottom") && seenSlots.has("shoes");
+  return seenSlots.has("top") && seenSlots.has("bottom") && (wardrobeHasShoes ? seenSlots.has("shoes") : true);
 }
 
 function stripPartialTagStarts(text: string): string {

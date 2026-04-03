@@ -1,6 +1,6 @@
 import { lazy, Suspense, useRef } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
@@ -80,10 +80,17 @@ const crossfadeVariants = {
 
 export function AnimatedRoutes() {
   const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
   const isFirstRender = useRef(true);
   const isDark = darkRoutes.has(location.pathname);
-  const variants = isDark ? crossfadeVariants : routeVariants;
-  const transition = isDark ? crossfadeTransition : routeTransition;
+  const baseVariants = isDark ? crossfadeVariants : routeVariants;
+  const baseTransition = isDark ? crossfadeTransition : routeTransition;
+  const variants = prefersReducedMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : baseVariants;
+  const transition = prefersReducedMotion
+    ? { ...baseTransition, duration: 0.1 }
+    : baseTransition;
 
   // Skip animation on very first render so the page appears instantly
   const skipInitial = isFirstRender.current;

@@ -161,6 +161,24 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     });
   });
 
+  it('triggers studio rendering for live scan without waiting for completion', async () => {
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-live',
+      storagePath: 'user-1/photo-live.jpg',
+      source: 'live_scan',
+      imageProcessing: { mode: 'local', run: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
+        body: { storagePath: 'user-1/photo-live.jpg', mode: 'enrich' },
+      });
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'garment-live', source: 'live_scan' },
+      }));
+    });
+  });
+
   it('bounds render kickoff concurrency and deduplicates repeated garment requests', async () => {
     let resolveFirstRender: (() => void) | null = null;
     let resolveSecondRender: (() => void) | null = null;
