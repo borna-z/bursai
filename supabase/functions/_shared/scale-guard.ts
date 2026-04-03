@@ -125,6 +125,17 @@ export async function enforceRateLimit(
   const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
   const oneMinuteAgo = new Date(now - 60 * 1000).toISOString();
 
+  const { data: insertedRow, error: insertError } = await supabaseAdmin
+    .from("ai_rate_limits")
+    .insert({ user_id: userId, function_name: functionName })
+    .select("id")
+    .single();
+
+  if (insertError || !insertedRow?.id) {
+    console.warn("Rate limit record failed:", insertError?.message || "missing inserted id");
+    throw new Error("Rate limit recording failed");
+  }
+
   // Batch both counts in parallel
   const [hourResult, minuteResult] = await Promise.all([
     supabaseAdmin
@@ -141,16 +152,18 @@ export async function enforceRateLimit(
       .gte("called_at", oneMinuteAgo),
   ]);
 
-  // Fail open on DB errors
+  // Fail open on count errors, but keep the inserted reservation so later
+  // requests still see the traffic.
   if (hourResult.error || minuteResult.error) {
     console.warn("Rate limit check failed:", hourResult.error?.message || minuteResult.error?.message);
-    return { allowed: true, remaining: { hour: tier.maxPerHour, minute: tier.maxPerMinute } };
+    return { allowed: true, remaining: { hour: 0, minute: 0 } };
   }
 
   const hourCount = hourResult.count ?? 0;
   const minuteCount = minuteResult.count ?? 0;
 
-  if (minuteCount >= tier.maxPerMinute) {
+  if (minuteCount > tier.maxPerMinute) {
+    await supabaseAdmin.from("ai_rate_limits").delete().eq("id", insertedRow.id);
     throw new RateLimitError(
       `Too many requests. Please wait a moment before trying again.`,
       functionName,
@@ -159,7 +172,8 @@ export async function enforceRateLimit(
     );
   }
 
-  if (hourCount >= tier.maxPerHour) {
+  if (hourCount > tier.maxPerHour) {
+    await supabaseAdmin.from("ai_rate_limits").delete().eq("id", insertedRow.id);
     throw new RateLimitError(
       `Hourly limit reached for this feature. Please try again later.`,
       functionName,
@@ -169,11 +183,6 @@ export async function enforceRateLimit(
   }
 
   // Record this call — fire-and-forget
-  supabaseAdmin
-    .from("ai_rate_limits")
-    .insert({ user_id: userId, function_name: functionName })
-    .then(() => {});
-
   // Periodic cleanup (1% chance)
   if (Math.random() < 0.01) {
     supabaseAdmin.rpc("cleanup_old_rate_limits").catch(() => {});
@@ -182,8 +191,8 @@ export async function enforceRateLimit(
   return {
     allowed: true,
     remaining: {
-      hour: tier.maxPerHour - hourCount - 1,
-      minute: tier.maxPerMinute - minuteCount - 1,
+      hour: Math.max(0, tier.maxPerHour - hourCount),
+      minute: Math.max(0, tier.maxPerMinute - minuteCount),
     },
   };
 }

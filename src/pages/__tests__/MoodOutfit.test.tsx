@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const invokeEdgeFunctionMock = vi.fn();
 const generateOutfitMock = vi.fn();
 const useOutfitMock = vi.fn();
+const toastErrorMock = vi.fn();
+const fromMock = vi.fn();
 
 vi.mock('framer-motion', () => ({
   motion: {
@@ -16,7 +18,7 @@ vi.mock('framer-motion', () => ({
   useReducedMotion: () => true,
 }));
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { error: (...args: unknown[]) => toastErrorMock(...args) } }));
 vi.mock('@/components/layout/AppLayout', () => ({ AppLayout: ({ children }: React.PropsWithChildren) => <div>{children}</div> }));
 vi.mock('@/components/PaywallModal', () => ({ PaywallModal: () => null }));
 vi.mock('@/components/ui/animated-page', () => ({ AnimatedPage: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div> }));
@@ -40,8 +42,39 @@ vi.mock('@/hooks/useOutfits', () => ({
 vi.mock('@/lib/edgeFunctionClient', () => ({
   invokeEdgeFunction: (...args: unknown[]) => invokeEdgeFunctionMock(...args),
 }));
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: (...args: unknown[]) => fromMock(...args),
+  },
+}));
 
 import MoodOutfitPage from '../MoodOutfit';
+
+function createOutfitsInsertResult() {
+  return {
+    insert: vi.fn().mockResolvedValue({ error: null }),
+    delete: vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    })),
+  };
+}
+
+function createOutfitItemsInsertResult() {
+  return {
+    insert: vi.fn().mockResolvedValue({ error: null }),
+  };
+}
+
+function createGarmentsQueryResult(garments: Array<Record<string, unknown>>) {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn().mockResolvedValue({
+        data: garments,
+        error: null,
+      }),
+    })),
+  };
+}
 
 function renderMoodPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -57,13 +90,34 @@ function renderMoodPage() {
 describe('MoodOutfitPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('mood-outfit-1');
     useOutfitMock.mockReturnValue({ data: { outfit_items: [] } });
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'outfits') return createOutfitsInsertResult();
+      if (table === 'outfit_items') return createOutfitItemsInsertResult();
+      if (table === 'garments') return createGarmentsQueryResult([]);
+      throw new Error(`Unexpected table: ${table}`);
+    });
   });
 
-  it('falls back to the general outfit generator when mood_outfit fails', async () => {
+  it('falls back to the general outfit generator only when the mood payload stays incomplete after repair', async () => {
     invokeEdgeFunctionMock.mockResolvedValue({
-      data: null,
-      error: new Error('AI returned incomplete outfit'),
+      data: {
+        items: [{ garment_id: 'top-1', slot: 'top' }],
+        explanation: 'Primary explanation',
+        limitation_note: 'Need more structure',
+      },
+      error: null,
+    });
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'garments') {
+        return createGarmentsQueryResult([
+          { id: 'top-1', category: 'top', subcategory: 'shirt', wear_count: 1, layering_role: 'base', in_laundry: false },
+        ]);
+      }
+      if (table === 'outfits') return createOutfitsInsertResult();
+      if (table === 'outfit_items') return createOutfitItemsInsertResult();
+      throw new Error(`Unexpected table: ${table}`);
     });
     generateOutfitMock.mockResolvedValue({
       id: 'fallback-outfit',
@@ -94,5 +148,53 @@ describe('MoodOutfitPage', () => {
 
     expect(await screen.findByText('Your look is ready')).toBeInTheDocument();
     expect(screen.getByText('Fallback explanation')).toBeInTheDocument();
+    expect(screen.getByText(/general generator because the mood-specific response was incomplete/i)).toBeInTheDocument();
+  });
+
+  it('does not fall back when mood_outfit returns a backend error payload', async () => {
+    invokeEdgeFunctionMock.mockResolvedValue({
+      data: {
+        error: 'Not enough garments to build a complete mood outfit. Missing: shoes',
+        missing_slots: ['shoes'],
+        limitation_note: 'No weather-appropriate shoes were available.',
+      },
+      error: null,
+    });
+
+    renderMoodPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /ai\.mood_confident/i }));
+
+    await waitFor(() => {
+      expect(generateOutfitMock).not.toHaveBeenCalled();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        'Not enough garments to build a complete mood outfit. Missing: shoes No weather-appropriate shoes were available.',
+      );
+    });
+  });
+
+  it('surfaces mood-specific match and limitation signals on successful mood generation', async () => {
+    invokeEdgeFunctionMock.mockResolvedValue({
+      data: {
+        items: [
+          { garment_id: 'top-1', slot: 'top' },
+          { garment_id: 'bottom-1', slot: 'bottom' },
+          { garment_id: 'shoes-1', slot: 'shoes' },
+        ],
+        explanation: 'A sharp tonal look.',
+        mood_match_score: 92,
+        limitation_note: 'No outerwear was added because the weather is mild.',
+      },
+      error: null,
+    });
+
+    renderMoodPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /ai\.mood_confident/i }));
+
+    expect(await screen.findByText('A sharp tonal look.')).toBeInTheDocument();
+    expect(screen.getByText('Mood match score: 92')).toBeInTheDocument();
+    expect(screen.getByText('No outerwear was added because the weather is mild.')).toBeInTheDocument();
+    expect(generateOutfitMock).not.toHaveBeenCalled();
   });
 });

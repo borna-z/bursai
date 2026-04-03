@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
@@ -193,5 +193,51 @@ describe('useOutfits', () => {
     const { result } = renderHook(() => useDeleteOutfit(), { wrapper });
     await result.current.mutateAsync('o1');
     expect(deleteFn).toHaveBeenCalled();
+  });
+
+  it('useCreateOutfit rolls back the parent outfit when outfit_items persistence fails', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as ReturnType<typeof useAuth>);
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('created-outfit-1');
+
+    const outfitDeleteEq = vi.fn().mockResolvedValue({ error: null });
+    const outfitInsert = vi.fn().mockResolvedValue({ error: null });
+    const outfitItemsInsert = vi.fn().mockResolvedValue({ error: { message: 'items failed' } });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'outfits') {
+        return {
+          insert: outfitInsert,
+          delete: vi.fn().mockReturnValue({
+            eq: outfitDeleteEq,
+          }),
+        };
+      }
+
+      if (table === 'outfit_items') {
+        return {
+          insert: outfitItemsInsert,
+        };
+      }
+
+      return mockChain();
+    });
+
+    const { useCreateOutfit } = await import('../useOutfits');
+    const { result } = renderHook(() => useCreateOutfit(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({
+        outfit: { occasion: 'casual', saved: true },
+        items: [
+          { garment_id: 'g1', slot: 'top' },
+          { garment_id: 'g2', slot: 'bottom' },
+          { garment_id: 'g3', slot: 'shoes' },
+        ],
+      })).rejects.toThrow(/could not save the outfit/i);
+    });
+
+    expect(outfitInsert).toHaveBeenCalled();
+    expect(outfitItemsInsert).toHaveBeenCalled();
+    expect(outfitDeleteEq).toHaveBeenCalledWith('id', 'created-outfit-1');
   });
 });

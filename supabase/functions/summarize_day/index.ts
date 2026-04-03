@@ -18,6 +18,28 @@ serve(async (req) => {
       return overloadResponse(CORS_HEADERS);
     }
 
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+
     const { events, weather } = await req.json();
 
     if (!events || events.length === 0) {
@@ -31,6 +53,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    await enforceRateLimit(serviceClient, user.id, "summarize_day");
 
     const intelligence = buildDayIntelligence(events, weather || undefined);
 
@@ -71,7 +94,7 @@ serve(async (req) => {
         max_tokens: estimateMaxTokens({ inputItems: events.length, perItemTokens: 80, baseTokens: 200 }),
         functionName: "summarize_day",
         cacheTtlSeconds: 3600,
-        cacheNamespace: `summarize_day_${eventsCacheKey}`,
+        cacheNamespace: `summarize_day_${user.id}_${eventsCacheKey}`,
         messages: [
           { role: "system", content: systemPrompt },
           {

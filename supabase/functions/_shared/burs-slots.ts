@@ -47,15 +47,15 @@ const BOTTOM_TOKENS: readonly string[] = [
 ];
 
 const SHOES_TOKENS: readonly string[] = [
-  "shoes", "shoe", "sneakers", "boots", "loafers", "sandals", "heels",
-  "footwear",
+  "shoes", "shoe", "sneaker", "sneakers", "boot", "boots", "loafer", "loafers", "sandal", "sandals", "heel", "heels",
+  "trainer", "trainers", "oxford", "oxfords", "mule", "mules", "footwear",
   // Swedish
   "skor", "stövlar",
 ];
 
 const OUTERWEAR_TOKENS: readonly string[] = [
   "outerwear", "jacket", "coat", "blazer", "parka", "windbreaker",
-  "trench", "vest",
+  "trench", "trenchcoat", "raincoat", "vest", "waistcoat", "gilet", "vast",
   // Swedish
   "jacka", "kappa", "rock", "väst",
 ];
@@ -77,9 +77,21 @@ const ACCESSORY_TOKENS: readonly string[] = [
 
 const DIRECT_ALIASES: Record<string, SlotName> = {
   shoe: "shoes",
+  sneaker: "shoes",
+  boot: "shoes",
+  loafer: "shoes",
+  sandal: "shoes",
+  heel: "shoes",
+  trainer: "shoes",
+  oxford: "shoes",
+  mule: "shoes",
   outer: "outerwear",
   layer: "outerwear",
   layering: "outerwear",
+  vast: "outerwear",
+  vest: "outerwear",
+  waistcoat: "outerwear",
+  gilet: "outerwear",
 };
 
 // ── Normalisation helpers ────────────────────────────────────

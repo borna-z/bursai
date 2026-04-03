@@ -590,6 +590,8 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     let result: any = null;
     let lastError: Error | null = null;
+    let generationSource: "ai" | "deterministic_fallback" | "mixed" = "ai";
+    let degradedReason: string | null = null;
 
     const buildDeterministicFallback = (seedCapsuleIds: string[] = []) => {
       const seedGarments = [
@@ -735,6 +737,8 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     if (!result) {
       console.warn("AI capsule generation failed, using deterministic fallback", lastError?.message || "unknown");
+      generationSource = "deterministic_fallback";
+      degradedReason = lastError?.message || "ai_generation_failed";
       result = buildDeterministicFallback();
     }
 
@@ -769,12 +773,15 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     if (resolvedItems.length === 0 || resolvedOutfits.length === 0) {
       console.warn("Resolved capsule is empty, applying deterministic fallback mapping");
+      lastError = lastError ?? new Error("AI output could not be resolved to wardrobe IDs");
       const fallback = buildDeterministicFallback();
+      generationSource = "deterministic_fallback";
+      degradedReason = degradedReason || lastError.message;
       resolvedItems = fallback.capsule_items.map((garment: GarmentRow) => garment.id).filter((id: string) => validIds.has(id));
       resolvedOutfits = fallback.outfits
         .map((o: any) => ({ ...o, items: (o.items || []).filter((id: string) => validIds.has(id)) }))
         .filter((o: any) => o.items.length >= 2);
-      result = { ...fallback, ...result };
+      result = fallback;
     }
 
     console.log("Resolved items (pre-validation):", resolvedItems.length, "Resolved outfits:", resolvedOutfits.length);
@@ -953,6 +960,11 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       const fallbackOutfit = fallbackOutfitByKey.get(planningSlotKey(slot));
       if (fallbackOutfit) scheduledOutfits.push(fallbackOutfit);
     }
+    const fallbackOutfitCount = remainingPlanningSlots.length;
+    if (generationSource === "ai" && fallbackOutfitCount > 0) {
+      generationSource = "mixed";
+      degradedReason = degradedReason || "coverage_slot_fallback";
+    }
 
     scheduledOutfits.sort((a, b) => a.day - b.day || (a.slotIndex ?? 0) - (b.slotIndex ?? 0));
 
@@ -1003,6 +1015,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       color_primary: g.color_primary,
       image_path: g.image_path ?? null,
     }));
+    const combinedReasoning = [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || null;
 
     const { error: saveError } = await supabase
       .from('travel_capsules')
@@ -1019,7 +1032,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         packing_list: packingList,
         packing_tips: packing_tips ?? null,
         total_combinations: total_combinations ?? scheduledOutfits.length,
-        reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || null,
+        reasoning: combinedReasoning,
       });
     if (saveError) console.warn('travel_capsule: failed to save capsule:', saveError.message);
 
@@ -1028,8 +1041,12 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       outfits: scheduledOutfits,
       packing_tips: packing_tips || [],
       coverage_gaps,
+      patched_outfit_count: patchCount,
+      fallback_outfit_count: fallbackOutfitCount,
       total_combinations: total_combinations || scheduledOutfits.length,
-      reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || "",
+      reasoning: combinedReasoning || "",
+      generation_source: generationSource,
+      degraded_reason: degradedReason,
     }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });

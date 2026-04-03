@@ -1,3 +1,5 @@
+import { classifySlot, normalizeSlot } from './burs-slots.ts';
+
 export type CanonicalOutfitSlot =
   | 'top'
   | 'bottom'
@@ -164,16 +166,7 @@ function includesAnyToken(value: string, tokens: string[]): boolean {
 export function inferCanonicalOutfitSlot(
   garment: Pick<OutfitRuleGarmentLike, 'category' | 'subcategory'>,
 ): CanonicalOutfitSlot {
-  const category = normalizeTokenValue(garment.category);
-  const subcategory = normalizeTokenValue(garment.subcategory);
-  const value = `${category} ${subcategory}`.trim();
-
-  if (includesAnyToken(value, DRESS_TOKENS)) return 'dress';
-  if (includesAnyToken(value, SHOES_TOKENS)) return 'shoes';
-  if (includesAnyToken(value, OUTERWEAR_TOKENS)) return 'outerwear';
-  if (includesAnyToken(value, ACCESSORY_TOKENS)) return 'accessory';
-  if (includesAnyToken(value, BOTTOM_TOKENS)) return 'bottom';
-  return 'top';
+  return classifySlot(garment.category, garment.subcategory) ?? 'top';
 }
 
 export function collectCanonicalOutfitSlots(
@@ -213,14 +206,17 @@ export function normalizeOutfitRuleSlot<TGarment extends OutfitRuleGarmentLike>(
   item: OutfitRuleItem<TGarment>,
 ): CanonicalOutfitSlot {
   const explicitSlot = normalizeTokenValue(item.slot);
+  if (explicitSlot) {
+    const normalizedExplicitSlot = normalizeSlot(explicitSlot);
+    if (normalizedExplicitSlot) {
+      return normalizedExplicitSlot;
+    }
+  }
   if ('garment' in item) {
     if (item.garment) {
       return inferCanonicalOutfitSlot(item.garment);
     }
     return 'unknown';
-  }
-  if (explicitSlot && EXPLICIT_SLOT_MAP[explicitSlot]) {
-    return EXPLICIT_SLOT_MAP[explicitSlot];
   }
   return 'unknown';
 }
