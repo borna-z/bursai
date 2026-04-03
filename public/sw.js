@@ -1,6 +1,6 @@
 // BURS Service Worker — Push Notifications + Caching
 
-const CACHE_NAME = 'burs-v3';
+const CACHE_NAME = 'burs-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
