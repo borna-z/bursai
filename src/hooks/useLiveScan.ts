@@ -175,7 +175,7 @@ export function useLiveScan() {
 
     invalidateWardrobeQueries(queryClient, user?.id);
     queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
-  }, [queryClient, user?.id]);
+  }, [queryClient]);
 
   const clearLastAccepted = useCallback(() => setLastAccepted(null), []);
 
