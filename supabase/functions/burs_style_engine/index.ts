@@ -3810,10 +3810,10 @@ ${comboDescriptions}`;
       ],
       tools: [tool],
       tool_choice: { type: "function", function: { name: toolName } },
-      complexity: isStylistMode ? "standard" : "standard",
-      max_tokens: mode === "generate" ? (isStylistMode ? 400 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
+      complexity: isStylistMode ? "complex" : "standard",
+      max_tokens: mode === "generate" ? (isStylistMode ? 600 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
       functionName: "burs_style_engine",
-      cacheTtlSeconds: 300,
+      cacheTtlSeconds: isStylistMode ? 0 : 300,
       cacheNamespace: "style_engine",
     });
     return { data };
