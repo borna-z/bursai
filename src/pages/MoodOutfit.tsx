@@ -13,7 +13,6 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useOutfit } from '@/hooks/useOutfits';
 import { useWeather } from '@/hooks/useWeather';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +44,6 @@ export default function MoodOutfitPage() {
   const { isPremium } = useSubscription();
   const { user } = useAuth();
   const { weather } = useWeather();
-  const { generateOutfit } = useOutfitGenerator();
   const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
 
@@ -61,33 +59,6 @@ export default function MoodOutfitPage() {
 
   const { data: outfitData } = useOutfit(generatedOutfit?.id);
 
-  const syncGeneratedOutfitState = (
-    mood: string,
-    outfit: Pick<GeneratedOutfit, 'id' | 'explanation' | 'items'>,
-  ) => {
-    setGeneratedOutfit({
-      id: outfit.id,
-      explanation: outfit.explanation || null,
-      mood,
-      garmentIds: outfit.items.map((item) => item.garment.id),
-    });
-  };
-
-  const fallbackToGeneralGenerator = async (mood: string) => {
-    const fallbackOutfit = await generateOutfit({
-      occasion: `mood:${mood}`,
-      style: mood,
-      locale,
-      weather: {
-        temperature: weather?.temperature,
-        precipitation: weather?.precipitation ?? 'none',
-        wind: weather?.wind ?? 'low',
-      },
-    });
-
-    syncGeneratedOutfitState(mood, fallbackOutfit);
-  };
-
   const generate = async (mood: string) => {
     if (!isPremium) {
       setShowPaywall(true);
@@ -99,93 +70,88 @@ export default function MoodOutfitPage() {
     setIsGenerating(true);
 
     try {
-      try {
-        const { data, error } = await invokeEdgeFunction<{
-          items?: { garment_id: string; slot: string }[];
-          explanation?: string;
-          mood_match_score?: number;
-          limitation_note?: string | null;
-          error?: string;
-        }>('mood_outfit', {
-          timeout: 45000,
-          body: {
-            mood,
-            weather: weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
-            locale,
-          },
-        });
-
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        if (!data?.items?.length) throw new Error(t('generate.error_desc'));
-
-        const normalizedWeather = weather
-          ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
-          : undefined;
-        let repairedItems = data.items;
-        const currentValidation = validateCompleteOutfit(data.items.map((item) => ({ slot: item.slot })));
-
-        if (!currentValidation.isValid) {
-          const { data: wardrobe, error: wardrobeError } = await supabase
-            .from('garments')
-            .select('id, category, subcategory, wear_count, layering_role, in_laundry')
-            .eq('user_id', user.id);
-
-          if (wardrobeError) throw wardrobeError;
-
-          const garmentsById = new Map(((wardrobe ?? []) as RecoverableGarment[]).map((garment) => [garment.id, garment]));
-          repairedItems = repairIncompleteOutfitItems(
-            data.items
-              .map((item) => {
-                const garment = garmentsById.get(item.garment_id);
-                if (!garment) return null;
-                return { slot: item.slot, garment };
-              })
-              .filter((item): item is { slot: string; garment: RecoverableGarment } => Boolean(item)),
-            (wardrobe ?? []) as RecoverableGarment[],
-            normalizedWeather,
-          ).map((item) => ({ slot: item.slot, garment_id: item.garment.id }));
-        }
-
-        const repairedValidation = validateCompleteOutfit(repairedItems.map((item) => ({ slot: item.slot })));
-        if (!repairedValidation.isValid) {
-          throw new Error(t('generate.error_desc'));
-        }
-
-        const { data: outfit, error: outfitErr } = await supabase
-          .from('outfits')
-          .insert([{
-            user_id: user.id,
-            occasion: `mood:${mood}`,
-            style_vibe: mood,
-            explanation: data.explanation,
-            saved: true,
-            style_score: { mood_match: data.mood_match_score },
-          }])
-          .select()
-          .single();
-
-        if (outfitErr) throw outfitErr;
-
-        const items = repairedItems.map((item: { garment_id: string; slot: string }) => ({
-          outfit_id: outfit.id,
-          garment_id: item.garment_id,
-          slot: item.slot,
-        }));
-
-        const { error: outfitItemsError } = await supabase.from('outfit_items').insert(items);
-        if (outfitItemsError) throw outfitItemsError;
-
-        setGeneratedOutfit({
-          id: outfit.id,
-          explanation: data.explanation || null,
+      const { data, error } = await invokeEdgeFunction<{
+        items?: { garment_id: string; slot: string }[];
+        explanation?: string;
+        mood_match_score?: number;
+        limitation_note?: string | null;
+        error?: string;
+      }>('mood_outfit', {
+        timeout: 45000,
+        body: {
           mood,
-          garmentIds: repairedItems.map((item) => item.garment_id),
-        });
-      } catch (primaryError) {
-        console.warn('[MoodOutfit] Primary mood generator failed, falling back to general outfit generator.', primaryError);
-        await fallbackToGeneralGenerator(mood);
+          weather: weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
+          locale,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.items?.length) throw new Error(t('generate.error_desc'));
+
+      const normalizedWeather = weather
+        ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
+        : undefined;
+      let repairedItems = data.items;
+      const currentValidation = validateCompleteOutfit(data.items.map((item) => ({ slot: item.slot })));
+
+      if (!currentValidation.isValid) {
+        const { data: wardrobe, error: wardrobeError } = await supabase
+          .from('garments')
+          .select('id, category, subcategory, wear_count, layering_role, in_laundry')
+          .eq('user_id', user.id);
+
+        if (wardrobeError) throw wardrobeError;
+
+        const garmentsById = new Map(((wardrobe ?? []) as RecoverableGarment[]).map((garment) => [garment.id, garment]));
+        repairedItems = repairIncompleteOutfitItems(
+          data.items
+            .map((item) => {
+              const garment = garmentsById.get(item.garment_id);
+              if (!garment) return null;
+              return { slot: item.slot, garment };
+            })
+            .filter((item): item is { slot: string; garment: RecoverableGarment } => Boolean(item)),
+          (wardrobe ?? []) as RecoverableGarment[],
+          normalizedWeather,
+        ).map((item) => ({ slot: item.slot, garment_id: item.garment.id }));
       }
+
+      const repairedValidation = validateCompleteOutfit(repairedItems.map((item) => ({ slot: item.slot })));
+      if (!repairedValidation.isValid) {
+        throw new Error(t('generate.error_desc'));
+      }
+
+      const { data: outfit, error: outfitErr } = await supabase
+        .from('outfits')
+        .insert([{
+          user_id: user.id,
+          occasion: `mood:${mood}`,
+          style_vibe: mood,
+          explanation: data.explanation,
+          saved: true,
+          style_score: { mood_match: data.mood_match_score },
+        }])
+        .select()
+        .single();
+
+      if (outfitErr) throw outfitErr;
+
+      const items = repairedItems.map((item: { garment_id: string; slot: string }) => ({
+        outfit_id: outfit.id,
+        garment_id: item.garment_id,
+        slot: item.slot,
+      }));
+
+      const { error: outfitItemsError } = await supabase.from('outfit_items').insert(items);
+      if (outfitItemsError) throw outfitItemsError;
+
+      setGeneratedOutfit({
+        id: outfit.id,
+        explanation: data.explanation || null,
+        mood,
+        garmentIds: repairedItems.map((item) => item.garment_id),
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
     } finally {

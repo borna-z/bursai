@@ -225,6 +225,7 @@
     font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    padding-top: env(safe-area-inset-top, 0);
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
@@ -465,7 +466,7 @@
 
   .app-dock {
     @apply w-full border-t border-border/50 px-2.5 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl;
-    min-height: var(--app-dock-height, 4.75rem);
+    min-height: var(--app-bottom-clearance, calc(4.75rem + env(safe-area-inset-bottom, 0px)));
     background:
       linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.94));
     box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.18);

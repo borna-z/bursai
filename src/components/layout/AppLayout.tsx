@@ -22,13 +22,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   useUnlockCelebration();
 
   return (
-    <div
-      className="relative flex flex-col overflow-hidden bg-background text-foreground"
-      style={{
-        minHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))',
-        height: 'calc(100dvh - env(safe-area-inset-top, 0px))',
-      }}
-    >
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       {!hideNav ? (
         <div
           aria-hidden="true"
@@ -42,7 +36,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       <main
         id="main-content"
         className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
-        style={{ overscrollBehavior: 'none' }}
+        style={{ ...(hideNav ? undefined : { paddingBottom: 'env(safe-area-inset-bottom, 0px)' }), overscrollBehavior: 'none' }}
       >
         {children}
       </main>
