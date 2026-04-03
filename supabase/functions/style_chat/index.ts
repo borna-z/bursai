@@ -23,7 +23,6 @@ import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
 import { buildStylistMemorySummary } from "../_shared/stylist-memory.ts";
 import { deriveStylistBehaviorProfile, scoreBehavioralCandidate, type StylistBehaviorProfile } from "../_shared/stylist-behavior.ts";
-import { deriveStylistOutfitMemory } from "../_shared/stylist-outfit-memory.ts";
 
 // ---------- i18n ----------
 
@@ -1372,7 +1371,6 @@ function buildCandidateOutfits(
   anchor: GarmentRecord | null,
   behaviorProfile: StylistBehaviorProfile,
   recentGarmentSets: string[][],
-  successfulGarmentSets: string[][],
 ): string {
   const base = buildCandidateOutfitsBase(rankedGarments, anchor);
   if (!base) return "";
@@ -1395,7 +1393,6 @@ function buildCandidateOutfits(
           })),
           profile: behaviorProfile,
           recentGarmentSets,
-          successfulGarmentSets,
         }),
       };
     })
@@ -1560,7 +1557,6 @@ interface RecentOutfitsResult {
   text: string;
   occasions: string[];
   recentGarmentSets: string[][];
-  outfits: any[];
 }
 
 async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<RecentOutfitsResult> {
@@ -1569,13 +1565,12 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
     .eq("user_id", userId)
     .order("generated_at", { ascending: false })
-    .limit(15);
-  if (!outfits?.length) return { text: "", occasions: [], recentGarmentSets: [], outfits: [] };
+    .limit(5);
+  if (!outfits?.length) return { text: "", occasions: [], recentGarmentSets: [] };
 
-  const recentOutfits = outfits.slice(0, 5);
-  const occasions = [...new Set(recentOutfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
+  const occasions = [...new Set(outfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
 
-  const lines = recentOutfits.map((o: any) => {
+  const lines = outfits.map((o: any) => {
     const items = (o.outfit_items || []).map((i: any) =>
       `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
     ).join(" + ");
@@ -1583,11 +1578,11 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
   });
 
-  const recentGarmentSets: string[][] = recentOutfits.map((o: any) =>
+  const recentGarmentSets: string[][] = outfits.map((o: any) =>
     (o.outfit_items || []).map((i: any) => i.garment_id).filter(Boolean)
   ).filter((ids: string[]) => ids.length > 0);
 
-  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets, outfits };
+  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets };
 }
 
 async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ text: string; raw: RawSignal[] }> {
@@ -1858,12 +1853,7 @@ serve(async (req) => {
       })),
       pairMemory: pairMemoryRes.data || [],
     });
-    const outfitMemory = deriveStylistOutfitMemory({
-      outfits: recentOutfitsCtx.outfits,
-      signals: rawSignals,
-    });
     const tasteMemoryBlock = [stylistMemory.promptBlock, legacyTasteMemoryBlock]
-      .concat(outfitMemory.promptBlock ? [outfitMemory.promptBlock] : [])
       .concat(behaviorProfile.summaryLines)
       .filter(Boolean)
       .join("\n");
@@ -2008,8 +1998,6 @@ serve(async (req) => {
     const shouldCallUnifiedEngine = cardPolicy === "required" && !shouldAskClarifyingQuestion;
     const behavioralPreferredGarmentIds = behaviorProfile.preferredGarmentIds
       .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
-    const formulaPreferredGarmentIds = outfitMemory.preferredGarmentIds
-      .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
     const behavioralAvoidedGarmentIds = behaviorProfile.avoidedGarmentIds
       .filter((garmentId) =>
         !activeLook.garmentIds.includes(garmentId)
@@ -2028,7 +2016,6 @@ serve(async (req) => {
         wardrobeCtx.anchor,
         behaviorProfile,
         recentOutfitsCtx.recentGarmentSets,
-        outfitMemory.successfulGarmentSets,
       )
       : "";
 
@@ -2049,7 +2036,6 @@ serve(async (req) => {
             weather: refinementPlan.weather,
             locale,
             prefer_garment_ids: Array.from(new Set([
-              ...formulaPreferredGarmentIds,
               ...behavioralPreferredGarmentIds,
               ...refinementPlan.preferGarmentIds,
             ])),

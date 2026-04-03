@@ -208,7 +208,6 @@ export function scoreBehavioralCandidate(params: {
   garments: StylistBehaviorGarment[];
   profile: StylistBehaviorProfile;
   recentGarmentSets: string[][];
-  successfulGarmentSets?: string[][];
 }): RankedBehaviorCandidate {
   const garmentIds = Array.from(new Set(params.garmentIds));
   const garmentsById = new Map(params.garments.map((garment) => [garment.id, garment]));
@@ -274,31 +273,6 @@ export function scoreBehavioralCandidate(params: {
   if (!exactRecentMatch && heavyRecentOverlap) {
     score -= 2;
     reasons.push('high-overlap');
-  }
-
-  const successfulGarmentSets = params.successfulGarmentSets || [];
-  let bestSuccessfulOverlap = 0;
-  let exactSuccessfulMatch = false;
-  for (const set of successfulGarmentSets) {
-    const overlap = set.filter((garmentId) => garmentIds.includes(garmentId)).length;
-    if (overlap > bestSuccessfulOverlap) bestSuccessfulOverlap = overlap;
-    const normalized = Array.from(new Set(set)).sort();
-    if (
-      normalized.length === garmentIds.length &&
-      normalized.every((garmentId, index) => garmentId === [...garmentIds].sort()[index])
-    ) {
-      exactSuccessfulMatch = true;
-    }
-  }
-
-  if (bestSuccessfulOverlap >= 2) {
-    score += bestSuccessfulOverlap * 2;
-    reasons.push(`successful-formula:${bestSuccessfulOverlap}`);
-  }
-
-  if (exactSuccessfulMatch && !exactRecentMatch) {
-    score += 3;
-    reasons.push('archived-win');
   }
 
   return { score, reasons };
