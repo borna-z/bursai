@@ -4,8 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 
-const useViewportShellMock = vi.fn();
-
 vi.mock('@/components/layout/BottomNav', () => ({
   BottomNav: () => <nav aria-label="Main navigation">nav</nav>,
 }));
@@ -34,10 +32,6 @@ vi.mock('@/hooks/useKeyboardAdjust', () => ({
   useKeyboardAdjust: vi.fn(),
 }));
 
-vi.mock('@/hooks/useViewportShell', () => ({
-  useViewportShell: () => useViewportShellMock(),
-}));
-
 vi.mock('@/hooks/useMedianStatusBar', () => ({
   useMedianStatusBar: vi.fn(),
 }));
@@ -47,19 +41,20 @@ vi.mock('@/hooks/useWardrobeUnlocks', () => ({
 }));
 
 describe('AppLayout', () => {
-  it('uses the measured viewport shell and layout-owned safe-area padding', () => {
+  it('uses the safe-area-adjusted viewport height without extra main padding', () => {
     const { container } = render(
       <AppLayout>
         <div>content</div>
       </AppLayout>,
     );
 
-    const shell = container.querySelector('div[style*="app-viewport-height"]') as HTMLElement | null;
+    const main = container.querySelector('main');
+    const shell = container.querySelector('div[style*="100dvh"]') as HTMLElement | null;
     const shellStyle = shell?.getAttribute('style') ?? '';
 
-    expect(shellStyle).toContain('height: var(--app-viewport-height, 100svh)');
-    expect(shellStyle).toContain('min-height: var(--app-viewport-height, 100svh)');
-    expect(useViewportShellMock).toHaveBeenCalledTimes(1);
+    expect(shellStyle).toContain('height: calc(100dvh - env(safe-area-inset-top, 0px))');
+    expect(shellStyle).toContain('min-height: calc(100dvh - env(safe-area-inset-top, 0px))');
+    expect(main?.style.paddingBottom).toBe('');
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
   });
 
