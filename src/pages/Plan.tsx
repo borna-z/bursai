@@ -428,7 +428,7 @@ export default function PlanPage() {
 
   return (
     <AppLayout>
-      <header className="topbar-frost sticky top-0 z-20 -mx-4 px-4 pb-2.5 pt-2.5 sm:-mx-5 sm:px-5 sm:pb-3 sm:pt-3">
+      <header className="-mx-4 px-4 pb-1.5 pt-2 sm:-mx-5 sm:px-5 sm:pb-2 sm:pt-2.5">
         <div className="mx-auto flex max-w-lg items-start justify-between gap-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
