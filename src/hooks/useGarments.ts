@@ -126,7 +126,7 @@ export function useFlatGarments(filters?: GarmentFilters) {
   return { ...query, data: garments };
 }
 
-/** Server-side search across all garments (no pagination). */
+/** Server-side search across all garments (no pagination). Uses FTS with ilike fallback. */
 export function useGarmentSearch(searchTerm: string) {
   const { user } = useAuth();
 
@@ -134,6 +134,34 @@ export function useGarmentSearch(searchTerm: string) {
     queryKey: ['garments-search', user?.id, searchTerm],
     queryFn: async () => {
       if (!user || !searchTerm.trim()) return [] as Garment[];
+
+      // Build a tsquery from the search term
+      // Multi-word: "blue jeans" → "blue:* & jeans:*"
+      // Single word: "jeans" → "jeans:*"
+      const sanitized = searchTerm.trim().replace(/[^\w\s\-åäöæøüéèçß]/gi, '').trim();
+      const tsQuery = sanitized
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(word => word + ':*')
+        .join(' & ');
+
+      if (tsQuery) {
+        try {
+          const { data, error } = await supabase
+            .from('garments')
+            .select('*')
+            .eq('user_id', user.id)
+            .textSearch('fts', tsQuery, { config: 'simple' })
+            .order('created_at', { ascending: false })
+            .limit(200);
+
+          if (!error && data) return data as Garment[];
+        } catch {
+          // Fall through to ilike fallback
+        }
+      }
+
+      // ilike fallback for short/special queries
       const term = `%${sanitizeIlikeSearchTerm(searchTerm)}%`;
       const { data, error } = await supabase
         .from('garments')
@@ -142,6 +170,7 @@ export function useGarmentSearch(searchTerm: string) {
         .or(`title.ilike.${term},category.ilike.${term},color_primary.ilike.${term}`)
         .order('created_at', { ascending: false })
         .limit(200);
+
       if (error) throw error;
       return data as Garment[];
     },

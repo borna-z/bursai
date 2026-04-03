@@ -83,7 +83,12 @@ describe('saveGarmentInBackground', () => {
       error: null,
     });
 
-    await saveGarmentInBackground(makeResult(), 'user-1');
+    const saved = await saveGarmentInBackground(makeResult(), 'user-1');
+
+    expect(saved).toEqual({
+      garmentId: 'test-uuid',
+      storagePath: 'user-1/test-uuid.jpg',
+    });
 
     expect(supabase.storage.from).toHaveBeenCalledWith('garments');
     expect(uploadMock).toHaveBeenCalledWith(
@@ -106,6 +111,7 @@ describe('saveGarmentInBackground', () => {
             source: 'live_scan',
           }),
         }),
+        render_status: 'pending',
       }),
     );
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
@@ -116,6 +122,9 @@ describe('saveGarmentInBackground', () => {
       expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
         body: { storagePath: 'user-1/test-uuid.jpg', mode: 'enrich' },
       });
+      expect(invokeEdgeFunction).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'test-uuid', source: 'live_scan' },
+      }));
     });
   });
 
@@ -124,8 +133,9 @@ describe('saveGarmentInBackground', () => {
     vi.mocked(supabase.storage.from).mockReturnValue({ upload: uploadMock } as any);
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await saveGarmentInBackground(makeResult(), 'user-1');
+    const saved = await saveGarmentInBackground(makeResult(), 'user-1');
 
+    expect(saved).toBeNull();
     expect(supabase.from).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith('Upload error:', expect.objectContaining({ message: 'Storage full' }));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
@@ -138,8 +148,9 @@ describe('saveGarmentInBackground', () => {
     vi.mocked(supabase.from).mockReturnValue({ insert: insertMock } as any);
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await saveGarmentInBackground(makeResult(), 'user-1');
+    const saved = await saveGarmentInBackground(makeResult(), 'user-1');
 
+    expect(saved).toBeNull();
     expect(consoleSpy).toHaveBeenCalledWith('Insert error:', expect.objectContaining({ message: 'RLS violation' }));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-thumb');
   });

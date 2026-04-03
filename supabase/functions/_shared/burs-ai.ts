@@ -407,7 +407,19 @@ export async function callBursAI(
       try { result = JSON.parse(toolCall.function.arguments); }
       catch { return { __parseError: true }; }
     } else if (aiData.choices?.[0]?.message?.content !== undefined) {
-      result = aiData.choices[0].message.content;
+      const rawContent = typeof aiData.choices[0].message.content === "string"
+        ? aiData.choices[0].message.content.trim()
+        : "";
+      if (rawContent.startsWith("{") || rawContent.startsWith("[")) {
+        try {
+          result = JSON.parse(rawContent);
+          console.warn("burs-ai: tool_call returned as content, parsed as JSON fallback");
+        } catch {
+          result = aiData.choices[0].message.content;
+        }
+      } else {
+        result = aiData.choices[0].message.content;
+      }
     } else {
       result = aiData;
     }
@@ -446,10 +458,29 @@ export async function callBursAI(
         if (stream) return { data: resp, model_used: model, from_cache: false };
 
         const aiData = await resp.json();
-        const result = parseResult(aiData);
+        let result = parseResult(aiData);
         if (result?.__parseError) { lastError = new Error("Failed to parse AI tool call response"); break; }
 
-        const finishReason = aiData.choices?.[0]?.finish_reason as string | undefined;
+        let finishReason = aiData.choices?.[0]?.finish_reason as string | undefined;
+
+        // If response was truncated by token limit, retry once with more tokens
+        if (finishReason === "length" && attempt === 0 && !stream) {
+          console.warn(`burs-ai: response truncated (finish_reason=length), retrying with more tokens [${options.functionName}]`);
+          const retryBody = { ...body, max_tokens: Math.min(Math.round((maxTokens || 600) * 1.5), 2000) };
+          const retryOutcome = await tryModel(
+            GEMINI_URL,
+            { Authorization: `Bearer ${apiKey}` },
+            model, retryBody, timeout,
+          );
+          if (!("error" in retryOutcome) && !("retry" in retryOutcome)) {
+            const retryData = await retryOutcome.resp.json();
+            const retryResult = parseResult(retryData);
+            if (!retryResult?.__parseError) {
+              result = retryResult;
+              finishReason = retryData.choices?.[0]?.finish_reason as string | undefined;
+            }
+          }
+        }
 
         if (cacheTtlSeconds > 0 && cacheKey) {
           if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, result, model, cacheTtlSeconds);

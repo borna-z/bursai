@@ -68,14 +68,14 @@ describe('garmentImage', () => {
 
   it('shows render message when render is pending', () => {
     expect(getGarmentProcessingMessage('ready', 'pending')).toEqual({
-      label: 'Rendering mannequin image in background',
+      label: 'Studio-quality image is processing in the background',
       tone: 'muted',
     });
   });
 
   it('shows render message when rendering', () => {
     expect(getGarmentProcessingMessage('ready', 'rendering')).toEqual({
-      label: 'Rendering mannequin image in background',
+      label: 'Studio-quality image is processing in the background',
       tone: 'muted',
     });
   });

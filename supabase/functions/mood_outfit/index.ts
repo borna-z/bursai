@@ -167,90 +167,6 @@ async function responseToPayload(response: Response): Promise<Record<string, unk
   }
 }
 
-async function readMoodOutfitToolResult(response: Response, signal: AbortSignal): Promise<any> {
-  if (!response.body) throw new Error("AI stream did not include a response body");
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let sawDone = false;
-  const toolCalls = new Map<number, { id?: string; name?: string; arguments: string }>();
-  let messageContent = "";
-
-  try {
-    let streamClosed = false;
-    while (!streamClosed) {
-      throwIfAborted(signal);
-
-      const { done, value } = await reader.read();
-      if (done) {
-        buffer += decoder.decode();
-        streamClosed = true;
-      } else {
-        buffer += decoder.decode(value, { stream: true });
-      }
-
-      let newlineIndex: number;
-      while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-        let line = buffer.slice(0, newlineIndex);
-        buffer = buffer.slice(newlineIndex + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (line.startsWith(":") || line.trim() === "") continue;
-        if (!line.startsWith("data:")) continue;
-
-        const data = line.slice(5).trim();
-        if (!data) continue;
-        if (data === "[DONE]") {
-          sawDone = true;
-          continue;
-        }
-
-        const parsed = JSON.parse(data);
-        const choice = parsed.choices?.[0];
-        const message = choice?.delta ?? choice?.message ?? {};
-        const toolCallChunks = Array.isArray(message.tool_calls) ? message.tool_calls : [];
-
-        toolCallChunks.forEach((chunk: any, index: number) => {
-          const key = typeof chunk?.index === "number" ? chunk.index : index;
-          const existing = toolCalls.get(key) ?? { arguments: "" };
-          if (chunk?.id) existing.id = chunk.id;
-          if (chunk?.function?.name) existing.name = chunk.function.name;
-          if (typeof chunk?.function?.arguments === "string") {
-            existing.arguments += chunk.function.arguments;
-          }
-          toolCalls.set(key, existing);
-        });
-
-        if (typeof message.content === "string") {
-          messageContent += message.content;
-        }
-      }
-    }
-  } finally {
-    try {
-      await reader.cancel();
-    } catch {
-      // Ignore shutdown errors.
-    }
-  }
-
-  const primaryToolCall = [...toolCalls.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([, toolCall]) => toolCall)
-    .find((toolCall) => toolCall.arguments.trim().length > 0);
-
-  if (primaryToolCall) {
-    return JSON.parse(primaryToolCall.arguments);
-  }
-
-  if (messageContent.trim().length > 0) {
-    return JSON.parse(messageContent);
-  }
-
-  if (!sawDone) throw new Error("AI stream closed before completion");
-  throw new Error("AI did not return structured result");
-}
-
 async function generateMoodOutfitPayload(req: Request, signal: AbortSignal): Promise<Record<string, unknown>> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -302,13 +218,11 @@ async function generateMoodOutfitPayload(req: Request, signal: AbortSignal): Pro
   const langName = locale === "sv" ? "svenska" : "English";
 
   const aiResponse = await callBursAI({
-    stream: true,
+    stream: false,
     complexity: "complex",
     timeout: AI_TIMEOUT_MS,
     max_tokens: estimateMaxTokens({ outputItems: 5, perItemTokens: 40, baseTokens: 120 }),
     functionName: "mood_outfit",
-    cacheTtlSeconds: 900,
-    cacheNamespace: `mood_${mood}_${userId?.slice(0, 8)}`,
     messages: [
       { role: "system", content: `${VOICE_MOOD_OUTFIT}
 
@@ -350,9 +264,8 @@ WARDROBE:\n${garmentList}` },
     tool_choice: { type: "function", function: { name: "select_mood_outfit" } },
   }, serviceClient);
 
-  throwIfAborted(signal);
-  const result = await readMoodOutfitToolResult(aiResponse.data as Response, signal);
-  if (!result) throw new Error("AI did not return structured result");
+  const result = aiResponse.data as { items?: any[]; explanation?: string; mood_match_score?: number; limitation_note?: string | null };
+  if (!result || !result.items) throw new Error("AI did not return structured result");
 
   const garmentsById = new Map(garments.map((g) => [g.id, g]));
   const normalizedItems = enrichMoodOutfitItems(

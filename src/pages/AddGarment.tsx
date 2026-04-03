@@ -8,7 +8,6 @@ import { getGarmentProcessingMessage } from '@/lib/garmentImage';
 import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
 import { DuplicateWarningSheet } from '@/components/wardrobe/DuplicateWarningSheet';
 import { PaywallModal } from '@/components/PaywallModal';
-import { GarmentConfirmSheet } from '@/components/garment/GarmentConfirmSheet';
 import { UploadStep } from '@/components/add-garment/UploadStep';
 import { AnalyzingStep } from '@/components/add-garment/AnalyzingStep';
 import { FormStep } from '@/components/add-garment/FormStep';
@@ -142,23 +141,6 @@ export default function AddGarmentPage() {
           garment.resetForm();
         }}
       />
-
-      {garment.garmentId && garment.storagePath && (
-        <GarmentConfirmSheet
-          open={garment.showConfirmSheet}
-          garmentId={garment.garmentId}
-          garmentImagePath={garment.storagePath}
-          detectedTitle={garment.title}
-          detectedCategory={garment.category}
-          detectedColor={garment.colorPrimary}
-          detectedMaterial={garment.material || null}
-          detectedFit={garment.fit || null}
-          formalityScore={garment.formality[0] ?? null}
-          onClose={() => {
-            garment.setShowConfirmSheet(false);
-          }}
-        />
-      )}
     </>
   );
 }

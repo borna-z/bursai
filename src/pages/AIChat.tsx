@@ -6,7 +6,7 @@ import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { createSupabaseRestHeaders, getSupabaseFunctionUrl, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -45,34 +45,105 @@ interface PlanActionPayload {
 
 const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 
-async function loadMessages(userId: string): Promise<Message[]> {
-  const res = await fetch(
-    `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
-    { headers: await createSupabaseRestHeaders() }
-  );
-  if (!res.ok) return [];
-  const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
-  return rows.map(r => {
-    if (r.content.startsWith('[')) {
-      try { const parsed = JSON.parse(r.content); if (Array.isArray(parsed)) return { role: r.role, content: parsed }; } catch { /* fallback */ }
+function parseStoredMessageContent(content: string): MessageContent {
+  if (content.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) return parsed as MessageContent;
+    } catch {
+      // Fall through to plain string content.
     }
-    return { role: r.role, content: r.content };
-  });
+  }
+
+  return content;
 }
 
-async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
-  await fetch(getSupabaseRestUrl('chat_messages'), {
-    method: 'POST',
-    headers: { ...(await createSupabaseRestHeaders(accessToken)), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(msgs.map(m => ({ user_id: userId, role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content), mode: 'stylist' }))),
-  });
+function readSessionMessages(defaultMessages: Message[]): Message[] {
+  try {
+    const saved = sessionStorage.getItem('burs_chat_history');
+    return saved ? JSON.parse(saved) as Message[] : defaultMessages;
+  } catch {
+    return defaultMessages;
+  }
 }
 
-async function deleteHistory(userId: string, accessToken: string) {
-  await fetch(`${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist`, {
-    method: 'DELETE',
-    headers: await createSupabaseRestHeaders(accessToken),
-  });
+function inferStoragePathFromSignedUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const marker = '/storage/v1/object/sign/garments/';
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex === -1) return null;
+
+    return decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+async function refreshImageParts(content: MessageContent): Promise<MessageContent> {
+  if (typeof content === 'string') return content;
+
+  const refreshedParts = await Promise.all(content.map(async (part) => {
+    if (part.type !== 'image_url') return part;
+
+    const storagePath = part.storage_path ?? inferStoragePathFromSignedUrl(part.image_url.url);
+    if (!storagePath) return part;
+
+    const { data, error } = await supabase.storage
+      .from('garments')
+      .createSignedUrl(storagePath, 3600);
+
+    if (error || !data?.signedUrl) return { ...part, storage_path: storagePath };
+
+    return {
+      ...part,
+      storage_path: storagePath,
+      image_url: { url: data.signedUrl },
+    };
+  }));
+
+  return refreshedParts;
+}
+
+async function hydrateMessages(messages: Message[]): Promise<Message[]> {
+  return Promise.all(messages.map(async (message) => ({
+    ...message,
+    content: await refreshImageParts(message.content),
+  })));
+}
+
+async function loadMessages(userId: string): Promise<Message[]> {
+  const { data } = await supabase
+    .from('chat_messages')
+    .select('role, content')
+    .eq('user_id', userId)
+    .eq('mode', 'stylist')
+    .order('created_at', { ascending: true })
+    .limit(100);
+  if (!data) return [];
+  return (data as { role: 'user' | 'assistant'; content: string }[]).map((row) => ({
+    role: row.role,
+    content: parseStoredMessageContent(row.content),
+  }));
+}
+
+async function persistMessages(userId: string, msgs: Message[]) {
+  await supabase
+    .from('chat_messages')
+    .insert(msgs.map(m => ({
+      user_id: userId,
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      mode: 'stylist' as const,
+    })));
+}
+
+async function deleteHistory(userId: string) {
+  await supabase
+    .from('chat_messages')
+    .delete()
+    .eq('user_id', userId)
+    .eq('mode', 'stylist');
 }
 
 function extractGarmentIds(messages: Message[]): string[] {
@@ -130,16 +201,9 @@ export default function AIChat() {
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
 
-  const welcomeMessage: Message = { role: 'assistant', content: t('chat.welcome') };
+  const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: t('chat.welcome') }), [t]);
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const saved = sessionStorage.getItem('burs_chat_history');
-      return saved ? JSON.parse(saved) : [welcomeMessage];
-    } catch {
-      return [welcomeMessage];
-    }
-  });
+  const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage]));
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,11 +236,27 @@ export default function AIChat() {
 
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
-    loadMessages(user.id).then(msgs => {
-      if (msgs.length > 0) setMessages(msgs);
+    let cancelled = false;
+
+    const restoreMessages = async () => {
+      const persistedMessages = await loadMessages(user.id);
+      const fallbackMessages = readSessionMessages([welcomeMessage]);
+      const baseMessages = persistedMessages.length > 0 ? persistedMessages : fallbackMessages;
+      const hydratedMessages = await hydrateMessages(baseMessages);
+
+      if (cancelled) return;
+      setMessages(hydratedMessages.length > 0 ? hydratedMessages : [welcomeMessage]);
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
-  }, [user]);
+    };
+
+    restoreMessages().catch(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, welcomeMessage]);
 
   const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
@@ -235,7 +315,7 @@ export default function AIChat() {
 
     let userContent: string | MultimodalPart[];
     if (pendingImage) {
-      const parts: MultimodalPart[] = [{ type: 'image_url', image_url: { url: pendingImage.url } }];
+      const parts: MultimodalPart[] = [{ type: 'image_url', image_url: { url: pendingImage.url }, storage_path: pendingImage.path }];
       if (trimmed) parts.push({ type: 'text', text: trimmed });
       else parts.push({ type: 'text', text: t('chat.image_default') });
       userContent = parts;
@@ -350,7 +430,7 @@ export default function AIChat() {
 
       const assistantMsg: Message = { role: 'assistant', content: assistantContent };
       if (user && session && getTextContent(assistantMsg.content).trim()) {
-        await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+        await persistMessages(user.id, [userMsg, assistantMsg]);
       }
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
@@ -391,7 +471,7 @@ export default function AIChat() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
-      await deleteHistory(user.id, session.access_token);
+      await deleteHistory(user.id);
       sessionStorage.removeItem('burs_chat_history');
       setMessages([welcomeMessage]);
       toast.success(t('chat.history_cleared'));

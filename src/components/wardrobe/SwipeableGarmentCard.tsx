@@ -78,8 +78,9 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     setTimeout(action, 150);
   };
 
-  const showEnhanceAction = !garment.rendered_image_path && garment.render_status !== 'processing' && !enhanceTriggered;
-  const showEnhancingAction = garment.render_status === 'processing' || enhanceTriggered;
+  const isRenderActive = garment.render_status === 'pending' || garment.render_status === 'rendering';
+  const showEnhanceAction = !garment.rendered_image_path && !isRenderActive && !enhanceTriggered;
+  const showEnhancingAction = isRenderActive || enhanceTriggered;
 
   const handleEnhance = (event: MouseEvent | TouchEvent) => {
     event.stopPropagation();

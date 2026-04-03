@@ -52,7 +52,7 @@ export function getGarmentProcessingMessage(
 ): { label: string; tone: 'muted' | 'success' } | null {
   // Render status takes precedence when active
   if (renderStatus === 'pending' || renderStatus === 'rendering') {
-    return { label: 'Rendering mannequin image in background', tone: 'muted' };
+    return { label: 'Studio-quality image is processing in the background', tone: 'muted' };
   }
 
   if (renderStatus === 'failed') {

@@ -117,6 +117,7 @@ export async function invokeUnifiedStylistEngine(params: {
       apikey: serviceRoleKey,
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(20000),
   });
 
   const data = await response.json();

@@ -33,12 +33,11 @@ export function RenderPendingOverlay({
         )}
       >
         <Sparkles className="w-2.5 h-2.5 animate-pulse" />
-        Rendering…
+        Studio...
       </span>
     );
   }
 
-  // overlay variant
   return (
     <div
       className={cn(
@@ -46,13 +45,11 @@ export function RenderPendingOverlay({
         className,
       )}
     >
-      {/* Subtle shimmer sweep */}
       <div className="absolute inset-0 skeleton-shimmer opacity-40" />
 
-      {/* Small badge in bottom-left */}
       <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/70 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/20">
         <Sparkles className="w-2.5 h-2.5 animate-pulse" />
-        Rendering…
+        Studio...
       </span>
     </div>
   );
