@@ -448,7 +448,7 @@
   }
 
   .topbar-frost {
-    @apply sticky top-0 z-20 border-b backdrop-blur-xl;
+    @apply border-b backdrop-blur-xl;
     border-color: hsl(var(--border) / 0.75);
     background:
       linear-gradient(180deg, hsl(var(--background) / 0.92), hsl(var(--background) / 0.82));
