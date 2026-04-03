@@ -8,6 +8,7 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
   },
+  useReducedMotion: () => false,
 }));
 
 vi.mock('@/components/auth/ProtectedRoute', () => ({
