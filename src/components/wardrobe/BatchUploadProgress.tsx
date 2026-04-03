@@ -80,7 +80,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     }
 
     return null;
-  }, [items.length, processingComplete, readyToContinue, reviewCount]);
+  }, [items.length, processingComplete, readyToContinue, reviewCount, t]);
 
   const saveApprovedItem = useCallback(async (item: BatchItem) => {
     if (!item.analysis || !item.storagePath || !item.garmentId) {
@@ -198,7 +198,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
       next.splice(index + 1, 0, ...reviewChildren);
       return next;
     });
-  }, [updateItem]);
+  }, [t, updateItem]);
 
   // Process queue
   useEffect(() => {

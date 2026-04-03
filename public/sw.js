@@ -1,6 +1,6 @@
 // BURS Service Worker — Push Notifications + Caching
 
-const CACHE_NAME = 'burs-v1';
+const CACHE_NAME = 'burs-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -36,6 +36,24 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (url.hostname.includes('supabase')) return;
 
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return cached || caches.match('/index.html');
+        })
+    );
+    return;
+  }
+
   // Font files — cache-first (long-lived)
   if (url.hostname === 'fonts.gstatic.com' || url.hostname === 'fonts.googleapis.com') {
     event.respondWith(
@@ -49,7 +67,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Static assets (JS, CSS, images) — stale-while-revalidate
-  if (url.origin === self.location.origin) {
+  const isStaticAsset = url.origin === self.location.origin
+    && ['script', 'style', 'image', 'font'].includes(request.destination);
+
+  if (isStaticAsset) {
     event.respondWith(
       caches.match(request).then((cached) => {
         const fetchPromise = fetch(request).then((response) => {
