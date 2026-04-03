@@ -18,8 +18,6 @@ import { useWeather } from '@/hooks/useWeather';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
-import { repairIncompleteOutfitItems, type RecoverableGarment } from '@/lib/outfitRecovery';
-import { validateCompleteOutfit } from '@/lib/outfitValidation';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
@@ -89,39 +87,6 @@ export default function MoodOutfitPage() {
       if (data?.error) throw new Error(data.error);
       if (!data?.items?.length) throw new Error(t('generate.error_desc'));
 
-      const normalizedWeather = weather
-        ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
-        : undefined;
-      let repairedItems = data.items;
-      const currentValidation = validateCompleteOutfit(data.items.map((item) => ({ slot: item.slot })));
-
-      if (!currentValidation.isValid) {
-        const { data: wardrobe, error: wardrobeError } = await supabase
-          .from('garments')
-          .select('id, category, subcategory, wear_count, layering_role, in_laundry')
-          .eq('user_id', user.id);
-
-        if (wardrobeError) throw wardrobeError;
-
-        const garmentsById = new Map(((wardrobe ?? []) as RecoverableGarment[]).map((garment) => [garment.id, garment]));
-        repairedItems = repairIncompleteOutfitItems(
-          data.items
-            .map((item) => {
-              const garment = garmentsById.get(item.garment_id);
-              if (!garment) return null;
-              return { slot: item.slot, garment };
-            })
-            .filter((item): item is { slot: string; garment: RecoverableGarment } => Boolean(item)),
-          (wardrobe ?? []) as RecoverableGarment[],
-          normalizedWeather,
-        ).map((item) => ({ slot: item.slot, garment_id: item.garment.id }));
-      }
-
-      const repairedValidation = validateCompleteOutfit(repairedItems.map((item) => ({ slot: item.slot })));
-      if (!repairedValidation.isValid) {
-        throw new Error(t('generate.error_desc'));
-      }
-
       const { data: outfit, error: outfitErr } = await supabase
         .from('outfits')
         .insert([{
@@ -137,7 +102,7 @@ export default function MoodOutfitPage() {
 
       if (outfitErr) throw outfitErr;
 
-      const items = repairedItems.map((item: { garment_id: string; slot: string }) => ({
+      const items = data.items.map((item: { garment_id: string; slot: string }) => ({
         outfit_id: outfit.id,
         garment_id: item.garment_id,
         slot: item.slot,
@@ -150,7 +115,7 @@ export default function MoodOutfitPage() {
         id: outfit.id,
         explanation: data.explanation || null,
         mood,
-        garmentIds: repairedItems.map((item) => item.garment_id),
+        garmentIds: data.items.map((item) => item.garment_id),
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
