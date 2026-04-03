@@ -72,7 +72,7 @@ export function ProfileCard() {
   };
 
   return (
-    <div className="flex items-center gap-4 py-2">
+    <div className="flex items-center gap-4 rounded-[1.35rem] border border-border/25 bg-background/20 px-1 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
       {/* Avatar with upload overlay */}
       <button
         onClick={() => fileInputRef.current?.click()}
@@ -80,7 +80,7 @@ export function ProfileCard() {
         className="relative group"
         aria-label={t('settings.change_photo') || 'Change photo'}
       >
-        <Avatar className="h-14 w-14">
+        <Avatar className="h-14 w-14 ring-1 ring-border/25">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
           <AvatarFallback className="bg-primary/8 text-primary font-semibold text-lg">
             {initials}
@@ -104,14 +104,14 @@ export function ProfileCard() {
       </button>
 
       <div className="flex-1 min-w-0">
-        <p className="text-[17px] font-medium truncate">{displayName}</p>
+        <p className="truncate text-[16px] font-medium text-foreground">{displayName}</p>
         {/* Plan tier badge */}
-        <div className={`mt-1 mb-0.5 inline-flex items-center px-2 py-0.5 ${isPremium ? 'bg-foreground' : 'bg-secondary'}`}>
-          <span className={`font-body text-[11px] ${isPremium ? 'text-background' : 'text-foreground/50'}`}>
+        <div className={`mb-0.5 mt-1 inline-flex items-center rounded-full px-2.5 py-1 ${isPremium ? 'bg-foreground text-background' : 'bg-secondary/70 text-foreground/55'}`}>
+          <span className="font-body text-[10px] uppercase tracking-[0.16em]">
             {plan === 'premium' ? 'Plus' : 'Free plan'}
           </span>
         </div>
-        <p className="text-[13px] text-muted-foreground/60 truncate">{email}</p>
+        <p className="truncate text-[12px] text-muted-foreground/58">{email}</p>
       </div>
     </div>
   );
