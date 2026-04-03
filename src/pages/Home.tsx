@@ -118,7 +118,7 @@ export default function HomePage() {
       label: t('home.action_style_outfit'),
       onClick: () => navigate('/ai/generate'),
     };
-  }, [homeState, navigate, t, todayOutfit?.id]);
+  }, [homeState, navigate, t, todayOutfit]);
 
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {

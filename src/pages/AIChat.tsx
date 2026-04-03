@@ -48,6 +48,95 @@ interface PlanActionPayload {
 
 const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 
+function parseStoredMessageContent(content: string): MessageContent {
+  if (content.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) return parsed as MessageContent;
+    } catch {
+      // Fall through to plain string content.
+    }
+  }
+
+  return content;
+}
+
+function parseStoredMessage(row: { role: 'user' | 'assistant'; content: string }): Message {
+  if (row.content.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(row.content) as PersistedStyleChatMessage;
+      if (parsed?.kind === 'stylist_message') {
+        return {
+          role: row.role,
+          content: parsed.content,
+          stylistMeta: isStyleChatResponseEnvelope(parsed.stylistMeta) ? parsed.stylistMeta : null,
+        };
+      }
+    } catch {
+      // Fall through to legacy parsing.
+    }
+  }
+
+  return {
+    role: row.role,
+    content: parseStoredMessageContent(row.content),
+  };
+}
+
+function readSessionMessages(defaultMessages: Message[]): Message[] {
+  try {
+    const saved = sessionStorage.getItem('burs_chat_history');
+    return saved ? JSON.parse(saved) as Message[] : defaultMessages;
+  } catch {
+    return defaultMessages;
+  }
+}
+
+function inferStoragePathFromSignedUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const marker = '/storage/v1/object/sign/garments/';
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex === -1) return null;
+
+    return decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+async function refreshImageParts(content: MessageContent): Promise<MessageContent> {
+  if (typeof content === 'string') return content;
+
+  const refreshedParts = await Promise.all(content.map(async (part) => {
+    if (part.type !== 'image_url') return part;
+
+    const storagePath = part.storage_path ?? inferStoragePathFromSignedUrl(part.image_url.url);
+    if (!storagePath) return part;
+
+    const { data, error } = await supabase.storage
+      .from('garments')
+      .createSignedUrl(storagePath, 3600);
+
+    if (error || !data?.signedUrl) return { ...part, storage_path: storagePath };
+
+    return {
+      ...part,
+      storage_path: storagePath,
+      image_url: { url: data.signedUrl },
+    };
+  }));
+
+  return refreshedParts;
+}
+
+async function hydrateMessages(messages: Message[]): Promise<Message[]> {
+  return Promise.all(messages.map(async (message) => ({
+    ...message,
+    content: await refreshImageParts(message.content),
+  })));
+}
+
 async function loadMessages(userId: string): Promise<Message[]> {
   const res = await fetch(
     `${getSupabaseRestUrl('chat_messages')}?user_id=eq.${userId}&mode=eq.stylist&order=created_at.asc&limit=100`,
@@ -55,26 +144,7 @@ async function loadMessages(userId: string): Promise<Message[]> {
   );
   if (!res.ok) return [];
   const rows = await res.json() as { role: 'user' | 'assistant'; content: string }[];
-  return rows.map(r => {
-    if (r.content.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(r.content) as PersistedStyleChatMessage;
-        if (parsed?.kind === 'stylist_message') {
-          return {
-            role: r.role,
-            content: parsed.content,
-            stylistMeta: isStyleChatResponseEnvelope(parsed.stylistMeta) ? parsed.stylistMeta : null,
-          };
-        }
-      } catch {
-        // fall through to legacy parsing
-      }
-    }
-    if (r.content.startsWith('[')) {
-      try { const parsed = JSON.parse(r.content); if (Array.isArray(parsed)) return { role: r.role, content: parsed }; } catch { /* fallback */ }
-    }
-    return { role: r.role, content: r.content };
-  });
+  return rows.map((row) => parseStoredMessage(row));
 }
 
 async function persistMessages(userId: string, msgs: Message[], accessToken: string) {
@@ -154,16 +224,9 @@ export default function AIChat() {
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
 
-  const welcomeMessage: Message = { role: 'assistant', content: t('chat.welcome') };
+  const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: t('chat.welcome') }), [t]);
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const saved = sessionStorage.getItem('burs_chat_history');
-      return saved ? JSON.parse(saved) : [welcomeMessage];
-    } catch {
-      return [welcomeMessage];
-    }
-  });
+  const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage]));
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,11 +261,27 @@ export default function AIChat() {
 
   useEffect(() => {
     if (!user) { setIsLoading(false); return; }
-    loadMessages(user.id).then(msgs => {
-      if (msgs.length > 0) setMessages(msgs);
+    let cancelled = false;
+
+    const restoreMessages = async () => {
+      const persistedMessages = await loadMessages(user.id);
+      const fallbackMessages = readSessionMessages([welcomeMessage]);
+      const baseMessages = persistedMessages.length > 0 ? persistedMessages : fallbackMessages;
+      const hydratedMessages = await hydrateMessages(baseMessages);
+
+      if (cancelled) return;
+      setMessages(hydratedMessages.length > 0 ? hydratedMessages : [welcomeMessage]);
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
-  }, [user]);
+    };
+
+    restoreMessages().catch(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, welcomeMessage]);
 
   const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
@@ -276,7 +355,7 @@ export default function AIChat() {
 
     let userContent: string | MultimodalPart[];
     if (pendingImage) {
-      const parts: MultimodalPart[] = [{ type: 'image_url', image_url: { url: pendingImage.url } }];
+      const parts: MultimodalPart[] = [{ type: 'image_url', image_url: { url: pendingImage.url }, storage_path: pendingImage.path }];
       if (trimmed) parts.push({ type: 'text', text: trimmed });
       else parts.push({ type: 'text', text: t('chat.image_default') });
       userContent = parts;
