@@ -87,35 +87,14 @@ serve(async (req) => {
         { onConflict: 'id', ignoreDuplicates: true }
       )
       .select('id')
-      .maybeSingle();
+      .single();
 
     // If upsert returned no row, the event already existed — skip processing
-    if (insertError) {
-      throw insertError;
-    }
-
-    if (!inserted) {
-      const { data: existingEvent, error: existingEventError } = await serviceClient
-        .from('stripe_events')
-        .select('processed_ok, error')
-        .eq('id', event.id)
-        .maybeSingle();
-
-      if (existingEventError) {
-        throw existingEventError;
-      }
-
-      if (existingEvent?.processed_ok) {
-        logStep("Event already processed (idempotency)", { eventId: event.id });
-        return new Response(JSON.stringify({ received: true, duplicate: true }), {
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-          status: 200,
-        });
-      }
-
-      logStep("Retrying previously failed event", {
-        eventId: event.id,
-        lastError: existingEvent?.error ?? null,
+    if (insertError || !inserted) {
+      logStep("Event already processed (idempotency)", { eventId: event.id });
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 200,
       });
     }
 
@@ -261,13 +240,6 @@ serve(async (req) => {
         error: processingError,
       })
       .eq('id', event.id);
-
-    if (processingError) {
-      return new Response(JSON.stringify({ received: true, error: processingError }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        status: 500,
-      });
-    }
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },

@@ -60,7 +60,7 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     .from("garments")
     .select("id, title, category, color_primary, color_secondary, formality, season_tags, material, fit, subcategory")
     .eq("user_id", userId)
-    .or("in_laundry.is.null,in_laundry.eq.false")
+    .eq("in_laundry", false)
     .limit(60);
   if (!garments?.length) return { summary: "The user has no garments in their wardrobe yet.", garments: [] };
 

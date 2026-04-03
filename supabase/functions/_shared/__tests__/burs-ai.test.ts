@@ -1,10 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   buildBursAICacheShape,
   createBursAICacheKey,
   parseBursAIProviderResponse,
-  resolveBursAIServiceClient,
   type BursAIOptions,
 } from "../burs-ai.ts";
 
@@ -14,10 +13,6 @@ const baseOptions: BursAIOptions = {
   extraBody: { response_format: { type: "json_object" } },
   functionName: "style_chat",
 };
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe("buildBursAICacheShape", () => {
   it("includes request-shaping inputs beyond messages and tools", () => {
@@ -159,20 +154,5 @@ describe("parseBursAIProviderResponse", () => {
       ok: false,
       error: "Malformed provider response: missing choices[0].message",
     });
-  });
-});
-
-describe("resolveBursAIServiceClient", () => {
-  it("reuses an explicitly provided client", async () => {
-    const provided = { provided: true };
-    await expect(resolveBursAIServiceClient(provided, { cacheTtlSeconds: 300 })).resolves.toBe(provided);
-  });
-
-  it("does not create a client when caching is disabled", async () => {
-    vi.stubGlobal("Deno", {
-      env: { get: vi.fn(() => null) },
-    });
-
-    await expect(resolveBursAIServiceClient(undefined, { cacheTtlSeconds: 0 })).resolves.toBeNull();
   });
 });

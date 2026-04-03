@@ -9,13 +9,13 @@ interface SettingsGroupProps {
 
 export function SettingsGroup({ title, children, className }: SettingsGroupProps) {
   return (
-    <section className={cn('space-y-2', className)}>
+    <section className={cn('space-y-2.5', className)}>
       {title && (
-        <p className="label-editorial px-0.5 text-foreground/58">
+        <p className="label-editorial px-1">
           {title}
         </p>
       )}
-      <div className="overflow-hidden rounded-[1.35rem] border border-border/28 bg-background/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="border border-border/40 overflow-hidden rounded-[1.25rem]">
         {children}
       </div>
     </section>

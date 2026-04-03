@@ -13,14 +13,10 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useOutfit } from '@/hooks/useOutfits';
 import { useWeather } from '@/hooks/useWeather';
-import { supabase } from '@/integrations/supabase/client';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { createSupabaseRestHeaders, getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
-import { repairIncompleteOutfitItems, type RecoverableGarment } from '@/lib/outfitRecovery';
-import { validateCompleteOutfit } from '@/lib/outfitValidation';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
@@ -40,17 +36,104 @@ const MOODS = [
   { key: 'playful',   accent: '#9B59B6', palette: ['#D4537E', '#EF9F27', '#534AB7'], hint: 'Unexpected. Fun.' },
 ] as const;
 
-const MOOD_PERSISTENCE_FAILURE_MESSAGE =
-  'Your mood outfit was generated, but we could not save it. Please try again.';
-const MOOD_PARTIAL_PERSISTENCE_FAILURE_MESSAGE =
-  'Your mood outfit was generated, but saving it did not finish cleanly. Refresh before trying again.';
+type MoodOutfitResponse = {
+  items?: { garment_id: string; slot: string }[];
+  explanation?: string;
+  mood_match_score?: number;
+  limitation_note?: string | null;
+  error?: string;
+};
+
+async function readMoodOutfitSse(
+  mood: string,
+  weather: { temperature?: number; precipitation?: string | null } | undefined,
+  locale: string,
+): Promise<MoodOutfitResponse> {
+  const session = (await supabase.auth.getSession()).data.session;
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    throw new Error('Unauthorized');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(getSupabaseFunctionUrl('mood_outfit'), {
+      method: 'POST',
+      headers: {
+        ...(await createSupabaseRestHeaders(accessToken)),
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({ mood, weather, locale }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Missing streaming response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let sawDone = false;
+    let result: MoodOutfitResponse | null = null;
+    let streamClosed = false;
+
+    while (!streamClosed) {
+      const { done, value } = await reader.read();
+      if (done) {
+        buffer += decoder.decode();
+        streamClosed = true;
+      } else {
+        buffer += decoder.decode(value, { stream: true });
+      }
+
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        let line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.slice(5).trim();
+        if (!data) continue;
+        if (data === '[DONE]') {
+          sawDone = true;
+          continue;
+        }
+
+        result = JSON.parse(data) as MoodOutfitResponse;
+      }
+    }
+
+    if (!sawDone || !result) {
+      throw new Error('Mood outfit generation did not complete');
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Mood outfit request timed out');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 
 export default function MoodOutfitPage() {
   const { t, locale } = useLanguage();
   const { isPremium } = useSubscription();
   const { user } = useAuth();
   const { weather } = useWeather();
-  const { generateOutfit } = useOutfitGenerator();
   const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
 
@@ -62,98 +145,9 @@ export default function MoodOutfitPage() {
     explanation: string | null;
     mood: string;
     garmentIds: string[];
-    moodMatchScore: number | null;
-    limitationNote: string | null;
-    usedFallback: boolean;
   } | null>(null);
 
   const { data: outfitData } = useOutfit(generatedOutfit?.id);
-
-  const persistMoodOutfit = async (
-    mood: string,
-    explanation: string | null | undefined,
-    repairedItems: Array<{ garment_id: string; slot: string }>,
-    moodMatchScore: number | null,
-  ) => {
-    const outfitId = crypto.randomUUID();
-    const { error: outfitErr } = await supabase
-      .from('outfits')
-      .insert([{
-        id: outfitId,
-        user_id: user!.id,
-        occasion: `mood:${mood}`,
-        style_vibe: mood,
-        explanation: explanation || '',
-        saved: true,
-        style_score: { mood_match: moodMatchScore },
-      }]);
-
-    if (outfitErr) {
-      throw new Error(MOOD_PERSISTENCE_FAILURE_MESSAGE);
-    }
-
-    const items = repairedItems.map((item) => ({
-      outfit_id: outfitId,
-      garment_id: item.garment_id,
-      slot: item.slot,
-    }));
-
-    const { error: outfitItemsError } = await supabase.from('outfit_items').insert(items);
-    if (outfitItemsError) {
-      const { error: cleanupError } = await supabase
-        .from('outfits')
-        .delete()
-        .eq('id', outfitId);
-
-      if (cleanupError) {
-        throw new Error(MOOD_PARTIAL_PERSISTENCE_FAILURE_MESSAGE);
-      }
-
-      throw new Error(MOOD_PERSISTENCE_FAILURE_MESSAGE);
-    }
-
-    return outfitId;
-  };
-
-  const syncGeneratedOutfitState = (
-    mood: string,
-    outfit: Pick<GeneratedOutfit, 'id' | 'explanation' | 'items'>,
-  ) => {
-    setGeneratedOutfit({
-      id: outfit.id,
-      explanation: outfit.explanation || null,
-      mood,
-      garmentIds: outfit.items.map((item) => item.garment.id),
-      moodMatchScore: null,
-      limitationNote: null,
-      usedFallback: true,
-    });
-  };
-
-  const formatMoodFailure = (payload: { error?: string; limitation_note?: string | null; missing_slots?: string[] } | null | undefined) => {
-    if (!payload?.error) return t('generate.error_desc');
-    const includesMissingSummary = payload.error.toLowerCase().includes('missing:');
-    const details = [
-      payload.limitation_note,
-      payload.missing_slots?.length && !includesMissingSummary ? `Missing: ${payload.missing_slots.join(', ')}` : null,
-    ].filter(Boolean);
-    return details.length ? `${payload.error} ${details.join(' ')}` : payload.error;
-  };
-
-  const fallbackToGeneralGenerator = async (mood: string) => {
-    const fallbackOutfit = await generateOutfit({
-      occasion: `mood:${mood}`,
-      style: mood,
-      locale,
-      weather: {
-        temperature: weather?.temperature,
-        precipitation: weather?.precipitation ?? 'none',
-        wind: weather?.wind ?? 'low',
-      },
-    });
-
-    syncGeneratedOutfitState(mood, fallbackOutfit);
-  };
 
   const generate = async (mood: string) => {
     if (!isPremium) {
@@ -166,83 +160,42 @@ export default function MoodOutfitPage() {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await invokeEdgeFunction<{
-        items?: { garment_id: string; slot: string }[];
-        explanation?: string;
-        mood_match_score?: number;
-        limitation_note?: string | null;
-        missing_slots?: string[];
-        error?: string;
-      }>('mood_outfit', {
-        timeout: 45000,
-        body: {
-          mood,
-          weather: weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
-          locale,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) {
-        throw new Error(formatMoodFailure(data));
-      }
+      const data = await readMoodOutfitSse(
+        mood,
+        weather ? { temperature: weather.temperature, precipitation: weather.precipitation } : undefined,
+        locale,
+      );
+      if (data?.error) throw new Error(data.error);
       if (!data?.items?.length) throw new Error(t('generate.error_desc'));
 
-      const normalizedWeather = weather
-        ? { temperature: weather.temperature, precipitation: weather.precipitation, wind: weather.wind }
-        : undefined;
-      let repairedItems = data.items;
-      const currentValidation = validateCompleteOutfit(data.items.map((item) => ({ slot: item.slot })));
+      const { data: outfit, error: outfitErr } = await supabase
+        .from('outfits')
+        .insert([{
+          user_id: user.id,
+          occasion: `mood:${mood}`,
+          style_vibe: mood,
+          explanation: data.explanation,
+          saved: true,
+          style_score: { mood_match: data.mood_match_score },
+        }])
+        .select()
+        .single();
 
-      if (!currentValidation.isValid) {
-        const { data: wardrobe, error: wardrobeError } = await supabase
-          .from('garments')
-          .select('id, category, subcategory, wear_count, layering_role, in_laundry')
-          .eq('user_id', user.id);
+      if (outfitErr) throw outfitErr;
 
-        if (wardrobeError) throw wardrobeError;
+      const items = data.items.map((item: { garment_id: string; slot: string }) => ({
+        outfit_id: outfit.id,
+        garment_id: item.garment_id,
+        slot: item.slot,
+      }));
 
-        const garmentsById = new Map(((wardrobe ?? []) as RecoverableGarment[]).map((garment) => [garment.id, garment]));
-        repairedItems = repairIncompleteOutfitItems(
-          data.items
-            .map((item) => {
-              const garment = garmentsById.get(item.garment_id);
-              if (!garment) return null;
-              return { slot: item.slot, garment };
-            })
-            .filter((item): item is { slot: string; garment: RecoverableGarment } => Boolean(item)),
-          (wardrobe ?? []) as RecoverableGarment[],
-          normalizedWeather,
-        ).map((item) => ({ slot: item.slot, garment_id: item.garment.id }));
-      }
-
-      const repairedValidation = validateCompleteOutfit(repairedItems.map((item) => ({ slot: item.slot })));
-      if (!repairedValidation.isValid) {
-        console.warn('[MoodOutfit] Mood contract returned structured but incomplete outfit, falling back to general generator.', {
-          mood,
-          originalItems: data.items,
-          repairedItems,
-          limitationNote: data.limitation_note,
-        });
-        await fallbackToGeneralGenerator(mood);
-        return;
-      }
-
-      const outfitId = await persistMoodOutfit(
-        mood,
-        data.explanation,
-        repairedItems,
-        typeof data.mood_match_score === 'number' ? data.mood_match_score : null,
-      );
+      await supabase.from('outfit_items').insert(items);
 
       setGeneratedOutfit({
-        id: outfitId,
+        id: outfit.id,
         explanation: data.explanation || null,
         mood,
-        garmentIds: repairedItems.map((item) => item.garment_id),
-        moodMatchScore: typeof data.mood_match_score === 'number' ? data.mood_match_score : null,
-        limitationNote: data.limitation_note || null,
-        usedFallback: false,
+        garmentIds: data.items.map((item) => item.garment_id),
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
@@ -323,37 +276,6 @@ export default function MoodOutfitPage() {
                     Why it works
                   </p>
                   <p className="font-body text-sm leading-7 text-muted-foreground">{generatedOutfit.explanation}</p>
-                </Card>
-              </motion.div>
-            ) : null}
-
-            {generatedOutfit.moodMatchScore !== null || generatedOutfit.limitationNote || generatedOutfit.usedFallback ? (
-              <motion.div
-                {...motionProps}
-                transition={{ ease: EASE_CURVE, duration: DURATION_MEDIUM, delay: 0.12 }}
-              >
-                <Card
-                  surface="default"
-                  className="space-y-3 rounded-[1.25rem] p-5"
-                >
-                  <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
-                    Stylist signals
-                  </p>
-                  {generatedOutfit.moodMatchScore !== null ? (
-                    <p className="font-body text-sm leading-7 text-muted-foreground">
-                      Mood match score: {generatedOutfit.moodMatchScore}
-                    </p>
-                  ) : null}
-                  {generatedOutfit.limitationNote ? (
-                    <p className="font-body text-sm leading-7 text-muted-foreground">
-                      {generatedOutfit.limitationNote}
-                    </p>
-                  ) : null}
-                  {generatedOutfit.usedFallback ? (
-                    <p className="font-body text-sm leading-7 text-muted-foreground">
-                      This look came from the general generator because the mood-specific response was incomplete.
-                    </p>
-                  ) : null}
                 </Card>
               </motion.div>
             ) : null}

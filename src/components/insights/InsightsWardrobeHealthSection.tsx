@@ -89,10 +89,10 @@ export function InsightsWardrobeHealthSection({
     >
       <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
         <div className="space-y-5">
-          <div className="space-y-3 border-y border-border/24 py-4">
+          <div className="space-y-3 rounded-[1.2rem] bg-background/55 px-4 py-4">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                   Used vs dormant
                 </p>
                 <p className="mt-2 text-[1rem] font-medium tracking-[-0.04em] text-foreground">
@@ -100,7 +100,7 @@ export function InsightsWardrobeHealthSection({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/54">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/54">
                   Pressure
                 </p>
                 <p className="mt-2 text-[0.86rem] text-foreground/82">
@@ -109,14 +109,14 @@ export function InsightsWardrobeHealthSection({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-full bg-secondary/75">
+            <div className="overflow-hidden rounded-full bg-secondary/80">
               <div className="flex h-3">
                 <div
-                  className="bg-accent"
+                  className="bg-foreground/74"
                   style={{ width: `${widthFor(health.usedCount, Math.max(health.totalCount, 1))}%` }}
                 />
                 <div
-                  className="bg-foreground/18"
+                  className="bg-foreground/22"
                   style={{ width: `${widthFor(health.unusedCount, Math.max(health.totalCount, 1))}%` }}
                 />
               </div>

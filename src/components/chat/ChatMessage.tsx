@@ -30,7 +30,7 @@ function extractRejectionSentence(text: string): { rejection: string; remainder:
 
 type MultimodalPart =
   | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string }; storage_path?: string };
+  | { type: 'image_url'; image_url: { url: string } };
 
 function getTextContent(content: string | MultimodalPart[]): string {
   if (typeof content === 'string') return content;

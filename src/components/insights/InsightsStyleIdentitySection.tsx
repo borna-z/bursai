@@ -40,37 +40,37 @@ export function InsightsStyleIdentitySection({
       <div className="grid gap-7 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]" data-testid="style-dna-section">
         <div className="space-y-5">
           <div className="space-y-1.5">
-            <p className="label-editorial text-foreground/56">Archetype</p>
-            <h3 className="text-[1.44rem] font-semibold tracking-[-0.05em] text-foreground">
+            <p className="label-editorial text-muted-foreground/58">Archetype</p>
+            <h3 className="text-[1.55rem] font-semibold tracking-[-0.06em] text-foreground">
               {style.archetype}
             </h3>
           </div>
 
-          <div className="space-y-3 border-y border-border/24 py-4">
+          <div className="space-y-3 rounded-[1.2rem] bg-background/55 px-4 py-4">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                   Formality range
                 </p>
-                <p className="mt-2 text-[0.98rem] font-medium tracking-[-0.04em] text-foreground">
+                <p className="mt-2 text-[1rem] font-medium tracking-[-0.04em] text-foreground">
                   {style.formalityLabel}
                 </p>
               </div>
-              <p className="text-[0.78rem] text-muted-foreground/68">
+              <p className="text-[0.8rem] text-muted-foreground/72">
                 {style.formalityValue}
               </p>
             </div>
 
             <div className="space-y-2">
-              <div className="relative h-2 rounded-full bg-secondary/75">
+              <div className="relative h-2 rounded-full bg-secondary/80">
                 {style.formalityCenter != null ? (
                   <>
                     <div
-                      className="absolute top-0 h-full rounded-full bg-accent/18"
+                      className="absolute top-0 h-full rounded-full bg-foreground/18"
                       style={{ left: `${band.left}%`, width: `${band.width}%` }}
                     />
                     <div
-                      className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-background bg-accent"
+                      className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-background bg-foreground"
                       style={{ left: `calc(${band.marker}% - 0.375rem)` }}
                     />
                   </>
@@ -86,15 +86,15 @@ export function InsightsStyleIdentitySection({
 
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                 Signature colors
               </p>
-              <p className="text-[0.78rem] text-muted-foreground/68">
+              <p className="text-[0.8rem] text-muted-foreground/72">
                 Top five worn tones
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-full bg-secondary/75">
+            <div className="overflow-hidden rounded-full bg-secondary/80">
               <div className="flex h-4">
                 {style.signatureColors.map((entry) => (
                   <div
@@ -144,13 +144,13 @@ export function InsightsStyleIdentitySection({
                     <span className="text-[0.9rem] text-foreground">
                       {formula.label}
                     </span>
-                    <span className="text-[0.78rem] text-muted-foreground/68">
+                    <span className="text-[0.8rem] text-muted-foreground/70">
                       {formula.count}x
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/75">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
                     <div
-                      className="h-full rounded-full bg-accent"
+                      className="h-full rounded-full bg-foreground/72"
                       style={{ width: `${barWidth(formula.count, formulaMax)}%` }}
                     />
                   </div>
@@ -180,13 +180,13 @@ export function InsightsStyleIdentitySection({
                     <span className="text-[0.9rem] text-foreground">
                       {pattern.label}
                     </span>
-                    <span className="text-[0.78rem] text-muted-foreground/68">
+                    <span className="text-[0.8rem] text-muted-foreground/70">
                       {pattern.strength}%
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/75">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
                     <div
-                      className="h-full rounded-full bg-foreground/42"
+                      className="h-full rounded-full bg-foreground/62"
                       style={{ width: `${barWidth(pattern.strength, 100)}%` }}
                     />
                   </div>

@@ -20,36 +20,6 @@ export interface GarmentFilters {
 
 const PAGE_SIZE = 30;
 
-function shouldQueueOfflineFallback(error: unknown): boolean {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return true;
-  }
-
-  const message = typeof error === 'object' && error !== null && 'message' in error
-    ? String((error as { message?: unknown }).message ?? '')
-    : error instanceof Error
-      ? error.message
-      : String(error ?? '');
-  const normalized = message.toLowerCase();
-  return normalized.includes('failed to fetch')
-    || normalized.includes('network request failed')
-    || normalized.includes('networkerror')
-    || normalized.includes('load failed')
-    || normalized.includes('offline');
-}
-
-function isDuplicateGarmentInsert(error: unknown): boolean {
-  const message = typeof error === 'object' && error !== null && 'message' in error
-    ? String((error as { message?: unknown }).message ?? '')
-    : error instanceof Error
-      ? error.message
-      : String(error ?? '');
-  const normalized = message.toLowerCase();
-  return normalized.includes('duplicate key')
-    || normalized.includes('unique constraint')
-    || normalized.includes('already exists');
-}
-
 function sanitizeIlikeSearchTerm(value: string) {
   return value
     .trim()
@@ -225,48 +195,28 @@ export function useCreateGarment() {
   return useMutation({
     mutationFn: async (garment: Omit<TablesInsert<'garments'>, 'user_id'>) => {
       if (!user) throw new Error('Not authenticated');
-
-      const payload = {
-        ...garment,
-        id: garment.id ?? crypto.randomUUID(),
-        user_id: user.id,
-      } satisfies TablesInsert<'garments'>;
-
-      try {
-        const { error } = await supabase
-          .from('garments')
-          .insert(payload);
-
-        if (error) throw error;
-        return payload as Tables<'garments'>;
-      } catch (error) {
-        if (isDuplicateGarmentInsert(error)) {
-          const { data: existing, error: existingError } = await supabase
-            .from('garments')
-            .select('*')
-            .eq('id', payload.id)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (!existingError && existing) {
-            return existing as Tables<'garments'>;
-          }
-        }
-
-        if (!shouldQueueOfflineFallback(error)) {
-          throw error;
-        }
-
-        await enqueue({
+      
+      // Offline: enqueue mutation for later replay
+      if (!navigator.onLine) {
+        enqueue({
           table: 'garments',
           type: 'insert',
-          payload,
+          payload: { ...garment, user_id: user.id },
         });
-
-        return payload as Tables<'garments'>;
+        return { ...garment, user_id: user.id, id: crypto.randomUUID() } as Tables<'garments'>;
       }
+      
+      const { data, error } = await supabase
+        .from('garments')
+        .insert({ ...garment, user_id: user.id })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
     },
-    retry: 0,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticSuccess();
       invalidateWardrobeQueries(queryClient, user?.id);
@@ -280,22 +230,9 @@ export function useUpdateGarment() {
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'garments'> }) => {
-      try {
-        const { data, error } = await supabase
-          .from('garments')
-          .update(updates)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      } catch (error) {
-        if (!shouldQueueOfflineFallback(error)) {
-          throw error;
-        }
-
-        await enqueue({
+      // Offline: enqueue mutation for later replay
+      if (!navigator.onLine) {
+        enqueue({
           table: 'garments',
           type: 'update',
           payload: updates as Record<string, unknown>,
@@ -303,6 +240,16 @@ export function useUpdateGarment() {
         });
         return { id, ...updates } as Tables<'garments'>;
       }
+      
+      const { data, error } = await supabase
+        .from('garments')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
     },
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: user?.id ? ['garments', user.id] : ['garments'] });

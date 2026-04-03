@@ -66,13 +66,12 @@ export function useSubscription() {
       queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
     },
   });
-  const { isPending: isBootstrapping, mutate: bootstrapSubscription } = bootstrap;
 
   useEffect(() => {
-    if (query.data === null && !query.isLoading && !isBootstrapping) {
-      bootstrapSubscription();
+    if (query.data === null && !query.isLoading && !bootstrap.isPending) {
+      bootstrap.mutate();
     }
-  }, [bootstrapSubscription, isBootstrapping, query.data, query.isLoading]);
+  }, [query.data, query.isLoading, bootstrap.isPending]);
 
   const subscription = query.data;
   const plan = subscription?.plan || 'free';

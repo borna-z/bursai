@@ -21,9 +21,6 @@ import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, rec
 import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
-import { buildStylistMemorySummary } from "../_shared/stylist-memory.ts";
-import { deriveStylistBehaviorProfile, scoreBehavioralCandidate, type StylistBehaviorProfile } from "../_shared/stylist-behavior.ts";
-import { deriveStylistOutfitMemory, rankArchivedSuccessfulOutfits } from "../_shared/stylist-outfit-memory.ts";
 
 // ---------- i18n ----------
 
@@ -99,8 +96,6 @@ interface GarmentRecord {
 
 interface RawSignal {
   signal_type: string;
-  outfit_id: string | null;
-  garment_id: string | null;
   value: string | null;
   metadata: Record<string, any> | null;
   created_at: string | null;
@@ -1278,7 +1273,7 @@ function buildStyleClarifierText(locale: string, latestUser: string): string {
     : "Which garment or look do you want me to style?";
 }
 
-function buildCandidateOutfitsBase(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
+function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
   // Group garments by canonical slot key (not raw category) to avoid cross-slot confusion
   const slots = new Map<string, GarmentRecord[]>();
   for (const garment of rankedGarments) {
@@ -1365,50 +1360,6 @@ function buildCandidateOutfitsBase(rankedGarments: GarmentRecord[], anchor: Garm
   }
 
   return candidates.length ? `PREBUILT OUTFIT CANDIDATES:\n${candidates.join("\n")}` : "";
-}
-
-function buildCandidateOutfits(
-  rankedGarments: GarmentRecord[],
-  anchor: GarmentRecord | null,
-  behaviorProfile: StylistBehaviorProfile,
-  recentGarmentSets: string[][],
-  successfulGarmentSets: string[][],
-): string {
-  const base = buildCandidateOutfitsBase(rankedGarments, anchor);
-  if (!base) return "";
-
-  const lines = base.split("\n").filter((line) => line.startsWith("- Candidate "));
-  if (lines.length === 0) return base;
-
-  const scoredLines = lines
-    .map((line) => {
-      const garmentIds = Array.from(line.matchAll(/\[ID:([a-f0-9-]+)\]/gi)).map((match) => match[1]);
-      return {
-        line,
-        behavior: scoreBehavioralCandidate({
-          garmentIds,
-          garments: rankedGarments.map((garment) => ({
-            id: garment.id,
-            title: garment.title,
-            category: garment.category,
-            color_primary: garment.color_primary,
-          })),
-          profile: behaviorProfile,
-          recentGarmentSets,
-          successfulGarmentSets,
-        }),
-      };
-    })
-    .sort((left, right) => right.behavior.score - left.behavior.score)
-    .slice(0, 3)
-    .map((entry, index) => {
-      const reasonSuffix = entry.behavior.reasons.length > 0
-        ? ` [behavioral score ${entry.behavior.score}: ${entry.behavior.reasons.join(", ")}]`
-        : "";
-      return entry.line.replace(/^- Candidate \d+:/, `- Candidate ${index + 1}:`) + reasonSuffix;
-    });
-
-  return scoredLines.length ? `PREBUILT OUTFIT CANDIDATES:\n${scoredLines.join("\n")}` : "";
 }
 
 async function geocodeCity(city: string): Promise<{ lat: number; lon: number } | null> {
@@ -1560,7 +1511,6 @@ interface RecentOutfitsResult {
   text: string;
   occasions: string[];
   recentGarmentSets: string[][];
-  outfits: any[];
 }
 
 async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<RecentOutfitsResult> {
@@ -1569,13 +1519,12 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     .select("id, occasion, style_vibe, explanation, worn_at, generated_at, outfit_items(slot, garment_id, garments(title, color_primary))")
     .eq("user_id", userId)
     .order("generated_at", { ascending: false })
-    .limit(15);
-  if (!outfits?.length) return { text: "", occasions: [], recentGarmentSets: [], outfits: [] };
+    .limit(5);
+  if (!outfits?.length) return { text: "", occasions: [], recentGarmentSets: [] };
 
-  const recentOutfits = outfits.slice(0, 5);
-  const occasions = [...new Set(recentOutfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
+  const occasions = [...new Set(outfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
 
-  const lines = recentOutfits.map((o: any) => {
+  const lines = outfits.map((o: any) => {
     const items = (o.outfit_items || []).map((i: any) =>
       `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
     ).join(" + ");
@@ -1583,17 +1532,17 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
   });
 
-  const recentGarmentSets: string[][] = recentOutfits.map((o: any) =>
+  const recentGarmentSets: string[][] = outfits.map((o: any) =>
     (o.outfit_items || []).map((i: any) => i.garment_id).filter(Boolean)
   ).filter((ids: string[]) => ids.length > 0);
 
-  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets, outfits };
+  return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets };
 }
 
 async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ text: string; raw: RawSignal[] }> {
   const { data: signals } = await supabase
     .from("feedback_signals")
-    .select("signal_type, outfit_id, garment_id, value, metadata, created_at")
+    .select("signal_type, value, metadata, created_at")
     .eq("user_id", userId)
     .in("signal_type", ["swap", "reject", "dislike", "thumbs_down"])
     .order("created_at", { ascending: false })
@@ -1755,7 +1704,6 @@ serve(async (req) => {
 
     const {
       messages,
-      conversation_summary,
       locale: rawLocale,
       selected_garment_ids,
       active_look,
@@ -1788,37 +1736,13 @@ serve(async (req) => {
     );
     await enforceRateLimit(serviceClient, user.id, "style_chat");
 
-    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, feedbackSignalsRes, pairMemoryRes] = await Promise.all([
+    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getCalendarContext(supabase, user.id, lang),
       getRecentOutfitsContext(supabase, user.id),
       getRejectionsContext(supabase, user.id),
       getWardrobeContext(supabase, user.id, messages as MessageInput[], selectedGarmentIds),
-      supabase
-        .from("feedback_signals")
-        .select("signal_type, outfit_id, garment_id, value, metadata, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(60),
-      supabase
-        .from("garment_pair_memory")
-        .select("garment_a_id, garment_b_id, positive_count, negative_count, last_positive_at, last_negative_at")
-        .eq("user_id", user.id)
-        .or("positive_count.gte.2,negative_count.gte.2")
-        .limit(20),
     ]);
-
-    const signalOutfitIds = Array.from(new Set(
-      (feedbackSignalsRes.data || [])
-        .map((signal) => signal.outfit_id)
-        .filter((outfitId): outfitId is string => typeof outfitId === "string" && outfitId.length > 0),
-    )).slice(0, 40);
-    const signalOutfitItemsRes = signalOutfitIds.length > 0
-      ? await serviceClient
-        .from("outfit_items")
-        .select("outfit_id, garment_id")
-        .in("outfit_id", signalOutfitIds)
-      : { data: [], error: null };
 
     // --- Taste memory ---
     const wornCount = wardrobeCtx.rankedGarments.filter(g => (g.wear_count ?? 0) > 0).length;
@@ -1829,40 +1753,14 @@ serve(async (req) => {
       ? formalityValues.reduce((a, b) => a + b, 0) / formalityValues.length
       : null;
     const dna = { archetype: wardrobeCtx.dominantArchetype, formalityCenter };
-    const feedbackSignals = feedbackSignalsRes.data || [];
-    const rawSignals = feedbackSignals.length > 0 ? feedbackSignals : rejectionsCtx.raw;
-    const legacyTasteMemoryBlock = buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna);
-    const stylistMemory = buildStylistMemorySummary({
-      signals: rawSignals,
-      garments: wardrobeCtx.rankedGarments.map((garment) => ({
-        id: garment.id,
-        title: garment.title,
-        category: garment.category,
-        color_primary: garment.color_primary,
-        formality: garment.formality,
-        wear_count: garment.wear_count,
-      })),
-      pairMemory: pairMemoryRes.data || [],
-      dna,
-    });
-    const behaviorProfile = deriveStylistBehaviorProfile({
-      signals: rawSignals,
-      outfitItems: (signalOutfitItemsRes.data || []).map((item) => ({
-        outfit_id: item.outfit_id,
-        garment_id: item.garment_id,
-      })),
-      garments: wardrobeCtx.rankedGarments.map((garment) => ({
-        id: garment.id,
-        title: garment.title,
-        category: garment.category,
-        color_primary: garment.color_primary,
-      })),
-      pairMemory: pairMemoryRes.data || [],
-    });
-    const outfitMemory = deriveStylistOutfitMemory({
-      outfits: recentOutfitsCtx.outfits,
-      signals: rawSignals,
-    });
+    const rawSignals = rejectionsCtx.raw;
+    const shouldIncludeTasteMemory =
+      (rawSignals.filter((s: any) => s.signal_type === 'reject').length >= 1) ||
+      (rawSignals.filter((s: any) => s.signal_type === 'wear').length >= 3) ||
+      !!(dna?.archetype || (dna as any)?.signatureColors?.length);
+    const tasteMemoryBlock = shouldIncludeTasteMemory
+      ? buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna)
+      : "";
 
     const profile = profileRes.data;
 
@@ -1968,23 +1866,6 @@ serve(async (req) => {
       selectedGarmentIds,
       anchorReleased,
     });
-    const archivedLookMemory = rankArchivedSuccessfulOutfits({
-      outfits: recentOutfitsCtx.outfits,
-      signals: rawSignals,
-      request: {
-        occasion: refinementPlan.occasion,
-        style: refinementPlan.style,
-        anchorGarmentId: refinementPlan.anchorGarmentId,
-        activeLookGarmentIds: activeLook.garmentIds,
-        preferredGarmentIds: refinementPlan.preferGarmentIds,
-      },
-    });
-    const tasteMemoryBlock = [stylistMemory.promptBlock, legacyTasteMemoryBlock]
-      .concat(outfitMemory.promptBlock ? [outfitMemory.promptBlock] : [])
-      .concat(archivedLookMemory.promptBlock ? [archivedLookMemory.promptBlock] : [])
-      .concat(behaviorProfile.summaryLines)
-      .filter(Boolean)
-      .join("\n");
     const stylistMode = detectStylistChatMode({
       messages: messages as MessageInput[],
       activeLook,
@@ -2019,36 +1900,8 @@ serve(async (req) => {
 - Prioritize mode-specific analysis structure over card markup in this mode.`;
 
     const shouldCallUnifiedEngine = cardPolicy === "required" && !shouldAskClarifyingQuestion;
-    const behavioralPreferredGarmentIds = behaviorProfile.preferredGarmentIds
-      .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
-    const formulaPreferredGarmentIds = Array.from(new Set([
-      ...archivedLookMemory.preferredGarmentIds,
-      ...outfitMemory.preferredGarmentIds,
-    ]))
-      .filter((garmentId) => !refinementPlan.excludeGarmentIds.includes(garmentId));
-    const behavioralAvoidedGarmentIds = behaviorProfile.avoidedGarmentIds
-      .filter((garmentId) =>
-        !activeLook.garmentIds.includes(garmentId)
-        && garmentId !== refinementPlan.anchorGarmentId
-        && !refinementPlan.lockedGarmentIds.includes(garmentId),
-      );
-    const behaviorPreferenceOverrides = behaviorProfile.preferredColors.length > 0 || behaviorProfile.avoidedColors.length > 0
-      ? {
-          favoriteColors: behaviorProfile.preferredColors,
-          dislikedColors: behaviorProfile.avoidedColors,
-        }
-      : null;
     const candidateOutfits = (!shouldAskClarifyingQuestion && !shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS")
-      ? buildCandidateOutfits(
-        wardrobeCtx.rankedGarments,
-        wardrobeCtx.anchor,
-        behaviorProfile,
-        recentOutfitsCtx.recentGarmentSets,
-        Array.from(new Set([
-          ...archivedLookMemory.successfulGarmentSets.map((garmentSet) => garmentSet.join("::")),
-          ...outfitMemory.successfulGarmentSets.map((garmentSet) => garmentSet.join("::")),
-        ])).map((serialized) => serialized.split("::").filter(Boolean)),
-      )
+      ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor)
       : "";
 
     const unifiedRequestMode = stylistMode === "ACTIVE_LOOK_REFINEMENT"
@@ -2067,16 +1920,8 @@ serve(async (req) => {
             style: refinementPlan.style,
             weather: refinementPlan.weather,
             locale,
-            prefer_garment_ids: Array.from(new Set([
-              ...formulaPreferredGarmentIds,
-              ...behavioralPreferredGarmentIds,
-              ...refinementPlan.preferGarmentIds,
-            ])),
-            exclude_garment_ids: Array.from(new Set([
-              ...refinementPlan.excludeGarmentIds,
-              ...behavioralAvoidedGarmentIds,
-            ])),
-            preference_overrides: behaviorPreferenceOverrides || undefined,
+            prefer_garment_ids: refinementPlan.preferGarmentIds,
+            exclude_garment_ids: refinementPlan.excludeGarmentIds,
             active_look_garment_ids: activeLook.garmentIds,
             locked_garment_ids: [
               ...refinementPlan.lockedGarmentIds,
@@ -2165,9 +2010,6 @@ ${profile?.display_name ? `Client: ${profile.display_name}` : ""}${profile?.home
 USER IDENTITY:
 ${identityBlock}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
-${typeof conversation_summary === "string" && conversation_summary.trim()
-  ? `\nCONVERSATION MEMORY:\n${conversation_summary.trim()}`
-  : ""}
 
 ${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
 ${candidateOutfits ? `\n\n${candidateOutfits}` : ""}${unifiedCandidateLine}
@@ -2197,7 +2039,6 @@ STYLIST OPERATING CONTRACT:
 - Explain silhouette, proportion, balance, color harmony, contrast, texture, visual weight, and occasion fit in concrete terms.
 - Distinguish clearly between elevate, relax, warm up, sharpen, soften, and occasion shifts.
 - Preserve continuity with the thread brief; do not reset the user's goal each turn.
-- Use conversation memory and long-term taste memory to keep advice consistent across turns without repeating yourself verbatim.
 - Treat the active look as the default working look for refinements.
 - If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
 - Keep the tone editorial, concise, and premium. No generic helper phrasing.
@@ -2340,31 +2181,17 @@ ${refinementContract}`;
       && validatedActiveLookIds.length > 0
       && validatedActiveLookIds.length === authoritativeOutfitIds.length
       && validatedActiveLookIds.every((id, index) => id === authoritativeOutfitIds[index]);
-    const clarifyPreservedCard = shouldAskClarifyingQuestion
-      && renderOutfitCard
-      && preservedExistingLook;
-    const fallbackUsed = clarifyPreservedCard || (
-      !shouldAskClarifyingQuestion
+    const fallbackUsed = !shouldAskClarifyingQuestion
       && shouldPreserveStyleCard
       && !validatedUnifiedOutfitIds.length
-      && authoritativeOutfitIds.length > 0
-    );
+      && authoritativeOutfitIds.length > 0;
     const degradedReason = shouldAskClarifyingQuestion
-      ? (clarifyPreservedCard ? "preserved_active_look" : null)
+      ? null
       : unifiedOutfit?.limitations?.[0]
         || unifiedFailureReason
-        || (fallbackUsed
-          ? usedDeterministicRescue
-            ? "deterministic_rescue"
-            : preservedExistingLook
-              ? "preserved_active_look"
-              : "fallback_outfit_card"
-          : null)
         || (shouldPreserveStyleCard && !authoritativeOutfitIds.length ? "no_valid_outfit_card" : null);
     const responseKind = shouldAskClarifyingQuestion
-      ? (renderOutfitCard
-        ? (clarifyPreservedCard ? "style_repair" : "style_result")
-        : "analysis")
+      ? (renderOutfitCard ? "style_result" : "analysis")
       : resolveStyleResponseKind({
         mode: stylistMode,
         cardState,
@@ -2398,7 +2225,7 @@ ${refinementContract}`;
             : usedDeterministicRescue
               ? "deterministic_rescue"
               : preservedExistingLook
-                ? "preserved_active_look"
+                ? (activeLook.source || "preserved_active_look")
                 : "style_chat_normalizer"
           : null,
         status: activeLookStatus,

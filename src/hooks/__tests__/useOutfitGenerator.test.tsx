@@ -35,8 +35,6 @@ describe('useOutfitGenerator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    let nextOutfitId = 0;
-    vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => `generated-outfit-${++nextOutfitId}`);
   });
 
   it('throws when user is not authenticated', async () => {
@@ -126,7 +124,11 @@ describe('useOutfitGenerator', () => {
       }
       // outfit insert
       return {
-        insert: vi.fn().mockResolvedValue({ error: null }),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-1', occasion: 'casual', style_vibe: null }, error: null }),
+          }),
+        }),
       };
     });
 
@@ -149,7 +151,7 @@ describe('useOutfitGenerator', () => {
     await act(async () => {
       outfit = await result.current.generateOutfit(baseRequest);
     });
-    expect(outfit!.id).toBe('generated-outfit-1');
+    expect(outfit!.id).toBe('o-1');
   });
 
   it('validates wardrobe — passes for dress + shoes', async () => {
@@ -179,7 +181,11 @@ describe('useOutfitGenerator', () => {
         };
       }
       return {
-        insert: vi.fn().mockResolvedValue({ error: null }),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-2', occasion: 'casual', style_vibe: null }, error: null }),
+          }),
+        }),
       };
     });
 
@@ -201,144 +207,8 @@ describe('useOutfitGenerator', () => {
     await act(async () => {
       outfit = await result.current.generateOutfit(baseRequest);
     });
-    expect(outfit!.id).toBe('generated-outfit-1');
+    expect(outfit!.id).toBe('o-2');
     expect(outfit!.items.length).toBe(2);
-  });
-
-  it('uses backend-provided garments without requiring a second garment hydration query', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-
-    const validationData = [
-      { category: 'top', subcategory: null },
-      { category: 'bottom', subcategory: null },
-      { category: 'shoes', subcategory: null },
-    ];
-
-    let fromCallCount = 0;
-    mockFrom.mockImplementation(() => {
-      fromCallCount++;
-      if (fromCallCount === 1) {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
-          }),
-        };
-      }
-
-      return {
-        insert: vi.fn().mockResolvedValue({ error: null }),
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: null }),
-        }),
-      };
-    });
-
-    vi.mocked(invokeEdgeFunction).mockResolvedValue({
-      data: {
-        items: [
-          { slot: 'top', garment_id: 'g1' },
-          { slot: 'bottom', garment_id: 'g2' },
-          { slot: 'shoes', garment_id: 'g3' },
-        ],
-        garments: [
-          { id: 'g1', category: 'top' },
-          { id: 'g2', category: 'bottom' },
-          { id: 'g3', category: 'shoes' },
-        ],
-        explanation: 'Nice',
-        style_score: null,
-      },
-      error: null,
-    });
-
-    const { useOutfitGenerator } = await import('../useOutfitGenerator');
-    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-
-    await act(async () => {
-      await result.current.generateOutfit(baseRequest);
-    });
-
-    expect(fromCallCount).toBe(3);
-  });
-
-  it('rolls back the parent outfit when outfit item persistence fails', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-
-    const validationData = [
-      { category: 'top', subcategory: null },
-      { category: 'bottom', subcategory: null },
-      { category: 'shoes', subcategory: null },
-    ];
-    const garments = [
-      { id: 'g1', category: 'top' },
-      { id: 'g2', category: 'bottom' },
-      { id: 'g3', category: 'shoes' },
-    ];
-
-    const outfitInsert = vi.fn().mockResolvedValue({ error: null });
-    const cleanupEq = vi.fn().mockResolvedValue({ error: null });
-    const outfitDelete = vi.fn().mockReturnValue({ eq: cleanupEq });
-    const outfitItemsInsert = vi.fn().mockResolvedValue({ error: { message: 'outfit items failed' } });
-
-    let garmentFetchCount = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'garments') {
-        garmentFetchCount++;
-        if (garmentFetchCount === 1) {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ data: validationData, error: null }),
-            }),
-          };
-        }
-
-        return {
-          select: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: garments, error: null }),
-          }),
-        };
-      }
-
-      if (table === 'outfits') {
-        return {
-          insert: outfitInsert,
-          delete: outfitDelete,
-        };
-      }
-
-      return { insert: outfitItemsInsert };
-    });
-
-    vi.mocked(invokeEdgeFunction).mockResolvedValue({
-      data: {
-        items: [
-          { slot: 'top', garment_id: 'g1' },
-          { slot: 'bottom', garment_id: 'g2' },
-          { slot: 'shoes', garment_id: 'g3' },
-        ],
-        explanation: 'Persistence should roll back',
-        style_score: null,
-      },
-      error: null,
-    });
-
-    const { useOutfitGenerator } = await import('../useOutfitGenerator');
-    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-
-    await act(async () => {
-      await expect(result.current.generateOutfit(baseRequest)).rejects.toThrow(/generated, but we could not save it/i);
-    });
-
-    expect(outfitInsert).toHaveBeenCalledWith([
-      expect.objectContaining({
-        id: 'generated-outfit-1',
-        user_id: 'user-1',
-        occasion: 'casual',
-      }),
-    ]);
-    expect(outfitItemsInsert).toHaveBeenCalledTimes(1);
-    expect(outfitDelete).toHaveBeenCalledTimes(1);
-    expect(cleanupEq).toHaveBeenCalledWith('id', 'generated-outfit-1');
   });
 
   it('forwards structured day context to the stylist engine payload', async () => {
@@ -365,7 +235,11 @@ describe('useOutfitGenerator', () => {
         };
       }
       return {
-        insert: vi.fn().mockResolvedValue({ error: null }),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-3', occasion: 'work', style_vibe: null }, error: null }),
+          }),
+        }),
       };
     });
 
@@ -558,7 +432,11 @@ describe('useOutfitGenerator', () => {
       }
       if (fromCallCount === 3) {
         return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'outfit-1', occasion: 'casual', style_vibe: null }, error: null }),
+            }),
+          }),
         };
       }
       // outfit_items insert
@@ -646,68 +524,6 @@ describe('useOutfitGenerator', () => {
     expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledTimes(1);
   });
 
-  it('repairs a partial engine payload when the wardrobe has the missing core piece', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-
-    const wardrobe = [
-      { id: 'g1', category: 'top', subcategory: 'shirt', wear_count: 3, layering_role: 'base', in_laundry: false },
-      { id: 'g2', category: 'bottom', subcategory: 'jeans', wear_count: 1, layering_role: null, in_laundry: false },
-      { id: 'g3', category: 'shoes', subcategory: 'sneakers', wear_count: 2, layering_role: null, in_laundry: false },
-    ];
-
-    const outfitInsert = vi.fn().mockResolvedValue({ error: null });
-    const outfitItemsInsert = vi.fn().mockResolvedValue({ error: null });
-
-    let garmentCallCount = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'garments') {
-        garmentCallCount++;
-        if (garmentCallCount === 1) {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ data: wardrobe, error: null }),
-            }),
-          };
-        }
-        return {
-          select: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: wardrobe.filter((garment) => garment.id !== 'g2'), error: null }),
-          }),
-        };
-      }
-      if (table === 'outfits') {
-        return { insert: outfitInsert };
-      }
-      return { insert: outfitItemsInsert };
-    });
-
-    vi.mocked(invokeEdgeFunction).mockResolvedValue({
-      data: {
-        items: [
-          { slot: 'top', garment_id: 'g1' },
-          { slot: 'shoes', garment_id: 'g3' },
-        ],
-        garments: wardrobe.filter((garment) => garment.id !== 'g2'),
-        explanation: 'Recovered look',
-        style_score: null,
-      },
-      error: null,
-    });
-
-    const { useOutfitGenerator } = await import('../useOutfitGenerator');
-    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
-
-    let outfit: GeneratedOutfit | undefined;
-    await act(async () => {
-      outfit = await result.current.generateOutfit(baseRequest);
-    });
-
-    expect(outfit?.items.map((item) => item.slot)).toEqual(expect.arrayContaining(['top', 'bottom', 'shoes']));
-    expect(outfitItemsInsert).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ garment_id: 'g2', slot: 'bottom' }),
-    ]));
-  });
-
   it('rejects incomplete outfit — bottom + shoes + outerwear (no top)', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
@@ -745,7 +561,11 @@ describe('useOutfitGenerator', () => {
         };
       }
       return {
-        insert: vi.fn().mockResolvedValue({ error: null }),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: 'o-bad', occasion: 'casual', style_vibe: null }, error: null }),
+          }),
+        }),
       };
     });
 
@@ -944,7 +764,11 @@ describe('useOutfitGenerator', () => {
       }
       if (table === 'outfits') {
         return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'o-6', occasion: 'casual', style_vibe: null }, error: null }),
+            }),
+          }),
         };
       }
       return { insert: vi.fn().mockResolvedValue({ error: null }) };
@@ -996,8 +820,16 @@ describe('useOutfitGenerator', () => {
 
     const outfitInsert = vi
       .fn()
-      .mockResolvedValueOnce({ error: null })
-      .mockResolvedValueOnce({ error: null });
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'outfit-a', occasion: 'casual', style_vibe: 'Minimal' }, error: null }),
+        }),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: 'outfit-b', occasion: 'casual', style_vibe: 'Minimal' }, error: null }),
+        }),
+      });
     const outfitItemsInsert = vi.fn().mockResolvedValue({ error: null });
 
     let fromCallCount = 0;
@@ -1056,7 +888,7 @@ describe('useOutfitGenerator', () => {
     expect(outfitItemsInsert).toHaveBeenCalledTimes(0);
   });
 
-  it('repairs an incomplete stylist suggestion when the wardrobe can fill the missing slot', async () => {
+  it('raises recovery error when all stylist suggestions are filtered as incomplete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -1076,7 +908,11 @@ describe('useOutfitGenerator', () => {
       { id: 'g6', category: 'shoes', subcategory: 'boots' },
     ];
 
-    const outfitInsert = vi.fn().mockResolvedValue({ error: null });
+    const outfitInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: 'outfit-complete', occasion: 'casual', style_vibe: 'Minimal' }, error: null }),
+      }),
+    });
     const outfitItemsInsert = vi.fn().mockResolvedValue({ error: null });
 
     let fromCallCount = 0;
@@ -1125,13 +961,10 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
-    let outfits: GeneratedOutfit[] | undefined;
     await act(async () => {
-      outfits = await result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' });
+      await expect(result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' })).rejects.toThrow(/complete outfit/i);
     });
-    expect(outfits).toHaveLength(1);
-    expect(outfits?.[0]?.items.map((item) => item.slot)).toEqual(expect.arrayContaining(['top', 'bottom', 'shoes']));
-    expect(outfitInsert).toHaveBeenCalledTimes(1);
+    expect(outfitInsert).not.toHaveBeenCalled();
   });
 
 
@@ -1168,7 +1001,11 @@ describe('useOutfitGenerator', () => {
       }
       if (fromCallCount === 3) {
         return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'mode-outfit', occasion: 'casual', style_vibe: null }, error: null }),
+            }),
+          }),
         };
       }
       return { insert: vi.fn().mockResolvedValue({ error: null }) };
@@ -1234,7 +1071,11 @@ describe('useOutfitGenerator', () => {
       }
       if (table === 'outfits') {
         return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'fallback-single', occasion: 'casual', style_vibe: 'Minimal' }, error: null }),
+            }),
+          }),
         };
       }
       return { insert: vi.fn().mockResolvedValue({ error: null }) };
@@ -1264,7 +1105,7 @@ describe('useOutfitGenerator', () => {
     });
 
     expect(outfits).toHaveLength(1);
-    expect(outfits?.[0].id).toBe('generated-outfit-1');
+    expect(outfits?.[0].id).toBe('fallback-single');
     expect(outfits?.[0].items.map((item) => item.slot)).toEqual(['top', 'bottom', 'shoes']);
     expect(vi.mocked(invokeEdgeFunction).mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       body: expect.objectContaining({ mode: 'suggest', generator_mode: 'stylist' }),
@@ -1307,7 +1148,11 @@ describe('useOutfitGenerator', () => {
       }
       if (table === 'outfits') {
         return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'preferred-outfit', occasion: 'casual', style_vibe: null }, error: null }),
+            }),
+          }),
         };
       }
       return { insert: vi.fn().mockResolvedValue({ error: null }) };

@@ -80,7 +80,6 @@ export default function InsightsPage() {
         title={title}
         subtitle={subtitle}
         titleClassName="text-[1.5rem] sm:text-[1.65rem]"
-        sticky={false}
       />
 
       <PullToRefresh onRefresh={handleRefresh}>

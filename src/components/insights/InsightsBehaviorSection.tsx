@@ -6,7 +6,7 @@ import type { InsightsDashboardViewModel } from '@/components/insights/useInsigh
 import { cn } from '@/lib/utils';
 
 const HEATMAP_COLOR: Record<string, string> = {
-  planned: 'bg-accent',
+  planned: 'bg-foreground/78',
   improvised: 'bg-foreground/46',
   none: 'bg-secondary/80',
 };
@@ -62,7 +62,7 @@ export function InsightsBehaviorSection({
           <div className="flex items-end justify-between gap-4">
             <div className="flex items-end gap-5">
               <div>
-                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                   Streak
                 </p>
                 <div className="mt-2 flex items-end gap-2">
@@ -73,7 +73,7 @@ export function InsightsBehaviorSection({
                 </div>
               </div>
               <div>
-                <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+                <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                   Consistency
                 </p>
                 <p className="mt-2 text-[2rem] font-semibold tracking-[-0.08em] text-foreground">
@@ -82,19 +82,19 @@ export function InsightsBehaviorSection({
               </div>
             </div>
 
-            <p className="text-[0.78rem] text-muted-foreground/68">
+            <p className="text-[0.8rem] text-muted-foreground/70">
               Last 90 days
             </p>
           </div>
 
-          <div className="border-y border-border/24 py-4">
+          <div className="rounded-[1.2rem] bg-background/55 px-4 py-4">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <p className="text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground/58">
+              <p className="text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground/58">
                 Wear heatmap
               </p>
-              <div className="flex items-center gap-3 text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground/54">
+              <div className="flex items-center gap-3 text-[0.72rem] uppercase tracking-[0.14em] text-muted-foreground/54">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-accent" />
+                  <span className="size-2 rounded-full bg-foreground/78" />
                   Planned
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -131,13 +131,13 @@ export function InsightsBehaviorSection({
                         {repeat.daysSince} days since last wear
                       </p>
                     </div>
-                    <span className="text-[0.78rem] text-muted-foreground/68">
+                    <span className="text-[0.8rem] text-muted-foreground/70">
                       {repeat.wornCount}x
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/75">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
                     <div
-                      className="h-full rounded-full bg-accent"
+                      className="h-full rounded-full bg-foreground/70"
                       style={{ width: `${barWidth(repeat.wornCount, repeatMax)}%` }}
                     />
                   </div>
@@ -167,13 +167,13 @@ export function InsightsBehaviorSection({
                     <span className="text-[0.9rem] text-foreground">
                       {outfit.occasion}
                     </span>
-                    <span className="text-[0.78rem] text-muted-foreground/68">
+                    <span className="text-[0.8rem] text-muted-foreground/70">
                       {outfit.daysSince}d
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/75">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
                     <div
-                      className="h-full rounded-full bg-foreground/36"
+                      className="h-full rounded-full bg-foreground/54"
                       style={{ width: `${barWidth(outfit.daysSince, staleMax)}%` }}
                     />
                   </div>

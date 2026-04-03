@@ -118,7 +118,7 @@ export default function HomePage() {
       label: t('home.action_style_outfit'),
       onClick: () => navigate('/ai/generate'),
     };
-  }, [homeState, navigate, t, todayOutfit]);
+  }, [homeState, navigate, t, todayOutfit?.id]);
 
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
@@ -194,8 +194,6 @@ export default function HomePage() {
             onPrimaryAction={() => { hapticLight(); primaryAction.onClick(); }}
             onSecondaryAction={() => { hapticLight(); secondaryAction.onClick(); }}
             onOutfitTap={todayOutfit ? () => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); } : undefined}
-            tertiaryLabel={t('settings.page_title') || 'Settings'}
-            onTertiaryAction={() => { hapticLight(); navigate('/settings'); }}
           />
         </AnimatedPage>
       </PullToRefresh>

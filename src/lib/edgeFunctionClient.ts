@@ -9,7 +9,6 @@
  * - Client-side circuit breaker prevents hammering failing functions
  */
 import { supabase } from '@/integrations/supabase/client';
-import { createSupabaseRestHeaders, getSupabaseFunctionUrl } from '@/integrations/supabase/client';
 import { EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, EDGE_FUNCTION_MAX_BACKOFF_MS } from '@/config/constants';
 
 interface InvokeOptions {
@@ -25,15 +24,6 @@ interface InvokeOptions {
    * mutations. Sent as the `X-Idempotency-Key` header.
    */
   idempotent?: boolean;
-}
-
-interface StreamInvokeOptions extends InvokeOptions {
-  /** Optional access token when using raw fetch for streaming responses */
-  accessToken?: string;
-  /** Additional request headers */
-  headers?: Record<string, string>;
-  /** Optional external abort signal */
-  signal?: AbortSignal;
 }
 
 export class EdgeFunctionTimeoutError extends Error {
@@ -108,55 +98,6 @@ function backoffWithJitter(attempt: number): number {
   // Add ±25% jitter
   const jitter = base * 0.25 * (Math.random() * 2 - 1);
   return Math.max(100, Math.round(base + jitter));
-}
-
-function shouldRetryStatus(status: number): boolean {
-  return status >= 500 || status === 408;
-}
-
-function parseRetryAfterHeader(value: string | null): number | null {
-  if (!value) return null;
-  const seconds = Number(value);
-  if (!Number.isNaN(seconds)) return seconds;
-  const date = Date.parse(value);
-  if (Number.isNaN(date)) return null;
-  return Math.max(1, Math.round((date - Date.now()) / 1000));
-}
-
-async function buildStreamError(functionName: string, response: Response): Promise<Error> {
-  const retryAfter = parseRetryAfterHeader(response.headers.get('retry-after'));
-  if (response.status === 429 && retryAfter != null) {
-    return new EdgeFunctionRateLimitError(functionName, retryAfter);
-  }
-
-  const contentType = response.headers.get('content-type') ?? '';
-  if (contentType.includes('application/json')) {
-    try {
-      const data = await response.clone().json() as { error?: string; retryAfter?: number };
-      if (response.status === 429 && typeof data.retryAfter === 'number') {
-        return new EdgeFunctionRateLimitError(functionName, data.retryAfter);
-      }
-      if (typeof data.error === 'string' && data.error.trim()) {
-        return new Error(data.error);
-      }
-    } catch {
-      // Fall through to generic status error.
-    }
-  }
-
-  return new Error(`Edge function "${functionName}" failed with ${response.status}`);
-}
-
-function bindAbortSignals(controller: AbortController, signal?: AbortSignal): (() => void) | null {
-  if (!signal) return null;
-  if (signal.aborted) {
-    controller.abort(signal.reason);
-    return null;
-  }
-
-  const onAbort = () => controller.abort(signal.reason);
-  signal.addEventListener('abort', onAbort, { once: true });
-  return () => signal.removeEventListener('abort', onAbort);
 }
 
 /**
@@ -252,93 +193,4 @@ export async function invokeEdgeFunction<T = unknown>(
   }
 
   return { data: null, error: lastError };
-}
-
-/**
- * Invoke a streaming edge function with the same retry/backoff/circuit-breaker
- * policy as the standard client. Retries happen before any body is consumed.
- */
-export async function invokeEdgeFunctionStream(
-  functionName: string,
-  opts: StreamInvokeOptions = {}
-): Promise<{ response: Response | null; error: Error | null }> {
-  const {
-    timeout = EDGE_FUNCTION_DEFAULT_TIMEOUT_MS,
-    retries = 2,
-    body,
-    idempotent,
-    accessToken,
-    headers,
-  } = opts;
-
-  if (!checkCircuit(functionName)) {
-    return {
-      response: null,
-      error: new Error(`Service "${functionName}" is temporarily unavailable. Please try again shortly.`),
-    };
-  }
-
-  const idempotencyKey = idempotent ? crypto.randomUUID() : undefined;
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, backoffWithJitter(attempt)));
-    }
-
-    const controller = new AbortController();
-    const detachAbort = bindAbortSignals(controller, opts.signal);
-    const timer = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      const authHeaders = await createSupabaseRestHeaders(accessToken);
-      const requestHeaders: Record<string, string> = {
-        ...authHeaders,
-        'Content-Type': 'application/json',
-        ...headers,
-      };
-
-      if (idempotencyKey) {
-        requestHeaders['X-Idempotency-Key'] = idempotencyKey;
-      }
-
-      const response = await fetch(getSupabaseFunctionUrl(functionName), {
-        method: 'POST',
-        headers: requestHeaders,
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        lastError = await buildStreamError(functionName, response);
-        recordCircuitFailure(functionName);
-
-        if (isNonRetryableError(lastError) || !shouldRetryStatus(response.status)) {
-          break;
-        }
-
-        continue;
-      }
-
-      recordCircuitSuccess(functionName);
-      return { response, error: null };
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        lastError = new EdgeFunctionTimeoutError(functionName);
-        recordCircuitFailure(functionName);
-        if (attempt >= retries) break;
-      } else {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        recordCircuitFailure(functionName);
-        if (isNonRetryableError(lastError)) {
-          break;
-        }
-      }
-    } finally {
-      clearTimeout(timer);
-      detachAbort?.();
-    }
-  }
-
-  return { response: null, error: lastError };
 }

@@ -12,7 +12,6 @@ import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
-import { buildOriginalGarmentImagePath } from '@/lib/garmentImagePath';
 import { logger } from '@/lib/logger';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
@@ -288,7 +287,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       const path = await uploadGarmentImage(file, newGarmentId, {
         extension: fileExt,
         upsert: false,
-        filePath: buildOriginalGarmentImagePath(user.id, newGarmentId, fileExt),
+        filePath: `${user.id}/${newGarmentId}/original.${fileExt}`,
       });
       setStoragePath(path);
 

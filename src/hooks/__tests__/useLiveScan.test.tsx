@@ -249,7 +249,7 @@ describe('useLiveScan', () => {
 
     expect(supabase.storage.from).toHaveBeenCalledWith('garments');
     expect(uploadMock).toHaveBeenCalledWith(
-      'user-1/mock-garment-uuid/original.jpg',
+      'user-1/mock-garment-uuid.jpg',
       expect.any(Blob),
       expect.objectContaining({ contentType: 'image/jpeg' }),
     );
@@ -538,7 +538,6 @@ describe('useLiveScan', () => {
       render_status: 'none',
       image_processing_status: 'ready',
       processed_image_path: null,
-      in_laundry: false,
     }));
 
     await vi.waitFor(() => {

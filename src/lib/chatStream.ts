@@ -1,6 +1,6 @@
 export type MultimodalPart =
   | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string }; storage_path?: string };
+  | { type: 'image_url'; image_url: { url: string } };
 
 export type MessageContent = string | MultimodalPart[];
 

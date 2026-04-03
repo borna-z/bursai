@@ -10,8 +10,6 @@ import {
 } from '@/lib/outfitGenerationErrors';
 import { hasPreferredGarmentMatch, normalizePreferredGarmentIds } from '@/lib/outfitAnchoring';
 import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
-import { repairIncompleteOutfitItems, type RecoverableGarment } from '@/lib/outfitRecovery';
-import { cacheOutfitMetadata } from '@/lib/outfitMetadataCache';
 import type { Garment } from './useGarments';
 import type { DayIntelligence } from '@/lib/dayIntelligence';
 
@@ -59,12 +57,6 @@ export interface GeneratedOutfit {
 
 const INSUFFICIENT_GARMENTS_MESSAGE =
   'Add more garments before generating an outfit. You need either 1 top + 1 bottom + shoes, or a dress + shoes.';
-const PERSISTENCE_FAILURE_MESSAGE =
-  'Your outfit was generated, but we could not save it. Please try again.';
-const PARTIAL_PERSISTENCE_FAILURE_MESSAGE =
-  'Your outfit was generated, but saving it did not finish cleanly. Refresh before trying again.';
-const HYDRATION_FAILURE_MESSAGE =
-  'Your outfit was generated, but the selected garments could not be loaded. Refresh your wardrobe and try again.';
 
 interface EngineSuggestion {
   title?: string;
@@ -80,7 +72,6 @@ interface EngineSuggestion {
 
 interface EngineGenerateResponse {
   items?: { slot: string; garment_id: string }[];
-  garments?: Garment[];
   explanation?: string;
   style_score?: Record<string, number> | null;
   confidence_score?: number;
@@ -99,13 +90,6 @@ interface EngineGenerateResponse {
   };
   suggestions?: EngineSuggestion[];
   error?: string;
-}
-
-class OutfitPersistenceError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
-    super(message);
-    this.name = 'OutfitPersistenceError';
-  }
 }
 
 async function fetchGarmentsByIds(garmentIds: string[]): Promise<Map<string, Garment>> {
@@ -147,17 +131,9 @@ async function persistGeneratedOutfit(
     condition: normalizedWeather.condition,
   };
 
-  const outfitId = crypto.randomUUID();
-  const persistedOutfit = {
-    id: outfitId,
-    occasion: request.occasion,
-    style_vibe: request.style || null,
-  };
-
-  const { error: outfitError } = await supabase
+  const { data: outfit, error: outfitError } = await supabase
     .from('outfits')
     .insert([{
-      id: outfitId,
       user_id: userId,
       occasion: request.occasion,
       style_vibe: request.style || null,
@@ -165,36 +141,22 @@ async function persistGeneratedOutfit(
       explanation,
       saved,
       style_score: styleScore,
-    }]);
+    }])
+    .select()
+    .single();
 
-  if (outfitError) {
-    throw new OutfitPersistenceError(PERSISTENCE_FAILURE_MESSAGE, outfitError);
-  }
+  if (outfitError) throw outfitError;
 
   const outfitItems = selectedItems.map((item) => ({
-    outfit_id: outfitId,
+    outfit_id: outfit.id,
     garment_id: item.garment.id,
     slot: item.slot,
   }));
 
   const { error: itemsError } = await supabase.from('outfit_items').insert(outfitItems);
-  if (itemsError) {
-    const { error: cleanupError } = await supabase
-      .from('outfits')
-      .delete()
-      .eq('id', outfitId);
+  if (itemsError) throw itemsError;
 
-    if (cleanupError) {
-      throw new OutfitPersistenceError(PARTIAL_PERSISTENCE_FAILURE_MESSAGE, {
-        itemsError,
-        cleanupError,
-      });
-    }
-
-    throw new OutfitPersistenceError(PERSISTENCE_FAILURE_MESSAGE, itemsError);
-  }
-
-  return persistedOutfit;
+  return outfit;
 }
 
 function isInsufficientGarmentsError(message?: string | null) {
@@ -243,27 +205,8 @@ function assertPreferredGarmentIncluded(
 
 async function hydrateSelectedItems(
   aiItems: { slot: string; garment_id: string }[],
-  preloadedGarments?: Garment[],
-): Promise<{
-  items: { slot: string; garment: Garment }[];
-  unresolvedGarmentIds: string[];
-}> {
-  const preloadedGarmentMap = new Map((preloadedGarments || []).map((garment) => [garment.id, garment]));
-  const requestedGarmentIds = Array.from(new Set(aiItems.map((item) => item.garment_id).filter(Boolean)));
-  const missingGarmentIds = requestedGarmentIds.filter((garmentId) => !preloadedGarmentMap.has(garmentId));
-
-  let fetchedGarmentMap = new Map<string, Garment>();
-  if (missingGarmentIds.length > 0) {
-    try {
-      fetchedGarmentMap = await fetchGarmentsByIds(missingGarmentIds);
-    } catch {
-      throw new Error(HYDRATION_FAILURE_MESSAGE);
-    }
-  }
-
-  const garmentMap = new Map([...preloadedGarmentMap, ...fetchedGarmentMap]);
-  const unresolvedGarmentIds = requestedGarmentIds.filter((garmentId) => !garmentMap.has(garmentId));
-
+): Promise<{ slot: string; garment: Garment }[]> {
+  const garmentMap = await fetchGarmentsByIds(aiItems.map((item) => item.garment_id));
   const slotToCategory = (slot: string): string | null => {
     const normalized = slot.toLowerCase();
     if (normalized.includes('shoe')) return 'shoes';
@@ -274,7 +217,7 @@ async function hydrateSelectedItems(
     return null;
   };
 
-  const items = aiItems
+  return aiItems
     .map((item) => {
       const garmentRaw = garmentMap.get(item.garment_id) as Garment | undefined;
       const hintedCategory = slotToCategory(item.slot || '');
@@ -288,8 +231,23 @@ async function hydrateSelectedItems(
       return { slot: item.slot || inferOutfitSlotFromGarment(garment), garment };
     })
     .filter((item): item is { slot: string; garment: Garment } => Boolean(item?.garment));
+}
 
-  return { items, unresolvedGarmentIds };
+async function validateWardrobeForGeneration(userId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('garments')
+    .select('category, subcategory')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+
+  const slots = new Set((data || []).map((item) => inferOutfitSlotFromGarment(item)));
+  const hasTopBottomPath = slots.has('top') && slots.has('bottom') && slots.has('shoes');
+  const hasDressPath = slots.has('dress') && slots.has('shoes');
+
+  if (!hasTopBottomPath && !hasDressPath) {
+    throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
+  }
 }
 
 async function generateOutfitViaEngine(
@@ -297,25 +255,9 @@ async function generateOutfitViaEngine(
   request: OutfitRequest,
   resultMode: 'single' | 'multi' = 'single',
   shouldValidateWardrobe = true,
-  wardrobeSnapshot?: RecoverableGarment[],
 ): Promise<GeneratedOutfit | GeneratedOutfit[]> {
-  let availableWardrobe = wardrobeSnapshot ?? [];
   if (shouldValidateWardrobe) {
-    const { data, error } = await supabase
-      .from('garments')
-      .select('id, category, subcategory, wear_count, layering_role, in_laundry')
-      .eq('user_id', userId);
-
-    if (error) throw error;
-    availableWardrobe = (data ?? []) as RecoverableGarment[];
-
-    const slots = new Set(availableWardrobe.map((item) => inferOutfitSlotFromGarment(item)));
-    const hasTopBottomPath = slots.has('top') && slots.has('bottom') && slots.has('shoes');
-    const hasDressPath = slots.has('dress') && slots.has('shoes');
-
-    if (!hasTopBottomPath && !hasDressPath) {
-      throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
-    }
+    await validateWardrobeForGeneration(userId);
   }
   const requiresPreferredGarment = hasPreferredGarments(request);
 
@@ -338,7 +280,7 @@ async function generateOutfitViaEngine(
 
   if (fnError) {
     if (resultMode === 'multi' && shouldRetrySingleFromSuggest(fnError.message)) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
     }
     if (requiresPreferredGarment && isIncompleteOutfitError(fnError.message)) {
       throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
@@ -348,7 +290,7 @@ async function generateOutfitViaEngine(
 
   if (data?.error) {
     if (resultMode === 'multi' && shouldRetrySingleFromSuggest(data.error)) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
     }
     if (requiresPreferredGarment && isIncompleteOutfitError(data.error)) {
       throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
@@ -359,7 +301,7 @@ async function generateOutfitViaEngine(
   if (resultMode === 'multi') {
     const suggestions = data?.suggestions ?? [];
     if (!suggestions.length) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
     }
 
     const garmentIds = suggestions.flatMap((suggestion) =>
@@ -380,17 +322,16 @@ async function generateOutfitViaEngine(
         slot: inferOutfitSlotFromGarment(garment),
         garment,
       }));
-      const repairedItems = repairIncompleteOutfitItems(selectedItems, availableWardrobe as Garment[], normalizedWeather);
 
       try {
-        assertCompleteGeneratedOutfit(repairedItems, ` for option ${index + 1}`);
-        assertPreferredGarmentIncluded(request, repairedItems);
+        assertCompleteGeneratedOutfit(selectedItems, ` for option ${index + 1}`);
+        assertPreferredGarmentIncluded(request, selectedItems);
 
         const persisted = await persistGeneratedOutfit(
           userId,
           request,
           normalizedWeather,
-          repairedItems,
+          selectedItems,
           suggestion.explanation ?? '',
           null,
           false,
@@ -402,17 +343,12 @@ async function generateOutfitViaEngine(
           style_vibe: persisted.style_vibe,
           explanation: suggestion.explanation ?? '',
           weather: request.weather,
-          items: repairedItems,
+          items: selectedItems,
           confidence_score: suggestion.confidence_score,
           confidence_level: suggestion.confidence_level,
           limitation_note: suggestion.limitation_note,
           family_label: suggestion.family_label,
         } satisfies GeneratedOutfit);
-        cacheOutfitMetadata(persisted.id, {
-          justGenerated: true,
-          limitation_note: suggestion.limitation_note ?? null,
-          family_label: suggestion.family_label,
-        });
       } catch (error) {
         if (!(error instanceof Error) || (!isIncompleteOutfitError(error.message) && error.message !== PREFERRED_GARMENT_RECOVERY_MESSAGE)) {
           throw error;
@@ -421,7 +357,7 @@ async function generateOutfitViaEngine(
     }
 
     if (!outfits.length) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
     }
 
     return outfits;
@@ -447,17 +383,12 @@ async function generateOutfitViaEngine(
     throw new Error(COMPLETE_OUTFIT_RECOVERY_MESSAGE);
   }
 
-  const hydratedItems = await hydrateSelectedItems(aiItems, data?.garments);
-  const selectedItems = hydratedItems.items;
-  const repairedItems = repairIncompleteOutfitItems(selectedItems, availableWardrobe as Garment[], normalizedWeather);
+  const selectedItems = await hydrateSelectedItems(aiItems);
 
   try {
-    assertCompleteGeneratedOutfit(repairedItems, '');
-    assertPreferredGarmentIncluded(request, repairedItems);
+    assertCompleteGeneratedOutfit(selectedItems, '');
+    assertPreferredGarmentIncluded(request, selectedItems);
   } catch (error) {
-    if (hydratedItems.unresolvedGarmentIds.length > 0) {
-      throw new Error(HYDRATION_FAILURE_MESSAGE);
-    }
     if (error instanceof Error && error.message === PREFERRED_GARMENT_RECOVERY_MESSAGE) {
       throw error;
     }
@@ -474,22 +405,11 @@ async function generateOutfitViaEngine(
     userId,
     request,
     normalizedWeather,
-    repairedItems,
+    selectedItems,
     explanation,
     styleScore,
     true,
   );
-
-  cacheOutfitMetadata(outfit.id, {
-    justGenerated: true,
-    limitation_note: limitationNote,
-    family_label: familyLabel,
-    wardrobe_insights: wardrobeInsights,
-    layer_order: layerOrder,
-    needs_base_layer: needsBaseLayer,
-    occasion_submode: occasionSubmode,
-    outfit_reasoning: outfitReasoning,
-  });
 
   return {
     id: outfit.id,
@@ -497,7 +417,7 @@ async function generateOutfitViaEngine(
     style_vibe: outfit.style_vibe,
     explanation,
     weather: request.weather,
-    items: repairedItems,
+    items: selectedItems,
     confidence_score: confidenceScore,
     confidence_level: confidenceLevel,
     limitation_note: limitationNote,

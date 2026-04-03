@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { buildOriginalGarmentImagePath } from '@/lib/garmentImagePath';
 
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -36,7 +35,7 @@ export function useStorage() {
     if (!user) throw new Error('Not authenticated');
 
     const fileExt = options.extension || resolveFileExtension(file);
-    const filePath = options.filePath || buildOriginalGarmentImagePath(user.id, garmentId, fileExt);
+    const filePath = options.filePath || `${user.id}/${garmentId}.${fileExt}`;
     
     const { error } = await supabase.storage
       .from('garments')

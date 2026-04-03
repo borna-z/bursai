@@ -87,8 +87,7 @@ export function usePushNotifications() {
         return false;
       }
 
-      const registration = await navigator.serviceWorker.getRegistration('/sw.js')
-        ?? await navigator.serviceWorker.register('/sw.js');
+      const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
       const { data: configData } = await invokeEdgeFunction<{ publicKey?: string }>('get_vapid_public_key');

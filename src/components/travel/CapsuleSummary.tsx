@@ -3,6 +3,7 @@ import { Check, LightbulbIcon, Shirt } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
@@ -47,7 +48,7 @@ export function CapsuleSummary({
       transition={{ duration: 0.25, ease: EASE_CURVE }}
       className="space-y-4 pt-3"
     >
-      <div className="space-y-4 border-b border-border/28 pb-4">
+      <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="label-editorial">Packing Progress</p>
@@ -67,7 +68,7 @@ export function CapsuleSummary({
             transition={{ duration: 0.4, ease: EASE_CURVE }}
           />
         </div>
-      </div>
+      </Card>
 
       {Object.entries(groupedItems).map(([category, items], categoryIndex) => {
         const categoryOutfitUses = (items || []).reduce(
@@ -82,7 +83,7 @@ export function CapsuleSummary({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: categoryIndex * STAGGER_DELAY, duration: 0.35 }}
           >
-            <div className="space-y-3 border-t border-border/24 pt-4">
+            <Card className="space-y-3 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="label-editorial">{category}</p>
@@ -99,10 +100,10 @@ export function CapsuleSummary({
                     key={garment.id}
                     onClick={() => toggleChecked(garment.id)}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-[1.2rem] border border-border/30 p-3 text-left transition-all',
+                      'flex w-full items-center gap-3 rounded-[1.35rem] border p-3 text-left transition-all',
                       checkedItems.has(garment.id)
                         ? 'border-accent/25 bg-accent/5'
-                        : 'hover:bg-secondary/35',
+                        : 'hover:bg-secondary/60',
                     )}
                   >
                     <div
@@ -118,7 +119,7 @@ export function CapsuleSummary({
                       ) : null}
                     </div>
 
-                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[0.95rem] bg-muted/30">
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[1rem] bg-muted/30">
                       <LazyImageSimple
                         imagePath={getPreferredGarmentImagePath(garment)}
                         alt={garment.title}
@@ -144,17 +145,17 @@ export function CapsuleSummary({
                   </button>
                 ))}
               </div>
-            </div>
+            </Card>
           </motion.div>
         );
       })}
 
-      <div className="flex items-center justify-center gap-2 border-t border-border/24 px-2 pt-4">
+      <Card className="flex items-center justify-center gap-2 px-4 py-3">
         <Shirt className="h-3.5 w-3.5 text-muted-foreground/40" />
         <span className="text-xs text-muted-foreground/60">
-          {totalItems} {t('capsule.items')} - {t('capsule.creates')} {result.outfits.length} {t('capsule.unique_outfits')}
+          {totalItems} {t('capsule.items')} • {t('capsule.creates')} {result.outfits.length} {t('capsule.unique_outfits')}
         </span>
-      </div>
+      </Card>
 
       <Button
         onClick={() => {
@@ -174,21 +175,21 @@ export function CapsuleSummary({
       </Button>
 
       {(result.coverage_gaps?.length || 0) > 0 ? (
-        <div className="space-y-3 border-t border-border/24 pt-4">
+        <Card className="space-y-3 p-4">
           <h3 className="label-editorial">Coverage Gaps</h3>
           <ul className="space-y-1.5">
             {result.coverage_gaps?.map((gap) => (
               <li key={`${gap.code}-${gap.message}`} className="flex gap-2 text-xs text-muted-foreground/70">
-                <span className="shrink-0 text-primary">-</span>
+                <span className="shrink-0 text-primary">•</span>
                 {gap.message}
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       ) : null}
 
       {result.packing_tips.length > 0 ? (
-        <div className="space-y-3 border-t border-border/24 pt-4">
+        <Card className="space-y-3 p-4">
           <h3 className="label-editorial flex items-center gap-1.5">
             <LightbulbIcon className="h-3 w-3" />
             {t('capsule.tips')}
@@ -196,12 +197,12 @@ export function CapsuleSummary({
           <ul className="space-y-1.5">
             {result.packing_tips.map((tip, index) => (
               <li key={index} className="flex gap-2 text-xs text-muted-foreground/70">
-                <span className="shrink-0 text-primary">-</span>
+                <span className="shrink-0 text-primary">•</span>
                 {tip}
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       ) : null}
     </motion.div>
   );

@@ -1,4 +1,4 @@
-import { ChevronRight, Settings2, Sparkles } from 'lucide-react';
+import { ChevronRight, Sparkles } from 'lucide-react';
 
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import type { HomeState } from '@/components/home/homeTypes';
@@ -18,8 +18,6 @@ interface HomeTodayLookCardProps {
   onOutfitTap?: () => void;
   primaryLabel: string;
   secondaryLabel: string;
-  tertiaryLabel?: string;
-  onTertiaryAction?: () => void;
 }
 
 function ActionRow({
@@ -107,25 +105,8 @@ export function HomeTodayLookCard({
   onOutfitTap,
   primaryLabel,
   secondaryLabel,
-  tertiaryLabel,
-  onTertiaryAction,
 }: HomeTodayLookCardProps) {
   const { t } = useLanguage();
-  const settingsAction = tertiaryLabel && onTertiaryAction ? (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={onTertiaryAction}
-      className="w-full justify-between rounded-[1rem] border-border/45 bg-background/25 px-4 text-[12px] font-medium text-muted-foreground hover:bg-secondary/40"
-    >
-      <span className="inline-flex items-center gap-2">
-        <Settings2 className="h-3.5 w-3.5 text-accent" />
-        {tertiaryLabel}
-      </span>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />
-    </Button>
-  ) : null;
 
   if (state === 'empty_wardrobe') {
     return (
@@ -161,7 +142,6 @@ export function HomeTodayLookCard({
             onPrimaryAction={onPrimaryAction}
             onSecondaryAction={onSecondaryAction}
           />
-          {settingsAction}
         </div>
       </div>
     );
@@ -207,7 +187,6 @@ export function HomeTodayLookCard({
             onPrimaryAction={onPrimaryAction}
             onSecondaryAction={onSecondaryAction}
           />
-          {settingsAction}
         </div>
       </div>
     );
@@ -256,7 +235,6 @@ export function HomeTodayLookCard({
             {secondaryLabel}
           </Button>
         </div>
-        {settingsAction}
       </div>
     </div>
   );

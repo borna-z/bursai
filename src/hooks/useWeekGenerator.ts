@@ -44,8 +44,6 @@ interface WeekGenerationResult {
   };
 }
 
-const WEEK_PERSISTENCE_FAILURE_MESSAGE = 'Failed to save';
-
 export function useWeekGenerator() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -135,14 +133,11 @@ export function useWeekGenerator() {
           continue;
         }
 
-        let outfitId: string | null = null;
         try {
-          outfitId = crypto.randomUUID();
-
-          const { error: outfitError } = await supabase
+          // Save outfit
+          const { data: outfit, error: outfitError } = await supabase
             .from('outfits')
             .insert({
-              id: outfitId,
               user_id: user.id,
               occasion: dayResult.occasion,
               style_vibe: options?.style || null,
@@ -150,12 +145,15 @@ export function useWeekGenerator() {
               explanation: dayResult.explanation || '',
               saved: true,
               style_score: dayResult.style_score || null,
-            });
+            })
+            .select()
+            .single();
 
           if (outfitError) throw outfitError;
 
+          // Save outfit items
           const outfitItems = normalizedItems.map(item => ({
-            outfit_id: outfitId,
+            outfit_id: outfit.id,
             garment_id: item.garment_id,
             slot: item.slot,
           }));
@@ -163,10 +161,11 @@ export function useWeekGenerator() {
           const { error: outfitItemsError } = await supabase.from('outfit_items').insert(outfitItems);
           if (outfitItemsError) throw outfitItemsError;
 
+          // Create planned outfit entry
           const { error: plannedOutfitError } = await supabase.from('planned_outfits').insert({
             user_id: user.id,
             date: dayResult.date,
-            outfit_id: outfitId,
+            outfit_id: outfit.id,
             status: 'planned',
           });
           if (plannedOutfitError) throw plannedOutfitError;
@@ -176,13 +175,8 @@ export function useWeekGenerator() {
             items: normalizedItems.map((item) => ({ slot: item.slot, garment_id: item.garment_id })),
           });
         } catch (err) {
-          if (outfitId) {
-            await supabase.from('planned_outfits').delete().eq('outfit_id', outfitId);
-            await supabase.from('outfit_items').delete().eq('outfit_id', outfitId);
-            await supabase.from('outfits').delete().eq('id', outfitId);
-          }
           logger.error(`Failed to save outfit for ${dayResult.date}:`, err);
-          savedDays.push({ ...dayResult, error: WEEK_PERSISTENCE_FAILURE_MESSAGE });
+          savedDays.push({ ...dayResult, error: 'Failed to save' });
         }
       }
 

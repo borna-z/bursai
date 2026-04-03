@@ -53,27 +53,6 @@ vi.mock('@/components/add-garment/FormStep', () => ({
   FormStep: () => <div>form step</div>,
 }));
 
-vi.mock('@/components/add-garment/UploadStep', () => ({
-  UploadStep: ({
-    onOpenLiveScan,
-    onTakePhoto,
-    onPickFromGallery,
-    batchLabel,
-  }: {
-    onOpenLiveScan: () => void;
-    onTakePhoto: () => void;
-    onPickFromGallery: () => void;
-    batchLabel: string;
-  }) => (
-    <div>
-      <button onClick={onOpenLiveScan}>Open the fastest capture flow</button>
-      <button onClick={onTakePhoto}>Take photo</button>
-      <button onClick={onPickFromGallery}>Photo library</button>
-      <button>{batchLabel}</button>
-    </div>
-  ),
-}));
-
 vi.mock('@/components/PaywallModal', () => ({
   PaywallModal: () => null,
 }));
@@ -160,7 +139,7 @@ describe('Add garment page', () => {
   it('surfaces the three primary add entry points', () => {
     render(<AddGarmentPage />);
 
-    expect(screen.getByRole('button', { name: /open the fastest capture flow/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /fastest capture/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /photo library/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add multiple/i })).toBeInTheDocument();

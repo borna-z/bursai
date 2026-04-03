@@ -4,7 +4,6 @@ import { OfflineBanner } from './OfflineBanner';
 import { SeedProgressPill } from './SeedProgressPill';
 import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
-import { useViewportShell } from '@/hooks/useViewportShell';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
@@ -19,18 +18,11 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   const { resolvedTheme } = useTheme();
   const { t } = useLanguage();
   useKeyboardAdjust();
-  useViewportShell();
   useMedianStatusBar(resolvedTheme);
   useUnlockCelebration();
 
   return (
-    <div
-      className="relative flex flex-col overflow-hidden bg-background text-foreground"
-      style={{
-        minHeight: 'var(--app-viewport-height, 100svh)',
-        height: 'var(--app-viewport-height, 100svh)',
-      }}
-    >
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       {!hideNav ? (
         <div
           aria-hidden="true"
@@ -44,11 +36,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       <main
         id="main-content"
         className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
-        style={{
-          overscrollBehavior: 'none',
-          paddingTop: 'max(env(safe-area-inset-top, 0px), var(--app-viewport-offset-top, 0px))',
-          paddingBottom: hideNav ? '0px' : 'var(--app-bottom-clearance)',
-        }}
+        style={{ ...(hideNav ? undefined : { paddingBottom: 'env(safe-area-inset-bottom, 0px)' }), overscrollBehavior: 'none' }}
       >
         {children}
       </main>

@@ -21,7 +21,6 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 import { useAuth } from '@/contexts/AuthContext';
-import { enqueue } from '@/lib/offlineQueue';
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -56,7 +55,7 @@ function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
   chain.order = vi.fn().mockReturnValue(chain);
   chain.range = vi.fn().mockResolvedValue({ data, error });
   chain.limit = vi.fn().mockResolvedValue({ data, error });
-  chain.insert = vi.fn().mockResolvedValue({ error });
+  chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || {}, error }) }) });
   chain.delete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.single = vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error });
@@ -144,108 +143,6 @@ describe('useGarments', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
-  });
-
-  it('still attempts a live create when navigator reports offline', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-    vi.stubGlobal('navigator', { onLine: false });
-    const chain = mockChain([{ id: 'g1', title: 'Shirt', category: 'top', color_primary: 'blue' }]);
-    mockFrom.mockReturnValue(chain);
-
-    const { useCreateGarment } = await import('../useGarments');
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useCreateGarment(), { wrapper });
-
-    await act(async () => {
-      await result.current.mutateAsync({ title: 'Shirt', category: 'top', color_primary: 'blue' } as never);
-    });
-
-    expect(chain.insert).toHaveBeenCalled();
-    expect(enqueue).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the offline queue when create fails with a network error', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-    vi.stubGlobal('navigator', { onLine: false });
-    const failingInsert = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
-    mockFrom.mockReturnValue({
-      insert: failingInsert,
-    });
-
-    const { useCreateGarment } = await import('../useGarments');
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useCreateGarment(), { wrapper });
-
-    await act(async () => {
-      await result.current.mutateAsync({ title: 'Shirt', category: 'top', color_primary: 'blue' } as never);
-    });
-
-    expect(failingInsert).toHaveBeenCalled();
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      table: 'garments',
-      type: 'insert',
-      payload: expect.objectContaining({ user_id: 'user-1', title: 'Shirt' }),
-    }));
-  });
-
-  it('preserves the caller garment id when queueing offline fallback', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-    vi.stubGlobal('navigator', { onLine: false });
-    const failingInsert = vi.fn().mockRejectedValue(new Error('Failed to fetch'));
-    mockFrom.mockReturnValue({
-      insert: failingInsert,
-    });
-
-    const { useCreateGarment } = await import('../useGarments');
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useCreateGarment(), { wrapper });
-
-    let created: Awaited<ReturnType<typeof result.current.mutateAsync>>;
-    await act(async () => {
-      created = await result.current.mutateAsync({
-        id: 'garment-123',
-        title: 'Shirt',
-        category: 'top',
-        color_primary: 'blue',
-      } as never);
-    });
-
-    expect(created!.id).toBe('garment-123');
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
-      payload: expect.objectContaining({ id: 'garment-123' }),
-    }));
-  });
-
-  it('treats a duplicate-key create as success when the garment already exists', async () => {
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: 'garment-123', user_id: 'user-1', title: 'Shirt', category: 'top', color_primary: 'blue' },
-      error: null,
-    });
-    const secondEq = vi.fn().mockReturnValue({ maybeSingle });
-    const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
-
-    mockFrom.mockReturnValue({
-      insert: vi.fn().mockResolvedValue({ error: { message: 'duplicate key value violates unique constraint "garments_pkey"' } }),
-      select: vi.fn().mockReturnValue({ eq: firstEq }),
-    });
-
-    const { useCreateGarment } = await import('../useGarments');
-    const { wrapper } = createWrapper();
-    const { result } = renderHook(() => useCreateGarment(), { wrapper });
-
-    let created: Awaited<ReturnType<typeof result.current.mutateAsync>>;
-    await act(async () => {
-      created = await result.current.mutateAsync({
-        id: 'garment-123',
-        title: 'Shirt',
-        category: 'top',
-        color_primary: 'blue',
-      } as never);
-    });
-
-    expect(created!.id).toBe('garment-123');
-    expect(enqueue).not.toHaveBeenCalled();
   });
 
   it('invalidates garment list and garment count after delete', async () => {

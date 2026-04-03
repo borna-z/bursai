@@ -35,9 +35,9 @@ describe('useStorage', () => {
 
     const path = await result.current.uploadGarmentImage(blob, 'garment-1');
 
-    expect(path).toBe('user-1/garment-1/original.png');
+    expect(path).toBe('user-1/garment-1.png');
     expect(uploadMock).toHaveBeenCalledWith(
-      'user-1/garment-1/original.png',
+      'user-1/garment-1.png',
       blob,
       expect.objectContaining({
         upsert: true,
@@ -52,9 +52,9 @@ describe('useStorage', () => {
 
     const path = await result.current.uploadGarmentImage(blob, 'garment-2', { extension: 'jpg' });
 
-    expect(path).toBe('user-1/garment-2/original.jpg');
+    expect(path).toBe('user-1/garment-2.jpg');
     expect(uploadMock).toHaveBeenCalledWith(
-      'user-1/garment-2/original.jpg',
+      'user-1/garment-2.jpg',
       blob,
       expect.objectContaining({
         upsert: true,
