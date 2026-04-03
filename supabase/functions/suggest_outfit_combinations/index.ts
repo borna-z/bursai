@@ -4,7 +4,6 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
-import { inferOutfitSlotFromGarment, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 
 const LOCALE_NAMES: Record<string, string> = {
   sv: "Swedish", en: "English", de: "German", fr: "French",
@@ -109,7 +108,7 @@ serve(async (req) => {
       `${g.id}|${g.title}|${g.category}${g.subcategory ? "/" + g.subcategory : ""}|${g.color_primary}|w${g.wear_count || 0}|${g.last_worn_at || "never"}`
     ).join("\n");
 
-    const unusedIds = unusedGarments.map(g => g.id).join(",");
+    const unusedIds = unusedGarments.map(g => g.id.slice(0, 8)).join(",");
 
     const { data: result } = await callBursAI({
       complexity: "standard",
@@ -159,22 +158,9 @@ WARDROBE:\n${garmentList}` },
       .map((s: any) => {
         const validIds = s.garment_ids.filter((id: string) => garmentMap.has(id));
         const garmentDetails = validIds.map((id: string) => garmentMap.get(id)!);
-        const validation = validateCompleteOutfit(
-          garmentDetails.map((garment) => ({
-            slot: inferOutfitSlotFromGarment(garment),
-            garment,
-          })),
-        );
-
-        return {
-          ...s,
-          garment_ids: validIds,
-          garments: garmentDetails,
-          _isComplete: validation.isValid,
-        };
+        return { ...s, garment_ids: validIds, garments: garmentDetails };
       })
-      .filter((s: any) => s._isComplete)
-      .map(({ _isComplete, ...suggestion }: any) => suggestion);
+      .filter((s: any) => s.garment_ids.length >= 3);
 
     return new Response(JSON.stringify({ suggestions: enrichedSuggestions }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },

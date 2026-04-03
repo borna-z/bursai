@@ -16,8 +16,6 @@ import { logger } from "./logger.ts";
 
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const log = logger("burs_ai");
-let cachedServiceClient: any | null = null;
-let cachedServiceClientPromise: Promise<any | null> | null = null;
 
 // ─── Complexity-based model routing ───────────────────────────
 type Complexity = "trivial" | "standard" | "complex";
@@ -239,12 +237,12 @@ async function checkCache(supabase: any, cacheKey: string): Promise<any | null> 
       .single();
 
     if (data) {
-      // Only bump hit_count. Extending TTL on reads changes the caller's cache
-      // contract and keeps stale responses alive longer than requested.
+      // Bump hit_count and extend TTL (sliding window) — fire and forget
       supabase
         .from("ai_response_cache")
         .update({
           hit_count: data.hit_count ? data.hit_count + 1 : 1,
+          expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
         })
         .eq("cache_key", cacheKey)
         .then(() => {});
@@ -279,37 +277,6 @@ async function storeCache(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function createServiceClientFromEnv(): Promise<any | null> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) return null;
-
-  if (!cachedServiceClient) {
-    if (!cachedServiceClientPromise) {
-      cachedServiceClientPromise = import("https://esm.sh/@supabase/supabase-js@2")
-        .then(({ createClient }) => {
-          cachedServiceClient = createClient(supabaseUrl, serviceRoleKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-          });
-          return cachedServiceClient;
-        })
-        .catch(() => null);
-    }
-    cachedServiceClient = await cachedServiceClientPromise;
-  }
-
-  return cachedServiceClient;
-}
-
-export async function resolveBursAIServiceClient(
-  providedClient?: any,
-  options?: Pick<BursAIOptions, "cacheTtlSeconds">,
-): Promise<any | null> {
-  if (providedClient) return providedClient;
-  if ((options?.cacheTtlSeconds ?? 0) <= 0) return null;
-  return await createServiceClientFromEnv();
 }
 
 // ─── Observability (fire-and-forget) ──────────────────────────
@@ -433,7 +400,6 @@ export async function callBursAI(
     cacheTtlSeconds = 0,
     extraBody = {},
   } = options;
-  const resolvedServiceClient = await resolveBursAIServiceClient(supabaseServiceClient, options);
 
   const modelChain = resolveModelChain(options);
   const maxTokens = resolveMaxTokens(options);
@@ -455,10 +421,10 @@ export async function callBursAI(
     // stateless, so in-memory Maps reset on every cold start.
 
     // DB cache
-    if (cacheTtlSeconds > 0 && resolvedServiceClient) {
-      const cached = await checkCache(resolvedServiceClient, cacheKey);
+    if (cacheTtlSeconds > 0 && supabaseServiceClient) {
+      const cached = await checkCache(supabaseServiceClient, cacheKey);
       if (cached) {
-        logUsage(resolvedServiceClient, {
+        logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: cached.model_used,
           latency_ms: Date.now() - startTime, from_cache: true, status: "ok",
         });
@@ -586,12 +552,10 @@ export async function callBursAI(
         }
 
         if (cacheTtlSeconds > 0 && cacheKey) {
-          if (resolvedServiceClient) {
-            storeCache(resolvedServiceClient, cacheKey, parsed.result, model, cacheTtlSeconds);
-          }
+          if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, parsed.result, model, cacheTtlSeconds);
         }
         const costInfo = extractUsageAndCost(aiData, model);
-        logUsage(resolvedServiceClient, {
+        logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: model,
           latency_ms: Date.now() - startTime, from_cache: false, status: "ok",
           input_tokens: costInfo.inputTokens,
@@ -611,7 +575,7 @@ export async function callBursAI(
     }
 
 
-    logUsage(resolvedServiceClient, {
+    logUsage(supabaseServiceClient, {
       functionName: options.functionName, model_used: modelChain[0] || "unknown",
       latency_ms: Date.now() - startTime, from_cache: false, status: "error",
       error_message: lastError?.message,

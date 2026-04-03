@@ -309,26 +309,6 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
-function isAuthorizedInternalRequest(req: Request): boolean {
-  const authHeader = req.headers.get("Authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice("Bearer ".length).trim()
-    : null;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  if (serviceRoleKey && bearerToken === serviceRoleKey) {
-    return true;
-  }
-
-  const configuredSecrets = [
-    Deno.env.get("CRON_SECRET"),
-    Deno.env.get("INTERNAL_FUNCTION_SECRET"),
-  ].filter((value): value is string => Boolean(value));
-  const providedSecret = req.headers.get("x-cron-secret") ?? req.headers.get("x-internal-secret");
-
-  return Boolean(providedSecret && configuredSecrets.includes(providedSecret));
-}
-
 async function getAuthenticatedUser(
   supabase: ReturnType<typeof createClient>
 ): Promise<string | Response> {
@@ -400,10 +380,13 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
   return jsonResponse({ success: true, synced: result.synced, calendarsSynced: result.calendarsSynced, syncWindowDays: result.syncWindowDays });
 }
 
-async function handleSyncAll(req: Request): Promise<Response> {
+async function handleSyncAll(authHeader: string): Promise<Response> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  if (!isAuthorizedInternalRequest(req)) {
+  const expectedAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const providedKey = authHeader.replace('Bearer ', '');
+
+  if (providedKey !== expectedAnonKey && providedKey !== serviceRoleKey) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
@@ -473,6 +456,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
+
     let action = 'sync_ics'; // default
     try {
       const body = await req.json();
@@ -481,18 +467,13 @@ Deno.serve(async (req) => {
       // no body — default to sync_ics
     }
 
-    const authHeader = req.headers.get('Authorization');
-    if (action !== 'sync_all' && !authHeader) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
-    }
-
     switch (action) {
       case 'sync_ics':
-        return await handleSyncIcs(authHeader!);
+        return await handleSyncIcs(authHeader);
       case 'sync_google':
-        return await handleSyncGoogle(authHeader!);
+        return await handleSyncGoogle(authHeader);
       case 'sync_all':
-        return await handleSyncAll(req);
+        return await handleSyncAll(authHeader);
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400);
     }

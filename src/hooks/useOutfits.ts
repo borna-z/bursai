@@ -25,9 +25,6 @@ export interface OutfitWithItems extends Omit<Outfit, 'feedback' | 'weather'> {
   weather?: OutfitWeather | null;
 }
 
-const CREATE_OUTFIT_FAILURE_MESSAGE = 'We could not save the outfit. Please try again.';
-const CREATE_OUTFIT_PARTIAL_FAILURE_MESSAGE = 'The outfit save did not finish cleanly. Refresh and try again.';
-
 
 type OutfitVisibilityMode = 'strict_visible' | 'allow_generated_base';
 
@@ -127,17 +124,18 @@ export function useCreateOutfit() {
         throw new Error(`Refusing to persist invalid outfit. Missing: ${baseValidation.missing.join(', ')}`);
       }
 
-      const outfitId = outfit.id ?? crypto.randomUUID();
-      const outfitPayload = { ...outfit, id: outfitId, user_id: user.id };
-
-      const { error: outfitError } = await supabase
+      // Create outfit
+      const { data: outfitData, error: outfitError } = await supabase
         .from('outfits')
-        .insert(outfitPayload);
+        .insert({ ...outfit, user_id: user.id })
+        .select()
+        .single();
       
-      if (outfitError) throw new Error(CREATE_OUTFIT_FAILURE_MESSAGE);
+      if (outfitError) throw outfitError;
       
+      // Create outfit items
       const outfitItems = normalizedItems.map(item => ({
-        outfit_id: outfitId,
+        outfit_id: outfitData.id,
         garment_id: item.garment_id,
         slot: item.slot,
       }));
@@ -146,22 +144,12 @@ export function useCreateOutfit() {
         .from('outfit_items')
         .insert(outfitItems);
       
-      if (itemsError) {
-        const { error: cleanupError } = await supabase
-          .from('outfits')
-          .delete()
-          .eq('id', outfitId);
-
-        if (cleanupError) {
-          throw new Error(CREATE_OUTFIT_PARTIAL_FAILURE_MESSAGE);
-        }
-
-        throw new Error(CREATE_OUTFIT_FAILURE_MESSAGE);
-      }
+      if (itemsError) throw itemsError;
       
-      return outfitPayload;
+      return outfitData;
     },
-    retry: 0,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     onSuccess: () => {
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['outfits', user?.id] });

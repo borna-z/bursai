@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canBuildCompleteOutfitPath, validateBaseOutfit, validateCompleteOutfit, filterValidCompleteOutfits, normalizeOutfitItemSlot } from '../outfitValidation';
+import { canBuildCompleteOutfitPath, validateBaseOutfit, validateCompleteOutfit, filterValidCompleteOutfits } from '../outfitValidation';
 
 describe('validateBaseOutfit', () => {
   it('rejects top + shoes without bottom', () => {
@@ -146,10 +146,5 @@ describe('canBuildCompleteOutfitPath', () => {
       { category: 'top', subcategory: 'shirt' },
       { category: 'bottom', subcategory: 'trousers' },
     ])).toBe(false);
-  });
-
-  it('recognizes expanded shoe and outerwear aliases', () => {
-    expect(normalizeOutfitItemSlot({ slot: 'oxfords' })).toBe('shoes');
-    expect(normalizeOutfitItemSlot({ slot: 'waistcoat' })).toBe('outerwear');
   });
 });

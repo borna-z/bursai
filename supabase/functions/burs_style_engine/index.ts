@@ -5,7 +5,7 @@ import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
-import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
+import { validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { collectOccasionSignals, collectStyleSignals, hasOccasionSignal, hasStyleSignal, normalizeSignalText } from "../_shared/style-signals.ts";
 import { mergeStylePreferenceOverrides } from "../_shared/style-preference-overrides.ts";
 import { logger } from "../_shared/logger.ts";
@@ -1499,9 +1499,8 @@ function validateLayeringCompleteness(items: ComboItem[]): LayeringValidation {
   const baseLikeTopCount = topRoles.filter(role => role === 'base' || role === 'standalone').length;
   const midTopCount = topRoles.filter(role => role === 'mid').length;
   const outerwearCount = items.filter(i => i.slot === 'outerwear').length;
-  const singleMidStandalone = topItems.length === 1 && midTopCount === 1 && baseLikeTopCount === 0;
 
-  const needs_base_layer = midTopCount > 0 && baseLikeTopCount === 0 && !singleMidStandalone;
+  const needs_base_layer = midTopCount > 0 && baseLikeTopCount === 0;
   const violations: string[] = [];
 
   if (needs_base_layer) {
@@ -2796,8 +2795,7 @@ function buildCombos(
     return role === 'base' || role === 'standalone';
   });
   const midLayers = tops.filter(t => (t.garment.layering_role || 'standalone') === 'mid');
-  const primaryTopSeeds = baseTops.length > 0 ? baseTops : midLayers;
-  const canAddSeparateMidLayer = baseTops.length > 0;
+  const primaryTopSeeds = baseTops;
 
   const wet = isWetWeather(weather);
   const needsOuterwear =
@@ -2816,7 +2814,7 @@ function buildCombos(
       : [null];
 
   const midLayerOptions: Array<ScoredGarment | null> =
-    canAddSeparateMidLayer && midLayers.length > 0
+    midLayers.length > 0
       ? [null, ...midLayers.slice(0, 2)]
       : [null];
 
@@ -2993,13 +2991,10 @@ function buildFallbackCombos(
     const role = top.garment.layering_role || 'standalone';
     return role === 'base' || role === 'standalone';
   });
-  const midLayers = tops.filter((top) => (top.garment.layering_role || 'standalone') === 'mid');
-  const primaryTopSeeds = baseTops.length > 0 ? baseTops : midLayers;
   const outerwearOptions: Array<ScoredGarment | null> = requiresOuterwear(weather)
     ? (outerwear.length > 0 ? [outerwear[0]] : [null])
     : [null, ...(outerwear.length > 0 ? [outerwear[0]] : [])];
   const combos: ScoredCombo[] = [];
-  const softFallbackCombos: ScoredCombo[] = [];
 
   const pushFallbackCombo = (items: ComboItem[]) => {
     const { complete } = isCompleteOutfit(items, weather, 'strict_visible');
@@ -3007,22 +3002,12 @@ function buildFallbackCombos(
     const layering = validateLayeringCompleteness(items);
     if (!layering.valid) return;
     const scored = scoreCombo(items, recentOutfitSets, occasion, weather, style, prefs, body, pairMemory);
-    softFallbackCombos.push(scored);
     if (!qualityGate(scored, weather)) return;
     combos.push(scored);
   };
 
-  const resolveFallbackCombos = (fallbackLevel: number) => {
-    const pool = combos.length > 0 ? combos : softFallbackCombos;
-    if (pool.length === 0) return { combos: [], fallbackLevel: -1 };
-    return {
-      combos: pool.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos),
-      fallbackLevel,
-    };
-  };
-
-  if (primaryTopSeeds.length > 0 && bottoms.length > 0 && suitableShoes.length > 0) {
-    for (const t of primaryTopSeeds.slice(0, 4)) {
+  if (baseTops.length > 0 && bottoms.length > 0 && suitableShoes.length > 0) {
+    for (const t of baseTops.slice(0, 4)) {
       for (const b of bottoms.slice(0, 4)) {
         for (const s of suitableShoes.slice(0, 3)) {
           for (const ow of outerwearOptions) {
@@ -3036,8 +3021,8 @@ function buildFallbackCombos(
         }
       }
     }
-    if (combos.length > 0 || softFallbackCombos.length > 0) {
-      return resolveFallbackCombos(2);
+    if (combos.length > 0) {
+      return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 2 };
     }
   }
 
@@ -3053,8 +3038,8 @@ function buildFallbackCombos(
         }
       }
     }
-    if (combos.length > 0 || softFallbackCombos.length > 0) {
-      return resolveFallbackCombos(3);
+    if (combos.length > 0) {
+      return { combos: combos.sort((a, b) => b.totalScore - a.totalScore).slice(0, maxCombos), fallbackLevel: 3 };
     }
   }
 
@@ -4435,9 +4420,9 @@ serve(async (req) => {
     const garments = (garmentsRawRes.data || []).map(hydrateEnrichment) as GarmentRow[];
     const activeLookSlotMap = buildActiveLookSlotMap(garments, activeLookGarmentIds);
 
-    if (!canBuildCompleteOutfitPath(garments)) {
+    if (garments.length < 3) {
       return new Response(
-        JSON.stringify({ error: "You need either top + bottom + shoes, or dress + shoes, to generate an outfit" }),
+        JSON.stringify({ error: "You need at least 3 garments to generate an outfit" }),
         { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
@@ -4938,7 +4923,6 @@ serve(async (req) => {
       const fallbackLayering = validateLayeringCompleteness(best.items);
       return new Response(JSON.stringify({
         items: best.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
-        garments: best.items.map(i => i.garment),
         explanation: "",
         style_score: best.breakdown,
         layer_order: fallbackLayering.layer_order,
@@ -4980,7 +4964,6 @@ serve(async (req) => {
       });
       return new Response(JSON.stringify({
         items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
-        garments: chosen.items.map(i => i.garment),
         explanation: aiResult.data.explanation || "",
         style_score: chosen.breakdown,
         family_label: dc.family_label || 'classic',

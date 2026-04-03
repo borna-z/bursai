@@ -64,13 +64,10 @@ describe('normalizeSlot', () => {
   it('maps token-based matches', () => {
     expect(normalizeSlot('jacket')).toBe('outerwear');
     expect(normalizeSlot('sneakers')).toBe('shoes');
-    expect(normalizeSlot('oxfords')).toBe('shoes');
-    expect(normalizeSlot('mules')).toBe('shoes');
     expect(normalizeSlot('jeans')).toBe('bottom');
     expect(normalizeSlot('scarf')).toBe('accessory');
     expect(normalizeSlot('jumpsuit')).toBe('dress');
     expect(normalizeSlot('blouse')).toBe('top');
-    expect(normalizeSlot('waistcoat')).toBe('outerwear');
   });
 
   it('maps Swedish tokens', () => {
@@ -106,9 +103,7 @@ describe('classifySlot', () => {
 
   it('infers slot from subcategory alone', () => {
     expect(classifySlot('clothing', 'sneakers')).toBe('shoes');
-    expect(classifySlot('clothing', 'oxfords')).toBe('shoes');
     expect(classifySlot('clothing', 'jacket')).toBe('outerwear');
-    expect(classifySlot('clothing', 'waistcoat')).toBe('outerwear');
     expect(classifySlot('clothing', 'jumpsuit')).toBe('dress');
   });
 

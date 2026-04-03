@@ -19,12 +19,12 @@ import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useAISuggestions, type AISuggestion, type AISuggestionsEmptyState } from '@/hooks/useAISuggestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
-import { useCreateOutfit } from '@/hooks/useOutfits';
 
 /* ── Loading indicator ── */
 function LoadingIndicator() {
@@ -214,7 +214,6 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const createOutfit = useCreateOutfit();
   const [creatingOutfitId, setCreatingOutfitId] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -231,18 +230,19 @@ export function AISuggestions({ isPremium }: AISuggestionsProps) {
         throw new Error(`Refusing to persist invalid outfit suggestion. Missing: ${baseValidation.missing.join(', ')}`);
       }
 
-      const outfit = await createOutfit.mutateAsync({
-        outfit: {
-          occasion: suggestion.occasion,
-          explanation: suggestion.explanation,
-          style_vibe: suggestion.title,
-          saved: true,
-        },
-        items: suggestion.garments.map((garment) => ({
-          garment_id: garment.id,
-          slot: inferOutfitSlotFromGarment(garment),
-        })),
-      });
+      const { data: outfit, error: outfitError } = await supabase
+        .from('outfits')
+        .insert({ user_id: user.id, occasion: suggestion.occasion, explanation: suggestion.explanation, style_vibe: suggestion.title, saved: true })
+        .select().single();
+      if (outfitError) throw outfitError;
+
+      const outfitItems = suggestion.garments.map((garment) => ({
+        outfit_id: outfit.id,
+        garment_id: garment.id,
+        slot: inferOutfitSlotFromGarment(garment),
+      }));
+      const { error: itemsError } = await supabase.from('outfit_items').insert(outfitItems);
+      if (itemsError) throw itemsError;
 
       toast.success(t('insights.outfit_created'));
       navigate(`/outfits/${outfit.id}`);

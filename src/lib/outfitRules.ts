@@ -40,8 +40,8 @@ export interface ValidateOutfitResult {
 }
 
 const DRESS_TOKENS = ['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klanning', 'klänning'];
-const SHOES_TOKENS = ['shoes', 'shoe', 'sneaker', 'sneakers', 'boot', 'boots', 'heel', 'heels', 'sandal', 'sandals', 'loafer', 'loafers', 'trainer', 'trainers', 'oxford', 'oxfords', 'mule', 'mules', 'footwear', 'skor', 'stovlar', 'stövlar'];
-const OUTERWEAR_TOKENS = ['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'trenchcoat', 'raincoat', 'parka', 'windbreaker', 'waistcoat', 'gilet', 'vest', 'vast', 'jacka', 'kappa', 'rock'];
+const SHOES_TOKENS = ['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear', 'skor', 'stovlar', 'stövlar'];
+const OUTERWEAR_TOKENS = ['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka', 'windbreaker', 'jacka', 'kappa', 'rock'];
 const ACCESSORY_TOKENS = ['accessory', 'bag', 'hat', 'belt', 'scarf', 'jewelry', 'smycke', 'vaska', 'väska'];
 const BOTTOM_TOKENS = ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings', 'culottes', 'byxor', 'kjol'];
 
@@ -127,11 +127,8 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   stovlar: 'shoes',
   stövlar: 'shoes',
   footwear: 'shoes',
-  trainer: 'shoes',
   trainers: 'shoes',
-  oxford: 'shoes',
   oxfords: 'shoes',
-  mule: 'shoes',
   mules: 'shoes',
   outerwear: 'outerwear',
   jacket: 'outerwear',
@@ -139,10 +136,6 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   blazer: 'outerwear',
   parka: 'outerwear',
   windbreaker: 'outerwear',
-  waistcoat: 'outerwear',
-  gilet: 'outerwear',
-  vest: 'outerwear',
-  vast: 'outerwear',
   jacka: 'outerwear',
   kappa: 'outerwear',
   rock: 'outerwear',

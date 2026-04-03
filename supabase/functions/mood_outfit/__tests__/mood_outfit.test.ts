@@ -20,13 +20,6 @@ function inferSlotFromGarment(garment: { category?: string | null; subcategory?:
   return 'top';
 }
 
-const MOOD_OUTFIT_SLOTS = new Set(['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress']);
-
-function normalizeMoodOutfitSlot(slot: unknown): string | null {
-  const normalized = normalizeValue(slot);
-  return MOOD_OUTFIT_SLOTS.has(normalized) ? normalized : null;
-}
-
 function requiresOuterwear(weather?: { temperature?: number; precipitation?: string | null }): boolean {
   const temp = weather?.temperature;
   const precipitation = normalizeValue(weather?.precipitation);
@@ -105,25 +98,6 @@ function enrichMoodOutfitItems(
 }
 
 describe('mood outfit recovery mirrors', () => {
-  it('preserves explicit returned slots instead of overwriting them from garment metadata', () => {
-    const normalized = [
-      { garment_id: 'garment-1', slot: 'dress' },
-      { garment_id: 'garment-2', slot: 'shoes' },
-    ]
-      .map((item) => {
-        const explicitSlot = normalizeMoodOutfitSlot(item.slot);
-        if (!explicitSlot) return null;
-        return { slot: explicitSlot, garment_id: item.garment_id };
-      })
-      .filter((item): item is { slot: string; garment_id: string } => Boolean(item));
-
-    expect(normalized).toEqual([
-      { garment_id: 'garment-1', slot: 'dress' },
-      { garment_id: 'garment-2', slot: 'shoes' },
-    ]);
-    expect(inferSlotFromGarment({ category: 'bottom', subcategory: 'jeans' })).toBe('bottom');
-  });
-
   it('repairs missing top and shoes when the AI only returns a bottom', () => {
     const enriched = enrichMoodOutfitItems(
       [{ slot: 'bottom', garment_id: 'bottom-1' }],
@@ -152,20 +126,5 @@ describe('mood outfit recovery mirrors', () => {
 
     expect(enriched.find((item) => item.slot === 'dress')?.garment_id).toBe('dress-1');
     expect(enriched.find((item) => item.slot === 'shoes')?.garment_id).toBe('shoe-1');
-  });
-
-  it('ignores invalid explicit slots instead of coercing them into inferred garment slots', () => {
-    const normalized = [
-      { garment_id: 'garment-1', slot: 'cape' },
-      { garment_id: 'garment-2', slot: 'top' },
-    ]
-      .map((item) => {
-        const explicitSlot = normalizeMoodOutfitSlot(item.slot);
-        if (!explicitSlot) return null;
-        return { slot: explicitSlot, garment_id: item.garment_id };
-      })
-      .filter((item): item is { slot: string; garment_id: string } => Boolean(item));
-
-    expect(normalized).toEqual([{ garment_id: 'garment-2', slot: 'top' }]);
   });
 });

@@ -35,9 +35,6 @@ interface GeneratedOutfitCard {
   items: { slot: string; garment: Garment }[];
 }
 
-const UNUSED_OUTFIT_PERSISTENCE_FAILURE_MESSAGE =
-  'Generated outfits could not be saved cleanly. Please refresh and try again.';
-
 export default function UnusedOutfits() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
@@ -97,6 +94,21 @@ export default function UnusedOutfits() {
         if (!garments?.length) continue;
         const garmentMap = new Map(garments.map((garment: Garment) => [garment.id, garment]));
 
+        const { data: outfit, error: outfitError } = await supabase
+          .from('outfits')
+          .insert([{
+            user_id: user.id,
+            occasion,
+            explanation: data.explanation || '',
+            weather: weatherPayload,
+            saved: true,
+            style_score: data.style_score || null,
+          }])
+          .select()
+          .single();
+
+        if (outfitError || !outfit) continue;
+
         const items = data.items
           .map((item: { garment_id: string; slot: string }) => ({
             slot: item.slot,
@@ -104,41 +116,12 @@ export default function UnusedOutfits() {
           }))
           .filter((item): item is { slot: string; garment: Garment } => !!item.garment);
 
-        const outfitId = crypto.randomUUID();
-        const { error: outfitError } = await supabase
-          .from('outfits')
-          .insert([{
-            id: outfitId,
-            user_id: user.id,
-            occasion,
-            explanation: data.explanation || '',
-            weather: weatherPayload,
-            saved: true,
-            style_score: data.style_score || null,
-          }]);
-
-        if (outfitError) {
-          throw new Error(UNUSED_OUTFIT_PERSISTENCE_FAILURE_MESSAGE);
-        }
-
-        const { error: outfitItemsError } = await supabase.from('outfit_items').insert(
-          items.map((item) => ({ outfit_id: outfitId, garment_id: item.garment.id, slot: item.slot })),
+        await supabase.from('outfit_items').insert(
+          items.map((item) => ({ outfit_id: outfit.id, garment_id: item.garment.id, slot: item.slot })),
         );
-        if (outfitItemsError) {
-          const { error: cleanupError } = await supabase
-            .from('outfits')
-            .delete()
-            .eq('id', outfitId);
-
-          if (cleanupError) {
-            throw new Error(UNUSED_OUTFIT_PERSISTENCE_FAILURE_MESSAGE);
-          }
-
-          throw new Error(UNUSED_OUTFIT_PERSISTENCE_FAILURE_MESSAGE);
-        }
 
         const card: GeneratedOutfitCard = {
-          id: outfitId,
+          id: outfit.id,
           occasion,
           explanation: data.explanation || '',
           items,

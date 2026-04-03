@@ -1829,8 +1829,7 @@ serve(async (req) => {
       ? formalityValues.reduce((a, b) => a + b, 0) / formalityValues.length
       : null;
     const dna = { archetype: wardrobeCtx.dominantArchetype, formalityCenter };
-    const feedbackSignals = feedbackSignalsRes.data || [];
-    const rawSignals = feedbackSignals.length > 0 ? feedbackSignals : rejectionsCtx.raw;
+    const rawSignals = feedbackSignalsRes.data || rejectionsCtx.raw;
     const legacyTasteMemoryBlock = buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna);
     const stylistMemory = buildStylistMemorySummary({
       signals: rawSignals,
@@ -2340,31 +2339,17 @@ ${refinementContract}`;
       && validatedActiveLookIds.length > 0
       && validatedActiveLookIds.length === authoritativeOutfitIds.length
       && validatedActiveLookIds.every((id, index) => id === authoritativeOutfitIds[index]);
-    const clarifyPreservedCard = shouldAskClarifyingQuestion
-      && renderOutfitCard
-      && preservedExistingLook;
-    const fallbackUsed = clarifyPreservedCard || (
-      !shouldAskClarifyingQuestion
+    const fallbackUsed = !shouldAskClarifyingQuestion
       && shouldPreserveStyleCard
       && !validatedUnifiedOutfitIds.length
-      && authoritativeOutfitIds.length > 0
-    );
+      && authoritativeOutfitIds.length > 0;
     const degradedReason = shouldAskClarifyingQuestion
-      ? (clarifyPreservedCard ? "preserved_active_look" : null)
+      ? null
       : unifiedOutfit?.limitations?.[0]
         || unifiedFailureReason
-        || (fallbackUsed
-          ? usedDeterministicRescue
-            ? "deterministic_rescue"
-            : preservedExistingLook
-              ? "preserved_active_look"
-              : "fallback_outfit_card"
-          : null)
         || (shouldPreserveStyleCard && !authoritativeOutfitIds.length ? "no_valid_outfit_card" : null);
     const responseKind = shouldAskClarifyingQuestion
-      ? (renderOutfitCard
-        ? (clarifyPreservedCard ? "style_repair" : "style_result")
-        : "analysis")
+      ? (renderOutfitCard ? "style_result" : "analysis")
       : resolveStyleResponseKind({
         mode: stylistMode,
         cardState,
@@ -2398,7 +2383,7 @@ ${refinementContract}`;
             : usedDeterministicRescue
               ? "deterministic_rescue"
               : preservedExistingLook
-                ? "preserved_active_look"
+                ? (activeLook.source || "preserved_active_look")
                 : "style_chat_normalizer"
           : null,
         status: activeLookStatus,
