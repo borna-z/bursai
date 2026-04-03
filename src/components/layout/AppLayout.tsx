@@ -4,6 +4,7 @@ import { OfflineBanner } from './OfflineBanner';
 import { SeedProgressPill } from './SeedProgressPill';
 import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
+import { useViewportShell } from '@/hooks/useViewportShell';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
@@ -18,6 +19,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   const { resolvedTheme } = useTheme();
   const { t } = useLanguage();
   useKeyboardAdjust();
+  useViewportShell();
   useMedianStatusBar(resolvedTheme);
   useUnlockCelebration();
 
@@ -25,8 +27,8 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
     <div
       className="relative flex flex-col overflow-hidden bg-background text-foreground"
       style={{
-        minHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))',
-        height: 'calc(100dvh - env(safe-area-inset-top, 0px))',
+        minHeight: 'var(--app-viewport-height, 100svh)',
+        height: 'var(--app-viewport-height, 100svh)',
       }}
     >
       {!hideNav ? (
@@ -42,7 +44,11 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       <main
         id="main-content"
         className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
-        style={{ overscrollBehavior: 'none' }}
+        style={{
+          overscrollBehavior: 'none',
+          paddingTop: 'max(env(safe-area-inset-top, 0px), var(--app-viewport-offset-top, 0px))',
+          paddingBottom: hideNav ? '0px' : 'var(--app-bottom-clearance)',
+        }}
       >
         {children}
       </main>
