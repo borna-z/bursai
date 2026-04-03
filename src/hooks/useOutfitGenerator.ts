@@ -10,6 +10,7 @@ import {
 } from '@/lib/outfitGenerationErrors';
 import { hasPreferredGarmentMatch, normalizePreferredGarmentIds } from '@/lib/outfitAnchoring';
 import { inferOutfitSlotFromGarment, validateCompleteOutfit } from '@/lib/outfitValidation';
+import { repairIncompleteOutfitItems, type RecoverableGarment } from '@/lib/outfitRecovery';
 import type { Garment } from './useGarments';
 import type { DayIntelligence } from '@/lib/dayIntelligence';
 
@@ -233,31 +234,30 @@ async function hydrateSelectedItems(
     .filter((item): item is { slot: string; garment: Garment } => Boolean(item?.garment));
 }
 
-async function validateWardrobeForGeneration(userId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('garments')
-    .select('category, subcategory')
-    .eq('user_id', userId);
-
-  if (error) throw error;
-
-  const slots = new Set((data || []).map((item) => inferOutfitSlotFromGarment(item)));
-  const hasTopBottomPath = slots.has('top') && slots.has('bottom') && slots.has('shoes');
-  const hasDressPath = slots.has('dress') && slots.has('shoes');
-
-  if (!hasTopBottomPath && !hasDressPath) {
-    throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
-  }
-}
-
 async function generateOutfitViaEngine(
   userId: string,
   request: OutfitRequest,
   resultMode: 'single' | 'multi' = 'single',
   shouldValidateWardrobe = true,
+  wardrobeSnapshot?: RecoverableGarment[],
 ): Promise<GeneratedOutfit | GeneratedOutfit[]> {
+  let availableWardrobe = wardrobeSnapshot ?? [];
   if (shouldValidateWardrobe) {
-    await validateWardrobeForGeneration(userId);
+    const { data, error } = await supabase
+      .from('garments')
+      .select('id, category, subcategory, wear_count, layering_role, in_laundry')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    availableWardrobe = (data ?? []) as RecoverableGarment[];
+
+    const slots = new Set(availableWardrobe.map((item) => inferOutfitSlotFromGarment(item)));
+    const hasTopBottomPath = slots.has('top') && slots.has('bottom') && slots.has('shoes');
+    const hasDressPath = slots.has('dress') && slots.has('shoes');
+
+    if (!hasTopBottomPath && !hasDressPath) {
+      throw new Error(INSUFFICIENT_GARMENTS_MESSAGE);
+    }
   }
   const requiresPreferredGarment = hasPreferredGarments(request);
 
@@ -280,7 +280,7 @@ async function generateOutfitViaEngine(
 
   if (fnError) {
     if (resultMode === 'multi' && shouldRetrySingleFromSuggest(fnError.message)) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
     }
     if (requiresPreferredGarment && isIncompleteOutfitError(fnError.message)) {
       throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
@@ -290,7 +290,7 @@ async function generateOutfitViaEngine(
 
   if (data?.error) {
     if (resultMode === 'multi' && shouldRetrySingleFromSuggest(data.error)) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
     }
     if (requiresPreferredGarment && isIncompleteOutfitError(data.error)) {
       throw new Error(PREFERRED_GARMENT_RECOVERY_MESSAGE);
@@ -301,7 +301,7 @@ async function generateOutfitViaEngine(
   if (resultMode === 'multi') {
     const suggestions = data?.suggestions ?? [];
     if (!suggestions.length) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
     }
 
     const garmentIds = suggestions.flatMap((suggestion) =>
@@ -322,16 +322,17 @@ async function generateOutfitViaEngine(
         slot: inferOutfitSlotFromGarment(garment),
         garment,
       }));
+      const repairedItems = repairIncompleteOutfitItems(selectedItems, availableWardrobe as Garment[], normalizedWeather);
 
       try {
-        assertCompleteGeneratedOutfit(selectedItems, ` for option ${index + 1}`);
-        assertPreferredGarmentIncluded(request, selectedItems);
+        assertCompleteGeneratedOutfit(repairedItems, ` for option ${index + 1}`);
+        assertPreferredGarmentIncluded(request, repairedItems);
 
         const persisted = await persistGeneratedOutfit(
           userId,
           request,
           normalizedWeather,
-          selectedItems,
+          repairedItems,
           suggestion.explanation ?? '',
           null,
           false,
@@ -343,7 +344,7 @@ async function generateOutfitViaEngine(
           style_vibe: persisted.style_vibe,
           explanation: suggestion.explanation ?? '',
           weather: request.weather,
-          items: selectedItems,
+          items: repairedItems,
           confidence_score: suggestion.confidence_score,
           confidence_level: suggestion.confidence_level,
           limitation_note: suggestion.limitation_note,
@@ -357,7 +358,7 @@ async function generateOutfitViaEngine(
     }
 
     if (!outfits.length) {
-      return [await generateOutfitViaEngine(userId, request, 'single', false) as GeneratedOutfit];
+      return [await generateOutfitViaEngine(userId, request, 'single', false, availableWardrobe) as GeneratedOutfit];
     }
 
     return outfits;
@@ -384,10 +385,11 @@ async function generateOutfitViaEngine(
   }
 
   const selectedItems = await hydrateSelectedItems(aiItems);
+  const repairedItems = repairIncompleteOutfitItems(selectedItems, availableWardrobe as Garment[], normalizedWeather);
 
   try {
-    assertCompleteGeneratedOutfit(selectedItems, '');
-    assertPreferredGarmentIncluded(request, selectedItems);
+    assertCompleteGeneratedOutfit(repairedItems, '');
+    assertPreferredGarmentIncluded(request, repairedItems);
   } catch (error) {
     if (error instanceof Error && error.message === PREFERRED_GARMENT_RECOVERY_MESSAGE) {
       throw error;
@@ -405,7 +407,7 @@ async function generateOutfitViaEngine(
     userId,
     request,
     normalizedWeather,
-    selectedItems,
+    repairedItems,
     explanation,
     styleScore,
     true,
@@ -417,7 +419,7 @@ async function generateOutfitViaEngine(
     style_vibe: outfit.style_vibe,
     explanation,
     weather: request.weather,
-    items: selectedItems,
+    items: repairedItems,
     confidence_score: confidenceScore,
     confidence_level: confidenceLevel,
     limitation_note: limitationNote,

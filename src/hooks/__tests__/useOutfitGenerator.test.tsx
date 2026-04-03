@@ -524,6 +524,71 @@ describe('useOutfitGenerator', () => {
     expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledTimes(1);
   });
 
+  it('repairs a partial engine payload when the wardrobe has the missing core piece', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+
+    const wardrobe = [
+      { id: 'g1', category: 'top', subcategory: 'shirt', wear_count: 3, layering_role: 'base', in_laundry: false },
+      { id: 'g2', category: 'bottom', subcategory: 'jeans', wear_count: 1, layering_role: null, in_laundry: false },
+      { id: 'g3', category: 'shoes', subcategory: 'sneakers', wear_count: 2, layering_role: null, in_laundry: false },
+    ];
+
+    const outfitInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: 'outfit-repaired', occasion: 'casual', style_vibe: null }, error: null }),
+      }),
+    });
+    const outfitItemsInsert = vi.fn().mockResolvedValue({ error: null });
+
+    let garmentCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'garments') {
+        garmentCallCount++;
+        if (garmentCallCount === 1) {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: wardrobe, error: null }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: wardrobe.filter((garment) => garment.id !== 'g2'), error: null }),
+          }),
+        };
+      }
+      if (table === 'outfits') {
+        return { insert: outfitInsert };
+      }
+      return { insert: outfitItemsInsert };
+    });
+
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: {
+        items: [
+          { slot: 'top', garment_id: 'g1' },
+          { slot: 'shoes', garment_id: 'g3' },
+        ],
+        explanation: 'Recovered look',
+        style_score: null,
+      },
+      error: null,
+    });
+
+    const { useOutfitGenerator } = await import('../useOutfitGenerator');
+    const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
+
+    let outfit: GeneratedOutfit | undefined;
+    await act(async () => {
+      outfit = await result.current.generateOutfit(baseRequest);
+    });
+
+    expect(outfit?.items.map((item) => item.slot)).toEqual(expect.arrayContaining(['top', 'bottom', 'shoes']));
+    expect(outfitItemsInsert).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ garment_id: 'g2', slot: 'bottom' }),
+    ]));
+  });
+
   it('rejects incomplete outfit — bottom + shoes + outerwear (no top)', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
@@ -888,7 +953,7 @@ describe('useOutfitGenerator', () => {
     expect(outfitItemsInsert).toHaveBeenCalledTimes(0);
   });
 
-  it('raises recovery error when all stylist suggestions are filtered as incomplete', async () => {
+  it('repairs an incomplete stylist suggestion when the wardrobe can fill the missing slot', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
 
     const validationData = [
@@ -961,10 +1026,13 @@ describe('useOutfitGenerator', () => {
     const { useOutfitGenerator } = await import('../useOutfitGenerator');
     const { result } = renderHook(() => useOutfitGenerator(), { wrapper });
 
+    let outfits: GeneratedOutfit[] | undefined;
     await act(async () => {
-      await expect(result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' })).rejects.toThrow(/complete outfit/i);
+      outfits = await result.current.generateOutfitCandidates({ ...baseRequest, style: 'Minimal', mode: 'stylist' });
     });
-    expect(outfitInsert).not.toHaveBeenCalled();
+    expect(outfits).toHaveLength(1);
+    expect(outfits?.[0]?.items.map((item) => item.slot)).toEqual(expect.arrayContaining(['top', 'bottom', 'shoes']));
+    expect(outfitInsert).toHaveBeenCalledTimes(1);
   });
 
 
