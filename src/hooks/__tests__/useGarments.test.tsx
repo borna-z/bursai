@@ -55,7 +55,7 @@ function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
   chain.order = vi.fn().mockReturnValue(chain);
   chain.range = vi.fn().mockResolvedValue({ data, error });
   chain.limit = vi.fn().mockResolvedValue({ data, error });
-  chain.insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || {}, error }) }) });
+  chain.insert = vi.fn().mockResolvedValue({ error });
   chain.delete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
   chain.single = vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error });
@@ -143,6 +143,34 @@ describe('useGarments', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
+  });
+
+  it('preserves the caller garment id for offline create fallback', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+    vi.stubGlobal('navigator', { onLine: false });
+    mockFrom.mockReturnValue({
+      insert: vi.fn(),
+    });
+
+    const { enqueue } = await import('@/lib/offlineQueue');
+    const { useCreateGarment } = await import('../useGarments');
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreateGarment(), { wrapper });
+
+    let created: Awaited<ReturnType<typeof result.current.mutateAsync>>;
+    await act(async () => {
+      created = await result.current.mutateAsync({
+        id: 'garment-123',
+        title: 'Shirt',
+        category: 'top',
+        color_primary: 'blue',
+      } as never);
+    });
+
+    expect(created!.id).toBe('garment-123');
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({ id: 'garment-123' }),
+    }));
   });
 
   it('invalidates garment list and garment count after delete', async () => {
