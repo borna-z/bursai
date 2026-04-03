@@ -370,7 +370,6 @@ export function useMarkGarmentWorn() {
       if (logError) throw logError;
     },
     onSuccess: () => {
-      localStorage.setItem('burs_first_wear_logged', 'true');
       queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
     },
   });

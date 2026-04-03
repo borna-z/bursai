@@ -102,6 +102,13 @@ serve(async (req) => {
       tool_choice: { type: "function", function: { name: "suggest_accessories" } },
     }, serviceClient);
 
+    if (!result || typeof result !== "object" || !Array.isArray(result.suggestions)) {
+      console.warn("suggest_accessories: unexpected AI response shape, returning empty");
+      return new Response(JSON.stringify({ suggestions: [] }), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });

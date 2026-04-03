@@ -357,7 +357,7 @@ function resolveTemperature(options: BursAIOptions): number | undefined {
   return undefined;
 }
 
-export function parseBursAIProviderResponse(aiData: any): ParsedBursAIProviderResponse {
+export function parseBursAIProviderResponse(aiData: any, hadTools = false): ParsedBursAIProviderResponse {
   const choice = aiData?.choices?.[0];
   const message = choice?.message;
   if (!choice || !message) {
@@ -374,7 +374,7 @@ export function parseBursAIProviderResponse(aiData: any): ParsedBursAIProviderRe
     }
   } else if (message.content !== undefined) {
     const rawContent = typeof message.content === "string" ? message.content.trim() : "";
-    if (rawContent.startsWith("{") || rawContent.startsWith("[")) {
+    if (hadTools && (rawContent.startsWith("{") || rawContent.startsWith("["))) {
       try {
         result = JSON.parse(rawContent);
         console.warn("burs-ai: tool_call returned as content, parsed as JSON fallback");
@@ -550,7 +550,7 @@ export async function callBursAI(
           lastError = new Error("Malformed provider response: invalid JSON body");
           break;
         }
-        let parsed = parseBursAIProviderResponse(aiData);
+        let parsed = parseBursAIProviderResponse(aiData, Boolean(tools?.length));
         if (!parsed.ok) {
           lastError = new Error(parsed.error || "Failed to parse AI provider response");
           log.warn("provider.response.invalid", {
@@ -576,7 +576,7 @@ export async function callBursAI(
           if (!("error" in retryOutcome) && !("retry" in retryOutcome) && !("fatal" in retryOutcome)) {
             try {
               const retryData = await retryOutcome.resp.json();
-              const retryParsed = parseBursAIProviderResponse(retryData);
+              const retryParsed = parseBursAIProviderResponse(retryData, Boolean(tools?.length));
               if (retryParsed.ok) {
                 parsed = retryParsed;
                 aiData = retryData;

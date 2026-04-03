@@ -809,18 +809,11 @@ function detectStylistChatMode(params: {
   const hasActiveLook = params.activeLook.garmentIds.length >= 2;
   const hasAnchor = !!params.anchor;
 
-  // Short replies and greetings — never route to outfit generation
-  const CONVERSATIONAL_SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|that's helpful|that helps|appreciate it|nice one|brilliant|sweet|wonderful|right)[!.,?\s]*$/i;
+  const SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right)[!.,?\s]*$/i;
+  if (SHORT_RE.test(latestUser.trim())) return "CONVERSATIONAL";
 
-  // General fashion/style knowledge questions (no active look or anchor needed)
-  const FASHION_KNOWLEDGE_RE = /(what('s| is) (a |the )?(french tuck|quiet luxury|clean girl|old money|capsule wardrobe|dark academia|coastal grandmother|mob wife|minimalism|maximalism|gorpcore|normcore|cottagecore|streetwear|athleisure|smart casual|business casual|black tie|white tie|cocktail attire|dress code)|(tell me about|explain|what do you think about|thoughts on|opinion on|is .* still in style|what('s| is) trending|how to (wear|style|dress|pair)|what('s| is) the difference between|when (should|can) (i|you) wear))/i;
-
-  if (CONVERSATIONAL_SHORT_RE.test(latestUser.trim())) {
-    return "CONVERSATIONAL";
-  }
-  if (FASHION_KNOWLEDGE_RE.test(latestUser) && !hasActiveLook && !hasAnchor) {
-    return "CONVERSATIONAL";
-  }
+  const KNOW_RE = /what.s (a |the )?(french tuck|quiet luxury|capsule wardrobe|smart casual|business casual)|tell me about|how to (wear|style|dress|pair)/i;
+  if (KNOW_RE.test(latestUser) && !hasActiveLook && !hasAnchor) return "CONVERSATIONAL";
 
   return detectStylistChatModeFromSignals({
     latestUser,
@@ -893,11 +886,9 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
       "- CONVERSATIONAL MODE: The user is chatting, not asking for an outfit.",
       "- Respond naturally as a knowledgeable stylist in a real conversation.",
       "- For thanks/greetings: reply in 1 sentence maximum. Warm, brief, done.",
-      "- For fashion questions: answer the question directly with genuine knowledge and opinion. 2-4 sentences.",
+      "- For fashion questions: answer the question directly. 2-4 sentences.",
       "- Do NOT generate an outfit card unless the user explicitly asks for a look.",
       "- Do NOT force styling advice onto a casual message.",
-      "- You can reference a specific garment from their wardrobe only if directly relevant to the question.",
-      "- Sound like a real person, not a workflow executing.",
     ],
   };
 
@@ -1301,11 +1292,7 @@ function buildStyleClarifierText(locale: string, latestUser: string): string {
     : "Which garment or look do you want me to style?";
 }
 
-function buildCandidateOutfits(
-  rankedGarments: GarmentRecord[],
-  anchor: GarmentRecord | null,
-  recentGarmentSets: string[][] = [],
-): string {
+function buildCandidateOutfits(rankedGarments: GarmentRecord[], anchor: GarmentRecord | null): string {
   // Group garments by canonical slot key (not raw category) to avoid cross-slot confusion
   const slots = new Map<string, GarmentRecord[]>();
   for (const garment of rankedGarments) {
@@ -1316,29 +1303,22 @@ function buildCandidateOutfits(
 
   const anchorSlot = anchor ? getSlotKey(anchor.category) : null;
 
-  // IDs used in the 2 most recent outfits — prefer non-recent picks when alternatives exist
-  const recentIds = new Set([
-    ...(recentGarmentSets[0] || []),
-    ...(recentGarmentSets[1] || []),
-  ]);
-
-  // Pick slot candidates: prefer non-recent primary, but fall back to recent if nothing else
-  function slotPicks(slotKey: string, count: number): GarmentRecord[] {
-    if (anchorSlot === slotKey) return [anchor!];
-    const pool = slots.get(slotKey) || [];
-    const fresh = pool.filter(g => !recentIds.has(g.id));
-    // Lead with fresh, backfill with recent to reach count
-    const result = [...fresh, ...pool.filter(g => recentIds.has(g.id))];
-    // Deduplicate (fresh ∩ pool overlap) while preserving order
-    const seen = new Set<string>();
-    return result.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true; }).slice(0, count);
-  }
-
-  const topCandidates = slotPicks("top", 2);
-  const bottomCandidates = slotPicks("bottom", 2);
-  const dressCandidates = slotPicks("dress", 2);
-  const shoeCandidates = slotPicks("shoes", 2);
-  const outerwearCandidates = slotPicks("outerwear", 2);
+  // Each slot: if anchor occupies it, anchor leads; otherwise take top-2 from slot pool
+  const topCandidates = anchorSlot === "top"
+    ? [anchor!]
+    : (slots.get("top") || []).slice(0, 2);
+  const bottomCandidates = anchorSlot === "bottom"
+    ? [anchor!]
+    : (slots.get("bottom") || []).slice(0, 2);
+  const dressCandidates = anchorSlot === "dress"
+    ? [anchor!]
+    : (slots.get("dress") || []).slice(0, 2);
+  const shoeCandidates = anchorSlot === "shoes"
+    ? [anchor!]
+    : (slots.get("shoes") || []).slice(0, 2);
+  const outerwearCandidates = anchorSlot === "outerwear"
+    ? [anchor!]
+    : (slots.get("outerwear") || []).slice(0, 2);
   const accessoryCandidates = (slots.get("accessory") || []).slice(0, 2);
 
   const candidates: string[] = [];
@@ -1563,10 +1543,6 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
 
   const occasions = [...new Set(outfits.map((o: any) => o.occasion).filter(Boolean))] as string[];
 
-  const recentGarmentSets = outfits.map((o: any) =>
-    (o.outfit_items || []).map((i: any) => i.garment_id).filter(Boolean) as string[]
-  );
-
   const lines = outfits.map((o: any) => {
     const items = (o.outfit_items || []).map((i: any) =>
       `${i.slot}: ${i.garments?.title || 'unknown'} (${i.garments?.color_primary || ''})`
@@ -1578,7 +1554,6 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
   const recentGarmentSets: string[][] = outfits.map((o: any) =>
     (o.outfit_items || []).map((i: any) => i.garment_id).filter(Boolean)
   ).filter((ids: string[]) => ids.length > 0);
-
 
   return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets };
 }
@@ -1776,16 +1751,10 @@ serve(async (req) => {
     // Guard: trim excessively long conversations
     const MAX_MESSAGES = 30;
     const trimmedMessages = Array.isArray(messages) && messages.length > MAX_MESSAGES
-      ? [
-          ...messages.slice(0, 2),    // keep first 2 (usually the opening context)
-          ...messages.slice(-18),     // keep last 18 (most recent conversation)
-        ]
+      ? [...messages.slice(0, 2), ...messages.slice(-18)]
       : messages;
-
-    // Guard: truncate any single message content over 8000 chars (handles giant image data)
     const safeMessages = trimmedMessages.map((m: any) => {
       if (typeof m.content === "string" && m.content.length > 8000) {
-        console.warn(`style_chat: truncating message (role=${m.role}, length=${m.content.length})`);
         return { ...m, content: m.content.slice(0, 8000) + "\u2026" };
       }
       return m;
@@ -1940,7 +1909,7 @@ serve(async (req) => {
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const modeContract = buildModeContract(stylistMode, lang);
     const chatComplexity = stylistMode === "CONVERSATIONAL"
-      ? "trivial"
+      ? "trivial" as const
       : chooseChatComplexity(safeMessages as MessageInput[], wardrobeCtx.anchor);
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
@@ -1966,26 +1935,14 @@ serve(async (req) => {
 - You may still use [[garment:ID]] tags sparingly where they improve clarity.
 - Prioritize mode-specific analysis structure over card markup in this mode.`;
 
-    const shouldCallUnifiedEngine = (stylistMode === "OUTFIT_GENERATION"
-      || stylistMode === "GARMENT_FIRST_STYLING"
-      || stylistMode === "ACTIVE_LOOK_REFINEMENT") && !shouldAskClarifyingQuestion;
-    const candidateOutfits = (!shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS" && stylistMode !== "CONVERSATIONAL")
-      ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor, recentOutfitsCtx.recentGarmentSets)
+    const shouldCallUnifiedEngine = cardPolicy === "required" && !shouldAskClarifyingQuestion;
+    const candidateOutfits = (!shouldAskClarifyingQuestion && !shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS" && stylistMode !== "CONVERSATIONAL")
+      ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor)
       : "";
 
     const unifiedRequestMode = stylistMode === "ACTIVE_LOOK_REFINEMENT"
       ? (refinementIntent.mode === "swap_shoes" ? "swap" : "refine")
       : "generate";
-    // Always lock the anchor regardless of how it was detected
-    const effectiveLockedIds = Array.from(new Set([
-      ...refinementPlan.lockedGarmentIds,
-      ...(refinementPlan.anchorLocked && refinementPlan.anchorGarmentId
-        ? [refinementPlan.anchorGarmentId]
-        : []),
-      ...(wardrobeCtx.anchor && !refinementPlan.lockedGarmentIds.includes(wardrobeCtx.anchor.id)
-        ? [wardrobeCtx.anchor.id]
-        : []),
-    ]));
     let unified: UnifiedStylistResponse | null = null;
     let unifiedFailureReason: string | null = null;
     if (shouldCallUnifiedEngine) {
@@ -2002,7 +1959,12 @@ serve(async (req) => {
             prefer_garment_ids: refinementPlan.preferGarmentIds,
             exclude_garment_ids: refinementPlan.excludeGarmentIds,
             active_look_garment_ids: activeLook.garmentIds,
-            locked_garment_ids: effectiveLockedIds,
+            locked_garment_ids: [
+              ...refinementPlan.lockedGarmentIds,
+              ...(refinementPlan.anchorLocked && refinementPlan.anchorGarmentId
+                ? [refinementPlan.anchorGarmentId]
+                : []),
+            ],
             requested_edit_slots: refinementPlan.requestedEditSlots,
             output_count: 1,
             explanation_mode: "short",
@@ -2141,7 +2103,6 @@ ${refinementContract}`;
       return m;
     });
 
-    console.log(`style_chat: ${safeMessages.length} messages in thread (original: ${messages.length})`);
     log.info("stylist.mode", {
       requestId,
       userId: user.id,
