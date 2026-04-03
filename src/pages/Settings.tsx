@@ -43,10 +43,10 @@ export default function SettingsPage() {
         titleClassName="font-display italic"
         eyebrow={t('settings.eyebrow')}
         actions={
-          <span className="eyebrow-chip border-border/30 bg-background/40 text-[10px] text-foreground/58">v{APP_VERSION}</span>
+          <span className="eyebrow-chip border-transparent bg-secondary/85 text-foreground/62 text-[10px]">v{APP_VERSION}</span>
         }
       />
-      <AnimatedPage className="page-shell space-y-7">
+      <AnimatedPage className="page-shell space-y-8">
 
         {/* Profile */}
         <ProfileCard />
