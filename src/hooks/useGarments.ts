@@ -198,7 +198,7 @@ export function useCreateGarment() {
       
       // Offline: enqueue mutation for later replay
       if (!navigator.onLine) {
-        await enqueue({
+        enqueue({
           table: 'garments',
           type: 'insert',
           payload: { ...garment, user_id: user.id },
@@ -232,7 +232,7 @@ export function useUpdateGarment() {
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'garments'> }) => {
       // Offline: enqueue mutation for later replay
       if (!navigator.onLine) {
-        await enqueue({
+        enqueue({
           table: 'garments',
           type: 'update',
           payload: updates as Record<string, unknown>,

@@ -6,7 +6,7 @@ import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { createSupabaseRestHeaders, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
+import { createSupabaseRestHeaders, getSupabaseFunctionUrl, getSupabaseRestUrl, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -33,7 +33,6 @@ import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitVali
 import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
 import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLook';
 import { collectStyleChatGarmentIds, isStyleChatResponseEnvelope, type PersistedStyleChatMessage, type StyleChatResponseEnvelope } from '@/lib/styleChatContract';
-import { invokeEdgeFunctionStream } from '@/lib/edgeFunctionClient';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -46,6 +45,8 @@ interface PlanActionPayload {
   calendar_days: Array<{ date: string; [key: string]: unknown }>;
   can_plan: boolean;
 }
+
+const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 
 function parseStoredMessageContent(content: string): MessageContent {
   if (content.startsWith('[')) {
@@ -392,9 +393,10 @@ export default function AIChat() {
       };
       resetStreamTimeout(90000);
 
-      const { response: resp, error: streamError } = await invokeEdgeFunctionStream('style_chat', {
-        accessToken: token,
-        body: {
+      const resp = await fetch(STYLE_CHAT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
           messages: requestMessages,
           locale,
           garmentCount: garmentCount ?? 0,
@@ -411,14 +413,13 @@ export default function AIChat() {
               anchor_locked: currentVisibleLook.active_look?.anchor_locked ?? Boolean(anchoredGarmentId),
             }
             : undefined,
-        },
+        }),
         signal: controller.signal,
-        timeout: 90_000,
-        retries: 2,
-        idempotent: true,
       });
-      if (streamError) throw streamError;
-      if (!resp) throw new Error(t('chat.unknown_error'));
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ error: t('chat.unknown_error') }));
+        throw new Error(errData.error || `HTTP ${resp.status}`);
+      }
       if (!resp.body) throw new Error(t('chat.no_response'));
       resetStreamTimeout(30000);
 

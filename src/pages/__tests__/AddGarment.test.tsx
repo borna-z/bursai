@@ -53,27 +53,6 @@ vi.mock('@/components/add-garment/FormStep', () => ({
   FormStep: () => <div>form step</div>,
 }));
 
-vi.mock('@/components/add-garment/UploadStep', () => ({
-  UploadStep: ({
-    onOpenLiveScan,
-    onTakePhoto,
-    onPickFromGallery,
-    batchLabel,
-  }: {
-    onOpenLiveScan: () => void;
-    onTakePhoto: () => void;
-    onPickFromGallery: () => void;
-    batchLabel: string;
-  }) => (
-    <div>
-      <button onClick={onOpenLiveScan}>Open the fastest capture flow</button>
-      <button onClick={onTakePhoto}>Take photo</button>
-      <button onClick={onPickFromGallery}>Photo library</button>
-      <button>{batchLabel}</button>
-    </div>
-  ),
-}));
-
 vi.mock('@/components/PaywallModal', () => ({
   PaywallModal: () => null,
 }));

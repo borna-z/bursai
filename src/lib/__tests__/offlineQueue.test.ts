@@ -24,46 +24,46 @@ vi.mock('sonner', () => ({
 import { enqueue, enqueueUpload, getQueueLength, replayQueue, clearQueue } from '../offlineQueue';
 
 describe('offlineQueue', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     localStorage.clear();
-    await clearQueue();
+    clearQueue();
   });
 
-  it('enqueues mutations to the queue', async () => {
+  it('enqueues mutations to localStorage', () => {
     expect(getQueueLength()).toBe(0);
-    await enqueue({ table: 'garments', type: 'insert', payload: { title: 'Shirt' } });
+    enqueue({ table: 'garments', type: 'insert', payload: { title: 'Shirt' } });
     expect(getQueueLength()).toBe(1);
   });
 
-  it('enqueues uploads', async () => {
-    await enqueueUpload({ bucket: 'garments', path: 'test.jpg', base64: btoa('abc123'), contentType: 'image/jpeg' });
+  it('enqueues uploads', () => {
+    enqueueUpload({ bucket: 'garments', path: 'test.jpg', base64: 'abc123', contentType: 'image/jpeg' });
     expect(getQueueLength()).toBe(1);
   });
 
-  it('clears the queue', async () => {
-    await enqueue({ table: 'garments', type: 'insert', payload: { title: 'Test' } });
+  it('clears the queue', () => {
+    enqueue({ table: 'garments', type: 'insert', payload: { title: 'Test' } });
     expect(getQueueLength()).toBe(1);
-    await clearQueue();
+    clearQueue();
     expect(getQueueLength()).toBe(0);
   });
 
   it('replays mutations and returns success count', async () => {
-    await enqueue({ table: 'garments', type: 'insert', payload: { title: 'Shirt' } });
-    await enqueue({ table: 'garments', type: 'insert', payload: { title: 'Pants' } });
+    enqueue({ table: 'garments', type: 'insert', payload: { title: 'Shirt' } });
+    enqueue({ table: 'garments', type: 'insert', payload: { title: 'Pants' } });
     const synced = await replayQueue();
     expect(synced).toBe(2);
     expect(getQueueLength()).toBe(0);
   });
 
   it('replays uploads', async () => {
-    await enqueueUpload({ bucket: 'garments', path: 'img.jpg', base64: btoa('data'), contentType: 'image/jpeg' });
+    enqueueUpload({ bucket: 'garments', path: 'img.jpg', base64: btoa('data'), contentType: 'image/jpeg' });
     const synced = await replayQueue();
     expect(synced).toBe(1);
   });
 
   it('reports progress during replay', async () => {
-    await enqueue({ table: 'garments', type: 'insert', payload: { title: 'A' } });
-    await enqueue({ table: 'garments', type: 'insert', payload: { title: 'B' } });
+    enqueue({ table: 'garments', type: 'insert', payload: { title: 'A' } });
+    enqueue({ table: 'garments', type: 'insert', payload: { title: 'B' } });
     const progress: number[] = [];
     await replayQueue((completed) => progress.push(completed));
     expect(progress).toEqual([1, 2]);

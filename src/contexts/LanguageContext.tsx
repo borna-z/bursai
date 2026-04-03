@@ -22,21 +22,6 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 /** Cache loaded locale dictionaries so we never re-import */
 const dictCache = new Map<string, Record<string, string>>();
 
-function scheduleIdleTask(task: () => void): () => void {
-  const globalScope = window as Window & {
-    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-    cancelIdleCallback?: (id: number) => void;
-  };
-
-  if (typeof globalScope.requestIdleCallback === 'function') {
-    const id = globalScope.requestIdleCallback(task, { timeout: 1500 });
-    return () => globalScope.cancelIdleCallback?.(id);
-  }
-
-  const timeoutId = window.setTimeout(task, 250);
-  return () => window.clearTimeout(timeoutId);
-}
-
 function getInitialLocale(): Locale {
   const stored = localStorage.getItem('burs-locale') as Locale | null;
   if (stored && SUPPORTED_LOCALES.some(l => l.code === stored)) return stored;
@@ -53,32 +38,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Load translation dicts on mount and when locale changes
   useEffect(() => {
     let isActive = true;
-    let cancelEnglishIdleTask: (() => void) | null = null;
 
     const loadDictionaries = async () => {
-      const currentDict = dictCache.get(locale)
-        ? dictCache.get(locale) as Record<string, string>
-        : await loadLocale(locale);
+      const [currentDict, englishDict] = await Promise.all([
+        dictCache.get(locale) ? Promise.resolve(dictCache.get(locale) as Record<string, string>) : loadLocale(locale),
+        dictCache.get('en') ? Promise.resolve(dictCache.get('en') as Record<string, string>) : loadLocale('en'),
+      ]);
 
       dictCache.set(locale, currentDict);
+      dictCache.set('en', englishDict);
 
       if (!isActive) return;
       setDict(currentDict);
-      setEnDict(locale === 'en' ? currentDict : (dictCache.get('en') ?? {}));
-
-      if (locale !== 'en' && !dictCache.has('en')) {
-        cancelEnglishIdleTask = scheduleIdleTask(() => {
-          void loadLocale('en')
-            .then((englishDict) => {
-              dictCache.set('en', englishDict);
-              if (!isActive) return;
-              setEnDict((prev) => (Object.keys(prev).length > 0 ? prev : englishDict));
-            })
-            .catch(() => {
-              // Fall back to humanized keys if English fails to load.
-            });
-        });
-      }
+      setEnDict(englishDict);
     };
 
     loadDictionaries().catch(() => {
@@ -89,7 +61,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isActive = false;
-      cancelEnglishIdleTask?.();
     };
   }, [locale]);
 
