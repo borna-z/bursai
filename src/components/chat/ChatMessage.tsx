@@ -5,6 +5,7 @@ import { OutfitSuggestionCard } from '@/components/chat/OutfitSuggestionCard';
 import type { GarmentBasic } from '@/hooks/useGarmentsByIds';
 import { parseGarmentTextSegments, parseOutfitTags, stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
 import { resolveCompleteOutfitIds } from '@/lib/completeOutfitIds';
+import type { StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 
 function renderBoldMarkdown(text: string): React.ReactNode {
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -42,7 +43,7 @@ function getImageUrls(content: string | MultimodalPart[]): string[] {
 }
 
 interface ChatMessageProps {
-  message: { role: 'user' | 'assistant'; content: string | MultimodalPart[] };
+  message: { role: 'user' | 'assistant'; content: string | MultimodalPart[]; stylistMeta?: StyleChatResponseEnvelope | null };
   isStreaming: boolean;
   garmentMap: Map<string, GarmentBasic>;
   isShopping?: boolean;
@@ -50,22 +51,49 @@ interface ChatMessageProps {
   isCreatingOutfit?: boolean;
   showStyleCards?: boolean;
   onGarmentClick?: (garmentId: string) => void;
+  displayMetaOverride?: StyleChatResponseEnvelope | null;
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick }: ChatMessageProps) {
+function getResolvedOutfitIds(meta?: StyleChatResponseEnvelope | null): string[] {
+  if (!meta) return [];
+  return meta.active_look?.garment_ids?.length
+    ? meta.active_look.garment_ids
+    : meta.outfit_ids;
+}
+
+function getResolvedOutfitExplanation(meta?: StyleChatResponseEnvelope | null): string {
+  if (!meta) return '';
+  return meta.active_look?.explanation || meta.outfit_explanation || '';
+}
+
+export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick, displayMetaOverride }: ChatMessageProps) {
   const navigate = useNavigate();
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
   const images = getImageUrls(message.content);
+  const messageHasRenderableMeta = Boolean(message.stylistMeta?.render_outfit_card && getResolvedOutfitIds(message.stylistMeta).length > 0);
+  const stylistMeta = showStyleCards && displayMetaOverride && !messageHasRenderableMeta
+    ? displayMetaOverride
+    : message.stylistMeta ?? null;
 
-  const { textParts, garmentCards, outfitCards, rejectionLine } = useMemo(() => {
-    if (!text) return { textParts: null, garmentCards: [], outfitCards: [], rejectionLine: null };
+  const { textParts, garmentCards, outfitCards, unresolvedOutfitCard, rejectionLine } = useMemo(() => {
+    if (!text && !stylistMeta) {
+      return { textParts: null, garmentCards: [], outfitCards: [], unresolvedOutfitCard: null, rejectionLine: null };
+    }
     const parts: React.ReactNode[] = [];
     const cards: GarmentBasic[] = [];
     const outfits: { garments: GarmentBasic[]; explanation: string }[] = [];
+    let unresolvedOutfitCard: { explanation: string } | null = null;
 
     let cleanText = text;
-    const outfitMatches = parseOutfitTags(text);
+    const resolvedMetaOutfitIds = getResolvedOutfitIds(stylistMeta);
+    const outfitMatches = stylistMeta?.render_outfit_card && resolvedMetaOutfitIds.length > 0
+      ? [{
+        fullMatch: '',
+        ids: resolvedMetaOutfitIds,
+        explanation: getResolvedOutfitExplanation(stylistMeta),
+      }]
+      : parseOutfitTags(text);
 
     for (const om of outfitMatches) {
       const garmentById = new Map(
@@ -75,8 +103,12 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
       );
       const completeIds = resolveCompleteOutfitIds(om.ids, garmentById);
       const gs = completeIds.map((id) => garmentById.get(id)).filter(Boolean) as GarmentBasic[];
-      if (gs.length > 0) outfits.push({ garments: gs, explanation: om.explanation });
-      cleanText = cleanText.replace(om.fullMatch, '');
+      if (gs.length === om.ids.length && gs.length > 0) {
+        outfits.push({ garments: gs, explanation: om.explanation });
+      } else if (om.explanation) {
+        unresolvedOutfitCard = { explanation: om.explanation };
+      }
+      if (om.fullMatch) cleanText = cleanText.replace(om.fullMatch, '');
     }
 
     let rejectionLine: string | null = null;
@@ -101,8 +133,26 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
         parts.push(<span key={`g-${index}`}>{renderBoldMarkdown(segment.label)}{' '}</span>);
       }
     });
-    return { textParts: parts.length > 0 ? parts : null, garmentCards: cards, outfitCards: outfits, rejectionLine };
-  }, [text, garmentMap]);
+
+    if (stylistMeta?.garment_mentions?.length) {
+      stylistMeta.garment_mentions
+        .filter((id) => !resolvedMetaOutfitIds.includes(id))
+        .forEach((id) => {
+          const garment = garmentMap.get(id);
+          if (garment && !cards.some((card) => card.id === garment.id)) {
+            cards.push(garment);
+          }
+        });
+    }
+
+    return {
+      textParts: parts.length > 0 ? parts : null,
+      garmentCards: cards,
+      outfitCards: outfits,
+      unresolvedOutfitCard,
+      rejectionLine,
+    };
+  }, [text, garmentMap, stylistMeta]);
 
   if (isUser) {
     return (
@@ -127,6 +177,7 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
 
   // Assistant message — clean left-aligned, no avatar
   const hasOutfit = showStyleCards && outfitCards.length > 0;
+  const shouldShowFallbackCard = showStyleCards && !hasOutfit && !!unresolvedOutfitCard;
 
   return (
     <div className="animate-fade-in">
@@ -158,6 +209,14 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                 </div>
               )}
             </div>
+            {shouldShowFallbackCard && (
+              <div className="rounded-[1.25rem] border border-border/70 bg-card px-4 py-4 shadow-sm">
+                <div className="h-16 animate-pulse rounded-[1rem] bg-muted/60" />
+                <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+                  {renderBoldMarkdown(unresolvedOutfitCard.explanation || 'Loading the look...')}
+                </p>
+              </div>
+            )}
             {/* Prose text — secondary style when outfit is present */}
             {textParts && (
               <div

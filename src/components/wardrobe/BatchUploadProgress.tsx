@@ -111,14 +111,14 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           imageContainsMultipleGarments: item.analysis.image_contains_multiple_garments,
         }),
       }),
-      ...buildGarmentIntelligenceFields({ storagePath: item.storagePath, enableRender: true }),
+      ...buildGarmentIntelligenceFields({ storagePath: item.storagePath, enableRender: true, skipImageProcessing: true }),
     });
 
     triggerGarmentPostSaveIntelligence({
       garmentId: item.garmentId,
       storagePath: item.storagePath,
       source: 'batch_add',
-      imageProcessing: { mode: 'edge' },
+      imageProcessing: { mode: 'skip' },
     });
 
     invokeEdgeFunction('detect_duplicate_garment', {

@@ -101,6 +101,9 @@ export async function invokeUnifiedStylistEngine(params: {
     day_context: request.day_context || null,
     prefer_garment_ids: normalizeIds(request.prefer_garment_ids),
     exclude_garment_ids: normalizeIds(request.exclude_garment_ids),
+    active_look_garment_ids: activeLookIds,
+    locked_garment_ids: lockedGarmentIds,
+    requested_edit_slots: editSlots,
     output_count: typeof request.output_count === "number" ? request.output_count : undefined,
     explanation_mode: request.explanation_mode || "short",
     swap_slot: swapSlot,
@@ -108,19 +111,36 @@ export async function invokeUnifiedStylistEngine(params: {
     other_items: otherItems,
   };
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/burs_style_engine`, {
-    method: "POST",
-    headers: {
-      ...CORS_HEADERS,
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${params.authToken}`,
-      apikey: serviceRoleKey,
-    },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(20000),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  let response: Response;
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/burs_style_engine`, {
+      method: "POST",
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.authToken}`,
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Unified stylist request timed out");
+    }
+    throw error;
+  }
+  clearTimeout(timeout);
 
-  const data = await response.json();
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Unified stylist request returned malformed JSON (${response.status})`);
+  }
   if (!response.ok || data?.error) {
     throw new Error(data?.error || `Unified stylist request failed (${response.status})`);
   }

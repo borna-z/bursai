@@ -11,10 +11,18 @@ export interface StyleChatActiveLookContext {
   garmentLines: string[];
 }
 
+export interface StyleChatFallbackOptions {
+  lockedGarmentIds?: string[];
+  requestedEditSlots?: string[];
+  preferGarmentIds?: string[];
+}
+
 export interface NormalizedStyleChatAssistantReply {
   text: string;
   outfitIds: string[];
   outfitTag: string | null;
+  outfitExplanation: string;
+  garmentMentionIds: string[];
 }
 
 const VALID_GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
@@ -172,13 +180,7 @@ function stripPartialTagStarts(text: string): string {
       continue;
     }
 
-    let cursor = nextStart + 2;
-    while (cursor < text.length && text[cursor] !== ":") cursor += 1;
-    if (cursor < text.length && text[cursor] === ":") cursor += 1;
-    while (cursor < text.length && PARTIAL_TAG_CHAR_RE.test(text[cursor])) {
-      cursor += 1;
-    }
-    index = cursor;
+    index = text.length;
   }
 
   return output;
@@ -272,23 +274,97 @@ function groupGarmentsBySlot<TGarment extends StyleChatGarmentLike>(garments: TG
   return slots;
 }
 
-function firstAvailableGarment<TGarment extends StyleChatGarmentLike>(
-  slot: string,
-  slots: Map<string, TGarment[]>,
-  usedIds: Set<string>,
-): TGarment | null {
-  return (slots.get(slot) || []).find((garment) => !usedIds.has(garment.id)) || null;
+function uniqueGarments<TGarment extends StyleChatGarmentLike>(garments: Array<TGarment | null | undefined>): TGarment[] {
+  const seen = new Set<string>();
+  const result: TGarment[] = [];
+
+  for (const garment of garments) {
+    if (!garment || seen.has(garment.id)) continue;
+    seen.add(garment.id);
+    result.push(garment);
+  }
+
+  return result;
 }
 
-function buildFallbackCandidate<TGarment extends StyleChatGarmentLike>(
-  requiredSlots: string[],
-  slots: Map<string, TGarment[]>,
-  anchor: TGarment | null,
-): string[] {
+function orderSlotCandidates<TGarment extends StyleChatGarmentLike>(params: {
+  slot: string;
+  slotGarments: TGarment[];
+  activeGarment: TGarment | null;
+  lockedGarment: TGarment | null;
+  anchor: TGarment | null;
+  preferIds: Set<string>;
+  requireChange: boolean;
+}): TGarment[] {
+  const { slot, slotGarments, activeGarment, lockedGarment, anchor, preferIds, requireChange } = params;
+
+  const preferred = slotGarments.filter((garment) => preferIds.has(garment.id));
+  const others = slotGarments.filter((garment) => !preferIds.has(garment.id));
+  const changedPreferred = activeGarment
+    ? preferred.filter((garment) => garment.id !== activeGarment.id)
+    : preferred;
+  const changedOthers = activeGarment
+    ? others.filter((garment) => garment.id !== activeGarment.id)
+    : others;
+
+  if (lockedGarment) {
+    return [lockedGarment];
+  }
+
+  if (requireChange) {
+    return uniqueGarments([
+      slot === getStyleChatSlotKey(anchor?.category || "") ? anchor : null,
+      ...changedPreferred,
+      ...changedOthers,
+      activeGarment,
+    ]);
+  }
+
+  return uniqueGarments([
+    activeGarment,
+    slot === getStyleChatSlotKey(anchor?.category || "") ? anchor : null,
+    ...preferred,
+    ...others,
+  ]);
+}
+
+function pickSlotCandidate<TGarment extends StyleChatGarmentLike>(params: {
+  slot: string;
+  orderedCandidates: TGarment[];
+  usedIds: Set<string>;
+  usedSlots: Set<string>;
+}): TGarment | null {
+  const { slot, orderedCandidates, usedIds, usedSlots } = params;
+
+  return orderedCandidates.find((garment) => {
+    if (usedIds.has(garment.id)) return false;
+    return !usedSlots.has(slot);
+  }) || null;
+}
+
+function buildFallbackCandidate<TGarment extends StyleChatGarmentLike>(params: {
+  requiredSlots: string[];
+  slots: Map<string, TGarment[]>;
+  anchor: TGarment | null;
+  activeLook: StyleChatActiveLookContext;
+  options?: StyleChatFallbackOptions;
+}): string[] {
+  const { requiredSlots, slots, anchor, activeLook, options } = params;
   const chosen: TGarment[] = [];
   const usedIds = new Set<string>();
   const usedSlots = new Set<string>();
+  const garmentById = new Map(Array.from(slots.values()).flat().map((garment) => [garment.id, garment] as const));
   const anchorSlot = anchor ? getStyleChatSlotKey(anchor.category) : null;
+  const preferIds = new Set((options?.preferGarmentIds || []).filter(Boolean));
+  const requestedEditSlots = new Set((options?.requestedEditSlots || []).map((slot) => getStyleChatSlotKey(slot)));
+  const lockedGarments = (options?.lockedGarmentIds || [])
+    .map((id) => garmentById.get(id))
+    .filter(Boolean) as TGarment[];
+  const lockedBySlot = new Map(lockedGarments.map((garment) => [getStyleChatSlotKey(garment.category), garment] as const));
+  const activeGarments = activeLook.garmentIds
+    .map((id) => garmentById.get(id))
+    .filter(Boolean) as TGarment[];
+  const activeBySlot = new Map(activeGarments.map((garment) => [getStyleChatSlotKey(garment.category), garment] as const));
 
   const pushGarment = (garment: TGarment | null | undefined) => {
     if (!garment || usedIds.has(garment.id)) return;
@@ -300,11 +376,21 @@ function buildFallbackCandidate<TGarment extends StyleChatGarmentLike>(
   };
 
   for (const slot of requiredSlots) {
-    if (anchor && anchorSlot === slot) {
-      pushGarment(anchor);
-      continue;
-    }
-    pushGarment(firstAvailableGarment(slot, slots, usedIds));
+    const orderedCandidates = orderSlotCandidates({
+      slot,
+      slotGarments: slots.get(slot) || [],
+      activeGarment: activeBySlot.get(slot) || null,
+      lockedGarment: lockedBySlot.get(slot) || null,
+      anchor,
+      preferIds,
+      requireChange: requestedEditSlots.has(slot),
+    });
+    pushGarment(pickSlotCandidate({
+      slot,
+      orderedCandidates,
+      usedIds,
+      usedSlots,
+    }));
   }
 
   if (anchor && anchorSlot && !requiredSlots.includes(anchorSlot) && (anchorSlot === "outerwear" || anchorSlot === "accessory")) {
@@ -312,10 +398,38 @@ function buildFallbackCandidate<TGarment extends StyleChatGarmentLike>(
   }
 
   if (!usedSlots.has("outerwear")) {
-    pushGarment(firstAvailableGarment("outerwear", slots, usedIds));
+    const outerwearCandidates = orderSlotCandidates({
+      slot: "outerwear",
+      slotGarments: slots.get("outerwear") || [],
+      activeGarment: activeBySlot.get("outerwear") || null,
+      lockedGarment: lockedBySlot.get("outerwear") || null,
+      anchor,
+      preferIds,
+      requireChange: requestedEditSlots.has("outerwear"),
+    });
+    pushGarment(pickSlotCandidate({
+      slot: "outerwear",
+      orderedCandidates: outerwearCandidates,
+      usedIds,
+      usedSlots,
+    }));
   }
   if (!usedSlots.has("accessory")) {
-    pushGarment(firstAvailableGarment("accessory", slots, usedIds));
+    const accessoryCandidates = orderSlotCandidates({
+      slot: "accessory",
+      slotGarments: slots.get("accessory") || [],
+      activeGarment: activeBySlot.get("accessory") || null,
+      lockedGarment: lockedBySlot.get("accessory") || null,
+      anchor,
+      preferIds,
+      requireChange: requestedEditSlots.has("accessory"),
+    });
+    pushGarment(pickSlotCandidate({
+      slot: "accessory",
+      orderedCandidates: accessoryCandidates,
+      usedIds,
+      usedSlots,
+    }));
   }
 
   return chosen.map((garment) => garment.id).slice(0, 5);
@@ -325,9 +439,17 @@ export function buildStyleChatFallbackOutfitIds<TGarment extends StyleChatGarmen
   rankedGarments: TGarment[],
   anchor: TGarment | null,
   activeLook: StyleChatActiveLookContext,
+  options?: StyleChatFallbackOptions,
 ): string[] {
   const stableActiveLookIds = uniqueIds(activeLook.garmentIds).slice(0, 5);
-  if (isCompleteStyleChatOutfitIds(stableActiveLookIds, rankedGarments)) {
+  const lockedGarmentIds = new Set((options?.lockedGarmentIds || []).filter(Boolean));
+  const stableActiveLookHonorsLocks = Array.from(lockedGarmentIds).every((id) => stableActiveLookIds.includes(id));
+
+  if (
+    !options?.requestedEditSlots?.length
+    && stableActiveLookHonorsLocks
+    && isCompleteStyleChatOutfitIds(stableActiveLookIds, rankedGarments)
+  ) {
     return stableActiveLookIds;
   }
 
@@ -344,7 +466,13 @@ export function buildStyleChatFallbackOutfitIds<TGarment extends StyleChatGarmen
           : [["top", "bottom", "shoes"], ["dress", "shoes"]];
 
   for (const requiredSlots of candidateOrders) {
-    const candidateIds = buildFallbackCandidate(requiredSlots, slots, anchor);
+    const candidateIds = buildFallbackCandidate({
+      requiredSlots,
+      slots,
+      anchor,
+      activeLook,
+      options,
+    });
     if (isCompleteStyleChatOutfitIds(candidateIds, rankedGarments)) {
       return candidateIds;
     }
@@ -384,40 +512,46 @@ export function normalizeStyleChatAssistantReply<TGarment extends StyleChatGarme
   includeOutfitTag?: boolean;
   authoritativeOutfitIds?: string[];
   authoritativeExplanation?: string | null;
+  fallbackOutfitIds?: string[];
 }): NormalizedStyleChatAssistantReply {
   const candidate = pickStyleChatOutfitIdsFromText(
     params.rawText,
     params.validGarmentIds,
     params.rankedGarments,
   );
-  const fallbackIds = buildStyleChatFallbackOutfitIds(
-    params.rankedGarments,
-    params.anchor,
-    params.activeLook,
-  );
+  const fallbackIds = Array.isArray(params.fallbackOutfitIds)
+    ? uniqueIds(params.fallbackOutfitIds).slice(0, 5)
+    : buildStyleChatFallbackOutfitIds(
+      params.rankedGarments,
+      params.anchor,
+      params.activeLook,
+    );
   const authoritativeIds = uniqueIds(params.authoritativeOutfitIds || []).slice(0, 5);
   const rawIds = (authoritativeIds.length ? authoritativeIds : (candidate?.ids.length ? candidate.ids : fallbackIds)).slice(0, 5);
   const deduplicatedIds = deduplicateStyleChatOutfitBySlot(rawIds, params.rankedGarments, params.anchor).slice(0, 5);
   const outfitIds = isCompleteStyleChatOutfitIds(deduplicatedIds, params.rankedGarments)
     ? deduplicatedIds
     : [];
-  const explanation = (params.authoritativeExplanation || candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
-    .replace(/[[\]\n\r|]+/g, " ")
-    .trim();
+  const explanation = outfitIds.length > 0
+    ? (params.authoritativeExplanation || candidate?.explanation || buildOutfitExplanation(params.rawText, outfitIds))
+      .replace(/[[\]\n\r|]+/g, " ")
+      .trim()
+    : "";
   const prose = stripRawIdReferences(stripUnknownTagMarkup(params.rawText.replace(VALID_OUTFIT_TAG_RE, "")));
   const shouldIncludeOutfitTag = params.includeOutfitTag ?? true;
+  const garmentMentionIds = uniqueIds([
+    ...parseStyleChatGarmentIds(params.rawText).filter((id) => params.validGarmentIds.has(id)),
+    ...outfitIds,
+  ]);
   const outfitTag = shouldIncludeOutfitTag && outfitIds.length > 0
     ? `[[outfit:${outfitIds.join(",")}|${explanation || "Current active look"}]]`
     : null;
-  const finalText = outfitTag
-    ? params.placeOutfitTagFirst
-      ? `${outfitTag}\n\n${prose}`.trim()
-      : `${prose}\n\n${outfitTag}`.trim()
-    : prose;
 
   return {
-    text: finalText,
+    text: prose,
     outfitIds,
     outfitTag,
+    outfitExplanation: explanation,
+    garmentMentionIds,
   };
 }

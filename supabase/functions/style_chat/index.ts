@@ -2,12 +2,25 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
-import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
+import {
+  detectStylistChatModeFromSignals,
+  resolveStyleChatIntentFromSignals,
+  resolveActiveLookStatus,
+  resolveStyleCardState,
+  resolveStyleCardPolicy,
+  resolveStyleResponseKind,
+  shouldRenderStyleCardFromPolicy,
+  type StyleChatActiveLookInput,
+  type StyleChatResponseEnvelope,
+  type StylistChatMode,
+} from "../_shared/style-chat-contract.ts";
+import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
-import { normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
+import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
+import { logger } from "../_shared/logger.ts";
 
 // ---------- i18n ----------
 
@@ -30,6 +43,30 @@ const LANG_CONFIG: Record<string, { name: string; weatherLabel: string; todayLab
 
 function getLang(locale: string) {
   return LANG_CONFIG[locale] || LANG_CONFIG["en"];
+}
+
+const log = logger("style_chat");
+
+function createRequestId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `style-chat-${Date.now()}`;
+  }
+}
+
+async function fetchJsonWithTimeout<T>(input: string, init: RequestInit = {}, timeoutMs = 2500): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json() as T;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ---------- helpers ----------
@@ -89,8 +126,11 @@ interface ActiveLookContext {
 interface RefinementIntent {
   mode:
     | "swap_shoes"
+    | "swap_layer"
     | "keep_jacket"
+    | "cooler"
     | "less_formal"
+    | "more_formal"
     | "more_elevated"
     | "warmer"
     | "sharper"
@@ -99,6 +139,9 @@ interface RefinementIntent {
     | "dinner"
     | "work"
     | "weekend"
+    | "travel"
+    | "simpler"
+    | "bolder"
     | "use_less_worn"
     | "explain_why"
     | "targeted_refinement"
@@ -106,16 +149,23 @@ interface RefinementIntent {
   raw: string;
 }
 
-type StylistChatMode =
-  | "ACTIVE_LOOK_REFINEMENT"
-  | "GARMENT_FIRST_STYLING"
-  | "OUTFIT_GENERATION"
-  | "WARDROBE_GAP_ANALYSIS"
-  | "PURCHASE_PRIORITIZATION"
-  | "STYLE_IDENTITY_ANALYSIS"
-  | "LOOK_EXPLANATION"
-  | "PLANNING"
-  | "CONVERSATIONAL";
+interface StyleChatWeatherOverride {
+  temperature?: number;
+  precipitation?: string;
+  wind?: string;
+}
+
+interface StructuredRefinementPlan {
+  occasion: string;
+  style: string | null;
+  weather?: StyleChatWeatherOverride;
+  lockedGarmentIds: string[];
+  anchorLocked: boolean;
+  anchorGarmentId: string | null;
+  requestedEditSlots: string[];
+  excludeGarmentIds: string[];
+  preferGarmentIds: string[];
+}
 
 function getMessageText(content: string | unknown[]): string {
   if (typeof content === "string") return content;
@@ -407,26 +457,20 @@ function normalizeAssistantReply(params: {
   };
 }
 
-function createSseTextResponse(text: string, priorityChunk?: string | null, suggestionChips?: string[], truncated?: boolean): Response {
+function createSseTextResponse(envelope: StyleChatResponseEnvelope): Response {
   const encoder = new TextEncoder();
-  const chunks: string[] = [];
-  const normalizedPriorityChunk = priorityChunk?.trim();
-  const remainingText = normalizedPriorityChunk && text.startsWith(normalizedPriorityChunk)
-    ? text.slice(normalizedPriorityChunk.length).trimStart()
-    : text;
-
-  if (normalizedPriorityChunk) chunks.push(normalizedPriorityChunk);
-  chunks.push(...(remainingText.match(/.{1,180}(?:\s|$)|\S+/g) || []));
+  const chunks = (envelope.assistant_text.match(/.{1,180}(?:\s|$)|\S+/g) || []).map((chunk) => chunk.trim()).filter(Boolean);
 
   const stream = new ReadableStream({
     start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "stylist_response", payload: envelope })}\n\n`));
       for (const chunk of chunks) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
       }
-      if (suggestionChips?.length) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "suggestions", chips: suggestionChips })}\n\n`));
+      if (envelope.suggestion_chips.length) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "suggestions", chips: envelope.suggestion_chips })}\n\n`));
       }
-      if (truncated) {
+      if (envelope.truncated) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "metadata", truncated: true })}\n\n`));
       }
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -592,17 +636,91 @@ function detectAnchorGarment(garments: GarmentRecord[], messages: MessageInput[]
   return { anchor: null, explicitIds: [], source: null };
 }
 
+function didUserExplicitlyReleaseAnchor(messages: MessageInput[], anchor: GarmentRecord | null, selectedGarmentIds: string[] = []): boolean {
+  if (!anchor || !selectedGarmentIds.includes(anchor.id)) return false;
+
+  const latestUser = normalizeTerm(getMessageText(messages.filter((message) => message.role === "user").slice(-1)[0]?.content || ""));
+  if (!latestUser) return false;
+  if (!/(remove|replace|swap out|change|drop|without|not this|don't use|do not use)/i.test(latestUser)) {
+    return false;
+  }
+
+  const anchorTerms = [
+    normalizeTerm(anchor.title),
+    normalizeTerm(anchor.category),
+    normalizeTerm(anchor.subcategory),
+    "selected garment",
+    "selected piece",
+    "anchor",
+    "hero piece",
+  ].filter(Boolean);
+
+  return anchorTerms.some((term) => term && latestUser.includes(term));
+}
+
+function buildRankedGarmentSubset(
+  ranked: Array<{ garment: GarmentRecord; score: number }>,
+  anchor: GarmentRecord | null,
+): GarmentRecord[] {
+  const slotTargets = new Map<string, number>([
+    ["top", 4],
+    ["bottom", 4],
+    ["shoes", 4],
+    ["dress", 2],
+    ["outerwear", 3],
+    ["accessory", 2],
+  ]);
+  const selected: GarmentRecord[] = [];
+  const selectedIds = new Set<string>();
+  const selectedSlotCounts = new Map<string, number>();
+
+  const pushGarment = (garment: GarmentRecord | null | undefined) => {
+    if (!garment || selectedIds.has(garment.id)) return;
+    selected.push(garment);
+    selectedIds.add(garment.id);
+    const slot = getSlotKey(garment.category);
+    selectedSlotCounts.set(slot, (selectedSlotCounts.get(slot) || 0) + 1);
+  };
+
+  pushGarment(anchor);
+
+  for (const entry of ranked) {
+    const slot = getSlotKey(entry.garment.category);
+    const target = slotTargets.get(slot);
+    if (!target) continue;
+    if ((selectedSlotCounts.get(slot) || 0) >= target) continue;
+    pushGarment(entry.garment);
+  }
+
+  for (const entry of ranked) {
+    if (selected.length >= 24) break;
+    pushGarment(entry.garment);
+  }
+
+  return selected;
+}
+
+function resolveValidatedOutfitIds(
+  ids: string[],
+  garments: GarmentRecord[],
+  lockedGarmentIds: string[],
+): string[] {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean))).slice(0, 5);
+  if (!uniqueIds.length) return [];
+  if (!isCompleteStyleChatOutfitIds(uniqueIds, garments)) return [];
+  if (lockedGarmentIds.some((id) => !uniqueIds.includes(id))) return [];
+  return uniqueIds;
+}
+
 function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord | null): string {
-  const recent = messages.slice(-6);
+  const recent = messages.slice(-4);
   const userTurns = recent.filter((m) => m.role === "user").map((m) => getMessageText(m.content)).filter(Boolean);
-  const assistantTurns = recent.filter((m) => m.role === "assistant").map((m) => getMessageText(m.content)).filter(Boolean);
   const latestUser = userTurns[userTurns.length - 1] || "";
-  const priorGoals = userTurns.slice(0, -1).slice(-2);
+  const priorGoals = userTurns.slice(0, -1).slice(-1);
 
   const lines = [
     latestUser ? `Latest user ask: ${latestUser}` : "",
     priorGoals.length ? `Recent user goals: ${priorGoals.join(" | ")}` : "",
-    assistantTurns.length ? `Recent assistant commitments: ${assistantTurns.slice(-2).join(" | ")}` : "",
     anchor ? `Current anchor garment: ${anchor.title} [ID:${anchor.id}]` : "No confirmed anchor garment yet.",
   ].filter(Boolean);
 
@@ -613,8 +731,14 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   const latestUser = normalizeTerm(getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
   if (!latestUser) return { mode: "new_look", raw: "" };
 
+  if (/(style this garment|style this piece|style this item)/i.test(latestUser)) {
+    return { mode: "targeted_refinement", raw: latestUser };
+  }
   if (/(swap|change|switch).{0,20}(shoe|sneaker|boot|loafer|heel|trainer)/i.test(latestUser)) {
     return { mode: "swap_shoes", raw: latestUser };
+  }
+  if (/(swap|change|switch).{0,20}(layer|jacket|coat|blazer|outerwear|cardigan|hoodie|overshirt)/i.test(latestUser)) {
+    return { mode: "swap_layer", raw: latestUser };
   }
   if (/(keep|leave|save|stick with).{0,20}(jacket|coat|blazer|outerwear)/i.test(latestUser)) {
     return { mode: "keep_jacket", raw: latestUser };
@@ -628,13 +752,19 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(warmer|more warm|add warmth|too cold|colder weather|winterize|warmer version)/i.test(latestUser)) {
     return { mode: "warmer", raw: latestUser };
   }
-  if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance)/i.test(latestUser)) {
+  if (/(cooler|less warm|lighter version|summerize|summerise|too hot|hotter weather|make it cooler)/i.test(latestUser)) {
+    return { mode: "cooler", raw: latestUser };
+  }
+  if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance|more premium|more expensive-looking)/i.test(latestUser)) {
     return { mode: "more_elegant", raw: latestUser };
   }
   if (/(less formal|more casual|relax it|dress it down|tone it down|make it easier|relaxed version)/i.test(latestUser)) {
     return { mode: "less_formal", raw: latestUser };
   }
-  if (/(more elevated|more polished|dress it up|make it smarter|elevate it)/i.test(latestUser)) {
+  if (/(more formal|formal version|dressier|black tie|make it formal)/i.test(latestUser)) {
+    return { mode: "more_formal", raw: latestUser };
+  }
+  if (/(more elevated|more polished|dress it up|make it smarter|elevate it|make it more premium|make it more polished)/i.test(latestUser)) {
     return { mode: "more_elevated", raw: latestUser };
   }
   if (/(sharper|sharpen it|cleaner|make it sharper)/i.test(latestUser)) {
@@ -642,6 +772,12 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   }
   if (/(softer|soften it|less sharp|make it softer)/i.test(latestUser)) {
     return { mode: "softer", raw: latestUser };
+  }
+  if (/(make it simpler|simpler version|strip it back|minimal version|more minimal)/i.test(latestUser)) {
+    return { mode: "simpler", raw: latestUser };
+  }
+  if (/(make it bolder|bolder version|more bold|more daring|push it more)/i.test(latestUser)) {
+    return { mode: "bolder", raw: latestUser };
   }
   if (/(for dinner|dinner version|make it dinner|evening version|date night|night out)/i.test(latestUser)) {
     return { mode: "dinner", raw: latestUser };
@@ -652,7 +788,10 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   if (/(for weekend|weekend version|off-duty|casual weekend|brunch|errands)/i.test(latestUser)) {
     return { mode: "weekend", raw: latestUser };
   }
-  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner)/i.test(latestUser)) {
+  if (/(for travel|travel version|airport|plane|packing|capsule for travel)/i.test(latestUser)) {
+    return { mode: "travel", raw: latestUser };
+  }
+  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|premium|minimal|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner|travel|simpler|bolder)/i.test(latestUser)) {
     return { mode: "targeted_refinement", raw: latestUser };
   }
   return { mode: "new_look", raw: latestUser };
@@ -683,28 +822,12 @@ function detectStylistChatMode(params: {
     return "CONVERSATIONAL";
   }
 
-  if (/(what should i buy|what to buy|buy next|top\s*\d+\s*(things|pieces).{0,20}buy|purchase priority|biggest upgrade per purchase|best purchases?|cheap(est)? high-impact|stop buying)/i.test(latestUser)) {
-    return "PURCHASE_PRIORITIZATION";
-  }
-  if (/(what am i missing|style missing|wardrobe gap|gap analysis|underrepresented|overrepresented|closet audit|wardrobe audit|pieces are weak|doing too much work|missing building blocks|upgrade my wardrobe)/i.test(latestUser)) {
-    return "WARDROBE_GAP_ANALYSIS";
-  }
-  if (/(what is my style|describe my style|style identity|more elevated|more masculine|more minimal|more premium|more expensive-looking|style direction)/i.test(latestUser)) {
-    return "STYLE_IDENTITY_ANALYSIS";
-  }
-  if (/(why does this work|why this works|explain why|break down the look|analyze this look|what makes this better)/i.test(latestUser)) {
-    return "LOOK_EXPLANATION";
-  }
-  if (/(what should i wear this week|build me \d+ .*looks|plan my week|weekly looks|week of outfits|capsule for this week)/i.test(latestUser)) {
-    return "PLANNING";
-  }
-  if (params.refinementIntent.mode !== "new_look" && hasActiveLook) {
-    return "ACTIVE_LOOK_REFINEMENT";
-  }
-  if (/(style around|build around|based on this|with these chinos|with this blazer|around this|anchor on)/i.test(latestUser) || (hasAnchor && !hasActiveLook)) {
-    return "GARMENT_FIRST_STYLING";
-  }
-  return "OUTFIT_GENERATION";
+  return detectStylistChatModeFromSignals({
+    latestUser,
+    hasActiveLook,
+    hasAnchor,
+    refinementMode: params.refinementIntent.mode,
+  });
 }
 
 function buildModeContract(mode: StylistChatMode, lang: { name: string }): string {
@@ -712,6 +835,9 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
     `MODE=${mode}. Obey this mode first, then style quality.`,
     "- Do not collapse every request into generic outfit generation.",
     "- Keep output decisive and premium; no generic assistant filler.",
+    "- Prefer styling action over abstract analysis whenever the user is clearly asking for a look or a refinement.",
+    "- Default styling reply shape: one clear decision, one short visual reason, and one short change note only if a change is relevant.",
+    "- If the request is genuinely ambiguous, ask exactly one short clarifying question and stop there.",
     "- Use wardrobe evidence: category balance, wear frequency, layering role, archetype, texture, drape, structure, versatility.",
   ];
 
@@ -782,8 +908,29 @@ function buildModeContract(mode: StylistChatMode, lang: { name: string }): strin
   ].join("\n");
 }
 
-function buildActiveLookContext(messages: MessageInput[], garments: GarmentRecord[], explicitGarmentIds: string[] = []): ActiveLookContext {
+function buildActiveLookContext(
+  messages: MessageInput[],
+  garments: GarmentRecord[],
+  explicitGarmentIds: string[] = [],
+  explicitActiveLook: StyleChatActiveLookInput | null = null,
+): ActiveLookContext {
   const garmentById = new Map(garments.map((g) => [g.id, g]));
+  const explicitActiveLookIds = resolveCompleteOutfitIds(
+    Array.isArray(explicitActiveLook?.garment_ids) ? explicitActiveLook.garment_ids.filter((id): id is string => typeof id === "string") : [],
+    garmentById,
+  );
+  if (explicitActiveLookIds.length > 0) {
+    const garmentsInLook = explicitActiveLookIds
+      .map((id) => garmentById.get(id))
+      .filter(Boolean) as GarmentRecord[];
+    return {
+      summary: garmentsInLook.map((item) => `${item.title} [ID:${item.id}]`).join(" + "),
+      garmentIds: garmentsInLook.map((item) => item.id),
+      source: explicitActiveLook?.source || "frontend_active_look",
+      garmentLines: garmentsInLook.map(formatGarmentLine),
+    };
+  }
+
   const explicitLookIds = resolveCompleteOutfitIds(explicitGarmentIds, garmentById);
   if (explicitLookIds.length > 0) {
     const garmentsInLook = explicitLookIds
@@ -853,11 +1000,17 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     swap_shoes: [
       "- SWAP SHOES: keep the jacket/top/bottom unless there is a direct conflict; only change footwear and explain the effect on formality/proportion.",
     ],
+    swap_layer: [
+      "- SWAP LAYER: preserve the core look and change only the visible layering piece unless the user asks for a broader reset.",
+    ],
     keep_jacket: [
       "- KEEP THE JACKET: preserve the current jacket or outer layer and rebuild only the supporting pieces around it.",
     ],
     less_formal: [
       "- LESS FORMAL: relax fabrication, footwear, or base layer before replacing the hero piece.",
+    ],
+    more_formal: [
+      "- MORE FORMAL: increase polish through cleaner structure, dressier footwear, and less visual noise without breaking continuity.",
     ],
     more_elevated: [
       "- MORE ELEVATED: sharpen structure, cleaner footwear, or sleeker base layers while preserving the active look's core identity.",
@@ -865,6 +1018,10 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     warmer: [
       "- WARMER: add warmth through layer weight, knit texture, or more closed footwear before changing the outfit's character.",
       "- Protect the vibe while making the look physically warmer.",
+    ],
+    cooler: [
+      "- COOLER: lighten weight, open the silhouette, or swap into easier footwear while keeping the look coherent.",
+      "- Protect the vibe while making the outfit feel physically lighter.",
     ],
     sharper: [
       "- SHARPER: clean the line with more structure, cleaner footwear, or tighter contrast. Think precision, not extra formality by default.",
@@ -885,6 +1042,15 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
     weekend: [
       "- WEEKEND SHIFT: relax the look without making it sloppy. Ease the fabrication, footwear, or outer layer while keeping balance intact.",
     ],
+    travel: [
+      "- TRAVEL SHIFT: keep the outfit easy to move in, low-friction to pack, and clean enough to survive transit without feeling sloppy.",
+    ],
+    simpler: [
+      "- SIMPLER: remove visual noise first. Fewer statements, cleaner lines, and one clear focal point beat extra styling tricks.",
+    ],
+    bolder: [
+      "- BOLDER: increase impact through contrast, sharper shape, richer texture, or a stronger focal piece without making the outfit chaotic.",
+    ],
     use_less_worn: [
       "- USE SOMETHING I WEAR LESS: swap in the strongest underused garment only if it improves or preserves outfit quality. Do not force a weak piece into the look.",
     ],
@@ -904,6 +1070,235 @@ function buildRefinementContract(intent: RefinementIntent, activeLook: ActiveLoo
   return `${activeLookLine}
 REFINEMENT MODE: ${intent.mode}
 ${[...targetedRules, ...(modeRuleMap[intent.mode] || [])].join("\n")}`;
+}
+
+function getRefinementEditableSlots(intent: RefinementIntent, activeLookGarments: GarmentRecord[]): string[] {
+  const activeSlots = new Set(activeLookGarments.map((garment) => getSlotKey(garment.category)));
+  const baseTopSlot = activeSlots.has("dress") ? "dress" : "top";
+
+  switch (intent.mode) {
+    case "swap_shoes":
+      return ["shoes"];
+    case "swap_layer":
+      return activeSlots.has("outerwear") ? ["outerwear"] : [baseTopSlot];
+    case "keep_jacket":
+      return ["shoes", baseTopSlot, "bottom", "dress", "accessory"];
+    case "warmer":
+    case "cooler":
+    case "less_formal":
+    case "more_formal":
+    case "more_elevated":
+    case "more_elegant":
+    case "sharper":
+    case "softer":
+    case "dinner":
+    case "work":
+    case "weekend":
+    case "travel":
+    case "simpler":
+    case "bolder":
+    case "targeted_refinement":
+      return Array.from(new Set(["shoes", "outerwear", baseTopSlot, "accessory"]));
+    case "use_less_worn":
+      return Array.from(new Set([baseTopSlot, "bottom", "dress", "shoes", "outerwear", "accessory"]));
+    default:
+      return [];
+  }
+}
+
+function buildStructuredRefinementPlan(params: {
+  intent: RefinementIntent;
+  activeLook: ActiveLookContext;
+  rankedGarments: GarmentRecord[];
+  anchor: GarmentRecord | null;
+  dominantArchetype: string | null;
+  selectedGarmentIds: string[];
+  anchorReleased: boolean;
+}): StructuredRefinementPlan {
+  const garmentById = new Map(params.rankedGarments.map((garment) => [garment.id, garment]));
+  const activeLookGarments = params.activeLook.garmentIds
+    .map((id) => garmentById.get(id))
+    .filter(Boolean) as GarmentRecord[];
+  const editableSlots = getRefinementEditableSlots(params.intent, activeLookGarments);
+  const editableSlotSet = new Set(editableSlots);
+  const activeSlotMap = new Map(activeLookGarments.map((garment) => [getSlotKey(garment.category), garment]));
+
+  const lockedGarmentIds = activeLookGarments
+    .filter((garment) => !editableSlotSet.has(getSlotKey(garment.category)))
+    .map((garment) => garment.id);
+  const anchorLocked = Boolean(params.anchor && params.selectedGarmentIds.includes(params.anchor.id) && !params.anchorReleased);
+  if (anchorLocked && params.anchor && !lockedGarmentIds.includes(params.anchor.id)) {
+    lockedGarmentIds.unshift(params.anchor.id);
+  }
+
+  const excludeGarmentIds: string[] = [];
+  if (params.intent.mode === "swap_shoes") {
+    const currentShoes = activeSlotMap.get("shoes");
+    if (currentShoes) excludeGarmentIds.push(currentShoes.id);
+  }
+  if (params.intent.mode === "swap_layer") {
+    const currentLayer = activeSlotMap.get("outerwear") || activeSlotMap.get("top") || activeSlotMap.get("dress");
+    if (currentLayer) excludeGarmentIds.push(currentLayer.id);
+  }
+
+  const occasionMap: Partial<Record<RefinementIntent["mode"], string>> = {
+    less_formal: "casual",
+    more_formal: "formal",
+    dinner: "dinner",
+    work: "work",
+    weekend: "weekend",
+    travel: "travel",
+  };
+  const styleMap: Partial<Record<RefinementIntent["mode"], string>> = {
+    less_formal: "casual",
+    more_formal: "sharp",
+    more_elevated: "sharp",
+    sharper: "sharp",
+    softer: "soft",
+    more_elegant: "elegant",
+    simpler: "minimal",
+    travel: "minimal",
+    bolder: "bold",
+  };
+  const weatherMap: Partial<Record<RefinementIntent["mode"], StyleChatWeatherOverride>> = {
+    warmer: { temperature: 5, precipitation: "none", wind: "medium" },
+    cooler: { temperature: 26, precipitation: "none", wind: "low" },
+  };
+
+  const preferGarmentIds = Array.from(new Set(
+    [
+      ...params.activeLook.garmentIds,
+      ...(params.anchor ? [params.anchor.id] : []),
+    ].filter((id) => !excludeGarmentIds.includes(id)),
+  ));
+
+  return {
+    occasion: occasionMap[params.intent.mode] || "everyday",
+    style: styleMap[params.intent.mode] || params.dominantArchetype,
+    weather: weatherMap[params.intent.mode],
+    lockedGarmentIds: Array.from(new Set(lockedGarmentIds)),
+    anchorLocked,
+    anchorGarmentId: params.anchor?.id || null,
+    requestedEditSlots: editableSlots,
+    excludeGarmentIds,
+    preferGarmentIds,
+  };
+}
+
+function formatGarmentList(garments: GarmentRecord[]): string {
+  const titles = garments.map((garment) => garment.title).filter(Boolean);
+  if (titles.length <= 1) return titles[0] || "";
+  if (titles.length === 2) return `${titles[0]} + ${titles[1]}`;
+  return `${titles.slice(0, -1).join(", ")} + ${titles[titles.length - 1]}`;
+}
+
+function trimToSentences(text: string, maxSentences = 3): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  const sentences = clean.match(/[^.!?…]+[.!?…]?/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [clean];
+  return sentences.slice(0, maxSentences).map((sentence) => /[.!?…]$/.test(sentence) ? sentence : `${sentence}.`).join(" ");
+}
+
+function buildVisualReasoning(garments: GarmentRecord[], locale: string): string {
+  const colors = Array.from(new Set(garments.map((garment) => garment.color_primary).filter(Boolean))).slice(0, 2);
+  const materials = Array.from(new Set(garments.map((garment) => garment.material).filter(Boolean))).slice(0, 2);
+  const hasOuterwear = garments.some((garment) => getSlotKey(garment.category) === "outerwear");
+  if (locale === "sv") {
+    const colorLine = colors.length > 0 ? `paletten håller sig till ${colors.join(" och ")}` : "paletten hålls ren";
+    const materialLine = materials.length > 0 ? `materialen ${materials.join(" och ")} ger djup` : "texturen ger djup utan att störa linjen";
+    return hasOuterwear
+      ? `Det ger mer struktur uppåt, ${colorLine}, och ${materialLine}.`
+      : `Silhuetten känns ren, ${colorLine}, och ${materialLine}.`;
+  }
+
+  const colorLine = colors.length > 0 ? `the palette stays tight around ${colors.join(" and ")}` : "the palette stays tight";
+  const materialLine = materials.length > 0 ? `${materials.join(" and ")} add depth without noise` : "the texture adds depth without adding noise";
+  return hasOuterwear
+    ? `That adds structure up top, ${colorLine}, and ${materialLine}.`
+    : `The line stays clean, ${colorLine}, and ${materialLine}.`;
+}
+
+function buildCardFirstStylistText(params: {
+  locale: string;
+  mode: StylistChatMode;
+  outfit: UnifiedStylistResponse["outfits"][number] | null;
+  outfitGarments: GarmentRecord[];
+  activeLookGarments: GarmentRecord[];
+  anchor: GarmentRecord | null;
+  refinementIntent: RefinementIntent;
+}): string {
+  const { locale, mode, outfit, outfitGarments, activeLookGarments, anchor, refinementIntent } = params;
+  const isSwedish = locale === "sv";
+  if (!outfitGarments.length) {
+    return isSwedish
+      ? "Jag kunde inte låsa en stark komplett look här. Justera önskemålet lite så bygger jag om den."
+      : "I couldn't lock a strong complete look here. Nudge the request a little and I'll rebuild it.";
+  }
+
+  const outfitLine = formatGarmentList(outfitGarments);
+  const activeIds = new Set(activeLookGarments.map((garment) => garment.id));
+  const changed = outfitGarments.filter((garment) => !activeIds.has(garment.id));
+  const kept = outfitGarments.filter((garment) => activeIds.has(garment.id));
+  const rationale = trimToSentences(String(outfit?.rationale || ""), 1);
+  const visualReasoning = buildVisualReasoning(outfitGarments, locale);
+  const limitation = outfit?.limitations?.[0] ? trimToSentences(outfit.limitations[0], 1) : "";
+
+  if (mode === "LOOK_EXPLANATION") {
+    const first = isSwedish
+      ? `Det här funkar eftersom ${outfitLine} bygger en tydlig och bärbar helhet.`
+      : `This works because ${outfitLine} builds a clear, wearable whole.`;
+    const third = isSwedish
+      ? "Det känns genomtänkt snarare än övertänkt, vilket håller looken stark i verkligheten."
+      : "It feels intentional rather than overworked, which is what keeps the look strong in real life.";
+    return trimToSentences([first, visualReasoning, third].join(" "), 3);
+  }
+
+  if (mode === "ACTIVE_LOOK_REFINEMENT") {
+    const first = changed.length > 0
+      ? (isSwedish
+        ? `Behåll ${kept.length > 0 ? formatGarmentList(kept) : "grunden"} och byt in ${formatGarmentList(changed)}.`
+        : `Keep ${kept.length > 0 ? formatGarmentList(kept) : "the core"} and switch in ${formatGarmentList(changed)}.`)
+      : (isSwedish
+        ? "Jag håller den nuvarande looken intakt och stramar upp den utan att starta om."
+        : "I'm keeping the current look intact and tightening it up without restarting it.");
+    return trimToSentences([first, rationale || visualReasoning, limitation].filter(Boolean).join(" "), 3);
+  }
+
+  if (mode === "GARMENT_FIRST_STYLING" && anchor && outfitGarments.some((garment) => garment.id === anchor.id)) {
+    const first = isSwedish
+      ? `Bygg looken runt ${anchor.title}: ${outfitLine}.`
+      : `Build the look around ${anchor.title}: ${outfitLine}.`;
+    return trimToSentences([first, rationale || visualReasoning, limitation].filter(Boolean).join(" "), 3);
+  }
+
+  const first = isSwedish
+    ? `Gå på ${outfitLine}.`
+    : `Go with ${outfitLine}.`;
+  const second = rationale || visualReasoning;
+  const third = limitation || (isSwedish
+    ? "Det här är den renaste starka looken jag kan säkra från garderoben."
+    : "This is the cleanest strong look I can secure from the wardrobe.");
+  return trimToSentences([first, second, third].join(" "), 3);
+}
+
+function buildStyleClarifierText(locale: string, latestUser: string): string {
+  const isSwedish = locale === "sv";
+
+  if (/(why|explain|break down|what makes)/i.test(latestUser)) {
+    return isSwedish
+      ? "Vilken look vill du att jag förklarar?"
+      : "Which look do you want me to explain?";
+  }
+
+  if (/(change|make it|style this|style it|swap|replace|remove|drop)/i.test(latestUser)) {
+    return isSwedish
+      ? "Vilket plagg eller vilken look ska jag utgå från?"
+      : "Which garment or look should I work from?";
+  }
+
+  return isSwedish
+    ? "Vilket plagg eller vilken look vill du att jag stylar?"
+    : "Which garment or look do you want me to style?";
 }
 
 function buildCandidateOutfits(
@@ -1007,27 +1402,24 @@ function buildCandidateOutfits(
 }
 
 async function geocodeCity(city: string): Promise<{ lat: number; lon: number } | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
-      { headers: { "User-Agent": "BURS-App/1.0" } }
-    );
-    const data = await res.json();
-    if (data?.[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-  } catch { /* ignore */ }
+  const data = await fetchJsonWithTimeout<Array<{ lat?: string; lon?: string }>>(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
+    { headers: { "User-Agent": "BURS-App/1.0" } },
+    2500,
+  );
+  if (data?.[0]) return { lat: parseFloat(data[0].lat || "0"), lon: parseFloat(data[0].lon || "0") };
   return null;
 }
 
 async function fetchWeather(lat: number, lon: number, lang: typeof LANG_CONFIG[string]): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,weather_code`
-    );
-    const d = await res.json();
-    const c = d?.current;
-    if (!c) return "";
-    return `${lang.weatherLabel}: ${c.temperature_2m}°C, wind ${c.wind_speed_10m} km/h, precipitation ${c.precipitation} mm, code ${c.weather_code}.`;
-  } catch { return ""; }
+  const weather = await fetchJsonWithTimeout<{ current?: { temperature_2m?: number; wind_speed_10m?: number; precipitation?: number; weather_code?: number } }>(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,wind_speed_10m,weather_code`,
+    {},
+    2500,
+  );
+  const current = weather?.current;
+  if (!current) return "";
+  return `${lang.weatherLabel}: ${current.temperature_2m}°C, wind ${current.wind_speed_10m} km/h, precipitation ${current.precipitation} mm, code ${current.weather_code}.`;
 }
 
 async function getCalendarContext(supabase: ReturnType<typeof createClient>, userId: string, lang: typeof LANG_CONFIG[string]): Promise<string> {
@@ -1053,6 +1445,8 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     .from("garments")
     .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path, ai_raw")
     .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
     .limit(120);
   if (!garments?.length) {
     return {
@@ -1117,8 +1511,8 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     .map((g) => ({ garment: g, ...rankGarmentForPrompt(g, queryTerms, anchorSelection.anchor, explicitIds) }))
     .sort((a, b) => b.score - a.score || (a.garment.title || "").localeCompare(b.garment.title || ""));
 
-  const rankedGarments = ranked.slice(0, 18).map((entry) => entry.garment);
-  const detailPool = rankedGarments.length ? rankedGarments : typedGarments.slice(0, 18);
+  const rankedGarments = buildRankedGarmentSubset(ranked, anchorSelection.anchor);
+  const detailPool = rankedGarments.length ? rankedGarments : typedGarments.slice(0, 24);
   const details = detailPool.map(formatGarmentLine).join("\n");
 
   let insightLines = "";
@@ -1180,6 +1574,11 @@ async function getRecentOutfitsContext(supabase: ReturnType<typeof createClient>
     const wornStr = o.worn_at ? ` [worn ${o.worn_at.slice(0, 10)}]` : " [not worn]";
     return `- ${o.occasion}${o.style_vibe ? '/' + o.style_vibe : ''}: ${items}${wornStr}`;
   });
+
+  const recentGarmentSets: string[][] = outfits.map((o: any) =>
+    (o.outfit_items || []).map((i: any) => i.garment_id).filter(Boolean)
+  ).filter((ids: string[]) => ids.length > 0);
+
 
   return { text: `\nRecent outfits:\n${lines.join("\n")}`, occasions, recentGarmentSets };
 }
@@ -1326,6 +1725,8 @@ serve(async (req) => {
   }
 
   try {
+    const requestId = createRequestId();
+    const requestStartedAt = Date.now();
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -1346,8 +1747,16 @@ serve(async (req) => {
         status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
+    log.info("request.start", { requestId, userId: user.id });
 
-    const { messages, locale: rawLocale, selected_garment_ids, garmentCount: _clientGarmentCount, archetype: _clientArchetype } = await req.json();
+    const {
+      messages,
+      locale: rawLocale,
+      selected_garment_ids,
+      active_look,
+      garmentCount: _clientGarmentCount,
+      archetype: _clientArchetype,
+    } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
         status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
@@ -1356,7 +1765,13 @@ serve(async (req) => {
 
     const locale = (typeof rawLocale === "string" && LANG_CONFIG[rawLocale]) ? rawLocale : "sv";
     const lang = getLang(locale);
-    const selectedGarmentIds = Array.isArray(selected_garment_ids) ? selected_garment_ids.filter((id) => typeof id === "string") : [];
+    const explicitActiveLook = active_look && typeof active_look === "object" ? active_look as StyleChatActiveLookInput : null;
+    const selectedGarmentIds = Array.from(new Set([
+      ...(Array.isArray(selected_garment_ids) ? selected_garment_ids.filter((id) => typeof id === "string") : []),
+      ...(explicitActiveLook?.anchor_locked && typeof explicitActiveLook.anchor_garment_id === "string"
+        ? [explicitActiveLook.anchor_garment_id]
+        : []),
+    ]));
 
     // Guard: trim excessively long conversations
     const MAX_MESSAGES = 30;
@@ -1417,7 +1832,14 @@ serve(async (req) => {
     let weatherCtx = "";
     if (profile?.home_city) {
       const coords = await geocodeCity(profile.home_city);
-      if (coords) weatherCtx = await fetchWeather(coords.lat, coords.lon, lang);
+      if (coords) {
+        weatherCtx = await fetchWeather(coords.lat, coords.lon, lang);
+        if (!weatherCtx) {
+          log.warn("weather.degraded", { requestId, userId: user.id, stage: "weather_unavailable" });
+        }
+      } else {
+        log.warn("weather.degraded", { requestId, userId: user.id, stage: "geocode_unavailable" });
+      }
     }
 
     const heightCm = profile?.height_cm;
@@ -1490,8 +1912,25 @@ serve(async (req) => {
     const identityBlock = identityParts.join("\n");
 
     const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor);
-    const activeLook = buildActiveLookContext(safeMessages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds);
+    const activeLook = buildActiveLookContext(safeMessages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
+    const latestUser = normalizeTerm(getMessageText(safeMessages.filter((message: any) => message.role === "user").slice(-1)[0]?.content || ""));
     const refinementIntent = detectRefinementIntent(safeMessages as MessageInput[]);
+    const styleIntent = resolveStyleChatIntentFromSignals({
+      latestUser,
+      hasActiveLook: activeLook.garmentIds.length >= 2,
+      hasAnchor: Boolean(wardrobeCtx.anchor),
+      refinementMode: refinementIntent.mode,
+    });
+    const anchorReleased = didUserExplicitlyReleaseAnchor(safeMessages as MessageInput[], wardrobeCtx.anchor, selectedGarmentIds);
+    const refinementPlan = buildStructuredRefinementPlan({
+      intent: refinementIntent,
+      activeLook,
+      rankedGarments: wardrobeCtx.rankedGarments,
+      anchor: wardrobeCtx.anchor,
+      dominantArchetype: wardrobeCtx.dominantArchetype,
+      selectedGarmentIds,
+      anchorReleased,
+    });
     const stylistMode = detectStylistChatMode({
       messages: safeMessages as MessageInput[],
       activeLook,
@@ -1505,18 +1944,23 @@ serve(async (req) => {
       : chooseChatComplexity(safeMessages as MessageInput[], wardrobeCtx.anchor);
     const refinementTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT" && isRefinementTurn(refinementIntent, activeLook);
 
-    const shouldForceOutfitTags = stylistMode === "OUTFIT_GENERATION"
-      || stylistMode === "GARMENT_FIRST_STYLING"
-      || stylistMode === "ACTIVE_LOOK_REFINEMENT";
+    const hasStableActiveLook = activeLook.garmentIds.length >= 2;
+    const shouldAskClarifyingQuestion = styleIntent === "clarify";
+    const resolvedCardPolicy = resolveStyleCardPolicy({
+      mode: stylistMode,
+      hasActiveLook: hasStableActiveLook,
+      hasAnchor: refinementPlan.anchorLocked || Boolean(wardrobeCtx.anchor),
+    });
+    const cardPolicy = shouldAskClarifyingQuestion
+      ? (hasStableActiveLook ? "preserve_if_exists" : "optional")
+      : resolvedCardPolicy;
+    const shouldPreserveStyleCard = cardPolicy !== "optional";
 
-    const taggingContract = shouldForceOutfitTags
+    const taggingContract = shouldPreserveStyleCard
       ? `GARMENT TAGS:
-- When mentioning a garment from the wardrobe, tag it: [[garment:ID]] after its name
-- For the active outfit snapshot, use exactly one [[outfit:id1,id2,id3|Why this works]] tag in every reply
-- The explanation after | must be in ${lang.name}
-- ALWAYS return the outfit tag, including refinement turns, so the UI can update the active look card
-- Garment tags are optional support detail; the single outfit tag is mandatory and authoritative
-- Tags must appear only after the natural-language mention, never as raw bracketed prose on their own.`
+- The current active look is rendered from structured response metadata first.
+- Only use garment tags sparingly if they genuinely clarify a specific garment reference.
+- Never rely on raw outfit tag prose as the only source of outfit truth.`
       : `GARMENT TAGS:
 - Do NOT emit outfit tags in this mode unless the user explicitly asks for one concrete outfit.
 - You may still use [[garment:ID]] tags sparingly where they improve clarity.
@@ -1524,7 +1968,7 @@ serve(async (req) => {
 
     const shouldCallUnifiedEngine = (stylistMode === "OUTFIT_GENERATION"
       || stylistMode === "GARMENT_FIRST_STYLING"
-      || stylistMode === "ACTIVE_LOOK_REFINEMENT") && stylistMode !== "CONVERSATIONAL";
+      || stylistMode === "ACTIVE_LOOK_REFINEMENT") && !shouldAskClarifyingQuestion;
     const candidateOutfits = (!shouldCallUnifiedEngine && stylistMode !== "WARDROBE_GAP_ANALYSIS" && stylistMode !== "PURCHASE_PRIORITIZATION" && stylistMode !== "STYLE_IDENTITY_ANALYSIS" && stylistMode !== "CONVERSATIONAL")
       ? buildCandidateOutfits(wardrobeCtx.rankedGarments, wardrobeCtx.anchor, recentOutfitsCtx.recentGarmentSets)
       : "";
@@ -1533,36 +1977,82 @@ serve(async (req) => {
       ? (refinementIntent.mode === "swap_shoes" ? "swap" : "refine")
       : "generate";
     // Always lock the anchor regardless of how it was detected
-    const baseLocked = refinementIntent.mode === "keep_jacket" && activeLook.garmentIds.length > 0
-      ? [activeLook.garmentIds[0]]
-      : [];
-    const effectiveLockedIds = [
-      ...baseLocked,
-      ...(wardrobeCtx.anchor && !baseLocked.includes(wardrobeCtx.anchor.id)
+    const effectiveLockedIds = Array.from(new Set([
+      ...refinementPlan.lockedGarmentIds,
+      ...(refinementPlan.anchorLocked && refinementPlan.anchorGarmentId
+        ? [refinementPlan.anchorGarmentId]
+        : []),
+      ...(wardrobeCtx.anchor && !refinementPlan.lockedGarmentIds.includes(wardrobeCtx.anchor.id)
         ? [wardrobeCtx.anchor.id]
         : []),
-    ];
-    const unified = shouldCallUnifiedEngine
-      ? await invokeUnifiedStylistEngine({
-        authToken: token,
-        request: {
-          mode: unifiedRequestMode,
-          generator_mode: "stylist",
-          occasion: "chat",
-          style: wardrobeCtx.dominantArchetype,
-          weather: undefined,
-          locale,
-          prefer_garment_ids: wardrobeCtx.anchor ? [wardrobeCtx.anchor.id] : [],
-          active_look_garment_ids: activeLook.garmentIds,
-          locked_garment_ids: effectiveLockedIds,
-          requested_edit_slots: refinementIntent.mode === "swap_shoes" ? ["shoes"] : [],
-          output_count: 1,
-          explanation_mode: "short",
-        },
-      })
-      : null;
+    ]));
+    let unified: UnifiedStylistResponse | null = null;
+    let unifiedFailureReason: string | null = null;
+    if (shouldCallUnifiedEngine) {
+      try {
+        unified = await invokeUnifiedStylistEngine({
+          authToken: token,
+          request: {
+            mode: unifiedRequestMode,
+            generator_mode: "stylist",
+            occasion: refinementPlan.occasion,
+            style: refinementPlan.style,
+            weather: refinementPlan.weather,
+            locale,
+            prefer_garment_ids: refinementPlan.preferGarmentIds,
+            exclude_garment_ids: refinementPlan.excludeGarmentIds,
+            active_look_garment_ids: activeLook.garmentIds,
+            locked_garment_ids: effectiveLockedIds,
+            requested_edit_slots: refinementPlan.requestedEditSlots,
+            output_count: 1,
+            explanation_mode: "short",
+          },
+        });
+      } catch (error) {
+        unifiedFailureReason = error instanceof Error ? error.message : String(error);
+        log.warn("unified_engine.degraded", {
+          requestId,
+          userId: user.id,
+          stage: "unified_engine_failed",
+          error: unifiedFailureReason,
+        });
+      }
+    }
     const unifiedOutfit = unified?.outfits[0] || null;
-    const authoritativeOutfitIds = unifiedOutfit?.garment_ids || [];
+    const activeLookGarments = activeLook.garmentIds
+      .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
+      .filter(Boolean) as GarmentRecord[];
+    const validatedActiveLookIds = resolveValidatedOutfitIds(
+      activeLook.garmentIds,
+      wardrobeCtx.rankedGarments,
+      refinementPlan.anchorLocked && refinementPlan.anchorGarmentId ? [refinementPlan.anchorGarmentId] : [],
+    );
+    const validatedUnifiedOutfitIds = resolveValidatedOutfitIds(
+      unifiedOutfit?.garment_ids || [],
+      wardrobeCtx.rankedGarments,
+      refinementPlan.lockedGarmentIds,
+    );
+    const deterministicRescueOutfitIds = shouldPreserveStyleCard
+      ? buildStyleChatFallbackOutfitIds(
+        wardrobeCtx.rankedGarments,
+        wardrobeCtx.anchor,
+        activeLook,
+        {
+          lockedGarmentIds: refinementPlan.lockedGarmentIds,
+          requestedEditSlots: refinementPlan.requestedEditSlots,
+          preferGarmentIds: refinementPlan.preferGarmentIds,
+        },
+      )
+      : [];
+    const authoritativeOutfitIds = shouldAskClarifyingQuestion
+      ? (shouldPreserveStyleCard ? validatedActiveLookIds : [])
+      : validatedUnifiedOutfitIds.length > 0
+        ? validatedUnifiedOutfitIds
+        : deterministicRescueOutfitIds.length > 0
+          ? deterministicRescueOutfitIds
+          : shouldPreserveStyleCard
+            ? validatedActiveLookIds
+            : [];
     const authoritativeOutfitTag = buildAuthoritativeOutfitTag(
       authoritativeOutfitIds,
       unifiedOutfit?.rationale || "",
@@ -1570,6 +2060,18 @@ serve(async (req) => {
     const unifiedCandidateLine = authoritativeOutfitTag
       ? `\nUNIFIED OUTFIT DECISION (authoritative): ${authoritativeOutfitTag}`
       : "";
+    const authoritativeOutfitGarments = authoritativeOutfitIds
+      .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
+      .filter(Boolean) as GarmentRecord[];
+    const canUseCardFirstText = stylistMode === "OUTFIT_GENERATION"
+      || stylistMode === "GARMENT_FIRST_STYLING"
+      || stylistMode === "ACTIVE_LOOK_REFINEMENT"
+      || stylistMode === "LOOK_EXPLANATION";
+    const shouldUseStructuredStylistText = canUseCardFirstText && (
+      shouldCallUnifiedEngine
+      || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook)
+      || (authoritativeOutfitIds.length > 0 && !validatedUnifiedOutfitIds.length)
+    );
 
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
@@ -1586,6 +2088,7 @@ ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 ${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
 ${candidateOutfits ? `\n\n${candidateOutfits}` : ""}${unifiedCandidateLine}
 ${recentOutfitsCtx.text}
+${recentOutfitsCtx.recentGarmentSets && recentOutfitsCtx.recentGarmentSets.length > 0 ? `\nRECENT OUTFIT COMBINATIONS — DO NOT REPEAT THESE EXACT GARMENT COMBINATIONS:\n${recentOutfitsCtx.recentGarmentSets.slice(0, 5).map((ids: string[], i: number) => `Outfit ${i+1}: ${ids.join(", ")}`).join("\n")}\nEach new outfit MUST include at least 2 garments not in the previous suggestion.` : ""}
 ${rejectionsCtx.text}
 ${tasteMemoryBlock ? `\nTASTE MEMORY (learned from behavior — reference this naturally in replies):\n${tasteMemoryBlock}` : ""}
 ${calendarCtx}
@@ -1593,7 +2096,13 @@ ${weatherCtx}
 
 STYLIST OPERATING CONTRACT:
 - Primary operating mode for this user turn: ${stylistMode}
+- Card policy for this turn: ${cardPolicy}
 - Act like a premium stylist, not a general assistant.
+- Think in this order: current live look -> locked anchor -> create/update/explain intent -> next valid outfit card -> prose.
+- If this turn is styling-related, the card is the primary output and the prose is secondary.
+- If the user is clearly asking for styling, resolve it as create a look, update the current look, or explain the current look. Do not drift into abstract style commentary.
+- If the ask is genuinely ambiguous, ask exactly one short clarifying question. Preserve the current card if one is already valid.
+- If a selected garment is locked as the anchor, it must remain in the outfit unless the user explicitly asks to remove or replace it.
 - Ground every recommendation in the ranked wardrobe subset first; only mention missing pieces when the wardrobe truly lacks them.
 - In OUTFIT_GENERATION and ACTIVE_LOOK_REFINEMENT, default to complete looks whenever the wardrobe allows it (separates need top + bottom + shoes; dress-led needs dress + shoes).
 - Do not normalize incomplete outfits as the ideal outcome.
@@ -1607,11 +2116,12 @@ STYLIST OPERATING CONTRACT:
 - Treat the active look as the default working look for refinements.
 - If the user asks for styling advice rather than a full outfit, still reference specific garments from the wardrobe subset.
 - Keep the tone editorial, concise, and premium. No generic helper phrasing.
-- Default to 2-4 short sentences. Shorter and more decisive beats longer and safer.
+- Default to 2-3 short sentences: one decision, one visual reason, one short change note if needed.
 - 'Why this works' should read like a stylist's visual rationale, not a generic explainer.
 ${modeContract}
 ${taggingContract}
 
+${refinementPlan.anchorLocked && refinementPlan.anchorGarmentId ? `ANCHOR OVERRIDE — ABSOLUTE RULE: Every outfit you suggest MUST contain garment ID ${refinementPlan.anchorGarmentId}. Any outfit tag missing this ID is invalid. The user has locked this as their anchor piece.` : ""}
 OUTFIT SLOT RULES — CRITICAL:
 - An outfit must have AT MOST ONE garment per slot: top · bottom · shoes · outerwear · dress
 - A dress REPLACES top + bottom — never combine dress + pants or dress + jeans
@@ -1632,17 +2142,45 @@ ${refinementContract}`;
     });
 
     console.log(`style_chat: ${safeMessages.length} messages in thread (original: ${messages.length})`);
-    const aiResponse = await callBursAI({
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...preparedMessages,
-      ],
-      complexity: chatComplexity,
-      max_tokens: stylistMode === "CONVERSATIONAL" ? 180 : chatComplexity === "complex" ? 1400 : 1100,
-      functionName: "style_chat",
+    log.info("stylist.mode", {
+      requestId,
+      userId: user.id,
+      stage: "mode_resolved",
+      stylistMode,
+      refinementMode: refinementIntent.mode,
+      hasActiveLook: activeLook.garmentIds.length > 0,
+      usedUnifiedEngine: shouldCallUnifiedEngine,
     });
 
-    let rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+    let rawAssistantText = shouldAskClarifyingQuestion
+      ? buildStyleClarifierText(locale, latestUser)
+      : shouldUseStructuredStylistText
+      ? buildCardFirstStylistText({
+        locale,
+        mode: stylistMode,
+        outfit: unifiedOutfit,
+        outfitGarments: authoritativeOutfitGarments,
+        activeLookGarments,
+        anchor: wardrobeCtx.anchor,
+        refinementIntent,
+      })
+      : "";
+    let aiFinishReason: string | undefined;
+
+    if (!shouldAskClarifyingQuestion && (!shouldUseStructuredStylistText || !rawAssistantText.trim())) {
+      const aiResponse = await callBursAI({
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...preparedMessages,
+        ],
+        complexity: chatComplexity,
+        max_tokens: stylistMode === "CONVERSATIONAL" ? 180 : chatComplexity === "complex" ? 800 : 420,
+        functionName: "style_chat",
+      });
+
+      rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
+      aiFinishReason = aiResponse.finish_reason;
+    }
 
     // ── Empty response guard ─────────────────────────────────────
     if (!rawAssistantText.trim()) {
@@ -1655,19 +2193,10 @@ ${refinementContract}`;
 
     // ── Truncation detection ─────────────────────────────────────
     let truncatedByTokenLimit = false;
-    if (aiResponse.finish_reason === "length") {
+    if (aiFinishReason === "length") {
       console.warn("style_chat: response truncated by output token limit (finish_reason=length)");
       truncatedByTokenLimit = true;
-      // Clean up partial sentence at the end if the model was cut off mid-thought
-      const lastPunctuation = Math.max(
-        rawAssistantText.lastIndexOf("."),
-        rawAssistantText.lastIndexOf("!"),
-        rawAssistantText.lastIndexOf("?"),
-        rawAssistantText.lastIndexOf("…"),
-      );
-      if (lastPunctuation > rawAssistantText.length * 0.6) {
-        rawAssistantText = rawAssistantText.slice(0, lastPunctuation + 1).trim();
-      }
+      rawAssistantText = trimToSentences(rawAssistantText, 4);
     }
 
     // ── Post-processing validation ──────────────────────────────
@@ -1688,18 +2217,7 @@ ${refinementContract}`;
     }
 
     // c. Trim overly long non-outfit replies — language-safe sentence splitting
-    const hasOutfitTag = rawAssistantText.includes("[[outfit:");
-    if (rawAssistantText.length > 1400 && !hasOutfitTag) {
-      // Split on sentence-ending punctuation followed by a space or end-of-string.
-      // This preserves trailing text that lacks final punctuation (common in Swedish, etc.)
-      const sentences = rawAssistantText.split(/(?<=[.!?…])\s+/).filter(Boolean);
-      if (sentences.length > 9) {
-        rawAssistantText = sentences.slice(0, 9).join(" ").trim();
-        if (truncatedByTokenLimit) {
-          rawAssistantText += " …";
-        }
-      }
-    }
+    rawAssistantText = trimToSentences(rawAssistantText, shouldPreserveStyleCard ? 3 : 5);
 
     const normalizedReply = normalizeStyleChatAssistantReply({
       rawText: rawAssistantText,
@@ -1708,28 +2226,111 @@ ${refinementContract}`;
       anchor: wardrobeCtx.anchor,
       activeLook,
       placeOutfitTagFirst: refinementTurn,
-      includeOutfitTag: shouldForceOutfitTags,
-      authoritativeOutfitIds,
-      authoritativeExplanation: unifiedOutfit?.rationale || null,
+      includeOutfitTag: false,
+      authoritativeOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
+      authoritativeExplanation: shouldAskClarifyingQuestion
+        ? explicitActiveLook?.explanation || null
+        : unifiedOutfit?.rationale || null,
+      fallbackOutfitIds: shouldPreserveStyleCard ? authoritativeOutfitIds : [],
     });
 
+    const cardState = resolveStyleCardState(validatedActiveLookIds, normalizedReply.outfitIds);
+    const renderOutfitCardBase = shouldRenderStyleCardFromPolicy({
+      cardPolicy,
+      cardState,
+      outfitIds: normalizedReply.outfitIds,
+    });
+    const isStylingTurn = stylistMode === "ACTIVE_LOOK_REFINEMENT"
+      || stylistMode === "GARMENT_FIRST_STYLING"
+      || stylistMode === "OUTFIT_GENERATION"
+      || stylistMode === "LOOK_EXPLANATION";
+    const renderOutfitCard = renderOutfitCardBase
+      || (isStylingTurn && normalizedReply.outfitIds.length > 0);
+    const resolvedOutfitIds = renderOutfitCard ? normalizedReply.outfitIds : [];
+    const activeLookStatus = resolveActiveLookStatus(validatedActiveLookIds, resolvedOutfitIds);
+    const usedDeterministicRescue = !validatedUnifiedOutfitIds.length
+      && deterministicRescueOutfitIds.length > 0
+      && deterministicRescueOutfitIds.length === authoritativeOutfitIds.length
+      && deterministicRescueOutfitIds.every((id, index) => id === authoritativeOutfitIds[index]);
+    const preservedExistingLook = !validatedUnifiedOutfitIds.length
+      && validatedActiveLookIds.length > 0
+      && validatedActiveLookIds.length === authoritativeOutfitIds.length
+      && validatedActiveLookIds.every((id, index) => id === authoritativeOutfitIds[index]);
+    const fallbackUsed = !shouldAskClarifyingQuestion
+      && shouldPreserveStyleCard
+      && !validatedUnifiedOutfitIds.length
+      && authoritativeOutfitIds.length > 0;
+    const degradedReason = shouldAskClarifyingQuestion
+      ? null
+      : unifiedOutfit?.limitations?.[0]
+        || unifiedFailureReason
+        || (shouldPreserveStyleCard && !authoritativeOutfitIds.length ? "no_valid_outfit_card" : null);
+    const responseKind = shouldAskClarifyingQuestion
+      ? (renderOutfitCard ? "style_result" : "analysis")
+      : resolveStyleResponseKind({
+        mode: stylistMode,
+        cardState,
+        fallbackUsed,
+        degradedReason,
+      });
     const chips = buildSuggestionChips(
       stylistMode,
-      !!normalizedReply.outfitTag,
+      renderOutfitCard,
       locale,
     );
+    const envelope: StyleChatResponseEnvelope = {
+      kind: "stylist_response",
+      mode: stylistMode,
+      response_kind: responseKind,
+      card_policy: cardPolicy,
+      card_state: cardState,
+      assistant_text: normalizedReply.text,
+      outfit_ids: resolvedOutfitIds,
+      outfit_explanation: normalizedReply.outfitExplanation,
+      garment_mentions: normalizedReply.garmentMentionIds,
+      suggestion_chips: chips,
+      truncated: truncatedByTokenLimit,
+      active_look_status: activeLookStatus,
+      active_look: {
+        garment_ids: resolvedOutfitIds,
+        explanation: normalizedReply.outfitExplanation || null,
+        source: resolvedOutfitIds.length > 0
+          ? validatedUnifiedOutfitIds.length > 0
+            ? "unified_stylist_engine"
+            : usedDeterministicRescue
+              ? "deterministic_rescue"
+              : preservedExistingLook
+                ? (activeLook.source || "preserved_active_look")
+                : "style_chat_normalizer"
+          : null,
+        status: activeLookStatus,
+        card_state: cardState,
+        anchor_garment_id: refinementPlan.anchorGarmentId,
+        anchor_locked: refinementPlan.anchorLocked,
+      },
+      fallback_used: fallbackUsed,
+      degraded_reason: degradedReason,
+      render_outfit_card: renderOutfitCard,
+    };
 
-    return createSseTextResponse(
-      normalizedReply.text,
-      normalizedReply.outfitTag ?? null,
-      chips,
-      truncatedByTokenLimit,
-    );
+    log.info("request.complete", {
+      requestId,
+      userId: user.id,
+      stage: "response_ready",
+      durationMs: Date.now() - requestStartedAt,
+      degraded: Boolean(unifiedOutfit?.limitations.length),
+      usedUnifiedEngine: shouldCallUnifiedEngine,
+      hasOutfitTag: Boolean(envelope.outfit_ids.length),
+      truncated: truncatedByTokenLimit,
+    });
+
+    return createSseTextResponse(envelope);
   } catch (e) {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("style_chat error:", e);
+    recordError("style_chat");
+    log.exception("request.failed", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
 });

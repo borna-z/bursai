@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { ChevronRight, Sparkles } from 'lucide-react';
 
 import type { OutfitWithItems } from '@/hooks/useOutfits';
 import type { HomeState } from '@/components/home/homeTypes';
@@ -15,6 +15,7 @@ interface HomeTodayLookCardProps {
   weatherSummary: string | null;
   onPrimaryAction: () => void;
   onSecondaryAction: () => void;
+  onOutfitTap?: () => void;
   primaryLabel: string;
   secondaryLabel: string;
 }
@@ -46,26 +47,33 @@ function ActionRow({
   );
 }
 
-const MAX_THUMBS = 3;
-
-function OutfitThumbnailStrip({ items }: { items: OutfitWithItems['outfit_items'] }) {
-  const visible = items.filter((i) => i.garment).slice(0, MAX_THUMBS);
-  const overflow = Math.max(0, items.filter((i) => i.garment).length - MAX_THUMBS);
+function OutfitThumbnailRow({
+  items,
+  onTap,
+}: {
+  items: OutfitWithItems['outfit_items'];
+  onTap?: () => void;
+}) {
+  const visible = items.filter((i) => i.garment).slice(0, 4);
 
   if (visible.length === 0) {
     return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border/30 bg-secondary/40">
-        <BursMonogram size={8} className="opacity-10" />
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-border/30 bg-secondary/40">
+        <BursMonogram size={10} className="opacity-10" />
       </div>
     );
   }
 
   return (
-    <div className="flex gap-1.5">
+    <button
+      type="button"
+      onClick={onTap}
+      className="grid w-full grid-cols-4 gap-2 cursor-pointer"
+    >
       {visible.map((item) => (
         <div
           key={item.id}
-          className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border/30 bg-background"
+          className="aspect-square overflow-hidden rounded-xl border border-border/30 bg-background"
         >
           <LazyImageSimple
             imagePath={getPreferredGarmentImagePath(item.garment)}
@@ -74,12 +82,16 @@ function OutfitThumbnailStrip({ items }: { items: OutfitWithItems['outfit_items'
           />
         </div>
       ))}
-      {overflow > 0 && (
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border/30 bg-secondary/40">
-          <span className="text-[11px] font-medium text-muted-foreground">+{overflow}</span>
+      {/* Fill remaining slots so grid stays 4-col */}
+      {Array.from({ length: Math.max(0, 4 - visible.length) }, (_, i) => (
+        <div
+          key={`empty-${i}`}
+          className="flex aspect-square items-center justify-center rounded-xl border border-border/30 bg-secondary/30"
+        >
+          <BursMonogram size={8} className="opacity-8" />
         </div>
-      )}
-    </div>
+      ))}
+    </button>
   );
 }
 
@@ -90,6 +102,7 @@ export function HomeTodayLookCard({
   weatherSummary,
   onPrimaryAction,
   onSecondaryAction,
+  onOutfitTap,
   primaryLabel,
   secondaryLabel,
 }: HomeTodayLookCardProps) {
@@ -138,21 +151,35 @@ export function HomeTodayLookCard({
     return (
       <div className="relative overflow-hidden pb-1">
         <div className="space-y-3">
-          {/* Compact horizontal preview */}
-          <div className="flex items-center gap-3.5">
-            <OutfitThumbnailStrip items={todayOutfit.outfit_items} />
-            <div className="min-w-0 flex-1 space-y-0.5">
+          {/* Header row with tap-to-open */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
               <p className="caption-upper text-muted-foreground/55">
                 {t('home.todays_look') || "Today's look"}
               </p>
-              <h2 className="truncate font-display italic text-[1.1rem] leading-tight tracking-[-0.02em] text-foreground">
+              <h2 className="font-display italic text-[1.15rem] leading-tight tracking-[-0.02em] text-foreground">
                 {todayOutfit.occasion || t('home.todays_look') || "Today's Look"}
               </h2>
-              {weatherSummary ? (
-                <p className="text-[0.78rem] text-muted-foreground/60">{weatherSummary}</p>
-              ) : null}
             </div>
+            {onOutfitTap && (
+              <button
+                type="button"
+                onClick={onOutfitTap}
+                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.75rem] font-medium text-accent transition-colors active:bg-secondary/50 cursor-pointer"
+              >
+                {t('common.view') || 'View'}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
+
+          {/* 4-across garment thumbnails — tappable */}
+          <OutfitThumbnailRow items={todayOutfit.outfit_items} onTap={onOutfitTap} />
+
+          {/* Weather meta */}
+          {weatherSummary ? (
+            <p className="text-[0.78rem] text-muted-foreground/60">{weatherSummary}</p>
+          ) : null}
 
           <ActionRow
             primaryLabel={primaryLabel}

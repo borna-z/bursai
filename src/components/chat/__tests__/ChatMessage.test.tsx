@@ -140,7 +140,145 @@ describe('ChatMessage', () => {
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
   });
 
-  it('renders outfit suggestion cards even without shoes (base outfit)', () => {
+  it('renders an outfit card from structured stylist metadata even without an outfit tag in the text', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: 'This is the sharper version.',
+        stylistMeta: {
+          kind: 'stylist_response',
+          mode: 'ACTIVE_LOOK_REFINEMENT',
+          response_kind: 'style_result',
+          card_policy: 'required',
+          card_state: 'updated',
+          assistant_text: 'This is the sharper version.',
+          outfit_ids: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+            '33333333-3333-3333-3333-333333333333',
+          ],
+          outfit_explanation: 'Sharper finish',
+          garment_mentions: [],
+          suggestion_chips: [],
+          truncated: false,
+          active_look_status: 'updated',
+          active_look: {
+            garment_ids: [
+              '11111111-1111-1111-1111-111111111111',
+              '22222222-2222-2222-2222-222222222222',
+              '33333333-3333-3333-3333-333333333333',
+            ],
+            explanation: 'Sharper finish',
+            source: 'unified_stylist_engine',
+            status: 'updated',
+            card_state: 'updated',
+            anchor_garment_id: null,
+            anchor_locked: false,
+          },
+          fallback_used: false,
+          degraded_reason: null,
+          render_outfit_card: true,
+        },
+      },
+    });
+
+    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+    expect(screen.getByText('This is the sharper version.')).toBeInTheDocument();
+  });
+
+  it('shows a loading-safe fallback card when stylist metadata arrives before garment data', () => {
+    renderMessage({
+      garmentMap: new Map(),
+      message: {
+        role: 'assistant',
+        content: 'Sharpened it.',
+        stylistMeta: {
+          kind: 'stylist_response',
+          mode: 'ACTIVE_LOOK_REFINEMENT',
+          response_kind: 'style_result',
+          card_policy: 'required',
+          card_state: 'updated',
+          assistant_text: 'Sharpened it.',
+          outfit_ids: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+            '33333333-3333-3333-3333-333333333333',
+          ],
+          outfit_explanation: 'Sharper finish',
+          garment_mentions: [],
+          suggestion_chips: [],
+          truncated: false,
+          active_look_status: 'updated',
+          active_look: {
+            garment_ids: [
+              '11111111-1111-1111-1111-111111111111',
+              '22222222-2222-2222-2222-222222222222',
+              '33333333-3333-3333-3333-333333333333',
+            ],
+            explanation: 'Sharper finish',
+            source: 'unified_stylist_engine',
+            status: 'updated',
+            card_state: 'updated',
+            anchor_garment_id: null,
+            anchor_locked: false,
+          },
+          fallback_used: false,
+          degraded_reason: null,
+          render_outfit_card: true,
+        },
+      },
+    });
+
+    expect(screen.getByText('Sharper finish')).toBeInTheDocument();
+    expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
+  });
+
+  it('can keep rendering the last confirmed look while a new assistant turn is still text-empty', () => {
+    renderMessage({
+      message: {
+        role: 'assistant',
+        content: '',
+      },
+      displayMetaOverride: {
+        kind: 'stylist_response',
+        mode: 'LOOK_EXPLANATION',
+        response_kind: 'style_explanation',
+        card_policy: 'preserve_if_exists',
+        card_state: 'preserved',
+        assistant_text: 'Keeping the look live.',
+        outfit_ids: [
+          '11111111-1111-1111-1111-111111111111',
+          '22222222-2222-2222-2222-222222222222',
+          '33333333-3333-3333-3333-333333333333',
+        ],
+        outfit_explanation: 'Current live look',
+        garment_mentions: [],
+        suggestion_chips: [],
+        truncated: false,
+        active_look_status: 'preserved',
+        active_look: {
+          garment_ids: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+            '33333333-3333-3333-3333-333333333333',
+          ],
+          explanation: 'Current live look',
+          source: 'preserved_active_look',
+          status: 'preserved',
+          card_state: 'preserved',
+          anchor_garment_id: null,
+          anchor_locked: false,
+        },
+        fallback_used: true,
+        degraded_reason: 'request_timeout',
+        render_outfit_card: true,
+      },
+    });
+
+    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+  });
+
+  it('does not render outfit suggestion cards for incomplete outfits', () => {
     renderMessage({
       message: {
         role: 'assistant',
@@ -148,7 +286,7 @@ describe('ChatMessage', () => {
       },
     });
 
-    expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
+    expect(screen.queryByTestId('outfit-suggestion-card')).not.toBeInTheDocument();
   });
 
   it('renders complete dress-led outfit suggestion cards', () => {
@@ -198,7 +336,7 @@ describe('ChatMessage', () => {
       },
     });
 
-    expect(screen.getByText('Change the pants and make it sharper.')).toBeInTheDocument();
+    expect(screen.getByText('Change the pants')).toBeInTheDocument();
     expect(screen.queryByText(/\[\[garment:/)).not.toBeInTheDocument();
   });
 

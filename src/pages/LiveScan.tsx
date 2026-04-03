@@ -21,6 +21,7 @@ import { categoryLabel, colorLabel, materialLabel } from '@/lib/humanize';
 import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { logger } from '@/lib/logger';
+import { GarmentSaveChoiceSheet } from '@/components/garment/GarmentSaveChoiceSheet';
 
 /* ─── Accepted overlay — fast checkmark fade ─── */
 function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
@@ -328,6 +329,7 @@ export default function LiveScan() {
   const [cameraStarted, setCameraStarted] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [showSaveChoice, setShowSaveChoice] = useState(false);
   const [isSavingAccepted, setIsSavingAccepted] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
   const [scanThumbnails, setScanThumbnails] = useState<string[]>([]);
@@ -439,11 +441,12 @@ export default function LiveScan() {
     capture(videoRef.current);
   }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
 
-  const handleAccept = useCallback(async () => {
+  const handleAccept = useCallback(async (enableStudioQuality: boolean) => {
     if (isSavingAccepted) return;
+    setShowSaveChoice(false);
     setIsSavingAccepted(true);
 
-    const saved = await accept();
+    const saved = await accept(enableStudioQuality);
     setIsSavingAccepted(false);
 
     if (!saved) {
@@ -461,9 +464,11 @@ export default function LiveScan() {
     setShowAccepted(false);
     clearLastAccepted();
     toast.success(t('scan.added'), {
-      description: 'Studio-quality image is processing in the background. You can keep scanning.',
+      description: lastAccepted?.studioQualityEnabled
+        ? 'Studio-quality image is processing in the background. You can keep scanning.'
+        : 'Saved with the original photo. You can keep scanning.',
     });
-  }, [clearLastAccepted, t]);
+  }, [clearLastAccepted, lastAccepted?.studioQualityEnabled, t]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -623,20 +628,20 @@ export default function LiveScan() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-20 bg-background/90 backdrop-blur-xl flex flex-col items-center justify-center p-6"
+              className="fixed inset-0 z-[70] overflow-y-auto bg-background/92 backdrop-blur-xl"
             >
               <motion.div
                 initial={{ opacity: 0, y: 20, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: EASE_CURVE }}
-                className="w-full max-w-sm space-y-5"
+                className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-end gap-5 px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:justify-center"
               >
                 {/* Image with editorial overlay */}
                 <div className="relative rounded-[1.25rem] overflow-hidden bg-[hsl(36_33%_93%)]">
                   <img
                     src={lastResult.thumbnailUrl}
                     alt="Scanned garment"
-                    className="w-full aspect-[3/4] object-contain"
+                    className="mx-auto aspect-[3/4] max-h-[44vh] w-full object-contain sm:max-h-[52vh]"
                   />
                   {/* Gradient overlay at bottom for text */}
                   <div className="absolute bottom-0 inset-x-0 h-2/5 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
@@ -660,6 +665,17 @@ export default function LiveScan() {
                 </div>
 
                 {/* Actions */}
+                <div className="rounded-[1.2rem] border border-border/55 bg-background/84 p-4 shadow-[0_14px_28px_rgba(28,25,23,0.08)]">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">Ready to save</p>
+                      <p className="text-xs text-muted-foreground">
+                        Choose studio quality or original photo after you tap save.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
@@ -673,7 +689,7 @@ export default function LiveScan() {
                     variant="editorial"
                     className="flex-1 h-12 rounded-full"
                     disabled={isSavingAccepted}
-                    onClick={() => { hapticLight(); void handleAccept(); }}
+                    onClick={() => { hapticLight(); setShowSaveChoice(true); }}
                   >
                     {isSavingAccepted ? (
                       <>
@@ -681,7 +697,7 @@ export default function LiveScan() {
                       </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4 mr-2" />{t('scan.accept')}
+                        <Check className="w-4 h-4 mr-2" />{t('addgarment.save')}
                       </>
                     )}
                   </Button>
@@ -708,7 +724,7 @@ export default function LiveScan() {
       </div>
 
       {/* Shutter button — only in camera stream mode */}
-      {!useFileInputMode && cameraReady && (
+      {!useFileInputMode && cameraReady && !lastResult && !isProcessing && !showAccepted && (
         <div className="relative z-10 border-t border-border/50 bg-background/80 backdrop-blur-2xl">
           <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
@@ -776,6 +792,14 @@ export default function LiveScan() {
           </div>
         </div>
       )}
+
+      <GarmentSaveChoiceSheet
+        open={showSaveChoice}
+        isSaving={isSavingAccepted}
+        onOpenChange={setShowSaveChoice}
+        onSelectStudio={() => { void handleAccept(true); }}
+        onSelectOriginal={() => { void handleAccept(false); }}
+      />
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
     </div>

@@ -4,6 +4,8 @@ export type MultimodalPart =
 
 export type MessageContent = string | MultimodalPart[];
 
+import { stripUnknownGarmentMarkup } from '@/lib/garmentTokens';
+
 function isTextPart(part: unknown): part is { type: 'text'; text: string } {
   return !!part && typeof part === 'object' && (part as { type?: unknown }).type === 'text' && typeof (part as { text?: unknown }).text === 'string';
 }
@@ -46,4 +48,26 @@ export function mergeAssistantContent(current: MessageContent, delta: unknown): 
 
   const mergedParts = [...normalizeParts(current), ...nextParts];
   return mergedParts.some(isImageUrlPart) ? mergedParts : getTextContent(mergedParts);
+}
+
+export function finalizeAssistantText(text: string, truncated = false): string {
+  const sanitized = stripUnknownGarmentMarkup(text).replace(/\s{2,}/g, ' ').trim();
+  if (!sanitized) return '';
+
+  const terminal = /[.!?…]["')\]]?\s*$/;
+  if (!truncated && terminal.test(sanitized)) {
+    return sanitized;
+  }
+
+  const sentences = sanitized.match(/[^.!?…]+[.!?…]+/g) ?? [];
+  const rebuilt = sentences.join(' ').trim();
+  if (truncated && rebuilt) {
+    return rebuilt;
+  }
+
+  if (rebuilt.length >= Math.max(40, Math.floor(sanitized.length * 0.55))) {
+    return rebuilt;
+  }
+
+  return truncated ? `${sanitized.replace(/[,:;-\s]+$/g, '').trim()}…` : sanitized;
 }

@@ -41,7 +41,9 @@ vi.mock('@/contexts/LanguageContext', () => ({
       'home.shortcut_chat': 'Ask stylist',
       'home.shortcut_style': 'Style me',
       'home.shortcut_plan': 'Plan week',
+      'home.shortcut_travel_capsule': 'Travel Capsule',
       'home.shortcut_discover': 'Discover',
+      'home.shortcut_gaps': 'Wardrobe gaps',
       'home.quick_actions': 'Continue',
       'home.action_style_outfit': 'Style outfit',
       'home.action_add_garment': 'Add garment',
@@ -173,6 +175,14 @@ describe('Home page V4', () => {
 
     expect(screen.getByText('Ask stylist')).toBeInTheDocument();
     expect(screen.getByText('Discover')).toBeInTheDocument();
+    expect(screen.getByText('Travel Capsule')).toBeInTheDocument();
+  });
+
+  it('routes the travel capsule shortcut to the travel capsule planner', () => {
+    renderHome();
+
+    fireEvent.click(screen.getByText('Travel Capsule'));
+    expect(navigateMock).toHaveBeenCalledWith('/plan/travel-capsule');
   });
 
   it('shows style outfit as primary action with enough garments', () => {
