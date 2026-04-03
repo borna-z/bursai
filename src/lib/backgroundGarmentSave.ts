@@ -4,7 +4,6 @@ import { logger } from '@/lib/logger';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import type { Json } from '@/integrations/supabase/types';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
-import { buildOriginalGarmentImagePath } from '@/lib/garmentImagePath';
 
 export interface SaveableResult {
   analysis: GarmentAnalysis;
@@ -39,7 +38,7 @@ export async function saveGarmentInBackground(
     garmentId = externalGarmentId || crypto.randomUUID();
     const isPng = result.blob.type === 'image/png';
     const ext = isPng ? 'png' : 'jpg';
-    storagePath = buildOriginalGarmentImagePath(userId, garmentId, ext);
+    storagePath = `${userId}/${garmentId}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from('garments')
