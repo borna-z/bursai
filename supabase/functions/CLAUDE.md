@@ -96,12 +96,6 @@ const { data } = await callBursAI({
 | `render-eligibility.ts` | Gemini vision gate — determines if garment images need ghost-mannequin rendering |
 | `insights-dashboard.ts` | Wardrobe analytics metrics engine (color temperature, wear patterns, etc.) |
 | `mannequin-presentation.ts` | Normalizes male/female/mixed mannequin presentation preference for garment renders |
-| `outfit-scoring.ts` | Extracted from burs_style_engine (Session A): all scoring functions — color harmony, material compat, weather, formality, rotation, feedback, pair memory, style alignment, intent, comfort, body, social, uniform, `scoreGarment` |
-| `outfit-combination.ts` | Extracted from burs_style_engine (Session A): combo building — family signatures, `buildCombos`, `buildFallbackCombos`, `scoreCombo`, `qualityGate`, confidence, wardrobe gaps, limitation notes |
-| `outfit-rules.ts` | Canonical slot mapping, layering rules, outfit validation (331 lines). Used by outfit-validation.ts, complete-outfit-ids.ts, style-chat-normalizer.ts |
-| `outfit-validation.ts` | Outfit validation logic with slot inference. Imports from outfit-rules.ts |
-| `complete-outfit-ids.ts` | Outfit ID completion/resolution logic |
-| `style-chat-normalizer.ts` | Normalizes style_chat AI output into structured outfit format. Used by style_chat |
 | `garment-image-processing/` | Image processing subsystem: `provider.ts` (PhotoRoom background removal via `PHOTOROOM_API_KEY`), `quality.ts` (eligibility checks by category, binary image format detection), `types.ts` |
 | `email-templates/` | React Email templates for Supabase Auth (signup, recovery, magic-link, etc.) using `@react-email/components` |
 
@@ -217,8 +211,7 @@ const jobId = await submitJob(supabase, {
 - `process_job_queue` — async worker with stuck job recovery. Handles image_processing (PhotoRoom), garment_enrichment (deep AI analysis), batch_analysis
 - `prefetch_suggestions` — batch daily suggestions. Bounded concurrency (3 parallel), 100 user batch, 50s time budget
 - `cleanup_ai_cache` — deletes expired entries + never-reused entries older than 24h
-- `style_chat` — largest function (~2300 LOC, rebuilt from main + CONVERSATIONAL mode). Supports 4 modes: OUTFIT_GENERATION, FOLLOW_UP, KNOWLEDGE, CONVERSATIONAL. CONVERSATIONAL detects greetings/short replies and fashion knowledge questions — uses trivial complexity (180 max_tokens), skips outfit card generation. Shared modules: style-chat-normalizer.ts, complete-outfit-ids.ts, outfit-validation.ts, outfit-rules.ts
-- `burs_style_engine` — split in Session A from 5,067→~1,553 lines. Scoring and combination logic extracted to `_shared/outfit-scoring.ts` and `_shared/outfit-combination.ts`
+- `style_chat` — largest function (~3700 LOC). Interactive streaming stylist chat
 
 ## Scale Architecture Summary
 

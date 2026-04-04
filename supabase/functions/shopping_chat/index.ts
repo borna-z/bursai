@@ -131,26 +131,6 @@ serve(async (req) => {
     const locale = (typeof rawLocale === "string" && LANG_CONFIG[rawLocale]) ? rawLocale : "sv";
     const lang = getLang(locale);
 
-    // --- Conversational fast path ---
-    const latestUserMessage = (messages as any[]).filter(m => m.role === 'user').slice(-1)[0];
-    const latestText = (typeof latestUserMessage?.content === 'string' ? latestUserMessage.content : '').trim();
-    const CHAT_SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|ok|okay|got it|sounds good|nice|cool|great|perfect|yes|no|maybe|haha|lol|exactly|interesting|fair enough|appreciate it|noted|understood)[!.,?\s]*$/i;
-
-    if (CHAT_SHORT_RE.test(latestText)) {
-      const response = await streamBursAI({
-        messages: [
-          { role: 'system', content: `You are BURS shopping advisor. The user said something casual. Respond warmly in 1 sentence. Language: ${lang.name}.` },
-          { role: 'user', content: latestText },
-        ],
-        complexity: 'trivial',
-        max_tokens: 120,
-        functionName: 'shopping_chat',
-      });
-      return new Response(response.body, {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-      });
-    }
-
     // Fetch context in parallel
     const [profileRes, wardrobeResult] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
