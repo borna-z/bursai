@@ -13,6 +13,7 @@ import { compressImage } from '@/lib/imageCompression';
 import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 import { logger } from '@/lib/logger';
+import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -365,6 +366,12 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       refreshSubscription();
 
       const newCount = (garmentCount || 0) + 1;
+      // Trigger prefetch for new users hitting 5 garments
+      if (newCount === 5) {
+        supabase.functions.invoke('prefetch_suggestions', {
+          body: { user_id: user?.id, trigger: 'first_5_garments' },
+        }).catch(() => {});
+      }
       if (newCount === 10) {
         toast.success(t('addgarment.milestone'), {
           description: enableStudioQuality
