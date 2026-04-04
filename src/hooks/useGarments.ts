@@ -215,6 +215,14 @@ export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQuer
   if (userId) {
     queryClient.invalidateQueries({ queryKey: ['garments-search', userId] });
   }
+  // Bust server-side insights cache
+  if (userId) {
+    try {
+      supabase.from('ai_response_cache').delete()
+        .eq('cache_key', `insights_dashboard_${userId}`)
+        .then(() => {});
+    } catch { /* fire-and-forget */ }
+  }
 }
 
 export function useCreateGarment() {

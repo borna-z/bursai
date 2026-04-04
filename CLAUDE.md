@@ -26,7 +26,7 @@ Follow everything here without being asked. These are standing orders, not sugge
 | Founder | Solo, non-technical background, AI-assisted development throughout |
 | Repo | borna-z/bursai on GitHub |
 | Distribution | React/Vite web app on Vercel, wrapped for iOS/Android via Median.co |
-| Backend | Supabase (PostgreSQL + 43 edge functions) |
+| Backend | Supabase (PostgreSQL + 39 edge functions) |
 | AI | Gemini API via OpenAI-compatible endpoint (chosen over Claude API for cost — 3-6x cheaper). Model routing: trivial/standard → Flash Lite primary (Flash fallback), complex → Flash primary (Flash Lite fallback) |
 | Target market | Sweden first, then Nordics/UK/Netherlands, US year two |
 | Pricing | $7.99/month, $69.99/year. Binary free/premium model |
@@ -40,7 +40,7 @@ npm run build          # production build (Vite)
 npm run build:dev      # development build
 npm run lint           # ESLint (ignores supabase/**)
 npm run typecheck      # tsc --noEmit
-npm test               # Vitest + jsdom (513 tests, 92 files)
+npm test               # Vitest + jsdom
 npm run test:watch     # watch mode
 npx vitest run src/path/to/File.test.tsx  # single test file
 npm run test:coverage  # 30% line threshold
@@ -103,8 +103,14 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 ### Edge Functions (supabase/functions/)
 - 39 functions, snake_case dirs, each with `index.ts` (Deno runtime, ESM URL imports)
 - Shared utilities in `_shared/`: see `supabase/functions/CLAUDE.md` for full reference
-- **AI engine** (`_shared/burs-ai.ts`): complexity-based model routing, Gemini fallback chains, DB response caching, per-user rate limiting, token/cost tracking
+- **AI engine** (`_shared/burs-ai.ts`): complexity-based model routing, Gemini fallback chains, DB response caching, per-user rate limiting, token/cost tracking. `parseBursAIProviderResponse` has `hadTools` param — JSON content fallback only fires for tool-based responses (Session 0 fix)
 - **Scale guard** (`_shared/scale-guard.ts`): subscription-tier-aware rate limiting (free=0.5x, premium=2x), overload detection, job queue primitives, bounded concurrency, AI cost estimation, enhanced telemetry
+- **Outfit scoring** (`_shared/outfit-scoring.ts`): extracted from burs_style_engine — all scoring functions (color harmony, material compat, weather, formality, rotation, feedback, pair memory, style alignment, intent, comfort, body, social, uniform, `scoreGarment`)
+- **Outfit combination** (`_shared/outfit-combination.ts`): extracted from burs_style_engine — combo building (family signatures, `buildCombos`, `buildFallbackCombos`, `scoreCombo`, `qualityGate`, confidence, wardrobe gaps, limitation notes)
+- **Outfit rules** (`_shared/outfit-rules.ts`): canonical slot mapping, layering rules, outfit validation (331 lines)
+- **Outfit validation** (`_shared/outfit-validation.ts`): outfit validation logic with slot inference
+- **Complete outfit IDs** (`_shared/complete-outfit-ids.ts`): outfit ID completion/resolution
+- **Style chat normalizer** (`_shared/style-chat-normalizer.ts`): normalizes style_chat AI output into structured outfit format
 - All functions: `verify_jwt = false` in config.toml, validate JWT manually with `getUser()`
 
 ### i18n
@@ -164,51 +170,13 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 | `marketing_leads` | Email capture for unauthenticated users |
 | `marketing_events` | Growth analytics (UTM tracking) |
 
-## All 39 Edge Functions
+## Edge Functions (39 total)
 
-| Function | Purpose | Rate Limited | Overload Guard | AI Cached |
-|----------|---------|:---:|:---:|:---:|
-| `analyze_garment` | AI image analysis to extract garment metadata (13 languages) | Y | - | - |
-| `assess_garment_condition` | Evaluate garment wear/condition from photos | Y | Y | Y |
-| `burs_style_engine` | Unified outfit generation engine (generate/suggest/swap/refine) | Y | - | Y |
-| `calendar` | ICS and Google calendar sync with SSRF protection | - | - | - |
-| `cleanup_ai_cache` | Delete expired/unused cache entries (cron) | - | - | N/A |
-| `clone_outfit_dna` | Clone outfit style DNA for similar looks | - | - | Y |
-| `create_checkout_session` | Create Stripe checkout for subscription | - | - | N/A |
-| `create_portal_session` | Create Stripe billing portal session | - | - | N/A |
-| `daily_reminders` | Send daily outfit reminder push notifications (cron) | - | - | N/A |
-| `delete_user_account` | Delete user account and all associated data | - | - | N/A |
-| `detect_duplicate_garment` | Find duplicate garments via attribute + AI visual comparison | Y | Y | Y |
-| `generate_flatlay` | Generate flat lay arrangement images | Y | Y | - |
-| `generate_garment_images` | Generate product photos for garments | Y | Y | - |
-| `generate_outfit` | Outfit generation via unified engine | - | - | - |
-| `get_vapid_public_key` | Return VAPID key for push notifications | - | - | N/A |
-| `google_calendar_auth` | Google OAuth flow for calendar integration | - | - | N/A |
-| `import_garments_from_links` | Import garments from URLs with metadata extraction | - | - | N/A |
-| `insights_dashboard` | Build wardrobe analytics (color temp, wear patterns) | - | - | N/A |
-| `mood_outfit` | Generate outfits based on mood input | Y | Y | Y |
-| `outfit_photo_feedback` | Analyze outfit selfies with styling feedback | Y | Y | - |
-| `prefetch_suggestions` | Batch prefetch daily suggestions (cron, 3 parallel, 50s budget) | - | - | Y |
-| `process_garment_image` | Validate and process garment image quality | - | - | N/A |
-| `process_job_queue` | Async job worker: image_processing, garment_enrichment, batch_analysis. Stuck job recovery. | - | - | N/A |
-| `render_garment_image` | Render garment with background removal (PhotoRoom) | - | - | N/A |
-| `restore_subscription` | Restore cancelled Stripe subscription | - | - | N/A |
-| `seed_wardrobe` | Seed user wardrobe with starter garments | - | - | - |
-| `send_push_notification` | Send push notifications | - | - | N/A |
-| `shopping_chat` | Streaming shopping recommendation chat | Y | Y | - |
-| `smart_shopping_list` | Generate prioritized shopping list from wardrobe gaps | - | - | Y |
-| `stripe_webhook` | Handle Stripe events (checkout, subscription updates, payment failures). Atomic upsert idempotency. | - | - | N/A |
-| `style_chat` | Interactive AI stylist chat (~3700 LOC) | Y | Y | - |
-| `style_twin` | Find users with similar style profiles | - | - | Y |
-| `suggest_accessories` | Suggest accessories to complete outfits | Y | Y | Y |
-| `suggest_outfit_combinations` | Suggest outfit combos from wardrobe | Y | Y | Y |
-| `summarize_day` | Summarize day events + outfit recommendations | Y | Y | Y |
-| `travel_capsule` | Plan capsule wardrobe for trips | Y | Y | Y |
-| `visual_search` | Search wardrobe by image similarity | Y | Y | Y |
-| `wardrobe_aging` | Analyze wear patterns and garment aging | - | - | Y |
-| `wardrobe_gap_analysis` | Identify missing items to complete wardrobe | - | - | Y |
+Full function reference (rate limits, overload guards, caching, rate limit tiers) in `supabase/functions/CLAUDE.md`.
 
-**Rate limit tiers** are defined in `_shared/scale-guard.ts`. Base limits scale by subscription: free users get 0.5x, premium users get 2.0x. Example: `burs_style_engine` base is 30/hr → free=15/hr, premium=60/hr.
+**Key functions:** `burs_style_engine` (unified outfit generation), `style_chat` (~2300 LOC AI stylist), `shopping_chat` (streaming), `analyze_garment` (image→metadata, 13 languages), `generate_flatlay`/`generate_garment_images` (AI image gen), `stripe_webhook` (atomic idempotency), `process_job_queue` (async worker).
+
+**Rate limit tiers** defined in `_shared/scale-guard.ts`. Base limits scale by subscription: free=0.5x, premium=2.0x.
 
 ## Scale Infrastructure
 
@@ -240,8 +208,8 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 |------|-------|-------|
 | `src/pages/AddGarment.tsx` | ~960 | Split in progress |
 | `src/pages/Wardrobe.tsx` | ~905 | Split in progress |
-| `src/pages/OutfitDetail.tsx` | ~833 | |
-| `src/pages/OutfitGenerate.tsx` | ~846 | |
+| `src/pages/OutfitDetail.tsx` | ~833 | Split planned (Session B) |
+| `src/pages/OutfitGenerate.tsx` | ~846 | Split planned (Session B) |
 
 ### Critical UI Components
 - `src/components/wardrobe/GarmentCardSystem.tsx` — garment card layouts (grid + list)
@@ -260,81 +228,22 @@ The accent is warm gold — NOT indigo. If you see `--accent: 229` anywhere, tha
 **Audit score**: 94/100 (upgraded from 93 after completing all V4 pages). Target: 95+
 
 ### What Was Fixed (do not redo)
-- Accent color: indigo to warm gold throughout index.css
-- Auth screen: full editorial redesign
-- Loading screen: cinematic Playfair Display entrance
-- Home header: Playfair italic greeting, date as eyebrow
-- Garment cards: edge-to-edge image, colour swatch dots, no pill clutter
-- Empty states: concentric ring motif, editorial variant
-- Style quiz: 10 questions down to 6 core questions
-- overscroll-behavior: none on main scroll container
-- Body background: cool blue gradient removed
-- Scale hardening phase 1: rate limiting on 15 functions, circuit breaker, retry backoff, job queue, AI cost telemetry, overload detection
-- Scale hardening phase 2: subscription-tier rate limits, caching gaps filled, N+1 fixes, performance indexes, stripe webhook idempotency, stuck job recovery
-- V4 editorial redesign (branch `v4/editorial-redesign`): 37/44 pages redesigned with Scandinavian editorial magazine aesthetic (all actionable pages done)
-- Home shortcuts: replaced week planner with 5 quick-access cards (AI Chat, Style Me, Travel Capsule, Wardrobe Gaps, Discover)
-- Wardrobe: warm gold accent on category chips, tab switcher, "+" button; editorial count label; staggered motion
-- Flat premium pass (branch `cleanup/flat-premium-pass`): removed surface wrappers from 33 pages + 13 components, full light/dark mode contrast audit (shadow reduction, border visibility, WCAG AA text contrast)
+- Accent color migration: indigo → warm gold (index.css + all components)
+- Full V4 editorial redesign: 37/44 pages (Scandinavian magazine aesthetic, Playfair Display headlines, editorial surfaces)
+- Flat premium pass: surface wrappers removed from 33 pages + 13 components, light/dark contrast audit (WCAG AA)
+- Scale hardening: rate limiting on 15 functions, circuit breaker, retry backoff, job queue, AI cost telemetry, overload detection, subscription-tier limits, N+1 fixes, performance indexes, stripe webhook idempotency
+- UI polish: auth screen redesign, cinematic loading screen, garment cards (edge-to-edge image, colour swatches), empty states (concentric ring motif), style quiz (10→6 questions), overscroll-behavior: none, blue gradient removed, home shortcuts (5 quick-access cards)
 
 ### V4 Redesign — Current State (branch: `v4/editorial-redesign`)
 
-**Status:** 37/44 pages redesigned. 0 TODO, 1 SKIP (SeedWardrobe — not in repo), 3 N/A (redirects). TypeScript 0 errors, 92 test files / 513 tests passing.
+**Status:** 37/44 pages redesigned. 0 TODO, 1 SKIP (SeedWardrobe — not in repo), 3 N/A (redirects).
 
 The V4 redesign applies Scandinavian editorial magazine aesthetic (Kinfolk/Cereal feel): serif italic headlines (Playfair Display), clean hierarchy, hero cards, minimal shadows, warm gold accent, editorial surfaces.
 
 **Stitch project ID:** `8117716384164426188` | **Design system asset ID:** `14594054922406120457`
 Fetch designs with `mcp__stitch__get_screen` using `name: "projects/8117716384164426188/screens/{screenId}"`.
 
-**V4 Screen ID Map — All 44 Pages:**
-
-| # | Page File | Screen ID | Stitch Title | Status |
-|---|-----------|-----------|-------------|--------|
-| 1 | `Home.tsx` | `18c5ca56af814adca5c10966e4d2dfe3` | BURS V4 Home Screen | DONE |
-| 2 | `Wardrobe.tsx` | `92b02316946c4d61903789e010df96f8` | BURS V4 Wardrobe | DONE |
-| 3 | `AddGarment.tsx` (UploadStep) | `de6bdea980614e56b7425450fcf2843a` | Add Garment - BURS V4 | DONE |
-| 4 | `Plan.tsx` | `93ace4dc3c944847be9cf19bc82623cc` | BURS V4 Plan | DONE |
-| 5 | `Insights.tsx` | `aba5e577dc6446bdb8b423b76b51f9af` | BURS V4 Insights Screen | DONE |
-| 6 | `OutfitGenerate.tsx` | `3e35a3c1a3774646be687a91aee734cd` | Generate Outfit | DONE |
-| 7 | `OutfitDetail.tsx` | `407ea8226ad7426b868d1b0e3fb05b6b` | Outfit Detail Screen | DONE |
-| 8 | `AIChat.tsx` | `9e3d789b9fd64103830087e3453027bd` | AI Chat - Your Stylist | DONE |
-| 9 | `GarmentDetail.tsx` | `19f733b7aa27460c8ee4ec9715152acc` | Garment Detail | DONE |
-| 10 | `EditGarment.tsx` | `9fbd221504514e5f8fee83c325acf14f` | Edit Garment | DONE |
-| 11 | `LiveScan.tsx` | `697b7ca5a3f142cdaff560d5e4e76df0` | Live Scan Screen | DONE |
-| 12 | `UnusedOutfits.tsx` | `b811704bf6eb46bb872f4f027d8ded5a` | Unused Outfits Screen | DONE |
-| 13 | `MoodOutfit.tsx` | `80c56a34538746a28c2002594f30f3e8` | Mood Outfit Selection | DONE |
-| 14 | `PickMustHaves.tsx` | `77e7645afd6f466999bcdbdc45254271` | Pick Must-Haves | DONE |
-| 15 | `Onboarding.tsx` | `2edd7811ab57455f850c51401279699e` | Onboarding - Style Quiz | DONE |
-| 16 | `Outfits.tsx` | `5692ed64c47a484a9c6d571fc8353865` | Outfits List | DONE |
-| 17 | `GarmentGaps.tsx` | `bd9d608070064c30bd8c92e1f92bad46` | Wardrobe Gaps | DONE |
-| 18 | `TravelCapsule.tsx` | `050212a70f184821aca97f413665b0ea` | Travel Capsule | DONE |
-| 19 | `UsedGarments.tsx` | `42a177a1229045aaa4c40c7506287d06` | Worn Items List | DONE |
-| 20 | `Discover.tsx` | `0f5963ae4af34b1a853fc32d23ff69a4` | BURS Discover Screen | DONE (pre-existing) |
-| 21 | `Settings.tsx` | `3c450478f29e4767bf6720ea1b244832` | Settings Screen | DONE |
-| 22 | `SettingsStyle.tsx` | `5fab8f53ff384295986467425594fe47` | Style Preferences | DONE |
-| 23 | `ShareOutfit.tsx` | `fdae86e7a95d4b4eb9ff1cc99a63ccf4` | Share Outfit Screen | DONE |
-| 24 | `SettingsPrivacy.tsx` | `386a2d30df62445b97e9dfce476a1a7d` | Privacy Settings | DONE |
-| 25 | `Admin.tsx` | `183fc7451fb84824ad314f0c455225d7` | Admin Panel | DONE |
-| 26 | `Auth.tsx` | `bc3a4e2878e74ee68b8843de65cde9e3` | Auth / Login Screen | DONE |
-| 27 | `GenerateImages.tsx` | `6139190ded4544bea034f519800295c6` | Generate Images Settings | DONE |
-| 28 | `PublicProfile.tsx` | `81fc1818ee6e436e9fccbbe060cda78a` | Public Profile | DONE |
-| 29 | `ResetPassword.tsx` | `4b6d6680c46f4b37a918b873c9b507e6` | Reset Password Screen | DONE (pre-existing) |
-| 30 | `Pricing.tsx` | `6718ce2ee57d40fb9508a977545422c6` | BURS Premium Upgrade | DONE |
-| 31 | `Contact.tsx` | `9fd8498f00a647638a7aaf4202f7d4a1` | Contact Page | DONE |
-| 32 | `SeedWardrobe.tsx` | `aaf9c89db75447c79aa988041dd468a2` | Seed Wardrobe Screen | SKIP (file not in repo) |
-| 33 | `SettingsAccount.tsx` | `2db035bf65ce46e7b63eb9c03ef5b29b` | Account Settings | DONE |
-| 34 | `SettingsNotifications.tsx` | `2444456977b442ef90d206aac59992ea` | Notifications Screen | DONE |
-| 35 | `SettingsAppearance.tsx` | `2fc276eab06942c1aadcdecbfb815c55` | Appearance Settings | DONE |
-| 36 | `BillingSuccess.tsx` | `230afb2652d946c48b942642e47e1644` | Billing Success | DONE |
-| 37 | `BillingCancel.tsx` | `1000ca23f3a0466ba505c364636e2765` | Billing Cancellation Screen | DONE |
-| 38 | `NotFound.tsx` | `93f6e74f0e224e41b65e862443dd6000` | 404 Not Found | DONE (pre-existing) |
-| 39 | `PrivacyPolicy.tsx` | `b7fe093b87464ad58078cd96fff634a5` | Privacy Policy | DONE |
-| 40 | `Terms.tsx` | `8be2971f06ea4c72921259472688c2d0` | Terms of Service | DONE |
-| 41 | `Landing.tsx` | `fa5d016c8ef74627841a32128ee6d1a5` | BURS Landing Page | N/A (redirect, no UI) |
-| 42 | `Index.tsx` | `2cb757577a3a4ced865d7e48823c3786` | BURS Splash Screen | N/A (auth routing, no UI) |
-| 43 | `GoogleCalendarCallback.tsx` | `52506428f0244e1d8b5af68f37bed8f6` | Calendar Connected | DONE |
-| 44 | `StyleMe.tsx` | `b837f5f6a73b4dbc874d24f3c87d9970` | Style Me - AI Quiz | N/A (redirect, no UI) |
-
-**V4 completion:** All actionable pages are DONE. Only SeedWardrobe.tsx is SKIP (file not in repo). 3 pages are N/A (redirects with no UI). Next step: verify each DONE page actually matches its Stitch screenshot (some were V4-principled but not pixel-matched to Stitch). Use `mcp__stitch__get_screen` to fetch designs for comparison.
+**V4 Screen ID Map:** All 44 pages mapped. 40 DONE, 1 SKIP (SeedWardrobe — not in repo), 3 N/A (redirects). Full map in `docs/V4_SCREEN_IDS.md`. To fetch a design: `mcp__stitch__get_screen` with `name: "projects/8117716384164426188/screens/{screenId}"`.
 
 **V4 design principles:**
 - Headlines: `font-display italic text-[1.3rem+]` (Playfair Display)
@@ -353,7 +262,7 @@ Fetch designs with `mcp__stitch__get_screen` using `name: "projects/811771638416
 - AI stylist truncation — `style_chat/index.ts` ~line 1572 hard-caps at 6 sentences/900 chars (should be 9/1400)
 - Milestone celebrations — first outfit, 10 garments, first wear (hook + overlay component)
 - Reduced motion guards on AnimatedPage and BursLoadingScreen (most V4 pages now have `useReducedMotion`, but these two core components still lack it)
-- Contrast ratios — CardEyebrow text-foreground/35 may still fail WCAG AA on cream background (other text contrast issues fixed in flat-premium-pass)
+- ~~Contrast ratios — CardEyebrow fixed to text-foreground/70 (was /35, now WCAG AA compliant)~~ DONE (Session G)
 
 ## Known Bugs (confirmed, fix when touching related code)
 
