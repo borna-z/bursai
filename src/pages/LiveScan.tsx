@@ -338,7 +338,7 @@ export default function LiveScan() {
   const useFileInputMode = isMedian || !navigator.mediaDevices?.getUserMedia;
 
   const coach = useFirstRunCoach();
-  const { scanCount, isProcessing, lastResult, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
+  const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
   const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
 
   // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
@@ -468,7 +468,7 @@ export default function LiveScan() {
         ? 'Studio-quality image is processing in the background. You can keep scanning.'
         : 'Saved with the original photo. You can keep scanning.',
     });
-  }, [clearLastAccepted, lastAccepted?.studioQualityEnabled, t]);
+  }, [clearLastAccepted, lastAccepted, t]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
