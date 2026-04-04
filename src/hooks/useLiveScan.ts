@@ -61,11 +61,11 @@ export function useLiveScan() {
 
       const thumbnailUrl = URL.createObjectURL(blob);
 
-      console.log('[BURS DEBUG] Starting analyze_garment call');
+      console.warn('[BURS DEBUG] Starting analyze_garment call');
       const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
         body: { base64Image: base64, mode: 'fast' },
       });
-      console.log('[BURS DEBUG] analyze_garment response:', { data, error: fnError });
+      console.warn('[BURS DEBUG] analyze_garment response:', { data, error: fnError });
 
       if (fnError || data?.error) {
         setError(fnError?.message || data?.error || 'Analysis failed');
