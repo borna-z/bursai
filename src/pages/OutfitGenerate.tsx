@@ -1,15 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Sparkles, AlertCircle, Crown, Zap,
-  Check, Shirt,
-  Coffee, Briefcase, Wine, Heart, Dumbbell, Plane, X,
-} from 'lucide-react';
+import { Sparkles, AlertCircle } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
@@ -18,13 +13,9 @@ import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { useWeather } from '@/hooks/useWeather';
 import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { useSubscription } from '@/hooks/useSubscription';
-import { PaywallModal } from '@/components/PaywallModal';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
-import { CoachMark } from '@/components/coach/CoachMark';
-import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import {
   COMPLETE_OUTFIT_RECOVERY_MESSAGE,
   PREFERRED_GARMENT_RECOVERY_MESSAGE,
@@ -42,34 +33,9 @@ import { buildDayIntelligence } from '@/lib/dayIntelligence';
 import { hapticLight } from '@/lib/haptics';
 import { EASE_CURVE, DURATION_MEDIUM } from '@/lib/motion';
 import { OutfitGenerateResult } from '@/components/outfit/OutfitGenerateResult';
-
-/* ── Occasions ── */
-const OCCASION_ICONS: Record<string, React.ElementType> = {
-  casual: Coffee,
-  work: Briefcase,
-  party: Wine,
-  date: Heart,
-  workout: Dumbbell,
-  travel: Plane,
-};
-
-const OCCASIONS = [
-  { key: 'casual', label: 'Casual' },
-  { key: 'work', label: 'Work' },
-  { key: 'party', label: 'Evening' },
-  { key: 'date', label: 'Date' },
-  { key: 'workout', label: 'Workout' },
-  { key: 'travel', label: 'Travel' },
-] as const;
-
-/* ── Curated styles (single flat list) ── */
-const STYLES = [
-  'Minimal', 'Smart Casual', 'Street', 'Scandinavian',
-  'Edgy', 'Bohemian', 'Preppy', 'Relaxed',
-] as const;
+import { OutfitGeneratePicker, OCCASIONS, STYLES, type GenerationMode } from '@/components/outfit/OutfitGeneratePicker';
 
 type Phase = 'picking' | 'generating' | 'done' | 'error';
-type GenerationMode = 'standard' | 'stylist';
 
 function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
   return validateCompleteOutfit(
@@ -86,14 +52,6 @@ function getWeatherAdvice(temp?: number, precipitation?: string): string {
   if (temp <= 12) return 'Layer up';
   if (temp <= 20) return 'Light layers';
   return 'Light & breathable';
-}
-
-/* ── Time-aware greeting ── */
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
 }
 
 function OutfitGenerateFallback() {
@@ -116,8 +74,7 @@ export default function OutfitGeneratePage() {
   const { weather } = useWeather();
   const todayDate = new Date().toISOString().slice(0, 10);
   const { data: calendarEvents } = useCalendarEvents(todayDate);
-  const { canCreateOutfit, remainingOutfits, isPremium } = useSubscription();
-  const coach = useFirstRunCoach();
+  const { canCreateOutfit, isPremium } = useSubscription();
 
   const [phase, setPhase] = useState<Phase>('picking');
   const [selectedOccasion, setSelectedOccasion] = useState<string>(() => {
@@ -456,250 +413,22 @@ export default function OutfitGeneratePage() {
   return (
     <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
     <AppLayout>
-      <div className="page-shell pb-36">
-
-        {/* ── Header ── */}
-        <PageHeader
-          title={t('outfit.generate_title') || 'Generate Outfit'}
-          showBack
-          titleClassName="font-display italic"
-        />
-
-        {/* ── Weather pill + style anchor ── */}
-        <motion.section
-          initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-          className="space-y-2.5 pb-6"
-        >
-          {weather && (
-            <div className="pt-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 px-3 py-1.5 text-[11px] font-body text-foreground/55">
-                {weather.temperature}°C · {t(weather.condition) || weather.location}
-              </span>
-              {weatherAdvice && (
-                <p className="pt-1.5 text-[11px] text-muted-foreground/60 font-body">
-                  {weatherAdvice}
-                </p>
-              )}
-            </div>
-          )}
-          {preferredGarmentSummary && (
-            <div className="pt-1.5">
-              <div className="inline-flex max-w-full items-center gap-3 rounded-[1.25rem] border border-border/40 px-3 py-2.5 text-left">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
-                  <Shirt className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-body font-medium uppercase tracking-[0.18em] text-primary/60">Style anchor</p>
-                  <p className="truncate text-[13px] font-medium text-foreground">{preferredGarmentSummary}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { hapticLight(); clearPreferredGarments(); }}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-background"
-                  aria-label="Clear style anchor"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-        </motion.section>
-
-        {/* ── Occasion selector — horizontal pills ── */}
-        <motion.section
-          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-          className="space-y-3 pb-8"
-        >
-          <p className="label-editorial text-muted-foreground/60">SELECT OCCASION</p>
-          <div className="flex flex-wrap gap-2">
-            {OCCASIONS.map(({ key, label }) => {
-              const isSelected = selectedOccasion === key;
-              const OccIcon = OCCASION_ICONS[key] || Sparkles;
-              return (
-                <motion.button
-                  key={key}
-                  whileTap={prefersReduced ? undefined : { scale: 0.96 }}
-                  onClick={() => { hapticLight(); setSelectedOccasion(key); }}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-body transition-all',
-                    isSelected
-                      ? 'bg-foreground text-background'
-                      : 'border border-border/40 text-foreground/55 hover:border-foreground/20'
-                  )}
-                >
-                  <OccIcon className="w-4 h-4" strokeWidth={1.8} />
-                  {label}
-                </motion.button>
-              );
-            })}
-          </div>
-        </motion.section>
-
-        {/* ── Mood & Aesthetic — pill chips ── */}
-        <motion.section
-          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-          className="pb-8 space-y-3"
-        >
-          <p className="label-editorial text-muted-foreground/60">MOOD & AESTHETIC</p>
-          <div className="flex flex-wrap gap-2">
-            {STYLES.map((style) => {
-              const isSelected = selectedStyles.includes(style);
-              return (
-                <motion.button
-                  key={style}
-                  whileTap={prefersReduced ? undefined : { scale: 0.96 }}
-                  onClick={() => {
-                    hapticLight();
-                    if (isSelected) {
-                      setSelectedStyles(selectedStyles.filter(s => s !== style));
-                    } else if (selectedStyles.length >= 2) {
-                      toast.error('Pick up to 2 styles');
-                    } else {
-                      setSelectedStyles([...selectedStyles, style]);
-                    }
-                  }}
-                  className={cn(
-                    'rounded-full px-4 py-2.5 text-[13px] font-body transition-all',
-                    isSelected
-                      ? 'bg-foreground text-background'
-                      : 'border border-border/40 text-foreground/55 hover:border-foreground/20'
-                  )}
-                >
-                  {style}
-                </motion.button>
-              );
-            })}
-          </div>
-        </motion.section>
-
-        {/* ── Mode toggle — editorial cards ── */}
-        <motion.section
-          initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-          className="pb-6 space-y-3"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <motion.button
-              whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-              onClick={() => { hapticLight(); setGenerationMode('standard'); }}
-              className={cn(
-                'rounded-[1.25rem] relative p-4 text-left transition-all border border-border/40',
-                generationMode === 'standard' && 'ring-1 ring-foreground/10'
-              )}
-            >
-              <Sparkles className={cn(
-                'w-5 h-5 mb-3',
-                generationMode === 'standard' ? 'text-foreground' : 'text-muted-foreground/30'
-              )} />
-              <p className="text-[13px] font-semibold text-foreground">Quick Look</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-snug font-body">
-                Fast, balanced, everyday
-              </p>
-              {generationMode === 'standard' && (
-                <motion.div
-                  layoutId="mode-check"
-                  className="absolute top-3 right-3 w-5 h-5 rounded-full bg-foreground flex items-center justify-center"
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                >
-                  <Check className="w-3 h-3 text-background" />
-                </motion.div>
-              )}
-            </motion.button>
-
-            <motion.button
-              whileTap={prefersReduced ? undefined : { scale: 0.97 }}
-              onClick={() => {
-                hapticLight();
-                if (!isPremium) { setShowPaywall(true); return; }
-                setGenerationMode('stylist');
-              }}
-              className={cn(
-                'rounded-[1.25rem] relative p-4 text-left transition-all border border-border/40',
-                generationMode === 'stylist' && 'ring-1 ring-premium/14'
-              )}
-            >
-              <Crown className={cn(
-                'w-5 h-5 mb-3',
-                generationMode === 'stylist' ? 'text-premium' : 'text-muted-foreground/30'
-              )} />
-              <p className="text-[13px] font-semibold text-foreground">Stylist Mode</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-snug font-body">
-                Deeper curation, editorial
-              </p>
-              {!isPremium && (
-                <span className="absolute top-3 right-3 text-[9px] font-semibold text-premium uppercase tracking-wider">
-                  Premium
-                </span>
-              )}
-              {generationMode === 'stylist' && isPremium && (
-                <motion.div
-                  layoutId="mode-check"
-                  className="absolute top-3 right-3 w-5 h-5 rounded-full bg-premium flex items-center justify-center"
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                >
-                  <Check className="w-3 h-3 text-premium-foreground" />
-                </motion.div>
-              )}
-            </motion.button>
-          </div>
-        </motion.section>
-      </div>
-
-      {/* ── Sticky CTA ── */}
-      <div className="action-bar-floating bottom-safe-nav fixed left-0 right-0 z-20">
-        <div className="px-4 pt-3 pb-4">
-          <div className="max-w-md mx-auto space-y-2">
-            {contextSubtitle && (
-              <p className="text-[11px] text-muted-foreground/60 text-center tracking-wide font-body">
-                {contextSubtitle}
-              </p>
-            )}
-            <CoachMark
-              step={3}
-              currentStep={coach.currentStep}
-              isCoachActive={coach.isStepActive(3)}
-              title="Generate outfits in seconds"
-              body="Pick the occasion, add a style if you want, and BURS will build a look from your wardrobe."
-              ctaLabel="Plan next"
-              onCta={() => {
-                coach.advanceStep();
-                navigate('/plan');
-              }}
-              onSkip={() => coach.completeTour()}
-              position="top"
-            >
-              <Button
-                onClick={() => { hapticLight(); handleGenerate(); }}
-                disabled={isGenerating}
-                variant="editorial"
-                className="h-12 w-full rounded-full text-[15px] font-medium font-body"
-                size="lg"
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate
-              </Button>
-            </CoachMark>
-            {!isPremium && remainingOutfits() < Infinity && (
-              <p className="text-[11px] text-muted-foreground/60 text-center font-body">
-                <Zap className="w-3 h-3 inline mr-0.5 -mt-0.5" />
-                {remainingOutfits()} outfits remaining
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <PaywallModal
-        isOpen={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        reason="outfits"
+      <OutfitGeneratePicker
+        selectedOccasion={selectedOccasion}
+        onOccasionChange={setSelectedOccasion}
+        selectedStyles={selectedStyles}
+        onStylesChange={setSelectedStyles}
+        generationMode={generationMode}
+        onModeChange={setGenerationMode}
+        weather={weather}
+        weatherAdvice={weatherAdvice}
+        preferredGarmentSummary={preferredGarmentSummary}
+        onClearPreferred={clearPreferredGarments}
+        contextSubtitle={contextSubtitle}
+        isGenerating={isGenerating}
+        onGenerate={handleGenerate}
+        showPaywall={showPaywall}
+        onShowPaywall={setShowPaywall}
       />
     </AppLayout>
     </PageErrorBoundary>
