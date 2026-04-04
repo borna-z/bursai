@@ -290,13 +290,22 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         upsert: false,
         filePath: `${user.id}/${newGarmentId}/original.${fileExt}`,
       });
+      console.log('[BURS DEBUG] Upload succeeded, path:', path);
       setStoragePath(path);
 
       const signedUrl = await getGarmentSignedUrl(path);
+      console.log('[BURS DEBUG] Signed URL obtained');
       setImagePreview(signedUrl);
 
       await runAnalysis(path);
     } catch (err) {
+      console.error('[BURS DEBUG] Upload/analysis error:', err);
+      if (err && typeof err === 'object' && 'message' in err) {
+        console.error('[BURS DEBUG] Error message:', (err as any).message);
+      }
+      if (err && typeof err === 'object' && 'statusCode' in err) {
+        console.error('[BURS DEBUG] Status code:', (err as any).statusCode);
+      }
       logger.error('Upload/analysis error:', err);
       toast.error(t('addgarment.upload_error'));
       setStep('upload');

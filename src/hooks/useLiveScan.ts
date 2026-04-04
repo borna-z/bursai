@@ -61,9 +61,11 @@ export function useLiveScan() {
 
       const thumbnailUrl = URL.createObjectURL(blob);
 
+      console.log('[BURS DEBUG] Starting analyze_garment call');
       const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
         body: { base64Image: base64, mode: 'fast' },
       });
+      console.log('[BURS DEBUG] analyze_garment response:', { data, error: fnError });
 
       if (fnError || data?.error) {
         setError(fnError?.message || data?.error || 'Analysis failed');
@@ -76,6 +78,7 @@ export function useLiveScan() {
       hapticMedium();
     } catch (err) {
       logger.error('Capture error:', err);
+      console.error('[BURS DEBUG] Capture error:', err);
       setError('Could not capture image');
     } finally {
       setIsProcessing(false);
