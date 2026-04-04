@@ -150,6 +150,7 @@ describe('useGarments', () => {
     vi.stubGlobal('navigator', { onLine: false });
     mockFrom.mockReturnValue({
       insert: vi.fn(),
+      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ then: vi.fn((cb: () => void) => { cb(); }) }) }),
     });
 
     const { enqueue } = await import('@/lib/offlineQueue');

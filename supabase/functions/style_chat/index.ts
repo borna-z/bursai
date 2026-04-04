@@ -1770,12 +1770,18 @@ serve(async (req) => {
     );
     await enforceRateLimit(serviceClient, user.id, "style_chat");
 
-    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx] = await Promise.all([
+    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getCalendarContext(supabase, user.id, lang),
       getRecentOutfitsContext(supabase, user.id),
       getRejectionsContext(supabase, user.id),
       getWardrobeContext(supabase, user.id, safeMessages as MessageInput[], selectedGarmentIds),
+      supabase
+        .from('garment_pair_memory')
+        .select('garment_a_id, garment_b_id, positive_count, negative_count')
+        .eq('user_id', user.id)
+        .order('positive_count', { ascending: false })
+        .limit(50),
     ]);
 
     // --- Taste memory ---
@@ -1795,6 +1801,25 @@ serve(async (req) => {
     const tasteMemoryBlock = shouldIncludeTasteMemory
       ? buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna)
       : "";
+
+    // --- Pair memory ---
+    let pairMemoryText = '';
+    const pairRows = pairMemoryRes?.data || [];
+    if (pairRows.length >= 2) {
+      const gById = new Map(wardrobeCtx.rankedGarments.map((g: any) => [g.id, g]));
+      const pos = pairRows
+        .filter((r: any) => r.positive_count > (r.negative_count ?? 0))
+        .slice(0, 5)
+        .map((r: any) => {
+          const a = gById.get(r.garment_a_id)?.title;
+          const b = gById.get(r.garment_b_id)?.title;
+          return a && b ? `${a} + ${b}` : null;
+        })
+        .filter(Boolean);
+      if (pos.length) {
+        pairMemoryText = `\nLEARNED PAIRINGS (user saved these before):\n${pos.map((p: any) => `+ ${p}`).join('\n')}`;
+      }
+    }
 
     const profile = profileRes.data;
 
@@ -2053,6 +2078,7 @@ ${recentOutfitsCtx.text}
 ${recentOutfitsCtx.recentGarmentSets && recentOutfitsCtx.recentGarmentSets.length > 0 ? `\nRECENT OUTFIT COMBINATIONS — DO NOT REPEAT THESE EXACT GARMENT COMBINATIONS:\n${recentOutfitsCtx.recentGarmentSets.slice(0, 5).map((ids: string[], i: number) => `Outfit ${i+1}: ${ids.join(", ")}`).join("\n")}\nEach new outfit MUST include at least 2 garments not in the previous suggestion.` : ""}
 ${rejectionsCtx.text}
 ${tasteMemoryBlock ? `\nTASTE MEMORY (learned from behavior — reference this naturally in replies):\n${tasteMemoryBlock}` : ""}
+${pairMemoryText}
 ${calendarCtx}
 ${weatherCtx}
 
