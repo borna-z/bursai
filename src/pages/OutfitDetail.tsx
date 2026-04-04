@@ -4,15 +4,14 @@ import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
 import { nativeShare } from '@/lib/nativeShare';
 import { normalizeWeather } from '@/lib/outfitContext';
-import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DURATION_SLOW } from '@/lib/motion';
+import { EASE_CURVE, DURATION_MEDIUM, DURATION_SLOW } from '@/lib/motion';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  ArrowLeft, Star, Bookmark, BookmarkCheck, Check, RefreshCw, Share2, Loader2,
-  Sparkles, Copy, Download, Link, Link2Off, Calendar, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
-  Heart, Frown, Palette, Meh, Camera,
+  ArrowLeft, Bookmark, BookmarkCheck, Check,
+  Copy, Download, Link, Link2Off, Thermometer, ThermometerSnowflake, Shirt, Briefcase,
+  Heart, Frown, Palette, Meh, Loader2, Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Chip } from '@/components/ui/chip';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +28,9 @@ import { useOutfitFeedback, useSubmitPhotoFeedback } from '@/hooks/usePhotoFeedb
 import { useFeedbackSignals } from '@/hooks/useFeedbackSignals';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { SwapSheet, SlotRow } from '@/components/outfit/OutfitDetailSlots';
+import { OutfitDetailActions } from '@/components/outfit/OutfitDetailActions';
 
 /* ── Main Page ──────────────────────────────────────── */
 
@@ -486,86 +487,16 @@ export default function OutfitDetailPage() {
       {/* ── Tab content ── */}
       <div className="px-5 pb-20">
         {activeTab === 'wear' && (
-          <motion.div
-            initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-            className="flex flex-col gap-3"
-          >
-            <Button
-              onClick={() => { hapticLight(); handleMarkWorn(); }}
-              disabled={markWorn.isPending || !!outfit.worn_at}
-              variant="editorial"
-              className={cn(
-                "w-full h-13 rounded-full font-body text-[15px] font-medium flex items-center justify-center gap-2",
-                outfit.worn_at && "opacity-50 cursor-default"
-              )}
-            >
-              {markWorn.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              {outfit.worn_at ? t('outfit.worn') : t('outfit.mark_worn')}
-            </Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={() => { hapticLight(); navigate('/plan', { state: { preselectedOutfitId: outfit.id } }); }}
-                className="h-11 rounded-full border-border/35 font-body text-[13px] font-medium"
-              >
-                <Calendar className="w-4 h-4 mr-1.5" />
-                {t('outfit.plan') || 'Plan'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => { hapticLight(); handleToggleSave(); }}
-                className="h-11 rounded-full border-border/35 font-body text-[13px] font-medium"
-              >
-                {outfit.saved
-                  ? <><BookmarkCheck className="w-4 h-4 mr-1.5" />{t('outfit.saved')}</>
-                  : <><Bookmark className="w-4 h-4 mr-1.5" />{t('outfit.save') || 'Save'}</>
-                }
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => { hapticLight(); setShareSheetOpen(true); }}
-                className="h-10 rounded-full text-foreground/50 font-body text-[13px]"
-              >
-                <Share2 className="w-3.5 h-3.5 mr-1.5" />
-                Share
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => { hapticLight(); handleCreateSimilar(); }}
-                className="h-10 rounded-full text-foreground/50 font-body text-[13px]"
-              >
-                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Remake
-              </Button>
-            </div>
-
-            {/* ── Star rating ── */}
-            <div className="pt-3">
-              <p className="label-editorial text-muted-foreground/60 mb-2">RATE THIS LOOK</p>
-              <div className="flex gap-1.5">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
-                    key={value}
-                    onClick={() => handleRating(value)}
-                    className="p-1 transition-transform active:scale-90"
-                  >
-                    <Star
-                      className={cn(
-                        "w-7 h-7 transition-colors",
-                        rating !== null && value <= rating
-                          ? "text-primary fill-primary"
-                          : "text-foreground/15"
-                      )}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </motion.div>
+          <OutfitDetailActions
+            outfit={outfit}
+            onMarkWorn={handleMarkWorn}
+            isMarkingWorn={markWorn.isPending}
+            onToggleSave={handleToggleSave}
+            onShare={() => setShareSheetOpen(true)}
+            onCreateSimilar={handleCreateSimilar}
+            rating={rating}
+            onRating={handleRating}
+          />
         )}
 
         {activeTab === 'swap' && (
