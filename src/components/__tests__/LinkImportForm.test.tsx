@@ -46,9 +46,6 @@ vi.mock('@/integrations/supabase/client', () => ({
     functions: {
       invoke: invokeMock,
     },
-    from: vi.fn().mockReturnValue({
-      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ then: vi.fn((cb: () => void) => { cb(); }) }) }),
-    }),
   },
 }));
 

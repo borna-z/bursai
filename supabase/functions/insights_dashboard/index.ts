@@ -70,24 +70,6 @@ serve(async (req) => {
     const userId = userData.user.id;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // --- App-level cache ---
-    const cacheKey = `insights_dashboard_${userId}`;
-    const { data: cached } = await supabase
-      .from('ai_response_cache')
-      .select('response, id, hit_count')
-      .eq('cache_key', cacheKey)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (cached?.response) {
-      supabase.from('ai_response_cache')
-        .update({ hit_count: (cached.hit_count ?? 0) + 1 })
-        .eq('id', cached.id)
-        .then(() => {});
-      log.info('Insights cache hit', { userId });
-      return jsonResponse(cached.response);
-    }
-
     const date30 = isoDateDaysAgo(30);
     const date90 = isoDateDaysAgo(90);
     const date180 = isoDateDaysAgo(180);
@@ -173,17 +155,6 @@ serve(async (req) => {
       garments: overview.total_garments,
       savedOutfits: overview.total_saved_outfits,
     });
-
-    // --- Write cache (10-minute TTL) ---
-    supabase.from('ai_response_cache').upsert({
-      cache_key: cacheKey,
-      response: payload,
-      model_used: 'insights_dashboard',
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 600_000).toISOString(),
-      hit_count: 0,
-      compressed: false,
-    }, { onConflict: 'cache_key' }).then(() => {});
 
     return jsonResponse(payload);
   } catch (error) {
