@@ -56,7 +56,7 @@ export function useSubscription() {
       if (!user) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('user_subscriptions')
-        .insert({ user_id: user.id, plan: 'free' })
+        .upsert({ user_id: user.id, plan: 'free' }, { onConflict: 'user_id', ignoreDuplicates: true })
         .select()
         .single();
       if (error) throw error;
