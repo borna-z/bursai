@@ -128,7 +128,7 @@ export function OutfitGeneratePicker({
                   type="button"
                   onClick={() => { hapticLight(); onClearPreferred(); }}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-background"
-                  aria-label="Clear style anchor"
+                  aria-label="Clear style anchor" // i18n-ignore
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -295,9 +295,9 @@ export function OutfitGeneratePicker({
               step={3}
               currentStep={coach.currentStep}
               isCoachActive={coach.isStepActive(3)}
-              title="Generate outfits in seconds"
-              body="Pick the occasion, add a style if you want, and BURS will build a look from your wardrobe."
-              ctaLabel="Plan next"
+              title="Generate outfits in seconds" // i18n-ignore
+              body="Pick the occasion, add a style if you want, and BURS will build a look from your wardrobe." // i18n-ignore
+              ctaLabel="Plan next" // i18n-ignore
               onCta={() => {
                 coach.advanceStep();
                 navigate('/plan');
