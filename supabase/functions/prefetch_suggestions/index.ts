@@ -24,6 +24,73 @@ const CONCURRENCY = 3;
 const TIME_BUDGET_MS = 50_000; // leave headroom for function timeout
 const BATCH_SIZE = 100;
 
+async function processSingleUser(
+  userId: string,
+  supabaseClient: ReturnType<typeof createClient>,
+): Promise<{ status: 'ok' | 'skipped' | 'error'; error?: string }> {
+  try {
+    const { data: garments } = await supabaseClient
+      .from("garments")
+      .select("id, title, category, subcategory, color_primary, material, formality, season_tags, in_laundry")
+      .eq("user_id", userId)
+      .eq("in_laundry", false);
+
+    if (!garments || garments.length < 5) return { status: "skipped" };
+
+    const garmentList = garments.map(g => compactGarment(g)).join("\n");
+    const prompt = compressPrompt(`You are a personal stylist. Suggest 2 outfits for today from this wardrobe.
+Pick garments by their short ID (first 8 chars).
+
+WARDROBE:
+${garmentList}`);
+
+    await callBursAI({
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: "Suggest 2 outfits for today." },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "suggest_outfits",
+          description: "Return 2 outfit suggestions",
+          parameters: {
+            type: "object",
+            properties: {
+              suggestions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    garment_ids: { type: "array", items: { type: "string" } },
+                    explanation: { type: "string" },
+                    occasion: { type: "string" },
+                  },
+                  required: ["title", "garment_ids", "explanation", "occasion"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["suggestions"],
+            additionalProperties: false,
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "suggest_outfits" } },
+      complexity: "trivial",
+      max_tokens: estimateMaxTokens({ outputItems: 2, perItemTokens: 80, baseTokens: 150 }),
+      cacheTtlSeconds: 43200,
+      cacheNamespace: `daily_suggestions_${userId}`,
+      functionName: "prefetch_suggestions",
+    }, supabaseClient);
+
+    return { status: "ok" };
+  } catch (e) {
+    return { status: "error", error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
@@ -33,6 +100,25 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // --- Single-user trigger mode (from client after 5th garment) ---
+    let triggeredUserId: string | null = null;
+    try {
+      if (req.method === "POST") {
+        const body = await req.json();
+        if (body?.user_id && body?.trigger === "first_5_garments") {
+          triggeredUserId = body.user_id;
+        }
+      }
+    } catch { /* fall through to cron mode */ }
+
+    if (triggeredUserId) {
+      const result = await processSingleUser(triggeredUserId, supabase);
+      log.info("Single-user prefetch", { userId: triggeredUserId, result: result.status });
+      return new Response(JSON.stringify({ triggered: triggeredUserId, ...result }), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
 
     // Find active users (genuinely active within last 7 days, have 5+ garments)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -58,79 +144,14 @@ serve(async (req) => {
 
     // Process users with bounded concurrency
     await withConcurrencyLimit(activeUsers, CONCURRENCY, async (user) => {
-      // Time budget check
       if (Date.now() - runStart > TIME_BUDGET_MS) {
         timeBudgetExhausted = true;
         return;
       }
-
-      try {
-        // Fetch garments
-        const { data: garments } = await supabase
-          .from("garments")
-          .select("id, title, category, subcategory, color_primary, material, formality, season_tags, in_laundry")
-          .eq("user_id", user.id)
-          .eq("in_laundry", false);
-
-        if (!garments || garments.length < 5) {
-          skipped++;
-          return;
-        }
-
-        // Use compact descriptors for efficiency
-        const garmentList = garments.map(g => compactGarment(g)).join("\n");
-
-        const prompt = compressPrompt(`You are a personal stylist. Suggest 2 outfits for today from this wardrobe.
-Pick garments by their short ID (first 8 chars).
-
-WARDROBE:
-${garmentList}`);
-
-        await callBursAI({
-          messages: [
-            { role: "system", content: prompt },
-            { role: "user", content: "Suggest 2 outfits for today." },
-          ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "suggest_outfits",
-              description: "Return 2 outfit suggestions",
-              parameters: {
-                type: "object",
-                properties: {
-                  suggestions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string" },
-                        garment_ids: { type: "array", items: { type: "string" } },
-                        explanation: { type: "string" },
-                        occasion: { type: "string" },
-                      },
-                      required: ["title", "garment_ids", "explanation", "occasion"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["suggestions"],
-                additionalProperties: false,
-              },
-            },
-          }],
-          tool_choice: { type: "function", function: { name: "suggest_outfits" } },
-          complexity: "trivial",
-          max_tokens: estimateMaxTokens({ outputItems: 2, perItemTokens: 80, baseTokens: 150 }),
-          cacheTtlSeconds: 43200, // 12 hours
-          cacheNamespace: `daily_suggestions_${user.id}`,
-          functionName: "prefetch_suggestions",
-        }, supabase);
-
-        prefetched++;
-      } catch (e) {
-        errors.push(`${user.id.slice(0, 8)}: ${e instanceof Error ? e.message : String(e)}`);
-      }
+      const result = await processSingleUser(user.id, supabase);
+      if (result.status === "ok") prefetched++;
+      else if (result.status === "skipped") skipped++;
+      else errors.push(`${user.id.slice(0, 8)}: ${result.error ?? "failed"}`);
     });
 
     logTelemetry(supabase, {
