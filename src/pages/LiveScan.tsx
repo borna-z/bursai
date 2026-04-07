@@ -357,18 +357,24 @@ export default function LiveScan() {
     : cameraReady && !isProcessing && !lastResult && !showAccepted;
   const hasSlots = isPremium || remainingSlots > 0;
 
+  const handleAutoCaptureRef = useRef<() => void>(() => {});
+
+  const { progress: autoProgress, framingHint, lockConfidence, optimalCropRatio } = useAutoDetect({
+    enabled: !useFileInputMode && autoMode && canCapture && hasSlots,
+    videoEl: videoRef.current,
+    busy: isProcessing || !!lastResult || showAccepted,
+    onStable: useCallback(() => handleAutoCaptureRef.current(), []),
+  });
+
   const handleAutoCapture = useCallback(() => {
     if (!videoRef.current || !canCapture || !hasSlots) return;
     capture(videoRef.current, optimalCropRatio);
     hapticLight();
   }, [capture, canCapture, hasSlots, optimalCropRatio]);
 
-  const { progress: autoProgress, framingHint, lockConfidence, optimalCropRatio } = useAutoDetect({
-    enabled: !useFileInputMode && autoMode && canCapture && hasSlots,
-    videoEl: videoRef.current,
-    busy: isProcessing || !!lastResult || showAccepted,
-    onStable: handleAutoCapture,
-  });
+  useEffect(() => {
+    handleAutoCaptureRef.current = handleAutoCapture;
+  }, [handleAutoCapture]);
 
   /** Handle file input change (Median / fallback mode) */
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
