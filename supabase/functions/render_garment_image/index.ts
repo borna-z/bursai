@@ -292,6 +292,16 @@ function extractPromptEnrichment(aiRaw: unknown): RenderPromptEnrichment {
   };
 }
 
+function sanitizeEnrichmentValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
 function buildGarmentRenderPrompt(garment: {
   title: string;
   category: string;
@@ -322,13 +332,13 @@ function buildGarmentRenderPrompt(garment: {
     enrichment.legShape ? `- Leg shape: ${enrichment.legShape}` : null,
     enrichment.drape ? `- Drape: ${enrichment.drape}` : null,
     enrichment.hemDetail ? `- Hem detail: ${enrichment.hemDetail}` : null,
-    enrichment.textOnGarment ? `- Text on garment (reproduce EXACTLY): ${enrichment.textOnGarment}` : null,
-    enrichment.logoDescription ? `- Logo or brand mark (reproduce EXACTLY): ${enrichment.logoDescription}` : null,
-    enrichment.graphicDescription ? `- Graphic or print (reproduce EXACTLY): ${enrichment.graphicDescription}` : null,
+    sanitizeEnrichmentValue(enrichment.textOnGarment) ? `- Text on garment (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.textOnGarment)}` : null,
+    sanitizeEnrichmentValue(enrichment.logoDescription) ? `- Logo or brand mark (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.logoDescription)}` : null,
+    sanitizeEnrichmentValue(enrichment.graphicDescription) ? `- Graphic or print (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.graphicDescription)}` : null,
     enrichment.collarStyle ? `- Collar style: ${enrichment.collarStyle}` : null,
-    enrichment.constructionDetails ? `- Construction details: ${enrichment.constructionDetails}` : null,
+    sanitizeEnrichmentValue(enrichment.constructionDetails) ? `- Construction details: ${sanitizeEnrichmentValue(enrichment.constructionDetails)}` : null,
     enrichment.waistband ? `- Waistband: ${enrichment.waistband}` : null,
-    enrichment.colorDescription ? `- Precise color: ${enrichment.colorDescription}` : null,
+    sanitizeEnrichmentValue(enrichment.colorDescription) ? `- Precise color: ${sanitizeEnrichmentValue(enrichment.colorDescription)}` : null,
   ].filter((value): value is string => Boolean(value));
 
   const garmentLabel = garment.subcategory ?? garment.category ?? garment.title;
