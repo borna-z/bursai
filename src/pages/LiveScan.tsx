@@ -331,6 +331,7 @@ export default function LiveScan() {
   const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const torchActiveRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -358,11 +359,11 @@ export default function LiveScan() {
 
   const handleAutoCapture = useCallback(() => {
     if (!videoRef.current || !canCapture || !hasSlots) return;
-    capture(videoRef.current);
+    capture(videoRef.current, optimalCropRatio);
     hapticLight();
-  }, [capture, canCapture, hasSlots]);
+  }, [capture, canCapture, hasSlots, optimalCropRatio]);
 
-  const { progress: autoProgress, framingHint, lockConfidence } = useAutoDetect({
+  const { progress: autoProgress, framingHint, lockConfidence, optimalCropRatio } = useAutoDetect({
     enabled: !useFileInputMode && autoMode && canCapture && hasSlots,
     videoEl: videoRef.current,
     busy: isProcessing || !!lastResult || showAccepted,
@@ -439,6 +440,30 @@ export default function LiveScan() {
     };
   }, []);
 
+  // Torch control — auto-enable when framing hint says more light needed
+  useEffect(() => {
+    if (useFileInputMode || !streamRef.current) return;
+    const videoTrack = streamRef.current.getVideoTracks()[0];
+    if (!videoTrack) return;
+    const capabilities = (videoTrack.getCapabilities as (() => MediaTrackCapabilities) | undefined)?.();
+    if (!(capabilities as any)?.torch) return;
+    const wantTorch = framingHint === 'more_light';
+    if (wantTorch === torchActiveRef.current) return;
+    torchActiveRef.current = wantTorch;
+    videoTrack.applyConstraints({ advanced: [{ torch: wantTorch } as MediaTrackConstraintSet] }).catch(() => {});
+  }, [framingHint, useFileInputMode]);
+
+  // Turn torch off on unmount
+  useEffect(() => {
+    return () => {
+      if (!torchActiveRef.current || !streamRef.current) return;
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (!videoTrack) return;
+      torchActiveRef.current = false;
+      videoTrack.applyConstraints({ advanced: [{ torch: false } as MediaTrackConstraintSet] }).catch(() => {});
+    };
+  }, []);
+
   const handleCapture = useCallback(() => {
     if (useFileInputMode) {
       handleFileCapture();
@@ -446,8 +471,8 @@ export default function LiveScan() {
     }
     if (!videoRef.current || isProcessing || lastResult) return;
     if (!isPremium && remainingSlots <= 0) { setShowPaywall(true); return; }
-    capture(videoRef.current);
-  }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture]);
+    capture(videoRef.current, optimalCropRatio);
+  }, [capture, isProcessing, lastResult, isPremium, remainingSlots, useFileInputMode, handleFileCapture, optimalCropRatio]);
 
   const handleAccept = useCallback(async (enableStudioQuality: boolean) => {
     if (isSavingAccepted) return;
