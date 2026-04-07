@@ -111,7 +111,8 @@ function buildFastMessages(imageUrl: string, titleInstruction: string) {
   return [
     {
       role: 'system',
-      content: `Fashion garment analyzer. Return ONLY valid JSON: {"title":"${titleInstruction}","category":"top|bottom|shoes|outerwear|accessory|dress","subcategory":"string","color_primary":"black|white|grey|blue|navy|beige|brown|green|red|pink|purple|yellow|orange","color_secondary":"color|null","pattern":"solid|striped|checked|dotted|floral|patterned|null","material":"cotton|polyester|linen|denim|leather|wool|silk|synthetic|null","fit":"slim|regular|loose|oversized|null","season_tags":["spring","summer","autumn","winter"],"formality":3,"confidence":0.9}`
+      content: `Fashion garment analyzer. Return ONLY valid JSON: {"title":"${titleInstruction}","category":"top|bottom|shoes|outerwear|accessory|dress","subcategory":"string","color_primary":"black|white|grey|blue|navy|beige|brown|green|red|pink|purple|yellow|orange","color_secondary":"color|null","pattern":"solid|striped|checked|dotted|floral|patterned|null","material":"cotton|polyester|linen|denim|leather|wool|silk|synthetic|null","fit":"slim|regular|loose|oversized|null","season_tags":["spring","summer","autumn","winter"],"formality":3,"confidence":0.75}
+confidence rules: 0.90-1.0 only when category, color, and type are completely unambiguous. 0.65-0.89 when garment is partially visible, background is busy, or category is somewhat uncertain. Below 0.65 when dark, blurry, or multiple items visible. Never default to 0.9.`
     },
     {
       role: 'user',
