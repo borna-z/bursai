@@ -61,7 +61,7 @@ function AutoProgressRing({ progress }: { progress: number }) {
 }
 
 /* ─── Premium scan overlay — shimmer + phase text ─── */
-function ScanOverlay() {
+function ScanOverlay({ isDone }: { isDone: boolean }) {
   const { t } = useLanguage();
   const prefersReduced = useReducedMotion();
   const [phase, setPhase] = useState(0);
@@ -72,12 +72,12 @@ function ScanOverlay() {
   ];
 
   useEffect(() => {
-    if (prefersReduced) return;
-    const durations = [1200, 1800, 0];
-    if (phase >= phases.length - 1) return;
-    const timer = setTimeout(() => setPhase(p => p + 1), durations[phase]);
+    if (isDone) { setPhase(phases.length - 1); return; }
+    if (prefersReduced || phase >= phases.length - 1) return;
+    const durations = [1000, 1400];
+    const timer = setTimeout(() => setPhase(p => p + 1), durations[phase] ?? 1200);
     return () => clearTimeout(timer);
-  }, [phase, prefersReduced, phases.length]);
+  }, [phase, isDone, prefersReduced, phases.length]);
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5">
@@ -615,7 +615,7 @@ export default function LiveScan() {
           </>
         )}
 
-        {isProcessing && <ScanOverlay />}
+        {isProcessing && <ScanOverlay isDone={!!lastResult} />}
         
         <AnimatePresence>
           {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
