@@ -229,7 +229,11 @@ describe('useAddGarment', () => {
     expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
       render_status: 'none',
     }));
-    expect(triggerGarmentPostSaveIntelligenceMock).not.toHaveBeenCalled();
+    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith(expect.objectContaining({
+      skipRender: true,
+      source: 'add_photo',
+      imageProcessing: { mode: 'skip' },
+    }));
     expect(toastSuccessMock).toHaveBeenCalledWith('Saved.', {
       description: 'Saved with the original photo. You can keep adding garments.',
     });

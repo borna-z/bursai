@@ -104,7 +104,7 @@ describe('BatchUploadProgress', () => {
     render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
 
     await waitFor(() => expect(uploadGarmentImageMock).toHaveBeenCalled());
-    await waitFor(() => expect(analyzeGarmentMock).toHaveBeenCalledWith('user-1/actual-upload.webp'));
+    await waitFor(() => expect(analyzeGarmentMock).toHaveBeenCalledWith('user-1/actual-upload.webp', 'fast'));
     await waitFor(() =>
       expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
         image_path: 'user-1/actual-upload.webp',

@@ -45,7 +45,7 @@ export function useAnalyzeGarment() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
 
-  const analyzeGarment = async (storagePath: string): Promise<AnalyzeGarmentResult> => {
+  const analyzeGarment = async (storagePath: string, mode: 'fast' | 'full' = 'fast'): Promise<AnalyzeGarmentResult> => {
     if (!user) {
       return { data: null, error: t('analyze.not_logged_in') };
     }
@@ -53,22 +53,14 @@ export function useAnalyzeGarment() {
     setIsAnalyzing(true);
     setAnalysisProgress(10);
 
-    const progressInterval = setInterval(() => {
-      setAnalysisProgress((prev) => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 15;
-      });
-    }, 500);
-
     try {
       setAnalysisProgress(20);
 
       const { data, error } = await invokeEdgeFunction<GarmentAnalysis & { error?: string }>('analyze_garment', {
-        timeout: 30000,
-        body: { storagePath, locale },
+        timeout: mode === 'fast' ? 12000 : 35000,
+        body: { storagePath, locale, mode },
       });
 
-      clearInterval(progressInterval);
       setAnalysisProgress(100);
 
       if (error) {
@@ -82,7 +74,6 @@ export function useAnalyzeGarment() {
 
       return { data: data as GarmentAnalysis, error: null };
     } catch (err) {
-      clearInterval(progressInterval);
       logger.error('Analyze garment error:', err);
       return { data: null, error: t('analyze.unexpected') };
     } finally {

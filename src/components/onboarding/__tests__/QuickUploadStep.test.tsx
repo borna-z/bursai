@@ -80,7 +80,7 @@ describe('QuickUploadStep', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Add 1 garment/i }));
 
     await waitFor(() => expect(uploadGarmentImageMock).toHaveBeenCalled());
-    await waitFor(() => expect(analyzeGarmentMock).toHaveBeenCalledWith('user-1/uploaded-path.png'));
+    await waitFor(() => expect(analyzeGarmentMock).toHaveBeenCalledWith('user-1/uploaded-path.png', 'fast'));
     await waitFor(() =>
       expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
         image_path: 'user-1/uploaded-path.png',
