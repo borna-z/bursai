@@ -446,7 +446,7 @@ export default function LiveScan() {
     const videoTrack = streamRef.current.getVideoTracks()[0];
     if (!videoTrack) return;
     const capabilities = (videoTrack.getCapabilities as (() => MediaTrackCapabilities) | undefined)?.();
-    if (!(capabilities as any)?.torch) return;
+    if (!(capabilities as Record<string, unknown>)?.torch) return;
     const wantTorch = framingHint === 'more_light';
     if (wantTorch === torchActiveRef.current) return;
     torchActiveRef.current = wantTorch;
