@@ -329,7 +329,7 @@ describe('useLiveScan', () => {
 
     await waitFor(() => expect(result.current.lastResult).not.toBeNull());
 
-    expect(compressImage).toHaveBeenCalledWith(fakeFile, { maxDimension: 480, quality: 0.5 });
+    expect(compressImage).toHaveBeenCalledWith(fakeFile, { maxDimension: 1024, quality: 0.85 });
     expect(result.current.lastResult?.analysis.title).toBe('Navy Wool Blazer');
     expect(result.current.lastResult?.confidence).toBe(0.92);
     expect(result.current.lastResult?.thumbnailUrl).toBe('blob:mock-preview-url');
