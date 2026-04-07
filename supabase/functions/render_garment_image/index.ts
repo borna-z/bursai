@@ -816,25 +816,63 @@ serve(async (req) => {
     });
 
     if (validationAssessment?.decision === 'reject_visible_mannequin') {
-      const confidenceLabel = validationAssessment.confidence == null
-        ? 'unknown'
-        : validationAssessment.confidence.toFixed(2);
+      console.warn('render_garment_image quality gate rejected: visible mannequin; attempting retry', {
+        garmentId: garment.id,
+        reason: validationAssessment.reason,
+        confidence: validationAssessment.confidence,
+      });
 
-      await safeMarkRenderFailed(supabase, garment.id, {
-        render_error: `Quality gate rejected render: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
-        rendered_image_path: null,
-        rendered_at: null,
-      }, 'quality_gate_visible_mannequin');
+      const retryPrompt = prompt + '\n\nCRITICAL CORRECTION: The previous attempt showed visible mannequin anatomy. This time: completely remove ALL traces of the mannequin form. The garment must appear completely self-supporting with NO visible body shape, NO shoulder form, NO torso silhouette, NO hip shape underneath the fabric. Use only natural fabric volume and gravity.';
 
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          rendered: false,
-          error: 'Rendered output still showed visible mannequin anatomy',
-          validation: validationAssessment,
-        }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      );
+      let retryPassed = false;
+      try {
+        const retryResult = await generateGarmentRenderWithGeminiDirect({
+          garmentId: garment.id,
+          apiKey: geminiApiKey,
+          prompt: retryPrompt,
+          dataUrl,
+        });
+
+        const retryValidation = await validateRenderedGarmentOutputWithGemini({
+          apiKey: geminiApiKey,
+          garmentId: garment.id,
+          mimeType: retryResult.mimeType,
+          imageBase64: uint8ArrayToBase64(retryResult.outputBytes),
+        });
+
+        if (retryValidation?.decision !== 'reject_visible_mannequin') {
+          outputBytes = retryResult.outputBytes;
+          outputMimeType = retryResult.mimeType;
+          retryPassed = true;
+        }
+      } catch (retryError) {
+        console.error('render_garment_image retry attempt failed', {
+          garmentId: garment.id,
+          error: getErrorMessage(retryError),
+        });
+      }
+
+      if (!retryPassed) {
+        const confidenceLabel = validationAssessment.confidence == null
+          ? 'unknown'
+          : validationAssessment.confidence.toFixed(2);
+
+        await safeMarkRenderFailed(supabase, garment.id, {
+          render_error: `Quality gate rejected render after retry: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
+          rendered_image_path: null,
+          rendered_at: null,
+        }, 'quality_gate_visible_mannequin_retry');
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            rendered: false,
+            error: 'Rendered output still showed visible mannequin anatomy after retry',
+            validation: validationAssessment,
+          }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
     }
 
     // ── Upload rendered image ──
