@@ -113,6 +113,48 @@ describe('compressCenterCrop', () => {
     expect(result.base64).toContain('data:image/jpeg');
   });
 
+  it('uses new defaults of 1024 maxDim when no args passed', async () => {
+    const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
+      this.result = 'data:image/jpeg;base64,Y3JvcA==';
+      this.onloadend = null;
+      this.readAsDataURL = vi.fn(() => {
+        Promise.resolve().then(() => this.onloadend?.());
+      });
+    });
+    vi.stubGlobal('FileReader', MockFileReader);
+
+    const { canvas, video, drawImage } = makeMocks();
+
+    await compressCenterCrop(canvas, video);
+
+    // Crop 70%: sx=288, sy=162, sw=1344, sh=756
+    // Scale: min(1024/1344, 1) = 0.762 → 1024×576
+    expect(canvas.width).toBe(1024);
+    expect(canvas.height).toBe(576);
+    expect(drawImage).toHaveBeenCalledWith(video, 288, 162, 1344, 756, 0, 0, 1024, 576);
+  });
+
+  it('accepts custom cropRatio parameter', async () => {
+    const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
+      this.result = 'data:image/jpeg;base64,Y3JvcA==';
+      this.onloadend = null;
+      this.readAsDataURL = vi.fn(() => {
+        Promise.resolve().then(() => this.onloadend?.());
+      });
+    });
+    vi.stubGlobal('FileReader', MockFileReader);
+
+    const { canvas, video, drawImage } = makeMocks();
+
+    await compressCenterCrop(canvas, video, 1024, 0.85, 0.5);
+
+    // Crop 50%: sx=480, sy=270, sw=960, sh=540
+    // Scale: min(1024/960, 1) = 1 → 960×540
+    expect(canvas.width).toBe(960);
+    expect(canvas.height).toBe(540);
+    expect(drawImage).toHaveBeenCalledWith(video, 480, 270, 960, 540, 0, 0, 960, 540);
+  });
+
   it('rejects when toBlob returns null', async () => {
     const { canvas, video } = makeMocks(null);
     await expect(compressCenterCrop(canvas, video)).rejects.toThrow('Failed to capture frame');

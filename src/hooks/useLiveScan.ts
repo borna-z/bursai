@@ -45,7 +45,7 @@ export function useLiveScan() {
   /**
    * Capture the current video frame with center-crop, compress, and send to AI.
    */
-  const capture = useCallback(async (videoEl: HTMLVideoElement) => {
+  const capture = useCallback(async (videoEl: HTMLVideoElement, cropRatio = 0.7) => {
     if (!user || isProcessing) return;
     if (!videoEl.videoWidth || !videoEl.videoHeight) {
       setError('Camera not ready, try again');
@@ -57,13 +57,14 @@ export function useLiveScan() {
 
     try {
       const canvas = getCanvas();
-      const { blob, base64 } = await compressCenterCrop(canvas, videoEl);
+      const { blob, base64 } = await compressCenterCrop(canvas, videoEl, 1024, 0.85, cropRatio);
 
       const thumbnailUrl = URL.createObjectURL(blob);
 
       const { data, error: fnError } = await invokeEdgeFunction<GarmentAnalysis & { error?: string; confidence?: number }>('analyze_garment', {
         body: { base64Image: base64, mode: 'fast' },
       });
+
       if (fnError || data?.error) {
         setError(fnError?.message || data?.error || 'Analysis failed');
         URL.revokeObjectURL(thumbnailUrl);
@@ -91,7 +92,7 @@ export function useLiveScan() {
     setLastResult(null);
 
     try {
-      const { file: compressed, previewUrl } = await compressImage(file, { maxDimension: 480, quality: 0.5 });
+      const { file: compressed, previewUrl } = await compressImage(file, { maxDimension: 1024, quality: 0.85 });
       const blob = compressed as Blob;
       const thumbnailUrl = previewUrl;
 
