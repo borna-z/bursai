@@ -212,7 +212,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     const phaseTimer1 = setTimeout(() => setAnalysisPhase(1), 800);
     const phaseTimer2 = setTimeout(() => setAnalysisPhase(2), 2500);
 
-    const { data: analysisData, error } = await analyzeGarment(path);
+    const { data: analysisData, error } = await analyzeGarment(path, 'fast');
 
     clearTimeout(phaseTimer1);
     clearTimeout(phaseTimer2);
@@ -230,7 +230,6 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       const summary = [analysisData.title, analysisData.material].filter(Boolean).join(', ');
       setAnalysisSummary(summary);
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       toast.success(t('addgarment.ai_success'), {
         description: t('addgarment.ai_review'),
       });
@@ -354,12 +353,13 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         }),
       });
 
-      if (storagePath && garmentId && enableStudioQuality) {
+      if (storagePath && garmentId) {
         triggerGarmentPostSaveIntelligence({
           garmentId,
           storagePath,
           source: 'add_photo',
           imageProcessing: { mode: 'skip' },
+          skipRender: !enableStudioQuality,
         });
       }
 

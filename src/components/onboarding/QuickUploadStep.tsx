@@ -77,7 +77,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
         setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'analyzing' } : entry));
 
-        const { data: analysis, error: analysisError } = await analyzeGarment(path);
+        const { data: analysis, error: analysisError } = await analyzeGarment(path, 'fast');
         if (analysisError) {
           logger.error('Quick upload analysis error:', analysisError);
         }

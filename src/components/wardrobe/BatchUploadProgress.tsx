@@ -231,7 +231,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
       updateItem(currentIndex, { status: 'analyzing' });
       try {
-        const { data, error } = await analyzeGarment(path);
+        const { data, error } = await analyzeGarment(path, 'fast');
         if (error || !data) {
           updateItem(currentIndex, { status: 'error', error: error || t('batch.analyze_failed') });
           setCurrentIndex(i => i + 1);
