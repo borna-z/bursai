@@ -11,6 +11,7 @@ vi.mock('@/integrations/supabase/client', () => ({
           eq: vi.fn(() => query),
           limit: vi.fn(() => query),
           order: vi.fn().mockResolvedValue({ data: pendingGarmentRows, error: null }),
+          single: vi.fn().mockResolvedValue({ data: { ai_raw: null }, error: null }),
         };
         return query;
       }),
@@ -19,7 +20,12 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 vi.mock('@/lib/edgeFunctionClient', () => ({
-  invokeEdgeFunction: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  invokeEdgeFunction: vi.fn().mockImplementation((functionName: string) => {
+    if (functionName === 'analyze_garment') {
+      return Promise.resolve({ data: { enrichment: { refined_title: 'Test garment' } }, error: null });
+    }
+    return Promise.resolve({ data: {}, error: null });
+  }),
 }));
 
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
@@ -179,9 +185,40 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     });
   });
 
+  it('triggers render only after enrichment resolves, not in parallel', async () => {
+    let resolveEnrich!: (value: { data: unknown; error: null }) => void;
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
+      if (functionName === 'analyze_garment') {
+        return new Promise((resolve) => { resolveEnrich = resolve; });
+      }
+      return Promise.resolve({ data: {}, error: null });
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-chain',
+      storagePath: 'user-1/photo-chain.jpg',
+      source: 'add_photo',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    // Yield to event loop — enrichment is blocked awaiting analyze_garment
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('render_garment_image', expect.anything());
+
+    // Resolve enrichment — render must fire in the .then() chain
+    resolveEnrich({ data: { enrichment: { refined_title: 'Chain test' } }, error: null });
+
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'garment-chain', source: 'add_photo' },
+      }));
+    });
+  });
+
   it('bounds render kickoff concurrency and deduplicates repeated garment requests', async () => {
     let resolveFirstRender: (() => void) | null = null;
     let resolveSecondRender: (() => void) | null = null;
+    let resolveThirdRender: (() => void) | null = null;
 
     vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
       if (functionName === 'render_garment_image') {
@@ -196,8 +233,17 @@ describe('triggerGarmentPostSaveIntelligence', () => {
             return;
           }
 
+          if (!resolveThirdRender) {
+            resolveThirdRender = () => resolve({ data: {}, error: null });
+            return;
+          }
+
           resolve({ data: {}, error: null });
         });
+      }
+
+      if (functionName === 'analyze_garment') {
+        return Promise.resolve({ data: { enrichment: { refined_title: 'Test' } }, error: null });
       }
 
       return Promise.resolve({ data: {}, error: null });
