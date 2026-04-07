@@ -1,0 +1,93 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { safeParse, profileSchema } from '@/lib/schemas';
+import { logger } from '@/lib/logger';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
+import { normalizeMannequinPresentation } from '@/lib/mannequinPresentation';
+
+export type Profile = Tables<'profiles'>;
+
+export function useProfile() {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      // Use maybeSingle to gracefully handle missing profile (returns null instead of 406)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      // If no profile exists, auto-create one
+      if (!data) {
+        const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            display_name: displayName,
+            preferences: { onboarding: { completed: false } },
+            mannequin_presentation: 'mixed',
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          logger.error('Failed to auto-create profile:', insertError);
+          // FK violation means user doesn't exist in auth.users — ghost session
+          if ((insertError as { code?: string }).code === '23503') {
+            logger.error('Ghost session detected — signing out');
+            await supabase.auth.signOut();
+            return null;
+          }
+          // Other errors: return minimal profile so app doesn't loop
+          return { id: user.id, display_name: displayName, preferences: { onboarding: { completed: false } } } as unknown as Profile;
+        }
+        return {
+          ...newProfile,
+          mannequin_presentation: normalizeMannequinPresentation(newProfile.mannequin_presentation),
+        } as Profile;
+      }
+      
+      const parsed = safeParse(profileSchema, data, 'profile') as unknown as Profile;
+      return {
+        ...parsed,
+        mannequin_presentation: normalizeMannequinPresentation(parsed.mannequin_presentation),
+      } as Profile;
+    },
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useUpdateProfile() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (updates: TablesUpdate<'profiles'>) => {
+      if (!user) throw new Error('Not authenticated');
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (!data) throw new Error('Profile not found. Please log out and sign in again.');
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+    },
+  });
+}

@@ -1,0 +1,2 @@
+ALTER TABLE public.ai_response_cache ADD COLUMN IF NOT EXISTS hit_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.ai_response_cache ADD COLUMN IF NOT EXISTS compressed boolean NOT NULL DEFAULT false;

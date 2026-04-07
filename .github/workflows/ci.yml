@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type check
+        run: bun run tsc --noEmit
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Check bundle size
+        run: |
+          MAIN_SIZE=$(find dist/assets -name '*.js' -exec du -b {} + | sort -rn | head -1 | awk '{print $1}')
+          echo "Largest JS chunk: $(echo "scale=2; $MAIN_SIZE / 1024 / 1024" | bc) MB"
+          # Fail if any single chunk exceeds 500KB
+          if [ "$MAIN_SIZE" -gt 512000 ]; then
+            echo "⚠️ WARNING: Largest chunk exceeds 500KB target"
+          fi

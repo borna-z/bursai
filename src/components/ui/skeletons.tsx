@@ -1,0 +1,352 @@
+import { motion, useReducedMotion } from 'framer-motion';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import { EASE_CURVE } from '@/lib/motion';
+
+/* ─── Shared stagger wrapper ─── */
+function StaggerIn({ children, index, className }: { children: React.ReactNode; index: number; className?: string }) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduced ? undefined : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.35, ease: EASE_CURVE }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ─── Garment skeletons ─── */
+export function GarmentCardSkeleton({ grid = true }: { grid?: boolean }) {
+  if (!grid) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl">
+        <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden">
+      <Skeleton className="aspect-square w-full" />
+    </div>
+  );
+}
+
+export function GarmentGridSkeleton({ count = 6, grid = true }: { count?: number; grid?: boolean }) {
+  return (
+    <div className={cn(grid ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
+      {Array.from({ length: count }).map((_, i) => (
+        <StaggerIn key={i} index={i}>
+          <GarmentCardSkeleton grid={grid} />
+        </StaggerIn>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Outfit skeletons ─── */
+export function OutfitCardSkeleton() {
+  return (
+    <div className="rounded-xl overflow-hidden p-4 space-y-3">
+      <div className="flex gap-2">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="w-16 h-16 rounded-lg shrink-0" />
+        ))}
+      </div>
+      <Skeleton className="h-4 w-2/3" />
+      <Skeleton className="h-3 w-1/3" />
+    </div>
+  );
+}
+
+export function OutfitListSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <StaggerIn key={i} index={i}>
+          <OutfitCardSkeleton />
+        </StaggerIn>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Insight skeletons ─── */
+export function InsightCardSkeleton() {
+  return (
+    <div className="rounded-xl p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Skeleton className="w-4 h-4 rounded" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+      <Skeleton className="h-2 w-full rounded-full" />
+      <Skeleton className="h-3 w-2/3" />
+    </div>
+  );
+}
+
+export function StatGridSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {[1, 2, 3].map((i) => (
+        <StaggerIn key={i} index={i}>
+          <div className="rounded-xl p-4 text-center space-y-2 border border-border/5">
+            <Skeleton className="h-7 w-10 mx-auto" />
+            <Skeleton className="h-3 w-12 mx-auto" />
+          </div>
+        </StaggerIn>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Home page skeleton — mirrors status strip + workspace + compact modules ─── */
+export function HomePageSkeleton() {
+  return (
+    <div className="space-y-4">
+      <StaggerIn index={0}>
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={1}>
+        <div className="surface-editorial rounded-[1.25rem] p-5 space-y-4">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-8 w-3/5" />
+          <Skeleton className="h-4 w-4/5" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-28 rounded-full" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+            <Skeleton className="h-36 rounded-[1.1rem]" />
+            <div className="space-y-2">
+              <Skeleton className="h-11 rounded-full" />
+              <Skeleton className="h-11 rounded-full" />
+              <Skeleton className="h-24 rounded-[1.1rem]" />
+            </div>
+          </div>
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={2}>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-40 rounded-full" />
+          <Skeleton className="h-10 w-36 rounded-full" />
+          <Skeleton className="h-10 w-32 rounded-full" />
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={3}>
+        <div className="rounded-[1.6rem] border border-border/20 overflow-hidden">
+          <div className="grid grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-none border-0" />
+            ))}
+          </div>
+        </div>
+      </StaggerIn>
+    </div>
+  );
+}
+
+/* ─── Insights page skeleton ─── */
+export function InsightsPageSkeleton() {
+  return (
+    <div className="page-shell page-cluster !pt-4">
+      <StaggerIn index={0}>
+        <div className="surface-editorial rounded-[1.75rem] p-6 space-y-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-10 w-72" />
+              <Skeleton className="h-4 w-80" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+            <Skeleton className="h-10 w-28 rounded-full" />
+          </div>
+          <div className="grid gap-5 lg:grid-cols-[0.82fr_1.18fr]">
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-20 w-32" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-14" />
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-2 rounded-full" />
+                  <Skeleton className="h-2 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={1}>
+        <div className="space-y-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-72" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-28 rounded-[1.2rem]" />
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-24 rounded-[1.2rem]" />
+              <Skeleton className="h-24 rounded-[1.2rem]" />
+            </div>
+          </div>
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={2}>
+        <div className="space-y-4">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-36" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Skeleton className="h-56 rounded-[1.2rem]" />
+            <div className="space-y-5">
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+              <Skeleton className="h-20 rounded-[1.2rem]" />
+            </div>
+          </div>
+        </div>
+      </StaggerIn>
+
+      <StaggerIn index={3}>
+        <div className="space-y-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-40" />
+          <div className="divide-y divide-border/25">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="grid gap-3 py-4 sm:grid-cols-[10px_1fr_auto] sm:items-center">
+                <Skeleton className="hidden h-10 rounded-full sm:block" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-72" />
+                </div>
+                <Skeleton className="h-9 w-32 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </StaggerIn>
+    </div>
+  );
+}
+
+/* ─── Plan page skeleton — includes week strip ─── */
+export function PlanPageSkeleton() {
+  return (
+    <div className="space-y-5">
+      <StaggerIn index={0}>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-28 rounded-full" />
+        </div>
+      </StaggerIn>
+      <StaggerIn index={1}>
+        <div className="surface-secondary rounded-[1.35rem] p-4 space-y-3">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-4/5" />
+        </div>
+      </StaggerIn>
+      <StaggerIn index={2}>
+        <div className="rounded-[1.25rem] overflow-hidden">
+          <div className="grid grid-cols-2 gap-1 p-1">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="aspect-[4/5] rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </StaggerIn>
+      <StaggerIn index={3}>
+        <div className="flex gap-3">
+          <Skeleton className="h-11 flex-1 rounded-xl" />
+          <Skeleton className="h-11 flex-1 rounded-xl" />
+        </div>
+      </StaggerIn>
+    </div>
+  );
+}
+
+/* ─── Week strip skeleton ─── */
+export function WeekStripSkeleton() {
+  return (
+    <div className="flex justify-between gap-1 py-2">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <StaggerIn key={i} index={i}>
+          <div className="flex flex-col items-center gap-1.5">
+            <Skeleton className="h-3 w-6" />
+            <Skeleton className="w-10 h-10 rounded-full" />
+          </div>
+        </StaggerIn>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Settings page skeleton ─── */
+export function SettingsPageSkeleton() {
+  return (
+    <div className="px-6 pb-8 pt-12 space-y-10 max-w-lg mx-auto">
+      <StaggerIn index={0}>
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-16 h-16 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+      </StaggerIn>
+      <StaggerIn index={1}>
+        <div className="rounded-[1.25rem] border border-border/10 overflow-hidden">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="flex items-center gap-3 px-4 py-4 border-b border-border/5 last:border-0">
+              <Skeleton className="w-9 h-9 rounded-xl" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+              <Skeleton className="w-4 h-4" />
+            </div>
+          ))}
+        </div>
+      </StaggerIn>
+    </div>
+  );
+}
+
+/* ─── AI Chat skeleton ─── */
+export function ChatPageSkeleton() {
+  return (
+    <div className="flex-1 px-4 py-6 space-y-6">
+      {[1, 2, 3].map(i => (
+        <StaggerIn key={i} index={i}>
+          <div className={cn("flex gap-3", i % 2 === 0 ? "justify-end" : "")}>
+            <div className={cn("space-y-2 max-w-[80%]", i % 2 === 0 ? "items-end" : "")}>
+              <Skeleton className={cn("h-4", i % 2 === 0 ? "w-32" : "w-48")} />
+              <Skeleton className={cn("h-4", i % 2 === 0 ? "w-24" : "w-40")} />
+              {i === 1 && <Skeleton className="h-4 w-36" />}
+            </div>
+          </div>
+        </StaggerIn>
+      ))}
+    </div>
+  );
+}

@@ -1,0 +1,62 @@
+ <!doctype html>
+<html lang="en">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+     <link rel="manifest" href="/manifest.json" />
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+       <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&family=Space+Grotesk:wght@400;700&family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&family=Space+Grotesk:wght@400;700&family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+   <title>BURS | Your Personal Stylist</title>
+    <meta name="description" content="BURS – your AI stylist that learns your body, style and calendar to suggest outfits that fit your day. Private, smart and built for everyday life." />
+    <meta name="author" content="BURS" />
+    <meta name="theme-color" content="#F5F0E8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
+     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BURS" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.openweathermap.org https://*.sentry.io https://nominatim.openstreetmap.org https://api.open-meteo.com https://archive-api.open-meteo.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self';" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="BURS | Your Personal Stylist" />
+    <meta property="og:description" content="BURS – your AI stylist that learns your style and calendar to suggest the right outfit every day." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="BURS | Your Personal Stylist" />
+    <meta name="twitter:description" content="BURS – your AI stylist that learns your style and calendar to suggest the right outfit every day." />
+    <meta name="twitter:image" content="/og-image.png" />
+  </head>
+ 
+   <body style="background:#F5F0E8">
+   <script>
+   (function(){
+     // Set initial background to prevent flash, then hand off to CSS variable
+     var d=document.documentElement,b=document.body;
+      var storedTheme=localStorage.getItem('burs-theme');
+      if(d.classList.contains('dark')||storedTheme==='dark'||(storedTheme==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)){
+       b.style.background='#0D0D0D';
+     }
+     // Once CSS loads, let the variable take over
+     var s=document.createElement('style');
+     s.textContent='body{background:hsl(var(--background))!important}';
+     d.appendChild(s);
+   })();
+   </script>
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Skip to content</a>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
