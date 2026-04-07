@@ -246,6 +246,13 @@ type RenderPromptEnrichment = {
   hemDetail: string | null;
   rise: string | null;
   legShape: string | null;
+  textOnGarment: string | null;
+  logoDescription: string | null;
+  graphicDescription: string | null;
+  collarStyle: string | null;
+  constructionDetails: string | null;
+  waistband: string | null;
+  colorDescription: string | null;
 };
 
 function normalizeMetadataValue(value: unknown): string | null {
@@ -275,7 +282,24 @@ function extractPromptEnrichment(aiRaw: unknown): RenderPromptEnrichment {
     hemDetail: normalizeMetadataValue(enrichment?.hem_detail),
     rise: normalizeMetadataValue(enrichment?.rise),
     legShape: normalizeMetadataValue(enrichment?.leg_shape),
+    textOnGarment: normalizeMetadataValue(enrichment?.text_on_garment),
+    logoDescription: normalizeMetadataValue(enrichment?.logo_description),
+    graphicDescription: normalizeMetadataValue(enrichment?.graphic_or_print_description),
+    collarStyle: normalizeMetadataValue(enrichment?.collar_style),
+    constructionDetails: normalizeMetadataValue(enrichment?.construction_details),
+    waistband: normalizeMetadataValue(enrichment?.waistband),
+    colorDescription: normalizeMetadataValue(enrichment?.color_description),
   };
+}
+
+function sanitizeEnrichmentValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
 }
 
 function buildGarmentRenderPrompt(garment: {
@@ -308,6 +332,13 @@ function buildGarmentRenderPrompt(garment: {
     enrichment.legShape ? `- Leg shape: ${enrichment.legShape}` : null,
     enrichment.drape ? `- Drape: ${enrichment.drape}` : null,
     enrichment.hemDetail ? `- Hem detail: ${enrichment.hemDetail}` : null,
+    sanitizeEnrichmentValue(enrichment.textOnGarment) ? `- Text on garment (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.textOnGarment)}` : null,
+    sanitizeEnrichmentValue(enrichment.logoDescription) ? `- Logo or brand mark (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.logoDescription)}` : null,
+    sanitizeEnrichmentValue(enrichment.graphicDescription) ? `- Graphic or print (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.graphicDescription)}` : null,
+    enrichment.collarStyle ? `- Collar style: ${enrichment.collarStyle}` : null,
+    sanitizeEnrichmentValue(enrichment.constructionDetails) ? `- Construction details: ${sanitizeEnrichmentValue(enrichment.constructionDetails)}` : null,
+    enrichment.waistband ? `- Waistband: ${enrichment.waistband}` : null,
+    sanitizeEnrichmentValue(enrichment.colorDescription) ? `- Precise color: ${sanitizeEnrichmentValue(enrichment.colorDescription)}` : null,
   ].filter((value): value is string => Boolean(value));
 
   const garmentLabel = garment.subcategory ?? garment.category ?? garment.title;
@@ -323,7 +354,8 @@ function buildGarmentRenderPrompt(garment: {
     '- Show one garment only',
     '- Convert it into a garment-only ghost mannequin / shadow mannequin product render',
     `- ${mannequinPresentationInstruction(mannequinPresentation)}`,
-    '- Preserve the EXACT color, silhouette, proportions, material texture, pattern or print, graphics or logos if present, buttons, zipper, pockets, collar, neckline, sleeves, hem, seams, trim, and all distinctive construction details from the reference image',
+    '- FIDELITY IS THE HIGHEST PRIORITY. Reproduce the garment EXACTLY as it appears in the reference image — same color, silhouette, proportions, material texture, pattern, fit, and every construction detail',
+    '- REPRODUCE ALL LOGOS, TEXT, GRAPHICS, AND BRAND MARKS EXACTLY. If the garment has a logo, brand name, printed text, or graphic — it must appear in the output in the same position, same size, same color, same font. Never remove or alter garment branding.',
     '- Reconstruct hidden interior or occluded garment areas only as needed to complete the garment naturally and realistically',
     '- Remove the person, body, head, skin, hair, hands, mannequin, hanger, props, and the original background completely',
     '- The final image must show the garment only: no visible mannequin head shape, no neck block, no shoulder block, no torso form, no hip or pelvis block, and no visible arms, hands, legs, or feet',
@@ -333,7 +365,11 @@ function buildGarmentRenderPrompt(garment: {
     'Negative requirements:',
     '- No extra garments, no layering, no duplicate pieces',
     '- No redesign, no embellishment, no color shift, no silhouette change, no invented details',
-    '- No text, watermark, labels, packaging, accessories, or decorative props',
+    '- No external text overlays, watermarks, photographer credits, or post-production labels NOT part of the garment itself',
+    '- No packaging, accessories, or decorative props that are not part of the garment',
+    '- Do NOT remove logos, brand names, printed text, or graphics that are part of the garment design',
+    '- No color shift — match the exact color from the reference photo, not a generic version of that color name',
+    '- No simplification — do not smooth out distinctive construction details, stitching patterns, or seam lines',
     '- Return only the edited image',
   ].join('\n');
 }
@@ -602,6 +638,14 @@ serve(async (req) => {
       );
     }
 
+    // ── Re-fetch garment after claim to get latest enrichment data ──
+    const { data: freshGarment } = await supabase
+      .from('garments')
+      .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, original_image_path, image_path')
+      .eq('id', garment.id)
+      .maybeSingle();
+    const garmentForPrompt = freshGarment ?? garment;
+
     // ── Download source image as base64 ──
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('garments')
@@ -668,7 +712,7 @@ serve(async (req) => {
     }
 
     // ── Build prompt ──
-    const prompt = buildGarmentRenderPrompt(garment, mannequinPresentation);
+    const prompt = buildGarmentRenderPrompt(garmentForPrompt, mannequinPresentation);
 
     console.log('render_garment_image Gemini request start', {
       garmentId: garment.id,
