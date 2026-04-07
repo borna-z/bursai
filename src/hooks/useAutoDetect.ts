@@ -113,6 +113,7 @@ export function useAutoDetect({ enabled, videoEl, busy, onStable }: UseAutoDetec
   const [progress, setProgress] = useState(0); // 0–1
   const [framingHint, setFramingHint] = useState<FramingHint>(null);
   const [lockConfidence, setLockConfidence] = useState(0);
+  const [optimalCropRatio, setOptimalCropRatio] = useState(0.7);
   const hintDebounceRef = useRef<FramingHint>(null);
   const hintTimerRef = useRef<number>(0);
 
@@ -245,5 +246,9 @@ export function useAutoDetect({ enabled, videoEl, busy, onStable }: UseAutoDetec
     };
   }, [enabled, videoEl, busy, onStable, getCanvas, setHintDebounced]);
 
-  return { progress, framingHint, lockConfidence };
+  useEffect(() => {
+    setOptimalCropRatio(lockConfidence > 0.55 ? 0.7 : 0.8);
+  }, [lockConfidence]);
+
+  return { progress, framingHint, lockConfidence, optimalCropRatio };
 }
