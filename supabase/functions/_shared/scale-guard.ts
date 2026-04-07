@@ -20,13 +20,14 @@
 export interface RateLimitTier {
   maxPerHour: number;
   maxPerMinute: number;
+  noTierMultiplier?: boolean;
 }
 
 const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   // Expensive AI generation — tight limits
   burs_style_engine:           { maxPerHour: 30, maxPerMinute: 5 },
-  style_chat:                  { maxPerHour: 60, maxPerMinute: 10 },
-  analyze_garment:             { maxPerHour: 40, maxPerMinute: 8 },
+  style_chat:                  { maxPerHour: 60, maxPerMinute: 15 },
+  analyze_garment:             { maxPerHour: 500, maxPerMinute: 30, noTierMultiplier: true },
   generate_garment_images:     { maxPerHour: 20, maxPerMinute: 3 },
   generate_flatlay:            { maxPerHour: 15, maxPerMinute: 3 },
   outfit_photo_feedback:       { maxPerHour: 20, maxPerMinute: 4 },
@@ -58,12 +59,12 @@ export function getRateLimitTier(functionName: string): RateLimitTier {
 }
 
 // ── Subscription-tier multipliers ───────────────────────────────
-// Premium users get 2x the base limits; free users get 50%.
+// Premium users get 2x the base limits; free users get 75%.
 // Cache subscription lookups per-isolate to avoid repeated DB hits.
 type SubscriptionPlan = "free" | "premium";
 
 const TIER_MULTIPLIERS: Record<SubscriptionPlan, number> = {
-  free: 0.5,
+  free: 0.75,
   premium: 2.0,
 };
 
@@ -116,9 +117,9 @@ export async function enforceRateLimit(
   overrides?: Partial<RateLimitTier>,
 ): Promise<{ allowed: true; remaining: { hour: number; minute: number } }> {
   const baseTier = { ...getRateLimitTier(functionName), ...overrides };
-
-  // Resolve subscription plan and apply multiplier
-  const plan = await resolveUserPlan(supabaseAdmin, userId);
+  const plan = baseTier.noTierMultiplier
+    ? 'premium' as const
+    : await resolveUserPlan(supabaseAdmin, userId);
   const tier = applyTierMultiplier(baseTier, plan);
 
   const now = Date.now();
