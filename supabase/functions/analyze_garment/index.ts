@@ -190,6 +190,13 @@ function buildEnrichMessages(imageUrl: string) {
 "versatility_score": 7,
 "color_harmony_notes": "what colors/tones pair well (max 80 chars)",
 "stylist_note": "one-sentence styling insight — how a real stylist would use this piece (max 120 chars)",
+"text_on_garment": "exact text, words, or numbers printed, embroidered, or woven into the garment — include brand names, slogans, numbers. null if none",
+"logo_description": "detailed description of any logo or brand mark — shape, color, placement, approximate size. null if none",
+"graphic_or_print_description": "detailed description of any graphic, artwork, or distinctive print — subject, colors, placement, style. null if solid or simple pattern",
+"collar_style": "spread|button-down|band|mock-neck|cowl|peter-pan|mandarin|none — null if not applicable",
+"construction_details": "notable stitching, seam placement, paneling, pocket style, or construction details — null if standard",
+"waistband": "elasticated|drawstring|button|belt-loops|none — for bottoms only, null otherwise",
+"color_description": "precise color description beyond the basic color name — e.g. 'pale sage green', 'washed indigo', 'off-white cream', 'heather grey'. Match exactly what is visible in the image",
 "confidence": 0.9,
 "refined_title": "improved concise garment title (max 30 chars)"
 }
