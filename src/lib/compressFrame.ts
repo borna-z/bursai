@@ -4,8 +4,8 @@
 export function compressFrame(
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
-  maxDim = 480,
-  quality = 0.5
+  maxDim = 1024,
+  quality = 0.85,
 ): Promise<{ blob: Blob; base64: string }> {
   return new Promise((resolve, reject) => {
     const vw = video.videoWidth;
@@ -40,8 +40,9 @@ export function compressFrame(
 export function compressCenterCrop(
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
-  maxDim = 480,
-  quality = 0.5
+  maxDim = 1024,
+  quality = 0.85,
+  cropRatio = 0.7,
 ): Promise<{ blob: Blob; base64: string }> {
   return new Promise((resolve, reject) => {
     const vw = video.videoWidth;
@@ -49,8 +50,6 @@ export function compressCenterCrop(
     if (vw === 0 || vh === 0) {
       return reject(new Error('Video not ready'));
     }
-    // Crop center 70%
-    const cropRatio = 0.7;
     const sx = Math.round(vw * (1 - cropRatio) / 2);
     const sy = Math.round(vh * (1 - cropRatio) / 2);
     const sw = Math.round(vw * cropRatio);
