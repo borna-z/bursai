@@ -287,10 +287,29 @@ export function triggerGarmentPostSaveIntelligence({
   imageProcessing = { mode: 'edge' },
   skipRender,
 }: TriggerGarmentPostSaveIntelligenceOptions): void {
-  enrichGarmentInBackground(garmentId, storagePath).catch((err) => {
-    logger.error(`[${source}] garment enrichment error (non-blocking):`, err);
-  });
+  const shouldRender = !skipRender && (
+    source === 'add_photo' || source === 'batch_add'
+    || source === 'live_scan' || source === 'manual_enhance'
+  );
 
+  enrichGarmentInBackground(garmentId, storagePath)
+    .then(() => {
+      if (shouldRender) {
+        startGarmentRenderInBackground(garmentId, source).catch((err) => {
+          logger.error(`[${source}] render trigger error (post-enrichment):`, err);
+        });
+      }
+    })
+    .catch((err) => {
+      logger.error(`[${source}] enrichment error:`, err);
+      if (shouldRender) {
+        startGarmentRenderInBackground(garmentId, source).catch((err2) => {
+          logger.error(`[${source}] render trigger error (post-enrichment-failure):`, err2);
+        });
+      }
+    });
+
+  // imageProcessing stays separate and parallel — it does not affect render prompt content
   if (imageProcessing.mode === 'edge' || imageProcessing.mode === 'full') {
     startGarmentImageProcessingInBackground(garmentId, source).catch((err) => {
       logger.error(`[${source}] garment image processing trigger error (non-blocking):`, err);
@@ -298,19 +317,6 @@ export function triggerGarmentPostSaveIntelligence({
   } else if (imageProcessing.mode === 'local') {
     imageProcessing.run().catch((err) => {
       logger.error(`[${source}] local garment image processing error (non-blocking):`, err);
-    });
-  }
-
-  // Gemini render pipeline
-  const shouldRender = !skipRender && (
-    source === 'add_photo'
-    || source === 'batch_add'
-    || source === 'live_scan'
-    || source === 'manual_enhance'
-  );
-  if (shouldRender) {
-    startGarmentRenderInBackground(garmentId, source).catch((err) => {
-      logger.error(`[${source}] garment render trigger error (non-blocking):`, err);
     });
   }
 }
