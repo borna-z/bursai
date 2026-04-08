@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Garment } from '@/hooks/useGarments';
 import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { supabase } from '@/integrations/supabase/client';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { WardrobeGarmentListLayout } from '@/components/wardrobe/GarmentCardSystem';
 
@@ -90,8 +91,16 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
       garmentId: garment.id,
       storagePath: garment.image_path,
       source: 'manual_enhance',
-      imageProcessing: { mode: 'full' },
+      imageProcessing: { mode: 'skip' },
     });
+    supabase
+      .from('garments')
+      .update({
+        image_processing_status: 'ready',
+        image_processing_provider: 'disabled',
+      })
+      .eq('id', garment.id)
+      .then(() => {});
   };
 
   const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {

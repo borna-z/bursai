@@ -284,7 +284,7 @@ export function triggerGarmentPostSaveIntelligence({
   garmentId,
   storagePath,
   source,
-  imageProcessing = { mode: 'edge' },
+  imageProcessing = { mode: 'skip' as const },
   skipRender,
 }: TriggerGarmentPostSaveIntelligenceOptions): void {
   const shouldRender = !skipRender && (
