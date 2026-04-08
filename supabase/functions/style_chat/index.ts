@@ -1226,6 +1226,11 @@ function buildCardFirstStylistText(params: {
       : "I couldn't lock a strong complete look here. Nudge the request a little and I'll rebuild it.";
   }
 
+  if (!outfit && outfitGarments.length > 0) {
+    const garmentNames = outfitGarments.map(g => g.title).join(', ');
+    return `Here's a look built around your wardrobe: ${garmentNames}.`;
+  }
+
   const outfitLine = formatGarmentList(outfitGarments);
   const activeIds = new Set(activeLookGarments.map((garment) => garment.id));
   const changed = outfitGarments.filter((garment) => !activeIds.has(garment.id));
@@ -2232,8 +2237,11 @@ ${refinementContract}`;
       || stylistMode === "OUTFIT_GENERATION"
       || stylistMode === "LOOK_EXPLANATION";
     const renderOutfitCard = renderOutfitCardBase
-      || (isStylingTurn && normalizedReply.outfitIds.length > 0);
-    const resolvedOutfitIds = renderOutfitCard ? normalizedReply.outfitIds : [];
+      || (isStylingTurn && normalizedReply.outfitIds.length > 0)
+      || (isStylingTurn && authoritativeOutfitIds.length > 0);
+    const resolvedOutfitIds = renderOutfitCard
+      ? (normalizedReply.outfitIds.length > 0 ? normalizedReply.outfitIds : authoritativeOutfitIds)
+      : [];
     const activeLookStatus = resolveActiveLookStatus(validatedActiveLookIds, resolvedOutfitIds);
     const usedDeterministicRescue = !validatedUnifiedOutfitIds.length
       && deterministicRescueOutfitIds.length > 0
