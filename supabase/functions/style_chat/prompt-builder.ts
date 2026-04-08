@@ -129,9 +129,13 @@ export function buildModeContract(mode: StylistChatMode, lang: { name: string })
 
   const modeRules: Record<StylistChatMode, string[]> = {
     ACTIVE_LOOK_REFINEMENT: [
-      "- Keep continuity with the active look; preserve unchanged pieces unless directly asked to swap.",
-      "- Make 1-2 high-leverage edits, then explain visual impact (proportion, texture, formality, color harmony).",
-      "- Prioritize edits over full resets.",
+      "- REFINEMENT MODE: The user wants to adjust the current look, not start fresh.",
+      "- The active look garments are the mandatory starting point.",
+      "- Your response MUST reference what changed and why.",
+      "- If the user says 'warmer' — swap to heavier, warmer garments while keeping what still works.",
+      "- If the user says 'more formal' — elevate pieces, never discard the entire look.",
+      "- NEVER silently regenerate a completely different outfit. That is a failure state.",
+      "- Explain the delta: name the changed pieces in plain language.",
       "- Response shape: **What stays** → **What changes** → **Why this improves it**.",
     ],
     GARMENT_FIRST_STYLING: [
