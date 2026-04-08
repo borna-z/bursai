@@ -139,9 +139,8 @@ describe('useAddGarment', () => {
     const t = (key: string) => ({
       'addgarment.ai_success': 'AI ready',
       'addgarment.ai_review': 'Review the detected details.',
-      'addgarment.added': 'Saved.',
-      'addgarment.added_desc': 'Studio-quality image is processing in the background. You can keep adding garments.',
-      'addgarment.added_original_desc': 'Saved with the original photo. You can keep adding garments.',
+      'addgarment.saved_processing': 'Saved, processing details…',
+      'addgarment.saved_render_pending': 'Saved, studio render pending…',
       'addgarment.fill_required': 'Fill required fields',
       'common.something_wrong': 'Something went wrong',
     }[key] ?? key);
@@ -181,9 +180,7 @@ describe('useAddGarment', () => {
       source: 'add_photo',
     }));
     expect(refreshSubscriptionMock).toHaveBeenCalled();
-    expect(toastSuccessMock).toHaveBeenCalledWith('Saved.', {
-      description: 'Studio-quality image is processing in the background. You can keep adding garments.',
-    });
+    expect(toastSuccessMock).toHaveBeenCalledWith('Saved, studio render pending…');
     expect(navigateMock).not.toHaveBeenCalledWith('/wardrobe');
     expect(result.current.step).toBe('upload');
     expect(result.current.showConfirmSheet).toBe(false);
@@ -195,9 +192,8 @@ describe('useAddGarment', () => {
     const t = (key: string) => ({
       'addgarment.ai_success': 'AI ready',
       'addgarment.ai_review': 'Review the detected details.',
-      'addgarment.added': 'Saved.',
-      'addgarment.added_desc': 'Studio-quality image is processing in the background. You can keep adding garments.',
-      'addgarment.added_original_desc': 'Saved with the original photo. You can keep adding garments.',
+      'addgarment.saved_processing': 'Saved, processing details…',
+      'addgarment.saved_render_pending': 'Saved, studio render pending…',
       'addgarment.fill_required': 'Fill required fields',
       'common.something_wrong': 'Something went wrong',
     }[key] ?? key);
@@ -234,8 +230,6 @@ describe('useAddGarment', () => {
       source: 'add_photo',
       imageProcessing: { mode: 'skip' },
     }));
-    expect(toastSuccessMock).toHaveBeenCalledWith('Saved.', {
-      description: 'Saved with the original photo. You can keep adding garments.',
-    });
+    expect(toastSuccessMock).toHaveBeenCalledWith('Saved, processing details…');
   });
 });
