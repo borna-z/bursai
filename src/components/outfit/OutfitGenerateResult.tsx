@@ -37,7 +37,6 @@ interface OutfitGenerateResultProps {
   onPlan: (outfit: GeneratedOutfit) => void;
   onRefineInChat: () => void;
   onRegenerate: () => void;
-  onStartOver: () => void;
   onGarmentClick: (garmentId: string) => void;
   onMissingSlotClick: (slot: string) => void;
 }
@@ -60,7 +59,6 @@ export function OutfitGenerateResult({
   onPlan,
   onRefineInChat,
   onRegenerate,
-  onStartOver,
   onGarmentClick,
   onMissingSlotClick,
 }: OutfitGenerateResultProps) {
