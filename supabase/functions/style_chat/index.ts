@@ -763,7 +763,7 @@ function detectStylistChatMode(params: {
   const hasActiveLook = params.activeLook.garmentIds.length >= 2;
   const hasAnchor = !!params.anchor;
 
-  const SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right)[!.,?\s]*$/i;
+  const SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|ty|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right|good|alright|sweet|neat|bet|word|will do|ah|oh|wow)[!.,?\s]*$/i;
   if (SHORT_RE.test(latestUser.trim())) return "CONVERSATIONAL";
 
   const KNOW_RE = /what.s (a |the )?(french tuck|quiet luxury|capsule wardrobe|smart casual|business casual)|tell me about|how to (wear|style|dress|pair)/i;
@@ -1069,7 +1069,7 @@ serve(async (req) => {
       ? latestUserQuick.content.trim()
       : "";
 
-    const SHORT_RE_QUICK = /^(hi|hey|hello|thanks|thank you|thx|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right)[!.,?\s]*$/i;
+    const SHORT_RE_QUICK = /^(hi|hey|hello|thanks|thank you|thx|ty|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right|good|alright|sweet|neat|bet|word|will do|ah|oh|wow)[!.,?\s]*$/i;
 
     const isQuickConversational = SHORT_RE_QUICK.test(latestUserText)
       && !selected_garment_ids?.length
@@ -1612,9 +1612,12 @@ ${refinementContract}`;
       || stylistMode === "GARMENT_FIRST_STYLING"
       || stylistMode === "OUTFIT_GENERATION"
       || stylistMode === "LOOK_EXPLANATION";
-    const renderOutfitCard = renderOutfitCardBase
-      || (isStylingTurn && normalizedReply.outfitIds.length > 0)
-      || (isStylingTurn && authoritativeOutfitIds.length > 0);
+    const renderOutfitCard =
+      stylistMode !== "CONVERSATIONAL" && (
+        renderOutfitCardBase
+        || (isStylingTurn && normalizedReply.outfitIds.length > 0)
+        || (isStylingTurn && authoritativeOutfitIds.length > 0)
+      );
     const resolvedOutfitIds = renderOutfitCard
       ? (normalizedReply.outfitIds.length > 0 ? normalizedReply.outfitIds : authoritativeOutfitIds)
       : [];
