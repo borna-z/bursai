@@ -1819,6 +1819,20 @@ serve(async (req) => {
       if (pos.length) {
         pairMemoryText = `\nLEARNED PAIRINGS (user saved these before):\n${pos.map((p: any) => `+ ${p}`).join('\n')}`;
       }
+
+      const neg = pairRows
+        .filter((r: any) => r.negative_count > (r.positive_count ?? 0) && r.negative_count >= 2)
+        .slice(0, 4)
+        .map((r: any) => {
+          const a = gById.get(r.garment_a_id)?.title;
+          const b = gById.get(r.garment_b_id)?.title;
+          return a && b ? `${a} + ${b}` : null;
+        })
+        .filter(Boolean);
+
+      if (neg.length) {
+        pairMemoryText += `\nAVOID THESE COMBINATIONS (user rejected these before):\n${neg.map((p: any) => `✗ ${p}`).join('\n')}`;
+      }
     }
 
     const profile = profileRes.data;
