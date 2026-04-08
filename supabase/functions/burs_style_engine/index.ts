@@ -163,6 +163,11 @@ function buildStyleContext(preferences: Record<string, any> | null): string {
   return lines.join(". ");
 }
 
+function isSameOutfit(a: string[], b: string[]): boolean {
+  if (!a.length || !b.length) return false;
+  return JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+}
+
 // ─────────────────────────────────────────────
 // AI REFINEMENT
 // ─────────────────────────────────────────────
@@ -1427,6 +1432,24 @@ serve(async (req) => {
           }
         }
       }
+
+      // Refinement guard: if the chosen outfit is identical to the active look, force a swap
+      if (activeLookGarmentIds.length >= 2) {
+        const chosenIds = chosen.items.map(i => i.garment.id);
+        if (isSameOutfit(chosenIds, activeLookGarmentIds)) {
+          const altIdx = activeCombos.findIndex((c, idx) => {
+            if (idx === chosenIdx) return false;
+            const { complete } = isCompleteOutfit(c.items, weather, 'strict_visible');
+            return complete && !isSameOutfit(c.items.map(i => i.garment.id), activeLookGarmentIds);
+          });
+          if (altIdx >= 0) {
+            chosenIdx = altIdx;
+            chosen = activeCombos[altIdx];
+            console.warn("Refinement guard: chosen outfit was identical to active look, swapped to alt combo", altIdx);
+          }
+        }
+      }
+
       const dc = chosen as DeduplicatedCombo;
       const chosenLayering = validateLayeringCompleteness(chosen.items);
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
