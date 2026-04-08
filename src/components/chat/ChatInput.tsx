@@ -27,8 +27,11 @@ export function ChatInput({
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
+    const messagesEl = el.closest('[class*="overflow-y-auto"]') as HTMLElement | null;
+    const scrollTop = messagesEl?.scrollTop ?? 0;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+    if (messagesEl) messagesEl.scrollTop = scrollTop;
   }, [input]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -36,7 +39,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="px-4 pb-1 pt-2 shrink-0 animate-fade-in">
+    <div className="shrink-0 animate-fade-in px-4 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
       <div className="max-w-lg mx-auto">
         <div className="relative rounded-[1.25rem] border border-border/20 bg-secondary/30 backdrop-blur-xl shadow-[0_-2px_20px_hsl(var(--background)/0.5)]">
           {pendingImage && (
@@ -71,7 +74,7 @@ export function ChatInput({
               placeholder={placeholder}
               disabled={isStreaming}
               rows={1}
-              className="flex-1 resize-none bg-transparent text-[16px] leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/40 max-h-32 min-h-[48px]"
+              className="flex-1 resize-none bg-transparent text-[16px] leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/50 max-h-32 min-h-[48px]"
             />
             <Button
               onClick={onSend}
