@@ -1060,6 +1060,75 @@ serve(async (req) => {
     );
     await enforceRateLimit(serviceClient, user.id, "style_chat");
 
+    // ── Fast path: skip expensive DB queries for trivial conversational turns ──
+    const safeMessagesQuick = (Array.isArray(messages) ? messages : []).slice(-3);
+    const latestUserQuick = safeMessagesQuick
+      .filter((m: any) => m.role === "user")
+      .slice(-1)[0];
+    const latestUserText = typeof latestUserQuick?.content === "string"
+      ? latestUserQuick.content.trim()
+      : "";
+
+    const SHORT_RE_QUICK = /^(hi|hey|hello|thanks|thank you|thx|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right)[!.,?\s]*$/i;
+
+    const isQuickConversational = SHORT_RE_QUICK.test(latestUserText)
+      && !selected_garment_ids?.length
+      && !explicitActiveLook?.anchor_garment_id;
+
+    if (isQuickConversational) {
+      const quickReply = await callBursAI({
+        functionName: "style_chat",
+        messages: [
+          {
+            role: "system",
+            content: `You are a warm personal stylist assistant. The user is chatting casually. Reply naturally in 1-2 sentences maximum in ${lang.name}. Do not mention outfits or clothing unless directly asked.`,
+          },
+          { role: "user", content: latestUserText },
+        ],
+        complexity: "trivial",
+        cacheTtlSeconds: 0,
+        cacheNamespace: "style_chat_quick",
+      });
+
+      const quickText = typeof quickReply.data === "string" ? quickReply.data : "Hey! How can I help you today?";
+
+      const quickActiveLook = explicitActiveLook && typeof explicitActiveLook === "object"
+        ? explicitActiveLook
+        : null;
+
+      const quickEnvelope: StyleChatResponseEnvelope = {
+        kind: "stylist_response",
+        mode: "CONVERSATIONAL",
+        response_kind: "analysis",
+        card_policy: "optional",
+        card_state: "unavailable",
+        assistant_text: quickText,
+        outfit_ids: [],
+        outfit_explanation: "",
+        garment_mentions: [],
+        suggestion_chips: [],
+        truncated: false,
+        active_look_status: quickActiveLook?.garment_ids?.length ? "preserved" : "unavailable",
+        active_look: quickActiveLook?.garment_ids?.length
+          ? {
+              garment_ids: quickActiveLook.garment_ids,
+              explanation: quickActiveLook.explanation ?? null,
+              source: "preserved_conversational",
+              status: "preserved",
+              card_state: "preserved",
+              anchor_garment_id: quickActiveLook.anchor_garment_id ?? null,
+              anchor_locked: quickActiveLook.anchor_locked ?? false,
+            }
+          : { garment_ids: [], explanation: null, source: null, status: "unavailable", card_state: "unavailable", anchor_garment_id: null, anchor_locked: false },
+        fallback_used: false,
+        degraded_reason: null,
+        render_outfit_card: false,
+      };
+
+      log.info("request.complete", { requestId, userId: user.id, stage: "quick_conversational", durationMs: Date.now() - requestStartedAt });
+      return createSseTextResponse(quickEnvelope);
+    }
+
     const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes, negPairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getCalendarContext(supabase, user.id, lang),
@@ -1593,23 +1662,33 @@ ${refinementContract}`;
       suggestion_chips: chips,
       truncated: truncatedByTokenLimit,
       active_look_status: activeLookStatus,
-      active_look: {
-        garment_ids: resolvedOutfitIds,
-        explanation: normalizedReply.outfitExplanation || null,
-        source: resolvedOutfitIds.length > 0
-          ? validatedUnifiedOutfitIds.length > 0
-            ? "unified_stylist_engine"
-            : usedDeterministicRescue
-              ? "deterministic_rescue"
-              : preservedExistingLook
-                ? (activeLook.source || "preserved_active_look")
-                : "style_chat_normalizer"
-          : null,
-        status: activeLookStatus,
-        card_state: cardState,
-        anchor_garment_id: refinementPlan.anchorGarmentId,
-        anchor_locked: refinementPlan.anchorLocked,
-      },
+      active_look: stylistMode === "CONVERSATIONAL" && activeLook.garmentIds.length > 0
+        ? {
+            garment_ids: activeLook.garmentIds,
+            explanation: activeLook.summary || null,
+            source: activeLook.source ?? "preserved_conversational",
+            status: "preserved" as const,
+            card_state: "preserved" as const,
+            anchor_garment_id: refinementPlan.anchorGarmentId,
+            anchor_locked: refinementPlan.anchorLocked,
+          }
+        : {
+            garment_ids: resolvedOutfitIds,
+            explanation: normalizedReply.outfitExplanation || null,
+            source: resolvedOutfitIds.length > 0
+              ? validatedUnifiedOutfitIds.length > 0
+                ? "unified_stylist_engine"
+                : usedDeterministicRescue
+                  ? "deterministic_rescue"
+                  : preservedExistingLook
+                    ? (activeLook.source || "preserved_active_look")
+                    : "style_chat_normalizer"
+              : null,
+            status: activeLookStatus,
+            card_state: cardState,
+            anchor_garment_id: refinementPlan.anchorGarmentId,
+            anchor_locked: refinementPlan.anchorLocked,
+          },
       fallback_used: fallbackUsed,
       degraded_reason: degradedReason,
       render_outfit_card: renderOutfitCard,
