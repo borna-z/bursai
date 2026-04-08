@@ -685,6 +685,10 @@ function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
   const latestUser = normalizeTerm(getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
   if (!latestUser) return { mode: "new_look", raw: "" };
 
+  if (/(start (over|fresh|again|from scratch)|completely different|new outfit|different outfit|something (completely |totally )?different|forget (this|that)|scrap (this|that)|start over|give me something new|new look|try something else)/i.test(latestUser)) {
+    return { mode: "new_look", raw: latestUser };
+  }
+
   if (/(style this garment|style this piece|style this item)/i.test(latestUser)) {
     return { mode: "targeted_refinement", raw: latestUser };
   }

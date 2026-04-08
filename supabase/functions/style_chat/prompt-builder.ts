@@ -133,6 +133,7 @@ export function buildModeContract(mode: StylistChatMode, lang: { name: string })
       "- Make 1-2 high-leverage edits, then explain visual impact (proportion, texture, formality, color harmony).",
       "- Prioritize edits over full resets.",
       "- Response shape: **What stays** → **What changes** → **Why this improves it**.",
+      "- EXCEPTION: If the user explicitly asks to start over or requests a completely different outfit, treat it as a fresh generation — do not force continuity.",
     ],
     GARMENT_FIRST_STYLING: [
       "- Build around the anchor garment first and name why it is the hero.",
