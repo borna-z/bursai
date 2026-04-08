@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
-import { Plus } from 'lucide-react';
+import { Plus, Shirt } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -163,6 +163,26 @@ export default function WardrobePage() {
                   onSelect={setSmartFilter}
                 />
               ) : null}
+
+              {totalCount !== undefined && totalCount >= 1 && totalCount <= 9 && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/wardrobe/add')}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border/15 bg-primary/[0.04] px-4 py-3 text-left transition-colors active:bg-primary/[0.08]"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <Shirt className="h-4 w-4 text-primary/70" />
+                  </div>
+                  <p className="flex-1 text-[13px] leading-snug text-foreground/70">
+                    {totalCount <= 2
+                      ? t('wardrobe.guidance_low')
+                      : t('wardrobe.guidance_growing')}
+                  </p>
+                  <span className="shrink-0 text-[12px] font-medium text-primary/70">
+                    {t('wardrobe.guidance_cta')}
+                  </span>
+                </button>
+              )}
 
               <section className="space-y-4" aria-label={t('wardrobe.inventory_label')}>
                 <GarmentGrid
