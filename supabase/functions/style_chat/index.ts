@@ -1621,7 +1621,9 @@ ${refinementContract}`;
     const resolvedOutfitIds = renderOutfitCard
       ? (normalizedReply.outfitIds.length > 0 ? normalizedReply.outfitIds : authoritativeOutfitIds)
       : [];
-    const activeLookStatus = resolveActiveLookStatus(validatedActiveLookIds, resolvedOutfitIds);
+    const activeLookStatus = stylistMode === "CONVERSATIONAL" && activeLook.garmentIds.length > 0
+      ? "preserved" as const
+      : resolveActiveLookStatus(validatedActiveLookIds, resolvedOutfitIds);
     const usedDeterministicRescue = !validatedUnifiedOutfitIds.length
       && deterministicRescueOutfitIds.length > 0
       && deterministicRescueOutfitIds.length === authoritativeOutfitIds.length
