@@ -1410,18 +1410,27 @@ async function fetchWeather(lat: number, lon: number, lang: typeof LANG_CONFIG[s
 async function getCalendarContext(supabase: ReturnType<typeof createClient>, userId: string, lang: typeof LANG_CONFIG[string]): Promise<string> {
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const { data } = await supabase
     .from("calendar_events")
     .select("title, date, start_time")
     .eq("user_id", userId)
     .gte("date", today)
-    .lte("date", tomorrow)
+    .lte("date", sevenDaysFromNow)
     .order("date")
-    .limit(10);
+    .limit(15);
   if (!data?.length) return "";
-  const lines = data.map((e: { title: string; date: string; start_time: string | null }) =>
-    `- ${e.date === today ? lang.todayLabel : lang.tomorrowLabel}: ${e.title}${e.start_time ? ` ${e.start_time.slice(0, 5)}` : ""}`
-  );
+  const lines = data.map((e: { title: string; date: string; start_time: string | null }) => {
+    let dateLabel: string;
+    if (e.date === today) {
+      dateLabel = lang.todayLabel;
+    } else if (e.date === tomorrow) {
+      dateLabel = lang.tomorrowLabel;
+    } else {
+      dateLabel = new Date(e.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+    }
+    return `- ${dateLabel}: ${e.title}${e.start_time ? ` ${e.start_time.slice(0, 5)}` : ""}`;
+  });
   return `\nCalendar events:\n${lines.join("\n")}`;
 }
 
