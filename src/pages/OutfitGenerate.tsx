@@ -34,6 +34,7 @@ import {
 } from '@/lib/styleFlowState';
 import { buildDayIntelligence } from '@/lib/dayIntelligence';
 import { hapticLight } from '@/lib/haptics';
+import { trackEvent } from '@/lib/analytics';
 import { EASE_CURVE, DURATION_MEDIUM } from '@/lib/motion';
 import { OutfitGenerateResult } from '@/components/outfit/OutfitGenerateResult';
 import { OutfitGeneratePicker, OCCASIONS, STYLES, type GenerationMode } from '@/components/outfit/OutfitGeneratePicker';
@@ -226,6 +227,7 @@ export default function OutfitGeneratePage() {
             .filter((garmentId) => !preferredGarmentIdSet.has(garmentId)),
         ]),
       ]);
+      trackEvent('outfit_generated', { occasion: selectedOccasion, mode: generationMode, result_count: results.length });
       setPhase('done');
     } catch (err) {
       const message = humanizeOutfitGenerationError(
@@ -236,7 +238,6 @@ export default function OutfitGeneratePage() {
       toast.error('Generation failed', { description: message });
     }
   }, [
-    calendarEvents,
     canCreateOutfit,
     excludeIds,
     generateOutfit,
@@ -246,6 +247,7 @@ export default function OutfitGeneratePage() {
     dayContext,
     preferredGarmentIdSet,
     preferredGarmentIds,
+    primaryEvent?.title,
     selectedOccasion,
     selectedStyles,
     weather?.precipitation,
@@ -276,6 +278,7 @@ export default function OutfitGeneratePage() {
     }
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: true } });
+      trackEvent('outfit_saved', { outfit_id: outfit.id, occasion: outfit.occasion });
       toast.success('Outfit saved');
     } catch {
       toast.error('Could not save outfit');
