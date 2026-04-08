@@ -236,7 +236,6 @@ export default function OutfitGeneratePage() {
       toast.error('Generation failed', { description: message });
     }
   }, [
-    calendarEvents,
     canCreateOutfit,
     excludeIds,
     generateOutfit,
@@ -246,6 +245,7 @@ export default function OutfitGeneratePage() {
     dayContext,
     preferredGarmentIdSet,
     preferredGarmentIds,
+    primaryEvent?.title,
     selectedOccasion,
     selectedStyles,
     weather?.precipitation,

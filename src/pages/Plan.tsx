@@ -395,7 +395,13 @@ export default function PlanPage() {
               className="h-11 w-full rounded-full"
               onClick={() => emptyWeek ? setQuickPlanSheetOpen(true) : setQuickGenerateSheetOpen(true)}
             >
-              {emptyWeek ? t('plan.plan_the_week') : t('plan.plan_this_day')}
+              {emptyWeek
+                ? t('plan.plan_the_week')
+                : isToday(selectedDate)
+                  ? t('plan.plan_for_tonight')
+                  : isTomorrow(selectedDate)
+                    ? t('plan.plan_for_tomorrow')
+                    : t('plan.plan_this_day')}
             </Button>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -560,7 +566,7 @@ export default function PlanPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-semibold text-foreground">
-                  {t('plan.ai_plan_week') || 'Let AI plan your whole week'}
+                  {t('plan.ai_plan_week')}
                 </p>
               </div>
             </button>
