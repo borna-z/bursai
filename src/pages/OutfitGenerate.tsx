@@ -7,8 +7,9 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
-import { useFlatGarments } from '@/hooks/useGarments';
+import { useFlatGarments, type Garment } from '@/hooks/useGarments';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { useCachedSignedUrl } from '@/hooks/useSignedUrlCache';
 import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
@@ -291,30 +292,9 @@ export default function OutfitGeneratePage() {
             {/* Pulsing garment thumbnails */}
             {previewGarments.length > 0 && (
               <div className="flex items-center justify-center gap-3">
-                {previewGarments.map((g, i) => {
-                  const src = getPreferredGarmentImagePath(g);
-                  if (!src) return null;
-                  return (
-                    <motion.div
-                      key={g.id}
-                      animate={prefersReduced ? {} : { opacity: [0.4, 0.85, 0.4] }}
-                      transition={{
-                        duration: 2.2,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                        delay: i * 0.35,
-                      }}
-                      className="h-16 w-16 rounded-[0.9rem] overflow-hidden shrink-0 border border-border/20"
-                    >
-                      <img
-                        src={src}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        style={{ filter: 'blur(0.5px)' }}
-                      />
-                    </motion.div>
-                  );
-                })}
+                {previewGarments.map((g, i) => (
+                  <GeneratingThumb key={g.id} garment={g} index={i} prefersReduced={!!prefersReduced} />
+                ))}
               </div>
             )}
 
@@ -501,5 +481,41 @@ export default function OutfitGeneratePage() {
       />
     </AppLayout>
     </PageErrorBoundary>
+  );
+}
+
+/* ── GeneratingThumb ─────────────────────────────────────── */
+
+function GeneratingThumb({
+  garment,
+  index,
+  prefersReduced,
+}: {
+  garment: Garment;
+  index: number;
+  prefersReduced: boolean;
+}) {
+  const imagePath = getPreferredGarmentImagePath(garment);
+  const { signedUrl, setRef } = useCachedSignedUrl(imagePath);
+  if (!signedUrl) return null;
+  return (
+    <motion.div
+      ref={setRef}
+      animate={prefersReduced ? {} : { opacity: [0.4, 0.85, 0.4] }}
+      transition={{
+        duration: 2.2,
+        repeat: Infinity,
+        ease: 'easeInOut',
+        delay: index * 0.35,
+      }}
+      className="h-16 w-16 rounded-[0.9rem] overflow-hidden shrink-0 border border-border/20"
+    >
+      <img
+        src={signedUrl}
+        alt=""
+        className="h-full w-full object-cover"
+        style={{ filter: 'blur(0.5px)' }}
+      />
+    </motion.div>
   );
 }
