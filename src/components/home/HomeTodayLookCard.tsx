@@ -13,6 +13,7 @@ interface HomeTodayLookCardProps {
   todayOutfit: OutfitWithItems | null;
   garmentCount: number;
   weatherSummary: string | null;
+  contextLine?: string | null;
   onPrimaryAction: () => void;
   onSecondaryAction: () => void;
   onOutfitTap?: () => void;
@@ -100,6 +101,7 @@ export function HomeTodayLookCard({
   todayOutfit,
   garmentCount,
   weatherSummary,
+  contextLine,
   onPrimaryAction,
   onSecondaryAction,
   onOutfitTap,
@@ -109,31 +111,84 @@ export function HomeTodayLookCard({
   const { t } = useLanguage();
 
   if (state === 'empty_wardrobe') {
+    const count = garmentCount ?? 0;
+    const onboardingSteps = [
+      {
+        threshold: 1,
+        label: t('home.onboarding_step1_label'),
+        sub: t('home.onboarding_step1_sub'),
+      },
+      {
+        threshold: 5,
+        label: t('home.onboarding_step2_label'),
+        sub: t('home.onboarding_step2_sub'),
+      },
+      {
+        threshold: 10,
+        label: t('home.onboarding_step3_label'),
+        sub: t('home.onboarding_step3_sub'),
+      },
+    ];
+    // Active = first step whose threshold hasn't been met
+    const activeIndex = onboardingSteps.findIndex((s) => count < s.threshold);
+
     return (
       <div className="relative overflow-hidden pb-1">
         <div className="space-y-3">
           <div className="space-y-1">
             <p className="caption-upper text-muted-foreground/55">
-              {t('home.command_status_setup') || 'Getting started'}
+              {t('home.command_status_setup')}
             </p>
             <h2 className="font-display italic text-[1.2rem] leading-tight tracking-[-0.02em] text-foreground">
-              {t('home.setup_title') || 'Build your wardrobe'}
+              {t('home.setup_title')}
             </h2>
-            <p className="max-w-[30ch] text-[0.85rem] leading-5 text-muted-foreground">
-              {t('home.setup_desc') || 'Add at least 3 pieces to unlock your first outfit.'}
-            </p>
           </div>
 
-          <div className="premium-inline-stat flex items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary/60">
-              <div
-                className="h-full rounded-full bg-accent"
-                style={{ width: `${Math.min(100, ((garmentCount ?? 0) / 3) * 100)}%` }}
-              />
-            </div>
-            <span className="text-[12px] font-medium text-muted-foreground/60">
-              {garmentCount}/3
-            </span>
+          <div className="space-y-2.5">
+            {onboardingSteps.map((step, i) => {
+              const isActive = i === activeIndex;
+              const isAchieved = activeIndex === -1 || i < activeIndex;
+              return (
+                <div key={step.threshold} className="flex items-center gap-3">
+                  {/* Step indicator dot */}
+                  <div className="flex shrink-0 items-center justify-center">
+                    {isAchieved ? (
+                      <div className="h-2 w-2 rounded-full bg-primary" />
+                    ) : isActive ? (
+                      <div className="h-2 w-2 rounded-full bg-primary ring-2 ring-primary/30 ring-offset-1 ring-offset-background" />
+                    ) : (
+                      <div className="h-2 w-2 rounded-full bg-muted-foreground/25" />
+                    )}
+                  </div>
+                  {/* Step text */}
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className={
+                        isActive
+                          ? 'text-[0.82rem] font-semibold text-primary'
+                          : isAchieved
+                            ? 'text-[0.82rem] font-medium text-foreground/70'
+                            : 'text-[0.82rem] font-medium text-muted-foreground/40'
+                      }
+                    >
+                      {step.label}
+                    </span>
+                    <span
+                      className={
+                        isActive
+                          ? ' text-[0.78rem] text-muted-foreground'
+                          : isAchieved
+                            ? ' text-[0.78rem] text-muted-foreground/50'
+                            : ' text-[0.78rem] text-muted-foreground/30'
+                      }
+                    >
+                      {' — '}
+                      {step.sub}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <ActionRow
@@ -176,8 +231,10 @@ export function HomeTodayLookCard({
           {/* 4-across garment thumbnails — tappable */}
           <OutfitThumbnailRow items={todayOutfit.outfit_items} onTap={onOutfitTap} />
 
-          {/* Weather meta */}
-          {weatherSummary ? (
+          {/* Context line */}
+          {contextLine ? (
+            <p className="text-[0.8rem] leading-snug text-muted-foreground/70">{contextLine}</p>
+          ) : weatherSummary ? (
             <p className="text-[0.78rem] text-muted-foreground/60">{weatherSummary}</p>
           ) : null}
 
@@ -216,6 +273,10 @@ export function HomeTodayLookCard({
               : t('home.no_outfit_desc') || 'Generate a look for today in seconds.'}
           </p>
         </div>
+
+        {contextLine ? (
+          <p className="text-[0.8rem] leading-snug text-muted-foreground/70">{contextLine}</p>
+        ) : null}
 
         <div className="premium-action-row">
           <Button
