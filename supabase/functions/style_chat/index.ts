@@ -1593,23 +1593,33 @@ ${refinementContract}`;
       suggestion_chips: chips,
       truncated: truncatedByTokenLimit,
       active_look_status: activeLookStatus,
-      active_look: {
-        garment_ids: resolvedOutfitIds,
-        explanation: normalizedReply.outfitExplanation || null,
-        source: resolvedOutfitIds.length > 0
-          ? validatedUnifiedOutfitIds.length > 0
-            ? "unified_stylist_engine"
-            : usedDeterministicRescue
-              ? "deterministic_rescue"
-              : preservedExistingLook
-                ? (activeLook.source || "preserved_active_look")
-                : "style_chat_normalizer"
-          : null,
-        status: activeLookStatus,
-        card_state: cardState,
-        anchor_garment_id: refinementPlan.anchorGarmentId,
-        anchor_locked: refinementPlan.anchorLocked,
-      },
+      active_look: stylistMode === "CONVERSATIONAL" && explicitActiveLook?.garment_ids?.length
+        ? {
+            garment_ids: explicitActiveLook.garment_ids,
+            explanation: explicitActiveLook.explanation ?? null,
+            source: explicitActiveLook.source ?? "preserved_conversational",
+            status: "preserved" as const,
+            card_state: "preserved" as const,
+            anchor_garment_id: explicitActiveLook.anchor_garment_id ?? null,
+            anchor_locked: explicitActiveLook.anchor_locked ?? false,
+          }
+        : {
+            garment_ids: resolvedOutfitIds,
+            explanation: normalizedReply.outfitExplanation || null,
+            source: resolvedOutfitIds.length > 0
+              ? validatedUnifiedOutfitIds.length > 0
+                ? "unified_stylist_engine"
+                : usedDeterministicRescue
+                  ? "deterministic_rescue"
+                  : preservedExistingLook
+                    ? (activeLook.source || "preserved_active_look")
+                    : "style_chat_normalizer"
+              : null,
+            status: activeLookStatus,
+            card_state: cardState,
+            anchor_garment_id: refinementPlan.anchorGarmentId,
+            anchor_locked: refinementPlan.anchorLocked,
+          },
       fallback_used: fallbackUsed,
       degraded_reason: degradedReason,
       render_outfit_card: renderOutfitCard,
