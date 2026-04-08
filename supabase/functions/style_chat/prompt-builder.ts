@@ -110,16 +110,26 @@ export function buildThreadBrief(
   const latestUser = userTurns[userTurns.length - 1] || "";
   const priorGoals = userTurns.slice(0, -1).slice(-1);
 
+  // Active look titles — only titles here; full garment spec lines live in refinementContract
+  // to avoid duplicating detailed data that's already in the system prompt.
+  const activeLookTitles = activeLook?.garmentIds && activeLook.garmentIds.length >= 2
+    ? activeLook.garmentIds
+        .map((_id, i) => activeLook.garmentLines[i]
+          ? activeLook.garmentLines[i].replace(/^•\s*/, "").split(" [ID:")[0].trim()
+          : null)
+        .filter(Boolean)
+        .join(" + ")
+    : null;
+
+  // Last refinement intent — not stated elsewhere in system prompt; used to prevent topic resets
+  const intentLabel = refinementIntent && refinementIntent.mode !== "new_look" ? refinementIntent.mode : null;
+
   const lines = [
     latestUser ? `Latest user ask: ${latestUser}` : "",
     priorGoals.length ? `Recent user goals: ${priorGoals.join(" | ")}` : "",
     anchor ? `Current anchor garment: ${anchor.title} [ID:${anchor.id}]` : "No confirmed anchor garment yet.",
-    activeLook && activeLook.garmentIds.length > 0
-      ? `Active look garments (${activeLook.garmentIds.length}): ${activeLook.summary || activeLook.garmentIds.join(", ")}`
-      : "",
-    refinementIntent && refinementIntent.mode !== "new_look"
-      ? `Refinement instruction: ${refinementIntent.mode}${refinementIntent.raw ? ` — "${refinementIntent.raw}"` : ""}`
-      : "",
+    activeLookTitles ? `Active look: ${activeLookTitles}` : "",
+    intentLabel ? `Last refinement intent: ${intentLabel}` : "",
   ].filter(Boolean);
 
   return lines.length ? `THREAD BRIEF:\n${lines.join("\n")}` : "";
