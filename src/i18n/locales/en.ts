@@ -754,6 +754,8 @@ const en: Record<string, string> = {
     'addgarment.phase_style': 'Identifying style',
     'addgarment.phase_done': 'Done!',
     'addgarment.retry': 'Try again',
+    'addgarment.quick_save': 'Add to wardrobe',
+    'addgarment.edit_details': 'Edit details',
     'batch.title': 'Batch upload',
     'batch.upload_multiple': 'Upload multiple images',
     'batch.limited_to': 'Limited to',

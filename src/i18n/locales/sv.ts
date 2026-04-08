@@ -609,6 +609,8 @@ const sv: Record<string, string> = {
     'addgarment.phase_style': 'Identifierar stil',
     'addgarment.phase_done': 'Klart!',
     'addgarment.retry': 'Försök igen',
+    'addgarment.quick_save': 'Lägg till i garderoben',
+    'addgarment.edit_details': 'Redigera detaljer',
 
     // Batch upload
     'batch.title': 'Batch-uppladdning',

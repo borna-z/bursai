@@ -83,6 +83,7 @@ export default function AddGarmentPage() {
         imagePreview={garment.imagePreview}
         aiAnalysis={garment.aiAnalysis}
         storagePath={garment.storagePath}
+        showCompact={Boolean(garment.aiAnalysis)}
         isAnalyzing={garment.isAnalyzing}
         isLoading={garment.isLoading}
         title={garment.title}
