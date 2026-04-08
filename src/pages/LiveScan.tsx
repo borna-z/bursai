@@ -502,11 +502,11 @@ export default function LiveScan() {
   const handleAcceptedDone = useCallback(() => {
     setShowAccepted(false);
     clearLastAccepted();
-    toast.success(t('scan.added'), {
-      description: lastAccepted?.studioQualityEnabled
-        ? 'Studio-quality image is processing in the background. You can keep scanning.'
-        : 'Saved with the original photo. You can keep scanning.',
-    });
+    toast.success(
+      lastAccepted?.studioQualityEnabled
+        ? t('addgarment.saved_render_pending')
+        : t('addgarment.saved_processing'),
+    );
   }, [clearLastAccepted, lastAccepted, t]);
 
   const handleDone = useCallback(async () => {

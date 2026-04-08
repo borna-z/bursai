@@ -622,6 +622,8 @@ const sv: Record<string, string> = {
     'addgarment.retry': 'Försök igen',
     'addgarment.quick_save': 'Lägg till i garderoben',
     'addgarment.edit_details': 'Redigera detaljer',
+    'addgarment.saved_processing': 'Sparad, behandlar detaljer…',
+    'addgarment.saved_render_pending': 'Sparad, studiorendering väntar…',
 
     // Batch upload
     'batch.title': 'Batch-uppladdning',

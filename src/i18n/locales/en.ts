@@ -2695,6 +2695,8 @@ const en: Record<string, string> = {
     'addgarment.analyzing_title': 'Reviewing your piece.',
     'addgarment.added': 'Added to wardrobe',
     'addgarment.added_desc': 'Cleanup finishes automatically.',
+    'addgarment.saved_processing': 'Saved, processing details…',
+    'addgarment.saved_render_pending': 'Saved, studio render pending…',
 
     // Settings page
     'settings.page_title': 'Settings',
