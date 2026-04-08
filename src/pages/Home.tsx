@@ -119,10 +119,12 @@ export default function HomePage() {
     return null;
   }, [calendarEvents, weather, garmentCount, t]);
 
+  const hasUpcomingEvent = (calendarEvents?.length ?? 0) > 0;
+
   const shortcuts = useMemo(() => ([
-    { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
     { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
     { label: t('home.shortcut_plan'), icon: CalendarDays, path: '/plan' },
+    { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
     { label: t('home.shortcut_travel_capsule'), icon: Luggage, path: '/plan/travel-capsule' },
     { label: t('home.shortcut_discover'), icon: Heart, path: '/ai/mood' },
     { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/gaps' },
@@ -160,11 +162,17 @@ export default function HomePage() {
         onClick: () => navigate('/ai/generate'),
       };
     }
+    if (hasUpcomingEvent) {
+      return {
+        label: t('home.action_open_plan'),
+        onClick: () => navigate('/plan'),
+      };
+    }
     return {
-      label: t('home.action_open_plan'),
-      onClick: () => navigate('/plan'),
+      label: t('home.action_ask_stylist'),
+      onClick: () => navigate('/ai/chat'),
     };
-  }, [homeState, navigate, todayOutfit, t]);
+  }, [homeState, navigate, todayOutfit, hasUpcomingEvent, t]);
 
 
   if (homeState === 'loading') {

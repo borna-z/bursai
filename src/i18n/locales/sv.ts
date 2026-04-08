@@ -311,6 +311,7 @@ const sv: Record<string, string> = {
     'common.see_all': 'Visa alla',
     'home.more_for_you': 'Mer för dig',
 
+    'home.action_ask_stylist': 'Fråga stylisten',
     'home.context_weather_event': '{temp}° och {event} senare — klä dig för båda.',
     'home.context_event': '{event} idag — något att klä sig för.',
     'home.context_weather': '{temp}° och {condition} — ha det i åtanke.',
