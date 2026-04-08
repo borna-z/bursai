@@ -90,7 +90,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
       garmentId: garment.id,
       storagePath: garment.image_path,
       source: 'manual_enhance',
-      imageProcessing: { mode: 'full' },
+      imageProcessing: { mode: 'skip' },
     });
   };
 
