@@ -1286,10 +1286,10 @@ serve(async (req) => {
     }
     const identityBlock = identityParts.join("\n");
 
-    const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor);
     const activeLook = buildActiveLookContext(safeMessages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
     const latestUser = normalizeTerm(getMessageText(safeMessages.filter((message: any) => message.role === "user").slice(-1)[0]?.content || ""));
     const refinementIntent = detectRefinementIntent(safeMessages as MessageInput[]);
+    const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor, activeLook, refinementIntent);
     const styleIntent = resolveStyleChatIntentFromSignals({
       latestUser,
       hasActiveLook: activeLook.garmentIds.length >= 2,

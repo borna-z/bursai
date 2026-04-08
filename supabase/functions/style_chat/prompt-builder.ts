@@ -99,7 +99,12 @@ export function buildVisualReasoning(garments: GarmentRecord[], locale: string):
 
 // ── thread brief ───────────────────────────────────────────────────────────
 
-export function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord | null): string {
+export function buildThreadBrief(
+  messages: MessageInput[],
+  anchor: GarmentRecord | null,
+  activeLook?: ActiveLookContext | null,
+  refinementIntent?: RefinementIntent | null,
+): string {
   const recent = messages.slice(-4);
   const userTurns = recent.filter((m) => m.role === "user").map((m) => getMessageText(m.content)).filter(Boolean);
   const latestUser = userTurns[userTurns.length - 1] || "";
@@ -109,6 +114,12 @@ export function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord
     latestUser ? `Latest user ask: ${latestUser}` : "",
     priorGoals.length ? `Recent user goals: ${priorGoals.join(" | ")}` : "",
     anchor ? `Current anchor garment: ${anchor.title} [ID:${anchor.id}]` : "No confirmed anchor garment yet.",
+    activeLook && activeLook.garmentIds.length > 0
+      ? `Active look garments (${activeLook.garmentIds.length}): ${activeLook.summary || activeLook.garmentIds.join(", ")}`
+      : "",
+    refinementIntent && refinementIntent.mode !== "new_look"
+      ? `Refinement instruction: ${refinementIntent.mode}${refinementIntent.raw ? ` — "${refinementIntent.raw}"` : ""}`
+      : "",
   ].filter(Boolean);
 
   return lines.length ? `THREAD BRIEF:\n${lines.join("\n")}` : "";
