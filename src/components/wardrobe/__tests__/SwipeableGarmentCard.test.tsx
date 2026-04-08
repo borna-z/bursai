@@ -135,7 +135,7 @@ describe('SwipeableGarmentCard', () => {
       garmentId: 'g1',
       storagePath: 'img.jpg',
       source: 'manual_enhance',
-      imageProcessing: { mode: 'full' },
+      imageProcessing: { mode: 'skip' },
     });
     expect(navigateMock).not.toHaveBeenCalled();
     expect(screen.getByText('Refining...')).toBeInTheDocument();
