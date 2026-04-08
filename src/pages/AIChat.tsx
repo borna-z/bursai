@@ -660,7 +660,7 @@ export default function AIChat() {
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
-      <div className="absolute inset-0 flex flex-col overflow-hidden pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <div className="fixed inset-0 flex flex-col overflow-hidden">
         <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[56px]">
           <div className="w-10" />
           <div className="flex flex-col items-center gap-0">
@@ -734,7 +734,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-5 space-y-6">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-5 space-y-6 overscroll-contain">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
@@ -827,7 +827,6 @@ export default function AIChat() {
           isStreaming={isStreaming}
           isUploading={isUploading}
         />
-        <div className="h-[max(env(safe-area-inset-bottom),0.5rem)] shrink-0" />
       </div>
     </AppLayout>
     </PageErrorBoundary>
