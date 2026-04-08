@@ -99,16 +99,37 @@ export function buildVisualReasoning(garments: GarmentRecord[], locale: string):
 
 // ── thread brief ───────────────────────────────────────────────────────────
 
-export function buildThreadBrief(messages: MessageInput[], anchor: GarmentRecord | null): string {
+export function buildThreadBrief(
+  messages: MessageInput[],
+  anchor: GarmentRecord | null,
+  activeLook?: ActiveLookContext | null,
+  refinementIntent?: RefinementIntent | null,
+): string {
   const recent = messages.slice(-4);
   const userTurns = recent.filter((m) => m.role === "user").map((m) => getMessageText(m.content)).filter(Boolean);
   const latestUser = userTurns[userTurns.length - 1] || "";
   const priorGoals = userTurns.slice(0, -1).slice(-1);
 
+  // Active look titles — only titles here; full garment spec lines live in refinementContract
+  // to avoid duplicating detailed data that's already in the system prompt.
+  const activeLookTitles = activeLook?.garmentIds && activeLook.garmentIds.length >= 2
+    ? activeLook.garmentIds
+        .map((_id, i) => activeLook.garmentLines[i]
+          ? activeLook.garmentLines[i].replace(/^•\s*/, "").split(" [ID:")[0].trim()
+          : null)
+        .filter(Boolean)
+        .join(" + ")
+    : null;
+
+  // Last refinement intent — not stated elsewhere in system prompt; used to prevent topic resets
+  const intentLabel = refinementIntent && refinementIntent.mode !== "new_look" ? refinementIntent.mode : null;
+
   const lines = [
     latestUser ? `Latest user ask: ${latestUser}` : "",
     priorGoals.length ? `Recent user goals: ${priorGoals.join(" | ")}` : "",
     anchor ? `Current anchor garment: ${anchor.title} [ID:${anchor.id}]` : "No confirmed anchor garment yet.",
+    activeLookTitles ? `Active look: ${activeLookTitles}` : "",
+    intentLabel ? `Last refinement intent: ${intentLabel}` : "",
   ].filter(Boolean);
 
   return lines.length ? `THREAD BRIEF:\n${lines.join("\n")}` : "";
@@ -132,6 +153,10 @@ export function buildModeContract(mode: StylistChatMode, lang: { name: string })
       "- Keep continuity with the active look; preserve unchanged pieces unless directly asked to swap.",
       "- Make 1-2 high-leverage edits, then explain visual impact (proportion, texture, formality, color harmony).",
       "- Prioritize edits over full resets.",
+      "- Your response MUST name which garments changed versus which stayed.",
+      '- Examples: "I swapped the blazer for a heavier coat and kept the rest." or "Changed the trousers to something darker — everything else works."',
+      "- If you kept the same outfit, say something changed anyway. Identical output is a failure.",
+      "- Keep the explanation to 1-2 sentences. Do not write an essay.",
       "- Response shape: **What stays** → **What changes** → **Why this improves it**.",
     ],
     GARMENT_FIRST_STYLING: [

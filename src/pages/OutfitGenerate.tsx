@@ -401,6 +401,7 @@ export default function OutfitGeneratePage() {
               prefersReduced={prefersReduced}
               isMarkingWorn={markWorn.isPending}
               isGenerating={isGenerating}
+              t={t}
               onWearToday={handleWearToday}
               onSave={handleSaveOutfit}
               onPlan={handlePlanOutfit}
