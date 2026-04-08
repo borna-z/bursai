@@ -48,15 +48,15 @@ const THINKING_KEYS = [
   'generate.thinking_4',
 ] as const;
 
-function useGeneratingMessage(t: (key: string) => string, active: boolean) {
+function useGeneratingMessage(t: (key: string) => string, active: boolean, prefersReduced: boolean) {
   const [index, setIndex] = useState(0);
   useEffect(() => {
-    if (!active) { setIndex(0); return; }
+    if (!active || prefersReduced) { setIndex(0); return; }
     const id = setInterval(() => {
       setIndex((i) => (i + 1) % THINKING_KEYS.length);
     }, 2500);
     return () => clearInterval(id);
-  }, [active]);
+  }, [active, prefersReduced]);
   return t(THINKING_KEYS[index]);
 }
 
@@ -109,7 +109,7 @@ export default function OutfitGeneratePage() {
     return prefilledStyles.filter((style): style is string => STYLES.includes(style as typeof STYLES[number])).slice(0, 2);
   });
   const prefersReduced = useReducedMotion();
-  const generatingMessage = useGeneratingMessage(t, phase === 'generating');
+  const generatingMessage = useGeneratingMessage(t, phase === 'generating', !!prefersReduced);
   const { data: allGarments } = useFlatGarments();
   const previewGarments = useMemo(
     () => (allGarments ?? []).slice(0, 4),
