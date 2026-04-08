@@ -1131,6 +1131,11 @@ const sv: Record<string, string> = {
     'generate.thinking_2': 'Tänker på tillfället...',
     'generate.thinking_3': 'Sätter ihop plagg...',
     'generate.thinking_4': 'Nästan klart...',
+    'generate.result_save': 'Spara look',
+    'generate.result_plan': 'Planera',
+    'generate.result_wear_today': 'Bär idag',
+    'generate.result_refine': 'Förfina',
+    'generate.result_try_another': 'Prova en annan look',
 
     // Calendar Section
     'calendar.title': 'Kalendersynk',

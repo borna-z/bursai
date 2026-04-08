@@ -32,6 +32,7 @@ interface OutfitGenerateResultProps {
   prefersReduced: boolean | null;
   isMarkingWorn: boolean;
   isGenerating: boolean;
+  t: (key: string) => string;
   onWearToday: () => void;
   onSave: (outfit: GeneratedOutfit) => void;
   onPlan: (outfit: GeneratedOutfit) => void;
@@ -55,6 +56,7 @@ export function OutfitGenerateResult({
   prefersReduced,
   isMarkingWorn,
   isGenerating,
+  t,
   onWearToday,
   onSave,
   onPlan,
@@ -163,48 +165,51 @@ export function OutfitGenerateResult({
         </div>
       )}
 
-      {/* ── V4 CTA row ── */}
+      {/* ── CTA row — Save is dominant, Plan + Wear today secondary, Refine ghost ── */}
       <motion.div
         initial={prefersReduced ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
         className="mt-8 space-y-3"
       >
+        {/* Primary: Save */}
         <Button
-          onClick={() => { hapticLight(); onWearToday(); }}
-          disabled={isMarkingWorn}
+          onClick={() => { hapticLight(); onSave(primary); }}
           variant="editorial"
           className="h-12 w-full rounded-full text-[15px] font-medium font-body"
           size="lg"
         >
-          {isMarkingWorn ? 'Logging…' : 'Wear today'}{/* i18n-ignore */}
+          <Bookmark className="w-4 h-4 mr-2" />
+          {t('generate.result_save')}
         </Button>
 
+        {/* Secondary: Plan + Wear today */}
         <div className="flex gap-2">
-          <Button
-            onClick={() => { hapticLight(); onSave(primary); }}
-            variant="outline"
-            className="flex-1 h-11 rounded-full text-[13px] font-body border-border/40"
-          >
-            <Bookmark className="w-4 h-4 mr-1.5" />
-            Save
-          </Button>
           <Button
             onClick={() => { hapticLight(); onPlan(primary); }}
             variant="outline"
             className="flex-1 h-11 rounded-full text-[13px] font-body border-border/40"
           >
             <CalendarDays className="w-4 h-4 mr-1.5" />
-            Plan
+            {t('generate.result_plan')}
+          </Button>
+          <Button
+            onClick={() => { hapticLight(); onWearToday(); }}
+            disabled={isMarkingWorn}
+            variant="outline"
+            className="flex-1 h-11 rounded-full text-[13px] font-body border-border/40"
+          >
+            {isMarkingWorn ? '…' : t('generate.result_wear_today')}
           </Button>
         </div>
 
+        {/* Tertiary: Refine */}
         <Button
           onClick={() => { hapticLight(); onRefineInChat(); }}
           variant="ghost"
           className="h-10 w-full text-[13px] font-body text-muted-foreground/60"
         >
-          Refine in chat
+          {t('generate.result_refine')}
         </Button>
       </motion.div>
 
@@ -217,7 +222,7 @@ export function OutfitGenerateResult({
           className="h-11 w-full rounded-full border-border/40 bg-background/80 text-[13px] font-medium text-foreground"
         >
           <Sparkles className="w-4 h-4 mr-2" />
-          Try another look
+          {t('generate.result_try_another')}
         </Button>
       </div>
 
