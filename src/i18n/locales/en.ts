@@ -310,6 +310,7 @@ const en: Record<string, string> = {
     'home.action_open_wardrobe': 'Open wardrobe',
     'home.action_open_outfit': 'Open outfit',
     'home.action_open_plan': 'Open plan',
+    'home.action_ask_stylist': 'Ask stylist',
     'home.section_utilities': 'Utilities',
     'home.section_utilities_sub': 'Ask or pack',
     'home.prefill_help_style': 'Help me style today.',
