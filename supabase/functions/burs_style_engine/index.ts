@@ -1450,6 +1450,24 @@ serve(async (req) => {
         }
       }
 
+      // Build refinement delta when active look is present
+      let refinementDelta: { kept: string[]; swapped: { from: string; to: string }[] } | undefined;
+      if (activeLookGarmentIds.length >= 2) {
+        const chosenIds = new Set(chosen.items.map(i => i.garment.id));
+        const prevSet = new Set(activeLookGarmentIds);
+        const garmentMap = new Map(garments.map(g => [g.id, g.title || g.category || g.id]));
+        const kept = activeLookGarmentIds.filter(id => chosenIds.has(id)).map(id => garmentMap.get(id) || id);
+        const removed = activeLookGarmentIds.filter(id => !chosenIds.has(id));
+        const added = chosen.items.filter(i => !prevSet.has(i.garment.id));
+        const swapped = removed.map((rid, idx) => ({
+          from: garmentMap.get(rid) || rid,
+          to: idx < added.length ? (added[idx].garment.title || added[idx].garment.category || added[idx].garment.id) : "new piece",
+        }));
+        if (kept.length > 0 || swapped.length > 0) {
+          refinementDelta = { kept, swapped };
+        }
+      }
+
       const dc = chosen as DeduplicatedCombo;
       const chosenLayering = validateLayeringCompleteness(chosen.items);
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
@@ -1478,6 +1496,7 @@ serve(async (req) => {
         occasion_submode: occasionSubmode,
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
         wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
+        refinement_delta: refinementDelta,
       }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     }
 
