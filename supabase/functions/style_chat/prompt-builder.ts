@@ -153,6 +153,10 @@ export function buildModeContract(mode: StylistChatMode, lang: { name: string })
       "- Keep continuity with the active look; preserve unchanged pieces unless directly asked to swap.",
       "- Make 1-2 high-leverage edits, then explain visual impact (proportion, texture, formality, color harmony).",
       "- Prioritize edits over full resets.",
+      "- Your response MUST name which garments changed versus which stayed.",
+      '- Examples: "I swapped the blazer for a heavier coat and kept the rest." or "Changed the trousers to something darker — everything else works."',
+      "- If you kept the same outfit, say something changed anyway. Identical output is a failure.",
+      "- Keep the explanation to 1-2 sentences. Do not write an essay.",
       "- Response shape: **What stays** → **What changes** → **Why this improves it**.",
     ],
     GARMENT_FIRST_STYLING: [

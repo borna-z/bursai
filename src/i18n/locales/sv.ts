@@ -311,6 +311,12 @@ const sv: Record<string, string> = {
     'common.see_all': 'Visa alla',
     'home.more_for_you': 'Mer för dig',
 
+    'home.action_ask_stylist': 'Fråga stylisten',
+    'home.context_weather_event': '{temp}° och {event} senare — klä dig för båda.',
+    'home.context_event': '{event} idag — något att klä sig för.',
+    'home.context_weather': '{temp}° och {condition} — ha det i åtanke.',
+    'home.context_nudge': '{count} plagg väntar på att användas.',
+
     // Auth
     'auth.tagline': 'Din personliga stylist.',
     'auth.or': 'eller',
@@ -384,6 +390,10 @@ const sv: Record<string, string> = {
     'wardrobe.try_other': 'Rensa ett filter eller öppna en annan kategori.',
     'wardrobe.empty_title': 'Börja med dina viktigaste plagg',
     'wardrobe.empty_desc': 'Lägg till plagg först, och styla sedan och planera från samma plats.',
+    'wardrobe.guidance_zero': 'Lägg till några plagg för att börja skapa outfits.',
+    'wardrobe.guidance_low': 'Lägg till fler basplagg för starkare outfits.',
+    'wardrobe.guidance_growing': 'Nästan där — mer variation ger bättre resultat.',
+    'wardrobe.guidance_cta': 'Lägg till plagg',
     'wardrobe.add_first': 'Lägg till ditt första plagg!',
     'wardrobe.add': 'Lägg till',
     'wardrobe.selected': 'valda',
@@ -1121,6 +1131,11 @@ const sv: Record<string, string> = {
     'generate.thinking_2': 'Tänker på tillfället...',
     'generate.thinking_3': 'Sätter ihop plagg...',
     'generate.thinking_4': 'Nästan klart...',
+    'generate.result_save': 'Spara look',
+    'generate.result_plan': 'Planera',
+    'generate.result_wear_today': 'Bär idag',
+    'generate.result_refine': 'Förfina',
+    'generate.result_try_another': 'Prova en annan look',
 
     // Calendar Section
     'calendar.title': 'Kalendersynk',
