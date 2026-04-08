@@ -66,6 +66,14 @@ function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
   ).isValid;
 }
 
+/* ── Most-formal calendar event ── */
+const FORMAL_KEYWORDS = /\b(meeting|presentation|conference|interview|client|dinner|lunch|board|pitch|wedding|formal|work|office)\b/i;
+
+function getMostFormalEvent(events: { title: string }[] | undefined | null) {
+  if (!events?.length) return null;
+  return events.find(e => FORMAL_KEYWORDS.test(e.title)) ?? events[0];
+}
+
 /* ── Weather styling advice ── */
 function getWeatherAdvice(temp?: number, precipitation?: string): string {
   if (temp === undefined) return '';
@@ -167,6 +175,7 @@ export default function OutfitGeneratePage() {
     if (!calendarEvents?.length) return null;
     return buildDayIntelligence(calendarEvents, weather ?? undefined);
   }, [calendarEvents, weather]);
+  const primaryEvent = getMostFormalEvent(calendarEvents);
   const clearPreferredGarments = useCallback(() => {
     navigate(location.pathname, { replace: true });
   }, [location.pathname, navigate]);
@@ -187,7 +196,7 @@ export default function OutfitGeneratePage() {
         occasion: selectedOccasion,
         style: selectedStyles.length > 0 ? selectedStyles.join(', ') : null,
         locale,
-        eventTitle: calendarEvents?.[0]?.title ?? null,
+        eventTitle: primaryEvent?.title ?? null,
         dayContext,
         mode: generationMode,
         exclude_garment_ids: excludeIds.filter((garmentId) => !preferredGarmentIdSet.has(garmentId)),
