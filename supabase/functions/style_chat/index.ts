@@ -1775,7 +1775,7 @@ serve(async (req) => {
     );
     await enforceRateLimit(serviceClient, user.id, "style_chat");
 
-    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes] = await Promise.all([
+    const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes, negPairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
       getCalendarContext(supabase, user.id, lang),
       getRecentOutfitsContext(supabase, user.id),
@@ -1787,6 +1787,13 @@ serve(async (req) => {
         .eq('user_id', user.id)
         .order('positive_count', { ascending: false })
         .limit(50),
+      supabase
+        .from('garment_pair_memory')
+        .select('garment_a_id, garment_b_id, positive_count, negative_count')
+        .eq('user_id', user.id)
+        .gt('negative_count', 0)
+        .order('negative_count', { ascending: false })
+        .limit(20),
     ]);
 
     // --- Taste memory ---
@@ -1823,6 +1830,21 @@ serve(async (req) => {
         .filter(Boolean);
       if (pos.length) {
         pairMemoryText = `\nLEARNED PAIRINGS (user saved these before):\n${pos.map((p: any) => `+ ${p}`).join('\n')}`;
+      }
+
+      const negRows = negPairMemoryRes?.data || [];
+      const neg = negRows
+        .filter((r: any) => r.negative_count >= 2 && r.negative_count > (r.positive_count ?? 0))
+        .slice(0, 4)
+        .map((r: any) => {
+          const a = gById.get(r.garment_a_id)?.title;
+          const b = gById.get(r.garment_b_id)?.title;
+          return a && b ? `${a} + ${b}` : null;
+        })
+        .filter(Boolean);
+
+      if (neg.length) {
+        pairMemoryText += `\nAVOID THESE COMBINATIONS (user rejected these before):\n${neg.map((p: any) => `✗ ${p}`).join('\n')}`;
       }
     }
 
