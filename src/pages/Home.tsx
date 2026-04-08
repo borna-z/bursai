@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount } from '@/hooks/useGarments';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
@@ -49,6 +50,7 @@ export default function HomePage() {
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
+  const { data: calendarEvents } = useCalendarEvents(todayStr);
 
   const homeState = deriveHomeState(
     garmentCount,
@@ -92,6 +94,31 @@ export default function HomePage() {
   const weatherSummary = weather
     ? `${Math.round(weather.temperature)}\u00B0 ${t(weather.condition)}`
     : null;
+
+  const contextLine = useMemo(() => {
+    const nextEvent = calendarEvents?.[0];
+    const temp = weather ? Math.round(weather.temperature) : null;
+    const condition = weather ? t(weather.condition) : null;
+
+    if (temp !== null && condition && nextEvent) {
+      return t('home.context_weather_event')
+        .replace('{temp}', String(temp))
+        .replace('{event}', nextEvent.title);
+    }
+    if (nextEvent) {
+      return t('home.context_event').replace('{event}', nextEvent.title);
+    }
+    if (temp !== null && condition) {
+      return t('home.context_weather')
+        .replace('{temp}', String(temp))
+        .replace('{condition}', condition);
+    }
+    if (garmentCount && garmentCount >= 3) {
+      return t('home.context_nudge').replace('{count}', String(garmentCount));
+    }
+    return null;
+  }, [calendarEvents, weather, garmentCount, t]);
+
   const shortcuts = useMemo(() => ([
     { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
     { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
@@ -189,6 +216,7 @@ export default function HomePage() {
             todayOutfit={todayOutfit}
             garmentCount={garmentCount ?? 0}
             weatherSummary={weatherSummary}
+            contextLine={contextLine}
             primaryLabel={primaryAction.label}
             secondaryLabel={secondaryAction.label}
             onPrimaryAction={() => { hapticLight(); primaryAction.onClick(); }}

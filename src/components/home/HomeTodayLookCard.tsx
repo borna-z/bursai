@@ -13,6 +13,7 @@ interface HomeTodayLookCardProps {
   todayOutfit: OutfitWithItems | null;
   garmentCount: number;
   weatherSummary: string | null;
+  contextLine?: string | null;
   onPrimaryAction: () => void;
   onSecondaryAction: () => void;
   onOutfitTap?: () => void;
@@ -100,6 +101,7 @@ export function HomeTodayLookCard({
   todayOutfit,
   garmentCount,
   weatherSummary,
+  contextLine,
   onPrimaryAction,
   onSecondaryAction,
   onOutfitTap,
@@ -176,8 +178,10 @@ export function HomeTodayLookCard({
           {/* 4-across garment thumbnails — tappable */}
           <OutfitThumbnailRow items={todayOutfit.outfit_items} onTap={onOutfitTap} />
 
-          {/* Weather meta */}
-          {weatherSummary ? (
+          {/* Context line */}
+          {contextLine ? (
+            <p className="text-[0.8rem] leading-snug text-muted-foreground/70">{contextLine}</p>
+          ) : weatherSummary ? (
             <p className="text-[0.78rem] text-muted-foreground/60">{weatherSummary}</p>
           ) : null}
 
@@ -216,6 +220,10 @@ export function HomeTodayLookCard({
               : t('home.no_outfit_desc') || 'Generate a look for today in seconds.'}
           </p>
         </div>
+
+        {contextLine ? (
+          <p className="text-[0.8rem] leading-snug text-muted-foreground/70">{contextLine}</p>
+        ) : null}
 
         <div className="premium-action-row">
           <Button

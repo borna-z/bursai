@@ -311,6 +311,11 @@ const sv: Record<string, string> = {
     'common.see_all': 'Visa alla',
     'home.more_for_you': 'Mer för dig',
 
+    'home.context_weather_event': '{temp}° och {event} senare — klä dig för båda.',
+    'home.context_event': '{event} idag — något att klä sig för.',
+    'home.context_weather': '{temp}° och {condition} — ha det i åtanke.',
+    'home.context_nudge': '{count} plagg väntar på att användas.',
+
     // Auth
     'auth.tagline': 'Din personliga stylist.',
     'auth.or': 'eller',

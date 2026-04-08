@@ -436,6 +436,11 @@ const en: Record<string, string> = {
     'home.week_partial': 'Only {count} day is planned. Fill the rest?',
     'home.week_partial_plural': 'Only {count} days are planned. Fill the rest?',
 
+    'home.context_weather_event': '{temp}° and {event} later — dress for both.',
+    'home.context_event': '{event} today — something to dress for.',
+    'home.context_weather': '{temp}° and {condition} — keep that in mind.',
+    'home.context_nudge': '{count} pieces waiting to be worn.',
+
     'auth.tagline': 'Your personal stylist.',
     'auth.or': 'or',
     'auth.login': 'Log in',
