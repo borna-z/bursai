@@ -8,6 +8,7 @@ import {
   resolveStyleCardState,
   resolveStyleResponseKind,
   shouldRenderStyleCard,
+  shouldRenderStyleCardFromPolicy,
 } from '../../../supabase/functions/_shared/style-chat-contract';
 
 describe('styleChatContract', () => {
@@ -121,6 +122,52 @@ describe('styleChatContract', () => {
     expect(resolveStyleCardState(['a', 'b', 'c'], ['a', 'b', 'd'])).toBe('updated');
     expect(resolveActiveLookStatus(['a', 'b', 'c'], ['d', 'e', 'f'])).toBe('replaced');
     expect(resolveActiveLookStatus(['a', 'b', 'c'], [])).toBe('unavailable');
+  });
+
+  it('makes card policy required for outfit generation and active-look refinement', () => {
+    expect(resolveStyleCardPolicy({
+      mode: 'OUTFIT_GENERATION',
+      hasActiveLook: false,
+      hasAnchor: false,
+    })).toBe('required');
+
+    expect(resolveStyleCardPolicy({
+      mode: 'ACTIVE_LOOK_REFINEMENT',
+      hasActiveLook: true,
+      hasAnchor: true,
+    })).toBe('required');
+  });
+
+  it('makes card policy optional for conversational mode', () => {
+    expect(resolveStyleCardPolicy({
+      mode: 'CONVERSATIONAL',
+      hasActiveLook: false,
+      hasAnchor: false,
+    })).toBe('optional');
+  });
+
+  it('renders card from policy when card state is valid and outfit ids present', () => {
+    expect(shouldRenderStyleCardFromPolicy({
+      cardPolicy: 'required',
+      cardState: 'new',
+      outfitIds: ['a', 'b', 'c'],
+    })).toBe(true);
+  });
+
+  it('blocks card rendering when no outfit ids are present', () => {
+    expect(shouldRenderStyleCardFromPolicy({
+      cardPolicy: 'required',
+      cardState: 'new',
+      outfitIds: [],
+    })).toBe(false);
+  });
+
+  it('blocks card rendering when card state is unavailable', () => {
+    expect(shouldRenderStyleCardFromPolicy({
+      cardPolicy: 'required',
+      cardState: 'unavailable',
+      outfitIds: ['a', 'b', 'c'],
+    })).toBe(false);
   });
 
   it('marks styling failures without a card as style repair rather than analysis', () => {

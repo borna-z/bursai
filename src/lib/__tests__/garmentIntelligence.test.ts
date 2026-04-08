@@ -215,6 +215,59 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     });
   });
 
+  it('still triggers render when enrichment fails (fallback path)', async () => {
+    vi.useFakeTimers();
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
+      if (functionName === 'analyze_garment') {
+        return Promise.resolve({ data: null, error: 'enrichment_failed' });
+      }
+      return Promise.resolve({ data: {}, error: null });
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-fail',
+      storagePath: 'user-1/photo-fail.jpg',
+      source: 'add_photo',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    // Flush all pending promises and the retry delay timer
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+      body: { garmentId: 'garment-fail', source: 'add_photo' },
+    }));
+
+    vi.useRealTimers();
+  });
+
+  it('triggers render for manual_enhance source', async () => {
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName: string) => {
+      if (functionName === 'analyze_garment') {
+        return Promise.resolve({ data: { enrichment: { refined_title: 'Test garment' } }, error: null });
+      }
+      return Promise.resolve({ data: {}, error: null });
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-enhance',
+      storagePath: 'user-1/photo-enhance.jpg',
+      source: 'manual_enhance',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
+        body: { storagePath: 'user-1/photo-enhance.jpg', mode: 'enrich' },
+      });
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+        body: { garmentId: 'garment-enhance', source: 'manual_enhance' },
+      }));
+    });
+
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('process_garment_image', expect.anything());
+  });
+
   it('bounds render kickoff concurrency and deduplicates repeated garment requests', async () => {
     let resolveFirstRender: (() => void) | null = null;
     let resolveSecondRender: (() => void) | null = null;
