@@ -64,6 +64,20 @@ describe('compressFrame', () => {
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 320, 240);
   });
 
+  it('uses 1024 maxDim and 0.85 quality as defaults', async () => {
+    stubFileReader();
+    const { canvas, video, drawImage } = makeMocks();
+
+    await compressFrame(canvas, video);
+
+    // Scale: min(1024/1920, 1) = 0.533 → 1024×576
+    expect(canvas.width).toBe(1024);
+    expect(canvas.height).toBe(576);
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1024, 576);
+    // toBlob receives quality=0.85 as third arg
+    expect(canvas.toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.85);
+  });
+
   it('rejects when toBlob returns null', async () => {
     const { canvas, video } = makeMocks(null);
     await expect(compressFrame(canvas, video)).rejects.toThrow('Failed to capture frame');
@@ -111,6 +125,22 @@ describe('compressCenterCrop', () => {
     expect(drawImage).toHaveBeenCalledWith(video, 288, 162, 1344, 756, 0, 0, 480, 270);
     expect(result.blob).toBeInstanceOf(Blob);
     expect(result.base64).toContain('data:image/jpeg');
+  });
+
+  it('passes 0.85 quality to toBlob by default', async () => {
+    const MockFileReader = vi.fn(function (this: MockFileReaderInstance) {
+      this.result = 'data:image/jpeg;base64,Y3JvcA==';
+      this.onloadend = null;
+      this.readAsDataURL = vi.fn(() => {
+        Promise.resolve().then(() => this.onloadend?.());
+      });
+    });
+    vi.stubGlobal('FileReader', MockFileReader);
+
+    const { canvas, video } = makeMocks();
+    await compressCenterCrop(canvas, video);
+
+    expect(canvas.toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.85);
   });
 
   it('uses new defaults of 1024 maxDim when no args passed', async () => {
