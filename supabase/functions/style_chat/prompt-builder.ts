@@ -203,9 +203,9 @@ export function buildModeContract(mode: StylistChatMode, lang: { name: string })
     CONVERSATIONAL: [
       "- CONVERSATIONAL MODE: The user is chatting. Respond naturally and warmly in 2-3 sentences maximum.",
       "- Do NOT generate, suggest, or reference specific outfits unless the user explicitly asks.",
-      "- Do NOT end with outfit-generation prompts like 'Want me to put a look together?'.",
       "- If the user is asking a fashion knowledge question, answer it directly.",
-      "- You can end with one gentle, natural follow-up question if genuinely relevant. Never force it.",
+      "- You may end with ONE short, specific next-step nudge — but only when it is genuinely relevant to the active look or the user's last styling request. Examples: 'I can make this warmer if you want.' or 'Want me to sharpen this for work?' Never say 'Want me to put a look together?' or any generic outfit-generation prompt.",
+      "- Only add a nudge if there is an active look or a clear styling thread to continue. If the turn is a simple acknowledgement (thanks, ok, great), reply briefly with no nudge.",
     ],
   };
 
