@@ -1116,6 +1116,11 @@ const sv: Record<string, string> = {
     'generate.phase_analyzing': 'Analyserar din garderob...',
     'generate.phase_matching': 'Matchar färger och stil...',
     'generate.phase_creating': 'Skapar din outfit...',
+    'generate.thinking_0': 'Läser din garderob...',
+    'generate.thinking_1': 'Matchar färger och texturer...',
+    'generate.thinking_2': 'Tänker på tillfället...',
+    'generate.thinking_3': 'Sätter ihop plagg...',
+    'generate.thinking_4': 'Nästan klart...',
 
     // Calendar Section
     'calendar.title': 'Kalendersynk',
