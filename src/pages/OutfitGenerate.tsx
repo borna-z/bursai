@@ -1,12 +1,14 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, AlertCircle } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
+import { useFlatGarments } from '@/hooks/useGarments';
+import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { useUpdateOutfit, useMarkOutfitWorn } from '@/hooks/useOutfits';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
@@ -36,6 +38,26 @@ import { OutfitGenerateResult } from '@/components/outfit/OutfitGenerateResult';
 import { OutfitGeneratePicker, OCCASIONS, STYLES, type GenerationMode } from '@/components/outfit/OutfitGeneratePicker';
 
 type Phase = 'picking' | 'generating' | 'done' | 'error';
+
+const THINKING_KEYS = [
+  'generate.thinking_0',
+  'generate.thinking_1',
+  'generate.thinking_2',
+  'generate.thinking_3',
+  'generate.thinking_4',
+] as const;
+
+function useGeneratingMessage(t: (key: string) => string, active: boolean) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!active) { setIndex(0); return; }
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % THINKING_KEYS.length);
+    }, 2500);
+    return () => clearInterval(id);
+  }, [active]);
+  return t(THINKING_KEYS[index]);
+}
 
 function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
   return validateCompleteOutfit(
@@ -86,6 +108,12 @@ export default function OutfitGeneratePage() {
     return prefilledStyles.filter((style): style is string => STYLES.includes(style as typeof STYLES[number])).slice(0, 2);
   });
   const prefersReduced = useReducedMotion();
+  const generatingMessage = useGeneratingMessage(t, phase === 'generating');
+  const { data: allGarments } = useFlatGarments();
+  const previewGarments = useMemo(
+    () => (allGarments ?? []).slice(0, 4),
+    [allGarments],
+  );
   const [generationMode, setGenerationMode] = useState<GenerationMode>(isPremium ? 'stylist' : 'standard');
   const [lastError, setLastError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -258,19 +286,60 @@ export default function OutfitGeneratePage() {
   if (phase === 'generating') {
     return (
       <PageErrorBoundary fallback={<OutfitGenerateFallback />}>
-      <AppLayout>
-        <div className="page-shell flex min-h-[60vh] flex-col items-center justify-center !pt-10">
-          <OutfitGenerationState
-            subtitle={contextSubtitle || undefined}
-            variant="full"
-            className="max-w-sm w-full"
-            occasion={selectedOccasion}
-            weatherTemp={weather?.temperature}
-            weatherCondition={weather?.condition}
-            eventTitle={calendarEvents?.[0]?.title ?? null}
-          />
-        </div>
-      </AppLayout>
+        <AppLayout>
+          <div className="page-shell flex min-h-[60vh] flex-col items-center justify-center gap-8 !pt-10">
+            {/* Pulsing garment thumbnails */}
+            {previewGarments.length > 0 && (
+              <div className="flex items-center justify-center gap-3">
+                {previewGarments.map((g, i) => {
+                  const src = getPreferredGarmentImagePath(g);
+                  if (!src) return null;
+                  return (
+                    <motion.div
+                      key={g.id}
+                      animate={prefersReduced ? {} : { opacity: [0.4, 0.85, 0.4] }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        delay: i * 0.35,
+                      }}
+                      className="h-16 w-16 rounded-[0.9rem] overflow-hidden shrink-0 border border-border/20"
+                    >
+                      <img
+                        src={src}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{ filter: 'blur(0.5px)' }}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Animated generating message */}
+            <div className="flex flex-col items-center gap-2 text-center">
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={generatingMessage}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.35, ease: 'easeInOut' }}
+                  className="text-[0.95rem] font-medium text-foreground/70"
+                >
+                  {generatingMessage}
+                </motion.p>
+              </AnimatePresence>
+              {contextSubtitle && (
+                <p className="text-[0.8rem] text-muted-foreground/50 max-w-[18rem] leading-snug">
+                  {contextSubtitle}
+                </p>
+              )}
+            </div>
+          </div>
+        </AppLayout>
       </PageErrorBoundary>
     );
   }
