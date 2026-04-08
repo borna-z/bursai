@@ -18,7 +18,7 @@ import { hapticLight } from '@/lib/haptics';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
-import { CalendarDays, Heart, Luggage, MessageCircle, Search, Sparkles, type LucideIcon } from 'lucide-react';
+import { ArrowRight, CalendarDays, Heart, Luggage, MessageCircle, Search, Sparkles, type LucideIcon } from 'lucide-react';
 import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { HomeState } from '@/components/home/homeTypes';
 
@@ -212,17 +212,35 @@ function QuickShortcuts({
   navigate: ReturnType<typeof useNavigate>;
   t: (key: string) => string;
 }) {
+  const [primary, ...rest] = shortcuts;
+  if (!primary) return null;
   return (
-    <section>
+    <section className="space-y-2.5">
+      {/* Primary — full-width with subtitle */}
+      <button
+        onClick={() => { hapticLight(); navigate(primary.path); }}
+        className="flex w-full items-center justify-between gap-3 rounded-[1.2rem] border border-border/40 px-4 py-4 text-left transition-colors active:bg-secondary/50 cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <primary.icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.6} />
+          <div>
+            <p className="text-[0.95rem] font-medium text-foreground leading-tight">{primary.label}</p>
+            <p className="text-[0.8rem] text-muted-foreground/60 leading-snug mt-0.5">{t('home.chat_subtitle')}</p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+      </button>
+
+      {/* Secondary — 2-column lighter grid */}
       <div className="grid grid-cols-2 gap-2.5">
-        {shortcuts.map((s) => (
+        {rest.map((s) => (
           <button
             key={s.path}
             onClick={() => { hapticLight(); navigate(s.path); }}
             className="flex min-h-[4.15rem] items-center gap-3 rounded-[1.2rem] px-3.5 py-3.5 text-left transition-colors active:bg-secondary/50 cursor-pointer"
           >
-            <s.icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.6} />
-            <span className="text-[0.9rem] font-medium text-foreground">{s.label}</span>
+            <s.icon className="h-4.5 w-4.5 shrink-0 text-muted-foreground/70" strokeWidth={1.6} />
+            <span className="text-[0.875rem] font-medium text-foreground/80">{s.label}</span>
           </button>
         ))}
       </div>

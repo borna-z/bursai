@@ -416,6 +416,7 @@ const en: Record<string, string> = {
     'home.ai_review': 'Why',
     'home.weather_desc': 'Built for today.',
     'home.shortcut_chat': 'Ask stylist',
+    'home.chat_subtitle': 'Talk to your AI stylist',
     'home.shortcut_style': 'Style me',
     'home.shortcut_plan': 'Plan week',
     'home.shortcut_travel_capsule': 'Travel Capsule',

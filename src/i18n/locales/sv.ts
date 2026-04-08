@@ -204,6 +204,7 @@ const sv: Record<string, string> = {
     'home.greeting_evening': 'God kväll',
     'home.generate': 'Generera outfit',
     'home.shortcut_chat': 'Fråga stylisten',
+    'home.chat_subtitle': 'Prata med din AI-stylist',
     'home.shortcut_style': 'Styla mig',
     'home.shortcut_plan': 'Planera veckan',
     'home.shortcut_travel_capsule': 'Resekapsel',
