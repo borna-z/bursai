@@ -69,8 +69,12 @@ export function buildWardrobeCommandTopState({
     caption = t('wardrobe.search_results').replace('{count}', String(displayCount));
   } else if (activeTab === 'garments' && hasActiveFilters) {
     caption = t('wardrobe.filtered_count').replace('{count}', String(displayCount));
-  } else if (activeTab === 'garments' && isLowWardrobe) {
-    caption = t('wardrobe.low_wardrobe_hint');
+  } else if (activeTab === 'garments' && garmentCount === 0) {
+    caption = t('wardrobe.guidance_zero');
+  } else if (activeTab === 'garments' && garmentCount <= 2) {
+    caption = t('wardrobe.guidance_low');
+  } else if (activeTab === 'garments' && garmentCount <= 9) {
+    caption = t('wardrobe.guidance_growing');
   }
 
   const actions: WardrobeCommandActionModel[] = [

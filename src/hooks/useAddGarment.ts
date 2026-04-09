@@ -388,17 +388,11 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
             ),
         });
       } else {
-        toast.success(resolveCopy('addgarment.added', 'Saved.'), {
-          description: enableStudioQuality
-            ? resolveCopy(
-              'addgarment.added_desc',
-              'Studio-quality image is processing in the background. You can keep adding garments.',
-            )
-            : resolveCopy(
-              'addgarment.added_original_desc',
-              'Saved with the original photo. You can keep adding garments.',
-            ),
-        });
+        toast.success(
+          enableStudioQuality
+            ? resolveCopy('addgarment.saved_render_pending', 'Saved, studio render pending…')
+            : resolveCopy('addgarment.saved_processing', 'Saved, processing details…'),
+        );
       }
       setShowConfirmSheet(false);
       resetForm();

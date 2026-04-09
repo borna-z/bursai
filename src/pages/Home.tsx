@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { useGarmentCount } from '@/hooks/useGarments';
+import { useCalendarEvents } from '@/hooks/useCalendarSync';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { WeatherPill } from '@/components/weather/WeatherPill';
@@ -50,6 +51,7 @@ export default function HomePage() {
   const { data: todayOutfits, isLoading: isOutfitsLoading } = usePlannedOutfitsForDate(todayStr);
   const { effectiveCity } = useLocation();
   const { weather } = useWeather({ city: effectiveCity });
+  const { data: calendarEvents } = useCalendarEvents(todayStr);
 
   const homeState = deriveHomeState(
     garmentCount,
@@ -98,14 +100,46 @@ export default function HomePage() {
   const weatherSummary = weather
     ? `${Math.round(weather.temperature)}\u00B0 ${t(weather.condition)}`
     : null;
+
+  const contextLine = useMemo(() => {
+    const nextEvent = calendarEvents?.[0];
+    const temp = weather ? Math.round(weather.temperature) : null;
+    const condition = weather ? t(weather.condition) : null;
+
+    if (temp !== null && condition && nextEvent) {
+      return t('home.context_weather_event')
+        .replace('{temp}', String(temp))
+        .replace('{event}', nextEvent.title);
+    }
+    if (nextEvent) {
+      return t('home.context_event').replace('{event}', nextEvent.title);
+    }
+    if (temp !== null && condition) {
+      return t('home.context_weather')
+        .replace('{temp}', String(temp))
+        .replace('{condition}', condition);
+    }
+    if (garmentCount && garmentCount >= 3) {
+      return t('home.context_nudge').replace('{count}', String(garmentCount));
+    }
+    return null;
+  }, [calendarEvents, weather, garmentCount, t]);
+
+  const hasUpcomingEvent = (calendarEvents?.length ?? 0) > 0;
+
   const shortcuts = useMemo(() => ([
-    { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
     { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
     { label: t('home.shortcut_plan'), icon: CalendarDays, path: '/plan' },
+    { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
     { label: t('home.shortcut_travel_capsule'), icon: Luggage, path: '/plan/travel-capsule' },
     { label: t('home.shortcut_discover'), icon: Heart, path: '/ai/mood' },
     { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/gaps' },
   ]), [t]);
+
+  // Read last-used occasion from localStorage so generate page pre-fills context on return
+  const lastOccasion = useMemo(() => {
+    try { return localStorage.getItem('burs_last_occasion') ?? null; } catch { return null; }
+  }, []);
 
   const primaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
@@ -122,9 +156,10 @@ export default function HomePage() {
     }
     return {
       label: t('home.action_style_outfit'),
-      onClick: () => navigate('/ai/generate'),
+      // Pass last occasion so the generate page pre-fills it without re-asking
+      onClick: () => navigate('/ai/generate', lastOccasion ? { state: { prefillOccasion: lastOccasion } } : undefined),
     };
-  }, [homeState, navigate, t, todayOutfit]);
+  }, [homeState, lastOccasion, navigate, t, todayOutfit]);
 
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
@@ -139,11 +174,17 @@ export default function HomePage() {
         onClick: () => navigate('/ai/generate'),
       };
     }
+    if (hasUpcomingEvent) {
+      return {
+        label: t('home.action_open_plan'),
+        onClick: () => navigate('/plan'),
+      };
+    }
     return {
-      label: t('home.action_open_plan'),
-      onClick: () => navigate('/plan'),
+      label: t('home.action_ask_stylist'),
+      onClick: () => navigate('/ai/chat'),
     };
-  }, [homeState, navigate, todayOutfit, t]);
+  }, [homeState, navigate, todayOutfit, hasUpcomingEvent, t]);
 
 
   if (homeState === 'loading') {
@@ -195,6 +236,7 @@ export default function HomePage() {
             todayOutfit={todayOutfit}
             garmentCount={garmentCount ?? 0}
             weatherSummary={weatherSummary}
+            contextLine={contextLine}
             primaryLabel={primaryAction.label}
             secondaryLabel={secondaryAction.label}
             onPrimaryAction={() => { hapticLight(); primaryAction.onClick(); }}
