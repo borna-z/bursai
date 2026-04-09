@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -111,7 +111,7 @@ export function AnimatedRoutes() {
 
             {/* App routes */}
             <Route path="/auth" element={<Auth />} />
-            <Route path="/welcome" element={<Landing />} />
+            <Route path="/welcome" element={<Navigate to="/auth" replace />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<Index />} />
