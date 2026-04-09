@@ -130,6 +130,11 @@ export default function HomePage() {
     { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/gaps' },
   ]), [t]);
 
+  // Read last-used occasion from localStorage so generate page pre-fills context on return
+  const lastOccasion = useMemo(() => {
+    try { return localStorage.getItem('burs_last_occasion') ?? null; } catch { return null; }
+  }, []);
+
   const primaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
       return {
@@ -145,9 +150,10 @@ export default function HomePage() {
     }
     return {
       label: t('home.action_style_outfit'),
-      onClick: () => navigate('/ai/generate'),
+      // Pass last occasion so the generate page pre-fills it without re-asking
+      onClick: () => navigate('/ai/generate', lastOccasion ? { state: { prefillOccasion: lastOccasion } } : undefined),
     };
-  }, [homeState, navigate, t, todayOutfit]);
+  }, [homeState, lastOccasion, navigate, t, todayOutfit]);
 
   const secondaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {

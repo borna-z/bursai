@@ -190,7 +190,7 @@ describe('Home page V4', () => {
 
     expect(screen.getByText('Style outfit')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Style outfit'));
-    expect(navigateMock).toHaveBeenCalledWith('/ai/generate');
+    expect(navigateMock).toHaveBeenCalledWith('/ai/generate', undefined);
   });
 
   it('shows add garment action when wardrobe is small', () => {

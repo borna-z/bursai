@@ -110,11 +110,29 @@ export default function OutfitGeneratePage() {
   const [phase, setPhase] = useState<Phase>('picking');
   const [selectedOccasion, setSelectedOccasion] = useState<string>(() => {
     const prefilledOccasion = extractStyleFlowOccasion(location.state);
-    return OCCASIONS.some((occasion) => occasion.key === prefilledOccasion) ? prefilledOccasion : 'casual';
+    if (OCCASIONS.some((occasion) => occasion.key === prefilledOccasion)) return prefilledOccasion!;
+    // Restore last session's occasion so the user doesn't re-select every time
+    try {
+      const saved = localStorage.getItem('burs_last_occasion');
+      if (saved && OCCASIONS.some((o) => o.key === saved)) return saved;
+    } catch { /* ignore */ }
+    return 'casual';
   });
   const [selectedStyles, setSelectedStyles] = useState<string[]>(() => {
     const prefilledStyles = extractStyleFlowStyles(location.state);
-    return prefilledStyles.filter((style): style is string => STYLES.includes(style as typeof STYLES[number])).slice(0, 2);
+    const fromState = prefilledStyles.filter((style): style is string => STYLES.includes(style as typeof STYLES[number])).slice(0, 2);
+    if (fromState.length > 0) return fromState;
+    // Restore last session's styles
+    try {
+      const saved = localStorage.getItem('burs_last_styles');
+      if (saved) {
+        return saved
+          .split(',')
+          .filter((s): s is string => STYLES.includes(s as typeof STYLES[number]))
+          .slice(0, 2);
+      }
+    } catch { /* ignore */ }
+    return [];
   });
   const prefersReduced = useReducedMotion();
   const generatingMessage = useGeneratingMessage(t, phase === 'generating', !!prefersReduced);
@@ -226,6 +244,15 @@ export default function OutfitGeneratePage() {
             .filter((garmentId) => !preferredGarmentIdSet.has(garmentId)),
         ]),
       ]);
+      // Persist last-used context so the next session pre-fills occasion/styles
+      try {
+        localStorage.setItem('burs_last_occasion', selectedOccasion);
+        if (selectedStyles.length > 0) {
+          localStorage.setItem('burs_last_styles', selectedStyles.join(','));
+        } else {
+          localStorage.removeItem('burs_last_styles');
+        }
+      } catch { /* ignore storage errors in private browsing */ }
       setPhase('done');
     } catch (err) {
       const message = humanizeOutfitGenerationError(
@@ -407,7 +434,6 @@ export default function OutfitGeneratePage() {
               onPlan={handlePlanOutfit}
               onRefineInChat={handleRefineInChat}
               onRegenerate={handleGenerate}
-              onStartOver={() => { hapticLight(); setPhase('picking'); }}
               onGarmentClick={(id) => navigate(`/wardrobe/${id}`)}
               onMissingSlotClick={(slot) => navigate(`/wardrobe?category=${slot === 'bottom' ? 'bottoms' : slot}`)}
             />
