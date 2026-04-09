@@ -31,7 +31,7 @@ function deriveHomeState(
   isLoading: boolean,
 ): HomeState {
   if (isLoading) return 'loading';
-  if (!garmentCount || garmentCount < 3) return 'empty_wardrobe';
+  if (!garmentCount || garmentCount < 10) return 'empty_wardrobe';
   if (todayOutfits && todayOutfits.length > 0) return 'outfit_planned';
   if (weather?.precipitation === 'rain' || weather?.precipitation === 'snow') return 'weather_alert';
   return 'no_outfit';
