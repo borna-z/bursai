@@ -1387,6 +1387,16 @@ serve(async (req) => {
       }
     }
     const unifiedOutfit = unified?.outfits[0] || null;
+    const refinementDeltaBlock = (() => {
+      const delta = (unifiedOutfit as any)?.refinement_delta;
+      if (!delta || stylistMode !== 'ACTIVE_LOOK_REFINEMENT') return '';
+      const kept = delta.kept?.join(', ');
+      const swapped = delta.swapped?.map((s: any) => `${s.from} → ${s.to}`).join(', ');
+      const parts: string[] = [];
+      if (kept) parts.push(`Kept: ${kept}`);
+      if (swapped) parts.push(`Swapped: ${swapped}`);
+      return parts.length ? `REFINEMENT CHANGES:\n${parts.join('\n')}` : '';
+    })();
     const activeLookGarments = activeLook.garmentIds
       .map((id) => wardrobeCtx.rankedGarments.find((garment) => garment.id === id))
       .filter(Boolean) as GarmentRecord[];
@@ -1453,7 +1463,7 @@ USER IDENTITY:
 ${identityBlock}
 ${styleLines ? `\nSTYLE PROFILE:\n${styleLines}` : ""}
 
-${threadBrief ? `${threadBrief}\n\n` : ""}${wardrobeCtx.text}
+${threadBrief ? `${threadBrief}\n\n` : ""}${refinementDeltaBlock ? `${refinementDeltaBlock}\n\n` : ""}${wardrobeCtx.text}
 ${candidateOutfits ? `\n\n${candidateOutfits}` : ""}${unifiedCandidateLine}
 ${recentOutfitsCtx.text}
 ${recentOutfitsCtx.recentGarmentSets && recentOutfitsCtx.recentGarmentSets.length > 0 ? `\nRECENT OUTFIT COMBINATIONS — DO NOT REPEAT THESE EXACT GARMENT COMBINATIONS:\n${recentOutfitsCtx.recentGarmentSets.slice(0, 5).map((ids: string[], i: number) => `Outfit ${i+1}: ${ids.join(", ")}`).join("\n")}\nEach new outfit MUST include at least 2 garments not in the previous suggestion.` : ""}
@@ -1585,7 +1595,10 @@ ${refinementContract}`;
     }
 
     // c. Trim overly long non-outfit replies — language-safe sentence splitting
-    rawAssistantText = trimToSentences(rawAssistantText, shouldPreserveStyleCard ? 3 : 5);
+    rawAssistantText = trimToSentences(
+      rawAssistantText,
+      stylistMode === 'ACTIVE_LOOK_REFINEMENT' ? 5 : shouldPreserveStyleCard ? 3 : 5,
+    );
 
     const normalizedReply = normalizeStyleChatAssistantReply({
       rawText: rawAssistantText,
