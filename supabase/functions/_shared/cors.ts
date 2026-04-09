@@ -6,7 +6,7 @@
  * BURS app origins, current Vercel preview origins, plus optional environment-configured origins.
  */
 
-const DEFAULT_APP_ORIGIN = "https://burs.me";
+const DEFAULT_APP_ORIGIN = "https://app.burs.me";
 const LOCAL_DEV_ORIGIN = "http://localhost:8080";
 const VERCEL_PREVIEW_ORIGIN_RE = /^https:\/\/bursai(?:-[a-z0-9-]+)?\.vercel\.app$/;
 
