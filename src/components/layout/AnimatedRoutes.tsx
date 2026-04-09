@@ -11,6 +11,7 @@ import NotFound from '@/pages/NotFound';
 
 // Lazy-loaded — all other pages
 const Auth = lazy(() => import('@/pages/Auth'));
+const Home = lazy(() => import('@/pages/Home'));
 const Index = lazy(() => import('@/pages/Index'));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Wardrobe = lazy(() => import('@/pages/Wardrobe'));
@@ -115,6 +116,7 @@ export function AnimatedRoutes() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<Index />} />
+            <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
             <Route path="/wardrobe/used" element={<ProtectedRoute><UsedGarments /></ProtectedRoute>} />
             <Route path="/wardrobe/add" element={<ProtectedRoute><AddGarment /></ProtectedRoute>} />
