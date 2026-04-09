@@ -32,6 +32,7 @@ import { finalizeAssistantText, getTextContent, mergeAssistantContent, type Mess
 import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
 import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
 import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLook';
+import { trackEvent } from '@/lib/analytics';
 import { collectStyleChatGarmentIds, isStyleChatResponseEnvelope, type PersistedStyleChatMessage, type StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 
 type Message = {
@@ -365,6 +366,7 @@ export default function AIChat() {
     }
 
     const userMsg: Message = { role: 'user', content: userContent };
+    trackEvent('stylist_chat_message_sent', { has_image: pendingImage !== null });
     setInput('');
     setPendingImage(null);
     setPlanActionPayload(null);
@@ -542,6 +544,9 @@ export default function AIChat() {
         }
         return updated;
       });
+      if (hasRenderableActiveLook(assistantMsg.stylistMeta)) {
+        trackEvent('outfit_refined', { response_kind: assistantMsg.stylistMeta?.response_kind ?? null });
+      }
       if (user && session && (getTextContent(assistantMsg.content).trim() || assistantMsg.stylistMeta?.render_outfit_card)) {
         await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
       }

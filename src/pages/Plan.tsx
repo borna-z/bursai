@@ -48,6 +48,7 @@ import { useLocation as useLocationCtx } from '@/contexts/LocationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBackgroundSyncNotification, useCalendarEvents } from '@/hooks/useCalendarSync';
 import { logger } from '@/lib/logger';
+import { trackEvent } from '@/lib/analytics';
 
 const MAX_OUTFITS_PER_DAY = 4;
 
@@ -137,6 +138,7 @@ export default function PlanPage() {
         weather: { temperature: request.temperature, precipitation: 'none', wind: 'low' },
       });
       await upsertPlanned.mutateAsync({ date: dateStr, outfitId: outfit.id });
+      trackEvent('planner_action_used', { action: 'generate_for_date', occasion: request.occasion });
       setQuickGenerateSheetOpen(false);
       toast.success(t('plan.outfit_created'));
     } catch {
@@ -224,6 +226,7 @@ export default function PlanPage() {
         const laundryWarning = result.laundry?.warning;
 
         if (successCount > 0) {
+          trackEvent('planner_action_used', { action: 'generate_week', days_planned: successCount });
           toast.success(
             successCount === 1
               ? t('plan.week_success_one')
@@ -609,6 +612,7 @@ export default function PlanPage() {
           const dateStr = format(date, 'yyyy-MM-dd');
           try {
             await upsertPlanned.mutateAsync({ date: dateStr, outfitId: preselectedOutfitId });
+            trackEvent('planner_action_used', { action: 'schedule_outfit' });
             setSelectedDate(date);
             setPreselectSheetOpen(false);
             toast.success(t('plan.planned'));

@@ -18,6 +18,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { createSupabaseRestHeaders, getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { cn } from '@/lib/utils';
+import { trackEvent } from '@/lib/analytics';
 import { toast } from 'sonner';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 
@@ -190,6 +191,9 @@ export default function MoodOutfitPage() {
       }));
 
       await supabase.from('outfit_items').insert(items);
+
+      trackEvent('outfit_generated', { occasion: `mood:${mood}`, mode: 'mood' });
+      trackEvent('outfit_saved', { outfit_id: outfit.id, occasion: `mood:${mood}` });
 
       setGeneratedOutfit({
         id: outfit.id,

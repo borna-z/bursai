@@ -14,6 +14,7 @@ import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
+import { trackEvent } from '@/lib/analytics';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -362,6 +363,8 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
           skipRender: !enableStudioQuality,
         });
       }
+
+      trackEvent('garment_added', { source: 'photo' });
 
       refreshSubscription();
 

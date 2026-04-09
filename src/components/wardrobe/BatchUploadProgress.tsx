@@ -14,6 +14,7 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import type { Json } from '@/integrations/supabase/types';
 import { buildGarmentIntelligenceFields, getGarmentReviewDecision, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { trackEvent } from '@/lib/analytics';
 
 interface BatchItem {
   file: File;
@@ -120,6 +121,8 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
       source: 'batch_add',
       imageProcessing: { mode: 'skip' },
     });
+
+    trackEvent('garment_added', { source: 'batch' });
 
     invokeEdgeFunction('detect_duplicate_garment', {
       body: {

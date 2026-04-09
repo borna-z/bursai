@@ -9,6 +9,7 @@ import { compressCenterCrop } from '@/lib/compressFrame';
 import { saveGarmentInBackground } from '@/lib/backgroundGarmentSave';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import { invalidateWardrobeQueries } from '@/hooks/useGarments';
+import { trackEvent } from '@/lib/analytics';
 
 export interface ScanResult {
   analysis: GarmentAnalysis;
@@ -148,6 +149,7 @@ export function useLiveScan() {
     setLastResult(null);
     setScanCount((c) => c + 1);
     hapticSuccess();
+    trackEvent('garment_added', { source: 'live_scan' });
     setLastAccepted({ garmentId, imagePath, analysis: result.analysis, studioQualityEnabled: enableStudioQuality });
     invalidateWardrobeQueries(queryClient, user.id);
     queryClient.invalidateQueries({ queryKey: ['subscription', user.id] });

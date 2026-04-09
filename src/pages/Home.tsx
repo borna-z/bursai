@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { trackEvent } from '@/lib/analytics';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -58,6 +59,11 @@ export default function HomePage() {
     weather ?? undefined,
     isCountLoading || isOutfitsLoading,
   );
+
+  // Track home_view once per mount (fire-and-forget)
+  useEffect(() => {
+    trackEvent('home_view');
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     await Promise.all([
