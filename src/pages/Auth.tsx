@@ -82,7 +82,7 @@ export default function AuthPage() {
       </div>
     );
   }
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/home" replace />;
 
   const handleSignIn = async () => {
     if (!email || !password) { toast.error(t('auth.fill_all')); return; }
