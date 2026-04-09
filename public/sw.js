@@ -1,15 +1,17 @@
-// BURS Service Worker — Push Notifications + Caching
+// BURS Service Worker - Push Notifications + Caching
 
-const CACHE_NAME = 'burs-v2';
+const CACHE_NAME = 'burs-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
+  '/apple-touch-icon.png',
   '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
-// Install — pre-cache app shell
+// Install - pre-cache app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
@@ -17,44 +19,52 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate - clean old caches and enable navigation preload when available
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+
+      if ('navigationPreload' in self.registration) {
+        await self.registration.navigationPreload.enable();
+      }
+    })()
   );
   self.clients.claim();
 });
 
-// Fetch — stale-while-revalidate for assets, network-first for API
+// Fetch - stale-while-revalidate for assets, network-first for documents
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and Supabase API calls
   if (request.method !== 'GET') return;
   if (url.hostname.includes('supabase')) return;
 
   if (request.mode === 'navigate' || request.destination === 'document') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          return cached || caches.match('/index.html');
-        })
-    );
+    event.respondWith((async () => {
+      const preloaded = await event.preloadResponse;
+      if (preloaded) {
+        return preloaded;
+      }
+
+      try {
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      } catch {
+        const cached = await caches.match(request);
+        return cached || caches.match('/index.html');
+      }
+    })());
     return;
   }
 
-  // Font files — cache-first (long-lived)
+  // Font files - cache-first
   if (url.hostname === 'fonts.gstatic.com' || url.hostname === 'fonts.googleapis.com') {
     event.respondWith(
       caches.match(request).then((cached) => cached || fetch(request).then((response) => {
@@ -66,7 +76,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (JS, CSS, images) — stale-while-revalidate
+  // Static assets (JS, CSS, images) - stale-while-revalidate
   const isStaticAsset = url.origin === self.location.origin
     && ['script', 'style', 'image', 'font'].includes(request.destination);
 
@@ -80,10 +90,10 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         }).catch(() => cached);
+
         return cached || fetchPromise;
       })
     );
-    return;
   }
 });
 
@@ -93,7 +103,7 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data?.json() || data;
   } catch {
-    // fallback
+    // Ignore malformed payloads and fall back to defaults.
   }
 
   event.waitUntil(
@@ -110,6 +120,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/';
+
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((clientList) => {
       for (const client of clientList) {
@@ -118,7 +129,14 @@ self.addEventListener('notificationclick', (event) => {
           return client.focus();
         }
       }
+
       return clients.openWindow(url);
     })
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

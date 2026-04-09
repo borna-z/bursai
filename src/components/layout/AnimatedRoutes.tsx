@@ -100,7 +100,8 @@ export function AnimatedRoutes() {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
-        className="min-h-[100dvh] bg-background will-change-[opacity,transform]"
+        className="bg-background will-change-[opacity,transform]"
+        style={{ minHeight: 'var(--app-viewport-height, 100dvh)' }}
         variants={variants}
         initial={skipInitial ? false : "initial"}
         animate="animate"

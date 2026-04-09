@@ -7,6 +7,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     /* BURS-evolution foundation */
     --background: 34 32% 95%;
     --foreground: 24 13% 10%;
@@ -45,7 +46,8 @@
     --app-bottom-clearance: calc(var(--app-dock-height) + env(safe-area-inset-bottom, 0px));
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
-    --app-viewport-height: 100svh;
+    --app-viewport-height: 100dvh;
+    --app-viewport-width: 100vw;
     --app-viewport-offset-top: 0px;
 
     /* Extended tokens */
@@ -79,6 +81,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 32 12% 6%;
     --foreground: 36 18% 94%;
 
@@ -218,12 +221,20 @@
     overscroll-behavior: none;
   }
 
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    width: 100%;
+  }
+
   html::-webkit-scrollbar {
     display: none;
   }
 
   body {
     @apply bg-background text-foreground antialiased overflow-x-hidden;
+    min-height: var(--app-viewport-height, 100dvh);
     font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -244,6 +255,10 @@
       radial-gradient(circle at top left, rgba(157, 126, 86, 0.03), transparent 32%),
       radial-gradient(circle at top right, rgba(110, 103, 95, 0.03), transparent 28%),
       radial-gradient(circle at bottom center, rgba(123, 96, 63, 0.02), transparent 26%);
+  }
+
+  #root {
+    min-height: var(--app-viewport-height, 100dvh);
   }
 
   /* Prevent iOS auto-zoom on input focus */
@@ -297,6 +312,14 @@
   .meta {
     @apply text-[0.8125rem] text-muted-foreground leading-normal;
   }
+}
+
+:root[data-display-mode='standalone'] .min-h-screen {
+  min-height: var(--app-viewport-height, 100dvh) !important;
+}
+
+:root[data-display-mode='standalone'] .h-screen {
+  height: var(--app-viewport-height, 100dvh) !important;
 }
 
 @layer utilities {

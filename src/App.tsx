@@ -11,12 +11,20 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { AnimatedRoutes } from "@/components/layout/AnimatedRoutes";
 import { useDeepLink } from "@/hooks/useDeepLink";
+import { useThemeChrome } from "@/hooks/useThemeChrome";
+import { useViewportShell } from "@/hooks/useViewportShell";
 import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 /** Renders nothing — just activates the deep link listener inside BrowserRouter */
 function DeepLinkHandler() {
   useDeepLink();
+  return null;
+}
+
+function AppEnvironment() {
+  useViewportShell();
+  useThemeChrome();
   return null;
 }
 
@@ -40,6 +48,7 @@ const AppInner = () => (
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
+          <AppEnvironment />
           <AuthProvider>
             <LanguageProvider>
               <LocationProvider>

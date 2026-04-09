@@ -1,57 +1,115 @@
 {
+  "id": "/",
   "name": "BURS",
   "short_name": "BURS",
   "description": "Your personal AI stylist",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
-  "orientation": "portrait",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
   "background_color": "#F5F0E8",
   "theme_color": "#F5F0E8",
   "prefer_related_applications": false,
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["lifestyle", "fashion", "productivity"],
   "icons": [
     {
-      "src": "/logo-48.png",
-      "sizes": "48x48",
+      "src": "/icons/icon-192.png",
+      "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo-128.png",
-      "sizes": "128x128",
+      "src": "/icons/icon-512.png",
+      "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today",
+      "short_name": "Today",
+      "description": "Open today's styling dashboard",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "1024x1024",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "src": "/logo-256.png",
-      "sizes": "256x256",
-      "type": "image/png",
-      "purpose": "any"
+      "name": "Wardrobe",
+      "short_name": "Wardrobe",
+      "description": "Jump into your wardrobe",
+      "url": "/wardrobe",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "1024x1024",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "src": "/logo-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "name": "Planner",
+      "short_name": "Plan",
+      "description": "Open your outfit planner",
+      "url": "/plan",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "1024x1024",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "src": "/logo-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "name": "AI Stylist",
+      "short_name": "AI",
+      "description": "Chat with your AI stylist",
+      "url": "/ai/chat",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "1024x1024",
+          "type": "image/png"
+        }
+      ]
     }
   ],
   "screenshots": [
     {
-      "src": "/og-image.png",
-      "sizes": "1200x630",
+      "src": "/images/screenshot-home.png",
+      "sizes": "573x1254",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "BURS — Your personal AI stylist"
+      "label": "BURS home dashboard"
+    },
+    {
+      "src": "/images/screenshot-wardrobe.png",
+      "sizes": "575x1255",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Wardrobe overview"
+    },
+    {
+      "src": "/images/screenshot-planner.png",
+      "sizes": "586x1255",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Planner and outfit calendar"
+    },
+    {
+      "src": "/images/screenshot-stylist.png",
+      "sizes": "589x1257",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AI stylist conversation"
     }
-  ],
-  "categories": ["lifestyle", "fashion"],
-  "lang": "en",
-  "dir": "ltr"
+  ]
 }

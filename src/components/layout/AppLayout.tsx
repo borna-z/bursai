@@ -4,7 +4,6 @@ import { OfflineBanner } from './OfflineBanner';
 import { SeedProgressPill } from './SeedProgressPill';
 import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
-import { useViewportShell } from '@/hooks/useViewportShell';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
@@ -19,7 +18,6 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
   const { resolvedTheme } = useTheme();
   const { t } = useLanguage();
   useKeyboardAdjust();
-  useViewportShell();
   useMedianStatusBar(resolvedTheme);
   useUnlockCelebration();
 
