@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PageSkeleton } from '@/components/layout/PageSkeleton';
 
+function isPwa(): boolean {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
 export default function Index() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -17,22 +21,26 @@ export default function Index() {
       return;
     }
 
-    // Double-check with Supabase directly before redirecting away
-    // This prevents race condition where session isn't in context yet
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false;
+
+    // Double-check with Supabase directly before redirecting away.
+    // This prevents a brief auth-context race from sending users to the wrong destination.
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
+
       if (session?.user) {
         navigate('/home', { replace: true });
+      } else if (isPwa()) {
+        navigate('/auth', { replace: true });
       } else {
-        setChecked(true);
+        window.location.replace('https://burs.me');
       }
     });
-  }, [user, loading, navigate]);
 
-  useEffect(() => {
-    if (checked) {
-      window.location.replace('https://burs.me');
-    }
-  }, [checked]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, navigate]);
 
   return <PageSkeleton />;
 }
