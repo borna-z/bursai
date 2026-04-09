@@ -1,5 +1,29 @@
 project_id = "khvkwojtlkcvxjxztduj"
 
+[auth]
+site_url = "https://app.burs.me"
+additional_redirect_urls = [
+  "https://bursai-mu9m.vercel.app",
+  "https://bursai-mu9m.vercel.app/**",
+  "https://bursai-mu9m-borna8688-5499s-projects.vercel.app/",
+  "https://bursai-mu9m-borna8688-5499s-projects.vercel.app/**",
+  "https://bursai-*-mu9m-borna8688-5499s-projects.vercel.app",
+  "https://bursai-*-mu9m-borna8688-5499s-projects.vercel.app/**",
+  "https://app.burs.me",
+  "https://app.burs.me/**",
+]
+enable_manual_linking = true
+minimum_password_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
 [functions]
   [functions.analyze_garment]
     verify_jwt = false
