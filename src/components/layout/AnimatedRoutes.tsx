@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -11,7 +11,6 @@ import NotFound from '@/pages/NotFound';
 
 // Lazy-loaded — all other pages
 const Auth = lazy(() => import('@/pages/Auth'));
-const Landing = lazy(() => import('@/pages/Landing'));
 const Index = lazy(() => import('@/pages/Index'));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Wardrobe = lazy(() => import('@/pages/Wardrobe'));
@@ -34,13 +33,11 @@ const SettingsPrivacy = lazy(() => import('@/pages/settings/SettingsPrivacy'));
 const ShareOutfit = lazy(() => import('@/pages/ShareOutfit'));
 const BillingSuccess = lazy(() => import('@/pages/BillingSuccess'));
 const BillingCancel = lazy(() => import('@/pages/BillingCancel'));
-const Pricing = lazy(() => import('@/pages/Pricing'));
 const LiveScan = lazy(() => import('@/pages/LiveScan'));
 const TravelCapsule = lazy(() => import('@/pages/TravelCapsule'));
 const GoogleCalendarCallback = lazy(() => import('@/pages/GoogleCalendarCallback'));
 const PrivacyPolicy = lazy(() => import('@/pages/marketing/PrivacyPolicy'));
 const Terms = lazy(() => import('@/pages/marketing/Terms'));
-const Contact = lazy(() => import('@/pages/marketing/Contact'));
 const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
@@ -110,12 +107,11 @@ export function AnimatedRoutes() {
             {/* Legal & admin */}
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<Terms />} />
-            <Route path="/contact" element={<Contact />} />
             <Route path="/admin" element={<Admin />} />
 
             {/* App routes */}
             <Route path="/auth" element={<Auth />} />
-            <Route path="/welcome" element={<Landing />} />
+            <Route path="/welcome" element={<Navigate to="/auth" replace />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<Index />} />
@@ -143,7 +139,6 @@ export function AnimatedRoutes() {
             <Route path="/settings/notifications" element={<ProtectedRoute><SettingsNotifications /></ProtectedRoute>} />
             <Route path="/settings/account" element={<ProtectedRoute><SettingsAccount /></ProtectedRoute>} />
             <Route path="/settings/privacy" element={<ProtectedRoute><SettingsPrivacy /></ProtectedRoute>} />
-            <Route path="/pricing" element={<Pricing />} />
             <Route path="/billing/success" element={<ProtectedRoute><BillingSuccess /></ProtectedRoute>} />
             <Route path="/billing/cancel" element={<ProtectedRoute><BillingCancel /></ProtectedRoute>} />
             <Route path="/share/:id" element={<ShareOutfit />} />

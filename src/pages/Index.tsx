@@ -1,27 +1,19 @@
-import { Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProfile } from '@/hooks/useProfile';
-import { isMedianApp } from '@/lib/median';
-import { PageSkeleton } from '@/components/layout/PageSkeleton';
-import { asPreferences } from '@/types/preferences';
-import Landing from './Landing';
-import Home from './Home';
 
-const Index = () => {
+export default function Index() {
   const { user, loading } = useAuth();
-  const { data: profile, isLoading: profileLoading } = useProfile();
+  const navigate = useNavigate();
 
-  const isResolving = loading || (user && profileLoading);
+  useEffect(() => {
+    if (loading) return;
+    if (user) {
+      navigate('/home', { replace: true });
+    } else {
+      window.location.replace('https://burs.me');
+    }
+  }, [user, loading, navigate]);
 
-  if (isResolving) return <PageSkeleton />;
-
-  if (!user) return isMedianApp() ? <Navigate to="/auth" replace /> : <Landing />;
-
-  const prefs = asPreferences(profile?.preferences);
-  const onboardingCompleted = prefs?.onboarding?.completed === true;
-  if (!onboardingCompleted) return <Navigate to="/onboarding" replace />;
-
-  return <Home />;
-};
-
-export default Index;
+  return null;
+}
