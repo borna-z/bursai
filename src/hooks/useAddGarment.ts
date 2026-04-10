@@ -1,5 +1,4 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import type { Json } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useCreateGarment, useGarmentCount } from '@/hooks/useGarments';
@@ -11,7 +10,7 @@ import { useDuplicateDetection } from '@/hooks/useDuplicateDetection';
 import { useMedianCamera } from '@/hooks/useMedianCamera';
 import { compressImage } from '@/lib/imageCompression';
 import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
-import { buildGarmentIntelligenceFields, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { finalizeCandidate, type GarmentIntakeCandidate } from '@/lib/finalizeCandidate';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from '@/lib/analytics';
@@ -326,42 +325,33 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
 
     setIsLoading(true);
     try {
-      await createGarment.mutateAsync({
-        id: garmentId,
-        image_path: storagePath,
-        title,
-        category,
-        subcategory: subcategory || null,
-        color_primary: colorPrimary,
-        color_secondary: colorSecondary || null,
-        pattern: pattern || null,
-        material: material || null,
-        fit: fit || null,
-        season_tags: selectedSeasons.length > 0 ? selectedSeasons : null,
-        formality: formality[0],
-        in_laundry: inLaundry,
-        ai_analyzed_at: aiAnalysis ? new Date().toISOString() : null,
-        ai_provider: aiAnalysis?.ai_provider || null,
-        ai_raw: standardizeGarmentAiRaw({
-          aiRaw: (aiAnalysis?.ai_raw ?? null) as Json,
-          analysisConfidence: aiAnalysis?.confidence,
-          source: 'add_photo',
-        }),
-        ...buildGarmentIntelligenceFields({
-          storagePath,
-          enableRender: enableStudioQuality,
-          skipImageProcessing: true,
-        }),
-      });
+      const candidate: GarmentIntakeCandidate = {
+        blob: new Blob([]),
+        analysis: aiAnalysis ?? ({} as GarmentAnalysis),
+        userId: user?.id ?? '',
+        source: 'add_photo',
+        enableStudioQuality,
+        confidence: aiAnalysis?.confidence ?? null,
+        existingGarmentId: garmentId,
+        existingStoragePath: storagePath,
+        fieldOverrides: {
+          title,
+          category,
+          subcategory: subcategory || null,
+          color_primary: colorPrimary,
+          color_secondary: colorSecondary || null,
+          pattern: pattern || null,
+          material: material || null,
+          fit: fit || null,
+          season_tags: selectedSeasons,
+          formality: formality[0],
+          in_laundry: inLaundry,
+        },
+      };
 
-      if (storagePath && garmentId) {
-        triggerGarmentPostSaveIntelligence({
-          garmentId,
-          storagePath,
-          source: 'add_photo',
-          imageProcessing: { mode: 'skip' },
-          skipRender: !enableStudioQuality,
-        });
+      const saved = await finalizeCandidate(candidate);
+      if (!saved) {
+        throw new Error('finalizeCandidate returned null');
       }
 
       trackEvent('garment_added', { source: 'photo' });

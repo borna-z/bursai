@@ -12,7 +12,7 @@ const {
   checkDuplicatesMock,
   toastSuccessMock,
   toastErrorMock,
-  triggerGarmentPostSaveIntelligenceMock,
+  finalizeCandidateMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   createGarmentMock: vi.fn(),
@@ -23,7 +23,7 @@ const {
   checkDuplicatesMock: vi.fn(),
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
-  triggerGarmentPostSaveIntelligenceMock: vi.fn(),
+  finalizeCandidateMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -92,13 +92,9 @@ vi.mock('@/lib/imageCompression', () => ({
   })),
 }));
 
-vi.mock('@/lib/garmentIntelligence', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/garmentIntelligence')>('@/lib/garmentIntelligence');
-  return {
-    ...actual,
-    triggerGarmentPostSaveIntelligence: triggerGarmentPostSaveIntelligenceMock,
-  };
-});
+vi.mock('@/lib/finalizeCandidate', () => ({
+  finalizeCandidate: finalizeCandidateMock,
+}));
 
 import { useAddGarment } from '@/hooks/useAddGarment';
 
@@ -129,6 +125,10 @@ describe('useAddGarment', () => {
     });
     checkDuplicatesMock.mockResolvedValue([]);
     createGarmentMock.mockResolvedValue({ id: 'garment-1' });
+    finalizeCandidateMock.mockResolvedValue({
+      garmentId: 'garment-1',
+      storagePath: 'user-1/garment-1/original.jpg',
+    });
   });
 
   afterEach(() => {
@@ -170,14 +170,14 @@ describe('useAddGarment', () => {
       await result.current.handleSave(true);
     });
 
-    expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-      image_path: 'user-1/garment-1/original.jpg',
-      title: 'Navy blazer',
-      render_status: 'pending',
-    }));
-    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith(expect.objectContaining({
-      garmentId: expect.any(String),
+    expect(finalizeCandidateMock).toHaveBeenCalledWith(expect.objectContaining({
       source: 'add_photo',
+      enableStudioQuality: true,
+      existingStoragePath: 'user-1/garment-1/original.jpg',
+      existingGarmentId: expect.any(String),
+      fieldOverrides: expect.objectContaining({
+        title: 'Navy blazer',
+      }),
     }));
     expect(refreshSubscriptionMock).toHaveBeenCalled();
     expect(toastSuccessMock).toHaveBeenCalledWith('Saved, studio render pending…');
@@ -222,13 +222,9 @@ describe('useAddGarment', () => {
       await result.current.handleSave(false);
     });
 
-    expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-      render_status: 'none',
-    }));
-    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith(expect.objectContaining({
-      skipRender: true,
+    expect(finalizeCandidateMock).toHaveBeenCalledWith(expect.objectContaining({
       source: 'add_photo',
-      imageProcessing: { mode: 'skip' },
+      enableStudioQuality: false,
     }));
     expect(toastSuccessMock).toHaveBeenCalledWith('Saved, processing details…');
   });
