@@ -180,10 +180,27 @@ describe('useAddGarment', () => {
       }),
     }));
     expect(refreshSubscriptionMock).toHaveBeenCalled();
-    expect(toastSuccessMock).toHaveBeenCalledWith('Saved, studio render pending…');
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Saved, studio render pending…');
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Saved, processing details…');
     expect(navigateMock).not.toHaveBeenCalledWith('/wardrobe');
-    expect(result.current.step).toBe('upload');
     expect(result.current.showConfirmSheet).toBe(false);
+    expect(result.current.savedCard).toEqual({
+      garmentId: 'garment-1',
+      imagePath: 'user-1/garment-1/original.jpg',
+      title: 'Navy blazer',
+      category: 'top',
+      colorPrimary: 'navy',
+      studioQualityEnabled: true,
+    });
+    expect(result.current.step).toBe('form');
+    expect(result.current.title).toBe('Navy blazer');
+
+    await act(async () => {
+      result.current.dismissSavedCard();
+    });
+
+    expect(result.current.savedCard).toBeNull();
+    expect(result.current.step).toBe('upload');
     expect(result.current.title).toBe('');
     expect(result.current.imagePreview).toBeNull();
   });
@@ -226,6 +243,11 @@ describe('useAddGarment', () => {
       source: 'add_photo',
       enableStudioQuality: false,
     }));
-    expect(toastSuccessMock).toHaveBeenCalledWith('Saved, processing details…');
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Saved, studio render pending…');
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Saved, processing details…');
+    expect(result.current.savedCard).toEqual(expect.objectContaining({
+      garmentId: 'garment-1',
+      studioQualityEnabled: false,
+    }));
   });
 });
