@@ -89,15 +89,18 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
   const showRegenerateAction = hasRenderedImage && !isRenderActive && !enhanceTriggered;
   const showEnhancingAction = isRenderActive || enhanceTriggered;
 
-  const handleRender = (event: MouseEvent | TouchEvent) => {
+  const handleRender = async (event: MouseEvent | TouchEvent) => {
     event.stopPropagation();
     hapticLight();
     setEnhanceTriggered(true);
-    void invokeEdgeFunction('render_garment_image', {
-      body: { garmentId: garment.id, force: true },
-      timeout: 1000,
-      retries: 0,
-    });
+    try {
+      await invokeEdgeFunction('render_garment_image', {
+        body: { garmentId: garment.id, force: true },
+        retries: 0,
+      });
+    } catch {
+      setEnhanceTriggered(false);
+    }
   };
 
   const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {

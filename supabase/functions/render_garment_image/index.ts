@@ -522,6 +522,53 @@ async function safeMarkRenderFailed(
 }
 
 /**
+ * When a force re-render fails and a prior good render exists, restore it
+ * so the user's wardrobe is not left in a degraded state.
+ * Falls back to safeMarkRenderFailed when there is no prior image to restore.
+ */
+async function safeRestoreOrFailRender(
+  supabase: ReturnType<typeof createClient>,
+  garmentId: string,
+  updates: Record<string, unknown>,
+  context: string,
+  priorRenderedPath: string | null,
+  isForce: boolean,
+) {
+  if (isForce && priorRenderedPath) {
+    console.warn('render_garment_image force-render failed; restoring prior render', {
+      garmentId,
+      context,
+      priorRenderedPath,
+      renderError: updates.render_error,
+    });
+    try {
+      const { error } = await supabase.from('garments').update({
+        render_status: 'ready',
+        render_provider: 'gemini',
+        rendered_image_path: priorRenderedPath,
+        image_path: priorRenderedPath,
+        render_error: null,
+      }).eq('id', garmentId);
+      if (error) {
+        console.error('render_garment_image failed to restore prior render', {
+          garmentId,
+          context,
+          updateError: error.message,
+        });
+      }
+    } catch (restoreError) {
+      console.error('render_garment_image prior-render restore crashed', {
+        garmentId,
+        context,
+        restoreError: getErrorMessage(restoreError),
+      });
+    }
+  } else {
+    await safeMarkRenderFailed(supabase, garmentId, updates, context);
+  }
+}
+
+/**
  * render_garment_image — Gemini-based canonical garment render pipeline.
  *
  * Takes a garment ID, downloads the best available source image,
@@ -533,6 +580,8 @@ async function safeMarkRenderFailed(
 serve(async (req) => {
   let supabase: ReturnType<typeof createClient> | null = null;
   let garmentIdForFailure: string | null = null;
+  let priorRenderedPath: string | null = null;
+  let isForceRender = false;
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: CORS_HEADERS });
@@ -663,6 +712,8 @@ serve(async (req) => {
     // ── Claim render atomically before expensive prep ──
     const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
+      // Note: priorRenderedPath/isForceRender are intentionally NOT set here — the claim
+      // failed so the garment was never put into 'rendering' state and nothing needs restoring.
       const { data: latestGarment } = await supabase
         .from('garments')
         .select('render_status')
@@ -678,6 +729,10 @@ serve(async (req) => {
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
+
+    // Store prior render so a failed force-regeneration can be restored
+    priorRenderedPath = force ? (garment.rendered_image_path ?? null) : null;
+    isForceRender = Boolean(force);
 
     // ── Re-fetch garment after claim to get latest enrichment data ──
     const { data: freshGarment } = await supabase
@@ -728,7 +783,8 @@ serve(async (req) => {
       });
     }
 
-    if (eligibilityAssessment?.decision === 'skip_product_ready') {
+    // When force is true, bypass the product-ready gate — caller explicitly wants a new render
+    if (!force && eligibilityAssessment?.decision === 'skip_product_ready') {
       const confidenceLabel = eligibilityAssessment.confidence == null
         ? 'unknown'
         : eligibilityAssessment.confidence.toFixed(2);
@@ -799,9 +855,9 @@ serve(async (req) => {
       });
 
       if (errorCode === 'gemini_no_image') {
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: errorMessage,
-        }, 'invalid_ai_output');
+        }, 'invalid_ai_output', priorRenderedPath, isForceRender);
 
         return new Response(
           JSON.stringify({ ok: true, rendered: false, error: errorMessage }),
@@ -826,9 +882,9 @@ serve(async (req) => {
     const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB sanity cap
 
     if (outputBytes.length < MIN_SIZE_BYTES) {
-      await safeMarkRenderFailed(supabase, garment.id, {
+      await safeRestoreOrFailRender(supabase, garment.id, {
         render_error: `Quality gate rejected image: output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
-      }, 'quality_gate_output_too_small');
+      }, 'quality_gate_output_too_small', priorRenderedPath, isForceRender);
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too small' }),
@@ -837,9 +893,9 @@ serve(async (req) => {
     }
 
     if (outputBytes.length > MAX_SIZE_BYTES) {
-      await safeMarkRenderFailed(supabase, garment.id, {
+      await safeRestoreOrFailRender(supabase, garment.id, {
         render_error: `Quality gate rejected image: output too large (${outputBytes.length} bytes).`,
-      }, 'quality_gate_output_too_large');
+      }, 'quality_gate_output_too_large', priorRenderedPath, isForceRender);
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
@@ -898,11 +954,11 @@ serve(async (req) => {
           ? 'unknown'
           : validationAssessment.confidence.toFixed(2);
 
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: `Quality gate rejected render after retry: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
           rendered_image_path: null,
           rendered_at: null,
-        }, 'quality_gate_visible_mannequin_retry');
+        }, 'quality_gate_visible_mannequin_retry', priorRenderedPath, isForceRender);
 
         return new Response(
           JSON.stringify({
@@ -959,9 +1015,9 @@ serve(async (req) => {
     });
 
     if (supabase && garmentIdForFailure) {
-      await safeMarkRenderFailed(supabase, garmentIdForFailure, {
+      await safeRestoreOrFailRender(supabase, garmentIdForFailure, {
         render_error: errorMessage,
-      }, 'top_level_catch');
+      }, 'top_level_catch', priorRenderedPath, isForceRender);
     }
 
     return bursAIErrorResponse(error, CORS_HEADERS);
