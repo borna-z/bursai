@@ -155,6 +155,14 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
 
   const { takePhoto, pickFromGallery } = useMedianCamera({ fileInputRef });
 
+  const [savedCard, setSavedCard] = useState<{
+    garmentId: string;
+    imagePath: string;
+    title: string;
+    category: string;
+    colorPrimary: string;
+    studioQualityEnabled: boolean;
+  } | null>(null);
   const [showConfirmSheet, setShowConfirmSheet] = useState(false);
   const [showDuplicateSheet, setShowDuplicateSheet] = useState(false);
   const [step, setStep] = useState<'upload' | 'analyzing' | 'form' | 'batch'>('upload');
@@ -377,15 +385,17 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
               'Saved with the original photo. You can keep adding garments.',
             ),
         });
-      } else {
-        toast.success(
-          enableStudioQuality
-            ? resolveCopy('addgarment.saved_render_pending', 'Saved, studio render pending…')
-            : resolveCopy('addgarment.saved_processing', 'Saved, processing details…'),
-        );
       }
+
       setShowConfirmSheet(false);
-      resetForm();
+      setSavedCard({
+        garmentId: saved.garmentId,
+        imagePath: saved.storagePath,
+        title,
+        category,
+        colorPrimary,
+        studioQualityEnabled: enableStudioQuality,
+      });
     } catch (error) {
       logger.error('Error saving garment:', error);
       toast.error(t('common.something_wrong'));
@@ -413,6 +423,11 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     setSelectedSeasons([]);
     setFormality([3]);
     setInLaundry(false);
+  };
+
+  const dismissSavedCard = () => {
+    setSavedCard(null);
+    resetForm();
   };
 
   const handleBatchSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -482,6 +497,8 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     handleSave,
     openSaveChoice,
     resetForm,
+    savedCard,
+    dismissSavedCard,
     toggleSeason,
     duplicates,
     clearDuplicates,

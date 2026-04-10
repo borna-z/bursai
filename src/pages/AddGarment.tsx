@@ -11,6 +11,8 @@ import { UploadStep } from '@/components/add-garment/UploadStep';
 import { AnalyzingStep } from '@/components/add-garment/AnalyzingStep';
 import { FormStep } from '@/components/add-garment/FormStep';
 import { GarmentSaveChoiceSheet } from '@/components/garment/GarmentSaveChoiceSheet';
+import { GarmentSavedCard } from '@/components/garment/GarmentSavedCard';
+import { categoryLabel, colorLabel } from '@/lib/humanize';
 
 export default function AddGarmentPage() {
   const { t } = useLanguage();
@@ -121,6 +123,23 @@ export default function AddGarmentPage() {
         onSelectStudio={() => { void garment.handleSave(true); }}
         onSelectOriginal={() => { void garment.handleSave(false); }}
       />
+
+      {garment.savedCard && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <div className="pointer-events-auto w-full max-w-sm">
+            <GarmentSavedCard
+              garmentId={garment.savedCard.garmentId}
+              imagePath={garment.savedCard.imagePath}
+              title={garment.savedCard.title}
+              category={categoryLabel(t, garment.savedCard.category)}
+              colorPrimary={colorLabel(t, garment.savedCard.colorPrimary)}
+              studioQualityEnabled={garment.savedCard.studioQualityEnabled}
+              onDismiss={garment.dismissSavedCard}
+              autoDismissMs={2800}
+            />
+          </div>
+        </div>
+      )}
 
       <PaywallModal isOpen={garment.showPaywall} onClose={() => garment.setShowPaywall(false)} reason="garments" />
 
