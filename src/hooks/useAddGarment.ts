@@ -330,7 +330,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         analysis: aiAnalysis ?? ({} as GarmentAnalysis),
         userId: user?.id ?? '',
         source: 'add_photo',
-        enableStudioQuality: true,
+        enableStudioQuality,
         confidence: aiAnalysis?.confidence ?? null,
         existingGarmentId: garmentId,
         existingStoragePath: storagePath,
