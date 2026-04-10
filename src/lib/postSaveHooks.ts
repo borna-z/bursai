@@ -9,14 +9,14 @@ export function runPostSaveHooks(
   storagePath: string,
   candidate: GarmentIntakeCandidate,
 ): void {
-  if (candidate.enableStudioQuality !== false) {
-    triggerGarmentPostSaveIntelligence({
-      garmentId,
-      storagePath,
-      source: candidate.source,
-      imageProcessing: { mode: 'skip' },
-    });
-  }
+  const enableStudioQuality = candidate.enableStudioQuality ?? true;
+  triggerGarmentPostSaveIntelligence({
+    garmentId,
+    storagePath,
+    source: candidate.source,
+    imageProcessing: { mode: 'skip' },
+    skipRender: !enableStudioQuality,
+  });
 
   detectDuplicates(candidate.analysis, garmentId, storagePath).catch((err) => {
     logger.error('Duplicate detection error (non-blocking):', err);
