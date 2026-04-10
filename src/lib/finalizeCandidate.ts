@@ -1,9 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
-import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
 import { buildGarmentInsert } from './buildGarmentInsert';
+import { runPostSaveHooks } from './postSaveHooks';
 
 export interface GarmentIntakeCandidate {
   blob: Blob;
@@ -17,8 +16,6 @@ export interface GarmentIntakeCandidate {
 export async function finalizeCandidate(
   candidate: GarmentIntakeCandidate,
 ): Promise<{ garmentId: string; storagePath: string } | null> {
-  const enableStudioQuality = candidate.enableStudioQuality ?? true;
-
   try {
     const insertPayload = buildGarmentInsert(candidate);
     const garmentId = insertPayload.id as string;
@@ -44,40 +41,11 @@ export async function finalizeCandidate(
       return null;
     }
 
-    if (enableStudioQuality) {
-      triggerGarmentPostSaveIntelligence({
-        garmentId,
-        storagePath,
-        source: candidate.source,
-        imageProcessing: { mode: 'skip' },
-      });
-    }
-
-    detectDuplicates(candidate.analysis, garmentId, storagePath).catch((err) => {
-      logger.error('Duplicate detection error (non-blocking):', err);
-    });
+    runPostSaveHooks(garmentId, storagePath, candidate);
 
     return { garmentId, storagePath };
   } catch (err) {
     logger.error('finalizeCandidate error:', err);
     return null;
   }
-}
-
-async function detectDuplicates(
-  analysis: GarmentAnalysis,
-  excludeGarmentId: string,
-  imagePath: string,
-): Promise<void> {
-  await invokeEdgeFunction('detect_duplicate_garment', {
-    body: {
-      image_path: imagePath,
-      category: analysis.category,
-      color_primary: analysis.color_primary,
-      title: analysis.title,
-      subcategory: analysis.subcategory,
-      material: analysis.material,
-      exclude_garment_id: excludeGarmentId,
-    },
-  });
 }
