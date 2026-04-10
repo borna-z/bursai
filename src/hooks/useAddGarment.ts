@@ -13,7 +13,7 @@ import { getBulkAddSelectionLimit } from '@/lib/bulkAddLimits';
 import { finalizeCandidate, type GarmentIntakeCandidate } from '@/lib/finalizeCandidate';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
-import { trackEvent } from '@/lib/analytics';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 const CATEGORY_IDS = ['top', 'bottom', 'shoes', 'outerwear', 'accessory', 'dress'] as const;
 const PATTERN_IDS = ['solid', 'striped', 'checked', 'dotted', 'floral', 'patterned', 'camo'] as const;
@@ -141,10 +141,13 @@ interface UseAddGarmentParams {
   t: (key: string) => string;
 }
 
+type PendingUpload = Promise<{ path: string; garmentId: string } | null>;
+
 export function useAddGarment({ t }: UseAddGarmentParams) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
+  const uploadPromiseRef = useRef<PendingUpload | null>(null);
   const { uploadGarmentImage, getGarmentSignedUrl } = useStorage();
   const createGarment = useCreateGarment();
   const { data: garmentCount } = useGarmentCount();
@@ -209,6 +212,58 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     setFit(mapFitToFormValue(analysis.fit));
     setSelectedSeasons(mapSeasonTagsToFormValue(analysis.season_tags || []));
     setFormality([analysis.formality || 3]);
+  };
+
+  const runAnalysisBase64 = async (blob: Blob): Promise<GarmentAnalysis | null> => {
+    setStep('analyzing');
+    setAnalysisPhase(0);
+    setAnalysisSummary(null);
+    setAnalysisError(null);
+
+    const phaseTimer1 = setTimeout(() => setAnalysisPhase(1), 800);
+    const phaseTimer2 = setTimeout(() => setAnalysisPhase(2), 2500);
+
+    try {
+      const base64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const { data, error: fnError } = await invokeEdgeFunction<
+        GarmentAnalysis & { error?: string }
+      >('analyze_garment', {
+        body: { base64Image: base64, mode: 'fast' },
+      });
+
+      clearTimeout(phaseTimer1);
+      clearTimeout(phaseTimer2);
+
+      if (fnError || !data || (data as { error?: string }).error) {
+        setAnalysisError(fnError?.message || (data as { error?: string })?.error || 'Analysis failed');
+        setAnalysisPhase(0);
+        return null;
+      }
+
+      const analysis = data as GarmentAnalysis;
+      setAnalysisPhase(3);
+      applyAIAnalysis(analysis);
+
+      const summary = [analysis.title, analysis.material].filter(Boolean).join(', ');
+      setAnalysisSummary(summary);
+
+      toast.success(t('addgarment.ai_success'), {
+        description: t('addgarment.ai_review'),
+      });
+
+      return analysis;
+    } catch (err) {
+      clearTimeout(phaseTimer1);
+      clearTimeout(phaseTimer2);
+      logger.error('Base64 analysis error:', err);
+      return null;
+    }
   };
 
   const runAnalysis = async (path: string) => {
@@ -289,20 +344,67 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
 
     const newGarmentId = crypto.randomUUID();
     setGarmentId(newGarmentId);
+    setStoragePath(null);
 
-    try {
-      const fileExt = 'type' in file && file.type === 'image/png' ? 'png' : rawFile.name.split('.').pop() || 'jpg';
-      const path = await uploadGarmentImage(file, newGarmentId, {
-        extension: fileExt,
-        upsert: false,
-        filePath: `${user.id}/${newGarmentId}/original.${fileExt}`,
+    const fileExt = 'type' in file && file.type === 'image/png' ? 'png' : rawFile.name.split('.').pop() || 'jpg';
+    const filePath = `${user.id}/${newGarmentId}/original.${fileExt}`;
+
+    // Kick off the upload in the background — do NOT await before analysis.
+    const uploadPromise: PendingUpload = (async () => {
+      try {
+        const path = await uploadGarmentImage(file, newGarmentId, {
+          extension: fileExt,
+          upsert: false,
+          filePath,
+        });
+        setStoragePath(path);
+        try {
+          const signedUrl = await getGarmentSignedUrl(path);
+          setImagePreview(signedUrl);
+        } catch {
+          // non-fatal: keep local preview
+        }
+        return { path, garmentId: newGarmentId };
+      } catch (err) {
+        logger.error('Background upload error:', err);
+        return null;
+      }
+    })();
+    uploadPromiseRef.current = uploadPromise;
+
+    // Try base64-first analysis so the form renders before the upload finishes.
+    const analysis = await runAnalysisBase64(file as Blob);
+
+    if (analysis) {
+      setStep('form');
+      // Run duplicate check after the upload settles — it needs image_path.
+      void uploadPromise.then((uploadResult) => {
+        if (!uploadResult) return;
+        checkDuplicates({
+          image_path: uploadResult.path,
+          category: analysis.category,
+          color_primary: analysis.color_primary,
+          title: analysis.title,
+          subcategory: analysis.subcategory,
+          material: analysis.material || undefined,
+        }).then((matches) => {
+          if (matches.length > 0) {
+            setShowDuplicateSheet(true);
+          }
+        });
       });
-      setStoragePath(path);
+      return;
+    }
 
-      const signedUrl = await getGarmentSignedUrl(path);
-      setImagePreview(signedUrl);
-
-      await runAnalysis(path);
+    // Base64 path failed — fall back to the original upload-first flow.
+    try {
+      const uploadResult = await uploadPromise;
+      if (!uploadResult) {
+        toast.error(t('addgarment.upload_error'));
+        setStep('upload');
+        return;
+      }
+      await runAnalysis(uploadResult.path);
     } catch (err) {
       logger.error('Upload/analysis error:', err);
       toast.error(t('addgarment.upload_error'));
@@ -317,7 +419,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   };
 
   const openSaveChoice = () => {
-    if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
+    if (!title || !category || !colorPrimary || !garmentId) {
       toast.error(t('addgarment.fill_required'));
       return;
     }
@@ -326,13 +428,25 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   };
 
   const handleSave = async (enableStudioQuality: boolean) => {
-    if (!storagePath || !title || !category || !colorPrimary || !garmentId) {
+    if (!title || !category || !colorPrimary || !garmentId) {
       toast.error(t('addgarment.fill_required'));
       return;
     }
 
     setIsLoading(true);
     try {
+      // Wait for the background upload if it hasn't finished yet.
+      let resolvedStoragePath = storagePath;
+      if (!resolvedStoragePath) {
+        const uploadResult = await uploadPromiseRef.current;
+        if (!uploadResult) {
+          toast.error(t('addgarment.upload_error'));
+          setIsLoading(false);
+          return;
+        }
+        resolvedStoragePath = uploadResult.path;
+      }
+
       const candidate: GarmentIntakeCandidate = {
         blob: new Blob([]),
         analysis: aiAnalysis ?? ({} as GarmentAnalysis),
@@ -341,7 +455,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
         enableStudioQuality,
         confidence: aiAnalysis?.confidence ?? null,
         existingGarmentId: garmentId,
-        existingStoragePath: storagePath,
+        existingStoragePath: resolvedStoragePath,
         fieldOverrides: {
           title,
           category,
@@ -361,8 +475,6 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       if (!saved) {
         throw new Error('finalizeCandidate returned null');
       }
-
-      trackEvent('garment_added', { source: 'photo' });
 
       refreshSubscription();
 
@@ -413,6 +525,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     setStoragePath(null);
     setGarmentId(null);
     setAiAnalysis(null);
+    uploadPromiseRef.current = null;
     setTitle('');
     setCategory('');
     setSubcategory('');

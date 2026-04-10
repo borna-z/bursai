@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
+import { trackEvent } from '@/lib/analytics';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import { buildGarmentInsert } from './buildGarmentInsert';
 import { runPostSaveHooks } from './postSaveHooks';
@@ -47,6 +48,7 @@ export async function finalizeCandidate(
 
       if (uploadError) {
         logger.error('Upload error:', uploadError);
+        trackEvent('garment_intake_failed', { source: candidate.source, stage: 'upload' });
         return null;
       }
     }
@@ -55,6 +57,7 @@ export async function finalizeCandidate(
 
     if (insertError) {
       logger.error('Insert error:', insertError);
+      trackEvent('garment_intake_failed', { source: candidate.source, stage: 'insert' });
       return null;
     }
 
