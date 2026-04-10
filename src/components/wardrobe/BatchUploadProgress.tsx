@@ -470,6 +470,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
           <div className="pointer-events-auto w-full max-w-sm">
             <GarmentSavedCard
+              key={lastSavedCard.garmentId}
               garmentId={lastSavedCard.garmentId}
               imagePath={lastSavedCard.imagePath}
               title={lastSavedCard.title}
