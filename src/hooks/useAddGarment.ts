@@ -148,6 +148,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
   const uploadPromiseRef = useRef<PendingUpload | null>(null);
+  const activeGenerationRef = useRef(0);
   const { uploadGarmentImage, getGarmentSignedUrl } = useStorage();
   const createGarment = useCreateGarment();
   const { data: garmentCount } = useGarmentCount();
@@ -320,6 +321,8 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   };
 
   const handleImageSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const generation = ++activeGenerationRef.current;
+
     const rawFile = e.target.files?.[0];
     if (!rawFile || !user) return;
 
@@ -357,9 +360,12 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
           upsert: false,
           filePath,
         });
+        if (activeGenerationRef.current !== generation) return null;
         setStoragePath(path);
+        if (activeGenerationRef.current !== generation) return null;
         try {
           const signedUrl = await getGarmentSignedUrl(path);
+          if (activeGenerationRef.current !== generation) return null;
           setImagePreview(signedUrl);
         } catch {
           // non-fatal: keep local preview
@@ -379,6 +385,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       setStep('form');
       // Run duplicate check after the upload settles — it needs image_path.
       void uploadPromise.then((uploadResult) => {
+        if (activeGenerationRef.current !== generation) return;
         if (!uploadResult) return;
         checkDuplicates({
           image_path: uploadResult.path,
@@ -388,6 +395,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
           subcategory: analysis.subcategory,
           material: analysis.material || undefined,
         }).then((matches) => {
+          if (activeGenerationRef.current !== generation) return;
           if (matches.length > 0) {
             setShowDuplicateSheet(true);
           }
@@ -399,6 +407,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     // Base64 path failed — fall back to the original upload-first flow.
     try {
       const uploadResult = await uploadPromise;
+      if (activeGenerationRef.current !== generation) return;
       if (!uploadResult) {
         toast.error(t('addgarment.upload_error'));
         setStep('upload');
@@ -406,6 +415,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
       }
       await runAnalysis(uploadResult.path);
     } catch (err) {
+      if (activeGenerationRef.current !== generation) return;
       logger.error('Upload/analysis error:', err);
       toast.error(t('addgarment.upload_error'));
       setStep('upload');
@@ -526,6 +536,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
     setGarmentId(null);
     setAiAnalysis(null);
     uploadPromiseRef.current = null;
+    activeGenerationRef.current = 0;
     setTitle('');
     setCategory('');
     setSubcategory('');
