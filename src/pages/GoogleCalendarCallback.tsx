@@ -5,6 +5,7 @@ import { Loader2, CheckCircle2, XCircle, Calendar, ArrowLeft } from 'lucide-reac
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
+import { buildAppUrl } from '@/lib/appUrl';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { EASE_CURVE, DURATION_MEDIUM, DURATION_SLOW, STAGGER_DELAY } from '@/lib/motion';
@@ -67,7 +68,7 @@ export default function GoogleCalendarCallback() {
 
     const exchangeCode = async () => {
       try {
-        const redirectUri = `${window.location.origin}/calendar/callback`;
+        const redirectUri = buildAppUrl('/calendar/callback');
         const { data, error: fnError } = await supabase.functions.invoke('google_calendar_auth', {
           body: {
             action: 'exchange_code',

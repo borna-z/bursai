@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DURATION_SLOW } from '@/lib/motion';
+import { buildAppUrl } from '@/lib/appUrl';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import bursLogo from '@/assets/burs-logo-256-2.png';
@@ -127,7 +128,7 @@ export default function AuthPage() {
   const handleForgotPassword = async () => {
     if (!email) { toast.error(t('auth.enter_email_first')); return; }
     setIsLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: buildAppUrl('/reset-password') });
     setIsLoading(false);
     if (error) toast.error(t('auth.something_wrong'));
     else toast.success(t('auth.reset_email_sent'));
@@ -138,7 +139,7 @@ export default function AuthPage() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/`, queryParams: { access_type: 'offline', prompt: 'consent' } },
+        options: { redirectTo: buildAppUrl('/auth'), queryParams: { access_type: 'offline', prompt: 'consent' } },
       });
       if (error) { toast.error(t('auth.something_wrong')); setIsLoading(false); }
     } catch { toast.error(t('auth.something_wrong')); setIsLoading(false); }
