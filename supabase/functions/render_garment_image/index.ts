@@ -253,6 +253,11 @@ type RenderPromptEnrichment = {
   constructionDetails: string | null;
   waistband: string | null;
   colorDescription: string | null;
+  shoulderStructure: string | null;
+  textureIntensity: string | null;
+  visualWeight: string | null;
+  occasionTags: string[] | null;
+  styleArchetype: string | null;
 };
 
 function normalizeMetadataValue(value: unknown): string | null {
@@ -289,6 +294,13 @@ function extractPromptEnrichment(aiRaw: unknown): RenderPromptEnrichment {
     constructionDetails: normalizeMetadataValue(enrichment?.construction_details),
     waistband: normalizeMetadataValue(enrichment?.waistband),
     colorDescription: normalizeMetadataValue(enrichment?.color_description),
+    shoulderStructure: normalizeMetadataValue(enrichment?.shoulder_structure),
+    textureIntensity: normalizeMetadataValue(enrichment?.texture_intensity),
+    visualWeight: normalizeMetadataValue(enrichment?.visual_weight),
+    occasionTags: Array.isArray(enrichment?.occasion_tags)
+      ? (enrichment?.occasion_tags as unknown[]).filter((t): t is string => typeof t === 'string')
+      : null,
+    styleArchetype: normalizeMetadataValue(enrichment?.style_archetype),
   };
 }
 
@@ -302,6 +314,14 @@ function sanitizeEnrichmentValue(value: string | null | undefined): string | nul
     .slice(0, 200);
 }
 
+function formalityLabel(score: number): string {
+  if (score <= 1) return 'very casual';
+  if (score <= 2) return 'casual';
+  if (score <= 3) return 'smart casual';
+  if (score <= 4) return 'semi-formal';
+  return 'formal';
+}
+
 function buildGarmentRenderPrompt(garment: {
   title: string;
   category: string;
@@ -311,6 +331,7 @@ function buildGarmentRenderPrompt(garment: {
   material: string | null;
   pattern: string | null;
   fit: string | null;
+  formality: number | null;
   ai_raw: unknown;
 }, mannequinPresentation: 'male' | 'female' | 'mixed'): string {
   const enrichment = extractPromptEnrichment(garment.ai_raw);
@@ -339,6 +360,14 @@ function buildGarmentRenderPrompt(garment: {
     sanitizeEnrichmentValue(enrichment.constructionDetails) ? `- Construction details: ${sanitizeEnrichmentValue(enrichment.constructionDetails)}` : null,
     enrichment.waistband ? `- Waistband: ${enrichment.waistband}` : null,
     sanitizeEnrichmentValue(enrichment.colorDescription) ? `- Precise color: ${sanitizeEnrichmentValue(enrichment.colorDescription)}` : null,
+    enrichment.shoulderStructure ? `- Shoulder structure: ${enrichment.shoulderStructure}` : null,
+    enrichment.textureIntensity ? `- Texture intensity: ${enrichment.textureIntensity}` : null,
+    enrichment.visualWeight ? `- Visual weight: ${enrichment.visualWeight}` : null,
+    enrichment.styleArchetype ? `- Style archetype: ${enrichment.styleArchetype}` : null,
+    enrichment.occasionTags && enrichment.occasionTags.length > 0
+      ? `- Occasion context: ${enrichment.occasionTags.join(', ')}`
+      : null,
+    garment.formality != null ? `- Formality: ${formalityLabel(garment.formality)} (${garment.formality}/5)` : null,
   ].filter((value): value is string => Boolean(value));
 
   const garmentLabel = garment.subcategory ?? garment.category ?? garment.title;
@@ -435,7 +464,12 @@ async function claimGarmentRender(
   supabase: ReturnType<typeof createClient>,
   garmentId: string,
   mannequinPresentation: MannequinPresentation,
+  force?: boolean,
 ): Promise<boolean> {
+  const allowedStatuses = force
+    ? ['pending', 'failed', 'none', 'skipped', 'ready']
+    : ['pending', 'failed', 'none'];
+
   const { data, error } = await supabase
     .from('garments')
     .update({
@@ -445,7 +479,7 @@ async function claimGarmentRender(
       render_provider: 'gemini',
     })
     .eq('id', garmentId)
-    .in('render_status', ['pending', 'failed', 'none'])
+    .in('render_status', allowedStatuses)
     .select('id')
     .maybeSingle();
 
@@ -546,7 +580,7 @@ serve(async (req) => {
     supabase = createClient(supabaseUrl, serviceKey);
 
     // ── Input ──
-    const { garmentId } = await req.json();
+    const { garmentId, force } = await req.json() as { garmentId: string; force?: boolean };
     garmentIdForFailure = garmentId;
 
     if (!garmentId || typeof garmentId !== 'string') {
@@ -560,7 +594,7 @@ serve(async (req) => {
     const { data: garment, error: garmentError } = await supabase
       .from('garments')
       .select(
-        'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, ' +
+        'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, ' +
         'original_image_path, image_path, render_status, render_error, rendered_image_path, render_presentation_used',
       )
       .eq('id', garmentId)
@@ -574,10 +608,17 @@ serve(async (req) => {
       });
     }
 
-    // Don't re-render if already ready or currently rendering
-    if (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped') {
+    // Don't re-render if already ready or currently rendering, unless caller forces a re-render
+    if (!force && (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped')) {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      );
+    }
+    // Always block while rendering is in flight to prevent double-claim
+    if (garment.render_status === 'rendering') {
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: 'Already rendering' }),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
@@ -620,7 +661,7 @@ serve(async (req) => {
     });
 
     // ── Claim render atomically before expensive prep ──
-    const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation);
+    const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
       const { data: latestGarment } = await supabase
         .from('garments')
@@ -641,7 +682,7 @@ serve(async (req) => {
     // ── Re-fetch garment after claim to get latest enrichment data ──
     const { data: freshGarment } = await supabase
       .from('garments')
-      .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, original_image_path, image_path')
+      .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path')
       .eq('id', garment.id)
       .maybeSingle();
     const garmentForPrompt = freshGarment ?? garment;
