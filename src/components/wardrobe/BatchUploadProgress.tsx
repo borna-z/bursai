@@ -5,15 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useStorage } from '@/hooks/useStorage';
 import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
-import { useCreateGarment } from '@/hooks/useGarments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import { logger } from '@/lib/logger';
-import type { Json } from '@/integrations/supabase/types';
-import { buildGarmentIntelligenceFields, getGarmentReviewDecision, standardizeGarmentAiRaw, triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { finalizeCandidate, type GarmentIntakeCandidate } from '@/lib/finalizeCandidate';
+import { getGarmentReviewDecision } from '@/lib/garmentIntelligence';
 import { trackEvent } from '@/lib/analytics';
 
 interface BatchItem {
@@ -38,7 +35,6 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const { t } = useLanguage();
   const { uploadGarmentImage } = useStorage();
   const { analyzeGarment } = useAnalyzeGarment();
-  const createGarment = useCreateGarment();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -84,60 +80,28 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   }, [items.length, processingComplete, readyToContinue, reviewCount, t]);
 
   const saveApprovedItem = useCallback(async (item: BatchItem) => {
-    if (!item.analysis || !item.storagePath || !item.garmentId) {
+    if (!item.analysis || !item.storagePath || !item.garmentId || !user) {
       throw new Error('Missing review item context');
     }
 
-    await createGarment.mutateAsync({
-      id: item.garmentId,
-      image_path: item.storagePath,
-      title: item.analysis.title,
-      category: item.analysis.category,
-      subcategory: item.analysis.subcategory || null,
-      color_primary: item.analysis.color_primary,
-      color_secondary: item.analysis.color_secondary || null,
-      pattern: item.analysis.pattern || null,
-      material: item.analysis.material || null,
-      fit: item.analysis.fit || null,
-      season_tags: item.analysis.season_tags || null,
-      formality: item.analysis.formality || 3,
-      in_laundry: false,
-      ai_analyzed_at: new Date().toISOString(),
-      ai_provider: item.analysis.ai_provider || 'unknown',
-      ai_raw: standardizeGarmentAiRaw({
-        aiRaw: (item.analysis.ai_raw ?? null) as Json,
-        analysisConfidence: item.analysis.confidence,
-        source: 'batch_add',
-        reviewDecision: getGarmentReviewDecision(item.analysis.confidence, {
-          imageContainsMultipleGarments: item.analysis.image_contains_multiple_garments,
-        }),
-      }),
-      ...buildGarmentIntelligenceFields({ storagePath: item.storagePath, enableRender: true, skipImageProcessing: true }),
-    });
-
-    triggerGarmentPostSaveIntelligence({
-      garmentId: item.garmentId,
-      storagePath: item.storagePath,
+    const candidate: GarmentIntakeCandidate = {
+      blob: new Blob([]),
+      analysis: item.analysis,
+      userId: user.id,
       source: 'batch_add',
-      imageProcessing: { mode: 'skip' },
-    });
+      enableStudioQuality: true,
+      confidence: item.analysis.confidence ?? null,
+      existingGarmentId: item.garmentId,
+      existingStoragePath: item.storagePath,
+    };
+
+    const saved = await finalizeCandidate(candidate);
+    if (!saved) {
+      throw new Error('finalizeCandidate returned null');
+    }
 
     trackEvent('garment_added', { source: 'batch' });
-
-    invokeEdgeFunction('detect_duplicate_garment', {
-      body: {
-        image_path: item.storagePath,
-        category: item.analysis.category,
-        color_primary: item.analysis.color_primary,
-        title: item.analysis.title,
-        subcategory: item.analysis.subcategory,
-        material: item.analysis.material,
-        exclude_garment_id: item.garmentId,
-      },
-    }).catch((err) =>
-      logger.error('Batch duplicate detection error (non-blocking):', err)
-    );
-  }, [createGarment]);
+  }, [user]);
 
   const queueReviewItems = useCallback((index: number, item: BatchItem, storagePath: string, garmentId: string) => {
     const detectedGarments = Array.isArray(item.analysis?.detected_garments)
