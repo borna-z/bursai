@@ -253,6 +253,11 @@ type RenderPromptEnrichment = {
   constructionDetails: string | null;
   waistband: string | null;
   colorDescription: string | null;
+  shoulderStructure: string | null;
+  textureIntensity: string | null;
+  visualWeight: string | null;
+  occasionTags: string[] | null;
+  styleArchetype: string | null;
 };
 
 function normalizeMetadataValue(value: unknown): string | null {
@@ -289,6 +294,13 @@ function extractPromptEnrichment(aiRaw: unknown): RenderPromptEnrichment {
     constructionDetails: normalizeMetadataValue(enrichment?.construction_details),
     waistband: normalizeMetadataValue(enrichment?.waistband),
     colorDescription: normalizeMetadataValue(enrichment?.color_description),
+    shoulderStructure: normalizeMetadataValue(enrichment?.shoulder_structure),
+    textureIntensity: normalizeMetadataValue(enrichment?.texture_intensity),
+    visualWeight: normalizeMetadataValue(enrichment?.visual_weight),
+    occasionTags: Array.isArray(enrichment?.occasion_tags)
+      ? (enrichment?.occasion_tags as unknown[]).filter((t): t is string => typeof t === 'string')
+      : null,
+    styleArchetype: normalizeMetadataValue(enrichment?.style_archetype),
   };
 }
 
@@ -302,6 +314,14 @@ function sanitizeEnrichmentValue(value: string | null | undefined): string | nul
     .slice(0, 200);
 }
 
+function formalityLabel(score: number): string {
+  if (score <= 1) return 'very casual';
+  if (score <= 2) return 'casual';
+  if (score <= 3) return 'smart casual';
+  if (score <= 4) return 'semi-formal';
+  return 'formal';
+}
+
 function buildGarmentRenderPrompt(garment: {
   title: string;
   category: string;
@@ -311,6 +331,7 @@ function buildGarmentRenderPrompt(garment: {
   material: string | null;
   pattern: string | null;
   fit: string | null;
+  formality: number | null;
   ai_raw: unknown;
 }, mannequinPresentation: 'male' | 'female' | 'mixed'): string {
   const enrichment = extractPromptEnrichment(garment.ai_raw);
@@ -339,6 +360,14 @@ function buildGarmentRenderPrompt(garment: {
     sanitizeEnrichmentValue(enrichment.constructionDetails) ? `- Construction details: ${sanitizeEnrichmentValue(enrichment.constructionDetails)}` : null,
     enrichment.waistband ? `- Waistband: ${enrichment.waistband}` : null,
     sanitizeEnrichmentValue(enrichment.colorDescription) ? `- Precise color: ${sanitizeEnrichmentValue(enrichment.colorDescription)}` : null,
+    enrichment.shoulderStructure ? `- Shoulder structure: ${enrichment.shoulderStructure}` : null,
+    enrichment.textureIntensity ? `- Texture intensity: ${enrichment.textureIntensity}` : null,
+    enrichment.visualWeight ? `- Visual weight: ${enrichment.visualWeight}` : null,
+    enrichment.styleArchetype ? `- Style archetype: ${enrichment.styleArchetype}` : null,
+    enrichment.occasionTags && enrichment.occasionTags.length > 0
+      ? `- Occasion context: ${enrichment.occasionTags.join(', ')}`
+      : null,
+    garment.formality != null ? `- Formality: ${formalityLabel(garment.formality)} (${garment.formality}/5)` : null,
   ].filter((value): value is string => Boolean(value));
 
   const garmentLabel = garment.subcategory ?? garment.category ?? garment.title;
@@ -435,7 +464,12 @@ async function claimGarmentRender(
   supabase: ReturnType<typeof createClient>,
   garmentId: string,
   mannequinPresentation: MannequinPresentation,
+  force?: boolean,
 ): Promise<boolean> {
+  const allowedStatuses = force
+    ? ['pending', 'failed', 'none', 'skipped', 'ready']
+    : ['pending', 'failed', 'none'];
+
   const { data, error } = await supabase
     .from('garments')
     .update({
@@ -445,7 +479,7 @@ async function claimGarmentRender(
       render_provider: 'gemini',
     })
     .eq('id', garmentId)
-    .in('render_status', ['pending', 'failed', 'none'])
+    .in('render_status', allowedStatuses)
     .select('id')
     .maybeSingle();
 
@@ -488,6 +522,53 @@ async function safeMarkRenderFailed(
 }
 
 /**
+ * When a force re-render fails and a prior good render exists, restore it
+ * so the user's wardrobe is not left in a degraded state.
+ * Falls back to safeMarkRenderFailed when there is no prior image to restore.
+ */
+async function safeRestoreOrFailRender(
+  supabase: ReturnType<typeof createClient>,
+  garmentId: string,
+  updates: Record<string, unknown>,
+  context: string,
+  priorRenderedPath: string | null,
+  isForce: boolean,
+) {
+  if (isForce && priorRenderedPath) {
+    console.warn('render_garment_image force-render failed; restoring prior render', {
+      garmentId,
+      context,
+      priorRenderedPath,
+      renderError: updates.render_error,
+    });
+    try {
+      const { error } = await supabase.from('garments').update({
+        render_status: 'ready',
+        render_provider: 'gemini',
+        rendered_image_path: priorRenderedPath,
+        image_path: priorRenderedPath,
+        render_error: null,
+      }).eq('id', garmentId);
+      if (error) {
+        console.error('render_garment_image failed to restore prior render', {
+          garmentId,
+          context,
+          updateError: error.message,
+        });
+      }
+    } catch (restoreError) {
+      console.error('render_garment_image prior-render restore crashed', {
+        garmentId,
+        context,
+        restoreError: getErrorMessage(restoreError),
+      });
+    }
+  } else {
+    await safeMarkRenderFailed(supabase, garmentId, updates, context);
+  }
+}
+
+/**
  * render_garment_image — Gemini-based canonical garment render pipeline.
  *
  * Takes a garment ID, downloads the best available source image,
@@ -499,6 +580,8 @@ async function safeMarkRenderFailed(
 serve(async (req) => {
   let supabase: ReturnType<typeof createClient> | null = null;
   let garmentIdForFailure: string | null = null;
+  let priorRenderedPath: string | null = null;
+  let isForceRender = false;
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: CORS_HEADERS });
@@ -546,7 +629,7 @@ serve(async (req) => {
     supabase = createClient(supabaseUrl, serviceKey);
 
     // ── Input ──
-    const { garmentId } = await req.json();
+    const { garmentId, force } = await req.json() as { garmentId: string; force?: boolean };
     garmentIdForFailure = garmentId;
 
     if (!garmentId || typeof garmentId !== 'string') {
@@ -560,7 +643,7 @@ serve(async (req) => {
     const { data: garment, error: garmentError } = await supabase
       .from('garments')
       .select(
-        'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, ' +
+        'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, ' +
         'original_image_path, image_path, render_status, render_error, rendered_image_path, render_presentation_used',
       )
       .eq('id', garmentId)
@@ -574,10 +657,17 @@ serve(async (req) => {
       });
     }
 
-    // Don't re-render if already ready or currently rendering
-    if (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped') {
+    // Don't re-render if already ready or currently rendering, unless caller forces a re-render
+    if (!force && (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped')) {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      );
+    }
+    // Always block while rendering is in flight to prevent double-claim
+    if (garment.render_status === 'rendering') {
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: 'Already rendering' }),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
@@ -620,8 +710,10 @@ serve(async (req) => {
     });
 
     // ── Claim render atomically before expensive prep ──
-    const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation);
+    const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
+      // Note: priorRenderedPath/isForceRender are intentionally NOT set here — the claim
+      // failed so the garment was never put into 'rendering' state and nothing needs restoring.
       const { data: latestGarment } = await supabase
         .from('garments')
         .select('render_status')
@@ -638,10 +730,14 @@ serve(async (req) => {
       );
     }
 
+    // Store prior render so a failed force-regeneration can be restored
+    priorRenderedPath = force ? (garment.rendered_image_path ?? null) : null;
+    isForceRender = Boolean(force);
+
     // ── Re-fetch garment after claim to get latest enrichment data ──
     const { data: freshGarment } = await supabase
       .from('garments')
-      .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, ai_raw, original_image_path, image_path')
+      .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path')
       .eq('id', garment.id)
       .maybeSingle();
     const garmentForPrompt = freshGarment ?? garment;
@@ -687,7 +783,8 @@ serve(async (req) => {
       });
     }
 
-    if (eligibilityAssessment?.decision === 'skip_product_ready') {
+    // When force is true, bypass the product-ready gate — caller explicitly wants a new render
+    if (!force && eligibilityAssessment?.decision === 'skip_product_ready') {
       const confidenceLabel = eligibilityAssessment.confidence == null
         ? 'unknown'
         : eligibilityAssessment.confidence.toFixed(2);
@@ -758,9 +855,9 @@ serve(async (req) => {
       });
 
       if (errorCode === 'gemini_no_image') {
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: errorMessage,
-        }, 'invalid_ai_output');
+        }, 'invalid_ai_output', priorRenderedPath, isForceRender);
 
         return new Response(
           JSON.stringify({ ok: true, rendered: false, error: errorMessage }),
@@ -785,9 +882,9 @@ serve(async (req) => {
     const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB sanity cap
 
     if (outputBytes.length < MIN_SIZE_BYTES) {
-      await safeMarkRenderFailed(supabase, garment.id, {
+      await safeRestoreOrFailRender(supabase, garment.id, {
         render_error: `Quality gate rejected image: output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
-      }, 'quality_gate_output_too_small');
+      }, 'quality_gate_output_too_small', priorRenderedPath, isForceRender);
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too small' }),
@@ -796,9 +893,9 @@ serve(async (req) => {
     }
 
     if (outputBytes.length > MAX_SIZE_BYTES) {
-      await safeMarkRenderFailed(supabase, garment.id, {
+      await safeRestoreOrFailRender(supabase, garment.id, {
         render_error: `Quality gate rejected image: output too large (${outputBytes.length} bytes).`,
-      }, 'quality_gate_output_too_large');
+      }, 'quality_gate_output_too_large', priorRenderedPath, isForceRender);
 
       return new Response(
         JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
@@ -857,11 +954,11 @@ serve(async (req) => {
           ? 'unknown'
           : validationAssessment.confidence.toFixed(2);
 
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: `Quality gate rejected render after retry: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
           rendered_image_path: null,
           rendered_at: null,
-        }, 'quality_gate_visible_mannequin_retry');
+        }, 'quality_gate_visible_mannequin_retry', priorRenderedPath, isForceRender);
 
         return new Response(
           JSON.stringify({
@@ -918,9 +1015,9 @@ serve(async (req) => {
     });
 
     if (supabase && garmentIdForFailure) {
-      await safeMarkRenderFailed(supabase, garmentIdForFailure, {
+      await safeRestoreOrFailRender(supabase, garmentIdForFailure, {
         render_error: errorMessage,
-      }, 'top_level_catch');
+      }, 'top_level_catch', priorRenderedPath, isForceRender);
     }
 
     return bursAIErrorResponse(error, CORS_HEADERS);

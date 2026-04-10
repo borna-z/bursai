@@ -12,8 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Garment } from '@/hooks/useGarments';
-import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { WardrobeGarmentListLayout } from '@/components/wardrobe/GarmentCardSystem';
 
@@ -80,27 +79,28 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
   };
 
   const isRenderActive = garment.render_status === 'pending' || garment.render_status === 'rendering';
-  const showEnhanceAction = !garment.rendered_image_path && !isRenderActive && !enhanceTriggered;
+  const hasRenderedImage = Boolean(garment.rendered_image_path);
+  const renderStatus = garment.render_status;
+
+  // Show "Studio photo" when no rendered image exists and render is not in flight
+  const showGenerateAction = !hasRenderedImage && !isRenderActive && !enhanceTriggered
+    && (renderStatus === 'none' || renderStatus === 'failed' || renderStatus === 'skipped');
+  // Show "Regenerate" when a rendered image already exists and render is not in flight
+  const showRegenerateAction = hasRenderedImage && !isRenderActive && !enhanceTriggered;
   const showEnhancingAction = isRenderActive || enhanceTriggered;
 
-  const handleEnhance = (event: MouseEvent | TouchEvent) => {
+  const handleRender = async (event: MouseEvent | TouchEvent) => {
     event.stopPropagation();
     hapticLight();
     setEnhanceTriggered(true);
-    triggerGarmentPostSaveIntelligence({
-      garmentId: garment.id,
-      storagePath: garment.image_path,
-      source: 'manual_enhance',
-      imageProcessing: { mode: 'skip' },
-    });
-    supabase
-      .from('garments')
-      .update({
-        image_processing_status: 'ready',
-        image_processing_provider: 'disabled',
-      })
-      .eq('id', garment.id)
-      .then(() => {});
+    try {
+      await invokeEdgeFunction('render_garment_image', {
+        body: { garmentId: garment.id, force: true },
+        retries: 0,
+      });
+    } catch {
+      setEnhanceTriggered(false);
+    }
   };
 
   const handleStyleAround = (event: MouseEvent<HTMLButtonElement>) => {
@@ -108,18 +108,26 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     navigate(`/ai/chat${buildStyleFlowSearch(garment.id)}`, { state: buildStyleAroundState(garment.id) });
   };
 
-  const secondaryAction = showEnhanceAction ? (
-    <button
-      type="button"
-      onClick={handleEnhance}
-      className="inline-flex h-10 items-center justify-center rounded-[16px] border border-border/45 bg-background/82 px-3.5 text-[11px] font-semibold text-foreground/68 transition-all duration-200 hover:-translate-y-0.5 hover:bg-background"
-    >
-      Refine
-    </button>
-  ) : showEnhancingAction ? (
+  const secondaryAction = showEnhancingAction ? (
     <span className="inline-flex h-10 items-center justify-center rounded-[16px] border border-border/45 bg-background/68 px-3.5 text-[11px] font-semibold text-foreground/45">
       Refining...
     </span>
+  ) : showRegenerateAction ? (
+    <button
+      type="button"
+      onClick={handleRender}
+      className="inline-flex h-10 items-center justify-center rounded-[16px] border border-border/45 bg-background/82 px-3.5 text-[11px] font-semibold text-foreground/68 transition-all duration-200 hover:-translate-y-0.5 hover:bg-background"
+    >
+      Regenerate
+    </button>
+  ) : showGenerateAction ? (
+    <button
+      type="button"
+      onClick={handleRender}
+      className="inline-flex h-10 items-center justify-center rounded-[16px] border border-border/45 bg-background/82 px-3.5 text-[11px] font-semibold text-foreground/68 transition-all duration-200 hover:-translate-y-0.5 hover:bg-background"
+    >
+      Studio photo
+    </button>
   ) : null;
 
   return (

@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const navigateMock = vi.fn();
-const triggerGarmentPostSaveIntelligenceMock = vi.fn();
+const invokeEdgeFunctionMock = vi.fn().mockResolvedValue({ data: null, error: null });
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -21,8 +21,8 @@ vi.mock('@/lib/haptics', () => ({
   hapticLight: vi.fn(),
 }));
 
-vi.mock('@/lib/garmentIntelligence', () => ({
-  triggerGarmentPostSaveIntelligence: (...args: unknown[]) => triggerGarmentPostSaveIntelligenceMock(...args),
+vi.mock('@/lib/edgeFunctionClient', () => ({
+  invokeEdgeFunction: (...args: unknown[]) => invokeEdgeFunctionMock(...args),
 }));
 
 vi.mock('@/components/ui/lazy-image', () => ({
@@ -52,6 +52,9 @@ const baseGarment: Partial<Garment> = {
   category: 'top',
   color_primary: 'blue',
   image_path: 'img.jpg',
+  original_image_path: 'img.jpg',
+  render_status: 'none',
+  rendered_image_path: null,
   formality: null,
   ai_raw: null,
   in_laundry: false,
@@ -129,14 +132,12 @@ describe('SwipeableGarmentCard', () => {
   it('keeps the redesign secondary action wired to enhancement without opening the garment', () => {
     renderCard();
 
-    fireEvent.click(screen.getByText('Refine'));
+    fireEvent.click(screen.getByText('Studio photo'));
 
-    expect(triggerGarmentPostSaveIntelligenceMock).toHaveBeenCalledWith({
-      garmentId: 'g1',
-      storagePath: 'img.jpg',
-      source: 'manual_enhance',
-      imageProcessing: { mode: 'skip' },
-    });
+    expect(invokeEdgeFunctionMock).toHaveBeenCalledWith(
+      'render_garment_image',
+      { body: { garmentId: 'g1', force: true }, retries: 0 },
+    );
     expect(navigateMock).not.toHaveBeenCalled();
     expect(screen.getByText('Refining...')).toBeInTheDocument();
   });
