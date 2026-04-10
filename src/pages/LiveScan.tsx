@@ -22,31 +22,7 @@ import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { logger } from '@/lib/logger';
 import { GarmentSaveChoiceSheet } from '@/components/garment/GarmentSaveChoiceSheet';
-
-/* ─── Accepted overlay — fast checkmark fade ─── */
-function AcceptedOverlay({ onDone, label }: { onDone: () => void; label: string }) {
-  useEffect(() => { const t = setTimeout(onDone, 400); return () => clearTimeout(t); }, [onDone]);
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-30 flex items-center justify-center bg-background/60 backdrop-blur-sm"
-    >
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.2 }}
-        className="flex flex-col items-center gap-3"
-      >
-        <div className="flex h-20 w-20 items-center justify-center rounded-[1.25rem] border border-accent/20 bg-background/90 shadow-[0_18px_40px_rgba(28,25,23,0.12)]">
-          <Check className="w-10 h-10 text-accent" strokeWidth={3} />
-        </div>
-        <p className="text-foreground text-sm font-medium">{label}</p>
-      </motion.div>
-    </motion.div>
-  );
-}
+import { GarmentSavedCard } from '@/components/garment/GarmentSavedCard';
 
 /* ─── Auto-progress ring around shutter ─── */
 function AutoProgressRing({ progress }: { progress: number }) {
@@ -502,12 +478,7 @@ export default function LiveScan() {
   const handleAcceptedDone = useCallback(() => {
     setShowAccepted(false);
     clearLastAccepted();
-    toast.success(
-      lastAccepted?.studioQualityEnabled
-        ? t('addgarment.saved_render_pending')
-        : t('addgarment.saved_processing'),
-    );
-  }, [clearLastAccepted, lastAccepted, t]);
+  }, [clearLastAccepted]);
 
   const handleDone = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -648,9 +619,21 @@ export default function LiveScan() {
 
         {isProcessing && <ScanOverlay isDone={!!lastResult} />}
         
-        <AnimatePresence>
-          {showAccepted && <AcceptedOverlay onDone={handleAcceptedDone} label={t('scan.added')} />}
-        </AnimatePresence>
+        {showAccepted && lastAccepted && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-30 flex justify-center px-4">
+            <div className="pointer-events-auto w-full max-w-sm">
+              <GarmentSavedCard
+                garmentId={lastAccepted.garmentId}
+                imagePath={lastAccepted.imagePath}
+                title={lastAccepted.analysis.title}
+                category={categoryLabel(t, lastAccepted.analysis.category)}
+                colorPrimary={colorLabel(t, lastAccepted.analysis.color_primary)}
+                studioQualityEnabled={lastAccepted.studioQualityEnabled}
+                onDismiss={handleAcceptedDone}
+              />
+            </div>
+          </div>
+        )}
 
         {error && !isProcessing && (
           <div className="absolute bottom-32 left-4 right-4 z-20">
