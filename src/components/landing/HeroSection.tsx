@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { buildAppUrl } from '@/lib/appUrl';
 import { toast } from 'sonner';
 
 export function HeroSection() {
@@ -13,7 +14,7 @@ export function HeroSection() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: buildAppUrl('/auth'),
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
