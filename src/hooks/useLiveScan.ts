@@ -6,6 +6,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { compressImage } from '@/lib/imageCompression';
 import { compressCenterCrop } from '@/lib/compressFrame';
+import { finalizeCandidate, type GarmentIntakeCandidate } from '@/lib/finalizeCandidate';
+// TODO Sprint 2: remove after Live Scan migration is confirmed stable in production
 import { saveGarmentInBackground } from '@/lib/backgroundGarmentSave';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
 import { invalidateWardrobeQueries } from '@/hooks/useGarments';
@@ -131,20 +133,28 @@ export function useLiveScan() {
   const accept = useCallback(async (enableStudioQuality = true) => {
     if (!lastResult || !user) return false;
     const result = lastResult;
-    const garmentId = crypto.randomUUID();
-    const isPng = result.blob.type === 'image/png';
-    const ext = isPng ? 'png' : 'jpg';
-    const imagePath = `${user.id}/${garmentId}.${ext}`;
 
-    const savePromise = saveGarmentInBackground(result, user.id, garmentId, { enableStudioQuality });
+    const candidate: GarmentIntakeCandidate = {
+      blob: result.blob,
+      analysis: result.analysis,
+      userId: user.id,
+      source: 'live_scan',
+      enableStudioQuality,
+      confidence: result.confidence ?? null,
+    };
+
+    const savePromise = finalizeCandidate(candidate);
     savingRef.current.push(savePromise);
 
     const savedGarment = await savePromise;
+    URL.revokeObjectURL(result.thumbnailUrl);
     savingRef.current = savingRef.current.filter((pendingPromise) => pendingPromise !== savePromise);
 
     if (!savedGarment) {
       return false;
     }
+
+    const { garmentId, storagePath: imagePath } = savedGarment;
 
     setLastResult(null);
     setScanCount((c) => c + 1);
