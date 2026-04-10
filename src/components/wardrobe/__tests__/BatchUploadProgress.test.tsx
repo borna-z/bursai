@@ -46,6 +46,14 @@ vi.mock('@/hooks/useAnalyzeGarment', () => ({
   useAnalyzeGarment: () => ({ analyzeGarment: analyzeGarmentMock }),
 }));
 
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+
+vi.mock('@/hooks/useGarments', () => ({
+  invalidateWardrobeQueries: vi.fn(),
+}));
+
 vi.mock('@/lib/finalizeCandidate', () => ({
   finalizeCandidate: finalizeCandidateMock,
 }));

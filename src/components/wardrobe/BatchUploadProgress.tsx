@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, Upload, Sparkles, X, Clock3, ArrowRight, SkipForward } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useStorage } from '@/hooks/useStorage';
 import { useAnalyzeGarment } from '@/hooks/useAnalyzeGarment';
+import { invalidateWardrobeQueries } from '@/hooks/useGarments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -35,6 +37,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const { t } = useLanguage();
   const { uploadGarmentImage } = useStorage();
   const { analyzeGarment } = useAnalyzeGarment();
+  const queryClient = useQueryClient();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -100,8 +103,9 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
       throw new Error('finalizeCandidate returned null');
     }
 
+    invalidateWardrobeQueries(queryClient, user.id);
     trackEvent('garment_added', { source: 'batch' });
-  }, [user]);
+  }, [queryClient, user]);
 
   const queueReviewItems = useCallback((index: number, item: BatchItem, storagePath: string, garmentId: string) => {
     const detectedGarments = Array.isArray(item.analysis?.detected_garments)
