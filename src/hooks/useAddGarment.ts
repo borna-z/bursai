@@ -405,6 +405,7 @@ export function useAddGarment({ t }: UseAddGarmentParams) {
   };
 
   const resetForm = () => {
+    setSavedCard(null);
     setStep('upload');
     setShowConfirmSheet(false);
     setImageFile(null);
