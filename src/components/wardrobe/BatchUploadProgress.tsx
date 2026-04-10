@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { finalizeCandidate, type GarmentIntakeCandidate } from '@/lib/finalizeCandidate';
 import { getGarmentReviewDecision } from '@/lib/garmentIntelligence';
-import { trackEvent } from '@/lib/analytics';
 import { GarmentSavedCard } from '@/components/garment/GarmentSavedCard';
 import { categoryLabel, colorLabel } from '@/lib/humanize';
 
@@ -121,7 +120,6 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     });
 
     invalidateWardrobeQueries(queryClient, user.id);
-    trackEvent('garment_added', { source: 'batch' });
   }, [queryClient, user]);
 
   const queueReviewItems = useCallback((index: number, item: BatchItem, storagePath: string, garmentId: string) => {
