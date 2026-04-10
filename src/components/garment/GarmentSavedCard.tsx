@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
+import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -35,11 +35,6 @@ export function GarmentSavedCard({
   const [visible, setVisible] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissedRef = useRef(false);
-
-  const publicUrl = useMemo(() => {
-    if (!imagePath) return '';
-    return supabase.storage.from('garments').getPublicUrl(imagePath).data.publicUrl;
-  }, [imagePath]);
 
   const resolveCopy = useCallback(
     (key: string, fallback: string) => {
@@ -113,16 +108,11 @@ export function GarmentSavedCard({
           )}
           style={{ transitionDuration: '0.18s' }}
         >
-          <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-[1rem] bg-muted">
-            {publicUrl ? (
-              <img
-                src={publicUrl}
-                alt={title}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : null}
-          </div>
+          <LazyImageSimple
+            imagePath={imagePath}
+            alt={title}
+            className="h-16 w-16 flex-shrink-0 rounded-[1rem]"
+          />
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{title}</p>
