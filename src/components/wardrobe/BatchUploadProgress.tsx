@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { finalizeCandidate, type GarmentIntakeCandidate } from '@/lib/finalizeCandidate';
 import { getGarmentReviewDecision } from '@/lib/garmentIntelligence';
 import { trackEvent } from '@/lib/analytics';
+import { GarmentSavedCard } from '@/components/garment/GarmentSavedCard';
+import { categoryLabel, colorLabel } from '@/lib/humanize';
 
 interface BatchItem {
   file: File;
@@ -41,6 +43,13 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const [items, setItems] = useState<BatchItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastSavedCard, setLastSavedCard] = useState<{
+    garmentId: string;
+    imagePath: string;
+    title: string;
+    category: string;
+    colorPrimary: string;
+  } | null>(null);
 
   const resolveCopy = useCallback((key: string, fallback: string) => {
     const translated = t(key);
@@ -102,6 +111,14 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     if (!saved) {
       throw new Error('finalizeCandidate returned null');
     }
+
+    setLastSavedCard({
+      garmentId: saved.garmentId,
+      imagePath: saved.storagePath,
+      title: item.analysis.title,
+      category: item.analysis.category,
+      colorPrimary: item.analysis.color_primary,
+    });
 
     invalidateWardrobeQueries(queryClient, user.id);
     trackEvent('garment_added', { source: 'batch' });
@@ -448,6 +465,23 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
           {t('batch.background_hint')}
         </p>
       </div>
+
+      {lastSavedCard && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <div className="pointer-events-auto w-full max-w-sm">
+            <GarmentSavedCard
+              garmentId={lastSavedCard.garmentId}
+              imagePath={lastSavedCard.imagePath}
+              title={lastSavedCard.title}
+              category={categoryLabel(t, lastSavedCard.category)}
+              colorPrimary={colorLabel(t, lastSavedCard.colorPrimary)}
+              studioQualityEnabled={true}
+              onDismiss={() => setLastSavedCard(null)}
+              autoDismissMs={1800}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

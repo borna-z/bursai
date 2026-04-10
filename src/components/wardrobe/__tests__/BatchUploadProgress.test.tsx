@@ -24,6 +24,14 @@ const {
   toastSuccessMock: vi.fn(),
 }));
 
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+}));
+
+vi.mock('@/components/ui/lazy-image', () => ({
+  LazyImageSimple: ({ alt }: { alt?: string }) => <div data-testid="lazy-image" aria-label={alt} />,
+}));
+
 vi.mock('@/lib/analytics', () => ({
   trackEvent: vi.fn(),
 }));
@@ -78,6 +86,12 @@ vi.mock('@/integrations/supabase/client', () => ({
         }),
       }),
     })),
+    storage: {
+      from: vi.fn(() => ({
+        createSignedUrls: vi.fn().mockResolvedValue({ data: [], error: null }),
+        createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: '' }, error: null }),
+      })),
+    },
   },
 }));
 
