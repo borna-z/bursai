@@ -2,12 +2,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import type { GarmentAnalysis } from '@/hooks/useAnalyzeGarment';
-import type { Json } from '@/integrations/supabase/types';
-import {
-  buildGarmentIntelligenceFields,
-  standardizeGarmentAiRaw,
-  triggerGarmentPostSaveIntelligence,
-} from '@/lib/garmentIntelligence';
+import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import { buildGarmentInsert } from './buildGarmentInsert';
 
 export interface GarmentIntakeCandidate {
   blob: Blob;
@@ -24,10 +20,10 @@ export async function finalizeCandidate(
   const enableStudioQuality = candidate.enableStudioQuality ?? true;
 
   try {
-    const garmentId = crypto.randomUUID();
+    const insertPayload = buildGarmentInsert(candidate);
+    const garmentId = insertPayload.id as string;
+    const storagePath = insertPayload.image_path;
     const isPng = candidate.blob.type === 'image/png';
-    const ext = isPng ? 'png' : 'jpg';
-    const storagePath = `${candidate.userId}/${garmentId}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from('garments')
@@ -41,34 +37,7 @@ export async function finalizeCandidate(
       return null;
     }
 
-    const { error: insertError } = await supabase.from('garments').insert({
-      id: garmentId,
-      user_id: candidate.userId,
-      image_path: storagePath,
-      title: candidate.analysis.title,
-      category: candidate.analysis.category,
-      subcategory: candidate.analysis.subcategory || null,
-      color_primary: candidate.analysis.color_primary,
-      color_secondary: candidate.analysis.color_secondary || null,
-      pattern: candidate.analysis.pattern || null,
-      material: candidate.analysis.material || null,
-      fit: candidate.analysis.fit || null,
-      season_tags: candidate.analysis.season_tags || [],
-      formality: candidate.analysis.formality || 3,
-      ai_analyzed_at: new Date().toISOString(),
-      ai_provider: candidate.analysis.ai_provider || 'unknown',
-      ai_raw: standardizeGarmentAiRaw({
-        aiRaw: (candidate.analysis.ai_raw ?? null) as Json,
-        analysisConfidence: candidate.confidence ?? candidate.analysis.confidence,
-        source: candidate.source,
-      }),
-      imported_via: candidate.source,
-      ...buildGarmentIntelligenceFields({
-        storagePath,
-        enableRender: enableStudioQuality,
-        skipImageProcessing: true,
-      }),
-    });
+    const { error: insertError } = await supabase.from('garments').insert(insertPayload);
 
     if (insertError) {
       logger.error('Insert error:', insertError);
