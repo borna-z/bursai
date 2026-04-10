@@ -14,7 +14,8 @@ export function runPostSaveHooks(
   storagePath: string,
   candidate: GarmentIntakeCandidate,
 ): void {
-  logReviewDecision(candidate, reviewCandidate(candidate));
+  const decision = reviewCandidate(candidate);
+  logReviewDecision(candidate, decision);
 
   const enableStudioQuality = candidate.enableStudioQuality ?? true;
   triggerGarmentPostSaveIntelligence({
@@ -36,8 +37,8 @@ export function runPostSaveHooks(
     confidence: candidate.confidence ?? null,
     category: candidate.analysis.category,
     subcategory: candidate.analysis.subcategory ?? null,
-    needs_review: false,
-    auto_saved: true,
+    needs_review: decision.needsReview,
+    auto_saved: !decision.needsReview,
     studio_quality: candidate.enableStudioQuality ?? true,
   });
 
