@@ -5,7 +5,7 @@ import { BatchUploadProgress } from '@/components/wardrobe/BatchUploadProgress';
 const {
   uploadGarmentImageMock,
   analyzeGarmentMock,
-  createGarmentMock,
+  finalizeCandidateMock,
   updateMock,
   selectMock,
   selectEqMock,
@@ -15,7 +15,7 @@ const {
 } = vi.hoisted(() => ({
   uploadGarmentImageMock: vi.fn(),
   analyzeGarmentMock: vi.fn(),
-  createGarmentMock: vi.fn(),
+  finalizeCandidateMock: vi.fn(),
   updateMock: vi.fn(),
   selectMock: vi.fn(),
   selectEqMock: vi.fn(),
@@ -46,8 +46,16 @@ vi.mock('@/hooks/useAnalyzeGarment', () => ({
   useAnalyzeGarment: () => ({ analyzeGarment: analyzeGarmentMock }),
 }));
 
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+
 vi.mock('@/hooks/useGarments', () => ({
-  useCreateGarment: () => ({ mutateAsync: createGarmentMock }),
+  invalidateWardrobeQueries: vi.fn(),
+}));
+
+vi.mock('@/lib/finalizeCandidate', () => ({
+  finalizeCandidate: finalizeCandidateMock,
 }));
 
 vi.mock('sonner', () => ({
@@ -90,7 +98,10 @@ describe('BatchUploadProgress', () => {
       },
       error: null,
     });
-    createGarmentMock.mockReset().mockResolvedValue({ id: 'garment-1' });
+    finalizeCandidateMock.mockReset().mockResolvedValue({
+      garmentId: 'garment-1',
+      storagePath: 'user-1/actual-upload.webp',
+    });
     updateMock.mockClear();
     selectMock.mockClear();
     selectEqMock.mockClear();
@@ -110,20 +121,16 @@ describe('BatchUploadProgress', () => {
     await waitFor(() => expect(uploadGarmentImageMock).toHaveBeenCalled());
     await waitFor(() => expect(analyzeGarmentMock).toHaveBeenCalledWith('user-1/actual-upload.webp', 'fast'));
     await waitFor(() =>
-      expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-        image_path: 'user-1/actual-upload.webp',
-        title: 'Blue shirt',
-        category: 'top',
-      })),
-    );
-    await waitFor(() =>
-      expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('detect_duplicate_garment', {
-        body: expect.objectContaining({
-          image_path: 'user-1/actual-upload.webp',
+      expect(finalizeCandidateMock).toHaveBeenCalledWith(expect.objectContaining({
+        source: 'batch_add',
+        userId: 'user-1',
+        existingStoragePath: 'user-1/actual-upload.webp',
+        existingGarmentId: expect.any(String),
+        analysis: expect.objectContaining({
+          title: 'Blue shirt',
           category: 'top',
-          exclude_garment_id: expect.any(String),
         }),
-      }),
+      })),
     );
   });
 
@@ -147,21 +154,16 @@ describe('BatchUploadProgress', () => {
     render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByText('batch.quick_review')).toBeInTheDocument());
-    expect(createGarmentMock).not.toHaveBeenCalled();
+    expect(finalizeCandidateMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'common.add' }));
 
-    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Dark top',
-      image_path: 'user-1/actual-upload.webp',
-      ai_raw: expect.objectContaining({
-        source: 'test',
-        system_signals: expect.objectContaining({
-          analysis_confidence: 0.42,
-          needs_review: true,
-          review_reason: 'low_confidence',
-          source: 'batch_add',
-        }),
+    await waitFor(() => expect(finalizeCandidateMock).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'batch_add',
+      existingStoragePath: 'user-1/actual-upload.webp',
+      confidence: 0.42,
+      analysis: expect.objectContaining({
+        title: 'Dark top',
       }),
     })));
   });
@@ -171,9 +173,10 @@ describe('BatchUploadProgress', () => {
 
     render(<BatchUploadProgress files={[file]} onComplete={vi.fn()} onCancel={vi.fn()} />);
 
-    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Blue shirt',
-      image_path: 'user-1/actual-upload.webp',
+    await waitFor(() => expect(finalizeCandidateMock).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'batch_add',
+      existingStoragePath: 'user-1/actual-upload.webp',
+      analysis: expect.objectContaining({ title: 'Blue shirt' }),
     })));
     expect(screen.queryByText('batch.quick_review')).not.toBeInTheDocument();
   });
@@ -223,7 +226,7 @@ describe('BatchUploadProgress', () => {
     expect(screen.getByText('White sneakers')).toBeInTheDocument();
     const reviewItems = screen.getAllByText('batch.multi_review_item');
     expect(reviewItems).toHaveLength(2);
-    expect(createGarmentMock).not.toHaveBeenCalled();
+    expect(finalizeCandidateMock).not.toHaveBeenCalled();
   });
 
   it('keeps the review queue stable while approving one item from a multi-garment photo', async () => {
@@ -270,9 +273,10 @@ describe('BatchUploadProgress', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /add/i })[0]);
 
-    await waitFor(() => expect(createGarmentMock).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Blue shirt',
-      image_path: 'user-1/actual-upload.webp',
+    await waitFor(() => expect(finalizeCandidateMock).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'batch_add',
+      existingStoragePath: 'user-1/actual-upload.webp',
+      analysis: expect.objectContaining({ title: 'Blue shirt' }),
     })));
     expect(screen.getByText('White sneakers')).toBeInTheDocument();
   });
