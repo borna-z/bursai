@@ -146,13 +146,13 @@ export function useLiveScan() {
     savingRef.current.push(savePromise);
 
     const savedGarment = await savePromise;
-    URL.revokeObjectURL(result.thumbnailUrl);
     savingRef.current = savingRef.current.filter((pendingPromise) => pendingPromise !== savePromise);
 
     if (!savedGarment) {
       return false;
     }
 
+    URL.revokeObjectURL(result.thumbnailUrl);
     const { garmentId, storagePath: imagePath } = savedGarment;
 
     setLastResult(null);
