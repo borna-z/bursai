@@ -195,7 +195,7 @@ export function TodayOutfitCard({ weather, occasion, style }: TodayOutfitCardPro
       {showUpgradeHint && (
         <p className="text-xs text-center text-muted-foreground">
           {t('home.unlock_unlimited')}{' '}
-          <Button variant="link" onClick={() => navigate('/pricing')} className="text-accent underline underline-offset-2 p-0 h-auto">
+          <Button variant="link" onClick={() => navigate('/settings')} className="text-accent underline underline-offset-2 p-0 h-auto">
             →
           </Button>
         </p>
