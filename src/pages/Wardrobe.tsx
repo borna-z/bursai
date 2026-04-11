@@ -56,6 +56,7 @@ export default function WardrobePage() {
     isLoading,
     isSearching,
     totalCount,
+    filteredCount,
     displayGarments,
     garmentsByCategory,
     smartFilterCounts,
@@ -84,6 +85,7 @@ export default function WardrobePage() {
   const commandState = useMemo(() => buildWardrobeCommandTopState({
     activeTab,
     totalCount,
+    filteredCount,
     displayCount,
     isSelecting,
     selectedIdsCount: selectedIds.size,
@@ -91,7 +93,7 @@ export default function WardrobePage() {
     isSearching,
     search,
     t,
-  }), [activeTab, displayCount, hasActiveFilters, isSearching, isSelecting, search, selectedIds.size, t, totalCount]);
+  }), [activeTab, displayCount, filteredCount, hasActiveFilters, isSearching, isSelecting, search, selectedIds.size, t, totalCount]);
 
   const smartCollectionTiles = useMemo(() => buildWardrobeCollectionTiles({
     smartFilter,

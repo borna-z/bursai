@@ -50,13 +50,18 @@ export function useWardrobeView({
 
   const isSearching = debouncedSearch.trim().length > 0;
 
-  const queryResult = useGarments({
+  const activeFilters = useMemo(() => ({
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,
     sortBy,
     inLaundry: showLaundry ? true : undefined,
-  });
+    // Smart filter is applied server-side so pagination and counts stay
+    // consistent with Smart Access tile counts.
+    smartFilter: smartFilter ?? undefined,
+  }), [selectedCategory, selectedColor, selectedSeason, sortBy, showLaundry, smartFilter]);
+
+  const queryResult = useGarments(activeFilters);
 
   const { data: infiniteData, isLoading: isInfiniteLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
 
@@ -66,7 +71,11 @@ export function useWardrobeView({
   const isLoading = isSearching ? isSearchLoading : isInfiniteLoading;
 
   useSubscription();
-  const { data: totalCount } = useGarmentCount();
+  // Unfiltered total — used as the baseline for the wardrobe-empty guidance banner.
+  const { data: unfilteredTotalCount } = useGarmentCount();
+  // Count that mirrors the current filters (including smartFilter) so the
+  // header label matches what the infinite query actually returns.
+  const { data: filteredCount } = useGarmentCount(activeFilters);
 
   const allGarments = useMemo(() => {
     if (isSearching) return searchData ?? [];
@@ -102,30 +111,10 @@ export function useWardrobeView({
     })();
   }, [allGarments.length, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const displayGarments = useMemo(() => {
-    // Smart filter is suppressed during search — Smart Access tiles are
-    // hidden by hasHardFilters when a search is active, but state can drift.
-    if (isSearching || !smartFilter) return allGarments;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoff = thirtyDaysAgo.toISOString();
-
-    switch (smartFilter) {
-      case 'rarely_worn':
-        return allGarments
-          .filter(g => !g.last_worn_at || g.last_worn_at < cutoff)
-          .sort((a, b) => (a.wear_count || 0) - (b.wear_count || 0));
-      case 'most_worn':
-        return [...allGarments]
-          .filter(g => (g.wear_count || 0) > 0)
-          .sort((a, b) => (b.wear_count || 0) - (a.wear_count || 0));
-      case 'new':
-        return [...allGarments]
-          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-      default:
-        return allGarments;
-    }
-  }, [isSearching, allGarments, smartFilter]);
+  // Smart filter and all other filters run server-side via useGarments/useGarmentCount,
+  // so the infinite-query result is already correctly filtered + sorted. The displayed
+  // list, the filtered count, and the Smart Access tile counts all agree.
+  const displayGarments = allGarments;
 
   const { data: smartFilterCountsData } = useSmartFilterCounts();
   const smartFilterCounts = smartFilterCountsData ?? { rarely_worn: 0, most_worn: 0, new: 0 };
@@ -238,7 +227,8 @@ export function useWardrobeView({
     setSmartFilter,
     isLoading,
     isSearching,
-    totalCount,
+    totalCount: unfilteredTotalCount,
+    filteredCount,
     displayGarments,
     garmentsByCategory,
     smartFilterCounts,
