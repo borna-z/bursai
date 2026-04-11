@@ -66,6 +66,9 @@ export default function GoogleCalendarCallback() {
       return;
     }
 
+    let cancelled = false;
+    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
+
     const exchangeCode = async () => {
       try {
         const redirectUri = buildAppUrl('/calendar/callback');
@@ -76,6 +79,7 @@ export default function GoogleCalendarCallback() {
             redirect_uri: redirectUri,
           },
         });
+        if (cancelled) return;
 
         if (fnError || data?.error) {
           throw new Error(data?.error || fnError?.message || 'Exchange failed');
@@ -84,6 +88,7 @@ export default function GoogleCalendarCallback() {
         const { data: syncData, error: syncError } = await supabase.functions.invoke<CalendarSyncResponse>('calendar', {
           body: { action: 'sync_google' },
         });
+        if (cancelled) return;
 
         if (syncError || syncData?.error || !syncData?.success) {
           throw new Error(syncData?.error || syncError?.message || 'Google calendar sync failed');
@@ -95,14 +100,15 @@ export default function GoogleCalendarCallback() {
           setMessage(
             `Google Calendar connected, but no upcoming events were found in the next ${syncWindowDays} days.`
           );
-          setTimeout(() => navigate('/settings', { replace: true }), 2500);
+          redirectTimer = setTimeout(() => navigate('/settings', { replace: true }), 2500);
           return;
         }
 
         setStatus('success');
         setMessage(t('gcal.redirecting'));
-        setTimeout(() => navigate('/settings', { replace: true }), 1500);
+        redirectTimer = setTimeout(() => navigate('/settings', { replace: true }), 1500);
       } catch (err) {
+        if (cancelled) return;
         logger.error('Google calendar callback error:', err);
         setStatus('error');
         setMessage(err instanceof Error ? err.message : t('gcal.error'));
@@ -110,6 +116,11 @@ export default function GoogleCalendarCallback() {
     };
 
     exchangeCode();
+
+    return () => {
+      cancelled = true;
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
   }, [searchParams, navigate, t]);
 
   return (
