@@ -2909,6 +2909,58 @@ const en: Record<string, string> = {
 
     // Navigation
     'nav.main_navigation': 'Main navigation',
+
+    // Home (added: missing keys)
+    'home.stat_pieces': 'Pieces',
+    'home.stat_outfits': 'Outfits',
+    'home.todays_look': "Today's look",
+    'home.command_status_weather': 'Weather alert',
+    'home.week_ahead': 'Week Ahead',
+
+    // Common (added)
+    'common.view': 'View',
+
+    // Wardrobe (added)
+    'wardrobe.search_placeholder': 'Search',
+
+    // Plan (added)
+    'plan.coming_up': 'Coming Up',
+    'plan.planned_outfit': 'Planned outfit',
+
+    // Settings Account (added)
+    'settings.email_label': 'EMAIL ADDRESS',
+    'settings.email_change_note': 'Email cannot be changed manually. Contact support.',
+    'settings.data_privacy_title': 'DATA & PRIVACY',
+
+    // Settings Appearance (added)
+    'settings.visual_preview': 'VISUAL PREVIEW',
+    'settings.action_button': 'Action Button',
+    'settings.preview_desc': 'Changes reflect in real-time',
+    'settings.interface_mode': 'INTERFACE MODE',
+    'settings.accent_color': 'ACCENT COLOR',
+    'settings.display_language': 'DISPLAY LANGUAGE',
+
+    // Settings Notifications (added)
+    'settings.morning_reminder_desc': 'Manage all system alerts',
+    'settings.curation_note_label': 'CURATION NOTE',
+    'settings.style_quote': '"Style is a way to say who you are without having to speak."',
+
+    // Settings Privacy (added)
+    'settings.data_sovereignty_title': 'Data Sovereignty',
+    'settings.data_sovereignty_desc': 'Manage how your digital archive is curated and shared across the BURS ecosystem.',
+    'settings.privacy_quote': '"Your style is your signature. Your data is your property."',
+
+    // Settings Style (added)
+    'settings.style_dna_title': 'Your Style DNA',
+    'settings.style_dna_desc': 'Fine-tune how BURS understands your personal style',
+    'settings.your_style_words': 'YOUR STYLE WORDS',
+    'settings.presentation_title': 'PRESENTATION',
+
+    // Share (added)
+    'share.more': 'More options',
+
+    // Insights (added)
+    'insights.unused_desc': "Outfits built from pieces you haven't worn in 30+ days. Give them a second life.",
 };
 
 export default en;

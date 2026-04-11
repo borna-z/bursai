@@ -331,7 +331,7 @@ const es: Record<string, string> = {
     'calendar.synced': 'Sincronizado', 'calendar.needs_sync': 'Necesita sincronizar', 'calendar.never_synced': 'No sincronizado',
     'calendar.last_synced': 'Última sincronización', 'calendar.auto_sync': 'Sincronización automática', 'calendar.auto_interval': 'Cada 6 horas',
     'calendar.ics_label': 'Enlace ICS', 'calendar.sync_now': 'Sincronizar', 'calendar.sync_calendar': 'Sincronizar calendario',
-    'calendar.how_to': '¿Cómo encuentro mi enlace ICS?', 'calendar.connect_google': 'Conectar Google Calendar', 'calendar.connect_apple': 'Conectar Apple Calendar',
+    'calendar.how_to': '¿Cómo encuentro mi enlace ICS?', 'calendar.connect_google': 'Conectar Google Calendar',
     'capsule.title': 'Cápsula de viaje', 'capsule.subtitle': 'Equipaje mínimo, máximos outfits',
     'capsule.destination': 'Destino', 'capsule.enter_city': 'Introduce una ciudad...', 'capsule.enter_destination': 'Introduce un destino',
     'capsule.travel_dates': 'Fechas de viaje', 'capsule.select_dates': 'Seleccionar fechas', 'capsule.select_dates_hint': 'Selecciona inicio y fin',
@@ -413,21 +413,21 @@ const es: Record<string, string> = {
     'wardrobe.reel_save_error': 'No se pudo guardar la imagen',
     'wardrobe.import_link': 'Importar desde enlace', 'wardrobe.live_scan': 'BURS Live Scan',
     'settings.row.insights': 'Estadísticas del armario', 'settings.row.insights_sub': 'Estadísticas y análisis',
-    'quiz.q0_title': '¿Cuál es tu género?', 'quiz.q1_title': '¿Cuántos años tienes?', 'quiz.q2_title': '¿Tu altura?',
-    'quiz.q3_title': '¿Tu estilo de vida?', 'quiz.q4_title': '¿Trabajo?', 'quiz.q5_title': '¿Qué colores te gustan?',
-    'quiz.q6_title': '¿Colores a evitar?', 'quiz.q7_title': '¿Ajuste preferido?', 'quiz.q8_title': '¿Palabras de estilo?',
-    'quiz.skip': 'Omitir', 'quiz.next': 'Siguiente', 'quiz.back': 'Atrás', 'quiz.finish': 'Terminar',
-    'quiz.section_basics': 'Lo básico', 'quiz.section_lifestyle': 'Estilo de vida', 'quiz.section_colors': 'Colores', 'quiz.section_fit': 'Ajuste y estilo',
-    'quiz.section_details': 'Detalles', 'quiz.section_goals': 'Objetivos', 'quiz.section_advanced': 'Avanzado', 'quiz.section_final': 'Resumen',
-    'mood.title': 'Mood Outfit', 'mood.subtitle': 'Describe tu estado de ánimo', 'mood.generating': 'Creando look...', 'mood.generate': 'Generar outfit',
-    'mood.error': 'No se pudo generar', 'mood.created': '¡Outfit creado!', 'mood.placeholder': '¿Cómo te sientes hoy?',
-    'visual.title': 'Búsqueda visual', 'visual.subtitle': 'Sube una foto para encontrar prendas similares', 'visual.upload': 'Subir foto', 'visual.searching': 'Buscando...', 'visual.no_results': 'Sin resultados', 'visual.error': 'No se pudo buscar',
-    'shopping.title': 'Compra inteligente', 'shopping.generate': 'Generar lista', 'shopping.generating': 'Generando...', 'shopping.priority_high': 'Alta', 'shopping.priority_medium': 'Media', 'shopping.priority_low': 'Baja',
-    'aging.title': 'Vida de la prenda', 'aging.analyze': 'Analizar', 'aging.analyzing': 'Analizando...', 'aging.months_left': 'meses restantes', 'aging.health': 'Salud',
-    'twin.title': 'Gemelo de estilo', 'twin.find': 'Encontrar gemelo', 'twin.finding': 'Buscando...', 'twin.error': 'No se pudo encontrar',
-    'paywall.title': 'Desbloquear Premium', 'paywall.feature_limit': 'Has alcanzado el límite gratuito',
-    'paywall.upgrade': 'Mejorar a Premium', 'paywall.features': 'Prendas ilimitadas, outfits, IA avanzada y más',
-    'cookie.message': 'Este sitio usa cookies para mejorar tu experiencia.', 'cookie.accept': 'Aceptar', 'cookie.decline': 'Rechazar',
+
+
+
+'quiz.next': 'Siguiente','quiz.finish': 'Terminar',
+
+
+
+
+
+
+
+
+    'paywall.title': 'Desbloquear Premium',
+
+
 
     // Outfit / Chat card keys
     'outfit.generate_title': 'New Look',

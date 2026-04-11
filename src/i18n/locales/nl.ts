@@ -190,24 +190,24 @@ const nl: Record<string, string> = {
     'wardrobe.import_link': 'Importeren via link', 'wardrobe.live_scan': 'BURS Live Scan',
 
     // Outfits
-    'outfits.title': 'Outfits', 'outfits.saved': 'Opgeslagen', 'outfits.history': 'Geschiedenis',
-    'outfits.empty': 'Nog geen outfits', 'outfits.empty_desc': 'Maak je eerste outfit om te beginnen!',
-    'outfits.share': 'Delen', 'outfits.save': 'Opslaan', 'outfits.unsave': 'Niet opslaan',
-    'outfits.rate': 'Beoordelen', 'outfits.wear': 'Dragen', 'outfits.worn': 'Gedragen',
-    'outfits.swap_garment': 'Kledingstuk wisselen', 'outfits.swapping': 'Wisselen...',
-    'outfits.swap_error': 'Kon niet wisselen', 'outfits.accessories': 'Accessoires',
-    'outfits.acc_error': 'Kon accessoires niet ophalen', 'outfits.rating_saved': 'Beoordeling opgeslagen',
-    'outfits.not_found': 'Niet gevonden', 'outfits.deleted': 'Verwijderd',
-    'outfits.delete_error': 'Kon niet verwijderen', 'outfits.saved_toast': 'Opgeslagen',
-    'outfits.unsaved_toast': 'Verwijderd uit opgeslagen', 'outfits.save_error': 'Kon niet opslaan',
-    'outfits.share_enabled': 'Deellink actief', 'outfits.share_disabled': 'Delen uitgeschakeld',
-    'outfits.share_error': 'Kon niet delen', 'outfits.link_copied': 'Link gekopieerd!',
-    'outfits.copy_error': 'Kon link niet kopiëren', 'outfits.created': 'Aangemaakt',
-    'outfits.flatlay': 'Flatlay', 'outfits.flatlay_generating': 'Flatlay genereren...',
-    'outfits.flatlay_error': 'Kon flatlay niet genereren',
+    'outfits.title': 'Outfits', 'outfits.saved': 'Opgeslagen',
+
+
+
+
+
+
+'outfits.deleted': 'Verwijderd',
+    'outfits.delete_error': 'Kon niet verwijderen',
+
+
+
+
+
+
 
     // Add garment
-    'addgarment.title': 'Kledingstuk toevoegen', 'addgarment.scan': 'Scannen', 'addgarment.link': 'Link',
+    'addgarment.title': 'Kledingstuk toevoegen','addgarment.link': 'Link',
     'addgarment.photo_prompt': 'Maak een foto of kies uit galerij',
     'addgarment.camera': 'Camera', 'addgarment.gallery': 'Galerij',
     'addgarment.analyzing': 'AI analyseert het kledingstuk…', 'addgarment.uploading': 'Afbeelding uploaden...',
@@ -447,10 +447,10 @@ const nl: Record<string, string> = {
     'calendar.synced': 'Gesynchroniseerd', 'calendar.needs_sync': 'Synchronisatie nodig', 'calendar.never_synced': 'Niet gesynchroniseerd',
     'calendar.last_synced': 'Laatst gesynchroniseerd', 'calendar.auto_sync': 'Automatische synchronisatie', 'calendar.auto_interval': 'Elke 6 uur',
     'calendar.ics_label': 'ICS-link', 'calendar.sync_now': 'Synchroniseren', 'calendar.sync_calendar': 'Agenda synchroniseren',
-    'calendar.how_to': 'Hoe vind ik mijn ICS-link?', 'calendar.connect_google': 'Google Agenda koppelen', 'calendar.connect_apple': 'Apple Agenda koppelen',
+    'calendar.how_to': 'Hoe vind ik mijn ICS-link?', 'calendar.connect_google': 'Google Agenda koppelen',
     'calendar.connect_title': 'Koppel je agenda', 'calendar.connect_subtitle': 'Slimmere outfitsuggesties op basis van je evenementen',
     'calendar.or_ics': 'Of koppel met ICS-link (Apple, Outlook)', 'calendar.sync': 'Agenda synchroniseren',
-    'calendar.connect_google_desc': 'Google Agenda verbinden', 'calendar.connect_ics': 'ICS-link toevoegen',
+'calendar.connect_ics': 'ICS-link toevoegen',
     'calendar.connect_apple_desc': 'Apple Agenda, Outlook of andere ICS-bron verbinden',
     'calendar.paste_ics': 'Plak je ICS-link', 'calendar.auto_every_6h': 'Automatisch elke 6 uur',
     'calendar.google_help_title': 'Google Agenda', 'calendar.google_help_1': '1. Open Google Agenda in je browser',
