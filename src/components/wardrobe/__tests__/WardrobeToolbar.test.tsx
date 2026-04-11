@@ -60,7 +60,7 @@ describe('WardrobeToolbar', () => {
     expect(screen.getByText('wardrobe.tab_outfits')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search garments...')).toBeInTheDocument();
     // Category chips rendered
-    expect(screen.getByText('wardrobe.filter_all')).toBeInTheDocument();
+    expect(screen.getByText('wardrobe.all')).toBeInTheDocument();
   });
 
   it('renders selecting state with bulk actions', () => {

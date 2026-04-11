@@ -20,13 +20,15 @@ export function humanize(value: string | null | undefined): string {
 export function safeLabel(
   t: (key: string) => string,
   key: string,
-  raw: string
+  raw: string,
 ): string {
   const translated = t(key);
-  // If translation returns the key itself (missing), humanize the raw value
-  if (translated === key || translated.includes('.')) {
-    return humanize(raw);
-  }
+  if (!translated) return humanize(raw);
+  const segment = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
+  const humanizedSegment = segment
+    .replace(/[_-]/g, ' ')
+    .replace(/^./, (c) => c.toUpperCase());
+  if (translated === key || translated === humanizedSegment) return humanize(raw);
   return translated;
 }
 
