@@ -413,7 +413,7 @@ export default function PrivacyPolicy() {
           <div className="flex gap-6">
             <span className="font-medium text-foreground">Privacy Policy</span>
             <Link to="/terms" className="hover:text-foreground transition-colors cursor-pointer">Terms of Service</Link>
-            <Link to="/contact" className="hover:text-foreground transition-colors cursor-pointer">Contact</Link>
+            <a href="mailto:privacy@burs.se" className="hover:text-foreground transition-colors cursor-pointer">Contact</a>
           </div>
           <p>&copy; {new Date().getFullYear()} BURS. All rights reserved.</p>
         </div>

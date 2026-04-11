@@ -92,7 +92,7 @@ export function FooterCTA() {
                 <a href="/terms" className="hover:text-white transition-colors">
                   {t("footer.terms")}
                 </a>
-                <a href="/contact" className="hover:text-white transition-colors">
+                <a href="mailto:privacy@burs.se" className="hover:text-white transition-colors">
                   {t("landing.footer_contact")}
                 </a>
               </div>

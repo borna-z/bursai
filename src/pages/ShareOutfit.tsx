@@ -262,7 +262,7 @@ export default function ShareOutfitPage() {
               <li className="flex items-center justify-center gap-2"><Check className="w-3.5 h-3.5 text-accent" /> {t('share.cta_premium_outfits')}</li>
               <li className="flex items-center justify-center gap-2"><Check className="w-3.5 h-3.5 text-accent" /> {t('share.cta_premium_ai')}</li>
             </ul>
-            <Link to="/pricing" onClick={handleUpgradeClick}>
+            <Link to="/settings" onClick={handleUpgradeClick}>
               <Button className="w-full rounded-full" onClick={() => hapticLight()}>
                 <Crown className="w-4 h-4 mr-2" />{t('share.cta_premium_button')}
               </Button>

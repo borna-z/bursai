@@ -284,7 +284,7 @@ export default function Terms() {
           <div className="flex gap-6">
             <Link to="/privacy" className="hover:text-foreground transition-colors cursor-pointer">Privacy Policy</Link>
             <span className="font-medium text-foreground">Terms of Use</span>
-            <Link to="/contact" className="hover:text-foreground transition-colors cursor-pointer">Contact</Link>
+            <a href="mailto:privacy@burs.se" className="hover:text-foreground transition-colors cursor-pointer">Contact</a>
           </div>
           <p>&copy; {new Date().getFullYear()} BURS. All rights reserved.</p>
         </div>
