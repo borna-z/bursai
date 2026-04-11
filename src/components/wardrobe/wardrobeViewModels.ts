@@ -3,7 +3,6 @@ import type {
   WardrobeCollectionTileModel,
   WardrobeCommandActionModel,
   WardrobeCommandTopState,
-  WardrobeInventoryState,
 } from '@/components/wardrobe/wardrobeTypes';
 
 type Translate = (key: string) => string;
@@ -12,11 +11,15 @@ function getResultsLabel({
   activeTab,
   totalCount,
   displayCount,
+  hasActiveFilters,
+  isSearching,
   t,
 }: {
   activeTab: WardrobeTab;
   totalCount?: number;
   displayCount: number;
+  hasActiveFilters: boolean;
+  isSearching: boolean;
   t: Translate;
 }) {
   if (activeTab === 'outfits') {
@@ -27,7 +30,7 @@ function getResultsLabel({
     return t('wardrobe.add_first');
   }
 
-  if (displayCount !== totalCount) {
+  if (hasActiveFilters || isSearching) {
     return `${displayCount} ${t('wardrobe.garments_count_label')}`;
   }
 
@@ -41,6 +44,7 @@ export function buildWardrobeCommandTopState({
   isSelecting,
   selectedIdsCount,
   hasActiveFilters,
+  isSearching,
   search,
   t,
 }: {
@@ -50,11 +54,11 @@ export function buildWardrobeCommandTopState({
   isSelecting: boolean;
   selectedIdsCount: number;
   hasActiveFilters: boolean;
+  isSearching: boolean;
   search: string;
   t: Translate;
 }): WardrobeCommandTopState {
   const garmentCount = totalCount ?? 0;
-  const isLowWardrobe = garmentCount < 3;
   const trimmedSearch = search.trim();
 
   let caption = activeTab === 'garments'
@@ -86,7 +90,7 @@ export function buildWardrobeCommandTopState({
     title: t('wardrobe.title'),
     caption,
     activeTab,
-    resultsLabel: getResultsLabel({ activeTab, totalCount, displayCount, t }),
+    resultsLabel: getResultsLabel({ activeTab, totalCount, displayCount, hasActiveFilters, isSearching, t }),
     searchPlaceholder: t('wardrobe.search') || 'Search…',
     actions,
   };
@@ -110,68 +114,3 @@ export function buildWardrobeCollectionTiles({
   return tiles.filter((tile) => tile.count > 0);
 }
 
-export function buildWardrobeInventoryState({
-  activeTab,
-  isLoading,
-  isSelecting,
-  selectedIdsCount,
-  displayCount,
-  hasActiveFilters,
-  search,
-  t,
-}: {
-  activeTab: WardrobeTab;
-  isLoading: boolean;
-  isSelecting: boolean;
-  selectedIdsCount: number;
-  displayCount: number;
-  hasActiveFilters: boolean;
-  search: string;
-  t: (key: string) => string;
-}): WardrobeInventoryState {
-  if (isLoading) {
-    return {
-      kind: 'loading',
-      title: activeTab === 'outfits' ? t('wardrobe.loading_looks') : t('wardrobe.loading_wardrobe'),
-      description: activeTab === 'outfits' ? t('wardrobe.loading_looks_desc') : t('wardrobe.loading_wardrobe_desc'),
-    };
-  }
-
-  if (isSelecting) {
-    return {
-      kind: 'selecting',
-      title: selectedIdsCount > 0 ? t('wardrobe.items_selected').replace('{count}', String(selectedIdsCount)) : t('wardrobe.select_pieces'),
-      description: t('wardrobe.batch_hint'),
-    };
-  }
-
-  if (activeTab === 'outfits') {
-    return {
-      kind: 'results',
-      title: t('wardrobe.look_archive'),
-      description: t('wardrobe.outfits_storage_hint'),
-    };
-  }
-
-  if (displayCount === 0 && (hasActiveFilters || search.trim().length > 0)) {
-    return {
-      kind: 'filtered-empty',
-      title: t('wardrobe.no_match_title'),
-      description: t('wardrobe.no_match_desc'),
-    };
-  }
-
-  if (displayCount === 0) {
-    return {
-      kind: 'empty',
-      title: t('wardrobe.empty_title'),
-      description: t('wardrobe.empty_desc'),
-    };
-  }
-
-  return {
-    kind: 'results',
-    title: t('wardrobe.pieces_ready').replace('{count}', String(displayCount)),
-    description: t('wardrobe.tap_hint'),
-  };
-}

@@ -54,6 +54,7 @@ export default function WardrobePage() {
     smartFilter,
     setSmartFilter,
     isLoading,
+    isSearching,
     totalCount,
     displayGarments,
     garmentsByCategory,
@@ -79,13 +80,6 @@ export default function WardrobePage() {
     t,
   });
 
-  const hasHardFilters = selectedCategory !== 'all'
-    || Boolean(selectedColor)
-    || Boolean(selectedSeason)
-    || sortBy !== 'created_at'
-    || showLaundry
-    || search.trim().length > 0;
-
   const displayCount = displayGarments.length;
   const commandState = useMemo(() => buildWardrobeCommandTopState({
     activeTab,
@@ -94,9 +88,10 @@ export default function WardrobePage() {
     isSelecting,
     selectedIdsCount: selectedIds.size,
     hasActiveFilters,
+    isSearching,
     search,
     t,
-  }), [activeTab, displayCount, hasActiveFilters, isSelecting, search, selectedIds.size, t, totalCount]);
+  }), [activeTab, displayCount, hasActiveFilters, isSearching, isSelecting, search, selectedIds.size, t, totalCount]);
 
   const smartCollectionTiles = useMemo(() => buildWardrobeCollectionTiles({
     smartFilter,
@@ -157,7 +152,7 @@ export default function WardrobePage() {
 
           {activeTab === 'garments' ? (
             <>
-              {allGarments.length > 0 && !hasHardFilters ? (
+              {allGarments.length > 0 && !(hasActiveFilters || isSearching) ? (
                 <WardrobeSmartAccess
                   tiles={smartCollectionTiles}
                   onSelect={setSmartFilter}

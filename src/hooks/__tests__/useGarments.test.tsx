@@ -56,8 +56,24 @@ function mockChain(data: unknown[] = [], error: unknown = null): MockChain {
   chain.range = vi.fn().mockResolvedValue({ data, error });
   chain.limit = vi.fn().mockResolvedValue({ data, error });
   chain.insert = vi.fn().mockResolvedValue({ error });
-  chain.delete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
-  chain.update = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error }) });
+  const deleteChain = { eq: vi.fn() };
+  deleteChain.eq.mockImplementation(() => {
+    const next: Record<string, unknown> & PromiseLike<{ error: unknown }> = {
+      eq: vi.fn().mockResolvedValue({ error }),
+      then: (resolve: (v: { error: unknown }) => unknown) => Promise.resolve({ error }).then(resolve),
+    };
+    return next;
+  });
+  chain.delete = vi.fn().mockReturnValue(deleteChain);
+  const updateChain = { eq: vi.fn() };
+  updateChain.eq.mockImplementation(() => ({
+    eq: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error }),
+      }),
+    }),
+  }));
+  chain.update = vi.fn().mockReturnValue(updateChain);
   chain.single = vi.fn().mockResolvedValue({ data: (data as Record<string, unknown>[])[0] || null, error });
   chain.in = vi.fn().mockReturnValue(chain);
   return chain;
