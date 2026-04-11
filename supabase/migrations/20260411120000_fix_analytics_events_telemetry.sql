@@ -57,11 +57,21 @@ CREATE TRIGGER analytics_events_backfill_trigger
   BEFORE INSERT ON public.analytics_events
   FOR EACH ROW EXECUTE FUNCTION public.analytics_events_backfill();
 
--- 6. Recreate the correct INSERT policy
+-- 6. Recreate INSERT policies — authenticated users insert their own rows,
+--    anonymous users (share pages) insert rows with user_id IS NULL.
+DROP POLICY IF EXISTS "analytics_events_insert_anon" ON public.analytics_events;
+
+-- 6a. Authenticated users can insert their own events
 CREATE POLICY "analytics_events_insert_self"
   ON public.analytics_events
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
+
+-- 6b. Anonymous users can insert events where user_id is NULL
+CREATE POLICY "analytics_events_insert_anon"
+  ON public.analytics_events
+  FOR INSERT
+  WITH CHECK (user_id IS NULL);
 
 -- 7. Recreate the deny-select policy
 CREATE POLICY "analytics_events_deny_select"
