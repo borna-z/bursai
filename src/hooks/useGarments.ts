@@ -93,7 +93,9 @@ export function useGarments(filters?: GarmentFilters) {
         )
       );
 
-      return hasProcessingGarments ? 5000 : false;
+      // Bounded to 10s to avoid hammering supabase on large wardrobes while
+      // image processing / render status updates settle.
+      return hasProcessingGarments ? 10000 : false;
     },
   });
 
@@ -205,6 +207,7 @@ export function useGarment(id: string | undefined, options?: { refetchInterval?:
 export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: userId ? ['garments', userId] : ['garments'] });
   queryClient.invalidateQueries({ queryKey: userId ? ['garments-count', userId] : ['garments-count'] });
+  queryClient.invalidateQueries({ queryKey: userId ? ['garments-smart-counts', userId] : ['garments-smart-counts'] });
   queryClient.invalidateQueries({ queryKey: ['garment'] });
   queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
   queryClient.invalidateQueries({ queryKey: ['insights'] });
@@ -271,6 +274,7 @@ export function useUpdateGarment() {
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'garments'> }) => {
+      if (!user) throw new Error('Not authenticated');
       // Offline: enqueue mutation for later replay
       if (!navigator.onLine) {
         enqueue({
@@ -281,11 +285,12 @@ export function useUpdateGarment() {
         });
         return { id, ...updates } as Tables<'garments'>;
       }
-      
+
       const { data, error } = await supabase
         .from('garments')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single();
       
@@ -322,11 +327,13 @@ export function useDeleteGarment() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('garments')
         .delete()
-        .eq('id', id);
-      
+        .eq('id', id)
+        .eq('user_id', user.id);
+
       if (error) throw error;
     },
     retry: 2,
@@ -353,8 +360,9 @@ export function useMarkGarmentWorn() {
         .from('garments')
         .select('wear_count')
         .eq('id', garmentId)
+        .eq('user_id', user.id)
         .single();
-      
+
       // Update garment
       const { error: updateError } = await supabase
         .from('garments')
@@ -362,7 +370,8 @@ export function useMarkGarmentWorn() {
           last_worn_at: today,
           wear_count: (garment?.wear_count || 0) + 1
         })
-        .eq('id', garmentId);
+        .eq('id', garmentId)
+        .eq('user_id', user.id);
       
       if (updateError) throw updateError;
       
@@ -380,6 +389,29 @@ export function useMarkGarmentWorn() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['garments', user?.id] });
     },
+  });
+}
+
+export function useSmartFilterCounts() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['garments-smart-counts', user?.id],
+    queryFn: async () => {
+      if (!user) return { rarely_worn: 0, most_worn: 0, new: 0 };
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const [total, mostWorn, rarelyWorn] = await Promise.all([
+        supabase.from('garments').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('garments').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gt('wear_count', 0),
+        supabase.from('garments').select('*', { count: 'exact', head: true }).eq('user_id', user.id).or(`last_worn_at.is.null,last_worn_at.lt.${cutoff}`),
+      ]);
+      return {
+        rarely_worn: rarelyWorn.count ?? 0,
+        most_worn: mostWorn.count ?? 0,
+        new: total.count ?? 0,
+      };
+    },
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
