@@ -44,6 +44,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const [items, setItems] = useState<BatchItem[]>([]);
   const dispatchedRef = useRef<Set<number>>(new Set());
   const itemsRef = useRef<BatchItem[]>([]);
+  const cancelledRef = useRef(false);
   const [lastSavedCard, setLastSavedCard] = useState<{
     garmentId: string;
     imagePath: string;
@@ -65,6 +66,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
       status: 'waiting' as const,
     }));
     dispatchedRef.current = new Set();
+    cancelledRef.current = false;
     setItems(newItems);
     itemsRef.current = newItems;
     return () => newItems.forEach(item => URL.revokeObjectURL(item.preview));
@@ -207,6 +209,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
   // Process a single item — identical pipeline to sequential version, driven by index
   const processItem = useCallback(async (index: number) => {
+    if (cancelledRef.current) return;
     const currentItem = itemsRef.current[index];
     if (!currentItem || currentItem.status !== 'waiting') return;
 
@@ -270,9 +273,11 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
 
     const worker = async () => {
       while (true) {
+        if (cancelledRef.current) return;
         const nextIndex = findNextIndex();
         if (nextIndex === -1) return;
         dispatchedRef.current.add(nextIndex);
+        if (cancelledRef.current) return;
         await processItem(nextIndex);
       }
     };
@@ -280,6 +285,10 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     for (let i = 0; i < CONCURRENCY; i++) {
       void worker();
     }
+
+    return () => {
+      cancelledRef.current = true;
+    };
   }, [items.length, processItem, user]);
 
   const handleApproveReviewItem = async (index: number) => {
