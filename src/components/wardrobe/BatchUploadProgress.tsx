@@ -38,7 +38,7 @@ const CONCURRENCY = 3;
 
 export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUploadProgressProps) {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { uploadGarmentImage } = useStorage();
   const { analyzeGarment } = useAnalyzeGarment();
   const queryClient = useQueryClient();
@@ -234,7 +234,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         const { data, error: fnError } = await invokeEdgeFunction<
           GarmentAnalysis & { error?: string }
         >('analyze_garment', {
-          body: { base64Image: base64, mode: 'fast' },
+          body: { base64Image: base64, mode: 'fast', locale: locale ?? 'en' },
         });
 
         if (fnError || !data || (data as { error?: string }).error) {
@@ -308,7 +308,7 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
     } catch {
       updateItem(index, { status: 'error', error: t('batch.save_failed') });
     }
-  }, [analyzeGarment, queueReviewItems, saveApprovedItem, t, updateItem, uploadGarmentImage]);
+  }, [analyzeGarment, locale, queueReviewItems, saveApprovedItem, t, updateItem, uploadGarmentImage]);
 
   // Launch concurrent worker pool once items are initialized
   useEffect(() => {
