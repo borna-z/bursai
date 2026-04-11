@@ -29,7 +29,7 @@ export function runPostSaveHooks(
   trackEvent('garment_added', {
     source: candidate.source,
     confidence: candidate.confidence ?? null,
-    needs_review: false,
+    needs_review: decision.needsReview,
   });
 
   trackEvent('garment_intake', {
