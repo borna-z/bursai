@@ -78,6 +78,12 @@ function extractUsedKeys(): Set<string> {
     let m: RegExpExecArray | null;
     while ((m = re.exec(src)) !== null) used.add(m[1]);
   }
+  const propKeyRe = /\b(?:labelKey|titleKey|messageKey|descKey|fallbackKey)\s*:\s*['"]([a-zA-Z][a-zA-Z0-9_.]*)['"]/g;
+  for (const file of walk(SRC_DIR)) {
+    const src = fs.readFileSync(file, 'utf8');
+    let m: RegExpExecArray | null;
+    while ((m = propKeyRe.exec(src)) !== null) used.add(m[1]);
+  }
   return used;
 }
 

@@ -453,6 +453,7 @@ describe('useLiveScan', () => {
       'garments-by-ids',
       'subscription|user-1',
       'garments-search|user-1',
+      'garments-smart-counts|user-1',
     ]));
   });
 

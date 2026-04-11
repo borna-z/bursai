@@ -7,12 +7,13 @@ import type { WardrobeTab } from '@/hooks/useWardrobeView';
 import { hapticLight } from '@/lib/haptics';
 
 const CATEGORY_CHIPS = [
-  { id: 'all', labelKey: 'wardrobe.filter_all', fallback: 'All' },
-  { id: 'top', labelKey: 'wardrobe.category_tops', fallback: 'Tops' },
-  { id: 'bottom', labelKey: 'wardrobe.category_bottoms', fallback: 'Bottoms' },
-  { id: 'shoes', labelKey: 'wardrobe.category_shoes', fallback: 'Shoes' },
-  { id: 'outerwear', labelKey: 'wardrobe.category_outerwear', fallback: 'Outerwear' },
-  { id: 'accessory', labelKey: 'wardrobe.category_accessories', fallback: 'Accessories' },
+  { id: 'all', labelKey: 'wardrobe.all' },
+  { id: 'top', labelKey: 'wardrobe.top' },
+  { id: 'bottom', labelKey: 'wardrobe.bottom' },
+  { id: 'dress', labelKey: 'wardrobe.dress' },
+  { id: 'outerwear', labelKey: 'wardrobe.outerwear' },
+  { id: 'shoes', labelKey: 'wardrobe.shoes' },
+  { id: 'accessory', labelKey: 'wardrobe.accessory' },
 ] as const;
 
 interface WardrobeToolbarProps {
@@ -141,7 +142,7 @@ export function WardrobeToolbar({
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
           {CATEGORY_CHIPS.map((chip) => {
             const isActive = (selectedCategory || 'all') === chip.id;
-            const label = t(chip.labelKey) || chip.fallback;
+            const label = t(chip.labelKey);
             return (
               <button
                 key={chip.id}

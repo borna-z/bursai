@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { useGarments, useGarmentSearch, useUpdateGarment, useDeleteGarment, useGarmentCount } from '@/hooks/useGarments';
+import { useGarments, useGarmentSearch, useUpdateGarment, useDeleteGarment, useGarmentCount, useSmartFilterCounts } from '@/hooks/useGarments';
 import { useSubscription } from '@/hooks/useSubscription';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
@@ -50,13 +50,18 @@ export function useWardrobeView({
 
   const isSearching = debouncedSearch.trim().length > 0;
 
-  const queryResult = useGarments({
+  const activeFilters = useMemo(() => ({
     category: selectedCategory === 'all' ? undefined : selectedCategory,
     color: selectedColor || undefined,
     season: selectedSeason || undefined,
     sortBy,
     inLaundry: showLaundry ? true : undefined,
-  });
+    // Smart filter is applied server-side so pagination and counts stay
+    // consistent with Smart Access tile counts.
+    smartFilter: smartFilter ?? undefined,
+  }), [selectedCategory, selectedColor, selectedSeason, sortBy, showLaundry, smartFilter]);
+
+  const queryResult = useGarments(activeFilters);
 
   const { data: infiniteData, isLoading: isInfiniteLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = queryResult;
 
@@ -66,15 +71,22 @@ export function useWardrobeView({
   const isLoading = isSearching ? isSearchLoading : isInfiniteLoading;
 
   useSubscription();
-  const { data: totalCount } = useGarmentCount();
+  // Unfiltered total — used as the baseline for the wardrobe-empty guidance banner.
+  const { data: unfilteredTotalCount } = useGarmentCount();
+  // Count that mirrors the current filters (including smartFilter) so the
+  // header label matches what the infinite query actually returns.
+  const { data: filteredCount } = useGarmentCount(activeFilters);
 
   const allGarments = useMemo(() => {
     if (isSearching) return searchData ?? [];
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
   }, [isSearching, searchData, infiniteData]);
 
+  const isComputingRef = useRef(false);
+
   useEffect(() => {
     if (isLoading || allGarments.length === 0) return;
+    if (isComputingRef.current) return;
     const prefs = asPreferences(profile?.preferences);
     const computedAt = prefs.wardrobeDnaComputedAt as string | undefined;
     const lastKnownCount = Number(localStorage.getItem('burs_dna_garment_count') ?? '0');
@@ -82,54 +94,30 @@ export function useWardrobeView({
     const shouldRecompute = !computedAt || computedAt < sevenDaysAgo || Math.abs(allGarments.length - lastKnownCount) >= 3;
     if (!shouldRecompute) return;
 
+    isComputingRef.current = true;
     (async () => {
       try {
         const { error } = await invokeEdgeFunction('compute_wardrobe_dna', {});
         if (error) throw error;
         localStorage.setItem('burs_dna_garment_count', String(allGarments.length));
-        const currentPrefs = asPreferences(profile?.preferences);
         await updateProfile.mutateAsync({
-          preferences: { ...currentPrefs, wardrobeDnaComputedAt: new Date().toISOString() } as unknown as Json,
+          preferences: { ...prefs, wardrobeDnaComputedAt: new Date().toISOString() } as unknown as Json,
         });
       } catch (err) {
         logger.error('[Wardrobe] compute_wardrobe_dna failed:', err);
+      } finally {
+        isComputingRef.current = false;
       }
     })();
   }, [allGarments.length, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const displayGarments = useMemo(() => {
-    if (!smartFilter) return allGarments;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoff = thirtyDaysAgo.toISOString();
+  // Smart filter and all other filters run server-side via useGarments/useGarmentCount,
+  // so the infinite-query result is already correctly filtered + sorted. The displayed
+  // list, the filtered count, and the Smart Access tile counts all agree.
+  const displayGarments = allGarments;
 
-    switch (smartFilter) {
-      case 'rarely_worn':
-        return allGarments
-          .filter(g => !g.last_worn_at || g.last_worn_at < cutoff)
-          .sort((a, b) => (a.wear_count || 0) - (b.wear_count || 0));
-      case 'most_worn':
-        return [...allGarments]
-          .filter(g => (g.wear_count || 0) > 0)
-          .sort((a, b) => (b.wear_count || 0) - (a.wear_count || 0));
-      case 'new':
-        return [...allGarments]
-          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-      default:
-        return allGarments;
-    }
-  }, [allGarments, smartFilter]);
-
-  const smartFilterCounts = useMemo(() => {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoff = thirtyDaysAgo.toISOString();
-    return {
-      rarely_worn: allGarments.filter(g => !g.last_worn_at || g.last_worn_at < cutoff).length,
-      most_worn: allGarments.filter(g => (g.wear_count || 0) > 0).length,
-      new: allGarments.length,
-    };
-  }, [allGarments]);
+  const { data: smartFilterCountsData } = useSmartFilterCounts();
+  const smartFilterCounts = smartFilterCountsData ?? { rarely_worn: 0, most_worn: 0, new: 0 };
 
   const garmentsByCategory = useMemo(() => {
     const groups: Record<string, typeof allGarments> = {};
@@ -141,7 +129,14 @@ export function useWardrobeView({
     return groups;
   }, [displayGarments]);
 
-  const hasActiveFilters = selectedCategory !== 'all' || selectedColor || selectedSeason || sortBy !== 'created_at' || showLaundry || !!smartFilter;
+  const hasActiveFilters = Boolean(
+    selectedCategory !== 'all' ||
+    selectedColor ||
+    selectedSeason ||
+    sortBy !== 'created_at' ||
+    showLaundry ||
+    smartFilter
+  );
   const activeFilterCount = [selectedCategory !== 'all', !!selectedColor, !!selectedSeason, sortBy !== 'created_at', showLaundry].filter(Boolean).length;
   const showGrouped = !hasActiveFilters && !search;
 
@@ -153,7 +148,6 @@ export function useWardrobeView({
     { id: 'outerwear', label: t('wardrobe.outerwear') },
     { id: 'accessory', label: t('wardrobe.accessory') },
     { id: 'dress', label: t('wardrobe.dress') },
-    { id: 'underwear', label: t('wardrobe.underwear') },
   ];
 
   const toggleSelect = (id: string) => {
@@ -232,7 +226,9 @@ export function useWardrobeView({
     smartFilter,
     setSmartFilter,
     isLoading,
-    totalCount,
+    isSearching,
+    totalCount: unfilteredTotalCount,
+    filteredCount,
     displayGarments,
     garmentsByCategory,
     smartFilterCounts,

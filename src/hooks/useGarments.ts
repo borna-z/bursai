@@ -9,6 +9,8 @@ import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase
 
 export type Garment = Tables<'garments'>;
 
+export type SmartFilter = 'rarely_worn' | 'most_worn' | 'new';
+
 export interface GarmentFilters {
   category?: string;
   color?: string;
@@ -16,6 +18,28 @@ export interface GarmentFilters {
   formality?: number;
   inLaundry?: boolean;
   sortBy?: 'last_worn_at' | 'created_at' | 'wear_count';
+  smartFilter?: SmartFilter | null;
+}
+
+const RARELY_WORN_CUTOFF_MS = 30 * 24 * 60 * 60 * 1000;
+
+function applyFilters<Q extends { eq: (col: string, val: unknown) => Q; contains: (col: string, val: unknown) => Q; or: (filters: string) => Q; gt: (col: string, val: unknown) => Q }>(
+  query: Q,
+  filters?: GarmentFilters,
+): Q {
+  if (filters?.category) query = query.eq('category', filters.category);
+  if (filters?.color) query = query.eq('color_primary', filters.color);
+  if (filters?.season) query = query.contains('season_tags', [filters.season]);
+  if (filters?.formality !== undefined) query = query.eq('formality', filters.formality);
+  if (filters?.inLaundry !== undefined) query = query.eq('in_laundry', filters.inLaundry);
+  if (filters?.smartFilter === 'rarely_worn') {
+    const cutoff = new Date(Date.now() - RARELY_WORN_CUTOFF_MS).toISOString();
+    query = query.or(`last_worn_at.is.null,last_worn_at.lt.${cutoff}`);
+  } else if (filters?.smartFilter === 'most_worn') {
+    query = query.gt('wear_count', 0);
+  }
+  // 'new' needs no additional filter — just the default created_at sort.
+  return query;
 }
 
 const PAGE_SIZE = 30;
@@ -39,30 +63,20 @@ export function useGarments(filters?: GarmentFilters) {
         .from('garments')
         .select('*')
         .eq('user_id', user.id);
-      
-      if (filters?.category) {
-        query = query.eq('category', filters.category);
+
+      query = applyFilters(query, filters);
+
+      // Smart filters own their sort; sortBy is only applied when no smart filter is active.
+      if (filters?.smartFilter === 'rarely_worn') {
+        query = query.order('wear_count', { ascending: true, nullsFirst: true });
+      } else if (filters?.smartFilter === 'most_worn') {
+        query = query.order('wear_count', { ascending: false });
+      } else if (filters?.smartFilter === 'new') {
+        query = query.order('created_at', { ascending: false, nullsFirst: false });
+      } else {
+        const sortBy = filters?.sortBy || 'created_at';
+        query = query.order(sortBy, { ascending: false, nullsFirst: false });
       }
-      
-      if (filters?.color) {
-        query = query.eq('color_primary', filters.color);
-      }
-      
-      if (filters?.season) {
-        query = query.contains('season_tags', [filters.season]);
-      }
-      
-      if (filters?.formality !== undefined) {
-        query = query.eq('formality', filters.formality);
-      }
-      
-      if (filters?.inLaundry !== undefined) {
-        query = query.eq('in_laundry', filters.inLaundry);
-      }
-      
-      // Sort
-      const sortBy = filters?.sortBy || 'created_at';
-      query = query.order(sortBy, { ascending: false, nullsFirst: false });
       
       // Pagination
       const from = pageParam * PAGE_SIZE;
@@ -93,7 +107,9 @@ export function useGarments(filters?: GarmentFilters) {
         )
       );
 
-      return hasProcessingGarments ? 5000 : false;
+      // Bounded to 10s to avoid hammering supabase on large wardrobes while
+      // image processing / render status updates settle.
+      return hasProcessingGarments ? 10000 : false;
     },
   });
 
@@ -205,6 +221,7 @@ export function useGarment(id: string | undefined, options?: { refetchInterval?:
 export function invalidateWardrobeQueries(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: userId ? ['garments', userId] : ['garments'] });
   queryClient.invalidateQueries({ queryKey: userId ? ['garments-count', userId] : ['garments-count'] });
+  queryClient.invalidateQueries({ queryKey: userId ? ['garments-smart-counts', userId] : ['garments-smart-counts'] });
   queryClient.invalidateQueries({ queryKey: ['garment'] });
   queryClient.invalidateQueries({ queryKey: ['ai-suggestions'] });
   queryClient.invalidateQueries({ queryKey: ['insights'] });
@@ -271,6 +288,7 @@ export function useUpdateGarment() {
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<'garments'> }) => {
+      if (!user) throw new Error('Not authenticated');
       // Offline: enqueue mutation for later replay
       if (!navigator.onLine) {
         enqueue({
@@ -281,11 +299,12 @@ export function useUpdateGarment() {
         });
         return { id, ...updates } as Tables<'garments'>;
       }
-      
+
       const { data, error } = await supabase
         .from('garments')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single();
       
@@ -322,11 +341,13 @@ export function useDeleteGarment() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('garments')
         .delete()
-        .eq('id', id);
-      
+        .eq('id', id)
+        .eq('user_id', user.id);
+
       if (error) throw error;
     },
     retry: 2,
@@ -353,8 +374,9 @@ export function useMarkGarmentWorn() {
         .from('garments')
         .select('wear_count')
         .eq('id', garmentId)
+        .eq('user_id', user.id)
         .single();
-      
+
       // Update garment
       const { error: updateError } = await supabase
         .from('garments')
@@ -362,7 +384,8 @@ export function useMarkGarmentWorn() {
           last_worn_at: today,
           wear_count: (garment?.wear_count || 0) + 1
         })
-        .eq('id', garmentId);
+        .eq('id', garmentId)
+        .eq('user_id', user.id);
       
       if (updateError) throw updateError;
       
@@ -383,19 +406,53 @@ export function useMarkGarmentWorn() {
   });
 }
 
-export function useGarmentCount() {
+export function useSmartFilterCounts() {
   const { user } = useAuth();
-  
   return useQuery({
-    queryKey: ['garments-count', user?.id],
+    queryKey: ['garments-smart-counts', user?.id],
+    queryFn: async () => {
+      if (!user) return { rarely_worn: 0, most_worn: 0, new: 0 };
+      const cutoff = new Date(Date.now() - RARELY_WORN_CUTOFF_MS).toISOString();
+      const [total, mostWorn, rarelyWorn] = await Promise.all([
+        supabase.from('garments').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('garments').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gt('wear_count', 0),
+        supabase.from('garments').select('*', { count: 'exact', head: true }).eq('user_id', user.id).or(`last_worn_at.is.null,last_worn_at.lt.${cutoff}`),
+      ]);
+      // Fail fast on any error so React Query retries instead of caching a
+      // corrupted zero-count payload that would hide Smart Access tiles.
+      if (total.error) throw total.error;
+      if (mostWorn.error) throw mostWorn.error;
+      if (rarelyWorn.error) throw rarelyWorn.error;
+      return {
+        rarely_worn: rarelyWorn.count ?? 0,
+        most_worn: mostWorn.count ?? 0,
+        new: total.count ?? 0,
+      };
+    },
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useGarmentCount(filters?: GarmentFilters) {
+  const { user } = useAuth();
+
+  return useQuery({
+    // Preserve the old cache key when no filters are provided so legacy
+    // callers (useAddGarment, etc.) share the same cache entry they always did.
+    queryKey: filters ? ['garments-count', user?.id, filters] : ['garments-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
-      
-      const { count, error } = await supabase
+
+      let query = supabase
         .from('garments')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
-      
+
+      query = applyFilters(query, filters);
+
+      const { count, error } = await query;
+
       if (error) throw error;
       return count || 0;
     },

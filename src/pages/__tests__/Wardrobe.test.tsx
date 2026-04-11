@@ -49,6 +49,7 @@ vi.mock('@/hooks/useGarments', () => ({
     isLoading: false,
   })),
   useGarmentCount: vi.fn(() => ({ data: 6 })),
+  useSmartFilterCounts: vi.fn(() => ({ data: { rarely_worn: 3, most_worn: 3, new: 6 } })),
   useUpdateGarment: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
   useDeleteGarment: vi.fn(() => ({ mutate: vi.fn(), mutateAsync: vi.fn() })),
 }));

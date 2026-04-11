@@ -23,7 +23,15 @@ type FilterTab = 'all' | 'saved' | 'planned';
 
 function translateOrFallback(t: (key: string) => string, key: string, fallback: string) {
   const translated = t(key);
-  return translated && translated !== key ? translated : fallback;
+  if (!translated) return fallback;
+  if (translated === key) return fallback;
+  // Phase 1's t() safety net returns humanized last segment on miss.
+  const segment = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
+  const humanizedSegment = segment
+    .replace(/[_-]/g, ' ')
+    .replace(/^./, (c) => c.toUpperCase());
+  if (translated === humanizedSegment) return fallback;
+  return translated;
 }
 
 function resolveOccasionLabel(outfit: OutfitWithItems, t: (key: string) => string) {

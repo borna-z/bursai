@@ -22,12 +22,12 @@ import { cn } from '@/lib/utils';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 
 const CATEGORIES = [
-  { id: 'top', labelKey: 'filter.tops' },
-  { id: 'bottom', labelKey: 'filter.bottoms' },
-  { id: 'outerwear', labelKey: 'filter.outerwear' },
-  { id: 'shoes', labelKey: 'filter.shoes' },
-  { id: 'dress', labelKey: 'filter.dresses' },
-  { id: 'accessory', labelKey: 'filter.accessories' },
+  { id: 'top', labelKey: 'wardrobe.top' },
+  { id: 'bottom', labelKey: 'wardrobe.bottom' },
+  { id: 'outerwear', labelKey: 'wardrobe.outerwear' },
+  { id: 'shoes', labelKey: 'wardrobe.shoes' },
+  { id: 'dress', labelKey: 'wardrobe.dress' },
+  { id: 'accessory', labelKey: 'wardrobe.accessory' },
 ];
 
 export default function PickMustHaves() {
