@@ -370,7 +370,7 @@ const de: Record<string, string> = {
     'calendar.ics_label': 'ICS-Link', 'calendar.sync_now': 'Jetzt synchronisieren', 'calendar.sync_calendar': 'Kalender synchronisieren',
     'calendar.how_to': 'Wie finde ich meinen ICS-Link?',
     'calendar.connect_google': 'Google Calendar verbinden', 'calendar.connect_ics': 'ICS-Link hinzufügen',
-    'calendar.connect_apple': 'Apple Calendar verbinden',
+
     'calendar.connect_apple_desc': 'Apple Calendar, Outlook oder andere ICS-Quellen verbinden',
     'calendar.paste_ics': 'ICS-Link einfügen', 'calendar.auto_every_6h': 'Automatisch alle 6 Stunden',
     'calendar.google_help_title': 'Google Calendar', 'calendar.google_help_1': '1. Öffne Google Calendar im Browser',
