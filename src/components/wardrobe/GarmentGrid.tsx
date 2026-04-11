@@ -131,20 +131,20 @@ function VirtualGarmentGrid({
   isFetchingNextPage,
   sentinelRef,
 }: Omit<VirtualizedGarmentListProps, 'onLoadMore' | 'hasNextPage'> & { sentinelRef: RefObject<HTMLDivElement | null> }) {
-  const parentRef = useRef<HTMLDivElement>(null);
   const cols = isGridView ? 3 : 1;
   const rowCount = Math.ceil(garments.length / cols);
   const estimateSize = isGridView ? WARDROBE_GRID_ROW_HEIGHT : WARDROBE_LIST_ROW_HEIGHT;
 
   const virtualizer = useVirtualizer({
     count: rowCount,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => document.querySelector('main#main-content') as HTMLElement | null,
     estimateSize: () => estimateSize + GAP,
     overscan: 5,
+    scrollingDelay: 150,
   });
 
   return (
-    <div ref={parentRef} className="w-full overflow-visible">
+    <div className="w-full overflow-visible">
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const startIdx = virtualRow.index * cols;
