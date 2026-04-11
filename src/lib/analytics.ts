@@ -12,5 +12,8 @@ export function trackEvent(eventType: string, metadata: Record<string, unknown> 
     .from('analytics_events')
     .insert([{ event_type: eventType, metadata: metadata as Record<string, string> }])
     .then(() => {})
-    .catch((err) => logger.error('Analytics error:', err));
+    .catch((err) => {
+      logger.error('Analytics error:', err);
+      console.error('[analytics] trackEvent failed:', err);
+    });
 }

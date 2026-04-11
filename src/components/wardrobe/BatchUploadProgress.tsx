@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, Upload, Sparkles, X, Clock3, ArrowRight, SkipForward } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -34,6 +34,8 @@ interface BatchUploadProgressProps {
   onCancel: () => void;
 }
 
+const CONCURRENCY = 3;
+
 export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUploadProgressProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -41,8 +43,9 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const { analyzeGarment } = useAnalyzeGarment();
   const queryClient = useQueryClient();
   const [items, setItems] = useState<BatchItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const dispatchedRef = useRef<Set<number>>(new Set());
+  const itemsRef = useRef<BatchItem[]>([]);
+  const cancelledRef = useRef(false);
   const [lastSavedCard, setLastSavedCard] = useState<{
     garmentId: string;
     imagePath: string;
@@ -63,9 +66,17 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
       preview: URL.createObjectURL(file),
       status: 'waiting' as const,
     }));
+    dispatchedRef.current = new Set();
+    cancelledRef.current = false;
     setItems(newItems);
+    itemsRef.current = newItems;
     return () => newItems.forEach(item => URL.revokeObjectURL(item.preview));
   }, [files]);
+
+  // Keep itemsRef in sync with items state so worker loops read fresh data
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   const updateItem = useCallback((index: number, updates: Partial<BatchItem>) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
@@ -76,7 +87,10 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
   const skippedCount = items.filter(i => i.status === 'skipped').length;
   const errorCount = items.filter(i => i.status === 'error').length;
   const unresolvedCount = items.filter(i => ['waiting', 'uploading', 'analyzing', 'review'].includes(i.status)).length;
-  const processingComplete = items.length > 0 && currentIndex >= items.length && !isProcessing;
+  const processingComplete =
+    items.length > 0 &&
+    dispatchedRef.current.size >= items.length &&
+    items.every(i => ['done', 'skipped', 'error', 'review'].includes(i.status));
   const readyToContinue = processingComplete && unresolvedCount === 0;
   const totalProgress = items.length > 0 ? ((doneCount + skippedCount + errorCount) / items.length) * 100 : 0;
   const statusMessage = useMemo(() => {
@@ -182,133 +196,154 @@ export function BatchUploadProgress({ files, onComplete, onCancel }: BatchUpload
         error: t('batch.multi_review_item').replace('{current}', String(garmentIndex + 2)).replace('{total}', String(detectedGarments.length)),
       }));
 
-      next.splice(index + 1, 0, ...reviewChildren);
+      // Append to end instead of splicing — index stability matters for concurrent workers
+      const appendStart = next.length;
+      next.push(...reviewChildren);
+      // Review children are pre-finalized (status 'review'); mark them dispatched
+      // so pool accounting stays consistent with items.length
+      for (let k = 0; k < reviewChildren.length; k++) {
+        dispatchedRef.current.add(appendStart + k);
+      }
       return next;
     });
   }, [t, updateItem]);
 
-  // Process queue
-  useEffect(() => {
-    if (!user || items.length === 0 || isProcessing) return;
-    if (currentIndex >= items.length) {
-      return;
-    }
+  // Process a single item — identical pipeline to sequential version, driven by index
+  const processItem = useCallback(async (index: number) => {
+    if (cancelledRef.current) return;
+    const currentItem = itemsRef.current[index];
+    if (!currentItem || currentItem.status !== 'waiting') return;
 
-    const currentItem = items[currentIndex];
-    if (!currentItem) return;
-    if (currentItem.status !== 'waiting') {
-      setCurrentIndex((i) => i + 1);
-      return;
-    }
+    const garmentId = crypto.randomUUID();
 
-    const processItem = async () => {
-      setIsProcessing(true);
-      const garmentId = crypto.randomUUID();
+    updateItem(index, { status: 'uploading' });
 
-      updateItem(currentIndex, { status: 'uploading' });
+    const uploadPromise = uploadGarmentImage(currentItem.file, garmentId)
+      .then((p) => ({ ok: true as const, path: p }))
+      .catch(() => ({ ok: false as const }));
 
-      const uploadPromise = uploadGarmentImage(currentItem.file, garmentId)
-        .then((p) => ({ ok: true as const, path: p }))
-        .catch(() => ({ ok: false as const }));
-
-      const analysisPromise: Promise<{ data: GarmentAnalysis | null; error: string | null }> = (async () => {
-        try {
-          const base64: string = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(currentItem.file);
-          });
-
-          const { data, error: fnError } = await invokeEdgeFunction<
-            GarmentAnalysis & { error?: string }
-          >('analyze_garment', {
-            body: { base64Image: base64, mode: 'fast' },
-          });
-
-          if (fnError || !data || (data as { error?: string }).error) {
-            return {
-              data: null,
-              error: fnError?.message || (data as { error?: string })?.error || null,
-            };
-          }
-          return { data: data as GarmentAnalysis, error: null };
-        } catch (err) {
-          return { data: null, error: err instanceof Error ? err.message : null };
-        }
-      })();
-
-      const isValidAnalysis = (a: GarmentAnalysis | null): a is GarmentAnalysis =>
-        !!a && typeof a.category === 'string' && typeof a.color_primary === 'string';
-
-      analysisPromise.then((res) => {
-        if (isValidAnalysis(res.data)) {
-          updateItem(currentIndex, { status: 'analyzing_done', analysis: res.data });
-        }
-      });
-
-      const [uploadResult, analysisResult] = await Promise.all([uploadPromise, analysisPromise]);
-
-      if (!uploadResult.ok) {
-        updateItem(currentIndex, { status: 'error', error: t('batch.upload_failed') });
-        setCurrentIndex(i => i + 1);
-        setIsProcessing(false);
-        return;
-      }
-
-      const path = uploadResult.path;
-      let data: GarmentAnalysis | null = isValidAnalysis(analysisResult.data) ? analysisResult.data : null;
-      let analysisError: string | null = analysisResult.error;
-
-      if (!data) {
-        const fallback = await analyzeGarment(path, 'fast');
-        if (fallback.data) {
-          data = fallback.data;
-          analysisError = null;
-        } else {
-          analysisError = fallback.error || analysisError;
-        }
-      }
-
-      if (!data) {
-        updateItem(currentIndex, { status: 'error', error: analysisError || t('batch.analyze_failed') });
-        setCurrentIndex(i => i + 1);
-        setIsProcessing(false);
-        return;
-      }
-
-      updateItem(currentIndex, { status: 'analyzing' });
+    const analysisPromise: Promise<{ data: GarmentAnalysis | null; error: string | null }> = (async () => {
       try {
-        const reviewDecision = getGarmentReviewDecision(data.confidence, {
-          imageContainsMultipleGarments: data.image_contains_multiple_garments,
+        const base64: string = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(currentItem.file);
         });
-        if (reviewDecision.needsReview) {
-          queueReviewItems(currentIndex, {
-            ...currentItem,
-            storagePath: path,
-            garmentId,
-            analysis: data,
-          }, path, garmentId);
-        } else {
-          await saveApprovedItem({
-            ...currentItem,
-            storagePath: path,
-            garmentId,
-            analysis: data,
-          });
 
-          updateItem(currentIndex, { status: 'done', storagePath: path, garmentId, analysis: data });
+        const { data, error: fnError } = await invokeEdgeFunction<
+          GarmentAnalysis & { error?: string }
+        >('analyze_garment', {
+          body: { base64Image: base64, mode: 'fast' },
+        });
+
+        if (fnError || !data || (data as { error?: string }).error) {
+          return {
+            data: null,
+            error: fnError?.message || (data as { error?: string })?.error || null,
+          };
         }
-      } catch {
-        updateItem(currentIndex, { status: 'error', error: t('batch.save_failed') });
+        return { data: data as GarmentAnalysis, error: null };
+      } catch (err) {
+        return { data: null, error: err instanceof Error ? err.message : null };
       }
+    })();
 
-      setCurrentIndex(i => i + 1);
-      setIsProcessing(false);
+    const isValidAnalysis = (a: GarmentAnalysis | null): a is GarmentAnalysis =>
+      !!a && typeof a.category === 'string' && typeof a.color_primary === 'string';
+
+    analysisPromise.then((res) => {
+      if (isValidAnalysis(res.data)) {
+        updateItem(index, { status: 'analyzing_done', analysis: res.data });
+      }
+    });
+
+    const [uploadResult, analysisResult] = await Promise.all([uploadPromise, analysisPromise]);
+
+    if (!uploadResult.ok) {
+      updateItem(index, { status: 'error', error: t('batch.upload_failed') });
+      return;
+    }
+
+    const path = uploadResult.path;
+    let data: GarmentAnalysis | null = isValidAnalysis(analysisResult.data) ? analysisResult.data : null;
+    let analysisError: string | null = analysisResult.error;
+
+    if (!data) {
+      const fallback = await analyzeGarment(path, 'fast');
+      if (fallback.data) {
+        data = fallback.data;
+        analysisError = null;
+      } else {
+        analysisError = fallback.error || analysisError;
+      }
+    }
+
+    if (!data) {
+      updateItem(index, { status: 'error', error: analysisError || t('batch.analyze_failed') });
+      return;
+    }
+
+    updateItem(index, { status: 'analyzing' });
+    try {
+      const reviewDecision = getGarmentReviewDecision(data.confidence, {
+        imageContainsMultipleGarments: data.image_contains_multiple_garments,
+      });
+      if (reviewDecision.needsReview) {
+        queueReviewItems(index, {
+          ...currentItem,
+          storagePath: path,
+          garmentId,
+          analysis: data,
+        }, path, garmentId);
+      } else {
+        await saveApprovedItem({
+          ...currentItem,
+          storagePath: path,
+          garmentId,
+          analysis: data,
+        });
+        updateItem(index, { status: 'done', storagePath: path, garmentId, analysis: data });
+      }
+    } catch {
+      updateItem(index, { status: 'error', error: t('batch.save_failed') });
+    }
+  }, [analyzeGarment, queueReviewItems, saveApprovedItem, t, updateItem, uploadGarmentImage]);
+
+  // Launch concurrent worker pool once items are initialized
+  useEffect(() => {
+    if (!user || items.length === 0) return;
+    if (dispatchedRef.current.size > 0) return;
+
+    const findNextIndex = (): number => {
+      const current = itemsRef.current;
+      for (let i = 0; i < current.length; i++) {
+        if (current[i]?.status === 'waiting' && !dispatchedRef.current.has(i)) {
+          return i;
+        }
+      }
+      return -1;
     };
 
-    processItem();
-  }, [analyzeGarment, currentIndex, isProcessing, items, queueReviewItems, saveApprovedItem, t, updateItem, uploadGarmentImage, user]);
+    const worker = async () => {
+      while (true) {
+        if (cancelledRef.current) return;
+        const nextIndex = findNextIndex();
+        if (nextIndex === -1) return;
+        dispatchedRef.current.add(nextIndex);
+        if (cancelledRef.current) return;
+        await processItem(nextIndex);
+      }
+    };
+
+    for (let i = 0; i < CONCURRENCY; i++) {
+      void worker();
+    }
+
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [items.length, processItem, user]);
 
   const handleApproveReviewItem = async (index: number) => {
     updateItem(index, { status: 'uploading', error: undefined });
