@@ -2435,6 +2435,7 @@ const sv: Record<string, string> = {
     'home.wardrobeGapsDesc': 'Vad saknas i din garderob',
     'home.settingsLabel': 'Inställningar',
     'home.settingsDesc': 'Tema, accent, profil',
+    'home.outfitsDesc': 'Dina sparade outfits',
 
     // Wardrobe / Garment keys
     'common.actions': 'Actions',

@@ -2942,6 +2942,7 @@ const en: Record<string, string> = {
     'home.wardrobeGapsDesc': "What's missing from your closet",
     'home.settingsLabel': 'Settings',
     'home.settingsDesc': 'Theme, accent, profile',
+    'home.outfitsDesc': 'Your saved looks & combos',
 
     // Common (added)
     'common.view': 'View',
