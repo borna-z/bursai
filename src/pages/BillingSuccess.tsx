@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { hapticLight } from '@/lib/haptics';
@@ -10,7 +10,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function BillingSuccess() {
   const navigate = useNavigate();
-  useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { t } = useLanguage();
