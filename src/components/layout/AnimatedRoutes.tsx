@@ -1,5 +1,15 @@
 import { lazy, Suspense, useRef } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+
+/**
+ * Redirect that preserves the current search string and route state.
+ * Used for legacy routes like /ai → /ai/generate that may carry query params
+ * for prefilled garments or styles.
+ */
+function ForwardingNavigate({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={{ pathname: to, search: location.search, hash: location.hash }} state={location.state} replace />;
+}
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -129,7 +139,7 @@ export function AnimatedRoutes() {
             <Route path="/plan/travel-capsule" element={<ProtectedRoute><TravelCapsule /></ProtectedRoute>} />
             <Route path="/plan/travel-capsule/pick-must-haves" element={<ProtectedRoute><PickMustHaves /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-            <Route path="/ai" element={<Navigate to="/ai/generate" replace />} />
+            <Route path="/ai" element={<ForwardingNavigate to="/ai/generate" />} />
             <Route path="/ai/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
             <Route path="/ai/chat" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
             <Route path="/ai/mood" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
@@ -147,7 +157,7 @@ export function AnimatedRoutes() {
             <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="/ai/mood-outfit" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
             <Route path="/gaps" element={<ProtectedRoute><GarmentGaps /></ProtectedRoute>} />
-            <Route path="/discover" element={<Navigate to="/gaps" replace />} />
+            <Route path="/discover" element={<ForwardingNavigate to="/gaps" />} />
             <Route path="/outfits/unused" element={<ProtectedRoute><UnusedOutfits /></ProtectedRoute>} />
             
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />

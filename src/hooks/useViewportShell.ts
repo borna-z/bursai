@@ -28,22 +28,44 @@ function readSafeAreaTop(): number {
 }
 
 /**
- * Detects iPhone devices with a notch or Dynamic Island.
- * Used as a fallback when env(safe-area-inset-top) returns 0.
+ * Fallback inset for iPhones with a notch or Dynamic Island, ONLY used when
+ * env(safe-area-inset-top) returns 0 (some Median iOS webviews).
+ *
+ * Explicit screen-dimension matching — not threshold ranges — so notch-only
+ * devices aren't mistakenly treated as Dynamic Island devices.
  */
 function detectIosNotchFallback(): number {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return 0;
   const ua = navigator.userAgent;
   const isIos = /iPhone|iPad|iPod/.test(ua) && !('MSStream' in window);
   if (!isIos) return 0;
-  const screenHeight = window.screen.height;
-  const screenWidth = window.screen.width;
-  // iPhone X and newer have notch/island — screen height >= 812 in portrait
-  const maxDim = Math.max(screenHeight, screenWidth);
-  if (maxDim >= 926) return 59; // iPhone 14/15/16 Pro Max / Plus (Dynamic Island)
-  if (maxDim >= 852) return 59; // iPhone 14/15/16 Pro (Dynamic Island)
-  if (maxDim >= 844) return 47; // iPhone 12/13/14 (notch)
-  if (maxDim >= 812) return 44; // iPhone X/XS/11 Pro (notch)
+  const w = window.screen.width;
+  const h = window.screen.height;
+  const maxDim = Math.max(w, h);
+  const minDim = Math.min(w, h);
+
+  // Dynamic Island devices (59px top inset)
+  // iPhone 14/15/16 Pro: 393×852  |  Pro Max / Plus: 430×932
+  if ((minDim === 393 && maxDim === 852) || (minDim === 430 && maxDim === 932)) {
+    return 59;
+  }
+
+  // Notch devices (47px top inset)
+  // iPhone 12/13/14 mini: 360×780  |  12/13/14: 390×844  |  12/13/14 Pro Max: 428×926
+  if (
+    (minDim === 390 && maxDim === 844) ||
+    (minDim === 360 && maxDim === 780) ||
+    (minDim === 428 && maxDim === 926)
+  ) {
+    return 47;
+  }
+
+  // Older notch (44px top inset)
+  // iPhone X/XS/11 Pro: 375×812  |  XR/11/XS Max/11 Pro Max: 414×896
+  if ((minDim === 375 && maxDim === 812) || (minDim === 414 && maxDim === 896)) {
+    return 44;
+  }
+
   return 0;
 }
 
@@ -57,8 +79,9 @@ export function useViewportShell() {
       const visualViewport = window.visualViewport;
       const height = visualViewport?.height ?? window.innerHeight;
       const envSafeTop = readSafeAreaTop();
-      const iosFallback = detectIosNotchFallback();
-      const offsetTop = Math.max(envSafeTop, iosFallback);
+      // Only fall back to device-specific inset when the CSS env probe
+      // actually returned 0 — otherwise trust the real value.
+      const offsetTop = envSafeTop > 0 ? envSafeTop : detectIosNotchFallback();
 
       root.style.setProperty(HEIGHT_VAR, `${height}px`);
       root.style.setProperty(OFFSET_TOP_VAR, `${offsetTop}px`);
