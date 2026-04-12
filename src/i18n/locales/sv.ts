@@ -2417,6 +2417,26 @@ const sv: Record<string, string> = {
     'home.shuffling': 'Blandar...',
     'home.command_status_open': 'Öppen dag',
 
+    // Home Hub (Tasks 10-13)
+    'home.yourStylist': 'Din stilist',
+    'home.styleChat': 'Stildiskussion',
+    'home.styleChatDesc': 'Fråga din AI-stilist vad som helst',
+    'home.generateOutfit': 'Generera outfit',
+    'home.generateOutfitDesc': 'AI-kurerade looks från din garderob',
+    'home.styleMe': 'Styla mig',
+    'home.styleMeDesc': 'Bli stylad för alla tillfällen',
+    'home.moodOutfit': 'Känslooutfit',
+    'home.moodOutfitDesc': 'Klä dig efter hur du mår',
+    'home.travelCapsule': 'Resekapsyl',
+    'home.travelCapsuleDesc': 'Packa smart för varje resa',
+    'home.discoverLabel': 'Utforska',
+    'home.discoverDesc': 'Utforska trender & inspiration',
+    'home.wardrobeGaps': 'Garderobsluckor',
+    'home.wardrobeGapsDesc': 'Vad saknas i din garderob',
+    'home.settingsLabel': 'Inställningar',
+    'home.settingsDesc': 'Tema, accent, profil',
+    'home.outfitsDesc': 'Dina sparade outfits',
+
     // Wardrobe / Garment keys
     'common.actions': 'Actions',
     'common.garment': 'Garment',
