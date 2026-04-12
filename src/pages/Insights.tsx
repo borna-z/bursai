@@ -1,94 +1,79 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { InsightsActionCenter } from '@/components/insights/InsightsActionCenter';
-import { InsightsBehaviorSection } from '@/components/insights/InsightsBehaviorSection';
-import { InsightsHeroSection } from '@/components/insights/InsightsHeroSection';
-import { InsightsPalettePanel } from '@/components/insights/InsightsPalettePanel';
+import { CategoryDonut } from '@/components/insights/CategoryDonut';
+import { ColorPaletteBar } from '@/components/insights/ColorPaletteBar';
+import { CostPerWearCard } from '@/components/insights/CostPerWearCard';
+import { InsightsHeroStats } from '@/components/insights/InsightsHeroStats';
 import { InsightsStatePanel } from '@/components/insights/InsightsStatePanel';
-import { InsightsStyleIdentitySection } from '@/components/insights/InsightsStyleIdentitySection';
-import { InsightsValueSection } from '@/components/insights/InsightsValueSection';
-import { InsightsWardrobeHealthSection } from '@/components/insights/InsightsWardrobeHealthSection';
-import {
-  type InsightsActionItem,
-  useInsightsDashboardAdapter,
-} from '@/components/insights/useInsightsDashboardAdapter';
+import { WardrobeHealthRadar } from '@/components/insights/WardrobeHealthRadar';
+import { WearFrequencyChart } from '@/components/insights/WearFrequencyChart';
+import { useInsightsDashboardAdapter } from '@/components/insights/useInsightsDashboardAdapter';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PullToRefresh } from '@/components/layout/PullToRefresh';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { buildGapsPath } from '@/components/gaps/gapRouteState';
-import { hapticLight } from '@/lib/haptics';
-import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
+
+function parseCurrency(value: string): number {
+  if (!value) return 0;
+  const match = value.replace(',', '.').match(/[\d.]+/);
+  return match ? parseFloat(match[0]) : 0;
+}
 
 export default function InsightsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useLanguage();
-  const viewModel = useInsightsDashboardAdapter();
+  const vm = useInsightsDashboardAdapter();
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['insights-dashboard'] });
   }, [queryClient]);
 
-  const handleGarmentOpen = useCallback((garmentId: string) => {
-    hapticLight();
-    navigate(`/wardrobe/${garmentId}`);
-  }, [navigate]);
-
-  const handleOpenPricing = useCallback(() => {
-    hapticLight();
-    navigate('/pricing');
-  }, [navigate]);
-
-  const handleAction = useCallback((action: InsightsActionItem) => {
-    hapticLight();
-
-    switch (action.target.kind) {
-      case 'style-garment':
-        navigate(`/ai/chat${buildStyleFlowSearch(action.target.garmentId)}`, {
-          state: buildStyleAroundState(action.target.garmentId),
-        });
-        return;
-      case 'generate-garments':
-        navigate(`/ai/generate${buildStyleFlowSearch(action.target.garmentIds)}`);
-        return;
-      case 'gaps':
-        navigate(buildGapsPath({ autorun: action.target.autorun }));
-        return;
-      case 'outfit':
-        navigate(`/outfits/${action.target.outfitId}`);
-        return;
-      case 'pricing':
-        navigate('/pricing');
-        return;
-      default:
-        return;
+  const wearByDay = useMemo(() => {
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const counts = new Array(7).fill(0);
+    for (const entry of vm.behavior.heatmapDays) {
+      const dow = new Date(entry.date).getDay();
+      const idx = dow === 0 ? 6 : dow - 1; // Monday = 0
+      counts[idx] += entry.count;
     }
-  }, [navigate]);
+    return days.map((day, i) => ({ day, count: counts[i] }));
+  }, [vm.behavior.heatmapDays]);
 
-  const title = t('insights.title') || 'Style Intelligence';
-  const subtitle = t('insights.subtitle') || 'Your wardrobe, decoded';
+  const healthAxes = useMemo(() => [
+    { label: 'Variety', value: Math.min(vm.health.categoryBalance.length * 15, 100) },
+    { label: 'Color', value: Math.min(vm.palette.entries.length * 17, 100) },
+    { label: 'Usage', value: vm.hero.metrics[1]?.rails[0]?.value ?? 0 },
+    {
+      label: 'Season',
+      value:
+        vm.health.totalCount > 0
+          ? Math.min((vm.health.usedCount / vm.health.totalCount) * 100, 100)
+          : 0,
+    },
+    { label: 'Value', value: vm.value.sustainabilityScore ?? 50 },
+    { label: 'Fit', value: vm.behavior.consistency },
+  ], [vm]);
 
   return (
     <AppLayout>
-      <PageHeader
-        title={title}
-        subtitle={subtitle}
-        titleClassName="text-[1.5rem] sm:text-[1.65rem]"
-        sticky={false}
-      />
-
       <PullToRefresh onRefresh={handleRefresh}>
-        {viewModel.state === 'loading' ? (
+        {vm.state === 'loading' ? (
           <InsightsPageSkeleton />
         ) : (
-          <AnimatedPage className="page-shell page-cluster pb-24">
-            {viewModel.state === 'empty' ? (
+          <AnimatedPage className="pb-24">
+            <PageHeader
+              eyebrow="INSIGHTS"
+              title={t('insights.yourStyleStory') || 'Your Style Story'}
+              sticky={false}
+            />
+
+            {vm.state === 'empty' ? (
               <InsightsStatePanel
                 kind="empty"
                 onPrimary={() => navigate('/wardrobe/add')}
@@ -96,15 +81,7 @@ export default function InsightsPage() {
               />
             ) : null}
 
-            {viewModel.state === 'no-wear-data' ? (
-              <InsightsStatePanel
-                kind="no-wear-data"
-                onPrimary={() => navigate('/outfits')}
-                onSecondary={() => navigate('/wardrobe')}
-              />
-            ) : null}
-
-            {viewModel.state === 'error' ? (
+            {vm.state === 'error' ? (
               <InsightsStatePanel
                 kind="error"
                 onPrimary={() => { void handleRefresh(); }}
@@ -112,43 +89,41 @@ export default function InsightsPage() {
               />
             ) : null}
 
-            {(viewModel.state === 'ready' || viewModel.state === 'no-wear-data') ? (
+            {(vm.state === 'ready' || vm.state === 'no-wear-data') ? (
               <>
-                <InsightsHeroSection
-                  hero={viewModel.hero}
-                  generatedAtLabel={viewModel.generatedAtLabel}
-                  isRefreshing={viewModel.isRefreshing}
-                  onOpenWardrobe={() => navigate('/wardrobe')}
+                <InsightsHeroStats
+                  garmentCount={vm.health.totalCount}
+                  outfitCount={vm.hero.metrics[2]?.rails[0]?.value ?? 0}
+                  wearCount={
+                    vm.behavior.streak > 0
+                      ? vm.behavior.heatmapDays.reduce((s, d) => s + d.count, 0)
+                      : 0
+                  }
                 />
 
-                <InsightsStyleIdentitySection style={viewModel.style} />
+                <WearFrequencyChart data={wearByDay} />
 
-                <InsightsPalettePanel
-                  palette={viewModel.palette}
-                  upgrade={viewModel.upgrade}
-                  onOpenPricing={handleOpenPricing}
+                <ColorPaletteBar
+                  segments={vm.palette.bars.map((e) => ({
+                    color: e.swatch,
+                    label: e.label,
+                    percentage: e.percentage,
+                  }))}
                 />
 
-                <InsightsBehaviorSection
-                  behavior={viewModel.behavior}
-                  upgrade={viewModel.upgrade}
-                  onOpenPricing={handleOpenPricing}
-                />
+                <div className="px-[var(--page-px)] pb-4 grid grid-cols-2 gap-[10px]">
+                  <CategoryDonut
+                    segments={vm.health.categoryBalance}
+                    total={vm.health.totalCount}
+                  />
+                  <CostPerWearCard
+                    bestValue={vm.value.bestCostPerWear?.cpwValue ?? 0}
+                    average={parseCurrency(vm.value.avgCostPerWear)}
+                    worst={vm.value.worstCostPerWear?.cpwValue ?? 0}
+                  />
+                </div>
 
-                <InsightsWardrobeHealthSection
-                  health={viewModel.health}
-                  onOpenGarment={handleGarmentOpen}
-                  onOpenGapScan={() => navigate(buildGapsPath({ autorun: true }))}
-                />
-
-                <InsightsValueSection
-                  value={viewModel.value}
-                  upgrade={viewModel.upgrade}
-                  onOpenGarment={handleGarmentOpen}
-                  onOpenPricing={handleOpenPricing}
-                />
-
-                <InsightsActionCenter actions={viewModel.actions} onAction={handleAction} />
+                <WardrobeHealthRadar axes={healthAxes} />
               </>
             ) : null}
           </AnimatedPage>
