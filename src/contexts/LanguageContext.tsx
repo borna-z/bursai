@@ -46,7 +46,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       const [currentDict, englishDict] = await Promise.all([
         dictCache.get(locale) ? Promise.resolve(dictCache.get(locale) as Record<string, string>) : loadLocale(locale),
         dictCache.get('en') ? Promise.resolve(dictCache.get('en') as Record<string, string>) : loadLocale('en'),
-        loadDateFnsLocale(locale),
       ]);
 
       dictCache.set(locale, currentDict);
@@ -62,6 +61,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setDict({});
       setEnDict({});
     });
+
+    // Load date-fns locale independently — a transient chunk-load failure
+    // must not block translations, and rejecting (instead of swallowing)
+    // lets the next locale-change effect retry the load.
+    loadDateFnsLocale(locale).catch(() => {});
 
     return () => {
       isActive = false;

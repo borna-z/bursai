@@ -25,24 +25,22 @@ const loaderMap: Record<AppLocale, () => Promise<{ default: DateFnsLocale } | Da
 
 /**
  * Dynamically load and cache the date-fns locale for the given app locale.
- * Returns enUS immediately if the locale is 'en' or if loading fails.
+ * On failure the promise rejects so the caller can retry on the next locale
+ * change instead of permanently pinning enUS for the session.
  */
 export async function loadDateFnsLocale(locale: AppLocale): Promise<DateFnsLocale> {
+  if (locale === 'en') return enUS;
+
   const cached = localeCache.get(locale);
   if (cached) return cached;
 
-  try {
-    const loader = loaderMap[locale];
-    const loaded = await loader();
-    // Handle both default-export and named-export module shapes
-    const result = (loaded && typeof loaded === 'object' && 'code' in loaded)
-      ? loaded as DateFnsLocale
-      : loaded as DateFnsLocale;
-    localeCache.set(locale, result);
-    return result;
-  } catch {
-    return enUS;
-  }
+  const loader = loaderMap[locale];
+  const loaded = await loader();
+  const result = (loaded && typeof loaded === 'object' && 'code' in loaded)
+    ? loaded as DateFnsLocale
+    : loaded as DateFnsLocale;
+  localeCache.set(locale, result);
+  return result;
 }
 
 /**
