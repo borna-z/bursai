@@ -41,12 +41,14 @@
     --ring: 24 13% 10%;
 
     --radius: 1.125rem;
-    --app-dock-height: 4.75rem;
+    --app-dock-height: 3.25rem;
     --app-bottom-clearance: calc(var(--app-dock-height) + env(safe-area-inset-bottom, 0px));
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --app-viewport-height: 100svh;
     --app-viewport-offset-top: 0px;
+    --safe-area-top: max(env(safe-area-inset-top, 0px), var(--app-viewport-offset-top, 0px));
+    --page-px: 20px;
 
     /* Extended tokens */
     --success: 146 22% 36%;
@@ -80,31 +82,31 @@
 
   .dark {
     --background: 32 12% 6%;
-    --foreground: 36 18% 94%;
+    --foreground: 34 32% 95%;
 
     --card: 28 10% 10%;
-    --card-foreground: 36 18% 94%;
+    --card-foreground: 34 32% 95%;
 
     --popover: 28 10% 10%;
-    --popover-foreground: 36 18% 94%;
+    --popover-foreground: 34 32% 95%;
 
     --primary: 37 46% 63%;
     --primary-foreground: 24 14% 8%;
 
-    --secondary: 28 9% 14%;
-    --secondary-foreground: 36 18% 94%;
+    --secondary: 30 8% 14%;
+    --secondary-foreground: 34 32% 95%;
 
     --muted: 28 8% 15%;
-    --muted-foreground: 31 10% 70%;
+    --muted-foreground: 34 15% 60%;
 
     --accent: 37 46% 63%;
     --accent-foreground: 24 14% 8%;
 
     --destructive: 0 62% 50%;
-    --destructive-foreground: 36 20% 93%;
+    --destructive-foreground: 34 32% 95%;
 
-    --border: 28 10% 24%;
-    --input: 28 10% 24%;
+    --border: 30 8% 18%;
+    --input: 30 8% 18%;
     --ring: 37 46% 63%;
 
     --success: 146 28% 50%;
@@ -120,14 +122,14 @@
 
     --sidebar-background: 32 12% 6%;
     --sidebar-foreground: 0 0% 75%;
-    --sidebar-primary: 36 18% 94%;
+    --sidebar-primary: 34 32% 95%;
     --sidebar-primary-foreground: 32 12% 6%;
-    --sidebar-accent: 28 9% 14%;
-    --sidebar-accent-foreground: 36 18% 94%;
-    --sidebar-border: 28 8% 20%;
+    --sidebar-accent: 30 8% 14%;
+    --sidebar-accent-foreground: 34 32% 95%;
+    --sidebar-border: 30 8% 18%;
     --sidebar-ring: 37 46% 63%;
 
-    --chart-1: 36 18% 94%;
+    --chart-1: 34 32% 95%;
     --chart-2: 224 20% 62%;
     --chart-3: 37 34% 64%;
     --chart-4: 11 45% 60%;
@@ -628,7 +630,7 @@
 
 @media (max-width: 430px) {
   :root {
-    --app-dock-height: 4.6rem;
+    --app-dock-height: 3.1rem;
   }
 
   .page-container {
