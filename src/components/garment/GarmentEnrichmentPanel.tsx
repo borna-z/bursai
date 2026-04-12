@@ -210,7 +210,7 @@ export function GarmentEnrichmentPanel({
           <div
             className="w-1.5 h-1.5 rounded-full"
             style={{
-              background: enrichment.confidence >= 0.85 ? '#10b981' : enrichment.confidence >= 0.6 ? '#f59e0b' : 'rgba(28,25,23,0.3)',
+              background: enrichment.confidence >= 0.85 ? '#10b981' : enrichment.confidence >= 0.6 ? '#f59e0b' : 'hsl(var(--foreground) / 0.3)',
             }}
           />
           <span className="font-body text-[10px] text-foreground/50">

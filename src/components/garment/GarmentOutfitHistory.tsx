@@ -50,7 +50,7 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
     >
       {outfitHistory && outfitHistory.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(28,25,23,0.38)' }}>
+          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--foreground) / 0.38)' }}>
             {(outfitHistory.length !== 1 ? t('garment.history.worn_in_outfits_plural') : t('garment.history.worn_in_outfits')).replace('{count}', String(outfitHistory.length))}
           </p>
           <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="scrollbar-hide">
@@ -63,7 +63,7 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
                   background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
                 }}
               >
-                <div style={{ aspectRatio: '1/1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, overflow: 'hidden', background: '#EDE8DF' }}>
+                <div style={{ aspectRatio: '1/1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, overflow: 'hidden', background: 'hsl(var(--secondary))' }}>
                   {outfit.outfit_items.slice(0, 4).map((item) => (
                     <div key={item.id} style={{ overflow: 'hidden' }}>
                       <LazyImageSimple
@@ -74,7 +74,7 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
                     </div>
                   ))}
                 </div>
-                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'rgba(28,25,23,0.5)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'hsl(var(--foreground) / 0.5)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
                   {occasionLabel(t, outfit.occasion)}
                 </p>
               </button>
@@ -83,22 +83,22 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
 
           {/* Usage stats */}
           {usageInsights && (
-            <div style={{ borderTop: '1px solid rgba(28,25,23,0.06)', paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid hsl(var(--foreground) / 0.06)', paddingTop: 12 }}>
               <div style={{ display: 'flex', gap: 24 }}>
                 <div>
-                  <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: '#1C1917', margin: 0 }}>{usageInsights.wearCount}</p>
-                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.total_wears')}</p>
+                  <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: 'hsl(var(--foreground))', margin: 0 }}>{usageInsights.wearCount}</p>
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.total_wears')}</p>
                 </div>
                 <div>
-                  <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: '#1C1917', margin: 0 }}>{usageInsights.wearFrequency}×</p>
-                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.per_month')}</p>
+                  <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: 'hsl(var(--foreground))', margin: 0 }}>{usageInsights.wearFrequency}×</p>
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.per_month')}</p>
                 </div>
                 {usageInsights.daysSinceLastWorn != null && (
                   <div>
-                    <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: '#1C1917', margin: 0 }}>
+                    <p style={{ fontFamily: '"Playfair Display", serif', fontSize: 18, color: 'hsl(var(--foreground))', margin: 0 }}>
                       {usageInsights.daysSinceLastWorn === 0 ? t('garment.history.today') : `${usageInsights.daysSinceLastWorn}d`}
                     </p>
-                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.last_worn')}</p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('garment.history.last_worn')}</p>
                   </div>
                 )}
               </div>
@@ -107,10 +107,10 @@ export function GarmentOutfitHistory({ outfitHistory, usageInsights }: GarmentOu
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <p style={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', fontSize: 14, color: 'rgba(28,25,23,0.5)', margin: 0 }}>
+          <p style={{ fontFamily: '"Playfair Display", serif', fontStyle: 'italic', fontSize: 14, color: 'hsl(var(--foreground) / 0.5)', margin: 0 }}>
             {t('garment.history.no_outfits')}
           </p>
-          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'rgba(28,25,23,0.35)', marginTop: 4 }}>
+          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'hsl(var(--foreground) / 0.35)', marginTop: 4 }}>
             {t('garment.history.no_outfits_hint')}
           </p>
         </div>

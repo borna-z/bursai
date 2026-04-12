@@ -189,7 +189,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
                   height: 0,
                   borderLeft: '8px solid transparent',
                   borderRight: '8px solid transparent',
-                  borderBottom: '8px solid #1C1917',
+                  borderBottom: '8px solid hsl(var(--foreground))',
                 }
               : {
                   bottom: -8,
@@ -197,14 +197,14 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
                   height: 0,
                   borderLeft: '8px solid transparent',
                   borderRight: '8px solid transparent',
-                  borderTop: '8px solid #1C1917',
+                  borderTop: '8px solid hsl(var(--foreground))',
                 }),
           }}
         />
 
         <p
           className="text-[10px] tracking-wide mb-2"
-          style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'DM Sans', sans-serif" }}
+          style={{ color: 'hsl(var(--background) / 0.4)', fontFamily: "'DM Sans', sans-serif" }}
         >
           {t('coach.step_counter').replace('{step}', String(step + 1)).replace('{total}', String(TOTAL_STEPS))}
         </p>
@@ -216,7 +216,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         </p>
         <p
           className="text-[13px] mt-1 leading-relaxed"
-          style={{ color: 'rgba(255,255,255,0.6)', fontFamily: "'DM Sans', sans-serif" }}
+          style={{ color: 'hsl(var(--background) / 0.6)', fontFamily: "'DM Sans', sans-serif" }}
         >
           {body}
         </p>
