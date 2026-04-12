@@ -18,13 +18,13 @@ const ITEMS = [
     ),
   },
   {
-    titleKey: 'home.discoverLabel',
-    descKey: 'home.discoverDesc',
-    path: '/discover',
+    titleKey: 'home.outfits',
+    descKey: 'home.outfitsDesc',
+    path: '/outfits',
     icon: (
       <svg width={22} height={22} viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx={10} cy={10} r={6.5} />
-        <path d="M15.5 15.5L19 19" />
+        <path d="M4 4l3.5 2L11 3l3.5 3L18 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z" />
+        <path d="M8 16v3M14 16v3" />
       </svg>
     ),
   },
