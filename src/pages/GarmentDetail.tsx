@@ -232,7 +232,7 @@ export default function GarmentDetailPage() {
     return (
       <AppLayout hideNav>
         <PageHeader title={t('garment.garment_title')} showBack />
-        <div className="page-shell !px-5 !pt-6 page-cluster">
+        <div className="page-shell !px-[var(--page-px)] !pt-6 page-cluster">
           <Skeleton className="aspect-[4/5] rounded-[1.25rem]" />
           <Skeleton className="h-8 w-3/4 rounded-full" />
           <Skeleton className="h-5 w-1/2 rounded-full" />
@@ -251,7 +251,7 @@ export default function GarmentDetailPage() {
     return (
       <AppLayout hideNav>
         <PageHeader title={t('garment.garment_title')} showBack />
-        <div className="page-shell !px-5 !pt-6">
+        <div className="page-shell !px-[var(--page-px)] !pt-6">
           <EmptyState
             icon={Sparkles}
             title={t('garment.not_found')}
@@ -298,7 +298,7 @@ export default function GarmentDetailPage() {
         )}
       />
 
-      <AnimatedPage className="page-shell !px-5 !pb-4 !pt-4 page-cluster">
+      <AnimatedPage className="page-shell !px-[var(--page-px)] !pb-4 !pt-4 page-cluster">
         {/* ─── Hero Image ─── */}
         <motion.div
           initial={sectionInitial}

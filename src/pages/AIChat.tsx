@@ -666,7 +666,7 @@ export default function AIChat() {
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
       <div className="fixed inset-0 flex flex-col overflow-hidden">
-        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-3 min-h-[56px]">
+        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-[var(--page-px)] py-3 min-h-[56px]">
           <div className="w-10" />
           <div className="flex flex-col items-center gap-0">
             <span className="font-display italic text-[1.05rem] text-foreground leading-tight tracking-tight">
@@ -691,7 +691,7 @@ export default function AIChat() {
 
         {/* Wardrobe context badge */}
         {garmentCount != null && garmentCount > 0 && (
-          <div className="px-4 pb-1">
+          <div className="px-[var(--page-px)] pb-1">
             <p className="text-[11px] font-body text-muted-foreground/35 text-center tracking-wide">
               {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
             </p>
@@ -699,7 +699,7 @@ export default function AIChat() {
         )}
 
         {anchoredGarment && (
-          <div className="px-4 pb-2">
+          <div className="px-[var(--page-px)] pb-2">
             <div className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] border border-border/40 px-3 py-2 text-left min-h-[52px]">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
@@ -739,7 +739,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-5 space-y-6 overscroll-contain">
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;

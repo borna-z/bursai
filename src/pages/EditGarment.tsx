@@ -202,7 +202,7 @@ export default function EditGarmentPage() {
     return (
       <AppLayout hideNav>
         <PageHeader title={t('garment.edit_title')} showBack />
-        <div className="page-shell !px-5 !pt-6 page-cluster">
+        <div className="page-shell !px-[var(--page-px)] !pt-6 page-cluster">
           <Skeleton className="h-72 rounded-[1.25rem]" />
           <Skeleton className="h-64 rounded-[1.25rem]" />
           <Skeleton className="h-56 rounded-[1.25rem]" />
@@ -216,7 +216,7 @@ export default function EditGarmentPage() {
     return (
       <AppLayout hideNav>
         <PageHeader title={t('garment.edit_title')} showBack />
-        <div className="page-shell !px-5 !pt-6">
+        <div className="page-shell !px-[var(--page-px)] !pt-6">
           <div className="rounded-[1.25rem] p-6 text-center">
             <h2 className="font-display italic text-lg">{t('garment.not_found')}</h2>
             <Button
@@ -240,7 +240,7 @@ export default function EditGarmentPage() {
         titleClassName="font-display italic"
       />
 
-      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-4 page-cluster">
+      <AnimatedPage className="page-shell !px-[var(--page-px)] !pb-36 !pt-4 page-cluster">
         {/* ── Hero image card ── */}
         <motion.div {...reveal(0)} className="rounded-[1.25rem] overflow-hidden">
           <div className="relative aspect-[4/5] max-h-[380px] overflow-hidden">

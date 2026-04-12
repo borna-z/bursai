@@ -286,7 +286,7 @@ function LiveScanFallback() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   return (
-    <div className="min-h-screen bg-background px-6 py-24 text-foreground">
+    <div className="min-h-screen bg-background px-[var(--page-px)] py-24 text-foreground">
       <div className="mx-auto max-w-sm">
         <Card surface="editorial" className="space-y-6 p-6 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
