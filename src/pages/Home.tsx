@@ -20,7 +20,8 @@ import { hapticLight } from '@/lib/haptics';
 import { HomePageSkeleton } from '@/components/ui/skeletons';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
-import { ArrowRight, CalendarDays, Heart, Luggage, MessageCircle, Search, Sparkles, type LucideIcon } from 'lucide-react';
+import { HomeStylistSection } from '@/components/home/HomeStylistSection';
+import { HomeDiscoverSection } from '@/components/home/HomeDiscoverSection';
 import { formatLocalizedDate } from '@/lib/dateLocale';
 import type { HomeState } from '@/components/home/homeTypes';
 
@@ -127,15 +128,6 @@ export default function HomePage() {
 
   const hasUpcomingEvent = (calendarEvents?.length ?? 0) > 0;
 
-  const shortcuts = useMemo(() => ([
-    { label: t('home.shortcut_style'), icon: Sparkles, path: '/ai/generate' },
-    { label: t('home.shortcut_plan'), icon: CalendarDays, path: '/plan' },
-    { label: t('home.shortcut_chat'), icon: MessageCircle, path: '/ai/chat' },
-    { label: t('home.shortcut_travel_capsule'), icon: Luggage, path: '/plan/travel-capsule' },
-    { label: t('home.shortcut_discover'), icon: Heart, path: '/ai/mood' },
-    { label: t('home.shortcut_gaps') || 'Wardrobe gaps', icon: Search, path: '/gaps' },
-  ]), [t]);
-
   // Read last-used occasion from localStorage so generate page pre-fills context on return
   const lastOccasion = useMemo(() => {
     try { return localStorage.getItem('burs_last_occasion') ?? null; } catch { return null; }
@@ -204,33 +196,36 @@ export default function HomePage() {
       <PullToRefresh onRefresh={handleRefresh}>
         <AnimatedPage className="page-shell !pt-2.5 page-cluster">
           {/* Editorial header */}
-          <header className="flex items-start justify-between gap-2.5">
+          <header className="px-[var(--page-px)] flex items-start justify-between gap-2.5">
             <div>
-              <p className="caption-upper mb-0.5 text-muted-foreground/50">
+              <p
+                className="text-foreground/30 mb-0.5"
+                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px' }}
+              >
                 {formattedDate}
               </p>
-              <h1 className="font-display italic text-[1.45rem] leading-tight tracking-[-0.01em] text-foreground sm:text-[1.55rem]">
+              <h1
+                className="text-[24px] font-['Playfair_Display'] italic text-foreground leading-tight"
+              >
                 {getGreeting()}
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2 pt-0.5">
               <WeatherPill />
-              {profile?.display_name && (
-                <button
-                  onClick={() => { hapticLight(); navigate('/settings'); }}
-                  className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-secondary/60 text-[13px] font-semibold text-foreground transition-transform active:scale-95 cursor-pointer"
-                  aria-label={t('home.settings_aria')}
-                >
-                  {profile.display_name.charAt(0).toUpperCase()}
-                </button>
-              )}
+              <button
+                onClick={() => { hapticLight(); navigate('/settings'); }}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-semibold text-foreground shrink-0 cursor-pointer"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent) / 0.8))',
+                }}
+                aria-label={t('home.settings_aria')}
+              >
+                {(profile?.display_name ?? user?.email ?? 'U').charAt(0).toUpperCase()}
+              </button>
             </div>
           </header>
 
-          {/* Quick Shortcuts */}
-          <QuickShortcuts shortcuts={shortcuts} navigate={navigate} t={t} />
-
-          {/* Today's Look — compact */}
+          {/* Today's Look */}
           <HomeTodayLookCard
             state={homeState}
             todayOutfit={todayOutfit}
@@ -243,55 +238,15 @@ export default function HomePage() {
             onSecondaryAction={() => { hapticLight(); secondaryAction.onClick(); }}
             onOutfitTap={todayOutfit ? () => { hapticLight(); navigate(`/outfits/${todayOutfit.id}`); } : undefined}
           />
+
+          {/* Stylist section */}
+          <HomeStylistSection />
+
+          {/* Discover section */}
+          <HomeDiscoverSection />
         </AnimatedPage>
       </PullToRefresh>
     </AppLayout>
   );
 }
 
-/* ── Quick Shortcuts Grid ─────────────────────────────────── */
-
-function QuickShortcuts({
-  shortcuts,
-  navigate,
-  t,
-}: {
-  shortcuts: Array<{ label: string; icon: LucideIcon; path: string }>;
-  navigate: ReturnType<typeof useNavigate>;
-  t: (key: string) => string;
-}) {
-  const [primary, ...rest] = shortcuts;
-  if (!primary) return null;
-  return (
-    <section className="space-y-2.5">
-      {/* Primary — full-width with subtitle */}
-      <button
-        onClick={() => { hapticLight(); navigate(primary.path); }}
-        className="flex w-full items-center justify-between gap-3 rounded-[1.2rem] border border-border/40 px-4 py-4 text-left transition-colors active:bg-secondary/50 cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <primary.icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.6} />
-          <div>
-            <p className="text-[0.95rem] font-medium text-foreground leading-tight">{primary.label}</p>
-            <p className="text-[0.8rem] text-muted-foreground/60 leading-snug mt-0.5">{t('home.chat_subtitle')}</p>
-          </div>
-        </div>
-        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
-      </button>
-
-      {/* Secondary — 2-column lighter grid */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {rest.map((s) => (
-          <button
-            key={s.path}
-            onClick={() => { hapticLight(); navigate(s.path); }}
-            className="flex min-h-[4.15rem] items-center gap-3 rounded-[1.2rem] px-3.5 py-3.5 text-left transition-colors active:bg-secondary/50 cursor-pointer"
-          >
-            <s.icon className="h-4.5 w-4.5 shrink-0 text-muted-foreground/70" strokeWidth={1.6} />
-            <span className="text-[0.875rem] font-medium text-foreground/80">{s.label}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}

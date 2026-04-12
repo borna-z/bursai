@@ -928,6 +928,13 @@ const sv: Record<string, string> = {
     'nav.add_sheet_add_desc': 'Fota eller ladda upp ett nytt plagg till garderoben.',
     'nav.add_sheet_scan_desc': 'Använd live-skannern när du vill ha det snabbaste guidade flödet.',
     'nav.quick_add_actions': 'Snabbval för tillägg',
+    'nav.addTitle': 'Lägg till i garderoben',
+    'nav.addGarment': 'Lägg till plagg',
+    'nav.addGarmentDesc': 'Ta ett foto eller ladda upp',
+    'nav.liveScan': 'BURS Live Scan',
+    'nav.liveScanDesc': 'Skanna med din kamera',
+    'nav.bulkAdd': 'Masslägg till',
+    'nav.bulkAddDesc': 'Lägg till flera plagg samtidigt',
     'settings.row.insights': 'Garderobsinsikter',
     'settings.row.insights_sub': 'Statistik & analys',
 
@@ -2410,6 +2417,25 @@ const sv: Record<string, string> = {
     'home.shuffling': 'Blandar...',
     'home.command_status_open': 'Öppen dag',
 
+    // Home Hub (Tasks 10-13)
+    'home.yourStylist': 'Din stilist',
+    'home.styleChat': 'Stildiskussion',
+    'home.styleChatDesc': 'Fråga din AI-stilist vad som helst',
+    'home.generateOutfit': 'Generera outfit',
+    'home.generateOutfitDesc': 'AI-kurerade looks från din garderob',
+    'home.styleMe': 'Styla mig',
+    'home.styleMeDesc': 'Bli stylad för alla tillfällen',
+    'home.moodOutfit': 'Känslooutfit',
+    'home.moodOutfitDesc': 'Klä dig efter hur du mår',
+    'home.travelCapsule': 'Resekapsyl',
+    'home.travelCapsuleDesc': 'Packa smart för varje resa',
+    'home.discoverLabel': 'Utforska',
+    'home.discoverDesc': 'Utforska trender & inspiration',
+    'home.wardrobeGaps': 'Garderobsluckor',
+    'home.wardrobeGapsDesc': 'Vad saknas i din garderob',
+    'home.settingsLabel': 'Inställningar',
+    'home.settingsDesc': 'Tema, accent, profil',
+
     // Wardrobe / Garment keys
     'common.actions': 'Actions',
     'common.garment': 'Garment',
@@ -2531,6 +2557,23 @@ const sv: Record<string, string> = {
     'insights.empty_meta': 'Stil-DNA · Färgpalett · Användningsheatmap · Garderobsgap',
     'insights.empty_cta_ready': 'Generera och bär en outfit',
     'insights.empty_cta_locked': 'Lägg till plagg först',
+
+    // Insights Dashboard (Tasks 15-21)
+    'insights.yourStyleStory': 'Din stilberättelse',
+    'insights.garments': 'Plagg',
+    'insights.outfits': 'Outfits',
+    'insights.wears': 'Burna',
+    'insights.wearFrequency': 'Användningsfrekvens',
+    'insights.last30Days': 'Senaste 30 dagarna',
+    'insights.yourPalette': 'Din palett',
+    'insights.categories': 'Kategorier',
+    'insights.items': 'plagg',
+    'insights.costPerWear': 'Kostnad / användning',
+    'insights.bestValue': 'Bästa värde',
+    'insights.average': 'Genomsnitt',
+    'insights.worst': 'Sämst',
+    'insights.wardrobeHealth': 'Garderobshälsa',
+    'insights.wardrobeHealthDesc': 'Hur balanserad din garderob är',
 };
 
 export default sv;

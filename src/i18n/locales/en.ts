@@ -1065,6 +1065,13 @@ const en: Record<string, string> = {
     'nav.add_sheet_add_desc': 'Capture or upload a new garment into your wardrobe.',
     'nav.add_sheet_scan_desc': 'Use the live scanner when you want the fastest guided flow.',
     'nav.quick_add_actions': 'Quick add actions',
+    'nav.addTitle': 'Add to wardrobe',
+    'nav.addGarment': 'Add Garment',
+    'nav.addGarmentDesc': 'Take a photo or upload',
+    'nav.liveScan': 'BURS Live Scan',
+    'nav.liveScanDesc': 'Scan with your camera',
+    'nav.bulkAdd': 'Bulk Add',
+    'nav.bulkAddDesc': 'Add multiple items at once',
     'settings.row.insights': 'Wardrobe Insights',
     'settings.row.insights_sub': 'Usage stats & analytics',
     'plan.today': 'Today',
@@ -2917,6 +2924,25 @@ const en: Record<string, string> = {
     'home.command_status_weather': 'Weather alert',
     'home.week_ahead': 'Week Ahead',
 
+    // Home Hub (Tasks 10-13)
+    'home.yourStylist': 'Your Stylist',
+    'home.styleChat': 'Style Chat',
+    'home.styleChatDesc': 'Ask your AI stylist anything',
+    'home.generateOutfit': 'Generate Outfit',
+    'home.generateOutfitDesc': 'AI-curated looks from your wardrobe',
+    'home.styleMe': 'Style Me',
+    'home.styleMeDesc': 'Get styled for any occasion',
+    'home.moodOutfit': 'Mood Outfit',
+    'home.moodOutfitDesc': 'Dress how you feel',
+    'home.travelCapsule': 'Travel Capsule',
+    'home.travelCapsuleDesc': 'Pack smart for any trip',
+    'home.discoverLabel': 'Discover',
+    'home.discoverDesc': 'Explore trends & inspiration',
+    'home.wardrobeGaps': 'Wardrobe Gaps',
+    'home.wardrobeGapsDesc': "What's missing from your closet",
+    'home.settingsLabel': 'Settings',
+    'home.settingsDesc': 'Theme, accent, profile',
+
     // Common (added)
     'common.view': 'View',
 
@@ -2961,6 +2987,23 @@ const en: Record<string, string> = {
 
     // Insights (added)
     'insights.unused_desc': "Outfits built from pieces you haven't worn in 30+ days. Give them a second life.",
+
+    // Insights Dashboard (Tasks 15-21)
+    'insights.yourStyleStory': 'Your Style Story',
+    'insights.garments': 'Garments',
+    'insights.outfits': 'Outfits',
+    'insights.wears': 'Wears',
+    'insights.wearFrequency': 'Wear Frequency',
+    'insights.last30Days': 'Last 30 days',
+    'insights.yourPalette': 'Your Palette',
+    'insights.categories': 'Categories',
+    'insights.items': 'items',
+    'insights.costPerWear': 'Cost / Wear',
+    'insights.bestValue': 'Best value',
+    'insights.average': 'Average',
+    'insights.worst': 'Worst',
+    'insights.wardrobeHealth': 'Wardrobe Health',
+    'insights.wardrobeHealthDesc': 'How balanced your closet is',
 };
 
 export default en;
