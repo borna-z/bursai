@@ -155,21 +155,21 @@ export function GarmentConfirmSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={(v) => { if (!v) handleSaveAndGo(); }}>
-        <SheetContent side="bottom" className="!p-0 !rounded-none border-t border-border/10" style={{ background: '#F5F0E8' }}>
+        <SheetContent side="bottom" className="!p-0 !rounded-none border-t border-border/10" style={{ background: 'hsl(var(--background))' }}>
           {/* Visually hidden title for accessibility */}
           <SheetTitle className="sr-only">{t('garment.confirm.saved')}</SheetTitle>
 
           <div style={{ padding: '12px 20px 20px', maxWidth: 512, margin: '0 auto' }}>
             {/* Drag handle */}
             <div style={{
-              width: 36, height: 3, background: 'rgba(28,25,23,0.15)', borderRadius: 2,
+              width: 36, height: 3, background: 'hsl(var(--foreground) / 0.15)', borderRadius: 2,
               margin: '0 auto 12px',
             }} />
 
             {/* ── Photo + detected info ── */}
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
               {/* Photo area */}
-              <div style={{ width: 72, height: 96, flexShrink: 0, position: 'relative', overflow: 'hidden', background: '#EDE8DF' }}>
+              <div style={{ width: 72, height: 96, flexShrink: 0, position: 'relative', overflow: 'hidden', background: 'hsl(var(--secondary))' }}>
                 {renderState === 'done' && renderedImagePath ? (
                   /* Side-by-side split */
                   <div style={{ display: 'flex', width: '100%', height: '100%' }}>
@@ -177,14 +177,14 @@ export function GarmentConfirmSheet({
                       <LazyImageSimple imagePath={garmentImagePath ?? undefined} alt={t('garment.confirm.original')} className="w-full h-full" />
                       <span style={{
                         position: 'absolute', bottom: 2, left: 2,
-                        fontFamily: 'DM Sans, sans-serif', fontSize: 7.5, color: 'rgba(28,25,23,0.4)',
+                        fontFamily: 'DM Sans, sans-serif', fontSize: 7.5, color: 'hsl(var(--foreground) / 0.4)',
                       }}>{t('garment.confirm.original')}</span>
                     </div>
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                       <LazyImageSimple imagePath={renderedImagePath} alt={t('garment.confirm.studio')} className="w-full h-full" />
                       <span style={{
                         position: 'absolute', bottom: 2, right: 2,
-                        fontFamily: 'DM Sans, sans-serif', fontSize: 7.5, color: 'rgba(28,25,23,0.4)',
+                        fontFamily: 'DM Sans, sans-serif', fontSize: 7.5, color: 'hsl(var(--foreground) / 0.4)',
                       }}>{t('garment.confirm.studio')}</span>
                     </div>
                   </div>
@@ -193,7 +193,7 @@ export function GarmentConfirmSheet({
                     <LazyImageSimple imagePath={garmentImagePath ?? undefined} alt={detectedTitle} className="w-full h-full" />
                     {renderState === 'rendering' && (
                       <div style={{
-                        position: 'absolute', inset: 0, background: 'rgba(28,25,23,0.6)',
+                        position: 'absolute', inset: 0, background: 'hsl(var(--foreground) / 0.6)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <Loader2 className="w-5 h-5 text-background animate-spin" />
@@ -207,16 +207,16 @@ export function GarmentConfirmSheet({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{
                   fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                  fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.3,
+                  fontSize: 18, color: 'hsl(var(--foreground))', margin: 0, lineHeight: 1.3,
                 }}>
                   {detectedTitle}
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
                   {chips.map((chip) => (
                     <span key={chip} style={{
-                      background: '#EDE8DF', padding: '2px 7px',
+                      background: 'hsl(var(--secondary))', padding: '2px 7px',
                       fontFamily: 'DM Sans, sans-serif', fontSize: 9,
-                      color: 'rgba(28,25,23,0.5)', textTransform: 'capitalize',
+                      color: 'hsl(var(--foreground) / 0.5)', textTransform: 'capitalize',
                     }}>
                       {chip}
                     </span>
@@ -233,14 +233,14 @@ export function GarmentConfirmSheet({
                   <button
                     onClick={handleGenerateClick}
                     style={{
-                      flex: 1, height: 44, background: '#1C1917', border: 'none', cursor: 'pointer',
+                      flex: 1, height: 44, background: 'hsl(var(--foreground))', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     }}
                   >
-                    <Sparkles style={{ width: 12, height: 12, color: 'rgba(245,240,232,0.6)', flexShrink: 0 }} />
+                    <Sparkles style={{ width: 12, height: 12, color: 'hsl(var(--background) / 0.6)', flexShrink: 0 }} />
                     <span style={{
                       fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                      fontSize: 12, color: '#F5F0E8',
+                      fontSize: 12, color: 'hsl(var(--background))',
                     }}>
                       {t('garment.confirm.generate_studio')}
                     </span>
@@ -249,12 +249,12 @@ export function GarmentConfirmSheet({
                   <button
                     onClick={handleSaveAndGo}
                     style={{
-                      flex: 1, height: 44, background: '#EDE8DF', border: 'none', cursor: 'pointer',
+                      flex: 1, height: 44, background: 'hsl(var(--secondary))', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
                     <span style={{
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: '#1C1917',
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'hsl(var(--foreground))',
                     }}>
                       {t('garment.confirm.save_to_wardrobe')}
                     </span>
@@ -267,7 +267,7 @@ export function GarmentConfirmSheet({
                     onClick={handleTurnOffRenders}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.35)',
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.35)',
                     }}
                   >
                     {t('garment.confirm.turn_off_renders')}
@@ -281,7 +281,7 @@ export function GarmentConfirmSheet({
               <>
                 <p style={{
                   fontFamily: 'DM Sans, sans-serif', fontSize: 9.5,
-                  color: 'rgba(28,25,23,0.5)', textAlign: 'center', margin: '0 0 8px',
+                  color: 'hsl(var(--foreground) / 0.5)', textAlign: 'center', margin: '0 0 8px',
                 }}>
                   {t('garment.confirm.generating')}
                 </p>
@@ -290,7 +290,7 @@ export function GarmentConfirmSheet({
                     onClick={handleSaveAndGo}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.4)',
                     }}
                   >
                     {t('garment.confirm.save_original_instead')}
@@ -305,7 +305,7 @@ export function GarmentConfirmSheet({
                 <button
                   onClick={handleSaveAndGo}
                   style={{
-                    width: '100%', height: 44, background: '#1C1917', color: '#F5F0E8',
+                    width: '100%', height: 44, background: 'hsl(var(--foreground))', color: 'hsl(var(--background))',
                     border: 'none', fontFamily: 'DM Sans, sans-serif', fontSize: 12,
                     fontWeight: 500, cursor: 'pointer',
                   }}
@@ -319,7 +319,7 @@ export function GarmentConfirmSheet({
                     onClick={handleSaveOriginal}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.4)',
                     }}
                   >
                     {t('garment.confirm.use_original')}
@@ -328,7 +328,7 @@ export function GarmentConfirmSheet({
                     onClick={handleTurnOffRenders}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.35)',
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.35)',
                     }}
                   >
                     {t('garment.confirm.turn_off_renders')}
@@ -342,7 +342,7 @@ export function GarmentConfirmSheet({
               <>
                 <p style={{
                   fontFamily: '"Playfair Display", serif', fontStyle: 'italic',
-                  fontSize: 12, color: 'rgba(28,25,23,0.5)', textAlign: 'center',
+                  fontSize: 12, color: 'hsl(var(--foreground) / 0.5)', textAlign: 'center',
                   margin: '0 0 10px',
                 }}>
                   {t('garment.confirm.render_unavailable')}
@@ -352,8 +352,8 @@ export function GarmentConfirmSheet({
                     onClick={handleSaveAndGo}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#1C1917',
-                      borderBottom: '0.5px solid rgba(28,25,23,0.25)', paddingBottom: 1,
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: 'hsl(var(--foreground))',
+                      borderBottom: '0.5px solid hsl(var(--foreground) / 0.25)', paddingBottom: 1,
                     }}
                   >
                     {t('garment.confirm.save_to_wardrobe')}
@@ -364,7 +364,7 @@ export function GarmentConfirmSheet({
                     onClick={handleRetry}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'rgba(28,25,23,0.4)',
+                      fontFamily: 'DM Sans, sans-serif', fontSize: 9, color: 'hsl(var(--foreground) / 0.4)',
                     }}
                   >
                     {t('garment.confirm.try_again')}

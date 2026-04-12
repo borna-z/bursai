@@ -15,7 +15,7 @@ export function SettingsGroup({ title, children, className }: SettingsGroupProps
           {title}
         </p>
       )}
-      <div className="border border-border/40 overflow-hidden rounded-[1.25rem]">
+      <div className="mx-[var(--page-px)] rounded-[14px] bg-card/30 border-[0.5px] border-border/40 overflow-hidden">
         {children}
       </div>
     </section>

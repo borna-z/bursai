@@ -45,7 +45,7 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
         id="main-content"
         className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
         style={{
-          paddingTop: 'max(env(safe-area-inset-top, 0px), var(--app-viewport-offset-top, 0px))',
+          paddingTop: 'var(--safe-area-top)',
           paddingBottom: hideNav ? '0px' : 'var(--app-bottom-clearance)',
           overscrollBehavior: 'none',
         }}

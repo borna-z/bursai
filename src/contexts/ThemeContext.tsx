@@ -55,10 +55,10 @@ function getContrastForeground(hsl: string, resolved: 'light' | 'dark'): string 
   const lightness = parseInt(parts[2]);
   if (resolved === 'dark') {
     // In dark mode, accent colors are lighter; use dark foreground when lightness > 55%
-    return lightness > 55 ? '0 0% 5%' : '0 0% 100%';
+    return lightness > 55 ? '24 13% 10%' : '34 32% 95%';
   }
-  // In light mode, use dark foreground when lightness > 38% for better contrast
-  return lightness > 38 ? '0 0% 7%' : '0 0% 100%';
+  // In light mode, bright accents (>45% lightness) need dark foreground for contrast
+  return lightness > 45 ? '24 13% 10%' : '34 32% 95%';
 }
 
 function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {
@@ -66,10 +66,11 @@ function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {
   const hsl = resolved === 'dark' ? accent.hslDark : accent.hsl;
   const fg = getContrastForeground(hsl, resolved);
   root.style.setProperty('--accent', hsl);
-  root.style.setProperty('--accent-indigo', hsl);
-  root.style.setProperty('--accent-foreground', fg);
   root.style.setProperty('--primary', hsl);
+  root.style.setProperty('--ring', hsl);
+  root.style.setProperty('--accent-foreground', fg);
   root.style.setProperty('--primary-foreground', fg);
+  root.style.setProperty('--accent-indigo', hsl);
   const parts = hsl.split(' ');
   root.style.setProperty('--accent-indigo-muted', `${parts[0]} ${parseInt(parts[1]) * 0.6}% ${resolved === 'dark' ? '16' : '94'}%`);
 
