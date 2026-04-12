@@ -10,7 +10,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { getCoordinatesFromCity, fetchForecast, fetchHistoricalWeather, type ForecastDay } from '@/hooks/useForecast';
 import { toast } from 'sonner';
-import { formatLocalizedDate, getDateFnsLocale } from '@/lib/dateLocale';
+import { formatLocalizedDate } from '@/lib/dateLocale';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/lib/logger';
@@ -59,10 +59,9 @@ function saveCapsulesToStorage(capsules: SavedCapsule[]) {
 }
 
 export function useTravelCapsule() {
-  const { t, locale } = useLanguage();
+  const { t, locale, dateFnsLocale: dateLocale } = useLanguage();
   const { data: profile } = useProfile();
   const { data: allGarments } = useFlatGarments();
-  const dateLocale = getDateFnsLocale(locale);
 
   // ── Form state ──
   const [destination, setDestination] = useState('');

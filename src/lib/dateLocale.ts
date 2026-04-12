@@ -1,20 +1,61 @@
-import { sv, enUS, nb, da, fi, de, fr, es, it, pt, nl, pl, ar, faIR } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import type { Locale as DateFnsLocale } from 'date-fns';
 import type { Locale as AppLocale } from '@/i18n/types';
 
-const dateFnsLocaleMap: Record<AppLocale, DateFnsLocale> = {
-  sv, en: enUS, no: nb, da, fi, de, fr, es, it, pt, nl, pl, ar, fa: faIR,
+/** Module-level cache for loaded date-fns locale objects */
+const localeCache = new Map<string, DateFnsLocale>();
+localeCache.set('en', enUS);
+
+const loaderMap: Record<AppLocale, () => Promise<{ default: DateFnsLocale } | DateFnsLocale>> = {
+  en: () => Promise.resolve(enUS),
+  sv: () => import('date-fns/locale/sv').then(m => m.sv ?? m.default ?? m),
+  no: () => import('date-fns/locale/nb').then(m => m.nb ?? m.default ?? m),
+  da: () => import('date-fns/locale/da').then(m => m.da ?? m.default ?? m),
+  fi: () => import('date-fns/locale/fi').then(m => m.fi ?? m.default ?? m),
+  de: () => import('date-fns/locale/de').then(m => m.de ?? m.default ?? m),
+  fr: () => import('date-fns/locale/fr').then(m => m.fr ?? m.default ?? m),
+  es: () => import('date-fns/locale/es').then(m => m.es ?? m.default ?? m),
+  it: () => import('date-fns/locale/it').then(m => m.it ?? m.default ?? m),
+  pt: () => import('date-fns/locale/pt').then(m => m.pt ?? m.default ?? m),
+  nl: () => import('date-fns/locale/nl').then(m => m.nl ?? m.default ?? m),
+  pl: () => import('date-fns/locale/pl').then(m => m.pl ?? m.default ?? m),
+  ar: () => import('date-fns/locale/ar').then(m => m.ar ?? m.default ?? m),
+  fa: () => import('date-fns/locale/fa-IR').then(m => m.faIR ?? m.default ?? m),
 };
+
+/**
+ * Dynamically load and cache the date-fns locale for the given app locale.
+ * On failure the promise rejects so the caller can retry on the next locale
+ * change instead of permanently pinning enUS for the session.
+ */
+export async function loadDateFnsLocale(locale: AppLocale): Promise<DateFnsLocale> {
+  if (locale === 'en') return enUS;
+
+  const cached = localeCache.get(locale);
+  if (cached) return cached;
+
+  const loader = loaderMap[locale];
+  const loaded = await loader();
+  const result = (loaded && typeof loaded === 'object' && 'code' in loaded)
+    ? loaded as DateFnsLocale
+    : loaded as DateFnsLocale;
+  localeCache.set(locale, result);
+  return result;
+}
+
+/**
+ * Synchronous getter — returns the cached locale or enUS as fallback.
+ * Must be called after loadDateFnsLocale has resolved for the given locale.
+ */
+export function getDateFnsLocale(locale: AppLocale): DateFnsLocale {
+  return localeCache.get(locale) || enUS;
+}
 
 const bcp47Map: Record<AppLocale, string> = {
   sv: 'sv-SE', en: 'en-GB', no: 'nb-NO', da: 'da-DK', fi: 'fi-FI',
   de: 'de-DE', fr: 'fr-FR', es: 'es-ES', it: 'it-IT', pt: 'pt-PT',
   nl: 'nl-NL', pl: 'pl-PL', ar: 'ar-SA', fa: 'fa-IR',
 };
-
-export function getDateFnsLocale(locale: AppLocale) {
-  return dateFnsLocaleMap[locale] || sv;
-}
 
 export function getBCP47(locale: AppLocale): string {
   return bcp47Map[locale] || 'sv-SE';

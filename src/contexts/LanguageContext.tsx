@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { type Locale, SUPPORTED_LOCALES } from '@/i18n/types';
+import type { Locale as DateFnsLocale } from 'date-fns';
 import { loadLocale } from '@/i18n/translations';
+import { loadDateFnsLocale, getDateFnsLocale } from '@/lib/dateLocale';
 import { asPreferences } from '@/types/preferences';
 import { logger } from '@/lib/logger';
 
@@ -15,6 +17,7 @@ interface LanguageContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: (key: string) => string;
+  dateFnsLocale: DateFnsLocale;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -58,6 +61,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setDict({});
       setEnDict({});
     });
+
+    // Load date-fns locale independently — a transient chunk-load failure
+    // must not block translations, and rejecting (instead of swallowing)
+    // lets the next locale-change effect retry the load.
+    loadDateFnsLocale(locale).catch(() => {});
 
     return () => {
       isActive = false;
@@ -108,11 +116,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return humanized.charAt(0).toUpperCase() + humanized.slice(1);
   }, [dict, enDict]);
 
+  const dateFnsLocale = getDateFnsLocale(locale);
+
   const value = useMemo(() => ({
     locale,
     setLocale,
     t,
-  }), [locale, setLocale, t]);
+    dateFnsLocale,
+  }), [locale, setLocale, t, dateFnsLocale]);
 
   return (
     <LanguageContext.Provider value={value}>
@@ -138,6 +149,7 @@ export function useLanguage() {
         const humanized = segment.replace(/[_-]/g, ' ');
         return humanized.charAt(0).toUpperCase() + humanized.slice(1);
       },
+      dateFnsLocale: getDateFnsLocale(fallbackLocale),
     };
   }
   return ctx;
