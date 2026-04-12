@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { BarChart3, CalendarDays, Home, Plus, Shirt } from 'lucide-react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
-import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { prefetchRoute } from '@/lib/routePrefetch';
@@ -11,58 +9,232 @@ import { CoachMark } from '@/components/coach/CoachMark';
 import { useFirstRunCoach } from '@/hooks/useFirstRunCoach';
 import { BottomNavAddSheet } from './BottomNavAddSheet';
 
-const ROUTE_TABS = [
-  { path: '/', labelKey: 'nav.today', icon: Home },
-  { path: '/wardrobe', labelKey: 'nav.wardrobe', icon: Shirt },
-  { path: '/plan', labelKey: 'nav.plan', icon: CalendarDays },
-  { path: '/insights', labelKey: 'nav.insights', icon: BarChart3 },
-] as const;
+// ---------------------------------------------------------------------------
+// Inline SVG icon components — iOS-native style (1.5px stroke, round caps/joins)
+// ---------------------------------------------------------------------------
 
-function RouteTab({
-  path,
-  labelKey,
-  icon: Icon,
-}: (typeof ROUTE_TABS)[number]) {
-  const { t } = useLanguage();
-  const prefersReduced = useReducedMotion();
-
+function HomeIcon({ active }: { active: boolean }) {
+  if (active) {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 22V12h6v10"
+          stroke="hsl(var(--background))"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
   return (
-    <NavLink
-      to={path}
-      aria-label={t(labelKey)}
-      onClick={() => hapticLight()}
-      onPointerEnter={() => prefetchRoute(path)}
-      onFocus={() => prefetchRoute(path)}
-      className={({ isActive }) =>
-        cn('app-dock-tab', isActive && 'app-dock-tab-active')
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {isActive ? (
-            <motion.div
-              layoutId={prefersReduced ? undefined : 'dock-active-pill'}
-              className="absolute inset-0 rounded-[1.15rem] border border-border/70 bg-card shadow-[0_10px_18px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]"
-              transition={{ type: 'spring', stiffness: 360, damping: 30, mass: 0.8 }}
-            />
-          ) : null}
-          <div className="relative z-10 flex flex-col items-center justify-center gap-[3px]">
-            <Icon
-              className={cn('h-5 w-5 transition-transform', isActive && 'scale-[1.05]')}
-              strokeWidth={isActive ? 2.3 : 2.0}
-            />
-            <span className={cn(
-              'text-[10px] tracking-[0.05em] transition-colors',
-              isActive ? 'font-medium text-foreground' : 'text-muted-foreground/60'
-            )}>
-              {t(labelKey)}
-            </span>
-          </div>
-        </>
-      )}
-    </NavLink>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 22V12h6v10"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
+
+function WardrobeIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect
+        x="4" y="4" width="16" height="5" rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill={active ? 'currentColor' : 'none'}
+      />
+      <rect
+        x="4" y="10.5" width="16" height="5" rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill={active ? 'currentColor' : 'none'}
+      />
+      <rect
+        x="4" y="17" width="16" height="5" rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill={active ? 'currentColor' : 'none'}
+      />
+    </svg>
+  );
+}
+
+function PlanIcon({ active }: { active: boolean }) {
+  if (active) {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect
+          x="3" y="4" width="18" height="18" rx="2.5"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M16 2v4M8 2v4M3 10h18"
+          stroke="hsl(var(--background))"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"
+          stroke="hsl(var(--background))"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect
+        x="3" y="4" width="18" height="18" rx="2.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 2v4M8 2v4M3 10h18"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function InsightsIcon({ active }: { active: boolean }) {
+  const sw = active ? '2' : '1.5';
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M21 21H4a1 1 0 01-1-1V3"
+        stroke="currentColor"
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 17l4-5 4 3 5-7"
+        stroke="currentColor"
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Route tab config
+// ---------------------------------------------------------------------------
+
+const ROUTE_TABS = [
+  { path: '/', label: 'today' },
+  { path: '/wardrobe', label: 'wardrobe' },
+  // (+) button rendered separately between index 1 and 2
+  { path: '/plan', label: 'plan' },
+  { path: '/insights', label: 'insights' },
+] as const;
+
+type RouteTab = (typeof ROUTE_TABS)[number];
+
+function getIcon(label: RouteTab['label'], active: boolean) {
+  switch (label) {
+    case 'today':
+      return <HomeIcon active={active} />;
+    case 'wardrobe':
+      return <WardrobeIcon active={active} />;
+    case 'plan':
+      return <PlanIcon active={active} />;
+    case 'insights':
+      return <InsightsIcon active={active} />;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NavTab component
+// ---------------------------------------------------------------------------
+
+function NavTab({
+  tab,
+  isActive,
+  onNavigate,
+}: {
+  tab: RouteTab;
+  isActive: boolean;
+  onNavigate: (path: string) => void;
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <motion.button
+      type="button"
+      className="flex-1 flex flex-col items-center gap-[1px] pt-1"
+      style={{
+        opacity: isActive ? 1 : 0.42,
+        fontWeight: isActive ? 500 : 400,
+        color: 'hsl(var(--foreground))',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        outline: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+      whileTap={{ scale: 0.9 }}
+      onClick={() => {
+        hapticLight();
+        onNavigate(tab.path);
+      }}
+      onPointerEnter={() => prefetchRoute(tab.path)}
+      onFocus={() => prefetchRoute(tab.path)}
+      aria-label={t(`nav.${tab.label}`)}
+      aria-current={isActive ? 'page' : undefined}
+    >
+      {getIcon(tab.label, isActive)}
+      <span
+        style={{
+          fontSize: '10px',
+          fontFamily: "-apple-system, 'SF Pro Text', 'DM Sans', sans-serif",
+          letterSpacing: '-0.1px',
+          lineHeight: 1.2,
+        }}
+      >
+        {t(`nav.${tab.label}`)}
+      </span>
+    </motion.button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BottomNav — main export
+// ---------------------------------------------------------------------------
 
 export function BottomNav() {
   const { t } = useLanguage();
@@ -70,25 +242,44 @@ export function BottomNav() {
   const navigate = useNavigate();
   const coach = useFirstRunCoach();
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+
   const showWardrobeCoach = coach.isStepActive(0) && location.pathname !== '/wardrobe';
 
+  function isActive(path: string) {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  }
+
   const wardrobeTab = (
-    <div className="app-dock-slot">
-      <RouteTab {...ROUTE_TABS[1]} />
-    </div>
+    <NavTab
+      tab={ROUTE_TABS[1]}
+      isActive={isActive(ROUTE_TABS[1].path)}
+      onNavigate={(p) => navigate(p)}
+    />
   );
 
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
+        className="fixed bottom-0 inset-x-0 z-50"
         aria-label={t('nav.main_navigation')}
+        style={{
+          background: 'hsl(var(--background) / 0.88)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderTop: '0.5px solid hsl(var(--border) / 0.3)',
+          padding: '6px 24px calc(6px + env(safe-area-inset-bottom, 16px))',
+        }}
       >
-        <div className="app-dock pointer-events-auto flex items-center gap-1">
-          <div className="app-dock-slot">
-            <RouteTab {...ROUTE_TABS[0]} />
-          </div>
+        <div className="flex items-center">
+          {/* Home */}
+          <NavTab
+            tab={ROUTE_TABS[0]}
+            isActive={isActive(ROUTE_TABS[0].path)}
+            onNavigate={(p) => navigate(p)}
+          />
 
+          {/* Wardrobe — wrapped with CoachMark when active */}
           {showWardrobeCoach ? (
             <CoachMark
               step={0}
@@ -110,33 +301,61 @@ export function BottomNav() {
             wardrobeTab
           )}
 
-          <div className="app-dock-slot">
-            <button
+          {/* Center (+) button */}
+          <div className="flex-1 flex justify-center items-center pt-1">
+            <motion.button
               type="button"
               aria-label={t('nav.add')}
               aria-expanded={addSheetOpen}
               aria-haspopup="dialog"
               data-testid="bottom-nav-add"
+              whileTap={{ scale: 0.92 }}
               onClick={() => {
                 hapticLight();
                 setAddSheetOpen(true);
               }}
-              className={cn(
-                'flex h-[3.35rem] w-[3.35rem] items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-[0_14px_26px_rgba(0,0,0,0.28)] transition-transform active:scale-[0.97]',
-                addSheetOpen && 'scale-[1.02]',
-              )}
+              style={{
+                width: 44,
+                height: 36,
+                borderRadius: 12,
+                background: 'linear-gradient(180deg, hsl(var(--accent)), hsl(var(--accent) / 0.8))',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                outline: 'none',
+                WebkitTapHighlightColor: 'transparent',
+              }}
             >
-              <Plus className="h-5 w-5" strokeWidth={2.4} />
-            </button>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </motion.button>
           </div>
 
-          <div className="app-dock-slot">
-            <RouteTab {...ROUTE_TABS[2]} />
-          </div>
+          {/* Plan */}
+          <NavTab
+            tab={ROUTE_TABS[2]}
+            isActive={isActive(ROUTE_TABS[2].path)}
+            onNavigate={(p) => navigate(p)}
+          />
 
-          <div className="app-dock-slot">
-            <RouteTab {...ROUTE_TABS[3]} />
-          </div>
+          {/* Insights */}
+          <NavTab
+            tab={ROUTE_TABS[3]}
+            isActive={isActive(ROUTE_TABS[3].path)}
+            onNavigate={(p) => navigate(p)}
+          />
         </div>
       </nav>
 
