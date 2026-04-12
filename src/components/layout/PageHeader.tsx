@@ -22,10 +22,13 @@ export function PageHeader({
   const navigate = useNavigate();
   return (
     <header className={cn(sticky ? 'topbar-frost sticky top-0 z-20' : 'relative z-10', className)}>
-      <div className={cn(
-        'mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-4 sm:px-5',
-        subtitle || eyebrow ? (sticky ? 'min-h-[68px] py-2.5' : 'min-h-[64px] py-1.5') : (sticky ? 'h-[60px]' : 'h-[56px]'),
-      )}>
+      <div
+        className={cn(
+          'mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-[var(--page-px)]',
+          subtitle || eyebrow ? (sticky ? 'min-h-[68px] py-2.5' : 'min-h-[64px] py-1.5') : (sticky ? 'h-[60px]' : 'h-[56px]'),
+        )}
+        style={{ paddingTop: 'calc(var(--safe-area-top) + 12px)' }}
+      >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {showBack && (
             <button
