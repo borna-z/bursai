@@ -88,7 +88,7 @@ export default function SettingsPage() {
 
         {/* Sign out */}
         <SettingsGroup>
-          <SettingsRow icon={<LogOut />} label={t('settings.sign_out')} onClick={() => { hapticLight(); handleSignOut(); }} last className="text-destructive [&_span]:text-destructive [&_.settings-icon]:bg-destructive/10">
+          <SettingsRow icon={<LogOut />} label={t('settings.sign_out')} onClick={() => { hapticLight(); handleSignOut(); }} last className="text-destructive [&_span]:text-destructive">
             <ChevronRight className="w-4 h-4 text-destructive/30" />
           </SettingsRow>
         </SettingsGroup>
