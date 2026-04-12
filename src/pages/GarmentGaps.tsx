@@ -123,7 +123,7 @@ export default function GarmentGapsPage() {
         eyebrow={t('gaps.wardrobe_intelligence') || 'Wardrobe Intelligence'}
         showBack
       />
-      <AnimatedPage className="mx-auto flex max-w-5xl flex-col gap-5 px-5 pb-24 pt-4 sm:px-6">
+      <AnimatedPage className="mx-auto flex max-w-5xl flex-col gap-5 px-[var(--page-px)] pb-24 pt-4">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}

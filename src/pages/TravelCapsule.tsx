@@ -26,7 +26,7 @@ export default function TravelCapsule() {
           eyebrow="AI Packing"
           showBack
         />
-        <AnimatedPage className="mx-auto flex max-w-md flex-col gap-5 px-5 pb-24 pt-4">
+        <AnimatedPage className="mx-auto flex max-w-md flex-col gap-5 px-[var(--page-px)] pb-24 pt-4">
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}

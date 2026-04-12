@@ -16,12 +16,13 @@ const ITEMS = [
     ),
   },
   {
-    titleKey: 'home.generateOutfit',
-    descKey: 'home.generateOutfitDesc',
-    path: '/ai/generate',
+    titleKey: 'home.outfits',
+    descKey: 'home.outfitsDesc',
+    path: '/outfits',
     icon: (
       <svg width={22} height={22} viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 2l2.09 6.26L19 11l-5.91 2.74L11 20l-2.09-6.26L3 11l5.91-2.74L11 2z" />
+        <rect x={3} y={3} width={16} height={12} rx={2} />
+        <path d="M7 15v3M15 15v3M7 7h2M7 10h4" />
       </svg>
     ),
   },

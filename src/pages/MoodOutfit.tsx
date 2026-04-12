@@ -222,7 +222,7 @@ export default function MoodOutfitPage() {
 
   return (
     <AppLayout>
-      <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
+      <AnimatedPage className="page-shell !px-[var(--page-px)] !pt-6 page-cluster">
         {generatedOutfit ? (
           <>
             <PageHeader

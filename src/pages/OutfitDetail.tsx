@@ -344,7 +344,7 @@ export default function OutfitDetailPage() {
             <Skeleton key={i} className="flex-1 aspect-square" />
           ))}
         </div>
-        <div className="px-5 pt-6 space-y-4">
+        <div className="px-[var(--page-px)] pt-6 space-y-4">
           <Skeleton className="h-8 w-56" />
           <Skeleton className="h-4 w-36" />
           <div className="space-y-3 pt-4">
@@ -444,7 +444,7 @@ export default function OutfitDetailPage() {
         initial={prefersReduced ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: DURATION_MEDIUM, ease: EASE_CURVE }}
-        className="px-5 pt-5 pb-4"
+        className="px-[var(--page-px)] pt-5 pb-4"
       >
         <p className="label-editorial text-muted-foreground/60 mb-1">
           {genOccasionSubmode || displayOccasion}
@@ -465,7 +465,7 @@ export default function OutfitDetailPage() {
       </motion.div>
 
       {/* ── 3-Tab row ── */}
-      <div className="px-5 pb-4">
+      <div className="px-[var(--page-px)] pb-4">
         <div className="flex rounded-full border border-border/40 p-1">
           {(['wear', 'swap', 'why'] as const).map((tab) => (
             <button
@@ -485,7 +485,7 @@ export default function OutfitDetailPage() {
       </div>
 
       {/* ── Tab content ── */}
-      <div className="px-5 pb-20">
+      <div className="px-[var(--page-px)] pb-20">
         {activeTab === 'wear' && (
           <OutfitDetailActions
             outfit={outfit}
