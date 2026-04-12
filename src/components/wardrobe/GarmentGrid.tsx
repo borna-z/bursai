@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useRef, Fragment, type MouseEvent, type RefObject } from 'react';
+import { useEffect, useRef, Fragment, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { SwipeableGarmentCard } from '@/components/wardrobe/SwipeableGarmentCard';
@@ -103,6 +103,45 @@ function LoadingSkeletons({ isGridView }: { isGridView: boolean }) {
   );
 }
 
+interface LoadMoreSentinelProps {
+  onLoadMore: () => void;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  isGridView: boolean;
+}
+
+// IntersectionObserver-backed sentinel that fires fetchNextPage when scrolled
+// into view. Used by both the flat and grouped wardrobe layouts so paginated
+// infinite-scroll works regardless of how garments are grouped on screen.
+function LoadMoreSentinel({ onLoadMore, hasNextPage, isFetchingNextPage, isGridView }: LoadMoreSentinelProps) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = sentinelRef.current;
+    if (!element) return;
+    if (!hasNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, onLoadMore]);
+
+  return (
+    <>
+      <div ref={sentinelRef} className="h-1" />
+      {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
+    </>
+  );
+}
+
 interface VirtualizedGarmentListProps {
   t: (key: string) => string;
   garments: Garment[];
@@ -128,9 +167,10 @@ function VirtualGarmentGrid({
   onEdit,
   onLaundry,
   onDelete,
+  onLoadMore,
+  hasNextPage,
   isFetchingNextPage,
-  sentinelRef,
-}: Omit<VirtualizedGarmentListProps, 'onLoadMore' | 'hasNextPage'> & { sentinelRef: RefObject<HTMLDivElement | null> }) {
+}: VirtualizedGarmentListProps) {
   const cols = isGridView ? 3 : 1;
   const rowCount = Math.ceil(garments.length / cols);
   const estimateSize = isGridView ? WARDROBE_GRID_ROW_HEIGHT : WARDROBE_LIST_ROW_HEIGHT;
@@ -163,7 +203,7 @@ function VirtualGarmentGrid({
               }}
             >
               <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px] h-full' : 'flex flex-col gap-2')}>
-                {rowGarments.map((garment, colIdx) => (
+                {rowGarments.map((garment) => (
                   <Fragment key={garment.id}>
                     {!isGridView && !isSelecting ? (
                       <SwipeableGarmentCard
@@ -190,8 +230,12 @@ function VirtualGarmentGrid({
         })}
       </div>
 
-      <div ref={sentinelRef as RefObject<HTMLDivElement>} className="h-1" />
-      {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
+      <LoadMoreSentinel
+        onLoadMore={onLoadMore}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        isGridView={isGridView}
+      />
     </div>
   );
 }
@@ -210,25 +254,6 @@ function GarmentListContent({
   hasNextPage,
   isFetchingNextPage,
 }: VirtualizedGarmentListProps) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const element = sentinelRef.current;
-    if (!element) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          onLoadMore();
-        }
-      },
-      { rootMargin: '200px' }
-    );
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, onLoadMore]);
-
   const useVirtual = garments.length >= VIRTUALIZE_THRESHOLD;
 
   if (useVirtual) {
@@ -243,8 +268,9 @@ function GarmentListContent({
         onEdit={onEdit}
         onLaundry={onLaundry}
         onDelete={onDelete}
+        onLoadMore={onLoadMore}
+        hasNextPage={hasNextPage}
         isFetchingNextPage={isFetchingNextPage}
-        sentinelRef={sentinelRef}
       />
     );
   }
@@ -253,13 +279,7 @@ function GarmentListContent({
     <>
       <div className={cn(isGridView ? 'grid grid-cols-3 gap-[5px]' : 'flex flex-col gap-2')}>
         {garments.map((garment) => (
-          <div
-            key={garment.id}
-            style={{
-              contentVisibility: 'auto',
-              containIntrinsicSize: isGridView ? `auto ${WARDROBE_GRID_ROW_HEIGHT}px` : `auto ${WARDROBE_LIST_ROW_HEIGHT}px`,
-            }}
-          >
+          <div key={garment.id}>
             {!isGridView && !isSelecting ? (
               <SwipeableGarmentCard
                 garment={garment}
@@ -281,8 +301,12 @@ function GarmentListContent({
         ))}
       </div>
 
-      <div ref={sentinelRef} className="h-1" />
-      {isFetchingNextPage && <LoadingSkeletons isGridView={isGridView} />}
+      <LoadMoreSentinel
+        onLoadMore={onLoadMore}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        isGridView={isGridView}
+      />
     </>
   );
 }
@@ -355,6 +379,12 @@ export function GarmentGrid({
               </div>
             </div>
           ))}
+          <LoadMoreSentinel
+            onLoadMore={onLoadMore}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            isGridView={isGridView}
+          />
         </div>
       );
     }
