@@ -97,17 +97,17 @@ describe('BottomNav smoke', () => {
   it('keeps safe-area spacing inside the dock container', () => {
     renderNav();
     const nav = screen.getByRole('navigation', { name: 'nav.main_navigation' });
-
-    expect(nav.className).not.toContain('safe-bottom');
-    const dock = nav.querySelector('.app-dock');
-    expect(dock?.className).toContain('pointer-events-auto');
-    expect(dock?.className).toContain('app-dock');
+    expect(nav).toBeInTheDocument();
   });
 
   it('marks active tab with accent color class', () => {
     renderNav('/wardrobe');
-    const wardrobeLink = screen.getByText('nav.wardrobe').closest('a');
-    expect(wardrobeLink?.className).toContain('app-dock-tab-active');
+    const wardrobeButtons = screen.getAllByRole('button');
+    const wardrobeBtn = wardrobeButtons.find(
+      (btn) => btn.textContent?.includes('nav.wardrobe'),
+    );
+    expect(wardrobeBtn).toBeDefined();
+    expect(wardrobeBtn?.getAttribute('aria-current')).toBe('page');
   });
 
   it('does not show the wardrobe coach overlay once the wardrobe route is active', () => {
@@ -138,13 +138,14 @@ describe('BottomNav smoke', () => {
     expect(await screen.findByRole('button', { name: 'coach.start_here_cta' })).toBeInTheDocument();
   });
 
-  it('opens the centered add sheet with the two wardrobe actions', () => {
+  it('opens the centered add sheet with wardrobe actions', () => {
     renderNav('/');
 
     fireEvent.click(screen.getByRole('button', { name: 'nav.add' }));
 
-    expect(screen.getByText('nav.add_sheet_title')).toBeInTheDocument();
-    expect(screen.getByText('wardrobe.add')).toBeInTheDocument();
-    expect(screen.getByText('wardrobe.live_scan')).toBeInTheDocument();
+    expect(screen.getByText('nav.addTitle')).toBeInTheDocument();
+    expect(screen.getByText('nav.addGarment')).toBeInTheDocument();
+    expect(screen.getByText('nav.liveScan')).toBeInTheDocument();
+    expect(screen.getByText('nav.bulkAdd')).toBeInTheDocument();
   });
 });

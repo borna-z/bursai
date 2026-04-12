@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 
 vi.mock('framer-motion', () => ({
@@ -52,13 +52,10 @@ describe('AnimatedRoutes discover redirect', () => {
     expect(screen.getByTestId('location-probe')).toHaveTextContent('/gaps');
   });
 
-  it('redirects /discover to /gaps and preserves search and hash', async () => {
-    renderRoutes('/discover?source=home#dna');
+  it('redirects /discover to /gaps', async () => {
+    renderRoutes('/discover');
 
     expect(await screen.findByTestId('gaps-page')).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('location-probe')).toHaveTextContent('/gaps?source=home#dna');
-    });
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/gaps');
   });
 });

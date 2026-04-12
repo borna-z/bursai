@@ -70,6 +70,8 @@ describe('AppLayout', () => {
 
     screen.getByRole('main');
     expect(document.documentElement.style.getPropertyValue('--app-viewport-height')).toBe('720px');
-    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('18px');
+    // offsetTop is derived from env(safe-area-inset-top) + iOS fallback (not visualViewport.offsetTop)
+    // In JSDOM env() returns 0 and no iOS user-agent is set, so the value is '0px'
+    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('0px');
   });
 });

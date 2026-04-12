@@ -173,15 +173,17 @@ describe('Home page V4', () => {
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain('Test');
 
-    expect(screen.getByText('Ask stylist')).toBeInTheDocument();
-    expect(screen.getByText('Discover')).toBeInTheDocument();
-    expect(screen.getByText('Travel Capsule')).toBeInTheDocument();
+    // Stylist section
+    expect(screen.getByText('home.yourStylist')).toBeInTheDocument();
+    // Discover section
+    expect(screen.getByText('home.discoverLabel')).toBeInTheDocument();
+    expect(screen.getByText('home.travelCapsule')).toBeInTheDocument();
   });
 
   it('routes the travel capsule shortcut to the travel capsule planner', () => {
     renderHome();
 
-    fireEvent.click(screen.getByText('Travel Capsule'));
+    fireEvent.click(screen.getByText('home.travelCapsule'));
     expect(navigateMock).toHaveBeenCalledWith('/plan/travel-capsule');
   });
 
