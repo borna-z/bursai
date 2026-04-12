@@ -75,13 +75,22 @@ export function useViewportShell() {
 
     const root = document.documentElement;
 
+    // Probe the safe area once per session — it only changes on resize /
+    // orientation events, not on every scroll tick. Keeps the hot path cheap.
+    let cachedSafeTopBase = Math.max(readSafeAreaTop(), detectIosNotchFallback());
+
+    const refreshSafeTopBase = () => {
+      cachedSafeTopBase = Math.max(readSafeAreaTop(), detectIosNotchFallback());
+      updateViewportVars();
+    };
+
     const updateViewportVars = () => {
       const visualViewport = window.visualViewport;
       const height = visualViewport?.height ?? window.innerHeight;
-      const envSafeTop = readSafeAreaTop();
-      // Only fall back to device-specific inset when the CSS env probe
-      // actually returned 0 — otherwise trust the real value.
-      const offsetTop = envSafeTop > 0 ? envSafeTop : detectIosNotchFallback();
+      const viewportOffset = Math.max(visualViewport?.offsetTop ?? 0, 0);
+      // Combine the device-level safe area with any transient viewport shift
+      // (keyboard, zoom, browser chrome) so content never slides under system UI.
+      const offsetTop = Math.max(cachedSafeTopBase, viewportOffset);
 
       root.style.setProperty(HEIGHT_VAR, `${height}px`);
       root.style.setProperty(OFFSET_TOP_VAR, `${offsetTop}px`);
@@ -89,14 +98,18 @@ export function useViewportShell() {
 
     updateViewportVars();
 
-    window.addEventListener('resize', updateViewportVars);
-    window.addEventListener('orientationchange', updateViewportVars);
+    // Resize / orientation may change the underlying safe area (e.g. rotation,
+    // PWA install, window resize on desktop), so re-probe here.
+    window.addEventListener('resize', refreshSafeTopBase);
+    window.addEventListener('orientationchange', refreshSafeTopBase);
+    // Visual viewport scroll/resize only shift the transient viewport offset —
+    // cheap path, no DOM probe.
     window.visualViewport?.addEventListener('resize', updateViewportVars);
     window.visualViewport?.addEventListener('scroll', updateViewportVars);
 
     return () => {
-      window.removeEventListener('resize', updateViewportVars);
-      window.removeEventListener('orientationchange', updateViewportVars);
+      window.removeEventListener('resize', refreshSafeTopBase);
+      window.removeEventListener('orientationchange', refreshSafeTopBase);
       window.visualViewport?.removeEventListener('resize', updateViewportVars);
       window.visualViewport?.removeEventListener('scroll', updateViewportVars);
       root.style.removeProperty(HEIGHT_VAR);

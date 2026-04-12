@@ -48,9 +48,10 @@ describe('useViewportShell', () => {
     Object.defineProperty(window, 'visualViewport', { value: vv, writable: true, configurable: true });
     renderHook(() => useViewportShell());
     expect(document.documentElement.style.getPropertyValue('--app-viewport-height')).toBe('600px');
-    // offsetTop is derived from env(safe-area-inset-top) + iOS fallback, not from visualViewport.offsetTop
-    // In JSDOM env() returns 0 and no iOS user-agent is set, so the value will be '0px'
-    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('0px');
+    // offsetTop combines the device safe-area base (0 in JSDOM, no iOS UA)
+    // with the transient visualViewport.offsetTop so keyboard/zoom shifts
+    // aren't lost. With base=0 and vv.offsetTop=5, the result is 5px.
+    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('5px');
   });
 
   it('falls back to window.innerHeight when visualViewport is undefined', () => {

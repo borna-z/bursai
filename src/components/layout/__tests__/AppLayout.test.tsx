@@ -70,8 +70,9 @@ describe('AppLayout', () => {
 
     screen.getByRole('main');
     expect(document.documentElement.style.getPropertyValue('--app-viewport-height')).toBe('720px');
-    // offsetTop is derived from env(safe-area-inset-top) + iOS fallback (not visualViewport.offsetTop)
-    // In JSDOM env() returns 0 and no iOS user-agent is set, so the value is '0px'
-    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('0px');
+    // offsetTop = max(safe-area base, visualViewport.offsetTop). In JSDOM
+    // the safe-area base is 0 (no iOS UA, env() returns 0), so the mocked
+    // visualViewport.offsetTop (18) wins.
+    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('18px');
   });
 });
