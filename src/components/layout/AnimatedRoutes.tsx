@@ -4,7 +4,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
-import { LegacyDiscoverRedirect } from '@/components/layout/LegacyDiscoverRedirect';
 
 // Eager-loaded (tiny, critical path only)
 import NotFound from '@/pages/NotFound';
@@ -43,7 +42,6 @@ const Terms = lazy(() => import('@/pages/marketing/Terms'));
 const Admin = lazy(() => import('@/pages/marketing/Admin'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const MoodOutfit = lazy(() => import('@/pages/MoodOutfit'));
-const StyleMe = lazy(() => import('@/pages/StyleMe'));
 const GarmentGaps = lazy(() => import('@/pages/GarmentGaps'));
 const PickMustHaves = lazy(() => import('@/pages/PickMustHaves'));
 const UnusedOutfits = lazy(() => import('@/pages/UnusedOutfits'));
@@ -131,7 +129,7 @@ export function AnimatedRoutes() {
             <Route path="/plan/travel-capsule" element={<ProtectedRoute><TravelCapsule /></ProtectedRoute>} />
             <Route path="/plan/travel-capsule/pick-must-haves" element={<ProtectedRoute><PickMustHaves /></ProtectedRoute>} />
             <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-            <Route path="/ai" element={<ProtectedRoute><StyleMe /></ProtectedRoute>} />
+            <Route path="/ai" element={<Navigate to="/ai/generate" replace />} />
             <Route path="/ai/generate" element={<ProtectedRoute><OutfitGenerate /></ProtectedRoute>} />
             <Route path="/ai/chat" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
             <Route path="/ai/mood" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
@@ -149,7 +147,7 @@ export function AnimatedRoutes() {
             <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="/ai/mood-outfit" element={<ProtectedRoute><MoodOutfit /></ProtectedRoute>} />
             <Route path="/gaps" element={<ProtectedRoute><GarmentGaps /></ProtectedRoute>} />
-            <Route path="/discover" element={<ProtectedRoute><LegacyDiscoverRedirect /></ProtectedRoute>} />
+            <Route path="/discover" element={<Navigate to="/gaps" replace />} />
             <Route path="/outfits/unused" element={<ProtectedRoute><UnusedOutfits /></ProtectedRoute>} />
             
             <Route path="/calendar/callback" element={<ProtectedRoute><GoogleCalendarCallback /></ProtectedRoute>} />
