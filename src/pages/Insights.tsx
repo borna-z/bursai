@@ -18,10 +18,8 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { InsightsPageSkeleton } from '@/components/ui/skeletons';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-function parseCurrency(value: string): number {
-  if (!value) return 0;
-  const match = value.replace(',', '.').match(/[\d.]+/);
-  return match ? parseFloat(match[0]) : 0;
+function heatmapCount(status: string): number {
+  return status === 'planned' || status === 'improvised' ? 1 : 0;
 }
 
 export default function InsightsPage() {
@@ -40,7 +38,7 @@ export default function InsightsPage() {
     for (const entry of vm.behavior.heatmapDays) {
       const dow = new Date(entry.date).getDay();
       const idx = dow === 0 ? 6 : dow - 1; // Monday = 0
-      counts[idx] += entry.count;
+      counts[idx] += heatmapCount(entry.status);
     }
     return days.map((day, i) => ({ day, count: counts[i] }));
   }, [vm.behavior.heatmapDays]);
@@ -94,11 +92,7 @@ export default function InsightsPage() {
                 <InsightsHeroStats
                   garmentCount={vm.health.totalCount}
                   outfitCount={vm.hero.metrics[2]?.rails[0]?.value ?? 0}
-                  wearCount={
-                    vm.behavior.streak > 0
-                      ? vm.behavior.heatmapDays.reduce((s, d) => s + d.count, 0)
-                      : 0
-                  }
+                  wearCount={vm.behavior.heatmapDays.reduce((s, d) => s + heatmapCount(d.status), 0)}
                 />
 
                 <WearFrequencyChart data={wearByDay} />
@@ -118,7 +112,11 @@ export default function InsightsPage() {
                   />
                   <CostPerWearCard
                     bestValue={vm.value.bestCostPerWear?.cpwValue ?? 0}
-                    average={parseCurrency(vm.value.avgCostPerWear)}
+                    average={
+                      vm.value.bestCostPerWear && vm.value.worstCostPerWear
+                        ? (vm.value.bestCostPerWear.cpwValue + vm.value.worstCostPerWear.cpwValue) / 2
+                        : 0
+                    }
                     worst={vm.value.worstCostPerWear?.cpwValue ?? 0}
                   />
                 </div>
