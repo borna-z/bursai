@@ -57,8 +57,8 @@ function getContrastForeground(hsl: string, resolved: 'light' | 'dark'): string 
     // In dark mode, accent colors are lighter; use dark foreground when lightness > 55%
     return lightness > 55 ? '24 13% 10%' : '34 32% 95%';
   }
-  // In light mode, use light foreground when lightness > 45%
-  return lightness > 45 ? '34 32% 95%' : '24 13% 10%';
+  // In light mode, bright accents (>45% lightness) need dark foreground for contrast
+  return lightness > 45 ? '24 13% 10%' : '34 32% 95%';
 }
 
 function applyAccent(accent: AccentColor, resolved: 'light' | 'dark') {

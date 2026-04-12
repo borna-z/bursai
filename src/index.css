@@ -41,7 +41,7 @@
     --ring: 24 13% 10%;
 
     --radius: 1.125rem;
-    --app-dock-height: 3.25rem;
+    --app-dock-height: 3.5rem;
     --app-bottom-clearance: calc(var(--app-dock-height) + env(safe-area-inset-bottom, 0px));
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
@@ -630,7 +630,7 @@
 
 @media (max-width: 430px) {
   :root {
-    --app-dock-height: 3.1rem;
+    --app-dock-height: 3.25rem;
   }
 
   .page-container {
