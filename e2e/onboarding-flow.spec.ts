@@ -3,13 +3,12 @@ import { test, expect } from '@playwright/test';
 test('onboarding page renders language selection step', async ({ page }) => {
   await page.goto('/onboarding');
 
-  // Wait for the page to settle
-  await page.waitForLoadState('networkidle');
+  // Wait for route-specific URL — never networkidle (Vite HMR keeps it alive)
+  await page.waitForURL(/\/(onboarding|auth)/, { timeout: 15000 });
 
   const body = page.locator('body');
   await expect(body).not.toBeEmpty();
 
-  // Check that we're on the onboarding page (not redirected away)
   const currentUrl = page.url();
   const isOnboarding = currentUrl.includes('/onboarding');
   const isAuthRedirect = currentUrl.includes('/auth');
