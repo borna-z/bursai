@@ -210,7 +210,7 @@ function NavTab({
       whileTap={{ scale: 0.9 }}
       onClick={() => {
         hapticLight();
-        onNavigate(tab.path);
+        if (!isActive) onNavigate(tab.path);
       }}
       onPointerEnter={() => prefetchRoute(tab.path)}
       onFocus={() => prefetchRoute(tab.path)}
@@ -333,7 +333,7 @@ export function BottomNav() {
                 height="18"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="white"
+                stroke="hsl(var(--accent-foreground))"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 aria-hidden="true"

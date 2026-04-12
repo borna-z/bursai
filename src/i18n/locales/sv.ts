@@ -2558,6 +2558,23 @@ const sv: Record<string, string> = {
     'insights.empty_meta': 'Stil-DNA · Färgpalett · Användningsheatmap · Garderobsgap',
     'insights.empty_cta_ready': 'Generera och bär en outfit',
     'insights.empty_cta_locked': 'Lägg till plagg först',
+
+    // Insights Dashboard (Tasks 15-21)
+    'insights.yourStyleStory': 'Din stilberättelse',
+    'insights.garments': 'Plagg',
+    'insights.outfits': 'Outfits',
+    'insights.wears': 'Burna',
+    'insights.wearFrequency': 'Användningsfrekvens',
+    'insights.last30Days': 'Senaste 30 dagarna',
+    'insights.yourPalette': 'Din palett',
+    'insights.categories': 'Kategorier',
+    'insights.items': 'plagg',
+    'insights.costPerWear': 'Kostnad / användning',
+    'insights.bestValue': 'Bästa värde',
+    'insights.average': 'Genomsnitt',
+    'insights.worst': 'Sämst',
+    'insights.wardrobeHealth': 'Garderobshälsa',
+    'insights.wardrobeHealthDesc': 'Hur balanserad din garderob är',
 };
 
 export default sv;

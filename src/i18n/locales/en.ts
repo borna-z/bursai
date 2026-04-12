@@ -2988,6 +2988,23 @@ const en: Record<string, string> = {
 
     // Insights (added)
     'insights.unused_desc': "Outfits built from pieces you haven't worn in 30+ days. Give them a second life.",
+
+    // Insights Dashboard (Tasks 15-21)
+    'insights.yourStyleStory': 'Your Style Story',
+    'insights.garments': 'Garments',
+    'insights.outfits': 'Outfits',
+    'insights.wears': 'Wears',
+    'insights.wearFrequency': 'Wear Frequency',
+    'insights.last30Days': 'Last 30 days',
+    'insights.yourPalette': 'Your Palette',
+    'insights.categories': 'Categories',
+    'insights.items': 'items',
+    'insights.costPerWear': 'Cost / Wear',
+    'insights.bestValue': 'Best value',
+    'insights.average': 'Average',
+    'insights.worst': 'Worst',
+    'insights.wardrobeHealth': 'Wardrobe Health',
+    'insights.wardrobeHealthDesc': 'How balanced your closet is',
 };
 
 export default en;
