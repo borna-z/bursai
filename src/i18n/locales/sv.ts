@@ -928,6 +928,13 @@ const sv: Record<string, string> = {
     'nav.add_sheet_add_desc': 'Fota eller ladda upp ett nytt plagg till garderoben.',
     'nav.add_sheet_scan_desc': 'Använd live-skannern när du vill ha det snabbaste guidade flödet.',
     'nav.quick_add_actions': 'Snabbval för tillägg',
+    'nav.addTitle': 'Lägg till i garderoben',
+    'nav.addGarment': 'Lägg till plagg',
+    'nav.addGarmentDesc': 'Ta ett foto eller ladda upp',
+    'nav.liveScan': 'BURS Live Scan',
+    'nav.liveScanDesc': 'Skanna med din kamera',
+    'nav.bulkAdd': 'Masslägg till',
+    'nav.bulkAddDesc': 'Lägg till flera plagg samtidigt',
     'settings.row.insights': 'Garderobsinsikter',
     'settings.row.insights_sub': 'Statistik & analys',
 
