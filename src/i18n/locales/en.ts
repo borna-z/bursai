@@ -2924,6 +2924,25 @@ const en: Record<string, string> = {
     'home.command_status_weather': 'Weather alert',
     'home.week_ahead': 'Week Ahead',
 
+    // Home Hub (Tasks 10-13)
+    'home.yourStylist': 'Your Stylist',
+    'home.styleChat': 'Style Chat',
+    'home.styleChatDesc': 'Ask your AI stylist anything',
+    'home.generateOutfit': 'Generate Outfit',
+    'home.generateOutfitDesc': 'AI-curated looks from your wardrobe',
+    'home.styleMe': 'Style Me',
+    'home.styleMeDesc': 'Get styled for any occasion',
+    'home.moodOutfit': 'Mood Outfit',
+    'home.moodOutfitDesc': 'Dress how you feel',
+    'home.travelCapsule': 'Travel Capsule',
+    'home.travelCapsuleDesc': 'Pack smart for any trip',
+    'home.discoverLabel': 'Discover',
+    'home.discoverDesc': 'Explore trends & inspiration',
+    'home.wardrobeGaps': 'Wardrobe Gaps',
+    'home.wardrobeGapsDesc': "What's missing from your closet",
+    'home.settingsLabel': 'Settings',
+    'home.settingsDesc': 'Theme, accent, profile',
+
     // Common (added)
     'common.view': 'View',
 
