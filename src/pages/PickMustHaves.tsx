@@ -113,7 +113,7 @@ export default function PickMustHaves() {
         }
       />
 
-      <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
+      <AnimatedPage className="page-shell !px-[var(--page-px)] !pb-36 !pt-6 page-cluster">
         {/* Editorial heading */}
         <motion.section
           {...motionProps}

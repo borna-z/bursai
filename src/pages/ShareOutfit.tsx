@@ -158,7 +158,7 @@ export default function ShareOutfitPage() {
       />
 
       <motion.div
-        className="max-w-lg mx-auto px-4 pt-6 pb-24"
+        className="max-w-lg mx-auto px-[var(--page-px)] pt-6 pb-24"
         {...motionProps}
       >
         {/* Branded share card -- this element is screenshotted */}

@@ -43,7 +43,7 @@ export default function UsedGarments() {
         ) : undefined}
       />
 
-      <AnimatedPage className="mx-auto flex max-w-md flex-col gap-5 px-5 pb-24 pt-4">
+      <AnimatedPage className="mx-auto flex max-w-md flex-col gap-5 px-[var(--page-px)] pb-24 pt-4">
         {isLoading ? (
           <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (

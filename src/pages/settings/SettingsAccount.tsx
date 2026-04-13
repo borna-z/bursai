@@ -61,7 +61,7 @@ export default function SettingsAccount() {
     <AppLayout>
       <PageHeader title={t('settings.row.account')} showBack titleClassName="font-display italic" />
 
-      <AnimatedPage className="px-4 pb-8 pt-5 space-y-5 max-w-lg mx-auto">
+      <AnimatedPage className="px-[var(--page-px)] pb-8 pt-5 space-y-5 max-w-lg mx-auto">
 
         {/* V4 Avatar + Name */}
         <motion.div
