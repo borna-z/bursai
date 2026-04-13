@@ -53,6 +53,7 @@ export interface StyleChatResponseEnvelope {
   fallback_used: boolean;
   degraded_reason: string | null;
   render_outfit_card: boolean;
+  clear_active_look: boolean;
 }
 
 export interface PersistedStyleChatMessage {
