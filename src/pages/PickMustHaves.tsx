@@ -143,7 +143,7 @@ export default function PickMustHaves() {
                 className="h-11 bg-background/85 pl-9 rounded-full"
               />
               {search ? (
-                <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" aria-label={t('common.clear') || 'Clear search'}>
                   <X className="h-4 w-4 text-muted-foreground" />
                 </button>
               ) : null}
