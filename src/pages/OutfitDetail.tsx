@@ -389,14 +389,16 @@ export default function OutfitDetailPage() {
         actions={(
           <>
             <button
-              onClick={handleToggleSave}
+              type="button"
+              onClick={() => { hapticLight(); handleToggleSave(); }}
               className="h-11 w-11 rounded-full border border-white/30 bg-black/35 text-white backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
               aria-label={t('outfit.save')}
             >
               {outfit.saved ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
             </button>
             <button
-              onClick={() => setShareSheetOpen(true)}
+              type="button"
+              onClick={() => { hapticLight(); setShareSheetOpen(true); }}
               className="h-11 w-11 rounded-full border border-white/30 bg-black/35 text-white backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
               aria-label={t('outfit.share')}
             >
