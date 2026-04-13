@@ -11,6 +11,7 @@
  import { hapticLight } from '@/lib/haptics';
  import { EASE_CURVE } from '@/lib/motion';
  import { PageHeader } from '@/components/layout/PageHeader';
+ import { AppLayout } from '@/components/layout/AppLayout';
 
  interface Lead {
    id: string;
@@ -145,7 +146,7 @@
          <meta name="robots" content="noindex, nofollow" />
        </Helmet>
 
-       <div className="min-h-screen bg-background">
+       <AppLayout>
          <PageHeader eyebrow="System Overview" title="Admin" showBack />
 
          <div className="max-w-6xl mx-auto px-4 pt-6 pb-24 space-y-6">
@@ -235,7 +236,7 @@
              </div>
            </motion.div>
          </div>
-       </div>
+       </AppLayout>
      </>
    );
  }
