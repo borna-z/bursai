@@ -228,7 +228,7 @@ export default function MoodOutfitPage() {
             <PageHeader
               title={t('ai.mood_title') || 'Mood Outfit'}
               titleClassName="font-display italic"
-              eyebrow="AI Stylist"
+              eyebrow={t('ai.stylist_eyebrow')}
               showBack
             />
 
@@ -329,7 +329,7 @@ export default function MoodOutfitPage() {
             <PageHeader
               title={t('ai.mood_title') || 'Mood Outfit'}
               titleClassName="font-display italic"
-              eyebrow="AI Stylist"
+              eyebrow={t('ai.stylist_eyebrow')}
               showBack
             />
 

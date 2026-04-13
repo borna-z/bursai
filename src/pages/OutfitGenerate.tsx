@@ -85,20 +85,21 @@ function getMostFormalEvent(events: { title: string }[] | undefined | null) {
 /* ── Weather styling advice ── */
 function getWeatherAdvice(temp?: number, precipitation?: string): string {
   if (temp === undefined) return '';
-  if (precipitation === 'rain') return 'Rain-ready fabrics';
-  if (precipitation === 'snow') return 'Warm & layered';
-  if (temp <= 5) return 'Bundle up';
-  if (temp <= 12) return 'Layer up';
-  if (temp <= 20) return 'Light layers';
-  return 'Light & breathable';
+  if (precipitation === 'rain') return 'weather.rain_ready';
+  if (precipitation === 'snow') return 'weather.warm_layered';
+  if (temp <= 5) return 'weather.bundle_up';
+  if (temp <= 12) return 'weather.layer_up';
+  if (temp <= 20) return 'weather.light_layers';
+  return 'weather.light_breathable';
 }
 
 function OutfitGenerateFallback() {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="font-display italic text-[1.3rem] leading-tight text-foreground">Outfit generation is unavailable right now</h1>
-        <Button onClick={() => window.location.reload()}>Reload</Button>
+        <h1 className="font-display italic text-[1.3rem] leading-tight text-foreground">{t('outfit.generation_unavailable')}</h1>
+        <Button onClick={() => window.location.reload()}>{t('common.retry') || 'Reload'}</Button>
       </div>
     </div>
   );
@@ -164,28 +165,29 @@ export default function OutfitGeneratePage() {
     if (!preferredGarmentIds.length) return null;
     const firstGarment = preferredGarments?.[0];
     if (preferredGarmentIds.length === 1) {
-      return firstGarment?.title || 'Selected garment';
+      return firstGarment?.title || t('outfit.selected_garment');
     }
     return firstGarment?.title
       ? `${firstGarment.title} + ${preferredGarmentIds.length - 1} more`
       : `${preferredGarmentIds.length} selected pieces`;
-  }, [preferredGarmentIds, preferredGarments]);
+  }, [preferredGarmentIds, preferredGarments, t]);
   const preferredGarmentKey = useMemo(() => preferredGarmentIds.join('|'), [preferredGarmentIds]);
   const selectedStyleKey = useMemo(() => selectedStyles.slice().sort().join('|'), [selectedStyles]);
 
   const contextSubtitle = useMemo(() => {
     const parts: string[] = [];
-    if (preferredGarmentIds.length === 1) parts.push('Styled around your selected piece');
+    if (preferredGarmentIds.length === 1) parts.push(t('outfit.styled_around_selection'));
     if (preferredGarmentIds.length > 1) parts.push(`Built from ${preferredGarmentIds.length} selected pieces`);
     const occ = OCCASIONS.find(o => o.key === selectedOccasion);
     if (occ) parts.push(occ.label);
     if (selectedStyles.length > 0) parts.push(selectedStyles.join(', '));
-    const weatherHint = getWeatherAdvice(weather?.temperature, weather?.precipitation);
-    if (weatherHint) parts.push(weatherHint);
+    const weatherHintKey = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+    if (weatherHintKey) parts.push(t(weatherHintKey));
     if (weather?.temperature !== undefined) parts.push(`${weather.temperature}°C`);
     return parts.join(' · ');
-  }, [preferredGarmentIds.length, selectedOccasion, selectedStyles, weather?.precipitation, weather?.temperature]);
-  const weatherAdvice = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+  }, [preferredGarmentIds.length, selectedOccasion, selectedStyles, weather?.precipitation, weather?.temperature, t]);
+  const weatherAdviceKey = getWeatherAdvice(weather?.temperature, weather?.precipitation);
+  const weatherAdvice = weatherAdviceKey ? t(weatherAdviceKey) : '';
   const dayContext = useMemo(() => {
     if (!calendarEvents?.length) return null;
     return buildDayIntelligence(calendarEvents, weather ?? undefined);
@@ -252,11 +254,11 @@ export default function OutfitGeneratePage() {
       setPhase('done');
     } catch (err) {
       const message = humanizeOutfitGenerationError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        err instanceof Error ? err.message : t('outfit.something_wrong_retry'),
       );
       setLastError(message);
       setPhase('error');
-      toast.error('Generation failed', { description: message });
+      toast.error(t('outfit.generation_failed'), { description: message });
     }
   }, [
     canCreateOutfit,
@@ -271,6 +273,7 @@ export default function OutfitGeneratePage() {
     primaryEvent?.title,
     selectedOccasion,
     selectedStyles,
+    t,
     weather?.precipitation,
     weather?.temperature,
     weather?.wind,
@@ -294,21 +297,21 @@ export default function OutfitGeneratePage() {
 
   const handleSaveOutfit = async (outfit: GeneratedOutfit) => {
     if (!isGeneratedOutfitComplete(outfit)) {
-      toast.error('Could not save incomplete outfit');
+      toast.error(t('outfit.save_incomplete_error'));
       return;
     }
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: true } });
       trackEvent('outfit_saved', { outfit_id: outfit.id, occasion: outfit.occasion });
-      toast.success('Outfit saved');
+      toast.success(t('outfit.saved') || 'Outfit saved');
     } catch {
-      toast.error('Could not save outfit');
+      toast.error(t('outfit.save_error'));
     }
   };
 
   const handlePlanOutfit = (outfit: GeneratedOutfit) => {
     if (!isGeneratedOutfitComplete(outfit)) {
-      toast.error('Could not plan incomplete outfit');
+      toast.error(t('outfit.plan_incomplete_error'));
       return;
     }
     navigate(`/outfits/${outfit.id}`, {
@@ -380,7 +383,7 @@ export default function OutfitGeneratePage() {
 
     const handleWearToday = async () => {
       if (!isGeneratedOutfitComplete(primary)) {
-        toast.error('Could not wear incomplete outfit');
+        toast.error(t('outfit.wear_incomplete_error'));
         return;
       }
       try {
@@ -390,10 +393,10 @@ export default function OutfitGeneratePage() {
           garmentIds,
           occasion: primary.occasion,
         });
-        toast.success('Outfit logged for today');
+        toast.success(t('outfit.logged_today'));
         navigate('/plan');
       } catch {
-        toast.error('Could not log outfit');
+        toast.error(t('outfit.log_error'));
       }
     };
 
@@ -402,7 +405,7 @@ export default function OutfitGeneratePage() {
       navigate(`/ai/chat${buildStyleFlowSearch(garmentIds)}`, {
         state: {
           outfitId: primary.id,
-          prefillMessage: 'Refine this outfit for me.',
+          prefillMessage: t('outfit.refine_prefill'),
           seedOutfitIds: garmentIds,
         },
       });
@@ -464,8 +467,8 @@ export default function OutfitGeneratePage() {
             className="rounded-[1.25rem] max-w-sm w-full p-6 text-center"
           >
             <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-4 opacity-70" />
-            <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground mb-2">Something went wrong</h2>
-            <p className="text-muted-foreground/60 mb-5 text-[13px] font-body leading-relaxed">{lastError || 'Please try again.'}</p>
+            <h2 className="font-display italic text-[1.2rem] leading-tight text-foreground mb-2">{t('outfit.something_wrong')}</h2>
+            <p className="text-muted-foreground/60 mb-5 text-[13px] font-body leading-relaxed">{lastError || t('outfit.please_try_again')}</p>
             <div className="flex gap-2">
               <Button
                 variant="outline"

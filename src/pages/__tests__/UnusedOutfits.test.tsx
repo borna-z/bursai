@@ -124,7 +124,7 @@ describe('UnusedOutfits page', () => {
   it('renders the editorial heading', () => {
     useInsightsMock.mockReturnValue({ data: { unusedGarments: [] } });
     renderPage();
-    expect(screen.getByText(/Rediscover these looks/i)).toBeInTheDocument();
+    expect(screen.getByText('insights.unused_heading')).toBeInTheDocument();
   });
 
   it('shows the AI loading card while generating outfits', async () => {

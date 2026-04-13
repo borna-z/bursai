@@ -168,7 +168,7 @@ export default function PublicProfile() {
 
           {/* Section eyebrow */}
           <motion.div className="mb-4" {...stagger(1)}>
-            <p className="label-editorial text-muted-foreground/60 text-[10px]">Shared Archive</p>
+            <p className="label-editorial text-muted-foreground/60 text-[10px]">{t('profile.shared_archive')}</p>
           </motion.div>
 
           {/* Outfits grid */}
