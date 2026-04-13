@@ -2575,6 +2575,9 @@ const sv: Record<string, string> = {
     'insights.worst': 'Sämst',
     'insights.wardrobeHealth': 'Garderobshälsa',
     'insights.wardrobeHealthDesc': 'Hur balanserad din garderob är',
+
+    // Appended: missing keys discovered by i18n-completeness scan
+    'common.clear': 'Rensa',
 };
 
 export default sv;
