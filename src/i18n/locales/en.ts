@@ -2896,6 +2896,8 @@ const en: Record<string, string> = {
     'chat.something_fresh': 'Something fresh',
     'chat.different_vibe': 'Different vibe',
     'chat.undo': 'Undo',
+    'chat.refining_look': 'Refining this look',
+    'chat.stop_refining': 'Stop refining',
 
     // Batch upload
     'batch.all_resolved': 'All {count} items are resolved. Review is complete.',

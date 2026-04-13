@@ -2391,6 +2391,8 @@ const sv: Record<string, string> = {
     'chat.something_fresh': 'Något nytt',
     'chat.different_vibe': 'Annan känsla',
     'chat.undo': 'Ångra',
+    'chat.refining_look': 'Förfinar denna look',
+    'chat.stop_refining': 'Sluta förfina',
 
     // Chat keys
     'chat.stylist_fallback': 'Något gick fel. Försök igen eller skriv om din fråga.',
