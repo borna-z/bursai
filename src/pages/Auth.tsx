@@ -163,7 +163,7 @@ export default function AuthPage() {
       <EditorialGrid />
 
       {/* Top eyebrow bar */}
-      <div className="relative z-10 flex items-center justify-between px-[var(--page-px)] pt-[max(env(safe-area-inset-top,0px),24px)] pb-4">
+      <div className="relative z-10 flex items-center justify-between px-[var(--page-px)] pb-4" style={{ paddingTop: 'max(var(--safe-area-top), 24px)' }}>
         <p className="label-editorial text-muted-foreground/60 text-[9px] tracking-[0.26em]">
           {t('auth.header_tagline')}
         </p>
