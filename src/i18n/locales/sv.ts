@@ -2393,6 +2393,9 @@ const sv: Record<string, string> = {
     'chat.undo': 'Ångra',
     'chat.refining_look': 'Förfinar denna look',
     'chat.stop_refining': 'Sluta förfina',
+    'chat.refine': 'Förfina',
+    'chat.save': 'Spara',
+    'chat.saved': 'Sparad',
 
     // Chat keys
     'chat.stylist_fallback': 'Något gick fel. Försök igen eller skriv om din fråga.',

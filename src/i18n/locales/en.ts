@@ -2898,6 +2898,9 @@ const en: Record<string, string> = {
     'chat.undo': 'Undo',
     'chat.refining_look': 'Refining this look',
     'chat.stop_refining': 'Stop refining',
+    'chat.refine': 'Refine',
+    'chat.save': 'Save',
+    'chat.saved': 'Saved',
 
     // Batch upload
     'batch.all_resolved': 'All {count} items are resolved. Review is complete.',
