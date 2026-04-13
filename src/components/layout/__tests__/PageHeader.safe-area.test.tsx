@@ -11,19 +11,7 @@ function renderHeader() {
   );
 }
 
-describe('PageHeader safe-area coverage', () => {
-  it('renders a safe-area cover element with var(--safe-area-top) height', () => {
-    const { container } = renderHeader();
-    const cover = container.querySelector('[data-safe-area-cover="true"]') as HTMLElement | null;
-    expect(cover).not.toBeNull();
-    // The height may be expressed via either style attribute or a Tailwind
-    // arbitrary-value class — JSDOM rejects var() on the height CSS property
-    // when set via inline style, so we accept either form.
-    const style = cover?.getAttribute('style') ?? '';
-    const className = cover?.className ?? '';
-    expect(style + ' ' + className).toContain('var(--safe-area-top)');
-  });
-
+describe('PageHeader z-index and sticky behavior', () => {
   it('root uses the canonical z-header scale variable', () => {
     const { container } = renderHeader();
     const header = container.querySelector('header');
@@ -31,5 +19,14 @@ describe('PageHeader safe-area coverage', () => {
     const style = header?.getAttribute('style') ?? '';
     const className = header?.className ?? '';
     expect(style + className).toMatch(/--z-header|z-\[var\(--z-header\)\]/);
+  });
+
+  it('does not render an internal safe-area cover (AppLayout owns it)', () => {
+    const { container } = renderHeader();
+    // Safe-area coverage is owned by AppLayout so every page gets it, not
+    // just pages that happen to use PageHeader. Regression guard against the
+    // initial Phase 1 design that duplicated coverage inside the header.
+    const cover = container.querySelector('[data-safe-area-cover="true"]');
+    expect(cover).toBeNull();
   });
 });

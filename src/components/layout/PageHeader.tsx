@@ -33,15 +33,6 @@ export function PageHeader({
       )}
       style={{ zIndex: 'var(--z-header)' } as React.CSSProperties}
     >
-      {/* Safe-area cover: extends the frosted header up into the dynamic-island
-          strip so content never shows above the header. Inherits the frost
-          background from the topbar-frost parent. */}
-      <div
-        data-safe-area-cover="true"
-        aria-hidden="true"
-        className="h-[var(--safe-area-top)]"
-        style={{ height: 'var(--safe-area-top)' } as React.CSSProperties}
-      />
       <div
         className={cn(
           'mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-[var(--page-px)]',

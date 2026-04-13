@@ -144,7 +144,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 'var(--z-coach)' as unknown as number,
+          zIndex: 'var(--z-coach-backdrop)' as unknown as number,
           background: 'rgba(0,0,0,0.4)',
           pointerEvents: 'auto',
         }}
@@ -153,7 +153,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         aria-hidden="true"
         style={{
           position: 'fixed',
-          zIndex: 'var(--z-coach)' as unknown as number,
+          zIndex: 'var(--z-coach-ring)' as unknown as number,
           left: rect.left,
           top: rect.top,
           width: rect.width,

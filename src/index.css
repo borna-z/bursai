@@ -59,7 +59,10 @@
     --z-modal: 50;
     --z-popover: 55;
     --z-toast: 60;
-    --z-coach: 70;
+    /* Coach tiers: backdrop < ring < target/callout, within the coach layer */
+    --z-coach-backdrop: 70;
+    --z-coach-ring: 71;
+    --z-coach: 72;
     --z-celebration: 80;
 
     /* Extended tokens */
