@@ -3,17 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 import {
-  detectStylistChatModeFromSignals,
   resolveStyleChatIntentFromSignals,
   resolveActiveLookStatus,
   resolveStyleCardState,
   resolveStyleCardPolicy,
   resolveStyleResponseKind,
   shouldRenderStyleCardFromPolicy,
+  mapClassifierToMode,
+  CLASSIFIER_FALLBACK,
   type StyleChatActiveLookInput,
   type StyleChatResponseEnvelope,
   type StylistChatMode,
+  type ClassifierResult,
 } from "../_shared/style-chat-contract.ts";
+import { classifyIntent, type ClassifierInput } from "../_shared/style-chat-classifier.ts";
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
@@ -681,101 +684,9 @@ function resolveValidatedOutfitIds(
 }
 
 
-function detectRefinementIntent(messages: MessageInput[]): RefinementIntent {
-  const latestUser = normalizeTerm(getMessageText(messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
-  if (!latestUser) return { mode: "new_look", raw: "" };
+// detectRefinementIntent removed — replaced by AI classifier (classifyIntent)
 
-  if (/(style this garment|style this piece|style this item)/i.test(latestUser)) {
-    return { mode: "targeted_refinement", raw: latestUser };
-  }
-  if (/(swap|change|switch).{0,20}(shoe|sneaker|boot|loafer|heel|trainer)/i.test(latestUser)) {
-    return { mode: "swap_shoes", raw: latestUser };
-  }
-  if (/(swap|change|switch).{0,20}(layer|jacket|coat|blazer|outerwear|cardigan|hoodie|overshirt)/i.test(latestUser)) {
-    return { mode: "swap_layer", raw: latestUser };
-  }
-  if (/(keep|leave|save|stick with).{0,20}(jacket|coat|blazer|outerwear)/i.test(latestUser)) {
-    return { mode: "keep_jacket", raw: latestUser };
-  }
-  if (/(why this works|explain why this works|why does this work|explain the look|break down the look|what makes this work)/i.test(latestUser)) {
-    return { mode: "explain_why", raw: latestUser };
-  }
-  if (/(use something i wear less|wear less|wear more often|haven't worn|less worn|underused)/i.test(latestUser)) {
-    return { mode: "use_less_worn", raw: latestUser };
-  }
-  if (/(warmer|more warm|add warmth|too cold|colder weather|winterize|warmer version)/i.test(latestUser)) {
-    return { mode: "warmer", raw: latestUser };
-  }
-  if (/(cooler|less warm|lighter version|summerize|summerise|too hot|hotter weather|make it cooler)/i.test(latestUser)) {
-    return { mode: "cooler", raw: latestUser };
-  }
-  if (/(more elegant|elegant version|make it elegant|feel more elegant|elevate for elegance|more premium|more expensive-looking)/i.test(latestUser)) {
-    return { mode: "more_elegant", raw: latestUser };
-  }
-  if (/(less formal|more casual|relax it|dress it down|tone it down|make it easier|relaxed version)/i.test(latestUser)) {
-    return { mode: "less_formal", raw: latestUser };
-  }
-  if (/(more formal|formal version|dressier|black tie|make it formal)/i.test(latestUser)) {
-    return { mode: "more_formal", raw: latestUser };
-  }
-  if (/(more elevated|more polished|dress it up|make it smarter|elevate it|make it more premium|make it more polished)/i.test(latestUser)) {
-    return { mode: "more_elevated", raw: latestUser };
-  }
-  if (/(sharper|sharpen it|cleaner|make it sharper)/i.test(latestUser)) {
-    return { mode: "sharper", raw: latestUser };
-  }
-  if (/(softer|soften it|less sharp|make it softer)/i.test(latestUser)) {
-    return { mode: "softer", raw: latestUser };
-  }
-  if (/(make it simpler|simpler version|strip it back|minimal version|more minimal)/i.test(latestUser)) {
-    return { mode: "simpler", raw: latestUser };
-  }
-  if (/(make it bolder|bolder version|more bold|more daring|push it more)/i.test(latestUser)) {
-    return { mode: "bolder", raw: latestUser };
-  }
-  if (/(for dinner|dinner version|make it dinner|evening version|date night|night out)/i.test(latestUser)) {
-    return { mode: "dinner", raw: latestUser };
-  }
-  if (/(for work|work version|office|meeting|client|professional|boardroom)/i.test(latestUser)) {
-    return { mode: "work", raw: latestUser };
-  }
-  if (/(for weekend|weekend version|off-duty|casual weekend|brunch|errands)/i.test(latestUser)) {
-    return { mode: "weekend", raw: latestUser };
-  }
-  if (/(for travel|travel version|airport|plane|packing|capsule for travel)/i.test(latestUser)) {
-    return { mode: "travel", raw: latestUser };
-  }
-  if (/(swap|change|keep|warmer|cooler|casual|formal|elevated|polished|premium|minimal|refine|adjust|tweak|sharpen|soften|elegant|weekend|work|dinner|travel|simpler|bolder)/i.test(latestUser)) {
-    return { mode: "targeted_refinement", raw: latestUser };
-  }
-  return { mode: "new_look", raw: latestUser };
-}
-
-function detectStylistChatMode(params: {
-  messages: MessageInput[];
-  activeLook: ActiveLookContext;
-  anchor: GarmentRecord | null;
-  refinementIntent: RefinementIntent;
-}): StylistChatMode {
-  const latestUser = normalizeTerm(getMessageText(params.messages.filter((m) => m.role === "user").slice(-1)[0]?.content || ""));
-  if (!latestUser) return "OUTFIT_GENERATION";
-
-  const hasActiveLook = params.activeLook.garmentIds.length >= 2;
-  const hasAnchor = !!params.anchor;
-
-  const SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|ty|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right|good|alright|sweet|neat|bet|word|will do|ah|oh|wow)[!.,?\s]*$/i;
-  if (SHORT_RE.test(latestUser.trim())) return "CONVERSATIONAL";
-
-  const KNOW_RE = /what.s (a |the )?(french tuck|quiet luxury|capsule wardrobe|smart casual|business casual)|tell me about|how to (wear|style|dress|pair)/i;
-  if (KNOW_RE.test(latestUser) && !hasActiveLook && !hasAnchor) return "CONVERSATIONAL";
-
-  return detectStylistChatModeFromSignals({
-    latestUser,
-    hasActiveLook,
-    hasAnchor,
-    refinementMode: params.refinementIntent.mode,
-  });
-}
+// detectStylistChatMode removed — replaced by AI classifier (classifyIntent)
 
 
 function buildActiveLookContext(
@@ -1021,6 +932,7 @@ serve(async (req) => {
       active_look,
       garmentCount: _clientGarmentCount,
       archetype: _clientArchetype,
+      locked_slots,
     } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
@@ -1123,11 +1035,61 @@ serve(async (req) => {
         fallback_used: false,
         degraded_reason: null,
         render_outfit_card: false,
+        clear_active_look: false,
       };
 
       log.info("request.complete", { requestId, userId: user.id, stage: "quick_conversational", durationMs: Date.now() - requestStartedAt });
       return createSseTextResponse(quickEnvelope);
     }
+
+    // ── Intent classification (Pass 1) ──
+    const hasActiveLookForClassifier = Array.isArray(explicitActiveLook?.garment_ids) && explicitActiveLook.garment_ids.length >= 2;
+    const hasAnchorForClassifier = Array.isArray(selected_garment_ids) && selected_garment_ids.length > 0;
+    const garmentCountNum = typeof _clientGarmentCount === "number" ? _clientGarmentCount : 0;
+    let classifierResult: ClassifierResult;
+
+    if (garmentCountNum === 0) {
+      classifierResult = { ...CLASSIFIER_FALLBACK, needs_more_context: false };
+    } else {
+      const lastTwoMessages = safeMessagesQuick
+        .filter((m: any) => m.role === "user" || m.role === "assistant")
+        .slice(-2)
+        .map((m: any) => ({
+          role: m.role as string,
+          text: typeof m.content === "string" ? m.content.slice(0, 150) : "",
+        }));
+
+      const classifierInput: ClassifierInput = {
+        userMessage: latestUserText,
+        hasActiveLook: hasActiveLookForClassifier,
+        hasAnchor: hasAnchorForClassifier,
+        garmentCount: garmentCountNum,
+        lastMessages: lastTwoMessages,
+        lockedSlots: Array.isArray(locked_slots) ? locked_slots : [],
+      };
+
+      const classifierPromise = classifyIntent(classifierInput, async (msgs, complexity) => {
+        const resp = await callBursAI({
+          functionName: "style_chat",
+          messages: msgs.map((m) => ({ role: m.role as "system" | "user", content: m.content })),
+          complexity: complexity as "trivial",
+          cacheTtlSeconds: 0,
+          cacheNamespace: "style_chat_classifier",
+        });
+        return typeof resp.data === "string" ? resp.data : "";
+      });
+
+      const timeoutPromise = new Promise<ClassifierResult>((resolve) =>
+        setTimeout(() => resolve(CLASSIFIER_FALLBACK), 3000)
+      );
+
+      classifierResult = await Promise.race([classifierPromise, timeoutPromise]);
+    }
+
+    const specialtyModes = new Set(["PURCHASE_PRIORITIZATION", "WARDROBE_GAP_ANALYSIS", "PLANNING", "STYLE_IDENTITY_ANALYSIS"]);
+    const classifiedMode: StylistChatMode = specialtyModes.has(classifierResult.intent as string)
+      ? classifierResult.intent as StylistChatMode
+      : mapClassifierToMode(classifierResult, hasAnchorForClassifier);
 
     const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes, negPairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
@@ -1288,7 +1250,20 @@ serve(async (req) => {
 
     const activeLook = buildActiveLookContext(safeMessages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
     const latestUser = normalizeTerm(getMessageText(safeMessages.filter((message: any) => message.role === "user").slice(-1)[0]?.content || ""));
-    const refinementIntent = detectRefinementIntent(safeMessages as MessageInput[]);
+    const mapHintToRefinementMode = (hint: string | null): RefinementIntent["mode"] => {
+      if (!hint) return "new_look";
+      const direct: Record<string, RefinementIntent["mode"]> = {
+        warmer: "warmer", cooler: "cooler", more_formal: "more_formal", less_formal: "less_formal",
+        swap_shoes: "swap_shoes", use_less_worn: "use_less_worn",
+        swap_outerwear: "swap_layer", swap_top: "targeted_refinement",
+        swap_bottom: "targeted_refinement", different_style: "targeted_refinement",
+      };
+      return direct[hint] ?? "new_look";
+    };
+    const refinementIntent: RefinementIntent = {
+      mode: mapHintToRefinementMode(classifierResult.refinement_hint),
+      raw: latestUser,
+    };
     const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor, activeLook, refinementIntent);
     const styleIntent = resolveStyleChatIntentFromSignals({
       latestUser,
@@ -1306,12 +1281,7 @@ serve(async (req) => {
       selectedGarmentIds,
       anchorReleased,
     });
-    const stylistMode = detectStylistChatMode({
-      messages: safeMessages as MessageInput[],
-      activeLook,
-      anchor: wardrobeCtx.anchor,
-      refinementIntent,
-    });
+    const stylistMode = classifiedMode;
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const modeContract = buildModeContract(stylistMode, lang);
     const chatComplexity = stylistMode === "CONVERSATIONAL"
@@ -1451,6 +1421,16 @@ serve(async (req) => {
       || (authoritativeOutfitIds.length > 0 && !validatedUnifiedOutfitIds.length)
     );
 
+    const lockedSlotsInfo = Array.isArray(locked_slots) && locked_slots.length > 0
+      ? `\nThe user has LOCKED these garments (do NOT swap them): ${locked_slots.join(", ")}. Only swap unlocked garments.`
+      : "";
+
+    const emptyWardrobeHint = garmentCountNum === 0
+      ? "\nThe user's wardrobe is empty. Tell them to add garments first. Do NOT attempt outfit generation."
+      : garmentCountNum <= 4
+        ? "\nThe user has very few garments. Mention they should add more for better combinations."
+        : "";
+
     const systemPrompt = `${VOICE_STYLIST_CHAT}
 
 LANGUAGE: Respond ONLY in ${lang.name}. Every word.
@@ -1508,7 +1488,7 @@ OUTFIT SLOT RULES — CRITICAL:
 - The anchor garment claims its slot — all remaining IDs in the tag must come from DIFFERENT slots
 - [ID:...] notation that appears in the wardrobe listing is INTERNAL REFERENCE ONLY — you must NEVER write [ID:...] patterns in your prose sentences; refer to garments by name or [[garment:ID]] tag only
 
-${refinementContract}`;
+${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
 
     const preparedMessages = (safeMessages as MessageInput[]).map((m) => {
       if (typeof m.content === "string") {
@@ -1710,6 +1690,7 @@ ${refinementContract}`;
       fallback_used: fallbackUsed,
       degraded_reason: degradedReason,
       render_outfit_card: renderOutfitCard,
+      clear_active_look: classifierResult.clear_active_look,
     };
 
     log.info("request.complete", {
