@@ -251,11 +251,11 @@ export default function SettingsPrivacy() {
           <div className="rounded-[1.25rem] overflow-hidden border border-border/40">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <div>
+                <button type="button" className="w-full text-left">
                   <SettingsRow icon={<Trash2 />} label={t('settings.delete_account')} last className="text-destructive [&_span]:text-destructive">
                     <ChevronRight className="w-4 h-4 text-destructive/60" />
                   </SettingsRow>
-                </div>
+                </button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
