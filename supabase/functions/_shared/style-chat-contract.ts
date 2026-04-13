@@ -19,6 +19,50 @@ export type StyleChatActiveLookStatus = "new" | "preserved" | "updated" | "repla
 
 export type StyleChatIntentKind = "create" | "refine" | "explain" | "clarify";
 
+// ── Intent classifier types (replaces regex-based detection) ──
+
+export type ClassifierIntent = "conversation" | "generate_outfit" | "refine_outfit" | "explain_outfit";
+
+export type RefinementHint =
+  | "warmer" | "cooler" | "more_formal" | "less_formal"
+  | "swap_shoes" | "swap_top" | "swap_bottom" | "swap_outerwear"
+  | "different_style" | "use_less_worn"
+  | null;
+
+export interface ClassifierResult {
+  intent: ClassifierIntent;
+  needs_more_context: boolean;
+  refinement_hint: RefinementHint;
+  locked_slots: string[] | null;
+  clear_active_look: boolean;
+}
+
+export const CLASSIFIER_FALLBACK: ClassifierResult = {
+  intent: "conversation",
+  needs_more_context: true,
+  refinement_hint: null,
+  locked_slots: null,
+  clear_active_look: false,
+};
+
+export function mapClassifierToMode(
+  result: ClassifierResult,
+  hasAnchor: boolean,
+): StylistChatMode {
+  switch (result.intent) {
+    case "conversation":
+      return "CONVERSATIONAL";
+    case "generate_outfit":
+      return hasAnchor ? "GARMENT_FIRST_STYLING" : "OUTFIT_GENERATION";
+    case "refine_outfit":
+      return "ACTIVE_LOOK_REFINEMENT";
+    case "explain_outfit":
+      return "LOOK_EXPLANATION";
+    default:
+      return "CONVERSATIONAL";
+  }
+}
+
 export interface StyleChatActiveLookInput {
   garment_ids?: string[];
   explanation?: string | null;
@@ -54,6 +98,7 @@ export interface StyleChatResponseEnvelope {
   fallback_used: boolean;
   degraded_reason: string | null;
   render_outfit_card: boolean;
+  clear_active_look: boolean;
 }
 
 export function isStylingMode(mode: StylistChatMode): boolean {
