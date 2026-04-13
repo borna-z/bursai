@@ -492,7 +492,7 @@ export function StyleQuizV3({ onComplete, onSkip, isSaving }: Props) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Progress bar */}
-      <div className="fixed top-0 left-0 right-0 z-50">
+      <div className="fixed top-0 left-0 right-0" style={{ zIndex: 'var(--z-modal)' as unknown as number }}>
         <Progress value={progressPct} className="h-1 rounded-none" />
       </div>
 

@@ -101,8 +101,8 @@ export function MilestoneCelebration() {
       {active && (
         <motion.div
           key={active}
-          className="fixed inset-0 z-[200] flex items-center justify-center cursor-pointer"
-          style={{ background: 'hsl(var(--foreground) / 0.88)' }}
+          className="fixed inset-0 flex items-center justify-center cursor-pointer"
+          style={{ zIndex: 'var(--z-celebration)' as unknown as number, background: 'hsl(var(--foreground) / 0.88)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

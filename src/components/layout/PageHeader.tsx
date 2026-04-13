@@ -13,6 +13,10 @@ interface PageHeaderProps {
   actions?: ReactNode;
   className?: string;
   titleClassName?: string;
+  /**
+   * Whether the header sticks to the top of the scroll container.
+   * Kept as public API for Phase 1 compatibility — Phase 2 will remove it.
+   */
   sticky?: boolean;
 }
 
@@ -20,12 +24,19 @@ export function PageHeader({
   title, subtitle, eyebrow, showBack = false, actions, className, titleClassName, sticky = true,
 }: PageHeaderProps) {
   const navigate = useNavigate();
+
   return (
-    <header className={cn(sticky ? 'topbar-frost sticky top-0 z-20' : 'relative z-10', className)}>
+    <header
+      className={cn(
+        sticky ? 'topbar-frost sticky top-0' : 'relative',
+        className,
+      )}
+      style={{ zIndex: 'var(--z-header)' } as React.CSSProperties}
+    >
       <div
         className={cn(
           'mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-[var(--page-px)]',
-          subtitle || eyebrow ? (sticky ? 'min-h-[68px] py-2.5' : 'min-h-[64px] py-1.5') : (sticky ? 'h-[60px]' : 'h-[56px]'),
+          subtitle || eyebrow ? 'min-h-[68px] py-2.5' : 'h-[60px]',
         )}
         style={{ paddingTop: '12px' }}
       >

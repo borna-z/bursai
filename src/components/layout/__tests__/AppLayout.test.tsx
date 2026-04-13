@@ -75,4 +75,38 @@ describe('AppLayout', () => {
     // visualViewport.offsetTop (18) wins.
     expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('18px');
   });
+
+  it('renders an app-level safe-area cover above main', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AppLayout>
+          <div>Shell content</div>
+        </AppLayout>
+      </MemoryRouter>,
+    );
+
+    const cover = container.querySelector('[data-app-safe-area-cover="true"]');
+    expect(cover).not.toBeNull();
+    // Must be topbar-frost so it visually matches the sticky header below it.
+    expect(cover?.className ?? '').toContain('topbar-frost');
+  });
+
+  it('pads <main> with the safe-area inset so pages without PageHeader still clear the dynamic island', () => {
+    render(
+      <MemoryRouter>
+        <AppLayout>
+          <div>Shell content</div>
+        </AppLayout>
+      </MemoryRouter>,
+    );
+
+    const main = screen.getByRole('main');
+    // Padding is expressed as both an inline style and a Tailwind arbitrary
+    // class because JSDOM strips var() from inline padding-top during its
+    // CSS parse. Runtime browsers honor the inline style; the class is the
+    // test-visible fallback and also survives prerendering/SSR.
+    const style = main.getAttribute('style') ?? '';
+    const className = main.className ?? '';
+    expect(style + ' ' + className).toContain('var(--safe-area-top)');
+  });
 });

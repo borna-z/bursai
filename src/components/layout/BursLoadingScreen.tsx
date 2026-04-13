@@ -36,9 +36,13 @@ export function BursLoadingScreen() {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background overflow-hidden">
+    <div
+      className="fixed inset-0 flex flex-col items-center justify-center bg-background overflow-hidden"
+      style={{ zIndex: 'var(--z-modal)' as unknown as number }}
+    >
       <BackgroundLines />
-      <motion.p className="absolute top-[max(env(safe-area-inset-top,0px),28px)] left-0 right-0 text-center text-[9px] uppercase tracking-[0.28em] text-muted-foreground/30"
+      <motion.p className="absolute left-0 right-0 text-center text-[9px] uppercase tracking-[0.28em] text-muted-foreground/30"
+        style={{ top: 'max(var(--safe-area-top), 28px)' }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: prefersReducedMotion ? 0.1 : 1.2, delay: prefersReducedMotion ? 0 : 0.4 }}>
         Personal Style Intelligence
       </motion.p>

@@ -56,7 +56,7 @@ export function UploadStep({
       <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onImageSelect} className="hidden" />
       <input ref={batchInputRef} type="file" accept="image/*" multiple onChange={onBatchSelect} className="hidden" />
 
-      <header className="flex items-center justify-between px-4 pb-1.5 sm:px-5" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}>
+      <header className="flex items-center justify-between px-4 pb-1.5 sm:px-5" style={{ paddingTop: 'max(var(--safe-area-top), 14px)' }}>
         <button
           onClick={() => { hapticLight(); onBack(); }}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/90 transition-colors active:bg-card cursor-pointer"

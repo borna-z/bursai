@@ -650,13 +650,15 @@ export default function LiveScan() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[70] overflow-y-auto bg-background/92 backdrop-blur-xl"
+              className="fixed inset-0 overflow-y-auto bg-background/92 backdrop-blur-xl"
+              style={{ zIndex: 'var(--z-modal)' as unknown as number }}
             >
               <motion.div
                 initial={{ opacity: 0, y: 20, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: EASE_CURVE }}
-                className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-end gap-5 px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] sm:justify-center"
+                className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-end gap-5 px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] sm:justify-center"
+                style={{ paddingTop: 'calc(var(--safe-area-top) + 5.5rem)' }}
               >
                 {/* Image with editorial overlay */}
                 <div className="relative rounded-[1.25rem] overflow-hidden bg-[hsl(36_33%_93%)]">

@@ -29,7 +29,7 @@ export function ExitIntentModal() {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4" onClick={dismiss}>
+    <div className="fixed inset-0 flex items-center justify-center px-4" style={{ zIndex: 'var(--z-toast)' as unknown as number }} onClick={dismiss}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative glass-panel rounded-[1.25rem] p-8 md:p-10 max-w-md w-full text-center space-y-5 animate-scale-in"

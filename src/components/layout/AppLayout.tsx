@@ -31,24 +31,35 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
         height: 'var(--app-viewport-height, 100svh)',
       }}
     >
-      {!hideNav ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-secondary/42 via-background/78 to-transparent"
-        />
-      ) : null}
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md">
+      {/* App-level safe-area cover: frosted band that sits above the dynamic-island
+          / notch on every page, including those without PageHeader. Paints above
+          <main> so content scrolling under it is hidden behind the frost. */}
+      <div
+        aria-hidden="true"
+        data-app-safe-area-cover="true"
+        className="topbar-frost pointer-events-none absolute inset-x-0 top-0"
+        style={{
+          height: 'var(--safe-area-top)',
+          zIndex: 'var(--z-header)',
+        } as React.CSSProperties}
+      />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-md"
+        style={{ zIndex: 'var(--z-celebration)' } as React.CSSProperties}
+      >
         {t('common.skip_to_main')}
       </a>
       <OfflineBanner />
       <main
         id="main-content"
-        className="relative z-[1] flex-1 overflow-x-clip overflow-y-auto scrollbar-hide"
+        className="relative flex-1 overflow-x-clip overflow-y-auto scrollbar-hide pt-[var(--safe-area-top)]"
         style={{
+          zIndex: 'var(--z-base)',
           paddingTop: 'var(--safe-area-top)',
           paddingBottom: hideNav ? '0px' : 'var(--app-bottom-clearance)',
           overscrollBehavior: 'none',
-        }}
+        } as React.CSSProperties}
       >
         {children}
       </main>

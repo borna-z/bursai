@@ -87,9 +87,10 @@ export function useViewportShell() {
     const updateViewportVars = () => {
       const visualViewport = window.visualViewport;
       const height = visualViewport?.height ?? window.innerHeight;
-      const viewportOffset = Math.max(visualViewport?.offsetTop ?? 0, 0);
-      // Combine the device-level safe area with any transient viewport shift
-      // (keyboard, zoom, browser chrome) so content never slides under system UI.
+      const rawOffset = Math.max(visualViewport?.offsetTop ?? 0, 0);
+      // Ignore sub-3px visualViewport offsets — iOS emits tiny noise values
+      // during keyboard open/close that cause visible layout jitter.
+      const viewportOffset = rawOffset >= 3 ? rawOffset : 0;
       const offsetTop = Math.max(cachedSafeTopBase, viewportOffset);
 
       root.style.setProperty(HEIGHT_VAR, `${height}px`);
