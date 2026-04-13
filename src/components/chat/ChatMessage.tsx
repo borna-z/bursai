@@ -52,6 +52,14 @@ interface ChatMessageProps {
   showStyleCards?: boolean;
   onGarmentClick?: (garmentId: string) => void;
   displayMetaOverride?: StyleChatResponseEnvelope | null;
+  isRefining?: boolean;
+  lockedSlots?: string[];
+  onRefine?: (garmentIds: string[], explanation: string) => void;
+  onSave?: (garmentIds: string[]) => void;
+  onToggleLock?: (garmentId: string) => void;
+  isSaving?: boolean;
+  isSaved?: boolean;
+  changedGarmentIds?: string[];
 }
 
 function getResolvedOutfitIds(meta?: StyleChatResponseEnvelope | null): string[] {
@@ -66,7 +74,7 @@ function getResolvedOutfitExplanation(meta?: StyleChatResponseEnvelope | null): 
   return meta.active_look?.explanation || meta.outfit_explanation || '';
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick, displayMetaOverride }: ChatMessageProps) {
+export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick, displayMetaOverride, isRefining, lockedSlots, onRefine, onSave, onToggleLock, isSaving, isSaved, changedGarmentIds }: ChatMessageProps) {
   const navigate = useNavigate();
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
@@ -197,6 +205,14 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                       explanation={oc.explanation}
                       onTryOutfit={onTryOutfit || (() => {})}
                       isCreating={isCreatingOutfit}
+                      isRefining={isRefining}
+                      lockedSlots={lockedSlots}
+                      onRefine={onRefine}
+                      onSave={onSave}
+                      onToggleLock={onToggleLock}
+                      isSaving={isSaving}
+                      isSaved={isSaved}
+                      changedGarmentIds={changedGarmentIds}
                     />
                   ))}
                   {rejectionLine && (
@@ -260,6 +276,14 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                     explanation={oc.explanation}
                     onTryOutfit={onTryOutfit || (() => {})}
                     isCreating={isCreatingOutfit}
+                    isRefining={isRefining}
+                    lockedSlots={lockedSlots}
+                    onRefine={onRefine}
+                    onSave={onSave}
+                    onToggleLock={onToggleLock}
+                    isSaving={isSaving}
+                    isSaved={isSaved}
+                    changedGarmentIds={changedGarmentIds}
                   />
                 ))}
               </div>
