@@ -141,7 +141,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="page-shell !max-w-lg !px-6 !pb-16 !pt-24 page-cluster">
+      <div className="page-shell !max-w-lg !px-6 !pb-16 !pt-[calc(var(--safe-area-top)+6rem)] page-cluster">
         <Card surface="editorial" className="p-6">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.35rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
             <Camera className="h-7 w-7 text-foreground/72" />

@@ -24,8 +24,8 @@ export function SeedProgressPill() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           onClick={() => navigate('/settings/seed-wardrobe')}
-          className="fixed bottom-24 right-4 flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-primary-foreground shadow-lg text-sm font-medium"
-          style={{ zIndex: 'var(--z-floating-pill)' as unknown as number }}
+          className="fixed right-4 flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-primary-foreground shadow-lg text-sm font-medium"
+          style={{ bottom: 'calc(var(--app-bottom-clearance) + 1rem)', zIndex: 'var(--z-floating-pill)' as unknown as number }}
         >
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           {step === 'deleting' ? 'Deleting...' : `Seeding ${done}/${totalToProcess}`}

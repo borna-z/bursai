@@ -454,7 +454,7 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="page-shell !max-w-lg !px-6 !pb-28 !pt-24 page-cluster">
+      <div className="page-shell !max-w-lg !px-6 !pb-28 !pt-[calc(var(--safe-area-top)+6rem)] page-cluster">
         <Card surface="editorial" className="p-6">
           <PageIntro
             center
