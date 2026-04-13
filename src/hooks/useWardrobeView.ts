@@ -1,13 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useGarments, useGarmentSearch, useUpdateGarment, useDeleteGarment, useGarmentCount, useSmartFilterCounts } from '@/hooks/useGarments';
 import { useSubscription } from '@/hooks/useSubscription';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
-import { asPreferences } from '@/types/preferences';
-import type { Json } from '@/integrations/supabase/types';
+import { useProfile } from '@/hooks/useProfile';
 
 export type WardrobeTab = 'garments' | 'outfits';
 export type WardrobeSort = 'created_at' | 'last_worn_at' | 'wear_count';
@@ -46,7 +43,6 @@ export function useWardrobeView({
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
   const { data: profile } = useProfile();
-  const updateProfile = useUpdateProfile();
 
   const isSearching = debouncedSearch.trim().length > 0;
 
@@ -82,34 +78,9 @@ export function useWardrobeView({
     return infiniteData?.pages.flatMap(p => p.items) ?? [];
   }, [isSearching, searchData, infiniteData]);
 
-  const isComputingRef = useRef(false);
-
-  useEffect(() => {
-    if (isLoading || allGarments.length === 0) return;
-    if (isComputingRef.current) return;
-    const prefs = asPreferences(profile?.preferences);
-    const computedAt = prefs.wardrobeDnaComputedAt as string | undefined;
-    const lastKnownCount = Number(localStorage.getItem('burs_dna_garment_count') ?? '0');
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const shouldRecompute = !computedAt || computedAt < sevenDaysAgo || Math.abs(allGarments.length - lastKnownCount) >= 3;
-    if (!shouldRecompute) return;
-
-    isComputingRef.current = true;
-    (async () => {
-      try {
-        const { error } = await invokeEdgeFunction('compute_wardrobe_dna', {});
-        if (error) throw error;
-        localStorage.setItem('burs_dna_garment_count', String(allGarments.length));
-        await updateProfile.mutateAsync({
-          preferences: { ...prefs, wardrobeDnaComputedAt: new Date().toISOString() } as unknown as Json,
-        });
-      } catch (err) {
-        logger.error('[Wardrobe] compute_wardrobe_dna failed:', err);
-      } finally {
-        isComputingRef.current = false;
-      }
-    })();
-  }, [allGarments.length, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // NOTE: compute_wardrobe_dna was removed — the edge function never existed
+  // and every call returned 401, polluting logs and tripping circuit breakers.
+  // When a real wardrobe-DNA compute function is built, re-add the call here.
 
   // Smart filter and all other filters run server-side via useGarments/useGarmentCount,
   // so the infinite-query result is already correctly filtered + sorted. The displayed

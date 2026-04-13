@@ -7,6 +7,7 @@
  * - Respects Retry-After header from server
  * - Distinguishes transient failures from overload/hard failures
  * - Client-side circuit breaker prevents hammering failing functions
+ * - Pre-flight session refresh: checks token expiry before every call
  */
 import { supabase } from '@/integrations/supabase/client';
 import { EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, EDGE_FUNCTION_MAX_BACKOFF_MS } from '@/config/constants';
@@ -85,11 +86,40 @@ function isNonRetryableError(error: unknown): boolean {
     // FunctionsHttpError from supabase-js includes status in message
     if (msg.includes('429') || msg.includes('rate limit')) return true;
     if (msg.includes('402') || msg.includes('payment')) return true;
-    if (msg.includes('401') || msg.includes('unauthorized')) return true;
+    // 401 is NOT non-retryable — it may be a stale token that can be
+    // recovered by refreshing the session (see isAuthError + retry logic).
     if (msg.includes('403') || msg.includes('forbidden')) return true;
     if (msg.includes('400') || msg.includes('bad request')) return true;
   }
   return false;
+}
+
+/** Detect 401/unauthorized so we can attempt a session refresh + retry. */
+function isAuthError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('401') || msg.includes('unauthorized');
+  }
+  return false;
+}
+
+// ── Pre-flight session refresh ───────────────────────────────────
+// Supabase auto-refresh can lag behind, especially when the app has been
+// backgrounded on mobile (Median.co wrapper, iOS/Android).  Before every
+// edge function call, check if the access token is expired or about to
+// expire within the next 60 seconds.  If so, force a refresh so the
+// invoke call uses a fresh token.  This eliminates the 401 storms that
+// occur when a user returns from background with a stale JWT.
+const TOKEN_EXPIRY_BUFFER_S = 60;
+
+async function ensureFreshSession(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return; // not logged in — edge function will handle 401
+
+  const expiresAt = session.expires_at; // unix seconds
+  if (expiresAt && expiresAt - TOKEN_EXPIRY_BUFFER_S < Date.now() / 1000) {
+    await supabase.auth.refreshSession();
+  }
 }
 
 /** Add jitter to backoff to prevent thundering herd */
@@ -109,6 +139,15 @@ export async function invokeEdgeFunction<T = unknown>(
 ): Promise<{ data: T | null; error: Error | null }> {
   const { timeout = EDGE_FUNCTION_DEFAULT_TIMEOUT_MS, retries = 2, body, idempotent } = opts;
 
+  // Ensure the session token is fresh before calling any edge function.
+  // This prevents the 401 storms that occur when the app returns from
+  // background with an expired JWT (common on Median.co mobile wrapper).
+  try {
+    await ensureFreshSession();
+  } catch {
+    // Non-fatal — proceed with whatever token we have.
+  }
+
   // Circuit breaker check
   if (!checkCircuit(functionName)) {
     return {
@@ -122,6 +161,7 @@ export async function invokeEdgeFunction<T = unknown>(
   const idempotencyKey = idempotent ? crypto.randomUUID() : undefined;
 
   let lastError: Error | null = null;
+  let authRetried = false; // tracks whether we already attempted a session refresh on 401
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
@@ -150,6 +190,19 @@ export async function invokeEdgeFunction<T = unknown>(
         if (isNonRetryableError(lastError)) {
           recordCircuitFailure(functionName);
           break; // Do NOT retry
+        }
+
+        // 401 = likely stale token.  Refresh the session and allow one
+        // more retry so the next attempt uses a fresh access token.
+        if (isAuthError(lastError) && !authRetried) {
+          authRetried = true;
+          try { await supabase.auth.refreshSession(); } catch { /* proceed */ }
+          continue; // retry with fresh token
+        }
+        if (isAuthError(lastError)) {
+          // Already retried after refresh — give up.
+          recordCircuitFailure(functionName);
+          break;
         }
 
         // Check if the data contains rate limit info

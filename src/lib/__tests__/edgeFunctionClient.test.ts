@@ -5,6 +5,10 @@ vi.mock('@/integrations/supabase/client', () => ({
     functions: {
       invoke: vi.fn(),
     },
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: Math.floor(Date.now() / 1000) + 3600 } }, error: null }),
+      refreshSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    },
   },
 }));
 
@@ -61,14 +65,15 @@ describe('invokeEdgeFunction', () => {
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 
-  it('does NOT retry 401 unauthorized errors', async () => {
+  it('retries 401 once after session refresh, then gives up', async () => {
     mockInvoke.mockResolvedValue({
       data: null,
       error: new Error('401 Unauthorized'),
     });
-    const { data, error } = await invokeEdgeFunction('auth_test_fn', { retries: 2 });
+    const { error } = await invokeEdgeFunction('auth_test_fn', { retries: 2 });
     expect(error).toBeTruthy();
-    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    // First attempt fails with 401 → refresh session → retry once → still 401 → stop
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
   });
 
   it('detects rate limit from response data with retryAfter', async () => {
