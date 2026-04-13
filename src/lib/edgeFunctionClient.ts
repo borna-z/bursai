@@ -225,7 +225,11 @@ export async function invokeEdgeFunction<T = unknown>(
               return { data: retry.data as T, error: null };
             }
             lastError = retry.error instanceof Error ? retry.error : new Error(String(retry.error));
-          } catch { /* fall through to break */ }
+          } catch (retryErr) {
+            // Preserve the actual error so it isn't misclassified as a
+            // 401 auth failure when it was really a transient issue.
+            lastError = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+          }
           finally { clearTimeout(retryTimer); }
         }
         if (isAuthError(lastError)) {
