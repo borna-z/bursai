@@ -192,15 +192,31 @@ export async function invokeEdgeFunction<T = unknown>(
           break; // Do NOT retry
         }
 
-        // 401 = likely stale token.  Refresh the session and allow one
-        // more retry so the next attempt uses a fresh access token.
+        // 401 = likely stale token.  Refresh the session and re-invoke
+        // once.  This is done inline (not via `continue`) so it works
+        // even when `retries` is 0 — the auth recovery attempt does not
+        // count against the caller's retry budget.
         if (isAuthError(lastError) && !authRetried) {
           authRetried = true;
           try { await supabase.auth.refreshSession(); } catch { /* proceed */ }
-          continue; // retry with fresh token
+          const retryController = new AbortController();
+          const retryTimer = setTimeout(() => retryController.abort(), timeout);
+          try {
+            const retry = await supabase.functions.invoke(functionName, {
+              body: body ?? undefined,
+              headers,
+              signal: retryController.signal,
+            });
+            if (!retry.error) {
+              recordCircuitSuccess(functionName);
+              return { data: retry.data as T, error: null };
+            }
+            lastError = retry.error instanceof Error ? retry.error : new Error(String(retry.error));
+          } catch { /* fall through to break */ }
+          finally { clearTimeout(retryTimer); }
         }
         if (isAuthError(lastError)) {
-          // Already retried after refresh — give up.
+          // Refresh + retry didn't help — genuine auth failure.
           recordCircuitFailure(functionName);
           break;
         }

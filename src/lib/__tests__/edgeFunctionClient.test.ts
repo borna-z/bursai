@@ -72,7 +72,28 @@ describe('invokeEdgeFunction', () => {
     });
     const { error } = await invokeEdgeFunction('auth_test_fn', { retries: 2 });
     expect(error).toBeTruthy();
-    // First attempt fails with 401 → refresh session → retry once → still 401 → stop
+    // First attempt fails with 401 → refresh session → inline retry → still 401 → stop
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries 401 after refresh even when retries is 0', async () => {
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: new Error('401 Unauthorized'),
+    });
+    const { error } = await invokeEdgeFunction('auth_zero_retry_fn', { retries: 0 });
+    expect(error).toBeTruthy();
+    // Auth recovery is inline — works even with retries: 0
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers from 401 when refresh succeeds', async () => {
+    mockInvoke
+      .mockResolvedValueOnce({ data: null, error: new Error('401 Unauthorized') })
+      .mockResolvedValueOnce({ data: { ok: true }, error: null });
+    const { data, error } = await invokeEdgeFunction('auth_recover_fn', { retries: 0 });
+    expect(error).toBeNull();
+    expect(data).toEqual({ ok: true });
     expect(mockInvoke).toHaveBeenCalledTimes(2);
   });
 
