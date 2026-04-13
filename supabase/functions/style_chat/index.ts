@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_STYLIST_CHAT } from "../_shared/burs-voice.ts";
 import {
-  resolveStyleChatIntentFromSignals,
   resolveActiveLookStatus,
   resolveStyleCardState,
   resolveStyleCardPolicy,
@@ -1265,12 +1264,12 @@ serve(async (req) => {
       raw: latestUser,
     };
     const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor, activeLook, refinementIntent);
-    const styleIntent = resolveStyleChatIntentFromSignals({
-      latestUser,
-      hasActiveLook: activeLook.garmentIds.length >= 2,
-      hasAnchor: Boolean(wardrobeCtx.anchor),
-      refinementMode: refinementIntent.mode,
-    });
+    const styleIntent =
+      classifierResult.intent === "generate_outfit" ? "create"
+      : classifierResult.intent === "refine_outfit" ? "refine"
+      : classifierResult.intent === "explain_outfit" ? "explain"
+      : classifierResult.needs_more_context ? "clarify"
+      : "create";
     const anchorReleased = didUserExplicitlyReleaseAnchor(safeMessages as MessageInput[], wardrobeCtx.anchor, selectedGarmentIds);
     const refinementPlan = buildStructuredRefinementPlan({
       intent: refinementIntent,

@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  detectStylistChatModeFromSignals,
-  resolveStyleChatIntentFromSignals,
   resolveActiveLookStatus,
   resolveStyleCardPolicy,
   resolveStyleCardState,
@@ -12,87 +10,6 @@ import {
 } from '../../../supabase/functions/_shared/style-chat-contract';
 
 describe('styleChatContract', () => {
-  it('routes more elevated to active-look refinement when a look is already live', () => {
-    expect(detectStylistChatModeFromSignals({
-      latestUser: 'make it more elevated',
-      hasActiveLook: true,
-      hasAnchor: false,
-      refinementMode: 'more_elevated',
-    })).toBe('ACTIVE_LOOK_REFINEMENT');
-  });
-
-  it('routes make it more formal into active-look refinement when a look is already live', () => {
-    expect(detectStylistChatModeFromSignals({
-      latestUser: 'make it more formal',
-      hasActiveLook: true,
-      hasAnchor: false,
-      refinementMode: 'more_formal',
-    })).toBe('ACTIVE_LOOK_REFINEMENT');
-  });
-
-  it('keeps sharper, polished, and premium prompts in refinement mode when a live look exists', () => {
-    for (const latestUser of ['make it sharper', 'make it more polished', 'make it more premium']) {
-      expect(detectStylistChatModeFromSignals({
-        latestUser,
-        hasActiveLook: true,
-        hasAnchor: true,
-        refinementMode: 'targeted_refinement',
-      })).toBe('ACTIVE_LOOK_REFINEMENT');
-    }
-  });
-
-  it('keeps explanation turns in look-explanation mode when a live look exists', () => {
-    expect(detectStylistChatModeFromSignals({
-      latestUser: 'why does this work?',
-      hasActiveLook: true,
-      hasAnchor: false,
-      refinementMode: 'explain_why',
-    })).toBe('LOOK_EXPLANATION');
-  });
-
-  it('routes what should i change into refinement when a live look exists', () => {
-    expect(detectStylistChatModeFromSignals({
-      latestUser: 'what should i change',
-      hasActiveLook: true,
-      hasAnchor: false,
-      refinementMode: 'targeted_refinement',
-    })).toBe('ACTIVE_LOOK_REFINEMENT');
-  });
-
-  it('prefers garment-first styling for anchor-led requests without an active look', () => {
-    expect(detectStylistChatModeFromSignals({
-      latestUser: 'style this blazer for dinner',
-      hasActiveLook: false,
-      hasAnchor: true,
-      refinementMode: 'new_look',
-    })).toBe('GARMENT_FIRST_STYLING');
-  });
-
-  it('treats style this garment as a create action when an anchor is present', () => {
-    expect(resolveStyleChatIntentFromSignals({
-      latestUser: 'style this garment for dinner',
-      hasActiveLook: false,
-      hasAnchor: true,
-      refinementMode: 'targeted_refinement',
-    })).toBe('create');
-  });
-
-  it('asks for a short clarifier when the prompt depends on missing context', () => {
-    expect(resolveStyleChatIntentFromSignals({
-      latestUser: 'style this garment',
-      hasActiveLook: false,
-      hasAnchor: false,
-      refinementMode: 'targeted_refinement',
-    })).toBe('clarify');
-
-    expect(resolveStyleChatIntentFromSignals({
-      latestUser: 'explain why this works',
-      hasActiveLook: false,
-      hasAnchor: false,
-      refinementMode: 'explain_why',
-    })).toBe('clarify');
-  });
-
   it('marks unchanged looks as preserved and changed looks as updated', () => {
     expect(resolveActiveLookStatus(['a', 'b', 'c'], ['a', 'b', 'c'])).toBe('preserved');
     expect(resolveActiveLookStatus(['a', 'b', 'c'], ['a', 'b', 'd'])).toBe('updated');
