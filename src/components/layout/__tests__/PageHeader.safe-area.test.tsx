@@ -29,4 +29,43 @@ describe('PageHeader z-index and sticky behavior', () => {
     const cover = container.querySelector('[data-safe-area-cover="true"]');
     expect(cover).toBeNull();
   });
+
+  it('renders the overlay variant with transparent background', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <PageHeader title="Garment" variant="overlay" showBack />
+      </MemoryRouter>,
+    );
+    const header = container.querySelector('header');
+    expect(header).not.toBeNull();
+    expect(header?.getAttribute('data-variant')).toBe('overlay');
+    expect(header?.className ?? '').toContain('bg-transparent');
+    expect(header?.className ?? '').not.toContain('topbar-frost');
+  });
+
+  it('overlay variant back button uses image-friendly blur pill styling', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <PageHeader title="Garment" variant="overlay" showBack />
+      </MemoryRouter>,
+    );
+    const backButton = container.querySelector('button[aria-label="Go back"]');
+    expect(backButton).not.toBeNull();
+    const cls = backButton?.className ?? '';
+    expect(cls).toContain('backdrop-blur');
+    expect(cls).toContain('text-white');
+  });
+
+  it('solid variant back button uses standard editorial styling', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <PageHeader title="Wardrobe" variant="solid" showBack />
+      </MemoryRouter>,
+    );
+    const backButton = container.querySelector('button[aria-label="Go back"]');
+    expect(backButton).not.toBeNull();
+    const cls = backButton?.className ?? '';
+    expect(cls).toContain('text-foreground');
+    expect(cls).not.toContain('backdrop-blur');
+  });
 });
