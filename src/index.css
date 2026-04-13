@@ -50,6 +50,18 @@
     --safe-area-top: max(env(safe-area-inset-top, 0px), var(--app-viewport-offset-top, 0px));
     --page-px: 20px;
 
+    /* Z-index scale — single source of truth. Higher = more on top. */
+    --z-base: 1;
+    --z-header: 20;
+    --z-offline-banner: 30;
+    --z-bottom-nav: 40;
+    --z-floating-pill: 45;
+    --z-modal: 50;
+    --z-popover: 55;
+    --z-toast: 60;
+    --z-coach: 70;
+    --z-celebration: 80;
+
     /* Extended tokens */
     --success: 146 22% 36%;
     --success-foreground: 0 0% 100%;
