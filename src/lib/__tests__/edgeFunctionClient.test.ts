@@ -5,6 +5,10 @@ vi.mock('@/integrations/supabase/client', () => ({
     functions: {
       invoke: vi.fn(),
     },
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: { expires_at: Math.floor(Date.now() / 1000) + 3600 } }, error: null }),
+      refreshSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    },
   },
 }));
 
@@ -61,12 +65,58 @@ describe('invokeEdgeFunction', () => {
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 
-  it('does NOT retry 401 unauthorized errors', async () => {
+  it('retries 401 once after session refresh, then gives up', async () => {
     mockInvoke.mockResolvedValue({
       data: null,
       error: new Error('401 Unauthorized'),
     });
-    const { data, error } = await invokeEdgeFunction('auth_test_fn', { retries: 2 });
+    const { error } = await invokeEdgeFunction('auth_test_fn', { retries: 2 });
+    expect(error).toBeTruthy();
+    // First attempt fails with 401 → refresh session → inline retry → still 401 → stop
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries 401 after refresh even when retries is 0', async () => {
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: new Error('401 Unauthorized'),
+    });
+    const { error } = await invokeEdgeFunction('auth_zero_retry_fn', { retries: 0 });
+    expect(error).toBeTruthy();
+    // Auth recovery is inline — works even with retries: 0
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers from 401 when refresh succeeds', async () => {
+    mockInvoke
+      .mockResolvedValueOnce({ data: null, error: new Error('401 Unauthorized') })
+      .mockResolvedValueOnce({ data: { ok: true }, error: null });
+    const { data, error } = await invokeEdgeFunction('auth_recover_fn', { retries: 0 });
+    expect(error).toBeNull();
+    expect(data).toEqual({ ok: true });
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('detects 401 from FunctionsHttpError context.status (real Supabase shape)', async () => {
+    // Supabase FunctionsHttpError has a generic message + context with the Response
+    const httpError = Object.assign(
+      new Error('Edge Function returned a non-2xx status code'),
+      { name: 'FunctionsHttpError', context: { status: 401 } },
+    );
+    mockInvoke.mockResolvedValue({ data: null, error: httpError });
+    const { error } = await invokeEdgeFunction('context_401_fn', { retries: 0 });
+    expect(error).toBeTruthy();
+    // Should still attempt auth recovery via context.status detection
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT retry FunctionsHttpError 403 (non-retryable via context.status)', async () => {
+    const httpError = Object.assign(
+      new Error('Edge Function returned a non-2xx status code'),
+      { name: 'FunctionsHttpError', context: { status: 403 } },
+    );
+    mockInvoke.mockResolvedValue({ data: null, error: httpError });
+    const { error } = await invokeEdgeFunction('context_403_fn', { retries: 2 });
     expect(error).toBeTruthy();
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
