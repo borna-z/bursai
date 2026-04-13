@@ -1,8 +1,9 @@
 import type { ChangeEvent, RefObject } from 'react';
-import { Camera, Image as ImageIcon, Upload, X } from 'lucide-react';
+import { Camera, Image as ImageIcon, Upload } from 'lucide-react';
 
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 
@@ -32,11 +33,11 @@ export function UploadStep({
   isPremium,
   slotsLeft,
   slotsLeftLabel,
-  onBack,
+  onBack: _onBack,
   onOpenLiveScan,
   title,
-  prompt,
-  helperText,
+  prompt: _prompt,
+  helperText: _helperText,
   photoLabel,
   linkLabel: _linkLabel,
   cameraLabel,
@@ -56,23 +57,15 @@ export function UploadStep({
       <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onImageSelect} className="hidden" />
       <input ref={batchInputRef} type="file" accept="image/*" multiple onChange={onBatchSelect} className="hidden" />
 
-      <header className="flex items-center justify-between px-4 pb-1.5 sm:px-5" style={{ paddingTop: 'max(var(--safe-area-top), 14px)' }}>
-        <button
-          onClick={() => { hapticLight(); onBack(); }}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card/90 transition-colors active:bg-card cursor-pointer"
-          aria-label={t('common.close')}
-        >
-          <X className="h-5 w-5" />
-        </button>
-        <h1 className="font-display italic text-[1.18rem] font-medium sm:text-[1.25rem]">{title || t('addgarment.title')}</h1>
-        {!isPremium ? (
+      <PageHeader
+        title={title || t('addgarment.title')}
+        showBack
+        actions={!isPremium ? (
           <span className="rounded-full border border-border/70 bg-card/90 px-3 py-1 text-[11px] font-medium tracking-wide text-muted-foreground">
             {slotsLeft} {slotsLeftLabel}
           </span>
-        ) : (
-          <div className="w-10" />
-        )}
-      </header>
+        ) : undefined}
+      />
 
       <AnimatedPage className="page-shell !max-w-xl flex flex-1 flex-col gap-3.5 !pt-3">
         <section className="grid gap-3">
