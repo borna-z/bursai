@@ -1,13 +1,11 @@
 import { Helmet } from 'react-helmet-async';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Scale } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Scale } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { hapticLight } from '@/lib/haptics';
 import { EASE_CURVE, DURATION_MEDIUM } from '@/lib/motion';
-import bursLogo from '@/assets/burs-monogram.png';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function Terms() {
-  const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
 
   const fadeUp = (delay = 0) =>
@@ -28,21 +26,7 @@ export default function Terms() {
         <link rel="canonical" href="https://burs.me/terms" />
       </Helmet>
 
-      {/* Sticky header */}
-      <header className="sticky top-0 z-10 topbar-frost border-b border-border/40">
-        <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            className="p-2 -ml-2 rounded-full hover:bg-secondary/60 transition-colors"
-            onClick={() => { hapticLight(); navigate(-1); }}
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <Link to="/" className="cursor-pointer" onClick={() => hapticLight()}>
-            <img src={bursLogo} alt="BURS" className="h-5 object-contain opacity-70" />
-          </Link>
-        </div>
-      </header>
+      <PageHeader title="Terms of Use" showBack />
 
       {/* Content */}
       <main className="flex-1 max-w-xl mx-auto px-4 py-10 w-full">
