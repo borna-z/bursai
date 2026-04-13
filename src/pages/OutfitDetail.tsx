@@ -31,6 +31,7 @@ import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { SwapSheet, SlotRow } from '@/components/outfit/OutfitDetailSlots';
 import { OutfitDetailActions } from '@/components/outfit/OutfitDetailActions';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 /* ── Main Page ──────────────────────────────────────── */
 
@@ -332,13 +333,7 @@ export default function OutfitDetailPage() {
     
     return (
       <div className="min-h-screen bg-background">
-        <div className="sticky top-0 z-10 p-4 flex items-center justify-between">
-          <Skeleton className="w-11 h-11 rounded-full" />
-          <div className="flex gap-2">
-            <Skeleton className="w-11 h-11 rounded-full" />
-            <Skeleton className="w-11 h-11 rounded-full" />
-          </div>
-        </div>
+        <PageHeader title={t('outfit.label')} showBack variant="overlay" />
         <div className="flex w-full">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="flex-1 aspect-square" />
@@ -387,32 +382,32 @@ export default function OutfitDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Floating nav ── */}
-      <div className="fixed top-0 left-0 right-0 z-20 p-4 flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-full border border-border/40 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="flex gap-2">
-          <button
-            onClick={handleToggleSave}
-            className="h-11 w-11 rounded-full border border-border/40 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
-          >
-            {outfit.saved ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
-          </button>
-          <button
-            onClick={() => setShareSheetOpen(true)}
-            className="h-11 w-11 rounded-full border border-border/40 bg-background/80 flex items-center justify-center active:scale-95 transition-transform"
-          >
-            <Share2 className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={outfit.title || displayOccasion || t('outfit.label')}
+        showBack
+        variant="overlay"
+        actions={(
+          <>
+            <button
+              onClick={handleToggleSave}
+              className="h-11 w-11 rounded-full border border-white/30 bg-black/35 text-white backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+              aria-label={t('outfit.save')}
+            >
+              {outfit.saved ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={() => setShareSheetOpen(true)}
+              className="h-11 w-11 rounded-full border border-white/30 bg-black/35 text-white backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform"
+              aria-label={t('outfit.share')}
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+          </>
+        )}
+      />
 
       {/* ── Breadcrumb ── */}
-      <div className="pt-14">
+      <div>
         <PageBreadcrumb items={[
           { label: t('outfits.title'), href: '/outfits' },
           { label: displayOccasion || t('outfit.label') },
