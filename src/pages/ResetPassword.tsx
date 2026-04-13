@@ -167,7 +167,7 @@ export default function ResetPassword() {
       {/* Aurora glow (dark only) */}
       {isDark && (
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(99,102,241,0.10)_0%,transparent_70%)] blur-3xl" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full blur-3xl" style={{ background: 'radial-gradient(ellipse, hsl(var(--accent) / 0.10) 0%, transparent 70%)' }} />
         </div>
       )}
 

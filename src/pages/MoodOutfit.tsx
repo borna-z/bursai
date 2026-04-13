@@ -274,7 +274,7 @@ export default function MoodOutfitPage() {
                 <Card
                   surface="default"
                   className="space-y-3 rounded-[1.25rem] p-5"
-                  style={{ borderLeft: `3px solid ${selectedMoodData?.accent ?? '#C9A86C'}` }}
+                  style={{ borderLeft: `3px solid ${selectedMoodData?.accent ?? 'hsl(var(--accent))'}` }}
                 >
                   <p className="label-editorial text-muted-foreground/60 text-[0.65rem] uppercase tracking-[0.16em]">
                     Why it works
