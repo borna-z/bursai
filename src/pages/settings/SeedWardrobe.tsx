@@ -19,9 +19,8 @@ function SeedWardrobeInner() {
 
   return (
     <AppLayout hideNav>
-      <AnimatedPage className="px-6 pb-8 pt-12 max-w-lg mx-auto space-y-6">
-        <PageHeader title="Seed Wardrobe" eyebrow="Admin" showBack />
-
+      <PageHeader title="Seed Wardrobe" eyebrow="Admin" showBack />
+      <AnimatedPage className="px-6 pb-8 pt-5 max-w-lg mx-auto space-y-6">
         <p className="text-sm text-muted-foreground">
           This will <strong>delete all existing garments</strong> and create {SEED_GARMENTS.length} clothing items
           with AI-generated product photos. You can navigate away — seeding continues in the background.
