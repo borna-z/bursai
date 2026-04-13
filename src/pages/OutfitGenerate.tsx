@@ -33,6 +33,13 @@ import {
   resolveStyleFlowGarmentIds,
 } from '@/lib/styleFlowState';
 import { buildDayIntelligence } from '@/lib/dayIntelligence';
+import {
+  getLastOccasion,
+  getLastStyles,
+  setLastOccasion,
+  setLastStyles,
+  clearLastStyles,
+} from '@/lib/outfitPreferences';
 import { hapticLight } from '@/lib/haptics';
 import { trackEvent } from '@/lib/analytics';
 import { EASE_CURVE, DURATION_MEDIUM } from '@/lib/motion';
@@ -112,28 +119,17 @@ export default function OutfitGeneratePage() {
   const [selectedOccasion, setSelectedOccasion] = useState<string>(() => {
     const prefilledOccasion = extractStyleFlowOccasion(location.state);
     if (OCCASIONS.some((occasion) => occasion.key === prefilledOccasion)) return prefilledOccasion!;
-    // Restore last session's occasion so the user doesn't re-select every time
-    try {
-      const saved = localStorage.getItem('burs_last_occasion');
-      if (saved && OCCASIONS.some((o) => o.key === saved)) return saved;
-    } catch { /* ignore */ }
+    const saved = getLastOccasion();
+    if (saved && OCCASIONS.some((o) => o.key === saved)) return saved;
     return 'casual';
   });
   const [selectedStyles, setSelectedStyles] = useState<string[]>(() => {
     const prefilledStyles = extractStyleFlowStyles(location.state);
     const fromState = prefilledStyles.filter((style): style is string => STYLES.includes(style as typeof STYLES[number])).slice(0, 2);
     if (fromState.length > 0) return fromState;
-    // Restore last session's styles
-    try {
-      const saved = localStorage.getItem('burs_last_styles');
-      if (saved) {
-        return saved
-          .split(',')
-          .filter((s): s is string => STYLES.includes(s as typeof STYLES[number]))
-          .slice(0, 2);
-      }
-    } catch { /* ignore */ }
-    return [];
+    return getLastStyles()
+      .filter((s): s is string => STYLES.includes(s as typeof STYLES[number]))
+      .slice(0, 2);
   });
   const prefersReduced = useReducedMotion();
   const generatingMessage = useGeneratingMessage(t, phase === 'generating', !!prefersReduced);
@@ -246,15 +242,13 @@ export default function OutfitGeneratePage() {
         ]),
       ]);
       trackEvent('outfit_generated', { occasion: selectedOccasion, mode: generationMode, result_count: results.length });
-      // Persist last-used context so the next session pre-fills occasion/styles
-      try {
-        localStorage.setItem('burs_last_occasion', selectedOccasion);
-        if (selectedStyles.length > 0) {
-          localStorage.setItem('burs_last_styles', selectedStyles.join(','));
-        } else {
-          localStorage.removeItem('burs_last_styles');
-        }
-      } catch { /* ignore storage errors in private browsing */ }
+      // Cache last-used context so Home/OutfitGenerate pre-fill on return within the session.
+      setLastOccasion(selectedOccasion);
+      if (selectedStyles.length > 0) {
+        setLastStyles(selectedStyles);
+      } else {
+        clearLastStyles();
+      }
       setPhase('done');
     } catch (err) {
       const message = humanizeOutfitGenerationError(

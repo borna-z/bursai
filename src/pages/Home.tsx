@@ -23,6 +23,7 @@ import { HomeTodayLookCard } from '@/components/home/HomeTodayLookCard';
 import { HomeStylistSection } from '@/components/home/HomeStylistSection';
 import { HomeDiscoverSection } from '@/components/home/HomeDiscoverSection';
 import { formatLocalizedDate } from '@/lib/dateLocale';
+import { getLastOccasion } from '@/lib/outfitPreferences';
 import type { HomeState } from '@/components/home/homeTypes';
 
 function deriveHomeState(
@@ -128,10 +129,8 @@ export default function HomePage() {
 
   const hasUpcomingEvent = (calendarEvents?.length ?? 0) > 0;
 
-  // Read last-used occasion from localStorage so generate page pre-fills context on return
-  const lastOccasion = useMemo(() => {
-    try { return localStorage.getItem('burs_last_occasion') ?? null; } catch { return null; }
-  }, []);
+  // Read last-used occasion (in-memory) so generate page pre-fills context on return
+  const lastOccasion = getLastOccasion();
 
   const primaryAction = useMemo(() => {
     if (homeState === 'empty_wardrobe') {
