@@ -86,23 +86,22 @@ export default function OutfitsPage() {
 
   return (
     <AppLayout>
+      <PageHeader
+        eyebrow={t('outfits.saved_looks')}
+        title={outfits && outfits.length > 0 ? `${t('outfits.title')} · ${outfits.length}` : t('outfits.title')}
+        actions={(
+          <>
+            <Button variant="quiet" className="rounded-full px-3 text-[0.8rem]" onClick={() => { hapticLight(); navigate('/plan'); }}>
+              {t('outfits.open_plan')}
+            </Button>
+            <Button className="rounded-full px-4" onClick={() => { hapticLight(); navigate('/ai/generate'); }}>
+              <Sparkles className="size-4" />
+              {t('outfits.generate_look')}
+            </Button>
+          </>
+        )}
+      />
       <AnimatedPage className="page-shell space-y-5">
-        <PageHeader
-          eyebrow={t('outfits.saved_looks')}
-          title={outfits && outfits.length > 0 ? `${t('outfits.title')} · ${outfits.length}` : t('outfits.title')}
-          actions={(
-            <>
-              <Button variant="quiet" className="rounded-full px-3 text-[0.8rem]" onClick={() => { hapticLight(); navigate('/plan'); }}>
-                {t('outfits.open_plan')}
-              </Button>
-              <Button className="rounded-full px-4" onClick={() => { hapticLight(); navigate('/ai/generate'); }}>
-                <Sparkles className="size-4" />
-                {t('outfits.generate_look')}
-              </Button>
-            </>
-          )}
-        />
-
         {!outfits || outfits.length === 0 ? (
           <OutfitsOnboardingEmpty />
         ) : (
