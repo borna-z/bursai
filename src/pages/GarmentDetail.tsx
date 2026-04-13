@@ -231,7 +231,7 @@ export default function GarmentDetailPage() {
   if (isLoading) {
     return (
       <AppLayout hideNav>
-        <PageHeader title={t('garment.garment_title')} showBack />
+        <PageHeader title={t('garment.garment_title')} showBack variant="overlay" />
         <div className="page-shell !px-[var(--page-px)] !pt-6 page-cluster">
           <Skeleton className="aspect-[4/5] rounded-[1.25rem]" />
           <Skeleton className="h-8 w-3/4 rounded-full" />
@@ -250,7 +250,7 @@ export default function GarmentDetailPage() {
   if (!garment) {
     return (
       <AppLayout hideNav>
-        <PageHeader title={t('garment.garment_title')} showBack />
+        <PageHeader title={t('garment.garment_title')} showBack variant="overlay" />
         <div className="page-shell !px-[var(--page-px)] !pt-6">
           <EmptyState
             icon={Sparkles}
@@ -270,6 +270,7 @@ export default function GarmentDetailPage() {
       <PageHeader
         title={t('garment.garment_title')}
         showBack
+        variant="overlay"
         actions={(
           <>
             <Button variant="quiet" size="icon" onClick={() => { hapticLight(); navigate(`/wardrobe/${garment.id}/edit`); }} aria-label={t('garment.edit_garment_aria')}>
