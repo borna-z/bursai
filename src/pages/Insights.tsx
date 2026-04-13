@@ -60,17 +60,15 @@ export default function InsightsPage() {
 
   return (
     <AppLayout>
+      <PageHeader
+        eyebrow="INSIGHTS"
+        title={t('insights.yourStyleStory') || 'Your Style Story'}
+      />
       <PullToRefresh onRefresh={handleRefresh}>
         {vm.state === 'loading' ? (
           <InsightsPageSkeleton />
         ) : (
           <AnimatedPage className="pb-24">
-            <PageHeader
-              eyebrow="INSIGHTS"
-              title={t('insights.yourStyleStory') || 'Your Style Story'}
-              sticky={false}
-            />
-
             {vm.state === 'empty' ? (
               <InsightsStatePanel
                 kind="empty"
