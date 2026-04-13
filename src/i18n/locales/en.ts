@@ -2886,6 +2886,16 @@ const en: Record<string, string> = {
     'chat.chip_new_ways_item': 'New ways to wear my {item}',
     'chat.chip_wardrobe_missing': "What's missing in my wardrobe?",
     'chat.chip_date_night': 'Find me a date night outfit',
+    'chat.swap_jacket': 'Swap the jacket',
+    'chat.add_outerwear': 'Add outerwear',
+    'chat.add_layer': 'Add a layer',
+    'chat.make_warmer': 'Make it warmer',
+    'chat.make_lighter': 'Make it lighter',
+    'chat.dress_it_up': 'Dress it up',
+    'chat.more_casual': 'More casual',
+    'chat.something_fresh': 'Something fresh',
+    'chat.different_vibe': 'Different vibe',
+    'chat.undo': 'Undo',
 
     // Batch upload
     'batch.all_resolved': 'All {count} items are resolved. Review is complete.',

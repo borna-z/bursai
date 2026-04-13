@@ -2380,6 +2380,18 @@ const sv: Record<string, string> = {
     'outfit.created': 'Outfit skapad!',
     'outfit.save': 'Spara outfit',
 
+    // RefineChips keys
+    'chat.swap_jacket': 'Byt jackan',
+    'chat.add_outerwear': 'Lägg till ytterkläder',
+    'chat.add_layer': 'Lägg till ett lager',
+    'chat.make_warmer': 'Gör den varmare',
+    'chat.make_lighter': 'Gör den lättare',
+    'chat.dress_it_up': 'Klä upp den',
+    'chat.more_casual': 'Mer avslappnad',
+    'chat.something_fresh': 'Något nytt',
+    'chat.different_vibe': 'Annan känsla',
+    'chat.undo': 'Ångra',
+
     // Chat keys
     'chat.stylist_fallback': 'Något gick fel. Försök igen eller skriv om din fråga.',
     'chat.stylist_timeout': 'Jag tappade tråden — kan du försöka igen?',
