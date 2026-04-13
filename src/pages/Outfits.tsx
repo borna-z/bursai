@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { BursLoadingScreen } from '@/components/layout/BursLoadingScreen';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { OutfitsOnboardingEmpty } from '@/components/onboarding/OnboardingEmptyState';
 import { OutfitPreviewCard } from '@/components/ui/OutfitPreviewCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -86,20 +87,11 @@ export default function OutfitsPage() {
   return (
     <AppLayout>
       <AnimatedPage className="page-shell space-y-5">
-        <motion.header className="topbar-frost sticky top-0 z-10 -mx-5 px-5 pb-3 pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="label-editorial mb-0.5">{t('outfits.saved_looks')}</p>
-              <h1 className="font-display italic text-[1.55rem] leading-tight">
-                {t('outfits.title')}
-                {outfits && outfits.length > 0 && (
-                  <span className="ml-2 align-middle text-[0.9rem] not-italic text-muted-foreground/60">
-                    {outfits.length}
-                  </span>
-                )}
-              </h1>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
+        <PageHeader
+          eyebrow={t('outfits.saved_looks')}
+          title={outfits && outfits.length > 0 ? `${t('outfits.title')} · ${outfits.length}` : t('outfits.title')}
+          actions={(
+            <>
               <Button variant="quiet" className="rounded-full px-3 text-[0.8rem]" onClick={() => { hapticLight(); navigate('/plan'); }}>
                 {t('outfits.open_plan')}
               </Button>
@@ -107,9 +99,9 @@ export default function OutfitsPage() {
                 <Sparkles className="size-4" />
                 {t('outfits.generate_look')}
               </Button>
-            </div>
-          </div>
-        </motion.header>
+            </>
+          )}
+        />
 
         {!outfits || outfits.length === 0 ? (
           <OutfitsOnboardingEmpty />
