@@ -511,13 +511,14 @@ export default function LiveScan() {
         onChange={handleFileChange}
       />
 
-      {/* Top bar — glass */}
-      <div className="relative z-10 border-b border-border/50 bg-background/80 backdrop-blur-2xl">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 py-3">
-          <Button variant="quiet" size="icon" onClick={handleClose}>
-            <X className="w-5 h-5" />
-          </Button>
-          <div className="flex items-center gap-2">
+      {/* Top bar */}
+      <PageHeader
+        title={t('scan.title') || 'Live Scan'}
+        actions={(
+          <>
+            <Button variant="quiet" size="icon" onClick={handleClose} aria-label={t('common.close') || 'Close'}>
+              <X className="w-5 h-5" />
+            </Button>
             <SlotsPill remaining={remainingSlots === Infinity ? 999 : remainingSlots} isPremium={isPremium} />
             {cameraReady && !useFileInputMode ? (
               <Button
@@ -530,14 +531,14 @@ export default function LiveScan() {
                 {autoMode ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
               </Button>
             ) : null}
-          </div>
-          {scanCount > 0 ? (
-            <Button variant="quiet" size="sm" className="text-sm font-medium" onClick={handleDone}>
-              {t('scan.done')}
-            </Button>
-          ) : <div className="w-12" />}
-        </div>
-      </div>
+            {scanCount > 0 ? (
+              <Button variant="quiet" size="sm" className="text-sm font-medium" onClick={handleDone}>
+                {t('scan.done')}
+              </Button>
+            ) : null}
+          </>
+        )}
+      />
 
       {/* Camera view */}
       <div className="relative flex-1 overflow-hidden">

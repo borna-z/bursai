@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 const useSubscriptionMock = vi.fn();
 const useAddGarmentMock = vi.fn();
@@ -71,6 +72,43 @@ vi.mock('@/components/ui/animated-page', () => ({
   ),
 }));
 
+// AppLayout pulls in nav chrome + layout hooks; stub them for the unit test.
+vi.mock('@/components/layout/BottomNav', () => ({
+  BottomNav: () => <nav aria-label="Main navigation">Main nav</nav>,
+}));
+
+vi.mock('@/components/layout/OfflineBanner', () => ({
+  OfflineBanner: () => <div>Offline banner</div>,
+}));
+
+vi.mock('@/components/layout/SeedProgressPill', () => ({
+  SeedProgressPill: () => <div>Seed progress</div>,
+}));
+
+vi.mock('@/components/layout/MilestoneCelebration', () => ({
+  MilestoneCelebration: () => <div>Milestone celebration</div>,
+}));
+
+vi.mock('@/hooks/useKeyboardAdjust', () => ({
+  useKeyboardAdjust: vi.fn(),
+}));
+
+vi.mock('@/hooks/useMedianStatusBar', () => ({
+  useMedianStatusBar: vi.fn(),
+}));
+
+vi.mock('@/hooks/useViewportShell', () => ({
+  useViewportShell: vi.fn(),
+}));
+
+vi.mock('@/hooks/useWardrobeUnlocks', () => ({
+  useUnlockCelebration: vi.fn(),
+}));
+
+vi.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ resolvedTheme: 'dark' }),
+}));
+
 import AddGarmentPage from '../AddGarment';
 
 describe('Add garment page', () => {
@@ -137,7 +175,11 @@ describe('Add garment page', () => {
   });
 
   it('surfaces the three primary add entry points', () => {
-    render(<AddGarmentPage />);
+    render(
+      <MemoryRouter>
+        <AddGarmentPage />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByRole('button', { name: /open the fastest capture flow/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();

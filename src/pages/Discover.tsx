@@ -1,8 +1,7 @@
-import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { PRESETS } from '@/lib/motion';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { DiscoverStyleTools } from '@/components/discover/DiscoverStyleTools';
@@ -13,21 +12,12 @@ export default function DiscoverPage() {
 
   return (
     <AppLayout>
-      <AnimatedPage className="px-4 pb-24 pt-8 space-y-10 max-w-lg mx-auto">
-        {/* ── Header ── */}
-        <motion.div
-          variants={PRESETS.HERO.variants}
-          initial="initial"
-          animate="animate"
-          transition={PRESETS.HERO.transition}
-          className="space-y-1"
-        >
-          <h1 className="font-display italic text-[1.4rem] text-foreground leading-tight">
-            {t('discover.title')}
-          </h1>
-          <p className="text-[13px] text-muted-foreground/60">{t('discover.subtitle_new')}</p>
-        </motion.div>
-
+      <PageHeader
+        title={t('discover.title')}
+        subtitle={t('discover.subtitle_new')}
+        showBack
+      />
+      <AnimatedPage className="px-4 pb-24 pt-5 space-y-10 max-w-lg mx-auto">
         {/* ── Style Tools ── */}
         <DiscoverStyleTools />
 

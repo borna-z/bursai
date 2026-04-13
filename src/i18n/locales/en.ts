@@ -3005,6 +3005,9 @@ const en: Record<string, string> = {
     'insights.worst': 'Worst',
     'insights.wardrobeHealth': 'Wardrobe Health',
     'insights.wardrobeHealthDesc': 'How balanced your closet is',
+
+    // Appended: missing keys discovered by i18n-completeness scan
+    'common.clear': 'Clear',
 };
 
 export default en;

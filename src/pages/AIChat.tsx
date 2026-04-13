@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
 import { finalizeAssistantText, getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
@@ -666,28 +667,25 @@ export default function AIChat() {
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
       <div className="fixed inset-0 flex flex-col overflow-hidden">
-        <div className="topbar-frost sticky top-0 z-10 flex shrink-0 items-center justify-between px-[var(--page-px)] py-3 min-h-[56px]">
-          <div className="w-10" />
-          <div className="flex flex-col items-center gap-0">
-            <span className="font-display italic text-[1.05rem] text-foreground leading-tight tracking-tight">
-              {t('chat.mode_stylist')}
-            </span>
-            <span className="text-[10px] font-body uppercase tracking-[0.12em] text-muted-foreground/60">AI Stylist</span>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="quiet" size="icon" className="h-11 w-11 text-muted-foreground">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={clearHistory} className="text-destructive focus:text-destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                {t('chat.clear_history')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <PageHeader
+          eyebrow="AI Stylist"
+          title={t('chat.mode_stylist')}
+          actions={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="quiet" size="icon" className="h-11 w-11 text-muted-foreground">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={clearHistory} className="text-destructive focus:text-destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {t('chat.clear_history')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
 
         {/* Wardrobe context badge */}
         {garmentCount != null && garmentCount > 0 && (

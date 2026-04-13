@@ -13,6 +13,7 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 import { EASE_CURVE } from '@/lib/motion';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 interface OutfitItem {
   id: string;
@@ -149,13 +150,12 @@ export default function ShareOutfitPage() {
         <meta name="twitter:description" content={outfit.explanation || 'Check out this outfit styled by BURS.'} />
       </Helmet>
     <div className="min-h-screen bg-background">
-      {/* Sticky topbar */}
-      <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="font-display italic text-lg">{t('share.title')}</h1>
+      <PageHeader
+        title={t('share.title')}
+        actions={
           <span className="text-[10px] font-body uppercase tracking-[0.16em] text-muted-foreground/60">BURS</span>
-        </div>
-      </div>
+        }
+      />
 
       <motion.div
         className="max-w-lg mx-auto px-4 pt-6 pb-24"
@@ -208,6 +208,7 @@ export default function ShareOutfitPage() {
         {/* Share actions */}
         <motion.div className="mt-6 rounded-[1.25rem] divide-y divide-border/40" {...stagger(2)}>
           <button
+            type="button"
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={handleCopyLink}
           >
@@ -216,6 +217,7 @@ export default function ShareOutfitPage() {
             <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
           <button
+            type="button"
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={() => { hapticLight(); handleDownloadImage(); }}
             disabled={isDownloading}
@@ -225,6 +227,7 @@ export default function ShareOutfitPage() {
             <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
           <button
+            type="button"
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={() => {
               hapticLight();

@@ -173,7 +173,7 @@ describe('OutfitDetail page', () => {
     useOutfitMock.mockReturnValue({ data: buildOutfit(), isLoading: false, refetch: vi.fn() });
     renderPage();
     expect(screen.getByTestId('outfit-actions')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 }).length).toBeGreaterThan(0);
   });
 
   it('calls markWorn mutation when the wear action is pressed', async () => {

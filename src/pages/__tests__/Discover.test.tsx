@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
@@ -39,28 +40,48 @@ import DiscoverPage from '../Discover';
 
 describe('Discover page', () => {
   it('renders the page title and subtitle', () => {
-    render(<DiscoverPage />);
+    render(
+      <MemoryRouter>
+        <DiscoverPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('Discover')).toBeInTheDocument();
     expect(screen.getByText('Explore your style')).toBeInTheDocument();
   });
 
   it('renders the progress heading', () => {
-    render(<DiscoverPage />);
+    render(
+      <MemoryRouter>
+        <DiscoverPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('Progress')).toBeInTheDocument();
   });
 
   it('renders the DiscoverStyleTools section', () => {
-    render(<DiscoverPage />);
+    render(
+      <MemoryRouter>
+        <DiscoverPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByTestId('style-tools')).toBeInTheDocument();
   });
 
   it('renders the WardrobeGapSection', () => {
-    render(<DiscoverPage />);
+    render(
+      <MemoryRouter>
+        <DiscoverPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByTestId('gap-section')).toBeInTheDocument();
   });
 
   it('renders the WardrobeProgress component', () => {
-    render(<DiscoverPage />);
+    render(
+      <MemoryRouter>
+        <DiscoverPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByTestId('wardrobe-progress')).toBeInTheDocument();
   });
 });

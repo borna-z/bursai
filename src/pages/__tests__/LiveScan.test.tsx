@@ -51,7 +51,12 @@ vi.mock('@/components/layout/PageErrorBoundary', () => ({
 }));
 
 vi.mock('@/components/layout/PageHeader', () => ({
-  PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
+  PageHeader: ({ title, actions }: { title: string; actions?: React.ReactNode }) => (
+    <header>
+      <h1>{title}</h1>
+      {actions}
+    </header>
+  ),
 }));
 
 vi.mock('@/components/coach/CoachMark', () => ({

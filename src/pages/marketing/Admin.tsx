@@ -10,6 +10,8 @@
  import { motion, useReducedMotion } from 'framer-motion';
  import { hapticLight } from '@/lib/haptics';
  import { EASE_CURVE } from '@/lib/motion';
+ import { PageHeader } from '@/components/layout/PageHeader';
+ import { AppLayout } from '@/components/layout/AppLayout';
 
  interface Lead {
    id: string;
@@ -144,19 +146,8 @@
          <meta name="robots" content="noindex, nofollow" />
        </Helmet>
 
-       <div className="min-h-screen bg-background">
-         {/* Header */}
-         <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
-           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-             <button className="p-1 cursor-pointer" onClick={() => { hapticLight(); navigate(-1); }}>
-               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-             </button>
-             <div>
-               <p className="label-editorial text-muted-foreground/60 text-[10px]">System Overview</p>
-               <h1 className="font-display italic text-xl">Admin</h1>
-             </div>
-           </div>
-         </div>
+       <AppLayout>
+         <PageHeader eyebrow="System Overview" title="Admin" showBack />
 
          <div className="max-w-6xl mx-auto px-4 pt-6 pb-24 space-y-6">
            {/* KPI metrics strip */}
@@ -245,7 +236,7 @@
              </div>
            </motion.div>
          </div>
-       </div>
+       </AppLayout>
      </>
    );
  }
