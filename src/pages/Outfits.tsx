@@ -45,7 +45,7 @@ function OutfitCard({
       <OutfitPreviewCard
         items={outfit.outfit_items}
         surface="default"
-        density={listView ? 'comfortable' : 'comfortable'}
+        density="comfortable"
         mediaLayout={listView ? 'portrait' : 'square'}
         meta={occasionLabel ? (
           <p className="label-editorial">
