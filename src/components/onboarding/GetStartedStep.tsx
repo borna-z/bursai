@@ -36,7 +36,7 @@ export function GetStartedStep({ onAction }: GetStartedStepProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="page-shell !max-w-lg !px-6 !pb-16 !pt-24 page-cluster">
+      <div className="page-shell !max-w-lg !px-6 !pb-16 !pt-[calc(var(--safe-area-top)+6rem)] page-cluster">
         <Card surface="editorial" className="p-6">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.45rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
             <CheckCircle className="h-8 w-8 text-foreground/78" />
