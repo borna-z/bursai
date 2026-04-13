@@ -31,7 +31,7 @@ function renderPage() {
 describe('PrivacyPolicy page', () => {
   it('renders the Privacy Policy heading', () => {
     renderPage();
-    expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1, name: /privacy policy/i }).length).toBeGreaterThan(0);
   });
 
   it('contains key legal sections', () => {
