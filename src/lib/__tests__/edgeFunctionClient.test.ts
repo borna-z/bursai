@@ -97,6 +97,30 @@ describe('invokeEdgeFunction', () => {
     expect(mockInvoke).toHaveBeenCalledTimes(2);
   });
 
+  it('detects 401 from FunctionsHttpError context.status (real Supabase shape)', async () => {
+    // Supabase FunctionsHttpError has a generic message + context with the Response
+    const httpError = Object.assign(
+      new Error('Edge Function returned a non-2xx status code'),
+      { name: 'FunctionsHttpError', context: { status: 401 } },
+    );
+    mockInvoke.mockResolvedValue({ data: null, error: httpError });
+    const { error } = await invokeEdgeFunction('context_401_fn', { retries: 0 });
+    expect(error).toBeTruthy();
+    // Should still attempt auth recovery via context.status detection
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT retry FunctionsHttpError 403 (non-retryable via context.status)', async () => {
+    const httpError = Object.assign(
+      new Error('Edge Function returned a non-2xx status code'),
+      { name: 'FunctionsHttpError', context: { status: 403 } },
+    );
+    mockInvoke.mockResolvedValue({ data: null, error: httpError });
+    const { error } = await invokeEdgeFunction('context_403_fn', { retries: 2 });
+    expect(error).toBeTruthy();
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+
   it('detects rate limit from response data with retryAfter', async () => {
     mockInvoke.mockResolvedValue({
       data: { error: 'Too many requests', retryAfter: 30 },

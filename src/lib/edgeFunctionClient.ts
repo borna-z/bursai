@@ -77,17 +77,29 @@ function recordCircuitSuccess(fnName: string): void {
   circuitState.delete(fnName);
 }
 
+// ── HTTP status extraction ───────────────────────────────────────
+// supabase-js FunctionsHttpError stores the Response on `error.context`
+// with a generic message ("Edge Function returned a non-2xx status code").
+// We must inspect `context.status` to get the real HTTP status code.
+function getHttpStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'context' in error) {
+    const ctx = (error as { context?: { status?: number } }).context;
+    if (ctx && typeof ctx.status === 'number') return ctx.status;
+  }
+  return null;
+}
+
 // ── Non-retryable status codes ───────────────────────────────────
 // These indicate the request itself is wrong or rate-limited — retrying won't help.
 function isNonRetryableError(error: unknown): boolean {
   if (error instanceof EdgeFunctionRateLimitError) return true;
+  const status = getHttpStatus(error);
+  if (status === 429 || status === 402 || status === 403 || status === 400) return true;
+  // 401 is NOT non-retryable — see isAuthError + inline recovery logic.
   if (error instanceof Error) {
     const msg = error.message.toLowerCase();
-    // FunctionsHttpError from supabase-js includes status in message
     if (msg.includes('429') || msg.includes('rate limit')) return true;
     if (msg.includes('402') || msg.includes('payment')) return true;
-    // 401 is NOT non-retryable — it may be a stale token that can be
-    // recovered by refreshing the session (see isAuthError + retry logic).
     if (msg.includes('403') || msg.includes('forbidden')) return true;
     if (msg.includes('400') || msg.includes('bad request')) return true;
   }
@@ -96,6 +108,7 @@ function isNonRetryableError(error: unknown): boolean {
 
 /** Detect 401/unauthorized so we can attempt a session refresh + retry. */
 function isAuthError(error: unknown): boolean {
+  if (getHttpStatus(error) === 401) return true;
   if (error instanceof Error) {
     const msg = error.message.toLowerCase();
     return msg.includes('401') || msg.includes('unauthorized');
