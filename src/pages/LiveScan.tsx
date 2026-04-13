@@ -499,6 +499,7 @@ export default function LiveScan() {
   return (
     <PageErrorBoundary fallback={<LiveScanFallback />}>
     <AppLayout hideNav>
+    <div className="flex min-h-full flex-col">
       {/* Hidden file input for Median / fallback mode */}
       <input
         ref={fileInputRef}
@@ -823,6 +824,7 @@ export default function LiveScan() {
       />
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
+    </div>
     </AppLayout>
     </PageErrorBoundary>
   );
