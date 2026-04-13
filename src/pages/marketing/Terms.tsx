@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Scale } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE, DURATION_MEDIUM } from '@/lib/motion';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function Terms() {
@@ -18,7 +19,7 @@ export default function Terms() {
         };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <AppLayout hideNav>
       <Helmet>
         <title>Terms of Use for BURS</title>
         <meta name="description" content="Terms of Use for BURS — acceptance, subscriptions, AI features, and governing law." />
@@ -29,7 +30,7 @@ export default function Terms() {
       <PageHeader title="Terms of Use" showBack />
 
       {/* Content */}
-      <main className="flex-1 max-w-xl mx-auto px-4 py-10 w-full">
+      <div className="flex-1 max-w-xl mx-auto px-4 py-10 w-full">
         {/* Hero */}
         <motion.div className="text-center mb-10" {...fadeUp(0)}>
           <div className="w-14 h-14 flex items-center justify-center mx-auto mb-6 rounded-[1.25rem] border border-border/40">
@@ -260,7 +261,7 @@ export default function Terms() {
 
           </div>
         </motion.div>
-      </main>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-border/40 mt-6">
@@ -273,6 +274,6 @@ export default function Terms() {
           <p>&copy; {new Date().getFullYear()} BURS. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </AppLayout>
   );
 }

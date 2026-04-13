@@ -3,6 +3,7 @@ import { Camera, Image as ImageIcon, Upload } from 'lucide-react';
 
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
@@ -45,7 +46,7 @@ export function UploadStep({
   const { t } = useLanguage();
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background text-foreground">
+    <AppLayout hideNav>
       <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={onImageSelect} className="hidden" />
       <input ref={batchInputRef} type="file" accept="image/*" multiple onChange={onBatchSelect} className="hidden" />
 
@@ -124,6 +125,6 @@ export function UploadStep({
           </div>
         </section>
       </AnimatedPage>
-    </div>
+    </AppLayout>
   );
 }
