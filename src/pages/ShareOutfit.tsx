@@ -208,6 +208,7 @@ export default function ShareOutfitPage() {
         {/* Share actions */}
         <motion.div className="mt-6 rounded-[1.25rem] divide-y divide-border/40" {...stagger(2)}>
           <button
+            type="button"
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={handleCopyLink}
           >
@@ -216,6 +217,7 @@ export default function ShareOutfitPage() {
             <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
           <button
+            type="button"
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={() => { hapticLight(); handleDownloadImage(); }}
             disabled={isDownloading}
@@ -225,6 +227,7 @@ export default function ShareOutfitPage() {
             <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
           <button
+            type="button"
             className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer"
             onClick={() => {
               hapticLight();
