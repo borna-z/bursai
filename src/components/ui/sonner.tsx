@@ -11,7 +11,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={resolvedTheme as ToasterProps["theme"]}
       position="top-center"
       duration={2000}
+      // Push toasts below the dynamic island / notch.
+      // --safe-area-top is the JS-probed safe inset (works on Median iOS where env() returns 0).
+      offset="calc(var(--safe-area-top) + 12px)"
       className="toaster group"
+      style={{ zIndex: 'var(--z-toast)' } as React.CSSProperties}
       toastOptions={{
         classNames: {
           toast:
