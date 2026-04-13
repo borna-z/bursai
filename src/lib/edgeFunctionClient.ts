@@ -221,10 +221,25 @@ export async function invokeEdgeFunction<T = unknown>(
               signal: retryController.signal,
             });
             if (!retry.error) {
+              // Check for rate-limit-in-body on the retry response too
+              if (retry.data && typeof retry.data === 'object' && 'error' in retry.data && 'retryAfter' in retry.data) {
+                lastError = new EdgeFunctionRateLimitError(functionName, (retry.data as Record<string, unknown>).retryAfter as number);
+                break;
+              }
               recordCircuitSuccess(functionName);
               return { data: retry.data as T, error: null };
             }
+            // Classify the retry error through the same logic as the main path
             lastError = retry.error instanceof Error ? retry.error : new Error(String(retry.error));
+            if (isNonRetryableError(lastError)) {
+              recordCircuitFailure(functionName);
+              break;
+            }
+            // For retryAfter in retry.data alongside an error
+            if (retry.data && typeof retry.data === 'object' && 'retryAfter' in retry.data) {
+              lastError = new EdgeFunctionRateLimitError(functionName, (retry.data as Record<string, unknown>).retryAfter as number);
+              break;
+            }
           } catch (retryErr) {
             // Preserve the actual error so it isn't misclassified as a
             // 401 auth failure when it was really a transient issue.
