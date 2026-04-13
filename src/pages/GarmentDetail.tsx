@@ -311,7 +311,7 @@ export default function GarmentDetailPage() {
             imagePath={displayImagePath}
             alt={garment.title}
             aspectRatio="auto"
-            className="aspect-[4/5] w-full object-cover"
+            className="aspect-[4/5] w-full !rounded-none object-cover"
           />
           <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
 
