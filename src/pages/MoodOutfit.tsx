@@ -222,16 +222,15 @@ export default function MoodOutfitPage() {
 
   return (
     <AppLayout>
+      <PageHeader
+        title={t('ai.mood_title') || 'Mood Outfit'}
+        titleClassName="font-display italic"
+        eyebrow={t('ai.stylist_eyebrow')}
+        showBack
+      />
       <AnimatedPage className="page-shell !px-[var(--page-px)] !pt-6 page-cluster">
         {generatedOutfit ? (
           <>
-            <PageHeader
-              title={t('ai.mood_title') || 'Mood Outfit'}
-              titleClassName="font-display italic"
-              eyebrow={t('ai.stylist_eyebrow')}
-              showBack
-            />
-
             {/* Result heading */}
             <motion.div
               {...motionProps}
@@ -326,13 +325,6 @@ export default function MoodOutfitPage() {
           </>
         ) : (
           <>
-            <PageHeader
-              title={t('ai.mood_title') || 'Mood Outfit'}
-              titleClassName="font-display italic"
-              eyebrow={t('ai.stylist_eyebrow')}
-              showBack
-            />
-
             {/* Editorial heading */}
             <motion.section
               {...motionProps}
