@@ -37,6 +37,10 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (k: string) => k, locale: 'en' }),
 }));
 
+vi.mock('@/components/layout/AppLayout', () => ({
+  AppLayout: ({ children }: PropsWithChildren) => <div data-testid="app-layout">{children}</div>,
+}));
+
 vi.mock('@/hooks/useOutfits', () => ({
   useOutfit: () => useOutfitMock(),
   useUpdateOutfit: () => ({ mutateAsync: updateOutfitMutateAsync, isPending: false }),
