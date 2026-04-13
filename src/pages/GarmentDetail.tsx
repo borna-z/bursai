@@ -305,7 +305,7 @@ export default function GarmentDetailPage() {
           initial={sectionInitial}
           animate={sectionAnimate}
           transition={sectionTransition(0)}
-          className="relative -mt-[var(--safe-area-top)] overflow-hidden"
+          className="relative -mt-[calc(var(--safe-area-top)+60px)] overflow-hidden"
         >
           <LazyImage
             imagePath={displayImagePath}
@@ -316,7 +316,7 @@ export default function GarmentDetailPage() {
           <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
 
           {/* Overlay badges — positioned below the header */}
-          <div className="absolute inset-x-3 top-[calc(var(--safe-area-top)+64px)] flex items-start justify-between gap-2">
+          <div className="absolute inset-x-3 top-[calc(var(--safe-area-top)+72px)] flex items-start justify-between gap-2">
             <div className="flex flex-wrap gap-2">
               {garment.in_laundry ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-background/85 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground backdrop-blur-sm">
