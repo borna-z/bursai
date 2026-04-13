@@ -27,7 +27,7 @@ function StepProgress({ current }: { current: StepKey }) {
   const index = STEPS.indexOf(current);
 
   return (
-    <div className="fixed inset-x-5 top-4" style={{ zIndex: 'var(--z-modal)' as unknown as number }}>
+    <div className="fixed inset-x-5" style={{ top: 'calc(var(--safe-area-top) + 16px)', zIndex: 'var(--z-modal)' as unknown as number }}>
       <div className="mx-auto max-w-md rounded-full border border-border/60 bg-background/88 px-4 py-3 shadow-[0_14px_36px_rgba(28,25,23,0.08)] backdrop-blur-2xl">
         <div className="flex gap-1.5">
           {STEPS.map((step, stepIndex) => (

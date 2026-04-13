@@ -18,9 +18,10 @@ export function OfflineBanner() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -40, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          className="fixed top-0 left-0 right-0 flex items-center justify-center gap-2 py-2 text-xs font-medium"
+          className="fixed top-0 left-0 right-0 flex items-center justify-center gap-2 py-2 text-xs font-medium pt-[calc(var(--safe-area-top)+0.5rem)]"
           style={{
             zIndex: 'var(--z-offline-banner)' as unknown as number,
+            paddingTop: 'calc(var(--safe-area-top) + 0.5rem)',
             background: isReplaying ? 'hsl(var(--accent))' : 'hsl(var(--destructive))',
             color: isReplaying ? 'hsl(var(--accent-foreground))' : 'hsl(var(--destructive-foreground))',
           }}
