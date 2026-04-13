@@ -42,12 +42,8 @@ export default function AddGarmentPage() {
         isPremium={isPremium}
         slotsLeft={garment.remainingGarments()}
         slotsLeftLabel={t('scan.slots_left')}
-        onBack={() => garment.navigate(-1)}
         title={t('addgarment.title')}
-        prompt={t('addgarment.photo_prompt')}
-        helperText={t('addgarment.helper_text')}
         photoLabel={t('addgarment.photo')}
-        linkLabel={t('addgarment.link')}
         cameraLabel={t('addgarment.camera')}
         galleryLabel={t('addgarment.gallery')}
         batchLabel={t('batch.upload_multiple')}

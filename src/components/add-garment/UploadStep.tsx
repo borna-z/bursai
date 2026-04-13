@@ -11,13 +11,9 @@ interface UploadStepProps {
   isPremium: boolean;
   slotsLeft: number;
   slotsLeftLabel: string;
-  onBack: () => void;
   onOpenLiveScan: () => void;
   title: string;
-  prompt: string;
-  helperText: string;
   photoLabel: string;
-  linkLabel: string;
   cameraLabel: string;
   galleryLabel: string;
   batchLabel: string;
@@ -33,13 +29,9 @@ export function UploadStep({
   isPremium,
   slotsLeft,
   slotsLeftLabel,
-  onBack: _onBack,
   onOpenLiveScan,
   title,
-  prompt: _prompt,
-  helperText: _helperText,
   photoLabel,
-  linkLabel: _linkLabel,
   cameraLabel,
   galleryLabel,
   batchLabel,
