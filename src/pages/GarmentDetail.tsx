@@ -270,14 +270,15 @@ export default function GarmentDetailPage() {
       <PageHeader
         title={t('garment.garment_title')}
         showBack
+        variant="overlay"
         actions={(
           <>
-            <Button variant="quiet" size="icon" onClick={() => { hapticLight(); navigate(`/wardrobe/${garment.id}/edit`); }} aria-label={t('garment.edit_garment_aria')}>
+            <Button variant="quiet" size="icon" onClick={() => { hapticLight(); navigate(`/wardrobe/${garment.id}/edit`); }} aria-label={t('garment.edit_garment_aria')} className="border border-white/30 bg-black/35 text-white backdrop-blur-md hover:bg-black/45">
               <Edit className="h-4 w-4" />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="quiet" size="icon" aria-label={t('garment.delete_garment_aria')} onClick={() => hapticLight()}>
+                <Button variant="quiet" size="icon" aria-label={t('garment.delete_garment_aria')} onClick={() => hapticLight()} className="border border-white/30 bg-black/35 text-white backdrop-blur-md hover:bg-black/45">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </AlertDialogTrigger>
@@ -298,24 +299,24 @@ export default function GarmentDetailPage() {
         )}
       />
 
-      <AnimatedPage className="page-shell !px-[var(--page-px)] !pb-4 !pt-4 page-cluster">
-        {/* ─── Hero Image ─── */}
+      <AnimatedPage className="page-shell !px-0 !pt-0 !pb-4">
+        {/* ─── Full-bleed Hero Image ─── */}
         <motion.div
           initial={sectionInitial}
           animate={sectionAnimate}
           transition={sectionTransition(0)}
-          className="relative overflow-hidden rounded-[1.25rem]"
+          className="relative -mt-[var(--safe-area-top)] overflow-hidden"
         >
           <LazyImage
             imagePath={displayImagePath}
             alt={garment.title}
             aspectRatio="auto"
-            className="aspect-[4/5] w-full rounded-[1.25rem] object-cover"
+            className="aspect-[4/5] w-full object-cover"
           />
           <RenderPendingOverlay renderStatus={garment.render_status} variant="overlay" />
 
-          {/* Overlay badges */}
-          <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+          {/* Overlay badges — positioned below the header */}
+          <div className="absolute inset-x-3 top-[calc(var(--safe-area-top)+64px)] flex items-start justify-between gap-2">
             <div className="flex flex-wrap gap-2">
               {garment.in_laundry ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-background/85 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground backdrop-blur-sm">
@@ -336,6 +337,7 @@ export default function GarmentDetailPage() {
           </div>
         </motion.div>
 
+        <div className="px-[var(--page-px)] pt-5 page-cluster">
         {/* ─── Title + Category ─── */}
         <motion.div
           initial={sectionInitial}
@@ -637,6 +639,7 @@ export default function GarmentDetailPage() {
             <GarmentSimilarItems similarGarments={similarGarments} />
           </motion.div>
         ) : null}
+        </div>
       </AnimatedPage>
 
       {/* ─── Sticky Bottom Action Bar ─── */}
