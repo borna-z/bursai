@@ -208,11 +208,12 @@ function buildRequestMessages(messages: Message[]): Array<Pick<Message, 'role' |
 
 function AIChatFallback() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center space-y-6">
-        <h1 className="font-display italic text-[1.3rem] text-foreground leading-tight">Your stylist is temporarily unavailable</h1>
-        <Button onClick={() => navigate(-1)}>Go Back</Button>
+        <h1 className="font-display italic text-[1.3rem] text-foreground leading-tight">{t('ai.stylist_unavailable')}</h1>
+        <Button onClick={() => navigate(-1)}>{t('common.back') || 'Go Back'}</Button>
       </div>
     </div>
   );
@@ -668,7 +669,7 @@ export default function AIChat() {
     <AppLayout hideNav>
       <div className="fixed inset-0 flex flex-col overflow-hidden">
         <PageHeader
-          eyebrow="AI Stylist"
+          eyebrow={t('ai.stylist_eyebrow')}
           title={t('chat.mode_stylist')}
           actions={
             <DropdownMenu>
@@ -704,7 +705,7 @@ export default function AIChat() {
                   <Shirt className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/70">Style anchor</p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/70">{t('ai.style_anchor')}</p>
                   <p className="truncate text-sm font-medium text-foreground">{anchoredGarment.title}</p>
                 </div>
               </div>

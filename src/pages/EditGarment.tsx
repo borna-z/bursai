@@ -474,7 +474,7 @@ export default function EditGarmentPage() {
           <div className="flex items-center justify-between rounded-[1rem] px-4 py-4">
             <div>
               <p className="text-sm font-medium font-body text-foreground">{t('addgarment.form.in_laundry')}</p>
-              <p className="mt-1 text-xs font-body text-muted-foreground/70">Hide from outfit creation until ready.</p>
+              <p className="mt-1 text-xs font-body text-muted-foreground/70">{t('garment.hide_from_creation_desc')}</p>
             </div>
             <Switch checked={inLaundry} onCheckedChange={(v) => { hapticLight(); setInLaundry(v); }} />
           </div>

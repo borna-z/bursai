@@ -159,7 +159,7 @@ export default function UnusedOutfits() {
       <PageHeader
         title={t('insights.unused_title') || 'Sleeping Beauties'}
         titleClassName="font-display italic"
-        eyebrow="Insights"
+        eyebrow={t('nav.insights')}
         showBack
         actions={!generating && outfits.length > 0 ? (
           <Button
@@ -186,7 +186,7 @@ export default function UnusedOutfits() {
           className="space-y-2"
         >
           <h1 className="font-display italic text-[1.5rem] leading-tight text-foreground">
-            Rediscover these looks
+            {t('insights.unused_heading')}
           </h1>
           <p className="font-body text-sm leading-6 text-muted-foreground">
             {t('insights.unused_desc') || 'Outfits built from pieces you haven\'t worn in 30+ days. Give them a second life.'}
@@ -212,7 +212,7 @@ export default function UnusedOutfits() {
           <EmptyState
             icon={Sparkles}
             title={error}
-            description="We could not build a set from the unused garments this time."
+            description={t('insights.unused_error_desc')}
             variant="editorial"
             compact
             action={{
@@ -321,12 +321,10 @@ export default function UnusedOutfits() {
             <Card className="rounded-[1.25rem] p-5 space-y-3">
               <Sparkles className="h-5 w-5 text-accent" />
               <p className="font-display italic text-[1.1rem] leading-tight text-foreground">
-                Your closet is a living gallery.
+                {t('insights.unused_footer_title')}
               </p>
               <p className="font-body text-sm leading-6 text-muted-foreground">
-                {outfits.length < 6
-                  ? `BURS found ${outfits.length} strong looks from the unused pieces. Regenerate if you want a fresh pass.`
-                  : 'Rotate these into your weekly plan and watch your cost-per-wear drop.'}
+                {t('insights.unused_footer_body')}
               </p>
             </Card>
           </motion.div>
