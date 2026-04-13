@@ -320,7 +320,7 @@
   }
 
   .safe-top {
-    padding-top: env(safe-area-inset-top, 0);
+    padding-top: var(--safe-area-top);
   }
 
   /* Hide scrollbar but allow scrolling */
