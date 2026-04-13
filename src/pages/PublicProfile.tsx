@@ -147,7 +147,7 @@ export default function PublicProfile() {
           showBack
         />
 
-        <AnimatedPage className="max-w-lg mx-auto px-4 pb-24 pt-8">
+        <AnimatedPage className="max-w-lg mx-auto px-[var(--page-px)] pb-24 pt-8">
           {/* Profile header */}
           <motion.div className="flex flex-col items-center gap-4 pb-8" {...stagger(0)}>
             <Avatar className="w-24 h-24 ring-2 ring-border/30 ring-offset-2 ring-offset-background">

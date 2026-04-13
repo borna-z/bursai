@@ -17,7 +17,7 @@ export default function DiscoverPage() {
         subtitle={t('discover.subtitle_new')}
         showBack
       />
-      <AnimatedPage className="px-4 pb-24 pt-5 space-y-10 max-w-lg mx-auto">
+      <AnimatedPage className="px-[var(--page-px)] pb-24 pt-5 space-y-10 max-w-lg mx-auto">
         {/* ── Style Tools ── */}
         <DiscoverStyleTools />
 
