@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 const useSubscriptionMock = vi.fn();
 const useAddGarmentMock = vi.fn();
@@ -137,7 +138,11 @@ describe('Add garment page', () => {
   });
 
   it('surfaces the three primary add entry points', () => {
-    render(<AddGarmentPage />);
+    render(
+      <MemoryRouter>
+        <AddGarmentPage />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByRole('button', { name: /open the fastest capture flow/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
