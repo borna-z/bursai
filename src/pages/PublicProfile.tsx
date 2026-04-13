@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { validateCompleteOutfit } from '@/lib/outfitValidation';
@@ -140,14 +141,11 @@ export default function PublicProfile() {
         <meta name="description" content={`Check out ${displayName}'s style on BURS`} />
       </Helmet>
       <div className="min-h-screen bg-background">
-        {/* Sticky topbar */}
-        <div className="sticky top-0 z-10 topbar-frost border-b border-border/40">
-          <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-            <span className="font-display italic text-sm">BURS</span>
-            <span className="text-muted-foreground/30">·</span>
-            <span className="text-[11px] font-body text-muted-foreground">@{profile.username}</span>
-          </div>
-        </div>
+        <PageHeader
+          title={displayName}
+          subtitle={`@${profile.username}`}
+          showBack
+        />
 
         <AnimatedPage className="max-w-lg mx-auto px-4 pb-24 pt-8">
           {/* Profile header */}
