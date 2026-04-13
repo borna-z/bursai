@@ -2396,6 +2396,11 @@ const sv: Record<string, string> = {
     'chat.refine': 'Förfina',
     'chat.save': 'Spara',
     'chat.saved': 'Sparad',
+    'chat.remove_layer': 'Ta bort ett lager',
+    'chat.date_night': 'Dejtkväll-version',
+    'chat.weekend_version': 'Helgversion',
+    'chat.empty_wardrobe': 'Din garderob är tom — lägg till plagg först så hjälper jag dig styla dem!',
+    'chat.small_wardrobe': 'Jobbar med en liten garderob — lägg till fler plagg för bättre kombinationer.',
 
     // Chat keys
     'chat.stylist_fallback': 'Något gick fel. Försök igen eller skriv om din fråga.',
