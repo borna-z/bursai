@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { cn } from '@/lib/utils';
 import { hapticLight } from '@/lib/haptics';
@@ -286,19 +287,20 @@ function LiveScanFallback() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   return (
-    <div className="min-h-screen bg-background px-[var(--page-px)] py-24 text-foreground">
-      <div className="mx-auto max-w-sm">
+    <AppLayout hideNav>
+      <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
+      <div className="page-shell !max-w-sm !pt-10">
         <Card surface="editorial" className="space-y-6 p-6 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.1rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
             <Camera className="h-7 w-7 text-foreground/70" />
           </div>
-          <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
+          <p className="text-sm text-muted-foreground">{t('scan.fallback_message') || 'Live scan is unavailable. Try uploading a photo instead.'}</p>
           <Button onClick={() => navigate('/wardrobe')} className="w-full">
             Go to Wardrobe
           </Button>
         </Card>
       </div>
-    </div>
+    </AppLayout>
   );
 }
 
@@ -496,11 +498,7 @@ export default function LiveScan() {
 
   return (
     <PageErrorBoundary fallback={<LiveScanFallback />}>
-    <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top_left,rgba(157,126,86,0.16),transparent_36%),radial-gradient(circle_at_top_right,rgba(88,99,148,0.09),transparent_34%)]"
-      />
+    <AppLayout hideNav>
       {/* Hidden file input for Median / fallback mode */}
       <input
         ref={fileInputRef}
@@ -549,7 +547,6 @@ export default function LiveScan() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <ImagePlus className="h-8 w-8 text-foreground/70" />
               </div>
-              <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
               <Button onClick={handleFileCapture} disabled={isProcessing} size="lg" className="w-full">
                 <Camera className="w-4 h-4" />
                 {t('scan.take_photo')}
@@ -563,7 +560,6 @@ export default function LiveScan() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <Camera className="h-8 w-8 text-foreground/70" />
               </div>
-              <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
               <Button onClick={startCamera} size="lg" className="w-full">
                 <Camera className="w-4 h-4" />
                 {t('scan.start_camera')}
@@ -576,11 +572,11 @@ export default function LiveScan() {
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-background/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                 <Camera className="h-8 w-8 text-foreground/70" />
               </div>
-              <PageHeader title={t('scan.title') || 'Live Scan'} showBack />
+              <p className="text-sm text-destructive">{cameraError}</p>
               <div className="flex flex-col gap-2.5">
                 <Button onClick={() => fileInputRef.current?.click()} size="lg" className="w-full">
                   <ImagePlus className="w-4 h-4" />
-                  Upload a photo instead
+                  {t('scan.upload_instead') || 'Upload a photo instead'}
                 </Button>
                 <Button variant="outline" onClick={handleClose} className="w-full">
                   {t('common.back')}
@@ -827,7 +823,7 @@ export default function LiveScan() {
       />
 
       <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
-    </div>
+    </AppLayout>
     </PageErrorBoundary>
   );
 }

@@ -3008,6 +3008,8 @@ const en: Record<string, string> = {
 
     // Appended: missing keys discovered by i18n-completeness scan
     'common.clear': 'Clear',
+    'scan.fallback_message': 'Live scan is unavailable. Try uploading a photo instead.',
+    'scan.upload_instead': 'Upload a photo instead',
 };
 
 export default en;

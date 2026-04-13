@@ -2578,6 +2578,8 @@ const sv: Record<string, string> = {
 
     // Appended: missing keys discovered by i18n-completeness scan
     'common.clear': 'Rensa',
+    'scan.fallback_message': 'Live-skanning är inte tillgänglig. Försök ladda upp ett foto istället.',
+    'scan.upload_instead': 'Ladda upp ett foto istället',
 };
 
 export default sv;
