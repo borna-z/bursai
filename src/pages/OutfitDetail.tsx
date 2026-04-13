@@ -32,6 +32,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { SwapSheet, SlotRow } from '@/components/outfit/OutfitDetailSlots';
 import { OutfitDetailActions } from '@/components/outfit/OutfitDetailActions';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 /* ── Main Page ──────────────────────────────────────── */
 
@@ -330,9 +331,8 @@ export default function OutfitDetailPage() {
   
 
   if (isLoading) {
-    
     return (
-      <div className="min-h-screen bg-background">
+      <AppLayout>
         <PageHeader title={t('outfit.label')} showBack variant="overlay" />
         <div className="flex w-full">
           {[1, 2, 3].map((i) => (
@@ -348,28 +348,29 @@ export default function OutfitDetailPage() {
             <Skeleton className="h-20 w-full rounded-[1.25rem]" />
           </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   if (!outfit) {
-    
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="max-w-xs w-full text-center space-y-4">
-          <div className="mx-auto w-14 h-14 rounded-[1.25rem] bg-muted flex items-center justify-center">
-            <Shirt className="w-7 h-7 text-muted-foreground" />
+      <AppLayout>
+        <div className="flex min-h-full flex-col items-center justify-center p-6">
+          <div className="max-w-xs w-full text-center space-y-4">
+            <div className="mx-auto w-14 h-14 rounded-[1.25rem] bg-muted flex items-center justify-center">
+              <Shirt className="w-7 h-7 text-muted-foreground" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-display italic text-[1.2rem] leading-tight text-foreground">{t('outfit.not_found')}</p>
+              <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
+            </div>
+            <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {t('common.back')}
+            </Button>
           </div>
-          <div className="space-y-1.5">
-            <p className="font-display italic text-[1.2rem] leading-tight text-foreground">{t('outfit.not_found')}</p>
-            <p className="text-sm text-muted-foreground">{t('common.something_wrong')}</p>
-          </div>
-          <Button variant="outline" onClick={() => navigate('/outfits')} className="w-full">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {t('common.back')}
-          </Button>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -381,7 +382,7 @@ export default function OutfitDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <AppLayout>
       <PageHeader
         title={outfit.title || displayOccasion || t('outfit.label')}
         showBack
@@ -635,6 +636,6 @@ export default function OutfitDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </AppLayout>
   );
 }
