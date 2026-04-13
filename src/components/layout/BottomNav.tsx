@@ -261,9 +261,10 @@ export function BottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 inset-x-0 z-50"
+        className="fixed bottom-0 inset-x-0"
         aria-label={t('nav.main_navigation')}
         style={{
+          zIndex: 'var(--z-bottom-nav)' as unknown as number,
           background: 'hsl(var(--background) / 0.88)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',

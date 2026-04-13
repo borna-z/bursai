@@ -91,7 +91,7 @@ export function CoachMark({
           isVisible
             ? {
                 position: 'relative',
-                zIndex: 9999,
+                zIndex: 'var(--z-coach)' as unknown as number,
               }
             : undefined
         }
@@ -144,7 +144,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 9997,
+          zIndex: 'var(--z-coach)' as unknown as number,
           background: 'rgba(0,0,0,0.4)',
           pointerEvents: 'auto',
         }}
@@ -153,7 +153,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         aria-hidden="true"
         style={{
           position: 'fixed',
-          zIndex: 9998,
+          zIndex: 'var(--z-coach)' as unknown as number,
           left: rect.left,
           top: rect.top,
           width: rect.width,
@@ -169,7 +169,7 @@ function Callout({ rect, position, step, title, body, ctaLabel, onCta, onSkip, p
         transition={prefersReduced ? { duration: 0 } : { duration: 0.2, ease: EASE_CURVE }}
         style={{
           position: 'fixed',
-          zIndex: 9999,
+          zIndex: 'var(--z-coach)' as unknown as number,
           left,
           top: position === 'bottom' ? rect.bottom + gap : undefined,
           bottom: position === 'top' ? window.innerHeight - rect.top + gap : undefined,
