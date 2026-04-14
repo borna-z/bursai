@@ -6,6 +6,8 @@ export interface GapResult {
   new_outfits: number;
   price_range: string;
   search_query: string;
+  pairing_garment_ids?: string[];
+  key_insight?: string;
 }
 
 export interface GapScanSnapshot {
