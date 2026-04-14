@@ -1053,7 +1053,17 @@ serve(async (req) => {
     }
 
     // ── Intent classification (Pass 1) ──
-    const hasActiveLookForClassifier = Array.isArray(explicitActiveLook?.garment_ids) && explicitActiveLook.garment_ids.length >= 2;
+    // Only report active look to classifier if it came from an explicit user
+    // action (refine mode, anchor, etc.), not from stale history loaded on
+    // session start. We detect "stale" by checking if the active look source
+    // indicates it was preserved from a conversational turn or loaded from DB.
+    const activeLookSource = explicitActiveLook?.source || "";
+    const isStaleActiveLook = activeLookSource === "preserved_conversational"
+      || activeLookSource === "preserved_active_look"
+      || activeLookSource === "";
+    const hasActiveLookForClassifier = Array.isArray(explicitActiveLook?.garment_ids)
+      && explicitActiveLook.garment_ids.length >= 2
+      && !isStaleActiveLook;
     const hasAnchorForClassifier = Array.isArray(selected_garment_ids) && selected_garment_ids.length > 0;
     const garmentCountNum = typeof _clientGarmentCount === "number" ? _clientGarmentCount : 0;
     let classifierResult: ClassifierResult;
@@ -1347,30 +1357,50 @@ serve(async (req) => {
       anchorReleased,
     });
 
-    // ── Extract occasion from conversation context for the unified engine ──
+    // ── Extract occasion + style from conversation context for the unified engine ──
     // The refinement plan defaults to "everyday" for new outfits, but the
     // conversation may contain occasion keywords (wedding, work, date, etc.)
     // that the engine needs to pick appropriate garments.
-    if (refinementPlan.occasion === "everyday" && stylistMode !== "ACTIVE_LOOK_REFINEMENT") {
+    if (stylistMode !== "ACTIVE_LOOK_REFINEMENT") {
       const conversationText = (Array.isArray(messages) ? messages : [])
         .slice(-6)
-        .map((m: any) => typeof m.content === "string" ? m.content : "")
+        .map((m: any) => typeof m.content === "string" ? m.content : getMessageText(m.content))
         .join(" ")
         .toLowerCase();
-      const occasionKeywords: [RegExp, string][] = [
-        [/\b(wedding|bröllop)\b/, "formal"],
-        [/\b(interview|intervju|meeting|möte|presentation)\b/, "work"],
-        [/\b(date|dejt|dinner|middag|restaurant|restaurang)\b/, "dinner"],
-        [/\b(party|fest|club|klubb|night out|utkväll)\b/, "dinner"],
-        [/\b(casual|weekend|helg|brunch|errands|ärenden)\b/, "casual"],
-        [/\b(travel|resa|airport|flyg|packing|packa)\b/, "travel"],
-        [/\b(formal|formell|black tie|gala)\b/, "formal"],
-        [/\b(work|jobb|office|kontor|professional|professionell)\b/, "work"],
-      ];
-      for (const [re, occasion] of occasionKeywords) {
-        if (re.test(conversationText)) {
-          refinementPlan.occasion = occasion;
-          break;
+      if (refinementPlan.occasion === "everyday") {
+        const occasionKeywords: [RegExp, string][] = [
+          [/\b(wedding|bröllop)\b/, "formal"],
+          [/\b(interview|intervju|meeting|möte|presentation)\b/, "work"],
+          [/\b(date|dejt|dinner|middag|restaurant|restaurang)\b/, "dinner"],
+          [/\b(party|fest|club|klubb|night out|utkväll)\b/, "dinner"],
+          [/\b(casual|weekend|helg|brunch|errands|ärenden)\b/, "casual"],
+          [/\b(travel|resa|airport|flyg|packing|packa)\b/, "travel"],
+          [/\b(formal|formell|black tie|gala)\b/, "formal"],
+          [/\b(work|jobb|office|kontor|professional|professionell)\b/, "work"],
+        ];
+        for (const [re, occasion] of occasionKeywords) {
+          if (re.test(conversationText)) {
+            refinementPlan.occasion = occasion;
+            break;
+          }
+        }
+      }
+      // Also override style when conversation indicates formality that
+      // differs from the user's dominant archetype (e.g., casual user
+      // asking for a formal wedding outfit shouldn't get casual garments).
+      if (!refinementPlan.style || refinementPlan.style === wardrobeCtx.dominantArchetype) {
+        const styleKeywords: [RegExp, string][] = [
+          [/\b(formal|formell|black tie|gala|elegant|tuxedo|smoking)\b/, "sharp"],
+          [/\b(casual|avslappnad|laid.?back|relaxed)\b/, "casual"],
+          [/\b(smart casual|smart.?casual|polished|polerad)\b/, "sharp"],
+          [/\b(minimal|minimalistisk|clean|simple|enkel)\b/, "minimal"],
+          [/\b(bold|djärv|statement|edgy)\b/, "bold"],
+        ];
+        for (const [re, style] of styleKeywords) {
+          if (re.test(conversationText)) {
+            refinementPlan.style = style;
+            break;
+          }
         }
       }
     }
