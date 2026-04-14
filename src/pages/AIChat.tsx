@@ -313,31 +313,8 @@ export default function AIChat() {
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // Scroll to bottom when keyboard opens. Only fires on the SHRINK edge —
-  // tracks previous height so growing back (keyboard dismiss) doesn't scroll.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    let baseline = vv.height;
-    let prev = vv.height;
-    let fired = false;
-    const onResize = () => {
-      const current = vv.height;
-      const isShrinking = current < prev;
-      prev = current;
-      if (current >= baseline - 10) {
-        // Viewport near or above baseline — keyboard closed, reset
-        baseline = Math.max(baseline, current);
-        fired = false;
-      } else if (isShrinking && !fired && baseline - current > 100) {
-        // Shrinking AND crossed 100px threshold — keyboard just opened
-        fired = true;
-        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
-      }
-    };
-    vv.addEventListener('resize', onResize);
-    return () => vv.removeEventListener('resize', onResize);
-  }, []);
+  // No keyboard scroll effect needed — ChatInput is position:fixed and uses
+  // --keyboard-offset to stay above the keyboard on all platforms.
 
   useEffect(() => {
     if (isStreaming) return;
@@ -843,7 +820,10 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] pt-5 space-y-6 overscroll-contain"
+            style={{ paddingBottom: 'calc(var(--chat-input-height, 80px) + 16px)' }}
+          >
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
@@ -931,38 +911,36 @@ export default function AIChat() {
                 </div>
               </div>
             ) : null}
+            {/* Refine UI — inside scroll area, above end marker */}
+            <AnimatePresence>
+              {refineMode.isRefining && (
+                <motion.div
+                  key="refine-ui"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
+                >
+                  <div className="space-y-2 pb-2">
+                    <RefineChips
+                      garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                      onChipTap={handleChipTap}
+                      canUndo={refineMode.canUndo}
+                      onUndo={refineMode.undo}
+                    />
+                    <RefineBanner
+                      garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                      onStopRefining={refineMode.exitRefineMode}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
         )}
 
-        {/* Refine UI — chips + banner above input */}
-        <AnimatePresence>
-          {refineMode.isRefining && (
-            <motion.div
-              key="refine-ui"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-2 pb-2 pt-1">
-                <RefineChips
-                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                  onChipTap={handleChipTap}
-                  canUndo={refineMode.canUndo}
-                  onUndo={refineMode.undo}
-                />
-                <RefineBanner
-                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                  onStopRefining={refineMode.exitRefineMode}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Input */}
+        {/* Input — fixed to bottom, uses --keyboard-offset for Median WebView */}
         <ChatInput
           input={input}
           onInputChange={setInput}
