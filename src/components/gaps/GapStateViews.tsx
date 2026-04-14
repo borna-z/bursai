@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
   LockKeyhole,
+  Plus,
   Radar,
   RefreshCw,
   Search,
@@ -247,6 +249,49 @@ export function GapErrorState({
         <Button onClick={onRetry} className="rounded-full px-5">
           <RefreshCw className="size-4" />
           {t('gaps.retry_scan')}
+        </Button>
+      </div>
+    </StateSurface>
+  );
+}
+
+export function GapInsufficientWardrobeState({
+  currentCount,
+  requiredCount,
+}: {
+  currentCount?: number;
+  requiredCount?: number;
+}) {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const current = currentCount ?? 0;
+  const required = requiredCount ?? 5;
+  return (
+    <StateSurface>
+      <div className="flex items-start gap-4">
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+          <ShoppingBag className="size-5" />
+        </div>
+        <div className="space-y-2">
+          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
+            {`${current}/${required}`}
+          </p>
+          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
+            {t('gaps.insufficient_title')}
+          </h2>
+          <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
+            {t('gaps.insufficient_desc')}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-2.5">
+        <Button
+          onClick={() => navigate('/wardrobe/add')}
+          className="rounded-full px-5"
+        >
+          <Plus className="size-4" />
+          {t('gaps.insufficient_cta')}
         </Button>
       </div>
     </StateSurface>

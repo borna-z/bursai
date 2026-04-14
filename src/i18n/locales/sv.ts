@@ -2679,6 +2679,9 @@ const sv: Record<string, string> = {
     'capsule.generating': 'Skapar...',
     'capsule.items_count': 'plagg',
     'common.delete': 'Radera',
+    'gaps.insufficient_title': 'Lägg till fler plagg först',
+    'gaps.insufficient_desc': 'Din garderob behöver minst 5 plagg innan BURS kan hitta luckor. Lägg till några till för att låsa upp skanningen.',
+    'gaps.insufficient_cta': 'Lägg till plagg',
 };
 
 export default sv;

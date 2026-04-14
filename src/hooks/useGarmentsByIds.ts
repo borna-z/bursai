@@ -6,7 +6,7 @@ export type GarmentBasic = Pick<Tables<'garments'>, 'id' | 'title' | 'category' 
 
 export function useGarmentsByIds(ids: string[]) {
   return useQuery({
-    queryKey: ['garments-by-ids', ids.sort().join(',')],
+    queryKey: ['garments-by-ids', [...ids].sort().join(',')],
     queryFn: async () => {
       if (!ids.length) return [] as GarmentBasic[];
       const { data, error } = await supabase

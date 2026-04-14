@@ -11,6 +11,7 @@ import {
   GapAutorunState,
   GapErrorState,
   GapHero,
+  GapInsufficientWardrobeState,
   GapLoadingState,
   GapLockedState,
   GapNoGapsState,
@@ -26,6 +27,7 @@ import { EASE_CURVE } from '@/lib/motion';
 
 function deriveViewState({
   hasError,
+  hasInsufficientWardrobe,
   hasResults,
   isAutorunPending,
   isLoading,
@@ -33,6 +35,7 @@ function deriveViewState({
   results,
 }: {
   hasError: boolean;
+  hasInsufficientWardrobe: boolean;
   hasResults: boolean;
   isAutorunPending: boolean;
   isLoading: boolean;
@@ -42,6 +45,7 @@ function deriveViewState({
   if (!isUnlocked) return 'locked';
   if (isAutorunPending) return 'autorun';
   if (isLoading) return 'loading';
+  if (hasInsufficientWardrobe) return 'insufficient-wardrobe';
   if (hasError && !hasResults) return 'error';
   if (results && results.length > 0) return 'results';
   if (results && results.length === 0) return 'no-gaps';
@@ -63,6 +67,7 @@ export default function GarmentGapsPage() {
     readGapNavigationIntent({ search: location.search, state: location.state }).autorun,
   );
   const [refreshError, setRefreshError] = useState(false);
+  const [insufficientInfo, setInsufficientInfo] = useState<{ current?: number; required?: number } | null>(null);
   const hasTriggeredAutorun = useRef(false);
 
   const unlocked = isUnlocked('gap_analysis');
@@ -70,6 +75,7 @@ export default function GarmentGapsPage() {
   const hasResults = results !== null;
   const viewState = deriveViewState({
     hasError: gapAnalysis.isError,
+    hasInsufficientWardrobe: insufficientInfo !== null,
     hasResults,
     isAutorunPending,
     isLoading: gapAnalysis.isPending,
@@ -92,6 +98,13 @@ export default function GarmentGapsPage() {
 
     try {
       const data = await gapAnalysis.mutateAsync({ locale });
+      if (data?.error === 'minimum_garments') {
+        setInsufficientInfo({ current: data.current, required: data.required });
+        setResults(null);
+        setAnalysisTimestamp(null);
+        return;
+      }
+      setInsufficientInfo(null);
       const nextResults = data?.gaps ?? [];
       const analyzedAt = new Date().toISOString();
       setResults(nextResults);
@@ -149,6 +162,13 @@ export default function GarmentGapsPage() {
           ) : null}
           {viewState === 'no-gaps' ? (
             <GapNoGapsState key="no-gaps" onRefresh={() => void handleScan()} />
+          ) : null}
+          {viewState === 'insufficient-wardrobe' ? (
+            <GapInsufficientWardrobeState
+              key="insufficient-wardrobe"
+              currentCount={insufficientInfo?.current ?? count}
+              requiredCount={insufficientInfo?.required ?? 5}
+            />
           ) : null}
         </AnimatePresence>
       </AnimatedPage>

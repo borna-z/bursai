@@ -101,8 +101,8 @@ CRITICAL RULES:
 6. Consider: category gaps, color palette gaps, formality range gaps, seasonal gaps
 7. Be specific about color: "Navy" not "Blue", "Ecru" not "White"
 8. Include a mix of price ranges when appropriate
-9. For each gap, return "pairing_garment_ids": an array of 2-3 garment IDs FROM THE WARDROBE LIST ABOVE that would pair best with the suggested item. Use the exact UUIDs shown in square brackets.
-10. For each gap, return "key_insight": one sentence of editorial prose explaining the visual or style impact of adding this piece.`;
+9. When possible, include "pairing_garment_ids": an array of 2-3 garment IDs FROM THE WARDROBE LIST ABOVE that would pair best with the suggested item. Use the exact UUIDs shown in square brackets.
+10. When possible, include "key_insight": one sentence of editorial prose explaining the visual or style impact of adding this piece.`;
 
     const { data: result } = await callBursAI({
       complexity: "standard",
@@ -138,7 +138,7 @@ CRITICAL RULES:
                     },
                     key_insight: { type: "string", description: "One-sentence editorial insight about the style impact" },
                   },
-                  required: ["item", "category", "color", "reason", "new_outfits", "price_range", "search_query", "pairing_garment_ids", "key_insight"],
+                  required: ["item", "category", "color", "reason", "new_outfits", "price_range", "search_query"],
                   additionalProperties: false,
                 },
               },

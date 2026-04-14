@@ -143,15 +143,16 @@ function scorePackWorthiness(
   }
   score += Math.min(10, pairingCount * 1.5) * 0.15;
 
-  // 6. Companion adjustment
-  const formality = typeof garment.formality === 'number' ? garment.formality : 3;
-  if (companions === 'partner' && formality >= 4) score += 0.5;
-  else if (companions === 'friends' && formality <= 2) score += 0.5;
-  else if (companions === 'family' && formality >= 2 && formality <= 3) score += 0.3;
+  // 6. Companion adjustment + 7. Style preference adjustment (guarded by known formality)
+  const rawFormality = typeof garment.formality === 'number' ? garment.formality : null;
+  if (rawFormality != null) {
+    if (companions === 'partner' && rawFormality >= 4) score += 0.5;
+    else if (companions === 'friends' && rawFormality <= 2) score += 0.5;
+    else if (companions === 'family' && rawFormality <= 2) score += 0.3;
 
-  // 7. Style preference adjustment
-  if (stylePreference === 'casual' && formality <= 2) score += 1.0;
-  else if (stylePreference === 'dressy' && formality >= 4) score += 1.0;
+    if (stylePreference === 'casual' && rawFormality <= 2) score += 1.0;
+    else if (stylePreference === 'dressy' && rawFormality >= 4) score += 1.0;
+  }
 
   return Math.max(0, Math.min(10, score));
 }
@@ -218,11 +219,12 @@ function selectGarmentsForAI(
   // Shoes are constrained by luggage. Everything else is tuned proportionally
   // to the total garment budget so we don't blow past the carry-on limit.
   const garmentBudget = luggageLimits.garments;
-  const topCount = Math.max(3, Math.round(garmentBudget * 0.4));
-  const bottomCount = Math.max(2, Math.round(garmentBudget * 0.25));
-  const dressCount = minimizeItems ? 1 : 2;
-  const outerCount = weatherMin <= 12 ? (minimizeItems ? 1 : 2) : 1;
-  const accessoryCount = minimizeItems ? 1 : 2;
+  const nonShoeBudget = Math.max(4, garmentBudget - luggageLimits.shoes);
+  const topCount = Math.max(2, Math.round(nonShoeBudget * 0.45));
+  const bottomCount = Math.max(2, Math.round(nonShoeBudget * 0.28));
+  const dressCount = minimizeItems ? 0 : 1;
+  const outerCount = weatherMin <= 12 ? (minimizeItems ? 1 : 2) : (minimizeItems ? 0 : 1);
+  const accessoryCount = minimizeItems ? 0 : 1;
 
   reserveSlot("shoes", luggageLimits.shoes);
   reserveSlot("dress", dressCount);
@@ -561,13 +563,7 @@ serve(async (req) => {
     const dayOccasionLabels: Record<number, string> = {};
     if (occasionList.length > 0) {
       planningRequirements.forEach((entry, idx) => {
-        const primary = occasionList[idx % occasionList.length];
-        const secondary = occasionList.length > 1
-          ? occasionList[(idx + 1) % occasionList.length]
-          : null;
-        dayOccasionLabels[entry.day] = secondary && secondary !== primary
-          ? `${primary} + ${secondary}`
-          : primary;
+        dayOccasionLabels[entry.day] = occasionList[idx % occasionList.length];
       });
     }
 
@@ -591,7 +587,7 @@ Your task: build a smart travel capsule from the user's wardrobe.
 TRIP DETAILS:
 - Dates: ${start_date} to ${end_date} (${duration_days} trip day(s), ${planningSummary.tripNights} night(s))
 - Destination: ${destination || "unknown destination"}
-- Trip type: ${trip_type} - ${tripTypeContext}
+${occasionList.length === 0 ? `- Trip type: ${trip_type} - ${tripTypeContext}` : ''}
 - Weather: ${weatherDesc}
 - Luggage: ${luggage_type} (≤${luggageLimits.garments} garments, ≤${luggageLimits.shoes} pairs of shoes)
 - Companions: ${companions}
@@ -1065,10 +1061,26 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     }
 
     // ─────────────────────────────────────────────
+    // Clamp capsule to luggage garment budget — preserve items used by outfits
+    // ─────────────────────────────────────────────
+
+    let clampedCapsule: GarmentRow[] = prunedCapsule as GarmentRow[];
+    if (clampedCapsule.length > luggageLimits.garments) {
+      const usedIds = new Set<string>();
+      for (const outfit of scheduledOutfits) {
+        for (const id of outfit.items ?? []) usedIds.add(id);
+      }
+      const itemId = (item: any) => typeof item === 'string' ? item : item?.id;
+      const kept = clampedCapsule.filter((item: any) => usedIds.has(itemId(item)));
+      const extras = clampedCapsule.filter((item: any) => !usedIds.has(itemId(item)));
+      clampedCapsule = [...kept, ...extras].slice(0, luggageLimits.garments);
+    }
+
+    // ─────────────────────────────────────────────
     // FIX 4 — SAVE CAPSULE TO DB
     // ─────────────────────────────────────────────
 
-    const packingList = prunedCapsule.map((g: any) => ({
+    const packingList = clampedCapsule.map((g: any) => ({
       id: g.id,
       title: g.title,
       category: g.category,
@@ -1086,7 +1098,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         weather_min: weather?.temperature_min ?? null,
         weather_max: weather?.temperature_max ?? null,
         occasions: occasions ?? [],
-        capsule_items: prunedCapsule,
+        capsule_items: clampedCapsule,
         outfits: scheduledOutfits,
         packing_list: packingList,
         packing_tips: packing_tips ?? null,
@@ -1096,7 +1108,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     if (saveError) console.warn('travel_capsule: failed to save capsule:', saveError.message);
 
     return new Response(JSON.stringify({
-      capsule_items: prunedCapsule,
+      capsule_items: clampedCapsule,
       outfits: scheduledOutfits,
       packing_tips: packing_tips || [],
       coverage_gaps,
