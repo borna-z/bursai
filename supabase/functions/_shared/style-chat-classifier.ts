@@ -70,7 +70,8 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 
 Rules:
 - "conversation" = greeting, fashion question, unclear request, or user needs to provide more info
-- "generate_outfit" = user explicitly asks for an outfit AND enough context exists. If context is vague (e.g. "I have a wedding"), set needs_more_context=true
+- "generate_outfit" = user explicitly asks for an outfit AND enough context exists (dress code + occasion + formality are all clear). Examples where needs_more_context=false: "Put together a casual work outfit", "What should I wear to a casual BBQ today?"
+- "generate_outfit" + needs_more_context=true = user mentions an occasion but key details are missing. ALWAYS set needs_more_context=true when the user mentions a wedding, date, party, interview, event, or trip WITHOUT specifying dress code or formality. Examples: "I have a wedding today", "going on a date tonight", "I have a job interview" — these ALL need needs_more_context=true because dress code/formality is unknown.
 - "refine_outfit" = active look exists AND user wants to modify it (warmer, swap shoes, more casual, etc.)
 - "explain_outfit" = user asks about current look's styling logic (why does this work, what shoes go better)
 - If has_active_look=false and user says "make it warmer" or similar refinement language, use intent="conversation" + needs_more_context=true (nothing to refine)
@@ -78,7 +79,8 @@ Rules:
 - For purchase advice: use intent "PURCHASE_PRIORITIZATION"
 - For wardrobe gaps/audits: use intent "WARDROBE_GAP_ANALYSIS"
 - For weekly planning: use intent "PLANNING"
-- For style identity questions: use intent "STYLE_IDENTITY_ANALYSIS"`;
+- For style identity questions: use intent "STYLE_IDENTITY_ANALYSIS"
+- IMPORTANT: When in doubt between generating immediately vs asking, ALWAYS choose needs_more_context=true. It is ALWAYS better to ask one question than to generate a wrong outfit.`;
 }
 
 function parseClassifierResponse(raw: string): ClassifierResult {
@@ -108,11 +110,13 @@ function parseClassifierResponse(raw: string): ClassifierResult {
     return CLASSIFIER_FALLBACK;
   }
 
-  // Validate needs_more_context
+  // Validate needs_more_context — handle both boolean and string "true"/"false"
+  const rawNmc = obj["needs_more_context"];
   const needsMoreContext =
-    typeof obj["needs_more_context"] === "boolean"
-      ? obj["needs_more_context"]
-      : false;
+    typeof rawNmc === "boolean" ? rawNmc
+    : rawNmc === "true" ? true
+    : rawNmc === "false" ? false
+    : false;
 
   // Validate refinement_hint
   let refinementHint: RefinementHint = null;
@@ -137,11 +141,13 @@ function parseClassifierResponse(raw: string): ClassifierResult {
     );
   }
 
-  // Validate clear_active_look
+  // Validate clear_active_look — handle both boolean and string "true"/"false"
+  const rawCal = obj["clear_active_look"];
   const clearActiveLook =
-    typeof obj["clear_active_look"] === "boolean"
-      ? obj["clear_active_look"]
-      : false;
+    typeof rawCal === "boolean" ? rawCal
+    : rawCal === "true" ? true
+    : rawCal === "false" ? false
+    : false;
 
   return {
     intent: intent as ClassifierIntent,
@@ -159,7 +165,10 @@ export async function classifyIntent(
   try {
     const prompt = buildClassifierPrompt(input);
     const raw = await callAI(
-      [{ role: "user", content: prompt }],
+      [
+        { role: "system", content: prompt },
+        { role: "user", content: input.userMessage },
+      ],
       "trivial",
     );
     return parseClassifierResponse(raw);

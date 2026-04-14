@@ -1708,11 +1708,15 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
         fallbackUsed,
         degradedReason,
       });
-    const chips = buildSuggestionChips(
-      stylistMode,
-      renderOutfitCard,
-      locale,
-    );
+    const chips = shouldAskClarifyingQuestion
+      ? (locale === "sv"
+        ? ["Formellt", "Avslappnat", "Smart casual", "Utomhus"]
+        : ["Formal", "Casual", "Smart casual", "Outdoor"])
+      : buildSuggestionChips(
+        stylistMode,
+        renderOutfitCard,
+        locale,
+      );
     const envelope: StyleChatResponseEnvelope = {
       kind: "stylist_response",
       mode: stylistMode,
