@@ -19,6 +19,50 @@ export type StyleChatActiveLookStatus = "new" | "preserved" | "updated" | "repla
 
 export type StyleChatIntentKind = "create" | "refine" | "explain" | "clarify";
 
+// ── Intent classifier types (replaces regex-based detection) ──
+
+export type ClassifierIntent = "conversation" | "generate_outfit" | "refine_outfit" | "explain_outfit";
+
+export type RefinementHint =
+  | "warmer" | "cooler" | "more_formal" | "less_formal"
+  | "swap_shoes" | "swap_top" | "swap_bottom" | "swap_outerwear"
+  | "different_style" | "use_less_worn"
+  | null;
+
+export interface ClassifierResult {
+  intent: ClassifierIntent;
+  needs_more_context: boolean;
+  refinement_hint: RefinementHint;
+  locked_slots: string[] | null;
+  clear_active_look: boolean;
+}
+
+export const CLASSIFIER_FALLBACK: ClassifierResult = {
+  intent: "conversation",
+  needs_more_context: true,
+  refinement_hint: null,
+  locked_slots: null,
+  clear_active_look: false,
+};
+
+export function mapClassifierToMode(
+  result: ClassifierResult,
+  hasAnchor: boolean,
+): StylistChatMode {
+  switch (result.intent) {
+    case "conversation":
+      return "CONVERSATIONAL";
+    case "generate_outfit":
+      return hasAnchor ? "GARMENT_FIRST_STYLING" : "OUTFIT_GENERATION";
+    case "refine_outfit":
+      return "ACTIVE_LOOK_REFINEMENT";
+    case "explain_outfit":
+      return "LOOK_EXPLANATION";
+    default:
+      return "CONVERSATIONAL";
+  }
+}
+
 export interface StyleChatActiveLookInput {
   garment_ids?: string[];
   explanation?: string | null;
@@ -54,6 +98,7 @@ export interface StyleChatResponseEnvelope {
   fallback_used: boolean;
   degraded_reason: string | null;
   render_outfit_card: boolean;
+  clear_active_look: boolean;
 }
 
 export function isStylingMode(mode: StylistChatMode): boolean {
@@ -83,86 +128,6 @@ export function resolveStyleCardPolicy(params: {
   }
 
   return "optional";
-}
-
-const LOOK_EXPLANATION_RE = /(why does this work|why this works|explain why|explain why this works|break down the look|analyze this look|what makes this work)/i;
-const GARMENT_FIRST_RE = /(style around|build around|based on this|with these chinos|with this blazer|style this|style this garment|wear this|around this|anchor on)/i;
-const CREATE_LOOK_RE = /(create|build|put together|give me|show me|what should i wear|for dinner|for work|for weekend|for travel|travel look|dinner look|work look|weekend look)/i;
-const CONTEXT_DEPENDENT_STYLE_RE = /(style this|style it|make it|change it|swap it|replace it|remove it|drop it|explain this|explain why this works|why this works|what should i change|fix this|improve this)/i;
-
-export function resolveStyleChatIntentFromSignals(params: {
-  latestUser: string;
-  hasActiveLook: boolean;
-  hasAnchor: boolean;
-  refinementMode: string;
-}): StyleChatIntentKind {
-  const latestUser = (params.latestUser || "").trim();
-  if (!latestUser) return "create";
-
-  if (LOOK_EXPLANATION_RE.test(latestUser)) {
-    return params.hasActiveLook || params.hasAnchor ? "explain" : "clarify";
-  }
-
-  if (!params.hasActiveLook && !params.hasAnchor && CONTEXT_DEPENDENT_STYLE_RE.test(latestUser)) {
-    return "clarify";
-  }
-
-  if (params.hasActiveLook && params.refinementMode !== "new_look") {
-    return "refine";
-  }
-
-  if (params.refinementMode !== "new_look") {
-    return "create";
-  }
-
-  if (GARMENT_FIRST_RE.test(latestUser) || params.hasAnchor) {
-    return "create";
-  }
-
-  if (CREATE_LOOK_RE.test(latestUser)) {
-    return "create";
-  }
-
-  return "create";
-}
-
-export function detectStylistChatModeFromSignals(params: {
-  latestUser: string;
-  hasActiveLook: boolean;
-  hasAnchor: boolean;
-  refinementMode: string;
-}): StylistChatMode {
-  const { latestUser, hasActiveLook, hasAnchor, refinementMode } = params;
-  if (!latestUser) return "OUTFIT_GENERATION";
-
-  if (/(what should i buy|what to buy|buy next|top\s*\d+\s*(things|pieces).{0,20}buy|purchase priority|biggest upgrade per purchase|best purchases?|cheap(est)? high-impact|stop buying)/i.test(latestUser)) {
-    return "PURCHASE_PRIORITIZATION";
-  }
-  if (/(what am i missing|style missing|wardrobe gap|gap analysis|underrepresented|overrepresented|closet audit|wardrobe audit|pieces are weak|doing too much work|missing building blocks|upgrade my wardrobe)/i.test(latestUser)) {
-    return "WARDROBE_GAP_ANALYSIS";
-  }
-  if (/(what should i wear this week|build me \d+ .*looks|plan my week|weekly looks|week of outfits|capsule for this week)/i.test(latestUser)) {
-    return "PLANNING";
-  }
-  if (/(what is my style|describe my style|style identity|style direction|more masculine)/i.test(latestUser)) {
-    return "STYLE_IDENTITY_ANALYSIS";
-  }
-  const intent = resolveStyleChatIntentFromSignals({
-    latestUser,
-    hasActiveLook,
-    hasAnchor,
-    refinementMode,
-  });
-  if (intent === "explain") {
-    return "LOOK_EXPLANATION";
-  }
-  if (intent === "refine") {
-    return "ACTIVE_LOOK_REFINEMENT";
-  }
-  if (intent === "create" && (GARMENT_FIRST_RE.test(latestUser) || (hasAnchor && !hasActiveLook))) {
-    return "GARMENT_FIRST_STYLING";
-  }
-  return "OUTFIT_GENERATION";
 }
 
 export function resolveActiveLookStatus(previousIds: string[], nextIds: string[]): StyleChatActiveLookStatus {

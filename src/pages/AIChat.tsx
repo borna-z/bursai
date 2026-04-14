@@ -31,6 +31,9 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
 import { finalizeAssistantText, getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
+import { useRefineMode } from '@/hooks/useRefineMode';
+import { RefineChips } from '@/components/chat/RefineChips';
+import { RefineBanner } from '@/components/chat/RefineBanner';
 import { resolveStyleFlowLocationState } from '@/lib/styleFlowState';
 import { getLatestActiveLook, hasRenderableActiveLook } from '@/lib/chatActiveLook';
 import { trackEvent } from '@/lib/analytics';
@@ -247,6 +250,10 @@ export default function AIChat() {
   const activeRequestIdRef = useRef(0);
   const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => {});
 
+  const refineMode = useRefineMode();
+  const [savedOutfitIds, setSavedOutfitIds] = useState<Set<string>>(new Set());
+  const [isSavingOutfit, setIsSavingOutfit] = useState(false);
+
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
   useEffect(() => {
@@ -407,17 +414,26 @@ export default function AIChat() {
           garmentCount: garmentCount ?? 0,
           archetype: styleDNA?.archetype ?? null,
           selected_garment_ids: anchoredGarmentId ? [anchoredGarmentId] : undefined,
-          active_look: currentVisibleLook
+          locked_slots: refineMode.isRefining ? refineMode.lockedSlots : undefined,
+          active_look: refineMode.isRefining
             ? {
-              garment_ids: currentVisibleLook.active_look?.garment_ids?.length
-                ? currentVisibleLook.active_look.garment_ids
-                : currentVisibleLook.outfit_ids,
-              explanation: currentVisibleLook.active_look?.explanation || currentVisibleLook.outfit_explanation,
-              source: currentVisibleLook.active_look?.source || currentVisibleLook.active_look_status,
-              anchor_garment_id: currentVisibleLook.active_look?.anchor_garment_id ?? anchoredGarmentId ?? null,
-              anchor_locked: currentVisibleLook.active_look?.anchor_locked ?? Boolean(anchoredGarmentId),
+              garment_ids: refineMode.activeGarmentIds,
+              explanation: refineMode.activeExplanation,
+              source: 'refine_mode',
+              anchor_garment_id: anchoredGarmentId ?? null,
+              anchor_locked: Boolean(anchoredGarmentId),
             }
-            : undefined,
+            : currentVisibleLook
+              ? {
+                garment_ids: currentVisibleLook.active_look?.garment_ids?.length
+                  ? currentVisibleLook.active_look.garment_ids
+                  : currentVisibleLook.outfit_ids,
+                explanation: currentVisibleLook.active_look?.explanation || currentVisibleLook.outfit_explanation,
+                source: currentVisibleLook.active_look?.source || currentVisibleLook.active_look_status,
+                anchor_garment_id: currentVisibleLook.active_look?.anchor_garment_id ?? anchoredGarmentId ?? null,
+                anchor_locked: currentVisibleLook.active_look?.anchor_locked ?? Boolean(anchoredGarmentId),
+              }
+              : undefined,
         }),
         signal: controller.signal,
       });
@@ -460,6 +476,12 @@ export default function AIChat() {
             const parsed = JSON.parse(jsonStr);
             if (parsed.type === 'stylist_response' && isStyleChatResponseEnvelope(parsed.payload)) {
               assistantMeta = parsed.payload;
+              if (assistantMeta?.clear_active_look) {
+                refineMode.exitRefineMode();
+                setLastConfirmedLook(null);
+                setPendingLookUpdate(null);
+                setAnchoredGarmentId(null);
+              }
               if (hasRenderableActiveLook(assistantMeta)) {
                 setPendingLookUpdate(assistantMeta);
               }
@@ -536,6 +558,14 @@ export default function AIChat() {
       };
       if (hasRenderableActiveLook(assistantMsg.stylistMeta)) {
         setLastConfirmedLook(assistantMsg.stylistMeta);
+      }
+      // Guard: don't push refinement if clear_active_look was set during streaming
+      // (exitRefineMode was already called but the stale closure still reads isRefining=true)
+      if (refineMode.isRefining && !assistantMeta?.clear_active_look && assistantMeta?.active_look?.garment_ids?.length) {
+        refineMode.pushRefinement(
+          assistantMeta.active_look.garment_ids,
+          assistantMeta.active_look.explanation ?? assistantMeta.outfit_explanation ?? '',
+        );
       }
       setPendingLookUpdate(null);
       setMessages(prev => {
@@ -664,6 +694,42 @@ export default function AIChat() {
     navigate('/plan', { state: { planningMode: true, calendar_days: payload.calendar_days } });
   }, [navigate]);
 
+  const handleSaveFromChat = useCallback(async (garmentIds: string[]) => {
+    if (!user || isSavingOutfit) return;
+    setIsSavingOutfit(true);
+    try {
+      const items = garmentIds.map((id) => {
+        const garment = garmentMap.get(id);
+        const slot = garment ? inferOutfitSlotFromGarment(garment) : 'top';
+        return { garment_id: id, slot };
+      });
+      await createOutfit.mutateAsync({
+        outfit: {
+          name: t('chat.outfit_from_stylist'),
+          generated_at: new Date().toISOString(),
+          saved: true,
+        },
+        items,
+      });
+      setSavedOutfitIds((prev) => new Set([...prev, garmentIds.slice().sort().join(',')]));
+      hapticLight();
+      toast.success(t('chat.saved'));
+    } catch {
+      toast.error(t('common.something_wrong'));
+    } finally {
+      setIsSavingOutfit(false);
+    }
+  }, [user, garmentMap, createOutfit, t, isSavingOutfit]);
+
+  const handleEnterRefine = useCallback((garmentIds: string[], explanation: string) => {
+    refineMode.enterRefineMode(garmentIds, explanation);
+    hapticLight();
+  }, [refineMode]);
+
+  const handleChipTap = useCallback((message: string) => {
+    sendMessageRef.current(message);
+  }, []);
+
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
@@ -765,6 +831,16 @@ export default function AIChat() {
                       isCreatingOutfit={createOutfit.isPending}
                       showStyleCards={msg.role !== 'assistant' || shouldShowVisibleLook}
                       displayMetaOverride={shouldShowVisibleLook ? currentVisibleLook : null}
+                      onGarmentClick={(id) => navigate(`/wardrobe/${id}`)}
+                      isRefining={refineMode.isRefining && idx === messages.length - 1}
+                      lockedSlots={refineMode.lockedSlots}
+                      onRefine={handleEnterRefine}
+                      onSave={handleSaveFromChat}
+                      onToggleLock={refineMode.toggleLock}
+                      isSaving={isSavingOutfit}
+                      isSaved={savedOutfitIds.has(
+                        (msg.stylistMeta?.active_look?.garment_ids ?? msg.stylistMeta?.outfit_ids ?? []).slice().sort().join(',')
+                      )}
                     />
                   )}
                 </motion.div>
@@ -817,6 +893,22 @@ export default function AIChat() {
               </div>
             ) : null}
             <div ref={messagesEndRef} />
+          </div>
+        )}
+
+        {/* Refine UI */}
+        {refineMode.isRefining && (
+          <div className="space-y-2 pb-2">
+            <RefineChips
+              garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+              onChipTap={handleChipTap}
+              canUndo={refineMode.canUndo}
+              onUndo={refineMode.undo}
+            />
+            <RefineBanner
+              garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+              onStopRefining={refineMode.exitRefineMode}
+            />
           </div>
         )}
 
