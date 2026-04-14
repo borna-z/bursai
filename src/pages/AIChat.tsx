@@ -676,8 +676,8 @@ export default function AIChat() {
   }, [pendingPrefill, isLoading]);
 
   const clearHistory = async () => {
-    if (!user || isStreaming) return;
-    // Abort any pending stream before clearing
+    if (!user) return;
+    // Abort any active stream first, then clear
     activeStreamControllerRef.current?.abort();
     activeStreamControllerRef.current = null;
     const { data: { session } } = await supabase.auth.getSession();
@@ -853,7 +853,7 @@ export default function AIChat() {
               const shouldShowVisibleLook = msg.role === 'assistant' && idx === messages.length - 1;
               return (
                 <motion.div
-                  key={`${msg.role}-${idx}-${getTextContent(msg.content).slice(0, 20)}`}
+                  key={`${msg.role}-${idx}`}
                   variants={PRESETS.MESSAGE.variants}
                   initial="initial"
                   animate="animate"
