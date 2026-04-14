@@ -21,8 +21,8 @@ export function ChatInput({
   const { t } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardHeight, setCardHeight] = useState(0);
 
   const placeholder = pendingImage ? t('chat.image_placeholder') : t('chat.placeholder');
 
@@ -34,23 +34,22 @@ export function ChatInput({
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
   }, [input]);
 
-  // Publish own height as CSS var so messages area can add bottom padding
+  // Publish the VISIBLE card height (not the outer fixed container which
+  // includes keyboard-offset padding that creates a huge empty gap).
   useEffect(() => {
-    const el = containerRef.current;
+    const el = cardRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      // Use getBoundingClientRect for border-box height (includes padding
-      // from safe-area-inset-bottom and --keyboard-offset)
-      setContainerHeight(el.getBoundingClientRect().height);
+      setCardHeight(el.getBoundingClientRect().height);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--chat-input-height', `${containerHeight}px`);
+    document.documentElement.style.setProperty('--chat-input-height', `${cardHeight + 8}px`);
     return () => { document.documentElement.style.removeProperty('--chat-input-height'); };
-  }, [containerHeight]);
+  }, [cardHeight]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
@@ -58,14 +57,13 @@ export function ChatInput({
 
   return (
     <div
-      ref={containerRef}
       className="fixed inset-x-0 bottom-0 z-30 px-4 pt-2 bg-background/80 backdrop-blur-xl"
       style={{
         paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px)), 0.75rem)',
       }}
     >
       <div className="max-w-lg mx-auto">
-        <div className="relative rounded-[1.25rem] border border-accent/10 bg-card/90 backdrop-blur-xl shadow-[0_-4px_24px_hsl(var(--background)/0.6)]">
+        <div ref={cardRef} className="relative rounded-[1.25rem] border border-accent/10 bg-card/90 backdrop-blur-xl shadow-[0_-4px_24px_hsl(var(--background)/0.6)]">
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">
