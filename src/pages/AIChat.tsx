@@ -843,10 +843,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div
-            className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] pt-5 space-y-6 overscroll-contain"
-            style={{ paddingBottom: 'calc(var(--chat-input-height, 80px) + 16px)' }}
-          >
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
