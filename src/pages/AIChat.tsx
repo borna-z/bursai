@@ -772,7 +772,7 @@ export default function AIChat() {
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex flex-col overflow-hidden" style={{ height: 'var(--app-viewport-height, 100svh)' }}>
         <PageHeader
           eyebrow={t('ai.stylist_eyebrow')}
           title={t('chat.mode_stylist')}
