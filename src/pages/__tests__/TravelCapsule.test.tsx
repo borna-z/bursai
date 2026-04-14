@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const isUnlockedMock = vi.fn();
@@ -27,7 +27,26 @@ vi.mock('@/components/travel/TravelWizard', () => ({
 }));
 
 vi.mock('@/components/travel/TripHistoryList', () => ({
-  TripHistoryList: () => <div data-testid="trip-history" />,
+  TripHistoryList: ({ onSelect }: { onSelect: (trip: Record<string, unknown>) => void }) => (
+    <div data-testid="trip-history">
+      <button
+        onClick={() =>
+          onSelect({
+            result: { outfits: [] },
+            destination: 'Lisbon',
+            start_date: '2026-08-10',
+            end_date: '2026-08-14',
+            occasions: ['city_exploring'],
+            luggage_type: 'carry_on_personal',
+            companions: 'solo',
+            style_preference: 'balanced',
+          })
+        }
+      >
+        Select saved trip
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/ui/AILoadingCard', () => ({
@@ -81,6 +100,7 @@ function buildCapsule(overrides: Record<string, unknown> = {}) {
     includeTravelDays: false,
     setIncludeTravelDays: vi.fn(),
     destCoords: null,
+    setDestCoords: vi.fn(),
     showForm: true,
     setShowForm: vi.fn(),
     isFetchingWeather: false,
@@ -171,6 +191,21 @@ describe('TravelCapsule page', () => {
     renderPage();
     expect(screen.getByTestId('results-view')).toBeInTheDocument();
     expect(screen.getByText(/Paris/)).toBeInTheDocument();
+  });
+
+
+  it('hydrates saved trip date range using local-midnight parsing', () => {
+    isUnlockedMock.mockReturnValue(true);
+    const setDateRange = vi.fn();
+    useTravelCapsuleMock.mockReturnValue(buildCapsule({ setDateRange }));
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /select saved trip/i }));
+
+    expect(setDateRange).toHaveBeenCalledWith({
+      from: new Date('2026-08-10T00:00:00'),
+      to: new Date('2026-08-14T00:00:00'),
+    });
   });
 
   it('invokes handleGenerate when the form fires the action', () => {

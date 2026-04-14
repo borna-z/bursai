@@ -74,11 +74,13 @@ export default function TravelCapsule() {
       capsule.setResult(trip.result);
       capsule.setDestination(trip.destination);
 
-      // Hydrate date range from ISO date strings (both must be present)
+      // Hydrate date range from persisted YYYY-MM-DD values in local time.
+      // Parsing date-only strings directly uses UTC and can shift a day for
+      // users in negative offsets.
       if (trip.start_date && trip.end_date) {
         capsule.setDateRange({
-          from: new Date(trip.start_date),
-          to: new Date(trip.end_date),
+          from: new Date(`${trip.start_date}T00:00:00`),
+          to: new Date(`${trip.end_date}T00:00:00`),
         });
       } else {
         capsule.setDateRange(undefined);
