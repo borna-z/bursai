@@ -294,28 +294,8 @@ export function ChatMessage({
               </div>
             )}
 
-            {/* Secondary outfit cards (when primary didn't render) */}
-            {showStyleCards && outfitCards.length > 0 && !hasOutfit && (
-              <div className="space-y-2.5 pt-1">
-                {outfitCards.map((oc, i) => (
-                  <OutfitSuggestionCard
-                    key={`outfit-${i}`}
-                    garments={oc.garments}
-                    explanation={oc.explanation}
-                    onTryOutfit={onTryOutfit || (() => {})}
-                    isCreating={isCreatingOutfit}
-                    isRefining={isRefining}
-                    lockedSlots={lockedSlots}
-                    onRefine={onRefine}
-                    onSave={onSave}
-                    onToggleLock={onToggleLock}
-                    isSaving={isSaving}
-                    isSaved={isSaved}
-                    changedGarmentIds={changedGarmentIds}
-                  />
-                ))}
-              </div>
-            )}
+            {/* Dead code removed: showStyleCards && outfitCards.length > 0 && !hasOutfit
+               was logically unreachable since hasOutfit = showStyleCards && outfitCards.length > 0 */}
           </>
         )}
       </div>
