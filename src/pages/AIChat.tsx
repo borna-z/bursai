@@ -559,7 +559,9 @@ export default function AIChat() {
       if (hasRenderableActiveLook(assistantMsg.stylistMeta)) {
         setLastConfirmedLook(assistantMsg.stylistMeta);
       }
-      if (refineMode.isRefining && assistantMeta?.active_look?.garment_ids?.length) {
+      // Guard: don't push refinement if clear_active_look was set during streaming
+      // (exitRefineMode was already called but the stale closure still reads isRefining=true)
+      if (refineMode.isRefining && !assistantMeta?.clear_active_look && assistantMeta?.active_look?.garment_ids?.length) {
         refineMode.pushRefinement(
           assistantMeta.active_look.garment_ids,
           assistantMeta.active_look.explanation ?? assistantMeta.outfit_explanation ?? '',

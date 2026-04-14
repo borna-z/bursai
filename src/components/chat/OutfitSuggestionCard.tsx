@@ -72,6 +72,8 @@ export function OutfitSuggestionCard({
   const [alternatives, setAlternatives] = useState<GarmentBasic[]>([]);
   const [loadingAlts, setLoadingAlts] = useState(false);
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
+  // Track save state locally so it stays correct after local garment swaps
+  const [localSaved, setLocalSaved] = useState(false);
 
   useEffect(() => {
     if (changedGarmentIds && changedGarmentIds.length > 0) {
@@ -285,12 +287,13 @@ export function OutfitSuggestionCard({
                 onClick={() => {
                   hapticLight();
                   onSave(garments.map(g => g.id));
+                  setLocalSaved(true);
                 }}
-                disabled={isSaving || isSaved}
+                disabled={isSaving || isSaved || localSaved}
               >
                 {isSaving ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : isSaved ? (
+                ) : (isSaved || localSaved) ? (
                   t('chat.saved')
                 ) : (
                   t('chat.save')

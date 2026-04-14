@@ -1433,6 +1433,10 @@ serve(async (req) => {
       || stylistMode === "GARMENT_FIRST_STYLING"
       || stylistMode === "ACTIVE_LOOK_REFINEMENT"
       || stylistMode === "LOOK_EXPLANATION";
+
+    // Use server-derived garment count (not client-supplied) for authoritative check
+    const serverGarmentCount = wardrobeCtx.garmentCount ?? wardrobeCtx.rankedGarments?.length ?? 0;
+
     // Disable structured fast path when wardrobe is empty — the AI call
     // has the emptyWardrobeHint in its system prompt and will give proper guidance.
     const shouldUseStructuredStylistText = serverGarmentCount > 0 && canUseCardFirstText && (
@@ -1445,8 +1449,6 @@ serve(async (req) => {
       ? `\nThe user has LOCKED these garments (do NOT swap them): ${locked_slots.join(", ")}. Only swap unlocked garments.`
       : "";
 
-    // Use server-derived garment count (not client-supplied) for authoritative check
-    const serverGarmentCount = wardrobeCtx.garmentCount ?? wardrobeCtx.rankedGarments?.length ?? 0;
     const emptyWardrobeHint = serverGarmentCount === 0
       ? "\nThe user's wardrobe is empty. Tell them to add garments first. Do NOT attempt outfit generation."
       : serverGarmentCount <= 4

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface OutfitVersion {
   garmentIds: string[];
@@ -14,6 +14,13 @@ export function useRefineMode() {
   const [activeExplanation, setActiveExplanation] = useState('');
   const [lockedSlots, setLockedSlots] = useState<string[]>([]);
   const [outfitHistory, setOutfitHistory] = useState<OutfitVersion[]>([]);
+
+  // Refs to avoid stale closures in pushRefinement — always capture
+  // the latest active state when saving to history.
+  const activeGarmentIdsRef = useRef(activeGarmentIds);
+  const activeExplanationRef = useRef(activeExplanation);
+  useEffect(() => { activeGarmentIdsRef.current = activeGarmentIds; }, [activeGarmentIds]);
+  useEffect(() => { activeExplanationRef.current = activeExplanation; }, [activeExplanation]);
 
   const enterRefineMode = useCallback((garmentIds: string[], explanation: string) => {
     setIsRefining(true);
@@ -40,10 +47,14 @@ export function useRefineMode() {
   }, []);
 
   const pushRefinement = useCallback((newGarmentIds: string[], newExplanation: string) => {
+    // Read from refs to avoid stale closure — ensures history snapshot
+    // captures the actual current state even if called before re-render.
+    const currentIds = activeGarmentIdsRef.current;
+    const currentExplanation = activeExplanationRef.current;
     setOutfitHistory((prev) => {
       const entry: OutfitVersion = {
-        garmentIds: activeGarmentIds,
-        explanation: activeExplanation,
+        garmentIds: currentIds,
+        explanation: currentExplanation,
         timestamp: Date.now(),
       };
       const next = [...prev, entry];
@@ -51,7 +62,7 @@ export function useRefineMode() {
     });
     setActiveGarmentIds(newGarmentIds);
     setActiveExplanation(newExplanation);
-  }, [activeGarmentIds, activeExplanation]);
+  }, []);
 
   const undo = useCallback(() => {
     setOutfitHistory((prev) => {
