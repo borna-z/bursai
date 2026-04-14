@@ -313,32 +313,6 @@ export default function AIChat() {
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // Scroll to bottom when keyboard opens. Only fires on the SHRINK edge —
-  // tracks previous height so growing back (keyboard dismiss) doesn't scroll.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    let baseline = vv.height;
-    let prev = vv.height;
-    let fired = false;
-    const onResize = () => {
-      const current = vv.height;
-      const isShrinking = current < prev;
-      prev = current;
-      if (current >= baseline - 10) {
-        // Viewport near or above baseline — keyboard closed, reset
-        baseline = Math.max(baseline, current);
-        fired = false;
-      } else if (isShrinking && !fired && baseline - current > 100) {
-        // Shrinking AND crossed 100px threshold — keyboard just opened
-        fired = true;
-        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
-      }
-    };
-    vv.addEventListener('resize', onResize);
-    return () => vv.removeEventListener('resize', onResize);
-  }, []);
-
   useEffect(() => {
     if (isStreaming) return;
     if (latestActiveLook && hasRenderableActiveLook(latestActiveLook)) {
@@ -772,7 +746,7 @@ export default function AIChat() {
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav>
-      <div className="flex flex-col overflow-hidden" style={{ height: 'var(--app-viewport-height, 100svh)' }}>
+      <div className="flex h-full flex-col overflow-hidden">
         <PageHeader
           eyebrow={t('ai.stylist_eyebrow')}
           title={t('chat.mode_stylist')}
@@ -960,7 +934,7 @@ export default function AIChat() {
           </div>
         )}
 
-        {/* Input — fixed to bottom, uses --keyboard-offset for Median WebView */}
+        {/* Input */}
         <ChatInput
           input={input}
           onInputChange={setInput}
