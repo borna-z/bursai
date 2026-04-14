@@ -312,6 +312,20 @@ export default function AIChat() {
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  // Scroll to bottom when keyboard opens (viewport shrinks > 50px)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let prevHeight = vv.height;
+    const onResize = () => {
+      const shrunk = vv.height < prevHeight - 50;
+      prevHeight = vv.height;
+      if (shrunk) requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
+
   useEffect(() => {
     if (isStreaming) return;
     if (latestActiveLook && hasRenderableActiveLook(latestActiveLook)) {
@@ -804,7 +818,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;

@@ -259,8 +259,10 @@ export function ChatMessage({
             {/* Prose text */}
             {textParts && (
               <div
-                className={`text-[15px] font-body leading-[1.65] whitespace-pre-wrap ${
-                  hasOutfit ? 'text-foreground/55' : 'text-foreground/85'
+                className={`text-[15px] leading-[1.65] whitespace-pre-wrap ${
+                  hasOutfit
+                    ? 'font-display italic text-foreground/55'
+                    : 'font-body text-foreground/85'
                 }`}
               >
                 {textParts}

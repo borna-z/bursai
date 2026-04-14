@@ -39,9 +39,12 @@ export function ChatInput({
   };
 
   return (
-    <div className="shrink-0 animate-fade-in px-4 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+    <div
+      className="shrink-0 animate-fade-in px-4 pt-2"
+      style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px)), 0.75rem)' }}
+    >
       <div className="max-w-lg mx-auto">
-        <div className="relative rounded-[1.25rem] border border-border/20 bg-secondary/30 backdrop-blur-xl shadow-[0_-2px_20px_hsl(var(--background)/0.5)]">
+        <div className="relative rounded-[1.25rem] border border-accent/10 bg-secondary/30 backdrop-blur-xl shadow-[0_-2px_20px_hsl(var(--background)/0.5)]">
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">
@@ -74,7 +77,7 @@ export function ChatInput({
               placeholder={placeholder}
               disabled={isStreaming}
               rows={1}
-              className="flex-1 resize-none bg-transparent text-[16px] leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/50 max-h-32 min-h-[48px]"
+              className="flex-1 resize-none bg-transparent text-[16px] font-body leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/40 placeholder:italic max-h-32 min-h-[48px]"
             />
             <Button
               onClick={onSend}
