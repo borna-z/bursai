@@ -257,8 +257,9 @@ export function OutfitSuggestionCard({
       </div>
 
       {/* Explanation */}
+      {/* Explanation — max 2 sentences to avoid wall of text */}
       <div className="px-4 pb-2.5">
-        <p className="text-[13px] font-body text-muted-foreground/80 leading-[1.6]">
+        <p className="text-[13px] font-body text-muted-foreground/80 leading-[1.6] line-clamp-3">
           {renderBoldMarkdown(explanation)}
         </p>
       </div>

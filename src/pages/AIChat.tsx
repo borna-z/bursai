@@ -771,8 +771,7 @@ export default function AIChat() {
 
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
-    <AppLayout hideNav>
-      <div className="flex flex-col overflow-hidden" style={{ height: 'var(--app-viewport-height, 100svh)' }}>
+    <div className="fixed inset-0 flex flex-col bg-background text-foreground" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <PageHeader
           eyebrow={t('ai.stylist_eyebrow')}
           title={t('chat.mode_stylist')}
@@ -971,8 +970,7 @@ export default function AIChat() {
           isStreaming={isStreaming}
           isUploading={isUploading}
         />
-      </div>
-    </AppLayout>
+    </div>
     </PageErrorBoundary>
   );
 }

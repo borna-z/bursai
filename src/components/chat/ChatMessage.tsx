@@ -256,15 +256,9 @@ export function ChatMessage({
               </div>
             )}
 
-            {/* Prose text */}
-            {textParts && (
-              <div
-                className={`text-[15px] leading-[1.65] whitespace-pre-wrap ${
-                  hasOutfit
-                    ? 'font-display italic text-foreground/55'
-                    : 'font-body text-foreground/85'
-                }`}
-              >
+            {/* Prose text — hidden when outfit card is shown (card has its own explanation) */}
+            {textParts && !hasOutfit && (
+              <div className="text-[15px] font-body leading-[1.65] whitespace-pre-wrap text-foreground/85">
                 {textParts}
                 {isStreaming && (
                   <span className="inline-block w-[1.5px] h-[17px] bg-accent/50 animate-pulse ml-0.5 align-text-bottom rounded-full" />
