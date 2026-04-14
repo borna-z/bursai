@@ -976,15 +976,26 @@ serve(async (req) => {
     const latestUserQuick = safeMessagesQuick
       .filter((m: any) => m.role === "user")
       .slice(-1)[0];
-    const latestUserText = typeof latestUserQuick?.content === "string"
-      ? latestUserQuick.content.trim()
+    const latestUserText = latestUserQuick
+      ? getMessageText(latestUserQuick.content).trim()
       : "";
 
     const SHORT_RE_QUICK = /^(hi|hey|hello|thanks|thank you|thx|ty|cheers|great|perfect|ok|okay|got it|sounds good|nice|cool|awesome|love it|makes sense|understood|noted|sure|yep|yes|no|nope|not really|maybe|haha|lol|exactly|absolutely|fair enough|interesting|good point|right|good|alright|sweet|neat|bet|word|will do|ah|oh|wow)[!.,?\s]*$/i;
 
+    // Check if the previous assistant message was a clarifying question —
+    // if so, even short answers like "yes"/"no"/"ok" should go through the
+    // classifier, not the quick conversational fast path.
+    const CLARIFY_SIGNALS = /could you tell|can you tell|what's the|what is the|is it a|is there a|for example|dress code|formality|venue|indoor|outdoor/i;
+    const prevAssistantText = safeMessagesQuick
+      .filter((m: any) => m.role === "assistant")
+      .slice(-1)
+      .map((m: any) => typeof m.content === "string" ? m.content : "")[0] || "";
+    const prevWasClarifyingQuestion = CLARIFY_SIGNALS.test(prevAssistantText);
+
     const isQuickConversational = SHORT_RE_QUICK.test(latestUserText)
       && !selected_garment_ids?.length
-      && !explicitActiveLook?.anchor_garment_id;
+      && !explicitActiveLook?.anchor_garment_id
+      && !prevWasClarifyingQuestion;
 
     if (isQuickConversational) {
       const quickReply = await callBursAI({
@@ -1336,6 +1347,34 @@ serve(async (req) => {
       anchorReleased,
     });
 
+    // ── Extract occasion from conversation context for the unified engine ──
+    // The refinement plan defaults to "everyday" for new outfits, but the
+    // conversation may contain occasion keywords (wedding, work, date, etc.)
+    // that the engine needs to pick appropriate garments.
+    if (refinementPlan.occasion === "everyday" && stylistMode !== "ACTIVE_LOOK_REFINEMENT") {
+      const conversationText = (Array.isArray(messages) ? messages : [])
+        .slice(-6)
+        .map((m: any) => typeof m.content === "string" ? m.content : "")
+        .join(" ")
+        .toLowerCase();
+      const occasionKeywords: [RegExp, string][] = [
+        [/\b(wedding|bröllop)\b/, "formal"],
+        [/\b(interview|intervju|meeting|möte|presentation)\b/, "work"],
+        [/\b(date|dejt|dinner|middag|restaurant|restaurang)\b/, "dinner"],
+        [/\b(party|fest|club|klubb|night out|utkväll)\b/, "dinner"],
+        [/\b(casual|weekend|helg|brunch|errands|ärenden)\b/, "casual"],
+        [/\b(travel|resa|airport|flyg|packing|packa)\b/, "travel"],
+        [/\b(formal|formell|black tie|gala)\b/, "formal"],
+        [/\b(work|jobb|office|kontor|professional|professionell)\b/, "work"],
+      ];
+      for (const [re, occasion] of occasionKeywords) {
+        if (re.test(conversationText)) {
+          refinementPlan.occasion = occasion;
+          break;
+        }
+      }
+    }
+
     // Merge user-provided tap-to-lock IDs into the canonical lock set so
     // ALL downstream consumers (engine call, validation, rescue) respect them.
     if (Array.isArray(locked_slots) && locked_slots.length > 0) {
@@ -1602,14 +1641,21 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
     // instead of the old hardcoded buildStyleClarifierText which was generic.
     if (shouldAskClarifyingQuestion) {
       try {
+        // Build a mini conversation history so the clarifier knows what was already discussed
+        const clarifierHistory = (safeMessages as MessageInput[])
+          .slice(-4)
+          .map((m: any) => ({
+            role: m.role as "user" | "assistant",
+            content: typeof m.content === "string" ? m.content.slice(0, 200) : getMessageText(m.content).slice(0, 200),
+          }));
         const clarifierResponse = await callBursAI({
           functionName: "style_chat",
           messages: [
             {
               role: "system",
-              content: `You are a warm personal stylist assistant. The user wants outfit help but hasn't given enough detail. Ask 1-2 short, friendly follow-up questions to understand what they need. Ask about the missing pieces: dress code, venue, weather, formality, time of day, or personal preference. Do NOT generate an outfit yet. Respond ONLY in ${lang.name}. Keep it to 1-3 sentences.`,
+              content: `You are a warm personal stylist assistant. The user wants outfit help but hasn't given enough detail. Ask 1-2 short, friendly follow-up questions to understand what they need. Ask about the missing pieces: dress code, venue, weather, formality, time of day, or personal preference. Do NOT generate an outfit yet. Do NOT repeat questions already answered in the conversation. Respond ONLY in ${lang.name}. Keep it to 1-3 sentences.`,
             },
-            { role: "user", content: latestUser },
+            ...clarifierHistory,
           ],
           complexity: "standard",
           cacheTtlSeconds: 0,
