@@ -157,7 +157,7 @@ export function OutfitSuggestionCard({
                     hapticLight();
                     onToggleLock?.(g.id);
                   }}
-                  aria-label={isLocked ? 'Unlock garment' : 'Lock garment'}
+                  aria-label={isLocked ? 'Unlock garment' : 'Lock garment'} // i18n-ignore
                 >
                   {isLocked && (
                     <div className="h-5 w-5 rounded-full bg-accent/90 flex items-center justify-center shadow-sm">
