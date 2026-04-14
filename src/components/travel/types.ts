@@ -40,6 +40,10 @@ export interface TravelCapsuleInputSnapshot {
   minimizeItems: boolean;
   includeTravelDays: boolean;
   mustHaveItems: string[];
+  luggageType?: LuggageType;
+  companions?: Companion;
+  stylePreference?: StylePreference;
+  occasions?: OccasionId[];
 }
 
 export interface SavedCapsule {

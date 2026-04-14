@@ -43,9 +43,15 @@ serve(async (req) => {
       .eq("user_id", user.id);
 
     if (!garments || garments.length < 5) {
-      return new Response(JSON.stringify({ gaps: [], message: "Need more garments for analysis" }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "minimum_garments",
+          required: 5,
+          current: garments?.length ?? 0,
+          gaps: [],
+        }),
+        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
     }
 
     const categories: Record<string, number> = {};
@@ -77,8 +83,8 @@ Fits: ${Object.entries(fits).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: 
 Average formality: ${avgFormality}/5
 User locale/market: ${locale}
 
-SAMPLE GARMENT TITLES (to understand style level):
-${garments.slice(0, 15).map((g: any) => `- ${g.title} (${g.category}, ${g.color_primary}${g.material ? ', ' + g.material : ''})`).join("\n")}`;
+SAMPLE GARMENT TITLES WITH IDs (use these IDs when recommending pairings):
+${garments.slice(0, 25).map((g: any) => `- [${g.id}] ${g.title} (${g.category}, ${g.color_primary}${g.material ? ', ' + g.material : ''})`).join("\n")}`;
 
     const prompt = `${VOICE_GAP_ANALYSIS}
 
@@ -94,7 +100,9 @@ CRITICAL RULES:
 5. Focus on versatility — each suggestion should create many new outfit combinations
 6. Consider: category gaps, color palette gaps, formality range gaps, seasonal gaps
 7. Be specific about color: "Navy" not "Blue", "Ecru" not "White"
-8. Include a mix of price ranges when appropriate`;
+8. Include a mix of price ranges when appropriate
+9. For each gap, return "pairing_garment_ids": an array of 2-3 garment IDs FROM THE WARDROBE LIST ABOVE that would pair best with the suggested item. Use the exact UUIDs shown in square brackets.
+10. For each gap, return "key_insight": one sentence of editorial prose explaining the visual or style impact of adding this piece.`;
 
     const { data: result } = await callBursAI({
       complexity: "standard",
@@ -123,8 +131,14 @@ CRITICAL RULES:
                     new_outfits: { type: "number", description: "Estimated new outfits unlocked" },
                     price_range: { type: "string", description: "Price range like '$50-80' or '€40-70'" },
                     search_query: { type: "string", description: "Generic Google search query (e.g., 'navy slim fit chinos men buy')" },
+                    pairing_garment_ids: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "2-3 garment UUIDs from the wardrobe list that pair best with this item",
+                    },
+                    key_insight: { type: "string", description: "One-sentence editorial insight about the style impact" },
                   },
-                  required: ["item", "category", "color", "reason", "new_outfits", "price_range", "search_query"],
+                  required: ["item", "category", "color", "reason", "new_outfits", "price_range", "search_query", "pairing_garment_ids", "key_insight"],
                   additionalProperties: false,
                 },
               },
@@ -161,12 +175,17 @@ CRITICAL RULES:
     );
     const stripBrands = (s: string) => s.replace(brandPattern, '').replace(/\s{2,}/g, ' ').trim();
 
+    const validGarmentIds = new Set(garments.map((g: any) => g.id));
     if (result?.gaps && Array.isArray(result.gaps)) {
       result.gaps = result.gaps.map((gap: any) => ({
         ...gap,
         item: stripBrands(gap.item || ''),
         reason: stripBrands(gap.reason || ''),
         search_query: stripBrands(gap.search_query || ''),
+        pairing_garment_ids: Array.isArray(gap.pairing_garment_ids)
+          ? gap.pairing_garment_ids.filter((id: unknown) => typeof id === 'string' && validGarmentIds.has(id)).slice(0, 3)
+          : [],
+        key_insight: typeof gap.key_insight === 'string' ? stripBrands(gap.key_insight) : '',
       }));
     }
 

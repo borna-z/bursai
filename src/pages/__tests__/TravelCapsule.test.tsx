@@ -18,12 +18,24 @@ vi.mock('@/components/travel/useTravelCapsule', () => ({
   useTravelCapsule: () => useTravelCapsuleMock(),
 }));
 
-vi.mock('@/components/travel/TravelFormView', () => ({
-  TravelFormView: ({ handleGenerate }: { handleGenerate: () => void }) => (
+vi.mock('@/components/travel/TravelWizard', () => ({
+  TravelWizard: ({ onGenerate }: { onGenerate: () => void }) => (
     <div data-testid="form-view">
-      <button onClick={handleGenerate}>Generate</button>
+      <button onClick={onGenerate}>Generate</button>
     </div>
   ),
+}));
+
+vi.mock('@/components/travel/TripHistoryList', () => ({
+  TripHistoryList: () => <div data-testid="trip-history" />,
+}));
+
+vi.mock('@/components/ui/AILoadingCard', () => ({
+  AILoadingCard: () => <div data-testid="ai-loading" />,
+}));
+
+vi.mock('@/components/ui/page-intro', () => ({
+  PageIntro: ({ title }: { title: string }) => <div>{title}</div>,
 }));
 
 vi.mock('@/components/travel/TravelResultsView', () => ({
@@ -106,6 +118,17 @@ function buildCapsule(overrides: Record<string, unknown> = {}) {
     activeTab: 'outfits',
     setActiveTab: vi.fn(),
     tripDayForecasts: [],
+    forecastDays: [],
+    luggageType: 'carry_on_personal',
+    setLuggageType: vi.fn(),
+    companions: 'solo',
+    setCompanions: vi.fn(),
+    stylePreference: 'balanced',
+    setStylePreference: vi.fn(),
+    occasions: [],
+    setOccasions: vi.fn(),
+    savedTrips: [],
+    removeCapsuleFromDb: vi.fn(),
     ...overrides,
   };
 }

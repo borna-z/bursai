@@ -78,12 +78,20 @@ function getMaterialTravelScore(material: string | null): number {
   return 5;
 }
 
+const LUGGAGE_LIMITS: Record<string, { garments: number; shoes: number }> = {
+  carry_on: { garments: 8, shoes: 2 },
+  carry_on_personal: { garments: 12, shoes: 2 },
+  checked: { garments: 18, shoes: 3 },
+};
+
 function scorePackWorthiness(
   garment: GarmentRow,
   weatherMin: number,
   weatherMax: number,
   occasions: string[],
-  allGarments: GarmentRow[]
+  allGarments: GarmentRow[],
+  companions: string = 'solo',
+  stylePreference: string = 'balanced',
 ): number {
   let score = 0;
 
@@ -135,6 +143,16 @@ function scorePackWorthiness(
   }
   score += Math.min(10, pairingCount * 1.5) * 0.15;
 
+  // 6. Companion adjustment
+  const formality = typeof garment.formality === 'number' ? garment.formality : 3;
+  if (companions === 'partner' && formality >= 4) score += 0.5;
+  else if (companions === 'friends' && formality <= 2) score += 0.5;
+  else if (companions === 'family' && formality >= 2 && formality <= 3) score += 0.3;
+
+  // 7. Style preference adjustment
+  if (stylePreference === 'casual' && formality <= 2) score += 1.0;
+  else if (stylePreference === 'dressy' && formality >= 4) score += 1.0;
+
   return Math.max(0, Math.min(10, score));
 }
 
@@ -180,6 +198,7 @@ function selectGarmentsForAI(
   mustHaveIds: string[],
   minimizeItems: boolean,
   weatherMin: number,
+  luggageLimits: { garments: number; shoes: number } = { garments: 12, shoes: 2 },
 ): GarmentRow[] {
   const bySlot = new Map<string, GarmentRow[]>();
   for (const scored of scoredGarments) {
@@ -196,19 +215,30 @@ function selectGarmentsForAI(
     }
   };
 
-  reserveSlot("shoes", minimizeItems ? 2 : 4);
-  reserveSlot("dress", minimizeItems ? 2 : 3);
-  reserveSlot("top", minimizeItems ? 5 : 8);
-  reserveSlot("bottom", minimizeItems ? 3 : 5);
-  reserveSlot("outerwear", weatherMin <= 12 ? (minimizeItems ? 1 : 2) : 1);
-  reserveSlot("accessory", minimizeItems ? 1 : 2);
+  // Shoes are constrained by luggage. Everything else is tuned proportionally
+  // to the total garment budget so we don't blow past the carry-on limit.
+  const garmentBudget = luggageLimits.garments;
+  const topCount = Math.max(3, Math.round(garmentBudget * 0.4));
+  const bottomCount = Math.max(2, Math.round(garmentBudget * 0.25));
+  const dressCount = minimizeItems ? 1 : 2;
+  const outerCount = weatherMin <= 12 ? (minimizeItems ? 1 : 2) : 1;
+  const accessoryCount = minimizeItems ? 1 : 2;
+
+  reserveSlot("shoes", luggageLimits.shoes);
+  reserveSlot("dress", dressCount);
+  reserveSlot("top", topCount);
+  reserveSlot("bottom", bottomCount);
+  reserveSlot("outerwear", outerCount);
+  reserveSlot("accessory", accessoryCount);
 
   for (const mustHaveId of mustHaveIds) {
     const match = scoredGarments.find((entry) => entry.garment.id === mustHaveId);
     if (match) selected.set(match.garment.id, match.garment);
   }
 
-  const maxAiInput = minimizeItems ? 30 : 40;
+  // Cap AI input near the luggage budget × 2 so the model has choice without
+  // being overwhelmed, but never more than 40.
+  const maxAiInput = Math.min(40, Math.max(20, garmentBudget * 2));
   for (const scored of scoredGarments) {
     if (selected.size >= maxAiInput) break;
     selected.set(scored.garment.id, scored.garment);
@@ -379,7 +409,12 @@ serve(async (req) => {
       minimize_items = true,
       include_travel_days = false,
       transition_looks = false,
+      luggage_type = "carry_on_personal",
+      companions = "solo",
+      style_preference = "balanced",
     } = await req.json();
+
+    const luggageLimits = LUGGAGE_LIMITS[luggage_type] ?? LUGGAGE_LIMITS.carry_on_personal;
 
     const outfitsPerDay = Math.max(1, Math.min(4, outfits_per_day || 1));
 
@@ -433,7 +468,15 @@ serve(async (req) => {
     const weatherMax = weather?.temperature_max ?? 22;
     const scoredGarments: ScoredGarment[] = allGarments.map(g => ({
       garment: g,
-      packScore: scorePackWorthiness(g, weatherMin, weatherMax, occasions || [], allGarments),
+      packScore: scorePackWorthiness(
+        g,
+        weatherMin,
+        weatherMax,
+        occasions || [],
+        allGarments,
+        companions,
+        style_preference,
+      ),
     })).sort((a, b) => b.packScore - a.packScore);
 
     // Must-have items — declared early so pre-filter can use them
@@ -441,7 +484,13 @@ serve(async (req) => {
     const mustHaveIds: string[] = (must_have_items || []).filter((id: string) => preValidIds.has(id));
 
     // Send top 40 most packable garments to AI (reduces input size, improves quality)
-    const garments = selectGarmentsForAI(scoredGarments, mustHaveIds, Boolean(minimize_items), weatherMin);
+    const garments = selectGarmentsForAI(
+      scoredGarments,
+      mustHaveIds,
+      Boolean(minimize_items),
+      weatherMin,
+      luggageLimits,
+    );
     const allGarmentById = new Map(allGarments.map((garment) => [garment.id, garment]));
     const scoreById = new Map(scoredGarments.map((entry) => [entry.garment.id, entry.packScore]));
 
@@ -506,8 +555,28 @@ serve(async (req) => {
       if (label) last.labels.push(label);
       return lines;
     }, [] as Array<{ day: number; date: string; looks: number; labels: string[] }>);
+    // Distribute occasions across trip days. Each day gets 1-2 occasions from
+    // the selected set, rotating so every occasion appears at least once.
+    const occasionList: string[] = Array.isArray(occasions) ? occasions.filter((o: unknown) => typeof o === "string") : [];
+    const dayOccasionLabels: Record<number, string> = {};
+    if (occasionList.length > 0) {
+      planningRequirements.forEach((entry, idx) => {
+        const primary = occasionList[idx % occasionList.length];
+        const secondary = occasionList.length > 1
+          ? occasionList[(idx + 1) % occasionList.length]
+          : null;
+        dayOccasionLabels[entry.day] = secondary && secondary !== primary
+          ? `${primary} + ${secondary}`
+          : primary;
+      });
+    }
+
     const planningRequirementsText = planningRequirements
-      .map((entry) => `- Day ${entry.day} (${entry.date}): ${entry.looks} look(s)${entry.labels.length > 0 ? `, ${entry.labels.join(" and ")}` : ""}`)
+      .map((entry) => {
+        const occLabel = dayOccasionLabels[entry.day];
+        const occSuffix = occLabel ? ` — ${occLabel}` : "";
+        return `- Day ${entry.day} (${entry.date}): ${entry.looks} look(s)${entry.labels.length > 0 ? `, ${entry.labels.join(" and ")}` : ""}${occSuffix}`;
+      })
       .join("\n");
     const packingDirective = Boolean(minimize_items)
       ? "Choose the smallest complete capsule that can cover the trip."
@@ -524,6 +593,9 @@ TRIP DETAILS:
 - Destination: ${destination || "unknown destination"}
 - Trip type: ${trip_type} - ${tripTypeContext}
 - Weather: ${weatherDesc}
+- Luggage: ${luggage_type} (≤${luggageLimits.garments} garments, ≤${luggageLimits.shoes} pairs of shoes)
+- Companions: ${companions}
+- Style lean: ${style_preference}
 - Occasions needed: ${occasionsList}
 - Base outfits per day: ${outfitsPerDay}
 - Required complete looks: ${requiredOutfits}

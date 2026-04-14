@@ -73,6 +73,10 @@ vi.mock('@/hooks/useAdvancedFeatures', () => ({
   useWardrobeGapAnalysis: () => useWardrobeGapAnalysisMock(),
 }));
 
+vi.mock('@/hooks/useGarmentsByIds', () => ({
+  useGarmentsByIds: () => ({ data: [], isLoading: false }),
+}));
+
 vi.mock('@/lib/haptics', () => ({
   hapticSuccess: vi.fn(),
 }));
