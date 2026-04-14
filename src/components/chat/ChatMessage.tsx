@@ -261,7 +261,7 @@ export function ChatMessage({
               <div
                 className={`text-[15px] leading-[1.65] whitespace-pre-wrap ${
                   hasOutfit
-                    ? 'font-display italic text-foreground/55'
+                    ? 'font-display italic text-foreground/50 line-clamp-2'
                     : 'font-body text-foreground/85'
                 }`}
               >

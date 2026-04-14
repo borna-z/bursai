@@ -258,7 +258,7 @@ export function OutfitSuggestionCard({
 
       {/* Explanation */}
       <div className="px-4 pb-2.5">
-        <p className="text-[13px] font-body text-muted-foreground/80 leading-[1.6]">
+        <p className="text-[13px] font-body text-muted-foreground/80 leading-[1.6] line-clamp-3">
           {renderBoldMarkdown(explanation)}
         </p>
       </div>
