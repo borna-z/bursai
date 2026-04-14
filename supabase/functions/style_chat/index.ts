@@ -1088,9 +1088,13 @@ serve(async (req) => {
     }
 
     const specialtyModes = new Set(["PURCHASE_PRIORITIZATION", "WARDROBE_GAP_ANALYSIS", "PLANNING", "STYLE_IDENTITY_ANALYSIS"]);
-    const classifiedMode: StylistChatMode = specialtyModes.has(classifierResult.intent as string)
-      ? classifierResult.intent as StylistChatMode
-      : mapClassifierToMode(classifierResult, hasAnchorForClassifier);
+    // needs_more_context forces CONVERSATIONAL — the AI will ask follow-ups
+    // instead of generating an outfit with insufficient context.
+    const classifiedMode: StylistChatMode = classifierResult.needs_more_context
+      ? "CONVERSATIONAL"
+      : specialtyModes.has(classifierResult.intent as string)
+        ? classifierResult.intent as StylistChatMode
+        : mapClassifierToMode(classifierResult, hasAnchorForClassifier);
 
     const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes, negPairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
@@ -1268,11 +1272,13 @@ serve(async (req) => {
       raw: latestUser,
     };
     const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor, activeLook, refinementIntent);
-    const styleIntent =
-      classifierResult.intent === "generate_outfit" ? "create"
+    // needs_more_context MUST be checked first — it overrides intent.
+    // "I have a wedding today" → intent=generate_outfit + needs_more_context=true → clarify (ask follow-ups)
+    const styleIntent: StyleChatIntentKind =
+      classifierResult.needs_more_context ? "clarify"
+      : classifierResult.intent === "generate_outfit" ? "create"
       : classifierResult.intent === "refine_outfit" ? "refine"
       : classifierResult.intent === "explain_outfit" ? "explain"
-      : classifierResult.needs_more_context ? "clarify"
       : "create";
     const anchorReleased = didUserExplicitlyReleaseAnchor(safeMessages as MessageInput[], wardrobeCtx.anchor, selectedGarmentIds);
     const refinementPlan = buildStructuredRefinementPlan({
