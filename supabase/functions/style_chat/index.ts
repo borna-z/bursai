@@ -1284,6 +1284,20 @@ serve(async (req) => {
       selectedGarmentIds,
       anchorReleased,
     });
+
+    // Merge user-provided tap-to-lock IDs into the canonical lock set so
+    // ALL downstream consumers (engine call, validation, rescue) respect them.
+    if (Array.isArray(locked_slots) && locked_slots.length > 0) {
+      const wardrobeIds = new Set(wardrobeCtx.rankedGarments.map((g: any) => g.id));
+      const validLocks = locked_slots.filter((id: string) => wardrobeIds.has(id));
+      const existing = new Set(refinementPlan.lockedGarmentIds);
+      for (const id of validLocks) {
+        if (!existing.has(id)) {
+          refinementPlan.lockedGarmentIds.push(id);
+        }
+      }
+    }
+
     const stylistMode = classifiedMode;
     const refinementContract = buildRefinementContract(refinementIntent, activeLook);
     const modeContract = buildModeContract(stylistMode, lang);
@@ -1343,10 +1357,7 @@ serve(async (req) => {
               ...(refinementPlan.anchorLocked && refinementPlan.anchorGarmentId
                 ? [refinementPlan.anchorGarmentId]
                 : []),
-              // Merge user-provided tap-to-lock IDs (validated against wardrobe)
-              ...(Array.isArray(locked_slots)
-                ? locked_slots.filter((id: string) => wardrobeCtx.rankedGarments.some((g: any) => g.id === id))
-                : []),
+              // tap-to-lock IDs already merged into refinementPlan.lockedGarmentIds above
             ],
             requested_edit_slots: refinementPlan.requestedEditSlots,
             output_count: 1,
@@ -1422,7 +1433,9 @@ serve(async (req) => {
       || stylistMode === "GARMENT_FIRST_STYLING"
       || stylistMode === "ACTIVE_LOOK_REFINEMENT"
       || stylistMode === "LOOK_EXPLANATION";
-    const shouldUseStructuredStylistText = canUseCardFirstText && (
+    // Disable structured fast path when wardrobe is empty — the AI call
+    // has the emptyWardrobeHint in its system prompt and will give proper guidance.
+    const shouldUseStructuredStylistText = serverGarmentCount > 0 && canUseCardFirstText && (
       shouldCallUnifiedEngine
       || (stylistMode === "LOOK_EXPLANATION" && hasStableActiveLook)
       || (authoritativeOutfitIds.length > 0 && !validatedUnifiedOutfitIds.length)
