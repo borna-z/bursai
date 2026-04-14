@@ -2906,6 +2906,7 @@ const en: Record<string, string> = {
     'chat.weekend_version': 'Weekend version',
     'chat.empty_wardrobe': "Your wardrobe is empty — add some garments first and I'll help you style them!",
     'chat.small_wardrobe': 'Working with a small wardrobe — add more items for better combinations.',
+    'chat.tap_to_lock': 'Tap garments to lock them',
 
     // Batch upload
     'batch.all_resolved': 'All {count} items are resolved. Review is complete.',
