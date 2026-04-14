@@ -21,8 +21,8 @@ export function ChatInput({
   const { t } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [cardHeight, setCardHeight] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inputHeight, setInputHeight] = useState(0);
 
   const placeholder = pendingImage ? t('chat.image_placeholder') : t('chat.placeholder');
 
@@ -34,22 +34,23 @@ export function ChatInput({
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
   }, [input]);
 
-  // Publish the VISIBLE card height (not the outer fixed container which
-  // includes keyboard-offset padding that creates a huge empty gap).
+  // Measure the full outer container (card + pt-2 + safe-area padding).
+  // Since keyboard-offset is now applied via `bottom` (not padding),
+  // the container height only includes the visible input + safe-area.
   useEffect(() => {
-    const el = cardRef.current;
+    const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      setCardHeight(el.getBoundingClientRect().height);
+      setInputHeight(el.getBoundingClientRect().height);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--chat-input-height', `${cardHeight + 8}px`);
+    document.documentElement.style.setProperty('--chat-input-height', `${inputHeight}px`);
     return () => { document.documentElement.style.removeProperty('--chat-input-height'); };
-  }, [cardHeight]);
+  }, [inputHeight]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
@@ -57,13 +58,17 @@ export function ChatInput({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-30 px-4 pt-2 bg-background/80 backdrop-blur-xl"
+      ref={containerRef}
+      className="fixed inset-x-0 z-30 px-4 pt-2 bg-background/80 backdrop-blur-xl"
       style={{
-        paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px)), 0.75rem)',
+        // Use bottom offset instead of padding — avoids double-counting
+        // with viewport height changes. The input moves UP by keyboard height.
+        bottom: 'var(--keyboard-offset, 0px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)',
       }}
     >
       <div className="max-w-lg mx-auto">
-        <div ref={cardRef} className="relative rounded-[1.25rem] border border-accent/10 bg-card/90 backdrop-blur-xl shadow-[0_-4px_24px_hsl(var(--background)/0.6)]">
+        <div className="relative rounded-[1.25rem] border border-accent/10 bg-card/90 backdrop-blur-xl shadow-[0_-4px_24px_hsl(var(--background)/0.6)]">
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">
