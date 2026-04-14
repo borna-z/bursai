@@ -3107,6 +3107,9 @@ const en: Record<string, string> = {
     'capsule.generating': 'Generating...',
     'capsule.items_count': 'items',
     'common.delete': 'Delete',
+    'gaps.insufficient_title': 'Add more garments first',
+    'gaps.insufficient_desc': 'Your wardrobe needs at least 5 pieces before BURS can spot gaps. Add a few more to unlock the scan.',
+    'gaps.insufficient_cta': 'Add garments',
 };
 
 export default en;

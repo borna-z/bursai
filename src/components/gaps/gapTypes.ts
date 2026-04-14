@@ -29,4 +29,5 @@ export type GapViewState =
   | 'loading'
   | 'error'
   | 'results'
-  | 'no-gaps';
+  | 'no-gaps'
+  | 'insufficient-wardrobe';

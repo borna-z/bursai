@@ -46,14 +46,33 @@ export function useSuggestAccessories() {
 }
 
 // Step 21: Wardrobe gap analysis
+export interface WardrobeGapAnalysisResponse {
+  gaps: Array<{
+    item: string;
+    category: string;
+    color: string;
+    reason: string;
+    new_outfits: number;
+    price_range: string;
+    search_query: string;
+    pairing_garment_ids?: string[];
+    key_insight?: string;
+  }>;
+  error?: 'minimum_garments' | string;
+  required?: number;
+  current?: number;
+}
+
 export function useWardrobeGapAnalysis() {
   return useMutation({
     mutationFn: async (params?: { locale?: string }) => {
-      const { data, error } = await invokeEdgeFunction<{ gaps: Array<{ item: string; category: string; color: string; reason: string; new_outfits: number; price_range: string; search_query: string }>; error?: string }>('wardrobe_gap_analysis', {
+      const { data, error } = await invokeEdgeFunction<WardrobeGapAnalysisResponse>('wardrobe_gap_analysis', {
         body: { locale: params?.locale || 'en' },
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Pass through the full response so consumers can detect
+      // the `minimum_garments` edge-function discriminator.
+      // Do NOT throw on data.error here — the UI needs the shape.
       return data!;
     },
   });

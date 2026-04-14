@@ -13,7 +13,13 @@ import { TravelResultsView } from '@/components/travel/TravelResultsView';
 import { TravelWizard } from '@/components/travel/TravelWizard';
 import { TripHistoryList } from '@/components/travel/TripHistoryList';
 import { useTravelCapsule } from '@/components/travel/useTravelCapsule';
-import type { TravelCapsuleRow } from '@/components/travel/types';
+import type {
+  Companion,
+  LuggageType,
+  OccasionId,
+  StylePreference,
+  TravelCapsuleRow,
+} from '@/components/travel/types';
 import { EASE_CURVE } from '@/lib/motion';
 
 export default function TravelCapsule() {
@@ -67,6 +73,32 @@ export default function TravelCapsule() {
     const handleSelectTrip = (trip: TravelCapsuleRow) => {
       capsule.setResult(trip.result);
       capsule.setDestination(trip.destination);
+
+      // Hydrate date range from persisted YYYY-MM-DD values in local time.
+      // Parsing date-only strings directly uses UTC and can shift a day for
+      // users in negative offsets.
+      if (trip.start_date && trip.end_date) {
+        capsule.setDateRange({
+          from: new Date(`${trip.start_date}T00:00:00`),
+          to: new Date(`${trip.end_date}T00:00:00`),
+        });
+      } else {
+        capsule.setDateRange(undefined);
+      }
+
+      // destCoords is not persisted — weather strip will be absent for
+      // historical trips. Clear any stale coords so we don't mis-attribute.
+      capsule.setDestCoords(null);
+
+      // Restore trip preferences with sensible defaults for older rows.
+      capsule.setOccasions((trip.occasions ?? []) as OccasionId[]);
+      capsule.setLuggageType(
+        (trip.luggage_type as LuggageType) || 'carry_on_personal',
+      );
+      capsule.setCompanions((trip.companions as Companion) || 'solo');
+      capsule.setStylePreference(
+        (trip.style_preference as StylePreference) || 'balanced',
+      );
     };
 
     return (

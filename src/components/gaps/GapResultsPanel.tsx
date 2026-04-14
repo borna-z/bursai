@@ -80,7 +80,7 @@ export function GapResultsPanel({
         <div className="-mx-5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex snap-x snap-mandatory gap-3 px-5">
             {rest.map((gap, idx) => (
-              <GapSecondaryCard key={gap.search_query} gap={gap} index={idx} />
+              <GapSecondaryCard key={`${idx}-${gap.search_query}`} gap={gap} index={idx} />
             ))}
           </div>
         </div>

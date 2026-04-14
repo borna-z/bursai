@@ -18,12 +18,12 @@ export function TripHistoryList({ trips, onSelect, onDelete }: TripHistoryListPr
   if (trips.length === 0) return null;
 
   const formatRange = (start: string | null, end: string | null) => {
-    if (!start) return '';
+    if (!start || !/^\d{4}-\d{2}-\d{2}/.test(start)) return '';
     const startLabel = formatLocalizedDate(new Date(start), locale, {
       month: 'short',
       day: 'numeric',
     });
-    if (!end) return startLabel;
+    if (!end || !/^\d{4}-\d{2}-\d{2}/.test(end)) return startLabel;
     const endLabel = formatLocalizedDate(new Date(end), locale, {
       month: 'short',
       day: 'numeric',
