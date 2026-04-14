@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import { Send, Loader2, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -21,12 +21,10 @@ export function ChatInput({
   const { t } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [inputHeight, setInputHeight] = useState(0);
 
   const placeholder = pendingImage ? t('chat.image_placeholder') : t('chat.placeholder');
 
-  // Auto-resize textarea
+  // Auto-resize textarea without scrolljacking
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -34,39 +32,12 @@ export function ChatInput({
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
   }, [input]);
 
-  // Measure the full outer container (card + pt-2 + safe-area padding).
-  // Since keyboard-offset is now applied via `bottom` (not padding),
-  // the container height only includes the visible input + safe-area.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      setInputHeight(el.getBoundingClientRect().height);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--chat-input-height', `${inputHeight}px`);
-    return () => { document.documentElement.style.removeProperty('--chat-input-height'); };
-  }, [inputHeight]);
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed inset-x-0 z-30 px-4 pt-2 bg-background/80 backdrop-blur-xl"
-      style={{
-        // Use bottom offset instead of padding — avoids double-counting
-        // with viewport height changes. The input moves UP by keyboard height.
-        bottom: 'var(--keyboard-offset, 0px)',
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)',
-      }}
-    >
+    <div className="shrink-0 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
       <div className="max-w-lg mx-auto">
         <div className="relative rounded-[1.25rem] border border-accent/10 bg-card/90 backdrop-blur-xl shadow-[0_-4px_24px_hsl(var(--background)/0.6)]">
           {pendingImage && (
