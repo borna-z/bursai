@@ -1047,9 +1047,11 @@ serve(async (req) => {
     const garmentCountNum = typeof _clientGarmentCount === "number" ? _clientGarmentCount : 0;
     let classifierResult: ClassifierResult;
 
-    if (garmentCountNum === 0) {
-      classifierResult = { ...CLASSIFIER_FALLBACK, needs_more_context: false };
-    } else {
+    // NOTE: garmentCountNum is client-supplied and may be 0 while the
+    // React Query count is still loading.  We always run the classifier
+    // and defer the empty-wardrobe override to AFTER the DB queries
+    // where we have the authoritative wardrobeCtx.garmentCount.
+    {
       const lastTwoMessages = safeMessagesQuick
         .filter((m: any) => m.role === "user" || m.role === "assistant")
         .slice(-2)
@@ -1424,9 +1426,11 @@ serve(async (req) => {
       ? `\nThe user has LOCKED these garments (do NOT swap them): ${locked_slots.join(", ")}. Only swap unlocked garments.`
       : "";
 
-    const emptyWardrobeHint = garmentCountNum === 0
+    // Use server-derived garment count (not client-supplied) for authoritative check
+    const serverGarmentCount = wardrobeCtx.garmentCount ?? wardrobeCtx.rankedGarments?.length ?? 0;
+    const emptyWardrobeHint = serverGarmentCount === 0
       ? "\nThe user's wardrobe is empty. Tell them to add garments first. Do NOT attempt outfit generation."
-      : garmentCountNum <= 4
+      : serverGarmentCount <= 4
         ? "\nThe user has very few garments. Mention they should add more for better combinations."
         : "";
 

@@ -167,8 +167,9 @@ export function OutfitSuggestionCard({
                 </button>
               )}
 
-              {/* Swap trigger */}
-              <Popover open={swapOpen === i} onOpenChange={(open) => {
+              {/* Swap trigger — hidden in refine mode to prevent local-only swaps
+                  that would diverge from refineMode.activeGarmentIds */}
+              {!isRefining && <Popover open={swapOpen === i} onOpenChange={(open) => {
                 if (open) fetchAlternatives(i);
                 else setSwapOpen(null);
               }}>
@@ -206,7 +207,7 @@ export function OutfitSuggestionCard({
                     </div>
                   )}
                 </PopoverContent>
-              </Popover>
+              </Popover>}
             </div>
           );
         })}
