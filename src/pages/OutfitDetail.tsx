@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { stripBrands } from '@/lib/stripBrands';
@@ -458,6 +458,19 @@ export default function OutfitDetailPage() {
     navigate('/', { state: { prefillOccasion: outfit?.occasion, prefillStyle: outfit?.style_vibe } });
   };
 
+  const handleSelfieUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    try {
+      await submitFeedback.mutateAsync({ outfitId: id, selfieFile: file });
+      recordSignal({ signal_type: 'photo_feedback', outfit_id: id });
+      toast.success(t('outfit.photo_feedback_success'));
+    } catch {
+      toast.error(t('outfit.photo_feedback_error'));
+    }
+    e.target.value = '';
+  };
+
   const handleToggleShareEnabled = async () => {
     if (!outfit) return;
     try {
@@ -710,6 +723,85 @@ export default function OutfitDetailPage() {
                 <RefreshCw style={{ width: 14, height: 14 }} />
                 Remake
               </button>
+            </div>
+
+            <input
+              ref={selfieInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              className="hidden"
+              onChange={handleSelfieUpload}
+            />
+
+            {/* Rating + quick reactions + selfie feedback */}
+            <div style={{
+              marginTop: 10,
+              paddingTop: 14,
+              borderTop: '1px solid rgba(28,25,23,0.12)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: 'rgba(28,25,23,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {t('outfit.rating')}
+                </p>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => handleRating(value)}
+                      style={{ padding: 3, borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                      aria-label={`Rate ${value}`}
+                    >
+                      <Star
+                        style={{ width: 18, height: 18 }}
+                        className={cn((rating || 0) >= value ? 'fill-primary text-primary' : 'text-muted-foreground/30')}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {feedbackOptions.map(({ id, label, icon: Icon }) => (
+                  <Chip key={id} selected={selectedFeedback.includes(id)} onClick={() => handleFeedbackToggle(id)}>
+                    <Icon className="w-3.5 h-3.5 mr-1" />{label}
+                  </Chip>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={() => selfieInputRef.current?.click()}
+                  disabled={submitFeedback.isPending}
+                  style={{
+                    width: '100%',
+                    height: 40,
+                    background: '#EDE8DF',
+                    border: '1px solid rgba(28,25,23,0.18)',
+                    color: '#1C1917',
+                    fontFamily: 'DM Sans, sans-serif',
+                    fontSize: 12,
+                    cursor: submitFeedback.isPending ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    opacity: submitFeedback.isPending ? 0.7 : 1,
+                  }}
+                >
+                  {submitFeedback.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera style={{ width: 14, height: 14 }} />}
+                  {submitFeedback.isPending ? t('outfit.photo_feedback_analyzing') : t('outfit.photo_feedback_upload')}
+                </button>
+
+                {photoFeedback?.commentary && (
+                  <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 12, color: 'rgba(28,25,23,0.55)', lineHeight: 1.5 }}>
+                    {photoFeedback.commentary}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
