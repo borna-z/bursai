@@ -10,7 +10,7 @@ import type { StyleChatResponseEnvelope } from '@/lib/styleChatContract';
 function renderBoldMarkdown(text: string): React.ReactNode {
   const parts = text.split(/\*\*(.+?)\*\*/g);
   return parts.map((part, i) =>
-    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+    i % 2 === 1 ? <strong key={i} className="text-foreground">{part}</strong> : part
   );
 }
 
@@ -74,7 +74,24 @@ function getResolvedOutfitExplanation(meta?: StyleChatResponseEnvelope | null): 
   return meta.active_look?.explanation || meta.outfit_explanation || '';
 }
 
-export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isCreatingOutfit, showStyleCards = true, onGarmentClick, displayMetaOverride, isRefining, lockedSlots, onRefine, onSave, onToggleLock, isSaving, isSaved, changedGarmentIds }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  isStreaming,
+  garmentMap,
+  onTryOutfit,
+  isCreatingOutfit,
+  showStyleCards = true,
+  onGarmentClick,
+  displayMetaOverride,
+  isRefining,
+  lockedSlots,
+  onRefine,
+  onSave,
+  onToggleLock,
+  isSaving,
+  isSaved,
+  changedGarmentIds,
+}: ChatMessageProps) {
   const navigate = useNavigate();
   const isUser = message.role === 'user';
   const text = isUser ? getTextContent(message.content) : stripUnknownGarmentMarkup(getTextContent(message.content));
@@ -162,19 +179,20 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     };
   }, [text, garmentMap, stylistMeta]);
 
+  /* ── User bubble ── */
   if (isUser) {
     return (
-      <div className="flex justify-end animate-fade-in">
-        <div className="max-w-[85%] space-y-2">
+      <div className="flex justify-end">
+        <div className="max-w-[82%] space-y-2">
           {images.length > 0 && (
             <div className="flex gap-2 flex-wrap justify-end">
               {images.map((url, i) => (
-                <img key={i} src={url} alt="Upload" className="h-32 w-32 object-cover rounded-[1.25rem] shadow-sm" />
+                <img key={i} src={url} alt="Upload" className="h-28 w-28 object-cover rounded-[1.1rem] shadow-sm border border-border/20" /> // i18n-ignore
               ))}
             </div>
           )}
           {text && (
-            <div className="bg-primary/10 text-foreground rounded-[1.25rem] rounded-br-md px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap">
+            <div className="bg-foreground/[0.06] text-foreground rounded-[1.1rem] rounded-br-[0.4rem] px-4 py-2.5 text-[15px] font-body leading-relaxed whitespace-pre-wrap">
               {text}
             </div>
           )}
@@ -183,81 +201,87 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
     );
   }
 
-  // Assistant message — clean left-aligned, no avatar
+  /* ── Assistant message ── */
   const hasOutfit = showStyleCards && outfitCards.length > 0;
   const shouldShowFallbackCard = showStyleCards && !hasOutfit && !!unresolvedOutfitCard;
 
   return (
-    <div className="animate-fade-in">
-      <div className="space-y-2 max-w-[92%]">
+    <div>
+      <div className="space-y-3 max-w-[92%]">
         {isStreaming && !text && images.length === 0 ? (
-          <span className="inline-block w-0.5 h-5 bg-accent/60 animate-pulse rounded-full" />
+          <div className="flex items-center gap-1.5 py-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/50 animate-pulse" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/30 animate-pulse" style={{ animationDelay: '300ms' }} />
+          </div>
         ) : (
           <>
-            {/* Outfit card — hero position when present */}
-            <div style={{ minHeight: isStreaming && hasOutfit ? 120 : undefined }}>
-              {hasOutfit && (
-                <div className="space-y-2">
-                  {outfitCards.map((oc, i) => (
-                    <OutfitSuggestionCard
-                      key={`outfit-${i}`}
-                      garments={oc.garments}
-                      explanation={oc.explanation}
-                      onTryOutfit={onTryOutfit || (() => {})}
-                      isCreating={isCreatingOutfit}
-                      isRefining={isRefining}
-                      lockedSlots={lockedSlots}
-                      onRefine={onRefine}
-                      onSave={onSave}
-                      onToggleLock={onToggleLock}
-                      isSaving={isSaving}
-                      isSaved={isSaved}
-                      changedGarmentIds={changedGarmentIds}
-                    />
-                  ))}
-                  {rejectionLine && (
-                    <div className="border-l-2 border-foreground/20 pl-2.5 mt-1.5">
-                      <span className="font-body text-[12px] text-foreground/60 italic leading-relaxed">
-                        {renderBoldMarkdown(rejectionLine)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            {shouldShowFallbackCard && (
-              <div className="rounded-[1.25rem] border border-border/70 bg-card px-4 py-4 shadow-sm">
-                <div className="h-16 animate-pulse rounded-[1rem] bg-muted/60" />
-                <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-                  {renderBoldMarkdown(unresolvedOutfitCard.explanation || 'Loading the look...')}
-                </p>
-              </div>
-            )}
-            {/* Prose text — secondary style when outfit is present */}
-            {textParts && (
-              <div
-                style={{ minHeight: 48 }}
-                className={
-                  hasOutfit
-                    ? 'text-[15px] leading-relaxed text-foreground/70 whitespace-pre-wrap'
-                    : 'text-[15px] leading-relaxed whitespace-pre-wrap text-foreground'
-                }
-              >
-                {textParts}
-                {isStreaming && (
-                  <span className="inline-block w-[1.5px] h-[18px] bg-accent/60 animate-pulse ml-0.5 align-text-bottom rounded-full" />
+            {/* Outfit card — hero position */}
+            {hasOutfit && (
+              <div className="space-y-2.5">
+                {outfitCards.map((oc, i) => (
+                  <OutfitSuggestionCard
+                    key={`outfit-${i}`}
+                    garments={oc.garments}
+                    explanation={oc.explanation}
+                    onTryOutfit={onTryOutfit || (() => {})}
+                    isCreating={isCreatingOutfit}
+                    isRefining={isRefining}
+                    lockedSlots={lockedSlots}
+                    onRefine={onRefine}
+                    onSave={onSave}
+                    onToggleLock={onToggleLock}
+                    isSaving={isSaving}
+                    isSaved={isSaved}
+                    changedGarmentIds={changedGarmentIds}
+                  />
+                ))}
+                {rejectionLine && (
+                  <div className="border-l-[1.5px] border-accent/25 pl-3 ml-1">
+                    <span className="font-body text-[12px] text-foreground/45 italic leading-relaxed">
+                      {renderBoldMarkdown(rejectionLine)}
+                    </span>
+                  </div>
                 )}
               </div>
             )}
+
+            {/* Unresolved outfit placeholder */}
+            {shouldShowFallbackCard && (
+              <div className="rounded-[1.25rem] border border-border/40 bg-card/50 px-4 py-4">
+                <div className="h-14 animate-pulse rounded-[0.75rem] bg-muted/40" />
+                <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground/60 font-body">
+                  {renderBoldMarkdown(unresolvedOutfitCard.explanation || 'Loading the look...')} {/* i18n-ignore */}
+                </p>
+              </div>
+            )}
+
+            {/* Prose text */}
+            {textParts && (
+              <div
+                className={`text-[15px] font-body leading-[1.65] whitespace-pre-wrap ${
+                  hasOutfit ? 'text-foreground/55' : 'text-foreground/85'
+                }`}
+              >
+                {textParts}
+                {isStreaming && (
+                  <span className="inline-block w-[1.5px] h-[17px] bg-accent/50 animate-pulse ml-0.5 align-text-bottom rounded-full" />
+                )}
+              </div>
+            )}
+
+            {/* Image attachments */}
             {images.length > 0 && (
               <div className="flex gap-2 flex-wrap">
                 {images.map((url, i) => (
-                  <img key={i} src={url} alt="Stylist reference" className="h-40 w-40 object-cover rounded-[1.25rem] shadow-sm" />
+                  <img key={i} src={url} alt="Stylist reference" className="h-36 w-36 object-cover rounded-[1.1rem] shadow-sm border border-border/20" /> // i18n-ignore
                 ))}
               </div>
             )}
+
+            {/* Inline garment cards */}
             {showStyleCards && garmentCards.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {garmentCards.map(g => (
                   <GarmentInlineCard
                     key={g.id}
@@ -267,8 +291,10 @@ export function ChatMessage({ message, isStreaming, garmentMap, onTryOutfit, isC
                 ))}
               </div>
             )}
+
+            {/* Secondary outfit cards (when primary didn't render) */}
             {showStyleCards && outfitCards.length > 0 && !hasOutfit && (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2.5 pt-1">
                 {outfitCards.map((oc, i) => (
                   <OutfitSuggestionCard
                     key={`outfit-${i}`}

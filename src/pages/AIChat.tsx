@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MoreVertical, Trash2, Shirt, X } from 'lucide-react';
 import { StylistReplyPlaceholder } from '@/components/ui/StylistReplyPlaceholder';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PRESETS } from '@/lib/motion';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
@@ -896,21 +896,32 @@ export default function AIChat() {
           </div>
         )}
 
-        {/* Refine UI */}
-        {refineMode.isRefining && (
-          <div className="space-y-2 pb-2">
-            <RefineChips
-              garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-              onChipTap={handleChipTap}
-              canUndo={refineMode.canUndo}
-              onUndo={refineMode.undo}
-            />
-            <RefineBanner
-              garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-              onStopRefining={refineMode.exitRefineMode}
-            />
-          </div>
-        )}
+        {/* Refine UI — chips + banner above input */}
+        <AnimatePresence>
+          {refineMode.isRefining && (
+            <motion.div
+              key="refine-ui"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-2 pb-2 pt-1">
+                <RefineChips
+                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                  onChipTap={handleChipTap}
+                  canUndo={refineMode.canUndo}
+                  onUndo={refineMode.undo}
+                />
+                <RefineBanner
+                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                  onStopRefining={refineMode.exitRefineMode}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Input */}
         <ChatInput
