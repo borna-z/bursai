@@ -1251,18 +1251,20 @@ serve(async (req) => {
 
     const activeLook = buildActiveLookContext(safeMessages as MessageInput[], wardrobeCtx.rankedGarments, selectedGarmentIds, explicitActiveLook);
     const latestUser = normalizeTerm(getMessageText(safeMessages.filter((message: any) => message.role === "user").slice(-1)[0]?.content || ""));
-    const mapHintToRefinementMode = (hint: string | null): RefinementIntent["mode"] => {
-      if (!hint) return "new_look";
+    const mapHintToRefinementMode = (hint: string | null, intent: string): RefinementIntent["mode"] => {
+      // When the classifier says "refine" but gives no specific hint,
+      // default to targeted_refinement (permissive) not new_look (locks everything).
+      if (!hint) return intent === "refine_outfit" ? "targeted_refinement" : "new_look";
       const direct: Record<string, RefinementIntent["mode"]> = {
         warmer: "warmer", cooler: "cooler", more_formal: "more_formal", less_formal: "less_formal",
         swap_shoes: "swap_shoes", use_less_worn: "use_less_worn",
         swap_outerwear: "swap_layer", swap_top: "targeted_refinement",
         swap_bottom: "targeted_refinement", different_style: "targeted_refinement",
       };
-      return direct[hint] ?? "new_look";
+      return direct[hint] ?? "targeted_refinement";
     };
     const refinementIntent: RefinementIntent = {
-      mode: mapHintToRefinementMode(classifierResult.refinement_hint),
+      mode: mapHintToRefinementMode(classifierResult.refinement_hint, classifierResult.intent),
       raw: latestUser,
     };
     const threadBrief = buildThreadBrief(safeMessages as MessageInput[], wardrobeCtx.anchor, activeLook, refinementIntent);
@@ -1340,6 +1342,10 @@ serve(async (req) => {
               ...refinementPlan.lockedGarmentIds,
               ...(refinementPlan.anchorLocked && refinementPlan.anchorGarmentId
                 ? [refinementPlan.anchorGarmentId]
+                : []),
+              // Merge user-provided tap-to-lock IDs (validated against wardrobe)
+              ...(Array.isArray(locked_slots)
+                ? locked_slots.filter((id: string) => wardrobeCtx.rankedGarments.some((g: any) => g.id === id))
                 : []),
             ],
             requested_edit_slots: refinementPlan.requestedEditSlots,
