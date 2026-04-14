@@ -1052,20 +1052,38 @@ serve(async (req) => {
     // and defer the empty-wardrobe override to AFTER the DB queries
     // where we have the authoritative wardrobeCtx.garmentCount.
     {
-      const lastTwoMessages = safeMessagesQuick
+      // Give the classifier 6 messages of context so it can see the full
+      // conversation arc — critical for knowing when to STOP asking follow-ups.
+      const safeMessagesForClassifier = (Array.isArray(messages) ? messages : []).slice(-8);
+      const recentMessages = safeMessagesForClassifier
         .filter((m: any) => m.role === "user" || m.role === "assistant")
-        .slice(-2)
+        .slice(-6)
         .map((m: any) => ({
           role: m.role as string,
-          text: typeof m.content === "string" ? m.content.slice(0, 150) : "",
+          text: typeof m.content === "string" ? m.content.slice(0, 200) : "",
         }));
+
+      // Circuit breaker: count consecutive clarifying-question turns.
+      // If the AI has asked 2+ follow-up questions without generating an outfit,
+      // force generation on this turn — the user has given enough context.
+      const recentAssistantTexts = safeMessagesForClassifier
+        .filter((m: any) => m.role === "assistant")
+        .slice(-3)
+        .map((m: any) => typeof m.content === "string" ? m.content : "");
+      const CLARIFY_SIGNALS = /could you tell|can you tell|what's the|what is the|is it a|is there a|for example/i;
+      const consecutiveClarifyCount = recentAssistantTexts
+        .reverse()
+        .findIndex((text) => !CLARIFY_SIGNALS.test(text));
+      const tooManyClarifyTurns = consecutiveClarifyCount === -1
+        ? recentAssistantTexts.length >= 2
+        : consecutiveClarifyCount >= 2;
 
       const classifierInput: ClassifierInput = {
         userMessage: latestUserText,
         hasActiveLook: hasActiveLookForClassifier,
         hasAnchor: hasAnchorForClassifier,
         garmentCount: garmentCountNum,
-        lastMessages: lastTwoMessages,
+        lastMessages: recentMessages,
         lockedSlots: Array.isArray(locked_slots) ? locked_slots : [],
       };
 
@@ -1096,6 +1114,22 @@ serve(async (req) => {
       );
 
       classifierResult = await Promise.race([classifierPromise, timeoutPromise]);
+
+      // ── Circuit breaker: stop asking after 2+ consecutive clarifying turns ──
+      // Also override if user uses imperative language ("generate", "show me", "create")
+      const GENERATE_OVERRIDE_RE = /\b(generate|create|build|put together|show me|give me|make me|style me|dress me|what should i wear)\b/i;
+      if (classifierResult.needs_more_context && (tooManyClarifyTurns || GENERATE_OVERRIDE_RE.test(latestUserText))) {
+        log.info("classifier.circuit_breaker", {
+          requestId,
+          reason: tooManyClarifyTurns ? "too_many_clarify_turns" : "imperative_override",
+          originalIntent: classifierResult.intent,
+        });
+        classifierResult = {
+          ...classifierResult,
+          intent: classifierResult.intent === "conversation" ? "generate_outfit" : classifierResult.intent,
+          needs_more_context: false,
+        };
+      }
     }
 
     const specialtyModes = new Set(["PURCHASE_PRIORITIZATION", "WARDROBE_GAP_ANALYSIS", "PLANNING", "STYLE_IDENTITY_ANALYSIS"]);

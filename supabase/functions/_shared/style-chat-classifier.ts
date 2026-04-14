@@ -69,9 +69,9 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 }
 
 Rules:
-- "conversation" = greeting, fashion question, unclear request, or user needs to provide more info
-- "generate_outfit" = user explicitly asks for an outfit AND enough context exists (dress code + occasion + formality are all clear). Examples where needs_more_context=false: "Put together a casual work outfit", "What should I wear to a casual BBQ today?"
-- "generate_outfit" + needs_more_context=true = user mentions an occasion but key details are missing. ALWAYS set needs_more_context=true when the user mentions a wedding, date, party, interview, event, or trip WITHOUT specifying dress code or formality. Examples: "I have a wedding today", "going on a date tonight", "I have a job interview" — these ALL need needs_more_context=true because dress code/formality is unknown.
+- "conversation" = greeting, fashion question, or completely unclear request with zero styling intent
+- "generate_outfit" + needs_more_context=false = user wants an outfit AND has given enough context. Even PARTIAL context is enough — the stylist can infer the rest. Examples: "What should I wear today?", "I need a work outfit", "casual weekend look", "formal evening" — all have enough to start generating.
+- "generate_outfit" + needs_more_context=true = user's FIRST message about an occasion with NO formality/context clues at all. Example: "I have a wedding" (first message, no prior context). BUT if the recent conversation already discussed formality, venue, weather, etc., set needs_more_context=false — the context has ALREADY been gathered.
 - "refine_outfit" = active look exists AND user wants to modify it (warmer, swap shoes, more casual, etc.)
 - "explain_outfit" = user asks about current look's styling logic (why does this work, what shoes go better)
 - If has_active_look=false and user says "make it warmer" or similar refinement language, use intent="conversation" + needs_more_context=true (nothing to refine)
@@ -80,7 +80,13 @@ Rules:
 - For wardrobe gaps/audits: use intent "WARDROBE_GAP_ANALYSIS"
 - For weekly planning: use intent "PLANNING"
 - For style identity questions: use intent "STYLE_IDENTITY_ANALYSIS"
-- IMPORTANT: When in doubt between generating immediately vs asking, ALWAYS choose needs_more_context=true. It is ALWAYS better to ask one question than to generate a wrong outfit.`;
+
+CRITICAL — AVOID INFINITE LOOPS:
+- Look at recent_conversation. If the assistant has ALREADY asked a clarifying question and the user answered it, DO NOT ask again. Set needs_more_context=false and generate the outfit.
+- If the user provides ANY formality word (formal, casual, smart casual, dressy, etc.), that is enough context. Generate.
+- If the user says "generate", "show me", "create", "put together", "what should I wear" — that is an explicit request. Set needs_more_context=false.
+- needs_more_context=true should ONLY be used on the FIRST vague message. After ONE follow-up answer from the user, ALWAYS set needs_more_context=false.
+- Default bias: GENERATE. Only ask if the request is truly the first message AND has zero context clues.`;
 }
 
 function parseClassifierResponse(raw: string): ClassifierResult {
