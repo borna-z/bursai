@@ -47,7 +47,9 @@ export function ChatInput({
   }, []);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--chat-input-height', `${cardHeight + 8}px`);
+    // Card height + top padding (8px) + safe-area bottom (env) approximated at 34px on notch devices
+    // The scroll area uses this to reserve space below messages
+    document.documentElement.style.setProperty('--chat-input-height', `${cardHeight + 44}px`);
     return () => { document.documentElement.style.removeProperty('--chat-input-height'); };
   }, [cardHeight]);
 
@@ -57,9 +59,12 @@ export function ChatInput({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-30 px-4 pt-2 bg-background/80 backdrop-blur-xl"
+      className="fixed inset-x-0 z-30 px-4 pt-2 bg-background/80 backdrop-blur-xl"
       style={{
-        paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px)), 0.75rem)',
+        // Use bottom offset instead of padding — avoids double-counting
+        // with viewport height changes. The input moves UP by keyboard height.
+        bottom: 'var(--keyboard-offset, 0px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)',
       }}
     >
       <div className="max-w-lg mx-auto">
