@@ -146,7 +146,7 @@ export function OutfitSuggestionCard({
           const isLocked = lockedSet.has(g.id);
           const isHighlighted = highlightIds.has(g.id);
           return (
-            <div key={g.id} className="relative min-w-0">
+            <div key={g.id} className="group relative min-w-0">
               {/* Image */}
               <div
                 className="relative cursor-pointer"
