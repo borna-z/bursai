@@ -843,7 +843,10 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] pt-5 space-y-6 overscroll-contain"
+            style={{ paddingBottom: 'calc(var(--chat-input-height, 80px) + 16px)' }}
+          >
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
@@ -931,38 +934,36 @@ export default function AIChat() {
                 </div>
               </div>
             ) : null}
+            {/* Refine UI — inside scroll area */}
+            <AnimatePresence>
+              {refineMode.isRefining && (
+                <motion.div
+                  key="refine-ui"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
+                >
+                  <div className="space-y-2 pb-2">
+                    <RefineChips
+                      garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                      onChipTap={handleChipTap}
+                      canUndo={refineMode.canUndo}
+                      onUndo={refineMode.undo}
+                    />
+                    <RefineBanner
+                      garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                      onStopRefining={refineMode.exitRefineMode}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
         )}
 
-        {/* Refine UI — chips + banner above input */}
-        <AnimatePresence>
-          {refineMode.isRefining && (
-            <motion.div
-              key="refine-ui"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-2 pb-2 pt-1">
-                <RefineChips
-                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                  onChipTap={handleChipTap}
-                  canUndo={refineMode.canUndo}
-                  onUndo={refineMode.undo}
-                />
-                <RefineBanner
-                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                  onStopRefining={refineMode.exitRefineMode}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Input */}
+        {/* Input — fixed to bottom, uses --keyboard-offset for Median WebView */}
         <ChatInput
           input={input}
           onInputChange={setInput}
