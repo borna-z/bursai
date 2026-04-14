@@ -1053,17 +1053,11 @@ serve(async (req) => {
     }
 
     // ── Intent classification (Pass 1) ──
-    // Only report active look to classifier if it came from an explicit user
-    // action (refine mode, anchor, etc.), not from stale history loaded on
-    // session start. We detect "stale" by checking if the active look source
-    // indicates it was preserved from a conversational turn or loaded from DB.
-    const activeLookSource = explicitActiveLook?.source || "";
-    const isStaleActiveLook = activeLookSource === "preserved_conversational"
-      || activeLookSource === "preserved_active_look"
-      || activeLookSource === "";
+    // Report active look to classifier if garment IDs are present — even
+    // looks preserved through conversational turns (e.g. "thanks") are valid
+    // for refinement. Only treat completely empty source as no active look.
     const hasActiveLookForClassifier = Array.isArray(explicitActiveLook?.garment_ids)
-      && explicitActiveLook.garment_ids.length >= 2
-      && !isStaleActiveLook;
+      && explicitActiveLook.garment_ids.length >= 2;
     const hasAnchorForClassifier = Array.isArray(selected_garment_ids) && selected_garment_ids.length > 0;
     const garmentCountNum = typeof _clientGarmentCount === "number" ? _clientGarmentCount : 0;
     let classifierResult: ClassifierResult;
@@ -1361,9 +1355,13 @@ serve(async (req) => {
     // The refinement plan defaults to "everyday" for new outfits, but the
     // conversation may contain occasion keywords (wedding, work, date, etc.)
     // that the engine needs to pick appropriate garments.
-    if (stylistMode !== "ACTIVE_LOOK_REFINEMENT") {
+    if (classifiedMode !== "ACTIVE_LOOK_REFINEMENT") {
+      // Only scan USER messages for occasion/style keywords — assistant
+      // messages contain clarifier questions that can false-positive match
+      // (e.g., assistant asks "formal or casual?" → "formal" triggers override)
       const conversationText = (Array.isArray(messages) ? messages : [])
         .slice(-6)
+        .filter((m: any) => m.role === "user")
         .map((m: any) => typeof m.content === "string" ? m.content : getMessageText(m.content))
         .join(" ")
         .toLowerCase();
