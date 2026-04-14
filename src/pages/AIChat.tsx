@@ -313,6 +313,15 @@ export default function AIChat() {
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  // Re-anchor to bottom when viewport resizes (keyboard open/close)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => scrollToBottom();
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, [scrollToBottom]);
+
   useEffect(() => {
     if (isStreaming) return;
     if (latestActiveLook && hasRenderableActiveLook(latestActiveLook)) {
