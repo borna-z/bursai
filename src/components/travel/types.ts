@@ -64,3 +64,44 @@ export const VIBES = [
 ] as const;
 
 export type VibeId = typeof VIBES[number]['id'];
+
+export type LuggageType = 'carry_on' | 'carry_on_personal' | 'checked';
+export type Companion = 'solo' | 'partner' | 'friends' | 'family';
+export type StylePreference = 'casual' | 'balanced' | 'dressy';
+
+export type OccasionId =
+  | 'work' | 'dinner' | 'beach' | 'hiking'
+  | 'nightlife' | 'wedding' | 'sightseeing'
+  | 'airport' | 'active';
+
+export const OCCASIONS: { id: OccasionId; labelKey: string; icon: string }[] = [
+  { id: 'work', labelKey: 'travel.occasion_work', icon: 'Briefcase' },
+  { id: 'dinner', labelKey: 'travel.occasion_dinner', icon: 'Wine' },
+  { id: 'beach', labelKey: 'travel.occasion_beach', icon: 'Umbrella' },
+  { id: 'hiking', labelKey: 'travel.occasion_hiking', icon: 'Mountain' },
+  { id: 'nightlife', labelKey: 'travel.occasion_nightlife', icon: 'Music' },
+  { id: 'wedding', labelKey: 'travel.occasion_wedding', icon: 'Heart' },
+  { id: 'sightseeing', labelKey: 'travel.occasion_sightseeing', icon: 'Map' },
+  { id: 'airport', labelKey: 'travel.occasion_airport', icon: 'Plane' },
+  { id: 'active', labelKey: 'travel.occasion_active', icon: 'Dumbbell' },
+];
+
+export const LUGGAGE_LIMITS: Record<LuggageType, { garments: number; shoes: number }> = {
+  carry_on: { garments: 8, shoes: 2 },
+  carry_on_personal: { garments: 12, shoes: 2 },
+  checked: { garments: 18, shoes: 3 },
+};
+
+export interface TravelCapsuleRow {
+  id: string;
+  user_id: string;
+  destination: string;
+  start_date: string | null;
+  end_date: string | null;
+  occasions: string[];
+  luggage_type: string;
+  companions: string;
+  style_preference: string;
+  result: CapsuleResult;
+  created_at: string;
+}
