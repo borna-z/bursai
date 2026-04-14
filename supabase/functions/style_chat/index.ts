@@ -1080,8 +1080,19 @@ serve(async (req) => {
         return typeof resp.data === "string" ? resp.data : "";
       });
 
+      // Timeout fallback: use conversation + needs_more_context=false so
+      // clear requests aren't blocked. The AI call will handle it naturally.
+      // (CLASSIFIER_FALLBACK has needs_more_context=true which would force
+      // a clarifying question even for "put together a work outfit".)
+      const TIMEOUT_FALLBACK: ClassifierResult = {
+        intent: "conversation",
+        needs_more_context: false,
+        refinement_hint: null,
+        locked_slots: null,
+        clear_active_look: false,
+      };
       const timeoutPromise = new Promise<ClassifierResult>((resolve) =>
-        setTimeout(() => resolve(CLASSIFIER_FALLBACK), 3000)
+        setTimeout(() => resolve(TIMEOUT_FALLBACK), 3000)
       );
 
       classifierResult = await Promise.race([classifierPromise, timeoutPromise]);
@@ -1540,9 +1551,7 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
       usedUnifiedEngine: shouldCallUnifiedEngine,
     });
 
-    let rawAssistantText = shouldAskClarifyingQuestion
-      ? buildStyleClarifierText(locale, latestUser)
-      : shouldUseStructuredStylistText
+    let rawAssistantText = shouldUseStructuredStylistText
       ? buildCardFirstStylistText({
         locale,
         mode: stylistMode,
@@ -1555,7 +1564,30 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
       : "";
     let aiFinishReason: string | undefined;
 
-    if (!shouldAskClarifyingQuestion && (!shouldUseStructuredStylistText || !rawAssistantText.trim())) {
+    // Clarifying question: use a lightweight AI call to ask smart follow-ups
+    // instead of the old hardcoded buildStyleClarifierText which was generic.
+    if (shouldAskClarifyingQuestion) {
+      try {
+        const clarifierResponse = await callBursAI({
+          functionName: "style_chat",
+          messages: [
+            {
+              role: "system",
+              content: `You are a warm personal stylist assistant. The user wants outfit help but hasn't given enough detail. Ask 1-2 short, friendly follow-up questions to understand what they need. Ask about the missing pieces: dress code, venue, weather, formality, time of day, or personal preference. Do NOT generate an outfit yet. Respond ONLY in ${lang.name}. Keep it to 1-3 sentences.`,
+            },
+            { role: "user", content: latestUser },
+          ],
+          complexity: "standard",
+          cacheTtlSeconds: 0,
+          cacheNamespace: "style_chat_clarifier",
+        });
+        rawAssistantText = typeof clarifierResponse.data === "string" && clarifierResponse.data.trim()
+          ? clarifierResponse.data
+          : buildStyleClarifierText(locale, latestUser);
+      } catch {
+        rawAssistantText = buildStyleClarifierText(locale, latestUser);
+      }
+    } else if (!shouldUseStructuredStylistText || !rawAssistantText.trim()) {
       const aiResponse = await callBursAI({
         messages: [
           { role: "system", content: systemPrompt },
@@ -1588,26 +1620,30 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
     }
 
     // ── Post-processing validation ──────────────────────────────
-    // a. Check for garment name reference
-    const garmentNames = wardrobeCtx.rankedGarments.map((g: any) => g.title?.toLowerCase()).filter(Boolean);
-    const replyLower = rawAssistantText.toLowerCase();
-    const mentionsGarment = garmentNames.some((name: string) => replyLower.includes(name));
-    if (!mentionsGarment && garmentNames.length > 0) {
-      console.warn("style_chat: reply missing garment reference");
-    }
+    // Skip post-processing checks for clarifying question turns — the reply
+    // is asking follow-ups, not presenting garments, so these checks are irrelevant.
+    if (!shouldAskClarifyingQuestion) {
+      // a. Check for garment name reference
+      const garmentNames = wardrobeCtx.rankedGarments.map((g: any) => g.title?.toLowerCase()).filter(Boolean);
+      const replyLower = rawAssistantText.toLowerCase();
+      const mentionsGarment = garmentNames.some((name: string) => replyLower.includes(name));
+      if (!mentionsGarment && garmentNames.length > 0) {
+        console.warn("style_chat: reply missing garment reference");
+      }
 
-    // b. Check for banned phrases
-    const BANNED = ["great choice", "nice pick", "goes well with", "versatile piece", "i recommend", "i suggest"];
-    for (const phrase of BANNED) {
-      if (replyLower.includes(phrase)) {
-        console.warn("style_chat: banned phrase detected:", phrase);
+      // b. Check for banned phrases
+      const BANNED = ["great choice", "nice pick", "goes well with", "versatile piece", "i recommend", "i suggest"];
+      for (const phrase of BANNED) {
+        if (replyLower.includes(phrase)) {
+          console.warn("style_chat: banned phrase detected:", phrase);
+        }
       }
     }
 
     // c. Trim overly long non-outfit replies — language-safe sentence splitting
     rawAssistantText = trimToSentences(
       rawAssistantText,
-      stylistMode === 'ACTIVE_LOOK_REFINEMENT' ? 5 : shouldPreserveStyleCard ? 3 : 5,
+      shouldAskClarifyingQuestion ? 6 : stylistMode === 'ACTIVE_LOOK_REFINEMENT' ? 5 : shouldPreserveStyleCard ? 3 : 5,
     );
 
     const normalizedReply = normalizeStyleChatAssistantReply({
