@@ -1113,12 +1113,12 @@ serve(async (req) => {
         return typeof resp.data === "string" ? resp.data : "";
       });
 
-      // Timeout fallback: use conversation + needs_more_context=false so
-      // clear requests aren't blocked. The AI call will handle it naturally.
-      // (CLASSIFIER_FALLBACK has needs_more_context=true which would force
-      // a clarifying question even for "put together a work outfit".)
+      // Timeout fallback: use generate_outfit so outfit requests still work
+      // when classifier is slow. The full system prompt + AI model will
+      // determine actual behavior from context — this just keeps the flow
+      // in a styling-capable mode rather than forcing plain conversation.
       const TIMEOUT_FALLBACK: ClassifierResult = {
-        intent: "conversation",
+        intent: hasActiveLookForClassifier ? "refine_outfit" : "generate_outfit",
         needs_more_context: false,
         refinement_hint: null,
         locked_slots: null,
@@ -1148,12 +1148,12 @@ serve(async (req) => {
     }
 
     const specialtyModes = new Set(["PURCHASE_PRIORITIZATION", "WARDROBE_GAP_ANALYSIS", "PLANNING", "STYLE_IDENTITY_ANALYSIS"]);
-    // needs_more_context forces CONVERSATIONAL — the AI will ask follow-ups
-    // instead of generating an outfit with insufficient context.
-    const classifiedMode: StylistChatMode = classifierResult.needs_more_context
-      ? "CONVERSATIONAL"
-      : specialtyModes.has(classifierResult.intent as string)
-        ? classifierResult.intent as StylistChatMode
+    // Specialty intents have their own workflows — needs_more_context doesn't
+    // apply to them. Only core style intents support clarify-vs-generate.
+    const classifiedMode: StylistChatMode = specialtyModes.has(classifierResult.intent as string)
+      ? classifierResult.intent as StylistChatMode
+      : classifierResult.needs_more_context
+        ? "CONVERSATIONAL"
         : mapClassifierToMode(classifierResult, hasAnchorForClassifier);
 
     const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes, negPairMemoryRes] = await Promise.all([
@@ -1356,15 +1356,14 @@ serve(async (req) => {
     // conversation may contain occasion keywords (wedding, work, date, etc.)
     // that the engine needs to pick appropriate garments.
     if (classifiedMode !== "ACTIVE_LOOK_REFINEMENT") {
-      // Only scan USER messages for occasion/style keywords — assistant
-      // messages contain clarifier questions that can false-positive match
-      // (e.g., assistant asks "formal or casual?" → "formal" triggers override)
-      const conversationText = (Array.isArray(messages) ? messages : [])
-        .slice(-6)
+      // Scan user messages for occasion/style keywords, prioritizing the
+      // LATEST user turn to avoid stale context overriding current intent.
+      // Build text with latest message first so first-match rules pick it up.
+      const userMessages = (Array.isArray(messages) ? messages : [])
         .filter((m: any) => m.role === "user")
-        .map((m: any) => typeof m.content === "string" ? m.content : getMessageText(m.content))
-        .join(" ")
-        .toLowerCase();
+        .slice(-4)
+        .map((m: any) => typeof m.content === "string" ? m.content : getMessageText(m.content));
+      const conversationText = [...userMessages].reverse().join(" ").toLowerCase();
       if (refinementPlan.occasion === "everyday") {
         const occasionKeywords: [RegExp, string][] = [
           [/\b(wedding|bröllop)\b/, "formal"],
