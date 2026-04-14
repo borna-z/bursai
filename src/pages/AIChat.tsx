@@ -312,15 +312,21 @@ export default function AIChat() {
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // Scroll to bottom when keyboard opens (viewport shrinks > 50px)
+  // Scroll to bottom when keyboard opens (viewport shrinks > 100px from baseline).
+  // Uses a stable baseline that only resets when the viewport GROWS back (keyboard closes).
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    let prevHeight = vv.height;
+    let baseline = vv.height;
     const onResize = () => {
-      const shrunk = vv.height < prevHeight - 50;
-      prevHeight = vv.height;
-      if (shrunk) requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
+      const current = vv.height;
+      if (current >= baseline) {
+        // Viewport grew back (keyboard closed) — reset baseline
+        baseline = current;
+      } else if (baseline - current > 100) {
+        // Significant cumulative shrink from baseline — keyboard opened
+        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
+      }
     };
     vv.addEventListener('resize', onResize);
     return () => vv.removeEventListener('resize', onResize);

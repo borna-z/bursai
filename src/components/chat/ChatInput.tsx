@@ -39,10 +39,7 @@ export function ChatInput({
   };
 
   return (
-    <div
-      className="shrink-0 animate-fade-in px-4 pt-2"
-      style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px)), 0.75rem)' }}
-    >
+    <div className="shrink-0 animate-fade-in px-4 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
       <div className="max-w-lg mx-auto">
         <div className="relative rounded-[1.25rem] border border-accent/10 bg-secondary/30 backdrop-blur-xl shadow-[0_-2px_20px_hsl(var(--background)/0.5)]">
           {pendingImage && (
