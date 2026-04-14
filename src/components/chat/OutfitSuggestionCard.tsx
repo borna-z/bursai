@@ -74,6 +74,16 @@ export function OutfitSuggestionCard({
   const [highlightIds, setHighlightIds] = useState<Set<string>>(new Set());
   const [localSaved, setLocalSaved] = useState(false);
 
+  // Sync local garments when props change (e.g., after refine response)
+  useEffect(() => {
+    const propIds = initialGarments.map(g => g.id).join(',');
+    const localIds = garments.map(g => g.id).join(',');
+    if (propIds !== localIds) {
+      setGarments(initialGarments);
+      setLocalSaved(false);
+    }
+  }, [initialGarments]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (changedGarmentIds && changedGarmentIds.length > 0) {
       setHighlightIds(new Set(changedGarmentIds));

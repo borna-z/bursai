@@ -253,6 +253,7 @@ export default function AIChat() {
   const refineMode = useRefineMode();
   const [savedOutfitIds, setSavedOutfitIds] = useState<Set<string>>(new Set());
   const [isSavingOutfit, setIsSavingOutfit] = useState(false);
+  const savingRef = useRef(false);
 
   const isWelcomeState = messages.length === 1 && messages[0].role === 'assistant' && !isStreaming;
 
@@ -311,6 +312,32 @@ export default function AIChat() {
 
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  // Scroll to bottom when keyboard opens. Only fires on the SHRINK edge —
+  // tracks previous height so growing back (keyboard dismiss) doesn't scroll.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let baseline = vv.height;
+    let prev = vv.height;
+    let fired = false;
+    const onResize = () => {
+      const current = vv.height;
+      const isShrinking = current < prev;
+      prev = current;
+      if (current >= baseline - 10) {
+        // Viewport near or above baseline — keyboard closed, reset
+        baseline = Math.max(baseline, current);
+        fired = false;
+      } else if (isShrinking && !fired && baseline - current > 100) {
+        // Shrinking AND crossed 100px threshold — keyboard just opened
+        fired = true;
+        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
+      }
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (isStreaming) return;
@@ -650,12 +677,20 @@ export default function AIChat() {
 
   const clearHistory = async () => {
     if (!user) return;
+    // Abort any active stream first, then clear
+    activeStreamControllerRef.current?.abort();
+    activeStreamControllerRef.current = null;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
       await deleteHistory(user.id);
       sessionStorage.removeItem('burs_chat_history');
       setMessages([welcomeMessage]);
+      setLastConfirmedLook(null);
+      setPendingLookUpdate(null);
+      setSuggestionChips([]);
+      refineMode.exitRefineMode();
+      setSavedOutfitIds(new Set());
       toast.success(t('chat.history_cleared'));
     } catch { toast.error(t('chat.history_error')); }
   };
@@ -695,7 +730,10 @@ export default function AIChat() {
   }, [navigate]);
 
   const handleSaveFromChat = useCallback(async (garmentIds: string[]) => {
-    if (!user || isSavingOutfit) return;
+    // Use ref guard to prevent double-save on rapid taps (state may not
+    // have updated between two taps within the same render frame)
+    if (!user || savingRef.current) return;
+    savingRef.current = true;
     setIsSavingOutfit(true);
     try {
       const items = garmentIds.map((id) => {
@@ -717,9 +755,10 @@ export default function AIChat() {
     } catch {
       toast.error(t('common.something_wrong'));
     } finally {
+      savingRef.current = false;
       setIsSavingOutfit(false);
     }
-  }, [user, garmentMap, createOutfit, t, isSavingOutfit]);
+  }, [user, garmentMap, createOutfit, t]);
 
   const handleEnterRefine = useCallback((garmentIds: string[], explanation: string) => {
     refineMode.enterRefineMode(garmentIds, explanation);
@@ -804,7 +843,7 @@ export default function AIChat() {
         ) : isWelcomeState ? (
           <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
@@ -814,7 +853,7 @@ export default function AIChat() {
               const shouldShowVisibleLook = msg.role === 'assistant' && idx === messages.length - 1;
               return (
                 <motion.div
-                  key={idx}
+                  key={`${msg.role}-${idx}`}
                   variants={PRESETS.MESSAGE.variants}
                   initial="initial"
                   animate="animate"
