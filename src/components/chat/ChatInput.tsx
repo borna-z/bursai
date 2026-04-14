@@ -38,10 +38,10 @@ export function ChatInput({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerHeight(entry.contentRect.height);
-      }
+    const ro = new ResizeObserver(() => {
+      // Use getBoundingClientRect for border-box height (includes padding
+      // from safe-area-inset-bottom and --keyboard-offset)
+      setContainerHeight(el.getBoundingClientRect().height);
     });
     ro.observe(el);
     return () => ro.disconnect();
