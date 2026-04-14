@@ -1,15 +1,19 @@
 import { motion } from 'framer-motion';
-import { LockKeyhole } from 'lucide-react';
+import { LockKeyhole, Package } from 'lucide-react';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { PageIntro } from '@/components/ui/page-intro';
 
 import { useLanguage } from '@/contexts/LanguageContext';
-import { TravelFormView } from '@/components/travel/TravelFormView';
 import { TravelResultsView } from '@/components/travel/TravelResultsView';
+import { TravelWizard } from '@/components/travel/TravelWizard';
+import { TripHistoryList } from '@/components/travel/TripHistoryList';
 import { useTravelCapsule } from '@/components/travel/useTravelCapsule';
+import type { TravelCapsuleRow } from '@/components/travel/types';
 import { EASE_CURVE } from '@/lib/motion';
 
 export default function TravelCapsule() {
@@ -58,46 +62,76 @@ export default function TravelCapsule() {
     );
   }
 
-  // ─── Input Form ───
+  // ─── Input Wizard ───
   if (!capsule.result) {
+    const handleSelectTrip = (trip: TravelCapsuleRow) => {
+      capsule.setResult(trip.result);
+      capsule.setDestination(trip.destination);
+    };
+
     return (
-      <TravelFormView
-        destination={capsule.destination}
-        setDestination={capsule.setDestination}
-        dateRange={capsule.dateRange}
-        setDateRange={capsule.setDateRange}
-        vibe={capsule.vibe}
-        setVibe={capsule.setVibe}
-        outfitsPerDay={capsule.outfitsPerDay}
-        setOutfitsPerDay={capsule.setOutfitsPerDay}
-        mustHaveItems={capsule.mustHaveItems}
-        setMustHaveItems={capsule.setMustHaveItems}
-        minimizeItems={capsule.minimizeItems}
-        setMinimizeItems={capsule.setMinimizeItems}
-        includeTravelDays={capsule.includeTravelDays}
-        setIncludeTravelDays={capsule.setIncludeTravelDays}
-        destCoords={capsule.destCoords}
-        showForm={capsule.showForm}
-        setShowForm={capsule.setShowForm}
-        isFetchingWeather={capsule.isFetchingWeather}
-        weatherError={capsule.weatherError}
-        weatherForecast={capsule.weatherForecast}
-        allGarments={capsule.allGarments}
-        savedCapsules={capsule.savedCapsules}
-        dateLabel={capsule.dateLabel}
-        tripNights={capsule.tripNights}
-        tripDays={capsule.tripDays}
-        planningLookCount={capsule.planningLookCount}
-        dateLocale={capsule.dateLocale}
-        handleLocationSelect={capsule.handleLocationSelect}
-        handleGenerate={capsule.handleGenerate}
-        loadSavedCapsule={capsule.loadSavedCapsule}
-        removeSavedCapsule={capsule.removeSavedCapsule}
-        isGenerating={capsule.isGenerating}
-        loadingStep={capsule.loadingStep}
-        loadingSteps={capsule.loadingSteps}
-        travelCardPhases={capsule.travelCardPhases}
-      />
+      <AppLayout hideNav>
+        <AnimatedPage className="page-shell !px-5 !pt-6 page-cluster">
+          <PageIntro
+            eyebrow={t('travel.eyebrow') || 'Travel capsule'}
+            title={t('capsule.title') || 'Travel capsule'}
+            description={
+              t('travel.intro') ||
+              'Plan a trip in two steps — BURS picks the pieces from your wardrobe.'
+            }
+          />
+
+          {capsule.isGenerating ? (
+            <section className="space-y-3">
+              <AILoadingCard phases={capsule.travelCardPhases} />
+              <p className="text-center text-sm text-muted-foreground">
+                {capsule.loadingSteps[capsule.loadingStep]}
+              </p>
+            </section>
+          ) : (
+            <>
+              <TravelWizard
+                destination={capsule.destination}
+                setDestination={capsule.setDestination}
+                destCoords={capsule.destCoords}
+                dateRange={capsule.dateRange}
+                setDateRange={capsule.setDateRange}
+                dateLocale={capsule.dateLocale}
+                dateLabel={capsule.dateLabel}
+                tripNights={capsule.tripNights}
+                isFetchingWeather={capsule.isFetchingWeather}
+                weatherError={capsule.weatherError}
+                weatherForecast={capsule.weatherForecast}
+                forecastDays={capsule.forecastDays}
+                luggageType={capsule.luggageType}
+                setLuggageType={capsule.setLuggageType}
+                handleLocationSelect={capsule.handleLocationSelect}
+                occasions={capsule.occasions}
+                setOccasions={capsule.setOccasions}
+                companions={capsule.companions}
+                setCompanions={capsule.setCompanions}
+                stylePreference={capsule.stylePreference}
+                setStylePreference={capsule.setStylePreference}
+                outfitsPerDay={capsule.outfitsPerDay}
+                setOutfitsPerDay={capsule.setOutfitsPerDay}
+                mustHaveItems={capsule.mustHaveItems}
+                setMustHaveItems={capsule.setMustHaveItems}
+                minimizeItems={capsule.minimizeItems}
+                setMinimizeItems={capsule.setMinimizeItems}
+                allGarments={capsule.allGarments}
+                onGenerate={capsule.handleGenerate}
+                isGenerating={capsule.isGenerating}
+              />
+
+              <TripHistoryList
+                trips={capsule.savedTrips}
+                onSelect={handleSelectTrip}
+                onDelete={(id) => { void capsule.removeCapsuleFromDb(id); }}
+              />
+            </>
+          )}
+        </AnimatedPage>
+      </AppLayout>
     );
   }
 

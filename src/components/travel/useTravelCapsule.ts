@@ -15,8 +15,18 @@ import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/lib/logger';
 import { buildTravelCapsulePlanSummary, isCompleteTravelCapsuleOutfitIds } from '@/lib/travelCapsulePlanner';
+import { useTravelCapsules } from '@/hooks/useTravelCapsules';
 import type { DateRange } from 'react-day-picker';
-import type { CapsuleResult, SavedCapsule, TravelCapsuleInputSnapshot, VibeId } from './types';
+import type {
+  CapsuleResult,
+  Companion,
+  LuggageType,
+  OccasionId,
+  SavedCapsule,
+  StylePreference,
+  TravelCapsuleInputSnapshot,
+  VibeId,
+} from './types';
 
 /* ─── Trip Vibe config ─── */
 const VIBE_TO_TRIP_TYPE: Record<VibeId, string> = {
@@ -62,6 +72,11 @@ export function useTravelCapsule() {
   const { t, locale, dateFnsLocale: dateLocale } = useLanguage();
   const { data: profile } = useProfile();
   const { data: allGarments } = useFlatGarments();
+  const {
+    capsules: savedTrips,
+    save: saveCapsuleToDb,
+    remove: removeCapsuleFromDb,
+  } = useTravelCapsules();
 
   // ── Form state ──
   const [destination, setDestination] = useState('');
@@ -72,6 +87,10 @@ export function useTravelCapsule() {
   const [mustHaveItems, setMustHaveItems] = useState<string[]>([]);
   const [minimizeItems, setMinimizeItems] = useState(true);
   const [includeTravelDays, setIncludeTravelDays] = useState(false);
+  const [luggageType, setLuggageType] = useState<LuggageType>('carry_on_personal');
+  const [companions, setCompanions] = useState<Companion>('solo');
+  const [stylePreference, setStylePreference] = useState<StylePreference>('balanced');
+  const [occasions, setOccasions] = useState<OccasionId[]>([]);
 
   // ── Past capsules (sessionStorage) ──
   const [savedCapsules, setSavedCapsules] = useState<SavedCapsule[]>(() => loadSavedCapsulesFromStorage());
@@ -366,9 +385,7 @@ export function useTravelCapsule() {
     if (locationState.minimizeItems !== undefined) setMinimizeItems(locationState.minimizeItems);
     if (locationState.includeTravelDays !== undefined) setIncludeTravelDays(locationState.includeTravelDays);
     if (locationState.outfitsPerDay !== undefined) setOutfitsPerDay(locationState.outfitsPerDay);
-    if (locationState.destCoords && locationState.dateRange?.from && locationState.dateRange?.to) {
-      setTimeout(() => lookupWeatherWithCoords(locationState.destCoords!), 100);
-    }
+    // Weather lookup is triggered by the existing destCoords/dateRange effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -405,13 +422,18 @@ export function useTravelCapsule() {
     setIsGenerating(true);
     try {
       const userLocale = (asPreferences(profile?.preferences)?.language as string) || locale;
+      const effectiveOccasions: string[] =
+        occasions.length > 0 ? occasions : VIBE_TO_OCCASIONS[vibe];
       const { data, error } = await invokeEdgeFunction<CapsuleResult & { error?: string }>('travel_capsule', {
         timeout: 45000,
         body: {
           duration_days: tripDays,
           destination,
           trip_type: VIBE_TO_TRIP_TYPE[vibe],
-          occasions: VIBE_TO_OCCASIONS[vibe],
+          occasions: effectiveOccasions,
+          luggage_type: luggageType,
+          companions,
+          style_preference: stylePreference,
           start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
           end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
           weather: weatherForecast ? {
@@ -445,7 +467,27 @@ export function useTravelCapsule() {
         minimizeItems,
         includeTravelDays,
         mustHaveItems,
+        luggageType,
+        companions,
+        stylePreference,
+        occasions,
       };
+
+      // Auto-save to DB (best-effort — failures don't block the UX)
+      try {
+        await saveCapsuleToDb({
+          destination,
+          start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
+          end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
+          occasions: effectiveOccasions,
+          luggage_type: luggageType,
+          companions,
+          style_preference: stylePreference,
+          result: capsuleResult,
+        });
+      } catch (dbErr) {
+        logger.error('Failed to auto-save travel capsule:', dbErr);
+      }
 
       // Save to sessionStorage
       const saved: SavedCapsule = {
@@ -470,7 +512,7 @@ export function useTravelCapsule() {
     } finally {
       setIsGenerating(false);
     }
-  }, [destination, dateRange, weatherForecast, lookupWeather, profile, locale, tripDays, vibe, outfitsPerDay, mustHaveItems, minimizeItems, includeTravelDays, dateLabel, t, destCoords, setResult]);
+  }, [destination, dateRange, weatherForecast, lookupWeather, profile, locale, tripDays, vibe, occasions, luggageType, companions, stylePreference, outfitsPerDay, mustHaveItems, minimizeItems, includeTravelDays, dateLabel, t, destCoords, setResult, saveCapsuleToDb]);
 
   // ── Add to plan ──
   const handleAddToCalendar = useCallback(async () => {
@@ -569,9 +611,15 @@ export function useTravelCapsule() {
     minimizeItems, setMinimizeItems,
     includeTravelDays, setIncludeTravelDays,
     showForm, setShowForm,
+    luggageType, setLuggageType,
+    companions, setCompanions,
+    stylePreference, setStylePreference,
+    occasions, setOccasions,
 
     // Saved capsules
     savedCapsules,
+    savedTrips,
+    removeCapsuleFromDb,
 
     // Loading
     loadingStep,
