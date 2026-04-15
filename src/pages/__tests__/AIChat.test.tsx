@@ -12,6 +12,7 @@ const {
   createOutfitMutateAsync,
   toastErrorMock,
   toastSuccessMock,
+  chatHistorySheetMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   useAuthMock: vi.fn(),
@@ -21,6 +22,7 @@ const {
   createOutfitMutateAsync: vi.fn(),
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
+  chatHistorySheetMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -113,7 +115,10 @@ vi.mock('@/components/chat/ChatInput', () => ({
 }));
 
 vi.mock('@/components/chat/ChatHistorySheet', () => ({
-  ChatHistorySheet: () => <div data-testid="chat-history-sheet">history</div>,
+  ChatHistorySheet: (props: { threads: Array<{ mode: string; title: string; preview: string }> }) => {
+    chatHistorySheetMock(props);
+    return <div data-testid="chat-history-sheet">history</div>;
+  },
 }));
 
 vi.mock('@/components/ui/skeletons', () => ({
@@ -154,6 +159,7 @@ describe('AIChat page', () => {
     navigateMock.mockReset();
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
+    chatHistorySheetMock.mockReset();
     createOutfitMutateAsync.mockReset();
     useAuthMock.mockReturnValue({ user: { id: 'u1' } });
     useGarmentCountMock.mockReturnValue({ data: 12 });
@@ -193,5 +199,32 @@ describe('AIChat page', () => {
   it('renders the stylist mode label in the top bar', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('chat.mode_stylist')).toBeInTheDocument());
+  });
+
+  it('keeps local in-progress chats visible in past chat history', async () => {
+    sessionStorage.setItem(
+      'burs_chat_history:stylist:local-draft',
+      JSON.stringify([
+        { role: 'assistant', content: 'chat.welcome' },
+        { role: 'user', content: 'Find me a date night outfit' },
+      ]),
+    );
+    sessionStorage.setItem(
+      'burs_chat_thread_meta',
+      JSON.stringify({ 'stylist:local-draft': '2026-04-15T10:00:00.000Z' }),
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(chatHistorySheetMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        threads: expect.arrayContaining([
+          expect.objectContaining({
+            mode: 'stylist:local-draft',
+            title: 'Find me a date night outfit',
+          }),
+        ]),
+      }));
+    });
   });
 });
