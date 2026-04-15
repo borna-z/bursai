@@ -117,6 +117,7 @@ function purgeChatSessionStorage() {
         key === CHAT_HISTORY_KEY
         || key.startsWith(`${CHAT_HISTORY_KEY}:`)
         || key === CHAT_THREAD_META_KEY
+        || key === ACTIVE_CHAT_MODE_KEY
       ) {
         toRemove.push(key);
       }
@@ -555,7 +556,9 @@ export default function AIChat() {
   }, [activeChatMode]);
 
   const refreshThreadSummaries = useCallback(async () => {
-    ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER);
+    if (ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER)) {
+      setActiveChatMode(DEFAULT_CHAT_MODE);
+    }
     const localSummaries = readSessionThreadSummaries();
     if (!user) {
       setThreadSummaries(localSummaries);
@@ -578,7 +581,10 @@ export default function AIChat() {
 
   useEffect(() => {
     setIsLoading(true);
-    ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER);
+    if (ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER) && activeChatMode !== DEFAULT_CHAT_MODE) {
+      setActiveChatMode(DEFAULT_CHAT_MODE);
+      return;
+    }
     if (!user) {
       setMessages(readSessionMessages([welcomeMessage], activeChatMode));
       setIsLoading(false);
