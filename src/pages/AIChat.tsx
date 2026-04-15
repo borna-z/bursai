@@ -55,6 +55,8 @@ const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 const DEFAULT_CHAT_MODE = 'stylist';
 const CHAT_HISTORY_KEY = 'burs_chat_history';
 const CHAT_THREAD_META_KEY = 'burs_chat_thread_meta';
+const CHAT_OWNER_KEY = 'burs_chat_owner';
+const ANONYMOUS_CHAT_OWNER = '__anon__';
 const ACTIVE_CHAT_MODE_KEY = 'burs_active_chat_mode';
 const CHAT_THREAD_PREFIX = `${DEFAULT_CHAT_MODE}:`;
 const THREAD_FETCH_LIMIT = 500;
@@ -103,6 +105,41 @@ function parseStoredMessage(row: { role: 'user' | 'assistant'; content: string }
 
 function getSessionHistoryKey(mode: string): string {
   return mode === DEFAULT_CHAT_MODE ? CHAT_HISTORY_KEY : `${CHAT_HISTORY_KEY}:${mode}`;
+}
+
+function purgeChatSessionStorage() {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key) continue;
+      if (
+        key === CHAT_HISTORY_KEY
+        || key.startsWith(`${CHAT_HISTORY_KEY}:`)
+        || key === CHAT_THREAD_META_KEY
+      ) {
+        toRemove.push(key);
+      }
+    }
+    toRemove.forEach((key) => sessionStorage.removeItem(key));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function ensureChatSessionOwner(ownerId: string): boolean {
+  try {
+    const current = sessionStorage.getItem(CHAT_OWNER_KEY);
+    if (current && current !== ownerId) {
+      purgeChatSessionStorage();
+    }
+    if (current !== ownerId) {
+      sessionStorage.setItem(CHAT_OWNER_KEY, ownerId);
+    }
+    return current !== null && current !== ownerId;
+  } catch {
+    return false;
+  }
 }
 
 function readActiveChatMode(): string {
@@ -311,7 +348,8 @@ function readSessionThreadSummaries(): ChatThreadSummary[] {
 
       try {
         const messages = JSON.parse(raw) as Message[];
-        const summary = buildSessionThreadSummary(mode, messages, meta[mode] ?? new Date().toISOString());
+        // Missing meta -> epoch 0 so remote summaries win in mergeThreadSummaries.
+        const summary = buildSessionThreadSummary(mode, messages, meta[mode] ?? new Date(0).toISOString());
         if (summary) summaries.push(summary);
       } catch {
         // Ignore malformed local drafts.
@@ -449,7 +487,9 @@ export default function AIChat() {
   const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: welcomeText }), [welcomeText]);
 
   const [activeChatMode, setActiveChatMode] = useState(() => readActiveChatMode());
-  const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage], readActiveChatMode()));
+  // Defer draft restoration to the auth-aware effect below so we don't leak
+  // a previous user's drafts before ensureChatSessionOwner can purge them.
+  const [messages, setMessages] = useState<Message[]>(() => [welcomeMessage]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -515,6 +555,7 @@ export default function AIChat() {
   }, [activeChatMode]);
 
   const refreshThreadSummaries = useCallback(async () => {
+    ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER);
     const localSummaries = readSessionThreadSummaries();
     if (!user) {
       setThreadSummaries(localSummaries);
@@ -537,6 +578,7 @@ export default function AIChat() {
 
   useEffect(() => {
     setIsLoading(true);
+    ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER);
     if (!user) {
       setMessages(readSessionMessages([welcomeMessage], activeChatMode));
       setIsLoading(false);
