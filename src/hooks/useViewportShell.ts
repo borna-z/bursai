@@ -87,14 +87,14 @@ export function useViewportShell() {
     const updateViewportVars = () => {
       const visualViewport = window.visualViewport;
       const height = visualViewport?.height ?? window.innerHeight;
-      const rawOffset = Math.max(visualViewport?.offsetTop ?? 0, 0);
-      // Ignore sub-3px visualViewport offsets — iOS emits tiny noise values
-      // during keyboard open/close that cause visible layout jitter.
-      const viewportOffset = rawOffset >= 3 ? rawOffset : 0;
-      const offsetTop = Math.max(cachedSafeTopBase, viewportOffset);
 
+      // Only write the STABLE safe-area base to --app-viewport-offset-top.
+      // DO NOT mix in visualViewport.offsetTop — that value spikes when
+      // the mobile keyboard opens, which balloons --safe-area-top and
+      // pushes AppLayout's <main> padding-top to hundreds of pixels,
+      // forcing the chat layout off-screen. Bug cause of many chat issues.
       root.style.setProperty(HEIGHT_VAR, `${height}px`);
-      root.style.setProperty(OFFSET_TOP_VAR, `${offsetTop}px`);
+      root.style.setProperty(OFFSET_TOP_VAR, `${cachedSafeTopBase}px`);
     };
 
     updateViewportVars();

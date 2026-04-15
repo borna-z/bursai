@@ -112,7 +112,8 @@ export function ChatMessage({
 
     let cleanText = text;
     const resolvedMetaOutfitIds = getResolvedOutfitIds(stylistMeta);
-    const outfitMatches = stylistMeta?.render_outfit_card && resolvedMetaOutfitIds.length > 0
+    const isEnvelopePath = Boolean(stylistMeta?.render_outfit_card && resolvedMetaOutfitIds.length > 0);
+    const outfitMatches = isEnvelopePath
       ? [{
         fullMatch: '',
         ids: resolvedMetaOutfitIds,
@@ -134,6 +135,13 @@ export function ChatMessage({
         unresolvedOutfitCard = { explanation: om.explanation };
       }
       if (om.fullMatch) cleanText = cleanText.replace(om.fullMatch, '');
+    }
+
+    // When the envelope provides an outfit card with an explanation, the
+    // assistant_text typically contains the same explanation. Suppress the
+    // prose entirely to avoid duplicate text under the card.
+    if (isEnvelopePath && outfits.length > 0) {
+      cleanText = '';
     }
 
     let rejectionLine: string | null = null;
