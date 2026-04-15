@@ -137,11 +137,21 @@ export function ChatMessage({
       if (om.fullMatch) cleanText = cleanText.replace(om.fullMatch, '');
     }
 
-    // When the envelope provides an outfit card with an explanation, the
-    // assistant_text typically contains the same explanation. Suppress the
-    // prose entirely to avoid duplicate text under the card.
+    // When the envelope provides an outfit card, strip the card's explanation
+    // from the prose if it appears verbatim — prevents the duplicate "text
+    // wall" under the card. Unique assistant prose (actionable guidance,
+    // rejection sentences, etc.) stays visible.
     if (isEnvelopePath && outfits.length > 0) {
-      cleanText = '';
+      const cardExplanation = outfits[0]?.explanation?.trim();
+      if (cardExplanation) {
+        const normalized = cleanText.replace(/\s+/g, ' ').trim();
+        const normalizedExpl = cardExplanation.replace(/\s+/g, ' ').trim();
+        if (normalized === normalizedExpl) {
+          cleanText = '';
+        } else if (normalized.includes(normalizedExpl)) {
+          cleanText = cleanText.replace(cardExplanation, '').replace(/\s+/g, ' ').trim();
+        }
+      }
     }
 
     let rejectionLine: string | null = null;

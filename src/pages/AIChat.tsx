@@ -313,13 +313,26 @@ export default function AIChat() {
   const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // Re-anchor to bottom on viewport resize (keyboard open/close).
-  // Simple listener — the browser handles keyboard shrink natively via
-  // interactive-widget=resizes-content, we just need to keep the view pinned.
+  // Re-anchor to bottom only when the keyboard opens (viewport SHRINKS
+  // significantly from the current baseline). Avoids forcing scroll on
+  // chrome expand/collapse, orientation change, or other viewport events
+  // that would yank users away from older messages they're reading.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const onResize = () => scrollToBottom();
+    let baseline = vv.height;
+    const onResize = () => {
+      const current = vv.height;
+      if (current >= baseline - 10) {
+        // Viewport grew back or stayed — reset baseline, no scroll
+        baseline = Math.max(baseline, current);
+        return;
+      }
+      if (baseline - current > 100) {
+        // Significant shrink — keyboard opened
+        scrollToBottom();
+      }
+    };
     vv.addEventListener('resize', onResize);
     return () => vv.removeEventListener('resize', onResize);
   }, [scrollToBottom]);
