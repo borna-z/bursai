@@ -477,7 +477,7 @@ function AIChatFallback() {
 }
 
 export default function AIChat() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -563,6 +563,10 @@ export default function AIChat() {
   }, [activeChatMode]);
 
   const refreshThreadSummaries = useCallback(async () => {
+    // Wait for auth to resolve before touching the chat session owner —
+    // otherwise the anonymous-then-real-user race purges the persisted
+    // history on every cold start (Issue A from prompt 39).
+    if (authLoading) return;
     if (ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER)) {
       setActiveChatMode(DEFAULT_CHAT_MODE);
     }
@@ -580,13 +584,16 @@ export default function AIChat() {
     } finally {
       setIsLoadingThreads(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     refreshThreadSummaries();
   }, [refreshThreadSummaries]);
 
   useEffect(() => {
+    // Same as above: do nothing until auth has finished hydrating, otherwise
+    // ensureChatSessionOwner sees the previous owner mismatch and purges.
+    if (authLoading) return;
     setIsLoading(true);
     if (ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER) && activeChatMode !== DEFAULT_CHAT_MODE) {
       setActiveChatMode(DEFAULT_CHAT_MODE);
@@ -617,7 +624,7 @@ export default function AIChat() {
     return () => {
       cancelled = true;
     };
-  }, [activeChatMode, user, welcomeMessage]);
+  }, [activeChatMode, user, welcomeMessage, authLoading]);
 
   const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
@@ -634,13 +641,21 @@ export default function AIChat() {
     [pendingLookUpdate, lastConfirmedLook, latestActiveLook],
   );
 
-  const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   // Re-anchor to bottom only when the keyboard opens (viewport SHRINKS
   // significantly from the current baseline). Avoids forcing scroll on
   // chrome expand/collapse, orientation change, or other viewport events
   // that would yank users away from older messages they're reading.
+  //
+  // Use instant scroll inside requestAnimationFrame: smooth animation races
+  // iOS's own keyboard auto-scroll and the visual-viewport shrink, leaving a
+  // visible gap between the dock and the keyboard until the user manually
+  // scrolls (Issue C from prompt 39). Instant snap after the layout has
+  // recomputed eliminates the race entirely.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -653,8 +668,9 @@ export default function AIChat() {
         return;
       }
       if (baseline - current > 100) {
-        // Significant shrink: keyboard opened
-        scrollToBottom();
+        // Significant shrink: keyboard opened. Wait one frame so AppLayout
+        // has finished shrinking to vv.height before we snap to bottom.
+        requestAnimationFrame(() => scrollToBottom('auto'));
       }
     };
     vv.addEventListener('resize', onResize);
@@ -1102,8 +1118,19 @@ export default function AIChat() {
     savingRef.current = true;
     setIsSavingOutfit(true);
     try {
+      // Fetch fresh garment rows (with subcategory) so slot inference is
+      // reliable. The chat page's garmentMap uses GarmentBasic which omits
+      // subcategory, and an in-flight useGarmentsByIds query can leave the
+      // map stale — both lead to wrong slots and validator failures.
+      const { data: freshRows, error: fetchErr } = await supabase
+        .from('garments')
+        .select('id, category, subcategory')
+        .in('id', garmentIds)
+        .eq('user_id', user.id);
+      if (fetchErr) throw fetchErr;
+      const freshMap = new Map((freshRows ?? []).map((g) => [g.id, g]));
       const items = garmentIds.map((id) => {
-        const garment = garmentMap.get(id);
+        const garment = freshMap.get(id) ?? garmentMap.get(id);
         const slot = garment ? inferOutfitSlotFromGarment(garment) : 'top';
         return { garment_id: id, slot };
       });
@@ -1118,8 +1145,15 @@ export default function AIChat() {
       setSavedOutfitIds((prev) => new Set([...prev, garmentIds.slice().sort().join(',')]));
       hapticLight();
       toast.success(t('chat.saved'));
-    } catch {
-      toast.error(t('common.something_wrong'));
+    } catch (err) {
+      // Surface the real error so users (and we) can tell the difference
+      // between a validator failure (missing slots), a network error, and
+      // an RLS/auth issue.
+      const message = err instanceof Error && err.message
+        ? err.message
+        : t('common.something_wrong');
+      toast.error(message);
+      logger.error('Save outfit from chat failed:', err);
     } finally {
       savingRef.current = false;
       setIsSavingOutfit(false);
@@ -1176,12 +1210,12 @@ export default function AIChat() {
   }, [activeChatMode, resetThreadUiState]);
 
   const handleComposerFocus = useCallback(() => {
-    window.scrollTo(0, 0);
-    window.setTimeout(() => {
-      window.scrollTo(0, 0);
-      scrollToBottom();
-    }, 80);
-  }, [scrollToBottom]);
+    // Intentionally a no-op now. The previous implementation called
+    // window.scrollTo(0,0) twice and a smooth scrollToBottom on focus,
+    // which raced iOS Safari's own auto-scroll-on-focus and the visual
+    // viewport's keyboard-shrink resize event. The vv-resize effect above
+    // already snaps to the bottom instantly after the layout settles.
+  }, []);
 
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
