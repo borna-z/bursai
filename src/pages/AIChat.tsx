@@ -111,8 +111,8 @@ function getSessionHistoryKey(mode: string): string {
 function purgeChatSessionStorage() {
   try {
     const toRemove: string[] = [];
-    for (let i = 0; i < sessionStorage.length; i += 1) {
-      const key = sessionStorage.key(i);
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
       if (!key) continue;
       if (
         key === CHAT_HISTORY_KEY
@@ -123,7 +123,7 @@ function purgeChatSessionStorage() {
         toRemove.push(key);
       }
     }
-    toRemove.forEach((key) => sessionStorage.removeItem(key));
+    toRemove.forEach((key) => localStorage.removeItem(key));
   } catch {
     // ignore storage errors
   }
@@ -131,12 +131,12 @@ function purgeChatSessionStorage() {
 
 function ensureChatSessionOwner(ownerId: string): boolean {
   try {
-    const current = sessionStorage.getItem(CHAT_OWNER_KEY);
+    const current = localStorage.getItem(CHAT_OWNER_KEY);
     if (current && current !== ownerId) {
       purgeChatSessionStorage();
     }
     if (current !== ownerId) {
-      sessionStorage.setItem(CHAT_OWNER_KEY, ownerId);
+      localStorage.setItem(CHAT_OWNER_KEY, ownerId);
     }
     return current !== null && current !== ownerId;
   } catch {
@@ -146,7 +146,7 @@ function ensureChatSessionOwner(ownerId: string): boolean {
 
 function readActiveChatMode(): string {
   try {
-    return sessionStorage.getItem(ACTIVE_CHAT_MODE_KEY) || DEFAULT_CHAT_MODE;
+    return localStorage.getItem(ACTIVE_CHAT_MODE_KEY) || DEFAULT_CHAT_MODE;
   } catch {
     return DEFAULT_CHAT_MODE;
   }
@@ -158,7 +158,7 @@ function createChatThreadMode(): string {
 
 function readThreadMeta(): Record<string, string> {
   try {
-    const raw = sessionStorage.getItem(CHAT_THREAD_META_KEY);
+    const raw = localStorage.getItem(CHAT_THREAD_META_KEY);
     return raw ? JSON.parse(raw) as Record<string, string> : {};
   } catch {
     return {};
@@ -168,7 +168,7 @@ function readThreadMeta(): Record<string, string> {
 function writeThreadMeta(mode: string, updatedAt = new Date().toISOString()) {
   try {
     const meta = readThreadMeta();
-    sessionStorage.setItem(CHAT_THREAD_META_KEY, JSON.stringify({ ...meta, [mode]: updatedAt }));
+    localStorage.setItem(CHAT_THREAD_META_KEY, JSON.stringify({ ...meta, [mode]: updatedAt }));
   } catch {
     // ignore storage errors
   }
@@ -178,7 +178,7 @@ function clearThreadMeta(mode: string) {
   try {
     const meta = readThreadMeta();
     delete meta[mode];
-    sessionStorage.setItem(CHAT_THREAD_META_KEY, JSON.stringify(meta));
+    localStorage.setItem(CHAT_THREAD_META_KEY, JSON.stringify(meta));
   } catch {
     // ignore storage errors
   }
@@ -186,7 +186,7 @@ function clearThreadMeta(mode: string) {
 
 function readSessionMessages(defaultMessages: Message[], mode = DEFAULT_CHAT_MODE): Message[] {
   try {
-    const saved = sessionStorage.getItem(getSessionHistoryKey(mode));
+    const saved = localStorage.getItem(getSessionHistoryKey(mode));
     return saved ? JSON.parse(saved) as Message[] : defaultMessages;
   } catch {
     return defaultMessages;
@@ -203,8 +203,8 @@ function hasConversationMessages(messages: Message[]): boolean {
 
 function writeSessionMessages(messages: Message[], mode: string) {
   try {
-    sessionStorage.setItem(getSessionHistoryKey(mode), JSON.stringify(messages));
-    sessionStorage.setItem(ACTIVE_CHAT_MODE_KEY, mode);
+    localStorage.setItem(getSessionHistoryKey(mode), JSON.stringify(messages));
+    localStorage.setItem(ACTIVE_CHAT_MODE_KEY, mode);
     if (hasConversationMessages(messages)) writeThreadMeta(mode);
   } catch {
     // ignore quota errors
@@ -213,7 +213,7 @@ function writeSessionMessages(messages: Message[], mode: string) {
 
 function clearSessionMessages(mode: string) {
   try {
-    sessionStorage.removeItem(getSessionHistoryKey(mode));
+    localStorage.removeItem(getSessionHistoryKey(mode));
     clearThreadMeta(mode);
   } catch {
     // ignore storage errors
@@ -340,12 +340,12 @@ function readSessionThreadSummaries(): ChatThreadSummary[] {
   const meta = readThreadMeta();
 
   try {
-    for (let i = 0; i < sessionStorage.length; i += 1) {
-      const key = sessionStorage.key(i);
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
       if (!key) continue;
       const mode = getSessionModeFromHistoryKey(key);
       if (!mode) continue;
-      const raw = sessionStorage.getItem(key);
+      const raw = localStorage.getItem(key);
       if (!raw) continue;
 
       try {
@@ -556,7 +556,7 @@ export default function AIChat() {
   useEffect(() => {
     activeChatModeRef.current = activeChatMode;
     try {
-      sessionStorage.setItem(ACTIVE_CHAT_MODE_KEY, activeChatMode);
+      localStorage.setItem(ACTIVE_CHAT_MODE_KEY, activeChatMode);
     } catch {
       // ignore storage errors
     }
