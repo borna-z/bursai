@@ -49,6 +49,7 @@ interface OutfitSuggestionCardProps {
   isSaved?: boolean;
   changedGarmentIds?: string[];
   historyMode?: boolean;
+  hideTryButton?: boolean;
 }
 
 export function OutfitSuggestionCard({
@@ -65,6 +66,7 @@ export function OutfitSuggestionCard({
   isSaved,
   changedGarmentIds,
   historyMode = false,
+  hideTryButton = false,
 }: OutfitSuggestionCardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -364,7 +366,7 @@ export function OutfitSuggestionCard({
                     )}
                   </Button>
                 </div>
-              ) : (
+              ) : hideTryButton ? null : (
                 <Button
                   size="sm"
                   className="w-full rounded-full text-[13px] h-10 gap-1.5"
