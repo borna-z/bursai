@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
+import { classifyTravelCapsuleSlot } from '@/lib/travelCapsulePlanner';
 import { cn } from '@/lib/utils';
 import type { GarmentSelection } from './types';
 
@@ -10,6 +11,7 @@ interface Garment {
   id: string;
   title: string;
   category: string;
+  subcategory?: string | null;
   image_path?: string;
 }
 
@@ -22,63 +24,6 @@ interface GarmentSelectionPanelProps {
 const MAX_TOTAL = 150;
 
 const CATEGORY_ORDER = ['top', 'bottom', 'dress', 'shoes', 'outerwear', 'accessory'] as const;
-
-function normalizeCategory(raw: string): string {
-  const c = (raw || '').toLowerCase().trim();
-  if (!c) return 'other';
-  if (
-    c === 'top' ||
-    c === 'tops' ||
-    c === 'shirt' ||
-    c === 'shirts' ||
-    c === 't-shirt' ||
-    c === 'tshirt' ||
-    c === 'tee' ||
-    c === 'blouse' ||
-    c === 'sweater' ||
-    c === 'knitwear'
-  )
-    return 'top';
-  if (
-    c === 'bottom' ||
-    c === 'bottoms' ||
-    c === 'pants' ||
-    c === 'trousers' ||
-    c === 'jeans' ||
-    c === 'shorts' ||
-    c === 'skirt'
-  )
-    return 'bottom';
-  if (c === 'dress' || c === 'dresses' || c === 'jumpsuit') return 'dress';
-  if (
-    c === 'shoes' ||
-    c === 'shoe' ||
-    c === 'footwear' ||
-    c === 'sneakers' ||
-    c === 'boots' ||
-    c === 'sandals'
-  )
-    return 'shoes';
-  if (
-    c === 'outerwear' ||
-    c === 'jacket' ||
-    c === 'coat' ||
-    c === 'blazer' ||
-    c === 'parka'
-  )
-    return 'outerwear';
-  if (
-    c === 'accessory' ||
-    c === 'accessories' ||
-    c === 'bag' ||
-    c === 'hat' ||
-    c === 'scarf' ||
-    c === 'belt' ||
-    c === 'jewelry'
-  )
-    return 'accessory';
-  return 'other';
-}
 
 function prettyLabel(category: string): string {
   if (!category) return '';
@@ -109,8 +54,8 @@ export function GarmentSelectionPanel({
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const g of allGarments) {
-      const norm = normalizeCategory(g.category);
-      counts[norm] = (counts[norm] ?? 0) + 1;
+      const slot = classifyTravelCapsuleSlot(g.category, g.subcategory);
+      counts[slot] = (counts[slot] ?? 0) + 1;
     }
     return counts;
   }, [allGarments]);

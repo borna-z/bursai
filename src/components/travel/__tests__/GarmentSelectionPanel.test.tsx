@@ -69,6 +69,27 @@ describe('GarmentSelectionPanel', () => {
     expect(screen.getAllByRole('slider')).toHaveLength(1);
   });
 
+  it('uses the travel capsule slot classifier for category + subcategory mapping', () => {
+    const unusual = [
+      { id: 'u1', title: 'Mystery', category: 'unknown-token', subcategory: null, image_path: '' },
+      { id: 'u2', title: 'Running shoe', category: 'misc', subcategory: 'sneakers', image_path: '' },
+    ];
+    const onChange = vi.fn();
+    render(
+      <GarmentSelectionPanel
+        allGarments={unusual}
+        value={null}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /customize selection/i }));
+    const sliders = screen.getAllByRole('slider');
+    expect(sliders).toHaveLength(2);
+
+    fireEvent.change(sliders[0], { target: { value: '0' } });
+    expect(onChange).toHaveBeenLastCalledWith({ top: 0, shoes: 1 });
+  });
+
   it('calls onChange with the full distribution when a slider is moved', () => {
     const onChange = vi.fn();
     render(
