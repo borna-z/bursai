@@ -431,14 +431,34 @@ export function useTravelCapsule() {
 
       // Auto-save to DB (best-effort — failures don't block the UX)
       try {
+        const enriched = capsuleResult as unknown as {
+          trip_type?: string;
+          duration_days?: number;
+          weather_min?: number | null;
+          weather_max?: number | null;
+          packing_list?: unknown;
+          packing_tips?: string[];
+          total_combinations?: number;
+          reasoning?: string;
+        };
         await saveCapsuleToDb({
           destination,
+          trip_type: enriched.trip_type ?? VIBE_TO_TRIP_TYPE[vibe],
+          duration_days: enriched.duration_days ?? tripDays,
+          weather_min: enriched.weather_min ?? weatherForecast?.temperature_min ?? null,
+          weather_max: enriched.weather_max ?? weatherForecast?.temperature_max ?? null,
           start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
           end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
           occasions: effectiveOccasions,
           luggage_type: luggageType,
           companions,
           style_preference: stylePreference,
+          capsule_items: capsuleResult.capsule_items ?? [],
+          outfits: capsuleResult.outfits ?? [],
+          packing_list: enriched.packing_list ?? [],
+          packing_tips: enriched.packing_tips ?? capsuleResult.packing_tips ?? null,
+          total_combinations: enriched.total_combinations ?? capsuleResult.total_combinations ?? 0,
+          reasoning: enriched.reasoning ?? capsuleResult.reasoning ?? null,
           result: capsuleResult,
         });
       } catch (dbErr) {

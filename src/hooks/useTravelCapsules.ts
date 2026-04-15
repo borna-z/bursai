@@ -29,12 +29,22 @@ export function useTravelCapsules() {
   const saveMutation = useMutation({
     mutationFn: async (capsule: {
       destination: string;
+      trip_type: string;
+      duration_days: number;
+      weather_min: number | null;
+      weather_max: number | null;
       start_date: string | null;
       end_date: string | null;
       occasions: string[];
       luggage_type: string;
       companions: string;
       style_preference: string;
+      capsule_items: unknown;
+      outfits: unknown;
+      packing_list: unknown;
+      packing_tips: string[] | null;
+      total_combinations: number;
+      reasoning: string | null;
       result: CapsuleResult;
     }) => {
       if (!user) throw new Error('Not authenticated');
