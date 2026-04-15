@@ -70,10 +70,11 @@ describe('AppLayout', () => {
 
     screen.getByRole('main');
     expect(document.documentElement.style.getPropertyValue('--app-viewport-height')).toBe('720px');
-    // offsetTop = max(safe-area base, visualViewport.offsetTop). In JSDOM
-    // the safe-area base is 0 (no iOS UA, env() returns 0), so the mocked
-    // visualViewport.offsetTop (18) wins.
-    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('18px');
+    // offsetTop reflects the STABLE safe-area base only, NOT
+    // visualViewport.offsetTop. Mixing in transient viewport offsets
+    // caused --safe-area-top to balloon when the mobile keyboard opened,
+    // pushing the chat layout off-screen. In JSDOM safe-area base is 0.
+    expect(document.documentElement.style.getPropertyValue('--app-viewport-offset-top')).toBe('0px');
   });
 
   it('renders an app-level safe-area cover above main', () => {

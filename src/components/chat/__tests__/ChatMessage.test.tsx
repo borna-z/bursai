@@ -183,7 +183,9 @@ describe('ChatMessage', () => {
     });
 
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
-    expect(screen.getByText('This is the sharper version.')).toBeInTheDocument();
+    // When the envelope provides an outfit card, the assistant_text is
+    // suppressed as prose to avoid duplicating what the card already shows.
+    expect(screen.queryByText('This is the sharper version.')).not.toBeInTheDocument();
   });
 
   it('shows a loading-safe fallback card when stylist metadata arrives before garment data', () => {
