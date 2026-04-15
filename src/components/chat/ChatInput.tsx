@@ -14,7 +14,10 @@ interface ChatInputProps {
   isUploading: boolean;
   onFocus?: () => void;
   onComposerHeightChange?: (height: number) => void;
+  keyboardOpen?: boolean;
 }
+
+const TEXTAREA_MAX_HEIGHT_PX = 176;
 
 export function ChatInput({
   input,
@@ -27,6 +30,7 @@ export function ChatInput({
   isUploading,
   onFocus,
   onComposerHeightChange,
+  keyboardOpen = false,
 }: ChatInputProps) {
   const { t } = useLanguage();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -39,7 +43,11 @@ export function ChatInput({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+    const next = Math.min(el.scrollHeight, TEXTAREA_MAX_HEIGHT_PX);
+    el.style.height = `${next}px`;
+    // Only allow native scroll once content actually exceeds the cap —
+    // otherwise users see a spurious scrollbar on short messages.
+    el.style.overflowY = el.scrollHeight > TEXTAREA_MAX_HEIGHT_PX ? 'auto' : 'hidden';
   }, [input]);
 
   useEffect(() => {
@@ -65,7 +73,11 @@ export function ChatInput({
   return (
     <div
       ref={rootRef}
-      className="shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]"
+      className={`shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-3 pt-2 ${
+        keyboardOpen
+          ? 'pb-[0.4rem]'
+          : 'pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]'
+      }`}
     >
       <div className="mx-auto max-w-xl">
         <div className="relative rounded-[1rem] border border-border/35 bg-card/95 shadow-[0_-10px_26px_hsl(var(--background)/0.82)] backdrop-blur-xl">
@@ -110,7 +122,7 @@ export function ChatInput({
               placeholder={placeholder}
               disabled={isStreaming}
               rows={1}
-              className="max-h-32 min-h-[42px] flex-1 resize-none bg-transparent px-1 py-2 text-[16px] font-body leading-relaxed outline-none placeholder:text-muted-foreground/42 placeholder:italic disabled:cursor-not-allowed"
+              className="max-h-[11rem] min-h-[42px] flex-1 resize-none bg-transparent px-1 py-2 text-[16px] font-body leading-relaxed outline-none placeholder:text-muted-foreground/42 placeholder:italic disabled:cursor-not-allowed"
               aria-label={t('chat.message_input')}
             />
 
