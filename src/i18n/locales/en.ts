@@ -3125,6 +3125,10 @@ const en: Record<string, string> = {
     'gaps.insufficient_title': 'Add more garments first',
     'gaps.insufficient_desc': 'Your wardrobe needs at least 5 pieces before BURS can spot gaps. Add a few more to unlock the scan.',
     'gaps.insufficient_cta': 'Add garments',
+    'capsule.customize_selection': 'Customize selection',
+    'capsule.using_x_of_y': 'Using {actual} of {total} garments',
+    'capsule.cap_warning': 'Maximum 150 — reduce a category to send more.',
+    'capsule.reset': 'Reset',
 };
 
 export default en;

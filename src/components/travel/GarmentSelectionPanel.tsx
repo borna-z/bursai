@@ -142,12 +142,13 @@ export function GarmentSelectionPanel({
   const actualUsed = Math.min(rawRunningTotal, MAX_TOTAL);
   const isCapped = rawRunningTotal > MAX_TOTAL || totalGarments > MAX_TOTAL;
 
-  const summaryText = `Using ${actualUsed} of ${totalGarments} garments`;
   const translatedSummary = t('capsule.using_x_of_y');
   const summaryLabel =
     translatedSummary && translatedSummary !== 'capsule.using_x_of_y'
       ? translatedSummary
-      : summaryText;
+          .replace('{actual}', String(actualUsed))
+          .replace('{total}', String(totalGarments))
+      : `Using ${actualUsed} of ${totalGarments} garments`;
 
   const translatedHeader = t('capsule.customize_selection');
   const headerLabel =
