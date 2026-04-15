@@ -690,8 +690,12 @@ export default function AIChat() {
     return () => observer.disconnect();
   }, []);
 
-  // Pin the dock to the visual viewport bottom so iOS Safari doesn't leave a
-  // keyboard-height gap between the composer and the soft keyboard.
+  // Track the keyboard overlap so `isKeyboardOpen` stays accurate — the dock
+  // itself is already pinned correctly because `useViewportShell` shrinks
+  // `--app-viewport-height` to `visualViewport.height` when the keyboard opens,
+  // which in turn shrinks `AppLayout`'s root container. Anything absolute-
+  // bottom inside that shell sits flush above the keyboard. Do NOT add extra
+  // keyboard offsets here or the dock will double-compensate (iOS bug #400+).
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -1285,8 +1289,8 @@ export default function AIChat() {
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide"
           style={{
-            paddingBottom: `${inputDockHeight + keyboardInset + 16}px`,
-            scrollPaddingBottom: `${inputDockHeight + keyboardInset + 16}px`,
+            paddingBottom: `${inputDockHeight + 16}px`,
+            scrollPaddingBottom: `${inputDockHeight + 16}px`,
           }}
         >
           {isLoading ? (
@@ -1392,8 +1396,7 @@ export default function AIChat() {
 
         <div
           ref={inputDockRef}
-          className="absolute inset-x-0 z-40 overscroll-contain [touch-action:manipulation]"
-          style={{ bottom: `${keyboardInset}px` }}
+          className="absolute inset-x-0 bottom-0 z-40 overscroll-contain [touch-action:manipulation]"
         >
           <AnimatePresence>
             {refineMode.isRefining && (
