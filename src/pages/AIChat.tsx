@@ -498,6 +498,8 @@ export default function AIChat() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingThreads, setIsLoadingThreads] = useState(false);
   const [inputDockHeight, setInputDockHeight] = useState(104);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const isKeyboardOpen = keyboardInset > 20;
   const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -681,6 +683,24 @@ export default function AIChat() {
     const observer = new ResizeObserver(updateHeight);
     observer.observe(dock);
     return () => observer.disconnect();
+  }, []);
+
+  // Pin the dock to the visual viewport bottom so iOS Safari doesn't leave a
+  // keyboard-height gap between the composer and the soft keyboard.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardInset(overlap);
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
   }, []);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1260,8 +1280,8 @@ export default function AIChat() {
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide"
           style={{
-            paddingBottom: `${inputDockHeight + 16}px`,
-            scrollPaddingBottom: `${inputDockHeight + 16}px`,
+            paddingBottom: `${inputDockHeight + keyboardInset + 16}px`,
+            scrollPaddingBottom: `${inputDockHeight + keyboardInset + 16}px`,
           }}
         >
           {isLoading ? (
@@ -1367,7 +1387,8 @@ export default function AIChat() {
 
         <div
           ref={inputDockRef}
-          className="absolute inset-x-0 bottom-0 z-40"
+          className="absolute inset-x-0 z-40 overscroll-contain [touch-action:manipulation]"
+          style={{ bottom: `${keyboardInset}px` }}
         >
           <AnimatePresence>
             {refineMode.isRefining && (
@@ -1405,6 +1426,7 @@ export default function AIChat() {
             isStreaming={isStreaming}
             isUploading={isUploading}
             onFocus={handleComposerFocus}
+            keyboardOpen={isKeyboardOpen}
           />
         </div>
       </div>
