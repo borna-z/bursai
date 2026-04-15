@@ -9,13 +9,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnlockCelebration } from '@/hooks/useWardrobeUnlocks';
 import { MilestoneCelebration } from './MilestoneCelebration';
+import { cn } from '@/lib/utils';
 
 interface AppLayoutProps {
   children: ReactNode;
   hideNav?: boolean;
+  disableMainScroll?: boolean;
 }
 
-export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
+export function AppLayout({ children, hideNav = false, disableMainScroll = false }: AppLayoutProps) {
   const { resolvedTheme } = useTheme();
   const { t } = useLanguage();
   useKeyboardAdjust();
@@ -53,7 +55,10 @@ export function AppLayout({ children, hideNav = false }: AppLayoutProps) {
       <OfflineBanner />
       <main
         id="main-content"
-        className="relative flex-1 overflow-x-clip overflow-y-auto scrollbar-hide pt-[var(--safe-area-top)]"
+        className={cn(
+          'relative flex-1 overflow-x-clip scrollbar-hide pt-[var(--safe-area-top)]',
+          disableMainScroll ? 'overflow-y-hidden' : 'overflow-y-auto',
+        )}
         style={{
           zIndex: 'var(--z-base)',
           paddingTop: 'var(--safe-area-top)',

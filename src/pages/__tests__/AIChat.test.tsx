@@ -62,6 +62,7 @@ vi.mock('@/integrations/supabase/client', () => {
     const q: Record<string, unknown> = {};
     q.select = () => q;
     q.eq = () => q;
+    q.like = () => q;
     q.order = () => q;
     q.limit = () => Promise.resolve({ data: [], error: null });
     q.insert = () => Promise.resolve({ data: null, error: null });
@@ -109,6 +110,10 @@ vi.mock('@/components/chat/ChatMessage', () => ({
 
 vi.mock('@/components/chat/ChatInput', () => ({
   ChatInput: () => <div data-testid="chat-input">input</div>,
+}));
+
+vi.mock('@/components/chat/ChatHistorySheet', () => ({
+  ChatHistorySheet: () => <div data-testid="chat-history-sheet">history</div>,
 }));
 
 vi.mock('@/components/ui/skeletons', () => ({

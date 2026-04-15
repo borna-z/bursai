@@ -110,4 +110,16 @@ describe('AppLayout', () => {
     const className = main.className ?? '';
     expect(style + ' ' + className).toContain('var(--safe-area-top)');
   });
+
+  it('can disable main scrolling for fixed-height chat shells', () => {
+    render(
+      <MemoryRouter>
+        <AppLayout disableMainScroll>
+          <div>Shell content</div>
+        </AppLayout>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('main').className).toContain('overflow-y-hidden');
+  });
 });
