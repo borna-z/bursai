@@ -1087,7 +1087,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     }
 
     // ─────────────────────────────────────────────
-    // FIX 4 — SAVE CAPSULE TO DB
+    // Build packing list for response
     // ─────────────────────────────────────────────
 
     const packingList = clampedCapsule.map((g: any) => ({
@@ -1098,32 +1098,18 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       image_path: g.image_path ?? null,
     }));
 
-    const { error: saveError } = await supabase
-      .from('travel_capsules')
-      .insert({
-        user_id: userId,
-        destination: destination ?? null,
-        trip_type: trip_type ?? 'mixed',
-        duration_days: duration_days ?? 5,
-        weather_min: weather?.temperature_min ?? null,
-        weather_max: weather?.temperature_max ?? null,
-        occasions: occasions ?? [],
-        capsule_items: clampedCapsule,
-        outfits: scheduledOutfits,
-        packing_list: packingList,
-        packing_tips: packing_tips ?? null,
-        total_combinations: total_combinations ?? scheduledOutfits.length,
-        reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || null,
-      });
-    if (saveError) console.warn('travel_capsule: failed to save capsule:', saveError.message);
-
     return new Response(JSON.stringify({
       capsule_items: clampedCapsule,
       outfits: scheduledOutfits,
+      packing_list: packingList,
       packing_tips: packing_tips || [],
       coverage_gaps,
       total_combinations: total_combinations || scheduledOutfits.length,
       reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || "",
+      trip_type,
+      duration_days,
+      weather_min: weather?.temperature_min ?? null,
+      weather_max: weather?.temperature_max ?? null,
     }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
