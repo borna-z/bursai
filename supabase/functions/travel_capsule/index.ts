@@ -239,18 +239,34 @@ function selectGarmentsForAI(
     if (g) selected.set(id, g);
   }
 
-  // Enforce the 150-item safety ceiling (top-ranked kept).
+  // Enforce the 150-item safety ceiling while always preserving must-haves.
   if (selected.size > GARMENT_CEILING) {
-    const ordered = scoredGarments
-      .filter((e) => selected.has(e.garment.id))
-      .slice(0, GARMENT_CEILING);
+    const selectedOrdered = scoredGarments.filter((e) => selected.has(e.garment.id));
+    const mustHaveSet = new Set(
+      mustHaveIds.filter((id) => selected.has(id) && allById.has(id)),
+    );
+
+    // If a user marks more must-haves than the nominal ceiling, keep all of them
+    // and only clamp non-must-have items.
+    const effectiveCeiling = Math.max(GARMENT_CEILING, mustHaveSet.size);
+    const nonMustHaveBudget = Math.max(0, effectiveCeiling - mustHaveSet.size);
+
     const clamped = new Map<string, GarmentRow>();
-    for (const e of ordered) clamped.set(e.garment.id, e.garment);
-    // Ensure must-haves survive the clamp.
+
+    // Seed with must-haves first so explicit user intent is never dropped.
     for (const id of mustHaveIds) {
-      const g = allById.get(id);
-      if (g && !clamped.has(id) && clamped.size < GARMENT_CEILING) clamped.set(id, g);
+      const garment = allById.get(id);
+      if (garment && selected.has(id)) clamped.set(id, garment);
     }
+
+    // Fill remaining space with highest-ranked non-must-have picks.
+    for (const entry of selectedOrdered) {
+      const id = entry.garment.id;
+      if (mustHaveSet.has(id) || clamped.has(id)) continue;
+      if (clamped.size >= mustHaveSet.size + nonMustHaveBudget) break;
+      clamped.set(id, entry.garment);
+    }
+
     return Array.from(clamped.values());
   }
 
@@ -1090,7 +1106,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     // top+bottom+shoes so the user sees at least one outfit instead of
     // an empty results screen.
     if (scheduledOutfits.length === 0) {
-      const bySlot = (slot: string) => allGarments
+      const bySlot = (slot: string) => garments
         .filter((g) => classifyTravelCapsuleSlot(g.category, g.subcategory) === slot)
         .sort((a, b) => (scoreById.get(b.id) || 0) - (scoreById.get(a.id) || 0));
       const fallbackTop = bySlot("top")[0];
