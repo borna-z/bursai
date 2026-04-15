@@ -57,11 +57,13 @@ onTryOutfit={() => {/* no-op in capsule context */}}
 The button renders but does nothing when tapped.
 
 ### Issue 6: Incomplete persistence
-Two writers to the `travel_capsules` table with mismatched schemas:
-- `src/hooks/useTravelCapsules.ts` inserts `result: CapsuleResult` (JSON blob)
-- `supabase/functions/travel_capsule/index.ts:1091-1107` inserts disaggregated fields (`capsule_items`, `outfits`, `packing_list`, `packing_tips`, `total_combinations`, `reasoning`)
+Two writers to the `travel_capsules` table, with mismatched column coverage:
+- `supabase/functions/travel_capsule/index.ts:1091-1107` writes the NOT NULL columns (`destination`, `trip_type`, `duration_days`, `capsule_items`, `outfits`, `packing_list`) but leaves `result` NULL
+- `src/hooks/useTravelCapsules.ts` writes `{ destination, start_date, end_date, occasions, luggage_type, companions, style_preference, result }` — missing `duration_days` and `capsule_items`
 
-The DB schema likely lacks a `result JSONB` column, so the frontend's insert silently drops that field. On reload, `trip.result` is undefined and only the destination and dates survive. The restore code in `TravelCapsule.tsx:73-102` is already correct — it just has nothing to restore.
+The live `travel_capsules` schema (confirmed via MCP) has `result JSONB nullable` **and** `duration_days int4 NOT NULL`, `capsule_items jsonb NOT NULL default '[]'`, `outfits jsonb NOT NULL default '[]'`, `packing_list jsonb NOT NULL default '[]'`. The frontend hook's insert therefore fails with a NOT NULL violation on `duration_days`, which is swallowed by the try/catch in `handleGenerate`. The edge function's insert succeeds but leaves `result = NULL`, so reload restores only destination/date.
+
+**No DB migration is required** — `result JSONB` already exists. The fix is to collapse the two writers into one and send every required column.
 
 ## Proposed solution
 
@@ -170,28 +172,24 @@ Verify the results content has sufficient `paddingBottom` (at least `inputDockHe
 Add optional `hideTryButton?: boolean` prop to `OutfitSuggestionCard` (defaults to `false` to preserve chat behaviour). Pass `hideTryButton` from `CapsuleOutfitCard`. When `true`, the Try-this button is not rendered at all; the save/variant buttons stay.
 
 ### Fix 6 — Full capsule persistence
-1. **DB migration** (pre-approved by user): Add `result JSONB` column to `travel_capsules` if missing. Verify with Supabase MCP before running. Migration name: `add_result_jsonb_to_travel_capsules`.
-2. **Edge function**: Remove the DB insert at lines 1091-1107. The edge function now just RETURNS the capsule; it does not write.
-3. **Frontend hook (`useTravelCapsules.ts`)**: Becomes the single writer. Insert full row with `result` as JSONB blob plus the scalar fields already being sent.
-4. **Restore path** (`TravelCapsule.tsx:handleSelectTrip`): Already correct. Just needs a functional DB column to pull from.
+No DB migration. The `result JSONB` column already exists on `travel_capsules`. The bug is a failed frontend insert + a second insert from the edge function that leaves `result` NULL.
 
-## Data model changes
-
-**`travel_capsules` table migration:**
-```sql
-ALTER TABLE travel_capsules
-  ADD COLUMN IF NOT EXISTS result JSONB;
-```
-
-No column drops, no constraints added, no existing data touched. Existing saved trips will have `result = NULL` and render only destination/date (current broken behaviour) — acceptable, since the user has accepted that pre-fix saves are effectively lost. Future saves will populate `result` and restore fully.
+1. **Edge function**: Remove the DB insert at `supabase/functions/travel_capsule/index.ts:1091-1107`. The edge function now just RETURNS the capsule; it does not write.
+2. **Frontend hook (`useTravelCapsules.ts`)**: Becomes the single writer. Its `save` mutation must send **every** NOT NULL column the edge function used to send, plus `result`:
+   - `destination`, `trip_type`, `duration_days`, `weather_min`, `weather_max`
+   - `occasions`, `luggage_type`, `companions`, `style_preference`
+   - `start_date`, `end_date`
+   - `capsule_items`, `outfits`, `packing_list`, `packing_tips`, `total_combinations`, `reasoning`
+   - `result` (full JSONB blob)
+3. **`useTravelCapsule.handleGenerate`**: Pass the derived values (`duration_days`, `trip_type`, `weather_min/max`, packing-list from `result.capsule_items`, etc.) into the hook's `save` call.
+4. **Restore path** (`TravelCapsule.tsx:handleSelectTrip`): Already correct; simply reads `trip.result` which will now be populated.
 
 ## Deploy plan
 
-1. Run migration against production database
-2. Deploy `travel_capsule` edge function (required for Fixes 2, 3, 6)
-3. Merge and deploy frontend
+1. Deploy `travel_capsule` edge function (required for Fixes 2, 3, 6)
+2. Merge and deploy frontend
 
-Order matters: migration must land before edge function redeploy (because the edge function will start returning data the frontend expects the schema to accept). Frontend can land at any point but benefits from having the edge function already live.
+No migration step. Order matters only weakly: if the frontend ships first, any saves that happen before the edge-function redeploy will still be saved via the hook (one row per capsule) — acceptable. If the edge function ships first, the old frontend will still save the capsule via the hook (but continue to fail for the missing NOT NULL columns until the frontend redeploys). Either ordering works; deploying the edge function first is cleaner because it eliminates the double-write immediately.
 
 Per CLAUDE.md: deploy ONE function at a time, use the full command:
 ```
