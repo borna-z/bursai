@@ -165,7 +165,7 @@ describe('AIChat page', () => {
     useGarmentCountMock.mockReturnValue({ data: 12 });
     useGarmentsByIdsMock.mockReturnValue({ data: [] });
     useStyleDNAMock.mockReturnValue({ data: { archetype: 'minimal' } });
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try { localStorage.clear(); } catch { /* ignore */ }
   });
 
   it('renders the chat skeleton on initial load', () => {
@@ -202,14 +202,14 @@ describe('AIChat page', () => {
   });
 
   it('keeps local in-progress chats visible in past chat history', async () => {
-    sessionStorage.setItem(
+    localStorage.setItem(
       'burs_chat_history:stylist:local-draft',
       JSON.stringify([
         { role: 'assistant', content: 'chat.welcome' },
         { role: 'user', content: 'Find me a date night outfit' },
       ]),
     );
-    sessionStorage.setItem(
+    localStorage.setItem(
       'burs_chat_thread_meta',
       JSON.stringify({ 'stylist:local-draft': '2026-04-15T10:00:00.000Z' }),
     );
