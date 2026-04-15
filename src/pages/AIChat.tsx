@@ -54,6 +54,9 @@ interface PlanActionPayload {
 const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
 const DEFAULT_CHAT_MODE = 'stylist';
 const CHAT_HISTORY_KEY = 'burs_chat_history';
+const CHAT_THREAD_META_KEY = 'burs_chat_thread_meta';
+const CHAT_OWNER_KEY = 'burs_chat_owner';
+const ANONYMOUS_CHAT_OWNER = '__anon__';
 const ACTIVE_CHAT_MODE_KEY = 'burs_active_chat_mode';
 const CHAT_THREAD_PREFIX = `${DEFAULT_CHAT_MODE}:`;
 const THREAD_FETCH_LIMIT = 500;
@@ -104,6 +107,42 @@ function getSessionHistoryKey(mode: string): string {
   return mode === DEFAULT_CHAT_MODE ? CHAT_HISTORY_KEY : `${CHAT_HISTORY_KEY}:${mode}`;
 }
 
+function purgeChatSessionStorage() {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key) continue;
+      if (
+        key === CHAT_HISTORY_KEY
+        || key.startsWith(`${CHAT_HISTORY_KEY}:`)
+        || key === CHAT_THREAD_META_KEY
+        || key === ACTIVE_CHAT_MODE_KEY
+      ) {
+        toRemove.push(key);
+      }
+    }
+    toRemove.forEach((key) => sessionStorage.removeItem(key));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function ensureChatSessionOwner(ownerId: string): boolean {
+  try {
+    const current = sessionStorage.getItem(CHAT_OWNER_KEY);
+    if (current && current !== ownerId) {
+      purgeChatSessionStorage();
+    }
+    if (current !== ownerId) {
+      sessionStorage.setItem(CHAT_OWNER_KEY, ownerId);
+    }
+    return current !== null && current !== ownerId;
+  } catch {
+    return false;
+  }
+}
+
 function readActiveChatMode(): string {
   try {
     return sessionStorage.getItem(ACTIVE_CHAT_MODE_KEY) || DEFAULT_CHAT_MODE;
@@ -116,6 +155,34 @@ function createChatThreadMode(): string {
   return `${CHAT_THREAD_PREFIX}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function readThreadMeta(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(CHAT_THREAD_META_KEY);
+    return raw ? JSON.parse(raw) as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeThreadMeta(mode: string, updatedAt = new Date().toISOString()) {
+  try {
+    const meta = readThreadMeta();
+    sessionStorage.setItem(CHAT_THREAD_META_KEY, JSON.stringify({ ...meta, [mode]: updatedAt }));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearThreadMeta(mode: string) {
+  try {
+    const meta = readThreadMeta();
+    delete meta[mode];
+    sessionStorage.setItem(CHAT_THREAD_META_KEY, JSON.stringify(meta));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function readSessionMessages(defaultMessages: Message[], mode = DEFAULT_CHAT_MODE): Message[] {
   try {
     const saved = sessionStorage.getItem(getSessionHistoryKey(mode));
@@ -125,10 +192,19 @@ function readSessionMessages(defaultMessages: Message[], mode = DEFAULT_CHAT_MOD
   }
 }
 
+function hasConversationMessages(messages: Message[]): boolean {
+  return messages.some((message, index) => {
+    if (message.role === 'user') return true;
+    if (hasRenderableActiveLook(message.stylistMeta)) return true;
+    return index > 0 && getTextContent(message.content).trim().length > 0;
+  });
+}
+
 function writeSessionMessages(messages: Message[], mode: string) {
   try {
     sessionStorage.setItem(getSessionHistoryKey(mode), JSON.stringify(messages));
     sessionStorage.setItem(ACTIVE_CHAT_MODE_KEY, mode);
+    if (hasConversationMessages(messages)) writeThreadMeta(mode);
   } catch {
     // ignore quota errors
   }
@@ -137,6 +213,7 @@ function writeSessionMessages(messages: Message[], mode: string) {
 function clearSessionMessages(mode: string) {
   try {
     sessionStorage.removeItem(getSessionHistoryKey(mode));
+    clearThreadMeta(mode);
   } catch {
     // ignore storage errors
   }
@@ -146,6 +223,15 @@ function compactThreadText(text: string, max = 72): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max - 1).trim()}...`;
+}
+
+function getSessionModeFromHistoryKey(key: string): string | null {
+  if (key === CHAT_HISTORY_KEY) return DEFAULT_CHAT_MODE;
+  const prefix = `${CHAT_HISTORY_KEY}:`;
+  if (!key.startsWith(prefix)) return null;
+  const mode = key.slice(prefix.length);
+  if (mode === DEFAULT_CHAT_MODE || mode.startsWith(CHAT_THREAD_PREFIX)) return mode;
+  return null;
 }
 
 function inferStoragePathFromSignedUrl(url: string): string | null {
@@ -225,6 +311,73 @@ function buildThreadSummaries(rows: StoredMessageRow[]): ChatThreadSummary[] {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
+function buildSessionThreadSummary(mode: string, messages: Message[], updatedAt: string): ChatThreadSummary | null {
+  if (!hasConversationMessages(messages)) return null;
+
+  const firstUser = messages.find((message) => message.role === 'user');
+  const lastWithText = messages.slice().reverse().find((message) => getTextContent(message.content).trim().length > 0);
+  const titleText = firstUser ? getTextContent(firstUser.content) : '';
+  const previewText = lastWithText ? getTextContent(lastWithText.content) : '';
+  const messageCount = messages.filter((message, index) => (
+    message.role === 'user'
+    || hasRenderableActiveLook(message.stylistMeta)
+    || (index > 0 && getTextContent(message.content).trim().length > 0)
+  )).length;
+
+  return {
+    mode,
+    title: compactThreadText(titleText, 44),
+    preview: compactThreadText(previewText, 96),
+    updatedAt,
+    messageCount,
+    hasOutfit: messages.some((message) => hasRenderableActiveLook(message.stylistMeta)),
+  };
+}
+
+function readSessionThreadSummaries(): ChatThreadSummary[] {
+  const summaries: ChatThreadSummary[] = [];
+  const meta = readThreadMeta();
+
+  try {
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key) continue;
+      const mode = getSessionModeFromHistoryKey(key);
+      if (!mode) continue;
+      const raw = sessionStorage.getItem(key);
+      if (!raw) continue;
+
+      try {
+        const messages = JSON.parse(raw) as Message[];
+        // Missing meta -> epoch 0 so remote summaries win in mergeThreadSummaries.
+        const summary = buildSessionThreadSummary(mode, messages, meta[mode] ?? new Date(0).toISOString());
+        if (summary) summaries.push(summary);
+      } catch {
+        // Ignore malformed local drafts.
+      }
+    }
+  } catch {
+    return summaries;
+  }
+
+  return summaries;
+}
+
+function mergeThreadSummaries(remote: ChatThreadSummary[], local: ChatThreadSummary[]): ChatThreadSummary[] {
+  const byMode = new Map<string, ChatThreadSummary>();
+
+  remote.forEach((summary) => byMode.set(summary.mode, summary));
+  local.forEach((summary) => {
+    const existing = byMode.get(summary.mode);
+    if (!existing || new Date(summary.updatedAt).getTime() >= new Date(existing.updatedAt).getTime()) {
+      byMode.set(summary.mode, summary);
+    }
+  });
+
+  return Array.from(byMode.values())
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
 async function loadThreadSummaries(userId: string): Promise<ChatThreadSummary[]> {
   const { data } = await supabase
     .from('chat_messages')
@@ -251,7 +404,7 @@ async function loadMessages(userId: string, mode: string): Promise<Message[]> {
 }
 
 async function persistMessages(userId: string, msgs: Message[], mode: string) {
-  await supabase
+  const { error } = await supabase
     .from('chat_messages')
     .insert(msgs.map(m => {
       const content = m.stylistMeta
@@ -265,6 +418,10 @@ async function persistMessages(userId: string, msgs: Message[], mode: string) {
           : JSON.stringify(m.content);
       return { user_id: userId, role: m.role, content, mode };
     }));
+
+  if (error) {
+    logger.error(error);
+  }
 }
 
 async function deleteHistory(userId: string, mode: string) {
@@ -331,14 +488,16 @@ export default function AIChat() {
   const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: welcomeText }), [welcomeText]);
 
   const [activeChatMode, setActiveChatMode] = useState(() => readActiveChatMode());
-  const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage], readActiveChatMode()));
+  // Defer draft restoration to the auth-aware effect below so we don't leak
+  // a previous user's drafts before ensureChatSessionOwner can purge them.
+  const [messages, setMessages] = useState<Message[]>(() => [welcomeMessage]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [threadSummaries, setThreadSummaries] = useState<ChatThreadSummary[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingThreads, setIsLoadingThreads] = useState(false);
-  const [composerHeight, setComposerHeight] = useState(88);
+  const [inputDockHeight, setInputDockHeight] = useState(104);
   const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -348,6 +507,7 @@ export default function AIChat() {
   const [lastConfirmedLook, setLastConfirmedLook] = useState<StyleChatResponseEnvelope | null>(null);
   const [pendingLookUpdate, setPendingLookUpdate] = useState<StyleChatResponseEnvelope | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputDockRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
   const activeChatModeRef = useRef(activeChatMode);
@@ -375,6 +535,18 @@ export default function AIChat() {
   }, []);
 
   useEffect(() => {
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     activeChatModeRef.current = activeChatMode;
     try {
       sessionStorage.setItem(ACTIVE_CHAT_MODE_KEY, activeChatMode);
@@ -384,15 +556,20 @@ export default function AIChat() {
   }, [activeChatMode]);
 
   const refreshThreadSummaries = useCallback(async () => {
+    if (ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER)) {
+      setActiveChatMode(DEFAULT_CHAT_MODE);
+    }
+    const localSummaries = readSessionThreadSummaries();
     if (!user) {
-      setThreadSummaries([]);
+      setThreadSummaries(localSummaries);
+      setIsLoadingThreads(false);
       return;
     }
 
     setIsLoadingThreads(true);
     try {
       const summaries = await loadThreadSummaries(user.id);
-      setThreadSummaries(summaries);
+      setThreadSummaries(mergeThreadSummaries(summaries, localSummaries));
     } finally {
       setIsLoadingThreads(false);
     }
@@ -404,6 +581,10 @@ export default function AIChat() {
 
   useEffect(() => {
     setIsLoading(true);
+    if (ensureChatSessionOwner(user?.id ?? ANONYMOUS_CHAT_OWNER) && activeChatMode !== DEFAULT_CHAT_MODE) {
+      setActiveChatMode(DEFAULT_CHAT_MODE);
+      return;
+    }
     if (!user) {
       setMessages(readSessionMessages([welcomeMessage], activeChatMode));
       setIsLoading(false);
@@ -486,8 +667,21 @@ export default function AIChat() {
 
   useEffect(() => {
     if (messages.length === 0) return;
-    writeSessionMessages(messages, activeChatMode);
-  }, [activeChatMode, messages]);
+    writeSessionMessages(messages, activeChatModeRef.current);
+  }, [messages]);
+
+  useEffect(() => {
+    const dock = inputDockRef.current;
+    if (!dock) return;
+
+    const updateHeight = () => setInputDockHeight(dock.getBoundingClientRect().height);
+    updateHeight();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, []);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -930,13 +1124,17 @@ export default function AIChat() {
   }, [refineMode]);
 
   const handleNewThread = useCallback(() => {
+    if (hasConversationMessages(messages)) {
+      writeSessionMessages(messages, activeChatMode);
+    }
     resetThreadUiState();
     const nextMode = createChatThreadMode();
     setActiveChatMode(nextMode);
     setMessages([welcomeMessage]);
     setIsHistoryOpen(false);
     writeSessionMessages([welcomeMessage], nextMode);
-  }, [resetThreadUiState, welcomeMessage]);
+    refreshThreadSummaries();
+  }, [activeChatMode, messages, refreshThreadSummaries, resetThreadUiState, welcomeMessage]);
 
   const handleSelectThread = useCallback((mode: string) => {
     if (mode === activeChatMode) {
@@ -949,13 +1147,17 @@ export default function AIChat() {
   }, [activeChatMode, resetThreadUiState]);
 
   const handleComposerFocus = useCallback(() => {
-    window.setTimeout(scrollToBottom, 80);
+    window.scrollTo(0, 0);
+    window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      scrollToBottom();
+    }, 80);
   }, [scrollToBottom]);
 
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
     <AppLayout hideNav disableMainScroll>
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="relative flex h-full flex-col overflow-hidden">
         <ChatHistorySheet
           open={isHistoryOpen}
           onOpenChange={setIsHistoryOpen}
@@ -1057,7 +1259,10 @@ export default function AIChat() {
 
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide"
-          style={{ scrollPaddingBottom: `${composerHeight + 16}px` }}
+          style={{
+            paddingBottom: `${inputDockHeight + 16}px`,
+            scrollPaddingBottom: `${inputDockHeight + 16}px`,
+          }}
         >
           {isLoading ? (
             <ChatPageSkeleton />
@@ -1158,47 +1363,50 @@ export default function AIChat() {
           </div>
         )}
 
-        {/* Input dock */}
         </div>
 
-        <AnimatePresence>
-          {refineMode.isRefining && (
-            <motion.div
-              key="refine-dock"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
-              className="shrink-0 border-t border-border/25 bg-background/92 py-2 backdrop-blur-xl"
-            >
-              <div className="mx-auto max-w-xl space-y-2">
-                <RefineChips
-                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                  onChipTap={handleChipTap}
-                  canUndo={refineMode.canUndo}
-                  onUndo={refineMode.undo}
-                />
-                <RefineBanner
-                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                  onStopRefining={refineMode.exitRefineMode}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div
+          ref={inputDockRef}
+          className="absolute inset-x-0 bottom-0 z-40"
+        >
+          <AnimatePresence>
+            {refineMode.isRefining && (
+              <motion.div
+                key="refine-dock"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
+                className="border-t border-border/25 bg-background/92 px-3 py-2 backdrop-blur-xl"
+              >
+                <div className="mx-auto max-w-xl space-y-2">
+                  <RefineChips
+                    garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                    onChipTap={handleChipTap}
+                    canUndo={refineMode.canUndo}
+                    onUndo={refineMode.undo}
+                  />
+                  <RefineBanner
+                    garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                    onStopRefining={refineMode.exitRefineMode}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <ChatInput
-          input={input}
-          onInputChange={setInput}
-          onSend={() => { hapticLight(); sendMessage(); }}
-          onImageSelect={handleImageSelect}
-          pendingImage={pendingImage}
-          onClearImage={() => setPendingImage(null)}
-          isStreaming={isStreaming}
-          isUploading={isUploading}
-          onFocus={handleComposerFocus}
-          onComposerHeightChange={setComposerHeight}
-        />
+          <ChatInput
+            input={input}
+            onInputChange={setInput}
+            onSend={() => { hapticLight(); sendMessage(); }}
+            onImageSelect={handleImageSelect}
+            pendingImage={pendingImage}
+            onClearImage={() => setPendingImage(null)}
+            isStreaming={isStreaming}
+            isUploading={isUploading}
+            onFocus={handleComposerFocus}
+          />
+        </div>
       </div>
     </AppLayout>
     </PageErrorBoundary>
