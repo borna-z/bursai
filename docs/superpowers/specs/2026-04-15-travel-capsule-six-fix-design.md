@@ -65,27 +65,91 @@ The DB schema likely lacks a `result JSONB` column, so the frontend's insert sil
 
 ## Proposed solution
 
-### Fix 1 — Wizard card visibility
-Inline explicit classes on the step sections (do NOT touch the shared `Card` component):
+### Fix 1 — Remove the card wrapper entirely (card-less section layout)
+Cards were never the right container for a form flow. The rest of BURS (AddGarment, Settings, profile edit) uses a card-less "editorial magazine" pattern: eyebrow label + Playfair italic section title + form field, with sections separated by a subtle top border or generous vertical spacing.
+
+Remove every `<Card>` wrapper from `TravelStep1.tsx` and `TravelStep2.tsx`. Replace with this structure per section:
+
+```tsx
+<section className="space-y-6">
+  {/* First section has no top border */}
+  <div>
+    <p className="label-editorial mb-3">Destination</p>
+    <LocationAutocomplete ... />
+  </div>
+
+  {/* Subsequent sections: subtle top divider + vertical rhythm */}
+  <div className="border-t border-border/40 pt-6">
+    <p className="label-editorial mb-3">Trip dates</p>
+    <DatePicker ... />
+  </div>
+
+  <div className="border-t border-border/40 pt-6">
+    <p className="label-editorial mb-3">Luggage</p>
+    <LuggageChips ... />
+  </div>
+</section>
 ```
-rounded-[1.25rem] border border-border bg-card p-5
+
+No backgrounds, no shadows, no borders around the form — just the form itself breathing on the page. Matches the rest of the app's editorial tone. The `label-editorial` utility already exists in `index.css` and provides the correct small-caps eyebrow styling.
+
+**Rationale for removal vs. stronger cards:** The user's feedback "no visible card i think it is better more cleaner like the rest of the app" is directly asking for a card-less layout. Strengthening borders would still be card-based. Removing is the honest fix.
+
+### Fix 2 — User-controlled garment selection (no hardcoded category caps)
+**Default behaviour:** send ALL garments to the edge function. No per-category minimums, no score-based filtering. Gemini Flash handles 100+ garments in context without meaningful token or latency cost, and the 40-cap was conservative without technical justification.
+
+**Safety ceiling:** hard cap at 150 garments total to protect against runaway costs if a user has a pathological wardrobe (e.g. 500+ items). When the user's wardrobe exceeds 150, the edge function sends the top 150 by pack-worthiness score unless the user has manually adjusted selection (see below).
+
+**Optional user override — "Customize selection" panel:**
+
+A new collapsible panel in `TravelStep2.tsx`, positioned below the existing style controls, collapsed by default. Opening it shows:
+
 ```
-Full-opacity border, no shadow, matches the pattern `GapStateViews` uses after Prompt 36. Apply in `TravelStep1.tsx` and `TravelStep2.tsx` for each section block.
+Customize selection                       [–]
+────────────────────────────────────────────
+Tops          ●─────────────────○   42 of 42
+Bottoms       ●───────────○          18 of 28
+Shoes        ●──────────○             8 of 12
+Outerwear    ●────────○               6 of 8
+Accessories  ●──────○                 4 of 6
 
-### Fix 2 — Category-balanced garment selection + honest loading copy
-**Edge function (`supabase/functions/travel_capsule/index.ts`)**: Rewrite `selectGarmentsForAI` to guarantee minimum category coverage before the score cap. Reserve slots per category:
-- 10 tops
-- 10 bottoms
-- 6 shoes
-- 6 outerwear
-- 4 accessories
-- Remaining 24 slots filled by highest-scored regardless of category
+Using 78 of 96 garments          [Reset]
+```
 
-Raise ceiling from 40 to 60. Numbers are tunable; the invariant is "no essential category gets starved." If a user has fewer items in a category than the reservation, just take all of them and redistribute the unused slots to the remaining pool.
+Each category slider:
+- Range: `0` to `<count of that category in the user's wardrobe>`
+- Default: the full count (slider maxed right)
+- Live display: `{selected} of {total}`
+- Only appears if the user has at least one item in that category
+- Categories derived from the existing `garment.category` enum (tops, bottoms, shoes, outerwear, accessories, dresses, activewear — whatever taxonomy is already used)
 
-**Frontend (`useTravelCapsule.ts`)**: Update loading text to accurately describe the selection:
-> "Picking the best {count} pieces from your {total} garments"
-where `count` is the actual number sent to the AI. Requires the edge function to return this count (or the frontend calculates it from the 60 cap).
+Running total shown at the bottom: "Using X of Y garments". If the sum exceeds 150, show "Maximum 150 — reduce a category to send more" and clamp before sending.
+
+**Reset button** restores each slider to its default (full category count, clamped to 150 total via proportional reduction).
+
+**New state in `useTravelCapsule.ts`:**
+```ts
+const [garmentSelection, setGarmentSelection] =
+  useState<Record<string, number> | null>(null);
+```
+`null` = use defaults (send all, capped at 150). Any object = user has customized.
+
+**Wire-up:**
+- `TravelStep2.tsx` renders the panel and exposes `garmentSelection` + `setGarmentSelection` as props from the wizard
+- `useTravelCapsule.handleGenerate` includes `garmentSelection` in the edge function request body
+- Edge function reads `garmentSelection` and, if present, applies the per-category cap before sending to the AI
+
+**Edge function changes (`supabase/functions/travel_capsule/index.ts`):**
+- Remove the hardcoded `maxAiInput = Math.min(40, ...)` ceiling
+- If `request.garmentSelection` is provided, for each category take the top N by pack-worthiness where N is the user's specified value
+- If not provided, take all garments up to 150 (sorted by pack-worthiness if clamping is needed)
+- No hardcoded category minimums anywhere
+
+**Frontend loading text (`useTravelCapsule.ts`)**: Show the actual selected count:
+> "Scanning {actualCount} of your {totalCount} garments"
+where `actualCount` is the computed size of the selection (whether default or user-customized).
+
+**Rationale for the default-collapsed panel:** most users never want to think about this. The default of "send everything" is the best experience for 95% of users. Power users who want to exclude items (e.g. "I have 80 t-shirts but only want to consider 15") get a clean interface to do so without any in-your-face UI noise by default.
 
 ### Fix 3 — Graceful partial results
 **Frontend (`TravelResultsView` or its parent)**: Render whatever was built, never hard-error if `scheduledOutfits.length ≥ 1`. Show a compact banner above the results when `scheduledOutfits.length < requiredOutfits`:
@@ -137,18 +201,22 @@ npx supabase functions deploy travel_capsule --project-ref khvkwojtlkcvxjxztduj 
 ## Files to change
 
 **Frontend:**
-- `src/components/travel/TravelStep1.tsx` — card classes (Fix 1)
-- `src/components/travel/TravelStep2.tsx` — card classes (Fix 1)
+- `src/components/travel/TravelStep1.tsx` — remove all `<Card>` wrappers, switch to section-header + divider layout (Fix 1)
+- `src/components/travel/TravelStep2.tsx` — remove all `<Card>` wrappers (Fix 1), add the new collapsible "Customize selection" panel with per-category sliders (Fix 2)
+- `src/components/travel/TravelWizard.tsx` — thread `garmentSelection` and `setGarmentSelection` props through to Step 2 (Fix 2)
 - `src/components/travel/TravelResultsView.tsx` — action bar position (Fix 4), partial-result banner (Fix 3)
 - `src/components/travel/CapsuleOutfitCard.tsx` — pass `hideTryButton={true}` (Fix 5)
 - `src/components/chat/OutfitSuggestionCard.tsx` — add `hideTryButton` prop (Fix 5)
-- `src/components/travel/useTravelCapsule.ts` — honest loading text (Fix 2)
-- `src/hooks/useTravelCapsules.ts` — ensure `result` is sent in insert (Fix 6)
-- `src/pages/TravelCapsule.tsx` — verify `handleSelectTrip` works with JSONB `result` (Fix 6)
-- `src/components/travel/types.ts` — verify `TravelCapsuleRow` shape matches (Fix 6)
+- `src/components/travel/useTravelCapsule.ts` — new `garmentSelection` state (Fix 2), include in edge function request body (Fix 2), honest loading text (Fix 2), save full `result` through the hook (Fix 6)
+- `src/components/travel/types.ts` — extend request type with optional `garmentSelection` field (Fix 2), verify `TravelCapsuleRow` shape (Fix 6)
+- `src/hooks/useTravelCapsules.ts` — ensure `result` is persisted as JSONB (Fix 6)
+- `src/pages/TravelCapsule.tsx` — verify `handleSelectTrip` restores from JSONB `result` (Fix 6)
+
+**New component (optional, can inline if short):**
+- `src/components/travel/GarmentSelectionPanel.tsx` — the collapsible per-category slider panel from Fix 2. Keep it as its own file to avoid bloating TravelStep2.
 
 **Edge function:**
-- `supabase/functions/travel_capsule/index.ts` — `selectGarmentsForAI` rewrite (Fix 2), deterministic fallback (Fix 3), remove DB insert (Fix 6)
+- `supabase/functions/travel_capsule/index.ts` — remove hardcoded 40-cap and hardcoded category minimums (Fix 2), accept `garmentSelection` field in request body (Fix 2), apply 150-ceiling safety (Fix 2), deterministic fallback when AI returns zero outfits (Fix 3), remove the DB insert block at lines 1091-1107 (Fix 6)
 
 **Database:**
 - One migration adding `result JSONB` column
@@ -166,29 +234,63 @@ npx supabase functions deploy travel_capsule --project-ref khvkwojtlkcvxjxztduj 
 
 **On-device (after merge):**
 
-1. **Fix 1:** Open Travel Capsule, observe wizard step cards have visible borders, match the look of the Gaps state cards
-2. **Fix 2:** Large wardrobe (100+ garments), start capsule generation, observe loading text shows accurate count; verify final outfits use items from multiple categories (not just the top-scored type)
-3. **Fix 2:** Small wardrobe (10-15 garments), start generation, observe no errors and all categories represented in outfits
-4. **Fix 3:** Generate with a deliberately sparse wardrobe (e.g. 5 tops, 2 bottoms, 1 shoe pair), observe partial result banner instead of error
-5. **Fix 4:** Results screen on iPhone Safari, confirm action bar anchored to bottom above keyboard/safe area
-6. **Fix 5:** Results screen, confirm outfit cards do NOT show Try-this button
-7. **Fix 5 regression:** AI chat, confirm outfit cards DO still show Try-this button and it still triggers outfit creation
-8. **Fix 6:** Generate capsule, save, close PWA, reopen, select saved trip from history — all outfits, packing list, and content fully restored
-9. **Fix 6 regression:** Existing saved trips (pre-migration) open without error, show destination/date only (graceful degradation)
+1. **Fix 1 (card-less layout):** Open Travel Capsule wizard, observe:
+   - No card backgrounds, borders, or shadows around form sections
+   - Each section has an eyebrow label + its input
+   - Sections separated by subtle `border-t border-border/40` dividers with generous top padding
+   - Overall feel matches AddGarment / Settings pages (not a "card sandwich")
+2. **Fix 2 — default behaviour:** Large wardrobe (100+ garments), generate a capsule without opening the Customize panel:
+   - Loading text shows "Scanning {actual} of your {total} garments"
+   - `actual` equals `total` when wardrobe ≤ 150
+   - `actual` equals 150 when wardrobe > 150
+   - Final outfits use a variety of categories
+3. **Fix 2 — customize panel:** Open the Customize selection panel in Step 2:
+   - Default expanded state is collapsed
+   - Each category slider defaults to its full count
+   - Dragging the "Tops" slider down updates the running total instantly
+   - Reset button restores all sliders to defaults
+   - Sum capped at 150 with the warning message when user tries to exceed
+   - Edge function receives the customized counts and respects them (verify in Network tab or by checking final outfit composition)
+4. **Fix 2 — empty categories:** User with zero shoes sees no Shoes slider in the panel (graceful handling)
+5. **Fix 3:** Generate with a deliberately sparse wardrobe (5 tops, 2 bottoms, 1 shoe pair):
+   - No hard error
+   - Results screen shows whatever outfits WERE built
+   - Banner above results lists the coverage gaps ("We built 3 of 5 days. Add more bottoms to unlock the rest.")
+6. **Fix 4:** Results screen on iPhone Safari:
+   - Action bar pinned to bottom of viewport, above safe area
+   - Does not overlap outfit cards (content has sufficient paddingBottom)
+   - Buttons reachable with one thumb on the bottom of the screen
+7. **Fix 5:** Capsule results, tap an outfit card:
+   - NO "Try this" button visible
+   - Save-as-outfit / other existing buttons still render and work
+8. **Fix 5 regression:** AI chat, send a style request, get an outfit suggestion:
+   - "Try this" button still visible
+   - Tapping it still creates the outfit as before
+9. **Fix 6:** Generate a capsule, save, fully close PWA, reopen, select the saved trip from history:
+   - All outfits, packing list, coverage_gaps, packing_tips, and reasoning restored
+   - Customize selection state (if user adjusted it) also restored OR reset to defaults — see open question
+10. **Fix 6 regression:** Existing saved trips (pre-migration) open without crashing, show destination/date only (graceful degradation, `result` is null)
 
 **Automated:**
 - `npx vitest run src/pages/__tests__/TravelCapsule.test.tsx`
+- New tests: customize panel slider interaction, `garmentSelection` threading through `handleGenerate`, `hideTryButton` prop gating, partial-result banner rendering when `scheduledOutfits.length < requiredOutfits`
 - `npx tsc --noEmit --skipLibCheck`
 - `npx eslint src/ --ext .ts,.tsx --max-warnings 0`
 - `npm run build` (must be warning-free)
 
 ## Open questions
 
-None — all four design decisions confirmed by the user in the approval round:
-1. DB migration approved
-2. Try-this button: remove in capsule context
-3. Garment cap: smart selection + bump to 60
-4. PR strategy: one atomic PR
+Resolved by the user:
+1. **DB migration** — approved (additive `result JSONB` column)
+2. **Try-this button** — removed in capsule context, preserved in chat
+3. **Garment cap** — no category caps; default sends ALL garments; 150 safety ceiling; user-controlled per-category sliders (refined in Fix 2)
+4. **PR strategy** — one atomic PR covering all six fixes
+5. **Wizard cards** — remove entirely, not merely restyle (refined in Fix 1)
+
+Remaining micro-decisions (low-risk, resolvable at implementation time without blocking approval):
+- **Slider granularity** — continuous slider vs. stepped (+1/-1 buttons). Recommended: native `<input type="range">` for simplicity and mobile-friendliness; if UX feedback requests, add stepper buttons later.
+- **Restoring customize state on trip reopen** — when a saved trip is restored, should the Customize panel reflect the counts used for that capsule, or reset to defaults? Recommended: persist `garmentSelection` in the saved `result` JSONB so the exact generation context is reproducible; show the saved counts if the user edits the trip.
+- **Exact Playfair section title size in the card-less layout** — Fix 1 uses `label-editorial` eyebrow but does not add Playfair section titles (form sections are self-explanatory from the eyebrow). Confirm during implementation that this reads cleanly vs. adding a larger Playfair header.
 
 ## Success criteria
 
