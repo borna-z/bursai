@@ -1086,6 +1086,39 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       clampedCapsule = [...kept, ...extras].slice(0, luggageLimits.garments);
     }
 
+    // Deterministic fallback: if AI gave us nothing, pick the top-scored
+    // top+bottom+shoes so the user sees at least one outfit instead of
+    // an empty results screen.
+    if (scheduledOutfits.length === 0) {
+      const bySlot = (slot: string) => allGarments
+        .filter((g) => classifyTravelCapsuleSlot(g.category, g.subcategory) === slot)
+        .sort((a, b) => (scoreById.get(b.id) || 0) - (scoreById.get(a.id) || 0));
+      const fallbackTop = bySlot("top")[0];
+      const fallbackBottom = bySlot("bottom")[0];
+      const fallbackShoes = bySlot("shoes")[0];
+      if (fallbackTop && fallbackBottom && fallbackShoes) {
+        scheduledOutfits.push({
+          day: 1,
+          date: start_date,
+          kind: "trip_day",
+          occasion: occasions[0] || "travel",
+          items: [fallbackTop.id, fallbackBottom.id, fallbackShoes.id],
+          note: "A complete travel look from your top picks.",
+        });
+        // Ensure fallback items are in clampedCapsule so they appear in the
+        // packing list and response capsule_items.
+        const existingIds = new Set(clampedCapsule.map((g) => g.id));
+        for (const g of [fallbackTop, fallbackBottom, fallbackShoes]) {
+          if (!existingIds.has(g.id)) clampedCapsule.push(g);
+        }
+        coverage_gaps.push({
+          code: "ai_empty_fallback",
+          message: `We built 1 of ${requiredOutfits} days from your current wardrobe.`,
+          uncovered_outfits: Math.max(0, requiredOutfits - 1),
+        });
+      }
+    }
+
     // ─────────────────────────────────────────────
     // Build packing list for response
     // ─────────────────────────────────────────────
