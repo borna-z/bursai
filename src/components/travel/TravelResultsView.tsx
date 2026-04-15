@@ -80,7 +80,7 @@ export function TravelResultsView({
   setAddedToCalendar,
 }: TravelResultsViewProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   return (
     <AppLayout hideNav>
@@ -161,13 +161,20 @@ export function TravelResultsView({
           const missing = gaps
             .flatMap((g) => g.missing_slots ?? [])
             .filter((s, i, arr) => Boolean(s) && arr.indexOf(s) === i);
+          const lookLabel = result.outfits.length === 1
+            ? t('capsule.partial_results.look_singular')
+            : t('capsule.partial_results.look_plural');
+          const listFormatter = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
+          const missingSummary = listFormatter.format(missing);
           const gapMessage = missing.length > 0
-            ? `Add more ${missing.join(' and ')} to unlock the rest.`
+            ? t('capsule.partial_results.add_more').replace('{items}', missingSummary)
             : gaps.map((g) => g.message).filter(Boolean).join(' ');
           return (
             <div className="rounded-[1.35rem] border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
               <p className="font-medium text-foreground">
-                We built {result.outfits.length} {result.outfits.length === 1 ? 'look' : 'looks'} from your current wardrobe.
+                {t('capsule.partial_results.title')
+                  .replace('{count}', String(result.outfits.length))
+                  .replace('{lookLabel}', lookLabel)}
               </p>
               {gapMessage ? (
                 <p className="mt-1 text-xs text-muted-foreground">{gapMessage}</p>
