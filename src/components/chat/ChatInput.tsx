@@ -54,7 +54,7 @@ export function ChatInput({
             </div>
           )}
           <div className="flex items-end gap-1.5 px-3 py-2">
-            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onImageSelect} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onImageSelect} />
             <Button
               variant="ghost"
               size="icon"

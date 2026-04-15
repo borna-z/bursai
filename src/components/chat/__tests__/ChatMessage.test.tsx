@@ -183,7 +183,10 @@ describe('ChatMessage', () => {
     });
 
     expect(screen.getByTestId('outfit-suggestion-card')).toBeInTheDocument();
-    expect(screen.getByText('This is the sharper version.')).toBeInTheDocument();
+    // Unique assistant prose (not duplicate of card explanation) stays visible.
+    // Here the card explanation is 'Sharper finish' but assistant_text is
+    // 'This is the sharper version.' — different strings, so prose renders.
+    expect(screen.getByText(/This is the sharper version\./)).toBeInTheDocument();
   });
 
   it('shows a loading-safe fallback card when stylist metadata arrives before garment data', () => {
