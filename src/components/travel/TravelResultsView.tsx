@@ -274,7 +274,7 @@ export function TravelResultsView({
 
       <div
         className="fixed inset-x-4 z-20"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+        style={{ bottom: 'calc(var(--app-safe-area-bottom, 0px) + 0.75rem)' }}
       >
         <div className="mx-auto max-w-md">
           <div className="action-bar-floating flex flex-wrap gap-2 rounded-[1.6rem] p-3">

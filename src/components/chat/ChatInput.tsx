@@ -76,7 +76,7 @@ export function ChatInput({
       className={`shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-3 pt-2 ${
         keyboardOpen
           ? 'pb-[0.4rem]'
-          : 'pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]'
+          : 'pb-[calc(var(--app-safe-area-bottom,0px)+0.55rem)]'
       }`}
     >
       <div className="mx-auto max-w-xl">

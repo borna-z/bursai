@@ -28,7 +28,7 @@ export function GarmentSaveChoiceSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-[2rem] border-border/60 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] pt-6"
+        className="rounded-t-[2rem] border-border/60 px-5 pb-[calc(1.25rem+var(--app-safe-area-bottom,0px))] pt-6"
       >
         <SheetHeader className="space-y-2 text-left">
           <SheetTitle className="text-[1.35rem] font-semibold tracking-[-0.04em]">

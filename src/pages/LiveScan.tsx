@@ -655,7 +655,7 @@ export default function LiveScan() {
                 initial={{ opacity: 0, y: 20, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: EASE_CURVE }}
-                className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-end gap-5 px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] sm:justify-center"
+                className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-end gap-5 px-6 pb-[calc(var(--app-safe-area-bottom,0px)+1.5rem)] sm:justify-center"
                 style={{ paddingTop: 'calc(var(--safe-area-top) + 5.5rem)' }}
               >
                 {/* Image with editorial overlay */}
