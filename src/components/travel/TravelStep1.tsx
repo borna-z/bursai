@@ -3,7 +3,6 @@ import type { DateRange } from 'react-day-picker';
 
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
@@ -59,7 +58,7 @@ export function TravelStep1({
   const previewForecastDays = forecastDays.slice(0, 5);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div className="space-y-1">
         <p className="label-editorial text-accent/70">{t('travel.step1_title') || 'Where and when'}</p>
         <h2 className="font-display italic text-[1.35rem] tracking-[-0.02em] text-foreground">
@@ -67,49 +66,47 @@ export function TravelStep1({
         </h2>
       </div>
 
-      <Card className="space-y-4 p-5">
-        <div className="space-y-2">
-          <Label className="label-editorial">{t('capsule.destination')}</Label>
-          <LocationAutocomplete
-            value={destination}
-            onChange={setDestination}
-            onSelect={handleLocationSelect}
-            placeholder={t('capsule.enter_city')}
-            icon={<Globe className="h-4 w-4" strokeWidth={1.5} />}
-            inputClassName="h-12 rounded-[1.25rem] bg-background/85 border-border/60"
-          />
-        </div>
+      <div className="space-y-3">
+        <Label className="label-editorial">{t('capsule.destination')}</Label>
+        <LocationAutocomplete
+          value={destination}
+          onChange={setDestination}
+          onSelect={handleLocationSelect}
+          placeholder={t('capsule.enter_city')}
+          icon={<Globe className="h-4 w-4" strokeWidth={1.5} />}
+          inputClassName="h-12 rounded-[1.25rem] bg-background/60 border-border/40"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label className="label-editorial">{t('capsule.travel_dates')}</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'h-12 w-full justify-start rounded-[1.25rem] text-left font-normal',
-                  !dateRange?.from && 'text-muted-foreground',
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground/60" />
-                {dateLabel
-                  ? `${dateLabel} (${tripNights} ${t('capsule.nights')})`
-                  : t('capsule.select_dates_hint')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={1}
-                disabled={(date) => date < new Date()}
-                locale={dateLocale}
-                className="pointer-events-auto p-3"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+      <div className="space-y-3 border-t border-border/40 pt-6">
+        <Label className="label-editorial">{t('capsule.travel_dates')}</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                'h-12 w-full justify-start rounded-[1.25rem] border-border/40 text-left font-normal',
+                !dateRange?.from && 'text-muted-foreground',
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground/60" />
+              {dateLabel
+                ? `${dateLabel} (${tripNights} ${t('capsule.nights')})`
+                : t('capsule.select_dates_hint')}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={setDateRange}
+              numberOfMonths={1}
+              disabled={(date) => date < new Date()}
+              locale={dateLocale}
+              className="pointer-events-auto p-3"
+            />
+          </PopoverContent>
+        </Popover>
 
         {isFetchingWeather ? (
           <AILoadingCard
@@ -156,9 +153,9 @@ export function TravelStep1({
             {t('travel.weather_auto') || 'Weather loads automatically once destination and dates are set.'}
           </p>
         ) : null}
-      </Card>
+      </div>
 
-      <Card className="space-y-3 p-5">
+      <div className="space-y-3 border-t border-border/40 pt-6">
         <Label className="label-editorial">{t('travel.luggage_label') || 'Luggage'}</Label>
         <div className="flex flex-wrap gap-2">
           {LUGGAGE_OPTIONS.map((opt) => {
@@ -175,7 +172,7 @@ export function TravelStep1({
                 className={cn(
                   'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors',
                   active
-                    ? 'border-foreground bg-foreground text-background shadow-sm'
+                    ? 'border-foreground bg-foreground text-background'
                     : 'border-border/40 bg-transparent text-foreground/70 hover:border-border/60',
                 )}
               >
@@ -185,7 +182,7 @@ export function TravelStep1({
             );
           })}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
