@@ -269,7 +269,7 @@ export function BottomNav() {
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderTop: '0.5px solid hsl(var(--border) / 0.3)',
-          padding: '6px 24px calc(6px + env(safe-area-inset-bottom, 16px))',
+          padding: '6px 24px calc(6px + var(--app-safe-area-bottom, 0px))',
         }}
       >
         <div className="flex items-center">

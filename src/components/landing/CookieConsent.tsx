@@ -22,7 +22,7 @@ export function CookieConsent() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-[60] px-4 pt-4 sm:px-6 sm:pt-6 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] animate-fade-in" style={{ animationDuration: '400ms' }}>
+    <div className="fixed bottom-0 inset-x-0 z-[60] px-4 pt-4 sm:px-6 sm:pt-6 pb-[calc(1rem+var(--app-safe-area-bottom,0px))] sm:pb-[calc(1.5rem+var(--app-safe-area-bottom,0px))] animate-fade-in" style={{ animationDuration: '400ms' }}>
       <div className="max-w-xl mx-auto glass-panel border border-white/10 rounded-[1.25rem] px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm text-gray-300">
         <p className="flex-1 leading-relaxed">
           We use cookies to improve your experience.{' '}

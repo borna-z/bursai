@@ -405,7 +405,7 @@ export function StyleQuizStep({ onComplete, onSkip, isSaving }: Props) {
       </div>
 
       {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-background/80 backdrop-blur-sm border-t border-border">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-[calc(1rem+var(--app-safe-area-bottom,0px))] bg-background/80 backdrop-blur-sm border-t border-border">
         <div className="max-w-lg mx-auto flex gap-3">
           {page > 0 && (
             <Button variant="outline" onClick={back} className="h-12">

@@ -42,8 +42,17 @@
 
     --radius: 1.125rem;
     --app-dock-height: 3.5rem;
-    --app-bottom-clearance: calc(var(--app-dock-height) + env(safe-area-inset-bottom, 0px));
-    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    /*
+     * --app-safe-area-bottom is set by useViewportShell to the device's
+     * REAL home-indicator inset, captured once on mount. We use it instead
+     * of raw env(safe-area-inset-bottom) because iOS 17.4+ Safari with
+     * `interactive-widget=resizes-content` reports env(...) as the keyboard
+     * inset while the keyboard is open, which used to balloon the bottom
+     * nav, app-bottom-clearance and chat dock by the keyboard height.
+     */
+    --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --app-bottom-clearance: calc(var(--app-dock-height) + var(--app-safe-area-bottom, 0px));
+    --safe-area-inset-bottom: var(--app-safe-area-bottom, 0px);
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --app-viewport-height: 100svh;
     --app-viewport-offset-top: 0px;
@@ -317,9 +326,12 @@
 }
 
 @layer utilities {
-  /* Safe area padding for mobile */
+  /* Safe area padding for mobile.
+   * Uses the cached --app-safe-area-bottom (stable home-indicator value),
+   * not raw env() — see :root above for why.
+   */
   .safe-bottom {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px));
+    padding-bottom: calc(var(--app-safe-area-bottom, 0px) + var(--keyboard-offset, 0px));
   }
 
   .safe-top {
@@ -479,12 +491,13 @@
   }
 
   .bottom-safe-nav {
-    bottom: calc(var(--app-bottom-clearance, calc(5rem + env(safe-area-inset-bottom, 0px))) + 0.75rem);
+    bottom: calc(var(--app-bottom-clearance, calc(5rem + var(--app-safe-area-bottom, 0px))) + 0.75rem);
   }
 
   .app-dock {
-    @apply w-full border-t border-border/50 px-2.5 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl;
-    min-height: var(--app-bottom-clearance, calc(4.75rem + env(safe-area-inset-bottom, 0px)));
+    @apply w-full border-t border-border/50 px-2.5 pt-1.5 backdrop-blur-xl;
+    padding-bottom: calc(0.4rem + var(--app-safe-area-bottom, 0px));
+    min-height: var(--app-bottom-clearance, calc(4.75rem + var(--app-safe-area-bottom, 0px)));
     background:
       linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.94));
     box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.18);
@@ -545,7 +558,7 @@
 
   .premium-action-row {
     @apply flex flex-wrap items-center gap-3;
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+    padding-bottom: var(--app-safe-area-bottom, 0px);
   }
 
   /* Ultra-light section divider */

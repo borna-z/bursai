@@ -643,7 +643,7 @@ export default function GarmentDetailPage() {
       </AnimatedPage>
 
       {/* ─── Sticky Bottom Action Bar ─── */}
-      <div className="sticky bottom-0 z-20 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] pt-3">
+      <div className="sticky bottom-0 z-20 px-4 pb-[calc(0.75rem+var(--app-safe-area-bottom,0px))] pt-3">
         <div className="mx-auto max-w-xl">
           <div className="action-bar-floating flex gap-2 rounded-[1.25rem] p-2.5">
             <Button

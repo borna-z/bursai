@@ -380,7 +380,7 @@ export default function AuthPage() {
       </div>
 
       {/* Footer */}
-      <div className="relative z-10 flex items-center justify-center px-[var(--page-px)] pb-[max(env(safe-area-inset-bottom,0px),20px)] pt-4">
+      <div className="relative z-10 flex items-center justify-center px-[var(--page-px)] pb-[max(var(--app-safe-area-bottom,0px),20px)] pt-4">
         <p className="label-editorial text-muted-foreground/30 text-[9px] tracking-[0.22em]">
           {t('auth.footer')}
         </p>

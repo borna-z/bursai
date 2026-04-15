@@ -71,7 +71,7 @@ export function BottomNavAddSheet({ open, onOpenChange }: BottomNavAddSheetProps
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-[20px] pb-[env(safe-area-inset-bottom)]">
+      <SheetContent side="bottom" className="rounded-t-[20px] pb-[var(--app-safe-area-bottom,0px)]">
         <SheetHeader className="px-[var(--page-px)] pb-4">
           <SheetTitle className="text-[17px] font-['DM_Sans'] font-semibold text-foreground">
             {t('nav.addTitle')}
