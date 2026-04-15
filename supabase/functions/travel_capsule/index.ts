@@ -1059,9 +1059,65 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         .filter((g: any) => usedInAnyOutfit.has(g.id) || mustHaveIds.includes(g.id))
         .map((g: any) => [g.id, g]),
     ).values());
-    const coverage_gaps = buildCoverageGaps(allGarments, Math.max(0, requiredOutfits - scheduledOutfits.length));
 
     console.log(`IB-2c matrix validation: ${outfits.length} outfits -> ${scheduledOutfits.length} scheduled (${patchCount} patched, ${dropCount} dropped), capsule ${capsule_items.length} -> ${prunedCapsule.length} items`);
+
+    // ─────────────────────────────────────────────
+    // Deterministic fallback BEFORE coverage_gaps + clamp.
+    //
+    // Running this first means:
+    //   1. coverage_gaps reflects the post-fallback uncovered count, so the
+    //      response never carries a stale "0 looks built" message alongside
+    //      the friendlier "1 of N built" message.
+    //   2. The luggage clamp below sees the fallback items via scheduledOutfits
+    //      → usedIds and prioritises them within luggageLimits.garments
+    //      instead of letting them push the response past the cap.
+    // ─────────────────────────────────────────────
+
+    let fallbackInjected = false;
+    if (scheduledOutfits.length === 0) {
+      const bySlot = (slot: string) => garments
+        .filter((g) => classifyTravelCapsuleSlot(g.category, g.subcategory) === slot)
+        .sort((a, b) => (scoreById.get(b.id) || 0) - (scoreById.get(a.id) || 0));
+      const fallbackTop = bySlot("top")[0];
+      const fallbackBottom = bySlot("bottom")[0];
+      const fallbackShoes = bySlot("shoes")[0];
+      if (fallbackTop && fallbackBottom && fallbackShoes) {
+        scheduledOutfits.push({
+          day: 1,
+          date: start_date,
+          kind: "trip_day",
+          occasion: occasions[0] || "travel",
+          items: [fallbackTop.id, fallbackBottom.id, fallbackShoes.id],
+          note: "A complete travel look from your top picks.",
+        });
+        // Ensure fallback items are in prunedCapsule so the clamp below
+        // includes them in the response capsule_items.
+        const existingIds = new Set(prunedCapsule.map((g: any) => g.id));
+        for (const g of [fallbackTop, fallbackBottom, fallbackShoes]) {
+          if (!existingIds.has(g.id)) prunedCapsule.push(g);
+        }
+        fallbackInjected = true;
+      }
+    }
+
+    const coverage_gaps = buildCoverageGaps(allGarments, Math.max(0, requiredOutfits - scheduledOutfits.length));
+
+    if (fallbackInjected) {
+      // The friendlier ai_empty_fallback message replaces the generic
+      // insufficient_complete_outfits entry — they would otherwise carry the
+      // same uncovered count and read as duplicate noise.
+      for (let i = coverage_gaps.length - 1; i >= 0; i -= 1) {
+        if (coverage_gaps[i].code === "insufficient_complete_outfits") {
+          coverage_gaps.splice(i, 1);
+        }
+      }
+      coverage_gaps.push({
+        code: "ai_empty_fallback",
+        message: `We built 1 of ${requiredOutfits} days from your current wardrobe.`,
+        uncovered_outfits: Math.max(0, requiredOutfits - 1),
+      });
+    }
 
     // ─────────────────────────────────────────────
     // FIX 5 — OUTFIT NOTE QUALITY
@@ -1088,6 +1144,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     // ─────────────────────────────────────────────
     // Clamp capsule to luggage garment budget — preserve items used by outfits
+    // (now including any fallback garments injected above)
     // ─────────────────────────────────────────────
 
     let clampedCapsule: GarmentRow[] = prunedCapsule as GarmentRow[];
@@ -1100,39 +1157,6 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       const kept = clampedCapsule.filter((item: any) => usedIds.has(itemId(item)));
       const extras = clampedCapsule.filter((item: any) => !usedIds.has(itemId(item)));
       clampedCapsule = [...kept, ...extras].slice(0, luggageLimits.garments);
-    }
-
-    // Deterministic fallback: if AI gave us nothing, pick the top-scored
-    // top+bottom+shoes so the user sees at least one outfit instead of
-    // an empty results screen.
-    if (scheduledOutfits.length === 0) {
-      const bySlot = (slot: string) => garments
-        .filter((g) => classifyTravelCapsuleSlot(g.category, g.subcategory) === slot)
-        .sort((a, b) => (scoreById.get(b.id) || 0) - (scoreById.get(a.id) || 0));
-      const fallbackTop = bySlot("top")[0];
-      const fallbackBottom = bySlot("bottom")[0];
-      const fallbackShoes = bySlot("shoes")[0];
-      if (fallbackTop && fallbackBottom && fallbackShoes) {
-        scheduledOutfits.push({
-          day: 1,
-          date: start_date,
-          kind: "trip_day",
-          occasion: occasions[0] || "travel",
-          items: [fallbackTop.id, fallbackBottom.id, fallbackShoes.id],
-          note: "A complete travel look from your top picks.",
-        });
-        // Ensure fallback items are in clampedCapsule so they appear in the
-        // packing list and response capsule_items.
-        const existingIds = new Set(clampedCapsule.map((g) => g.id));
-        for (const g of [fallbackTop, fallbackBottom, fallbackShoes]) {
-          if (!existingIds.has(g.id)) clampedCapsule.push(g);
-        }
-        coverage_gaps.push({
-          code: "ai_empty_fallback",
-          message: `We built 1 of ${requiredOutfits} days from your current wardrobe.`,
-          uncovered_outfits: Math.max(0, requiredOutfits - 1),
-        });
-      }
     }
 
     // ─────────────────────────────────────────────
