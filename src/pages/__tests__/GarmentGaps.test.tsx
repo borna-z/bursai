@@ -112,7 +112,10 @@ describe('GarmentGapsPage', () => {
   it('renders the ready state when unlocked and no snapshot exists', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'gaps.garment_gaps' })).toBeInTheDocument();
+    // PageHeader renders the page title; GapHero is now an intro card
+    // (no duplicate headline). framer-motion is mocked to divs in this test,
+    // so we assert on text rather than heading role.
+    expect(screen.getAllByText('gaps.garment_gaps').length).toBeGreaterThan(0);
     expect(screen.getByText('gaps.ready_title')).toBeInTheDocument();
     expect(screen.getByText('gaps.pieces_in_wardrobe')).toBeInTheDocument();
   });

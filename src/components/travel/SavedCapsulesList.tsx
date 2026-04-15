@@ -33,7 +33,7 @@ export function SavedCapsulesList({ capsules, onLoad, onRemove }: SavedCapsulesL
                 {capsule.dateLabel ? <span className="meta">{capsule.dateLabel}</span> : null}
               </div>
               <div className="mt-3 space-y-1.5">
-                <h3 className="text-[1.18rem] font-semibold tracking-[-0.045em] text-foreground">
+                <h3 className="font-display italic text-[1.2rem] font-medium leading-tight tracking-[-0.02em] text-foreground">
                   {capsule.destination}
                 </h3>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8rem] text-muted-foreground">

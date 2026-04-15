@@ -372,7 +372,7 @@
   }
 
   .page-intro-title {
-    @apply text-[1.65rem] font-semibold tracking-[-0.05em] text-foreground;
+    @apply font-display italic text-[1.65rem] font-medium leading-tight tracking-[-0.02em] text-foreground;
   }
 
   .page-intro-copy {

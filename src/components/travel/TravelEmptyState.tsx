@@ -10,8 +10,8 @@ interface TravelEmptyStateProps {
 export function TravelEmptyState({ onStartForm }: TravelEmptyStateProps) {
   return (
     <Card surface="editorial" density="airy" className="overflow-hidden px-5 py-7 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-        <Plane className="h-5 w-5 text-foreground/68" />
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-border/40 bg-background/60">
+        <Plane className="h-5 w-5 text-foreground/70" />
       </div>
       <div className="mt-5 space-y-3">
         <span className="eyebrow-chip">Travel Capsule</span>
