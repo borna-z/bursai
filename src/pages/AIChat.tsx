@@ -20,6 +20,7 @@ import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatHistorySheet, type ChatThreadSummary } from '@/components/chat/ChatHistorySheet';
+import { ChatViewportDebug } from '@/components/chat/ChatViewportDebug';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -486,6 +487,10 @@ export default function AIChat() {
 
   const welcomeText = t('chat.welcome');
   const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: welcomeText }), [welcomeText]);
+  const debugViewport = useMemo(
+    () => new URLSearchParams(location.search).get('debug') === 'chat',
+    [location.search],
+  );
 
   const [activeChatMode, setActiveChatMode] = useState(() => readActiveChatMode());
   // Defer draft restoration to the auth-aware effect below so we don't leak
@@ -1429,6 +1434,7 @@ export default function AIChat() {
             keyboardOpen={isKeyboardOpen}
           />
         </div>
+        {debugViewport && <ChatViewportDebug dockRef={inputDockRef} />}
       </div>
     </AppLayout>
     </PageErrorBoundary>
