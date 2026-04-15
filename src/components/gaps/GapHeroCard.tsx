@@ -40,7 +40,7 @@ export function GapHeroCard({ gap, garmentMap }: GapHeroCardProps) {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(70% 50% at 100% 0%, hsl(37 47% 46% / 0.12), transparent 60%)',
+            'radial-gradient(70% 50% at 100% 0%, hsl(var(--accent) / 0.12), transparent 60%)',
         }}
       />
 

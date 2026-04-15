@@ -103,17 +103,17 @@ export function TravelResultsView({
           />
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[1.35rem] border p-4">
+            <div className="rounded-[1.35rem] border border-border/40 bg-card/60 p-4">
               <p className="label-editorial">Packed pieces</p>
-              <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{totalItems}</p>
+              <p className="mt-2 font-display italic text-[1.7rem] leading-none tracking-[-0.02em] text-foreground">{totalItems}</p>
             </div>
-            <div className="rounded-[1.35rem] border p-4">
+            <div className="rounded-[1.35rem] border border-border/40 bg-card/60 p-4">
               <p className="label-editorial">Looks planned</p>
-              <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{result.outfits.length}</p>
+              <p className="mt-2 font-display italic text-[1.7rem] leading-none tracking-[-0.02em] text-foreground">{result.outfits.length}</p>
             </div>
-            <div className="rounded-[1.35rem] border p-4">
+            <div className="rounded-[1.35rem] border border-border/40 bg-card/60 p-4">
               <p className="label-editorial">Trip status</p>
-              <p className="mt-2 text-[1.6rem] font-semibold tracking-[-0.05em]">{packedCount}/{totalItems}</p>
+              <p className="mt-2 font-display italic text-[1.7rem] leading-none tracking-[-0.02em] text-foreground">{packedCount}/{totalItems}</p>
             </div>
           </div>
 
@@ -165,9 +165,9 @@ export function TravelResultsView({
                 setActiveTab(tab);
               }}
               className={cn(
-                'flex-1 rounded-full px-4 py-2.5 text-[0.74rem] font-medium uppercase tracking-[0.16em] transition-all',
+                'flex-1 rounded-full px-4 py-2.5 text-[0.74rem] font-medium uppercase tracking-[0.16em] transition-colors',
                 activeTab === tab
-                  ? 'bg-foreground text-background shadow-[0_10px_24px_rgba(28,25,23,0.12)]'
+                  ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >

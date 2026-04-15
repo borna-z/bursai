@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { EASE_CURVE } from '@/lib/motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+// Shared surface for all non-hero state views. Flat editorial card:
+// bg-card (no opacity), border-border/40, no light-mode shadows, default radius.
 function StateSurface({
   children,
   className = '',
@@ -30,13 +32,48 @@ function StateSurface({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: EASE_CURVE }}
-      className={`relative overflow-hidden rounded-[1.25rem] border border-foreground/[0.08] bg-card/95 p-5 shadow-[0_18px_45px_rgba(18,18,18,0.05)] ${className}`}
+      className={`relative overflow-hidden rounded-[1.25rem] border border-border/40 bg-card p-5 ${className}`}
     >
       {children}
     </motion.section>
   );
 }
 
+// Section title used inside state surfaces. Playfair Display italic, medium
+// weight — matches every other editorial headline in BURS.
+function StateTitle({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="font-display italic text-[1.3rem] font-medium leading-tight tracking-[-0.02em] text-foreground">
+      {children}
+    </h2>
+  );
+}
+
+// Small uppercase eyebrow label — DM Sans, wide tracking, muted.
+function StateEyebrow({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
+      {children}
+    </p>
+  );
+}
+
+// Rounded square icon chip used in every state header.
+function StateIcon({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'destructive' }) {
+  const toneClass =
+    tone === 'destructive'
+      ? 'bg-destructive/10 text-destructive'
+      : 'bg-secondary/65 text-foreground/70';
+  return (
+    <div className={`flex size-11 shrink-0 items-center justify-center rounded-[1rem] ${toneClass}`}>
+      {children}
+    </div>
+  );
+}
+
+// The hero card intentionally does NOT repeat the page title shown in
+// PageHeader. It's a narrative intro: icon + description + status chips.
+// Flat surface, no gradients, no shadows — matches the rest of the app.
 export function GapHero({
   currentCount,
   isUnlocked,
@@ -52,35 +89,28 @@ export function GapHero({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE_CURVE }}
-      className="relative overflow-hidden rounded-[1.25rem] border border-foreground/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(205,180,142,0.18),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,244,238,0.92))] px-5 py-6 shadow-[0_24px_60px_rgba(23,18,14,0.06)]"
+      className="relative overflow-hidden rounded-[1.25rem] border border-border/40 bg-card px-5 py-6"
     >
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/15 to-transparent" />
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="max-w-[32rem]">
-          <p className="text-[0.72rem] uppercase tracking-[0.24em] text-muted-foreground/65">
-            {t('gaps.wardrobe_intelligence')}
-          </p>
-          <h1 className="mt-3 text-[2rem] font-semibold tracking-[-0.06em] text-foreground sm:text-[2.4rem]">
-            {t('gaps.garment_gaps')}
-          </h1>
-          <p className="mt-3 max-w-[30rem] text-[0.95rem] leading-6 text-muted-foreground">
+      <div className="relative flex items-start gap-4">
+        <StateIcon>
+          <Radar className="size-5" />
+        </StateIcon>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="font-display italic text-[1.05rem] leading-6 text-foreground/75">
             {t('gaps.hero_description')}
           </p>
         </div>
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-[1.1rem] bg-background/70 text-foreground/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-          <Radar className="size-5" />
-        </div>
       </div>
 
-      <div className="relative mt-6 flex flex-wrap gap-2.5 text-[0.76rem] text-muted-foreground/80">
-        <span className="rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5">
+      <div className="relative mt-5 flex flex-wrap gap-2 text-[0.76rem] text-muted-foreground/80">
+        <span className="rounded-full border border-border/40 bg-background/60 px-3 py-1.5">
           {t('gaps.pieces_in_wardrobe').replace('{count}', String(currentCount))}
         </span>
-        <span className="rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5">
+        <span className="rounded-full border border-border/40 bg-background/60 px-3 py-1.5">
           {isUnlocked ? t('gaps.gap_analysis_unlocked') : t('gaps.unlocks_at_10')}
         </span>
         {hasSnapshot ? (
-          <span className="rounded-full border border-foreground/[0.08] bg-background/75 px-3 py-1.5">
+          <span className="rounded-full border border-border/40 bg-background/60 px-3 py-1.5">
             {t('gaps.previous_scan_ready')}
           </span>
         ) : null}
@@ -94,23 +124,19 @@ export function GapLockedState() {
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+        <StateIcon>
           <LockKeyhole className="size-5" />
-        </div>
+        </StateIcon>
         <div className="space-y-2">
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {t('gaps.locked_label')}
-          </p>
-          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            {t('gaps.locked_title')}
-          </h2>
+          <StateEyebrow>{t('gaps.locked_label')}</StateEyebrow>
+          <StateTitle>{t('gaps.locked_title')}</StateTitle>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
             {t('gaps.locked_desc')}
           </p>
         </div>
       </div>
 
-      <div className="mt-6 rounded-[1.25rem] border border-foreground/[0.06] bg-background/70 p-4">
+      <div className="mt-6 rounded-[1.25rem] border border-border/40 bg-background/60 p-4">
         <WardrobeProgress compact />
       </div>
     </StateSurface>
@@ -126,16 +152,12 @@ export function GapReadyState({
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+        <StateIcon>
           <Sparkles className="size-5" />
-        </div>
+        </StateIcon>
         <div className="space-y-2">
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {t('gaps.ready_label')}
-          </p>
-          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            {t('gaps.ready_title')}
-          </h2>
+          <StateEyebrow>{t('gaps.ready_label')}</StateEyebrow>
+          <StateTitle>{t('gaps.ready_title')}</StateTitle>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
             {t('gaps.ready_desc')}
           </p>
@@ -143,13 +165,13 @@ export function GapReadyState({
       </div>
 
       <div className="mt-6 grid gap-3 text-[0.88rem] text-muted-foreground sm:grid-cols-3">
-        <div className="rounded-[1.2rem] border border-foreground/[0.06] bg-background/70 p-4">
+        <div className="rounded-[1.25rem] border border-border/40 bg-background/60 p-4">
           {t('gaps.chip_categories')}
         </div>
-        <div className="rounded-[1.2rem] border border-foreground/[0.06] bg-background/70 p-4">
+        <div className="rounded-[1.25rem] border border-border/40 bg-background/60 p-4">
           {t('gaps.chip_color')}
         </div>
-        <div className="rounded-[1.2rem] border border-foreground/[0.06] bg-background/70 p-4">
+        <div className="rounded-[1.25rem] border border-border/40 bg-background/60 p-4">
           {t('gaps.chip_shopping')}
         </div>
       </div>
@@ -169,16 +191,12 @@ export function GapAutorunState() {
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+        <StateIcon>
           <ArrowRight className="size-5" />
-        </div>
+        </StateIcon>
         <div className="space-y-2">
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {t('gaps.autorun_label')}
-          </p>
-          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            {t('gaps.autorun_title')}
-          </h2>
+          <StateEyebrow>{t('gaps.autorun_label')}</StateEyebrow>
+          <StateTitle>{t('gaps.autorun_title')}</StateTitle>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
             {t('gaps.autorun_desc')}
           </p>
@@ -193,12 +211,8 @@ export function GapLoadingState() {
   return (
     <StateSurface>
       <div className="mb-5 space-y-2">
-        <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-          {t('gaps.scanning_label')}
-        </p>
-        <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-          {t('gaps.scanning_title')}
-        </h2>
+        <StateEyebrow>{t('gaps.scanning_label')}</StateEyebrow>
+        <StateTitle>{t('gaps.scanning_title')}</StateTitle>
         <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
           {t('gaps.scanning_desc')}
         </p>
@@ -229,16 +243,12 @@ export function GapErrorState({
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-destructive/10 text-destructive">
+        <StateIcon tone="destructive">
           <AlertCircle className="size-5" />
-        </div>
+        </StateIcon>
         <div className="space-y-2">
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {t('gaps.error_label')}
-          </p>
-          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            {t('gaps.error_title')}
-          </h2>
+          <StateEyebrow>{t('gaps.error_label')}</StateEyebrow>
+          <StateTitle>{t('gaps.error_title')}</StateTitle>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
             {t('gaps.error_desc')}
           </p>
@@ -269,16 +279,12 @@ export function GapInsufficientWardrobeState({
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+        <StateIcon>
           <ShoppingBag className="size-5" />
-        </div>
+        </StateIcon>
         <div className="space-y-2">
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {`${current}/${required}`}
-          </p>
-          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            {t('gaps.insufficient_title')}
-          </h2>
+          <StateEyebrow>{`${current}/${required}`}</StateEyebrow>
+          <StateTitle>{t('gaps.insufficient_title')}</StateTitle>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
             {t('gaps.insufficient_desc')}
           </p>
@@ -307,16 +313,12 @@ export function GapNoGapsState({
   return (
     <StateSurface>
       <div className="flex items-start gap-4">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-secondary/65 text-foreground/70">
+        <StateIcon>
           <ShoppingBag className="size-5" />
-        </div>
+        </StateIcon>
         <div className="space-y-2">
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {t('gaps.balanced_label')}
-          </p>
-          <h2 className="text-[1.2rem] font-semibold tracking-[-0.035em] text-foreground">
-            {t('gaps.no_gaps_title')}
-          </h2>
+          <StateEyebrow>{t('gaps.balanced_label')}</StateEyebrow>
+          <StateTitle>{t('gaps.no_gaps_title')}</StateTitle>
           <p className="max-w-[36rem] text-[0.94rem] leading-6 text-muted-foreground">
             {t('gaps.no_gaps_desc')}
           </p>
