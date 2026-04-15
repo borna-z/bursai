@@ -124,11 +124,11 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center"
+      className="flex min-h-full flex-col items-center justify-center px-6 py-10 text-center"
     >
       <motion.div
         variants={itemVariants}
-        className="w-16 h-16 rounded-[1.25rem] border border-border/40 flex items-center justify-center mb-5"
+        className="mb-5 flex h-14 w-14 items-center justify-center rounded-[1rem] border border-border/40"
       >
         <Sparkles className="w-6 h-6 text-primary/60" />
       </motion.div>
@@ -154,13 +154,13 @@ export function ChatWelcome({ onSuggestion, displayName }: ChatWelcomeProps) {
       </motion.p>
 
       {/* Suggestion chips — single column for clean alignment */}
-      <motion.div variants={itemVariants} className="w-full mt-8 flex flex-col items-stretch gap-2 max-w-xs mx-auto">
+      <motion.div variants={itemVariants} className="mx-auto mt-7 flex w-full max-w-xs flex-col items-stretch gap-2">
         {suggestions.flat().map((chip) => (
           <motion.button
             key={chip}
             variants={itemVariants}
             onClick={() => onSuggestion(chip)}
-            className="w-full rounded-[1.25rem] px-5 py-2.5 text-[13px] leading-snug border border-border/20 hover:bg-secondary/50 text-foreground/70 hover:text-foreground transition-colors whitespace-normal text-left active:scale-[0.97] min-h-[52px]"
+            className="min-h-[50px] w-full rounded-[1rem] border border-border/20 px-5 py-2.5 text-left text-[13px] leading-snug text-foreground/70 transition-colors hover:bg-secondary/50 hover:text-foreground active:scale-[0.97] whitespace-normal"
             whileTap={{ scale: 0.97 }}
           >
             {chip}

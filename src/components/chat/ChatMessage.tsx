@@ -60,6 +60,7 @@ interface ChatMessageProps {
   isSaving?: boolean;
   isSaved?: boolean;
   changedGarmentIds?: string[];
+  isHistoricalOutfit?: boolean;
 }
 
 function getResolvedOutfitIds(meta?: StyleChatResponseEnvelope | null): string[] {
@@ -91,6 +92,7 @@ export function ChatMessage({
   isSaving,
   isSaved,
   changedGarmentIds,
+  isHistoricalOutfit = false,
 }: ChatMessageProps) {
   const navigate = useNavigate();
   const isUser = message.role === 'user';
@@ -252,6 +254,7 @@ export function ChatMessage({
                     isSaving={isSaving}
                     isSaved={isSaved}
                     changedGarmentIds={changedGarmentIds}
+                    historyMode={isHistoricalOutfit}
                   />
                 ))}
                 {rejectionLine && (

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MoreVertical, Trash2, Shirt, X } from 'lucide-react';
+import { MessagesSquare, MoreVertical, Plus, Shirt, Trash2, X } from 'lucide-react';
 import { StylistReplyPlaceholder } from '@/components/ui/StylistReplyPlaceholder';
 import { ChatPageSkeleton } from '@/components/ui/skeletons';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,6 +19,7 @@ import { useCreateOutfit } from '@/hooks/useOutfits';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
 import { ChatInput } from '@/components/chat/ChatInput';
+import { ChatHistorySheet, type ChatThreadSummary } from '@/components/chat/ChatHistorySheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +28,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { extractGarmentIdsFromText } from '@/lib/garmentTokens';
 import { finalizeAssistantText, getTextContent, mergeAssistantContent, type MessageContent, type MultimodalPart } from '@/lib/chatStream';
 import { inferOutfitSlotFromGarment, validateBaseOutfit } from '@/lib/outfitValidation';
@@ -52,6 +52,18 @@ interface PlanActionPayload {
 }
 
 const STYLE_CHAT_URL = getSupabaseFunctionUrl('style_chat');
+const DEFAULT_CHAT_MODE = 'stylist';
+const CHAT_HISTORY_KEY = 'burs_chat_history';
+const ACTIVE_CHAT_MODE_KEY = 'burs_active_chat_mode';
+const CHAT_THREAD_PREFIX = `${DEFAULT_CHAT_MODE}:`;
+const THREAD_FETCH_LIMIT = 500;
+
+type StoredMessageRow = {
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  mode: string;
+};
 
 function parseStoredMessageContent(content: string): MessageContent {
   if (content.startsWith('[')) {
@@ -88,13 +100,52 @@ function parseStoredMessage(row: { role: 'user' | 'assistant'; content: string }
   };
 }
 
-function readSessionMessages(defaultMessages: Message[]): Message[] {
+function getSessionHistoryKey(mode: string): string {
+  return mode === DEFAULT_CHAT_MODE ? CHAT_HISTORY_KEY : `${CHAT_HISTORY_KEY}:${mode}`;
+}
+
+function readActiveChatMode(): string {
   try {
-    const saved = sessionStorage.getItem('burs_chat_history');
+    return sessionStorage.getItem(ACTIVE_CHAT_MODE_KEY) || DEFAULT_CHAT_MODE;
+  } catch {
+    return DEFAULT_CHAT_MODE;
+  }
+}
+
+function createChatThreadMode(): string {
+  return `${CHAT_THREAD_PREFIX}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readSessionMessages(defaultMessages: Message[], mode = DEFAULT_CHAT_MODE): Message[] {
+  try {
+    const saved = sessionStorage.getItem(getSessionHistoryKey(mode));
     return saved ? JSON.parse(saved) as Message[] : defaultMessages;
   } catch {
     return defaultMessages;
   }
+}
+
+function writeSessionMessages(messages: Message[], mode: string) {
+  try {
+    sessionStorage.setItem(getSessionHistoryKey(mode), JSON.stringify(messages));
+    sessionStorage.setItem(ACTIVE_CHAT_MODE_KEY, mode);
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function clearSessionMessages(mode: string) {
+  try {
+    sessionStorage.removeItem(getSessionHistoryKey(mode));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function compactThreadText(text: string, max = 72): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max - 1).trim()}...`;
 }
 
 function inferStoragePathFromSignedUrl(url: string): string | null {
@@ -142,19 +193,64 @@ async function hydrateMessages(messages: Message[]): Promise<Message[]> {
   })));
 }
 
-async function loadMessages(userId: string): Promise<Message[]> {
+function buildThreadSummaries(rows: StoredMessageRow[]): ChatThreadSummary[] {
+  const grouped = new Map<string, StoredMessageRow[]>();
+  rows.forEach((row) => {
+    const mode = row.mode || DEFAULT_CHAT_MODE;
+    if (mode !== DEFAULT_CHAT_MODE && !mode.startsWith(CHAT_THREAD_PREFIX)) return;
+    const list = grouped.get(mode) ?? [];
+    list.push(row);
+    grouped.set(mode, list);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([mode, threadRows]) => {
+      const sorted = threadRows.slice().sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const parsedRows = sorted.map((row) => ({ row, message: parseStoredMessage(row) }));
+      const firstUser = parsedRows.find((entry) => entry.message.role === 'user');
+      const lastWithText = parsedRows.slice().reverse().find((entry) => getTextContent(entry.message.content).trim().length > 0);
+      const titleText = firstUser ? getTextContent(firstUser.message.content) : '';
+      const previewText = lastWithText ? getTextContent(lastWithText.message.content) : '';
+      const latestRow = sorted[sorted.length - 1];
+
+      return {
+        mode,
+        title: compactThreadText(titleText, 44),
+        preview: compactThreadText(previewText, 96),
+        updatedAt: latestRow?.created_at ?? new Date(0).toISOString(),
+        messageCount: sorted.length,
+        hasOutfit: parsedRows.some((entry) => hasRenderableActiveLook(entry.message.stylistMeta)),
+      };
+    })
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+async function loadThreadSummaries(userId: string): Promise<ChatThreadSummary[]> {
+  const { data } = await supabase
+    .from('chat_messages')
+    .select('role, content, created_at, mode')
+    .eq('user_id', userId)
+    .like('mode', `${DEFAULT_CHAT_MODE}%`)
+    .order('created_at', { ascending: false })
+    .limit(THREAD_FETCH_LIMIT);
+
+  if (!data) return [];
+  return buildThreadSummaries(data as StoredMessageRow[]);
+}
+
+async function loadMessages(userId: string, mode: string): Promise<Message[]> {
   const { data } = await supabase
     .from('chat_messages')
     .select('role, content')
     .eq('user_id', userId)
-    .eq('mode', 'stylist')
+    .eq('mode', mode)
     .order('created_at', { ascending: true })
     .limit(100);
   if (!data) return [];
   return (data as { role: 'user' | 'assistant'; content: string }[]).map((row) => parseStoredMessage(row));
 }
 
-async function persistMessages(userId: string, msgs: Message[]) {
+async function persistMessages(userId: string, msgs: Message[], mode: string) {
   await supabase
     .from('chat_messages')
     .insert(msgs.map(m => {
@@ -167,16 +263,16 @@ async function persistMessages(userId: string, msgs: Message[]) {
         : typeof m.content === 'string'
           ? m.content
           : JSON.stringify(m.content);
-      return { user_id: userId, role: m.role, content, mode: 'stylist' as const };
+      return { user_id: userId, role: m.role, content, mode };
     }));
 }
 
-async function deleteHistory(userId: string) {
+async function deleteHistory(userId: string, mode: string) {
   await supabase
     .from('chat_messages')
     .delete()
     .eq('user_id', userId)
-    .eq('mode', 'stylist');
+    .eq('mode', mode);
 }
 
 function extractGarmentIds(messages: Message[]): string[] {
@@ -231,12 +327,18 @@ export default function AIChat() {
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
 
-  const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: t('chat.welcome') }), [t]);
+  const welcomeText = t('chat.welcome');
+  const welcomeMessage = useMemo<Message>(() => ({ role: 'assistant', content: welcomeText }), [welcomeText]);
 
-  const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage]));
+  const [activeChatMode, setActiveChatMode] = useState(() => readActiveChatMode());
+  const [messages, setMessages] = useState<Message[]>(() => readSessionMessages([welcomeMessage], readActiveChatMode()));
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [threadSummaries, setThreadSummaries] = useState<ChatThreadSummary[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
+  const [composerHeight, setComposerHeight] = useState(88);
   const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{ url: string; path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -248,6 +350,7 @@ export default function AIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeStreamControllerRef = useRef<AbortController | null>(null);
   const activeRequestIdRef = useRef(0);
+  const activeChatModeRef = useRef(activeChatMode);
   const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => {});
 
   const refineMode = useRefineMode();
@@ -272,12 +375,45 @@ export default function AIChat() {
   }, []);
 
   useEffect(() => {
-    if (!user) { setIsLoading(false); return; }
+    activeChatModeRef.current = activeChatMode;
+    try {
+      sessionStorage.setItem(ACTIVE_CHAT_MODE_KEY, activeChatMode);
+    } catch {
+      // ignore storage errors
+    }
+  }, [activeChatMode]);
+
+  const refreshThreadSummaries = useCallback(async () => {
+    if (!user) {
+      setThreadSummaries([]);
+      return;
+    }
+
+    setIsLoadingThreads(true);
+    try {
+      const summaries = await loadThreadSummaries(user.id);
+      setThreadSummaries(summaries);
+    } finally {
+      setIsLoadingThreads(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    refreshThreadSummaries();
+  }, [refreshThreadSummaries]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    if (!user) {
+      setMessages(readSessionMessages([welcomeMessage], activeChatMode));
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
 
     const restoreMessages = async () => {
-      const persistedMessages = await loadMessages(user.id);
-      const fallbackMessages = readSessionMessages([welcomeMessage]);
+      const persistedMessages = await loadMessages(user.id, activeChatMode);
+      const fallbackMessages = readSessionMessages([welcomeMessage], activeChatMode);
       const baseMessages = persistedMessages.length > 0 ? persistedMessages : fallbackMessages;
       const hydratedMessages = await hydrateMessages(baseMessages);
 
@@ -293,7 +429,7 @@ export default function AIChat() {
     return () => {
       cancelled = true;
     };
-  }, [user, welcomeMessage]);
+  }, [activeChatMode, user, welcomeMessage]);
 
   const garmentIds = useMemo(() => anchoredGarmentId ? Array.from(new Set([anchoredGarmentId, ...extractGarmentIds(messages)])) : extractGarmentIds(messages), [anchoredGarmentId, messages]);
   const { data: garmentsList } = useGarmentsByIds(garmentIds);
@@ -324,12 +460,12 @@ export default function AIChat() {
     const onResize = () => {
       const current = vv.height;
       if (current >= baseline - 10) {
-        // Viewport grew back or stayed — reset baseline, no scroll
+        // Viewport grew back or stayed: reset baseline, no scroll
         baseline = Math.max(baseline, current);
         return;
       }
       if (baseline - current > 100) {
-        // Significant shrink — keyboard opened
+        // Significant shrink: keyboard opened
         scrollToBottom();
       }
     };
@@ -350,12 +486,8 @@ export default function AIChat() {
 
   useEffect(() => {
     if (messages.length === 0) return;
-    try {
-      sessionStorage.setItem('burs_chat_history', JSON.stringify(messages));
-    } catch {
-      // ignore quota errors
-    }
-  }, [messages]);
+    writeSessionMessages(messages, activeChatMode);
+  }, [activeChatMode, messages]);
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -388,6 +520,12 @@ export default function AIChat() {
     const token = session.access_token;
     const requestId = activeRequestIdRef.current + 1;
     activeRequestIdRef.current = requestId;
+    const requestChatMode = activeChatMode;
+    activeChatModeRef.current = requestChatMode;
+    const canApplyRequestUpdate = () => (
+      activeRequestIdRef.current === requestId
+      && activeChatModeRef.current === requestChatMode
+    );
 
     let userContent: string | MultimodalPart[];
     if (pendingImage) {
@@ -499,6 +637,7 @@ export default function AIChat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
+            if (!canApplyRequestUpdate()) return;
             if (parsed.type === 'stylist_response' && isStyleChatResponseEnvelope(parsed.payload)) {
               assistantMeta = parsed.payload;
               if (assistantMeta?.clear_active_look) {
@@ -562,6 +701,8 @@ export default function AIChat() {
         }
       }
 
+      if (!canApplyRequestUpdate()) return;
+
       if (!sawDone && !getTextContent(assistantContent).trim() && !assistantMeta?.assistant_text) {
         throw new Error(t('chat.no_response'));
       }
@@ -605,9 +746,11 @@ export default function AIChat() {
         trackEvent('outfit_refined', { response_kind: assistantMsg.stylistMeta?.response_kind ?? null });
       }
       if (user && session && (getTextContent(assistantMsg.content).trim() || assistantMsg.stylistMeta?.render_outfit_card)) {
-        await persistMessages(user.id, [userMsg, assistantMsg], session.access_token);
+        await persistMessages(user.id, [userMsg, assistantMsg], requestChatMode);
+        refreshThreadSummaries();
       }
     } catch (err) {
+      if (!canApplyRequestUpdate()) return;
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
       const fallbackText = isAbort
         ? (t('chat.stylist_timeout') || 'I hit a delay, but I kept the current look live.')
@@ -678,17 +821,19 @@ export default function AIChat() {
     // Abort any active stream first, then clear
     activeStreamControllerRef.current?.abort();
     activeStreamControllerRef.current = null;
+    activeRequestIdRef.current += 1;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     try {
-      await deleteHistory(user.id);
-      sessionStorage.removeItem('burs_chat_history');
+      await deleteHistory(user.id, activeChatMode);
+      clearSessionMessages(activeChatMode);
       setMessages([welcomeMessage]);
       setLastConfirmedLook(null);
       setPendingLookUpdate(null);
       setSuggestionChips([]);
       refineMode.exitRefineMode();
       setSavedOutfitIds(new Set());
+      refreshThreadSummaries();
       toast.success(t('chat.history_cleared'));
     } catch { toast.error(t('chat.history_error')); }
   };
@@ -767,88 +912,166 @@ export default function AIChat() {
     sendMessageRef.current(message);
   }, []);
 
+  const resetThreadUiState = useCallback(() => {
+    activeStreamControllerRef.current?.abort();
+    activeStreamControllerRef.current = null;
+    activeRequestIdRef.current += 1;
+    setInput('');
+    setPendingPrefill(null);
+    setPendingImage(null);
+    setPlanActionPayload(null);
+    setSuggestionChips([]);
+    setLastConfirmedLook(null);
+    setPendingLookUpdate(null);
+    setSavedOutfitIds(new Set());
+    setAnchoredGarmentId(null);
+    refineMode.exitRefineMode();
+    setIsStreaming(false);
+  }, [refineMode]);
+
+  const handleNewThread = useCallback(() => {
+    resetThreadUiState();
+    const nextMode = createChatThreadMode();
+    setActiveChatMode(nextMode);
+    setMessages([welcomeMessage]);
+    setIsHistoryOpen(false);
+    writeSessionMessages([welcomeMessage], nextMode);
+  }, [resetThreadUiState, welcomeMessage]);
+
+  const handleSelectThread = useCallback((mode: string) => {
+    if (mode === activeChatMode) {
+      setIsHistoryOpen(false);
+      return;
+    }
+    resetThreadUiState();
+    setActiveChatMode(mode);
+    setIsHistoryOpen(false);
+  }, [activeChatMode, resetThreadUiState]);
+
+  const handleComposerFocus = useCallback(() => {
+    window.setTimeout(scrollToBottom, 80);
+  }, [scrollToBottom]);
+
   return (
     <PageErrorBoundary fallback={<AIChatFallback />}>
-    <AppLayout hideNav>
+    <AppLayout hideNav disableMainScroll>
       <div className="flex h-full flex-col overflow-hidden">
-        <PageHeader
-          eyebrow={t('ai.stylist_eyebrow')}
-          title={t('chat.mode_stylist')}
-          actions={
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="quiet" size="icon" className="h-11 w-11 text-muted-foreground">
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={clearHistory} className="text-destructive focus:text-destructive">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {t('chat.clear_history')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
+        <ChatHistorySheet
+          open={isHistoryOpen}
+          onOpenChange={setIsHistoryOpen}
+          threads={threadSummaries}
+          activeMode={activeChatMode}
+          isLoading={isLoadingThreads}
+          onSelectThread={handleSelectThread}
+          onNewThread={handleNewThread}
         />
 
-        {/* Wardrobe context badge */}
-        {garmentCount != null && garmentCount > 0 && (
-          <div className="px-[var(--page-px)] pb-1">
-            <p className="text-[11px] font-body text-muted-foreground/35 text-center tracking-wide">
-              {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
-            </p>
-          </div>
-        )}
+        <header className="shrink-0 border-b border-border/35 bg-background/90 backdrop-blur-xl">
+          <div className="mx-auto flex min-h-[58px] w-full max-w-xl items-center justify-between gap-2 px-3">
+            <Button
+              variant="quiet"
+              size="icon"
+              className="h-11 w-11 rounded-full text-muted-foreground"
+              onClick={() => setIsHistoryOpen(true)}
+              aria-label={t('chat.open_history')}
+            >
+              <MessagesSquare className="h-4 w-4" />
+            </Button>
 
-        {anchoredGarment && (
-          <div className="px-[var(--page-px)] pb-2">
-            <div className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-[1.25rem] border border-border/40 px-3 py-2 text-left min-h-[52px]">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] bg-background text-primary">
-                  <Shirt className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/70">{t('ai.style_anchor')}</p>
-                  <p className="truncate text-sm font-medium text-foreground">{anchoredGarment.title}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="quiet"
-                  size="sm"
-                  className="h-11 rounded-full px-2.5 text-xs text-muted-foreground"
-                  onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
-                >
-                  Change
-                </Button>
-                <Button
-                  variant="quiet"
-                  size="icon"
-                  className="h-11 w-11 rounded-full text-muted-foreground"
-                  onClick={() => setAnchoredGarmentId(null)}
-                  aria-label="Clear garment anchor"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="min-w-0 flex-1 text-center">
+              <p className="caption-upper mb-0.5 truncate text-muted-foreground/55">
+                {t('ai.stylist_eyebrow')}
+              </p>
+              <h1 className="truncate font-display text-[1.18rem] font-medium italic leading-tight text-foreground">
+                {t('chat.mode_stylist')}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="quiet"
+                size="icon"
+                className="h-11 w-11 rounded-full text-muted-foreground"
+                onClick={handleNewThread}
+                aria-label={t('chat.new_chat')}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="quiet" size="icon" className="h-11 w-11 rounded-full text-muted-foreground">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={clearHistory} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {t('chat.clear_history')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-        )}
+        </header>
 
-        {/* Messages or Welcome */}
-        {isLoading ? (
-          <ChatPageSkeleton />
-        ) : isWelcomeState ? (
-          <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
-        ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-[var(--page-px)] py-5 space-y-6 overscroll-contain">
+        {(garmentCount != null && garmentCount > 0) || anchoredGarment ? (
+          <div className="shrink-0 px-3 pt-2">
+            <div className="mx-auto flex max-w-xl flex-col gap-2">
+              {garmentCount != null && garmentCount > 0 && (
+                <p className="text-center text-[11px] font-body tracking-wide text-muted-foreground/38">
+                  {t('chat.based_on')} {garmentCount} {t('chat.garments_label')}
+                </p>
+              )}
+
+              {anchoredGarment && (
+                <div className="flex min-h-[44px] items-center justify-between gap-3 rounded-[1rem] border border-border/35 bg-card/70 px-3 py-1.5 text-left">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    onClick={() => navigate(`/wardrobe/${anchoredGarment.id}`)}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.8rem] bg-background text-primary">
+                      <Shirt className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[10px] font-medium uppercase tracking-[0.14em] text-primary/70">
+                        {t('ai.style_anchor')}
+                      </span>
+                      <span className="block truncate text-sm font-medium text-foreground">{anchoredGarment.title}</span>
+                    </span>
+                  </button>
+                  <Button
+                    variant="quiet"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 rounded-full text-muted-foreground"
+                    onClick={() => setAnchoredGarmentId(null)}
+                    aria-label={t('chat.clear_anchor')}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-hide"
+          style={{ scrollPaddingBottom: `${composerHeight + 16}px` }}
+        >
+          {isLoading ? (
+            <ChatPageSkeleton />
+          ) : isWelcomeState ? (
+            <ChatWelcome onSuggestion={sendMessage} garmentCount={garmentCount ?? undefined} />
+          ) : (
+            <div className="mx-auto max-w-xl space-y-5 px-[var(--page-px)] py-4">
             {messages.map((msg, idx) => {
               if (idx === 0 && msg.role === 'assistant' && !isStreaming) {
                 if (getTextContent(msg.content) === t('chat.welcome')) return null;
               }
               const isStreamingMsg = isStreaming && idx === messages.length - 1 && msg.role === 'assistant';
               const isEmpty = getTextContent(msg.content) === '';
-              const shouldShowVisibleLook = msg.role === 'assistant' && idx === messages.length - 1;
+              const isLatestAssistant = msg.role === 'assistant' && idx === messages.length - 1;
               return (
                 <motion.div
                   key={`${msg.role}-${idx}`}
@@ -866,15 +1089,16 @@ export default function AIChat() {
                       garmentMap={garmentMap}
                       onTryOutfit={handleTryOutfit}
                       isCreatingOutfit={createOutfit.isPending}
-                      showStyleCards={msg.role !== 'assistant' || shouldShowVisibleLook}
-                      displayMetaOverride={shouldShowVisibleLook ? currentVisibleLook : null}
+                      showStyleCards={msg.role === 'assistant'}
+                      displayMetaOverride={isLatestAssistant ? currentVisibleLook : null}
                       onGarmentClick={(id) => navigate(`/wardrobe/${id}`)}
-                      isRefining={refineMode.isRefining && idx === messages.length - 1}
+                      isRefining={refineMode.isRefining && isLatestAssistant}
                       lockedSlots={refineMode.lockedSlots}
                       onRefine={handleEnterRefine}
                       onSave={handleSaveFromChat}
                       onToggleLock={refineMode.toggleLock}
                       isSaving={isSavingOutfit}
+                      isHistoricalOutfit={msg.role === 'assistant' && !isLatestAssistant}
                       isSaved={savedOutfitIds.has(
                         (msg.stylistMeta?.active_look?.garment_ids ?? msg.stylistMeta?.outfit_ids ?? []).slice().sort().join(',')
                       )}
@@ -885,26 +1109,26 @@ export default function AIChat() {
             })}
             {/* Plan action banner */}
             {planActionPayload && !isStreaming && (
-              <div className="mt-3 rounded-[1.25rem] border border-border/40 px-4 py-4">
+              <div className="mt-3 rounded-[1rem] border border-border/40 px-4 py-4">
                 <p className="mb-3 font-display italic text-[0.95rem] text-foreground/70">
-                  Your week is planned. Add these looks to the planner?
+                  {t('chat.plan_ready')}
                 </p>
                 <div className="flex gap-2">
                   <Button
                     variant="editorial"
                     size="sm"
-                    className="flex-1 rounded-full cursor-pointer"
+                    className="h-10 flex-1 rounded-[0.8rem] cursor-pointer"
                     onClick={() => { hapticLight(); handleAddToPlan(planActionPayload); setPlanActionPayload(null); }}
                   >
-                    Add to plan
+                    {t('chat.add_to_plan')}
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 rounded-full cursor-pointer border-border/35"
+                    className="h-10 flex-1 rounded-[0.8rem] cursor-pointer border-border/35"
                     onClick={() => { hapticLight(); setPlanActionPayload(null); }}
                   >
-                    Dismiss
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </div>
@@ -916,7 +1140,7 @@ export default function AIChat() {
                     <Button
                       key={i}
                       variant="outline"
-                      className="min-h-[40px] rounded-full px-4 cursor-pointer border-border/35 text-[13px] font-body"
+                      className="min-h-[40px] rounded-[0.8rem] px-4 cursor-pointer border-border/35 text-[13px] font-body"
                       onClick={() => {
                         hapticLight();
                         setSuggestionChips([]);
@@ -929,36 +1153,40 @@ export default function AIChat() {
                 </div>
               </div>
             ) : null}
-            {/* Refine UI — inside scroll area */}
-            <AnimatePresence>
-              {refineMode.isRefining && (
-                <motion.div
-                  key="refine-ui"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
-                >
-                  <div className="space-y-2 pb-2">
-                    <RefineChips
-                      garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                      onChipTap={handleChipTap}
-                      canUndo={refineMode.canUndo}
-                      onUndo={refineMode.undo}
-                    />
-                    <RefineBanner
-                      garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
-                      onStopRefining={refineMode.exitRefineMode}
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Scroll anchor */}
             <div ref={messagesEndRef} />
           </div>
         )}
 
-        {/* Input — fixed to bottom, uses --keyboard-offset for Median WebView */}
+        {/* Input dock */}
+        </div>
+
+        <AnimatePresence>
+          {refineMode.isRefining && (
+            <motion.div
+              key="refine-dock"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ type: 'tween', ease: [0.25, 0.1, 0.25, 1], duration: 0.25 }}
+              className="shrink-0 border-t border-border/25 bg-background/92 py-2 backdrop-blur-xl"
+            >
+              <div className="mx-auto max-w-xl space-y-2">
+                <RefineChips
+                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                  onChipTap={handleChipTap}
+                  canUndo={refineMode.canUndo}
+                  onUndo={refineMode.undo}
+                />
+                <RefineBanner
+                  garments={refineMode.activeGarmentIds.map((id) => garmentMap.get(id)).filter(Boolean) as GarmentBasic[]}
+                  onStopRefining={refineMode.exitRefineMode}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <ChatInput
           input={input}
           onInputChange={setInput}
@@ -968,6 +1196,8 @@ export default function AIChat() {
           onClearImage={() => setPendingImage(null)}
           isStreaming={isStreaming}
           isUploading={isUploading}
+          onFocus={handleComposerFocus}
+          onComposerHeightChange={setComposerHeight}
         />
       </div>
     </AppLayout>

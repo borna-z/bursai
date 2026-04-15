@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import { Send, Loader2, ImagePlus } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { ImagePlus, Loader2, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -12,75 +12,120 @@ interface ChatInputProps {
   onClearImage: () => void;
   isStreaming: boolean;
   isUploading: boolean;
+  onFocus?: () => void;
+  onComposerHeightChange?: (height: number) => void;
 }
 
 export function ChatInput({
-  input, onInputChange, onSend, onImageSelect,
-  pendingImage, onClearImage, isStreaming, isUploading,
+  input,
+  onInputChange,
+  onSend,
+  onImageSelect,
+  pendingImage,
+  onClearImage,
+  isStreaming,
+  isUploading,
+  onFocus,
+  onComposerHeightChange,
 }: ChatInputProps) {
   const { t } = useLanguage();
+  const rootRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const placeholder = pendingImage ? t('chat.image_placeholder') : t('chat.placeholder');
 
-  // Auto-resize textarea without scrolljacking
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
   }, [input]);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !onComposerHeightChange) return;
+
+    const notify = () => onComposerHeightChange(root.getBoundingClientRect().height);
+    notify();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(notify);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [onComposerHeightChange]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSend();
+    }
   };
 
   return (
-    <div className="shrink-0 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
-      <div className="max-w-lg mx-auto">
-        <div className="relative rounded-[1.25rem] border border-accent/10 bg-card/90 backdrop-blur-xl shadow-[0_-4px_24px_hsl(var(--background)/0.6)]">
+    <div
+      ref={rootRef}
+      className="shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.55rem)]"
+    >
+      <div className="mx-auto max-w-xl">
+        <div className="relative rounded-[1rem] border border-border/35 bg-card/95 shadow-[0_-10px_26px_hsl(var(--background)/0.82)] backdrop-blur-xl">
           {pendingImage && (
             <div className="px-3 pt-3">
               <div className="relative inline-block">
-                <img src={pendingImage.url} alt="Pending upload preview" className="h-20 w-20 object-cover rounded-[1.1rem] border border-border/20" /> {/* i18n-ignore */}
+                <img
+                  src={pendingImage.url}
+                  alt={t('chat.pending_image_alt')}
+                  className="h-20 w-20 rounded-[0.9rem] border border-border/20 object-cover"
+                />
                 <button
                   onClick={onClearImage}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold shadow-sm"
+                  className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm"
+                  aria-label={t('chat.clear_image')}
                 >
-                  ×
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
           )}
-          <div className="flex items-end gap-1.5 px-3 py-2">
+
+          <div className="flex items-end gap-1.5 px-2.5 py-2">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onImageSelect} />
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 shrink-0 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted/40"
+              className="h-10 w-10 shrink-0 rounded-full text-muted-foreground/55 hover:bg-muted/40 hover:text-foreground"
               onClick={() => fileInputRef.current?.click()}
               disabled={isStreaming || isUploading}
+              aria-label={t('chat.upload_image')}
             >
-              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
             </Button>
+
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={onFocus}
               placeholder={placeholder}
               disabled={isStreaming}
               rows={1}
-              className="flex-1 resize-none bg-transparent text-[16px] font-body leading-relaxed py-2 px-1 outline-none placeholder:text-muted-foreground/40 placeholder:italic max-h-32 min-h-[44px]"
+              className="max-h-32 min-h-[42px] flex-1 resize-none bg-transparent px-1 py-2 text-[16px] font-body leading-relaxed outline-none placeholder:text-muted-foreground/42 placeholder:italic disabled:cursor-not-allowed"
+              aria-label={t('chat.message_input')}
             />
+
             <Button
               onClick={onSend}
               disabled={(!input.trim() && !pendingImage) || isStreaming}
               size="icon"
-              className={`h-10 w-10 shrink-0 rounded-full transition-all hover:scale-105 active:scale-95 disabled:opacity-30 ${input.trim() || pendingImage ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+              className={`h-10 w-10 shrink-0 rounded-full transition-all hover:scale-105 active:scale-95 disabled:opacity-30 ${
+                input.trim() || pendingImage
+                  ? 'bg-foreground text-background hover:bg-foreground/90'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
+              aria-label={t('chat.send')}
             >
-              {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
         </div>

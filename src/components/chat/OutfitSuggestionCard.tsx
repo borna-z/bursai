@@ -48,6 +48,7 @@ interface OutfitSuggestionCardProps {
   isSaving?: boolean;
   isSaved?: boolean;
   changedGarmentIds?: string[];
+  historyMode?: boolean;
 }
 
 export function OutfitSuggestionCard({
@@ -63,6 +64,7 @@ export function OutfitSuggestionCard({
   isSaving,
   isSaved,
   changedGarmentIds,
+  historyMode = false,
 }: OutfitSuggestionCardProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -144,7 +146,9 @@ export function OutfitSuggestionCard({
       className={`rounded-[1.25rem] border bg-card overflow-hidden shadow-sm transition-colors duration-300 ${
         isRefining
           ? 'border-accent/50 shadow-[0_0_0_1px_hsl(37_47%_46%/0.12),0_2px_12px_hsl(37_47%_46%/0.08)]'
-          : 'border-border/60'
+          : historyMode
+            ? 'border-border/35 shadow-none'
+            : 'border-border/60'
       }`}
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -212,7 +216,7 @@ export function OutfitSuggestionCard({
               </p>
 
               {/* Swap button — hidden in refine mode */}
-              {!isRefining && <Popover open={swapOpen === i} onOpenChange={(open) => {
+              {!isRefining && !historyMode && <Popover open={swapOpen === i} onOpenChange={(open) => {
                 if (open) fetchAlternatives(i);
                 else setSwapOpen(null);
               }}>
@@ -258,7 +262,7 @@ export function OutfitSuggestionCard({
 
       {/* Explanation */}
       <div className="px-4 pb-2.5">
-        <p className="text-[13px] font-body text-muted-foreground/80 leading-[1.6] line-clamp-3">
+        <p className={`text-[13px] font-body text-muted-foreground/80 leading-[1.6] ${historyMode ? 'line-clamp-2' : 'line-clamp-3'}`}>
           {renderBoldMarkdown(explanation)}
         </p>
       </div>
@@ -282,7 +286,7 @@ export function OutfitSuggestionCard({
 
       {/* Actions — clean two-button row */}
       <AnimatePresence mode="wait">
-        {!isRefining && (
+        {!isRefining && !historyMode && (
           <motion.div
             key="actions"
             initial={{ opacity: 0, height: 0 }}
@@ -381,7 +385,7 @@ export function OutfitSuggestionCard({
 
       {/* Refine mode hint */}
       <AnimatePresence>
-        {isRefining && (
+        {isRefining && !historyMode && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
