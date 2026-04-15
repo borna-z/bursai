@@ -96,6 +96,15 @@ export const LUGGAGE_LIMITS: Record<LuggageType, { garments: number; shoes: numb
   checked: { garments: 18, shoes: 3 },
 };
 
+/**
+ * Per-category garment count override for the capsule generator.
+ * Keys are normalized capsule-slot names (e.g. "top", "bottom", "shoes"),
+ * values are the max number of items from that category to send to the AI.
+ * `null` elsewhere in the app means "use defaults" (send everything, capped
+ * by the 150-item safety ceiling).
+ */
+export type GarmentSelection = Record<string, number>;
+
 export interface TravelCapsuleRow {
   id: string;
   user_id: string;

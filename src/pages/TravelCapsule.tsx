@@ -151,6 +151,8 @@ export default function TravelCapsule() {
                 minimizeItems={capsule.minimizeItems}
                 setMinimizeItems={capsule.setMinimizeItems}
                 allGarments={capsule.allGarments}
+                garmentSelection={capsule.garmentSelection}
+                setGarmentSelection={capsule.setGarmentSelection}
                 onGenerate={capsule.handleGenerate}
                 isGenerating={capsule.isGenerating}
               />

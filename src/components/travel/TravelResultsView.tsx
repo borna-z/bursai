@@ -20,7 +20,7 @@ import type { DateRange } from 'react-day-picker';
 import { CapsuleOutfitCard } from '@/components/travel/CapsuleOutfitCard';
 import { CapsuleSummary } from '@/components/travel/CapsuleSummary';
 import { WeatherMiniIcon } from '@/components/travel/WeatherMiniIcon';
-import type { CapsuleOutfit, CapsuleResult, VibeId } from './types';
+import type { CapsuleCoverageGap, CapsuleOutfit, CapsuleResult, VibeId } from './types';
 
 type GarmentLike = { id: string; title: string; image_path: string; category: string; color_primary?: string };
 
@@ -80,7 +80,7 @@ export function TravelResultsView({
   setAddedToCalendar,
 }: TravelResultsViewProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   return (
     <AppLayout hideNav>
@@ -154,6 +154,34 @@ export function TravelResultsView({
             </div>
           ) : null}
         </Card>
+
+        {(() => {
+          const gaps: CapsuleCoverageGap[] = result.coverage_gaps ?? [];
+          if (gaps.length === 0) return null;
+          const missing = gaps
+            .flatMap((g) => g.missing_slots ?? [])
+            .filter((s, i, arr) => Boolean(s) && arr.indexOf(s) === i);
+          const lookLabel = result.outfits.length === 1
+            ? t('capsule.partial_results.look_singular')
+            : t('capsule.partial_results.look_plural');
+          const listFormatter = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
+          const missingSummary = listFormatter.format(missing);
+          const gapMessage = missing.length > 0
+            ? t('capsule.partial_results.add_more').replace('{items}', missingSummary)
+            : gaps.map((g) => g.message).filter(Boolean).join(' ');
+          return (
+            <div className="rounded-[1.35rem] border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
+              <p className="font-medium text-foreground">
+                {t('capsule.partial_results.title')
+                  .replace('{count}', String(result.outfits.length))
+                  .replace('{lookLabel}', lookLabel)}
+              </p>
+              {gapMessage ? (
+                <p className="mt-1 text-xs text-muted-foreground">{gapMessage}</p>
+              ) : null}
+            </div>
+          );
+        })()}
 
         <div className="flex rounded-full border p-1.5">
           {(['packing', 'outfits'] as const).map((tab) => (
@@ -244,7 +272,10 @@ export function TravelResultsView({
         </AnimatePresence>
       </AnimatedPage>
 
-      <div className="bottom-safe-nav fixed inset-x-4 z-20">
+      <div
+        className="fixed inset-x-4 z-20"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+      >
         <div className="mx-auto max-w-md">
           <div className="action-bar-floating flex flex-wrap gap-2 rounded-[1.6rem] p-3">
             {isAddingToCalendar ? (

@@ -194,56 +194,80 @@ function normalizeOutfitKind(value: unknown, fallback: TravelCapsuleOutfitKind =
   return fallback;
 }
 
+const GARMENT_CEILING = 150;
+
 function selectGarmentsForAI(
   scoredGarments: ScoredGarment[],
   mustHaveIds: string[],
-  minimizeItems: boolean,
-  weatherMin: number,
-  luggageLimits: { garments: number; shoes: number } = { garments: 12, shoes: 2 },
+  _minimizeItems: boolean,
+  _weatherMin: number,
+  _luggageLimits: { garments: number; shoes: number } = { garments: 12, shoes: 2 },
+  garmentSelection: Record<string, number> | null = null,
 ): GarmentRow[] {
-  const bySlot = new Map<string, GarmentRow[]>();
+  // Group garments by their normalized capsule slot for per-category caps.
+  const bySlot = new Map<string, ScoredGarment[]>();
   for (const scored of scoredGarments) {
     const slot = classifyTravelCapsuleSlot(scored.garment.category, scored.garment.subcategory);
-    const existing = bySlot.get(slot) || [];
-    existing.push(scored.garment);
-    bySlot.set(slot, existing);
+    const list = bySlot.get(slot) || [];
+    list.push(scored);
+    bySlot.set(slot, list);
   }
 
   const selected = new Map<string, GarmentRow>();
-  const reserveSlot = (slot: string, count: number) => {
-    for (const garment of (bySlot.get(slot) || []).slice(0, count)) {
-      selected.set(garment.id, garment);
+
+  if (garmentSelection && typeof garmentSelection === "object") {
+    // User-controlled mode: take top N by pack-score for each category.
+    for (const [category, count] of Object.entries(garmentSelection)) {
+      const n = Math.max(0, Math.floor(Number(count) || 0));
+      if (n === 0) continue;
+      const pool = bySlot.get(category) || [];
+      for (const entry of pool.slice(0, n)) {
+        selected.set(entry.garment.id, entry.garment);
+      }
     }
-  };
-
-  // Shoes are constrained by luggage. Everything else is tuned proportionally
-  // to the total garment budget so we don't blow past the carry-on limit.
-  const garmentBudget = luggageLimits.garments;
-  const nonShoeBudget = Math.max(4, garmentBudget - luggageLimits.shoes);
-  const topCount = Math.max(2, Math.round(nonShoeBudget * 0.45));
-  const bottomCount = Math.max(2, Math.round(nonShoeBudget * 0.28));
-  const dressCount = minimizeItems ? 0 : 1;
-  const outerCount = weatherMin <= 12 ? (minimizeItems ? 1 : 2) : (minimizeItems ? 0 : 1);
-  const accessoryCount = minimizeItems ? 0 : 1;
-
-  reserveSlot("shoes", luggageLimits.shoes);
-  reserveSlot("dress", dressCount);
-  reserveSlot("top", topCount);
-  reserveSlot("bottom", bottomCount);
-  reserveSlot("outerwear", outerCount);
-  reserveSlot("accessory", accessoryCount);
-
-  for (const mustHaveId of mustHaveIds) {
-    const match = scoredGarments.find((entry) => entry.garment.id === mustHaveId);
-    if (match) selected.set(match.garment.id, match.garment);
+  } else {
+    // Default mode: take everything, already sorted by pack-worthiness.
+    for (const entry of scoredGarments) {
+      selected.set(entry.garment.id, entry.garment);
+    }
   }
 
-  // Cap AI input near the luggage budget × 2 so the model has choice without
-  // being overwhelmed, but never more than 40.
-  const maxAiInput = Math.min(40, Math.max(20, garmentBudget * 2));
-  for (const scored of scoredGarments) {
-    if (selected.size >= maxAiInput) break;
-    selected.set(scored.garment.id, scored.garment);
+  // Always include must-haves.
+  const allById = new Map(scoredGarments.map((e) => [e.garment.id, e.garment]));
+  for (const id of mustHaveIds) {
+    const g = allById.get(id);
+    if (g) selected.set(id, g);
+  }
+
+  // Enforce the 150-item safety ceiling while always preserving must-haves.
+  if (selected.size > GARMENT_CEILING) {
+    const selectedOrdered = scoredGarments.filter((e) => selected.has(e.garment.id));
+    const mustHaveSet = new Set(
+      mustHaveIds.filter((id) => selected.has(id) && allById.has(id)),
+    );
+
+    // If a user marks more must-haves than the nominal ceiling, keep all of them
+    // and only clamp non-must-have items.
+    const effectiveCeiling = Math.max(GARMENT_CEILING, mustHaveSet.size);
+    const nonMustHaveBudget = Math.max(0, effectiveCeiling - mustHaveSet.size);
+
+    const clamped = new Map<string, GarmentRow>();
+
+    // Seed with must-haves first so explicit user intent is never dropped.
+    for (const id of mustHaveIds) {
+      const garment = allById.get(id);
+      if (garment && selected.has(id)) clamped.set(id, garment);
+    }
+
+    // Fill remaining space with highest-ranked non-must-have picks.
+    for (const entry of selectedOrdered) {
+      const id = entry.garment.id;
+      if (mustHaveSet.has(id) || clamped.has(id)) continue;
+      if (clamped.size >= mustHaveSet.size + nonMustHaveBudget) break;
+      clamped.set(id, entry.garment);
+    }
+
+    return Array.from(clamped.values());
   }
 
   return Array.from(selected.values());
@@ -414,6 +438,7 @@ serve(async (req) => {
       luggage_type = "carry_on_personal",
       companions = "solo",
       style_preference = "balanced",
+      garment_selection = null,
     } = await req.json();
 
     const luggageLimits = LUGGAGE_LIMITS[luggage_type] ?? LUGGAGE_LIMITS.carry_on_personal;
@@ -492,6 +517,7 @@ serve(async (req) => {
       Boolean(minimize_items),
       weatherMin,
       luggageLimits,
+      garment_selection,
     );
     const allGarmentById = new Map(allGarments.map((garment) => [garment.id, garment]));
     const scoreById = new Map(scoredGarments.map((entry) => [entry.garment.id, entry.packScore]));
@@ -1033,9 +1059,65 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         .filter((g: any) => usedInAnyOutfit.has(g.id) || mustHaveIds.includes(g.id))
         .map((g: any) => [g.id, g]),
     ).values());
-    const coverage_gaps = buildCoverageGaps(allGarments, Math.max(0, requiredOutfits - scheduledOutfits.length));
 
     console.log(`IB-2c matrix validation: ${outfits.length} outfits -> ${scheduledOutfits.length} scheduled (${patchCount} patched, ${dropCount} dropped), capsule ${capsule_items.length} -> ${prunedCapsule.length} items`);
+
+    // ─────────────────────────────────────────────
+    // Deterministic fallback BEFORE coverage_gaps + clamp.
+    //
+    // Running this first means:
+    //   1. coverage_gaps reflects the post-fallback uncovered count, so the
+    //      response never carries a stale "0 looks built" message alongside
+    //      the friendlier "1 of N built" message.
+    //   2. The luggage clamp below sees the fallback items via scheduledOutfits
+    //      → usedIds and prioritises them within luggageLimits.garments
+    //      instead of letting them push the response past the cap.
+    // ─────────────────────────────────────────────
+
+    let fallbackInjected = false;
+    if (scheduledOutfits.length === 0) {
+      const bySlot = (slot: string) => garments
+        .filter((g) => classifyTravelCapsuleSlot(g.category, g.subcategory) === slot)
+        .sort((a, b) => (scoreById.get(b.id) || 0) - (scoreById.get(a.id) || 0));
+      const fallbackTop = bySlot("top")[0];
+      const fallbackBottom = bySlot("bottom")[0];
+      const fallbackShoes = bySlot("shoes")[0];
+      if (fallbackTop && fallbackBottom && fallbackShoes) {
+        scheduledOutfits.push({
+          day: 1,
+          date: start_date,
+          kind: "trip_day",
+          occasion: occasions[0] || "travel",
+          items: [fallbackTop.id, fallbackBottom.id, fallbackShoes.id],
+          note: "A complete travel look from your top picks.",
+        });
+        // Ensure fallback items are in prunedCapsule so the clamp below
+        // includes them in the response capsule_items.
+        const existingIds = new Set(prunedCapsule.map((g: any) => g.id));
+        for (const g of [fallbackTop, fallbackBottom, fallbackShoes]) {
+          if (!existingIds.has(g.id)) prunedCapsule.push(g);
+        }
+        fallbackInjected = true;
+      }
+    }
+
+    const coverage_gaps = buildCoverageGaps(allGarments, Math.max(0, requiredOutfits - scheduledOutfits.length));
+
+    if (fallbackInjected) {
+      // The friendlier ai_empty_fallback message replaces the generic
+      // insufficient_complete_outfits entry — they would otherwise carry the
+      // same uncovered count and read as duplicate noise.
+      for (let i = coverage_gaps.length - 1; i >= 0; i -= 1) {
+        if (coverage_gaps[i].code === "insufficient_complete_outfits") {
+          coverage_gaps.splice(i, 1);
+        }
+      }
+      coverage_gaps.push({
+        code: "ai_empty_fallback",
+        message: `We built 1 of ${requiredOutfits} days from your current wardrobe.`,
+        uncovered_outfits: Math.max(0, requiredOutfits - 1),
+      });
+    }
 
     // ─────────────────────────────────────────────
     // FIX 5 — OUTFIT NOTE QUALITY
@@ -1062,6 +1144,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
 
     // ─────────────────────────────────────────────
     // Clamp capsule to luggage garment budget — preserve items used by outfits
+    // (now including any fallback garments injected above)
     // ─────────────────────────────────────────────
 
     let clampedCapsule: GarmentRow[] = prunedCapsule as GarmentRow[];
@@ -1077,7 +1160,7 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     }
 
     // ─────────────────────────────────────────────
-    // FIX 4 — SAVE CAPSULE TO DB
+    // Build packing list for response
     // ─────────────────────────────────────────────
 
     const packingList = clampedCapsule.map((g: any) => ({
@@ -1088,32 +1171,18 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       image_path: g.image_path ?? null,
     }));
 
-    const { error: saveError } = await supabase
-      .from('travel_capsules')
-      .insert({
-        user_id: userId,
-        destination: destination ?? null,
-        trip_type: trip_type ?? 'mixed',
-        duration_days: duration_days ?? 5,
-        weather_min: weather?.temperature_min ?? null,
-        weather_max: weather?.temperature_max ?? null,
-        occasions: occasions ?? [],
-        capsule_items: clampedCapsule,
-        outfits: scheduledOutfits,
-        packing_list: packingList,
-        packing_tips: packing_tips ?? null,
-        total_combinations: total_combinations ?? scheduledOutfits.length,
-        reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || null,
-      });
-    if (saveError) console.warn('travel_capsule: failed to save capsule:', saveError.message);
-
     return new Response(JSON.stringify({
       capsule_items: clampedCapsule,
       outfits: scheduledOutfits,
+      packing_list: packingList,
       packing_tips: packing_tips || [],
       coverage_gaps,
       total_combinations: total_combinations || scheduledOutfits.length,
       reasoning: [reasoning, ...coverage_gaps.map((gap) => gap.message)].filter(Boolean).join(' ') || "",
+      trip_type,
+      duration_days,
+      weather_min: weather?.temperature_min ?? null,
+      weather_max: weather?.temperature_max ?? null,
     }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });

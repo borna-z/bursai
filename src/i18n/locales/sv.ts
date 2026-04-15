@@ -1069,6 +1069,10 @@ const sv: Record<string, string> = {
     'capsule.calendar_error': 'Kunde inte lägga till i kalendern',
     'capsule.tab_packing': 'Packlista',
     'capsule.tab_outfits': 'Dagliga outfits',
+    'capsule.partial_results.title': 'Vi skapade {count} {lookLabel} från din nuvarande garderob.',
+    'capsule.partial_results.look_singular': 'look',
+    'capsule.partial_results.look_plural': 'looks',
+    'capsule.partial_results.add_more': 'Lägg till fler {items} för att låsa upp resten.',
     'capsule.trip_suffix': 'Resa',
     'capsule.outfits_count': 'outfits',
     'capsule.used_in': 'i',
@@ -2745,6 +2749,10 @@ const sv: Record<string, string> = {
     'gaps.no_gaps_title': 'Inga akuta luckor just nu',
     'gaps.no_gaps_desc': 'Din nuvarande garderob täcker sig själv bra. Om du nyligen lagt till plagg, kör en ny skanning för att se om nya luckor eller uppgraderingsmöjligheter dyker upp.',
     'gaps.run_fresh_scan': 'Kör ny skanning',
+    'capsule.customize_selection': 'Anpassa urval',
+    'capsule.using_x_of_y': 'Använder {actual} av {total} plagg',
+    'capsule.cap_warning': 'Max 150 — minska en kategori för att skicka fler.',
+    'capsule.reset': 'Återställ',
 };
 
 export default sv;

@@ -34,8 +34,9 @@ export function CapsuleOutfitCard({
       <OutfitSuggestionCard
         garments={outfitGarments}
         explanation={outfit.note ?? ''}
-        onTryOutfit={() => {/* no-op in capsule context */}}
+        onTryOutfit={() => {/* hidden in capsule context */}}
         isCreating={false}
+        hideTryButton
       />
     </motion.div>
   );

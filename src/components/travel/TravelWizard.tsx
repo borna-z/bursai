@@ -14,6 +14,7 @@ import { TravelStep1 } from './TravelStep1';
 import { TravelStep2 } from './TravelStep2';
 import type {
   Companion,
+  GarmentSelection,
   LuggageType,
   OccasionId,
   StylePreference,
@@ -59,6 +60,8 @@ interface TravelWizardProps {
   minimizeItems: boolean;
   setMinimizeItems: (v: boolean) => void;
   allGarments: Garment[] | undefined;
+  garmentSelection: GarmentSelection | null;
+  setGarmentSelection: (v: GarmentSelection | null) => void;
 
   // Action
   onGenerate: () => void;
@@ -153,6 +156,8 @@ export function TravelWizard(props: TravelWizardProps) {
                 minimizeItems={props.minimizeItems}
                 setMinimizeItems={props.setMinimizeItems}
                 allGarments={props.allGarments}
+                garmentSelection={props.garmentSelection}
+                setGarmentSelection={props.setGarmentSelection}
               />
             )}
           </motion.div>

@@ -20,6 +20,7 @@ import type { DateRange } from 'react-day-picker';
 import type {
   CapsuleResult,
   Companion,
+  GarmentSelection,
   LuggageType,
   OccasionId,
   StylePreference,
@@ -76,6 +77,7 @@ export function useTravelCapsule() {
   const [companions, setCompanions] = useState<Companion>('solo');
   const [stylePreference, setStylePreference] = useState<StylePreference>('balanced');
   const [occasions, setOccasions] = useState<OccasionId[]>([]);
+  const [garmentSelection, setGarmentSelection] = useState<GarmentSelection | null>(null);
 
   // ── Loading step state ──
   const [loadingStep, setLoadingStep] = useState(0);
@@ -128,12 +130,26 @@ export function useTravelCapsule() {
     ).requiredOutfits;
   }, [dateRange, outfitsPerDay, includeTravelDays]);
 
+  const GARMENT_CEILING = 150;
+  const actualSelectedCount = useMemo(() => {
+    const total = allGarments?.length ?? 0;
+    if (garmentSelection) {
+      const sum = Object.values(garmentSelection).reduce((a, b) => a + b, 0);
+      return Math.min(sum, GARMENT_CEILING, total);
+    }
+    return Math.min(total, GARMENT_CEILING);
+  }, [allGarments, garmentSelection]);
+
   const travelCardPhases = useMemo(() => [
-    { icon: Shirt, label: `Scanning your ${allGarments?.length ? `${allGarments.length} ` : ''}garments`, duration: 15000 },
+    {
+      icon: Shirt,
+      label: `Scanning ${actualSelectedCount} of your ${allGarments?.length ?? 0} garments`,
+      duration: 15000,
+    },
     { icon: Globe, label: `Finding combinations for ${destination || 'your destination'}`, duration: 15000 },
     { icon: Package, label: 'Building your capsule', duration: 15000 },
     { icon: SlidersHorizontal, label: `Optimizing ${planningLookCount || 0} looks`, duration: 0 },
-  ], [allGarments?.length, destination, planningLookCount]);
+  ], [actualSelectedCount, allGarments?.length, destination, planningLookCount]);
 
   // ── Garment data ──
   const activeResult = useMemo(() => {
@@ -402,6 +418,7 @@ export function useTravelCapsule() {
           minimize_items: minimizeItems,
           include_travel_days: includeTravelDays,
           locale: userLocale,
+          garment_selection: garmentSelection ?? undefined,
         },
       });
       if (error) throw error;
@@ -414,14 +431,34 @@ export function useTravelCapsule() {
 
       // Auto-save to DB (best-effort — failures don't block the UX)
       try {
+        const enriched = capsuleResult as unknown as {
+          trip_type?: string;
+          duration_days?: number;
+          weather_min?: number | null;
+          weather_max?: number | null;
+          packing_list?: unknown;
+          packing_tips?: string[];
+          total_combinations?: number;
+          reasoning?: string;
+        };
         await saveCapsuleToDb({
           destination,
+          trip_type: enriched.trip_type ?? VIBE_TO_TRIP_TYPE[vibe],
+          duration_days: enriched.duration_days ?? tripDays,
+          weather_min: enriched.weather_min ?? weatherForecast?.temperature_min ?? null,
+          weather_max: enriched.weather_max ?? weatherForecast?.temperature_max ?? null,
           start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
           end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
           occasions: effectiveOccasions,
           luggage_type: luggageType,
           companions,
           style_preference: stylePreference,
+          capsule_items: capsuleResult.capsule_items ?? [],
+          outfits: capsuleResult.outfits ?? [],
+          packing_list: enriched.packing_list ?? [],
+          packing_tips: enriched.packing_tips ?? capsuleResult.packing_tips ?? null,
+          total_combinations: enriched.total_combinations ?? capsuleResult.total_combinations ?? 0,
+          reasoning: enriched.reasoning ?? capsuleResult.reasoning ?? null,
           result: capsuleResult,
         });
       } catch (dbErr) {
@@ -433,7 +470,7 @@ export function useTravelCapsule() {
     } finally {
       setIsGenerating(false);
     }
-  }, [destination, dateRange, weatherForecast, lookupWeather, profile, locale, tripDays, vibe, occasions, luggageType, companions, stylePreference, outfitsPerDay, mustHaveItems, minimizeItems, includeTravelDays, t, setResult, saveCapsuleToDb]);
+  }, [destination, dateRange, weatherForecast, lookupWeather, profile, locale, tripDays, vibe, occasions, luggageType, companions, stylePreference, outfitsPerDay, mustHaveItems, minimizeItems, includeTravelDays, t, setResult, saveCapsuleToDb, garmentSelection]);
 
   // ── Add to plan ──
   const handleAddToCalendar = useCallback(async () => {
@@ -536,6 +573,7 @@ export function useTravelCapsule() {
     companions, setCompanions,
     stylePreference, setStylePreference,
     occasions, setOccasions,
+    garmentSelection, setGarmentSelection,
 
     // Saved capsules (DB)
     savedTrips,
