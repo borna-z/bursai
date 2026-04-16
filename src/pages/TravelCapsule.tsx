@@ -150,6 +150,8 @@ export default function TravelCapsule() {
                 setMustHaveItems={capsule.setMustHaveItems}
                 minimizeItems={capsule.minimizeItems}
                 setMinimizeItems={capsule.setMinimizeItems}
+                includeTravelDays={capsule.includeTravelDays}
+                setIncludeTravelDays={capsule.setIncludeTravelDays}
                 allGarments={capsule.allGarments}
                 garmentSelection={capsule.garmentSelection}
                 setGarmentSelection={capsule.setGarmentSelection}

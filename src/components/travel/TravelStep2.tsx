@@ -60,6 +60,8 @@ interface TravelStep2Props {
   setMustHaveItems: Dispatch<SetStateAction<string[]>>;
   minimizeItems: boolean;
   setMinimizeItems: (v: boolean) => void;
+  includeTravelDays: boolean;
+  setIncludeTravelDays: (v: boolean) => void;
   allGarments: Garment[] | undefined;
   garmentSelection: GarmentSelection | null;
   setGarmentSelection: (v: GarmentSelection | null) => void;
@@ -93,6 +95,8 @@ export function TravelStep2({
   setMustHaveItems,
   minimizeItems,
   setMinimizeItems,
+  includeTravelDays,
+  setIncludeTravelDays,
   allGarments,
   garmentSelection,
   setGarmentSelection,
@@ -322,6 +326,16 @@ export function TravelStep2({
             <p className="mt-1 text-xs text-muted-foreground">{t('capsule.minimize_desc')}</p>
           </div>
           <Switch checked={minimizeItems} onCheckedChange={setMinimizeItems} />
+        </label>
+      </div>
+
+      <div className="border-t border-border/40 pt-6">
+        <label className="flex cursor-pointer items-center justify-between gap-3">
+          <div>
+            <span className="text-sm font-medium text-foreground">{t('capsule.include_travel_days')}</span>
+            <p className="mt-1 text-xs text-muted-foreground">{t('capsule.include_travel_days_desc')}</p>
+          </div>
+          <Switch checked={includeTravelDays} onCheckedChange={setIncludeTravelDays} />
         </label>
       </div>
     </div>

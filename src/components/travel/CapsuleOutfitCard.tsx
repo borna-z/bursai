@@ -29,7 +29,7 @@ export function CapsuleOutfitCard({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: animationIndex * STAGGER_DELAY, duration: 0.35 }}
+      transition={{ delay: Math.min(animationIndex, 8) * STAGGER_DELAY, duration: 0.35 }}
     >
       <OutfitSuggestionCard
         garments={outfitGarments}

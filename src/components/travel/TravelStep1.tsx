@@ -101,7 +101,11 @@ export function TravelStep1({
               selected={dateRange}
               onSelect={setDateRange}
               numberOfMonths={1}
-              disabled={(date) => date < new Date()}
+              disabled={(date) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return date < today;
+                }}
               locale={dateLocale}
               className="pointer-events-auto p-3"
             />

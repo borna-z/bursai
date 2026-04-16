@@ -25,7 +25,10 @@ const MAX_TOTAL = 150;
 
 const CATEGORY_ORDER = ['top', 'bottom', 'dress', 'shoes', 'outerwear', 'accessory'] as const;
 
-function prettyLabel(category: string): string {
+function prettyLabel(category: string, t: (key: string) => string): string {
+  const key = `capsule.category_${category}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
   if (!category) return '';
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
@@ -151,7 +154,7 @@ export function GarmentSelectionPanel({
                 return (
                   <div key={cat} className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{prettyLabel(cat)}</span>
+                      <span className="font-medium">{prettyLabel(cat, t)}</span>
                       <span className="text-muted-foreground">
                         {current} of {max}
                       </span>
@@ -160,9 +163,10 @@ export function GarmentSelectionPanel({
                       type="range"
                       min={0}
                       max={max}
+                      step={1}
                       value={current}
                       onChange={(e) => handleSliderChange(cat, Number(e.target.value))}
-                      aria-label={`${prettyLabel(cat)} count`}
+                      aria-label={`${prettyLabel(cat, t)} count`}
                       className="h-1 w-full accent-accent"
                     />
                   </div>
