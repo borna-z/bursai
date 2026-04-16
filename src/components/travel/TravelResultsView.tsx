@@ -18,6 +18,7 @@ import type { DateRange } from 'react-day-picker';
 import { CapsuleOutfitCard } from '@/components/travel/CapsuleOutfitCard';
 import { CapsuleSummary } from '@/components/travel/CapsuleSummary';
 import { WeatherMiniIcon } from '@/components/travel/WeatherMiniIcon';
+import { VIBES } from './types';
 import type { CapsuleCoverageGap, CapsuleOutfit, CapsuleResult, VibeId } from './types';
 
 type GarmentLike = { id: string; title: string; image_path: string; category: string; color_primary?: string };
@@ -99,7 +100,9 @@ export function TravelResultsView({
         </h1>
 
         {/* ── Vibe chip ── */}
-        <span className="mt-2 inline-block eyebrow-chip !bg-secondary/70 capitalize">{vibe}</span>
+        <span className="mt-2 inline-block eyebrow-chip !bg-secondary/70 capitalize">
+          {VIBES.find(v => v.id === vibe)?.label ?? vibe}
+        </span>
 
         {/* ── Date + weather inline ── */}
         <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
@@ -144,9 +147,9 @@ export function TravelResultsView({
 
         {/* ── Stats line ── */}
         <p className="mt-3 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{totalItems}</span> pieces{' · '}
-          <span className="font-medium text-foreground">{result.outfits.length}</span> looks{' · '}
-          <span className="font-medium text-foreground">{packedCount}/{totalItems}</span> packed
+          <span className="font-medium text-foreground">{totalItems}</span> {t('capsule.stat_pieces')}{' · '}
+          <span className="font-medium text-foreground">{result.outfits.length}</span> {t('capsule.stat_looks')}{' · '}
+          <span className="font-medium text-foreground">{packedCount}/{totalItems}</span> {t('capsule.stat_packed')}
         </p>
 
         {/* ── Partial results banner ── */}
@@ -244,7 +247,7 @@ export function TravelResultsView({
                     return (
                       <div key={`day-${day}`} className={dayIdx === 0 ? 'mt-4' : 'mt-8'}>
                         {/* Day header */}
-                        <h2 className="font-display italic text-xl text-foreground">Day {day}</h2>
+                        <h2 className="font-display italic text-xl text-foreground">{t('capsule.day_header').replace('{day}', String(day))}</h2>
                         <div className="mt-0.5 mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
                           {dayDate ? (
                             <span>{format(dayDate, 'EEE MMM d', { locale: dateLocale })}</span>
@@ -331,7 +334,7 @@ export function TravelResultsView({
                   }}
                   className="px-3 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
                 >
-                  Start over
+                  {t('capsule.start_over')}
                 </button>
               </>
             )}
