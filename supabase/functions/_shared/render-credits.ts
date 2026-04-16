@@ -41,14 +41,32 @@ export type CreditDenialReason =
   | "already_terminal"
   | "rpc_error";
 
-export interface ReserveResult {
-  ok: boolean;
-  source?: "monthly" | "topup" | "trial_gift";
-  reason?: CreditDenialReason;
-  duplicate?: boolean;
+/**
+ * Success shape from reserveCredit.
+ *
+ * `replay` is REQUIRED on success: the RPC sets it to `false` when a new
+ * ledger row was just written, and `true` when the idempotency key was
+ * already present (caller is hitting the idempotency short-circuit).
+ *
+ * Callers that run expensive work (e.g. Gemini) MUST check `replay` and
+ * skip the expensive path when it's `true` — the original attempt either
+ * already completed (return cached result) or is still in flight (return
+ * a 202-style response).
+ */
+export type ReserveSuccess = {
+  ok: true;
+  source: "monthly" | "topup" | "trial_gift";
+  replay: boolean;
+};
+
+export type ReserveFailure = {
+  ok: false;
+  reason: CreditDenialReason;
   /** Original RPC error message when reason === "rpc_error". */
   error?: string;
-}
+};
+
+export type ReserveResult = ReserveSuccess | ReserveFailure;
 
 export interface MutationResult {
   ok: boolean;
@@ -192,7 +210,23 @@ export async function reserveCredit(
     return { ok: false, reason: "rpc_error", error: error.message };
   }
 
-  return data as ReserveResult;
+  // Normalise: RPC returns { ok, source, replay? } on success or
+  // { ok: false, reason } on denial. Success must always carry a boolean
+  // `replay` — default missing flags to false for forward-compatibility
+  // with callers that deployed the TS wrapper ahead of the migration.
+  const raw = data as Record<string, unknown>;
+  if (raw?.ok === true) {
+    return {
+      ok: true,
+      source: raw.source as ReserveSuccess["source"],
+      replay: raw.replay === true,
+    };
+  }
+
+  return {
+    ok: false,
+    reason: (raw?.reason as CreditDenialReason) ?? "rpc_error",
+  };
 }
 
 // ─── Consume ───────────────────────────────────────────────

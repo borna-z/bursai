@@ -481,11 +481,14 @@ serve(async (req) => {
     }
 
     // ── Fetch garment ──
+    // Selecting render_provider so we can snapshot + restore it on unclaim
+    // paths (Bug 2 fix). claimGarmentRender overwrites it to 'gemini'; if
+    // reserve fails after claim, we restore prior provider along with status.
     const { data: garment, error: garmentError } = await supabase
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, ' +
-        'original_image_path, image_path, render_status, render_error, rendered_image_path, render_presentation_used',
+        'original_image_path, image_path, render_status, render_error, rendered_image_path, render_presentation_used, render_provider, rendered_at',
       )
       .eq('id', garmentId)
       .eq('user_id', user.id)
@@ -550,6 +553,45 @@ serve(async (req) => {
       mannequinPresentation,
     });
 
+    // ── Snapshot prior state BEFORE claim ──
+    // claimGarmentRender overwrites render_status, render_presentation_used,
+    // render_error, and render_provider. If reserve (or anything else before
+    // consume) fails, we restore this snapshot instead of forcing 'none' —
+    // otherwise a force re-render that fails reservation would destroy the
+    // user's existing 'ready' state and leave the UI showing no render.
+    const priorState = {
+      render_status: garment.render_status as string | null,
+      render_error: garment.render_error as string | null,
+      render_presentation_used: garment.render_presentation_used as string | null,
+      render_provider: garment.render_provider as string | null,
+    };
+
+    const restorePriorState = async (reason: string) => {
+      // If the garment was in a terminal success-ish state (ready/skipped),
+      // restore exactly. Otherwise reset to 'none' so the user can retry.
+      const restoredStatus = (priorState.render_status === 'ready' || priorState.render_status === 'skipped')
+        ? priorState.render_status
+        : 'none';
+      const { error: unclaimError } = await supabase!
+        .from('garments')
+        .update({
+          render_status: restoredStatus,
+          render_error: priorState.render_error,
+          render_presentation_used: priorState.render_presentation_used,
+          render_provider: priorState.render_provider,
+        })
+        .eq('id', garment.id);
+      if (unclaimError) {
+        console.error('render_garment_image prior-state restore failed', {
+          garmentId: garment.id,
+          reason,
+          restoredStatus,
+          priorStatus: priorState.render_status,
+          error: unclaimError.message,
+        });
+      }
+    };
+
     // ── Claim render atomically before expensive prep ──
     const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
@@ -586,20 +628,10 @@ serve(async (req) => {
     const reserveResult = await reserveCredit(supabase, user.id, jobId, idempotencyKey);
 
     if (!reserveResult.ok) {
-      // Revert the claim so the garment isn't stuck in 'rendering' state.
-      // Back to 'none' (a retriable state), not 'failed', because reservation-denied
-      // is a user/billing issue, not a render-pipeline failure.
-      const { error: unclaimError } = await supabase
-        .from('garments')
-        .update({ render_status: 'none', render_error: null })
-        .eq('id', garment.id);
-      if (unclaimError) {
-        console.error('render_garment_image unclaim after reserve-failed crashed', {
-          garmentId: garment.id,
-          userId: user.id,
-          error: unclaimError.message,
-        });
-      }
+      // Reserve denied (insufficient credits or RPC transport failure).
+      // Restore prior state instead of forcing 'none' — keeps the existing
+      // 'ready' render visible in the UI on force-regen 402s.
+      await restorePriorState('reserve_denied');
 
       if (reserveResult.reason === 'rpc_error') {
         console.error('render_garment_image credit reservation failed (transport)', {
@@ -625,6 +657,89 @@ serve(async (req) => {
           period_end: balance.period_end,
         }),
         { status: 402, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // ── Idempotency replay handling ──
+    // Reserve returned { ok: true, replay: true } — the idempotency key was
+    // already in the ledger, meaning this is a retry of a prior request.
+    // DO NOT re-run Gemini: that would waste quota AND produce a free
+    // render (consume would hit already_terminal against the prior
+    // terminal transaction). Inspect current garment state and respond.
+    if (reserveResult.replay) {
+      // Re-fetch latest garment state — it may have changed since our
+      // initial fetch if another process is handling the original request.
+      const { data: replayState } = await supabase
+        .from('garments')
+        .select('render_status, rendered_image_path, rendered_at')
+        .eq('id', garment.id)
+        .maybeSingle();
+
+      const replayStatus = replayState?.render_status ?? priorState.render_status;
+      const replayPath = replayState?.rendered_image_path ?? null;
+
+      console.log('render_garment_image reserve replay', {
+        garmentId: garment.id,
+        userId: user.id,
+        idempotencyKey,
+        reserveSource: reserveResult.source,
+        replayStatus,
+        hasRenderedPath: Boolean(replayPath),
+      });
+
+      // Release our claim — someone else owns the original request
+      // (or it already finished) and we must not hold 'rendering' state.
+      await restorePriorState('replay_unclaim');
+
+      if (replayStatus === 'ready' && replayPath) {
+        // Prior attempt succeeded. Return the cached render.
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            rendered: true,
+            replay: true,
+            renderedImagePath: replayPath,
+            renderedAt: replayState?.rendered_at ?? null,
+          }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      if (replayStatus === 'rendering' || replayStatus === 'pending') {
+        // Prior attempt still in flight. Client should poll.
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            rendered: false,
+            replay: true,
+            inProgress: true,
+            reason: `Render already in progress (status=${replayStatus})`,
+          }),
+          { status: 202, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      // failed / skipped / none on replay — the reservation has already
+      // been terminated (via finally's release in the prior attempt, or
+      // by a consume against an already-rendered job). Re-running Gemini
+      // here would render for free because the ledger's terminal-uniqueness
+      // guard blocks a second consume. Ask the client to retry with a
+      // fresh clientNonce so a new reservation can be made.
+      console.warn('render_garment_image replay against non-ready/non-inflight state', {
+        garmentId: garment.id,
+        userId: user.id,
+        replayStatus,
+        idempotencyKey,
+      });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'replay_terminal',
+          replay: true,
+          message: 'Prior render attempt has completed. Retry with a fresh clientNonce.',
+          render_status: replayStatus,
+        }),
+        { status: 409, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
