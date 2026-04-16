@@ -32,6 +32,14 @@ CREATE TABLE render_credit_transactions (
 CREATE INDEX idx_render_credit_tx_user ON render_credit_transactions(user_id, created_at DESC);
 CREATE INDEX idx_render_credit_tx_job ON render_credit_transactions(render_job_id);
 
+-- Defense-in-depth against minting: at most one terminal transaction
+-- (consume or release) per render_job_id. Even if concurrent RPCs slip
+-- past the PL/pgSQL row lock for any reason, the second INSERT fails and
+-- its transaction rolls back, leaving balances consistent.
+CREATE UNIQUE INDEX idx_render_credit_tx_terminal_unique
+  ON render_credit_transactions(render_job_id)
+  WHERE kind IN ('consume', 'release') AND render_job_id IS NOT NULL;
+
 -- ─── RLS ───────────────────────────────────────────────────
 
 ALTER TABLE render_credits ENABLE ROW LEVEL SECURITY;
@@ -202,6 +210,11 @@ BEGIN
     RETURN jsonb_build_object('ok', true, 'duplicate', true);
   END IF;
 
+  -- Acquire exclusive row lock on this user's credit row. Serializes concurrent
+  -- credit mutations per user so the terminal-check + refund sequence below is
+  -- race-free. Held for the duration of this RPC's transaction.
+  PERFORM 1 FROM render_credits WHERE user_id = p_user_id FOR UPDATE;
+
   -- Guard against double-terminal: a reservation can be consumed OR released
   -- exactly once. If a terminal transaction already exists for this job under
   -- a different idempotency key, reject rather than silently no-op (or, for
@@ -277,6 +290,12 @@ BEGIN
   IF FOUND THEN
     RETURN jsonb_build_object('ok', true, 'duplicate', true);
   END IF;
+
+  -- Acquire exclusive row lock on this user's credit row. Serializes concurrent
+  -- release/consume calls per user so two concurrent releases with different
+  -- idempotency keys can't both pass the terminal check and both refund the
+  -- source balance (minting credits). Held for the duration of the transaction.
+  PERFORM 1 FROM render_credits WHERE user_id = p_user_id FOR UPDATE;
 
   -- Guard against minting: if a consume or release has already happened for
   -- this job under a different idempotency key, the source balance has either

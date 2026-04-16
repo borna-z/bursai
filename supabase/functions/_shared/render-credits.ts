@@ -21,18 +21,42 @@ export interface CreditBalance {
   period_end: string;
 }
 
+/**
+ * Reasons returned by credit RPCs.
+ *
+ * Business denials (caller should show UI, not retry):
+ *   - "insufficient"     — user is out of credits in all sources
+ *   - "no_credit_row"    — user has no render_credits row (pre-init)
+ *   - "no_reservation"   — consume/release called with no matching reserve
+ *   - "already_terminal" — consume/release called on an already-finalized job
+ *
+ * Transport-level failure (caller should retry or surface an internal error,
+ * NOT show an upgrade CTA — the user may have plenty of credits):
+ *   - "rpc_error"        — network, DB, or PL/pgSQL-level failure
+ */
+export type CreditDenialReason =
+  | "insufficient"
+  | "no_credit_row"
+  | "no_reservation"
+  | "already_terminal"
+  | "rpc_error";
+
 export interface ReserveResult {
   ok: boolean;
   source?: "monthly" | "topup" | "trial_gift";
-  reason?: "insufficient" | "duplicate" | "no_credit_row";
+  reason?: CreditDenialReason;
   duplicate?: boolean;
+  /** Original RPC error message when reason === "rpc_error". */
+  error?: string;
 }
 
 export interface MutationResult {
   ok: boolean;
   source?: string;
-  reason?: "duplicate" | "no_reservation" | "already_terminal" | "insufficient" | "no_credit_row" | string;
+  reason?: CreditDenialReason;
   duplicate?: boolean;
+  /** Original RPC error message when reason === "rpc_error". */
+  error?: string;
 }
 
 // ─── Balance ───────────────────────────────────────────────
@@ -104,7 +128,9 @@ export async function reserveCredit(
 
   if (error) {
     console.error("[render-credits] reserveCredit RPC error:", error.message);
-    return { ok: false, reason: "insufficient" };
+    // Transport/DB failure, NOT a business denial — caller should retry or
+    // surface an internal error, not show an "out of credits" CTA.
+    return { ok: false, reason: "rpc_error", error: error.message };
   }
 
   return data as ReserveResult;
@@ -130,7 +156,7 @@ export async function consumeCredit(
 
   if (error) {
     console.error("[render-credits] consumeCredit RPC error:", error.message);
-    return { ok: false, reason: error.message };
+    return { ok: false, reason: "rpc_error", error: error.message };
   }
 
   return data as MutationResult;
@@ -157,7 +183,7 @@ export async function releaseCredit(
 
   if (error) {
     console.error("[render-credits] releaseCredit RPC error:", error.message);
-    return { ok: false, reason: error.message };
+    return { ok: false, reason: "rpc_error", error: error.message };
   }
 
   return data as MutationResult;
@@ -183,7 +209,7 @@ export async function grantTrialGift(
 
   if (error) {
     console.error("[render-credits] grantTrialGift RPC error:", error.message);
-    return { ok: false, reason: error.message };
+    return { ok: false, reason: "rpc_error", error: error.message };
   }
 
   return data as MutationResult;
@@ -210,7 +236,7 @@ export async function setMonthlyAllowance(
 
   if (error) {
     console.error("[render-credits] setMonthlyAllowance RPC error:", error.message);
-    return { ok: false, reason: error.message };
+    return { ok: false, reason: "rpc_error", error: error.message };
   }
 
   return data as MutationResult;
