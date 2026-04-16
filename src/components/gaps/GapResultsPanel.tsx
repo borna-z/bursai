@@ -48,41 +48,32 @@ export function GapResultsPanel({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: EASE_CURVE }}
-      className="space-y-5"
+      className="mt-5 border-t border-border/40 pt-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
-            {t('gaps.results_label')}
-          </p>
-          <h2 className="mt-1 font-display italic text-[1.3rem] tracking-[-0.02em] text-foreground">
-            {t('gaps.results_title')}
-          </h2>
+          <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">{t('gaps.results_label')}</p>
+          <h2 className="mt-1 font-display italic text-[1.3rem] tracking-[-0.02em] text-foreground">{t('gaps.results_title')}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StaleIndicator updatedAt={analyzedAt} />
           <Button onClick={onRefresh} variant="outline" className="rounded-full px-4">
-            <RefreshCw className="size-4" />
-            {t('gaps.refresh_scan')}
+            <RefreshCw className="size-4" />{t('gaps.refresh_scan')}
           </Button>
         </div>
       </div>
 
       {hasRefreshError ? (
-        <div className="rounded-[1.2rem] border border-destructive/20 bg-destructive/5 px-4 py-3 text-[0.88rem] text-foreground">
-          {t('gaps.refresh_error')}
-        </div>
+        <div className="mt-3 border-l-2 border-destructive/40 py-2 pl-3 text-[0.88rem] text-foreground">{t('gaps.refresh_error')}</div>
       ) : null}
 
       <GapHeroCard gap={featured} garmentMap={garmentMap} />
 
       {rest.length > 0 ? (
-        <div className="-mx-5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex snap-x snap-mandatory gap-3 px-5">
-            {rest.map((gap, idx) => (
-              <GapSecondaryCard key={`${idx}-${gap.search_query}`} gap={gap} index={idx} />
-            ))}
-          </div>
+        <div>
+          {rest.map((gap, idx) => (
+            <GapSecondaryCard key={`${idx}-${gap.search_query}`} gap={gap} index={idx} />
+          ))}
         </div>
       ) : null}
     </motion.section>
