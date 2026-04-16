@@ -74,7 +74,14 @@ ON CONFLICT DO NOTHING;
 
 -- ─── RPC: Reset period if needed ──────────────────────────
 -- Advances the billing period if period_end has passed.
--- Resets used_this_period and reserved, preserves topup and trial_gift.
+--
+-- IMPORTANT: does NOT reset `reserved`, `trial_gift_remaining`, or
+-- `topup_balance`. In-flight reservations created before rollover must
+-- carry over so their eventual consume/release finds `reserved > 0` and
+-- updates the source balance correctly. Resetting `reserved` at rollover
+-- causes consume_credit_atomic's `WHERE reserved > 0` to no-op (user
+-- gets a free render) and release_credit_atomic to over-refund the
+-- trial/topup balance (mints a credit).
 
 CREATE OR REPLACE FUNCTION reset_period_if_needed(p_user_id UUID)
 RETURNS void AS $$
@@ -82,7 +89,6 @@ BEGIN
   UPDATE render_credits
   SET
     used_this_period = 0,
-    reserved = 0,
     period_start = NOW(),
     period_end = NOW() + INTERVAL '1 month',
     updated_at = NOW()
@@ -108,6 +114,12 @@ DECLARE
   v_source TEXT;
   v_updated INT;
 BEGIN
+  -- Security: only service_role may mutate the credit ledger. Defense-in-depth
+  -- with the REVOKE / GRANT EXECUTE statements at the bottom of this migration.
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required for credit ledger mutations';
+  END IF;
+
   -- Idempotency check
   SELECT id, source INTO v_existing
   FROM render_credit_transactions
@@ -201,6 +213,11 @@ DECLARE
   v_reserve_tx RECORD;
   v_terminal_tx RECORD;
 BEGIN
+  -- Security: only service_role may mutate the credit ledger.
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required for credit ledger mutations';
+  END IF;
+
   -- Idempotency check
   SELECT id INTO v_existing
   FROM render_credit_transactions
@@ -282,6 +299,11 @@ DECLARE
   v_reserve_tx RECORD;
   v_terminal_tx RECORD;
 BEGIN
+  -- Security: only service_role may mutate the credit ledger.
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required for credit ledger mutations';
+  END IF;
+
   -- Idempotency check
   SELECT id INTO v_existing
   FROM render_credit_transactions
@@ -366,6 +388,11 @@ RETURNS JSONB AS $$
 DECLARE
   v_existing RECORD;
 BEGIN
+  -- Security: only service_role may mutate the credit ledger.
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required for credit ledger mutations';
+  END IF;
+
   -- Idempotency check
   SELECT id INTO v_existing
   FROM render_credit_transactions
@@ -399,6 +426,11 @@ RETURNS JSONB AS $$
 DECLARE
   v_existing RECORD;
 BEGIN
+  -- Security: only service_role may mutate the credit ledger.
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required for credit ledger mutations';
+  END IF;
+
   -- Idempotency check
   SELECT id INTO v_existing
   FROM render_credit_transactions
@@ -419,3 +451,55 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ─── Batch period reset (pg_cron target) ──────────────────
+-- Hourly cron invokes this to advance any expired periods system-wide,
+-- so lazy reset-on-read isn't load-bearing and client-side RLS-protected
+-- reads against render_credits stay fresh.
+
+CREATE OR REPLACE FUNCTION reset_expired_periods_batch()
+RETURNS INT AS $$
+DECLARE
+  v_count INT;
+BEGIN
+  UPDATE render_credits
+  SET used_this_period = 0,
+      period_start = NOW(),
+      period_end = NOW() + INTERVAL '1 month',
+      updated_at = NOW()
+  WHERE period_end < NOW();
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ─── Schedule hourly period reset ─────────────────────────
+-- pg_cron runs as the postgres superuser so privilege checks are bypassed.
+SELECT cron.schedule(
+  'reset-render-credit-periods',
+  '0 * * * *',
+  'SELECT reset_expired_periods_batch();'
+);
+
+-- ─── Lockdown: revoke public execute, grant only to service_role ─
+-- Defense-in-depth with the `auth.role() = service_role` checks inside
+-- each mutation function. Without these, any authenticated user could
+-- call supabase.rpc('set_monthly_allowance_atomic', ...) from the
+-- browser and grant themselves unlimited credits.
+
+REVOKE ALL ON FUNCTION reserve_credit_atomic(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION consume_credit_atomic(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION release_credit_atomic(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION grant_trial_gift_atomic(UUID, INT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION set_monthly_allowance_atomic(UUID, INT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION reset_period_if_needed(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION reset_expired_periods_batch() FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION reserve_credit_atomic(UUID, UUID, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION consume_credit_atomic(UUID, UUID, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION release_credit_atomic(UUID, UUID, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION grant_trial_gift_atomic(UUID, INT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION set_monthly_allowance_atomic(UUID, INT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION reset_period_if_needed(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION reset_expired_periods_batch() TO service_role;

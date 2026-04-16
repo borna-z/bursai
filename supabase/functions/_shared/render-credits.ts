@@ -62,14 +62,73 @@ export interface MutationResult {
 // ─── Balance ───────────────────────────────────────────────
 
 /**
- * Get current credit balance for a user.
- * Resets the period first if period_end has passed.
+ * Pure-read balance query. Works with any client (service-role OR
+ * RLS-protected anon/authenticated) because it's a SELECT against
+ * render_credits. Does NOT trigger a period reset.
+ *
+ * Client-side code and anything that only needs a display value should
+ * use this. An hourly pg_cron (reset_expired_periods_batch) keeps the
+ * row fresh system-wide, and server-side write paths still lazy-reset
+ * via getBalance() inline, so the value returned here is at worst one
+ * hour stale — acceptable for display.
+ */
+export async function readBalance(
+  client: any,
+  userId: string,
+): Promise<CreditBalance> {
+  const { data, error } = await client
+    .from("render_credits")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) {
+    // Return zero-balance if row doesn't exist yet
+    return {
+      remaining: 0,
+      used: 0,
+      reserved: 0,
+      monthly_allowance: 0,
+      topup: 0,
+      trial_gift: 0,
+      period_start: new Date().toISOString(),
+      period_end: new Date().toISOString(),
+    };
+  }
+
+  const monthlyAvailable = Math.max(0, data.monthly_allowance - data.used_this_period - data.reserved);
+  const remaining = data.trial_gift_remaining + monthlyAvailable + data.topup_balance;
+
+  return {
+    remaining,
+    used: data.used_this_period,
+    reserved: data.reserved,
+    monthly_allowance: data.monthly_allowance,
+    topup: data.topup_balance,
+    trial_gift: data.trial_gift_remaining,
+    period_start: data.period_start,
+    period_end: data.period_end,
+  };
+}
+
+/**
+ * Server-side balance query with inline period reset.
+ *
+ * REQUIRES service_role client: `reset_period_if_needed` is locked down
+ * to service_role. Callers must pass a client created with
+ * SUPABASE_SERVICE_ROLE_KEY — passing a user-scoped/anon client will
+ * fail the RPC call and fall back to stale data.
+ *
+ * Use from edge function write paths where fresh accounting matters
+ * (reserve, consume, release, etc.). For read-only display, use
+ * `readBalance` instead.
  */
 export async function getBalance(
   supabaseAdmin: any,
   userId: string,
 ): Promise<CreditBalance> {
-  // Reset period if needed (fire-and-forget is fine — the RPC is atomic)
+  // Lazy reset on read. Write paths all hit this first, so the period
+  // is always fresh when balances are computed for a mutation decision.
   await supabaseAdmin.rpc("reset_period_if_needed", { p_user_id: userId });
 
   const { data, error } = await supabaseAdmin
