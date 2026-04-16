@@ -21,6 +21,10 @@ vi.mock('@/hooks/useWardrobeUnlocks', () => ({
   useWardrobeUnlocks: () => useWardrobeUnlocksMock(),
 }));
 
+vi.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({ locale: 'en', t: (key: string) => key }),
+}));
+
 vi.mock('@/components/gaps/gapRouteState', async () => {
   const actual = await vi.importActual<typeof import('@/components/gaps/gapRouteState')>('@/components/gaps/gapRouteState');
   return {
@@ -44,8 +48,8 @@ describe('InsightsGapPreview', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /Run gap scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
-    expect(screen.getByRole('link', { name: /Open gaps tool/i })).toHaveAttribute('href', '/gaps');
+    expect(screen.getByRole('link', { name: /gaps\.run_scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
+    expect(screen.getByRole('link', { name: /gaps\.preview_open_tool/i })).toHaveAttribute('href', '/gaps');
   });
 
   it('shows the latest featured gap and uses only the gaps route when a snapshot exists', () => {
@@ -70,9 +74,10 @@ describe('InsightsGapPreview', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/Best next addition: Black loafers/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Open full scan/i })).toHaveAttribute('href', '/gaps');
-    expect(screen.getByRole('link', { name: /Refresh gap scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
-    expect(screen.getByRole('link', { name: /Open full scan/i }).getAttribute('href')).not.toContain('/discover');
+    expect(screen.getByText(/gaps\.preview_best_addition/i)).toBeInTheDocument();
+    expect(screen.getByText(/Black loafers/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /gaps\.preview_open_full/i })).toHaveAttribute('href', '/gaps');
+    expect(screen.getByRole('link', { name: /gaps\.refresh_scan/i })).toHaveAttribute('href', '/gaps?autorun=1');
+    expect(screen.getByRole('link', { name: /gaps\.preview_open_full/i }).getAttribute('href')).not.toContain('/discover');
   });
 });

@@ -62,7 +62,21 @@ serve(async (req) => {
     let formalitySum = 0;
     let formalityCount = 0;
 
-    garments.forEach((g: any) => {
+    interface GarmentRow {
+      id: string;
+      title: string;
+      category: string;
+      subcategory: string | null;
+      color_primary: string;
+      color_secondary: string | null;
+      material: string | null;
+      pattern: string | null;
+      formality: number | null;
+      season_tags: string[] | null;
+      fit: string | null;
+    }
+
+    garments.forEach((g: GarmentRow) => {
       categories[g.category] = (categories[g.category] || 0) + 1;
       colors[g.color_primary] = (colors[g.color_primary] || 0) + 1;
       if (g.color_secondary) colors[g.color_secondary] = (colors[g.color_secondary] || 0) + 1;
@@ -84,7 +98,7 @@ Average formality: ${avgFormality}/5
 User locale/market: ${locale}
 
 SAMPLE GARMENT TITLES WITH IDs (use these IDs when recommending pairings):
-${garments.slice(0, 25).map((g: any) => `- [${g.id}] ${g.title} (${g.category}, ${g.color_primary}${g.material ? ', ' + g.material : ''})`).join("\n")}`;
+${garments.slice(0, 25).map((g: GarmentRow) => `- [${g.id}] ${g.title} (${g.category}, ${g.color_primary}${g.material ? ', ' + g.material : ''})`).join("\n")}`;
 
     const prompt = `${VOICE_GAP_ANALYSIS}
 
@@ -150,7 +164,7 @@ CRITICAL RULES:
       }],
       tool_choice: { type: "function", function: { name: "identify_gaps" } },
       cacheTtlSeconds: 3600,
-      cacheNamespace: "wardrobe_gap",
+      cacheNamespace: `wardrobe_gap_${user.id}`,
       functionName: "wardrobe_gap_analysis",
     }, supabase);
 
@@ -175,9 +189,21 @@ CRITICAL RULES:
     );
     const stripBrands = (s: string) => s.replace(brandPattern, '').replace(/\s{2,}/g, ' ').trim();
 
-    const validGarmentIds = new Set(garments.map((g: any) => g.id));
+    interface GapItem {
+      item: string;
+      category: string;
+      color: string;
+      reason: string;
+      new_outfits: number;
+      price_range: string;
+      search_query: string;
+      pairing_garment_ids?: string[];
+      key_insight?: string;
+    }
+
+    const validGarmentIds = new Set(garments.map((g: GarmentRow) => g.id));
     if (result?.gaps && Array.isArray(result.gaps)) {
-      result.gaps = result.gaps.map((gap: any) => ({
+      result.gaps = result.gaps.map((gap: GapItem) => ({
         ...gap,
         item: stripBrands(gap.item || ''),
         reason: stripBrands(gap.reason || ''),

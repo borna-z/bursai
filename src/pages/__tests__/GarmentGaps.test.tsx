@@ -105,6 +105,7 @@ describe('GarmentGapsPage', () => {
       isPending: false,
       isError: false,
       mutateAsync: vi.fn(),
+      reset: vi.fn(),
     });
     window.sessionStorage.clear();
   });
@@ -161,6 +162,7 @@ describe('GarmentGapsPage', () => {
       isPending: false,
       isError: false,
       mutateAsync,
+      reset: vi.fn(),
     });
 
     renderPage('/gaps?autorun=1');
@@ -177,16 +179,23 @@ describe('GarmentGapsPage', () => {
     expect(await screen.findByText('Structured overshirt')).toBeInTheDocument();
   });
 
-  it('shows the error state when no scan result exists and the mutation errors', () => {
+  it('shows the error state when a scan fails', async () => {
+    const mutateAsync = vi.fn().mockRejectedValue(new Error('scan failed'));
+
     useWardrobeGapAnalysisMock.mockReturnValue({
       isPending: false,
-      isError: true,
-      mutateAsync: vi.fn(),
+      isError: false,
+      mutateAsync,
+      reset: vi.fn(),
     });
 
-    renderPage();
+    renderPage('/gaps?autorun=1');
 
-    expect(screen.getByText('gaps.error_title')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalled();
+    });
+
+    expect(await screen.findByText('gaps.error_title')).toBeInTheDocument();
     expect(screen.getByText('gaps.retry_scan')).toBeInTheDocument();
   });
 });
