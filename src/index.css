@@ -584,6 +584,12 @@
     mask-image: linear-gradient(to right, black 85%, transparent 100%);
   }
 
+  /* Scroll-fade mask for vertical scrollable containers */
+  .scroll-fade-bottom {
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 32px), transparent 100%);
+    mask-image: linear-gradient(to bottom, black calc(100% - 32px), transparent 100%);
+  }
+
   /* Gentle breathe pulse for CTAs */
   .breathe-pulse {
     animation: breathe 3s ease-in-out infinite;
