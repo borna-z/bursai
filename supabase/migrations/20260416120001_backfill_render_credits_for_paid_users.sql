@@ -13,6 +13,14 @@
 -- Stripe webhook) is safe: the INSERT ... ON CONFLICT DO NOTHING
 -- skips rows that already have a backfill transaction recorded.
 --
+-- Key namespace: 'backfill_<stripe_subscription_id>' — cannot collide
+-- with the Stripe webhook's 'stripe_allowance_<event.id>' keys.
+--
+-- Handles users whose render_credits row doesn't yet exist (edge case
+-- — the main-migration trigger+backfill covers every auth.users row,
+-- but this function is robust regardless) via INSERT ... ON CONFLICT
+-- DO UPDATE on render_credits.
+--
 -- Without this backfill, every existing paid user sees 0 credits
 -- until their next Stripe webhook event (renewal, plan change, etc).
 -- ============================================================
@@ -42,10 +50,15 @@ BEGIN
     RETURNING TRUE INTO v_inserted;
 
     IF v_inserted IS TRUE THEN
-      UPDATE render_credits
-      SET monthly_allowance = 20,
-          updated_at = NOW()
-      WHERE user_id = r.user_id;
+      -- Upsert the credit row so the grant transaction always has a
+      -- matching balance change. The main migration's trigger + backfill
+      -- creates a render_credits row for every auth.users, so this is
+      -- defensive: the INSERT path should almost never fire in practice.
+      INSERT INTO render_credits (user_id, monthly_allowance)
+      VALUES (r.user_id, 20)
+      ON CONFLICT (user_id) DO UPDATE
+        SET monthly_allowance = 20,
+            updated_at = NOW();
 
       v_granted := v_granted + 1;
     ELSE
