@@ -3,9 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
+  if (checkOverload("wardrobe_aging")) {
+    return overloadResponse(CORS_HEADERS);
+  }
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -29,6 +34,8 @@ serve(async (req) => {
       });
     }
     const userId = user.id;
+
+    await enforceRateLimit(serviceClient, userId, "wardrobe_aging");
 
     const { locale = "sv" } = await req.json();
 
@@ -102,6 +109,9 @@ serve(async (req) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("wardrobe_aging error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
