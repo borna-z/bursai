@@ -3,9 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+
+  if (checkOverload("smart_shopping_list")) {
+    return overloadResponse(CORS_HEADERS);
+  }
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -29,6 +34,12 @@ serve(async (req) => {
       });
     }
     const userId = userData.user.id;
+
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    await enforceRateLimit(serviceClient, userId, "smart_shopping_list");
 
     const { locale = "sv" } = await req.json();
 
@@ -113,6 +124,9 @@ Create 4-6 prioritized shopping suggestions.`;
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("smart_shopping_list error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
