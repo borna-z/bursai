@@ -46,16 +46,9 @@ const VIBE_TO_OCCASIONS: Record<VibeId, string[]> = {
   mixed: ['casual', 'work', 'dinner'],
 };
 
-const LOADING_STEPS = (dest: string) => [
-  `Packing for ${dest || 'your trip'}...`,
-  'Scanning your wardrobe...',
-  'Selecting capsule pieces...',
-  'Building your outfits...',
-  'Finalising packing list...',
-];
-
 export function useTravelCapsule() {
   const { t, locale, dateFnsLocale: dateLocale } = useLanguage();
+
   const { data: profile } = useProfile();
   const { data: allGarments } = useFlatGarments();
   const {
@@ -143,13 +136,21 @@ export function useTravelCapsule() {
   const travelCardPhases = useMemo(() => [
     {
       icon: Shirt,
-      label: `Scanning ${actualSelectedCount} of your ${allGarments?.length ?? 0} garments`,
+      label: t('capsule.loading_scan_count').replace('{count}', String(actualSelectedCount)).replace('{total}', String(allGarments?.length ?? 0)),
       duration: 15000,
     },
-    { icon: Globe, label: `Finding combinations for ${destination || 'your destination'}`, duration: 15000 },
-    { icon: Package, label: 'Building your capsule', duration: 15000 },
-    { icon: SlidersHorizontal, label: `Optimizing ${planningLookCount || 0} looks`, duration: 0 },
-  ], [actualSelectedCount, allGarments?.length, destination, planningLookCount]);
+    { icon: Globe, label: t('capsule.loading_combinations').replace('{dest}', destination || ''), duration: 15000 },
+    { icon: Package, label: t('capsule.loading_build_capsule'), duration: 15000 },
+    { icon: SlidersHorizontal, label: t('capsule.loading_optimize').replace('{count}', String(planningLookCount || 0)), duration: 0 },
+  ], [t, actualSelectedCount, allGarments?.length, destination, planningLookCount]);
+
+  const loadingSteps = useMemo(() => [
+    t('capsule.loading_packing').replace('{dest}', destination || 'your trip'),
+    t('capsule.loading_scanning'),
+    t('capsule.loading_selecting'),
+    t('capsule.loading_building'),
+    t('capsule.loading_finalising'),
+  ], [t, destination]);
 
   // ── Garment data ──
   const activeResult = useMemo(() => {
@@ -189,9 +190,12 @@ export function useTravelCapsule() {
   const { data: capsuleGarments } = useGarmentsByIds(capsuleItemIds);
   const garmentMap = useMemo(
     () => {
-      const m = new Map((capsuleGarments || []).map(g => [g.id, g]));
+      const m = new Map<string, { id: string; title: string; image_path: string; category: string; color_primary?: string }>();
+      for (const g of capsuleGarments || []) {
+        m.set(g.id, { id: g.id, title: g.title, image_path: g.image_path, category: g.category, color_primary: g.color_primary });
+      }
       for (const [id, g] of inlineGarmentMap) {
-        if (!m.has(id)) m.set(id, g as never);
+        if (!m.has(id)) m.set(id, g);
       }
       return m;
     },
@@ -254,7 +258,7 @@ export function useTravelCapsule() {
   }, [dateRange, forecastDays, tripNights]);
 
   // ── Weather lookup ──
-  const lookupWeatherWithCoords = useCallback(async (coords: { lat: number; lon: number }) => {
+  const lookupWeatherWithCoords = useCallback(async (coords: { lat: number; lon: number }): Promise<ForecastDay | null> => {
     setIsFetchingWeather(true);
     setWeatherError(null);
     try {
@@ -301,38 +305,33 @@ export function useTravelCapsule() {
           isHistorical: hasHistorical,
         };
         setWeatherForecast(forecast);
+        return forecast;
       }
+      return null;
     } catch {
       setWeatherError(t('qgen.weather_error'));
+      return null;
     } finally {
       setIsFetchingWeather(false);
     }
   }, [dateRange, t]);
 
-  const lookupWeather = useCallback(async () => {
+  const lookupWeather = useCallback(async (): Promise<ForecastDay | null> => {
     if (destCoords) {
       return lookupWeatherWithCoords(destCoords);
     }
-    if (!destination || destination.length < 2) return;
+    if (!destination || destination.length < 2) return null;
     const coords = await getCoordinatesFromCity(destination);
-    if (!coords) { setWeatherError(t('qgen.place_not_found')); return; }
+    if (!coords) { setWeatherError(t('qgen.place_not_found')); return null; }
     setDestCoords(coords);
     return lookupWeatherWithCoords(coords);
   }, [destination, destCoords, lookupWeatherWithCoords, t]);
 
-  // ── Load packing progress from localStorage ──
-  useEffect(() => {
-    if (!result) return;
-    const saved = localStorage.getItem(`capsule-checked-${destination}`);
-    if (saved) setCheckedItems(new Set(JSON.parse(saved)));
-  }, [result, destination]);
-
-  // ── Persist packing progress ──
+  // ── Toggle packing checklist item (in-memory only) ──
   const toggleChecked = (id: string) => {
     setCheckedItems(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      localStorage.setItem(`capsule-checked-${destination}`, JSON.stringify([...next]));
       hapticLight();
       return next;
     });
@@ -376,10 +375,10 @@ export function useTravelCapsule() {
   useEffect(() => {
     if (!isGenerating) { setLoadingStep(0); return; }
     const interval = setInterval(() => {
-      setLoadingStep(s => Math.min(s + 1, LOADING_STEPS(destination).length - 1));
+      setLoadingStep(s => Math.min(s + 1, loadingSteps.length - 1));
     }, 1500);
     return () => clearInterval(interval);
-  }, [isGenerating, destination]);
+  }, [isGenerating, loadingSteps]);
 
   // Handle location autocomplete selection
   const handleLocationSelect = useCallback((_city: string, coords: { lat: number; lon: number }) => {
@@ -391,7 +390,10 @@ export function useTravelCapsule() {
   const handleGenerate = useCallback(async () => {
     if (!destination) { toast.error(t('capsule.enter_destination')); return; }
     if (!dateRange?.from || !dateRange?.to) { toast.error(t('capsule.select_dates')); return; }
-    if (!weatherForecast) await lookupWeather();
+    let effectiveWeather = weatherForecast;
+    if (!effectiveWeather) {
+      effectiveWeather = await lookupWeather();
+    }
     setIsGenerating(true);
     try {
       const userLocale = (asPreferences(profile?.preferences)?.language as string) || locale;
@@ -408,10 +410,10 @@ export function useTravelCapsule() {
           style_preference: stylePreference,
           start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
           end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
-          weather: weatherForecast ? {
-            temperature_min: weatherForecast.temperature_min,
-            temperature_max: weatherForecast.temperature_max,
-            condition: weatherForecast.condition,
+          weather: effectiveWeather ? {
+            temperature_min: effectiveWeather.temperature_min,
+            temperature_max: effectiveWeather.temperature_max,
+            condition: effectiveWeather.condition,
           } : null,
           outfits_per_day: outfitsPerDay,
           must_have_items: mustHaveItems.length > 0 ? mustHaveItems : undefined,
@@ -488,6 +490,14 @@ export function useTravelCapsule() {
         .eq('user_id', userId);
 
       const freshMap = new Map((freshGarments || []).map(g => [g.id, g]));
+
+      // Collect all outfit data first
+      const outfitPayloads: Array<{
+        date: string;
+        occasion: string;
+        note: string;
+        items: string[];
+      }> = [];
       const createdOutfitKeys = new Set<string>();
 
       for (const capsuleOutfit of result.outfits) {
@@ -500,52 +510,70 @@ export function useTravelCapsule() {
         const validItems = capsuleOutfit.items.filter(id => freshMap.has(id));
         if (!isCompleteTravelCapsuleOutfitIds(validItems, freshMap)) continue;
 
-        const { data: outfitRow, error: outfitErr } = await supabase
-          .from('outfits')
-          .insert({
-            user_id: userId,
-            occasion: capsuleOutfit.occasion || 'travel',
-            explanation: capsuleOutfit.note || `${destination} – Day ${capsuleOutfit.day}`,
-            saved: true,
-            planned_for: outfitDate,
-          })
-          .select('id')
-          .single();
+        outfitPayloads.push({
+          date: outfitDate,
+          occasion: capsuleOutfit.occasion || 'travel',
+          note: capsuleOutfit.note || `${destination} – Day ${capsuleOutfit.day}`,
+          items: validItems,
+        });
+      }
 
-        if (outfitErr || !outfitRow) {
-          logger.error('Failed to create outfit:', outfitErr);
-          continue;
-        }
+      // Batch insert outfits
+      if (outfitPayloads.length === 0) {
+        hapticSuccess();
+        toast.success(t('capsule.added_to_calendar'));
+        setAddedToCalendar(true);
+        return;
+      }
 
-        const slotMap: Record<string, string> = {
-          top: 'top', bottom: 'bottom', shoes: 'shoes', outerwear: 'outerwear',
-          accessory: 'accessory', accessories: 'accessory', dress: 'dress',
-          activewear: 'top', bag: 'accessory', jewelry: 'accessory',
-        };
+      const { data: outfitRows, error: outfitErr } = await supabase
+        .from('outfits')
+        .insert(outfitPayloads.map(p => ({
+          user_id: userId,
+          occasion: p.occasion,
+          explanation: p.note,
+          saved: true,
+          planned_for: p.date,
+        })))
+        .select('id');
 
-        const outfitItems = validItems.map(gId => {
+      if (outfitErr || !outfitRows) {
+        logger.error('Failed to batch create outfits:', outfitErr);
+        throw new Error('Failed to create outfits');
+      }
+
+      // Batch insert outfit_items
+      const slotMap: Record<string, string> = {
+        top: 'top', bottom: 'bottom', shoes: 'shoes', outerwear: 'outerwear',
+        accessory: 'accessory', accessories: 'accessory', dress: 'dress',
+        activewear: 'top', bag: 'accessory', jewelry: 'accessory',
+      };
+
+      const allOutfitItems = outfitRows.flatMap((row, idx) =>
+        outfitPayloads[idx].items.map(gId => {
           const g = freshMap.get(gId);
           const slot = slotMap[g?.category?.toLowerCase() || ''] || 'other';
-          return { outfit_id: outfitRow.id, garment_id: gId, slot };
-        });
+          return { outfit_id: row.id, garment_id: gId, slot };
+        })
+      );
 
-        const { error: itemsErr } = await supabase
-          .from('outfit_items')
-          .insert(outfitItems);
+      if (allOutfitItems.length > 0) {
+        const { error: itemsErr } = await supabase.from('outfit_items').insert(allOutfitItems);
+        if (itemsErr) logger.error('Failed to batch create outfit items:', itemsErr);
+      }
 
-        if (itemsErr) logger.error('Failed to create outfit items:', itemsErr);
+      // Batch insert planned_outfits
+      const allPlanned = outfitRows.map((row, idx) => ({
+        user_id: userId,
+        date: outfitPayloads[idx].date,
+        outfit_id: row.id,
+        note: `${destination} – ${outfitPayloads[idx].occasion}`,
+        status: 'planned',
+      }));
 
-        const { error: planErr } = await supabase
-          .from('planned_outfits')
-          .insert({
-            user_id: userId,
-            date: outfitDate,
-            outfit_id: outfitRow.id,
-            note: `${destination} – ${capsuleOutfit.occasion}`,
-            status: 'planned',
-          });
-
-        if (planErr) logger.error('Failed to plan outfit:', planErr);
+      if (allPlanned.length > 0) {
+        const { error: planErr } = await supabase.from('planned_outfits').insert(allPlanned);
+        if (planErr) logger.error('Failed to batch plan outfits:', planErr);
       }
 
       hapticSuccess();
@@ -583,7 +611,7 @@ export function useTravelCapsule() {
     loadingStep,
     isGenerating,
     travelCardPhases,
-    loadingSteps: LOADING_STEPS(destination),
+    loadingSteps,
 
     // Weather
     weatherForecast,
