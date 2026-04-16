@@ -28,7 +28,7 @@ function StateTitle({ children }: { children: ReactNode }) {
 
 function StateEyebrow({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[0.72rem] uppercase tracking-[0.22em] text-muted-foreground/65">
+    <p className="label-editorial">
       {children}
     </p>
   );
@@ -95,6 +95,7 @@ export function GapLockedState() {
     <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.35, ease: EASE_CURVE }}
       className="mt-5 border-t border-border/40 pt-5"
     >
@@ -117,6 +118,7 @@ export function GapReadyState({ onScan }: { onScan: () => void }) {
     <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.35, ease: EASE_CURVE }}
       className="mt-5 border-t border-border/40 pt-5"
     >
@@ -143,7 +145,7 @@ export function GapReadyState({ onScan }: { onScan: () => void }) {
 export function GapAutorunState() {
   const { t } = useLanguage();
   return (
-    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
       <div className="flex items-start gap-4">
         <StateIcon><ArrowRight className="size-5" /></StateIcon>
         <div className="space-y-2">
@@ -159,7 +161,7 @@ export function GapAutorunState() {
 export function GapLoadingState() {
   const { t } = useLanguage();
   return (
-    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
       <div className="mb-5 space-y-2">
         <StateEyebrow>{t('gaps.scanning_label')}</StateEyebrow>
         <StateTitle>{t('gaps.scanning_title')}</StateTitle>
@@ -177,7 +179,7 @@ export function GapLoadingState() {
 export function GapErrorState({ onRetry }: { onRetry: () => void }) {
   const { t } = useLanguage();
   return (
-    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
       <div className="flex items-start gap-4">
         <StateIcon tone="destructive"><AlertCircle className="size-5" /></StateIcon>
         <div className="space-y-2">
@@ -199,7 +201,7 @@ export function GapInsufficientWardrobeState({ currentCount, requiredCount }: { 
   const current = currentCount ?? 0;
   const required = requiredCount ?? 5;
   return (
-    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
       <div className="flex items-start gap-4">
         <StateIcon><ShoppingBag className="size-5" /></StateIcon>
         <div className="space-y-2">
@@ -218,7 +220,7 @@ export function GapInsufficientWardrobeState({ currentCount, requiredCount }: { 
 export function GapNoGapsState({ onRefresh }: { onRefresh: () => void }) {
   const { t } = useLanguage();
   return (
-    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35, ease: EASE_CURVE }} className="mt-5 border-t border-border/40 pt-5">
       <div className="flex items-start gap-4">
         <StateIcon><ShoppingBag className="size-5" /></StateIcon>
         <div className="space-y-2">

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wardrobe Gaps — Hero Gap Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: hsl(34 32% 95%);
+    --charcoal: hsl(24 13% 10%);
+    --gold: hsl(37 47% 46%);
+    --muted: hsl(24 8% 55%);
+    --muted-light: hsl(24 8% 72%);
+    --border: hsl(31 29% 84% / 0.4);
+    --secondary: hsl(34 20% 90%);
+    --secondary-40: hsl(34 20% 90% / 0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--charcoal);
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  .page { padding: 24px 20px 100px; }
+
+  /* ── Page header ── */
+  .page-header { margin-bottom: 20px; }
+  .eyebrow {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+  }
+  .page-title {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.6rem;
+    font-weight: 400;
+    color: var(--charcoal);
+    margin-top: 4px;
+  }
+
+  /* ── Intro section ── */
+  .intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 20px;
+  }
+  .intro-icon {
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: 12px;
+    background: var(--secondary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+  }
+  .intro-text {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: hsl(24 13% 10% / 0.75);
+  }
+  .status-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .status-chip {
+    font-size: 0.7rem;
+    color: var(--muted);
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: hsl(30 32% 98% / 0.6);
+  }
+
+  /* ── Divider ── */
+  .divider { border-top: 1px solid var(--border); margin: 20px 0; padding-top: 20px; }
+
+  /* ── Results header ── */
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  .results-title {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.2rem;
+    color: var(--charcoal);
+    margin-top: 4px;
+  }
+  .stale-badge {
+    font-size: 0.65rem;
+    color: var(--muted);
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+  }
+  .refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    color: var(--charcoal);
+    padding: 8px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: none;
+    cursor: pointer;
+  }
+
+  /* ── HERO GAP — the star of the show ── */
+  .hero-gap { margin-bottom: 32px; }
+  .hero-eyebrow {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    opacity: 0.7;
+  }
+  .hero-item {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.75rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--charcoal);
+    margin-top: 10px;
+  }
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .meta-chip {
+    font-size: 0.72rem;
+    color: var(--muted);
+    padding: 4px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: hsl(30 32% 98% / 0.6);
+  }
+  .color-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 1px solid hsl(31 29% 84% / 0.6);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  /* Pairing garments */
+  .pairings-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted-light);
+    margin-top: 20px;
+  }
+  .pairings-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .pairing-thumb {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+  }
+  .pairing-sparkle {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    border: 1px dashed hsl(37 47% 46% / 0.5);
+    background: hsl(37 47% 46% / 0.05);
+    display: flex; align-items: center; justify-content: center;
+    color: hsl(37 47% 46% / 0.7);
+    font-size: 1rem;
+  }
+
+  /* Outfit count */
+  .outfit-count {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .outfit-number {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--gold);
+  }
+  .outfit-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  /* Insight */
+  .hero-insight {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: hsl(24 13% 10% / 0.55);
+    margin-top: 16px;
+    max-width: 32rem;
+  }
+
+  /* Action row */
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .price-chip {
+    font-size: 0.72rem;
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: hsl(30 32% 98% / 0.6);
+  }
+  .find-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--cream);
+    background: var(--charcoal);
+    padding: 10px 20px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
+  /* ── SECONDARY GAPS — vertical list ── */
+  .secondary-gap {
+    border-top: 1px solid var(--border);
+    padding: 16px 0;
+  }
+  .secondary-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .secondary-item {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+  .secondary-reason {
+    font-size: 0.78rem;
+    color: hsl(24 13% 10% / 0.6);
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+  .secondary-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .secondary-outfit-num {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--gold);
+  }
+  .secondary-outfit-label {
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted-light);
+  }
+  .secondary-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .secondary-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+  .find-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    color: var(--charcoal);
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: none;
+    cursor: pointer;
+  }
+  .expand-btn {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: hsl(37 47% 46% / 0.7);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-align: center;
+    margin: 30px 0 16px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="section-label">Wardrobe Gaps — The Stylist's Pick</div>
+
+  <!-- ── Page header (stays from PageHeader component) ── -->
+  <div class="page-header">
+    <p class="eyebrow">Wardrobe Intelligence</p>
+    <h1 class="page-title">Wardrobe Gaps</h1>
+  </div>
+
+  <!-- ── Intro section (replaces GapHero card) ── -->
+  <div class="intro">
+    <div class="intro-icon">📡</div>
+    <div>
+      <p class="intro-text">BURS scans your wardrobe for missing pieces that would unlock the most new outfit combinations.</p>
+      <div class="status-chips">
+        <span class="status-chip">47 pieces in wardrobe</span>
+        <span class="status-chip">Gap analysis unlocked</span>
+        <span class="status-chip">Previous scan ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Divider ── -->
+  <div class="divider">
+
+    <!-- Results header -->
+    <div class="results-header">
+      <div>
+        <p class="eyebrow">Analysis complete</p>
+        <h2 class="results-title">Your wardrobe gaps</h2>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="stale-badge">2h ago</span>
+        <button class="refresh-btn">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- ══ HERO GAP — #1 recommendation ══ -->
+    <div class="hero-gap">
+      <p class="hero-eyebrow">Your next best purchase</p>
+      <h3 class="hero-item">Navy Wool Blazer</h3>
+
+      <div class="hero-meta">
+        <span class="meta-chip">Outerwear</span>
+        <span class="meta-chip"><span class="color-dot" style="background:#1B2838;"></span>Navy</span>
+      </div>
+
+      <p class="pairings-label">Pairs with</p>
+      <div class="pairings-row">
+        <div class="pairing-thumb">👕</div>
+        <div class="pairing-thumb">👖</div>
+        <div class="pairing-thumb">👞</div>
+        <div class="pairing-sparkle">✨</div>
+      </div>
+
+      <div class="outfit-count">
+        <span class="outfit-number">+12</span>
+        <span class="outfit-label">new outfit combinations</span>
+      </div>
+
+      <p class="hero-insight">A structured navy blazer bridges your casual and dressy pieces — it'll transform your white shirts and chinos into office-ready looks while also working over a t-shirt for smart-casual dinners.</p>
+
+      <div class="hero-actions">
+        <span class="price-chip">$120–$280</span>
+        <button class="find-btn">🔍 Find this ↗</button>
+      </div>
+    </div>
+
+    <!-- ══ SECONDARY GAPS — vertical list ══ -->
+    <div class="secondary-gap">
+      <div class="secondary-header">
+        <div>
+          <p class="secondary-item">White Minimalist Sneakers</p>
+          <p class="secondary-reason">Your shoe rotation lacks a versatile casual option that bridges athleisure and smart-casual.</p>
+        </div>
+        <div class="secondary-right">
+          <p class="secondary-outfit-num">+8</p>
+          <p class="secondary-outfit-label">outfits</p>
+        </div>
+      </div>
+      <div class="secondary-meta">
+        <span class="meta-chip" style="font-size:0.65rem; padding:3px 10px;">Shoes</span>
+        <span style="font-size:0.65rem; color: var(--muted);"><span class="color-dot" style="background:#FFFFFF;"></span>White</span>
+        <span style="font-size:0.65rem; color:var(--muted);">$80–$150</span>
+      </div>
+      <div class="secondary-actions">
+        <button class="expand-btn">Why this? ▾</button>
+        <button class="find-btn-sm">↗ Find this</button>
+      </div>
+    </div>
+
+    <div class="secondary-gap">
+      <div class="secondary-header">
+        <div>
+          <p class="secondary-item">Olive Chinos</p>
+          <p class="secondary-reason">You have strong top variety but your bottoms are heavily blue — olive adds earth-tone contrast.</p>
+        </div>
+        <div class="secondary-right">
+          <p class="secondary-outfit-num">+6</p>
+          <p class="secondary-outfit-label">outfits</p>
+        </div>
+      </div>
+      <div class="secondary-meta">
+        <span class="meta-chip" style="font-size:0.65rem; padding:3px 10px;">Bottoms</span>
+        <span style="font-size:0.65rem; color: var(--muted);"><span class="color-dot" style="background:#556B2F;"></span>Olive</span>
+        <span style="font-size:0.65rem; color:var(--muted);">$60–$120</span>
+      </div>
+      <div class="secondary-actions">
+        <button class="expand-btn">Why this? ▾</button>
+        <button class="find-btn-sm">↗ Find this</button>
+      </div>
+    </div>
+
+    <div class="secondary-gap">
+      <div class="secondary-header">
+        <div>
+          <p class="secondary-item">Camel Wool Scarf</p>
+          <p class="secondary-reason">A warm-toned accessory to anchor your fall/winter layering and add visual interest to monochrome outfits.</p>
+        </div>
+        <div class="secondary-right">
+          <p class="secondary-outfit-num">+4</p>
+          <p class="secondary-outfit-label">outfits</p>
+        </div>
+      </div>
+      <div class="secondary-meta">
+        <span class="meta-chip" style="font-size:0.65rem; padding:3px 10px;">Accessory</span>
+        <span style="font-size:0.65rem; color: var(--muted);"><span class="color-dot" style="background:#C19A6B;"></span>Camel</span>
+        <span style="font-size:0.65rem; color:var(--muted);">$40–$90</span>
+      </div>
+      <div class="secondary-actions">
+        <button class="expand-btn">Why this? ▾</button>
+        <button class="find-btn-sm">↗ Find this</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

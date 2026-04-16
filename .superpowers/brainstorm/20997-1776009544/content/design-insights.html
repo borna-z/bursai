@@ -1,0 +1,206 @@
+<h2>Section 4: Insights Dashboard Redesign</h2>
+<p class="subtitle">From wall of text to visual dashboard with charts and data viz</p>
+
+<div class="mockup">
+  <div class="mockup-header">Proposed Insights Dashboard</div>
+  <div class="mockup-body" style="background:#1C1917;padding:0;border-radius:24px;overflow:hidden;position:relative;">
+    <!-- iPhone frame -->
+    <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#000;border-radius:0 0 20px 20px;z-index:10;"></div>
+
+    <!-- Safe area + header -->
+    <div style="height:54px;"></div>
+    <div style="padding:0 20px 16px;">
+      <div style="font-size:10px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1.8px;">Insights</div>
+      <div style="font-size:22px;color:#f5f0e8;font-family:'Playfair Display',serif;font-style:italic;margin-top:4px;">Your Style Story</div>
+    </div>
+
+    <!-- Stat cards row -->
+    <div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+        <div style="font-size:26px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:600;line-height:1;">47</div>
+        <div style="font-size:9px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Garments</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+        <div style="font-size:26px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:600;line-height:1;">12</div>
+        <div style="font-size:9px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Outfits</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+        <div style="font-size:26px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:600;line-height:1;">89</div>
+        <div style="font-size:9px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Wears</div>
+      </div>
+    </div>
+
+    <!-- Wear frequency chart -->
+    <div style="padding:0 20px 16px;">
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:18px;padding:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div style="font-size:13px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:500;">Wear Frequency</div>
+          <div style="font-size:10px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;">Last 30 days</div>
+        </div>
+        <!-- Bar chart -->
+        <div style="display:flex;align-items:flex-end;gap:4px;height:100px;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:35px;background:linear-gradient(180deg,rgba(176,125,58,0.6),rgba(176,125,58,0.2));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">M</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:60px;background:linear-gradient(180deg,rgba(176,125,58,0.6),rgba(176,125,58,0.2));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">T</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:45px;background:linear-gradient(180deg,rgba(176,125,58,0.6),rgba(176,125,58,0.2));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">W</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:80px;background:linear-gradient(180deg,rgba(176,125,58,0.8),rgba(176,125,58,0.3));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">T</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:90px;background:linear-gradient(180deg,rgba(176,125,58,0.9),rgba(176,125,58,0.4));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">F</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:100px;background:linear-gradient(180deg,rgba(176,125,58,1),rgba(176,125,58,0.5));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">S</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;height:55px;background:linear-gradient(180deg,rgba(176,125,58,0.6),rgba(176,125,58,0.2));border-radius:6px 6px 2px 2px;"></div>
+            <span style="font-size:8px;color:#f5f0e8;opacity:0.3;">S</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color palette breakdown -->
+    <div style="padding:0 20px 16px;">
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:18px;padding:18px;">
+        <div style="font-size:13px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:500;margin-bottom:14px;">Your Palette</div>
+        <!-- Horizontal stacked bar -->
+        <div style="height:28px;border-radius:8px;overflow:hidden;display:flex;margin-bottom:12px;">
+          <div style="flex:35;background:#1C1917;"></div>
+          <div style="flex:25;background:#F5F0E8;"></div>
+          <div style="flex:15;background:#4A6741;"></div>
+          <div style="flex:12;background:#8B4513;"></div>
+          <div style="flex:8;background:#708090;"></div>
+          <div style="flex:5;background:#B07D3A;"></div>
+        </div>
+        <!-- Legend -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#1C1917;border:0.5px solid rgba(255,255,255,0.2);"></div><span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Black 35%</span></div>
+          <div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#F5F0E8;"></div><span style="font-size:10px;color:#f5f0e8;opacity:0.4;">White 25%</span></div>
+          <div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#4A6741;"></div><span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Green 15%</span></div>
+          <div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#8B4513;"></div><span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Brown 12%</span></div>
+          <div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:#708090;"></div><span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Grey 8%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category donut + cost per wear -->
+    <div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <!-- Category breakdown -->
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:18px;padding:16px;">
+        <div style="font-size:13px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:500;margin-bottom:12px;">Categories</div>
+        <!-- Donut chart mockup -->
+        <div style="width:100px;height:100px;margin:0 auto;position:relative;">
+          <svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);">
+            <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(176,125,58,0.7)" stroke-width="3" stroke-dasharray="30 70" stroke-dashoffset="0"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(176,125,58,0.45)" stroke-width="3" stroke-dasharray="25 75" stroke-dashoffset="-30"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(176,125,58,0.3)" stroke-width="3" stroke-dasharray="20 80" stroke-dashoffset="-55"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(176,125,58,0.15)" stroke-width="3" stroke-dasharray="25 75" stroke-dashoffset="-75"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+            <div style="font-size:16px;color:#f5f0e8;font-weight:600;">47</div>
+            <div style="font-size:8px;color:#f5f0e8;opacity:0.3;text-transform:uppercase;letter-spacing:0.5px;">items</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cost per wear -->
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:18px;padding:16px;">
+        <div style="font-size:13px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:500;margin-bottom:12px;">Cost / Wear</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Best value</span>
+              <span style="font-size:10px;color:#f5f0e8;opacity:0.6;">$0.42</span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="width:95%;height:100%;background:rgba(52,199,89,0.6);border-radius:2px;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Average</span>
+              <span style="font-size:10px;color:#f5f0e8;opacity:0.6;">$3.80</span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="width:55%;height:100%;background:rgba(176,125,58,0.6);border-radius:2px;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:10px;color:#f5f0e8;opacity:0.4;">Worst</span>
+              <span style="font-size:10px;color:#f5f0e8;opacity:0.6;">$24.50</span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="width:15%;height:100%;background:rgba(255,69,58,0.5);border-radius:2px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wardrobe health radar -->
+    <div style="padding:0 20px 16px;">
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:18px;padding:18px;">
+        <div style="font-size:13px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:500;margin-bottom:4px;">Wardrobe Health</div>
+        <div style="font-size:10px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;margin-bottom:14px;">How balanced your closet is</div>
+        <!-- Radar chart mockup -->
+        <div style="width:160px;height:140px;margin:0 auto;position:relative;">
+          <svg viewBox="0 0 200 180" style="width:100%;height:100%;">
+            <!-- Grid -->
+            <polygon points="100,20 170,60 170,130 100,170 30,130 30,60" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+            <polygon points="100,45 152,72 152,118 100,145 48,118 48,72" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
+            <polygon points="100,70 135,85 135,105 100,120 65,105 65,85" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>
+            <!-- Data shape -->
+            <polygon points="100,30 160,65 145,125 100,155 45,115 50,55" fill="rgba(176,125,58,0.12)" stroke="rgba(176,125,58,0.5)" stroke-width="1"/>
+            <!-- Labels -->
+            <text x="100" y="14" text-anchor="middle" fill="#f5f0e8" opacity="0.35" font-size="8" font-family="-apple-system,sans-serif">Variety</text>
+            <text x="178" y="58" text-anchor="start" fill="#f5f0e8" opacity="0.35" font-size="8" font-family="-apple-system,sans-serif">Color</text>
+            <text x="178" y="135" text-anchor="start" fill="#f5f0e8" opacity="0.35" font-size="8" font-family="-apple-system,sans-serif">Usage</text>
+            <text x="100" y="182" text-anchor="middle" fill="#f5f0e8" opacity="0.35" font-size="8" font-family="-apple-system,sans-serif">Season</text>
+            <text x="22" y="135" text-anchor="end" fill="#f5f0e8" opacity="0.35" font-size="8" font-family="-apple-system,sans-serif">Value</text>
+            <text x="22" y="58" text-anchor="end" fill="#f5f0e8" opacity="0.35" font-size="8" font-family="-apple-system,sans-serif">Fit</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom spacer -->
+    <div style="height:70px;"></div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Dashboard sections</h3>
+  <div style="display: grid; gap: 10px;">
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Hero stats</strong> — 3-column grid: Garments, Outfits, Wears. Big numbers, small uppercase labels.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Wear frequency bar chart</strong> — Accent-colored gradient bars by day of week. Visual at a glance.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Color palette</strong> — Horizontal stacked bar showing wardrobe color distribution with legend dots.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Category donut + Cost per wear</strong> — Side by side. Donut shows garment distribution, progress bars show value analysis.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Wardrobe health radar</strong> — 6-axis radar chart: Variety, Color, Usage, Season, Value, Fit. Shows balance at a glance.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>All charts use accent color</strong> — Adapts to user's chosen accent. No hardcoded gold — these mockups show gold as example only.
+    </div>
+  </div>
+</div>

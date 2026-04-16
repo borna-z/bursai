@@ -1,5 +1,27 @@
 import type { GapNavigationState, GapScanSnapshot } from '@/components/gaps/gapTypes';
 
+export function openGapSearchUrl(query: string) {
+  window.open(
+    `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+    '_blank',
+    'noopener',
+  );
+}
+
+const COLOR_MAP: Record<string, string> = {
+  navy: '#1B2838', beige: '#F5F0DC', cream: '#FFFDD0', ecru: '#C2B280',
+  olive: '#556B2F', burgundy: '#800020', charcoal: '#36454F', camel: '#C19A6B',
+  taupe: '#483C32', ivory: '#FFFFF0', coral: '#FF7F50', sage: '#BCB88A',
+  rust: '#B7410E', mustard: '#FFDB58', blush: '#DE5D83', slate: '#708090',
+  sand: '#C2B280', mocha: '#4B3832', pewter: '#8B8680', champagne: '#F7E7CE',
+};
+
+export function cssColorFromName(name: string): string {
+  if (!name) return 'transparent';
+  const lower = name.toLowerCase().trim();
+  return COLOR_MAP[lower] ?? name;
+}
+
 const GAP_AUTORUN_QUERY = 'autorun';
 const GAP_SNAPSHOT_KEY_PREFIX = 'burs:gaps:last-scan:';
 
@@ -34,6 +56,10 @@ export function readGapNavigationIntent({
   };
 }
 
+// Note: sessionStorage is used intentionally here as a cross-navigation cache
+// for gap scan results. The data is always duplicated in React state within
+// the consuming page component. This is NOT React component state — it's a
+// session-scoped persistence layer for navigation-resilient caching.
 export function loadGapSnapshot(userId: string | null | undefined): GapScanSnapshot | null {
   if (typeof window === 'undefined' || !userId) return null;
 

@@ -74,7 +74,7 @@ export default function GarmentGapsPage() {
   const count = garmentCount ?? 0;
   const hasResults = results !== null;
   const viewState = deriveViewState({
-    hasError: gapAnalysis.isError,
+    hasError: refreshError,
     hasInsufficientWardrobe: insufficientInfo !== null,
     hasResults,
     isAutorunPending,
@@ -83,16 +83,10 @@ export default function GarmentGapsPage() {
     results,
   });
 
-  useEffect(() => {
-    if (!snapshot || results !== null) return;
-    setResults(snapshot.results);
-    setAnalysisTimestamp(snapshot.analyzedAt);
-  }, [results, snapshot]);
-
   const handleScan = useCallback(async () => {
     if (!user || !unlocked || gapAnalysis.isPending) return;
 
-    hapticSuccess();
+    gapAnalysis.reset();
     setRefreshError(false);
     setIsAutorunPending(false);
 
@@ -110,13 +104,11 @@ export default function GarmentGapsPage() {
       setResults(nextResults);
       setAnalysisTimestamp(analyzedAt);
       saveGapSnapshot(user.id, { analyzedAt, results: nextResults });
+      hapticSuccess();
     } catch {
-      if (results) {
-        setRefreshError(true);
-        return;
-      }
+      setRefreshError(true);
     }
-  }, [gapAnalysis, locale, results, unlocked, user]);
+  }, [gapAnalysis, locale, unlocked, user]);
 
   useEffect(() => {
     if (!isAutorunPending || hasTriggeredAutorun.current || !user || !unlocked) return;

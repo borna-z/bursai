@@ -6,23 +6,14 @@ import { useGarmentCount } from '@/hooks/useGarments';
 import { useWardrobeGapAnalysis } from '@/hooks/useAdvancedFeatures';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWardrobeUnlocks } from '@/hooks/useWardrobeUnlocks';
-import { saveGapSnapshot } from '@/components/gaps/gapRouteState';
+import { saveGapSnapshot, openGapSearchUrl } from '@/components/gaps/gapRouteState';
+import type { GapResult } from '@/components/gaps/gapTypes';
 import { WardrobeProgress } from '@/components/discover/WardrobeProgress';
 import { StaleIndicator } from '@/components/ui/StaleIndicator';
 import { AILoadingOverlay } from '@/components/ui/AILoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { hapticSuccess } from '@/lib/haptics';
-
-interface GapResult {
-  item: string;
-  category: string;
-  color: string;
-  reason: string;
-  new_outfits: number;
-  price_range: string;
-  search_query: string;
-}
 
 function GapScanningAnimation({ t }: { t: (key: string) => string }) {
   return (
@@ -60,21 +51,18 @@ export function WardrobeGapSection() {
 
   const handleScan = async () => {
     if (!user || notEnough) return;
-    hapticSuccess();
     try {
       const data = await gapAnalysis.mutateAsync({ locale });
+      if (data?.error === 'minimum_garments') return;
       const nextResults = data?.gaps || [];
       const analyzedAt = new Date().toISOString();
       setResults(nextResults);
       setAnalysisTimestamp(analyzedAt);
       saveGapSnapshot(user.id, { analyzedAt, results: nextResults });
+      hapticSuccess();
     } catch {
       // error handled by mutation state
     }
-  };
-
-  const openGoogle = (query: string) => {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener');
   };
 
   return (
@@ -189,7 +177,7 @@ export function WardrobeGapSection() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => openGoogle(gap.search_query)}
+                    onClick={() => openGapSearchUrl(gap.search_query)}
                     className="h-8 text-[11px] gap-1.5"
                   >
                     <ExternalLink className="w-3 h-3" />

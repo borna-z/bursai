@@ -2787,6 +2787,18 @@ const sv: Record<string, string> = {
   'travel.locked_hint': 'Låses upp när din garderob har tillräckligt med plagg för en riktig packningsguide.',
   'capsule.edit_label': 'Redigera kapsel',
   'capsule.x_of_y': '{x} av {y}',
+  'gaps.preview_label': 'Garderobsluckor',
+  'gaps.preview_locked_title': 'Lås upp mer garderoben först',
+  'gaps.preview_locked_desc': 'Garderobsanalys blir användbar när garderoben har tillräckligt med plagg att jämföra. Lägg till några fler plagg och öppna sedan verktyget.',
+  'gaps.preview_current_wardrobe': 'Nuvarande garderob',
+  'gaps.preview_open_tool': 'Öppna verktyget',
+  'gaps.preview_ready_title': 'Kör den dedikerade skanningen',
+  'gaps.preview_ready_desc': 'Hela arbetsflödet för luckor bedömer saknade kategorier, färgriktning och viktiga tillägg, och sparar resultaten på den dedikerade sidan.',
+  'gaps.preview_best_addition': 'Bästa nästa köp:',
+  'gaps.preview_lift': 'Lyft',
+  'gaps.preview_direction': 'Riktning',
+  'gaps.preview_budget': 'Budget',
+  'gaps.preview_open_full': 'Öppna fullständig skanning',
 };
 
 export default sv;

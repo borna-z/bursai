@@ -47,6 +47,7 @@ export function GapResultsPanel({
     <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.35, ease: EASE_CURVE }}
       className="mt-5 border-t border-border/40 pt-5"
     >
@@ -72,7 +73,7 @@ export function GapResultsPanel({
       {rest.length > 0 ? (
         <div>
           {rest.map((gap, idx) => (
-            <GapSecondaryCard key={`${idx}-${gap.search_query}`} gap={gap} index={idx} />
+            <GapSecondaryCard key={gap.search_query || String(idx)} gap={gap} index={idx} />
           ))}
         </div>
       ) : null}

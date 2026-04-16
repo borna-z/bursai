@@ -7,18 +7,11 @@ import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import type { GapResult } from './gapTypes';
+import { openGapSearchUrl, cssColorFromName } from './gapRouteState';
 
 interface GapSecondaryCardProps {
   gap: GapResult;
   index: number;
-}
-
-function openGoogle(query: string) {
-  window.open(
-    `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-    '_blank',
-    'noopener',
-  );
 }
 
 export function GapSecondaryCard({ gap, index }: GapSecondaryCardProps) {
@@ -45,7 +38,7 @@ export function GapSecondaryCard({ gap, index }: GapSecondaryCardProps) {
 
       <div className="mt-2 flex items-center gap-2 text-[0.72rem] text-muted-foreground">
         <span className="rounded-full border border-border/40 bg-background/60 px-2.5 py-0.5">{gap.category}</span>
-        <span aria-hidden className="h-2 w-2 rounded-full border border-border/60" style={{ backgroundColor: gap.color }} />
+        <span aria-hidden className="h-2 w-2 rounded-full border border-border/60" style={{ backgroundColor: cssColorFromName(gap.color) }} />
         <span>{gap.color}</span>
         <span className="text-muted-foreground/50">·</span>
         <span>{gap.price_range}</span>
@@ -62,7 +55,7 @@ export function GapSecondaryCard({ gap, index }: GapSecondaryCardProps) {
             <ChevronDown className={cn('h-3 w-3 transition-transform', open ? 'rotate-180' : '')} />
           </button>
         ) : <span />}
-        <Button onClick={() => openGoogle(gap.search_query)} variant="outline" size="sm" className="rounded-full px-3.5">
+        <Button onClick={() => openGapSearchUrl(gap.search_query)} variant="outline" size="sm" className="rounded-full px-3.5">
           <ExternalLink className="mr-1 h-3.5 w-3.5" />
           {t('gaps.find_this') || 'Find this'}
         </Button>

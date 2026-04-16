@@ -1,0 +1,131 @@
+<h2>Section 1: Wardrobe Icon Options</h2>
+<p class="subtitle">Pick the icon that says "wardrobe" best — all iOS-native style</p>
+
+<div class="cards" style="grid-template-columns: 1fr 1fr 1fr;">
+
+  <!-- Option A: Hanger -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;padding:28px;background:#1C1917;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7l7.4 4.94A1.5 1.5 0 0119.58 14H4.42a1.5 1.5 0 01-.82-2.06L11 7V5.73A2 2 0 0112 2z"/>
+        <line x1="4" y1="14" x2="4" y2="19"/>
+        <line x1="20" y1="14" x2="20" y2="19"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>A · Hanger</h3>
+      <p>Classic wardrobe symbol. Immediately recognizable.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Closet doors -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;padding:28px;background:#1C1917;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <line x1="12" y1="3" x2="12" y2="21"/>
+        <circle cx="9" cy="12" r="0.75" fill="#f5f0e8"/>
+        <circle cx="15" cy="12" r="0.75" fill="#f5f0e8"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>B · Closet</h3>
+      <p>Double-door wardrobe. Clean, architectural, distinctive.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Hanger with garment silhouette -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="display:flex;align-items:center;justify-content:center;padding:28px;background:#1C1917;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a1.5 1.5 0 011.5 1.5c0 .56-.31 1.05-.77 1.3L12 5.5"/>
+        <path d="M12 5.5l8 4.5a1 1 0 01-.5 1.87H4.5A1 1 0 014 10L12 5.5z"/>
+        <path d="M6 11.87v7.63a1.5 1.5 0 001.5 1.5h9a1.5 1.5 0 001.5-1.5v-7.63"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>C · Hanger + Garment</h3>
+      <p>Hanger with a shirt/jacket shape beneath. Fashion-forward.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <div class="mockup">
+    <div class="mockup-header">Full nav preview with each option (left to right: A · B · C)</div>
+    <div class="mockup-body" style="background: #1C1917; padding: 0;">
+      <div style="display:flex;gap:2px;">
+
+        <!-- Nav with Hanger -->
+        <div style="flex:1;background:rgba(28,25,23,0.88);border-top:0.5px solid rgba(255,255,255,0.06);padding:6px 8px 20px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#f5f0e8" stroke="none"><path d="M12.707 2.293a1 1 0 00-1.414 0l-9 9A1 1 0 003 13h1v7a2 2 0 002 2h4v-5a1 1 0 011-1h2a1 1 0 011 1v5h4a2 2 0 002-2v-7h1a1 1 0 00.707-1.707l-9-9z"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Home</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7l7.4 4.94A1.5 1.5 0 0119.58 14H4.42a1.5 1.5 0 01-.82-2.06L11 7V5.73A2 2 0 0112 2z"/><line x1="4" y1="14" x2="4" y2="19"/><line x1="20" y1="14" x2="20" y2="19"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Wardrobe</span>
+          </div>
+          <div style="flex:1;display:flex;justify-content:center;padding-top:2px;"><div style="width:36px;height:30px;border-radius:10px;background:linear-gradient(180deg,#B07D3A,#96692F);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Plan</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H4a1 1 0 01-1-1V3"/><path d="M7 17l4-5 4 3 5-7"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Insights</span>
+          </div>
+        </div>
+
+        <!-- Nav with Closet -->
+        <div style="flex:1;background:rgba(28,25,23,0.88);border-top:0.5px solid rgba(255,255,255,0.06);padding:6px 8px 20px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#f5f0e8" stroke="none"><path d="M12.707 2.293a1 1 0 00-1.414 0l-9 9A1 1 0 003 13h1v7a2 2 0 002 2h4v-5a1 1 0 011-1h2a1 1 0 011 1v5h4a2 2 0 002-2v-7h1a1 1 0 00.707-1.707l-9-9z"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Home</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><circle cx="9" cy="12" r="0.75" fill="#f5f0e8"/><circle cx="15" cy="12" r="0.75" fill="#f5f0e8"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Wardrobe</span>
+          </div>
+          <div style="flex:1;display:flex;justify-content:center;padding-top:2px;"><div style="width:36px;height:30px;border-radius:10px;background:linear-gradient(180deg,#B07D3A,#96692F);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Plan</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H4a1 1 0 01-1-1V3"/><path d="M7 17l4-5 4 3 5-7"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Insights</span>
+          </div>
+        </div>
+
+        <!-- Nav with Hanger+Garment -->
+        <div style="flex:1;background:rgba(28,25,23,0.88);border-top:0.5px solid rgba(255,255,255,0.06);padding:6px 8px 20px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#f5f0e8" stroke="none"><path d="M12.707 2.293a1 1 0 00-1.414 0l-9 9A1 1 0 003 13h1v7a2 2 0 002 2h4v-5a1 1 0 011-1h2a1 1 0 011 1v5h4a2 2 0 002-2v-7h1a1 1 0 00.707-1.707l-9-9z"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Home</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a1.5 1.5 0 011.5 1.5c0 .56-.31 1.05-.77 1.3L12 5.5"/><path d="M12 5.5l8 4.5a1 1 0 01-.5 1.87H4.5A1 1 0 014 10L12 5.5z"/><path d="M6 11.87v7.63a1.5 1.5 0 001.5 1.5h9a1.5 1.5 0 001.5-1.5v-7.63"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Wardrobe</span>
+          </div>
+          <div style="flex:1;display:flex;justify-content:center;padding-top:2px;"><div style="width:36px;height:30px;border-radius:10px;background:linear-gradient(180deg,#B07D3A,#96692F);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Plan</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;padding-top:4px;opacity:0.42;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H4a1 1 0 01-1-1V3"/><path d="M7 17l4-5 4 3 5-7"/></svg>
+            <span style="font-size:9px;color:#f5f0e8;font-family:-apple-system,sans-serif;">Insights</span>
+          </div>
+        </div>
+
+      </div>
+      <div style="display:flex;justify-content:space-around;padding:8px 0 4px;opacity:0.5;">
+        <span style="font-size:11px;color:#f5f0e8;font-family:-apple-system,sans-serif;">A · Hanger</span>
+        <span style="font-size:11px;color:#f5f0e8;font-family:-apple-system,sans-serif;">B · Closet</span>
+        <span style="font-size:11px;color:#f5f0e8;font-family:-apple-system,sans-serif;">C · Hanger + Garment</span>
+      </div>
+    </div>
+  </div>
+</div>

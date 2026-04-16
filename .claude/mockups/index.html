@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BURS Travel Capsule — The Travel Edit</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: hsl(34 32% 95%);
+    --charcoal: hsl(24 13% 10%);
+    --gold: hsl(37 47% 46%);
+    --gold-light: hsl(37 47% 46% / 0.15);
+    --gold-faint: hsl(37 47% 46% / 0.08);
+    --muted: hsl(24 8% 55%);
+    --muted-light: hsl(24 8% 72%);
+    --border: hsl(31 29% 84% / 0.4);
+    --secondary: hsl(34 20% 90%);
+    --secondary-40: hsl(34 20% 90% / 0.4);
+    --card-surface: hsl(30 32% 98%);
+    --amber: hsl(38 92% 50% / 0.4);
+    --amber-bg: hsl(38 92% 50% / 0.05);
+    --radius: 1.125rem;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--charcoal);
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  .display { font-family: 'Playfair Display', serif; }
+  .label-editorial {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+  }
+
+  /* ──── Page shell ──── */
+  .page-shell { padding: 24px 20px 160px; }
+
+  /* ──── Section dividers ──── */
+  .divider {
+    border-top: 1px solid var(--border);
+    margin-top: 24px;
+    padding-top: 24px;
+  }
+
+  /* ──── HERO ──── */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .ghost-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--charcoal); padding: 8px;
+    border-radius: 12px; transition: background 0.15s;
+  }
+  .ghost-btn:hover { background: var(--secondary-40); }
+  .ghost-btn svg { width: 18px; height: 18px; }
+
+  .destination-title {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--charcoal);
+    margin-bottom: 8px;
+  }
+
+  .vibe-chip {
+    display: inline-block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    background: var(--secondary);
+    color: var(--muted);
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 10px;
+  }
+
+  .date-weather-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .date-weather-line .dot { opacity: 0.4; }
+  .weather-icon { font-size: 0.9rem; }
+
+  /* ──── Forecast strip ──── */
+  .forecast-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 12px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .forecast-strip::-webkit-scrollbar { display: none; }
+  .forecast-pill {
+    flex-shrink: 0;
+    background: var(--secondary-40);
+    border-radius: 14px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 56px;
+  }
+  .forecast-pill .day-abbr {
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+  .forecast-pill .weather-emoji { font-size: 0.85rem; margin: 5px 0 3px; display: block; }
+  .forecast-pill .temp {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+
+  /* ──── Stats line ──── */
+  .stats-line {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .stats-line span { color: var(--charcoal); font-weight: 500; }
+
+  /* ──── Partial results banner ──── */
+  .partial-banner {
+    border-left: 2px solid var(--amber);
+    padding: 8px 0 8px 12px;
+    margin-top: 16px;
+  }
+  .partial-banner .title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+  .partial-banner .sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* ──── Tab bar ──── */
+  .tab-bar {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 4px;
+  }
+  .tab-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding-bottom: 6px;
+    border-bottom: 2px solid transparent;
+    color: var(--muted-light);
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    color: var(--charcoal);
+    border-bottom-color: var(--gold);
+  }
+  .tab-btn:hover { color: var(--charcoal); }
+
+  /* ──── Tab content ──── */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ──── OUTFITS TAB ──── */
+  .day-section { margin-top: 32px; }
+  .day-section:first-child { margin-top: 16px; }
+  .day-header {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: var(--charcoal);
+  }
+  .day-meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 2px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .outfit-card {
+    background: var(--card-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .outfit-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .garment-thumb {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--secondary);
+    position: relative;
+  }
+  .garment-thumb img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .garment-thumb .placeholder-icon {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; opacity: 0.3;
+  }
+  .outfit-note {
+    font-family: 'DM Sans', sans-serif;
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .outfit-divider {
+    border-top: 1px solid hsl(31 29% 84% / 0.2);
+    margin: 12px 0;
+    padding-top: 12px;
+  }
+
+  /* ──── PACKING TAB ──── */
+  .progress-area { margin-top: 16px; }
+  .progress-bar-track {
+    height: 4px;
+    background: hsl(24 8% 55% / 0.15);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 100px;
+    width: 25%;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .progress-text {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .progress-text strong { color: var(--charcoal); font-weight: 500; }
+  .outfit-count-chip {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: var(--secondary);
+    color: var(--muted);
+    padding: 3px 10px;
+    border-radius: 100px;
+  }
+
+  .category-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 16px;
+  }
+  .category-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .category-name {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+  }
+  .category-meta {
+    font-size: 0.72rem;
+    color: var(--muted-light);
+  }
+
+  .garment-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    cursor: pointer;
+    border-radius: 14px;
+    transition: background 0.15s;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .garment-row:hover { background: hsl(34 20% 90% / 0.3); }
+
+  .check-circle {
+    width: 22px; height: 22px; flex-shrink: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted-light);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .check-circle.checked {
+    background: var(--gold);
+    border-color: var(--gold);
+  }
+  .check-circle.checked svg { color: white; }
+  .check-circle svg { width: 12px; height: 12px; display: none; }
+  .check-circle.checked svg { display: block; }
+
+  .garment-row-thumb {
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: 12px;
+    background: var(--secondary);
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+  }
+
+  .garment-row-text { min-width: 0; flex: 1; }
+  .garment-row-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--charcoal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .garment-row-title.struck {
+    color: var(--muted-light);
+    text-decoration: line-through;
+  }
+  .garment-row-meta {
+    font-size: 0.72rem;
+    color: hsl(24 8% 55% / 0.7);
+    margin-top: 1px;
+  }
+
+  /* ──── Tips section ──── */
+  .tips-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 24px;
+  }
+  .tips-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .tips-header svg { width: 13px; height: 13px; color: var(--muted); }
+  .tip-item {
+    display: flex;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: hsl(24 8% 55% / 0.7);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+  .tip-item .bullet { color: var(--gold); flex-shrink: 0; }
+
+  /* ──── Copy button ──── */
+  .btn-editorial {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    border: 1px solid var(--charcoal);
+    background: transparent;
+    color: var(--charcoal);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 20px;
+  }
+  .btn-editorial:hover { background: var(--charcoal); color: var(--cream); }
+
+  /* ──── Floating action bar ──── */
+  .action-bar {
+    position: fixed;
+    bottom: 12px;
+    left: 16px;
+    right: 16px;
+    max-width: 398px;
+    margin: 0 auto;
+    z-index: 50;
+  }
+  .action-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: hsl(30 32% 98% / 0.85);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--border);
+    border-radius: 1.6rem;
+  }
+  .btn-primary {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--charcoal);
+    color: var(--cream);
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    border-radius: 100px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary svg { width: 16px; height: 16px; }
+
+  .btn-ghost-text {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 8px 12px;
+    transition: color 0.15s;
+  }
+  .btn-ghost-text:hover { color: var(--charcoal); }
+
+  .btn-icon-outline {
+    width: 42px; height: 42px; flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s;
+  }
+  .btn-icon-outline:hover { border-color: var(--charcoal); }
+  .btn-icon-outline svg { width: 16px; height: 16px; color: var(--charcoal); }
+
+  /* ──── STEP 2 garment picker section ──── */
+  .step2-section {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 2px solid var(--border);
+  }
+  .step2-title {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+  }
+  .step2-sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .garment-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+    position: relative;
+  }
+  .garment-picker-grid::-webkit-scrollbar { width: 3px; }
+  .garment-picker-grid::-webkit-scrollbar-track { background: transparent; }
+  .garment-picker-grid::-webkit-scrollbar-thumb { background: var(--muted-light); border-radius: 100px; }
+  .scroll-fade-wrapper {
+    position: relative;
+  }
+  .scroll-fade-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(to bottom, transparent, var(--cream));
+    pointer-events: none;
+    border-radius: 0 0 12px 12px;
+  }
+  .picker-thumb {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--secondary);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .picker-thumb:hover { border-color: var(--muted-light); }
+  .picker-thumb.selected { border-color: var(--gold); box-shadow: 0 0 0 2px hsl(37 47% 46% / 0.3); }
+  .picker-thumb .check-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 20px; height: 20px;
+    background: var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+  }
+  .picker-thumb .emoji-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; opacity: 0.35;
+  }
+
+  /* ──── Section labels ──── */
+  .section-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    margin-bottom: 20px;
+    margin-top: 40px;
+    text-align: center;
+    position: relative;
+  }
+  .section-label::before, .section-label::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 60px;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-label::before { right: calc(50% + 60px); }
+  .section-label::after { left: calc(50% + 60px); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION LABEL: Results View                        -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="section-label" style="margin-top:20px;">Results View — The Travel Edit</div>
+
+<div class="page-shell">
+
+  <!-- ══ HERO ══ -->
+  <div class="nav-row">
+    <button class="ghost-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+    </button>
+    <button class="ghost-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+    </button>
+  </div>
+
+  <h1 class="destination-title">Barcelona</h1>
+  <div class="vibe-chip">Casual chic</div>
+
+  <div class="date-weather-line">
+    <span>Jun 12–18</span>
+    <span class="dot">·</span>
+    <span class="weather-icon">☀️</span>
+    <span>22–28°C</span>
+    <span class="dot">·</span>
+    <span>Mostly sunny</span>
+  </div>
+
+  <!-- Forecast strip -->
+  <div class="forecast-strip">
+    <div class="forecast-pill">
+      <div class="day-abbr">Thu</div>
+      <div class="weather-emoji">☀️</div>
+      <div class="temp">26°</div>
+    </div>
+    <div class="forecast-pill">
+      <div class="day-abbr">Fri</div>
+      <div class="weather-emoji">⛅</div>
+      <div class="temp">24°</div>
+    </div>
+    <div class="forecast-pill">
+      <div class="day-abbr">Sat</div>
+      <div class="weather-emoji">☀️</div>
+      <div class="temp">28°</div>
+    </div>
+    <div class="forecast-pill">
+      <div class="day-abbr">Sun</div>
+      <div class="weather-emoji">☀️</div>
+      <div class="temp">27°</div>
+    </div>
+    <div class="forecast-pill">
+      <div class="day-abbr">Mon</div>
+      <div class="weather-emoji">🌤️</div>
+      <div class="temp">25°</div>
+    </div>
+    <div class="forecast-pill">
+      <div class="day-abbr">Tue</div>
+      <div class="weather-emoji">⛅</div>
+      <div class="temp">23°</div>
+    </div>
+    <div class="forecast-pill">
+      <div class="day-abbr">Wed</div>
+      <div class="weather-emoji">☀️</div>
+      <div class="temp">26°</div>
+    </div>
+  </div>
+
+  <!-- Stats line -->
+  <div class="stats-line">
+    <span>12</span> pieces · <span>5</span> looks · <span>3</span>/12 packed
+  </div>
+
+  <!-- Partial results banner (only shows when coverage gaps exist) -->
+  <div class="partial-banner">
+    <div class="title">Built 3 looks — add more to complete your capsule</div>
+    <div class="sub">Consider adding a light jacket and comfortable walking shoes</div>
+  </div>
+
+  <!-- ══ DIVIDER + TABS ══ -->
+  <div class="divider">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('outfits')">Outfits</button>
+      <button class="tab-btn" onclick="switchTab('packing')">Packing</button>
+    </div>
+  </div>
+
+  <!-- ══ OUTFITS TAB ══ -->
+  <div class="tab-content active" id="tab-outfits">
+
+    <!-- Day 1 -->
+    <div class="day-section">
+      <div class="day-header">Day 1</div>
+      <div class="day-meta">
+        <span>Thu Jun 12</span>
+        <span style="opacity:0.4">·</span>
+        <span>☀️ 26°C</span>
+      </div>
+
+      <div class="outfit-card">
+        <div class="outfit-grid">
+          <div class="garment-thumb"><div class="placeholder-icon">👕</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">👖</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">👟</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">🕶️</div></div>
+        </div>
+        <div class="outfit-note">Breezy linen shirt with your navy chinos — perfect for exploring the Gothic Quarter. White sneakers keep it comfortable for walking.</div>
+      </div>
+    </div>
+
+    <!-- Day 2 -->
+    <div class="day-section">
+      <div class="day-header">Day 2</div>
+      <div class="day-meta">
+        <span>Fri Jun 13</span>
+        <span style="opacity:0.4">·</span>
+        <span>⛅ 24°C</span>
+      </div>
+
+      <div class="outfit-card">
+        <div class="outfit-grid">
+          <div class="garment-thumb"><div class="placeholder-icon">👔</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">👖</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">👞</div></div>
+        </div>
+        <div class="outfit-note">Your cream polo with olive chinos and loafers — relaxed Mediterranean elegance for a seaside lunch.</div>
+      </div>
+
+      <div class="outfit-divider"></div>
+
+      <div class="outfit-card" style="border-color: transparent; background: transparent; padding: 0;">
+        <div class="outfit-grid">
+          <div class="garment-thumb"><div class="placeholder-icon">🥻</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">👠</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">👜</div></div>
+        </div>
+        <div class="outfit-note">Evening transition — swap to the black dress with heeled sandals for dinner at the port.</div>
+      </div>
+    </div>
+
+    <!-- Day 3 -->
+    <div class="day-section">
+      <div class="day-header">Day 3</div>
+      <div class="day-meta">
+        <span>Sat Jun 14</span>
+        <span style="opacity:0.4">·</span>
+        <span>☀️ 28°C</span>
+      </div>
+
+      <div class="outfit-card">
+        <div class="outfit-grid">
+          <div class="garment-thumb"><div class="placeholder-icon">👕</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">🩳</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">🩴</div></div>
+          <div class="garment-thumb"><div class="placeholder-icon">🧢</div></div>
+        </div>
+        <div class="outfit-note">Beach day — lightweight tee with linen shorts. Your straw hat pulls it together for Barceloneta.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PACKING TAB ══ -->
+  <div class="tab-content" id="tab-packing">
+
+    <div class="progress-area">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" style="width: 25%;"></div>
+      </div>
+      <div class="progress-meta">
+        <div class="progress-text"><strong>3</strong> of 12 packed</div>
+        <div class="outfit-count-chip">5 outfits</div>
+      </div>
+    </div>
+
+    <!-- Category: Tops -->
+    <div class="category-section">
+      <div class="category-header">
+        <span class="category-name">Tops</span>
+        <span class="category-meta">· 4 pieces · used in 6 outfits</span>
+      </div>
+
+      <div class="garment-row" onclick="toggleCheck(this)">
+        <div class="check-circle checked">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👕</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title struck">White Linen Shirt</div>
+          <div class="garment-row-meta">Used in 3 outfits</div>
+        </div>
+      </div>
+
+      <div class="garment-row" onclick="toggleCheck(this)">
+        <div class="check-circle checked">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👔</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title struck">Cream Polo</div>
+          <div class="garment-row-meta">Used in 2 outfits</div>
+        </div>
+      </div>
+
+      <div class="garment-row" onclick="toggleCheck(this)">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👕</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">Navy Cotton Tee</div>
+          <div class="garment-row-meta">Used in 1 outfit</div>
+        </div>
+      </div>
+
+      <div class="garment-row" onclick="toggleCheck(this)">
+        <div class="check-circle checked">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">🥻</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title struck">Black Wrap Dress</div>
+          <div class="garment-row-meta">Used in 1 outfit</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category: Bottoms -->
+    <div class="category-section">
+      <div class="category-header">
+        <span class="category-name">Bottoms</span>
+        <span class="category-meta">· 3 pieces · used in 4 outfits</span>
+      </div>
+
+      <div class="garment-row">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👖</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">Navy Chinos</div>
+          <div class="garment-row-meta">Used in 2 outfits</div>
+        </div>
+      </div>
+
+      <div class="garment-row">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👖</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">Olive Chinos</div>
+          <div class="garment-row-meta">Used in 1 outfit</div>
+        </div>
+      </div>
+
+      <div class="garment-row">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">🩳</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">Linen Shorts</div>
+          <div class="garment-row-meta">Used in 1 outfit</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category: Shoes -->
+    <div class="category-section">
+      <div class="category-header">
+        <span class="category-name">Shoes</span>
+        <span class="category-meta">· 3 pieces · used in 5 outfits</span>
+      </div>
+
+      <div class="garment-row">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👟</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">White Sneakers</div>
+          <div class="garment-row-meta">Used in 2 outfits</div>
+        </div>
+      </div>
+
+      <div class="garment-row">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">👞</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">Tan Loafers</div>
+          <div class="garment-row-meta">Used in 2 outfits</div>
+        </div>
+      </div>
+
+      <div class="garment-row">
+        <div class="check-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="garment-row-thumb">🩴</div>
+        <div class="garment-row-text">
+          <div class="garment-row-title">Leather Sandals</div>
+          <div class="garment-row-meta">Used in 1 outfit</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="tips-section">
+      <div class="tips-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+        <span class="label-editorial">Packing tips</span>
+      </div>
+      <div class="tip-item"><span class="bullet">·</span> Roll your linen shirt to save space and reduce wrinkles</div>
+      <div class="tip-item"><span class="bullet">·</span> Pack the white sneakers in a dust bag to keep clothes clean</div>
+      <div class="tip-item"><span class="bullet">·</span> Layer the polo under a light jacket for cooler evenings</div>
+    </div>
+
+    <button class="btn-editorial">Copy packing list</button>
+  </div>
+
+</div>
+
+<!-- ══ FLOATING ACTION BAR ══ -->
+<div class="action-bar">
+  <div class="action-bar-inner">
+    <button class="btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M12 14v4"/><path d="M10 16h4"/></svg>
+      Add to plan
+    </button>
+    <button class="btn-ghost-text">Start over</button>
+    <button class="btn-icon-outline">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION: Step 2 Garment Picker Fix                 -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div style="max-width:430px; margin:0 auto; padding: 0 20px 80px;">
+  <div class="step2-section">
+    <div class="section-label" style="margin-top:0;">Step 2 — Garment Picker Fix</div>
+    <div class="step2-title">Must-have items</div>
+    <div class="step2-sub">Select garments you definitely want to bring · All garments visible with scroll</div>
+
+    <div class="scroll-fade-wrapper">
+      <div class="garment-picker-grid">
+        <!-- Row 1 -->
+        <div class="picker-thumb selected"><div class="check-badge">✓</div><div class="emoji-placeholder">👕</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👔</div></div>
+        <div class="picker-thumb selected"><div class="check-badge">✓</div><div class="emoji-placeholder">👖</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👗</div></div>
+        <!-- Row 2 -->
+        <div class="picker-thumb"><div class="emoji-placeholder">🧥</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👟</div></div>
+        <div class="picker-thumb selected"><div class="check-badge">✓</div><div class="emoji-placeholder">👞</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👜</div></div>
+        <!-- Row 3 -->
+        <div class="picker-thumb"><div class="emoji-placeholder">🧢</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">🕶️</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👕</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👖</div></div>
+        <!-- Row 4 -->
+        <div class="picker-thumb"><div class="emoji-placeholder">🩳</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👔</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">🥻</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👠</div></div>
+        <!-- Row 5 (scrollable beyond) -->
+        <div class="picker-thumb"><div class="emoji-placeholder">🧣</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">🩴</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👕</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👖</div></div>
+        <!-- Row 6 -->
+        <div class="picker-thumb"><div class="emoji-placeholder">🧥</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👗</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">👟</div></div>
+        <div class="picker-thumb"><div class="emoji-placeholder">🧢</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  if (tab === 'outfits') {
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    document.getElementById('tab-outfits').classList.add('active');
+  } else {
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    document.getElementById('tab-packing').classList.add('active');
+  }
+}
+
+function toggleCheck(row) {
+  const circle = row.querySelector('.check-circle');
+  const title = row.querySelector('.garment-row-title');
+  circle.classList.toggle('checked');
+  title.classList.toggle('struck');
+}
+</script>
+</body>
+</html>

@@ -3167,6 +3167,18 @@ const en: Record<string, string> = {
   'travel.locked_hint': 'Unlocks once your wardrobe has enough pieces to build a real packing edit.',
   'capsule.edit_label': 'Edit capsule',
   'capsule.x_of_y': '{x} of {y}',
+  'gaps.preview_label': 'Gap analysis',
+  'gaps.preview_locked_title': 'Unlock more wardrobe depth first',
+  'gaps.preview_locked_desc': 'Gap analysis becomes useful once the wardrobe has enough pieces to compare. Add a few more garments, then open the full gaps tool.',
+  'gaps.preview_current_wardrobe': 'Current wardrobe',
+  'gaps.preview_open_tool': 'Open gaps tool',
+  'gaps.preview_ready_title': 'Run the dedicated gaps scan',
+  'gaps.preview_ready_desc': 'The full gaps workflow scores missing categories, color direction, and high-impact additions, then keeps the scan results available on the dedicated page.',
+  'gaps.preview_best_addition': 'Best next addition:',
+  'gaps.preview_lift': 'Lift',
+  'gaps.preview_direction': 'Direction',
+  'gaps.preview_budget': 'Budget',
+  'gaps.preview_open_full': 'Open full scan',
 };
 
 export default en;

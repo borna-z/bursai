@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr create --title 'Prompt 11: Purge localStorage from outfit generation flow \\(E6\\)' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 12: Replace hardcoded accent colors with tokens \\(E3 + E7\\)' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 13: Wrap OutfitDetail in AppLayout \\(E5\\)' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 14: GarmentDetail hero full-bleed + overlay header \\(E8\\)' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 15: Standardize page wrapper px padding to var\\(--page-px\\) \\(E2\\)' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 16: i18n drift sweep \\(E1\\)' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 17: Fix AIChat + MoodOutfit header visibility bugs' --body ':*)",
+      "Bash(gh pr create --title 'Prompt 18: Hoist Insights PageHeader out of AnimatedPage \\(unfreeze\\)' --body ':*)",
+      "Bash(gh pr:*)",
+      "Bash(curl -sI https://burs.me/ai/chat)",
+      "Bash(curl -sI https://burs.me/)",
+      "Bash(curl -sI https://app.burs.me/)",
+      "Bash(curl -sI https://app.burs.me/ai/chat)"
+    ]
+  }
+}

@@ -1,0 +1,139 @@
+<h2>Section 6: Dark Mode Polish & Light Mode Contrast</h2>
+<p class="subtitle">Modernize dark mode, fix visibility issues in light mode</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Dark Mode — Before</div>
+    <div class="mockup-body" style="background:#1C1917;padding:20px;">
+      <div style="font-size:11px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Settings</div>
+
+      <!-- Dated-looking settings items -->
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:20px;height:20px;background:rgba(255,255,255,0.3);border-radius:4px;"></div>
+          </div>
+          <span style="font-size:13px;color:#f5f0e8;">Account</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:20px;height:20px;background:rgba(255,255,255,0.3);border-radius:4px;"></div>
+          </div>
+          <span style="font-size:13px;color:#f5f0e8;">Notifications</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <div style="width:20px;height:20px;background:rgba(255,255,255,0.3);border-radius:4px;"></div>
+          </div>
+          <span style="font-size:13px;color:#f5f0e8;">Appearance</span>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:8px;background:rgba(255,59,48,0.1);border:1px dashed rgba(255,59,48,0.3);border-radius:8px;">
+        <span style="font-size:10px;color:rgba(255,59,48,0.8);font-family:-apple-system,sans-serif;">Heavy borders, boxy icon containers, low-contrast placeholders — feels 2010</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Dark Mode — After</div>
+    <div class="mockup-body" style="background:#1C1917;padding:20px;">
+      <div style="font-size:11px;color:#f5f0e8;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Settings</div>
+
+      <!-- Modern iOS-style grouped list -->
+      <div style="background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06);border-radius:14px;overflow:hidden;">
+        <div style="padding:13px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid rgba(255,255,255,0.04);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><circle cx="12" cy="8" r="4"/><path d="M5 20c0-4 3.5-7 7-7s7 3 7 7"/></svg>
+          <span style="font-size:14px;color:#f5f0e8;font-family:'DM Sans',sans-serif;flex:1;">Account</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" opacity="0.2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div style="padding:13px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid rgba(255,255,255,0.04);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span style="font-size:14px;color:#f5f0e8;font-family:'DM Sans',sans-serif;flex:1;">Notifications</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" opacity="0.2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div style="padding:13px 16px;display:flex;align-items:center;gap:12px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/></svg>
+          <span style="font-size:14px;color:#f5f0e8;font-family:'DM Sans',sans-serif;flex:1;">Appearance</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f5f0e8" stroke-width="1.5" stroke-linecap="round" opacity="0.2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:8px;background:rgba(52,199,89,0.08);border:1px dashed rgba(52,199,89,0.2);border-radius:8px;">
+        <span style="font-size:10px;color:rgba(52,199,89,0.8);font-family:-apple-system,sans-serif;">Inline SVG icons, hairline separators, iOS grouped list pattern, no icon containers</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="split" style="margin-top:16px;">
+  <div class="mockup">
+    <div class="mockup-header">Light Mode — Broken contrast</div>
+    <div class="mockup-body" style="background:#F5F0E8;padding:20px;">
+      <div style="font-size:11px;color:#1C1917;opacity:0.3;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Insights</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+        <div style="background:rgba(0,0,0,0.02);border:0.5px solid rgba(0,0,0,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="font-size:26px;color:rgba(0,0,0,0.08);font-family:'DM Sans',sans-serif;font-weight:600;">47</div>
+          <div style="font-size:9px;color:rgba(0,0,0,0.08);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Garments</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.02);border:0.5px solid rgba(0,0,0,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="font-size:26px;color:rgba(0,0,0,0.08);font-family:'DM Sans',sans-serif;font-weight:600;">12</div>
+          <div style="font-size:9px;color:rgba(0,0,0,0.08);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Outfits</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.02);border:0.5px solid rgba(0,0,0,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="font-size:26px;color:rgba(0,0,0,0.08);font-family:'DM Sans',sans-serif;font-weight:600;">89</div>
+          <div style="font-size:9px;color:rgba(0,0,0,0.08);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Wears</div>
+        </div>
+      </div>
+
+      <div style="padding:8px;background:rgba(255,59,48,0.08);border:1px dashed rgba(255,59,48,0.3);border-radius:8px;">
+        <span style="font-size:10px;color:rgba(255,59,48,0.8);font-family:-apple-system,sans-serif;">Numbers and labels nearly invisible — wrong opacity / color token</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Light Mode — Fixed contrast</div>
+    <div class="mockup-body" style="background:#F5F0E8;padding:20px;">
+      <div style="font-size:11px;color:#1C1917;opacity:0.4;font-family:-apple-system,sans-serif;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;">Insights</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+        <div style="background:rgba(255,255,255,0.7);border:0.5px solid rgba(0,0,0,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="font-size:26px;color:#1C1917;font-family:'DM Sans',sans-serif;font-weight:600;">47</div>
+          <div style="font-size:9px;color:#1C1917;opacity:0.4;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Garments</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.7);border:0.5px solid rgba(0,0,0,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="font-size:26px;color:#1C1917;font-family:'DM Sans',sans-serif;font-weight:600;">12</div>
+          <div style="font-size:9px;color:#1C1917;opacity:0.4;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Outfits</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.7);border:0.5px solid rgba(0,0,0,0.06);border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="font-size:26px;color:#1C1917;font-family:'DM Sans',sans-serif;font-weight:600;">89</div>
+          <div style="font-size:9px;color:#1C1917;opacity:0.4;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Wears</div>
+        </div>
+      </div>
+
+      <div style="padding:8px;background:rgba(52,199,89,0.06);border:1px dashed rgba(52,199,89,0.2);border-radius:8px;">
+        <span style="font-size:10px;color:rgba(52,199,89,0.8);font-family:-apple-system,sans-serif;">Proper foreground color, white card surfaces, correct opacity hierarchy</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>What gets fixed</h3>
+  <div style="display: grid; gap: 10px;">
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Dark mode settings</strong> — Replace boxy icon containers with inline SVG icons. iOS-style grouped list with hairline separators. No heavy borders.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Light mode contrast</strong> — All text uses <code>var(--foreground)</code> not hardcoded rgba. Card surfaces get opaque white backgrounds so numbers are always readable.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Consistent token usage</strong> — Audit all components for hardcoded colors. Everything must reference CSS custom properties so light/dark switching works automatically.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Full dark mode review</strong> — Every page checked for dated styling, heavy borders, low-contrast elements, or cold/blue tones that don't match the warm charcoal brand.
+    </div>
+  </div>
+</div>

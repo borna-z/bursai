@@ -1,0 +1,106 @@
+<h2>Section 2: Safe Areas & Headers</h2>
+<p class="subtitle">Fix Dynamic Island overlap, status bar collision, and edge spacing on all pages</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Current — Broken</div>
+    <div class="mockup-body" style="background:#1C1917;padding:0;border-radius:24px;overflow:hidden;position:relative;min-height:420px;">
+      <!-- iPhone frame indicators -->
+      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#000;border-radius:0 0 20px 20px;z-index:10;"></div>
+
+      <!-- Header crashing into dynamic island -->
+      <div style="padding:8px 12px;background:rgba(28,25,23,0.95);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;color:#f5f0e8;">BURS</span>
+        <div style="display:flex;gap:8px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+          <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+        </div>
+      </div>
+
+      <!-- Content too close to edges -->
+      <div style="padding:4px 8px;">
+        <div style="font-size:11px;color:#f5f0e8;opacity:0.5;margin-bottom:2px;">Saturday, April 12</div>
+        <div style="font-size:20px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:600;">Good morning</div>
+        <div style="margin-top:12px;background:rgba(255,255,255,0.05);border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.08);">
+          <div style="font-size:12px;color:#f5f0e8;opacity:0.6;">Today's Look</div>
+          <div style="height:80px;background:rgba(255,255,255,0.03);border-radius:8px;margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- Red danger zones -->
+      <div style="position:absolute;top:0;left:0;right:0;height:34px;background:rgba(255,59,48,0.2);border-bottom:1px dashed rgba(255,59,48,0.5);z-index:5;"></div>
+      <div style="position:absolute;top:34px;left:0;right:0;height:14px;background:rgba(255,149,0,0.15);border-bottom:1px dashed rgba(255,149,0,0.4);z-index:5;"></div>
+      <div style="position:absolute;top:0;left:0;width:8px;bottom:0;background:rgba(255,59,48,0.1);border-right:1px dashed rgba(255,59,48,0.3);z-index:5;"></div>
+      <div style="position:absolute;top:0;right:0;width:8px;bottom:0;background:rgba(255,59,48,0.1);border-left:1px dashed rgba(255,59,48,0.3);z-index:5;"></div>
+
+      <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(255,59,48,0.9);padding:2px 8px;border-radius:4px;">
+        <span style="font-size:9px;color:white;font-family:-apple-system,sans-serif;">HIDDEN BEHIND ISLAND</span>
+      </div>
+      <div style="position:absolute;top:40px;right:12px;z-index:20;background:rgba(255,149,0,0.9);padding:2px 8px;border-radius:4px;">
+        <span style="font-size:9px;color:white;font-family:-apple-system,sans-serif;">TOO CLOSE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Fixed — Proper Safe Areas</div>
+    <div class="mockup-body" style="background:#1C1917;padding:0;border-radius:24px;overflow:hidden;position:relative;min-height:420px;">
+      <!-- iPhone frame indicators -->
+      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#000;border-radius:0 0 20px 20px;z-index:10;"></div>
+
+      <!-- Proper spacing: status bar clear zone -->
+      <div style="height:54px;"></div>
+
+      <!-- Header with breathing room -->
+      <div style="padding:0 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;color:#f5f0e8;">BURS</span>
+          <div style="display:flex;gap:10px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+            <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content with proper edge padding -->
+      <div style="padding:12px 20px;">
+        <div style="font-size:11px;color:#f5f0e8;opacity:0.5;margin-bottom:2px;">Saturday, April 12</div>
+        <div style="font-size:20px;color:#f5f0e8;font-family:'DM Sans',sans-serif;font-weight:600;">Good morning</div>
+        <div style="margin-top:14px;background:rgba(255,255,255,0.05);border-radius:14px;padding:14px;border:1px solid rgba(255,255,255,0.06);">
+          <div style="font-size:12px;color:#f5f0e8;opacity:0.6;">Today's Look</div>
+          <div style="height:80px;background:rgba(255,255,255,0.03);border-radius:10px;margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- Green safe zones -->
+      <div style="position:absolute;top:0;left:0;right:0;height:54px;background:rgba(52,199,89,0.08);border-bottom:1px dashed rgba(52,199,89,0.3);z-index:5;"></div>
+      <div style="position:absolute;top:0;left:0;width:20px;bottom:0;background:rgba(52,199,89,0.05);border-right:1px dashed rgba(52,199,89,0.2);z-index:5;"></div>
+      <div style="position:absolute;top:0;right:0;width:20px;bottom:0;background:rgba(52,199,89,0.05);border-left:1px dashed rgba(52,199,89,0.2);z-index:5;"></div>
+
+      <div style="position:absolute;top:24px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(52,199,89,0.9);padding:2px 8px;border-radius:4px;">
+        <span style="font-size:9px;color:white;font-family:-apple-system,sans-serif;">CLEAR OF ISLAND</span>
+      </div>
+      <div style="position:absolute;top:64px;right:24px;z-index:20;background:rgba(52,199,89,0.9);padding:2px 8px;border-radius:4px;">
+        <span style="font-size:9px;color:white;font-family:-apple-system,sans-serif;">20px INSET</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>The fix — applied globally</h3>
+  <div style="display: grid; gap: 10px;">
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Top safe area</strong> — Use <code>env(safe-area-inset-top)</code> + 12px breathing room for all page headers. Clears Dynamic Island on iPhone 14/15/16 Pro.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Horizontal padding: 20px minimum</strong> — All content gets consistent 20px side insets. No more elements hugging screen edges.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Standardized header component</strong> — Create a shared <code>PageHeader</code> component that every page uses, so safe areas are never forgotten.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px;">
+      <strong>Bottom safe area</strong> — Already handled by AppLayout's <code>--app-bottom-clearance</code>. Will verify it works correctly with the new compact nav.
+    </div>
+  </div>
+</div>
