@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
-import { Check, LightbulbIcon, Shirt } from 'lucide-react';
+import { Check, LightbulbIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { LazyImageSimple } from '@/components/ui/lazy-image';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
+import { hapticLight } from '@/lib/haptics';
 import { EASE_CURVE, STAGGER_DELAY } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -46,21 +46,10 @@ export function CapsuleSummary({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -10 }}
       transition={{ duration: 0.25, ease: EASE_CURVE }}
-      className="space-y-4 pt-3"
     >
-      <Card className="space-y-4 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="label-editorial">Packing Progress</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {packedCount} of {totalItems} packed
-            </p>
-          </div>
-          <span className="eyebrow-chip !bg-secondary/70">
-            {result.outfits.length} outfits
-          </span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted/30">
+      {/* ── Progress indicator ── */}
+      <div className="mt-4">
+        <div className="h-1 overflow-hidden rounded-full bg-muted/20">
           <motion.div
             className="h-full rounded-full bg-accent"
             initial={{ width: 0 }}
@@ -68,8 +57,17 @@ export function CapsuleSummary({
             transition={{ duration: 0.4, ease: EASE_CURVE }}
           />
         </div>
-      </Card>
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{packedCount}</span> of {totalItems} packed
+          </p>
+          <span className="eyebrow-chip !bg-secondary/70">
+            {result.outfits.length} outfits
+          </span>
+        </div>
+      </div>
 
+      {/* ── Category sections ── */}
       {Object.entries(groupedItems).map(([category, items], categoryIndex) => {
         const categoryOutfitUses = (items || []).reduce(
           (sum, garment) => sum + (itemOutfitCount.get(garment.id) || 0),
@@ -82,83 +80,93 @@ export function CapsuleSummary({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: categoryIndex * STAGGER_DELAY, duration: 0.35 }}
+            className="mt-4 border-t border-border/40 pt-4"
           >
-            <Card className="space-y-3 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="label-editorial">{category}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {(items || []).length} pieces, {t('capsule.used_in').toLowerCase()} {categoryOutfitUses} {t('capsule.outfits_label')}
-                  </p>
-                </div>
-                <span className="eyebrow-chip !bg-secondary/70">{(items || []).length}</span>
-              </div>
+            {/* Category header */}
+            <div className="mb-3 flex items-baseline gap-2">
+              <span className="label-editorial">{category}</span>
+              <span className="text-xs text-muted-foreground/70">
+                · {(items || []).length} pieces · {t('capsule.used_in').toLowerCase()} {categoryOutfitUses} {t('capsule.outfits_label')}
+              </span>
+            </div>
 
-              <div className="space-y-2">
-                {(items || []).map((garment) => (
-                  <button
-                    key={garment.id}
-                    onClick={() => toggleChecked(garment.id)}
+            {/* Garment rows */}
+            {(items || []).map((garment) => (
+              <button
+                key={garment.id}
+                onClick={() => {
+                  hapticLight();
+                  toggleChecked(garment.id);
+                }}
+                className="flex w-full items-center gap-3 rounded-xl py-2.5 px-1 text-left transition-colors hover:bg-secondary/30"
+              >
+                {/* Circle checkbox */}
+                <div
+                  className={cn(
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all',
+                    checkedItems.has(garment.id)
+                      ? 'border-accent bg-accent'
+                      : 'border-muted-foreground/30',
+                  )}
+                >
+                  {checkedItems.has(garment.id) ? (
+                    <Check className="h-3 w-3 text-accent-foreground" />
+                  ) : null}
+                </div>
+
+                {/* Thumbnail */}
+                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[1rem] bg-muted/30">
+                  <LazyImageSimple
+                    imagePath={getPreferredGarmentImagePath(garment)}
+                    alt={garment.title}
+                    className="h-full w-full"
+                  />
+                </div>
+
+                {/* Text */}
+                <div className="min-w-0 flex-1">
+                  <span
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-[1.35rem] border p-3 text-left transition-all',
+                      'block truncate text-[0.85rem] font-medium',
                       checkedItems.has(garment.id)
-                        ? 'border-accent/25 bg-accent/5'
-                        : 'hover:bg-secondary/60',
+                        ? 'text-muted-foreground line-through'
+                        : 'text-foreground',
                     )}
                   >
-                    <div
-                      className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all',
-                        checkedItems.has(garment.id)
-                          ? 'border-accent bg-accent'
-                          : 'border-border/50',
-                      )}
-                    >
-                      {checkedItems.has(garment.id) ? (
-                        <Check className="h-3 w-3 text-accent-foreground" />
-                      ) : null}
-                    </div>
-
-                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[1rem] bg-muted/30">
-                      <LazyImageSimple
-                        imagePath={getPreferredGarmentImagePath(garment)}
-                        alt={garment.title}
-                        className="h-full w-full"
-                      />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className={cn(
-                          'block truncate text-[0.85rem] font-medium',
-                          checkedItems.has(garment.id)
-                            ? 'text-muted-foreground line-through'
-                            : 'text-foreground',
-                        )}
-                      >
-                        {garment.title}
-                      </span>
-                      <span className="text-[0.72rem] text-muted-foreground/70">
-                        {t('capsule.used_in')} {itemOutfitCount.get(garment.id) || 0} {t('capsule.outfits_label')}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </Card>
+                    {garment.title}
+                  </span>
+                  <span className="text-[0.72rem] text-muted-foreground/70">
+                    {t('capsule.used_in')} {itemOutfitCount.get(garment.id) || 0} {t('capsule.outfits_label')}
+                  </span>
+                </div>
+              </button>
+            ))}
           </motion.div>
         );
       })}
 
-      <Card className="flex items-center justify-center gap-2 px-4 py-3">
-        <Shirt className="h-3.5 w-3.5 text-muted-foreground/40" />
-        <span className="text-xs text-muted-foreground/60">
-          {totalItems} {t('capsule.items')} • {t('capsule.creates')} {result.outfits.length} {t('capsule.unique_outfits')}
-        </span>
-      </Card>
+      {/* ── Packing tips ── */}
+      {result.packing_tips.length > 0 ? (
+        <div className="mt-6 border-t border-border/40 pt-4">
+          <div className="mb-2.5 flex items-center gap-1.5">
+            <LightbulbIcon className="h-3 w-3 text-muted-foreground" />
+            <span className="label-editorial">{t('capsule.tips')}</span>
+          </div>
+          <ul className="space-y-1.5">
+            {result.packing_tips.map((tip, index) => (
+              <li key={index} className="flex gap-2 text-xs text-muted-foreground/70">
+                <span className="shrink-0 text-accent">·</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
+      {/* ── Copy packing list button ── */}
       <Button
         onClick={() => {
+          hapticLight();
           const garmentTitles = capsuleItemIds
             .map((id) => garmentMap.get(id) ?? allGarmentsMap.get(id))
             .filter(Boolean)
@@ -169,41 +177,10 @@ export function CapsuleSummary({
           toast.success('Packing list copied');
         }}
         variant="editorial"
-        className="w-full"
+        className="mt-5 w-full"
       >
         Copy packing list
       </Button>
-
-      {(result.coverage_gaps?.length || 0) > 0 ? (
-        <Card className="space-y-3 p-4">
-          <h3 className="label-editorial">Coverage Gaps</h3>
-          <ul className="space-y-1.5">
-            {result.coverage_gaps?.map((gap) => (
-              <li key={`${gap.code}-${gap.message}`} className="flex gap-2 text-xs text-muted-foreground/70">
-                <span className="shrink-0 text-primary">•</span>
-                {gap.message}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
-      {result.packing_tips.length > 0 ? (
-        <Card className="space-y-3 p-4">
-          <h3 className="label-editorial flex items-center gap-1.5">
-            <LightbulbIcon className="h-3 w-3" />
-            {t('capsule.tips')}
-          </h3>
-          <ul className="space-y-1.5">
-            {result.packing_tips.map((tip, index) => (
-              <li key={index} className="flex gap-2 text-xs text-muted-foreground/70">
-                <span className="shrink-0 text-primary">•</span>
-                {tip}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
     </motion.div>
   );
 }
