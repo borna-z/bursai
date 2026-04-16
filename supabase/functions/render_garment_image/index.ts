@@ -4,7 +4,7 @@ import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from '../_shared/scale-guard.ts';
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from '../_shared/scale-guard.ts';
 import { getBalance, reserveCredit, consumeCredit, releaseCredit } from '../_shared/render-credits.ts';
 import {
   generateGeminiImage,
@@ -634,6 +634,10 @@ serve(async (req) => {
       await restorePriorState('reserve_denied');
 
       if (reserveResult.reason === 'rpc_error') {
+        // Credit ledger transport/DB failure — this is a system-health
+        // signal, not a user/business issue. Feed the overload counter so
+        // checkOverload() can trip if the ledger stays flaky.
+        recordError('render_garment_image');
         console.error('render_garment_image credit reservation failed (transport)', {
           garmentId: garment.id,
           userId: user.id,
@@ -665,48 +669,57 @@ serve(async (req) => {
     // already in the ledger, meaning this is a retry of a prior request.
     // DO NOT re-run Gemini: that would waste quota AND produce a free
     // render (consume would hit already_terminal against the prior
-    // terminal transaction). Inspect current garment state and respond.
+    // terminal transaction). Inspect prior state and respond.
     if (reserveResult.replay) {
-      // Re-fetch latest garment state — it may have changed since our
-      // initial fetch if another process is handling the original request.
-      const { data: replayState } = await supabase
-        .from('garments')
-        .select('render_status, rendered_image_path, rendered_at')
-        .eq('id', garment.id)
-        .maybeSingle();
-
-      const replayStatus = replayState?.render_status ?? priorState.render_status;
-      const replayPath = replayState?.rendered_image_path ?? null;
+      // CRITICAL: Decide the replay branch from the pre-claim snapshot
+      // (priorState.render_status), NOT a live re-fetch. Our own
+      // claimGarmentRender() just set render_status to 'rendering' a few
+      // lines up; reading it back would falsely report the prior job as
+      // "in progress" on same-nonce retries after a failed/terminal
+      // attempt and strand the client polling a dead request.
+      // The rendered_image_path we captured at initial fetch is reliable
+      // because any concurrent request that finished successfully would
+      // have been short-circuited by the early-return at 'ready' state.
+      const replayStatus = priorState.render_status;
+      const replayPath = garment.rendered_image_path;
+      const replayRenderedAt = garment.rendered_at;
 
       console.log('render_garment_image reserve replay', {
         garmentId: garment.id,
         userId: user.id,
         idempotencyKey,
         reserveSource: reserveResult.source,
-        replayStatus,
+        priorStatus: replayStatus,
         hasRenderedPath: Boolean(replayPath),
       });
 
-      // Release our claim — someone else owns the original request
-      // (or it already finished) and we must not hold 'rendering' state.
+      // Release our claim — we are NOT running the render. Restore the
+      // pre-claim snapshot so the garment is back in the state the client
+      // saw before this retry.
       await restorePriorState('replay_unclaim');
 
       if (replayStatus === 'ready' && replayPath) {
-        // Prior attempt succeeded. Return the cached render.
+        // Prior attempt succeeded — return the cached render without
+        // calling Gemini. No consume fires (the original consume already
+        // charged the credit).
         return new Response(
           JSON.stringify({
             ok: true,
             rendered: true,
             replay: true,
             renderedImagePath: replayPath,
-            renderedAt: replayState?.rendered_at ?? null,
+            renderedAt: replayRenderedAt,
           }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
 
-      if (replayStatus === 'rendering' || replayStatus === 'pending') {
-        // Prior attempt still in flight. Client should poll.
+      if (replayStatus === 'pending' || replayStatus === 'rendering') {
+        // Prior attempt still in flight under a different request. Client
+        // should poll the garment row for completion. Note: 'rendering' is
+        // unreachable in practice because line ~510 early-returns when the
+        // initial fetch sees 'rendering' — kept for defensive correctness
+        // in case that early-return is ever relaxed.
         return new Response(
           JSON.stringify({
             ok: true,
@@ -728,7 +741,7 @@ serve(async (req) => {
       console.warn('render_garment_image replay against non-ready/non-inflight state', {
         garmentId: garment.id,
         userId: user.id,
-        replayStatus,
+        priorStatus: replayStatus,
         idempotencyKey,
       });
       return new Response(
@@ -869,6 +882,10 @@ serve(async (req) => {
         });
 
         if (errorCode === 'gemini_no_image') {
+          // Provider anomaly: Gemini returned 200 but with text instead of
+          // an image. Record as a system-health signal — repeated hits
+          // mean the model is misbehaving and checkOverload() should trip.
+          recordError('render_garment_image');
           await safeRestoreOrFailRender(supabase, garment.id, {
             render_error: errorMessage,
           }, 'invalid_ai_output', priorRenderedPath, isForceRender);
@@ -880,6 +897,8 @@ serve(async (req) => {
           );
         }
 
+        // Any other gemini_* error (auth, model path, API 5xx, unknown)
+        // bubbles to the outer catch, which calls recordError there.
         throw providerError;
       }
 
@@ -1060,9 +1079,16 @@ serve(async (req) => {
       }
     }
   } catch (error) {
+    // Rate-limit rejections are expected back-pressure signals, not
+    // system failures — don't feed the overload counter. All other
+    // uncategorised throws (Gemini auth/model/API 5xx, storage failures,
+    // unexpected DB errors) ARE system-health signals — record them so
+    // checkOverload() can short-circuit if failures stack up.
     if (error instanceof RateLimitError) {
       return rateLimitResponse(error, CORS_HEADERS);
     }
+
+    recordError('render_garment_image');
 
     const errorMessage = getErrorMessage(error);
     console.error('render_garment_image error', {
