@@ -210,16 +210,25 @@ export async function reserveCredit(
     return { ok: false, reason: "rpc_error", error: error.message };
   }
 
-  // Normalise: RPC returns { ok, source, replay? } on success or
-  // { ok: false, reason } on denial. Success must always carry a boolean
-  // `replay` — default missing flags to false for forward-compatibility
-  // with callers that deployed the TS wrapper ahead of the migration.
+  // Normalise: RPC returns { ok, source, replay? } on success (new shape,
+  // migration 20260416233226) or { ok: true, source, duplicate: true } on
+  // legacy idempotency-hit (pre-migration shape).
+  //
+  // Both shapes must be treated as replays — if the edge function deploys
+  // ahead of the migration, the RPC still emits `duplicate: true` and we
+  // would otherwise misclassify retries as fresh reserves. That reopens
+  // the exact bug the replay flag was introduced to fix: Gemini is called
+  // twice, consume then hits already_terminal, producing a free render.
+  //
+  // TODO(cleanup after migration 20260416233226_reserve_credit_replay_flag
+  // is confirmed applied in all environments): remove the `duplicate`
+  // legacy-mapping — grep this TODO tag to locate.
   const raw = data as Record<string, unknown>;
   if (raw?.ok === true) {
     return {
       ok: true,
       source: raw.source as ReserveSuccess["source"],
-      replay: raw.replay === true,
+      replay: raw.replay === true || raw.duplicate === true,
     };
   }
 
