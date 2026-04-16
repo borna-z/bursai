@@ -264,8 +264,12 @@ export function TravelStep2({
           </button>
 
           {mustHavesOpen ? (
+            <div className={cn(
+              'max-h-[320px] overflow-y-auto scrollbar-hide',
+              (allGarments ?? []).length > 16 && 'scroll-fade-bottom',
+            )}>
             <div className="grid grid-cols-4 gap-2">
-              {(allGarments ?? []).slice(0, 32).map((garment) => {
+              {(allGarments ?? []).map((garment) => {
                 const active = mustHaveItems.includes(garment.id);
                 const limitReached = !active && mustHaveItems.length >= MAX_MUST_HAVES;
                 return (
@@ -295,6 +299,7 @@ export function TravelStep2({
                   </button>
                 );
               })}
+            </div>
             </div>
           ) : null}
         </div>
