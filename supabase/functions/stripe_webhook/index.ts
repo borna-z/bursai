@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { setMonthlyAllowance } from "../_shared/render-credits.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -185,6 +186,10 @@ serve(async (req) => {
               .update({ plan: 'free', updated_at: new Date().toISOString() })
               .eq('user_id', profile.id);
 
+            // Zero out render credits on cancellation
+            const cancelCreditKey = `stripe_allowance_${subscription.id}_canceled`;
+            await setMonthlyAllowance(serviceClient, profile.id, 0, cancelCreditKey);
+
             logStep("Subscription canceled for user", { userId: profile.id });
           }
           break;
@@ -217,6 +222,10 @@ serve(async (req) => {
               .from('user_subscriptions')
               .update({ plan: 'free', updated_at: new Date().toISOString() })
               .eq('user_id', profile.id);
+
+            // Zero out render credits on payment failure
+            const failCreditKey = `stripe_allowance_${invoice.id}_past_due`;
+            await setMonthlyAllowance(serviceClient, profile.id, 0, failCreditKey);
 
             logStep("Set user to past_due/free", { userId: profile.id });
           }
@@ -295,5 +304,13 @@ async function updateSubscription(
     .update({ plan, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
 
-  logStep("Subscription updated in DB", { userId, plan, status, currentPeriodEnd, stripeMode });
+  // Update render credit ledger — 20 monthly renders for active subscribers, 0 otherwise
+  const creditAllowance = isPremium ? 20 : 0;
+  const creditIdempotencyKey = `stripe_allowance_${subscription.id}_${status}`;
+  const creditResult = await setMonthlyAllowance(client, userId, creditAllowance, creditIdempotencyKey);
+  if (!creditResult.ok && !creditResult.duplicate) {
+    logStep("Warning: failed to set monthly allowance", { userId, allowance: creditAllowance, reason: creditResult.reason });
+  }
+
+  logStep("Subscription updated in DB", { userId, plan, status, currentPeriodEnd, stripeMode, creditAllowance });
 }
