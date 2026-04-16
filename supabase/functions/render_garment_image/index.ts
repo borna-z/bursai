@@ -4,236 +4,51 @@ import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from '../_shared/scale-guard.ts';
+import { getBalance, reserveCredit, consumeCredit, releaseCredit } from '../_shared/render-credits.ts';
+import {
+  generateGeminiImage,
+  maskApiKey,
+  RenderProviderError,
+  GEMINI_IMAGE_MODEL,
+  GEMINI_IMAGE_API_URL,
+} from '../_shared/gemini-image-client.ts';
 
-const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
-const GEMINI_IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`;
+/**
+ * Bump this when the render prompt or Gemini parameters change materially.
+ * Folded into the credit-ledger idempotency key so stale reservations
+ * don't short-circuit a pipeline change.
+ */
+const RENDER_PROMPT_VERSION = 'v1';
 
-type GeminiInlineData = {
-  mimeType?: string;
-  mime_type?: string;
-  data?: string;
-};
-
-type GeminiPart = {
-  text?: string;
-  inlineData?: GeminiInlineData;
-  inline_data?: GeminiInlineData;
-};
-
-type GeminiSafetyRating = {
-  category?: string;
-  probability?: string;
-  blocked?: boolean;
-};
-
-type GeminiPromptFeedback = {
-  blockReason?: string;
-  block_reason?: string;
-  safetyRatings?: GeminiSafetyRating[];
-  safety_ratings?: GeminiSafetyRating[];
-};
-
-type GeminiCandidate = {
-  finishReason?: string;
-  finish_reason?: string;
-  safetyRatings?: GeminiSafetyRating[];
-  safety_ratings?: GeminiSafetyRating[];
-  content?: {
-    parts?: GeminiPart[];
-  };
-};
-
-type GeminiGenerateContentResponse = {
-  candidates?: GeminiCandidate[];
-  promptFeedback?: GeminiPromptFeedback;
-  prompt_feedback?: GeminiPromptFeedback;
-  error?: {
-    message?: string;
-  };
-};
-
-class RenderProviderError extends Error {
-  code: string;
-  status?: number;
-
-  constructor(code: string, message: string, status?: number) {
-    super(message);
-    this.name = 'RenderProviderError';
-    this.code = code;
-    this.status = status;
-  }
+/** Monthly allowance of 0 → user is not a paying subscriber right now (trialing or canceled). */
+function isTrialFromBalance(monthlyAllowance: number): boolean {
+  return monthlyAllowance === 0;
 }
 
-function maskApiKey(apiKey: string | null | undefined): string {
-  if (!apiKey) return 'missing';
-  if (apiKey.length <= 8) return 'configured';
-  return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
-}
-
-function classifyGeminiError(status: number, message: string): RenderProviderError {
-  const lower = message.toLowerCase();
-
-  if (status === 401 || status == 403) {
-    return new RenderProviderError('gemini_auth', `Gemini auth failed (${status}): ${message}`, status);
-  }
-
-  if (status === 404 || lower.includes('model not found') || lower.includes('not supported for generatecontent')) {
-    return new RenderProviderError('gemini_model_path', `Gemini model/path mismatch (${status}): ${message}`, status);
-  }
-
-  return new RenderProviderError('gemini_api', `Gemini API error (${status}): ${message}`, status);
-}
-
-function extractGeminiParts(aiData: GeminiGenerateContentResponse | null): GeminiPart[] {
-  return aiData?.candidates?.flatMap((candidate) => candidate?.content?.parts ?? []) ?? [];
-}
-
-function extractGeminiImagePart(aiData: GeminiGenerateContentResponse | null): { mimeType: string; data: string } | null {
-  const parts = extractGeminiParts(aiData);
-  for (const part of parts) {
-    const inlineData = part?.inlineData ?? part?.inline_data;
-    const mimeType = inlineData?.mimeType ?? inlineData?.mime_type;
-    if (inlineData?.data && mimeType) {
-      return { mimeType, data: inlineData.data };
-    }
-  }
-  return null;
-}
-
-function summarizeGeminiNoImageResponse(aiData: GeminiGenerateContentResponse | null): {
-  reason: string;
-  details: Record<string, unknown>;
-} {
-  const promptFeedback = aiData?.promptFeedback ?? aiData?.prompt_feedback;
-  const candidates = aiData?.candidates ?? [];
-  const finishReasons = candidates.map((candidate) => candidate.finishReason ?? candidate.finish_reason ?? 'unknown');
-  const textParts = extractGeminiParts(aiData)
-    .map((part) => part.text?.trim())
-    .filter((value): value is string => Boolean(value));
-  const promptBlockReason = promptFeedback?.blockReason ?? promptFeedback?.block_reason ?? null;
-  const promptSafetyRatings = promptFeedback?.safetyRatings ?? promptFeedback?.safety_ratings ?? [];
-  const candidateSafetyRatings = candidates.flatMap((candidate) => candidate.safetyRatings ?? candidate.safety_ratings ?? []);
-  const blockedSafetyRatings = [...promptSafetyRatings, ...candidateSafetyRatings]
-    .filter((rating) => rating?.blocked)
-    .map((rating) => ({
-      category: rating.category ?? 'unknown',
-      probability: rating.probability ?? 'unknown',
-    }));
-
-  let reason = 'no_inline_image_parts';
-  if (promptBlockReason || blockedSafetyRatings.length > 0) {
-    reason = 'safety_or_policy_block';
-  } else if (textParts.length > 0) {
-    const combinedText = textParts.join(' ').toLowerCase();
-    if (
-      combinedText.includes("can't")
-      || combinedText.includes('cannot')
-      || combinedText.includes('unable')
-      || combinedText.includes('instead')
-      || combinedText.includes('i can describe')
-      || combinedText.includes('policy')
-      || combinedText.includes('safety')
-    ) {
-      reason = 'text_only_guidance';
-    } else {
-      reason = 'text_only_response';
-    }
-  } else if (finishReasons.some((value) => value.includes('IMAGE_'))) {
-    reason = 'unsupported_or_incomplete_image_edit';
-  }
-
-  return {
-    reason,
-    details: {
-      finishReasons,
-      promptBlockReason,
-      blockedSafetyRatings,
-      textPreview: textParts.slice(0, 3).map((text) => text.slice(0, 280)),
-      candidateCount: candidates.length,
-      partCount: extractGeminiParts(aiData).length,
-    },
-  };
-}
-
-async function generateGarmentRenderWithGeminiDirect(opts: {
-  garmentId: string;
-  apiKey: string;
-  prompt: string;
-  dataUrl: string;
-}): Promise<{ outputBytes: Uint8Array; mimeType: string }> {
-  const sourceDataUrl = opts.dataUrl;
-
-  const response = await fetch(GEMINI_IMAGE_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': opts.apiKey,
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: opts.prompt },
-            {
-              inlineData: {
-                mimeType: sourceDataUrl.slice(5, sourceDataUrl.indexOf(';')),
-                data: sourceDataUrl.split(',')[1],
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
-        imageConfig: {
-          aspectRatio: '4:5',
-        },
-      },
-    }),
-  });
-
-  const responseText = await response.text();
-  let aiData: GeminiGenerateContentResponse | null = null;
-  try {
-    aiData = responseText ? JSON.parse(responseText) : null;
-  } catch {
-    aiData = null;
-  }
-
-  if (!response.ok) {
-    const apiMessage = aiData?.error?.message || responseText || 'Unknown Gemini error';
-    throw classifyGeminiError(response.status, apiMessage);
-  }
-
-  const imagePart = extractGeminiImagePart(aiData);
-  if (!imagePart) {
-    const summary = summarizeGeminiNoImageResponse(aiData);
-    console.error('render_garment_image Gemini returned no inline image data', {
-      garmentId: opts.garmentId,
-      provider: 'gemini',
-      model: GEMINI_IMAGE_MODEL,
-      endpoint: GEMINI_IMAGE_API_URL,
-      ...summary.details,
-    });
-
-    throw new RenderProviderError(
-      'gemini_no_image',
-      `Gemini returned no image output (${summary.reason}; finishReasons=${(summary.details.finishReasons as string[]).join(',') || 'unknown'})`,
-      response.status,
-    );
-  }
-
-  const binaryStr = atob(imagePart.data);
-  const outputBytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) outputBytes[i] = binaryStr.charCodeAt(i);
-
-  return { outputBytes, mimeType: imagePart.mimeType };
-}
+type MannequinPresentation = 'male' | 'female' | 'mixed';
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
+
+/**
+ * Derive a deterministic UUID from the idempotency key (SHA-256 based).
+ * Ensures reserve/consume/release for the same render request all share
+ * a single render_job_id — needed for the ledger's terminal uniqueness
+ * guard (see idx_render_credit_tx_terminal_unique).
+ */
+async function deriveJobId(seed: string): Promise<string> {
+  const bytes = new TextEncoder().encode(seed);
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  // Format as UUID: 8-4-4-4-12 hex
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+// ─── Prompt building (unchanged from prior implementation) ───
 
 type RenderPromptEnrichment = {
   neckline: string | null;
@@ -333,7 +148,7 @@ function buildGarmentRenderPrompt(garment: {
   fit: string | null;
   formality: number | null;
   ai_raw: unknown;
-}, mannequinPresentation: 'male' | 'female' | 'mixed'): string {
+}, mannequinPresentation: MannequinPresentation): string {
   const enrichment = extractPromptEnrichment(garment.ai_raw);
   const metadataLines = [
     garment.category ? `- Category: ${garment.category}` : null,
@@ -403,6 +218,8 @@ function buildGarmentRenderPrompt(garment: {
   ].join('\n');
 }
 
+// ─── Image helpers (unchanged) ───
+
 function extensionForMimeType(mimeType: string): string {
   switch (mimeType.toLowerCase()) {
     case 'image/png':
@@ -447,6 +264,8 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   }
   return btoa(binary);
 }
+
+// ─── Garment state helpers (unchanged) ───
 
 async function updateGarmentRenderState(
   supabase: ReturnType<typeof createClient>,
@@ -568,24 +387,37 @@ async function safeRestoreOrFailRender(
   }
 }
 
+// ─── Handler ───
+
 /**
  * render_garment_image — Gemini-based canonical garment render pipeline.
  *
- * Takes a garment ID, downloads the best available source image,
- * sends it with a structured prompt to Gemini image-gen, validates
- * the output, and stores the rendered canonical asset.
+ * Flow:
+ *   1. checkOverload — short-circuit before any work
+ *   2. feature gate
+ *   3. auth
+ *   4. enforceRateLimit (30/hr, 3/min)
+ *   5. claim the garment atomically (race-safe)
+ *   6. reserve one render credit (402 if insufficient)
+ *   7. try: Gemini render + quality gates + upload → consume
+ *      finally: if no consume, release (guarantees no charge on failure)
  *
  * Feature-gated via RENDER_PIPELINE_ENABLED env var.
  */
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  // ── Scale guard: overload short-circuit (no auth/DB needed) ──
+  if (checkOverload('render_garment_image')) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   let supabase: ReturnType<typeof createClient> | null = null;
   let garmentIdForFailure: string | null = null;
   let priorRenderedPath: string | null = null;
   let isForceRender = false;
-
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: CORS_HEADERS });
-  }
 
   try {
     // ── Feature gate ──
@@ -628,8 +460,17 @@ serve(async (req) => {
 
     supabase = createClient(supabaseUrl, serviceKey);
 
+    // ── Scale guard: per-user rate limit ──
+    await enforceRateLimit(supabase, user.id, 'render_garment_image');
+
     // ── Input ──
-    const { garmentId, force } = await req.json() as { garmentId: string; force?: boolean };
+    const body = await req.json() as { garmentId: string; force?: boolean; clientNonce?: string };
+    const { garmentId, force } = body;
+    // clientNonce differentiates initial render vs regenerate for the idempotency key.
+    // Fallback: random UUID if client didn't send one (back-compat for old clients).
+    const clientNonce = (typeof body.clientNonce === 'string' && body.clientNonce.length > 0)
+      ? body.clientNonce
+      : crypto.randomUUID();
     garmentIdForFailure = garmentId;
 
     if (!garmentId || typeof garmentId !== 'string') {
@@ -657,14 +498,14 @@ serve(async (req) => {
       });
     }
 
-    // Don't re-render if already ready or currently rendering, unless caller forces a re-render
+    // Don't re-render if already ready/rendering/skipped, unless caller forces.
+    // Note: these early returns happen BEFORE claim + reserve so no credit is charged.
     if (!force && (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped')) {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
-    // Always block while rendering is in flight to prevent double-claim
     if (garment.render_status === 'rendering') {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: 'Already rendering' }),
@@ -712,8 +553,8 @@ serve(async (req) => {
     // ── Claim render atomically before expensive prep ──
     const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
-      // Note: priorRenderedPath/isForceRender are intentionally NOT set here — the claim
-      // failed so the garment was never put into 'rendering' state and nothing needs restoring.
+      // Claim lost to a race — garment was updated by another process.
+      // Nothing to revert (render_status wasn't touched, no credit reserved yet).
       const { data: latestGarment } = await supabase
         .from('garments')
         .select('render_status')
@@ -734,277 +575,380 @@ serve(async (req) => {
     priorRenderedPath = force ? (garment.rendered_image_path ?? null) : null;
     isForceRender = Boolean(force);
 
-    // ── Re-fetch garment after claim to get latest enrichment data ──
-    const { data: freshGarment } = await supabase
-      .from('garments')
-      .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path')
-      .eq('id', garment.id)
-      .maybeSingle();
-    const garmentForPrompt = freshGarment ?? garment;
+    // ── Reserve credit AFTER claim ──
+    // Idempotency key folds: user, garment, mannequin presentation, prompt version, client nonce.
+    // render_params_hash is effectively <mannequinPresentation>_<promptVersion> — bump promptVersion
+    // when the pipeline changes so stale reservations aren't re-used.
+    const idempotencyKey =
+      `render_${user.id}_${garment.id}_${mannequinPresentation}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+    const jobId = await deriveJobId(idempotencyKey);
 
-    // ── Download source image as base64 ──
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from('garments')
-      .createSignedUrl(sourceImagePath, 900);
+    const reserveResult = await reserveCredit(supabase, user.id, jobId, idempotencyKey);
 
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      throw new Error(`Unable to read source garment image: ${signedUrlError?.message ?? 'missing signed URL'}`);
-    }
+    if (!reserveResult.ok) {
+      // Revert the claim so the garment isn't stuck in 'rendering' state.
+      // Back to 'none' (a retriable state), not 'failed', because reservation-denied
+      // is a user/billing issue, not a render-pipeline failure.
+      const { error: unclaimError } = await supabase
+        .from('garments')
+        .update({ render_status: 'none', render_error: null })
+        .eq('id', garment.id);
+      if (unclaimError) {
+        console.error('render_garment_image unclaim after reserve-failed crashed', {
+          garmentId: garment.id,
+          userId: user.id,
+          error: unclaimError.message,
+        });
+      }
 
-    const imageResp = await fetch(signedUrlData.signedUrl);
-    if (!imageResp.ok) {
-      throw new Error(`Failed to download source image: ${imageResp.status}`);
-    }
-
-    const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
-    const contentType = imageResp.headers.get('content-type');
-    const mimeType = normalizeImageMimeType(contentType, sourceImagePath);
-    const base64 = uint8ArrayToBase64(imageBytes);
-    const hasDataUrlPrefix = base64.startsWith('data:');
-
-    if (hasDataUrlPrefix) {
-      throw new Error('Source image base64 unexpectedly contains a data URL prefix');
-    }
-
-    const dataUrl = `data:${mimeType};base64,${base64}`;
-
-    let eligibilityAssessment = null;
-    try {
-      eligibilityAssessment = await assessRenderEligibilityWithGemini({
-        apiKey: Deno.env.get('GEMINI_API_KEY')?.trim() ?? '',
-        garmentId: garment.id,
-        mimeType,
-        imageBase64: base64,
-      });
-    } catch (eligibilityError) {
-      console.warn('render_garment_image eligibility gate failed open', {
-        garmentId: garment.id,
-        error: getErrorMessage(eligibilityError),
-      });
-    }
-
-    // When force is true, bypass the product-ready gate — caller explicitly wants a new render
-    if (!force && eligibilityAssessment?.decision === 'skip_product_ready') {
-      const confidenceLabel = eligibilityAssessment.confidence == null
-        ? 'unknown'
-        : eligibilityAssessment.confidence.toFixed(2);
-      await updateGarmentRenderState(supabase, garment.id, {
-        render_status: 'skipped',
-        render_presentation_used: mannequinPresentation,
-        render_provider: PRODUCT_READY_RENDER_GATE_PROVIDER,
-        render_error: `Skipped render: ${eligibilityAssessment.reason} (confidence=${confidenceLabel})`,
-        rendered_image_path: null,
-        rendered_at: null,
-      }, 'Failed to mark garment render as skipped');
-
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          skipped: true,
-          reason: eligibilityAssessment.reason,
-          eligibility: eligibilityAssessment,
-        }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // ── Build prompt ──
-    const prompt = buildGarmentRenderPrompt(garmentForPrompt, mannequinPresentation);
-
-    console.log('render_garment_image Gemini request start', {
-      garmentId: garment.id,
-      provider: 'gemini',
-      model: GEMINI_IMAGE_MODEL,
-      endpoint: GEMINI_IMAGE_API_URL,
-      responseModalities: ['TEXT', 'IMAGE'],
-      imageAspectRatio: '4:5',
-      promptPreview: prompt.split('\n').slice(0, 6),
-      sourceContentType: contentType,
-      sourceMimeType: mimeType,
-      sourceBytes: imageBytes.length,
-      sourceBase64Length: base64.length,
-      sourceHasDataUrlPrefix: hasDataUrlPrefix,
-    });
-
-    // ── Call Gemini image-gen with direct generateContent endpoint ──
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')?.trim() ?? '';
-    let outputBytes: Uint8Array;
-    let outputMimeType: string;
-
-    try {
-      const result = await generateGarmentRenderWithGeminiDirect({
-        garmentId: garment.id,
-        apiKey: geminiApiKey,
-        prompt,
-        dataUrl,
-      });
-      outputBytes = result.outputBytes;
-      outputMimeType = result.mimeType;
-    } catch (providerError) {
-      const errorMessage = getErrorMessage(providerError);
-      const errorCode = providerError instanceof RenderProviderError ? providerError.code : 'gemini_unknown';
-
-      console.error('render_garment_image Gemini direct request failed', {
-        garmentId: garment.id,
-        provider: 'gemini',
-        model: GEMINI_IMAGE_MODEL,
-        endpoint: GEMINI_IMAGE_API_URL,
-        geminiApiKeyFingerprint: maskApiKey(geminiApiKey),
-        errorCode,
-        error: errorMessage,
-      });
-
-      if (errorCode === 'gemini_no_image') {
-        await safeRestoreOrFailRender(supabase, garment.id, {
-          render_error: errorMessage,
-        }, 'invalid_ai_output', priorRenderedPath, isForceRender);
-
+      if (reserveResult.reason === 'rpc_error') {
+        console.error('render_garment_image credit reservation failed (transport)', {
+          garmentId: garment.id,
+          userId: user.id,
+          error: reserveResult.error,
+        });
         return new Response(
-          JSON.stringify({ ok: true, rendered: false, error: errorMessage }),
-          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          JSON.stringify({ ok: false, error: 'credit_ledger_unavailable' }),
+          { status: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
 
-      throw providerError;
-    }
-
-    console.log('render_garment_image Gemini response received', {
-      garmentId: garment.id,
-      provider: 'gemini',
-      model: GEMINI_IMAGE_MODEL,
-      endpoint: GEMINI_IMAGE_API_URL,
-      outputBytes: outputBytes.length,
-      outputMimeType,
-    });
-
-    // ── Quality gate v1: structural checks ──
-    const MIN_SIZE_BYTES = 10240; // 10KB — catches blank/corrupt images
-    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB sanity cap
-
-    if (outputBytes.length < MIN_SIZE_BYTES) {
-      await safeRestoreOrFailRender(supabase, garment.id, {
-        render_error: `Quality gate rejected image: output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
-      }, 'quality_gate_output_too_small', priorRenderedPath, isForceRender);
-
+      // insufficient / no_credit_row / no_reservation / already_terminal — all boil down to 402
+      const balance = await getBalance(supabase, user.id);
+      const isTrial = isTrialFromBalance(balance.monthly_allowance);
       return new Response(
-        JSON.stringify({ ok: true, rendered: false, error: 'Output too small' }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        JSON.stringify({
+          error: isTrial ? 'trial_studio_locked' : 'insufficient_credits',
+          remaining: balance.remaining,
+          is_trial: isTrial,
+          monthly_allowance: balance.monthly_allowance,
+          period_end: balance.period_end,
+        }),
+        { status: 402, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
-    if (outputBytes.length > MAX_SIZE_BYTES) {
-      await safeRestoreOrFailRender(supabase, garment.id, {
-        render_error: `Quality gate rejected image: output too large (${outputBytes.length} bytes).`,
-      }, 'quality_gate_output_too_large', priorRenderedPath, isForceRender);
+    // ── Expensive work: if we exit this try{} without consumed=true, the finally releases ──
+    let consumed = false;
 
-      return new Response(
-        JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      );
-    }
+    try {
+      // ── Re-fetch garment after claim to get latest enrichment data ──
+      const { data: freshGarment } = await supabase
+        .from('garments')
+        .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path')
+        .eq('id', garment.id)
+        .maybeSingle();
+      const garmentForPrompt = freshGarment ?? garment;
 
-    // ── Quality gate v2: mannequin anatomy validation ──
-    const renderedBase64 = uint8ArrayToBase64(outputBytes);
-    const validationAssessment = await validateRenderedGarmentOutputWithGemini({
-      apiKey: geminiApiKey,
-      garmentId: garment.id,
-      mimeType: outputMimeType,
-      imageBase64: renderedBase64,
-    });
+      // ── Download source image as base64 ──
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('garments')
+        .createSignedUrl(sourceImagePath, 900);
 
-    if (validationAssessment?.decision === 'reject_visible_mannequin') {
-      console.warn('render_garment_image quality gate rejected: visible mannequin; attempting retry', {
-        garmentId: garment.id,
-        reason: validationAssessment.reason,
-        confidence: validationAssessment.confidence,
-      });
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw new Error(`Unable to read source garment image: ${signedUrlError?.message ?? 'missing signed URL'}`);
+      }
 
-      const retryPrompt = prompt + '\n\nCRITICAL CORRECTION: The previous attempt showed visible mannequin anatomy. This time: completely remove ALL traces of the mannequin form. The garment must appear completely self-supporting with NO visible body shape, NO shoulder form, NO torso silhouette, NO hip shape underneath the fabric. Use only natural fabric volume and gravity.';
+      const imageResp = await fetch(signedUrlData.signedUrl);
+      if (!imageResp.ok) {
+        throw new Error(`Failed to download source image: ${imageResp.status}`);
+      }
 
-      let retryPassed = false;
+      const imageBytes = new Uint8Array(await imageResp.arrayBuffer());
+      const contentType = imageResp.headers.get('content-type');
+      const mimeType = normalizeImageMimeType(contentType, sourceImagePath);
+      const base64 = uint8ArrayToBase64(imageBytes);
+      const hasDataUrlPrefix = base64.startsWith('data:');
+
+      if (hasDataUrlPrefix) {
+        throw new Error('Source image base64 unexpectedly contains a data URL prefix');
+      }
+
+      const dataUrl = `data:${mimeType};base64,${base64}`;
+
+      let eligibilityAssessment = null;
       try {
-        const retryResult = await generateGarmentRenderWithGeminiDirect({
+        eligibilityAssessment = await assessRenderEligibilityWithGemini({
+          apiKey: Deno.env.get('GEMINI_API_KEY')?.trim() ?? '',
           garmentId: garment.id,
-          apiKey: geminiApiKey,
-          prompt: retryPrompt,
-          dataUrl,
+          mimeType,
+          imageBase64: base64,
         });
-
-        const retryValidation = await validateRenderedGarmentOutputWithGemini({
-          apiKey: geminiApiKey,
+      } catch (eligibilityError) {
+        console.warn('render_garment_image eligibility gate failed open', {
           garmentId: garment.id,
-          mimeType: retryResult.mimeType,
-          imageBase64: uint8ArrayToBase64(retryResult.outputBytes),
-        });
-
-        if (retryValidation?.decision !== 'reject_visible_mannequin') {
-          outputBytes = retryResult.outputBytes;
-          outputMimeType = retryResult.mimeType;
-          retryPassed = true;
-        }
-      } catch (retryError) {
-        console.error('render_garment_image retry attempt failed', {
-          garmentId: garment.id,
-          error: getErrorMessage(retryError),
+          error: getErrorMessage(eligibilityError),
         });
       }
 
-      if (!retryPassed) {
-        const confidenceLabel = validationAssessment.confidence == null
+      // When force is true, bypass the product-ready gate — caller explicitly wants a new render
+      if (!force && eligibilityAssessment?.decision === 'skip_product_ready') {
+        const confidenceLabel = eligibilityAssessment.confidence == null
           ? 'unknown'
-          : validationAssessment.confidence.toFixed(2);
-
-        await safeRestoreOrFailRender(supabase, garment.id, {
-          render_error: `Quality gate rejected render after retry: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
+          : eligibilityAssessment.confidence.toFixed(2);
+        await updateGarmentRenderState(supabase, garment.id, {
+          render_status: 'skipped',
+          render_presentation_used: mannequinPresentation,
+          render_provider: PRODUCT_READY_RENDER_GATE_PROVIDER,
+          render_error: `Skipped render: ${eligibilityAssessment.reason} (confidence=${confidenceLabel})`,
           rendered_image_path: null,
           rendered_at: null,
-        }, 'quality_gate_visible_mannequin_retry', priorRenderedPath, isForceRender);
+        }, 'Failed to mark garment render as skipped');
 
+        // Credit is released by the outer finally — eligibility skip means Gemini never ran
         return new Response(
           JSON.stringify({
             ok: true,
-            rendered: false,
-            error: 'Rendered output still showed visible mannequin anatomy after retry',
-            validation: validationAssessment,
+            skipped: true,
+            reason: eligibilityAssessment.reason,
+            eligibility: eligibilityAssessment,
           }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
-    }
 
-    // ── Upload rendered image ──
-    const renderedExtension = extensionForMimeType(outputMimeType);
-    const renderedPath = `${garment.user_id}/${garment.id}/rendered.${renderedExtension}`;
+      // ── Build prompt ──
+      const prompt = buildGarmentRenderPrompt(garmentForPrompt, mannequinPresentation);
 
-    const { error: uploadError } = await supabase.storage
-      .from('garments')
-      .upload(renderedPath, outputBytes, {
-        contentType: outputMimeType,
-        upsert: true,
+      console.log('render_garment_image Gemini request start', {
+        garmentId: garment.id,
+        provider: 'gemini',
+        model: GEMINI_IMAGE_MODEL,
+        endpoint: GEMINI_IMAGE_API_URL,
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageAspectRatio: '4:5',
+        promptPreview: prompt.split('\n').slice(0, 6),
+        sourceContentType: contentType,
+        sourceMimeType: mimeType,
+        sourceBytes: imageBytes.length,
+        sourceBase64Length: base64.length,
+        sourceHasDataUrlPrefix: hasDataUrlPrefix,
       });
 
-    if (uploadError) {
-      throw new Error(`Storage upload failed for rendered image: ${uploadError.message}`);
+      // ── Call Gemini image-gen via shared transport ──
+      const geminiApiKey = Deno.env.get('GEMINI_API_KEY')?.trim() ?? '';
+      let outputBytes: Uint8Array;
+      let outputMimeType: string;
+
+      try {
+        const result = await generateGeminiImage({
+          apiKey: geminiApiKey,
+          prompt,
+          dataUrl,
+          garmentId: garment.id,
+        });
+        outputBytes = result.outputBytes;
+        outputMimeType = result.mimeType;
+      } catch (providerError) {
+        const errorMessage = getErrorMessage(providerError);
+        const errorCode = providerError instanceof RenderProviderError ? providerError.code : 'gemini_unknown';
+
+        console.error('render_garment_image Gemini direct request failed', {
+          garmentId: garment.id,
+          provider: 'gemini',
+          model: GEMINI_IMAGE_MODEL,
+          endpoint: GEMINI_IMAGE_API_URL,
+          geminiApiKeyFingerprint: maskApiKey(geminiApiKey),
+          errorCode,
+          error: errorMessage,
+        });
+
+        if (errorCode === 'gemini_no_image') {
+          await safeRestoreOrFailRender(supabase, garment.id, {
+            render_error: errorMessage,
+          }, 'invalid_ai_output', priorRenderedPath, isForceRender);
+
+          // Credit released by outer finally
+          return new Response(
+            JSON.stringify({ ok: true, rendered: false, error: errorMessage }),
+            { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        throw providerError;
+      }
+
+      console.log('render_garment_image Gemini response received', {
+        garmentId: garment.id,
+        provider: 'gemini',
+        model: GEMINI_IMAGE_MODEL,
+        endpoint: GEMINI_IMAGE_API_URL,
+        outputBytes: outputBytes.length,
+        outputMimeType,
+      });
+
+      // ── Quality gate v1: structural checks ──
+      const MIN_SIZE_BYTES = 10240; // 10KB — catches blank/corrupt images
+      const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB sanity cap
+
+      if (outputBytes.length < MIN_SIZE_BYTES) {
+        await safeRestoreOrFailRender(supabase, garment.id, {
+          render_error: `Quality gate rejected image: output too small (${outputBytes.length} bytes). Likely blank or corrupt.`,
+        }, 'quality_gate_output_too_small', priorRenderedPath, isForceRender);
+
+        return new Response(
+          JSON.stringify({ ok: true, rendered: false, error: 'Output too small' }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      if (outputBytes.length > MAX_SIZE_BYTES) {
+        await safeRestoreOrFailRender(supabase, garment.id, {
+          render_error: `Quality gate rejected image: output too large (${outputBytes.length} bytes).`,
+        }, 'quality_gate_output_too_large', priorRenderedPath, isForceRender);
+
+        return new Response(
+          JSON.stringify({ ok: true, rendered: false, error: 'Output too large' }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      // ── Quality gate v2: mannequin anatomy validation ──
+      const renderedBase64 = uint8ArrayToBase64(outputBytes);
+      const validationAssessment = await validateRenderedGarmentOutputWithGemini({
+        apiKey: geminiApiKey,
+        garmentId: garment.id,
+        mimeType: outputMimeType,
+        imageBase64: renderedBase64,
+      });
+
+      if (validationAssessment?.decision === 'reject_visible_mannequin') {
+        console.warn('render_garment_image quality gate rejected: visible mannequin; attempting retry', {
+          garmentId: garment.id,
+          reason: validationAssessment.reason,
+          confidence: validationAssessment.confidence,
+        });
+
+        const retryPrompt = prompt + '\n\nCRITICAL CORRECTION: The previous attempt showed visible mannequin anatomy. This time: completely remove ALL traces of the mannequin form. The garment must appear completely self-supporting with NO visible body shape, NO shoulder form, NO torso silhouette, NO hip shape underneath the fabric. Use only natural fabric volume and gravity.';
+
+        let retryPassed = false;
+        try {
+          const retryResult = await generateGeminiImage({
+            apiKey: geminiApiKey,
+            prompt: retryPrompt,
+            dataUrl,
+            garmentId: garment.id,
+          });
+
+          const retryValidation = await validateRenderedGarmentOutputWithGemini({
+            apiKey: geminiApiKey,
+            garmentId: garment.id,
+            mimeType: retryResult.mimeType,
+            imageBase64: uint8ArrayToBase64(retryResult.outputBytes),
+          });
+
+          if (retryValidation?.decision !== 'reject_visible_mannequin') {
+            outputBytes = retryResult.outputBytes;
+            outputMimeType = retryResult.mimeType;
+            retryPassed = true;
+          }
+        } catch (retryError) {
+          console.error('render_garment_image retry attempt failed', {
+            garmentId: garment.id,
+            error: getErrorMessage(retryError),
+          });
+        }
+
+        if (!retryPassed) {
+          const confidenceLabel = validationAssessment.confidence == null
+            ? 'unknown'
+            : validationAssessment.confidence.toFixed(2);
+
+          await safeRestoreOrFailRender(supabase, garment.id, {
+            render_error: `Quality gate rejected render after retry: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
+            rendered_image_path: null,
+            rendered_at: null,
+          }, 'quality_gate_visible_mannequin_retry', priorRenderedPath, isForceRender);
+
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              rendered: false,
+              error: 'Rendered output still showed visible mannequin anatomy after retry',
+              validation: validationAssessment,
+            }),
+            { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+      }
+
+      // ── Upload rendered image ──
+      const renderedExtension = extensionForMimeType(outputMimeType);
+      const renderedPath = `${garment.user_id}/${garment.id}/rendered.${renderedExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('garments')
+        .upload(renderedPath, outputBytes, {
+          contentType: outputMimeType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(`Storage upload failed for rendered image: ${uploadError.message}`);
+      }
+
+      // ── Update garment record ──
+      await updateGarmentRenderState(supabase, garment.id, {
+        image_path: renderedPath,
+        rendered_image_path: renderedPath,
+        render_presentation_used: mannequinPresentation,
+        render_status: 'ready',
+        render_provider: 'gemini',
+        render_error: null,
+        rendered_at: new Date().toISOString(),
+      }, 'Failed to mark garment render as ready');
+
+      // ── Consume credit — the render succeeded end-to-end ──
+      const consumeKey = `${idempotencyKey}_consume`;
+      const consumeResult = await consumeCredit(supabase, user.id, jobId, consumeKey);
+      if (!consumeResult.ok) {
+        // Extremely unlikely: reserve worked but consume failed. Log loudly and proceed —
+        // the user got a render, the ledger is slightly inconsistent but never over-charged.
+        // The orphaned-reservation cleanup cron will catch this case later.
+        console.error('render_garment_image consume failed after successful render', {
+          garmentId: garment.id,
+          userId: user.id,
+          reason: consumeResult.reason,
+          error: consumeResult.error,
+        });
+      }
+      consumed = true;
+
+      console.log(`Rendered garment ${garment.id} → ${renderedPath}`);
+
+      return new Response(
+        JSON.stringify({ ok: true, rendered: true, renderedImagePath: renderedPath }),
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      );
+    } finally {
+      // Any non-success path (thrown error, quality-gate-rejected return, eligibility-skip return,
+      // gemini_no_image return) leaves consumed=false, so we release the reservation.
+      // Failure in release is non-fatal — the orphan cleanup cron will eventually reconcile.
+      if (!consumed) {
+        try {
+          const releaseKey = `${idempotencyKey}_release`;
+          const releaseResult = await releaseCredit(supabase, user.id, jobId, releaseKey);
+          if (!releaseResult.ok && !releaseResult.duplicate) {
+            console.error('render_garment_image release failed in finally', {
+              garmentId: garmentIdForFailure,
+              userId: user.id,
+              reason: releaseResult.reason,
+              error: releaseResult.error,
+            });
+          }
+        } catch (releaseError) {
+          console.error('render_garment_image release crashed in finally', {
+            garmentId: garmentIdForFailure,
+            error: getErrorMessage(releaseError),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
     }
 
-    // ── Update garment record ──
-    await updateGarmentRenderState(supabase, garment.id, {
-      image_path: renderedPath,
-      rendered_image_path: renderedPath,
-      render_presentation_used: mannequinPresentation,
-      render_status: 'ready',
-      render_provider: 'gemini',
-      render_error: null,
-      rendered_at: new Date().toISOString(),
-    }, 'Failed to mark garment render as ready');
-
-    console.log(`Rendered garment ${garment.id} → ${renderedPath}`);
-
-    return new Response(
-      JSON.stringify({ ok: true, rendered: true, renderedImagePath: renderedPath }),
-      { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-    );
-  } catch (error) {
     const errorMessage = getErrorMessage(error);
     console.error('render_garment_image error', {
       garmentId: garmentIdForFailure,
