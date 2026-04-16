@@ -28,7 +28,6 @@ interface TravelResultsViewProps {
   destination: string;
   vibe: VibeId;
   dateLabel: string | null;
-  dateSublabel: string | null;
   dateRange: DateRange | undefined;
   dateLocale: Locale;
   weatherForecast: ForecastDay | null;
@@ -86,10 +85,10 @@ export function TravelResultsView({
 
         {/* ── Navigation row ── */}
         <div className="flex items-center justify-between gap-3">
-          <Button variant="quiet" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <Button variant="quiet" size="icon" onClick={() => navigate(-1)} aria-label={t('common.back')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Button variant="quiet" size="icon" onClick={() => setResult(null)} aria-label="Edit capsule">
+          <Button variant="quiet" size="icon" onClick={() => setResult(null)} aria-label={t('capsule.edit_label')}>
             <Pencil className="h-4 w-4" />
           </Button>
         </div>

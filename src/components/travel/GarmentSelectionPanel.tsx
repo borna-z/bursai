@@ -156,7 +156,7 @@ export function GarmentSelectionPanel({
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">{prettyLabel(cat, t)}</span>
                       <span className="text-muted-foreground">
-                        {current} of {max}
+                        {t('capsule.x_of_y').replace('{x}', String(current)).replace('{y}', String(max))}
                       </span>
                     </div>
                     <input

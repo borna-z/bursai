@@ -3165,6 +3165,8 @@ const en: Record<string, string> = {
   'capsule.category_accessory': 'Accessories',
   'capsule.category_other': 'Other',
   'travel.locked_hint': 'Unlocks once your wardrobe has enough pieces to build a real packing edit.',
+  'capsule.edit_label': 'Edit capsule',
+  'capsule.x_of_y': '{x} of {y}',
 };
 
 export default en;

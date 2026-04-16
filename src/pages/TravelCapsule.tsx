@@ -55,7 +55,7 @@ export default function TravelCapsule() {
                   {t('capsule.title') || 'Travel Capsule'}
                 </h2>
                 <p className="max-w-[30rem] text-[0.94rem] leading-6 text-muted-foreground">
-                  Unlocks once your wardrobe has enough pieces to build a real packing edit.
+                  {t('travel.locked_hint')}
                 </p>
               </div>
             </div>
@@ -181,7 +181,6 @@ export default function TravelCapsule() {
       destination={capsule.destination}
       vibe={capsule.vibe}
       dateLabel={capsule.dateLabel}
-      dateSublabel={capsule.dateSublabel}
       dateRange={capsule.dateRange}
       dateLocale={capsule.dateLocale}
       weatherForecast={capsule.weatherForecast}

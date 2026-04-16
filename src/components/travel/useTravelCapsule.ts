@@ -215,11 +215,6 @@ export function useTravelCapsule() {
     return `${from} – ${to}`;
   }, [dateRange, locale]);
 
-  const dateSublabel = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return null;
-    return `${tripNights} ${t('capsule.nights')} • ${result?.outfits.length || planningLookCount} ${t('capsule.outfits_count')}`;
-  }, [dateRange, tripNights, planningLookCount, result, t]);
-
   // ── Group capsule items by category ──
   const groupedItems = useMemo(() => {
     if (capsuleItemIds.length === 0) return {};
@@ -433,22 +428,13 @@ export function useTravelCapsule() {
 
       // Auto-save to DB (best-effort — failures don't block the UX)
       try {
-        const enriched = capsuleResult as unknown as {
-          trip_type?: string;
-          duration_days?: number;
-          weather_min?: number | null;
-          weather_max?: number | null;
-          packing_list?: unknown;
-          packing_tips?: string[];
-          total_combinations?: number;
-          reasoning?: string;
-        };
+        const enriched = capsuleResult as Record<string, unknown>;
         await saveCapsuleToDb({
           destination,
-          trip_type: enriched.trip_type ?? VIBE_TO_TRIP_TYPE[vibe],
-          duration_days: enriched.duration_days ?? tripDays,
-          weather_min: enriched.weather_min ?? weatherForecast?.temperature_min ?? null,
-          weather_max: enriched.weather_max ?? weatherForecast?.temperature_max ?? null,
+          trip_type: (typeof enriched.trip_type === 'string' ? enriched.trip_type : null) ?? VIBE_TO_TRIP_TYPE[vibe],
+          duration_days: (typeof enriched.duration_days === 'number' ? enriched.duration_days : null) ?? tripDays,
+          weather_min: (typeof enriched.weather_min === 'number' ? enriched.weather_min : null) ?? weatherForecast?.temperature_min ?? null,
+          weather_max: (typeof enriched.weather_max === 'number' ? enriched.weather_max : null) ?? weatherForecast?.temperature_max ?? null,
           start_date: dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null,
           end_date: dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null,
           occasions: effectiveOccasions,
@@ -457,10 +443,10 @@ export function useTravelCapsule() {
           style_preference: stylePreference,
           capsule_items: capsuleResult.capsule_items ?? [],
           outfits: capsuleResult.outfits ?? [],
-          packing_list: enriched.packing_list ?? [],
-          packing_tips: enriched.packing_tips ?? capsuleResult.packing_tips ?? null,
-          total_combinations: enriched.total_combinations ?? capsuleResult.total_combinations ?? 0,
-          reasoning: enriched.reasoning ?? capsuleResult.reasoning ?? null,
+          packing_list: (Array.isArray(enriched.packing_list) ? enriched.packing_list : null) ?? [],
+          packing_tips: (Array.isArray(enriched.packing_tips) ? enriched.packing_tips as string[] : null) ?? capsuleResult.packing_tips ?? null,
+          total_combinations: (typeof enriched.total_combinations === 'number' ? enriched.total_combinations : null) ?? capsuleResult.total_combinations ?? 0,
+          reasoning: (typeof enriched.reasoning === 'string' ? enriched.reasoning : null) ?? capsuleResult.reasoning ?? null,
           result: capsuleResult,
         });
       } catch (dbErr) {
@@ -639,7 +625,6 @@ export function useTravelCapsule() {
     tripDays,
     planningLookCount,
     dateLabel,
-    dateSublabel,
     dateLocale,
     tripDayForecasts,
 

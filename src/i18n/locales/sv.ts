@@ -2785,6 +2785,8 @@ const sv: Record<string, string> = {
   'capsule.category_accessory': 'Accessoarer',
   'capsule.category_other': 'Övrigt',
   'travel.locked_hint': 'Låses upp när din garderob har tillräckligt med plagg för en riktig packningsguide.',
+  'capsule.edit_label': 'Redigera kapsel',
+  'capsule.x_of_y': '{x} av {y}',
 };
 
 export default sv;
