@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,17 +15,18 @@ interface TripHistoryListProps {
 
 export function TripHistoryList({ trips, onSelect, onDelete }: TripHistoryListProps) {
   const { t, locale } = useLanguage();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   if (trips.length === 0) return null;
 
   const formatRange = (start: string | null, end: string | null) => {
     if (!start || !/^\d{4}-\d{2}-\d{2}/.test(start)) return '';
-    const startLabel = formatLocalizedDate(new Date(start), locale, {
+    const startLabel = formatLocalizedDate(new Date(`${start}T00:00:00`), locale, {
       month: 'short',
       day: 'numeric',
     });
     if (!end || !/^\d{4}-\d{2}-\d{2}/.test(end)) return startLabel;
-    const endLabel = formatLocalizedDate(new Date(end), locale, {
+    const endLabel = formatLocalizedDate(new Date(`${end}T00:00:00`), locale, {
       month: 'short',
       day: 'numeric',
     });
@@ -40,6 +42,7 @@ export function TripHistoryList({ trips, onSelect, onDelete }: TripHistoryListPr
         {trips.map((trip, idx) => {
           const itemCount = trip.result?.capsule_items?.length ?? 0;
           const outfitCount = trip.result?.outfits?.length ?? 0;
+          const isPendingDelete = pendingDeleteId === trip.id;
           return (
             <motion.div
               key={trip.id}
@@ -72,17 +75,43 @@ export function TripHistoryList({ trips, onSelect, onDelete }: TripHistoryListPr
                   <span>{outfitCount} {t('capsule.outfits_count') || 'outfits'}</span>
                 </div>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  hapticLight();
-                  onDelete(trip.id);
-                }}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                aria-label={t('common.delete') || 'Delete'}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {isPendingDelete ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      onDelete(trip.id);
+                      setPendingDeleteId(null);
+                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-destructive/10 text-destructive text-xs font-medium transition-colors hover:bg-destructive/20"
+                  >
+                    {t('capsule.confirm_delete_yes')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setPendingDeleteId(null);
+                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border/40 text-muted-foreground text-xs font-medium transition-colors hover:bg-muted/40"
+                  >
+                    {t('capsule.confirm_delete_no')}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticLight();
+                    setPendingDeleteId(trip.id);
+                  }}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  aria-label={t('common.delete') || 'Delete'}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </motion.div>
           );
         })}

@@ -59,6 +59,8 @@ interface TravelWizardProps {
   setMustHaveItems: Dispatch<SetStateAction<string[]>>;
   minimizeItems: boolean;
   setMinimizeItems: (v: boolean) => void;
+  includeTravelDays: boolean;
+  setIncludeTravelDays: (v: boolean) => void;
   allGarments: Garment[] | undefined;
   garmentSelection: GarmentSelection | null;
   setGarmentSelection: (v: GarmentSelection | null) => void;
@@ -113,7 +115,7 @@ export function TravelWizard(props: TravelWizardProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="relative min-h-[460px]">
+      <div className="relative min-h-[min(460px,70vh)]">
         <AnimatePresence mode="wait" custom={direction} initial={false}>
           <motion.div
             key={step}
@@ -155,6 +157,8 @@ export function TravelWizard(props: TravelWizardProps) {
                 setMustHaveItems={props.setMustHaveItems}
                 minimizeItems={props.minimizeItems}
                 setMinimizeItems={props.setMinimizeItems}
+                includeTravelDays={props.includeTravelDays}
+                setIncludeTravelDays={props.setIncludeTravelDays}
                 allGarments={props.allGarments}
                 garmentSelection={props.garmentSelection}
                 setGarmentSelection={props.setGarmentSelection}
