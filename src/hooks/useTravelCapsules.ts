@@ -20,7 +20,12 @@ export function useTravelCapsules() {
         .order('created_at', { ascending: false })
         .limit(MAX_CAPSULES);
       if (error) throw error;
-      return (data ?? []) as TravelCapsuleRow[];
+      return (data ?? []).filter(
+        (row): row is TravelCapsuleRow =>
+          row.result != null &&
+          typeof row.result === 'object' &&
+          Array.isArray((row.result as Record<string, unknown>).outfits)
+      ) as TravelCapsuleRow[];
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
@@ -48,10 +53,23 @@ export function useTravelCapsules() {
       result: CapsuleResult;
     }) => {
       if (!user) throw new Error('Not authenticated');
-      const existing = query.data ?? [];
-      if (existing.length >= MAX_CAPSULES) {
-        const oldest = existing[existing.length - 1];
-        await supabase.from('travel_capsules').delete().eq('id', oldest.id);
+      // Fresh count to avoid stale query.data race
+      const { count, error: countErr } = await supabase
+        .from('travel_capsules')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      if (!countErr && count !== null && count >= MAX_CAPSULES) {
+        // Delete the oldest
+        const { data: oldest } = await supabase
+          .from('travel_capsules')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+        if (oldest) {
+          await supabase.from('travel_capsules').delete().eq('id', oldest.id);
+        }
       }
       const { data, error } = await supabase
         .from('travel_capsules')
