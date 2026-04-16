@@ -15,8 +15,12 @@ function hasColor(colors: Record<string, number>, color: string): boolean {
   return Object.keys(colors).some((name) => name.toLowerCase() === target);
 }
 
-function localizedPriceRange(locale: string, sekRange: string, usdRange: string): string {
-  return locale.toLowerCase().startsWith("sv") ? `${sekRange} SEK` : `$${usdRange}`;
+function normalizeLocale(locale: unknown): string {
+  return typeof locale === "string" && locale.trim() ? locale.trim() : "en";
+}
+
+function localizedPriceRange(locale: unknown, sekRange: string, usdRange: string): string {
+  return normalizeLocale(locale).toLowerCase().startsWith("sv") ? `${sekRange} SEK` : `$${usdRange}`;
 }
 
 function pickPairingGarmentIds(garments: any[], preferredCategories: string[]): string[] {
@@ -159,7 +163,7 @@ serve(async (req) => {
     let locale = "en";
     try {
       const body = await req.json();
-      if (body?.locale) locale = body.locale;
+      locale = normalizeLocale(body?.locale);
     } catch { /* empty body is fine */ }
 
     const { data: garments } = await supabase
