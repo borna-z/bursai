@@ -15,7 +15,7 @@ export { GARMENT_IMAGE_PROCESSING_VERSION };
 
 type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan';
 
-const queuedRenderKickoffs: Array<{ garmentId: string; source: string }> = [];
+const queuedRenderKickoffs: Array<{ garmentId: string; source: string; clientNonce: string }> = [];
 const queuedRenderGarmentIds = new Set<string>();
 const lastRenderResumeSweepByUser = new Map<string, number>();
 const inFlightRenderResumeSweeps = new Map<string, Promise<void>>();
@@ -31,7 +31,7 @@ function pumpRenderKickoffQueue(): void {
     void invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('render_garment_image', {
       timeout: 1000,
       retries: 0,
-      body: { garmentId: next.garmentId, source: next.source },
+      body: { garmentId: next.garmentId, source: next.source, clientNonce: next.clientNonce },
     })
       .then(({ error }) => {
         if (error) {
@@ -57,8 +57,13 @@ function enqueueGarmentRenderKickoff(garmentId: string, source: string): void {
     return;
   }
 
+  // Stable nonce per enqueued render kickoff. If the queue replays or
+  // retries the same request, the same nonce is re-sent and the ledger's
+  // idempotency key correctly deduplicates on replay. Each distinct call
+  // to enqueueGarmentRenderKickoff gets its own nonce.
+  const clientNonce = crypto.randomUUID();
   queuedRenderGarmentIds.add(garmentId);
-  queuedRenderKickoffs.push({ garmentId, source });
+  queuedRenderKickoffs.push({ garmentId, source, clientNonce });
   pumpRenderKickoffQueue();
 }
 

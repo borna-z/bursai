@@ -489,11 +489,33 @@ serve(async (req) => {
       }
       garmentId = bodyObj.garmentId;
       force = typeof bodyObj.force === 'boolean' ? bodyObj.force : undefined;
-      // clientNonce differentiates initial render vs regenerate for the idempotency key.
-      // Fallback: random UUID if client didn't send one (back-compat for old clients).
-      clientNonce = (typeof bodyObj.clientNonce === 'string' && bodyObj.clientNonce.length > 0)
+
+      const rawNonce = (typeof bodyObj.clientNonce === 'string' && bodyObj.clientNonce.length > 0)
         ? bodyObj.clientNonce
-        : crypto.randomUUID();
+        : null;
+
+      // clientNonce is REQUIRED on every render path (force and non-force).
+      //
+      // If we fell back to crypto.randomUUID() on the server, a client that
+      // retries a transient failure (edgeFunctionClient does this automatically)
+      // sends the same body back with no nonce → server generates a NEW random
+      // nonce on each retry → each retry creates a DISTINCT reservation →
+      // user is charged N times for N retries AND N concurrent Gemini calls
+      // fire. Every caller in this repo (SwipeableGarmentCard, GarmentConfirmSheet,
+      // garmentIntelligence) now passes clientNonce, and the app ships as a web
+      // bundle (Median.co wrapper, no separate native layer), so there's no
+      // "old client" back-compat to preserve.
+      if (!rawNonce) {
+        return new Response(
+          JSON.stringify({
+            error: 'client_nonce_required',
+            message: 'clientNonce is required for idempotent render requests',
+          }),
+          { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      clientNonce = rawNonce;
       garmentIdForFailure = garmentId;
     } catch (parseError) {
       // SyntaxError from req.json(), TypeError from destructuring a non-object,
@@ -595,9 +617,19 @@ serve(async (req) => {
     };
 
     const restorePriorState = async (reason: string) => {
-      // If the garment was in a terminal success-ish state (ready/skipped),
-      // restore exactly. Otherwise reset to 'none' so the user can retry.
-      const restoredStatus = (priorState.render_status === 'ready' || priorState.render_status === 'skipped')
+      // Preserve prior state verbatim when it was:
+      //   - 'ready'   : successful prior render the client still sees
+      //   - 'skipped' : eligibility gate decided no render was needed
+      //   - 'pending' : a queued render intent kicked off elsewhere that
+      //                 we haven't yet executed — resetting to 'none' would
+      //                 silently drop the queue entry for that garment
+      // All other prior states (failed, none, rendering) get reset to 'none'
+      // so the user (or a retry) can re-attempt cleanly.
+      const restoredStatus = (
+        priorState.render_status === 'ready'
+        || priorState.render_status === 'skipped'
+        || priorState.render_status === 'pending'
+      )
         ? priorState.render_status
         : 'none';
       const { error: unclaimError } = await supabase!
@@ -646,14 +678,26 @@ serve(async (req) => {
     isForceRender = Boolean(force);
 
     // ── Reserve credit AFTER claim ──
-    // Idempotency key folds: user, garment, mannequin presentation, prompt version, client nonce.
-    // render_params_hash is effectively <mannequinPresentation>_<promptVersion> — bump promptVersion
-    // when the pipeline changes so stale reservations aren't re-used.
-    const idempotencyKey =
-      `render_${user.id}_${garment.id}_${mannequinPresentation}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
-    const jobId = await deriveJobId(idempotencyKey);
+    // Build a base key that uniquely identifies this logical render request:
+    //   user × garment × presentation × prompt_version × clientNonce
+    // Then namespace the three ledger operations with explicit prefixes:
+    //   reserve:<base> / consume:<base> / release:<base>
+    //
+    // The prefixes use ':' (a char that can't appear in UUIDs or the underscored
+    // base segments) so an attacker can't craft a clientNonce like "abc_consume"
+    // that makes their reserve key collide with another request's consume key.
+    //
+    // render_job_id is derived from the BASE key (not any prefixed variant)
+    // so all three ops share the same job_id — required for the ledger's
+    // partial unique index terminal guard to work correctly.
+    const baseKey =
+      `${user.id}_${garment.id}_${mannequinPresentation}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+    const reserveKey = `reserve:${baseKey}`;
+    const consumeKey = `consume:${baseKey}`;
+    const releaseKey = `release:${baseKey}`;
+    const jobId = await deriveJobId(baseKey);
 
-    const reserveResult = await reserveCredit(supabase, user.id, jobId, idempotencyKey);
+    const reserveResult = await reserveCredit(supabase, user.id, jobId, reserveKey);
 
     if (!reserveResult.ok) {
       // Reserve denied (insufficient credits or RPC transport failure).
@@ -715,7 +759,7 @@ serve(async (req) => {
       console.log('render_garment_image reserve replay', {
         garmentId: garment.id,
         userId: user.id,
-        idempotencyKey,
+        baseKey,
         reserveSource: reserveResult.source,
         priorStatus: replayStatus,
         hasRenderedPath: Boolean(replayPath),
@@ -770,7 +814,7 @@ serve(async (req) => {
         garmentId: garment.id,
         userId: user.id,
         priorStatus: replayStatus,
-        idempotencyKey,
+        baseKey,
       });
       return new Response(
         JSON.stringify({
@@ -1061,7 +1105,7 @@ serve(async (req) => {
       }, 'Failed to mark garment render as ready');
 
       // ── Consume credit — the render succeeded end-to-end ──
-      const consumeKey = `${idempotencyKey}_consume`;
+      // Using the operation-prefixed consumeKey built above (consume:<base>).
       const consumeResult = await consumeCredit(supabase, user.id, jobId, consumeKey);
       if (!consumeResult.ok) {
         // Extremely unlikely: reserve worked but consume failed. Log loudly and proceed —
@@ -1088,7 +1132,7 @@ serve(async (req) => {
       // Failure in release is non-fatal — the orphan cleanup cron will eventually reconcile.
       if (!consumed) {
         try {
-          const releaseKey = `${idempotencyKey}_release`;
+          // Using the operation-prefixed releaseKey built above (release:<base>).
           const releaseResult = await releaseCredit(supabase, user.id, jobId, releaseKey);
           if (!releaseResult.ok && !releaseResult.duplicate) {
             console.error('render_garment_image release failed in finally', {

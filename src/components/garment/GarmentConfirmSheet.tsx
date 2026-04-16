@@ -68,9 +68,13 @@ export function GarmentConfirmSheet({
     if (!garmentId) return;
     setRenderState('rendering');
 
+    // Fresh nonce per render request. The sheet is single-shot per mount,
+    // so a new nonce per invocation matches the user's intent model.
+    const clientNonce = crypto.randomUUID();
+
     // Fire the render edge function
     invokeEdgeFunction('render_garment_image', {
-      body: { garmentId },
+      body: { garmentId, clientNonce },
       timeout: 60000,
       retries: 0,
     }).catch(() => {

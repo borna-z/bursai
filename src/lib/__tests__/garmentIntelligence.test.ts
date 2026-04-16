@@ -125,7 +125,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
         body: { storagePath: 'user-1/photo.jpg', mode: 'enrich' },
       });
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-1', source: 'add_photo' },
+        body: expect.objectContaining({ garmentId: 'garment-1', source: 'add_photo', clientNonce: expect.any(String) }),
       }));
     });
 
@@ -142,7 +142,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
 
     await vi.waitFor(() => {
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-2', source: 'batch_add' },
+        body: expect.objectContaining({ garmentId: 'garment-2', source: 'batch_add', clientNonce: expect.any(String) }),
       }));
     });
 
@@ -162,7 +162,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
         body: { storagePath: 'user-1/photo-live.jpg', mode: 'enrich' },
       });
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-live', source: 'live_scan' },
+        body: expect.objectContaining({ garmentId: 'garment-live', source: 'live_scan', clientNonce: expect.any(String) }),
       }));
     });
   });
@@ -180,7 +180,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
         body: { storagePath: 'user-1/photo-live.jpg', mode: 'enrich' },
       });
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-live', source: 'live_scan' },
+        body: expect.objectContaining({ garmentId: 'garment-live', source: 'live_scan', clientNonce: expect.any(String) }),
       }));
     });
   });
@@ -210,7 +210,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
 
     await vi.waitFor(() => {
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-chain', source: 'add_photo' },
+        body: expect.objectContaining({ garmentId: 'garment-chain', source: 'add_photo', clientNonce: expect.any(String) }),
       }));
     });
   });
@@ -235,7 +235,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     await vi.advanceTimersByTimeAsync(5000);
 
     expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-      body: { garmentId: 'garment-fail', source: 'add_photo' },
+      body: expect.objectContaining({ garmentId: 'garment-fail', source: 'add_photo', clientNonce: expect.any(String) }),
     }));
 
     vi.useRealTimers();
@@ -261,7 +261,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
         body: { storagePath: 'user-1/photo-enhance.jpg', mode: 'enrich' },
       });
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'garment-enhance', source: 'manual_enhance' },
+        body: expect.objectContaining({ garmentId: 'garment-enhance', source: 'manual_enhance', clientNonce: expect.any(String) }),
       }));
     });
 
@@ -342,9 +342,9 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     expect(
       vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
     ).toEqual([
-      ['render_garment_image', expect.objectContaining({ body: { garmentId: 'garment-a', source: 'batch_add' } })],
-      ['render_garment_image', expect.objectContaining({ body: { garmentId: 'garment-b', source: 'batch_add' } })],
-      ['render_garment_image', expect.objectContaining({ body: { garmentId: 'garment-c', source: 'batch_add' } })],
+      ['render_garment_image', expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-a', source: 'batch_add', clientNonce: expect.any(String) }) })],
+      ['render_garment_image', expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-b', source: 'batch_add', clientNonce: expect.any(String) }) })],
+      ['render_garment_image', expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-c', source: 'batch_add', clientNonce: expect.any(String) }) })],
     ]);
 
     resolveFirstRender?.();
@@ -358,7 +358,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
       vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')[3]
     ).toEqual([
       'render_garment_image',
-      expect.objectContaining({ body: { garmentId: 'garment-d', source: 'batch_add' } }),
+      expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-d', source: 'batch_add', clientNonce: expect.any(String) }) }),
     ]);
 
     resolveSecondRender?.();
@@ -391,13 +391,13 @@ describe('resumePendingGarmentRenders', () => {
 
     await vi.waitFor(() => {
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'pending-batch', source: 'batch_add' },
+        body: expect.objectContaining({ garmentId: 'pending-batch', source: 'batch_add', clientNonce: expect.any(String) }),
       }));
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'pending-add-photo', source: 'add_photo' },
+        body: expect.objectContaining({ garmentId: 'pending-add-photo', source: 'add_photo', clientNonce: expect.any(String) }),
       }));
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'pending-live-scan', source: 'live_scan' },
+        body: expect.objectContaining({ garmentId: 'pending-live-scan', source: 'live_scan', clientNonce: expect.any(String) }),
       }));
     });
   });

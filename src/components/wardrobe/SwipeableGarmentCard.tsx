@@ -93,9 +93,14 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     event.stopPropagation();
     hapticLight();
     setEnhanceTriggered(true);
+    // Fresh nonce per tap — each user-initiated regenerate intent is a
+    // distinct logical request. Network retries of the same tap are
+    // handled by invokeEdgeFunction's retry logic (retries: 0 here, so
+    // no retries happen, but the nonce is stable per tap regardless).
+    const clientNonce = crypto.randomUUID();
     try {
       await invokeEdgeFunction('render_garment_image', {
-        body: { garmentId: garment.id, force: true },
+        body: { garmentId: garment.id, force: true, clientNonce },
         retries: 0,
       });
     } catch {

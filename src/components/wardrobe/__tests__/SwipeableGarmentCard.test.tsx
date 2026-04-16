@@ -136,7 +136,14 @@ describe('SwipeableGarmentCard', () => {
 
     expect(invokeEdgeFunctionMock).toHaveBeenCalledWith(
       'render_garment_image',
-      { body: { garmentId: 'g1', force: true }, retries: 0 },
+      expect.objectContaining({
+        retries: 0,
+        body: expect.objectContaining({
+          garmentId: 'g1',
+          force: true,
+          clientNonce: expect.any(String),
+        }),
+      }),
     );
     expect(navigateMock).not.toHaveBeenCalled();
     expect(screen.getByText('Refining...')).toBeInTheDocument();

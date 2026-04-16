@@ -123,7 +123,7 @@ describe('saveGarmentInBackground', () => {
         body: { storagePath: 'user-1/test-uuid.jpg', mode: 'enrich' },
       });
       expect(invokeEdgeFunction).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: { garmentId: 'test-uuid', source: 'live_scan' },
+        body: expect.objectContaining({ garmentId: 'test-uuid', source: 'live_scan', clientNonce: expect.any(String) }),
       }));
     });
   });
