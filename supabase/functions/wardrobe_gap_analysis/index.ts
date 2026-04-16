@@ -6,6 +6,135 @@ import { VOICE_GAP_ANALYSIS } from "../_shared/burs-voice.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
+function categoryCount(categories: Record<string, number>, names: string[]): number {
+  return names.reduce((sum, name) => sum + (categories[name] || 0), 0);
+}
+
+function hasColor(colors: Record<string, number>, color: string): boolean {
+  const target = color.toLowerCase();
+  return Object.keys(colors).some((name) => name.toLowerCase() === target);
+}
+
+function normalizeLocale(locale: unknown): string {
+  return typeof locale === "string" && locale.trim() ? locale.trim() : "en";
+}
+
+function localizedPriceRange(locale: unknown, sekRange: string, usdRange: string): string {
+  return normalizeLocale(locale).toLowerCase().startsWith("sv") ? `${sekRange} SEK` : `$${usdRange}`;
+}
+
+function pickPairingGarmentIds(garments: any[], preferredCategories: string[]): string[] {
+  const preferred = new Set(preferredCategories);
+  return garments
+    .filter((g) => typeof g?.id === "string")
+    .sort((a, b) => {
+      const aPreferred = preferred.has(String(a.category || ""));
+      const bPreferred = preferred.has(String(b.category || ""));
+      if (aPreferred === bPreferred) return 0;
+      return aPreferred ? -1 : 1;
+    })
+    .slice(0, 3)
+    .map((g) => g.id);
+}
+
+function fallbackGapAnalysis(
+  garments: any[],
+  categories: Record<string, number>,
+  colors: Record<string, number>,
+  avgFormality: string,
+  locale: string,
+) {
+  const topCount = categoryCount(categories, ["top", "tops"]);
+  const bottomCount = categoryCount(categories, ["bottom", "bottoms"]);
+  const shoeCount = categoryCount(categories, ["shoes", "shoe"]);
+  const outerwearCount = categoryCount(categories, ["outerwear"]);
+  const accessoryCount = categoryCount(categories, ["accessory", "accessories"]);
+  const formality = Number.parseFloat(avgFormality);
+  const neutralColor = !hasColor(colors, "navy") ? "Navy" : !hasColor(colors, "charcoal") ? "Charcoal" : "Ecru";
+
+  const candidates = [
+    {
+      score: shoeCount < 2 ? 100 : 25,
+      item: "White low-top leather sneakers",
+      category: "shoes",
+      color: "White",
+      reason: "Your wardrobe has limited shoe coverage, so one clean pair can finish more top and bottom combinations.",
+      new_outfits: Math.max(6, Math.min(18, topCount + bottomCount)),
+      price_range: localizedPriceRange(locale, "900-1600", "80-150"),
+      search_query: "white low top leather sneakers",
+      pairing_garment_ids: pickPairingGarmentIds(garments, ["top", "bottom", "dress"]),
+      key_insight: "A clean shoe anchor makes repeated separates feel intentional instead of improvised.",
+    },
+    {
+      score: bottomCount < 2 || topCount > bottomCount * 2 ? 90 : 35,
+      item: `${neutralColor} tailored straight-leg trousers`,
+      category: "bottom",
+      color: neutralColor,
+      reason: "Your tops need another neutral base that can move between casual and sharper outfits.",
+      new_outfits: Math.max(5, Math.min(16, topCount + shoeCount)),
+      price_range: localizedPriceRange(locale, "800-1500", "70-140"),
+      search_query: `${neutralColor.toLowerCase()} tailored straight leg trousers`,
+      pairing_garment_ids: pickPairingGarmentIds(garments, ["top", "shoes", "outerwear"]),
+      key_insight: "A sharper neutral trouser gives the wardrobe a second base silhouette without changing its mood.",
+    },
+    {
+      score: topCount < 3 || bottomCount > topCount ? 85 : 30,
+      item: "Ecru fine-knit crewneck",
+      category: "top",
+      color: "Ecru",
+      reason: "A light knit softens darker pieces and adds an easy layer for repeatable outfits.",
+      new_outfits: Math.max(5, Math.min(15, bottomCount + outerwearCount + shoeCount)),
+      price_range: localizedPriceRange(locale, "700-1300", "60-120"),
+      search_query: "ecru fine knit crewneck sweater",
+      pairing_garment_ids: pickPairingGarmentIds(garments, ["bottom", "shoes", "outerwear"]),
+      key_insight: "A pale knit creates contrast and makes the wardrobe read more considered.",
+    },
+    {
+      score: outerwearCount < 1 ? 80 : 20,
+      item: "Light structured jacket",
+      category: "outerwear",
+      color: neutralColor,
+      reason: "Your wardrobe needs a flexible outer layer that can connect simple outfits in transitional weather.",
+      new_outfits: Math.max(4, Math.min(14, topCount + bottomCount)),
+      price_range: localizedPriceRange(locale, "1200-2400", "110-220"),
+      search_query: `${neutralColor.toLowerCase()} lightweight structured jacket`,
+      pairing_garment_ids: pickPairingGarmentIds(garments, ["top", "bottom", "shoes"]),
+      key_insight: "The right jacket turns basic combinations into complete looks.",
+    },
+    {
+      score: accessoryCount < 2 ? 70 : 15,
+      item: "Black leather belt",
+      category: "accessory",
+      color: "Black",
+      reason: "A simple finishing piece helps connect shoes, trousers, and outerwear more consistently.",
+      new_outfits: Math.max(4, Math.min(12, bottomCount + shoeCount)),
+      price_range: localizedPriceRange(locale, "400-900", "35-80"),
+      search_query: "black leather belt minimal",
+      pairing_garment_ids: pickPairingGarmentIds(garments, ["bottom", "shoes", "top"]),
+      key_insight: "Small finishing pieces make the wardrobe look styled rather than just assembled.",
+    },
+    {
+      score: Number.isFinite(formality) && formality < 2.7 ? 65 : 10,
+      item: "Charcoal unstructured blazer",
+      category: "outerwear",
+      color: "Charcoal",
+      reason: "Your wardrobe leans casual, and this adds polish without feeling formal or stiff.",
+      new_outfits: Math.max(4, Math.min(12, topCount + bottomCount)),
+      price_range: localizedPriceRange(locale, "1500-3000", "140-280"),
+      search_query: "charcoal unstructured blazer",
+      pairing_garment_ids: pickPairingGarmentIds(garments, ["top", "bottom", "shoes"]),
+      key_insight: "Soft tailoring raises the ceiling of the wardrobe without replacing its casual base.",
+    },
+  ];
+
+  return {
+    gaps: candidates
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ score: _score, ...gap }) => gap),
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
@@ -34,7 +163,7 @@ serve(async (req) => {
     let locale = "en";
     try {
       const body = await req.json();
-      if (body?.locale) locale = body.locale;
+      locale = normalizeLocale(body?.locale);
     } catch { /* empty body is fine */ }
 
     const { data: garments } = await supabase
@@ -104,7 +233,9 @@ CRITICAL RULES:
 9. When possible, include "pairing_garment_ids": an array of 2-3 garment IDs FROM THE WARDROBE LIST ABOVE that would pair best with the suggested item. Use the exact UUIDs shown in square brackets.
 10. When possible, include "key_insight": one sentence of editorial prose explaining the visual or style impact of adding this piece.`;
 
-    const { data: result } = await callBursAI({
+    let result: any;
+    try {
+      const aiResponse = await callBursAI({
       complexity: "standard",
       max_tokens: estimateMaxTokens({ inputItems: garments.length, outputItems: 5, perItemTokens: 120, baseTokens: 300 }),
       messages: [
@@ -152,7 +283,17 @@ CRITICAL RULES:
       cacheTtlSeconds: 3600,
       cacheNamespace: "wardrobe_gap",
       functionName: "wardrobe_gap_analysis",
-    }, supabase);
+      }, supabase);
+      result = aiResponse.data;
+    } catch (aiError) {
+      console.warn("wardrobe_gap_analysis AI failed, returning fallback gaps:", aiError);
+      result = fallbackGapAnalysis(garments, categories, colors, avgFormality, locale);
+    }
+
+    if (!result || typeof result !== "object" || !Array.isArray(result.gaps)) {
+      console.warn("wardrobe_gap_analysis returned malformed AI response, returning fallback gaps");
+      result = fallbackGapAnalysis(garments, categories, colors, avgFormality, locale);
+    }
 
     // Post-process: strip any brand names the AI may have included
     const BRAND_NAMES = [
