@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, recordError } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -109,6 +109,7 @@ Generate 3 variations preserving DNA (color ratios, formality, material harmony)
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
+    recordError("clone_outfit_dna");
     console.error("clone_outfit_dna error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }
