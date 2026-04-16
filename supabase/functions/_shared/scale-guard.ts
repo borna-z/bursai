@@ -107,7 +107,9 @@ function applyTierMultiplier(tier: RateLimitTier, plan: SubscriptionPlan): RateL
  * Enforce both hourly and burst (per-minute) rate limits.
  * Uses the ai_rate_limits table. Throws RateLimitError(429) when exceeded.
  *
- * Limits scale by subscription tier: premium=2x, free=0.5x of base.
+ * Limits scale by subscription tier: premium=2x, free=0.75x of base.
+ * Functions with noTierMultiplier:true bypass tier scaling entirely —
+ * the raw configured values apply equally to all users regardless of plan.
  * Returns { allowed: true, remaining: { hour, minute } } on success.
  */
 export async function enforceRateLimit(
@@ -117,10 +119,16 @@ export async function enforceRateLimit(
   overrides?: Partial<RateLimitTier>,
 ): Promise<{ allowed: true; remaining: { hour: number; minute: number } }> {
   const baseTier = { ...getRateLimitTier(functionName), ...overrides };
-  const plan = baseTier.noTierMultiplier
-    ? 'premium' as const
-    : await resolveUserPlan(supabaseAdmin, userId);
-  const tier = applyTierMultiplier(baseTier, plan);
+
+  // noTierMultiplier: skip plan resolution and multiplier entirely — use raw base values.
+  // All other functions resolve the user's subscription plan and scale accordingly.
+  let tier: { maxPerHour: number; maxPerMinute: number };
+  if (baseTier.noTierMultiplier) {
+    tier = { maxPerHour: baseTier.maxPerHour, maxPerMinute: baseTier.maxPerMinute };
+  } else {
+    const plan = await resolveUserPlan(supabaseAdmin, userId);
+    tier = applyTierMultiplier(baseTier, plan);
+  }
 
   const now = Date.now();
   const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
