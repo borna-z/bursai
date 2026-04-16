@@ -463,21 +463,49 @@ serve(async (req) => {
     // ── Scale guard: per-user rate limit ──
     await enforceRateLimit(supabase, user.id, 'render_garment_image');
 
-    // ── Input ──
-    const body = await req.json() as { garmentId: string; force?: boolean; clientNonce?: string };
-    const { garmentId, force } = body;
-    // clientNonce differentiates initial render vs regenerate for the idempotency key.
-    // Fallback: random UUID if client didn't send one (back-compat for old clients).
-    const clientNonce = (typeof body.clientNonce === 'string' && body.clientNonce.length > 0)
-      ? body.clientNonce
-      : crypto.randomUUID();
-    garmentIdForFailure = garmentId;
+    // ── Input parsing + validation (isolated from overload counter) ──
+    // Any error here is a client input issue (malformed JSON, wrong schema,
+    // missing required fields). Returning 400 directly without touching
+    // recordError so a user sending garbage bodies in a loop can't trip
+    // checkOverload and DoS valid requests on the same isolate.
+    let garmentId: string;
+    let force: boolean | undefined;
+    let clientNonce: string;
+    try {
+      const rawBody: unknown = await req.json();
+      if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+        return new Response(
+          JSON.stringify({ error: 'Request body must be a JSON object' }),
+          { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+      const bodyObj = rawBody as Record<string, unknown>;
 
-    if (!garmentId || typeof garmentId !== 'string') {
-      return new Response(JSON.stringify({ error: 'garmentId is required' }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      if (typeof bodyObj.garmentId !== 'string' || bodyObj.garmentId.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'garmentId is required' }),
+          { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+      garmentId = bodyObj.garmentId;
+      force = typeof bodyObj.force === 'boolean' ? bodyObj.force : undefined;
+      // clientNonce differentiates initial render vs regenerate for the idempotency key.
+      // Fallback: random UUID if client didn't send one (back-compat for old clients).
+      clientNonce = (typeof bodyObj.clientNonce === 'string' && bodyObj.clientNonce.length > 0)
+        ? bodyObj.clientNonce
+        : crypto.randomUUID();
+      garmentIdForFailure = garmentId;
+    } catch (parseError) {
+      // SyntaxError from req.json(), TypeError from destructuring a non-object,
+      // or anything else originating in user-supplied input. NOT a system issue —
+      // do not record against the overload counter.
+      console.warn('render_garment_image invalid request body', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
       });
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+      );
     }
 
     // ── Fetch garment ──
