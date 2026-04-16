@@ -131,7 +131,7 @@ serve(async (req) => {
                 .update({ stripe_customer_id: customerId })
                 .eq('id', userId);
 
-              await updateSubscription(serviceClient, userId, subscription, customerId, stripeConfig.mode);
+              await updateSubscription(serviceClient, userId, subscription, customerId, stripeConfig.mode, event.id);
             } else {
               logStep("Could not find user", { customerId });
             }
@@ -144,7 +144,7 @@ serve(async (req) => {
           logStep("Subscription updated", { subscriptionId: subscription.id, status: subscription.status });
 
           const customerId = subscription.customer as string;
-          
+
           const { data: profile } = await serviceClient
             .from('profiles')
             .select('id')
@@ -152,7 +152,7 @@ serve(async (req) => {
             .single();
 
           if (profile) {
-            await updateSubscription(serviceClient, profile.id, subscription, customerId, stripeConfig.mode);
+            await updateSubscription(serviceClient, profile.id, subscription, customerId, stripeConfig.mode, event.id);
           } else {
             logStep("Could not find user for subscription update", { customerId });
           }
@@ -186,8 +186,9 @@ serve(async (req) => {
               .update({ plan: 'free', updated_at: new Date().toISOString() })
               .eq('user_id', profile.id);
 
-            // Zero out render credits on cancellation
-            const cancelCreditKey = `stripe_allowance_${subscription.id}_canceled`;
+            // Zero out render credits on cancellation — keyed by event.id so every
+            // webhook delivery that moves into "canceled" gets processed independently
+            const cancelCreditKey = `stripe_allowance_${event.id}`;
             await setMonthlyAllowance(serviceClient, profile.id, 0, cancelCreditKey);
 
             logStep("Subscription canceled for user", { userId: profile.id });
@@ -223,8 +224,9 @@ serve(async (req) => {
               .update({ plan: 'free', updated_at: new Date().toISOString() })
               .eq('user_id', profile.id);
 
-            // Zero out render credits on payment failure
-            const failCreditKey = `stripe_allowance_${invoice.id}_past_due`;
+            // Zero out render credits on payment failure — keyed by event.id so
+            // subsequent recovery events can move the allowance back to 20
+            const failCreditKey = `stripe_allowance_${event.id}`;
             await setMonthlyAllowance(serviceClient, profile.id, 0, failCreditKey);
 
             logStep("Set user to past_due/free", { userId: profile.id });
@@ -270,7 +272,8 @@ async function updateSubscription(
   userId: string,
   subscription: Stripe.Subscription,
   customerId: string,
-  stripeMode: 'test' | 'live'
+  stripeMode: 'test' | 'live',
+  eventId: string,
 ) {
   const status = subscription.status;
   // REFUND-SAFE: Only active/trialing get premium access
@@ -304,9 +307,12 @@ async function updateSubscription(
     .update({ plan, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
 
-  // Update render credit ledger — 20 monthly renders for active subscribers, 0 otherwise
+  // Update render credit ledger — 20 monthly renders for active subscribers, 0 otherwise.
+  // Key on event.id (not subscription.id + status) so status transitions like
+  // active → past_due → active each trigger their own allowance update instead of
+  // being short-circuited as duplicates of the first "active" event.
   const creditAllowance = isPremium ? 20 : 0;
-  const creditIdempotencyKey = `stripe_allowance_${subscription.id}_${status}`;
+  const creditIdempotencyKey = `stripe_allowance_${eventId}`;
   const creditResult = await setMonthlyAllowance(client, userId, creditAllowance, creditIdempotencyKey);
   if (!creditResult.ok && !creditResult.duplicate) {
     logStep("Warning: failed to set monthly allowance", { userId, allowance: creditAllowance, reason: creditResult.reason });

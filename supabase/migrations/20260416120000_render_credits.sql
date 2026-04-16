@@ -191,6 +191,7 @@ RETURNS JSONB AS $$
 DECLARE
   v_existing RECORD;
   v_reserve_tx RECORD;
+  v_terminal_tx RECORD;
 BEGIN
   -- Idempotency check
   SELECT id INTO v_existing
@@ -199,6 +200,21 @@ BEGIN
 
   IF FOUND THEN
     RETURN jsonb_build_object('ok', true, 'duplicate', true);
+  END IF;
+
+  -- Guard against double-terminal: a reservation can be consumed OR released
+  -- exactly once. If a terminal transaction already exists for this job under
+  -- a different idempotency key, reject rather than silently no-op (or, for
+  -- release, mint credits back to the source balance).
+  SELECT id INTO v_terminal_tx
+  FROM render_credit_transactions
+  WHERE render_job_id = p_job_id
+    AND user_id = p_user_id
+    AND kind IN ('consume', 'release')
+  LIMIT 1;
+
+  IF FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'already_terminal');
   END IF;
 
   -- Find the reserve transaction for this job to know the source
@@ -251,6 +267,7 @@ RETURNS JSONB AS $$
 DECLARE
   v_existing RECORD;
   v_reserve_tx RECORD;
+  v_terminal_tx RECORD;
 BEGIN
   -- Idempotency check
   SELECT id INTO v_existing
@@ -259,6 +276,22 @@ BEGIN
 
   IF FOUND THEN
     RETURN jsonb_build_object('ok', true, 'duplicate', true);
+  END IF;
+
+  -- Guard against minting: if a consume or release has already happened for
+  -- this job under a different idempotency key, the source balance has either
+  -- been debited (consume) or already refunded (prior release). Running the
+  -- refund again would increment trial_gift_remaining / topup_balance without
+  -- any outstanding reservation — creating credits out of thin air.
+  SELECT id INTO v_terminal_tx
+  FROM render_credit_transactions
+  WHERE render_job_id = p_job_id
+    AND user_id = p_user_id
+    AND kind IN ('consume', 'release')
+  LIMIT 1;
+
+  IF FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'already_terminal');
   END IF;
 
   -- Find the reserve transaction for this job

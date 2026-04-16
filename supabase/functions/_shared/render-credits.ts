@@ -31,7 +31,7 @@ export interface ReserveResult {
 export interface MutationResult {
   ok: boolean;
   source?: string;
-  reason?: string;
+  reason?: "duplicate" | "no_reservation" | "already_terminal" | "insufficient" | "no_credit_row" | string;
   duplicate?: boolean;
 }
 
