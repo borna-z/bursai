@@ -30,3 +30,8 @@ dist-ssr
 
 # Supabase CLI temp files
 supabase/.temp/
+.claude/mockups/
+.claude/launch.json
+.claude/settings.local.json
+.superpowers/
+docs/superpowers/
