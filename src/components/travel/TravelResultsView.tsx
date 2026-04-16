@@ -8,8 +8,6 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { AILoadingCard } from '@/components/ui/AILoadingCard';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { PageIntro } from '@/components/ui/page-intro';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
 import { EASE_CURVE } from '@/lib/motion';
@@ -57,7 +55,6 @@ export function TravelResultsView({
   destination,
   vibe,
   dateLabel,
-  dateSublabel,
   dateRange,
   dateLocale,
   weatherForecast,
@@ -85,76 +82,74 @@ export function TravelResultsView({
   return (
     <AppLayout hideNav>
       <AnimatedPage className="page-shell !px-5 !pb-36 !pt-6 page-cluster">
-        <Card className="space-y-5 p-5">
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="quiet" size="icon" onClick={() => navigate(-1)} aria-label="Back">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => setResult(null)} aria-label="Edit capsule">
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </div>
 
-          <PageIntro
-            eyebrow="Travel capsule"
-            meta={<span className="eyebrow-chip !bg-secondary/70 capitalize">{vibe}</span>}
-            title={destination}
-            description={[dateLabel, dateSublabel].filter(Boolean).join(' • ')}
-          />
+        {/* ── Navigation row ── */}
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="quiet" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="quiet" size="icon" onClick={() => setResult(null)} aria-label="Edit capsule">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[1.35rem] border border-border/40 bg-card/60 p-4">
-              <p className="label-editorial">Packed pieces</p>
-              <p className="mt-2 font-display italic text-[1.7rem] leading-none tracking-[-0.02em] text-foreground">{totalItems}</p>
-            </div>
-            <div className="rounded-[1.35rem] border border-border/40 bg-card/60 p-4">
-              <p className="label-editorial">Looks planned</p>
-              <p className="mt-2 font-display italic text-[1.7rem] leading-none tracking-[-0.02em] text-foreground">{result.outfits.length}</p>
-            </div>
-            <div className="rounded-[1.35rem] border border-border/40 bg-card/60 p-4">
-              <p className="label-editorial">Trip status</p>
-              <p className="mt-2 font-display italic text-[1.7rem] leading-none tracking-[-0.02em] text-foreground">{packedCount}/{totalItems}</p>
-            </div>
-          </div>
+        {/* ── Destination title ── */}
+        <h1 className="mt-4 font-display italic text-3xl tracking-tight text-foreground">
+          {destination}
+        </h1>
 
+        {/* ── Vibe chip ── */}
+        <span className="mt-2 inline-block eyebrow-chip !bg-secondary/70 capitalize">{vibe}</span>
+
+        {/* ── Date + weather inline ── */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+          {dateLabel ? <span>{dateLabel}</span> : null}
           {weatherForecast ? (
-            <div className="flex items-center gap-3 rounded-[1.35rem] border px-4 py-3">
-              <WeatherMiniIcon condition={weatherForecast.condition} className="h-4 w-4" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">Forecast snapshot</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {weatherForecast.temperature_min}–{weatherForecast.temperature_max}°C • {weatherForecast.condition}
-                </p>
-              </div>
-            </div>
+            <>
+              <span className="opacity-40">·</span>
+              <WeatherMiniIcon condition={weatherForecast.condition} className="h-3.5 w-3.5" />
+              <span>
+                {weatherForecast.temperature_min}–{weatherForecast.temperature_max}°C
+              </span>
+              <span className="opacity-40">·</span>
+              <span>{weatherForecast.condition}</span>
+            </>
           ) : null}
+        </div>
 
-          {tripDayForecasts.length > 0 ? (
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {tripDayForecasts.map((forecast, index) => {
-                const dayDate = dateRange?.from ? addDays(dateRange.from, index) : null;
-
-                return (
-                  <div
-                    key={`forecast-${index}`}
-                    className="min-w-0 rounded-[1.2rem] border px-3 py-2 text-center"
-                  >
-                    <p className="label-editorial !text-[0.58rem]">
-                      {dayDate ? format(dayDate, 'EEE', { locale: dateLocale }) : '—'}
-                    </p>
-                    <div className="mt-2 flex justify-center">
-                      <WeatherMiniIcon condition={forecast?.condition} className="h-4 w-4" />
-                    </div>
-                    <p className="mt-2 text-xs font-medium text-foreground">
-                      {forecast ? `${forecast.temperature_max}°` : '—'}
-                    </p>
+        {/* ── Day forecast strip ── */}
+        {tripDayForecasts.length > 0 ? (
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {tripDayForecasts.map((forecast, index) => {
+              const dayDate = dateRange?.from ? addDays(dateRange.from, index) : null;
+              return (
+                <div
+                  key={`forecast-${index}`}
+                  className="min-w-[3.5rem] shrink-0 rounded-xl bg-secondary/40 px-3 py-2 text-center"
+                >
+                  <p className="label-editorial !text-[0.58rem]">
+                    {dayDate ? format(dayDate, 'EEE', { locale: dateLocale }) : '—'}
+                  </p>
+                  <div className="mt-1.5 flex justify-center">
+                    <WeatherMiniIcon condition={forecast?.condition} className="h-3.5 w-3.5" />
                   </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </Card>
+                  <p className="mt-1.5 text-xs font-medium text-foreground">
+                    {forecast ? `${forecast.temperature_max}°` : '—'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
 
+        {/* ── Stats line ── */}
+        <p className="mt-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{totalItems}</span> pieces{' · '}
+          <span className="font-medium text-foreground">{result.outfits.length}</span> looks{' · '}
+          <span className="font-medium text-foreground">{packedCount}/{totalItems}</span> packed
+        </p>
+
+        {/* ── Partial results banner ── */}
         {(() => {
           const gaps: CapsuleCoverageGap[] = result.coverage_gaps ?? [];
           if (gaps.length === 0) return null;
@@ -170,8 +165,8 @@ export function TravelResultsView({
             ? t('capsule.partial_results.add_more').replace('{items}', missingSummary)
             : gaps.map((g) => g.message).filter(Boolean).join(' ');
           return (
-            <div className="rounded-[1.35rem] border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
-              <p className="font-medium text-foreground">
+            <div className="mt-4 border-l-2 border-amber-500/40 py-2 pl-3">
+              <p className="text-sm font-medium text-foreground">
                 {t('capsule.partial_results.title')
                   .replace('{count}', String(result.outfits.length))
                   .replace('{lookLabel}', lookLabel)}
@@ -183,27 +178,31 @@ export function TravelResultsView({
           );
         })()}
 
-        <div className="flex rounded-full border p-1.5">
-          {(['packing', 'outfits'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => {
-                hapticLight();
-                setActiveTab(tab);
-              }}
-              className={cn(
-                'flex-1 rounded-full px-4 py-2.5 text-[0.74rem] font-medium uppercase tracking-[0.16em] transition-colors',
-                activeTab === tab
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {tab === 'packing' ? t('capsule.tab_packing') : t('capsule.tab_outfits')}
-            </button>
-          ))}
+        {/* ── Divider + Tab bar ── */}
+        <div className="mt-5 border-t border-border/40 pt-5">
+          <div className="flex gap-8">
+            {(['packing', 'outfits'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  hapticLight();
+                  setActiveTab(tab);
+                }}
+                className={cn(
+                  'pb-1 text-sm font-medium uppercase tracking-[0.12em] border-b-2 transition-colors',
+                  activeTab === tab
+                    ? 'text-foreground border-accent'
+                    : 'text-muted-foreground hover:text-foreground border-transparent',
+                )}
+              >
+                {tab === 'packing' ? t('capsule.tab_packing') : t('capsule.tab_outfits')}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* ── Tab content ── */}
         <AnimatePresence mode="wait">
           {activeTab === 'packing' ? (
             <CapsuleSummary
@@ -225,7 +224,6 @@ export function TravelResultsView({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
               transition={{ duration: 0.25, ease: EASE_CURVE }}
-              className="space-y-4"
             >
               {(() => {
                 const outfitsByDay = new Map<number, CapsuleOutfit[]>();
@@ -239,45 +237,62 @@ export function TravelResultsView({
 
                 return [...outfitsByDay.entries()]
                   .sort((first, second) => first[0] - second[0])
-                  .map(([day, outfits]) => (
-                    <Card key={`day-${day}`} className="space-y-3 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="label-editorial">Day {day}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">{outfits.length} looks planned</p>
-                        </div>
-                      </div>
+                  .map(([day, outfits], dayIdx) => {
+                    const dayDate = dateRange?.from ? addDays(dateRange.from, day - 1) : null;
+                    const dayForecast = tripDayForecasts[day - 1] ?? null;
 
-                      <div className="space-y-3">
-                        {outfits.map((outfit) => {
+                    return (
+                      <div key={`day-${day}`} className={dayIdx === 0 ? 'mt-4' : 'mt-8'}>
+                        {/* Day header */}
+                        <h2 className="font-display italic text-xl text-foreground">Day {day}</h2>
+                        <div className="mt-0.5 mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                          {dayDate ? (
+                            <span>{format(dayDate, 'EEE MMM d', { locale: dateLocale })}</span>
+                          ) : null}
+                          {dayForecast ? (
+                            <>
+                              <span className="opacity-40">·</span>
+                              <WeatherMiniIcon condition={dayForecast.condition} className="h-3.5 w-3.5" />
+                              <span>{dayForecast.temperature_max}°C</span>
+                            </>
+                          ) : null}
+                        </div>
+
+                        {/* Outfits for this day */}
+                        {outfits.map((outfit, outfitIdx) => {
                           const currentIndex = animationIndex;
                           animationIndex += 1;
 
                           return (
-                            <CapsuleOutfitCard
-                              key={`${day}-${currentIndex}`}
-                              outfit={outfit}
-                              animationIndex={currentIndex}
-                              garmentMap={garmentMap}
-                              allGarmentsMap={allGarmentsMap}
-                            />
+                            <div key={`${day}-${currentIndex}`}>
+                              {outfitIdx > 0 ? (
+                                <div className="border-t border-border/20 pt-3 mt-3" />
+                              ) : null}
+                              <CapsuleOutfitCard
+                                outfit={outfit}
+                                animationIndex={currentIndex}
+                                garmentMap={garmentMap}
+                                allGarmentsMap={allGarmentsMap}
+                              />
+                            </div>
                           );
                         })}
                       </div>
-                    </Card>
-                  ));
+                    );
+                  });
               })()}
             </motion.div>
           )}
         </AnimatePresence>
       </AnimatedPage>
 
+      {/* ── Floating action bar ── */}
       <div
         className="fixed inset-x-4 z-20"
         style={{ bottom: 'calc(var(--app-safe-area-bottom, 0px) + 0.75rem)' }}
       >
         <div className="mx-auto max-w-md">
-          <div className="action-bar-floating flex flex-wrap gap-2 rounded-[1.6rem] p-3">
+          <div className="action-bar-floating flex items-center gap-2 rounded-[1.6rem] p-2">
             {isAddingToCalendar ? (
               <div className="w-full">
                 <AILoadingCard
@@ -307,15 +322,17 @@ export function TravelResultsView({
                   <CalendarPlus className="mr-2 h-4 w-4" />
                   {t('capsule.add_to_plan')}
                 </Button>
-                <Button
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={() => {
+                    hapticLight();
                     setResult(null);
                     setAddedToCalendar(false);
                   }}
+                  className="px-3 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
                 >
                   Start over
-                </Button>
+                </button>
               </>
             )}
 
