@@ -59,10 +59,10 @@ export function CapsuleSummary({
         </div>
         <div className="mt-2 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{packedCount}</span> of {totalItems} packed
+            <span className="font-medium text-foreground">{packedCount}</span> {t('capsule.of_packed').replace('{total}', String(totalItems))}
           </p>
           <span className="eyebrow-chip !bg-secondary/70">
-            {result.outfits.length} outfits
+            {result.outfits.length} {t('capsule.outfits_label')}
           </span>
         </div>
       </div>
@@ -84,7 +84,11 @@ export function CapsuleSummary({
           >
             {/* Category header */}
             <div className="mb-3 flex items-baseline gap-2">
-              <span className="label-editorial">{category}</span>
+              <span className="label-editorial">
+                {t(`capsule.category_${category}`) !== `capsule.category_${category}`
+                  ? t(`capsule.category_${category}`)
+                  : category.charAt(0).toUpperCase() + category.slice(1)}
+              </span>
               <span className="text-xs text-muted-foreground/70">
                 · {(items || []).length} pieces · {t('capsule.used_in').toLowerCase()} {categoryOutfitUses} {t('capsule.outfits_label')}
               </span>
@@ -145,6 +149,12 @@ export function CapsuleSummary({
         );
       })}
 
+      {Object.keys(groupedItems).length === 0 ? (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          {t('capsule.empty_packing')}
+        </p>
+      ) : null}
+
       {/* ── Packing tips ── */}
       {result.packing_tips.length > 0 ? (
         <div className="mt-6 border-t border-border/40 pt-4">
@@ -173,13 +183,17 @@ export function CapsuleSummary({
             .map((garment) => `- ${garment!.title}`)
             .join('\n');
 
-          navigator.clipboard.writeText(garmentTitles);
-          toast.success('Packing list copied');
+          try {
+            navigator.clipboard.writeText(garmentTitles);
+            toast.success(t('capsule.packing_list_copied'));
+          } catch {
+            toast.error(t('common.error') || 'Could not copy');
+          }
         }}
         variant="editorial"
         className="mt-5 w-full"
       >
-        Copy packing list
+        {t('capsule.copy_packing_list')}
       </Button>
     </motion.div>
   );
