@@ -691,8 +691,23 @@ serve(async (req) => {
       );
     }
     if (garment.render_status === 'rendering') {
+      // DEFERRED — not skipped. Another worker attempt is actively in-flight
+      // on this garment (concurrent Gemini call). The worker MUST NOT
+      // release the reservation here: if the in-flight render succeeds,
+      // its consume_credit_atomic would hit `already_terminal` on a
+      // prematurely-written release, and the user would get a free render.
+      //
+      // Worker contract: on `deferred: true`, keep render_jobs.status =
+      // 'pending' without writing release/consume/status-terminal. Next
+      // cron cycle re-enters. If the concurrent render eventually writes
+      // garment.render_status='ready' + rendered_image_path, the next
+      // claim will hit the `Already ready` branch with renderedImagePath,
+      // worker branch b fires, job flips to succeeded. If it crashed and
+      // garment is stuck at 'rendering', attempts eventually reach
+      // max_attempts and the round-5 heal gate catches any orphan consume.
+      // Codex round 7 structural review.
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: 'Already rendering' }),
+        JSON.stringify({ ok: true, deferred: true, reason: 'Already rendering' }),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
@@ -798,19 +813,38 @@ serve(async (req) => {
     // ── Claim render atomically before expensive prep ──
     const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
-      // Claim lost to a race — garment was updated by another process.
-      // Nothing to revert (render_status wasn't touched, no credit reserved yet).
+      // Claim lost to a race — garment was updated by another process between
+      // our earlier fetch and now. Inspect the landing state:
+      //   * 'rendering'  → concurrent in-flight render. Use the `deferred`
+      //                    response so the worker keeps the job pending
+      //                    instead of prematurely releasing the reservation
+      //                    (would race with the in-flight consume).
+      //   * 'ready' / 'skipped' / anything else → prior terminal state,
+      //     safe for worker to terminalize with release (no consume is
+      //     coming from the other branch).
       const { data: latestGarment } = await supabase
         .from('garments')
         .select('render_status')
         .eq('id', garment.id)
         .maybeSingle();
 
+      const latestStatus = latestGarment?.render_status ?? 'claimed';
+      if (latestStatus === 'rendering') {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            deferred: true,
+            reason: 'Already rendering',
+          }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
       return new Response(
         JSON.stringify({
           ok: true,
           skipped: true,
-          reason: `Already ${latestGarment?.render_status ?? 'claimed'}`,
+          reason: `Already ${latestStatus}`,
         }),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );

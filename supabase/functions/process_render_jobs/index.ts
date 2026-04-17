@@ -59,6 +59,7 @@ type ClaimedJob = {
 type RenderResult =
   | { ok: true; rendered_image_path: string; render_provider?: string }
   | { ok: true; skipped: true; reason: string }
+  | { ok: true; deferred: true; reason: string }
   | { ok: false; status: number; errorClass: string; errorMessage: string };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -165,6 +166,55 @@ serve(async (req) => {
       const startTime = Date.now();
       try {
         const renderResult = await invokeRender(supabase, job, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        if (renderResult.ok && "deferred" in renderResult && renderResult.deferred) {
+          // Concurrent in-flight render on the same garment. Another worker
+          // attempt (or this same attempt's aborted background execution)
+          // is mid-Gemini and will either write consume on success or
+          // crash. Either way, THIS worker must NOT terminalize: releasing
+          // here would race with the in-flight consume (user pays nothing,
+          // still gets the render) and terminalizing as 'succeeded' with
+          // result_path=null would mislead the UI.
+          //
+          // Reset render_jobs to pending without touching attempts — the
+          // attempt IS happening concurrently, so burning budget here is
+          // correct (if every defer cycle counted as a fresh attempt, the
+          // job would churn indefinitely). Attempts was already incremented
+          // by claim_render_job at the start of this cycle; leaving it
+          // bumped means if we keep hitting 'deferred' we eventually reach
+          // max_attempts. At that point the round-5 heal gate catches any
+          // orphan consume (success with worker crash) and terminalizes
+          // correctly, or falls through to the genuine-failure branch.
+          log.info("render deferred — concurrent in-flight render detected", {
+            jobId: job.id,
+            attempts: job.attempts,
+            maxAttempts: job.max_attempts,
+            reason: renderResult.reason,
+          });
+
+          await supabase
+            .from("render_jobs")
+            .update({
+              status: "pending",
+              locked_until: null,
+              updated_at: new Date().toISOString(),
+              error: null,
+              error_class: null,
+            })
+            .eq("id", job.id);
+
+          results.push({ jobId: job.id, status: "deferred_in_flight" });
+
+          logTelemetry(supabase, {
+            functionName: "process_render_jobs",
+            model_used: "render_garment_image",
+            latency_ms: Date.now() - startTime,
+            from_cache: false,
+            status: "ok",
+            user_id: job.user_id,
+          });
+          return;
+        }
 
         if (renderResult.ok && "skipped" in renderResult && renderResult.skipped) {
           // Skip response from render_garment_image (eligibility skip, missing
@@ -535,14 +585,31 @@ async function invokeRender(
       };
     }
 
+    // Deferred: concurrent in-flight render for the same garment. DO NOT
+    // terminalize here — another worker attempt is actively running and
+    // will write consume on success. Worker should keep the job pending
+    // and retry on the next cycle. Codex round 7 structural review.
+    //
+    // Checked BEFORE skipped so that a response carrying both flags (or
+    // a future contract tweak that adds deferred to claim-lost paths)
+    // takes the safer "don't release" path.
+    if (body?.deferred === true) {
+      return {
+        ok: true,
+        deferred: true,
+        reason: typeof body.reason === "string" ? body.reason : "deferred",
+      };
+    }
+
     // Skip responses: render_garment_image returns { ok: true, skipped: true,
-    // reason } for eligibility skips (already rendered, render_status in
-    // {'ready','rendering','skipped'} without force, missing source image,
-    // quality gate rejection, gemini_no_image). The callee already handled
+    // reason } for truly terminal non-render states (already rendered
+    // without path, quality gate reject, gemini_no_image, missing source,
+    // claim-lost after prior success, etc). The callee already handled
     // any state the skip implies (e.g. healing consume on already-ready).
-    // We must NOT retry these — retrying will keep hitting the same skip,
-    // waste work, and eventually terminalize as 'failed' with garment state
-    // overwritten. Codex round 7 Bug 2. Worker will terminalize as
+    // These are NOT 'rendering' in-flight cases — those use `deferred`
+    // above. We MUST NOT retry skips — retrying will keep hitting the same
+    // skip, waste work, and eventually terminalize as 'failed' with garment
+    // state overwritten. Codex round 7 Bug 2. Worker will terminalize as
     // 'succeeded' + release the reservation (since no render work happened).
     if (body?.skipped === true) {
       return {
