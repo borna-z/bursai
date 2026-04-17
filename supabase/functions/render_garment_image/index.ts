@@ -609,6 +609,26 @@ serve(async (req) => {
     // Don't re-render if already ready/rendering/skipped, unless caller forces.
     // Note: these early returns happen BEFORE claim + reserve so no credit is charged.
     if (!force && (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped')) {
+      // For INTERNAL (P5 worker) invocations only: `render_status='rendering'`
+      // means a concurrent in-flight render is underway (either worker N's
+      // Deno isolate that still hasn't completed its Gemini call, or an
+      // external caller mid-render). The worker's `deferred` contract needs
+      // a distinct response so `handleRenderJob` keeps the job pending
+      // WITHOUT writing a release tx — releasing here would race the
+      // in-flight consume and produce a free render (user pays nothing,
+      // gets the render). Codex round 9 caught that this guard was
+      // unreachable before — the old duplicate `deferred` branch further
+      // down was dead code because this earlier guard returned first. See
+      // state-machine doc Scenario 13.
+      //
+      // External (P4 legacy) callers still get skipped:true for
+      // backward compatibility with the pre-queue contract.
+      if (garment.render_status === 'rendering' && isInternalInvocation) {
+        return new Response(
+          JSON.stringify({ ok: true, deferred: true, reason: 'Already rendering' }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
       // Include renderedImagePath when present so P5 worker (process_render_jobs)
       // can recognize this as an already-rendered success rather than a
       // generic "skipped" (no path) result — matters for the narrow
@@ -690,27 +710,11 @@ serve(async (req) => {
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
-    if (garment.render_status === 'rendering') {
-      // DEFERRED — not skipped. Another worker attempt is actively in-flight
-      // on this garment (concurrent Gemini call). The worker MUST NOT
-      // release the reservation here: if the in-flight render succeeds,
-      // its consume_credit_atomic would hit `already_terminal` on a
-      // prematurely-written release, and the user would get a free render.
-      //
-      // Worker contract: on `deferred: true`, keep render_jobs.status =
-      // 'pending' without writing release/consume/status-terminal. Next
-      // cron cycle re-enters. If the concurrent render eventually writes
-      // garment.render_status='ready' + rendered_image_path, the next
-      // claim will hit the `Already ready` branch with renderedImagePath,
-      // worker branch b fires, job flips to succeeded. If it crashed and
-      // garment is stuck at 'rendering', attempts eventually reach
-      // max_attempts and the round-5 heal gate catches any orphan consume.
-      // Codex round 7 structural review.
-      return new Response(
-        JSON.stringify({ ok: true, deferred: true, reason: 'Already rendering' }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      );
-    }
+    // NOTE: the earlier guard (line ~611) handles every `render_status='rendering'`
+    // case — it returns `deferred:true` for internal invocations and
+    // `skipped:true` for external. The standalone `if (render_status === 'rendering')`
+    // check that used to live here in the round-7 patch was dead code (Codex
+    // round 9). Removed to avoid confusing future readers.
 
     // ── Resolve source image ──
     const sourceImagePath = garment.original_image_path || garment.image_path;
