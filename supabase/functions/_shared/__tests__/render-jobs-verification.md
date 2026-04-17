@@ -669,3 +669,183 @@ proof extends to it by construction.
   one-line read-from-correct-field.
 
 Branch deleted after verification. Cost: < $0.01.
+
+## Codex round 7 — structural state-machine pass + end-to-end worker verification (2026-04-17)
+
+Round 7 landed three fixes (two from Codex findings, one from the
+structural review) and added `supabase/functions/_shared/__tests__/render-state-machine.md`
+documenting the P5 lifecycle as a branch-by-branch state machine.
+
+### Fixes in this round
+
+- **Track A / Bug 1 — render_garment_image finally-block release on internal.**
+  Pre-fix the `!consumed` finally branch released the reservation on
+  every non-consume exit, including internal (P5 worker) retry attempts.
+  That broke Interpretation A: first transient failure released the
+  reserve, subsequent retry's consume_credit_atomic hit
+  `already_terminal`, the user got a free render. Fix: gate the release
+  with `!isInternalInvocation && !consumed`. Worker owns release
+  decisions at final failure.
+- **Track A / Bug 2 — skipped responses misclassified as retryable failures.**
+  `render_garment_image` returns `{ok:true, skipped:true, reason}` for
+  legitimate eligibility skips (quality gate reject, gemini_no_image,
+  already-rendered-without-force, etc). Pre-fix `invokeRender` treated
+  every 200-without-path as an unknown failure → retried until
+  `attempts=max` → terminalized as 'failed' with garment state
+  overwritten. Fix: extend `RenderResult` with a skip variant, add a
+  worker branch that releases the reservation (no consume was written
+  → reserve would orphan) and flips the job to 'succeeded' with
+  `result_path=null` WITHOUT touching `garments.render_status`.
+- **Track B / Finding T-1 — `deferred` response for concurrent in-flight.**
+  Surfaced in the structural review (see
+  `render-state-machine.md` Scenario 13). The Track A Bug 2 skip-release
+  path would fire for `garments.render_status='rendering'`, which is
+  the signal that ANOTHER worker attempt is mid-Gemini. Releasing the
+  reservation there races with the in-flight consume → user paid
+  nothing, got the render. Fix: `render_garment_image` now returns
+  `{ok:true, deferred:true, reason}` for the 'Already rendering' early
+  return (and for claim-lost paths when the latest garment state is
+  'rendering'). Worker has a new `deferred` branch ABOVE skip that
+  resets the job to pending WITHOUT writing release, WITHOUT touching
+  garments, and WITHOUT decrementing attempts.
+
+### End-to-end preview-branch verification
+
+Preview branch `walcgspruzwfnfxnygnd` (ephemeral, deleted, cost < $0.01).
+
+**Test harness:**
+1. Applied P3 render-credit schema + RPCs (reserve/consume/release
+   `*_credit_atomic`) and P5 `render_jobs` + `claim_render_job` +
+   `recover_stale_render_jobs` via MCP `apply_migration` (stripped
+   pg_cron schedule and the pg_net extension because preview cron
+   would target production's project_ref).
+2. Deployed the real `process_render_jobs` (HEAD of
+   `prompt-5-render-queue` post-round-7 fixes) with a preview-only
+   auth bypass on the inbound `timingSafeEqual(authHeader,
+   serviceRoleKey)` check — MCP doesn't expose the service-role key,
+   so external invocation couldn't satisfy it. The worker's *outbound*
+   call to `render_garment_image` still uses
+   `Deno.env.SUPABASE_SERVICE_ROLE_KEY` which Supabase auto-populates
+   on deploy, so the callee side is byte-identical to production.
+3. Deployed a stub `render_garment_image` that branches on
+   `body.source` (forwarded from `render_jobs.source`):
+   - `__test_transient`: returns 500 when `job.attempts ≤ 1`, returns
+     a rendered-path + writes `consume_credit_atomic` otherwise.
+   - `__test_skip`: returns `{ok:true, skipped:true, reason:"stub skip reason"}`.
+   - `__test_defer`: returns `{ok:true, deferred:true, reason:"Already rendering"}`.
+4. Seeded three users / profiles / garments / render_credits
+   (monthly_allowance=20) / render_jobs / reserve transactions —
+   one per scenario. Garments were set to the render_status the
+   scenario requires (`'pending'` for transient, `'ready'` with path
+   for skip, `'rendering'` for defer).
+5. Invoked the worker via HTTP POST to the preview's
+   `/functions/v1/process_render_jobs` endpoint twice (first with
+   `{jobId}` hint, second with `{}`).
+
+**Per-scenario results:**
+
+#### Scenario 1 — Transient-then-success (Track A Bug 1)
+
+```
+Invoke 1 (worker claims attempts=1, stub returns 500):
+  results: [{"jobId":"a1...","status":"retry","error":"stub transient failure"}]
+  render_jobs: status=pending, attempts=1, error_class='unknown'
+  txs: [reserve]    ← NO release (the critical fix)
+  credits.reserved=1  ← reservation preserved
+  garments.render_status=pending  (unchanged)
+
+Invoke 2 (worker claims attempts=2, stub returns 200 rendered + writes consume):
+  results: [{"jobId":"a1...","status":"succeeded"}]
+  render_jobs: status=succeeded, attempts=2, result_path='stub-rendered-retry.webp'
+  txs: [reserve, consume]
+  credits: used_this_period=1, reserved=0
+  garments: render_status=ready, rendered_image_path='stub-rendered.webp'
+```
+
+**PASS**: 1 reserve, 1 consume, 0 release. Credit correctly charged
+once, render succeeded on attempt 2. Pre-fix would have written a
+release tx in the first invocation's retry branch → the second
+invocation's consume would have hit `already_terminal` → free render.
+
+#### Scenario 2 — Skipped response terminalizes (Track A Bug 2)
+
+```
+Invoke 1 (worker claims, stub returns {skipped:true}):
+  results: [{"jobId":"b2...","status":"succeeded_skipped"}]
+  render_jobs: status=succeeded, attempts=1, result_path=NULL
+  txs: [reserve, release]
+  credits.reserved=0 (release decremented)
+  garments: render_status=ready, rendered_image_path='prior-render.webp'  (UNCHANGED)
+```
+
+**PASS**: Skip terminalizes with exactly one release tx, no consume,
+garment state preserved verbatim. Pre-fix would have retried the
+skip response twice more, terminalized as 'failed' on attempt 3,
+and overwritten the garment's prior 'ready' state to 'failed'.
+
+#### Scenario 3 — Deferred response keeps pending, no release (Track B Finding T-1)
+
+```
+Invoke 1 (worker claims attempts=1, stub returns {deferred:true}):
+  results: [{"jobId":"c3...","status":"deferred_in_flight"}]
+  render_jobs: status=pending, attempts=1
+  txs: [reserve]   ← NO release (the critical fix)
+
+Invoke 2 (worker re-claims, stub still returns {deferred:true}):
+  results: [{"jobId":"c3...","status":"deferred_in_flight"}]
+  render_jobs: status=pending, attempts=2
+  txs: [reserve]   ← still no release
+  credits.reserved=1
+  garments.render_status=rendering  (unchanged)
+```
+
+**PASS**: Each invocation keeps the job in `pending`, writes no
+credit tx, leaves the garment alone. Attempts increments on each
+claim but is never decremented (by design per T-1 Scenario 13 in
+the state-machine doc — ensures the job can't churn indefinitely;
+attempts=max eventually falls to the round-5 heal gate which catches
+any orphaned consume). Pre-fix (round-7 Track A without T-1) would
+have released the reservation on each invocation, racing with the
+concurrent in-flight consume.
+
+### Invariants validated on the same run
+
+- **I1 (one reserve per job):** all three scenarios end with exactly
+  one reserve tx per `render_job_id`.
+- **I2 (at most one terminal per terminal job):** S1={consume},
+  S2={release}, S3=nothing (still pending). No job has both consume
+  and release.
+- **I3 (no release-after-consume):** S1 has consume, never got
+  release.
+- **I4 (no terminal without reserve):** every terminal (consume or
+  release) was preceded by the scenario's reserve.
+- **I5 (status reflects intent):** S1 succeeded with a path, S2
+  succeeded with `result_path=null` (skip intent), S3 pending
+  (deferred, truly undecided).
+- **I7 (no premature release on in-flight):** S3 never wrote release
+  despite two defer cycles.
+- **I8 (attempts monotonic except on round-5 defer):** S1 attempts
+  went 0→1→2 (two claims). S3 attempts went 0→1→2 (two claims, no
+  decrement — T-1 design). No rewinds.
+
+### What this verification does NOT cover
+
+- **Real Gemini end-to-end.** Preview branches can't share the
+  GEMINI_API_KEY env var, so render_garment_image ran as a stub that
+  simulates the three response shapes. The worker's outcome parsing
+  and DB writes are exercised with real Supabase-js + real
+  RPC-mediated ledger semantics, which is where the round-7 bugs
+  lived. Track A Bug 1 (render_garment_image finally-block release
+  guard) is strictly inspected at code-review — the preview
+  verification covers the worker-side state machine that Bug 1's fix
+  was protecting.
+- **render_garment_image's own `Already rendering` detection.** The
+  real function's line-693 early-return now emits `deferred:true`
+  (was `skipped:true`). Tested at code-review + type-check level.
+  The preview stub emits the post-fix shape directly to exercise
+  the worker's deferred branch.
+- **Concurrent claim race (Scenario 12 in state-machine doc).**
+  `FOR UPDATE SKIP LOCKED` is a PostgreSQL invariant; not
+  re-verified here (round-1 already did).
+
+Preview branch deleted. Cost: < $0.01.
