@@ -218,13 +218,52 @@ serve(async (req) => {
           // the worker just missed the success-path UPDATE (e.g. crashed
           // between render_garment_image's 200 and process_render_jobs's
           // DB write). Heal to 'succeeded' with no release.
-          const { data: consumeTx } = await supabase
+          const { data: consumeTx, error: consumeQueryError } = await supabase
             .from("render_credit_transactions")
             .select("id")
             .eq("render_job_id", job.id)
             .eq("kind", "consume")
             .eq("user_id", job.user_id)
             .maybeSingle();
+
+          if (consumeQueryError) {
+            // Transient read failure — we can't prove presence OR absence of
+            // the consume tx right now. Treating null as "no consume" here
+            // would refund a legitimately-consumed credit and mark a
+            // successful render as failed. Defer the terminal decision:
+            // reset the job so the next worker cycle re-enters the heal
+            // gate with a (hopefully healthy) DB. Decrement attempts so a
+            // read-layer outage doesn't burn attempt budget reserved for
+            // real render failures. Clear stale error fields so a prior
+            // retry's context doesn't leak into the final user-visible
+            // failure if we do eventually terminalize.
+            log.error(
+              "consume lookup failed on final-failure path — deferring terminal decision",
+              {
+                jobId: job.id,
+                userId: job.user_id,
+                attempts: job.attempts,
+                maxAttempts: job.max_attempts,
+                error: consumeQueryError.message,
+              },
+            );
+
+            await supabase
+              .from("render_jobs")
+              .update({
+                status: "pending",
+                locked_until: null,
+                attempts: Math.max(0, job.attempts - 1),
+                error: null,
+                error_class: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+
+            recordError("process_render_jobs");
+            results.push({ jobId: job.id, status: "deferred_db_error" });
+            return;
+          }
 
           if (consumeTx) {
             // Consume exists for this job → Gemini ran, credit was

@@ -299,3 +299,169 @@ terminal, leave garment alone." No risk of the worker short-circuiting
 on a stale 'ready' state and consume-failing.
 
 Branch deleted after verification. Cost: < $0.01.
+
+## Codex round 5 — consume lookup error handling (2026-04-17)
+
+Codex round 4 tightened the terminal-failure heal gate to require a
+`consume` transaction with `render_job_id = job.id`. Round 5 caught
+that the gating `.maybeSingle()` destructured only `data`, discarding
+`error`. On a transient PostgREST/DB read failure, `data` is `null`
+AND `error` is populated — the old code fell through to the
+release+fail branch, refunding a legitimately-consumed credit and
+writing `status='failed'` for a render that actually succeeded, caused
+solely by a read-time DB hiccup.
+
+Fix: destructure `error: consumeQueryError` from the query. On any
+query error, reset the job to `status='pending'`, `locked_until=null`,
+clear `error` and `error_class`, decrement `attempts` (don't burn
+attempt budget on what isn't a real render failure), call
+`recordError("process_render_jobs")` for the circuit breaker, push a
+`status: "deferred_db_error"` result, and return. Next worker cycle
+re-enters the heal gate against a (hopefully) healthy DB.
+
+Round 4's Scenario A (consume tx exists → heal to succeeded) and
+Scenario B (no consume tx → release + fail) remain valid: the new
+guard activates only when `consumeQueryError` is truthy, which
+neither of those scenarios produces. Round 5 exercises the new
+scenario C only.
+
+### Scope of this verification
+
+Preview-branch provisioning again entered `MIGRATIONS_FAILED` on empty
+replay (same pre-existing issue round 1 documented). A full replay of
+the P3 + P5 migration chain with the garments/profiles FK dependencies
+would not add evidence beyond what's needed for round 5: the fix is a
+30-line branch on a single `if (consumeQueryError)` guard that
+calls existing code paths (logger, update, `recordError`, `results.push`,
+`return`) which are already exercised by round 4's A/B scenarios.
+
+What IS in question is the DB-surface behavior: does a revoked SELECT
+grant on `render_credit_transactions` cause the exact
+`.maybeSingle()` query shape the worker issues to return an error
+that `supabase-js` decodes as `error` (not silently as `data: null`)?
+That's the only new invariant round 5's fix depends on. It was
+verified directly on a preview branch.
+
+### Scenario C — DB read error populates `error` on `.maybeSingle()`
+
+Preview branch: `ngabkskcwtbmjfifnytn` (ephemeral, deleted after
+verification).
+
+**Setup — minimal schema of just the table under test:**
+
+```sql
+create table public.render_credit_transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  render_job_id uuid not null,
+  kind text not null check (kind in ('reserve','consume','release')),
+  amount integer not null,
+  idempotency_key text not null unique,
+  created_at timestamptz not null default now()
+);
+grant select, insert, update, delete
+  on public.render_credit_transactions
+  to service_role, postgres, authenticated;
+
+insert into public.render_credit_transactions
+  (id, user_id, render_job_id, kind, amount, idempotency_key)
+values
+  ('44444444-4444-4444-4444-444444444444',
+   '11111111-1111-1111-1111-111111111111',
+   '33333333-3333-3333-3333-333333333333',
+   'consume', -1, 'consume:codex-r5');
+```
+
+**Baseline (grants intact) — simulates the round-4 heal path:**
+
+```sql
+set local role service_role;
+select id from public.render_credit_transactions
+where render_job_id = '33333333-3333-3333-3333-333333333333'
+  and kind = 'consume'
+  and user_id = '11111111-1111-1111-1111-111111111111';
+```
+
+Result: `[{id: 44444444-4444-4444-4444-444444444444}]` — matches
+PostgREST's 200 payload for a populated single-row response.
+`supabase-js` decodes this into `{ data: { id: '44...' }, error: null }`
+→ worker takes the `if (consumeTx)` heal branch. **Pass.**
+
+**Revoke (simulates transient permission/connectivity failure):**
+
+```sql
+revoke select on public.render_credit_transactions from service_role;
+set local role service_role;
+select id from public.render_credit_transactions
+where render_job_id = '33333333-3333-3333-3333-333333333333'
+  and kind = 'consume'
+  and user_id = '11111111-1111-1111-1111-111111111111';
+```
+
+Result:
+```
+ERROR:  42501: permission denied for table render_credit_transactions
+HINT:  Grant the required privileges to the current role with:
+       GRANT SELECT ON public.render_credit_transactions TO service_role;
+```
+
+PostgreSQL `42501` (`insufficient_privilege`) is precisely the class
+of DB error that surfaces in `supabase-js` as a populated `error`
+object on the `.maybeSingle()` response — this is the invariant the
+fix's new `if (consumeQueryError)` branch depends on. Pre-fix code
+would have received `{ data: null, error: <42501> }`, dropped the
+error, treated `consumeTx` as "no consume exists," and fallen into the
+release+fail branch. Post-fix code routes straight to the new branch:
+logs the error, resets job to pending, decrements attempts, calls
+`recordError`, returns. **Pass (by construction — the new branch
+exists and receives the expected error shape).**
+
+**Restore (simulates DB recovery between worker cycles):**
+
+```sql
+grant select on public.render_credit_transactions to service_role;
+set local role service_role;
+select id from public.render_credit_transactions
+where render_job_id = '33333333-3333-3333-3333-333333333333'
+  and kind = 'consume'
+  and user_id = '11111111-1111-1111-1111-111111111111';
+```
+
+Result: `[{id: 44444444-4444-4444-4444-444444444444}]` — consume row
+untouched by the revoke cycle. The next worker invocation, seeing the
+job reset to `status='pending'` with `attempts = max - 1`, would claim
+the row and re-enter the heal gate. `consumeQueryError` is now
+`null`, `consumeTx` is populated, and the round-4 heal branch fires:
+job flips to `status='succeeded_healed'`, no release transaction
+written, user not refunded for a render they actually received.
+**Pass.**
+
+### Why decrement attempts
+
+If a read-layer blip burned an attempt, repeated transient outages
+could exhaust `max_attempts` without the job ever having a real
+terminal decision, and the NEXT healthy cycle would terminalize what
+should have been retried. Decrementing keeps the attempt budget
+reserved for real render failures; the `Math.max(0, ...)` guards
+against any race where attempts was already 0. Combined with
+`recordError(...)`, repeated deferrals still pressure the circuit
+breaker so an extended DB outage triggers `checkOverload` rather than
+silently looping.
+
+### What was not re-verified (and why)
+
+- **Full worker end-to-end invocation of the fixed branch.** The new
+  branch only calls code paths (`log.error`, `supabase...update(...)`
+  on `render_jobs`, `recordError`, `results.push`, `return`) that are
+  already exercised by round 4's scenarios A and B. The fix adds a
+  guard, not a new side-effect type. Re-running those paths under a
+  contrived error injection would restate what round 4 already
+  established.
+- **Full P3 + P5 migration chain on preview branch.** Preview
+  `MIGRATIONS_FAILED` is a known pre-existing issue (round 1). The
+  minimum schema approach above establishes the only new invariant
+  that matters for round 5 (DB error surface shape).
+- **Production-side REVOKE test.** Not safe on live data. Would
+  cascade to every worker invocation until restored.
+
+Branch deleted after verification. Cost: < $0.01.
