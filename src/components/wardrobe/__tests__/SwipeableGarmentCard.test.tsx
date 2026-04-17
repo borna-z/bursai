@@ -3,7 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const navigateMock = vi.fn();
-const invokeEdgeFunctionMock = vi.fn().mockResolvedValue({ data: null, error: null });
+const invokeEdgeFunctionMock = vi.fn().mockResolvedValue({
+  data: { jobId: 'mock-job-id', status: 'pending', source: 'monthly', replay: false },
+  error: null,
+});
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -129,18 +132,20 @@ describe('SwipeableGarmentCard', () => {
     expect(navigateMock).toHaveBeenCalledWith('/wardrobe/g1');
   });
 
-  it('keeps the redesign secondary action wired to enhancement without opening the garment', () => {
+  it('enqueues a render job without opening the garment when Studio photo is tapped', () => {
     renderCard();
 
     fireEvent.click(screen.getByText('Studio photo'));
 
+    // P5: Studio photo now enqueues a render job via enqueue_render_job
+    // (durable queue) rather than invoking render_garment_image directly.
     expect(invokeEdgeFunctionMock).toHaveBeenCalledWith(
-      'render_garment_image',
+      'enqueue_render_job',
       expect.objectContaining({
         retries: 0,
         body: expect.objectContaining({
           garmentId: 'g1',
-          force: true,
+          source: 'retry',
           clientNonce: expect.any(String),
         }),
       }),

@@ -77,10 +77,22 @@ describe('saveGarmentInBackground', () => {
       return { insert: vi.fn().mockResolvedValue({ error: null }) } as any;
     });
 
-    // Mock enrichment edge function call
-    vi.mocked(invokeEdgeFunction).mockResolvedValue({
-      data: { enrichment: { neckline: 'collar', refined_title: 'Navy Wool Blazer' } },
-      error: null,
+    // Mock edge function calls — enrichment payload for analyze_garment,
+    // render_jobs shape for enqueue_render_job, empty for anything else.
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName: string) => {
+      if (functionName === 'analyze_garment') {
+        return Promise.resolve({
+          data: { enrichment: { neckline: 'collar', refined_title: 'Navy Wool Blazer' } },
+          error: null,
+        });
+      }
+      if (functionName === 'enqueue_render_job') {
+        return Promise.resolve({
+          data: { jobId: 'mock-job-id', status: 'pending', source: 'monthly', replay: false },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: {}, error: null });
     });
 
     const saved = await saveGarmentInBackground(makeResult(), 'user-1');
@@ -122,7 +134,7 @@ describe('saveGarmentInBackground', () => {
       expect(invokeEdgeFunction).toHaveBeenCalledWith('analyze_garment', {
         body: { storagePath: 'user-1/test-uuid.jpg', mode: 'enrich' },
       });
-      expect(invokeEdgeFunction).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+      expect(invokeEdgeFunction).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
         body: expect.objectContaining({ garmentId: 'test-uuid', source: 'live_scan', clientNonce: expect.any(String) }),
       }));
     });
@@ -176,9 +188,17 @@ describe('saveGarmentInBackground', () => {
       return { insert: vi.fn().mockResolvedValue({ error: null }) } as any;
     });
 
-    vi.mocked(invokeEdgeFunction).mockResolvedValue({
-      data: { enrichment: { neckline: 'crew' } },
-      error: null,
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName: string) => {
+      if (functionName === 'analyze_garment') {
+        return Promise.resolve({ data: { enrichment: { neckline: 'crew' } }, error: null });
+      }
+      if (functionName === 'enqueue_render_job') {
+        return Promise.resolve({
+          data: { jobId: 'mock-job-id', status: 'pending', source: 'monthly', replay: false },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: {}, error: null });
     });
 
     await saveGarmentInBackground(makeResult(), 'user-1');
@@ -222,7 +242,7 @@ describe('saveGarmentInBackground', () => {
 
     await Promise.resolve();
     expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith(
-      'render_garment_image',
+      'enqueue_render_job',
       expect.anything(),
     );
   });
