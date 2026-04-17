@@ -16,6 +16,15 @@ import type { Json } from '@/integrations/supabase/types';
 
 type RenderState = 'idle' | 'rendering' | 'done' | 'failed';
 
+/**
+ * Client-side render polling budget. Exported so tests can assert it
+ * without hardcoding the value. 5 minutes covers Gemini P99 latency +
+ * the worker's max_attempts=3 × 45s retry budget + headroom. Shorter
+ * budgets cause P5-regression double-charges: false-timeout → user taps
+ * "Try again" → fresh clientNonce → second reservation.
+ */
+export const RENDER_POLL_TIMEOUT_MS = 300_000;
+
 interface GarmentConfirmSheetProps {
   open: boolean;
   garmentId: string;
@@ -130,11 +139,24 @@ export function GarmentConfirmSheet({
       }
     }, 2000);
 
-    // Timeout after 60s
+    // Timeout after 5 minutes.
+    //
+    // Codex round 9 caught that the prior 60s budget was a P5 regression:
+    // a legitimately slow render (Gemini backoff + server-side retries)
+    // would false-fail the sheet after 60s, the user would tap "Try again"
+    // on the failure UI, and `startRender` would fire with a FRESH
+    // crypto.randomUUID() nonce → new reserve_key → second render_jobs row
+    // → second reservation. Both renders complete, user double-charged.
+    //
+    // 300000 ms (5 min) covers Gemini's P99 latency AND the worker's
+    // 45s × max_attempts=3 retry budget with headroom. The server-side
+    // heal gate + stale-claim recovery handle anything that legitimately
+    // exceeds this; the UI flipping to "failed" only matters when we're
+    // confident nothing is in flight any more.
     timeoutRef.current = setTimeout(() => {
       stopPolling();
       setRenderState((prev) => (prev === 'rendering' ? 'failed' : prev));
-    }, 60000);
+    }, RENDER_POLL_TIMEOUT_MS);
   }, [garmentId, stopPolling]);
 
   const handleGenerateClick = useCallback(() => {

@@ -352,11 +352,23 @@ Scenario 7. When a user re-enqueues with a fresh clientNonce after a prior rende
 
 Flagged for product decision. Also affects analytics: `source='retry'` on a never-rendered garment from `SwipeableGarmentCard.handleRender` (see client-side finding 6.1) means we can't even distinguish "first-time generate" from "regenerate" in server logs today.
 
-### T-3 (MEDIUM, NOT FIXED this round) — `GarmentConfirmSheet` 60s local timeout double-enqueues on slow renders
+### T-3 (MEDIUM, FIXED round 9) — `GarmentConfirmSheet` 60s local timeout double-enqueued on slow renders
 
-If a render takes >60s (legitimately — Gemini backoff + retries), `GarmentConfirmSheet`'s inline polling times out to `'failed'`. The user taps Retry → `startRender` fires again → fresh clientNonce → new reservation → Scenario 7 double-charge on top.
+Pre-fix: the sheet's inline polling timed out to `'failed'` after
+60s. Gemini backoff + worker retries + Gemini P99 latency legitimately
+exceeded 60s. The user would tap Retry → `startRender` fires with a
+fresh `crypto.randomUUID()` nonce → new reservation → Scenario 7
+double-charge path. Codex round 9 argued (correctly) that this is a
+P5-caused regression and had to ship in P5, not as a follow-up.
 
-**Fix shape:** switch the sheet from polling `garments` to polling `render_jobs` (via `useRenderJobStatus`'s 30-min budget), or extend the inline timeout from 60s to ~5min. Either is compatible with the current state machine; deferred because the UX implications of a 5-min `"Refining…"` vs a 60s false-fail are a product call.
+**Fix shipped in round 9:** `GarmentConfirmSheet`'s polling timeout
+bumped to `RENDER_POLL_TIMEOUT_MS = 300_000` ms (5 minutes). Exported
+so tests can assert the value structurally — unit test at
+`src/components/garment/__tests__/GarmentConfirmSheet.test.tsx`.
+`SwipeableGarmentCard` doesn't poll at all, so no sibling fix needed.
+Switching the sheet to `useRenderJobStatus` remains a quality-of-life
+improvement (see T-8) but is no longer load-bearing for this
+regression.
 
 ### T-4 (LOW, NOT FIXED this round) — `SwipeableGarmentCard` always uses `source='retry'`
 
@@ -414,3 +426,4 @@ When these are answered, update the scenarios and findings above, and close or r
 
 - 2026-04-17 — Initial version. Round 7 Track A fixes (internal release guard + skip terminalization) incorporated. Round 7 Track B fix (deferred response) added. Findings T-1 through T-9 inventoried.
 - 2026-04-17 — Round 8. Deferred branch gets a max_attempts terminal gate (Scenario 13b). Invariant I8 revised: deferred-pre-terminal cycles do not decrement attempts, but the branch terminalizes at `attempts >= max_attempts` — checking heal-gate consume first, falling through to release + `status='failed' / error_class='stuck_in_flight' / garment.render_status='failed'` otherwise. Pre-round-8 code returned from the deferred branch early without a terminal gate, letting a stuck 'rendering' garment loop indefinitely. Worker outcome table gets two new rows (deferred-terminal-with-heal / deferred-terminal-stuck). Cron HTTP timeout raised from 50s to 180s in the P5 migration to cover worst-case worker batch runtime (MAX_JOBS_PER_RUN=5 × JOB_CONCURRENCY=2 × invokeRender 45s ≈ 135s, plus headroom).
+- 2026-04-17 — Round 9. Bug 1: the T-1 deferred branch added in round 7 was unreachable — the earlier `!force && (render_status === 'ready' || 'rendering' || 'skipped')` guard at `index.ts:611` always returned `skipped:true` first. Fix: branch on `isInternalInvocation` inside that earlier guard (internal+rendering → deferred, else skipped). Removed the duplicate unreachable block with a comment. Bug 2 / T-3 reclassified from follow-up to in-P5-fix: `GarmentConfirmSheet` polling timeout extended from `60_000` ms to `RENDER_POLL_TIMEOUT_MS = 300_000` ms to cover the server's `max_attempts × invokeRender-timeout` budget. Unit test added asserting the constant's value. Verification doc now contains an explicit methodology note: any round that exercises the render_garment_image response contract MUST deploy code containing the real early guard, not a stub that bypasses it — rounds 7/8 did stub-based tests and missed Bug 1 as a result.

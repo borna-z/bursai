@@ -960,3 +960,152 @@ migration file diff and the comment block explains the chosen value
 (135s worst-case batch + 45s headroom).
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 9 — unreachable guard + P5-regression timeout (2026-04-17)
+
+Two findings, both real, both fixed. One of them exposed a
+methodological gap in round 7/8's preview-branch verification that
+this doc records explicitly so we don't repeat it.
+
+### Bug 1 — T-1 `deferred` branch was unreachable (CRITICAL)
+
+`render_garment_image` has two `render_status === 'rendering'` checks
+that both sit before the Gemini path:
+
+- **Earlier guard** (`index.ts:611`) catches all three non-fresh
+  states (`ready`, `rendering`, `skipped`) with a single
+  `skipped:true` / `reason: "Already <state>"` return. Shipped
+  pre-P5 when `skipped` was the only contract.
+- **Round-7 duplicate guard** (old `index.ts:713`): my T-1 patch
+  added a second `if (render_status === 'rendering')` block that
+  returned `{deferred:true}`. Dead code — the earlier guard at line
+  611 always returned first for the rendering case.
+
+Net effect: internal (worker) invocations received `skipped:true`
+instead of `deferred:true`. Round-7's Track A worker skip branch
+then wrote a release tx + flipped render_jobs to 'succeeded'. The
+real in-flight render eventually completed, its
+`consume_credit_atomic` call hit the terminal-uniqueness guard
+(release was already written) → returned `already_terminal` → no
+consume tx written. User got the render, the ledger never charged
+them. **Exact free-render bug T-1 was supposed to prevent**, live
+in production-bound code from round 7 through round 8.
+
+Fix: branch on `isInternalInvocation` inside the earlier guard at
+line 611. Internal+rendering → `{deferred:true}`. Everything else
+(external, or any non-rendering state) → preserves existing
+`{skipped:true}` contract. Removed the now-redundant duplicate
+guard with a comment explaining why.
+
+### Bug 2 — T-3 now ships in P5, not as a follow-up
+
+The state-machine doc listed T-3 (`GarmentConfirmSheet`'s 60s
+polling budget) as a `[P5 follow-up]` for a standalone PR after
+launch. Codex round 9 flagged that this classification was wrong:
+the 60s budget is a P5-caused regression, not a standalone
+improvement. Pre-P5, a failed render surfaced synchronously within
+one request. Post-P5, a render can legitimately take minutes
+(`max_attempts × 45s` + server retries + Gemini backoff). A 60s
+UI-side false-fail invites the user to tap "Try again" → fresh
+`clientNonce` → second reservation → double-charge. Must ship in P5.
+
+Fix: extended `GarmentConfirmSheet`'s polling timeout to
+`300_000` ms (5 minutes). Exported the value as
+`RENDER_POLL_TIMEOUT_MS` so tests can assert it structurally. Added
+`src/components/garment/__tests__/GarmentConfirmSheet.test.tsx` with
+two assertions: value is `300_000` (not the pre-fix `60_000`), and
+value covers the server's `max_attempts × invokeRender-timeout`
+budget. Grepped `src/` for other hardcoded `60000` / `60 * 1000` in
+the render path — only unrelated matches (day math, stale-indicator
+formatting). SwipeableGarmentCard doesn't poll at all.
+
+### Scenario — real-guard deferred test (post-fix behavior)
+
+Preview branch: `umrgvhsjipphgpyarlra` (ephemeral, deleted, cost < $0.01).
+
+Deployed render_garment_image containing the **real post-fix early
+guard** (body parsing → garment fetch → branch-on-isInternalInvocation
+at the 'rendering' check). The round-7/8 tests deployed a STUB that
+returned `{deferred:true}` directly, skipping the guard entirely —
+that's why the unreachability didn't surface. See methodology note
+below.
+
+Deployed process_render_jobs with the round-8 deferred-terminal
+gate. Seeded a stuck garment (render_status='rendering') + pending
+render_jobs + reserve tx.
+
+Three sequential invocations. Each result includes a `calleeBody`
+field capturing exactly what render_garment_image returned:
+
+```
+Cycle 1:
+  status    = "deferred_in_flight"
+  calleeBody = {ok:true, deferred:true, reason:"Already rendering"}
+
+Cycle 2:
+  status    = "deferred_in_flight"
+  calleeBody = {ok:true, deferred:true, reason:"Already rendering"}
+
+Cycle 3:
+  status    = "failed_stuck_deferred"
+  calleeBody = {ok:true, deferred:true, reason:"Already rendering"}
+  release   = {ok:true, source:"monthly"}
+```
+
+render_garment_image correctly emits `deferred:true` (not `skipped:true`).
+Worker's handleRenderJob takes the deferred branch on cycles 1 and
+2, terminalizes on cycle 3 via the round-8 max-attempts gate.
+
+### Counterfactual — pre-fix behavior (documents what Bug 1 actually was)
+
+Same preview branch, same seeded state (reset after cycle 3:
+render_jobs back to pending attempts=0, release tx deleted,
+garments back to 'rendering', render_credits.reserved=1).
+
+Re-deployed render_garment_image with the **pre-round-9 buggy
+early guard** — no isInternalInvocation branching on the
+'rendering' state. Invoked worker once:
+
+```
+Cycle 1 (BUGGY):
+  status    = "UNEXPECTED_skipped_for_rendering_internal"
+  calleeBody = {ok:true, skipped:true, reason:"Already rendering"}
+```
+
+The instrumented worker for this round traps `skipped:true` on an
+internal+rendering case as an anomaly and does NOT actually release
+(so the counterfactual stays clean for the next test). In **real
+round-7/8 production worker code**, this response would have hit
+the skip branch at handleRenderJob and written a release tx →
+render_jobs.status='succeeded' → user's reservation freed → any
+genuinely in-flight render eventually hits already_terminal on
+consume = free render.
+
+### Methodology — why rounds 7 and 8 didn't catch this
+
+Rounds 7 and 8 deployed a STUB render_garment_image that switched
+on `body.source` and returned the test's desired response shape
+directly (`{deferred:true}` for `__test_defer`). The stub skipped
+the body parsing + garment fetch + early guard code path. So the
+test asserted "if the callee returns `{deferred:true}`, the worker
+handles it correctly" — a valid test of the WORKER, but silent on
+whether the REAL callee would ever emit `{deferred:true}` in the
+first place.
+
+**Rule for future rounds:** any state-machine scenario that
+exercises the render_garment_image response contract MUST deploy
+render_garment_image code containing the actual early-return
+logic, not a stub that bypasses it. The test harness can still stub
+Gemini / storage / consume — the guard logic must be real. Round 9
+did this by deploying a subset-of-real render_garment_image that
+includes body parsing, garment fetch, and the early guard, and
+short-circuits before the Gemini section (which requires
+GEMINI_API_KEY not present on preview). Sentinel responses at
+post-guard positions trap any guard misses.
+
+Applying this rule retroactively: round-7's Scenario 3 claim of
+"PASS" was technically correct for what it tested but materially
+misleading because what it tested wasn't the thing that mattered.
+Round 9's scenario is the canonical deferred verification now.
+
+Preview branch deleted. Cost: < $0.01.
