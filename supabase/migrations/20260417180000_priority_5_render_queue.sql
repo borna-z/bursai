@@ -169,27 +169,51 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ─── pg_cron schedule: 60s worker invocation ────────────────
--- pg_cron runs as the postgres superuser, so it can read the
--- service-role key from vault or settings. The net.http_post
--- fires the edge function every 60s — safety net for the
--- hybrid Option C path (client enqueue also fires it synchronously
--- on INSERT for low-latency, cron catches orphaned rows).
+-- pg_cron runs as the postgres superuser, which is the only role
+-- with SELECT access to vault.decrypted_secrets. This keeps the
+-- service-role key out of pg_settings (where authenticated users
+-- can read it via current_setting('app.*')) and out of any committed
+-- SQL. Supabase's vault schema encrypts the secret at rest and
+-- decrypts transparently when read as superuser.
 --
--- Authorization header uses the vault.decrypted_secrets table
--- (standard Supabase pattern for service-role key storage). If
--- vault isn't configured, this will no-op safely — the cron row
--- still fires, the HTTP call just 401s, and we fall back to the
--- client-initiated path only. Non-fatal.
+-- URL is the project's public functions endpoint — safe to commit.
+-- The Authorization header is built at cron-exec time by selecting
+-- the current secret value. If the secret isn't inserted (first
+-- deploy), the SELECT returns NULL, the Authorization becomes
+-- 'Bearer ', the HTTP call 401s, and the worker just doesn't run
+-- via cron. The client-initiated path (enqueue_render_job's internal
+-- POST) still works. Non-fatal but the safety net is dead until the
+-- secret is inserted, so post-deploy smoke test is required.
+--
+-- ONE-TIME POST-DEPLOY STEP:
+--   After db push applies this migration, run ONCE via Supabase SQL
+--   editor (Database → SQL Editor):
+--
+--     INSERT INTO vault.secrets (name, secret)
+--     VALUES ('service_role_key', '<your SUPABASE_SERVICE_ROLE_KEY value>')
+--     ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
+--
+--   Retrieve the value from Supabase dashboard → Settings → API →
+--   service_role secret. Verify with:
+--
+--     SELECT cron.schedule_in_database('process-render-jobs');  -- row exists
+--     SELECT name FROM vault.secrets WHERE name = 'service_role_key';
+--
+--   First successful cron run appears in `cron.job_run_details` within
+--   60s with status='succeeded' and return_message='200'.
 
 SELECT cron.schedule(
   'process-render-jobs',
   '*/1 * * * *',  -- every 1 minute (pg_cron's smallest standard interval)
   $$
   SELECT net.http_post(
-    url := current_setting('app.supabase_url', true) || '/functions/v1/process_render_jobs',
+    url := 'https://khvkwojtlkcvxjxztduj.supabase.co/functions/v1/process_render_jobs',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.supabase_service_role_key', true)
+      'Authorization', 'Bearer ' || COALESCE(
+        (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key' LIMIT 1),
+        ''
+      )
     ),
     body := '{}'::jsonb,
     timeout_milliseconds := 50000

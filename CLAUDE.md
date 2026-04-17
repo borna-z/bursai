@@ -205,6 +205,56 @@ npx supabase migration repair --status applied <new_timestamp>
 npx supabase migration repair --status reverted <old_timestamp>
 ```
 
+### Secrets inside migrations — never in custom GUCs
+
+If a migration body (including pg_cron schedule bodies) needs to authenticate to the app's own services, store the secret in `vault.secrets`, not in an `app.*` custom GUC.
+
+Why: any `authenticated` Postgres role can read `current_setting('app.*', true)`. Verified on production 2026-04-17 by running `SET LOCAL ROLE authenticated; SELECT current_setting('app.test_leak', true)` — the value came back. So a custom GUC containing the service-role key would be readable by every logged-in user → account takeover.
+
+`vault.decrypted_secrets` is restricted to the postgres superuser role. pg_cron runs as superuser, so it reads the decrypted value at cron-exec time. Authenticated users see nothing.
+
+**Secret storage pattern:**
+
+```sql
+-- One-time insert, via Supabase SQL editor:
+INSERT INTO vault.secrets (name, secret)
+VALUES ('<key-name>', '<secret-value>')
+ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
+```
+
+**Cron-body read pattern:**
+
+```sql
+Authorization: 'Bearer ' || COALESCE(
+  (SELECT decrypted_secret FROM vault.decrypted_secrets
+   WHERE name = '<key-name>' LIMIT 1),
+  ''  -- fail-safe: empty string yields 401 rather than NULL errors
+)
+```
+
+The `COALESCE(..., '')` means a missing secret yields a 401 rather than a SQL error — migration succeeds even before the secret is inserted, and the operational sequence is "push migration → insert secret → cron starts working".
+
+### Post-deploy smoke tests
+
+Any migration that introduces a new pg_cron schedule must include a post-deploy smoke test in the PR description. Template:
+
+```sql
+-- 1. Migration applied?
+SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = '<job_name>') AS cron_registered;
+
+-- 2. Secret inserted (if the cron body needs one)?
+SELECT EXISTS (SELECT 1 FROM vault.secrets WHERE name = '<secret_name>') AS secret_present;
+
+-- 3. Wait one cron interval, then check execution result:
+SELECT status, return_message, start_time
+FROM cron.job_run_details
+WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = '<job_name>')
+ORDER BY start_time DESC
+LIMIT 3;
+```
+
+If `status != 'succeeded'` or `return_message != '200'`, the cron is silently broken — fix before considering the deploy done.
+
 ## Project Identity
 
 | Field | Value |
