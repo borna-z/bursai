@@ -1,3 +1,12 @@
+-- Archaeology: file renamed from 20260416233226_reserve_credit_replay_flag.sql
+-- in commit 034fa49c (PR #419) to align with remote applied_at timestamp
+-- 2026-04-16 23:42:30 (the reapply, after P3 catch-up's CREATE OR REPLACE
+-- temporarily overwrote this function back to the `duplicate:true` variant).
+-- Original author content in commit 0d53a52d ("Priority 4: Fix codex
+-- review — reserve replay flag + restore prior state on unclaim",
+-- 2026-04-16). Companion file 20260416233654_reserve_credit_replay_flag.sql
+-- records the first (pre-catch-up) apply.
+
 -- ============================================================
 -- Priority 4 codex round 1 — reserve_credit_atomic replay flag
 --

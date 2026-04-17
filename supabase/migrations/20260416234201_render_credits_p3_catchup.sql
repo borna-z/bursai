@@ -1,3 +1,11 @@
+-- Archaeology: file renamed from 20260416120000_render_credits.sql in
+-- commit 034fa49c (PR #419) to align with remote applied_at timestamp
+-- 2026-04-16 23:42:01 (when applied via MCP after pg_cron enable).
+-- Original author content in commit a429cd99 ("Priority 3: Build render
+-- credit ledger — tables, atomic RPCs, shared module, Stripe wiring",
+-- 2026-04-16). Three follow-up commits (2bf63b1e, f1f7905c, f1b78a9e)
+-- refined the migration through codex review rounds 1-3 before merge.
+
 -- ============================================================
 -- Priority 3: Render credit ledger
 -- Tables, RLS, triggers, and atomic RPC functions for

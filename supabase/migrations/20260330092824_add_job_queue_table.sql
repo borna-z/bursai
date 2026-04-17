@@ -1,3 +1,8 @@
+-- Archaeology: file renamed from 20260330120000_add_job_queue_table.sql in
+-- commit 034fa49c (PR #419) to align with remote applied_at timestamp
+-- 2026-03-30 09:28:24. Original author content in commit cbf0f3ff
+-- ("Scale-harden BURS backend for growth toward 2.3M+ users", 2026-03-30).
+
 -- Job queue table for async heavy-work processing
 -- Used by scale-guard.ts job queue helpers
 

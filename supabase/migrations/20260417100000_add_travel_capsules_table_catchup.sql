@@ -1,0 +1,58 @@
+-- ============================================================
+-- Catch-up file for previously unmanaged manual apply.
+--
+-- The `travel_capsules` table exists in production (confirmed via
+-- information_schema on 2026-04-17) but no migration row in
+-- `supabase_migrations.schema_migrations` records its creation.
+-- It was created manually — most likely via Studio UI or an early
+-- MCP apply_migration that did not land a .sql file in the repo.
+--
+-- A source-control catch-up was written on the unmerged branch
+-- `prompt-27-sv-i18n-migration` (commit f6239a5f,
+-- 20260414180000_add_travel_capsules_table.sql) but never merged
+-- to main. This file reuses that content with a current timestamp.
+--
+-- Idempotent via IF NOT EXISTS on the table, the policy, and the
+-- index — safe to apply in any environment. On prod this is a
+-- no-op that only registers a `schema_migrations` row so future
+-- `db pull` and `db push` calls stay aligned.
+--
+-- After PR #419 merges, run `npx supabase db push --linked --yes`
+-- from main to register this migration. All other P5-P11 migrations
+-- then work through the normal deploy flow.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.travel_capsules (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  destination text NOT NULL,
+  start_date date,
+  end_date date,
+  occasions text[] DEFAULT '{}',
+  luggage_type text DEFAULT 'carry_on_personal',
+  companions text DEFAULT 'solo',
+  style_preference text DEFAULT 'balanced',
+  result jsonb NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.travel_capsules ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'travel_capsules'
+      AND policyname = 'Users can manage own capsules'
+  ) THEN
+    CREATE POLICY "Users can manage own capsules"
+      ON public.travel_capsules
+      FOR ALL
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END$$;
+
+CREATE INDEX IF NOT EXISTS idx_travel_capsules_user
+  ON public.travel_capsules (user_id, created_at DESC);

@@ -1,3 +1,9 @@
+-- Archaeology: file renamed from 20260411120000_fix_analytics_events_telemetry.sql
+-- in commit 034fa49c (PR #419) to align with remote applied_at timestamp
+-- 2026-04-11 00:59:15. Original author content in commit 27394b6e
+-- ("Prompt 19: fix analytics_events schema drift — trigger backfill,
+-- user_id default, RLS reconcile", 2026-04-11).
+
 -- Prompt 19: Fix analytics_events telemetry pipeline.
 -- Safe for both production (where event_name/properties exist via dashboard drift)
 -- and clean environments (where only the baseline schema exists).
