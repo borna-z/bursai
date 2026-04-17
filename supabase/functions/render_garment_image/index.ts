@@ -1301,10 +1301,27 @@ serve(async (req) => {
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     } finally {
-      // Any non-success path (thrown error, quality-gate-rejected return, eligibility-skip return,
-      // gemini_no_image return) leaves consumed=false, so we release the reservation.
-      // Failure in release is non-fatal — the orphan cleanup cron will eventually reconcile.
-      if (!consumed) {
+      // Release policy:
+      //
+      // External (direct / P4 legacy) callers: any non-consume exit releases
+      // the reservation. Preserves the pre-P5 "release-on-failure" contract
+      // that SwipeableGarmentCard/GarmentConfirmSheet used when there was no
+      // worker queue — a failed single-shot render freed its own credit
+      // because nothing else would.
+      //
+      // Internal (P5 worker) callers: NEVER release here. Reserve-until-
+      // final-failure (Interpretation A) means the reservation outlives
+      // transient failures and is only released when process_render_jobs
+      // terminalizes the row at attempts=max_attempts. If this finally
+      // released on every failed attempt, the next retry would consume_credit
+      // and hit the ledger's terminal-uniqueness guard (already_terminal) →
+      // the render succeeds end-to-end but the user isn't charged → free
+      // render. Codex round 7 Bug 1.
+      //
+      // Skip responses from internal callers also rely on this: the worker
+      // now terminalizes + releases on skip (round 7 Bug 2). Releasing here
+      // would put the release first and break the worker's terminal flow.
+      if (!isInternalInvocation && !consumed) {
         try {
           // Using the operation-prefixed releaseKey built above (release:<base>).
           const releaseResult = await releaseCredit(supabase, user.id, jobId, releaseKey);

@@ -58,6 +58,7 @@ type ClaimedJob = {
 
 type RenderResult =
   | { ok: true; rendered_image_path: string; render_provider?: string }
+  | { ok: true; skipped: true; reason: string }
   | { ok: false; status: number; errorClass: string; errorMessage: string };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -164,6 +165,59 @@ serve(async (req) => {
       const startTime = Date.now();
       try {
         const renderResult = await invokeRender(supabase, job, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        if (renderResult.ok && "skipped" in renderResult && renderResult.skipped) {
+          // Skip response from render_garment_image (eligibility skip, missing
+          // source, quality gate, gemini_no_image, already-ready without
+          // force). Terminalize the job as succeeded (from the QUEUE'S
+          // perspective — the worker's job is done) and release the reserve
+          // because NO render work happened → no consume was written →
+          // reserve would otherwise orphan until the cleanup cron sweeps it.
+          //
+          // Do NOT touch garments.render_status here: the skip means the
+          // garment is ALREADY in its correct state (ready, rendering,
+          // skipped, or pending if a different flow claimed it). Overwriting
+          // would regress prior-attempt success or interrupt a concurrent
+          // flow. Codex round 7 Bug 2.
+          const baseKey = deriveBaseKey(job);
+          const releaseResult = await releaseCredit(
+            supabase,
+            job.user_id,
+            job.id,
+            `release:${baseKey}`,
+          );
+          if (!releaseResult.ok && !releaseResult.duplicate) {
+            log.warn("releaseCredit non-ok on skip terminalization", {
+              jobId: job.id,
+              reason: releaseResult.reason,
+            });
+          }
+
+          await supabase
+            .from("render_jobs")
+            .update({
+              status: "succeeded",
+              result_path: null,
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              error: null,
+              error_class: null,
+              locked_until: null,
+            })
+            .eq("id", job.id);
+
+          results.push({ jobId: job.id, status: "succeeded_skipped" });
+
+          logTelemetry(supabase, {
+            functionName: "process_render_jobs",
+            model_used: "render_garment_image",
+            latency_ms: Date.now() - startTime,
+            from_cache: false,
+            status: "ok",
+            user_id: job.user_id,
+          });
+          return;
+        }
 
         if (renderResult.ok) {
           // render_garment_image itself already:
@@ -481,13 +535,32 @@ async function invokeRender(
       };
     }
 
-    // 200 but no rendered_image_path (e.g. skipped, 202-style response).
-    // Treat as unknown non-success — let retry policy decide.
+    // Skip responses: render_garment_image returns { ok: true, skipped: true,
+    // reason } for eligibility skips (already rendered, render_status in
+    // {'ready','rendering','skipped'} without force, missing source image,
+    // quality gate rejection, gemini_no_image). The callee already handled
+    // any state the skip implies (e.g. healing consume on already-ready).
+    // We must NOT retry these — retrying will keep hitting the same skip,
+    // waste work, and eventually terminalize as 'failed' with garment state
+    // overwritten. Codex round 7 Bug 2. Worker will terminalize as
+    // 'succeeded' + release the reservation (since no render work happened).
+    if (body?.skipped === true) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: typeof body.reason === "string" ? body.reason : "skipped",
+      };
+    }
+
+    // 200 but no rendered_image_path AND not a skip — shouldn't happen on
+    // current render_garment_image code paths. Classify as unknown failure
+    // so retry policy can decide. If this fires in prod, it's a genuine
+    // contract break between the two functions worth flagging.
     return {
       ok: false,
       status: res.status,
       errorClass: "unknown",
-      errorMessage: body?.message || "render returned 200 without rendered_image_path",
+      errorMessage: body?.message || "render returned 200 without rendered_image_path or skipped flag",
     };
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
