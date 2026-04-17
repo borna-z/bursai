@@ -25,9 +25,28 @@
 --     WITH CHECK (auth.uid() = user_id)
 --   - idx_travel_capsules_user (user_id, created_at DESC)
 --
--- After PR #419 merges, run `npx supabase db push --linked --yes` from
--- main to register this migration. All other P5-P11 migrations then
--- work through the normal deploy flow.
+-- Timestamp rationale: 20260330000000 (midnight UTC on 2026-03-30).
+-- Originally placed at 20260417100000 (after today's date) but Codex
+-- review on PR #419 caught a bootstrap-order bug — the follow-up
+-- migration 20260414151049_add_travel_capsule_new_fields.sql uses
+-- `ALTER TABLE IF EXISTS` to add columns. If the catch-up ran AFTER
+-- that ALTER on a fresh environment, the ALTER would silently no-op
+-- against the missing table, then this CREATE TABLE would build
+-- travel_capsules without the new columns. Placing this catch-up
+-- before any migration that references the table ensures CREATE
+-- runs first in timestamp order. The slot 20260330000000 is free
+-- on remote (the first 2026-03-30 remote row is 20260330092824), so
+-- this file does not collide with any applied migration.
+--
+-- After PR #419 merges, run
+--   `npx supabase db push --linked --yes --include-all`
+-- from main to register this migration. The --include-all flag is
+-- required specifically for this push because the CLI detects an
+-- out-of-order insertion (this file's timestamp 20260330000000 sits
+-- before many already-applied remote rows). After this one apply,
+-- future P5-P11 migrations use the normal deploy flow without the
+-- flag — they'll always carry current-timestamp rows appended to
+-- the end of the history.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.travel_capsules (
