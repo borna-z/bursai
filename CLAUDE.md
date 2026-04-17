@@ -160,11 +160,24 @@ If the PR is non-migration work: must report "Remote database is up to date."
 
 ### Post-merge deploy
 
-After merging a PR with migrations, from main:
+**Default** — after merging a PR with migrations, from main:
 
 ```bash
 npx supabase db push --linked --yes
 ```
+
+**Exception — backdated migrations.** If a PR introduces a migration with a timestamp EARLIER than migrations already on remote (drift-repair or schema-catch-up work only), the CLI refuses the default command and requires explicit consent:
+
+```bash
+npx supabase db push --linked --yes --include-all
+```
+
+Only use `--include-all` after verifying:
+1. The backdated migration is idempotent (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `IF NOT EXISTS` guards on policies/indexes, etc.) so re-running against an already-applied schema is a no-op.
+2. Running the full migration chain in timestamp order from an empty DB produces a schema matching production. Mental walkthrough of the chain is the minimum bar; a fresh Supabase project test is the real bar.
+3. `npx supabase migration list --linked` shows the backdated migration as the only Local-only row.
+
+Normal day-to-day migrations always append at the end of the chain and never need `--include-all`. It is a flag for drift cleanup specifically.
 
 Deploy edge functions only after `db push` succeeds, so functions never hit a pre-migration schema.
 
