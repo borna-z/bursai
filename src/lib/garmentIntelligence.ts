@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Json, TablesInsert } from '@/integrations/supabase/types';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { invokeEdgeFunction, getHttpStatus } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import {
   GARMENT_IMAGE_PROCESSING_VERSION,
@@ -122,9 +122,16 @@ export async function enqueueRenderJob(
   );
 
   if (error) {
+    // supabase-js FunctionsHttpError stores the Response on `error.context`
+    // (not on the error itself). Reading `error.status` returned `undefined`
+    // on real 4xx/5xx responses → RenderEnqueueError.status = 0 → callers
+    // (GarmentConfirmSheet's paywall, isRenderEnqueueRetryable) misrouted.
+    // getHttpStatus extracts from context.status; falls back to 0 for
+    // transport failures (no HTTP response) so isRenderEnqueueRetryable
+    // still treats those as retryable.
     throw new RenderEnqueueError(
       error.message || 'render enqueue failed',
-      (error as { status?: number }).status ?? 0,
+      getHttpStatus(error) ?? 0,
       (error as { code?: string }).code,
       clientNonce,
     );

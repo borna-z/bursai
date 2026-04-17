@@ -4,9 +4,15 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: { from: vi.fn() },
 }));
 
-vi.mock('@/lib/edgeFunctionClient', () => ({
-  invokeEdgeFunction: vi.fn(),
-}));
+vi.mock('@/lib/edgeFunctionClient', async (importOriginal) => {
+  // Keep the real getHttpStatus (pure helper) so the error-shape assertions
+  // exercise the actual extraction logic. Only invokeEdgeFunction is mocked.
+  const actual = await importOriginal<typeof import('@/lib/edgeFunctionClient')>();
+  return {
+    ...actual,
+    invokeEdgeFunction: vi.fn(),
+  };
+});
 
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { enqueueRenderJob, RenderEnqueueError, isRenderEnqueueRetryable } from '@/lib/garmentIntelligence';
@@ -57,9 +63,16 @@ describe('enqueueRenderJob', () => {
   });
 
   it('throws RenderEnqueueError with the nonce attached on 402 so caller can display upgrade CTA', async () => {
+    // supabase-js FunctionsHttpError stores HTTP status on `error.context.status`
+    // (NOT directly on the error). Codex round 6 caught that we were reading
+    // `error.status` → always `undefined` on real 4xx/5xx → RenderEnqueueError.status=0
+    // → GarmentConfirmSheet's paywall never fired. Now routed through getHttpStatus.
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: null,
-      error: Object.assign(new Error('trial_studio_locked'), { status: 402, code: 'trial_studio_locked' }),
+      error: Object.assign(new Error('trial_studio_locked'), {
+        context: { status: 402 },
+        code: 'trial_studio_locked',
+      }),
     });
 
     try {
@@ -80,7 +93,7 @@ describe('enqueueRenderJob', () => {
   it('attaches the clientNonce to RenderEnqueueError on 5xx (transport failure) so caller can retry safely', async () => {
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: null,
-      error: Object.assign(new Error('rpc_error'), { status: 503 }),
+      error: Object.assign(new Error('rpc_error'), { context: { status: 503 } }),
     });
 
     const nonce = 'nonce-that-must-survive-failure';
@@ -91,6 +104,57 @@ describe('enqueueRenderJob', () => {
       expect(e).toBeInstanceOf(RenderEnqueueError);
       expect((e as RenderEnqueueError).status).toBe(503);
       expect((e as RenderEnqueueError).clientNonce).toBe(nonce);
+    }
+  });
+
+  it('status falls back to 0 when error has no context (transport-level failure, no HTTP response)', async () => {
+    // Network error, fetch abort, DNS failure — supabase-js surfaces these as
+    // a plain Error with no `context` field. isRenderEnqueueRetryable(0) must
+    // return true so the call sites retry with the same nonce.
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: null,
+      error: new Error('Failed to fetch'),
+    });
+
+    try {
+      await enqueueRenderJob('garment-1', 'add_photo');
+      expect.fail('expected RenderEnqueueError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RenderEnqueueError);
+      expect((e as RenderEnqueueError).status).toBe(0);
+    }
+  });
+
+  it('status falls back to 0 when context.status is not a number (malformed error)', async () => {
+    // Defensive — an error shape with context but no numeric status should
+    // still fall through to the transport-failure path, not crash.
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error('weird'), { context: { status: '500' } }),
+    });
+
+    try {
+      await enqueueRenderJob('garment-1', 'add_photo');
+      expect.fail('expected RenderEnqueueError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RenderEnqueueError);
+      expect((e as RenderEnqueueError).status).toBe(0);
+    }
+  });
+
+  it('status reads 500 from context.status (server error retry path)', async () => {
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error('Internal server error'), { context: { status: 500 } }),
+    });
+
+    try {
+      await enqueueRenderJob('garment-1', 'add_photo', { clientNonce: 'keep-me' });
+      expect.fail('expected RenderEnqueueError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RenderEnqueueError);
+      expect((e as RenderEnqueueError).status).toBe(500);
+      expect((e as RenderEnqueueError).clientNonce).toBe('keep-me');
     }
   });
 

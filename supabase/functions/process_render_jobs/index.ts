@@ -440,6 +440,16 @@ async function invokeRender(
         garmentId: job.garment_id,
         source: job.source,
         clientNonce: job.client_nonce,
+        // Forward the QUEUED presentation + prompt_version from render_jobs
+        // so render_garment_image derives the base key from the values that
+        // were current at enqueue. Without this, if the user changes
+        // mannequin_presentation (or RENDER_PROMPT_VERSION ships) between
+        // enqueue and worker run, the callee computes a different base key
+        // than enqueue_render_job's reserve_key → reserve hits a second
+        // reserve_key → two credit reservations for one logical render.
+        // Codex round 6 caught this.
+        presentation: job.presentation,
+        promptVersion: job.prompt_version,
       }),
       signal: controller.signal,
     });

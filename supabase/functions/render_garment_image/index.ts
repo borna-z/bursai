@@ -445,6 +445,13 @@ serve(async (req) => {
     let isInternalInvocation = false;
     let internalUserId: string | null = null;
     let internalJobId: string | null = null;
+    // Queued metadata forwarded by process_render_jobs from the render_jobs row.
+    // Authoritative when present — prevents base-key drift if profile or
+    // RENDER_PROMPT_VERSION change between enqueue and worker run (Codex
+    // round 6). Null for external (P4 legacy) callers; they fall back to
+    // live profile + current constant below.
+    let internalPresentation: string | null = null;
+    let internalPromptVersion: string | null = null;
     try {
       const rawBody: unknown = await req.json();
       if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
@@ -522,6 +529,15 @@ serve(async (req) => {
         isInternalInvocation = true;
         internalUserId = bodyObj.userId;
         internalJobId = bodyObj.jobId;
+        // Read queued metadata forwarded by process_render_jobs. Absence is
+        // tolerated (older worker versions, or a direct internal call that
+        // predates P5 round 6) → we fall back to live profile + constant.
+        if (typeof bodyObj.presentation === 'string' && bodyObj.presentation.length > 0) {
+          internalPresentation = normalizeMannequinPresentation(bodyObj.presentation);
+        }
+        if (typeof bodyObj.promptVersion === 'string' && bodyObj.promptVersion.length > 0) {
+          internalPromptVersion = bodyObj.promptVersion;
+        }
       }
     } catch (parseError) {
       // SyntaxError from req.json(), TypeError from destructuring a non-object,
@@ -624,16 +640,26 @@ serve(async (req) => {
         // this path was a pure no-op and we preserve that behavior.
         if (isInternalInvocation && internalJobId) {
           try {
-            const { data: profileForHeal } = await supabase
-              .from('profiles')
-              .select('mannequin_presentation')
-              .eq('id', user.id)
-              .maybeSingle();
-            const presentationForHeal = normalizeMannequinPresentation(
-              profileForHeal?.mannequin_presentation,
-            );
+            // Prefer queued values from the render_jobs row (forwarded by
+            // process_render_jobs) so healBaseKey matches the reserve_key
+            // persisted at enqueue even if the user's profile or
+            // RENDER_PROMPT_VERSION changed since. Fall back to profile
+            // only if the worker didn't forward presentation (e.g. older
+            // worker, or a direct internal call predating round 6).
+            let presentationForHeal = internalPresentation;
+            if (!presentationForHeal) {
+              const { data: profileForHeal } = await supabase
+                .from('profiles')
+                .select('mannequin_presentation')
+                .eq('id', user.id)
+                .maybeSingle();
+              presentationForHeal = normalizeMannequinPresentation(
+                profileForHeal?.mannequin_presentation,
+              );
+            }
+            const promptVersionForHeal = internalPromptVersion ?? RENDER_PROMPT_VERSION;
             const healBaseKey =
-              `${user.id}_${garment.id}_${presentationForHeal}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+              `${user.id}_${garment.id}_${presentationForHeal}_${promptVersionForHeal}_${clientNonce}`;
             const healResult = await consumeCredit(
               supabase,
               user.id,
@@ -690,13 +716,25 @@ serve(async (req) => {
       throw new Error('GEMINI_API_KEY not configured for render_garment_image');
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('mannequin_presentation')
-      .eq('id', garment.user_id)
-      .maybeSingle();
-
-    const mannequinPresentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
+    // For internal (worker) invocations, use the queued presentation from the
+    // render_jobs row. For external (P4 legacy) callers, fetch live from the
+    // profile. This keeps the base key / reserve_key stable across the
+    // enqueue→worker delay, so a profile change mid-queue doesn't produce a
+    // second reserve transaction (Codex round 6).
+    let mannequinPresentation: string;
+    if (internalPresentation) {
+      mannequinPresentation = internalPresentation;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mannequin_presentation')
+        .eq('id', garment.user_id)
+        .maybeSingle();
+      mannequinPresentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
+    }
+    // Same reasoning for prompt version — constant value can change across
+    // deploys; the queued value pins the version that was current at enqueue.
+    const effectivePromptVersion = internalPromptVersion ?? RENDER_PROMPT_VERSION;
 
     console.log('render_garment_image Gemini provider config', {
       garmentId: garment.id,
@@ -796,7 +834,7 @@ serve(async (req) => {
     // so all three ops share the same job_id — required for the ledger's
     // partial unique index terminal guard to work correctly.
     const baseKey =
-      `${user.id}_${garment.id}_${mannequinPresentation}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+      `${user.id}_${garment.id}_${mannequinPresentation}_${effectivePromptVersion}_${clientNonce}`;
     const reserveKey = `reserve:${baseKey}`;
     const consumeKey = `consume:${baseKey}`;
     const releaseKey = `release:${baseKey}`;

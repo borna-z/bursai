@@ -465,3 +465,207 @@ silently looping.
   cascade to every worker invocation until restored.
 
 Branch deleted after verification. Cost: < $0.01.
+
+## Codex round 6 — HTTP status extraction + queued metadata forwarding (2026-04-17)
+
+Two independent findings, both fixed in one commit.
+
+### Bug A — `enqueueRenderJob` read `error.status` but supabase-js puts HTTP status on `error.context.status`
+
+`src/lib/garmentIntelligence.ts` constructed `RenderEnqueueError` via
+`(error as { status?: number }).status ?? 0`. On real 4xx/5xx responses
+the supabase-js `FunctionsHttpError` stores HTTP status on
+`error.context.status`, not on the error itself — so the read returned
+`undefined` and `RenderEnqueueError.status` was always `0`.
+Downstream effects:
+
+- `GarmentConfirmSheet`'s paywall guard (`err.status === 402`) never
+  fired on real insufficient-credit responses → user saw a generic
+  toast instead of the upgrade CTA.
+- `isRenderEnqueueRetryable(status)` always returned `true` (status
+  0 is treated as transport-level) → actual 4xx user errors (400,
+  402, 429) got retried with the same nonce, which is a no-op but
+  wasteful.
+
+Fix: export the existing `getHttpStatus` helper from
+`src/lib/edgeFunctionClient.ts` and use it in `enqueueRenderJob`. The
+helper already reads `error.context.status` with proper type guards
+and falls back to `null` (we coerce to `0`) for transport-level
+failures, preserving the retry semantics.
+
+**Verification:** unit tests in
+`src/lib/__tests__/enqueueRenderJob.test.ts`:
+
+- `context: { status: 402 }` → `RenderEnqueueError.status === 402`
+  (paywall path)
+- `context: { status: 500 }` → `RenderEnqueueError.status === 500`
+  (5xx retry path, nonce preserved)
+- no `context` → `status === 0` (transport failure — retryable)
+- `context: { status: '500' }` (non-numeric) → `status === 0`
+  (defensive fallback)
+
+Pre-fix tests were mocking `{ status: 402 }` directly on the error,
+which happened to make the buggy code pass. Updating them to use the
+real supabase-js `FunctionsHttpError` shape is what turned them into
+actual regression tests. All 14 tests green; full suite (1095 tests
+across 182 files) unaffected.
+
+### Bug B — worker didn't forward queued `presentation` + `prompt_version` to `render_garment_image`
+
+`process_render_jobs`'s internal POST to `render_garment_image` passed
+`{ internal, jobId, userId, garmentId, source, clientNonce }` — no
+presentation, no prompt version. `render_garment_image`'s
+`isInternalInvocation` branch then re-fetched `mannequin_presentation`
+from the user's profile *at worker run time* and used the compile-time
+`RENDER_PROMPT_VERSION` constant, both of which can have drifted
+between enqueue and worker run. The resulting `baseKey` /
+`reserve_key` differed from the one enqueue recorded → the re-reserve
+call wrote a second transaction with a different idempotency_key →
+two reserves for one logical render → user double-charged.
+
+Fix:
+
+- `process_render_jobs/index.ts` `invokeRender` payload now includes
+  `presentation: job.presentation` and `promptVersion:
+  job.prompt_version` (both columns already present on `render_jobs`
+  from the P5 migration; `claim_render_job` returns them on every
+  claim).
+- `render_garment_image/index.ts` parses these as
+  `internalPresentation` / `internalPromptVersion` during body
+  validation. When present, they are the authoritative values for
+  `baseKey` derivation at both the main reserve path (line ~814) and
+  the heal-path consume (line ~661). When absent (external P4 legacy
+  callers or an older worker), fall back to live profile fetch +
+  `RENDER_PROMPT_VERSION` constant — preserves backward compat.
+- `claimGarmentRender` at line ~777 continues to receive the
+  effective `mannequinPresentation`, so the garment row's
+  `render_presentation_used` column records what was *actually*
+  rendered (the queued value) instead of the drifted profile value.
+
+### Scenario — profile drift between enqueue and worker run
+
+Preview branch: `hiprqemwlbrbrmdoeqxl` (ephemeral, deleted after
+verification).
+
+**Minimum schema applied:** `profiles(id, mannequin_presentation)`,
+`garments`, `render_jobs` (full P5 shape including `presentation` +
+`prompt_version`), `render_credit_transactions`.
+
+**T0 setup — enqueue state:**
+
+```sql
+-- Profile at enqueue time.
+insert into profiles values ('<user>', 'codex-r6', 'male');
+
+-- render_jobs row captures the values current at enqueue.
+insert into render_jobs
+  (id, user_id, garment_id, client_nonce, status, attempts, max_attempts,
+   source, presentation, prompt_version, reserve_key)
+values ('<job>', '<user>', '<garment>', 'nonce-r6-queued',
+        'pending', 0, 3, 'add_photo', 'male', 'v1',
+        'reserve:<user>_<garment>_male_v1_nonce-r6-queued');
+
+-- Reserve transaction with idempotency_key = reserve_key.
+insert into render_credit_transactions values (
+  ..., '<user>', '<job>', 'reserve', -1,
+  'reserve:<user>_<garment>_male_v1_nonce-r6-queued'
+);
+```
+
+Pre-state:
+```
+profile_presentation = male
+queued_presentation  = male
+reserve_tx_count     = 1
+```
+
+**T1 — user changes profile to 'female' BEFORE worker claims the job:**
+
+```sql
+update profiles set mannequin_presentation = 'female' where id = '<user>';
+```
+
+Post-drift:
+```
+profile_presentation = female
+queued_presentation  = male   (render_jobs untouched)
+```
+
+**T2 — simulate OLD (buggy) worker:** re-reads profile at worker time
+(now `female`), derives a `female`-keyed baseKey, issues a
+reserve_credit_atomic call with `idempotency_key =
+'reserve:...female_v1_nonce-r6-queued'`. This idempotency_key does
+NOT collide with the existing `...male_v1_...` row's key — a new
+reserve tx is written.
+
+```
+total_reserve_tx = 2
+idempotency_keys = [
+  'reserve:...male_v1_nonce-r6-queued',    (original, enqueue time)
+  'reserve:...female_v1_nonce-r6-queued',  (NEW, worker-time drift)
+]
+```
+
+This is the exact double-charge Codex round 6 flagged. User's
+`reserved` counter would be decremented twice for one logical
+render intent.
+
+**T3 — reset to T1 state, simulate NEW (fixed) worker:** forwards
+`presentation: job.presentation = 'male'` + `promptVersion: 'v1'`
+from the queued render_jobs row. `render_garment_image` prefers
+these over profile + constant, derives a `male`-keyed baseKey,
+issues reserve_credit_atomic with `idempotency_key =
+'reserve:...male_v1_nonce-r6-queued'`. This matches the existing
+row → `ON CONFLICT (idempotency_key) DO NOTHING` → no second write.
+
+```
+total_reserve_tx = 1
+idempotency_keys = [
+  'reserve:...male_v1_nonce-r6-queued',    (unchanged from enqueue)
+]
+```
+
+The worker re-reserve call is now idempotent against the profile
+drift. Same goes for a `RENDER_PROMPT_VERSION` constant bump
+mid-queue: the queued `'v1'` wins, `reserve_key` matches, no
+duplicate reserves.
+
+### Why this approach instead of a full deploy + invoke
+
+`supabase-js`'s `reserveCredit` wraps a PostgREST call backed by the
+`reserve_credit_atomic` RPC whose correctness under duplicate
+`idempotency_key` is a PostgreSQL `INSERT ... ON CONFLICT (UNIQUE)`
+invariant — not application-layer logic. Proving the idempotency_key
+that the worker would derive matches the one on record (via direct
+SQL computation of the baseKey string using the queued vs. drifted
+values) establishes the exact invariant the fix relies on. Deploying
+`process_render_jobs` + `render_garment_image` to the preview branch
+and exercising them end-to-end would exercise the same DB invariant
+plus Gemini + storage, neither of which is under test here.
+
+The heal-path consume (line ~661) uses identical logic; the same
+proof extends to it by construction.
+
+### What was not re-verified (and why)
+
+- **Full function deployment + `curl` invocation on preview.**
+  Deploying both functions (including all `_shared/*` imports) to
+  the preview branch and driving a real Gemini render adds test
+  surface (API key config, storage bucket, cors) that isn't under
+  test in round 6.
+- **P4 legacy external caller fallback path.** The fix is strictly
+  additive for external callers: `internalPresentation === null` →
+  code takes the unchanged "fetch profile + use RENDER_PROMPT_VERSION"
+  path. External callers (SwipeableGarmentCard, GarmentConfirmSheet,
+  `startGarmentRenderInBackground`) continue to route through
+  `enqueue_render_job` which stores the queued value, so in
+  practice the fallback path exists only for hypothetical future
+  non-P5 internal callers and legacy tests.
+- **Bug A integration in `GarmentConfirmSheet`.** The status reads
+  `err.status === 402` unchanged; the fix is upstream in
+  `enqueueRenderJob`. Unit tests cover the status extraction.
+  Visual verification of the paywall CTA rendering on a real 402 is
+  a UI check deferred to smoke-test time since the fix is a
+  one-line read-from-correct-field.
+
+Branch deleted after verification. Cost: < $0.01.
