@@ -7,33 +7,51 @@
 -- It was created manually — most likely via Studio UI or an early
 -- MCP apply_migration that did not land a .sql file in the repo.
 --
--- A source-control catch-up was written on the unmerged branch
--- `prompt-27-sv-i18n-migration` (commit f6239a5f,
--- 20260414180000_add_travel_capsules_table.sql) but never merged
--- to main. This file reuses that content with a current timestamp.
+-- Over the table's lifetime, follow-up migrations have added columns
+-- on top of the original shape (20260414151049_add_travel_capsule_new_fields
+-- recorded six additions; many others — trip_type, duration_days, weather_*,
+-- capsule_items, outfits, packing_list, packing_tips, total_combinations,
+-- reasoning — were applied manually without migration files). This file
+-- captures the current production shape exactly so fresh environments
+-- provision to parity.
 --
--- Idempotent via IF NOT EXISTS on the table, the policy, and the
--- index — safe to apply in any environment. On prod this is a
--- no-op that only registers a `schema_migrations` row so future
--- `db pull` and `db push` calls stay aligned.
+-- Idempotent via IF NOT EXISTS on the table, the policy (DO block with
+-- pg_policies check), and the index — safe to apply in any environment.
+-- On prod this is a no-op that only registers a `schema_migrations` row.
 --
--- After PR #419 merges, run `npx supabase db push --linked --yes`
--- from main to register this migration. All other P5-P11 migrations
--- then work through the normal deploy flow.
+-- Content verified against production schema on 2026-04-17:
+--   - 21 columns, ordinal order preserved
+--   - Policy "users own their capsules" FOR ALL USING (auth.uid() = user_id)
+--     WITH CHECK (auth.uid() = user_id)
+--   - idx_travel_capsules_user (user_id, created_at DESC)
+--
+-- After PR #419 merges, run `npx supabase db push --linked --yes` from
+-- main to register this migration. All other P5-P11 migrations then
+-- work through the normal deploy flow.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.travel_capsules (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   destination text NOT NULL,
+  trip_type text DEFAULT 'mixed',
+  duration_days integer NOT NULL,
+  weather_min integer,
+  weather_max integer,
+  occasions text[],
+  capsule_items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  outfits jsonb NOT NULL DEFAULT '[]'::jsonb,
+  packing_list jsonb NOT NULL DEFAULT '[]'::jsonb,
+  packing_tips text[],
+  total_combinations integer,
+  reasoning text,
+  created_at timestamptz DEFAULT now(),
   start_date date,
   end_date date,
-  occasions text[] DEFAULT '{}',
   luggage_type text DEFAULT 'carry_on_personal',
   companions text DEFAULT 'solo',
   style_preference text DEFAULT 'balanced',
-  result jsonb NOT NULL,
-  created_at timestamptz DEFAULT now()
+  result jsonb
 );
 
 ALTER TABLE public.travel_capsules ENABLE ROW LEVEL SECURITY;
@@ -44,9 +62,9 @@ BEGIN
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'travel_capsules'
-      AND policyname = 'Users can manage own capsules'
+      AND policyname = 'users own their capsules'
   ) THEN
-    CREATE POLICY "Users can manage own capsules"
+    CREATE POLICY "users own their capsules"
       ON public.travel_capsules
       FOR ALL
       USING (auth.uid() = user_id)
