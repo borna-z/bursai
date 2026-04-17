@@ -181,6 +181,30 @@ Normal day-to-day migrations always append at the end of the chain and never nee
 
 Deploy edge functions only after `db push` succeeds, so functions never hit a pre-migration schema.
 
+### Migration drift repair strategy
+
+When remote `applied_at` timestamps don't match local file timestamps (accumulated drift — the pattern that PR #419 repaired), there are two reconciliation strategies. The choice matters because `supabase migration list` compares only timestamps — a rename on the local side turns the file into a *new* migration version from the CLI's perspective.
+
+**Strategy A — rename local files to match remote timestamps.** What PR #419 did for BURS. Safe ONLY when you are certain no environment other than production has applied the pre-rename versions. Renaming orphans any environment that applied the old timestamp — on its next `db push`, the CLI sees the renamed file as a new migration and tries to re-run it. Non-idempotent statements (plain `CREATE POLICY`, `CREATE TRIGGER`, `ALTER TABLE ADD COLUMN` without `IF NOT EXISTS`) will then fail with duplicate errors and block the push.
+
+**Strategy B — `supabase migration repair`.** Preserve local filenames, update remote tracking via:
+
+```bash
+npx supabase migration repair --status applied <local_timestamp>
+npx supabase migration repair --status reverted <remote_timestamp>
+```
+
+Tells every CLI client "treat the new timestamp as already applied, forget the old one." No file rename — so no orphaned environments.
+
+**Rule:** For solo pre-launch work (current BURS state — no CI, no preview branches, no other developers), **rename is acceptable**. The moment a second developer, CI pipeline, or staging environment joins the workflow, `migration repair` becomes the default drift-repair strategy. Update this rule when that transition happens.
+
+**Local repair if you ever hit this:** If your local Supabase has the pre-rename migrations applied and `supabase db push` fails with duplicate-policy or similar errors:
+
+```bash
+npx supabase migration repair --status applied <new_timestamp>
+npx supabase migration repair --status reverted <old_timestamp>
+```
+
 ## Project Identity
 
 | Field | Value |
