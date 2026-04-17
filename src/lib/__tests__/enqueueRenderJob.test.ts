@@ -16,7 +16,7 @@ describe('enqueueRenderJob', () => {
     vi.clearAllMocks();
   });
 
-  it('calls enqueue_render_job edge function with a fresh clientNonce and returns job metadata on success', async () => {
+  it('generates a fresh clientNonce per call and returns job metadata on success', async () => {
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: { jobId: 'job-123', status: 'pending', source: 'monthly', replay: false },
       error: null,
@@ -24,31 +24,20 @@ describe('enqueueRenderJob', () => {
 
     const result = await enqueueRenderJob('garment-1', 'add_photo');
 
-    expect(result).toEqual({
+    expect(result).toEqual(expect.objectContaining({
       jobId: 'job-123',
       status: 'pending',
       source: 'monthly',
       replay: false,
-    });
-
-    expect(invokeEdgeFunction).toHaveBeenCalledWith(
-      'enqueue_render_job',
-      expect.objectContaining({
-        retries: 0,
-        body: expect.objectContaining({
-          garmentId: 'garment-1',
-          source: 'add_photo',
-          clientNonce: expect.any(String),
-        }),
-      }),
-    );
+    }));
+    expect(result.clientNonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
     const call = vi.mocked(invokeEdgeFunction).mock.calls[0];
     const body = (call[1] as { body: { clientNonce: string } }).body;
-    expect(body.clientNonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(body.clientNonce).toBe(result.clientNonce);
   });
 
-  it('reuses a supplied clientNonce (idempotent enqueue retry)', async () => {
+  it('reuses a supplied clientNonce and returns it in the result (idempotent retry path)', async () => {
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: { jobId: 'job-123', status: 'pending', source: 'monthly', replay: true },
       error: null,
@@ -57,6 +46,7 @@ describe('enqueueRenderJob', () => {
     const stableNonce = 'fixed-nonce-for-replay-test';
     const result = await enqueueRenderJob('garment-1', 'retry', { clientNonce: stableNonce });
 
+    expect(result.clientNonce).toBe(stableNonce);
     expect(result.replay).toBe(true);
     expect(invokeEdgeFunction).toHaveBeenCalledWith(
       'enqueue_render_job',
@@ -66,37 +56,73 @@ describe('enqueueRenderJob', () => {
     );
   });
 
-  it('throws RenderEnqueueError with status when the edge function returns 402 (trial locked / insufficient)', async () => {
+  it('throws RenderEnqueueError with the nonce attached on 402 so caller can display upgrade CTA', async () => {
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: null,
       error: Object.assign(new Error('trial_studio_locked'), { status: 402, code: 'trial_studio_locked' }),
     });
 
-    await expect(enqueueRenderJob('garment-1', 'add_photo')).rejects.toThrow(RenderEnqueueError);
     try {
       await enqueueRenderJob('garment-1', 'add_photo');
+      expect.fail('expected RenderEnqueueError');
     } catch (e) {
       expect(e).toBeInstanceOf(RenderEnqueueError);
       expect((e as RenderEnqueueError).status).toBe(402);
       expect((e as RenderEnqueueError).code).toBe('trial_studio_locked');
+      // Nonce attached even on 402 so a later upgrade → retry flow can reuse it
+      // rather than creating a second reservation.
+      expect((e as RenderEnqueueError).clientNonce).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     }
   });
 
-  it('throws RenderEnqueueError when the edge function returns 5xx (transport/RPC failure)', async () => {
+  it('attaches the clientNonce to RenderEnqueueError on 5xx (transport failure) so caller can retry safely', async () => {
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: null,
       error: Object.assign(new Error('rpc_error'), { status: 503 }),
     });
 
-    await expect(enqueueRenderJob('garment-1', 'add_photo')).rejects.toThrow(RenderEnqueueError);
+    const nonce = 'nonce-that-must-survive-failure';
+    try {
+      await enqueueRenderJob('garment-1', 'add_photo', { clientNonce: nonce });
+      expect.fail('expected RenderEnqueueError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RenderEnqueueError);
+      expect((e as RenderEnqueueError).status).toBe(503);
+      expect((e as RenderEnqueueError).clientNonce).toBe(nonce);
+    }
   });
 
-  it('throws when the edge function returns 200 but no jobId (defensive check)', async () => {
+  it('throws when the edge function returns 200 but no jobId (defensive check) and still attaches nonce', async () => {
     vi.mocked(invokeEdgeFunction).mockResolvedValue({
       data: {} as never,
       error: null,
     });
 
-    await expect(enqueueRenderJob('garment-1', 'add_photo')).rejects.toThrow(RenderEnqueueError);
+    const nonce = 'nonce-for-empty-response';
+    try {
+      await enqueueRenderJob('garment-1', 'add_photo', { clientNonce: nonce });
+      expect.fail('expected RenderEnqueueError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(RenderEnqueueError);
+      expect((e as RenderEnqueueError).clientNonce).toBe(nonce);
+    }
+  });
+
+  it('returns replay=true from server (row already existed under same reserve_key)', async () => {
+    // Codex Bug 2/3 fix: server returns the ORIGINAL row's id + replay:true
+    // when a retry with the same clientNonce hits the 23505 + SELECT path.
+    // Client must trust the server-provided jobId, not infer from local state.
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { jobId: 'original-job-id', status: 'in_progress', source: 'monthly', replay: true },
+      error: null,
+    });
+
+    const result = await enqueueRenderJob('garment-1', 'retry', { clientNonce: 'retry-nonce' });
+
+    expect(result.jobId).toBe('original-job-id');
+    expect(result.status).toBe('in_progress');
+    expect(result.replay).toBe(true);
   });
 });

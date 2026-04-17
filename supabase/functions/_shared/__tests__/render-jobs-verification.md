@@ -111,3 +111,62 @@ duplicate `render_jobs` rows for the same `clientNonce`.
   `SwipeableGarmentCard.test.tsx`) which all pass.
 - pg_cron → `net.http_post` → `process_render_jobs` live invocation.
   Needs credentialled test env; deferred to post-deploy smoke test.
+
+## Codex review round 1 — re-verification (2026-04-17)
+
+Five findings from Codex, all addressed. Additional preview-branch
+verification for the structural change in Bug 2+3:
+
+### Bug 2+3 — canonical id preserved on reserve_key conflict
+
+**Setup:** INSERT row with `id = aaaaaaaa-...`, `reserve_key = 'reserve:key-X'`.
+Second INSERT attempts the same `reserve_key` with a new `id = bbbbbbbb-...`
+(simulating an enqueue retry that generated a fresh UUID upfront before
+realizing reserve was a replay).
+
+**Execution:** plain `INSERT` in a DO block catches `unique_violation` (23505)
+and falls through to `SELECT id FROM render_jobs WHERE reserve_key = '...'`.
+
+**Result:**
+
+```
+surviving_id                 = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+matches_original_jobId_A     = true
+not_overwritten_by_jobId_B   = true
+total_rows_for_key           = 1
+```
+
+The canonical `id` survives the retry intact. `enqueue_render_job` uses
+this exact pattern (INSERT → catch 23505 → SELECT) and returns the
+surviving id, so the credit ledger's `render_job_id` foreign key stays
+valid across retries. Previously, the `upsert({onConflict, ignoreDuplicates: false})`
+merge would have rewritten the id to `bbbbbbbb-...` and stranded the
+original reserve transaction.
+
+### Bugs 1, 4, 5 — covered at application layer
+
+- **Bug 1** (skip replay short-circuit on internal): render_garment_image
+  condition changed from `if (reserveResult.replay)` to
+  `if (reserveResult.replay && !isInternalInvocation)`. Early-return for
+  "Already ready" now includes `renderedImagePath` so the narrow
+  worker-crash-between-render-and-status-update scenario treats the
+  skipped response as a success rather than a generic failure. Covered
+  by unit tests in `enqueueRenderJob.test.ts` + e2e via production
+  smoke test planned in PR deploy checklist.
+
+- **Bug 4** (retry nonce orphan): `enqueueRenderJob` signature unchanged
+  for the happy path (accepts optional `clientNonce`, generates one
+  otherwise) but now returns the nonce used in the success response, and
+  `RenderEnqueueError` carries the nonce for failure retries. All three
+  call sites (SwipeableGarmentCard, GarmentConfirmSheet,
+  `startGarmentRenderInBackground`) do one transport-level retry with
+  the same nonce on 5xx. Retry-contract documented in the helper's
+  JSDoc + inline comments at each call site.
+
+- **Bug 5** (polling terminates on missing row): `useRenderJobStatus`
+  tolerates up to `maxEmptyPolls` (default 10, ≈ 30s) of missing-row
+  responses before giving up with `status='not_found'`. Resets the
+  empty-poll counter on any successful row fetch. Adds `poll_timeout`
+  state for the 30-minute hard ceiling.
+
+Branch deleted after verification. Cost: < $0.01.

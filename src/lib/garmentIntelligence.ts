@@ -13,12 +13,22 @@ type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan' | 'manual_enh
 
 export interface EnqueueRenderJobResult {
   /** Canonical render_jobs.id — stable across enqueue retries thanks to
-      reserve's replay flag. */
+      reserve's replay flag + the UNIQUE constraint on reserve_key. */
   jobId: string;
+  /** The clientNonce actually used on the request. If the caller passed
+      one via options.clientNonce, this is that value; otherwise it's the
+      helper-generated UUID. **Callers that need to retry a failed enqueue
+      with the same logical intent (e.g. after a 5xx transport error) MUST
+      pass this value back in options.clientNonce on the retry** — a fresh
+      nonce creates a new reserve_key and a new reservation, orphaning the
+      first. The original credit can only be released by the post-launch
+      orphan-reservation cleanup cron. */
+  clientNonce: string;
   status: 'pending' | 'in_progress' | 'succeeded' | 'failed';
   source: string;
-  /** True when the reserve hit the idempotency short-circuit (repeat
-      enqueue with same clientNonce). */
+  /** True when either the ledger hit replay OR the render_jobs row already
+      existed under this reserve_key. Either way, the canonical job row is
+      the one that survived — this response targets it. */
   replay: boolean;
 }
 
@@ -27,6 +37,10 @@ export class RenderEnqueueError extends Error {
     message: string,
     public readonly status: number,
     public readonly code?: string,
+    /** The clientNonce used on the failing request. Callers that retry
+        MUST reuse this value via options.clientNonce — see
+        EnqueueRenderJobResult.clientNonce for the full rationale. */
+    public readonly clientNonce?: string,
   ) {
     super(message);
     this.name = 'RenderEnqueueError';
@@ -45,6 +59,25 @@ export class RenderEnqueueError extends Error {
  * garments.render_status (via useRenderJobStatus or by refetching the garment)
  * until it flips to 'ready' or 'failed'.
  *
+ * ## Retry contract
+ *
+ * **Distinct logical intents** (e.g. a user tapping "Studio photo" once, then
+ * tapping "Try again" after a failure) → each call passes a **fresh** nonce.
+ * That's the default behavior when `options.clientNonce` is omitted.
+ *
+ * **Transport-level retries of the same intent** (network error, 5xx) →
+ * the caller MUST supply the SAME nonce on the retry via `options.clientNonce`.
+ * The first call's nonce is returned on both success (result.clientNonce) and
+ * failure (RenderEnqueueError.clientNonce). Persist that value somewhere the
+ * retry can read.
+ *
+ * Why: if enqueue's INSERT fails after reserve succeeded (rare 500), the
+ * reservation exists against the original reserve_key. A retry with a fresh
+ * nonce creates a new reserve_key → new reservation → the first one is
+ * orphaned and can only be cleaned by the post-launch orphan cron. A retry
+ * with the same nonce hits reserve's replay flag and the row's UNIQUE
+ * constraint, yielding idempotency in both directions.
+ *
  * @throws RenderEnqueueError on 4xx/5xx — callers should surface the status
  *   to the UI (402 → upgrade CTA, 503 → "try again later", 5xx → error toast).
  */
@@ -53,10 +86,6 @@ export async function enqueueRenderJob(
   source: RenderTriggerSource,
   options: { clientNonce?: string } = {},
 ): Promise<EnqueueRenderJobResult> {
-  // Fresh nonce per logical enqueue intent. Network retries of the SAME
-  // enqueue call will be handled at the edge-function-client layer with the
-  // same nonce re-sent, so reserve's replay flag deduplicates. Distinct
-  // user-intent events (e.g. a manual "Try again" tap) pass a fresh nonce.
   const clientNonce = options.clientNonce ?? crypto.randomUUID();
 
   const { data, error } = await invokeEdgeFunction<EnqueueRenderJobResult & { error?: string }>(
@@ -72,13 +101,15 @@ export async function enqueueRenderJob(
       error.message || 'render enqueue failed',
       (error as { status?: number }).status ?? 0,
       (error as { code?: string }).code,
+      clientNonce,
     );
   }
   if (!data || !data.jobId) {
-    throw new RenderEnqueueError('render enqueue returned no jobId', 0);
+    throw new RenderEnqueueError('render enqueue returned no jobId', 0, undefined, clientNonce);
   }
   return {
     jobId: data.jobId,
+    clientNonce,
     status: data.status,
     source: data.source,
     replay: data.replay,
@@ -363,6 +394,10 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
 }
 
 async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
+  // Single transport-level retry with the SAME nonce on 5xx. Any
+  // subsequent retries will happen via the server-side cron safety net
+  // (which reclaims the reserved row) or the user's next app-open —
+  // we don't loop client-side to avoid hammering a distressed backend.
   try {
     await enqueueRenderJob(garmentId, source as RenderTriggerSource);
   } catch (err) {
@@ -372,6 +407,22 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
       logger.info(`[${source}] render enqueue 402: ${err.code ?? err.message}`);
       return;
     }
+
+    if (err instanceof RenderEnqueueError && err.status >= 500 && err.clientNonce) {
+      // Transport failure — retry once with the SAME nonce so reserve's
+      // replay flag catches any successful-reserve-but-failed-insert state.
+      logger.warn(`[${source}] render enqueue 5xx; retrying once with same nonce`, err);
+      try {
+        await enqueueRenderJob(garmentId, source as RenderTriggerSource, {
+          clientNonce: err.clientNonce,
+        });
+        return;
+      } catch (retryErr) {
+        logger.warn(`[${source}] render enqueue retry failed`, retryErr);
+        return;
+      }
+    }
+
     logger.warn(`[${source}] render enqueue failed`, err);
   }
 }

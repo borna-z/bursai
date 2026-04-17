@@ -71,15 +71,22 @@ export function GarmentConfirmSheet({
 
     // P5: enqueue via durable queue instead of invoking render_garment_image
     // directly. Same polling loop below picks up the rendered image when
-    // the worker finishes. Errors are swallowed here — the poll timeout
-    // handles "never completed" UX.
-    enqueueRenderJob(garmentId, 'manual_enhance').catch((err) => {
-      if (err instanceof RenderEnqueueError) {
-        // Leave the sheet in rendering state — the garment poll below will
-        // eventually detect the render_status flip (or the timeout below
-        // will surface). P10/P11 add proper 402 UI.
+    // the worker finishes. A 5xx gets one retry with the SAME nonce so a
+    // reserve-succeeded-insert-failed state can recover without orphaning.
+    (async () => {
+      try {
+        await enqueueRenderJob(garmentId, 'manual_enhance');
+      } catch (err) {
+        if (err instanceof RenderEnqueueError && err.status >= 500 && err.clientNonce) {
+          try {
+            await enqueueRenderJob(garmentId, 'manual_enhance', { clientNonce: err.clientNonce });
+          } catch {
+            // Leave sheet in rendering state; poll timeout handles UX.
+          }
+        }
+        // 402 and other errors: poll timeout below handles the UX.
       }
-    });
+    })();
 
     // Poll garment row every 2s
     pollRef.current = setInterval(async () => {

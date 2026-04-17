@@ -96,20 +96,31 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     // P5: enqueue a render job via the durable queue. Returns fast
     // (~200-300ms) once the row is INSERTed; worker picks it up from
     // either the internal POST kickoff or the pg_cron safety net.
-    // clientNonce is auto-generated inside enqueueRenderJob — distinct
-    // user taps yield distinct nonces (new reserve, new charge). Network
-    // retries of the same tap re-use reserve's idempotency key via the
-    // replay flag (no double-charge).
+    //
+    // Retry contract: a distinct tap of "Studio photo" is a new user
+    // intent → new nonce (the default). A transport-level 5xx gets one
+    // retry with the SAME nonce so a reserve-succeeded-insert-failed
+    // state can recover without orphaning the reservation.
     try {
       await enqueueRenderJob(garment.id, 'retry');
     } catch (err) {
-      setEnhanceTriggered(false);
-      if (err instanceof RenderEnqueueError && err.status === 402) {
-        // Trial / insufficient — UI should surface the upgrade path.
-        // For now we silently revert the button state; P10/P11 will wire
-        // the dedicated CTA.
-        return;
+      if (err instanceof RenderEnqueueError) {
+        if (err.status === 402) {
+          // Trial / insufficient — surface via upgrade CTA (P10/P11).
+          setEnhanceTriggered(false);
+          return;
+        }
+        if (err.status >= 500 && err.clientNonce) {
+          try {
+            await enqueueRenderJob(garment.id, 'retry', { clientNonce: err.clientNonce });
+            return;
+          } catch {
+            setEnhanceTriggered(false);
+            return;
+          }
+        }
       }
+      setEnhanceTriggered(false);
     }
   };
 

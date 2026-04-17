@@ -599,8 +599,23 @@ serve(async (req) => {
     // Don't re-render if already ready/rendering/skipped, unless caller forces.
     // Note: these early returns happen BEFORE claim + reserve so no credit is charged.
     if (!force && (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped')) {
+      // Include renderedImagePath when present so P5 worker (process_render_jobs)
+      // can recognize this as an already-rendered success rather than a
+      // generic "skipped" (no path) result — matters for the narrow
+      // worker-crash-after-render-before-status-update path where stale
+      // recovery re-claims the row.
+      const alreadyReadyBody: Record<string, unknown> = {
+        ok: true,
+        skipped: true,
+        reason: `Already ${garment.render_status}`,
+      };
+      if (garment.render_status === 'ready' && garment.rendered_image_path) {
+        alreadyReadyBody.rendered = true;
+        alreadyReadyBody.renderedImagePath = garment.rendered_image_path;
+        alreadyReadyBody.renderedAt = garment.rendered_at;
+      }
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
+        JSON.stringify(alreadyReadyBody),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
@@ -793,10 +808,32 @@ serve(async (req) => {
     // ── Idempotency replay handling ──
     // Reserve returned { ok: true, replay: true } — the idempotency key was
     // already in the ledger, meaning this is a retry of a prior request.
-    // DO NOT re-run Gemini: that would waste quota AND produce a free
-    // render (consume would hit already_terminal against the prior
-    // terminal transaction). Inspect prior state and respond.
-    if (reserveResult.replay) {
+    //
+    // TWO CLASSES OF REPLAY:
+    //
+    // 1. External (P4 legacy) path: client called render_garment_image
+    //    directly, retried the same clientNonce. The ONLY reason replay
+    //    fires here is that a prior attempt actually reached reserveCredit
+    //    on this function — so either there's a cached render or a prior
+    //    in-flight attempt. Short-circuit: return cached / 202 / 409.
+    //
+    // 2. Internal (P5 queue) path: enqueue_render_job already reserved with
+    //    this exact reserveKey before handing off to the queue, and
+    //    process_render_jobs invokes us with internal:true + the same
+    //    jobId + the same clientNonce. The reserve call above is EXPECTED
+    //    to replay — that's correct by design (the ledger is idempotent on
+    //    the key). Short-circuiting here would break the happy path: the
+    //    worker would never call Gemini, attempts would tick up, and the
+    //    job would eventually flip to 'failed' for a user who did nothing
+    //    wrong.
+    //
+    //    For the internal path, treat replay as "reservation was made at
+    //    enqueue, proceed" and fall through to the render pipeline. The
+    //    consume at the end uses the same jobId — the ledger's
+    //    terminal-uniqueness guard still prevents double-consume because
+    //    consume's own idempotency key (consume:<baseKey>) is independent
+    //    of the reserve replay state.
+    if (reserveResult.replay && !isInternalInvocation) {
       // CRITICAL: Decide the replay branch from the pre-claim snapshot
       // (priorState.render_status), NOT a live re-fetch. Our own
       // claimGarmentRender() just set render_status to 'rendering' a few

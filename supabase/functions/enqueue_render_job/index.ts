@@ -190,68 +190,119 @@ serve(async (req) => {
     }
 
     // ─── INSERT render_jobs row ────────────────────────────
-    // ON CONFLICT on reserve_key: retried enqueue with same clientNonce
-    // gets the already-existing row back rather than erroring. Combined
-    // with reserve's replay flag, this is race-safe.
+    // Plain INSERT (no merge-upsert) to preserve row-level idempotency. If
+    // a row already exists with this reserve_key (retried enqueue with the
+    // same clientNonce, or a concurrent double-request), the UNIQUE
+    // constraint raises 23505 and we SELECT the existing row to recover
+    // its canonical `id`.
+    //
+    // IMPORTANT: we return the EXISTING row's id, NOT the newly-generated
+    // jobId. The reserve transaction was written against the existing
+    // row's id (that's what reserveCredit's replay flag caught); downstream
+    // consume/release must reference the same id to resolve the reserve
+    // transaction via render_job_id. A merge-upsert here would rewrite
+    // render_jobs.id to the fresh jobId and strand the reservation.
+    let canonicalJobId = jobId;
+    let canonicalStatus: "pending" | "in_progress" | "succeeded" | "failed" = "pending";
+    let rowAlreadyExisted = false;
+
     const { data: insertedRow, error: insertError } = await serviceClient
       .from("render_jobs")
-      .upsert(
-        {
-          id: jobId,
-          user_id: user.id,
-          garment_id: garmentId,
-          client_nonce: clientNonce,
-          status: "pending",
-          source,
-          presentation,
-          prompt_version: RENDER_PROMPT_VERSION,
-          reserve_key: reserveKey,
-        },
-        { onConflict: "reserve_key", ignoreDuplicates: false },
-      )
+      .insert({
+        id: jobId,
+        user_id: user.id,
+        garment_id: garmentId,
+        client_nonce: clientNonce,
+        status: "pending",
+        source,
+        presentation,
+        prompt_version: RENDER_PROMPT_VERSION,
+        reserve_key: reserveKey,
+      })
       .select("id, status")
       .single();
 
-    if (insertError || !insertedRow) {
-      // INSERT failed after reserve succeeded. Reservation remains claimed
-      // against jobId; orphan-reservation cleanup cron (post-launch
-      // follow-up) will release it. For now, return a retryable error so
-      // the client can try again — reserve's replay flag makes the retry
-      // safe (no double-charge).
-      recordError("enqueue_render_job");
-      log.error("render_jobs INSERT failed after reserve succeeded", {
-        jobId,
-        user_id: user.id,
-        error: insertError?.message,
-      });
-      return jsonResponse({ error: "insert_failed", retryable: true }, 500);
+    if (insertError) {
+      // 23505 = unique_violation. UNIQUE constraint is on reserve_key; if
+      // we hit it, a row already exists from a prior enqueue attempt with
+      // the same clientNonce. Fetch and return that row.
+      if ((insertError as { code?: string }).code === "23505") {
+        const { data: existingRow, error: selectError } = await serviceClient
+          .from("render_jobs")
+          .select("id, status")
+          .eq("reserve_key", reserveKey)
+          .maybeSingle();
+
+        if (selectError || !existingRow) {
+          // Very unusual: UNIQUE fired but the row isn't there. Could be a
+          // concurrent delete (test harness) or an inconsistent cache. Surface
+          // as a retryable 500; reserve's replay keeps the second attempt safe.
+          recordError("enqueue_render_job");
+          log.error("unique violation with no recoverable row", {
+            reserveKey,
+            selectError: selectError?.message,
+          });
+          return jsonResponse({ error: "enqueue_inconsistent_state", retryable: true }, 500);
+        }
+
+        canonicalJobId = existingRow.id;
+        canonicalStatus = existingRow.status as typeof canonicalStatus;
+        rowAlreadyExisted = true;
+      } else {
+        // Non-23505 insert failure (e.g. DB transport error). Reservation
+        // remains claimed against jobId; the orphan-reservation cleanup
+        // cron (post-launch follow-up) will release it if the client never
+        // retries. For the client-retry case, reserve's replay flag makes
+        // the retry a no-op against the ledger.
+        //
+        // CRITICAL: the caller MUST retry with the SAME clientNonce so the
+        // replay path fires. A fresh nonce creates a new reserve_key and a
+        // new reservation, orphaning the original. See garmentIntelligence.ts.
+        recordError("enqueue_render_job");
+        log.error("render_jobs INSERT failed after reserve succeeded", {
+          jobId,
+          user_id: user.id,
+          error: insertError.message,
+        });
+        return jsonResponse({ error: "insert_failed", retryable: true }, 500);
+      }
+    } else if (insertedRow) {
+      canonicalJobId = insertedRow.id;
+      canonicalStatus = insertedRow.status as typeof canonicalStatus;
     }
 
     // Mark garment as rendering-pending so the UI can show the shimmer
     // state without waiting for the worker to claim. On success this gets
     // overwritten with rendered_image_path; on failure it flips to 'failed'.
-    // Separate UPDATE so a concurrent Gemini render of a previous attempt
-    // doesn't race the INSERT.
-    const { error: garmentUpdateError } = await serviceClient
-      .from("garments")
-      .update({
-        render_status: "pending",
-        render_provider: "gemini-image",
-        render_error: null,
-      })
-      .eq("id", garmentId);
+    //
+    // Skip this update when the row already existed (retry hit the
+    // unique-violation path): the garment might already be 'ready' from
+    // a prior successful render, and flipping it back to 'pending' would
+    // make the UI shimmer over an already-rendered image until the worker
+    // short-circuits on the next poll. Safer to leave it.
+    if (!rowAlreadyExisted) {
+      const { error: garmentUpdateError } = await serviceClient
+        .from("garments")
+        .update({
+          render_status: "pending",
+          render_provider: "gemini-image",
+          render_error: null,
+        })
+        .eq("id", garmentId);
 
-    if (garmentUpdateError) {
-      log.warn("garment render_status update failed (non-fatal)", {
-        garmentId,
-        error: garmentUpdateError.message,
-      });
+      if (garmentUpdateError) {
+        log.warn("garment render_status update failed (non-fatal)", {
+          garmentId,
+          error: garmentUpdateError.message,
+        });
+      }
     }
 
     // ─── Low-latency path: POST process_render_jobs ────────
     // Fire-and-forget. Does NOT await — worst case, pg_cron catches the
     // job within 60s. Service-role auth because the worker is locked
-    // down to service-role only.
+    // down to service-role only. Uses canonicalJobId so retried-enqueue
+    // responses target the original row, not a ghost of this attempt.
     const processorUrl = `${SUPABASE_URL}/functions/v1/process_render_jobs`;
     fetch(processorUrl, {
       method: "POST",
@@ -259,20 +310,23 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ jobId }),
+      body: JSON.stringify({ jobId: canonicalJobId }),
     }).catch((err) => {
       // Non-fatal: cron will pick it up.
       log.warn("process_render_jobs kickoff failed (cron will retry)", {
-        jobId,
+        jobId: canonicalJobId,
         error: err instanceof Error ? err.message : String(err),
       });
     });
 
     return jsonResponse({
-      jobId,
-      status: insertedRow.status,
+      jobId: canonicalJobId,
+      status: canonicalStatus,
       source: reserveResult.source,
-      replay: reserveResult.replay,
+      // replay:true iff either the ledger hit replay OR the render_jobs
+      // row already existed. Clients treat replay as "your retry hit the
+      // idempotency short-circuit, the canonical job is unchanged."
+      replay: reserveResult.replay || rowAlreadyExisted,
     }, 200);
   } catch (e) {
     log.exception("enqueue_render_job error", e);
