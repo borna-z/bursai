@@ -443,34 +443,17 @@ serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-      error: userError,
-    } = await authClient.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    supabase = createClient(supabaseUrl, serviceKey);
-
-    // ── Scale guard: per-user rate limit ──
-    await enforceRateLimit(supabase, user.id, 'render_garment_image');
-
     // ── Input parsing + validation (isolated from overload counter) ──
-    // Any error here is a client input issue (malformed JSON, wrong schema,
-    // missing required fields). Returning 400 directly without touching
-    // recordError so a user sending garbage bodies in a loop can't trip
-    // checkOverload and DoS valid requests on the same isolate.
+    // Parsed upfront so the internal-vs-external auth branch can inspect
+    // body.internal before we choose between service-role trust + body.userId
+    // and getUser(). Parse error paths return 400 without recordError — same
+    // DoS-guard rationale as P4 Bug 10.
     let garmentId: string;
     let force: boolean | undefined;
     let clientNonce: string;
+    let isInternalInvocation = false;
+    let internalUserId: string | null = null;
+    let internalJobId: string | null = null;
     try {
       const rawBody: unknown = await req.json();
       if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
@@ -517,6 +500,35 @@ serve(async (req) => {
 
       clientNonce = rawNonce;
       garmentIdForFailure = garmentId;
+
+      // P5 internal path: worker (process_render_jobs) calls us with
+      // { internal: true, jobId, userId, ... } + service-role Bearer.
+      // We skip getUser and use body.userId directly. Reserve is already
+      // claimed at enqueue; reserve's replay flag ensures the re-reserve
+      // call below hits the idempotency path without double-charging.
+      if (bodyObj.internal === true) {
+        if (token !== serviceKey) {
+          return new Response(
+            JSON.stringify({ error: 'internal mode requires service role' }),
+            { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+        if (typeof bodyObj.userId !== 'string' || bodyObj.userId.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'internal mode requires userId' }),
+            { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+        if (typeof bodyObj.jobId !== 'string' || bodyObj.jobId.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'internal mode requires jobId' }),
+            { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+        isInternalInvocation = true;
+        internalUserId = bodyObj.userId;
+        internalJobId = bodyObj.jobId;
+      }
     } catch (parseError) {
       // SyntaxError from req.json(), TypeError from destructuring a non-object,
       // or anything else originating in user-supplied input. NOT a system issue —
@@ -528,6 +540,39 @@ serve(async (req) => {
         JSON.stringify({ error: 'Invalid request body' }),
         { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
+    }
+
+    // ── Resolve user (either via JWT or internal trust) ──
+    let user: { id: string };
+    if (isInternalInvocation) {
+      user = { id: internalUserId! };
+    } else {
+      const authClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const {
+        data: { user: authedUser },
+        error: userError,
+      } = await authClient.auth.getUser(token);
+
+      if (userError || !authedUser) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      user = { id: authedUser.id };
+    }
+
+    supabase = createClient(supabaseUrl, serviceKey);
+
+    // ── Scale guard: per-user rate limit ──
+    // Internal invocations skip this: the worker (process_render_jobs) is
+    // not a user — it's our own code. Rate-limiting the worker would limit
+    // the whole queue throughput, not the user; the user was already rate
+    // limited in enqueue_render_job.
+    if (!isInternalInvocation) {
+      await enforceRateLimit(supabase, user.id, 'render_garment_image');
     }
 
     // ── Fetch garment ──
@@ -695,7 +740,16 @@ serve(async (req) => {
     const reserveKey = `reserve:${baseKey}`;
     const consumeKey = `consume:${baseKey}`;
     const releaseKey = `release:${baseKey}`;
-    const jobId = await deriveJobId(baseKey);
+
+    // P5 internal invocations supply the canonical render_jobs.id as
+    // jobId — this is the value reserve_credit_atomic recorded at enqueue,
+    // so consume/release resolve the reserve row by the same ID. External
+    // (legacy P4) callers still fall back to the deterministic SHA-256
+    // derivation from baseKey; reserve's replay flag keeps either path
+    // idempotent against retries.
+    const jobId = isInternalInvocation
+      ? (internalJobId as string)
+      : await deriveJobId(baseKey);
 
     const reserveResult = await reserveCredit(supabase, user.id, jobId, reserveKey);
 

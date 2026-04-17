@@ -330,10 +330,17 @@ async function invokeRender(
       };
     }
 
-    if (body?.rendered_image_path) {
+    // render_garment_image's success shape is { ok, rendered, renderedImagePath }
+    // (camelCase). Accept both that and the snake_case form for forward compat.
+    const renderedPath =
+      (typeof body?.renderedImagePath === "string" && body.renderedImagePath) ||
+      (typeof body?.rendered_image_path === "string" && body.rendered_image_path) ||
+      null;
+
+    if (renderedPath) {
       return {
         ok: true,
-        rendered_image_path: body.rendered_image_path,
+        rendered_image_path: renderedPath,
         render_provider: body.render_provider,
       };
     }
