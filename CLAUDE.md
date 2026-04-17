@@ -72,6 +72,7 @@ PR: [URL]
 - Never deploy all functions at once — always name the specific function
 - Never use `deploy --all` — forbidden
 - Never run a DB migration without the user explicitly asking for one
+- Never apply a migration via MCP `apply_migration` without also committing a matching `supabase/migrations/<timestamp>_<name>.sql` file in the same PR — timestamp must equal the one MCP recorded on the remote (see Database Migration Rules)
 - Never delete DB schema fields
 - Never add new npm packages without asking first
 - Never add new edge functions unless the prompt explicitly says to
@@ -126,6 +127,46 @@ If you change any file in `supabase/functions/_shared/`, you must redeploy EVERY
 | `_shared/outfit-combination.ts` | `burs_style_engine` |
 | `_shared/unified_stylist_engine.ts` | `style_chat` |
 | `_shared/cors.ts` | All functions |
+
+## Database Migration Rules
+
+Migrations are the most fragile part of this repo. Drift between local files and the remote `supabase_migrations.schema_migrations` table breaks `npx supabase db push` and forces every future migration through MCP workarounds. Hard rules below prevent that.
+
+### How drift happens (so you can avoid it)
+
+Each time a migration is applied via MCP `apply_migration` or the Studio UI, Postgres stamps it with a fresh UTC timestamp and adds a row to `schema_migrations`. If the matching `.sql` file in `supabase/migrations/` has a different timestamp (or doesn't exist), the CLI sees "Local has X, Remote has Y" and refuses to push until the two sides are reconciled. Timestamps must match exactly — filename-based matching is all the CLI does.
+
+### Never create drift
+
+- When applying a migration via MCP, immediately create `supabase/migrations/<timestamp>_<name>.sql` with the timestamp the MCP call returned. Commit it in the same PR.
+- If MCP rejects a first attempt (syntax error, missing extension, etc.) and you apply a fixed version under a different name, **delete or rename the rejected .sql file** — do not leave both in the repo.
+- Do not use Studio UI to make schema changes. Studio records migrations with UUID names and no repo file — drift guaranteed.
+- `npx supabase db push` is the only supported way to apply migrations from main post-merge.
+
+### Pre-merge verification — REQUIRED for any PR touching `supabase/migrations/`
+
+Run these from the PR branch BEFORE merging:
+
+```bash
+npx supabase migration list --linked
+```
+Every row must show matching Local and Remote columns. Any row with only one side populated is drift — fix it before merging. New migrations introduced by the PR will show as Local-only until post-merge push, which is expected.
+
+```bash
+npx supabase db push --linked --dry-run --yes
+```
+If the PR introduces new migrations: the dry-run should list exactly those migrations as pending.
+If the PR is non-migration work: must report "Remote database is up to date."
+
+### Post-merge deploy
+
+After merging a PR with migrations, from main:
+
+```bash
+npx supabase db push --linked --yes
+```
+
+Deploy edge functions only after `db push` succeeds, so functions never hit a pre-migration schema.
 
 ## Project Identity
 
