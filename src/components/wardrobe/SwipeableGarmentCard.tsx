@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Garment } from '@/hooks/useGarments';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { enqueueRenderJob, RenderEnqueueError } from '@/lib/garmentIntelligence';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { WardrobeGarmentListLayout } from '@/components/wardrobe/GarmentCardSystem';
 
@@ -93,18 +93,23 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     event.stopPropagation();
     hapticLight();
     setEnhanceTriggered(true);
-    // Fresh nonce per tap — each user-initiated regenerate intent is a
-    // distinct logical request. Network retries of the same tap are
-    // handled by invokeEdgeFunction's retry logic (retries: 0 here, so
-    // no retries happen, but the nonce is stable per tap regardless).
-    const clientNonce = crypto.randomUUID();
+    // P5: enqueue a render job via the durable queue. Returns fast
+    // (~200-300ms) once the row is INSERTed; worker picks it up from
+    // either the internal POST kickoff or the pg_cron safety net.
+    // clientNonce is auto-generated inside enqueueRenderJob — distinct
+    // user taps yield distinct nonces (new reserve, new charge). Network
+    // retries of the same tap re-use reserve's idempotency key via the
+    // replay flag (no double-charge).
     try {
-      await invokeEdgeFunction('render_garment_image', {
-        body: { garmentId: garment.id, force: true, clientNonce },
-        retries: 0,
-      });
-    } catch {
+      await enqueueRenderJob(garment.id, 'retry');
+    } catch (err) {
       setEnhanceTriggered(false);
+      if (err instanceof RenderEnqueueError && err.status === 402) {
+        // Trial / insufficient — UI should surface the upgrade path.
+        // For now we silently revert the button state; P10/P11 will wire
+        // the dedicated CTA.
+        return;
+      }
     }
   };
 

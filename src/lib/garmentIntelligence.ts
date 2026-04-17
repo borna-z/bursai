@@ -4,128 +4,99 @@ import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import {
   GARMENT_IMAGE_PROCESSING_VERSION,
-  RENDER_KICKOFF_CONCURRENCY,
-  RENDER_RESUME_SWEEP_LIMIT,
-  RENDER_RESUME_SWEEP_COOLDOWN_MS,
-  RENDER_QUEUE_MAX_SIZE,
   GARMENT_ENRICHMENT_RETRY_DELAY_MS,
 } from '@/config/constants';
 
 export { GARMENT_IMAGE_PROCESSING_VERSION };
 
-type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan';
+type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan' | 'manual_enhance' | 'retry';
 
-const queuedRenderKickoffs: Array<{ garmentId: string; source: string; clientNonce: string }> = [];
-const queuedRenderGarmentIds = new Set<string>();
-const lastRenderResumeSweepByUser = new Map<string, number>();
-const inFlightRenderResumeSweeps = new Map<string, Promise<void>>();
-let activeRenderKickoffs = 0;
+export interface EnqueueRenderJobResult {
+  /** Canonical render_jobs.id — stable across enqueue retries thanks to
+      reserve's replay flag. */
+  jobId: string;
+  status: 'pending' | 'in_progress' | 'succeeded' | 'failed';
+  source: string;
+  /** True when the reserve hit the idempotency short-circuit (repeat
+      enqueue with same clientNonce). */
+  replay: boolean;
+}
 
-function pumpRenderKickoffQueue(): void {
-  while (activeRenderKickoffs < RENDER_KICKOFF_CONCURRENCY && queuedRenderKickoffs.length > 0) {
-    const next = queuedRenderKickoffs.shift();
-    if (!next) return;
+export class RenderEnqueueError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'RenderEnqueueError';
+  }
+}
 
-    activeRenderKickoffs += 1;
+/**
+ * Enqueue a render job via the enqueue_render_job edge function.
+ *
+ * Replaces the in-memory `queuedRenderKickoffs` queue + direct render_garment_image
+ * invocation from P4. Returns as soon as the job row is INSERTed (typically
+ * ~200-300ms). The edge function fires an internal POST to process_render_jobs
+ * for low-latency worker pickup; pg_cron is the safety net if that POST is lost.
+ *
+ * Callers should NOT await the underlying render — they should poll
+ * garments.render_status (via useRenderJobStatus or by refetching the garment)
+ * until it flips to 'ready' or 'failed'.
+ *
+ * @throws RenderEnqueueError on 4xx/5xx — callers should surface the status
+ *   to the UI (402 → upgrade CTA, 503 → "try again later", 5xx → error toast).
+ */
+export async function enqueueRenderJob(
+  garmentId: string,
+  source: RenderTriggerSource,
+  options: { clientNonce?: string } = {},
+): Promise<EnqueueRenderJobResult> {
+  // Fresh nonce per logical enqueue intent. Network retries of the SAME
+  // enqueue call will be handled at the edge-function-client layer with the
+  // same nonce re-sent, so reserve's replay flag deduplicates. Distinct
+  // user-intent events (e.g. a manual "Try again" tap) pass a fresh nonce.
+  const clientNonce = options.clientNonce ?? crypto.randomUUID();
 
-    void invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('render_garment_image', {
-      timeout: 1000,
+  const { data, error } = await invokeEdgeFunction<EnqueueRenderJobResult & { error?: string }>(
+    'enqueue_render_job',
+    {
+      body: { garmentId, source, clientNonce },
       retries: 0,
-      body: { garmentId: next.garmentId, source: next.source, clientNonce: next.clientNonce },
-    })
-      .then(({ error }) => {
-        if (error) {
-          logger.warn('Garment render trigger did not confirm in time (non-blocking)', error);
-        }
-      })
-      .finally(() => {
-        activeRenderKickoffs = Math.max(0, activeRenderKickoffs - 1);
-        queuedRenderGarmentIds.delete(next.garmentId);
-        pumpRenderKickoffQueue();
-      });
+    },
+  );
+
+  if (error) {
+    throw new RenderEnqueueError(
+      error.message || 'render enqueue failed',
+      (error as { status?: number }).status ?? 0,
+      (error as { code?: string }).code,
+    );
   }
+  if (!data || !data.jobId) {
+    throw new RenderEnqueueError('render enqueue returned no jobId', 0);
+  }
+  return {
+    jobId: data.jobId,
+    status: data.status,
+    source: data.source,
+    replay: data.replay,
+  };
 }
 
-function enqueueGarmentRenderKickoff(garmentId: string, source: string): void {
-  if (queuedRenderGarmentIds.has(garmentId)) {
-    return;
-  }
-
-  // Guard against unbounded queue growth (e.g. after bulk imports)
-  if (queuedRenderKickoffs.length >= RENDER_QUEUE_MAX_SIZE) {
-    logger.warn(`Render queue full (>${RENDER_QUEUE_MAX_SIZE}); dropping kickoff for ${garmentId}`);
-    return;
-  }
-
-  // Stable nonce per enqueued render kickoff. If the queue replays or
-  // retries the same request, the same nonce is re-sent and the ledger's
-  // idempotency key correctly deduplicates on replay. Each distinct call
-  // to enqueueGarmentRenderKickoff gets its own nonce.
-  const clientNonce = crypto.randomUUID();
-  queuedRenderGarmentIds.add(garmentId);
-  queuedRenderKickoffs.push({ garmentId, source, clientNonce });
-  pumpRenderKickoffQueue();
-}
-
-function getResumeRenderSource(aiRaw: Json | null | undefined): RenderTriggerSource {
-  if (!aiRaw || typeof aiRaw !== 'object' || Array.isArray(aiRaw)) {
-    return 'batch_add';
-  }
-
-  const systemSignals = (aiRaw as Record<string, unknown>).system_signals;
-  if (!systemSignals || typeof systemSignals !== 'object' || Array.isArray(systemSignals)) {
-    return 'batch_add';
-  }
-
-  const source = (systemSignals as Record<string, unknown>).source;
-  if (source === 'add_photo' || source === 'live_scan') {
-    return source;
-  }
-
-  return 'batch_add';
-}
-
-export async function resumePendingGarmentRenders(userId: string): Promise<void> {
-  if (!userId) {
-    return;
-  }
-
-  const now = Date.now();
-  const lastSweepAt = lastRenderResumeSweepByUser.get(userId) ?? 0;
-  if (now - lastSweepAt < RENDER_RESUME_SWEEP_COOLDOWN_MS) {
-    return;
-  }
-
-  const inFlight = inFlightRenderResumeSweeps.get(userId);
-  if (inFlight) {
-    return inFlight;
-  }
-
-  const sweepPromise = (async () => {
-    lastRenderResumeSweepByUser.set(userId, now);
-
-    const { data, error } = await supabase
-      .from('garments')
-      .select('id, ai_raw')
-      .eq('user_id', userId)
-      .eq('render_status', 'pending')
-      .limit(RENDER_RESUME_SWEEP_LIMIT)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      logger.warn('Pending garment render resume sweep failed', error);
-      return;
-    }
-
-    for (const garment of data ?? []) {
-      enqueueGarmentRenderKickoff(garment.id, getResumeRenderSource(garment.ai_raw as Json | null | undefined));
-    }
-  })().finally(() => {
-    inFlightRenderResumeSweeps.delete(userId);
-  });
-
-  inFlightRenderResumeSweeps.set(userId, sweepPromise);
-  return sweepPromise;
+/**
+ * Deprecated under Priority 5.
+ *
+ * Previously re-enqueued pending renders client-side on app open. With the
+ * durable `render_jobs` table + pg_cron safety net, re-execution happens
+ * server-side automatically. Client doesn't need to do anything.
+ *
+ * Kept as a no-op so existing call sites (useGarments.ts) don't need a
+ * synchronized change to remove the call. Will be deleted in a follow-up.
+ */
+export async function resumePendingGarmentRenders(_userId: string): Promise<void> {
+  return;
 }
 
 
@@ -392,5 +363,15 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
 }
 
 async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
-  enqueueGarmentRenderKickoff(garmentId, source);
+  try {
+    await enqueueRenderJob(garmentId, source as RenderTriggerSource);
+  } catch (err) {
+    if (err instanceof RenderEnqueueError && err.status === 402) {
+      // Trial locked or insufficient credit — expected business state, not
+      // an error to retry. UI surfaces the upgrade CTA separately.
+      logger.info(`[${source}] render enqueue 402: ${err.code ?? err.message}`);
+      return;
+    }
+    logger.warn(`[${source}] render enqueue failed`, err);
+  }
 }
