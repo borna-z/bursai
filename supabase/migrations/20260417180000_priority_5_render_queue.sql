@@ -225,7 +225,14 @@ SELECT cron.schedule(
       )
     ),
     body := '{}'::jsonb,
-    timeout_milliseconds := 50000
+    -- Worst-case worker batch runtime: MAX_JOBS_PER_RUN=5 / JOB_CONCURRENCY=2
+    -- = 3 serial batches, each up to ~45s per invokeRender timeout, ~= 135s.
+    -- Plus DB round-trips, claim RPC, release RPC, telemetry writes. 180s
+    -- gives ~45s headroom. Codex round 8 caught that the prior 50s cutoff
+    -- truncated normal-load batches, logged `cron.job_run_details.status='failed'`
+    -- after each partial run, and let the next cron tick (+60s) start a
+    -- second worker invocation on top of the still-running first one.
+    timeout_milliseconds := 180000
   );
   $$
 );

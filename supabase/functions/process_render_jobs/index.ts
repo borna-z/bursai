@@ -168,23 +168,130 @@ serve(async (req) => {
         const renderResult = await invokeRender(supabase, job, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         if (renderResult.ok && "deferred" in renderResult && renderResult.deferred) {
-          // Concurrent in-flight render on the same garment. Another worker
-          // attempt (or this same attempt's aborted background execution)
-          // is mid-Gemini and will either write consume on success or
-          // crash. Either way, THIS worker must NOT terminalize: releasing
-          // here would race with the in-flight consume (user pays nothing,
-          // still gets the render) and terminalizing as 'succeeded' with
-          // result_path=null would mislead the UI.
+          // Concurrent in-flight render detected (`garments.render_status`
+          // is 'rendering' at the callee). Under normal conditions the
+          // concurrent render completes within the attempts budget and a
+          // subsequent cycle takes the Already-ready / branch-b path —
+          // no release ever fires. The deferred branch EXISTS for the
+          // narrow race between the in-flight consume and a premature
+          // release on a competing worker cycle.
           //
-          // Reset render_jobs to pending without touching attempts — the
-          // attempt IS happening concurrently, so burning budget here is
-          // correct (if every defer cycle counted as a fresh attempt, the
-          // job would churn indefinitely). Attempts was already incremented
-          // by claim_render_job at the start of this cycle; leaving it
-          // bumped means if we keep hitting 'deferred' we eventually reach
-          // max_attempts. At that point the round-5 heal gate catches any
-          // orphan consume (success with worker crash) and terminalizes
-          // correctly, or falls through to the genuine-failure branch.
+          // BUT: a garment stuck in 'rendering' indefinitely (isolate
+          // crashed mid-render with no cleanup, or a bug in a prior
+          // release path) would keep hitting this branch on every claim.
+          // Attempts increments each claim via `claim_render_job`, but
+          // without a terminal gate here the job re-queues forever,
+          // reservation never converges. Codex round 8 caught it.
+          //
+          // Max-attempts gate: if attempts has reached max_attempts on
+          // this claim, treat the 'rendering' state as a ghost (not a
+          // live concurrent render) and terminalize — release credit,
+          // mark the job 'failed', flip the garment to 'failed' so the
+          // user sees a definite outcome. Round-5 heal gate still
+          // protects against any consume that landed late (the heal
+          // check runs here before the release when isFinal; see the
+          // failure-path isFinal branch below).
+          if (job.attempts >= job.max_attempts) {
+            // Reuse the round-5 heal-gate logic so a late-landing consume
+            // from the in-flight render is still recognized.
+            const { data: consumeTx } = await supabase
+              .from("render_credit_transactions")
+              .select("id")
+              .eq("render_job_id", job.id)
+              .eq("kind", "consume")
+              .eq("user_id", job.user_id)
+              .maybeSingle();
+
+            if (consumeTx) {
+              // In-flight render DID complete and wrote consume — heal.
+              const { data: garmentRecord } = await supabase
+                .from("garments")
+                .select("rendered_image_path")
+                .eq("id", job.garment_id)
+                .maybeSingle();
+              log.warn("deferred terminal — consume tx landed, healing to succeeded", {
+                jobId: job.id,
+                attempts: job.attempts,
+              });
+              await supabase
+                .from("render_jobs")
+                .update({
+                  status: "succeeded",
+                  result_path: garmentRecord?.rendered_image_path ?? null,
+                  completed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  error: null,
+                  error_class: null,
+                  locked_until: null,
+                })
+                .eq("id", job.id);
+              results.push({ jobId: job.id, status: "succeeded_healed" });
+              logTelemetry(supabase, {
+                functionName: "process_render_jobs",
+                model_used: "render_garment_image",
+                latency_ms: Date.now() - startTime,
+                from_cache: false,
+                status: "ok",
+                user_id: job.user_id,
+              });
+              return;
+            }
+
+            // No consume — garment is genuinely stuck. Terminalize.
+            log.error("deferred terminal — garment stuck in 'rendering' after max_attempts", {
+              jobId: job.id,
+              garmentId: job.garment_id,
+              attempts: job.attempts,
+              maxAttempts: job.max_attempts,
+            });
+            const baseKey = deriveBaseKey(job);
+            const releaseResult = await releaseCredit(
+              supabase,
+              job.user_id,
+              job.id,
+              `release:${baseKey}`,
+            );
+            if (!releaseResult.ok && !releaseResult.duplicate) {
+              log.warn("releaseCredit non-ok on deferred terminal", {
+                jobId: job.id,
+                reason: releaseResult.reason,
+              });
+            }
+            await supabase
+              .from("render_jobs")
+              .update({
+                status: "failed",
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                error: `Deferred to in-flight render that did not complete after ${job.max_attempts} attempts`,
+                error_class: "stuck_in_flight",
+                locked_until: null,
+              })
+              .eq("id", job.id);
+            // Flip garment so the user sees a definite outcome — an
+            // indefinite 'rendering' state masks the failure.
+            await supabase
+              .from("garments")
+              .update({
+                render_status: "failed",
+                render_error: "Concurrent render did not complete",
+              })
+              .eq("id", job.garment_id);
+            recordError("process_render_jobs");
+            results.push({ jobId: job.id, status: "failed_stuck_deferred" });
+            logTelemetry(supabase, {
+              functionName: "process_render_jobs",
+              model_used: "render_garment_image",
+              latency_ms: Date.now() - startTime,
+              from_cache: false,
+              status: "error",
+              error_message: "stuck_in_flight",
+              user_id: job.user_id,
+            });
+            return;
+          }
+
+          // Pre-terminal defer: reset to pending, let next cycle retry.
           log.info("render deferred — concurrent in-flight render detected", {
             jobId: job.id,
             attempts: job.attempts,

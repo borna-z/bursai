@@ -849,3 +849,114 @@ concurrent in-flight consume.
   re-verified here (round-1 already did).
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 8 — deferred-terminal gate + cron HTTP timeout (2026-04-17)
+
+Two findings from round 8, both real, both fixed.
+
+### Bug 1 — Deferred branch allows infinite loop if garment stuck in `rendering`
+
+Round 7's `deferred_in_flight` branch reset the row to `'pending'` and
+returned early, never reaching the `isFinal` gate. `claim_render_job`
+still bumped `attempts` on every cycle, but without a terminal check
+the job re-queued forever. A garment stuck in `render_status='rendering'`
+(e.g. an isolate that crashed between `claimGarmentRender` and any
+cleanup path) would block that job's reservation indefinitely.
+
+Fix: gate the deferred branch on `attempts >= max_attempts`. When the
+gate trips, reuse the round-5 heal logic first — if a consume tx
+exists for this job_id, the concurrent render eventually completed and
+the worker should heal to `'succeeded'`. Otherwise: `releaseCredit`,
+`render_jobs.status='failed'` with `error_class='stuck_in_flight'`,
+flip the garment's `render_status` to `'failed'` with a user-visible
+message. See `render-state-machine.md` Scenarios 13b and 13c.
+
+### Bug 2 — Cron HTTP timeout too short for worst-case batch
+
+`timeout_milliseconds := 50000` on the pg_cron schedule couldn't cover
+a full worker batch. `MAX_JOBS_PER_RUN=5` with `JOB_CONCURRENCY=2` and
+an `invokeRender` timeout of 45s runs up to ~135s serial-batch-time
+plus RPC overhead. Under steady load, cron would cut off partway
+through, log `cron.job_run_details.status='failed'`, and the next
+cron tick (+60s) would start a second worker invocation on top of the
+still-running first — two workers contending for pending rows.
+
+Fix: raise `timeout_milliseconds` to `180000` in
+`supabase/migrations/20260417180000_priority_5_render_queue.sql`.
+Migration not yet merged to `main` (PR #421 is the merge target), so
+the edit is applied in place on the original migration file rather
+than via a follow-up migration. Verified idempotency: the migration
+is still `CREATE TABLE` / `CREATE OR REPLACE FUNCTION` /
+`SELECT cron.schedule(...)` throughout, all safe to run as part of
+the first forward push.
+
+### Scenario — Stuck `rendering` garment terminalizes at max_attempts
+
+Preview branch: `ctypevbmedgstoeadgwd` (ephemeral, deleted, cost < $0.01).
+
+**Setup:**
+- User U = `dddddddd-...`, monthly_allowance=20, reserved=1
+- Garment G = `eeeeeeee-...`, `render_status='rendering'` (the ghost —
+  never completes, nothing will ever write a consume for this job)
+- `render_jobs` J = `d4444444-...`, `status='pending'`, `attempts=0`,
+  `max_attempts=3`, `source='__test_defer'`
+- 1 reserve tx keyed on `reserve:stuck`
+
+Deployed process_render_jobs with the round-8 deferred-terminal gate
+(inlined flat, no withConcurrencyLimit — still exercises the gate
+logic). Deployed stub render_garment_image that unconditionally
+returns `{ok:true, deferred:true, reason:'Already rendering'}` for
+`source='__test_defer'`.
+
+**Three sequential invocations (`curl -X POST /functions/v1/process_render_jobs {"jobId":"..."}`):**
+
+```
+Cycle 1: {"status":"deferred_in_flight"}  (attempts bumped to 1 by claim)
+Cycle 2: {"status":"deferred_in_flight"}  (attempts bumped to 2)
+Cycle 3: {"status":"failed_stuck_deferred"}  (attempts bumped to 3, gate fires)
+```
+
+**Post-state (after cycle 3):**
+
+```
+render_jobs:
+  status        = failed
+  attempts      = 3
+  error         = "Deferred to in-flight render that did not complete after 3 attempts"
+  error_class   = stuck_in_flight
+  locked_until  = null
+
+render_credit_transactions (for job):
+  [reserve (reserve:stuck, monthly), release (release:<baseKey>, monthly)]
+
+garments:
+  render_status = failed
+  render_error  = "Concurrent render did not complete"
+
+render_credits:
+  monthly_allowance = 20
+  used_this_period  = 0   (user NOT charged)
+  reserved          = 0   (release decremented)
+```
+
+Invariants: I1 ✓ (single reserve). I2 ✓ (single terminal = release).
+I3 ✓ (no consume, no double-terminal). I4 ✓ (release found the
+reserve). I5 ✓ (user not charged, garment shows definite failure).
+I8 ✓ (attempts monotonic 0→1→2→3, terminalized at max per the
+round-8 gate).
+
+Pre-round-8 counterfactual: cycle 3 would also return
+`deferred_in_flight`, reset to pending. Cycle 4 same. Cycle N same.
+Reservation would never converge; user stuck with `reserved=1` in
+perpetuity, garment stuck `'rendering'` in the UI.
+
+### Cron timeout fix — code-inspection only
+
+The `timeout_milliseconds := 180000` change in the migration file is
+arithmetic, not empirical. Load-testing a 180s cron run on a preview
+branch would require real Gemini + 5 live jobs + observing a full
+worst-case scheduler cycle — not cost-effective. Verified the
+migration file diff and the comment block explains the chosen value
+(135s worst-case batch + 45s headroom).
+
+Preview branch deleted. Cost: < $0.01.

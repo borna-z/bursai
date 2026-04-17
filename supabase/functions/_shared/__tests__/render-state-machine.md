@@ -46,7 +46,7 @@ Plus: `render_jobs.attempts`, `render_jobs.locked_until`, `garments.rendered_ima
 
 **I7 — No premature release on an in-flight render.** If a concurrent render is in progress (`garments.render_status='rendering'`) for this garment, the worker must NOT release the reservation — doing so would race with the in-flight consume. This is what the `deferred` response handles (round 7 structural review).
 
-**I8 — Attempts monotonic, no rewind except on the consume-query-defer path.** `claim_render_job` increments `render_jobs.attempts`. The only branch that decrements is the round-5 `deferred_db_error` path (read-layer outage on the heal gate). Round-7's `deferred_in_flight` path does NOT decrement — the attempt is happening concurrently, and decrementing would let the job churn forever.
+**I8 — Attempts monotonic, no rewind except on the consume-query-defer path.** `claim_render_job` increments `render_jobs.attempts`. The only branch that decrements is the round-5 `deferred_db_error` path (read-layer outage on the heal gate). The `deferred_in_flight` path (round 7) does NOT decrement — the attempt is happening concurrently. **However, the deferred path terminalizes at `attempts >= max_attempts`** (round-8 gate): a garment stuck in `'rendering'` state for max_attempts cycles is treated as a ghost (isolate crashed without cleanup, no live render to wait for) and the job terminalizes as `'failed'` with release. Before hitting that terminal, the round-5 heal gate still applies — if a late-landing consume tx is present for the job, heal to `'succeeded'` instead.
 
 ---
 
@@ -104,7 +104,9 @@ For each `invokeRender` return shape, what `handleRenderJob` does:
 
 | renderResult shape | Branch | render_jobs action | credit-ledger action | garments action | result status |
 |---|---|---|---|---|---|
-| `{ok:true, deferred:true, reason}` | **NEW round 7** | `status='pending'`, clear `locked_until`, clear `error`, **attempts unchanged** | none | none | `deferred_in_flight` |
+| `{ok:true, deferred:true, reason}`, `attempts < max_attempts` | round 7 (pre-terminal) | `status='pending'`, clear `locked_until`, clear `error`, **attempts unchanged** (claim_render_job bumped it; leaving it bumped means we converge on max_attempts if the 'rendering' state is stuck) | none | none | `deferred_in_flight` |
+| `{ok:true, deferred:true, reason}`, `attempts >= max_attempts`, consume tx **exists** | round 8 (heal at terminal) | `status='succeeded'`, `result_path=<garment.rendered_image_path>`, clear `locked_until` | none — consume already written by the (formerly in-flight) render | none | `succeeded_healed` |
+| `{ok:true, deferred:true, reason}`, `attempts >= max_attempts`, no consume | round 8 (terminal) | `status='failed'`, `error='Deferred to in-flight render that did not complete after N attempts'`, `error_class='stuck_in_flight'`, clear `locked_until` | `releaseCredit` | `render_status='failed'`, `render_error='Concurrent render did not complete'` | `failed_stuck_deferred` |
 | `{ok:true, skipped:true, reason}` | round 7 Track A | `status='succeeded'`, `result_path=null`, `completed_at=now()`, clear `locked_until` | `releaseCredit` (idempotent) | **none** — garment keeps its pre-skip state | `succeeded_skipped` |
 | `{ok:true, rendered_image_path}` | original | `status='succeeded'`, `result_path=<path>`, `completed_at=now()` | none — render_garment_image already called consume | none — render_garment_image already wrote `render_status='ready'` + path | `succeeded` |
 | `{ok:false, ...}`, `attempts < max_attempts` | retry | `status='pending'`, clear `locked_until`, `error=<msg>`, `error_class=<class>` | none | none | `retry` |
@@ -306,7 +308,28 @@ Both branches preserve canonical `render_jobs.id`. Caller's jobId matches. Polli
 
 **Pre-fix counterfactual:** worker 2 would have taken the round-7 Track A skip branch → release tx written + status='succeeded' → later worker 1 background consume hits already_terminal → no consume tx written → user got a free render (consume never wrote, reserve was released → reserved counter returned to 0, but used_this_period never bumped). **Invariant I7 violation.** This is the bug the `deferred` shape prevents.
 
-**Invariants:** I1 ✓, I2 ✓, I3 ✓, I5 ✓, I6 ✓ (one Gemini call, worker 1's), I7 ✓ (no premature release), I8 ✓ (attempts increments once per cycle; deferred cycles don't decrement).
+**Invariants:** I1 ✓, I2 ✓, I3 ✓, I5 ✓, I6 ✓ (one Gemini call, worker 1's), I7 ✓ (no premature release), I8 ✓ (attempts increments once per cycle; deferred pre-terminal cycles don't decrement, terminalize at max_attempts per the round-8 gate).
+
+#### Scenario 13b — Deferred loop never converges (round-8 stuck-in-flight guard)
+
+**Trigger:** Garment's `render_status='rendering'` is a ghost — an isolate crashed mid-render before any cleanup path could flip the state back to 'pending' / 'none' / 'failed'. No live concurrent render exists; the stale state just looks like one.
+
+**Pre:** `render_jobs.status='pending'`. Credit txs: `{reserve}`. `garments.render_status='rendering'` (stale, nothing will ever write a consume for this job).
+
+**Action:**
+1. Worker cycle 1: claim → attempts=1 → render_garment_image returns `{deferred:true}` → worker's deferred branch checks `attempts (1) >= max_attempts (3)` → false → reset to pending. `attempts=1`, `status='pending'`.
+2. Worker cycle 2: claim → attempts=2 → same → reset to pending. `attempts=2`, `status='pending'`.
+3. Worker cycle 3: claim → attempts=3 → same `{deferred:true}` → worker's deferred branch checks `attempts (3) >= max_attempts (3)` → TRUE. Heal-gate check: no consume tx. Genuine stuck-in-flight: `releaseCredit` + `render_jobs.status='failed'` + `error_class='stuck_in_flight'` + garment flip to `render_status='failed'`.
+
+**Post:** `render_jobs.status='failed'`. Credit txs: `{reserve, release}`. `garments.render_status='failed'`, `render_error='Concurrent render did not complete'`.
+
+**Pre-round-8 counterfactual:** the deferred branch returned early without a terminal gate. The job would loop indefinitely — attempts would climb past max_attempts forever, reserved counter would stay elevated, user-facing `render_status='rendering'` would never converge.
+
+**Invariants:** I1 ✓ (single reserve). I2 ✓ (release is the single terminal). I3 ✓ (no consume wrote). I4 ✓ (release found the reserve). I5 ✓ (user not charged, garment fails cleanly). I8 ✓ (attempts monotonic, terminalized at max_attempts per the round-8 gate).
+
+### Scenario 13c — Deferred heal on late-landing consume (edge case)
+
+If the in-flight render was in fact alive and its consume landed between cycle 2's deferral and cycle 3's max-attempts check, the heal branch (Scenario 4 / round 4 heal gate, reused inside the deferred terminal block) catches it: consume_tx exists → `succeeded_healed` with `result_path` recovered from the garment. No release, no garment flip to 'failed'. Preserves I1–I7.
 
 ---
 
@@ -390,3 +413,4 @@ When these are answered, update the scenarios and findings above, and close or r
 ## Change log
 
 - 2026-04-17 — Initial version. Round 7 Track A fixes (internal release guard + skip terminalization) incorporated. Round 7 Track B fix (deferred response) added. Findings T-1 through T-9 inventoried.
+- 2026-04-17 — Round 8. Deferred branch gets a max_attempts terminal gate (Scenario 13b). Invariant I8 revised: deferred-pre-terminal cycles do not decrement attempts, but the branch terminalizes at `attempts >= max_attempts` — checking heal-gate consume first, falling through to release + `status='failed' / error_class='stuck_in_flight' / garment.render_status='failed'` otherwise. Pre-round-8 code returned from the deferred branch early without a terminal gate, letting a stuck 'rendering' garment loop indefinitely. Worker outcome table gets two new rows (deferred-terminal-with-heal / deferred-terminal-stuck). Cron HTTP timeout raised from 50s to 180s in the P5 migration to cover worst-case worker batch runtime (MAX_JOBS_PER_RUN=5 × JOB_CONCURRENCY=2 × invokeRender 45s ≈ 135s, plus headroom).
