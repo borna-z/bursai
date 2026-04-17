@@ -202,6 +202,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --   First successful cron run appears in `cron.job_run_details` within
 --   60s with status='succeeded' and return_message='200'.
 
+-- Intentional no COALESCE fallback on the secret SELECT:
+-- If the vault secret is missing, the subquery returns NULL. `'Bearer ' || NULL`
+-- evaluates to NULL, and `net.http_post` with a NULL header value raises a
+-- not-null violation inside the cron execution. The error lands in
+-- cron.job_run_details with status='failed' — LOUD operational signal that
+-- the one-time `INSERT INTO vault.secrets ('service_role_key', ...)` step
+-- was skipped. Previous versions used COALESCE(..., '') which silently sent
+-- an empty-bearer 401 and showed status='succeeded' with return_message='401',
+-- making the broken state invisible in standard monitoring.
 SELECT cron.schedule(
   'process-render-jobs',
   '*/1 * * * *',  -- every 1 minute (pg_cron's smallest standard interval)
@@ -210,9 +219,9 @@ SELECT cron.schedule(
     url := 'https://khvkwojtlkcvxjxztduj.supabase.co/functions/v1/process_render_jobs',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || COALESCE(
-        (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key' LIMIT 1),
-        ''
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'service_role_key' LIMIT 1
       )
     ),
     body := '{}'::jsonb,

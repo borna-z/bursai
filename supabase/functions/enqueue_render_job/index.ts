@@ -37,6 +37,7 @@ import {
 } from "../_shared/scale-guard.ts";
 import { reserveCredit } from "../_shared/render-credits.ts";
 import { normalizeMannequinPresentation } from "../_shared/mannequin-presentation.ts";
+import { deriveRenderJobId } from "../_shared/render-job-id.ts";
 import { logger } from "../_shared/logger.ts";
 
 const log = logger("enqueue_render_job");
@@ -136,17 +137,19 @@ serve(async (req) => {
     }
 
     // ─── Garment ownership + presentation ──────────────────
+    // Single query filters on id AND user_id — collapses the "exists but
+    // not yours" vs "doesn't exist" branches into one 404. A user
+    // iterating UUIDs can't distinguish the two cases, closing the
+    // wardrobe-enumeration oracle.
     const { data: garment, error: garmentError } = await serviceClient
       .from("garments")
-      .select("id, user_id, title")
+      .select("id, title")
       .eq("id", garmentId)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     if (garmentError || !garment) {
       return jsonResponse({ error: "garment not found" }, 404);
-    }
-    if (garment.user_id !== user.id) {
-      return jsonResponse({ error: "forbidden" }, 403);
     }
 
     // Resolve presentation from the profile (falls back to mixed).
@@ -157,9 +160,23 @@ serve(async (req) => {
       .maybeSingle();
     const presentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
 
-    // ─── Pre-generate canonical render_job_id ──────────────
-    const jobId = crypto.randomUUID();
+    // ─── Derive canonical render_job_id deterministically ──
+    // CRITICAL: derived from baseKey (SHA-256 → UUID) NOT random. If we
+    // generated a fresh UUID here, an enqueue retry with the same
+    // clientNonce after a transport/INSERT failure would produce a
+    // different jobId on the retry. The reserve_credit_atomic tx from
+    // the first attempt is stored with render_job_id = firstJobId, but
+    // the retry's INSERT would land with id = secondJobId. Downstream
+    // consume/release (which look up the reserve by render_job_id) would
+    // miss → `no_reservation` → silent consume failure → user gets a
+    // free render while the original reservation leaks forever.
+    //
+    // Deterministic derivation means every retry with the same baseKey
+    // produces the same ID. Reserve's replay, INSERT's ON CONFLICT, and
+    // consume/release's render_job_id lookup all resolve to the single
+    // canonical ID. Matches P4 render_garment_image's existing pattern.
     const baseKey = `${user.id}_${garmentId}_${presentation}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+    const jobId = await deriveRenderJobId(baseKey);
     const reserveKey = `reserve:${baseKey}`;
 
     // ─── Reserve credit (idempotent on replay flag) ────────

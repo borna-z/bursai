@@ -35,6 +35,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { checkOverload, overloadResponse, recordError, withConcurrencyLimit, logTelemetry } from "../_shared/scale-guard.ts";
 import { releaseCredit } from "../_shared/render-credits.ts";
+import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { logger } from "../_shared/logger.ts";
 
 const log = logger("process_render_jobs");
@@ -94,9 +95,17 @@ serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // Sanity: a misconfigured empty key + authHeader='Bearer ' would both
+  // pass a naive equality. Refuse to serve before timing-comparing
+  // against nothing.
+  if (!SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY.length < 32) {
+    return jsonResponse({ error: "service role key not configured" }, 503);
+  }
+
   const authHeader = req.headers.get("Authorization") ?? "";
   const expected = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
-  if (authHeader !== expected) {
+  // Constant-time comparison — see _shared/timing-safe.ts for why.
+  if (!timingSafeEqual(authHeader, expected)) {
     return jsonResponse({ error: "service role required" }, 401);
   }
 
@@ -190,7 +199,63 @@ serve(async (req) => {
         const isFinal = job.attempts >= job.max_attempts;
 
         if (isFinal) {
-          // Release credit (only if not a replay hit). Idempotent on release_key.
+          // Before releasing + marking failed: check whether the garment
+          // already has a rendered_image_path. If yes, a prior attempt
+          // (possibly this same invocation, interrupted between
+          // render_garment_image returning 200 and this worker updating
+          // render_jobs) actually succeeded. Re-claims after stale
+          // recovery hit the "Already ready" early-return in
+          // render_garment_image which doesn't currently re-fire consume,
+          // so the credit might or might not be charged — but either way
+          // the USER has a rendered image. Force the job to 'succeeded'
+          // rather than falsely failing it.
+          const { data: garmentRecord } = await supabase
+            .from("garments")
+            .select("rendered_image_path")
+            .eq("id", job.garment_id)
+            .maybeSingle();
+
+          if (garmentRecord?.rendered_image_path) {
+            log.warn(
+              "final-failure path detected already-rendered garment — healing to succeeded",
+              {
+                jobId: job.id,
+                garmentId: job.garment_id,
+                attempts: job.attempts,
+                lastErrorClass: renderResult.errorClass,
+              },
+            );
+            await supabase
+              .from("render_jobs")
+              .update({
+                status: "succeeded",
+                result_path: garmentRecord.rendered_image_path,
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                error: null,
+                error_class: null,
+                locked_until: null,
+              })
+              .eq("id", job.id);
+            results.push({ jobId: job.id, status: "succeeded_healed" });
+            // Don't release credit — garment was actually rendered. The
+            // consume either succeeded (credit correctly charged) or
+            // missed (orphan-cleanup cron picks it up later). Either way,
+            // releasing now would incorrectly refund a real render.
+            logTelemetry(supabase, {
+              functionName: "process_render_jobs",
+              model_used: "render_garment_image",
+              latency_ms: Date.now() - startTime,
+              from_cache: false,
+              status: "ok",
+              user_id: job.user_id,
+            });
+            return;
+          }
+
+          // Genuine terminal failure: release credit + flip to failed.
+          // Idempotent on release_key; ledger's terminal-uniqueness guard
+          // ensures no double-release if a prior consume snuck through.
           const baseKey = deriveBaseKey(job);
           const releaseResult = await releaseCredit(
             supabase,

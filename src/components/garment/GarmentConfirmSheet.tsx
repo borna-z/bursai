@@ -75,22 +75,38 @@ export function GarmentConfirmSheet({
     // timeout/abort/5xx) gets one retry with the SAME nonce so a
     // reserve-succeeded-insert-failed state can recover without orphaning.
     // See isRenderEnqueueRetryable for the full classification.
+    //
+    // Non-retryable errors (402 trial/insufficient, auth, forbidden, etc.)
+    // exit the rendering state immediately rather than trapping the user
+    // inside a 60s "Creating studio version…" shimmer. 402 specifically
+    // pops the paywall so the upgrade CTA is visible.
     (async () => {
       try {
         await enqueueRenderJob(garmentId, 'manual_enhance');
       } catch (err) {
-        if (
-          err instanceof RenderEnqueueError &&
-          err.clientNonce &&
-          isRenderEnqueueRetryable(err.status)
-        ) {
-          try {
-            await enqueueRenderJob(garmentId, 'manual_enhance', { clientNonce: err.clientNonce });
-          } catch {
-            // Leave sheet in rendering state; poll timeout handles UX.
+        if (err instanceof RenderEnqueueError) {
+          if (err.clientNonce && isRenderEnqueueRetryable(err.status)) {
+            try {
+              await enqueueRenderJob(garmentId, 'manual_enhance', { clientNonce: err.clientNonce });
+              return;
+            } catch {
+              // Retry also failed; fall through to the non-retryable exit path.
+            }
           }
+
+          // Non-retryable OR retry exhausted: exit the rendering state now.
+          stopPolling();
+          if (err.status === 402) {
+            setRenderState('idle');
+            setShowPaywall(true);
+          } else {
+            setRenderState('failed');
+          }
+        } else {
+          // Unknown error class — exit rendering state safely.
+          stopPolling();
+          setRenderState('failed');
         }
-        // 402 and other non-retryable errors: poll timeout below handles the UX.
       }
     })();
 

@@ -13,6 +13,8 @@ import {
   GEMINI_IMAGE_MODEL,
   GEMINI_IMAGE_API_URL,
 } from '../_shared/gemini-image-client.ts';
+import { deriveRenderJobId } from '../_shared/render-job-id.ts';
+import { timingSafeEqual } from '../_shared/timing-safe.ts';
 
 /**
  * Bump this when the render prompt or Gemini parameters change materially.
@@ -32,21 +34,10 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
 
-/**
- * Derive a deterministic UUID from the idempotency key (SHA-256 based).
- * Ensures reserve/consume/release for the same render request all share
- * a single render_job_id — needed for the ledger's terminal uniqueness
- * guard (see idx_render_credit_tx_terminal_unique).
- */
-async function deriveJobId(seed: string): Promise<string> {
-  const bytes = new TextEncoder().encode(seed);
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  const hex = Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  // Format as UUID: 8-4-4-4-12 hex
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
+// deriveRenderJobId moved to _shared/render-job-id.ts in P5 Codex round 3
+// so enqueue_render_job uses the same derivation. Previously called
+// `deriveJobId` locally; kept the alias below for minimal diff in callers.
+const deriveJobId = deriveRenderJobId;
 
 // ─── Prompt building (unchanged from prior implementation) ───
 
@@ -507,7 +498,10 @@ serve(async (req) => {
       // claimed at enqueue; reserve's replay flag ensures the re-reserve
       // call below hits the idempotency path without double-charging.
       if (bodyObj.internal === true) {
-        if (token !== serviceKey) {
+        // Constant-time compare — see _shared/timing-safe.ts for why.
+        // A misconfigured empty serviceKey is rejected at the env-load
+        // level by the length check below.
+        if (!serviceKey || serviceKey.length < 32 || !timingSafeEqual(token, serviceKey)) {
           return new Response(
             JSON.stringify({ error: 'internal mode requires service role' }),
             { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
@@ -613,6 +607,57 @@ serve(async (req) => {
         alreadyReadyBody.rendered = true;
         alreadyReadyBody.renderedImagePath = garment.rendered_image_path;
         alreadyReadyBody.renderedAt = garment.rendered_at;
+
+        // Ledger-healing consume for the worker-crash-between-render-and-consume
+        // scenario: garments.render_status was flipped to 'ready' at line ~1190
+        // in a prior attempt, but the Deno isolate crashed before the consume
+        // RPC fired. Stale recovery reset the job, the worker re-claimed, and
+        // we're now here with a rendered garment but (possibly) an un-consumed
+        // reserve. Calling consumeCredit with the operation-prefixed consume
+        // key is idempotent: if the prior attempt did consume, this hits the
+        // idempotency short-circuit (duplicate=true, balance untouched). If
+        // the prior attempt crashed pre-consume, this writes the consume tx
+        // and moves `reserved` → `used_this_period` (or decrements source
+        // counters for trial_gift/topup). Either way the ledger converges.
+        //
+        // Only runs on internal (worker) calls — for P4 external callers,
+        // this path was a pure no-op and we preserve that behavior.
+        if (isInternalInvocation && internalJobId) {
+          try {
+            const { data: profileForHeal } = await supabase
+              .from('profiles')
+              .select('mannequin_presentation')
+              .eq('id', user.id)
+              .maybeSingle();
+            const presentationForHeal = normalizeMannequinPresentation(
+              profileForHeal?.mannequin_presentation,
+            );
+            const healBaseKey =
+              `${user.id}_${garment.id}_${presentationForHeal}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+            const healResult = await consumeCredit(
+              supabase,
+              user.id,
+              internalJobId,
+              `consume:${healBaseKey}`,
+            );
+            console.log('render_garment_image already-ready healing consume', {
+              garmentId: garment.id,
+              jobId: internalJobId,
+              healed: healResult.ok && !healResult.duplicate,
+              duplicate: Boolean(healResult.duplicate),
+              reason: healResult.reason,
+            });
+          } catch (healErr) {
+            // Non-fatal — worst case, orphan-reservation cron eventually
+            // releases. We still report the render as successful to the
+            // worker so it can mark the job succeeded.
+            console.warn('render_garment_image healing consume threw', {
+              garmentId: garment.id,
+              jobId: internalJobId,
+              error: healErr instanceof Error ? healErr.message : String(healErr),
+            });
+          }
+        }
       }
       return new Response(
         JSON.stringify(alreadyReadyBody),
