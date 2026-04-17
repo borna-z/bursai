@@ -1,3 +1,10 @@
+-- Archaeology: file renamed from 20260416120001_backfill_render_credits_for_paid_users.sql
+-- in commit 034fa49c (PR #419) to align with remote applied_at timestamp
+-- 2026-04-16 23:42:13. Original author content in commit 0e6a3b2f
+-- ("Priority 3: Add one-time render-credit backfill for existing paid
+-- subscribers", 2026-04-16). Follow-up commit b97b6724 changed the
+-- UPDATE to an UPSERT to handle edge-case missing render_credits rows.
+
 -- ============================================================
 -- One-time backfill: grant 20 monthly render credits to users
 -- who are already on an active/trialing paid subscription.

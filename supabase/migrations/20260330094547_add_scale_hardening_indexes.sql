@@ -1,3 +1,9 @@
+-- Archaeology: file renamed from 20260330140000_add_scale_hardening_indexes.sql
+-- in commit 034fa49c (PR #419) to align with remote applied_at timestamp
+-- 2026-03-30 09:45:47. Original author content in commit 70fd439b
+-- ("Scale-harden phase 2: subscription-tier rate limits, caching gaps,
+-- N+1 fixes, indexes", 2026-03-30).
+
 -- Scale Hardening Phase 2: Performance indexes for hot query paths
 --
 -- These indexes cover the most frequent queries from rate limiting,

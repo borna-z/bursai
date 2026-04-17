@@ -72,6 +72,7 @@ PR: [URL]
 - Never deploy all functions at once — always name the specific function
 - Never use `deploy --all` — forbidden
 - Never run a DB migration without the user explicitly asking for one
+- Never apply a migration via MCP `apply_migration` without also committing a matching `supabase/migrations/<timestamp>_<name>.sql` file in the same PR — timestamp must equal the one MCP recorded on the remote (see Database Migration Rules)
 - Never delete DB schema fields
 - Never add new npm packages without asking first
 - Never add new edge functions unless the prompt explicitly says to
@@ -126,6 +127,83 @@ If you change any file in `supabase/functions/_shared/`, you must redeploy EVERY
 | `_shared/outfit-combination.ts` | `burs_style_engine` |
 | `_shared/unified_stylist_engine.ts` | `style_chat` |
 | `_shared/cors.ts` | All functions |
+
+## Database Migration Rules
+
+Migrations are the most fragile part of this repo. Drift between local files and the remote `supabase_migrations.schema_migrations` table breaks `npx supabase db push` and forces every future migration through MCP workarounds. Hard rules below prevent that.
+
+### How drift happens (so you can avoid it)
+
+Each time a migration is applied via MCP `apply_migration` or the Studio UI, Postgres stamps it with a fresh UTC timestamp and adds a row to `schema_migrations`. If the matching `.sql` file in `supabase/migrations/` has a different timestamp (or doesn't exist), the CLI sees "Local has X, Remote has Y" and refuses to push until the two sides are reconciled. Timestamps must match exactly — filename-based matching is all the CLI does.
+
+### Never create drift
+
+- When applying a migration via MCP, immediately create `supabase/migrations/<timestamp>_<name>.sql` with the timestamp the MCP call returned. Commit it in the same PR.
+- If MCP rejects a first attempt (syntax error, missing extension, etc.) and you apply a fixed version under a different name, **delete or rename the rejected .sql file** — do not leave both in the repo.
+- Do not use Studio UI to make schema changes. Studio records migrations with UUID names and no repo file — drift guaranteed.
+- `npx supabase db push` is the only supported way to apply migrations from main post-merge.
+
+### Pre-merge verification — REQUIRED for any PR touching `supabase/migrations/`
+
+Run these from the PR branch BEFORE merging:
+
+```bash
+npx supabase migration list --linked
+```
+Every row must show matching Local and Remote columns. Any row with only one side populated is drift — fix it before merging. New migrations introduced by the PR will show as Local-only until post-merge push, which is expected.
+
+```bash
+npx supabase db push --linked --dry-run --yes
+```
+If the PR introduces new migrations: the dry-run should list exactly those migrations as pending.
+If the PR is non-migration work: must report "Remote database is up to date."
+
+### Post-merge deploy
+
+**Default** — after merging a PR with migrations, from main:
+
+```bash
+npx supabase db push --linked --yes
+```
+
+**Exception — backdated migrations.** If a PR introduces a migration with a timestamp EARLIER than migrations already on remote (drift-repair or schema-catch-up work only), the CLI refuses the default command and requires explicit consent:
+
+```bash
+npx supabase db push --linked --yes --include-all
+```
+
+Only use `--include-all` after verifying:
+1. The backdated migration is idempotent (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `IF NOT EXISTS` guards on policies/indexes, etc.) so re-running against an already-applied schema is a no-op.
+2. Running the full migration chain in timestamp order from an empty DB produces a schema matching production. Mental walkthrough of the chain is the minimum bar; a fresh Supabase project test is the real bar.
+3. `npx supabase migration list --linked` shows the backdated migration as the only Local-only row.
+
+Normal day-to-day migrations always append at the end of the chain and never need `--include-all`. It is a flag for drift cleanup specifically.
+
+Deploy edge functions only after `db push` succeeds, so functions never hit a pre-migration schema.
+
+### Migration drift repair strategy
+
+When remote `applied_at` timestamps don't match local file timestamps (accumulated drift — the pattern that PR #419 repaired), there are two reconciliation strategies. The choice matters because `supabase migration list` compares only timestamps — a rename on the local side turns the file into a *new* migration version from the CLI's perspective.
+
+**Strategy A — rename local files to match remote timestamps.** What PR #419 did for BURS. Safe ONLY when you are certain no environment other than production has applied the pre-rename versions. Renaming orphans any environment that applied the old timestamp — on its next `db push`, the CLI sees the renamed file as a new migration and tries to re-run it. Non-idempotent statements (plain `CREATE POLICY`, `CREATE TRIGGER`, `ALTER TABLE ADD COLUMN` without `IF NOT EXISTS`) will then fail with duplicate errors and block the push.
+
+**Strategy B — `supabase migration repair`.** Preserve local filenames, update remote tracking via:
+
+```bash
+npx supabase migration repair --status applied <local_timestamp>
+npx supabase migration repair --status reverted <remote_timestamp>
+```
+
+Tells every CLI client "treat the new timestamp as already applied, forget the old one." No file rename — so no orphaned environments.
+
+**Rule:** For solo pre-launch work (current BURS state — no CI, no preview branches, no other developers), **rename is acceptable**. The moment a second developer, CI pipeline, or staging environment joins the workflow, `migration repair` becomes the default drift-repair strategy. Update this rule when that transition happens.
+
+**Local repair if you ever hit this:** If your local Supabase has the pre-rename migrations applied and `supabase db push` fails with duplicate-policy or similar errors:
+
+```bash
+npx supabase migration repair --status applied <new_timestamp>
+npx supabase migration repair --status reverted <old_timestamp>
+```
 
 ## Project Identity
 
