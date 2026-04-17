@@ -171,6 +171,74 @@ original reserve transaction.
 
 Branch deleted after verification. Cost: < $0.01.
 
+## Codex review round 4 — heal-gate tightening (2026-04-17)
+
+Codex round 3 caught that the terminal-failure heal check (introduced
+earlier to address "worker marks job failed despite successful render")
+used `garments.rendered_image_path IS NOT NULL` as the heal gate. That
+heuristic is wrong on regenerate flows: the garment retains a prior
+render's path, so a newly-failed re-render attempt would incorrectly
+heal to 'succeeded' and skip release, charging the user for a render
+that didn't happen.
+
+Fix: gate heal on a `consume` transaction with `render_job_id = job.id`
+AND `user_id = job.user_id`. That's definitive evidence render_garment_image
+ran Gemini + storage upload + consumeCredit for THIS specific job (not
+any historical one).
+
+### Scenario A — heal SHOULD fire (consume tx exists for this job)
+
+**Setup**:
+- `garments(id=...aaa, render_status='ready', rendered_image_path='heal_test.webp')`
+- `render_jobs(id=...0000a1, status='in_progress', attempts=3, max_attempts=3)`
+- `render_credit_transactions(kind='consume', render_job_id=...0000a1)`
+
+**Execute heal gate**: consume tx found → heal branch → UPDATE render_jobs
+`status='succeeded'`, `result_path` from garment.
+
+**Result**:
+```
+job_status        = succeeded
+result_path       = heal_test.webp
+release_tx_count  = 0   (correct — no spurious refund)
+consume_tx_count  = 1   (preserved — user correctly charged)
+```
+
+### Scenario B — regen-fail should NOT heal (the bug Codex round 4 caught)
+
+**Setup**:
+- `garments(id=...bbb, render_status='ready', rendered_image_path='old.webp')` — stale from prior render
+- `render_jobs(id=...0000b2, status='in_progress', attempts=3, max_attempts=3)`
+- `render_credit_transactions(kind='reserve', render_job_id=...0000b2)` — reserve only, NO consume
+
+**Execute heal gate**: no consume tx for `...0000b2` → fall through to
+release+fail branch. Write release tx, mark job failed, flip garment
+`render_status='failed'` with error message. Old `rendered_image_path`
+is preserved on the garment for display (the prior render is still the
+best thing we have).
+
+**Result**:
+```
+job_status              = failed
+garment_status          = failed
+garment_path_preserved  = old.webp   (prior render untouched)
+release_tx_count        = 1          (credit correctly refunded)
+consume_tx_count        = 0          (no consume ever happened)
+```
+
+The user is NOT charged for the failed regenerate. Correct outcome.
+
+### Key insight
+
+The old heuristic couldn't distinguish "did THIS attempt succeed" from
+"did ANY attempt ever succeed on this garment." The consume-tx gate is
+tight because consume is only called by render_garment_image after
+end-to-end success of a specific attempt, and the terminal-uniqueness
+index guarantees at most one consume per render_job_id. Presence/absence
+is a 1:1 signal.
+
+Branch deleted after verification. Cost: < $0.01.
+
 ## Codex review round 2 — re-verification (2026-04-17)
 
 Two findings from Codex round 2, both addressed.

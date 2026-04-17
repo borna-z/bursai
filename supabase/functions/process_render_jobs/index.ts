@@ -199,37 +199,59 @@ serve(async (req) => {
         const isFinal = job.attempts >= job.max_attempts;
 
         if (isFinal) {
-          // Before releasing + marking failed: check whether the garment
-          // already has a rendered_image_path. If yes, a prior attempt
-          // (possibly this same invocation, interrupted between
-          // render_garment_image returning 200 and this worker updating
-          // render_jobs) actually succeeded. Re-claims after stale
-          // recovery hit the "Already ready" early-return in
-          // render_garment_image which doesn't currently re-fire consume,
-          // so the credit might or might not be charged — but either way
-          // the USER has a rendered image. Force the job to 'succeeded'
-          // rather than falsely failing it.
-          const { data: garmentRecord } = await supabase
-            .from("garments")
-            .select("rendered_image_path")
-            .eq("id", job.garment_id)
+          // Before releasing + marking failed: check the credit ledger for
+          // definitive evidence that THIS specific job_id already succeeded
+          // (i.e., a consume tx exists with render_job_id = job.id).
+          //
+          // PRIOR ATTEMPT at the heal check used `garments.rendered_image_path
+          // IS NOT NULL` as the heal gate — but on a regenerate flow, the
+          // garment carries a stale path from an older successful render.
+          // If THIS attempt genuinely failed, the rendered_image_path
+          // heuristic would falsely say "this job succeeded," skip the
+          // release, and charge the user for a failure. Codex round 4
+          // caught it.
+          //
+          // The consume-tx check is tight: consumeCredit is only called
+          // from render_garment_image AFTER Gemini successfully produced
+          // the image AND storage upload succeeded. If a consume row
+          // exists for job.id, this attempt genuinely ran end-to-end and
+          // the worker just missed the success-path UPDATE (e.g. crashed
+          // between render_garment_image's 200 and process_render_jobs's
+          // DB write). Heal to 'succeeded' with no release.
+          const { data: consumeTx } = await supabase
+            .from("render_credit_transactions")
+            .select("id")
+            .eq("render_job_id", job.id)
+            .eq("kind", "consume")
+            .eq("user_id", job.user_id)
             .maybeSingle();
 
-          if (garmentRecord?.rendered_image_path) {
+          if (consumeTx) {
+            // Consume exists for this job → Gemini ran, credit was
+            // charged. Recover the rendered_image_path (safe now because
+            // we've established THIS job succeeded).
+            const { data: garmentRecord } = await supabase
+              .from("garments")
+              .select("rendered_image_path")
+              .eq("id", job.garment_id)
+              .maybeSingle();
+
             log.warn(
-              "final-failure path detected already-rendered garment — healing to succeeded",
+              "final-failure path detected consume tx for this job — healing to succeeded",
               {
                 jobId: job.id,
                 garmentId: job.garment_id,
                 attempts: job.attempts,
                 lastErrorClass: renderResult.errorClass,
+                consumeTxId: consumeTx.id,
+                resultPath: garmentRecord?.rendered_image_path ?? null,
               },
             );
             await supabase
               .from("render_jobs")
               .update({
                 status: "succeeded",
-                result_path: garmentRecord.rendered_image_path,
+                result_path: garmentRecord?.rendered_image_path ?? null,
                 completed_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
                 error: null,
@@ -238,10 +260,10 @@ serve(async (req) => {
               })
               .eq("id", job.id);
             results.push({ jobId: job.id, status: "succeeded_healed" });
-            // Don't release credit — garment was actually rendered. The
-            // consume either succeeded (credit correctly charged) or
-            // missed (orphan-cleanup cron picks it up later). Either way,
-            // releasing now would incorrectly refund a real render.
+            // Don't release credit — consume tx exists. Releasing would
+            // try to write a second terminal tx against the same job_id
+            // and hit `already_terminal`, but log noise aside it's wrong
+            // intent: the user legitimately paid for a delivered render.
             logTelemetry(supabase, {
               functionName: "process_render_jobs",
               model_used: "render_garment_image",
