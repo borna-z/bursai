@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Garment } from '@/hooks/useGarments';
-import { enqueueRenderJob, RenderEnqueueError } from '@/lib/garmentIntelligence';
+import { enqueueRenderJob, RenderEnqueueError, isRenderEnqueueRetryable } from '@/lib/garmentIntelligence';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { WardrobeGarmentListLayout } from '@/components/wardrobe/GarmentCardSystem';
 
@@ -98,9 +98,11 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     // either the internal POST kickoff or the pg_cron safety net.
     //
     // Retry contract: a distinct tap of "Studio photo" is a new user
-    // intent → new nonce (the default). A transport-level 5xx gets one
-    // retry with the SAME nonce so a reserve-succeeded-insert-failed
-    // state can recover without orphaning the reservation.
+    // intent → new nonce (the default). A retryable transport/server
+    // failure (network/timeout/abort/5xx) gets one retry with the SAME
+    // nonce so a reserve-succeeded-insert-failed state can recover
+    // without orphaning the reservation. See isRenderEnqueueRetryable
+    // for the full classification.
     try {
       await enqueueRenderJob(garment.id, 'retry');
     } catch (err) {
@@ -110,7 +112,7 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
           setEnhanceTriggered(false);
           return;
         }
-        if (err.status >= 500 && err.clientNonce) {
+        if (err.clientNonce && isRenderEnqueueRetryable(err.status)) {
           try {
             await enqueueRenderJob(garment.id, 'retry', { clientNonce: err.clientNonce });
             return;

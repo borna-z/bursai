@@ -48,6 +48,31 @@ export class RenderEnqueueError extends Error {
 }
 
 /**
+ * Classifies a RenderEnqueueError status as retryable-with-same-nonce.
+ *
+ * Returns true for:
+ *   - `0` or undefined → transport-level failure (network/timeout/abort)
+ *     where the request may or may not have reached the server. Reserve
+ *     may have succeeded; retry with same nonce catches either case.
+ *   - `5xx` → server-side error. Same reasoning — the edge function may
+ *     have reserved the credit before the failure surfaced.
+ *
+ * Returns false for user-caused statuses (400 input, 401 auth, 402
+ * credits, 403 forbidden, 404 not found, 429 rate limit) — retrying with
+ * the same nonce won't change the outcome and the caller should surface
+ * the specific error to the UI instead.
+ *
+ * Used by the three client call sites (SwipeableGarmentCard,
+ * GarmentConfirmSheet, startGarmentRenderInBackground) to decide whether
+ * to invoke enqueueRenderJob a second time with the preserved nonce.
+ */
+export function isRenderEnqueueRetryable(status: number | undefined): boolean {
+  if (status === undefined || status === 0) return true;
+  if (status >= 500) return true;
+  return false;
+}
+
+/**
  * Enqueue a render job via the enqueue_render_job edge function.
  *
  * Replaces the in-memory `queuedRenderKickoffs` queue + direct render_garment_image
@@ -394,10 +419,12 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
 }
 
 async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
-  // Single transport-level retry with the SAME nonce on 5xx. Any
-  // subsequent retries will happen via the server-side cron safety net
-  // (which reclaims the reserved row) or the user's next app-open —
-  // we don't loop client-side to avoid hammering a distressed backend.
+  // Single transport-level retry with the SAME nonce on any retryable
+  // failure (network/timeout/abort = status 0/undefined, or server 5xx).
+  // See isRenderEnqueueRetryable for the full classification. Any
+  // subsequent retries happen via the server-side cron safety net (which
+  // reclaims the reserved row) or the user's next app-open — we don't
+  // loop client-side to avoid hammering a distressed backend.
   try {
     await enqueueRenderJob(garmentId, source as RenderTriggerSource);
   } catch (err) {
@@ -408,10 +435,19 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
       return;
     }
 
-    if (err instanceof RenderEnqueueError && err.status >= 500 && err.clientNonce) {
-      // Transport failure — retry once with the SAME nonce so reserve's
-      // replay flag catches any successful-reserve-but-failed-insert state.
-      logger.warn(`[${source}] render enqueue 5xx; retrying once with same nonce`, err);
+    if (
+      err instanceof RenderEnqueueError &&
+      err.clientNonce &&
+      isRenderEnqueueRetryable(err.status)
+    ) {
+      // Retryable transport/server failure — retry once with the SAME
+      // nonce so reserve's replay flag catches any successful-reserve-
+      // but-failed-insert state. Without the nonce preservation, a second
+      // attempt would create a new reservation and orphan the first.
+      logger.warn(
+        `[${source}] render enqueue retryable (status=${err.status}); retrying once with same nonce`,
+        err,
+      );
       try {
         await enqueueRenderJob(garmentId, source as RenderTriggerSource, {
           clientNonce: err.clientNonce,

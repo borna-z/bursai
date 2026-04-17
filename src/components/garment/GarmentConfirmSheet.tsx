@@ -7,7 +7,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import { enqueueRenderJob, RenderEnqueueError } from '@/lib/garmentIntelligence';
+import { enqueueRenderJob, RenderEnqueueError, isRenderEnqueueRetryable } from '@/lib/garmentIntelligence';
 import { supabase } from '@/integrations/supabase/client';
 import { asPreferences } from '@/types/preferences';
 import { categoryLabel, colorLabel, materialLabel, fitLabel } from '@/lib/humanize';
@@ -71,20 +71,26 @@ export function GarmentConfirmSheet({
 
     // P5: enqueue via durable queue instead of invoking render_garment_image
     // directly. Same polling loop below picks up the rendered image when
-    // the worker finishes. A 5xx gets one retry with the SAME nonce so a
+    // the worker finishes. A retryable transport/server failure (network/
+    // timeout/abort/5xx) gets one retry with the SAME nonce so a
     // reserve-succeeded-insert-failed state can recover without orphaning.
+    // See isRenderEnqueueRetryable for the full classification.
     (async () => {
       try {
         await enqueueRenderJob(garmentId, 'manual_enhance');
       } catch (err) {
-        if (err instanceof RenderEnqueueError && err.status >= 500 && err.clientNonce) {
+        if (
+          err instanceof RenderEnqueueError &&
+          err.clientNonce &&
+          isRenderEnqueueRetryable(err.status)
+        ) {
           try {
             await enqueueRenderJob(garmentId, 'manual_enhance', { clientNonce: err.clientNonce });
           } catch {
             // Leave sheet in rendering state; poll timeout handles UX.
           }
         }
-        // 402 and other errors: poll timeout below handles the UX.
+        // 402 and other non-retryable errors: poll timeout below handles the UX.
       }
     })();
 

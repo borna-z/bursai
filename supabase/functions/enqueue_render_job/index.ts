@@ -275,12 +275,27 @@ serve(async (req) => {
     // state without waiting for the worker to claim. On success this gets
     // overwritten with rendered_image_path; on failure it flips to 'failed'.
     //
-    // Skip this update when the row already existed (retry hit the
-    // unique-violation path): the garment might already be 'ready' from
-    // a prior successful render, and flipping it back to 'pending' would
-    // make the UI shimmer over an already-rendered image until the worker
-    // short-circuits on the next poll. Safer to leave it.
-    if (!rowAlreadyExisted) {
+    // For retry-hits-existing-row (23505 path), the decision is nuanced:
+    //   * canonicalStatus 'succeeded' / 'failed' → existing job is
+    //     TERMINAL. Skip the garment update; the garment's current state
+    //     already reflects the correct terminal outcome (ready / failed),
+    //     and forcing it back to 'pending' would make the UI shimmer over
+    //     an already-rendered image until the worker short-circuits.
+    //   * canonicalStatus 'pending' / 'in_progress' → existing job is
+    //     STILL IN FLIGHT. DO update the garment to 'pending'. Rationale:
+    //     the original enqueue attempt might have succeeded the INSERT
+    //     but failed the garment UPDATE (narrow transient), leaving the
+    //     garment in a stale state. This retry is the chance to correct
+    //     it. Without this, the worker could later see render_status='ready'
+    //     (from a truly-stale-since-P4 row) and short-circuit without
+    //     running Gemini, consume-failing, and leaving the reservation
+    //     stranded.
+    const shouldUpdateGarment =
+      !rowAlreadyExisted ||
+      canonicalStatus === "pending" ||
+      canonicalStatus === "in_progress";
+
+    if (shouldUpdateGarment) {
       const { error: garmentUpdateError } = await serviceClient
         .from("garments")
         .update({

@@ -170,3 +170,64 @@ original reserve transaction.
   state for the 30-minute hard ceiling.
 
 Branch deleted after verification. Cost: < $0.01.
+
+## Codex review round 2 — re-verification (2026-04-17)
+
+Two findings from Codex round 2, both addressed.
+
+### Bug A — transport failures bypass same-nonce retry (client helper)
+
+Fixed at the application layer by introducing `isRenderEnqueueRetryable`:
+- Returns `true` for `status === undefined || status === 0` (network /
+  timeout / abort — request may or may not have reached the server)
+- Returns `true` for `status >= 500` (server-side error)
+- Returns `false` for user-caused 4xx (400/401/402/403/404/429)
+
+All three call sites (SwipeableGarmentCard.handleRender,
+GarmentConfirmSheet.startRender, startGarmentRenderInBackground) now
+use this classifier instead of an explicit `status >= 500` check.
+
+Covered by unit tests in `enqueueRenderJob.test.ts` (transport-0 and
+server-5xx cases).
+
+### Bug B — replay path leaves garment state stale (enqueue_render_job)
+
+**Setup 1 — stale-state recovery:**
+
+```
+render_jobs(id=aaaa..., status='pending', reserve_key='reserve:staleGarment')
+garments(id=...dead, render_status='ready')  -- stale from prior P4 run
+```
+
+Retry with same clientNonce hits 23505 → SELECT returns `pending`
+canonical status. New decision logic: `shouldUpdateGarment = true`
+because status ∈ {pending, in_progress}. UPDATE fires.
+
+**Result:**
+
+```
+after_retry_nonterminal = 'pending'  -- correctly corrected from 'ready'
+```
+
+**Setup 2 — terminal-state preservation:**
+
+```
+render_jobs(id=bbbb..., status='succeeded', reserve_key='reserve:terminalSucceeded')
+garments(id=...beef, render_status='ready')  -- correct terminal state
+```
+
+Retry with same clientNonce: canonical status is `succeeded` → terminal →
+`shouldUpdateGarment = false`. UPDATE is skipped.
+
+**Result:**
+
+```
+after_retry_terminal = 'ready'  -- preserved, not forced back to 'pending'
+```
+
+Both scenarios confirmed. The decision logic correctly distinguishes
+"existing job in flight, fix stale garment state" from "existing job
+terminal, leave garment alone." No risk of the worker short-circuiting
+on a stale 'ready' state and consume-failing.
+
+Branch deleted after verification. Cost: < $0.01.

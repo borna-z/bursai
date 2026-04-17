@@ -9,7 +9,7 @@ vi.mock('@/lib/edgeFunctionClient', () => ({
 }));
 
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import { enqueueRenderJob, RenderEnqueueError } from '@/lib/garmentIntelligence';
+import { enqueueRenderJob, RenderEnqueueError, isRenderEnqueueRetryable } from '@/lib/garmentIntelligence';
 
 describe('enqueueRenderJob', () => {
   beforeEach(() => {
@@ -124,5 +124,40 @@ describe('enqueueRenderJob', () => {
     expect(result.jobId).toBe('original-job-id');
     expect(result.status).toBe('in_progress');
     expect(result.replay).toBe(true);
+  });
+});
+
+describe('isRenderEnqueueRetryable', () => {
+  // Codex round 2 Bug A fix: transport failures (status 0/undefined) must
+  // retry with the same nonce. Prior `status >= 500` check missed them.
+  it('retries on transport-level failure (status 0)', () => {
+    expect(isRenderEnqueueRetryable(0)).toBe(true);
+  });
+
+  it('retries on undefined status (network/abort surfaces as no status)', () => {
+    expect(isRenderEnqueueRetryable(undefined)).toBe(true);
+  });
+
+  it('retries on 500-level server errors', () => {
+    expect(isRenderEnqueueRetryable(500)).toBe(true);
+    expect(isRenderEnqueueRetryable(502)).toBe(true);
+    expect(isRenderEnqueueRetryable(503)).toBe(true);
+    expect(isRenderEnqueueRetryable(504)).toBe(true);
+  });
+
+  it('does NOT retry on 4xx user-caused errors', () => {
+    expect(isRenderEnqueueRetryable(400)).toBe(false);  // bad input
+    expect(isRenderEnqueueRetryable(401)).toBe(false);  // auth
+    expect(isRenderEnqueueRetryable(402)).toBe(false);  // credits
+    expect(isRenderEnqueueRetryable(403)).toBe(false);  // forbidden
+    expect(isRenderEnqueueRetryable(404)).toBe(false);  // not found
+    expect(isRenderEnqueueRetryable(409)).toBe(false);  // conflict (replay_terminal)
+    expect(isRenderEnqueueRetryable(429)).toBe(false);  // rate limit
+  });
+
+  it('does NOT retry on 2xx/3xx (defensive — never reached in practice but spec matters)', () => {
+    expect(isRenderEnqueueRetryable(200)).toBe(false);
+    expect(isRenderEnqueueRetryable(202)).toBe(false);
+    expect(isRenderEnqueueRetryable(301)).toBe(false);
   });
 });
