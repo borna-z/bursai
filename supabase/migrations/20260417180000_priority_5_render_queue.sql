@@ -44,6 +44,16 @@ CREATE TABLE render_jobs (
   presentation      TEXT NOT NULL,
   prompt_version    TEXT NOT NULL,
   reserve_key       TEXT UNIQUE NOT NULL,
+  -- Force bypasses render_garment_image's product-ready eligibility gate
+  -- AND the "already ready/rendering/skipped" early-return guard. Set by
+  -- enqueue_render_job when the user explicitly wants a NEW render on an
+  -- already-rendered garment (regenerate button). Forwarded to
+  -- render_garment_image by process_render_jobs so internal (worker)
+  -- invocations behave identically to pre-P5 direct calls that passed
+  -- force:true. Codex round 10 caught that P5 was dropping this flag —
+  -- regenerate button was silently broken (worker returned 'skipped'
+  -- with no new image). See render-state-machine.md Scenario 7 + I9.
+  force             BOOLEAN NOT NULL DEFAULT false,
   result_path       TEXT,
   error             TEXT,
   error_class       TEXT,
@@ -98,7 +108,8 @@ RETURNS TABLE (
   prompt_version TEXT,
   reserve_key TEXT,
   attempts INT,
-  max_attempts INT
+  max_attempts INT,
+  force BOOLEAN
 ) AS $$
 DECLARE
   v_row render_jobs%ROWTYPE;
@@ -137,7 +148,8 @@ BEGIN
   RETURN QUERY
   SELECT v_row.id, v_row.user_id, v_row.garment_id, v_row.client_nonce,
          v_row.source, v_row.presentation, v_row.prompt_version,
-         v_row.reserve_key, v_row.attempts + 1, v_row.max_attempts;
+         v_row.reserve_key, v_row.attempts + 1, v_row.max_attempts,
+         v_row.force;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
