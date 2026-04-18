@@ -594,6 +594,61 @@ serve(async (req) => {
             job.id,
             `release:${baseKey}`,
           );
+
+          // Round-16 TOCTOU heal gate (parallel to the round-15 fix on the
+          // deferred-stuck branch at line 254). The pre-release consume-tx
+          // SELECT above (line 491) and this release call are two separate
+          // reads of render_credit_transactions with a narrow window
+          // between them. If a concurrent render_garment_image invocation's
+          // consume lands inside that window, release_credit_atomic's own
+          // terminal-existence check finds it and returns
+          // `{ok:false, reason:'already_terminal'}`. Pre-round-16, we fell
+          // through to `render_jobs.status='failed'` (and potentially
+          // `garments.render_status='failed'` if the garment wasn't
+          // already 'ready'+path) — marking a successful render as failed
+          // and stomping garment state the concurrent render just wrote.
+          // Heal to succeeded, mirroring the pre-release heal branch at
+          // line 538 and the deferred-stuck heal at line 290.
+          // Do NOT touch garments.render_status — the concurrent render
+          // already set it to 'ready' with its result path.
+          if (!releaseResult.ok && releaseResult.reason === "already_terminal") {
+            const { data: garmentRecord } = await supabase
+              .from("garments")
+              .select("rendered_image_path")
+              .eq("id", job.garment_id)
+              .maybeSingle();
+            log.warn(
+              "final-failure release returned already_terminal — healing to succeeded (TOCTOU)",
+              {
+                jobId: job.id,
+                garmentId: job.garment_id,
+                attempts: job.attempts,
+              },
+            );
+            await supabase
+              .from("render_jobs")
+              .update({
+                status: "succeeded",
+                result_path: garmentRecord?.rendered_image_path ?? null,
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                error: null,
+                error_class: null,
+                locked_until: null,
+              })
+              .eq("id", job.id);
+            results.push({ jobId: job.id, status: "succeeded_healed_toctou" });
+            logTelemetry(supabase, {
+              functionName: "process_render_jobs",
+              model_used: "render_garment_image",
+              latency_ms: Date.now() - startTime,
+              from_cache: false,
+              status: "ok",
+              user_id: job.user_id,
+            });
+            return;
+          }
+
           if (!releaseResult.ok) {
             log.warn("releaseCredit returned non-ok on final failure", {
               jobId: job.id,
