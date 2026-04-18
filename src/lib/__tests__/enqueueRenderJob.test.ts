@@ -174,6 +174,67 @@ describe('enqueueRenderJob', () => {
     }
   });
 
+  it('defaults force to false when options.force is not passed', async () => {
+    // Codex round 10: force plumbing default. First-time generations must NOT
+    // set force (product-ready gate still applies). Pre-fix callers passed
+    // no force and the flag was silently dropped in the queue anyway —
+    // defaulting to false here is the contract both the UI and the edge
+    // function rely on.
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { jobId: 'j1', status: 'pending', source: 'add_photo', replay: false },
+      error: null,
+    });
+
+    await enqueueRenderJob('garment-1', 'add_photo');
+
+    const body = (vi.mocked(invokeEdgeFunction).mock.calls[0][1] as { body: { force: boolean } }).body;
+    expect(body.force).toBe(false);
+  });
+
+  it('passes force:true when options.force is true (regenerate path)', async () => {
+    // The regenerate button on SwipeableGarmentCard sets `force: hasRenderedImage`
+    // which is `true` when a prior render exists. Without this the worker sees
+    // `force=false` → render_garment_image's line-611 guard fires →
+    // succeeded_skipped with no new image = silently broken regenerate.
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { jobId: 'j2', status: 'pending', source: 'retry', replay: false },
+      error: null,
+    });
+
+    await enqueueRenderJob('garment-1', 'retry', { force: true });
+
+    const body = (vi.mocked(invokeEdgeFunction).mock.calls[0][1] as { body: { force: boolean } }).body;
+    expect(body.force).toBe(true);
+  });
+
+  it('passes force:false when options.force is explicitly false', async () => {
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { jobId: 'j3', status: 'pending', source: 'retry', replay: false },
+      error: null,
+    });
+
+    await enqueueRenderJob('garment-1', 'retry', { force: false });
+
+    const body = (vi.mocked(invokeEdgeFunction).mock.calls[0][1] as { body: { force: boolean } }).body;
+    expect(body.force).toBe(false);
+  });
+
+  it('preserves force through the retry path (nonce-preserving retry carries force)', async () => {
+    // Transport-level failure → caller retries with preserved nonce AND
+    // preserved force value. Otherwise the regenerate intent would silently
+    // degrade to a non-force retry after any 5xx blip.
+    vi.mocked(invokeEdgeFunction).mockResolvedValue({
+      data: { jobId: 'j4', status: 'pending', source: 'retry', replay: true },
+      error: null,
+    });
+
+    await enqueueRenderJob('garment-1', 'retry', { clientNonce: 'retry-nonce', force: true });
+
+    const body = (vi.mocked(invokeEdgeFunction).mock.calls[0][1] as { body: { force: boolean; clientNonce: string } }).body;
+    expect(body.force).toBe(true);
+    expect(body.clientNonce).toBe('retry-nonce');
+  });
+
   it('returns replay=true from server (row already existed under same reserve_key)', async () => {
     // Codex Bug 2/3 fix: server returns the ORIGINAL row's id + replay:true
     // when a retry with the same clientNonce hits the 23505 + SELECT path.

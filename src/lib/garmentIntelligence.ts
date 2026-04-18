@@ -109,14 +109,22 @@ export function isRenderEnqueueRetryable(status: number | undefined): boolean {
 export async function enqueueRenderJob(
   garmentId: string,
   source: RenderTriggerSource,
-  options: { clientNonce?: string } = {},
+  options: { clientNonce?: string; force?: boolean } = {},
 ): Promise<EnqueueRenderJobResult> {
   const clientNonce = options.clientNonce ?? crypto.randomUUID();
+  // Force: default false so first-time Studio photo generation still
+  // respects the product-ready gate. Regenerate flows (SwipeableGarmentCard
+  // on a garment with an existing rendered image) MUST pass force:true;
+  // otherwise the worker's render_garment_image skips via the gate and
+  // terminalizes as succeeded_skipped with no new image. Codex round 10
+  // surfaced this as a P5 regression from the pre-queue direct-call path
+  // where SwipeableGarmentCard passed force:true directly.
+  const force = options.force === true;
 
   const { data, error } = await invokeEdgeFunction<EnqueueRenderJobResult & { error?: string }>(
     'enqueue_render_job',
     {
-      body: { garmentId, source, clientNonce },
+      body: { garmentId, source, clientNonce, force },
       retries: 0,
     },
   );

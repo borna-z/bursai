@@ -48,6 +48,8 @@ Plus: `render_jobs.attempts`, `render_jobs.locked_until`, `garments.rendered_ima
 
 **I8 — Attempts monotonic, no rewind except on the consume-query-defer path.** `claim_render_job` increments `render_jobs.attempts`. The only branch that decrements is the round-5 `deferred_db_error` path (read-layer outage on the heal gate). The `deferred_in_flight` path (round 7) does NOT decrement — the attempt is happening concurrently. **However, the deferred path terminalizes at `attempts >= max_attempts`** (round-8 gate): a garment stuck in `'rendering'` state for max_attempts cycles is treated as a ghost (isolate crashed without cleanup, no live render to wait for) and the job terminalizes as `'failed'` with release. Before hitting that terminal, the round-5 heal gate still applies — if a late-landing consume tx is present for the job, heal to `'succeeded'` instead.
 
+**I9 — Force flag is preserved across every queue layer.** Round 10 added this invariant. `enqueue_render_job`'s request body carries `force` (default false). The value lands on `render_jobs.force` via the INSERT. `claim_render_job` returns `force` alongside the other row fields. `process_render_jobs` forwards `force: job.force` in its fetch-to-render_garment_image payload. `render_garment_image`'s body parsing reads `body.force` for BOTH external (P4 legacy) and internal (P5 worker) invocations; the flag gates both the line-611 "already ready/rendering/skipped" early return and the line-1097 product-ready eligibility gate. Net contract: what a caller passes at enqueue is the value the eligibility gates see at render time. Before round 10, P5 dropped the flag between enqueue and render_garment_image — regenerate requests silently no-op'd. Any future refactor that adds a new queue layer must preserve force through that layer or this invariant breaks.
+
 ---
 
 ## Actors + their state transitions
@@ -219,19 +221,27 @@ This is the precise scenario the "healing consume" for internal callers was desi
 
 **Pre:** Prior job (C1) was terminal succeeded. Credit txs for C1's job: `{reserve, consume}`. `garments.render_status='ready'` with path from C1. `garments.rendered_image_path='prior.webp'`.
 
-**Action:**
-1. Enqueue with C2 → new baseKey, new reserve_key. reserve_credit_atomic writes a fresh reserve tx (for a NEW render_job_id, J2). INSERT render_jobs J2. garment.render_status NOT updated (render_status is 'ready' terminal — see `enqueue_render_job`'s `shouldUpdateGarment` gate, which preserves terminal states).
-2. Worker claims J2. render_garment_image: garment.render_status='ready' + path. Takes `Already ready` branch. Healing consume call (internal) writes consume for J2.
+**Action (post-round-10):**
+1. User taps "Regenerate" on `SwipeableGarmentCard`. `handleRender` sees `hasRenderedImage === true` → invokes `enqueueRenderJob(garment.id, 'retry', { force: true })`.
+2. `enqueue_render_job` receives `body.force = true`. Derives new baseKey/reserve_key from clientNonce C2. reserve_credit_atomic writes a fresh reserve tx for new `render_job_id` J2. INSERTs render_jobs row J2 with `force=true`. garments.render_status unchanged (terminal-preservation in `shouldUpdateGarment`).
+3. Worker claims J2. `claim_render_job` returns the full row including `force=true`. `invokeRender` payload now includes `force: true`.
+4. render_garment_image internal invocation receives `body.force === true`:
+   - Line-611 early guard: `!force` is false → SKIPS the Already-ready/rendering/skipped early return.
+   - Product-ready gate (line ~1097): `!force` is false → SKIPS the `skip_product_ready` early return even if Gemini eligibility returns that decision.
+   - Gemini runs → storage upload → garment.rendered_image_path set to the NEW path → consume_credit_atomic fires for J2.
+5. Worker invokeRender sees renderedPath → worker branch b: UPDATE render_jobs status='succeeded', result_path=new path.
 
-**Wait — is this what we want?**
+**Post:** render_jobs J2.status='succeeded', result_path=<new-render>. Credit txs for J2: `{reserve, consume}`. garments.rendered_image_path=<new-render> (replacing the old). User correctly charged once for this regenerate intent.
 
-This is the scenario that the server-side review flagged in its section 6.25: rapid-fire enqueue with different nonces results in the second job hitting the already-ready path, consuming credit, but NOT re-rendering.
+**Pre-round-10 counterfactual (the bug T-2 was):** `enqueue_render_job` didn't accept `force`. render_jobs had no `force` column. Worker didn't forward `force`. render_garment_image saw `force=undefined` → line-611 `!force && render_status==='ready'` fired → returned `alreadyReadyBody = {ok:true, skipped:true, rendered:true, renderedImagePath: <PRIOR path>}`. For internal invocations, a healing consume runs before the return (render_garment_image line ~625–681) writing a `consume` tx against the NEW render_job_id. The worker's invokeRender sees `body.renderedImagePath` is set → takes the renderedPath branch (branch b, NOT the skip branch) → marks render_jobs succeeded with `result_path = <prior path>`.
 
-**Current behavior:** J2 terminalizes as succeeded via worker branch b (renderedPath in response). Consume tx for J2 written. User charged twice, got the same render once.
+Net effect pre-fix: reserve+consume for J2 both wrote (user charged), but `garments.rendered_image_path` was NEVER overwritten — the response handed back the OLD path. User paid again for the regenerate AND got nothing new. That's the UX regression Codex round 10 surfaced.
 
-**Is this correct?** For a "Regenerate Studio photo" the user presumably wants a NEW render. The path that would actually re-render is `force=true` on render_garment_image. But enqueue_render_job does NOT pass `force`, and the worker's invokeRender does NOT set `force`. So the `Already ready` early-return fires and no fresh Gemini call happens.
+The round-10 fix makes this Scenario's post-state match intent: Gemini runs, garment.rendered_image_path overwritten with a NEW render, consume tx written for J2, user charged once for the new render they actually wanted.
 
-**VERDICT — this is a real gap in the state machine for "regenerate." Flagged below as Finding T-2.**
+**Invariants (post-round-10):** I1 ✓ (single reserve). I2 ✓ (single consume per regenerate intent). I3 ✓. I5 ✓ (status reflects that user got a new render). **I9 — force preservation — NEW.**
+
+**Pre-round-10:** T-2 finding was this exact scenario. Now resolved.
 
 ### Scenario 8 — Replay path (same clientNonce twice, e.g. transport retry)
 
@@ -341,16 +351,13 @@ Ordered by severity. "Fixed in this round" = a patch was committed during round 
 
 Reproduced in Scenario 13. Pre-round-7 had no concept of "don't release, retry later" for the `garments.render_status='rendering'` concurrent-render case. Round 7 Track A's new skip branch would have released on this path → I7 violation → free render. Fixed by introducing `{ok:true, deferred:true, reason}` in render_garment_image at two sites (`Already rendering` early return + claimGarmentRender-lost path when `latestGarment.render_status='rendering'`) and a corresponding worker branch that resets to pending without touching credit or garments.
 
-### T-2 (MEDIUM, NOT FIXED this round) — Regenerate without `force` silently charges for a no-op
+### T-2 (RESOLVED round 10) — Regenerate semantics via `force` plumbing
 
-Scenario 7. When a user re-enqueues with a fresh clientNonce after a prior render already succeeded, the second job hits the `Already ready` path in render_garment_image, writes a healing consume for the NEW job_id, and terminalizes as succeeded. User is charged twice for the same render.
+Scenario 7 pre-round-10 was a silent no-op regenerate: user taps "Regenerate", worker sees no force flag, render_garment_image's line-611 early guard returned `{skipped:true}`, worker terminalized as `succeeded_skipped` with a release tx. User wasn't double-charged (release wrote instead of consume) but got zero new render — the button was broken.
 
-**Why not fixed this round:** the fix requires product guidance on "Regenerate Studio photo" semantics:
-- (a) Regenerate means a fresh Gemini call. Enqueue should pass `force=true` through to render_garment_image; worker's invokeRender should forward it. Requires UI + enqueue + worker changes + a new render_jobs column (or repurposed `source` values) to carry the force flag across the queue.
-- (b) Regenerate means "if prior exists, show it; otherwise render." Current behavior matches this IF we accept the double-charge (user explicitly chose to re-roll the dice).
-- (c) Idempotency on garment-level + prior-success: enqueue checks if any prior succeeded job exists for (user,garment) and returns its jobId as a replay. Avoids the double-charge but conflicts with "explicit user re-roll" semantics.
+**Resolved** in round 10 by plumbing `force` through every layer: UI (`SwipeableGarmentCard.handleRender` passes `force: hasRenderedImage`) → `enqueueRenderJob` → `enqueue_render_job` edge function → `render_jobs.force` column → `claim_render_job` RETURNS TABLE → worker's invokeRender payload → render_garment_image's existing `body.force` parsing. See Invariant I9.
 
-Flagged for product decision. Also affects analytics: `source='retry'` on a never-rendered garment from `SwipeableGarmentCard.handleRender` (see client-side finding 6.1) means we can't even distinguish "first-time generate" from "regenerate" in server logs today.
+Scenario 7 in the scenarios section has been rewritten to reflect the post-fix behavior (1 reserve + 1 consume + new rendered_image_path).
 
 ### T-3 (MEDIUM, FIXED round 9) — `GarmentConfirmSheet` 60s local timeout double-enqueued on slow renders
 
@@ -427,3 +434,4 @@ When these are answered, update the scenarios and findings above, and close or r
 - 2026-04-17 — Initial version. Round 7 Track A fixes (internal release guard + skip terminalization) incorporated. Round 7 Track B fix (deferred response) added. Findings T-1 through T-9 inventoried.
 - 2026-04-17 — Round 8. Deferred branch gets a max_attempts terminal gate (Scenario 13b). Invariant I8 revised: deferred-pre-terminal cycles do not decrement attempts, but the branch terminalizes at `attempts >= max_attempts` — checking heal-gate consume first, falling through to release + `status='failed' / error_class='stuck_in_flight' / garment.render_status='failed'` otherwise. Pre-round-8 code returned from the deferred branch early without a terminal gate, letting a stuck 'rendering' garment loop indefinitely. Worker outcome table gets two new rows (deferred-terminal-with-heal / deferred-terminal-stuck). Cron HTTP timeout raised from 50s to 180s in the P5 migration to cover worst-case worker batch runtime (MAX_JOBS_PER_RUN=5 × JOB_CONCURRENCY=2 × invokeRender 45s ≈ 135s, plus headroom).
 - 2026-04-17 — Round 9. Bug 1: the T-1 deferred branch added in round 7 was unreachable — the earlier `!force && (render_status === 'ready' || 'rendering' || 'skipped')` guard at `index.ts:611` always returned `skipped:true` first. Fix: branch on `isInternalInvocation` inside that earlier guard (internal+rendering → deferred, else skipped). Removed the duplicate unreachable block with a comment. Bug 2 / T-3 reclassified from follow-up to in-P5-fix: `GarmentConfirmSheet` polling timeout extended from `60_000` ms to `RENDER_POLL_TIMEOUT_MS = 300_000` ms to cover the server's `max_attempts × invokeRender-timeout` budget. Unit test added asserting the constant's value. Verification doc now contains an explicit methodology note: any round that exercises the render_garment_image response contract MUST deploy code containing the real early guard, not a stub that bypasses it — rounds 7/8 did stub-based tests and missed Bug 1 as a result.
+- 2026-04-17 — Round 10. Bug 1 / T-2 resolved: `force` flag is now plumbed through every queue layer (UI → enqueue edge function → render_jobs.force column → claim_render_job RETURNS TABLE → worker invokeRender payload → render_garment_image's existing body.force parsing). New migration-in-place adds the `force BOOLEAN NOT NULL DEFAULT false` column to render_jobs. SwipeableGarmentCard's regenerate path passes `force: hasRenderedImage` (true when a prior render exists, false for first-time generation). New Invariant I9 documents the cross-layer preservation rule. Scenario 7 rewritten to reflect post-fix behavior. Bug 2 (T-4 analytics labeling — `source: 'retry'` on first-time generation) deferred to post-launch follow-up, decision recorded in launch-sequence memory.

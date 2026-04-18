@@ -1109,3 +1109,132 @@ misleading because what it tested wasn't the thing that mattered.
 Round 9's scenario is the canonical deferred verification now.
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 10 — force flag plumbed end-to-end (T-2 resolved) (2026-04-18)
+
+Pre-P5, `SwipeableGarmentCard.handleRender` called `render_garment_image`
+directly with `force: true`. That's the only way Regenerate could reach
+Gemini past the product-ready eligibility gate AND past the "already
+ready" early return. Post-P5, SwipeableGarmentCard called
+`enqueueRenderJob` instead; `enqueueRenderJob` didn't accept `force`,
+`enqueue_render_job` didn't read it, `render_jobs` had no `force` column,
+the worker didn't forward it. `render_garment_image` ran as non-force
+on every queued invocation. For a user tapping Regenerate on an
+already-rendered garment the response was
+`{ok:true, skipped:true, rendered:true, renderedImagePath: <prior path>}`,
+the worker's internal healing consume wrote a new consume tx against
+the new job_id (user charged), the worker took branch b (renderedPath
+present), and `render_jobs.status='succeeded'` landed with `result_path`
+= the OLD prior path. User paid for a regenerate that produced nothing
+new. The Regenerate button was silently broken.
+
+### Fix (six layers, one flag)
+
+1. **Migration** — added `force BOOLEAN NOT NULL DEFAULT false` to
+   `render_jobs` and extended `claim_render_job`'s `RETURNS TABLE` +
+   `RETURN QUERY` to include it. Edited in place on
+   `20260417180000_priority_5_render_queue.sql` because the migration
+   is still Local-only per `npx supabase migration list --linked`.
+2. **enqueue_render_job** — parses `body.force` (default false),
+   includes it in the `render_jobs` INSERT alongside the existing
+   columns.
+3. **process_render_jobs** — `ClaimedJob` type gets a `force: boolean`
+   field; `invokeRender` payload now includes `force: job.force`.
+4. **render_garment_image** — no change; `body.force` was already
+   parsed in the shared body-parsing block (line ~472) and consumed
+   by both the line-611 "already ready" early guard AND the line-1097
+   `skip_product_ready` eligibility gate. The bug was that no
+   internal caller ever sent a true value for it.
+5. **client lib** — `enqueueRenderJob` accepts `options.force`, default
+   false, forwarded in the request body (+ preserved through the
+   nonce-retry branch).
+6. **SwipeableGarmentCard** — `handleRender` now computes
+   `const force = hasRenderedImage` and passes it to both the first
+   call and the nonce-preserving retry. Regenerate path gets
+   `force=true`; first-time generate (no prior render) stays
+   `force=false`.
+
+### Invariant I9 added
+
+`enqueue_render_job.body.force → render_jobs.force → claim_render_job
+returns it → process_render_jobs.invokeRender payload → render_garment_image
+body.force`. No layer drops the flag. Any future queue refactor that
+adds a layer must preserve `force` across it.
+
+### T-2 resolved
+
+State-machine doc's `T-2` entry was about this exact regression.
+Reclassified from "NOT FIXED — needs product input" to "RESOLVED in
+round 10." Scenario 7 rewritten to reflect the post-fix behavior.
+
+### Preview-branch verification (real-guard + force-sensitive gates)
+
+Preview branch: `qtehyreedtmqztuwudso` (ephemeral, deleted,
+cost < $0.01).
+
+Deployed render_garment_image containing the REAL post-round-9 early
+guard AND a force-sensitive product-ready gate surrogate (no real
+Gemini — a deterministic stub writes `stub-render-<timestamp>.webp`
+on pass-through, plus the real consume RPC write). Deployed
+process_render_jobs with the round-10 `force` forwarding.
+
+Seeded two users with `monthly_allowance=20, reserved=1` each; both
+garments at `render_status='ready', rendered_image_path='prior-render.webp'`.
+
+**Scenario 1 — force=true regenerate:**
+
+```
+render_jobs.force = true
+Worker invoke → callee received force=true
+calleeBody = {ok:true, rendered:true, renderedImagePath:"stub-render-1776510555791.webp"}
+forwarded_force = true  (confirms the worker actually sent it)
+
+Post:
+  render_jobs.status        = succeeded
+  render_jobs.result_path   = stub-render-1776510555791.webp  ← NEW path
+  render_credit_transactions = {reserve, consume}
+  garments.rendered_image_path = stub-render-1776510555791.webp  ← OVERWROTE prior
+  render_credits.used_this_period = 1, reserved = 0
+```
+
+Force=true bypassed the line-611 guard AND the product-ready gate,
+reached the Gemini stub, wrote a new path + consume, worker
+terminalized as succeeded with the new path. User charged exactly
+once for a render they actually wanted.
+
+**Scenario 2 — force=false counterfactual:**
+
+```
+render_jobs.force = false
+Worker invoke → callee received force=false
+calleeBody = {ok:true, skipped:true, reason:"Already ready", rendered:true, renderedImagePath:"prior-render.webp"}
+forwarded_force = false
+
+Post:
+  render_jobs.status        = succeeded
+  render_jobs.result_path   = prior-render.webp  ← OLD path
+  render_credit_transactions = {reserve, consume}  (consume fired via healing path)
+  garments.rendered_image_path = prior-render.webp  ← UNCHANGED
+  render_credits.used_this_period = 1, reserved = 0
+```
+
+Force=false + render_status='ready' → line-611 early guard fired →
+alreadyReadyBody returned with the prior path + healing consume wrote
+a new consume tx for this job_id. Worker saw renderedImagePath in the
+response → branch b succeeded with the OLD path. **This is the exact
+pre-round-10 behavior Codex flagged: user charged for a regenerate
+that did not produce a new image.** Post-round-10, this only happens
+when the caller genuinely doesn't pass force (legitimate reconciliation,
+not a regenerate). Regenerate requests now route through the
+force=true path.
+
+### Invariants validated
+
+- **I1** ✓ both scenarios (1 reserve per job_id)
+- **I2** ✓ both scenarios (1 consume terminal per job_id, no release)
+- **I3** ✓ (no release after consume)
+- **I5** ✓ (status reflects intent: S1 got new render, S2 got no new render)
+- **I9 (NEW)** ✓ (force=true through six layers ending at stub Gemini
+  path; force=false through six layers ending at line-611 skipped path)
+
+Preview branch deleted. Cost: < $0.01.
