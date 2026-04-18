@@ -249,116 +249,187 @@ SELECT cron.schedule(
   $$
 );
 
--- ─── RPC: Release active render_jobs for a garment (pre-delete cleanup) ──
--- Called by clients BEFORE they delete a garment, so render_jobs rows that
--- are still non-terminal (pending / in_progress) get their reservations
--- released before CASCADE wipes the job rows and orphans the reserves.
+-- ─── RPC: Atomic delete-with-release for a garment ──────────────
+-- Single-transaction operation: releases active render_jobs reservations
+-- AND deletes the garment row. Replaces the two-step release-then-delete
+-- design from round 12 (which had two design flaws Codex round 13 caught):
 --
--- Codex round 12 Bug 2: without this, `DELETE FROM garments WHERE id=X`
--- cascades render_jobs rows for X, but render_credit_transactions has no
--- FK to render_jobs — the `reserve` txs for those jobs stay in the ledger
--- with no matching job_id. The user's `render_credits.reserved` counter
--- stays elevated forever because no release can ever fire (no job, no
--- worker terminal path). Eventually the reserved count caps out available
--- credits and the user can't enqueue new renders.
+--   P1 — Race between two concurrent deletes for the same garment:
+--   the ON CONFLICT (idempotency_key) DO NOTHING guard on the release
+--   insert can't prevent a double-refund because both callers could
+--   refund the balance BEFORE either's insert ran. Caller 2's insert
+--   then silently drops on the idempotency conflict, but the balance
+--   was already double-credited.
 --
--- Authorization: SECURITY DEFINER so authenticated users can call this
--- for garments they OWN. Ownership check: auth.uid() must match the
--- garment's user_id, OR caller is service_role (for admin tooling /
--- seed_wardrobe).
+--   P2 — Split client-side transaction: client called release RPC, then
+--   issued DELETE. If release committed but DELETE failed, active jobs
+--   stayed alive and the worker's eventual consume hit already_terminal
+--   → free render.
 --
--- Idempotency: uses a stable 'release:garment_delete:<jobid>' idempotency
--- key. Repeated calls (e.g. delete retry after transient failure) hit
--- ON CONFLICT DO NOTHING and don't double-decrement the reserved counter.
+-- Fix design (round 13):
 --
--- Returns the count of reservations released. Callers typically log this
--- for observability.
+--   1. One server-side transaction — client calls this RPC, nothing else.
+--      Release + delete commit or roll back together.
+--   2. PERFORM ... FOR UPDATE on render_credits (user-level serialization
+--      lock) + FOR UPDATE on each render_jobs row. Serializes concurrent
+--      deletes for the same user so terminal check + refund + insert
+--      happen as an indivisible block. Same locking discipline as
+--      release_credit_atomic in the P3 ledger migration.
+--   3. Post-lock, post-refund idempotency: after writing the release tx,
+--      the partial unique index
+--      `idx_render_credit_tx_terminal_unique` on
+--      `render_credit_transactions(render_job_id) WHERE kind IN
+--      ('consume','release')` prevents a second terminal for the same
+--      job. The UNIQUE on idempotency_key is a secondary guard.
+--
+-- Authorization: SECURITY DEFINER; call site must be authenticated user
+-- for their own garment (auth.uid() = p_user_id) OR service_role for
+-- admin tooling. Granted to `authenticated` + `service_role` — anon
+-- and PUBLIC revoked.
+--
+-- Returns JSONB: { ok: true, released_count: INT, garment_deleted: BOOL,
+--                  reason?: TEXT }. Callers log `released_count` for
+-- observability and treat ok=true/garment_deleted=false (with
+-- reason='garment_not_found') as idempotent success (retry after a
+-- successful prior delete hits this).
 
-CREATE OR REPLACE FUNCTION release_reservations_for_garment_delete(p_garment_id UUID)
-RETURNS INT AS $$
+-- Drop the round-12 two-step RPC cleanly before creating the new one.
+DROP FUNCTION IF EXISTS release_reservations_for_garment_delete(UUID);
+
+CREATE OR REPLACE FUNCTION delete_garment_with_release_atomic(
+  p_garment_id UUID,
+  p_user_id UUID
+)
+RETURNS JSONB AS $$
 DECLARE
-  v_released_count INT := 0;
   v_job RECORD;
+  v_released_count INT := 0;
+  v_garment_exists BOOLEAN := FALSE;
   v_reserve_source TEXT;
   v_terminal_exists INT;
-  v_owner UUID;
+  v_release_existing INT;
 BEGIN
-  -- Ownership gate. Service role (e.g. seed_wardrobe) bypasses the
-  -- auth.uid() check for admin / cleanup paths.
-  SELECT user_id INTO v_owner FROM garments WHERE id = p_garment_id;
-  IF v_owner IS NULL THEN
-    -- Garment doesn't exist (already deleted / never existed). Nothing to
-    -- release. Not an error — caller can proceed with their delete.
-    RETURN 0;
-  END IF;
-  IF v_owner IS DISTINCT FROM auth.uid() AND (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
-    RAISE EXCEPTION 'not authorized to release reservations for garment %', p_garment_id;
+  -- Authorization: caller must be the garment's owner (via auth.uid()) OR
+  -- service_role (admin tooling / seed_wardrobe / post-launch cron). The
+  -- p_user_id parameter is REQUIRED because auth.uid() is NULL under the
+  -- service_role path, and we still need to scope the lock + refund.
+  IF auth.uid() IS DISTINCT FROM p_user_id
+     AND (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'not authorized: caller must be garment owner or service_role';
   END IF;
 
+  -- Ownership + existence check. Failure here is idempotent success for
+  -- the caller (retry after a prior successful delete lands here).
+  SELECT EXISTS(
+    SELECT 1 FROM garments WHERE id = p_garment_id AND user_id = p_user_id
+  ) INTO v_garment_exists;
+
+  IF NOT v_garment_exists THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'released_count', 0,
+      'garment_deleted', false,
+      'reason', 'garment_not_found'
+    );
+  END IF;
+
+  -- Serialize concurrent ledger mutations for this user. All release_* and
+  -- consume_* RPCs hold this lock; nobody else can mutate
+  -- render_credits(user_id=p_user_id) OR race our terminal-check until we
+  -- commit. Same discipline as release_credit_atomic in P3 catchup.
+  PERFORM 1 FROM render_credits WHERE user_id = p_user_id FOR UPDATE;
+
+  -- Lock every non-terminal render_jobs row for this garment. SKIP LOCKED
+  -- is NOT used — we want to block (not skip) if the worker is currently
+  -- claiming this job. Claim's own FOR UPDATE SKIP LOCKED will see our
+  -- lock and skip, so this waits only briefly.
   FOR v_job IN
-    SELECT id, user_id FROM render_jobs
+    SELECT id FROM render_jobs
     WHERE garment_id = p_garment_id
       AND status IN ('pending', 'in_progress')
+    FOR UPDATE
   LOOP
-    -- Find the reserve source for this job.
-    SELECT source INTO v_reserve_source
+    -- Idempotency guard: if a release for this job already exists with
+    -- our stable key, skip (retry case — nothing to do).
+    SELECT id INTO v_release_existing
     FROM render_credit_transactions
-    WHERE render_job_id = v_job.id
-      AND kind = 'reserve'
-      AND user_id = v_job.user_id
-    ORDER BY created_at DESC
-    LIMIT 1;
-
-    IF v_reserve_source IS NULL THEN
-      -- No reserve exists for this job. Shouldn't happen under normal
-      -- enqueue flow, but defensive — skip to the next job.
+    WHERE idempotency_key = 'release:garment_delete:' || v_job.id::text;
+    IF v_release_existing IS NOT NULL THEN
       CONTINUE;
     END IF;
 
-    -- Skip if already terminalized (consume or release already written).
+    -- Terminal-uniqueness check (under the render_credits lock). If the
+    -- worker consumed OR released between our garment-exists check and
+    -- this line, we must skip — no refund on an already-charged job.
     SELECT 1 INTO v_terminal_exists
     FROM render_credit_transactions
     WHERE render_job_id = v_job.id
-      AND user_id = v_job.user_id
+      AND user_id = p_user_id
       AND kind IN ('consume', 'release')
     LIMIT 1;
     IF v_terminal_exists IS NOT NULL THEN
       CONTINUE;
     END IF;
 
-    -- Decrement reserved counter and refund to the original source.
-    -- Mirrors release_credit_atomic's source-specific refund logic.
+    -- Find the reserve source.
+    SELECT source INTO v_reserve_source
+    FROM render_credit_transactions
+    WHERE render_job_id = v_job.id
+      AND kind = 'reserve'
+      AND user_id = p_user_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+    IF v_reserve_source IS NULL THEN
+      -- No reserve exists for this job. Shouldn't happen under normal
+      -- enqueue flow. Defensive skip.
+      CONTINUE;
+    END IF;
+
+    -- Refund source-specifically, mirroring release_credit_atomic.
     IF v_reserve_source = 'trial_gift' THEN
       UPDATE render_credits
       SET reserved = GREATEST(0, reserved - 1),
           trial_gift_remaining = trial_gift_remaining + 1,
           updated_at = NOW()
-      WHERE user_id = v_job.user_id;
+      WHERE user_id = p_user_id;
     ELSIF v_reserve_source = 'topup' THEN
       UPDATE render_credits
       SET reserved = GREATEST(0, reserved - 1),
           topup_balance = topup_balance + 1,
           updated_at = NOW()
-      WHERE user_id = v_job.user_id;
+      WHERE user_id = p_user_id;
     ELSE
-      -- monthly source
       UPDATE render_credits
       SET reserved = GREATEST(0, reserved - 1),
           updated_at = NOW()
-      WHERE user_id = v_job.user_id;
+      WHERE user_id = p_user_id;
     END IF;
 
-    -- Write the release tx. Idempotent via UNIQUE idempotency_key.
+    -- Write the release tx. The partial unique index on
+    -- render_credit_transactions(render_job_id) WHERE kind IN
+    -- ('consume','release') would raise on a concurrent double-terminal,
+    -- but we've already serialized via the render_credits FOR UPDATE so
+    -- this INSERT always succeeds under correct conditions.
     INSERT INTO render_credit_transactions
       (user_id, render_job_id, idempotency_key, kind, amount, source)
     VALUES
-      (v_job.user_id, v_job.id, 'release:garment_delete:' || v_job.id::text, 'release', 1, v_reserve_source)
-    ON CONFLICT (idempotency_key) DO NOTHING;
+      (p_user_id, v_job.id, 'release:garment_delete:' || v_job.id::text,
+       'release', 1, v_reserve_source);
 
     v_released_count := v_released_count + 1;
   END LOOP;
 
-  RETURN v_released_count;
+  -- Delete the garment. CASCADE fires on render_jobs, but the ledger is
+  -- already balanced. If the DELETE fails (FK violation, RLS) the entire
+  -- function rolls back — releases included — preserving atomicity.
+  DELETE FROM garments
+  WHERE id = p_garment_id AND user_id = p_user_id;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'released_count', v_released_count,
+    'garment_deleted', true
+  );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -370,9 +441,9 @@ REVOKE ALL ON FUNCTION recover_stale_render_jobs() FROM PUBLIC, anon, authentica
 GRANT EXECUTE ON FUNCTION claim_render_job(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION recover_stale_render_jobs() TO service_role;
 
--- release_reservations_for_garment_delete is intentionally GRANTABLE to
--- authenticated users: the ownership check inside the function (auth.uid()
--- = garment.user_id) prevents abuse. Service role is implied but listed
--- for symmetry.
-REVOKE ALL ON FUNCTION release_reservations_for_garment_delete(UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION release_reservations_for_garment_delete(UUID) TO authenticated, service_role;
+-- delete_garment_with_release_atomic is GRANTABLE to authenticated users.
+-- The auth.uid() check inside the function gates access to the caller's
+-- own garments; the serialized terminal-check + refund under the
+-- render_credits FOR UPDATE lock prevents concurrency abuse.
+REVOKE ALL ON FUNCTION delete_garment_with_release_atomic(UUID, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION delete_garment_with_release_atomic(UUID, UUID) TO authenticated, service_role;
