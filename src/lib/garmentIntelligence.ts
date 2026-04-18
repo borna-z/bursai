@@ -445,10 +445,22 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
     return;
   } catch (err) {
     if (err instanceof RenderEnqueueError && err.status === 402) {
-      // Trial locked or insufficient credit — expected business state, not
-      // an error to retry. UI surfaces the upgrade CTA separately.
-      // Leave garment in 'pending' — user's upgrade flow can re-enqueue.
-      logger.info(`[${source}] render enqueue 402: ${err.code ?? err.message}`);
+      // Trial locked or insufficient credit — business denial, not a
+      // transport failure. We still must reset render_status to 'none'
+      // because nothing else recovers it: under P5, resumePendingGarment-
+      // Renders is a no-op, and no render_jobs row was ever created (the
+      // 402 returns BEFORE the insert), so the worker has nothing to
+      // process. Leaving it 'pending' stranded the garment in "Refining…"
+      // forever, even after the user upgraded. Falling through to the
+      // reset below flips the garment to 'none' so the UI re-shows the
+      // Studio photo CTA and the user can retry after upgrading.
+      // (Round 14 fix — Codex caught that round 11's 402-preserves-pending
+      // branch was wrong in aggregate with P5's queue-owned recovery.)
+      logger.info(
+        `[${source}] render enqueue 402 — resetting garment to 'none' so user can retry after upgrade`,
+        { garmentId, code: err.code },
+      );
+      await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, err);
       return;
     }
 
@@ -503,10 +515,18 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
  * `showGenerateAction` triggers on `render_status==='none'`). Marking
  * as `'failed'` would be misleading: no attempt was ever made.
  *
- * 402 (insufficient credits) is intentionally NOT routed here — that's
- * a business-state denial, not a transport failure. The user's upgrade
- * flow is expected to re-trigger enqueue; keeping the garment at
- * 'pending' preserves the user's intent across the upgrade flow.
+ * Round 14 fix: 402 (trial locked / insufficient credits) now also
+ * routes here. Round 11 initially excluded 402 on the theory that the
+ * upgrade flow would re-trigger enqueue and `render_status='pending'`
+ * would preserve intent across the upgrade UX. That theory was wrong
+ * in aggregate with P5: `resumePendingGarmentRenders` is a no-op under
+ * the durable queue, and a 402 returns from `enqueue_render_job`
+ * BEFORE any `render_jobs` row is written — the worker has literally
+ * nothing to process. Result pre-round-14: garment stranded at
+ * `render_status='pending'` forever, UI shows "Refining…" even after
+ * the user upgraded. Falling through to this reset flips the garment
+ * to `'none'` so the Studio photo CTA reappears and the user can
+ * retry from the wardrobe after upgrading.
  */
 async function resetGarmentRenderStateOnEnqueueFailure(
   garmentId: string,

@@ -93,12 +93,16 @@ describe('startGarmentRenderInBackground enqueue failure recovery (Codex round 1
     );
   });
 
-  it('does NOT reset garment render_status on 402 (trial/insufficient) — upgrade flow will retry', async () => {
-    // 402 is a business denial, not a transport failure. The user's
-    // upgrade UX is expected to re-trigger enqueue after they purchase,
-    // and preserving render_status='pending' preserves their intent
-    // across that flow. Resetting to 'none' here would silently drop
-    // the regenerate intent mid-upgrade.
+  it('resets garment render_status to "none" on 402 (trial/insufficient) — round 14 fix', async () => {
+    // Round 11 initially skipped the reset on 402, reasoning the upgrade
+    // flow would re-trigger enqueue after purchase. That was wrong under
+    // P5: enqueue_render_job returns 402 BEFORE any render_jobs row is
+    // written, so the durable worker has nothing to pick up; and
+    // resumePendingGarmentRenders is a P5 no-op. Result pre-round-14:
+    // garment stranded at render_status='pending' forever, UI showed
+    // "Refining…" even after the user upgraded. Round 14: 402 must
+    // reset the garment to 'none' so the Studio photo CTA reappears
+    // and the user can retry from the wardrobe after upgrading.
     vi.mocked(invokeEdgeFunction).mockImplementation((fn: string) => {
       if (fn === 'analyze_garment') {
         return Promise.resolve({ data: { enrichment: { refined_title: 'Test' } }, error: null });
@@ -122,23 +126,24 @@ describe('startGarmentRenderInBackground enqueue failure recovery (Codex round 1
       imageProcessing: { mode: 'skip' },
     });
 
-    await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith(
-        'enqueue_render_job',
-        expect.anything(),
-      );
-    });
-
-    // Give the catch handler a tick to complete any state reset that
-    // should NOT happen in this path.
-    await new Promise((r) => setTimeout(r, 50));
-
-    const resetsForTrialLocked = garmentUpdateCalls.filter(
-      (c) => c.table === 'garments'
-        && c.eqArg === 'garment-trial-locked'
-        && c.payload.render_status === 'none',
+    await vi.waitFor(
+      () => {
+        const resetsForTrialLocked = garmentUpdateCalls.filter(
+          (c) => c.table === 'garments'
+            && c.eqArg === 'garment-trial-locked'
+            && c.payload.render_status === 'none',
+        );
+        expect(resetsForTrialLocked.length).toBe(1);
+      },
+      { timeout: 5000 },
     );
-    expect(resetsForTrialLocked.length).toBe(0);
+
+    // 402 is non-retryable (isRenderEnqueueRetryable(402) === false), so
+    // the enqueue should fire exactly once — no same-nonce retry.
+    const enqueueCalls = vi
+      .mocked(invokeEdgeFunction)
+      .mock.calls.filter((call) => call[0] === 'enqueue_render_job');
+    expect(enqueueCalls.length).toBe(1);
   });
 
   it('does NOT reset garment when the retry succeeds (happy-path retry does not pollute state)', async () => {
