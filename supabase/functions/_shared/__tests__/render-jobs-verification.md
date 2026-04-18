@@ -1698,3 +1698,192 @@ and proceeds to the DELETE.
   follow-up) is the safety net.
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 15 — deferred-terminal TOCTOU heal + cron URL parametrization (2026-04-18)
+
+Round 15 found two real defects in the P5 queue. One inside the worker
+(MODERATE, queue-correctness), one inside the migration's pg_cron body
+(LOW-MEDIUM, environment-safety). Both verified on the preview branch
+`codex-r15-deferred-toctou` (project_ref `gajgassnfolskexdhgid`, parent
+`khvkwojtlkcvxjxztduj`, organization `tzsxznhlxcttuppkklne`).
+
+**Bug 1 (MODERATE) — Deferred-terminal TOCTOU heal gate missing.** In
+`process_render_jobs/index.ts`, the branch that terminalizes a
+deferred-stuck job (`job.attempts >= job.max_attempts` and
+`render_garment_image` returned `{deferred:true}`) runs a pre-release
+heal-gate SELECT for a consume tx, then calls `releaseCredit`, then
+unconditionally writes `render_jobs.status='failed'` and
+`garments.render_status='failed'`. Between the heal-gate SELECT and
+`release_credit_atomic`'s own terminal-existence check, a concurrent
+in-flight render's consume tx can land; `release_credit_atomic`
+detects it and returns `{ok:false, reason:'already_terminal'}`. The
+pre-round-15 worker ignored that reason and terminalized to failed,
+overwriting the `ready`+path that the concurrent render had just
+populated. Fix: post-release heal branch — if
+`releaseResult.reason === 'already_terminal'`, SELECT the garment's
+`rendered_image_path`, UPDATE render_jobs to `status='succeeded'` with
+that path, leave `garments.render_status` untouched, return
+`succeeded_healed_toctou`. Structurally identical to the pre-release
+heal branch already in the same function, just triggered by a
+different signal.
+
+**Bug 2 (LOW-MEDIUM) — Hardcoded production URL in cron body.** The
+P5 migration's `SELECT cron.schedule('process-render-jobs', ...)`
+body pinned `url := 'https://khvkwojtlkcvxjxztduj.supabase.co/...'`.
+Any non-prod environment applying this migration would POST to the
+production project on every 60-second tick — its own queue wouldn't
+get processed, and its traffic would cross-contaminate prod. Fix:
+move the base URL into `vault.secrets` as `functions_base_url`,
+construct the URL at cron-exec time via
+`(SELECT decrypted_secret ... WHERE name='functions_base_url') || '/functions/v1/process_render_jobs'`.
+Same NULL-propagation-on-missing rule as the existing service_role_key
+pattern — absent secret → `net.http_post` hits a not-null violation →
+`cron.job_run_details.status='failed'` (LOUD signal). Migration
+comment block documents both post-deploy vault inserts; CLAUDE.md
+gains a new "Endpoint URLs inside migrations — also in vault"
+subsection and an explicit "P5 first-time-deploy vault inserts"
+checklist.
+
+### Preview branch setup
+
+`create_branch` returned preview `gajgassnfolskexdhgid` with
+`status='MIGRATIONS_FAILED'` — the branch-creation worker couldn't
+apply main's migration chain from scratch on the fresh project
+(production-schema migrations assume a sequence of dependencies
+this branch-creation path doesn't replay cleanly). This blocked a
+full P5 end-to-end deploy of `process_render_jobs` against a fully
+seeded schema. Mitigation: bootstrap the narrow subset of schema
+needed to exercise each bug's precondition via `apply_migration`, and
+verify the structurally distinct behaviors directly, as documented
+below. Code quality gates (typecheck, lint, build, targeted vitest)
+already ran clean on the main repo ahead of this phase.
+
+pg_cron + pg_net installed via `CREATE EXTENSION IF NOT EXISTS`;
+vault extension was present on branch creation.
+
+### Scenario R15-A — Bug 1 precondition: `release_credit_atomic` returns `already_terminal` when a consume tx exists for the job
+
+**Setup (apply_migration):** minimal `render_credits` +
+`render_credit_transactions` tables plus a copy of
+`release_credit_atomic` exactly as declared in
+`20260416234201_render_credits_p3_catchup.sql:299`.
+
+**Seed:** one `render_credits` row (user `11111111…`, reserved=1). Two
+`render_credit_transactions` rows for the same user + job
+`33333333…`: one `reserve` tx and one `consume` tx. This is the exact
+precondition the TOCTOU race produces — a consume that landed after
+the worker's pre-release heal-gate SELECT but before its release call.
+
+**Action:** `BEGIN; SET LOCAL "request.jwt.claim.role" = 'service_role';
+SELECT release_credit_atomic(user, job, 'release:r15_verification_attempt:codex-r15'); COMMIT;`
+(The `SET LOCAL` form is required — `SET LOCAL ROLE service_role`
+does NOT change `auth.role()` under Supabase's RLS, per round-12
+preview-test learning.)
+
+**Result:**
+```
+release_result = {"ok": false, "reason": "already_terminal"}
+```
+
+**Invariant check:** this is exactly the `(!ok && reason === 'already_terminal')`
+condition the new worker branch tests. Proof by direct DB exercise
+that the signal the new code reads is real, producible, and carries
+the expected shape.
+
+### Scenario R15-B — Bug 1 counterfactual: no consume tx → release succeeds normally
+
+**Seed:** same user, different job `55555555…`. Only a `reserve` tx
+exists (no consume). `render_credits.reserved` incremented by 1 to
+reflect the outstanding reservation.
+
+**Pre:**
+```
+render_credits.reserved = 2 (prior terminal job's reserve still
+  counted; this is OK for the test — we care about the tx kinds,
+  not the reserved value)
+```
+
+**Action:** same RPC call with a fresh idempotency key
+(`release:r15_counterfactual:codex-r15`).
+
+**Result:** release RPC succeeded (`ok:true`). `render_credit_transactions`
+for job `55555555…` now contains both `reserve` and `release` rows. No
+`already_terminal` signal. The worker's new `if ... reason ===
+'already_terminal'` branch is a no-op here (condition false), and the
+existing stuck-in-flight terminalization path writes
+`render_jobs.status='failed'`, `garments.render_status='failed'`
+exactly as before — the new branch only intercepts the race case.
+
+**Invariants:** I1 ✓ (one reserve). I2 ✓ (release is the single
+terminal). I4 ✓ (release found the reserve before writing).
+
+### Scenario R15-C — Bug 2 counterfactual: missing `functions_base_url` → URL resolves to NULL
+
+MCP's managed `postgres` connection is not the true Postgres
+superuser (`is_superuser='off'`). `INSERT INTO vault.secrets`
+requires pgsodium key access granted only to superuser, so a preview
+insert of `functions_base_url` was blocked on both direct SQL and
+`apply_migration`. The positive path (URL resolves correctly with
+secret populated) was validated via structural-pattern review: the
+new cron body uses the SAME
+`(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name=...) || '...'`
+read shape that the existing, production-proven `service_role_key`
+bearer lookup uses in the same cron body (committed round 6, ran
+clean on the launch-sequence deploy plan). Plain-text substitution
+(`'https://<ref>.supabase.co' || '/functions/v1/process_render_jobs'`)
+confirms the URL assembly itself is well-formed SQL, producing
+`https://<ref>.supabase.co/functions/v1/process_render_jobs`.
+
+**Counterfactual (MISSING-secret → LOUD failure), directly executed:**
+```
+SELECT (
+  SELECT decrypted_secret FROM vault.decrypted_secrets
+  WHERE name = 'functions_base_url' LIMIT 1
+) || '/functions/v1/process_render_jobs' AS resolved_url;
+```
+
+**Result:**
+```
+resolved_url = NULL
+```
+
+When this NULL is passed to `net.http_post(url := NULL, ...)`, PG
+raises a not-null violation. The failure lands in
+`cron.job_run_details` as `status='failed'`, which is the LOUD signal
+the migration's comment block describes. Pre-round-15 hardcoded string
+would never have surfaced this — the cron would POST to production
+from any environment that applied the migration without any failure
+signal. Post-round-15, a missing vault insert produces an unambiguous
+red row in monitoring on the first cron tick, catching the deploy
+checklist miss before it silently cross-contaminates.
+
+### Scope-down: what this verification does not cover
+
+- **End-to-end worker deploy of `process_render_jobs`.** Blocked by
+  the preview branch's `MIGRATIONS_FAILED` state; the new
+  worker-side branch is a 50-line addition that mirrors the
+  structure of an existing branch already verified in round 8. The
+  branch body is strictly: UPDATE render_jobs (succeeded +
+  result_path from garment), push result, log telemetry. No new DB
+  writes beyond what the pre-release heal branch already does, just
+  triggered by a different condition. Scenario R15-A proves that
+  condition is reachable; the branch body is a straightforward
+  UPDATE.
+- **Positive `functions_base_url` insert end-to-end.** Blocked by
+  MCP's non-superuser role; pgsodium's `_crypto_aead_det_noncegen`
+  requires the Postgres superuser. Production vault inserts go
+  through Supabase Studio's SQL editor which does run as superuser
+  — that's the documented post-deploy step and it has been proven
+  working for `service_role_key` on production. The new
+  `functions_base_url` insert is the same shape.
+- **True concurrent TOCTOU at production load.** The race window
+  between the pre-release SELECT and `release_credit_atomic` is
+  narrow (microseconds). It's reachable — the precondition is
+  verified — but catching it live would require either intentionally
+  slowing the worker or running concurrent-load tests, both outside
+  this verification's scope. The fix is correct-by-construction: any
+  time `releaseResult.reason === 'already_terminal'`, the code now
+  heals instead of terminalizing, regardless of whether the race
+  happens in microseconds or through a trigger-based simulation.
+
+Preview branch deleted. Cost: < $0.01.
