@@ -484,6 +484,77 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
         return;
       } catch (retryErr) {
         logger.warn(`[${source}] render enqueue retry failed`, retryErr);
+
+        // Round-16 Bug 1 — server-state check before reset.
+        //
+        // A retryable transport/server failure does NOT prove the enqueue
+        // failed server-side. The server can complete the reserve +
+        // render_jobs INSERT and then return 5xx (or have the connection
+        // drop) before the client sees success. Both the first attempt
+        // AND the nonce-preserving retry can land in that state — the
+        // server's ON CONFLICT (reserve_key) / reserve-replay path makes
+        // the retry a no-op INSERT, still returning 5xx from the same
+        // crash point.
+        //
+        // Resetting render_status='none' in that case leaves the row
+        // live in the queue AND shows the user a "re-trigger" UI. If
+        // they tap Studio photo again, they fire a fresh enqueue with a
+        // new clientNonce → new reserve_key → second reservation AND a
+        // second render_jobs row. Double-charge (two reservations),
+        // wasted Gemini call (two renders for the same intent). The
+        // original orphaned row still ticks forward under the worker.
+        //
+        // Server-state check: query render_jobs by (user_id, garment_id,
+        // reserve_key suffix-match on clientNonce). The clientNonce is a
+        // UUID — globally unique — so the suffix-match is safe without
+        // duplicating the server's full reserve_key derivation
+        // (presentation, RENDER_PROMPT_VERSION) on the client. If a row
+        // exists, the worker owns the garment's render_status transition
+        // — we leave it alone. If no row exists, reset as before.
+        //
+        // Any failure of the check itself (network blip, RLS unexpected
+        // result) falls through to the reset — the pre-round-16 behavior
+        // — because the alternative (leaving the garment at 'pending'
+        // forever when we also couldn't talk to the DB) is worse UX than
+        // the narrow double-charge case we're trying to prevent.
+        const nonce = err.clientNonce;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && nonce) {
+            const { data: existingJob, error: checkErr } = await supabase
+              .from('render_jobs')
+              .select('id, status')
+              .eq('user_id', user.id)
+              .eq('garment_id', garmentId)
+              .like('reserve_key', `%${nonce}`)
+              .maybeSingle();
+            if (checkErr) {
+              logger.warn(
+                `[${source}] server-state check query failed — falling through to reset`,
+                { garmentId, error: checkErr.message },
+              );
+            } else if (existingJob) {
+              logger.info(
+                `[${source}] server-state check: render_jobs row exists despite client retry failure — leaving garment state to worker`,
+                {
+                  garmentId,
+                  jobId: existingJob.id,
+                  jobStatus: existingJob.status,
+                },
+              );
+              return;
+            }
+          }
+        } catch (stateCheckErr) {
+          logger.warn(
+            `[${source}] server-state check threw — falling through to reset`,
+            {
+              garmentId,
+              error: stateCheckErr instanceof Error ? stateCheckErr.message : String(stateCheckErr),
+            },
+          );
+        }
+
         await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, retryErr);
         return;
       }

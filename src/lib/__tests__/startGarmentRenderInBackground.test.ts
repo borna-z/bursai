@@ -5,8 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 type GarmentUpdateCall = { table: string; payload: Record<string, unknown>; eqArg: unknown };
 const garmentUpdateCalls: GarmentUpdateCall[] = [];
 
+// Round-16 Bug 1: the server-state check queries render_jobs by
+// (user_id, garment_id, reserve_key LIKE '%nonce'). Tests toggle this
+// to simulate "row exists server-side" vs "no row (genuine failure)".
+type RenderJobsLookup = { data: { id: string; status: string } | null; error: { message: string } | null };
+let mockRenderJobsLookup: RenderJobsLookup = { data: null, error: null };
+let mockAuthUser: { id: string } | null = { id: 'test-user-id' };
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: mockAuthUser }, error: null })),
+    },
     from: vi.fn((table: string) => ({
       update: vi.fn((payload: Record<string, unknown>) => ({
         eq: vi.fn(async (_column: string, value: unknown) => {
@@ -17,10 +27,21 @@ vi.mock('@/integrations/supabase/client', () => ({
       select: vi.fn(() => {
         const q = {
           eq: vi.fn(() => q),
+          like: vi.fn(() => q),
           limit: vi.fn(() => q),
           order: vi.fn().mockResolvedValue({ data: [], error: null }),
           single: vi.fn().mockResolvedValue({ data: { ai_raw: null }, error: null }),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          // Round-16: the Bug-1 server-state check calls maybeSingle() on
+          // render_jobs. Every other maybeSingle() consumer in this code
+          // path (garment-record fetches in the reset helper, etc.)
+          // tolerates a null result. Gating the configurable response on
+          // the table name keeps this mock shape sane.
+          maybeSingle: vi.fn().mockImplementation(() => {
+            if (table === 'render_jobs') {
+              return Promise.resolve(mockRenderJobsLookup);
+            }
+            return Promise.resolve({ data: null, error: null });
+          }),
         };
         return q;
       }),
@@ -46,6 +67,10 @@ describe('startGarmentRenderInBackground enqueue failure recovery (Codex round 1
   beforeEach(() => {
     vi.clearAllMocks();
     garmentUpdateCalls.length = 0;
+    // Default: no server-side row (simulates genuine enqueue failure).
+    // Round-16 server-state-check tests override per-case.
+    mockRenderJobsLookup = { data: null, error: null };
+    mockAuthUser = { id: 'test-user-id' };
   });
 
   it('resets garment render_status to "none" when enqueue fails after nonce-preserving retry', async () => {
@@ -191,5 +216,104 @@ describe('startGarmentRenderInBackground enqueue failure recovery (Codex round 1
       (c) => c.table === 'garments' && c.eqArg === 'garment-retry-succeeds' && c.payload.render_status === 'none',
     );
     expect(resetsForRetrySuccess.length).toBe(0);
+  });
+
+  it('server-state check (round 16): DOES NOT reset when a render_jobs row exists despite client retry failure', async () => {
+    // Bug 1 scenario: first enqueue returns 5xx → retry with same nonce
+    // also returns 5xx → but server actually INSERTed the row on one of
+    // the two attempts before 5xx was returned (or before the TCP
+    // connection was reset). Pre-round-16, client reset garment to
+    // 'none' → user sees "re-trigger" UI → fresh clientNonce on retry
+    // → second reservation + second render_jobs row = double-charge.
+    // Round-16: before resetting, client queries render_jobs for a row
+    // matching (user_id, garment_id, reserve_key suffix=clientNonce).
+    // If found: leave the worker to drive garment state, skip reset.
+    mockRenderJobsLookup = {
+      data: { id: 'job-that-landed-server-side', status: 'pending' },
+      error: null,
+    };
+
+    vi.mocked(invokeEdgeFunction).mockImplementation((fn: string) => {
+      if (fn === 'analyze_garment') {
+        return Promise.resolve({ data: { enrichment: { refined_title: 'Test' } }, error: null });
+      }
+      if (fn === 'enqueue_render_job') {
+        return Promise.resolve({
+          data: null,
+          error: Object.assign(new Error('rpc_error'), { context: { status: 503 } }),
+        } as never);
+      }
+      return Promise.resolve({ data: {}, error: null });
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-row-landed-server-side',
+      storagePath: 'user-1/photo.jpg',
+      source: 'add_photo',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    // Wait for the retry to finish (2 enqueue calls) + enough time for
+    // the post-retry server-state check to run.
+    await vi.waitFor(
+      () => {
+        const enqueueCalls = vi
+          .mocked(invokeEdgeFunction)
+          .mock.calls.filter((call) => call[0] === 'enqueue_render_job');
+        expect(enqueueCalls.length).toBeGreaterThanOrEqual(2);
+      },
+      { timeout: 5000 },
+    );
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Assertion: NO reset of render_status to 'none' for this garment,
+    // because the server-state check found the row.
+    const resets = garmentUpdateCalls.filter(
+      (c) => c.table === 'garments'
+        && c.eqArg === 'garment-row-landed-server-side'
+        && c.payload.render_status === 'none',
+    );
+    expect(resets.length).toBe(0);
+  });
+
+  it('server-state check (round 16): DOES reset when no render_jobs row is found (genuine enqueue failure)', async () => {
+    // Counterfactual to the test above. Same 5xx-then-5xx pattern, but
+    // the server-state lookup returns null (no row landed on the
+    // server). The pre-round-16 reset behavior is preserved — garment
+    // flips to 'none' so the user can retry from the Studio photo CTA.
+    // This is the normal transport-failure recovery path.
+    mockRenderJobsLookup = { data: null, error: null };
+
+    vi.mocked(invokeEdgeFunction).mockImplementation((fn: string) => {
+      if (fn === 'analyze_garment') {
+        return Promise.resolve({ data: { enrichment: { refined_title: 'Test' } }, error: null });
+      }
+      if (fn === 'enqueue_render_job') {
+        return Promise.resolve({
+          data: null,
+          error: Object.assign(new Error('rpc_error'), { context: { status: 503 } }),
+        } as never);
+      }
+      return Promise.resolve({ data: {}, error: null });
+    });
+
+    triggerGarmentPostSaveIntelligence({
+      garmentId: 'garment-genuine-enqueue-fail',
+      storagePath: 'user-1/photo.jpg',
+      source: 'add_photo',
+      imageProcessing: { mode: 'skip' },
+    });
+
+    await vi.waitFor(
+      () => {
+        const resets = garmentUpdateCalls.filter(
+          (c) => c.table === 'garments'
+            && c.eqArg === 'garment-genuine-enqueue-fail'
+            && c.payload.render_status === 'none',
+        );
+        expect(resets.length).toBe(1);
+      },
+      { timeout: 5000 },
+    );
   });
 });
