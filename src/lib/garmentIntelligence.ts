@@ -442,10 +442,12 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
   // loop client-side to avoid hammering a distressed backend.
   try {
     await enqueueRenderJob(garmentId, source as RenderTriggerSource);
+    return;
   } catch (err) {
     if (err instanceof RenderEnqueueError && err.status === 402) {
       // Trial locked or insufficient credit — expected business state, not
       // an error to retry. UI surfaces the upgrade CTA separately.
+      // Leave garment in 'pending' — user's upgrade flow can re-enqueue.
       logger.info(`[${source}] render enqueue 402: ${err.code ?? err.message}`);
       return;
     }
@@ -470,10 +472,67 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
         return;
       } catch (retryErr) {
         logger.warn(`[${source}] render enqueue retry failed`, retryErr);
+        await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, retryErr);
         return;
       }
     }
 
     logger.warn(`[${source}] render enqueue failed`, err);
+    await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, err);
+  }
+}
+
+/**
+ * Reset garment.render_status to 'none' when `startGarmentRenderInBackground`
+ * exhausts its retries without ever creating a render_jobs row.
+ *
+ * Why this function exists (Codex round 11 Bug 2):
+ *
+ * `buildGarmentIntelligenceFields` (line ~326) sets `render_status='pending'`
+ * on the garment INSERT for studio-render flows. If the subsequent
+ * `enqueueRenderJob` call fails AND its retry also fails, no render_jobs
+ * row ever gets created, and `resumePendingGarmentRenders` is a no-op
+ * under P5 (P5 delegates recovery to the durable queue — but the queue
+ * can't recover a job that was never enqueued). Without this reset, the
+ * garment is orphaned at `render_status='pending'` forever. The UI shows
+ * the "Refining…" state indefinitely; refreshing the app doesn't help.
+ *
+ * Resetting to `'none'` (rather than `'failed'`) signals "no render
+ * attempted" — lets the user re-trigger a render from the UI on next
+ * interaction (Studio photo button reappears because
+ * `showGenerateAction` triggers on `render_status==='none'`). Marking
+ * as `'failed'` would be misleading: no attempt was ever made.
+ *
+ * 402 (insufficient credits) is intentionally NOT routed here — that's
+ * a business-state denial, not a transport failure. The user's upgrade
+ * flow is expected to re-trigger enqueue; keeping the garment at
+ * 'pending' preserves the user's intent across the upgrade flow.
+ */
+async function resetGarmentRenderStateOnEnqueueFailure(
+  garmentId: string,
+  source: string,
+  err: unknown,
+): Promise<void> {
+  try {
+    const { error: updateError } = await supabase
+      .from('garments')
+      .update({ render_status: 'none' })
+      .eq('id', garmentId);
+    if (updateError) {
+      logger.error(
+        `[${source}] reset-to-none after enqueue failure also failed — garment may be stuck in 'pending'`,
+        { garmentId, updateError: updateError.message, originalError: err instanceof Error ? err.message : String(err) },
+      );
+    } else {
+      logger.info(
+        `[${source}] enqueue exhausted — reset garment render_status to 'none' so user can retry`,
+        { garmentId, originalError: err instanceof Error ? err.message : String(err) },
+      );
+    }
+  } catch (resetErr) {
+    logger.error(
+      `[${source}] reset-to-none threw unexpectedly`,
+      { garmentId, resetError: resetErr instanceof Error ? resetErr.message : String(resetErr) },
+    );
   }
 }
