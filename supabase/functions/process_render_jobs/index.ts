@@ -243,7 +243,8 @@ serve(async (req) => {
               return;
             }
 
-            // No consume — garment is genuinely stuck. Terminalize.
+            // No consume at the pre-release check — garment appears to be
+            // genuinely stuck. Attempt release, then re-check for TOCTOU.
             log.error("deferred terminal — garment stuck in 'rendering' after max_attempts", {
               jobId: job.id,
               garmentId: job.garment_id,
@@ -257,6 +258,58 @@ serve(async (req) => {
               job.id,
               `release:${baseKey}`,
             );
+
+            // Round-15 TOCTOU heal gate. The pre-release consume-check above
+            // and the release_credit_atomic call are two separate reads of
+            // render_credit_transactions with a narrow window between them.
+            // If a concurrent in-flight render's consume tx lands inside
+            // that window, release_credit_atomic's own terminal-existence
+            // check finds it and returns `{ok:false, reason:'already_terminal'}`.
+            // Pre-round-15, we fell through to `status='failed'` and
+            // `garments.render_status='failed'` — marking a successful
+            // render as failed and overwriting the garment state the
+            // concurrent render just populated. Heal to succeeded instead,
+            // mirroring the pre-release heal branch's terminal shape.
+            // Do NOT touch garments.render_status — the concurrent render
+            // already set it to 'ready' with its result path.
+            if (!releaseResult.ok && releaseResult.reason === "already_terminal") {
+              const { data: garmentRecord } = await supabase
+                .from("garments")
+                .select("rendered_image_path")
+                .eq("id", job.garment_id)
+                .maybeSingle();
+              log.warn(
+                "deferred terminal — release returned already_terminal, healing to succeeded (TOCTOU)",
+                {
+                  jobId: job.id,
+                  garmentId: job.garment_id,
+                  attempts: job.attempts,
+                },
+              );
+              await supabase
+                .from("render_jobs")
+                .update({
+                  status: "succeeded",
+                  result_path: garmentRecord?.rendered_image_path ?? null,
+                  completed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  error: null,
+                  error_class: null,
+                  locked_until: null,
+                })
+                .eq("id", job.id);
+              results.push({ jobId: job.id, status: "succeeded_healed_toctou" });
+              logTelemetry(supabase, {
+                functionName: "process_render_jobs",
+                model_used: "render_garment_image",
+                latency_ms: Date.now() - startTime,
+                from_cache: false,
+                status: "ok",
+                user_id: job.user_id,
+              });
+              return;
+            }
+
             if (!releaseResult.ok && !releaseResult.duplicate) {
               log.warn("releaseCredit non-ok on deferred terminal", {
                 jobId: job.id,
