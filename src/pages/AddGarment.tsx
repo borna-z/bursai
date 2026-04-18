@@ -151,18 +151,17 @@ export default function AddGarmentPage() {
           garment.setShowDuplicateSheet(false);
           garment.clearDuplicates();
           try {
-            // Pre-delete: release active render reservations before cascade.
-            // Codex round 12 Bug 2 — same pattern as useDeleteGarment.
-            // Failure here is non-blocking; orphan-cleanup cron (post-launch
-            // follow-up) is the safety net.
-            try {
-              await supabase.rpc('release_reservations_for_garment_delete', {
-                p_garment_id: existingGarmentId,
-              });
-            } catch {
-              // Intentionally swallowed — caller proceeds with delete.
-            }
-            await supabase.from('garments').delete().eq('id', existingGarmentId);
+            // Atomic delete-with-release (Codex round 13). Replaces the
+            // round-12 two-step pattern with a single server-side
+            // transaction that releases + deletes together. See
+            // useDeleteGarment for the design rationale.
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (!currentUser) throw new Error('not authenticated');
+            const { error } = await supabase.rpc(
+              'delete_garment_with_release_atomic',
+              { p_garment_id: existingGarmentId, p_user_id: currentUser.id },
+            );
+            if (error) throw error;
             toast.success(t('duplicate.replaced') || 'Old garment replaced');
           } catch {
             toast.error(t('common.something_wrong'));

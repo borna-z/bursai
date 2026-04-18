@@ -194,6 +194,14 @@ describe('useGarments', () => {
   it('invalidates garment list and garment count after delete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     mockFrom.mockReturnValue(mockChain());
+    // Round-13 atomic delete RPC: returns a structured success payload.
+    // Set the mockRpc shape so useDeleteGarment's ok-check passes and
+    // onSuccess fires.
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValue({
+      data: { ok: true, released_count: 0, garment_deleted: true },
+      error: null,
+    });
 
     const { useDeleteGarment } = await import('../useGarments');
     const { qc, wrapper } = createWrapper();
@@ -209,69 +217,141 @@ describe('useGarments', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
   });
 
-  describe('useDeleteGarment pre-delete release (Codex round 12 Bug 2)', () => {
-    it('calls release_reservations_for_garment_delete RPC before the DELETE', async () => {
+  describe('useDeleteGarment atomic delete-with-release (Codex round 13 redesign)', () => {
+    it('calls delete_garment_with_release_atomic RPC with garment id and user id', async () => {
+      // Round 13: single atomic RPC replaces round 12's two-step
+      // release-then-delete. Client no longer issues a separate DELETE —
+      // the RPC handles release + delete in one server-side transaction.
       vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
       mockFrom.mockReturnValue(mockChain());
       mockRpc.mockClear();
-      mockRpc.mockResolvedValue({ data: 1, error: null });
+      mockRpc.mockResolvedValue({
+        data: { ok: true, released_count: 1, garment_deleted: true },
+        error: null,
+      });
 
       const { useDeleteGarment } = await import('../useGarments');
       const { wrapper } = createWrapper();
       const { result } = renderHook(() => useDeleteGarment(), { wrapper });
 
       await act(async () => {
-        await result.current.mutateAsync('garment-delete-id');
+        await result.current.mutateAsync('garment-atomic-id');
       });
 
       expect(mockRpc).toHaveBeenCalledWith(
-        'release_reservations_for_garment_delete',
-        { p_garment_id: 'garment-delete-id' },
+        'delete_garment_with_release_atomic',
+        { p_garment_id: 'garment-atomic-id', p_user_id: 'user-1' },
       );
     });
 
-    it('proceeds with DELETE even if the release RPC returns an error', async () => {
-      // Defense-in-depth: a transient RPC failure must not block the user's
-      // delete. Worst case: we orphan a reservation that the post-launch
-      // cleanup cron will eventually release. Same failure mode as before
-      // this fix, just applied to a narrow window (RPC error path).
+    it('does NOT issue a separate DELETE via from("garments").delete() — the RPC owns the delete', async () => {
+      // Round-13 atomicity guarantee: the client must NOT call
+      // `.from('garments').delete()` anymore, because a split
+      // client-side transaction can leave release committed with the
+      // DELETE failed (Codex round 13 Bug 2).
+      //
+      // Note: `.from('ai_response_cache').delete()` from
+      // invalidateWardrobeQueries is expected + correct (bust server-side
+      // insights cache). The assertion below filters to the 'garments'
+      // table specifically.
       vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-      const chain = mockChain();
-      mockFrom.mockReturnValue(chain);
+      mockFrom.mockClear();
+      mockFrom.mockReturnValue(mockChain());
       mockRpc.mockClear();
-      mockRpc.mockResolvedValue({ data: null, error: { message: 'transient DB blip' } });
+      mockRpc.mockResolvedValue({
+        data: { ok: true, released_count: 0, garment_deleted: true },
+        error: null,
+      });
 
       const { useDeleteGarment } = await import('../useGarments');
       const { wrapper } = createWrapper();
       const { result } = renderHook(() => useDeleteGarment(), { wrapper });
 
       await act(async () => {
-        await result.current.mutateAsync('garment-rpc-errored');
+        await result.current.mutateAsync('garment-no-split');
       });
 
-      // The delete chain still fired.
-      expect(chain.delete).toHaveBeenCalled();
-      // The RPC was called once despite the error.
+      // RPC fired exactly once.
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      // The mutation body did NOT call supabase.from('garments') at all —
+      // the RPC owns both the release AND the delete. (`from('ai_response_cache')`
+      // from invalidateWardrobeQueries onSuccess is unrelated and allowed.)
+      const garmentFromCalls = mockFrom.mock.calls.filter((call) => call[0] === 'garments');
+      expect(garmentFromCalls).toHaveLength(0);
+    });
+
+    it('treats idempotent garment_not_found as success (retry after prior delete)', async () => {
+      // RPC returns { ok:true, garment_deleted:false, reason:'garment_not_found' }
+      // on retry — the prior call already deleted. Should NOT throw; the
+      // onSuccess invalidation should still fire so the client refetches.
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({
+        data: { ok: true, released_count: 0, garment_deleted: false, reason: 'garment_not_found' },
+        error: null,
+      });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-already-deleted');
+      });
+
+      // Did not throw. RPC called once.
       expect(mockRpc).toHaveBeenCalledTimes(1);
     });
 
-    it('proceeds with DELETE even if the release RPC throws', async () => {
+    it('throws when the RPC returns ok:false', async () => {
+      // Authorization failure or other server-side rejection must NOT be
+      // silently swallowed — the mutation should throw so the React Query
+      // retry logic / caller can react.
       vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
-      const chain = mockChain();
-      mockFrom.mockReturnValue(chain);
+      mockFrom.mockReturnValue(mockChain());
       mockRpc.mockClear();
-      mockRpc.mockRejectedValueOnce(new Error('network down'));
+      mockRpc.mockResolvedValue({
+        data: { ok: false, reason: 'some_server_error' },
+        error: null,
+      });
 
       const { useDeleteGarment } = await import('../useGarments');
       const { wrapper } = createWrapper();
       const { result } = renderHook(() => useDeleteGarment(), { wrapper });
 
+      let caught: unknown = null;
       await act(async () => {
-        await result.current.mutateAsync('garment-rpc-threw');
+        try {
+          await result.current.mutateAsync('garment-ok-false');
+        } catch (e) {
+          caught = e;
+        }
       });
 
-      expect(chain.delete).toHaveBeenCalled();
-      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(caught).toBeInstanceOf(Error);
+    });
+
+    it('throws when the RPC itself errors (transport / auth / exception)', async () => {
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'not authorized' } });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      let caught: unknown = null;
+      await act(async () => {
+        try {
+          await result.current.mutateAsync('garment-rpc-errored');
+        } catch (e) {
+          caught = e;
+        }
+      });
+
+      expect(caught).toBeTruthy();
     });
   });
 });

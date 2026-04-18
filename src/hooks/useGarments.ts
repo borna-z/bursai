@@ -344,41 +344,47 @@ export function useDeleteGarment() {
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated');
 
-      // Pre-delete: release active render reservations so the CASCADE
-      // doesn't orphan them in render_credit_transactions. Codex round 12
-      // Bug 2. The RPC is SECURITY DEFINER with an ownership gate —
-      // authenticated users can call it for garments they own.
+      // Atomic delete-with-release (Codex round 13 redesign). The RPC
+      // releases any active render_jobs reservations AND deletes the
+      // garment in ONE transaction. Replaces the round-12 two-step
+      // release-then-delete which had two design flaws:
+      //   (1) Race between concurrent deletes double-refunding the
+      //       balance before either insert committed.
+      //   (2) Split client-side transaction: if release succeeded and
+      //       DELETE failed, worker's eventual consume hit already_terminal
+      //       and the user got a free render.
       //
-      // Failure to release is LOGGED but does NOT block the delete. Worst
-      // case: one or more reservations stay in the `reserved` counter
-      // until the post-launch orphan-reservation cron releases them.
-      // That's the same failure mode as before this fix, just applied to
-      // a narrow window (RPC error path) instead of every delete.
-      try {
-        const { error: releaseErr } = await supabase.rpc(
-          'release_reservations_for_garment_delete',
-          { p_garment_id: id },
-        );
-        if (releaseErr) {
-          logger.warn(
-            '[useDeleteGarment] release_reservations_for_garment_delete non-ok — proceeding with delete',
-            { garment_id: id, error: releaseErr.message },
-          );
-        }
-      } catch (err) {
-        logger.warn(
-          '[useDeleteGarment] release_reservations_for_garment_delete threw — proceeding with delete',
-          { garment_id: id, error: err instanceof Error ? err.message : String(err) },
-        );
-      }
-
-      const { error } = await supabase
-        .from('garments')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+      // Atomic RPC rolls back both or commits both. Server-side
+      // render_credits FOR UPDATE lock serializes concurrent callers.
+      const { data, error } = await supabase.rpc(
+        'delete_garment_with_release_atomic',
+        { p_garment_id: id, p_user_id: user.id },
+      );
 
       if (error) throw error;
+
+      // Shape: { ok, released_count, garment_deleted, reason? }
+      const result = data as {
+        ok: boolean;
+        released_count: number;
+        garment_deleted: boolean;
+        reason?: string;
+      } | null;
+
+      if (!result || result.ok !== true) {
+        throw new Error(`delete_garment_with_release_atomic returned non-ok: ${result?.reason ?? 'unknown'}`);
+      }
+
+      if (result.released_count > 0) {
+        logger.info('[useDeleteGarment] released active reservations before cascade', {
+          garment_id: id,
+          released_count: result.released_count,
+        });
+      }
+
+      // ok=true + garment_deleted=false with reason='garment_not_found' is
+      // idempotent success — retry after a prior successful delete lands
+      // here. Don't throw.
     },
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
