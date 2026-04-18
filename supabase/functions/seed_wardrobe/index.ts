@@ -60,6 +60,24 @@ serve(async (req) => {
           await supabase.storage.from("garments").remove(paths);
         }
         const garmentIds = existing.map(g => g.id);
+
+        // Pre-delete: release active render reservations so the CASCADE
+        // doesn't orphan them in render_credit_transactions. Codex round 12
+        // Bug 2. Service-role caller bypasses ownership check inside the
+        // RPC; failures are logged but don't block the delete.
+        for (const gid of garmentIds) {
+          const { error: releaseErr } = await supabase.rpc(
+            "release_reservations_for_garment_delete",
+            { p_garment_id: gid },
+          );
+          if (releaseErr) {
+            console.warn("[seed_wardrobe] release_reservations_for_garment_delete non-ok", {
+              garment_id: gid,
+              error: releaseErr.message,
+            });
+          }
+        }
+
         await supabase.from("outfit_items").delete().in("garment_id", garmentIds);
         await supabase.from("wear_logs").delete().eq("user_id", user.id);
         await supabase.from("garments").delete().eq("user_id", user.id);

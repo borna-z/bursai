@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { enqueue } from '@/lib/offlineQueue';
 import { resumePendingGarmentRenders } from '@/lib/garmentIntelligence';
+import { logger } from '@/lib/logger';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
@@ -338,10 +339,39 @@ export function useUpdateGarment() {
 export function useDeleteGarment() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated');
+
+      // Pre-delete: release active render reservations so the CASCADE
+      // doesn't orphan them in render_credit_transactions. Codex round 12
+      // Bug 2. The RPC is SECURITY DEFINER with an ownership gate —
+      // authenticated users can call it for garments they own.
+      //
+      // Failure to release is LOGGED but does NOT block the delete. Worst
+      // case: one or more reservations stay in the `reserved` counter
+      // until the post-launch orphan-reservation cron releases them.
+      // That's the same failure mode as before this fix, just applied to
+      // a narrow window (RPC error path) instead of every delete.
+      try {
+        const { error: releaseErr } = await supabase.rpc(
+          'release_reservations_for_garment_delete',
+          { p_garment_id: id },
+        );
+        if (releaseErr) {
+          logger.warn(
+            '[useDeleteGarment] release_reservations_for_garment_delete non-ok — proceeding with delete',
+            { garment_id: id, error: releaseErr.message },
+          );
+        }
+      } catch (err) {
+        logger.warn(
+          '[useDeleteGarment] release_reservations_for_garment_delete threw — proceeding with delete',
+          { garment_id: id, error: err instanceof Error ? err.message : String(err) },
+        );
+      }
+
       const { error } = await supabase
         .from('garments')
         .delete()

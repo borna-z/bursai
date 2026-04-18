@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
 const mockFrom = vi.fn();
+const mockRpc = vi.fn().mockResolvedValue({ data: 0, error: null });
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }));
 vi.mock('@/lib/haptics', () => ({
   hapticSuccess: vi.fn(),
@@ -206,5 +207,71 @@ describe('useGarments', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
+  });
+
+  describe('useDeleteGarment pre-delete release (Codex round 12 Bug 2)', () => {
+    it('calls release_reservations_for_garment_delete RPC before the DELETE', async () => {
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({ data: 1, error: null });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-delete-id');
+      });
+
+      expect(mockRpc).toHaveBeenCalledWith(
+        'release_reservations_for_garment_delete',
+        { p_garment_id: 'garment-delete-id' },
+      );
+    });
+
+    it('proceeds with DELETE even if the release RPC returns an error', async () => {
+      // Defense-in-depth: a transient RPC failure must not block the user's
+      // delete. Worst case: we orphan a reservation that the post-launch
+      // cleanup cron will eventually release. Same failure mode as before
+      // this fix, just applied to a narrow window (RPC error path).
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      const chain = mockChain();
+      mockFrom.mockReturnValue(chain);
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'transient DB blip' } });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-rpc-errored');
+      });
+
+      // The delete chain still fired.
+      expect(chain.delete).toHaveBeenCalled();
+      // The RPC was called once despite the error.
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+    });
+
+    it('proceeds with DELETE even if the release RPC throws', async () => {
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      const chain = mockChain();
+      mockFrom.mockReturnValue(chain);
+      mockRpc.mockClear();
+      mockRpc.mockRejectedValueOnce(new Error('network down'));
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-rpc-threw');
+      });
+
+      expect(chain.delete).toHaveBeenCalled();
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+    });
   });
 });

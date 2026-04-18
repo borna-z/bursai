@@ -151,6 +151,17 @@ export default function AddGarmentPage() {
           garment.setShowDuplicateSheet(false);
           garment.clearDuplicates();
           try {
+            // Pre-delete: release active render reservations before cascade.
+            // Codex round 12 Bug 2 — same pattern as useDeleteGarment.
+            // Failure here is non-blocking; orphan-cleanup cron (post-launch
+            // follow-up) is the safety net.
+            try {
+              await supabase.rpc('release_reservations_for_garment_delete', {
+                p_garment_id: existingGarmentId,
+              });
+            } catch {
+              // Intentionally swallowed — caller proceeds with delete.
+            }
             await supabase.from('garments').delete().eq('id', existingGarmentId);
             toast.success(t('duplicate.replaced') || 'Old garment replaced');
           } catch {
