@@ -1546,3 +1546,155 @@ cron is defense-in-depth against those cases. Authoring-time memory
 updated to reflect the new priority.
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 13 — atomic delete-with-release RPC (2026-04-18)
+
+Codex round 13 found two real design flaws in round 12's two-step
+"call release RPC, then DELETE" pattern:
+
+- **Bug 1 (P1) — double-refund race:** two concurrent delete calls
+  for the same garment could both pass the terminal check and refund
+  the balance BEFORE either release insert committed. The
+  `ON CONFLICT (idempotency_key) DO NOTHING` guard on the insert
+  then silently dropped caller 2's insert, but the balance was
+  already double-decremented. Net: user's available credit was
+  destroyed without a durable record.
+
+- **Bug 2 (P2) — split client-side transaction:** release RPC +
+  DELETE were two separate round trips from the client. If release
+  succeeded and DELETE failed (network, RLS, FK), active jobs stayed
+  alive with their reservations terminalized. Worker's eventual
+  consume hit `already_terminal` → free render.
+
+### Round-13 fix: single atomic RPC
+
+Replaced `release_reservations_for_garment_delete(p_garment_id)`
+with `delete_garment_with_release_atomic(p_garment_id, p_user_id)`:
+
+- **One PostgreSQL transaction** — release + DELETE commit together
+  or roll back together. Closes Bug 2.
+- **`PERFORM 1 FROM render_credits WHERE user_id = p_user_id FOR
+  UPDATE`** serializes concurrent callers for the same user.
+  Terminal-check + refund + insert happen INSIDE this lock, so
+  caller 2 sees caller 1's release tx and skips the refund. Closes
+  Bug 1.
+- **`FOR UPDATE` on each render_jobs row during iteration** — blocks
+  worker `claim_render_job` (whose `SKIP LOCKED` safely waits)
+  during the release.
+- **Authorization:** `auth.uid() = p_user_id` OR caller is
+  service_role. Granted to `authenticated` + `service_role`.
+- **Return shape:** `{ok:boolean, released_count:int,
+  garment_deleted:boolean, reason?:text}`. `ok:true` +
+  `garment_deleted:false` + `reason:'garment_not_found'` is
+  idempotent success for retry-after-delete.
+
+Round-12 RPC `release_reservations_for_garment_delete` dropped.
+Three delete sites updated to call the new atomic RPC instead of
+the two-step pattern:
+
+- `src/hooks/useGarments.ts` `useDeleteGarment`
+- `src/pages/AddGarment.tsx` `onReplace`
+- `supabase/functions/seed_wardrobe/index.ts`
+
+### Preview-branch verification — five scenarios
+
+Preview branch: `tqanobmnvhqkwrhlprwy` (ephemeral, deleted,
+cost < $0.01). Schema matches the post-round-13 P5 migration
+(atomic RPC definition + GRANT to authenticated+service_role).
+
+**Scenario 1 — Happy path single delete**
+
+```
+Pre:  garment + pending render_jobs + reserve tx, reserved=1
+Call: delete_garment_with_release_atomic(g, u) as authenticated owner
+Result: {ok:true, released_count:1, garment_deleted:true}
+Post:  garment gone, render_jobs gone (cascade), ledger [reserve, release],
+       reserved=0
+```
+PASS — single transaction wrote release + deleted garment. No orphans.
+
+**Scenario 2 — Sequential double-delete (concurrent equivalent)**
+
+```
+Pre:   same as S1 for a different user+garment
+Call #1: delete_garment_with_release_atomic → {ok:true, released_count:1,
+         garment_deleted:true}
+Call #2 (same garment id, after #1 committed):
+         → {ok:true, released_count:0, garment_deleted:false,
+            reason:'garment_not_found'}
+Post:  exactly ONE release tx per job_id, reserved=0, garment gone
+```
+PASS — no double-refund. Second call returns idempotent-success. Under
+true concurrency the render_credits FOR UPDATE lock serializes both
+callers; the sequential test exercises the same terminal-check code
+path caller 2 would hit after caller 1 commits.
+
+**Scenario 3 — Atomicity on DELETE failure (FK violation rolls back release)**
+
+```
+Setup: CREATE TABLE s3_blocker (render_job_id UUID PRIMARY KEY
+       REFERENCES render_jobs(id) ON DELETE RESTRICT); INSERT a row
+       pointing at S3's render_jobs id. Now the CASCADE delete of
+       render_jobs will fail with FK violation.
+Call:  delete_garment_with_release_atomic(g, u)
+Result: RAISE EXCEPTION 'update or delete on table "render_jobs" violates
+         foreign key constraint "s3_blocker_render_job_id_fkey"'
+Post:  ledger still [reserve] only (release was rolled back),
+       reserved=1 (never decremented), garment still present,
+       render_jobs row still present
+```
+PASS — full transaction rollback proves atomicity. Release did NOT
+commit when DELETE failed. Closes Bug 2.
+
+**Scenario 4 — Already-terminal tolerance**
+
+```
+Pre:   garment + pending render_jobs + reserve tx + a manually-written
+       release tx with idempotency_key='release:s4-manual' (simulating
+       a prior release that already fired via some other path),
+       reserved=0
+Call:  delete_garment_with_release_atomic(g, u)
+Result: {ok:true, released_count:0, garment_deleted:true}
+Post:  ledger [reserve, release] (the pre-existing release, no second),
+       release tx count = 1 (not 2), reserved=0, garment gone
+```
+PASS — terminal-check inside the RPC correctly skipped the refund+insert
+when a release already existed. No spurious second release tx. No
+`already_terminal` error surfaced to caller.
+
+**Scenario 5 — No active reservations**
+
+```
+Pre:   garment with no render_jobs row at all, reserved=0
+Call:  delete_garment_with_release_atomic(g, u)
+Result: {ok:true, released_count:0, garment_deleted:true}
+Post:  garment gone, no ledger writes
+```
+PASS — RPC skips the release loop entirely when no active jobs exist
+and proceeds to the DELETE.
+
+### Invariants validated
+
+- **I1** ✓ (single reserve per job across all scenarios)
+- **I2** ✓ (single terminal per job — release only; S4's pre-existing
+  release wasn't duplicated)
+- **I3** ✓ (no release-after-consume)
+- **I12 (REVISED round 13)** ✓ (delete and release are ONE atomic
+  operation — S3's rollback proves it)
+
+### What this verification does not cover
+
+- **True concurrent double-delete under heavy load.** MCP
+  `execute_sql` calls are serial. The terminal-check + FOR UPDATE
+  lock is what provides concurrency safety; Scenario 2's sequential
+  simulation exercises the same code path caller 2 takes after
+  caller 1 commits. Production-load concurrency would require a
+  multi-threaded test harness outside this verification's scope.
+- **`authenticated` user attempting to delete another user's garment
+  via a forged `p_user_id`.** The `auth.uid() = p_user_id` gate is
+  tested in round 12's verification log (same check, unchanged).
+- **Admin SQL deletes bypassing the RPC.** Unchanged failure mode
+  from round 12; orphan-reservation cleanup cron (ship-within-2-weeks
+  follow-up) is the safety net.
+
+Preview branch deleted. Cost: < $0.01.
