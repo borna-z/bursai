@@ -560,13 +560,51 @@ serve(async (req) => {
             })
             .eq("id", job.id);
 
-          await supabase
+          // Degrade garment state ONLY when no prior good render is present.
+          // Rationale (Codex round 11 Bug 1): on force=true regenerate jobs,
+          // render_garment_image's safeRestoreOrFailRender has already
+          // restored the garment to its prior `render_status='ready' +
+          // rendered_image_path=<prior>` state. Unconditionally overwriting
+          // to 'failed' here would undo that restoration and destroy the
+          // user's existing good render during Gemini outages — worse UX
+          // than not having Regenerate at all.
+          //
+          // Check the CURRENT garment state (not the force flag) because
+          // that's the actual question we care about: "does a prior
+          // successful render exist on this garment?" It's robust to
+          // force=true-with-no-prior (first regenerate after a reset),
+          // force=false-with-prior (shouldn't happen in practice but
+          // preserves invariant), and any future restoration-path we add.
+          const { data: garmentAtFailure } = await supabase
             .from("garments")
-            .update({
-              render_status: "failed",
-              render_error: renderResult.errorMessage.substring(0, 500),
-            })
-            .eq("id", job.garment_id);
+            .select("render_status, rendered_image_path")
+            .eq("id", job.garment_id)
+            .maybeSingle();
+
+          const hasPriorGoodRender =
+            garmentAtFailure?.render_status === "ready" &&
+            typeof garmentAtFailure?.rendered_image_path === "string" &&
+            garmentAtFailure.rendered_image_path.length > 0;
+
+          if (hasPriorGoodRender) {
+            log.warn(
+              "terminal render failure — garment has prior good render, preserving state",
+              {
+                jobId: job.id,
+                garmentId: job.garment_id,
+                priorRenderPath: garmentAtFailure!.rendered_image_path,
+                errorClass: renderResult.errorClass,
+              },
+            );
+          } else {
+            await supabase
+              .from("garments")
+              .update({
+                render_status: "failed",
+                render_error: renderResult.errorMessage.substring(0, 500),
+              })
+              .eq("id", job.garment_id);
+          }
 
           results.push({ jobId: job.id, status: "failed", error: renderResult.errorMessage });
         } else {
