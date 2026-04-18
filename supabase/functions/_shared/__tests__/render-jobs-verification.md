@@ -1378,3 +1378,171 @@ Exactly the user-loss scenario Codex round 11 flagged.
   failure when restoration path ran)
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 12 — legacy pending cleanup + delete-cascade orphaned reserves (2026-04-18)
+
+Two findings, both real, both shipped.
+
+### Bug 1 (P1) — Legacy pending garments with no render_jobs row
+
+Pre-P5 `startGarmentRenderInBackground` flipped
+`garments.render_status='pending'` before calling render_garment_image
+synchronously. Failed calls left the garment at 'pending'; the pre-P5
+`resumePendingGarmentRenders` recovered them on app open. P5 replaced
+that with the durable queue + made `resumePendingGarmentRenders` a
+no-op — but the queue can't recover garments that were never enqueued,
+which is the state of any garment already stuck at 'pending' at
+deploy time.
+
+**Production scope at authoring time** (project ref
+`khvkwojtlkcvxjxztduj`): 3 garments at `render_status='pending'`, all
+with `rendered_image_path IS NULL`. Safe to reset (no prior render
+lost by the reset).
+
+Fix: new one-time migration
+`supabase/migrations/20260418000000_reset_legacy_pending_garments.sql`
+that does a gated UPDATE setting `render_status='none'` AND
+`render_error='Pre-P5 legacy pending state reset — retry to render'`
+for every garment where `render_status='pending'` AND no
+`render_jobs` row exists for it. Wrapped in a DO block that logs
+the reset count via RAISE NOTICE for post-deploy verification. Also
+defensively degrades to "reset every pending" if `render_jobs`
+doesn't exist yet (preview-branch replay scenarios).
+
+### Bug 2 (P1) — Garment delete orphans active reservations
+
+`render_jobs.garment_id REFERENCES garments(id) ON DELETE CASCADE`, so
+`DELETE FROM garments WHERE id=X` removes render_jobs rows for X. But
+`render_credit_transactions` has no FK to `render_jobs` by design
+(the ledger survives job-row deletion for historical queries). So a
+naive delete leaves `reserve` transactions for X's jobs with no
+matching render_jobs row, and `render_credits.reserved` stays
+elevated forever — no worker can ever see the (now-deleted) job to
+terminalize it. Over time, repeated delete-while-active-render
+sequences would exhaust users' available credits.
+
+Fix (three commits):
+
+1. **Migration** — edited P5 migration
+   `20260417180000_priority_5_render_queue.sql` (still Local-only,
+   `migration list --linked` confirmed) to add a new RPC
+   `release_reservations_for_garment_delete(p_garment_id UUID)`:
+   - SECURITY DEFINER with an ownership gate (auth.uid() must match
+     garment.user_id, or caller is service_role for admin tooling).
+   - Iterates `render_jobs WHERE garment_id=X AND status IN
+     ('pending','in_progress')` — for each, looks up reserve source,
+     decrements `render_credits.reserved` (refunds to source-specific
+     column), writes a release tx keyed by
+     `release:garment_delete:<job_id>` (stable idempotent key).
+   - Returns the released count for caller logging.
+
+2. **Application wiring** — three delete sites updated:
+   - `src/hooks/useGarments.ts` `useDeleteGarment` — canonical UI
+     delete path. Calls RPC before DELETE; logs and continues on
+     RPC failure.
+   - `src/pages/AddGarment.tsx` `onReplace` — duplicate-replace flow.
+     Same pattern.
+   - `supabase/functions/seed_wardrobe/index.ts` — admin bulk wipe.
+     Loops the per-garment RPC before the user-wide DELETE.
+
+3. **Tests** — three new assertions in
+   `src/hooks/__tests__/useGarments.test.tsx`:
+   - RPC called with correct garment id before DELETE.
+   - RPC error → DELETE still fires.
+   - RPC throw → DELETE still fires.
+
+### Preview-branch verification
+
+Preview branch: `lljdzjegrdmpatpzewvc` (ephemeral, deleted, cost
+< $0.01).
+
+Applied the round-12 P5 migration + the Bug-1 cleanup migration.
+Seeded three users:
+- U1: legacy pending garment, NO render_jobs row (Bug 1 target).
+- U2: pending garment WITH a render_jobs row (Bug 1 must NOT touch).
+- U3: ready garment with an active pending render_jobs row + reserve
+  (Bug 2 target).
+
+**Bug 1 migration run:**
+
+```
+U1 (legacy pending, no job):  pending → none   ✓
+  render_error = 'Pre-P5 legacy pending state reset - retry to render'
+U2 (pending, has job):         pending → pending (unchanged) ✓
+U3 (ready):                    ready → ready (unchanged) ✓
+```
+
+`NOT EXISTS` clause correctly scoped the UPDATE — pending garments
+WITH render_jobs rows are left alone because the queue owns them.
+
+**Bug 2 RPC (three auth paths):**
+
+```
+Service role path (seed_wardrobe):
+  SET "request.jwt.claim.role" = 'service_role'
+  → released_count = 1 ✓
+
+Owner path (authenticated user):
+  SET "request.jwt.claim.sub"  = '33333333-...'
+  SET "request.jwt.claim.role" = 'authenticated'
+  → released_count = 1 ✓ (uid_seen matched, role_seen='authenticated')
+
+Unauthorized path (different user's garment):
+  SET "request.jwt.claim.sub"  = '11111111-...'  (U1)
+  attempting release on U3's garment
+  → ERROR 'not authorized for garment cccccccc-...' ✓
+```
+
+**Bug 2 post-release + cascade delete:**
+
+```
+Post-release ledger:
+  U3 txs              = [reserve, release]
+  U3 release idem-key = release:garment_delete:c3333333-c333-c333-c333-c33333333333
+  U3 render_credits.reserved = 0  (decremented from 1)
+
+After DELETE FROM garments:
+  render_jobs rows for c3333333 = 0  (cascade correctly wiped)
+  ledger for c3333333            = [reserve, release]  (preserved)
+  render_credits.reserved         = 0  (ledger balanced)
+  true_orphans                    = 0  (reserve with no job AND no terminal)
+```
+
+**Counterfactual (pre-round-12 behavior reproduced):**
+
+```
+Fresh garment + reserve for U1. SKIP the release RPC. DELETE FROM
+garments directly.
+
+Post-delete:
+  render_jobs rows remaining = 0
+  ledger for that job        = [reserve]       ← no release (the bug)
+  render_credits.reserved    = 1               ← stuck elevated forever
+  true_orphans               = 1               ← the signature of the bug
+```
+
+Reproduces exactly the failure mode Codex round 12 Bug 2 described:
+the user's reserved counter would stay elevated even though no active
+job exists, and no normal worker path can release it.
+
+### Invariants validated
+
+- **I1** ✓ (single reserve per job for U2, U3, and the pre-delete
+  window for U1's counterfactual job)
+- **I2** ✓ (single terminal per job — release, no consume since the
+  jobs never ran)
+- **I12 (NEW)** ✓ (every delete path tested wrote a release before
+  cascade; unauthorized callers rejected)
+
+### Orphan-reservation cleanup cron reclassification
+
+Pre-round-12, the orphan-reservation cleanup cron was listed as a
+generic post-launch follow-up (T-9 in the state-machine doc). Round
+12 promoted it to a **ship-within-two-weeks safety net**. Rationale:
+the round-12 fix handles every CURRENT delete path in the codebase
+(the three identified via grep), but admin SQL deletes bypass the
+RPC entirely, and future code paths may add new delete sites. The
+cron is defense-in-depth against those cases. Authoring-time memory
+updated to reflect the new priority.
+
+Preview branch deleted. Cost: < $0.01.
