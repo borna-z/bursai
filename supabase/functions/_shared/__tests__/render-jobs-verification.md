@@ -1238,3 +1238,143 @@ force=true path.
   path; force=false through six layers ending at line-611 skipped path)
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 11 — prior-render preservation + enqueue-failure recovery (2026-04-18)
+
+Two findings, both real, both shipped.
+
+### Bug 1 (CRITICAL) — Force-regenerate terminal failure was destroying existing renders
+
+render_garment_image's `safeRestoreOrFailRender` correctly restored the
+garment to its prior `ready + good.webp` state on force=true render
+failures. But process_render_jobs's terminal-failure branch then
+unconditionally UPDATEd `garments.render_status='failed'`, overwriting
+that restoration. During a Gemini outage, a user with a working render
+tapping Regenerate would: hit 3 consecutive provider errors → worker
+reaches isFinal → overwrites restored state back to 'failed' → user
+wakes up to a garment that was perfect yesterday now shown as broken.
+Net-negative UX; Regenerate became worse than not having Regenerate
+at all during outages.
+
+Fix: worker reads the current garment state at terminal time. If
+`render_status='ready' && rendered_image_path` is present (i.e.
+safeRestoreOrFailRender ran AND the prior render is still intact),
+SKIP the `render_status='failed'` UPDATE. `render_jobs.status='failed'`
+still flips (UI/analytics can distinguish "latest render attempt
+failed" from "garment has no render").
+
+The preservation check reads actual garment state rather than
+deriving behavior from the force flag. Robust to any future
+restoration path that lands the garment in ready+path at terminal
+time.
+
+New **Invariant I10** added to render-state-machine.md. Scenario 3
+split into 3a (first-time generate → garment correctly flipped to
+failed) and 3b (force=true regenerate → prior render preserved).
+
+### Bug 2 (MODERATE) — Enqueue failure left garment stuck in `pending`
+
+`buildGarmentIntelligenceFields` sets `garments.render_status='pending'`
+on the initial INSERT for render-enabled sources. If
+`startGarmentRenderInBackground`'s enqueue fails AND the nonce-
+preserving retry also fails (e.g. Supabase Edge Functions outage
++ network blip), no render_jobs row ever exists. Under P5
+`resumePendingGarmentRenders` is a no-op (the queue owns durability
+for enqueued jobs, but this job was never queued). The garment
+would sit at `render_status='pending'` indefinitely.
+
+Fix: new `resetGarmentRenderStateOnEnqueueFailure` helper in
+`garmentIntelligence.ts`. Fires on both the nonce-retry-failed path
+and the non-retryable fallthrough path. UPDATEs
+`garments.render_status='none'` so the Studio photo button reappears
+in the UI. 402 is intentionally excluded — pending is the intentional
+state across a user's upgrade flow; resetting would silently drop
+the regenerate intent mid-upgrade.
+
+Three new unit tests at
+`src/lib/__tests__/startGarmentRenderInBackground.test.ts` cover:
+reset on retryable failure after retry exhausts; no-reset on 402;
+no-reset when the retry itself succeeds.
+
+New **Invariant I11** + new **Scenario 14** added to the doc.
+
+### Preview-branch verification (real guard + real safeRestoreOrFailRender logic)
+
+Preview branch: `spnctjhqocxblvsuhzmv` (ephemeral, deleted,
+cost < $0.01).
+
+Deployed render_garment_image containing:
+- Real post-round-9 early guard
+- Real `safeRestoreOrFailRender` semantics (restore on
+  `isForce && priorRenderedPath`, otherwise mark failed)
+- Gemini stub that ALWAYS fails (HTTP 500 body)
+
+Deployed process_render_jobs with the round-11 terminal-preservation
+check reading actual garment state at isFinal time.
+
+Seeded two scenarios:
+- S1: `garment.render_status='ready'`, `rendered_image_path='good.webp'`,
+  `render_jobs.force=true`
+- S2: `garment.render_status='pending'`, `rendered_image_path=null`,
+  `render_jobs.force=false`
+
+**S1 — force=true regenerate, 3 failed attempts:**
+
+```
+Cycle 1: retry (safeRestoreOrFailRender restored garment to ready+good.webp)
+Cycle 2: retry (same)
+Cycle 3: failed, preserved: true
+         release tx written (user not charged)
+
+Post-state:
+  render_jobs.status           = failed
+  render_jobs txs              = [reserve, release]
+  garments.render_status       = ready           ← PRESERVED
+  garments.rendered_image_path = good.webp       ← PRESERVED
+  garments.render_error        = null
+```
+
+Worker's terminal-preservation check saw `render_status='ready' +
+rendered_image_path='good.webp'` → skipped the failed-UPDATE. Prior
+render intact.
+
+**S2 — force=false first-time, 3 failed attempts:**
+
+```
+Cycle 1: retry (safeRestoreOrFailRender fell through to
+                safeMarkRenderFailed because isForce=false)
+Cycle 2: retry
+Cycle 3: failed, preserved: false
+         release tx written (user not charged)
+
+Post-state:
+  render_jobs.status           = failed
+  render_jobs txs              = [reserve, release]
+  garments.render_status       = failed          ← CORRECTLY FLIPPED
+  garments.rendered_image_path = null
+  garments.render_error        = stub Gemini failure
+```
+
+Preservation check saw no prior good render → executed the
+failed-UPDATE. Correct behavior for first-time failure.
+
+### Counterfactual — what the pre-round-11 code did
+
+On S1 pre-fix, cycle 3's worker would have written
+`garments.render_status='failed', render_error=<msg>` unconditionally,
+overwriting safeRestoreOrFailRender's restoration from earlier cycles.
+The user's "good.webp" render would have been lost to the UI even
+though `rendered_image_path` column still held the prior value — the
+`render_status='failed'` gate in the wardrobe UI would hide it.
+Exactly the user-loss scenario Codex round 11 flagged.
+
+### Invariants validated
+
+- **I1** ✓ (single reserve per job)
+- **I2** ✓ (single terminal = release, no consume)
+- **I5** ✓ (user not charged; S1 garment shows prior render, S2
+  garment correctly shows failure)
+- **I10** ✓ **NEW** (prior good render preserved across terminal
+  failure when restoration path ran)
+
+Preview branch deleted. Cost: < $0.01.
