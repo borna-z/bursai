@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# BURS pre-commit hook.
+# LOC check runs in warn-only mode during Week 0 so it logs violations
+# without blocking commits. Flip to --strict in Week 8 once all god
+# files are split and hard-max violators are at zero.
+
+set -e
+
+if command -v npx >/dev/null 2>&1; then
+  npx tsx scripts/check-loc.ts --warn-only || true
+fi

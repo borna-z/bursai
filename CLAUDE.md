@@ -414,3 +414,58 @@ useEffect(() => { callbackRef.current = handleAutoCapture; }, [handleAutoCapture
 
 Manual chunks: React, TanStack Query, Radix UI, Framer Motion, Supabase, date-fns, Sentry.
 `@imgly/background-removal` excluded from dependency optimization (WASM, loads separately).
+
+## BURS Max LOC Standard
+
+Hard rule: every file and function must fit the limits below. The pre-commit
+hook runs `scripts/check-loc.ts` — during Week 0-7 it is `--warn-only`, Week 8
+flips to `--strict` and blocks commits with hard-max violations.
+
+### Per-file limits
+
+| Category | Target | Hard max |
+|---|---|---|
+| Frontend UI component | 60–140 | 180 |
+| Page component | 120–220 | 300 |
+| Custom hook | 50–120 | 160 |
+| Utility file | 40–120 | 180 |
+| Domain logic file | 80–180 | 250 |
+| State/context provider | 80–180 | 220 |
+| API client wrapper | 60–140 | 180 |
+| Edge function entry (`supabase/functions/<name>/index.ts`) | 80–160 | 220 |
+| Edge shared/orchestration module (`supabase/functions/_shared/**`) | 100–220 | 300 |
+| AI prompt builder | 60–150 | 200 |
+| AI normalization/parser | 60–140 | 180 |
+| Validation/rules engine | 100–220 | 280 |
+| Test file | 100–220 | 320 |
+
+Exempt (no cap): `src/i18n/locales/*.ts`, `src/integrations/supabase/types.ts`,
+generated files, `supabase/migrations/*.sql`, `public/*`, config/constants files
+with no logic.
+
+### Per-function limits
+
+| Kind | Target | Hard max |
+|---|---|---|
+| Normal function | 10–30 | 40 |
+| Complex pure function | 20–50 | 70 |
+| React component body | 30–80 | 120 |
+| Edge-function handler | 40–80 | 100 |
+
+### Rules
+
+- When touching a file that exceeds its hard max, split it in the same PR. Do
+  not tiptoe around god files.
+- Files within spec are not touched for LOC reasons alone. No retroactive
+  refactor-for-the-sake-of-it.
+- New files created during a fix must conform from day one.
+- Split direction: by concern, not by line count. Extract orchestrator +
+  single-purpose modules, not arbitrary 200-line halves.
+- Generated/exempt files do not count toward scope.
+
+### Check commands
+
+- `npx tsx scripts/check-loc.ts` — full repo scan, fails on hard-max hits.
+- `npx tsx scripts/check-loc.ts --strict` — fails on any target overshoot.
+- `npx tsx scripts/check-loc.ts --warn-only` — log only, exit 0.
+- `npx tsx scripts/check-loc.ts path/to/file.ts` — single file check.
