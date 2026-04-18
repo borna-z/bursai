@@ -82,6 +82,7 @@ serve(async (req) => {
   let garmentId: string;
   let source: string;
   let clientNonce: string;
+  let force: boolean;
 
   // Nested try: isolates malformed-input errors from the overload counter
   // (same pattern as P4 bug 10 — authenticated users must not be able to
@@ -91,6 +92,13 @@ serve(async (req) => {
     garmentId = body?.garmentId;
     source = body?.source;
     clientNonce = body?.clientNonce;
+    // Force: optional boolean. User-initiated regenerate passes true so
+    // render_garment_image bypasses the product-ready eligibility gate AND
+    // the "already ready/rendering/skipped" early-return. Default false
+    // keeps first-time generations respecting the gates. Codex round 10
+    // caught that P5 was dropping this flag — the regenerate button was
+    // silently broken post-P5 until this plumbing landed.
+    force = body?.force === true;
 
     if (!isUuid(garmentId)) {
       return jsonResponse({ error: "garmentId must be a UUID" }, 400);
@@ -235,6 +243,7 @@ serve(async (req) => {
         presentation,
         prompt_version: RENDER_PROMPT_VERSION,
         reserve_key: reserveKey,
+        force,
       })
       .select("id, status")
       .single();

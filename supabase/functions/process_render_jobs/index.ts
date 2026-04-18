@@ -54,6 +54,12 @@ type ClaimedJob = {
   reserve_key: string;
   attempts: number;
   max_attempts: number;
+  // Codex round 10: force flag is persisted on render_jobs at enqueue and
+  // returned by claim_render_job so the worker can forward it to
+  // render_garment_image. Without this, internal invocations always ran
+  // non-force and the regenerate button silently no-op'd through the
+  // product-ready gate. See render-state-machine.md I9.
+  force: boolean;
 };
 
 type RenderResult =
@@ -661,6 +667,12 @@ async function invokeRender(
         // Codex round 6 caught this.
         presentation: job.presentation,
         promptVersion: job.prompt_version,
+        // Forward the QUEUED force flag. Without this, regenerate-button
+        // requests (enqueued with force=true on an already-rendered
+        // garment) would be re-invoked as non-force → product-ready gate
+        // fires → skipped return → worker marks 'succeeded_skipped' with
+        // no new image. Codex round 10 caught this regression.
+        force: job.force,
       }),
       signal: controller.signal,
     });
