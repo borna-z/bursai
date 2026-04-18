@@ -183,52 +183,74 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ─── pg_cron schedule: 60s worker invocation ────────────────
 -- pg_cron runs as the postgres superuser, which is the only role
 -- with SELECT access to vault.decrypted_secrets. This keeps the
--- service-role key out of pg_settings (where authenticated users
--- can read it via current_setting('app.*')) and out of any committed
--- SQL. Supabase's vault schema encrypts the secret at rest and
--- decrypts transparently when read as superuser.
+-- service-role key AND the functions base URL out of pg_settings
+-- (where authenticated users can read them via current_setting('app.*'))
+-- and out of any committed SQL. Supabase's vault schema encrypts
+-- secrets at rest and decrypts transparently when read as superuser.
 --
--- URL is the project's public functions endpoint — safe to commit.
--- The Authorization header is built at cron-exec time by selecting
--- the current secret value. If the secret isn't inserted (first
--- deploy), the SELECT returns NULL, the Authorization becomes
--- 'Bearer ', the HTTP call 401s, and the worker just doesn't run
--- via cron. The client-initiated path (enqueue_render_job's internal
--- POST) still works. Non-fatal but the safety net is dead until the
--- secret is inserted, so post-deploy smoke test is required.
+-- Both the URL and the Authorization header are built at cron-exec
+-- time by selecting the current secret value. If either secret isn't
+-- inserted (first deploy), the SELECT returns NULL, which propagates
+-- through `||` to produce NULL inputs into `net.http_post`; the call
+-- raises a not-null violation inside cron execution. That lands in
+-- `cron.job_run_details` with status='failed' — LOUD operational
+-- signal that the post-deploy vault step was skipped (see previous
+-- COALESCE('') note below). The client-initiated path (enqueue's
+-- internal POST from the edge function) still works without vault,
+-- so app requests aren't blocked — only the 60s safety-net cron is.
 --
--- ONE-TIME POST-DEPLOY STEP:
+-- Round-15 fix: the URL used to be hardcoded as
+-- 'https://khvkwojtlkcvxjxztduj.supabase.co/...'. Any non-production
+-- environment applying this migration would POST to the production
+-- project's function endpoint — its own render_jobs queue would
+-- never get processed, and it would issue requests against prod
+-- auth/credits. Moving the base URL into vault mirrors the
+-- service_role_key pattern and keeps every environment self-contained.
+--
+-- ONE-TIME POST-DEPLOY STEP (run once per environment — production,
+-- any preview branch you want the cron to exercise, local dev if you
+-- wire up pg_cron locally):
 --   After db push applies this migration, run ONCE via Supabase SQL
 --   editor (Database → SQL Editor):
 --
 --     INSERT INTO vault.secrets (name, secret)
---     VALUES ('service_role_key', '<your SUPABASE_SERVICE_ROLE_KEY value>')
+--     VALUES
+--       ('service_role_key',   '<this environment''s service_role key>'),
+--       ('functions_base_url', 'https://<this environment''s project ref>.supabase.co')
 --     ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
 --
---   Retrieve the value from Supabase dashboard → Settings → API →
---   service_role secret. Verify with:
+--   Retrieve the service_role key from Supabase dashboard → Settings →
+--   API → service_role secret. The base URL is Settings → API →
+--   Project URL (no trailing slash; the cron body appends
+--   '/functions/v1/process_render_jobs'). Verify with:
 --
---     SELECT cron.schedule_in_database('process-render-jobs');  -- row exists
---     SELECT name FROM vault.secrets WHERE name = 'service_role_key';
+--     SELECT jobid FROM cron.job WHERE jobname = 'process-render-jobs';
+--     SELECT name FROM vault.secrets
+--       WHERE name IN ('service_role_key', 'functions_base_url');
 --
 --   First successful cron run appears in `cron.job_run_details` within
 --   60s with status='succeeded' and return_message='200'.
 
--- Intentional no COALESCE fallback on the secret SELECT:
--- If the vault secret is missing, the subquery returns NULL. `'Bearer ' || NULL`
--- evaluates to NULL, and `net.http_post` with a NULL header value raises a
--- not-null violation inside the cron execution. The error lands in
--- cron.job_run_details with status='failed' — LOUD operational signal that
--- the one-time `INSERT INTO vault.secrets ('service_role_key', ...)` step
--- was skipped. Previous versions used COALESCE(..., '') which silently sent
--- an empty-bearer 401 and showed status='succeeded' with return_message='401',
+-- Intentional no COALESCE fallback on either secret SELECT:
+-- If either vault secret is missing, the subquery returns NULL.
+-- `NULL || '/functions/v1/process_render_jobs'` evaluates to NULL for
+-- the URL, and `'Bearer ' || NULL` evaluates to NULL for the header.
+-- net.http_post raises a not-null violation inside the cron execution.
+-- The error lands in cron.job_run_details with status='failed' — LOUD
+-- operational signal that one of the one-time
+-- `INSERT INTO vault.secrets (...)` steps was skipped. Previous versions
+-- used COALESCE(..., '') on the secret, which silently sent an
+-- empty-bearer 401 and showed status='succeeded' with return_message='401',
 -- making the broken state invisible in standard monitoring.
 SELECT cron.schedule(
   'process-render-jobs',
   '*/1 * * * *',  -- every 1 minute (pg_cron's smallest standard interval)
   $$
   SELECT net.http_post(
-    url := 'https://khvkwojtlkcvxjxztduj.supabase.co/functions/v1/process_render_jobs',
+    url := (
+      SELECT decrypted_secret FROM vault.decrypted_secrets
+      WHERE name = 'functions_base_url' LIMIT 1
+    ) || '/functions/v1/process_render_jobs',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || (
