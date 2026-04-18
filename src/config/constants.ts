@@ -27,11 +27,17 @@ export const SCAN_AUTO_ACCEPT_CONFIDENCE = 0.8;
 export const SCAN_MEDIUM_CONFIDENCE = 0.5;
 
 // ── Render / enrichment pipeline ─────────────────────────────────────────────
+// Priority 5 moved render kickoff to a durable DB-backed queue (render_jobs
+// table + process_render_jobs edge fn + pg_cron safety net). The in-memory
+// kickoff concurrency / sweep constants below are no longer used.
+//
+// @deprecated — unused post-P5; kept as named exports to avoid import breakage
+// on any lagging code paths. Will be removed in a follow-up cleanup.
 export const RENDER_KICKOFF_CONCURRENCY = 3;
 export const RENDER_RESUME_SWEEP_LIMIT = 12;
 export const RENDER_RESUME_SWEEP_COOLDOWN_MS = 15_000;
 
-/** Hard cap on the in-memory render kickoff queue to prevent unbounded growth. */
+/** @deprecated In-memory cap from the pre-P5 queue. Unused post-P5. */
 export const RENDER_QUEUE_MAX_SIZE = 200;
 
 export const GARMENT_ENRICHMENT_RETRY_DELAY_MS = 3_000;

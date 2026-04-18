@@ -205,6 +205,101 @@ npx supabase migration repair --status applied <new_timestamp>
 npx supabase migration repair --status reverted <old_timestamp>
 ```
 
+### Secrets inside migrations — never in custom GUCs
+
+If a migration body (including pg_cron schedule bodies) needs to authenticate to the app's own services, store the secret in `vault.secrets`, not in an `app.*` custom GUC.
+
+Why: any `authenticated` Postgres role can read `current_setting('app.*', true)`. Verified on production 2026-04-17 by running `SET LOCAL ROLE authenticated; SELECT current_setting('app.test_leak', true)` — the value came back. So a custom GUC containing the service-role key would be readable by every logged-in user → account takeover.
+
+`vault.decrypted_secrets` is restricted to the postgres superuser role. pg_cron runs as superuser, so it reads the decrypted value at cron-exec time. Authenticated users see nothing.
+
+**Secret storage pattern:**
+
+```sql
+-- One-time insert, via Supabase SQL editor:
+INSERT INTO vault.secrets (name, secret)
+VALUES ('<key-name>', '<secret-value>')
+ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
+```
+
+**Cron-body read pattern — two choices, pick by failure-mode preference:**
+
+- **NULL-propagation (preferred for new code):** if the secret is missing, the SELECT returns NULL, which propagates through `||` and raises a not-null violation inside `net.http_post`. The failure lands in `cron.job_run_details` with `status='failed'` — loud operational signal.
+  ```sql
+  Authorization: 'Bearer ' || (
+    SELECT decrypted_secret FROM vault.decrypted_secrets
+    WHERE name = '<key-name>' LIMIT 1
+  )
+  ```
+- **COALESCE-to-empty-string (legacy):** a missing secret yields a 401 with `status='succeeded'`, `return_message='401'`. Safer during migration apply (no SQL error) but hides the broken state in standard monitoring.
+  ```sql
+  Authorization: 'Bearer ' || COALESCE(
+    (SELECT decrypted_secret FROM vault.decrypted_secrets
+     WHERE name = '<key-name>' LIMIT 1),
+    ''
+  )
+  ```
+
+Prefer NULL-propagation for new cron bodies — the P5 `process-render-jobs` schedule uses this pattern specifically because Codex round 8 caught that the COALESCE version made a skipped-secret deploy invisible.
+
+### Endpoint URLs inside migrations — also in vault, not hardcoded
+
+Same rationale as the secret-storage rule, one step further: if a cron body (or any migration SQL) does an HTTP POST to the project's own functions endpoint, the base URL MUST come from `vault.secrets`, not a hardcoded `https://<project-ref>.supabase.co` string. A hardcoded URL cross-contaminates any non-production environment that applies the migration — every cron tick on a preview branch or a second project would POST to production, processing prod's queue and ignoring the local environment's own. Codex round 15 caught this on the P5 cron.
+
+```sql
+-- One-time insert per environment, alongside service_role_key:
+INSERT INTO vault.secrets (name, secret)
+VALUES ('functions_base_url', 'https://<this environment''s project ref>.supabase.co')
+ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
+
+-- Cron body constructs the URL at exec time:
+url := (
+  SELECT decrypted_secret FROM vault.decrypted_secrets
+  WHERE name = 'functions_base_url' LIMIT 1
+) || '/functions/v1/<function-name>'
+```
+
+No trailing slash on the stored base URL — the cron body appends the `/functions/v1/<name>` path. Same NULL-propagation rule applies: a missing URL secret raises a not-null violation in `net.http_post`, producing `status='failed'` in `cron.job_run_details`.
+
+### Post-deploy smoke tests
+
+Any migration that introduces a new pg_cron schedule must include a post-deploy smoke test in the PR description. Template:
+
+```sql
+-- 1. Migration applied?
+SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = '<job_name>') AS cron_registered;
+
+-- 2. All secrets inserted (if the cron body needs them)?
+-- For crons that POST to own-project edge functions, expect BOTH
+-- service_role_key AND functions_base_url.
+SELECT name FROM vault.secrets
+WHERE name IN ('<secret_name_1>', '<secret_name_2>' /* ... */)
+ORDER BY name;
+
+-- 3. Wait one cron interval, then check execution result:
+SELECT status, return_message, start_time
+FROM cron.job_run_details
+WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = '<job_name>')
+ORDER BY start_time DESC
+LIMIT 3;
+```
+
+If `status != 'succeeded'` or `return_message != '200'`, the cron is silently broken — fix before considering the deploy done.
+
+### P5 first-time-deploy vault inserts (post-merge for PR #421)
+
+After `npx supabase db push --linked --yes` applies the P5 migration on a new environment (production, preview branch, or any non-prod project where the cron should run), run this ONCE in Supabase SQL editor:
+
+```sql
+INSERT INTO vault.secrets (name, secret)
+VALUES
+  ('service_role_key',   '<this environment''s service_role key>'),
+  ('functions_base_url', 'https://<this environment''s project ref>.supabase.co')
+ON CONFLICT (name) DO UPDATE SET secret = EXCLUDED.secret;
+```
+
+Verify with the smoke test template above. Skipping either insert leaves the 60s safety-net cron dead (client-initiated POSTs via `enqueue_render_job` still work, so user traffic isn't blocked — but stale / stuck jobs won't self-recover until the vault step is completed).
+
 ## Project Identity
 
 | Field | Value |

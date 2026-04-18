@@ -1,131 +1,173 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Json, TablesInsert } from '@/integrations/supabase/types';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { invokeEdgeFunction, getHttpStatus } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import {
   GARMENT_IMAGE_PROCESSING_VERSION,
-  RENDER_KICKOFF_CONCURRENCY,
-  RENDER_RESUME_SWEEP_LIMIT,
-  RENDER_RESUME_SWEEP_COOLDOWN_MS,
-  RENDER_QUEUE_MAX_SIZE,
   GARMENT_ENRICHMENT_RETRY_DELAY_MS,
 } from '@/config/constants';
 
 export { GARMENT_IMAGE_PROCESSING_VERSION };
 
-type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan';
+type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan' | 'manual_enhance' | 'retry';
 
-const queuedRenderKickoffs: Array<{ garmentId: string; source: string; clientNonce: string }> = [];
-const queuedRenderGarmentIds = new Set<string>();
-const lastRenderResumeSweepByUser = new Map<string, number>();
-const inFlightRenderResumeSweeps = new Map<string, Promise<void>>();
-let activeRenderKickoffs = 0;
+export interface EnqueueRenderJobResult {
+  /** Canonical render_jobs.id — stable across enqueue retries thanks to
+      reserve's replay flag + the UNIQUE constraint on reserve_key. */
+  jobId: string;
+  /** The clientNonce actually used on the request. If the caller passed
+      one via options.clientNonce, this is that value; otherwise it's the
+      helper-generated UUID. **Callers that need to retry a failed enqueue
+      with the same logical intent (e.g. after a 5xx transport error) MUST
+      pass this value back in options.clientNonce on the retry** — a fresh
+      nonce creates a new reserve_key and a new reservation, orphaning the
+      first. The original credit can only be released by the post-launch
+      orphan-reservation cleanup cron. */
+  clientNonce: string;
+  status: 'pending' | 'in_progress' | 'succeeded' | 'failed';
+  source: string;
+  /** True when either the ledger hit replay OR the render_jobs row already
+      existed under this reserve_key. Either way, the canonical job row is
+      the one that survived — this response targets it. */
+  replay: boolean;
+}
 
-function pumpRenderKickoffQueue(): void {
-  while (activeRenderKickoffs < RENDER_KICKOFF_CONCURRENCY && queuedRenderKickoffs.length > 0) {
-    const next = queuedRenderKickoffs.shift();
-    if (!next) return;
+export class RenderEnqueueError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    /** The clientNonce used on the failing request. Callers that retry
+        MUST reuse this value via options.clientNonce — see
+        EnqueueRenderJobResult.clientNonce for the full rationale. */
+    public readonly clientNonce?: string,
+  ) {
+    super(message);
+    this.name = 'RenderEnqueueError';
+  }
+}
 
-    activeRenderKickoffs += 1;
+/**
+ * Classifies a RenderEnqueueError status as retryable-with-same-nonce.
+ *
+ * Returns true for:
+ *   - `0` or undefined → transport-level failure (network/timeout/abort)
+ *     where the request may or may not have reached the server. Reserve
+ *     may have succeeded; retry with same nonce catches either case.
+ *   - `5xx` → server-side error. Same reasoning — the edge function may
+ *     have reserved the credit before the failure surfaced.
+ *
+ * Returns false for user-caused statuses (400 input, 401 auth, 402
+ * credits, 403 forbidden, 404 not found, 429 rate limit) — retrying with
+ * the same nonce won't change the outcome and the caller should surface
+ * the specific error to the UI instead.
+ *
+ * Used by the three client call sites (SwipeableGarmentCard,
+ * GarmentConfirmSheet, startGarmentRenderInBackground) to decide whether
+ * to invoke enqueueRenderJob a second time with the preserved nonce.
+ */
+export function isRenderEnqueueRetryable(status: number | undefined): boolean {
+  if (status === undefined || status === 0) return true;
+  if (status >= 500) return true;
+  return false;
+}
 
-    void invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('render_garment_image', {
-      timeout: 1000,
+/**
+ * Enqueue a render job via the enqueue_render_job edge function.
+ *
+ * Replaces the in-memory `queuedRenderKickoffs` queue + direct render_garment_image
+ * invocation from P4. Returns as soon as the job row is INSERTed (typically
+ * ~200-300ms). The edge function fires an internal POST to process_render_jobs
+ * for low-latency worker pickup; pg_cron is the safety net if that POST is lost.
+ *
+ * Callers should NOT await the underlying render — they should poll
+ * garments.render_status (via useRenderJobStatus or by refetching the garment)
+ * until it flips to 'ready' or 'failed'.
+ *
+ * ## Retry contract
+ *
+ * **Distinct logical intents** (e.g. a user tapping "Studio photo" once, then
+ * tapping "Try again" after a failure) → each call passes a **fresh** nonce.
+ * That's the default behavior when `options.clientNonce` is omitted.
+ *
+ * **Transport-level retries of the same intent** (network error, 5xx) →
+ * the caller MUST supply the SAME nonce on the retry via `options.clientNonce`.
+ * The first call's nonce is returned on both success (result.clientNonce) and
+ * failure (RenderEnqueueError.clientNonce). Persist that value somewhere the
+ * retry can read.
+ *
+ * Why: if enqueue's INSERT fails after reserve succeeded (rare 500), the
+ * reservation exists against the original reserve_key. A retry with a fresh
+ * nonce creates a new reserve_key → new reservation → the first one is
+ * orphaned and can only be cleaned by the post-launch orphan cron. A retry
+ * with the same nonce hits reserve's replay flag and the row's UNIQUE
+ * constraint, yielding idempotency in both directions.
+ *
+ * @throws RenderEnqueueError on 4xx/5xx — callers should surface the status
+ *   to the UI (402 → upgrade CTA, 503 → "try again later", 5xx → error toast).
+ */
+export async function enqueueRenderJob(
+  garmentId: string,
+  source: RenderTriggerSource,
+  options: { clientNonce?: string; force?: boolean } = {},
+): Promise<EnqueueRenderJobResult> {
+  const clientNonce = options.clientNonce ?? crypto.randomUUID();
+  // Force: default false so first-time Studio photo generation still
+  // respects the product-ready gate. Regenerate flows (SwipeableGarmentCard
+  // on a garment with an existing rendered image) MUST pass force:true;
+  // otherwise the worker's render_garment_image skips via the gate and
+  // terminalizes as succeeded_skipped with no new image. Codex round 10
+  // surfaced this as a P5 regression from the pre-queue direct-call path
+  // where SwipeableGarmentCard passed force:true directly.
+  const force = options.force === true;
+
+  const { data, error } = await invokeEdgeFunction<EnqueueRenderJobResult & { error?: string }>(
+    'enqueue_render_job',
+    {
+      body: { garmentId, source, clientNonce, force },
       retries: 0,
-      body: { garmentId: next.garmentId, source: next.source, clientNonce: next.clientNonce },
-    })
-      .then(({ error }) => {
-        if (error) {
-          logger.warn('Garment render trigger did not confirm in time (non-blocking)', error);
-        }
-      })
-      .finally(() => {
-        activeRenderKickoffs = Math.max(0, activeRenderKickoffs - 1);
-        queuedRenderGarmentIds.delete(next.garmentId);
-        pumpRenderKickoffQueue();
-      });
+    },
+  );
+
+  if (error) {
+    // supabase-js FunctionsHttpError stores the Response on `error.context`
+    // (not on the error itself). Reading `error.status` returned `undefined`
+    // on real 4xx/5xx responses → RenderEnqueueError.status = 0 → callers
+    // (GarmentConfirmSheet's paywall, isRenderEnqueueRetryable) misrouted.
+    // getHttpStatus extracts from context.status; falls back to 0 for
+    // transport failures (no HTTP response) so isRenderEnqueueRetryable
+    // still treats those as retryable.
+    throw new RenderEnqueueError(
+      error.message || 'render enqueue failed',
+      getHttpStatus(error) ?? 0,
+      (error as { code?: string }).code,
+      clientNonce,
+    );
   }
+  if (!data || !data.jobId) {
+    throw new RenderEnqueueError('render enqueue returned no jobId', 0, undefined, clientNonce);
+  }
+  return {
+    jobId: data.jobId,
+    clientNonce,
+    status: data.status,
+    source: data.source,
+    replay: data.replay,
+  };
 }
 
-function enqueueGarmentRenderKickoff(garmentId: string, source: string): void {
-  if (queuedRenderGarmentIds.has(garmentId)) {
-    return;
-  }
-
-  // Guard against unbounded queue growth (e.g. after bulk imports)
-  if (queuedRenderKickoffs.length >= RENDER_QUEUE_MAX_SIZE) {
-    logger.warn(`Render queue full (>${RENDER_QUEUE_MAX_SIZE}); dropping kickoff for ${garmentId}`);
-    return;
-  }
-
-  // Stable nonce per enqueued render kickoff. If the queue replays or
-  // retries the same request, the same nonce is re-sent and the ledger's
-  // idempotency key correctly deduplicates on replay. Each distinct call
-  // to enqueueGarmentRenderKickoff gets its own nonce.
-  const clientNonce = crypto.randomUUID();
-  queuedRenderGarmentIds.add(garmentId);
-  queuedRenderKickoffs.push({ garmentId, source, clientNonce });
-  pumpRenderKickoffQueue();
-}
-
-function getResumeRenderSource(aiRaw: Json | null | undefined): RenderTriggerSource {
-  if (!aiRaw || typeof aiRaw !== 'object' || Array.isArray(aiRaw)) {
-    return 'batch_add';
-  }
-
-  const systemSignals = (aiRaw as Record<string, unknown>).system_signals;
-  if (!systemSignals || typeof systemSignals !== 'object' || Array.isArray(systemSignals)) {
-    return 'batch_add';
-  }
-
-  const source = (systemSignals as Record<string, unknown>).source;
-  if (source === 'add_photo' || source === 'live_scan') {
-    return source;
-  }
-
-  return 'batch_add';
-}
-
-export async function resumePendingGarmentRenders(userId: string): Promise<void> {
-  if (!userId) {
-    return;
-  }
-
-  const now = Date.now();
-  const lastSweepAt = lastRenderResumeSweepByUser.get(userId) ?? 0;
-  if (now - lastSweepAt < RENDER_RESUME_SWEEP_COOLDOWN_MS) {
-    return;
-  }
-
-  const inFlight = inFlightRenderResumeSweeps.get(userId);
-  if (inFlight) {
-    return inFlight;
-  }
-
-  const sweepPromise = (async () => {
-    lastRenderResumeSweepByUser.set(userId, now);
-
-    const { data, error } = await supabase
-      .from('garments')
-      .select('id, ai_raw')
-      .eq('user_id', userId)
-      .eq('render_status', 'pending')
-      .limit(RENDER_RESUME_SWEEP_LIMIT)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      logger.warn('Pending garment render resume sweep failed', error);
-      return;
-    }
-
-    for (const garment of data ?? []) {
-      enqueueGarmentRenderKickoff(garment.id, getResumeRenderSource(garment.ai_raw as Json | null | undefined));
-    }
-  })().finally(() => {
-    inFlightRenderResumeSweeps.delete(userId);
-  });
-
-  inFlightRenderResumeSweeps.set(userId, sweepPromise);
-  return sweepPromise;
+/**
+ * Deprecated under Priority 5.
+ *
+ * Previously re-enqueued pending renders client-side on app open. With the
+ * durable `render_jobs` table + pg_cron safety net, re-execution happens
+ * server-side automatically. Client doesn't need to do anything.
+ *
+ * Kept as a no-op so existing call sites (useGarments.ts) don't need a
+ * synchronized change to remove the call. Will be deleted in a follow-up.
+ */
+export async function resumePendingGarmentRenders(_userId: string): Promise<void> {
+  return;
 }
 
 
@@ -392,5 +434,196 @@ async function startGarmentImageProcessingInBackground(garmentId: string, source
 }
 
 async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
-  enqueueGarmentRenderKickoff(garmentId, source);
+  // Single transport-level retry with the SAME nonce on any retryable
+  // failure (network/timeout/abort = status 0/undefined, or server 5xx).
+  // See isRenderEnqueueRetryable for the full classification. Any
+  // subsequent retries happen via the server-side cron safety net (which
+  // reclaims the reserved row) or the user's next app-open — we don't
+  // loop client-side to avoid hammering a distressed backend.
+  try {
+    await enqueueRenderJob(garmentId, source as RenderTriggerSource);
+    return;
+  } catch (err) {
+    if (err instanceof RenderEnqueueError && err.status === 402) {
+      // Trial locked or insufficient credit — business denial, not a
+      // transport failure. We still must reset render_status to 'none'
+      // because nothing else recovers it: under P5, resumePendingGarment-
+      // Renders is a no-op, and no render_jobs row was ever created (the
+      // 402 returns BEFORE the insert), so the worker has nothing to
+      // process. Leaving it 'pending' stranded the garment in "Refining…"
+      // forever, even after the user upgraded. Falling through to the
+      // reset below flips the garment to 'none' so the UI re-shows the
+      // Studio photo CTA and the user can retry after upgrading.
+      // (Round 14 fix — Codex caught that round 11's 402-preserves-pending
+      // branch was wrong in aggregate with P5's queue-owned recovery.)
+      logger.info(
+        `[${source}] render enqueue 402 — resetting garment to 'none' so user can retry after upgrade`,
+        { garmentId, code: err.code },
+      );
+      await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, err);
+      return;
+    }
+
+    if (
+      err instanceof RenderEnqueueError &&
+      err.clientNonce &&
+      isRenderEnqueueRetryable(err.status)
+    ) {
+      // Retryable transport/server failure — retry once with the SAME
+      // nonce so reserve's replay flag catches any successful-reserve-
+      // but-failed-insert state. Without the nonce preservation, a second
+      // attempt would create a new reservation and orphan the first.
+      logger.warn(
+        `[${source}] render enqueue retryable (status=${err.status}); retrying once with same nonce`,
+        err,
+      );
+      try {
+        await enqueueRenderJob(garmentId, source as RenderTriggerSource, {
+          clientNonce: err.clientNonce,
+        });
+        return;
+      } catch (retryErr) {
+        logger.warn(`[${source}] render enqueue retry failed`, retryErr);
+
+        // Round-16 Bug 1 — server-state check before reset.
+        //
+        // A retryable transport/server failure does NOT prove the enqueue
+        // failed server-side. The server can complete the reserve +
+        // render_jobs INSERT and then return 5xx (or have the connection
+        // drop) before the client sees success. Both the first attempt
+        // AND the nonce-preserving retry can land in that state — the
+        // server's ON CONFLICT (reserve_key) / reserve-replay path makes
+        // the retry a no-op INSERT, still returning 5xx from the same
+        // crash point.
+        //
+        // Resetting render_status='none' in that case leaves the row
+        // live in the queue AND shows the user a "re-trigger" UI. If
+        // they tap Studio photo again, they fire a fresh enqueue with a
+        // new clientNonce → new reserve_key → second reservation AND a
+        // second render_jobs row. Double-charge (two reservations),
+        // wasted Gemini call (two renders for the same intent). The
+        // original orphaned row still ticks forward under the worker.
+        //
+        // Server-state check: query render_jobs by (user_id, garment_id,
+        // reserve_key suffix-match on clientNonce). The clientNonce is a
+        // UUID — globally unique — so the suffix-match is safe without
+        // duplicating the server's full reserve_key derivation
+        // (presentation, RENDER_PROMPT_VERSION) on the client. If a row
+        // exists, the worker owns the garment's render_status transition
+        // — we leave it alone. If no row exists, reset as before.
+        //
+        // Any failure of the check itself (network blip, RLS unexpected
+        // result) falls through to the reset — the pre-round-16 behavior
+        // — because the alternative (leaving the garment at 'pending'
+        // forever when we also couldn't talk to the DB) is worse UX than
+        // the narrow double-charge case we're trying to prevent.
+        const nonce = err.clientNonce;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && nonce) {
+            const { data: existingJob, error: checkErr } = await supabase
+              .from('render_jobs')
+              .select('id, status')
+              .eq('user_id', user.id)
+              .eq('garment_id', garmentId)
+              .like('reserve_key', `%${nonce}`)
+              .maybeSingle();
+            if (checkErr) {
+              logger.warn(
+                `[${source}] server-state check query failed — falling through to reset`,
+                { garmentId, error: checkErr.message },
+              );
+            } else if (existingJob) {
+              logger.info(
+                `[${source}] server-state check: render_jobs row exists despite client retry failure — leaving garment state to worker`,
+                {
+                  garmentId,
+                  jobId: existingJob.id,
+                  jobStatus: existingJob.status,
+                },
+              );
+              return;
+            }
+          }
+        } catch (stateCheckErr) {
+          logger.warn(
+            `[${source}] server-state check threw — falling through to reset`,
+            {
+              garmentId,
+              error: stateCheckErr instanceof Error ? stateCheckErr.message : String(stateCheckErr),
+            },
+          );
+        }
+
+        await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, retryErr);
+        return;
+      }
+    }
+
+    logger.warn(`[${source}] render enqueue failed`, err);
+    await resetGarmentRenderStateOnEnqueueFailure(garmentId, source, err);
+  }
+}
+
+/**
+ * Reset garment.render_status to 'none' when `startGarmentRenderInBackground`
+ * exhausts its retries without ever creating a render_jobs row.
+ *
+ * Why this function exists (Codex round 11 Bug 2):
+ *
+ * `buildGarmentIntelligenceFields` (line ~326) sets `render_status='pending'`
+ * on the garment INSERT for studio-render flows. If the subsequent
+ * `enqueueRenderJob` call fails AND its retry also fails, no render_jobs
+ * row ever gets created, and `resumePendingGarmentRenders` is a no-op
+ * under P5 (P5 delegates recovery to the durable queue — but the queue
+ * can't recover a job that was never enqueued). Without this reset, the
+ * garment is orphaned at `render_status='pending'` forever. The UI shows
+ * the "Refining…" state indefinitely; refreshing the app doesn't help.
+ *
+ * Resetting to `'none'` (rather than `'failed'`) signals "no render
+ * attempted" — lets the user re-trigger a render from the UI on next
+ * interaction (Studio photo button reappears because
+ * `showGenerateAction` triggers on `render_status==='none'`). Marking
+ * as `'failed'` would be misleading: no attempt was ever made.
+ *
+ * Round 14 fix: 402 (trial locked / insufficient credits) now also
+ * routes here. Round 11 initially excluded 402 on the theory that the
+ * upgrade flow would re-trigger enqueue and `render_status='pending'`
+ * would preserve intent across the upgrade UX. That theory was wrong
+ * in aggregate with P5: `resumePendingGarmentRenders` is a no-op under
+ * the durable queue, and a 402 returns from `enqueue_render_job`
+ * BEFORE any `render_jobs` row is written — the worker has literally
+ * nothing to process. Result pre-round-14: garment stranded at
+ * `render_status='pending'` forever, UI shows "Refining…" even after
+ * the user upgraded. Falling through to this reset flips the garment
+ * to `'none'` so the Studio photo CTA reappears and the user can
+ * retry from the wardrobe after upgrading.
+ */
+async function resetGarmentRenderStateOnEnqueueFailure(
+  garmentId: string,
+  source: string,
+  err: unknown,
+): Promise<void> {
+  try {
+    const { error: updateError } = await supabase
+      .from('garments')
+      .update({ render_status: 'none' })
+      .eq('id', garmentId);
+    if (updateError) {
+      logger.error(
+        `[${source}] reset-to-none after enqueue failure also failed — garment may be stuck in 'pending'`,
+        { garmentId, updateError: updateError.message, originalError: err instanceof Error ? err.message : String(err) },
+      );
+    } else {
+      logger.info(
+        `[${source}] enqueue exhausted — reset garment render_status to 'none' so user can retry`,
+        { garmentId, originalError: err instanceof Error ? err.message : String(err) },
+      );
+    }
+  } catch (resetErr) {
+    logger.error(
+      `[${source}] reset-to-none threw unexpectedly`,
+      { garmentId, resetError: resetErr instanceof Error ? resetErr.message : String(resetErr) },
+    );
+  }
 }

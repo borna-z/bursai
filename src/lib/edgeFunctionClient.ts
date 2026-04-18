@@ -81,7 +81,7 @@ function recordCircuitSuccess(fnName: string): void {
 // supabase-js FunctionsHttpError stores the Response on `error.context`
 // with a generic message ("Edge Function returned a non-2xx status code").
 // We must inspect `context.status` to get the real HTTP status code.
-function getHttpStatus(error: unknown): number | null {
+export function getHttpStatus(error: unknown): number | null {
   if (error && typeof error === 'object' && 'context' in error) {
     const ctx = (error as { context?: { status?: number } }).context;
     if (ctx && typeof ctx.status === 'number') return ctx.status;

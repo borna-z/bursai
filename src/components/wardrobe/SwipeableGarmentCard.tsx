@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Garment } from '@/hooks/useGarments';
-import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { enqueueRenderJob, RenderEnqueueError, isRenderEnqueueRetryable } from '@/lib/garmentIntelligence';
 import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowState';
 import { WardrobeGarmentListLayout } from '@/components/wardrobe/GarmentCardSystem';
 
@@ -93,17 +93,53 @@ export const SwipeableGarmentCard = memo(function SwipeableGarmentCard({
     event.stopPropagation();
     hapticLight();
     setEnhanceTriggered(true);
-    // Fresh nonce per tap — each user-initiated regenerate intent is a
-    // distinct logical request. Network retries of the same tap are
-    // handled by invokeEdgeFunction's retry logic (retries: 0 here, so
-    // no retries happen, but the nonce is stable per tap regardless).
-    const clientNonce = crypto.randomUUID();
+    // P5: enqueue a render job via the durable queue. Returns fast
+    // (~200-300ms) once the row is INSERTed; worker picks it up from
+    // either the internal POST kickoff or the pg_cron safety net.
+    //
+    // Force flag: true iff there's already a rendered image (the
+    // "Regenerate" button path). Pre-P5, this component called
+    // render_garment_image directly with force:true so Gemini ran
+    // against the product-ready gate's "skip_product_ready" signal.
+    // Post-P5 without plumbing it through, the worker would see
+    // force=false, render_garment_image would skip at the gate, and
+    // the user would get no new image. Codex round 10 caught this.
+    // First-time generation (no prior render) stays force=false so
+    // the product-ready gate still applies.
+    //
+    // Retry contract: a distinct tap is a new user intent → new
+    // nonce (the default). A retryable transport/server failure
+    // (network/timeout/abort/5xx) gets one retry with the SAME nonce
+    // so a reserve-succeeded-insert-failed state can recover without
+    // orphaning the reservation. See isRenderEnqueueRetryable.
+    //
+    // `source: 'retry'` here is an analytics labeling issue (T-4):
+    // first-time generations get logged as retries. Fix deferred to
+    // a post-launch follow-up — no ledger impact, no user impact,
+    // only reporting/attribution.
+    const force = hasRenderedImage;
     try {
-      await invokeEdgeFunction('render_garment_image', {
-        body: { garmentId: garment.id, force: true, clientNonce },
-        retries: 0,
-      });
-    } catch {
+      await enqueueRenderJob(garment.id, 'retry', { force });
+    } catch (err) {
+      if (err instanceof RenderEnqueueError) {
+        if (err.status === 402) {
+          // Trial / insufficient — surface via upgrade CTA (P10/P11).
+          setEnhanceTriggered(false);
+          return;
+        }
+        if (err.clientNonce && isRenderEnqueueRetryable(err.status)) {
+          try {
+            await enqueueRenderJob(garment.id, 'retry', {
+              clientNonce: err.clientNonce,
+              force,
+            });
+            return;
+          } catch {
+            setEnhanceTriggered(false);
+            return;
+          }
+        }
+      }
       setEnhanceTriggered(false);
     }
   };

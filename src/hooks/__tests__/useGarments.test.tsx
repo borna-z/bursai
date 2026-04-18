@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
 const mockFrom = vi.fn();
+const mockRpc = vi.fn().mockResolvedValue({ data: 0, error: null });
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }));
 vi.mock('@/lib/haptics', () => ({
   hapticSuccess: vi.fn(),
@@ -193,6 +194,14 @@ describe('useGarments', () => {
   it('invalidates garment list and garment count after delete', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
     mockFrom.mockReturnValue(mockChain());
+    // Round-13 atomic delete RPC: returns a structured success payload.
+    // Set the mockRpc shape so useDeleteGarment's ok-check passes and
+    // onSuccess fires.
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValue({
+      data: { ok: true, released_count: 0, garment_deleted: true },
+      error: null,
+    });
 
     const { useDeleteGarment } = await import('../useGarments');
     const { qc, wrapper } = createWrapper();
@@ -206,5 +215,143 @@ describe('useGarments', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['garments-count', 'user-1'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-suggestions'] });
+  });
+
+  describe('useDeleteGarment atomic delete-with-release (Codex round 13 redesign)', () => {
+    it('calls delete_garment_with_release_atomic RPC with garment id and user id', async () => {
+      // Round 13: single atomic RPC replaces round 12's two-step
+      // release-then-delete. Client no longer issues a separate DELETE —
+      // the RPC handles release + delete in one server-side transaction.
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({
+        data: { ok: true, released_count: 1, garment_deleted: true },
+        error: null,
+      });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-atomic-id');
+      });
+
+      expect(mockRpc).toHaveBeenCalledWith(
+        'delete_garment_with_release_atomic',
+        { p_garment_id: 'garment-atomic-id', p_user_id: 'user-1' },
+      );
+    });
+
+    it('does NOT issue a separate DELETE via from("garments").delete() — the RPC owns the delete', async () => {
+      // Round-13 atomicity guarantee: the client must NOT call
+      // `.from('garments').delete()` anymore, because a split
+      // client-side transaction can leave release committed with the
+      // DELETE failed (Codex round 13 Bug 2).
+      //
+      // Note: `.from('ai_response_cache').delete()` from
+      // invalidateWardrobeQueries is expected + correct (bust server-side
+      // insights cache). The assertion below filters to the 'garments'
+      // table specifically.
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockClear();
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({
+        data: { ok: true, released_count: 0, garment_deleted: true },
+        error: null,
+      });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-no-split');
+      });
+
+      // RPC fired exactly once.
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      // The mutation body did NOT call supabase.from('garments') at all —
+      // the RPC owns both the release AND the delete. (`from('ai_response_cache')`
+      // from invalidateWardrobeQueries onSuccess is unrelated and allowed.)
+      const garmentFromCalls = mockFrom.mock.calls.filter((call) => call[0] === 'garments');
+      expect(garmentFromCalls).toHaveLength(0);
+    });
+
+    it('treats idempotent garment_not_found as success (retry after prior delete)', async () => {
+      // RPC returns { ok:true, garment_deleted:false, reason:'garment_not_found' }
+      // on retry — the prior call already deleted. Should NOT throw; the
+      // onSuccess invalidation should still fire so the client refetches.
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({
+        data: { ok: true, released_count: 0, garment_deleted: false, reason: 'garment_not_found' },
+        error: null,
+      });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync('garment-already-deleted');
+      });
+
+      // Did not throw. RPC called once.
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws when the RPC returns ok:false', async () => {
+      // Authorization failure or other server-side rejection must NOT be
+      // silently swallowed — the mutation should throw so the React Query
+      // retry logic / caller can react.
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({
+        data: { ok: false, reason: 'some_server_error' },
+        error: null,
+      });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      let caught: unknown = null;
+      await act(async () => {
+        try {
+          await result.current.mutateAsync('garment-ok-false');
+        } catch (e) {
+          caught = e;
+        }
+      });
+
+      expect(caught).toBeInstanceOf(Error);
+    });
+
+    it('throws when the RPC itself errors (transport / auth / exception)', async () => {
+      vi.mocked(useAuth).mockReturnValue({ user: mockUser } as ReturnType<typeof useAuth>);
+      mockFrom.mockReturnValue(mockChain());
+      mockRpc.mockClear();
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'not authorized' } });
+
+      const { useDeleteGarment } = await import('../useGarments');
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useDeleteGarment(), { wrapper });
+
+      let caught: unknown = null;
+      await act(async () => {
+        try {
+          await result.current.mutateAsync('garment-rpc-errored');
+        } catch (e) {
+          caught = e;
+        }
+      });
+
+      expect(caught).toBeTruthy();
+    });
   });
 });

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess, hapticHeavy } from '@/lib/haptics';
 import { enqueue } from '@/lib/offlineQueue';
 import { resumePendingGarmentRenders } from '@/lib/garmentIntelligence';
+import { logger } from '@/lib/logger';
 import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Garment = Tables<'garments'>;
@@ -338,17 +339,52 @@ export function useUpdateGarment() {
 export function useDeleteGarment() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated');
-      const { error } = await supabase
-        .from('garments')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+
+      // Atomic delete-with-release (Codex round 13 redesign). The RPC
+      // releases any active render_jobs reservations AND deletes the
+      // garment in ONE transaction. Replaces the round-12 two-step
+      // release-then-delete which had two design flaws:
+      //   (1) Race between concurrent deletes double-refunding the
+      //       balance before either insert committed.
+      //   (2) Split client-side transaction: if release succeeded and
+      //       DELETE failed, worker's eventual consume hit already_terminal
+      //       and the user got a free render.
+      //
+      // Atomic RPC rolls back both or commits both. Server-side
+      // render_credits FOR UPDATE lock serializes concurrent callers.
+      const { data, error } = await supabase.rpc(
+        'delete_garment_with_release_atomic',
+        { p_garment_id: id, p_user_id: user.id },
+      );
 
       if (error) throw error;
+
+      // Shape: { ok, released_count, garment_deleted, reason? }
+      const result = data as {
+        ok: boolean;
+        released_count: number;
+        garment_deleted: boolean;
+        reason?: string;
+      } | null;
+
+      if (!result || result.ok !== true) {
+        throw new Error(`delete_garment_with_release_atomic returned non-ok: ${result?.reason ?? 'unknown'}`);
+      }
+
+      if (result.released_count > 0) {
+        logger.info('[useDeleteGarment] released active reservations before cascade', {
+          garment_id: id,
+          released_count: result.released_count,
+        });
+      }
+
+      // ok=true + garment_deleted=false with reason='garment_not_found' is
+      // idempotent success — retry after a prior successful delete lands
+      // here. Don't throw.
     },
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),

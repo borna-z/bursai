@@ -13,6 +13,8 @@ import {
   GEMINI_IMAGE_MODEL,
   GEMINI_IMAGE_API_URL,
 } from '../_shared/gemini-image-client.ts';
+import { deriveRenderJobId } from '../_shared/render-job-id.ts';
+import { timingSafeEqual } from '../_shared/timing-safe.ts';
 
 /**
  * Bump this when the render prompt or Gemini parameters change materially.
@@ -32,21 +34,10 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
 
-/**
- * Derive a deterministic UUID from the idempotency key (SHA-256 based).
- * Ensures reserve/consume/release for the same render request all share
- * a single render_job_id — needed for the ledger's terminal uniqueness
- * guard (see idx_render_credit_tx_terminal_unique).
- */
-async function deriveJobId(seed: string): Promise<string> {
-  const bytes = new TextEncoder().encode(seed);
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  const hex = Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  // Format as UUID: 8-4-4-4-12 hex
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
+// deriveRenderJobId moved to _shared/render-job-id.ts in P5 Codex round 3
+// so enqueue_render_job uses the same derivation. Previously called
+// `deriveJobId` locally; kept the alias below for minimal diff in callers.
+const deriveJobId = deriveRenderJobId;
 
 // ─── Prompt building (unchanged from prior implementation) ───
 
@@ -443,34 +434,24 @@ serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-      error: userError,
-    } = await authClient.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    supabase = createClient(supabaseUrl, serviceKey);
-
-    // ── Scale guard: per-user rate limit ──
-    await enforceRateLimit(supabase, user.id, 'render_garment_image');
-
     // ── Input parsing + validation (isolated from overload counter) ──
-    // Any error here is a client input issue (malformed JSON, wrong schema,
-    // missing required fields). Returning 400 directly without touching
-    // recordError so a user sending garbage bodies in a loop can't trip
-    // checkOverload and DoS valid requests on the same isolate.
+    // Parsed upfront so the internal-vs-external auth branch can inspect
+    // body.internal before we choose between service-role trust + body.userId
+    // and getUser(). Parse error paths return 400 without recordError — same
+    // DoS-guard rationale as P4 Bug 10.
     let garmentId: string;
     let force: boolean | undefined;
     let clientNonce: string;
+    let isInternalInvocation = false;
+    let internalUserId: string | null = null;
+    let internalJobId: string | null = null;
+    // Queued metadata forwarded by process_render_jobs from the render_jobs row.
+    // Authoritative when present — prevents base-key drift if profile or
+    // RENDER_PROMPT_VERSION change between enqueue and worker run (Codex
+    // round 6). Null for external (P4 legacy) callers; they fall back to
+    // live profile + current constant below.
+    let internalPresentation: string | null = null;
+    let internalPromptVersion: string | null = null;
     try {
       const rawBody: unknown = await req.json();
       if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
@@ -517,6 +498,47 @@ serve(async (req) => {
 
       clientNonce = rawNonce;
       garmentIdForFailure = garmentId;
+
+      // P5 internal path: worker (process_render_jobs) calls us with
+      // { internal: true, jobId, userId, ... } + service-role Bearer.
+      // We skip getUser and use body.userId directly. Reserve is already
+      // claimed at enqueue; reserve's replay flag ensures the re-reserve
+      // call below hits the idempotency path without double-charging.
+      if (bodyObj.internal === true) {
+        // Constant-time compare — see _shared/timing-safe.ts for why.
+        // A misconfigured empty serviceKey is rejected at the env-load
+        // level by the length check below.
+        if (!serviceKey || serviceKey.length < 32 || !timingSafeEqual(token, serviceKey)) {
+          return new Response(
+            JSON.stringify({ error: 'internal mode requires service role' }),
+            { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+        if (typeof bodyObj.userId !== 'string' || bodyObj.userId.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'internal mode requires userId' }),
+            { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+        if (typeof bodyObj.jobId !== 'string' || bodyObj.jobId.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'internal mode requires jobId' }),
+            { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+          );
+        }
+        isInternalInvocation = true;
+        internalUserId = bodyObj.userId;
+        internalJobId = bodyObj.jobId;
+        // Read queued metadata forwarded by process_render_jobs. Absence is
+        // tolerated (older worker versions, or a direct internal call that
+        // predates P5 round 6) → we fall back to live profile + constant.
+        if (typeof bodyObj.presentation === 'string' && bodyObj.presentation.length > 0) {
+          internalPresentation = normalizeMannequinPresentation(bodyObj.presentation);
+        }
+        if (typeof bodyObj.promptVersion === 'string' && bodyObj.promptVersion.length > 0) {
+          internalPromptVersion = bodyObj.promptVersion;
+        }
+      }
     } catch (parseError) {
       // SyntaxError from req.json(), TypeError from destructuring a non-object,
       // or anything else originating in user-supplied input. NOT a system issue —
@@ -528,6 +550,39 @@ serve(async (req) => {
         JSON.stringify({ error: 'Invalid request body' }),
         { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
+    }
+
+    // ── Resolve user (either via JWT or internal trust) ──
+    let user: { id: string };
+    if (isInternalInvocation) {
+      user = { id: internalUserId! };
+    } else {
+      const authClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const {
+        data: { user: authedUser },
+        error: userError,
+      } = await authClient.auth.getUser(token);
+
+      if (userError || !authedUser) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      user = { id: authedUser.id };
+    }
+
+    supabase = createClient(supabaseUrl, serviceKey);
+
+    // ── Scale guard: per-user rate limit ──
+    // Internal invocations skip this: the worker (process_render_jobs) is
+    // not a user — it's our own code. Rate-limiting the worker would limit
+    // the whole queue throughput, not the user; the user was already rate
+    // limited in enqueue_render_job.
+    if (!isInternalInvocation) {
+      await enforceRateLimit(supabase, user.id, 'render_garment_image');
     }
 
     // ── Fetch garment ──
@@ -554,17 +609,112 @@ serve(async (req) => {
     // Don't re-render if already ready/rendering/skipped, unless caller forces.
     // Note: these early returns happen BEFORE claim + reserve so no credit is charged.
     if (!force && (garment.render_status === 'ready' || garment.render_status === 'rendering' || garment.render_status === 'skipped')) {
+      // For INTERNAL (P5 worker) invocations only: `render_status='rendering'`
+      // means a concurrent in-flight render is underway (either worker N's
+      // Deno isolate that still hasn't completed its Gemini call, or an
+      // external caller mid-render). The worker's `deferred` contract needs
+      // a distinct response so `handleRenderJob` keeps the job pending
+      // WITHOUT writing a release tx — releasing here would race the
+      // in-flight consume and produce a free render (user pays nothing,
+      // gets the render). Codex round 9 caught that this guard was
+      // unreachable before — the old duplicate `deferred` branch further
+      // down was dead code because this earlier guard returned first. See
+      // state-machine doc Scenario 13.
+      //
+      // External (P4 legacy) callers still get skipped:true for
+      // backward compatibility with the pre-queue contract.
+      if (garment.render_status === 'rendering' && isInternalInvocation) {
+        return new Response(
+          JSON.stringify({ ok: true, deferred: true, reason: 'Already rendering' }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+      // Include renderedImagePath when present so P5 worker (process_render_jobs)
+      // can recognize this as an already-rendered success rather than a
+      // generic "skipped" (no path) result — matters for the narrow
+      // worker-crash-after-render-before-status-update path where stale
+      // recovery re-claims the row.
+      const alreadyReadyBody: Record<string, unknown> = {
+        ok: true,
+        skipped: true,
+        reason: `Already ${garment.render_status}`,
+      };
+      if (garment.render_status === 'ready' && garment.rendered_image_path) {
+        alreadyReadyBody.rendered = true;
+        alreadyReadyBody.renderedImagePath = garment.rendered_image_path;
+        alreadyReadyBody.renderedAt = garment.rendered_at;
+
+        // Ledger-healing consume for the worker-crash-between-render-and-consume
+        // scenario: garments.render_status was flipped to 'ready' at line ~1190
+        // in a prior attempt, but the Deno isolate crashed before the consume
+        // RPC fired. Stale recovery reset the job, the worker re-claimed, and
+        // we're now here with a rendered garment but (possibly) an un-consumed
+        // reserve. Calling consumeCredit with the operation-prefixed consume
+        // key is idempotent: if the prior attempt did consume, this hits the
+        // idempotency short-circuit (duplicate=true, balance untouched). If
+        // the prior attempt crashed pre-consume, this writes the consume tx
+        // and moves `reserved` → `used_this_period` (or decrements source
+        // counters for trial_gift/topup). Either way the ledger converges.
+        //
+        // Only runs on internal (worker) calls — for P4 external callers,
+        // this path was a pure no-op and we preserve that behavior.
+        if (isInternalInvocation && internalJobId) {
+          try {
+            // Prefer queued values from the render_jobs row (forwarded by
+            // process_render_jobs) so healBaseKey matches the reserve_key
+            // persisted at enqueue even if the user's profile or
+            // RENDER_PROMPT_VERSION changed since. Fall back to profile
+            // only if the worker didn't forward presentation (e.g. older
+            // worker, or a direct internal call predating round 6).
+            let presentationForHeal = internalPresentation;
+            if (!presentationForHeal) {
+              const { data: profileForHeal } = await supabase
+                .from('profiles')
+                .select('mannequin_presentation')
+                .eq('id', user.id)
+                .maybeSingle();
+              presentationForHeal = normalizeMannequinPresentation(
+                profileForHeal?.mannequin_presentation,
+              );
+            }
+            const promptVersionForHeal = internalPromptVersion ?? RENDER_PROMPT_VERSION;
+            const healBaseKey =
+              `${user.id}_${garment.id}_${presentationForHeal}_${promptVersionForHeal}_${clientNonce}`;
+            const healResult = await consumeCredit(
+              supabase,
+              user.id,
+              internalJobId,
+              `consume:${healBaseKey}`,
+            );
+            console.log('render_garment_image already-ready healing consume', {
+              garmentId: garment.id,
+              jobId: internalJobId,
+              healed: healResult.ok && !healResult.duplicate,
+              duplicate: Boolean(healResult.duplicate),
+              reason: healResult.reason,
+            });
+          } catch (healErr) {
+            // Non-fatal — worst case, orphan-reservation cron eventually
+            // releases. We still report the render as successful to the
+            // worker so it can mark the job succeeded.
+            console.warn('render_garment_image healing consume threw', {
+              garmentId: garment.id,
+              jobId: internalJobId,
+              error: healErr instanceof Error ? healErr.message : String(healErr),
+            });
+          }
+        }
+      }
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: `Already ${garment.render_status}` }),
+        JSON.stringify(alreadyReadyBody),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
-    if (garment.render_status === 'rendering') {
-      return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: 'Already rendering' }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      );
-    }
+    // NOTE: the earlier guard (line ~611) handles every `render_status='rendering'`
+    // case — it returns `deferred:true` for internal invocations and
+    // `skipped:true` for external. The standalone `if (render_status === 'rendering')`
+    // check that used to live here in the round-7 patch was dead code (Codex
+    // round 9). Removed to avoid confusing future readers.
 
     // ── Resolve source image ──
     const sourceImagePath = garment.original_image_path || garment.image_path;
@@ -585,13 +735,25 @@ serve(async (req) => {
       throw new Error('GEMINI_API_KEY not configured for render_garment_image');
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('mannequin_presentation')
-      .eq('id', garment.user_id)
-      .maybeSingle();
-
-    const mannequinPresentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
+    // For internal (worker) invocations, use the queued presentation from the
+    // render_jobs row. For external (P4 legacy) callers, fetch live from the
+    // profile. This keeps the base key / reserve_key stable across the
+    // enqueue→worker delay, so a profile change mid-queue doesn't produce a
+    // second reserve transaction (Codex round 6).
+    let mannequinPresentation: string;
+    if (internalPresentation) {
+      mannequinPresentation = internalPresentation;
+    } else {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mannequin_presentation')
+        .eq('id', garment.user_id)
+        .maybeSingle();
+      mannequinPresentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
+    }
+    // Same reasoning for prompt version — constant value can change across
+    // deploys; the queued value pins the version that was current at enqueue.
+    const effectivePromptVersion = internalPromptVersion ?? RENDER_PROMPT_VERSION;
 
     console.log('render_garment_image Gemini provider config', {
       garmentId: garment.id,
@@ -655,19 +817,38 @@ serve(async (req) => {
     // ── Claim render atomically before expensive prep ──
     const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
     if (!claimed) {
-      // Claim lost to a race — garment was updated by another process.
-      // Nothing to revert (render_status wasn't touched, no credit reserved yet).
+      // Claim lost to a race — garment was updated by another process between
+      // our earlier fetch and now. Inspect the landing state:
+      //   * 'rendering'  → concurrent in-flight render. Use the `deferred`
+      //                    response so the worker keeps the job pending
+      //                    instead of prematurely releasing the reservation
+      //                    (would race with the in-flight consume).
+      //   * 'ready' / 'skipped' / anything else → prior terminal state,
+      //     safe for worker to terminalize with release (no consume is
+      //     coming from the other branch).
       const { data: latestGarment } = await supabase
         .from('garments')
         .select('render_status')
         .eq('id', garment.id)
         .maybeSingle();
 
+      const latestStatus = latestGarment?.render_status ?? 'claimed';
+      if (latestStatus === 'rendering') {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            deferred: true,
+            reason: 'Already rendering',
+          }),
+          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        );
+      }
+
       return new Response(
         JSON.stringify({
           ok: true,
           skipped: true,
-          reason: `Already ${latestGarment?.render_status ?? 'claimed'}`,
+          reason: `Already ${latestStatus}`,
         }),
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
@@ -691,11 +872,20 @@ serve(async (req) => {
     // so all three ops share the same job_id — required for the ledger's
     // partial unique index terminal guard to work correctly.
     const baseKey =
-      `${user.id}_${garment.id}_${mannequinPresentation}_${RENDER_PROMPT_VERSION}_${clientNonce}`;
+      `${user.id}_${garment.id}_${mannequinPresentation}_${effectivePromptVersion}_${clientNonce}`;
     const reserveKey = `reserve:${baseKey}`;
     const consumeKey = `consume:${baseKey}`;
     const releaseKey = `release:${baseKey}`;
-    const jobId = await deriveJobId(baseKey);
+
+    // P5 internal invocations supply the canonical render_jobs.id as
+    // jobId — this is the value reserve_credit_atomic recorded at enqueue,
+    // so consume/release resolve the reserve row by the same ID. External
+    // (legacy P4) callers still fall back to the deterministic SHA-256
+    // derivation from baseKey; reserve's replay flag keeps either path
+    // idempotent against retries.
+    const jobId = isInternalInvocation
+      ? (internalJobId as string)
+      : await deriveJobId(baseKey);
 
     const reserveResult = await reserveCredit(supabase, user.id, jobId, reserveKey);
 
@@ -739,10 +929,32 @@ serve(async (req) => {
     // ── Idempotency replay handling ──
     // Reserve returned { ok: true, replay: true } — the idempotency key was
     // already in the ledger, meaning this is a retry of a prior request.
-    // DO NOT re-run Gemini: that would waste quota AND produce a free
-    // render (consume would hit already_terminal against the prior
-    // terminal transaction). Inspect prior state and respond.
-    if (reserveResult.replay) {
+    //
+    // TWO CLASSES OF REPLAY:
+    //
+    // 1. External (P4 legacy) path: client called render_garment_image
+    //    directly, retried the same clientNonce. The ONLY reason replay
+    //    fires here is that a prior attempt actually reached reserveCredit
+    //    on this function — so either there's a cached render or a prior
+    //    in-flight attempt. Short-circuit: return cached / 202 / 409.
+    //
+    // 2. Internal (P5 queue) path: enqueue_render_job already reserved with
+    //    this exact reserveKey before handing off to the queue, and
+    //    process_render_jobs invokes us with internal:true + the same
+    //    jobId + the same clientNonce. The reserve call above is EXPECTED
+    //    to replay — that's correct by design (the ledger is idempotent on
+    //    the key). Short-circuiting here would break the happy path: the
+    //    worker would never call Gemini, attempts would tick up, and the
+    //    job would eventually flip to 'failed' for a user who did nothing
+    //    wrong.
+    //
+    //    For the internal path, treat replay as "reservation was made at
+    //    enqueue, proceed" and fall through to the render pipeline. The
+    //    consume at the end uses the same jobId — the ledger's
+    //    terminal-uniqueness guard still prevents double-consume because
+    //    consume's own idempotency key (consume:<baseKey>) is independent
+    //    of the reserve replay state.
+    if (reserveResult.replay && !isInternalInvocation) {
       // CRITICAL: Decide the replay branch from the pre-claim snapshot
       // (priorState.render_status), NOT a live re-fetch. Our own
       // claimGarmentRender() just set render_status to 'rendering' a few
@@ -1127,10 +1339,27 @@ serve(async (req) => {
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     } finally {
-      // Any non-success path (thrown error, quality-gate-rejected return, eligibility-skip return,
-      // gemini_no_image return) leaves consumed=false, so we release the reservation.
-      // Failure in release is non-fatal — the orphan cleanup cron will eventually reconcile.
-      if (!consumed) {
+      // Release policy:
+      //
+      // External (direct / P4 legacy) callers: any non-consume exit releases
+      // the reservation. Preserves the pre-P5 "release-on-failure" contract
+      // that SwipeableGarmentCard/GarmentConfirmSheet used when there was no
+      // worker queue — a failed single-shot render freed its own credit
+      // because nothing else would.
+      //
+      // Internal (P5 worker) callers: NEVER release here. Reserve-until-
+      // final-failure (Interpretation A) means the reservation outlives
+      // transient failures and is only released when process_render_jobs
+      // terminalizes the row at attempts=max_attempts. If this finally
+      // released on every failed attempt, the next retry would consume_credit
+      // and hit the ledger's terminal-uniqueness guard (already_terminal) →
+      // the render succeeds end-to-end but the user isn't charged → free
+      // render. Codex round 7 Bug 1.
+      //
+      // Skip responses from internal callers also rely on this: the worker
+      // now terminalizes + releases on skip (round 7 Bug 2). Releasing here
+      // would put the release first and break the worker's terminal flow.
+      if (!isInternalInvocation && !consumed) {
         try {
           // Using the operation-prefixed releaseKey built above (release:<base>).
           const releaseResult = await releaseCredit(supabase, user.id, jobId, releaseKey);

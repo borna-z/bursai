@@ -31,6 +31,7 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   generate_garment_images:     { maxPerHour: 20, maxPerMinute: 3 },
   generate_flatlay:            { maxPerHour: 15, maxPerMinute: 3 },
   render_garment_image:        { maxPerHour: 30, maxPerMinute: 3 },
+  enqueue_render_job:          { maxPerHour: 60, maxPerMinute: 10 },
   outfit_photo_feedback:       { maxPerHour: 20, maxPerMinute: 4 },
 
   // Moderate AI usage

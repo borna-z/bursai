@@ -19,10 +19,19 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+// Default mock: analyze_garment returns enrichment payload; enqueue_render_job
+// returns a successful render_jobs row shape; anything else returns the
+// previous empty-success shape.
 vi.mock('@/lib/edgeFunctionClient', () => ({
   invokeEdgeFunction: vi.fn().mockImplementation((functionName: string) => {
     if (functionName === 'analyze_garment') {
       return Promise.resolve({ data: { enrichment: { refined_title: 'Test garment' } }, error: null });
+    }
+    if (functionName === 'enqueue_render_job') {
+      return Promise.resolve({
+        data: { jobId: 'mock-job-id', status: 'pending', source: 'monthly', replay: false },
+        error: null,
+      });
     }
     return Promise.resolve({ data: {}, error: null });
   }),
@@ -124,7 +133,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
         body: { storagePath: 'user-1/photo.jpg', mode: 'enrich' },
       });
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
         body: expect.objectContaining({ garmentId: 'garment-1', source: 'add_photo', clientNonce: expect.any(String) }),
       }));
     });
@@ -134,15 +143,15 @@ describe('triggerGarmentPostSaveIntelligence', () => {
 
   it('allows batch add to skip image processing and still trigger render', async () => {
     triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-2',
-      storagePath: 'user-1/photo.jpg',
+      garmentId: 'garment-batch',
+      storagePath: 'user-1/photo-batch.jpg',
       source: 'batch_add',
       imageProcessing: { mode: 'skip' },
     });
 
     await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: expect.objectContaining({ garmentId: 'garment-2', source: 'batch_add', clientNonce: expect.any(String) }),
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
+        body: expect.objectContaining({ garmentId: 'garment-batch', source: 'batch_add', clientNonce: expect.any(String) }),
       }));
     });
 
@@ -158,97 +167,79 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     });
 
     await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
-        body: { storagePath: 'user-1/photo-live.jpg', mode: 'enrich' },
-      });
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: expect.objectContaining({ garmentId: 'garment-live', source: 'live_scan', clientNonce: expect.any(String) }),
-      }));
-    });
-  });
-
-  it('triggers studio rendering for live scan without waiting for completion', async () => {
-    triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-live',
-      storagePath: 'user-1/photo-live.jpg',
-      source: 'live_scan',
-      imageProcessing: { mode: 'local', run: vi.fn().mockResolvedValue(undefined) },
-    });
-
-    await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
-        body: { storagePath: 'user-1/photo-live.jpg', mode: 'enrich' },
-      });
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
         body: expect.objectContaining({ garmentId: 'garment-live', source: 'live_scan', clientNonce: expect.any(String) }),
       }));
     });
   });
 
   it('triggers render only after enrichment resolves, not in parallel', async () => {
-    let resolveEnrich!: (value: { data: unknown; error: null }) => void;
-    vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
+    let resolveEnrichment: ((value: { data: { enrichment: Record<string, unknown> }; error: null }) => void) | null = null;
+
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName: string) => {
       if (functionName === 'analyze_garment') {
-        return new Promise((resolve) => { resolveEnrich = resolve; });
+        return new Promise((resolve) => {
+          resolveEnrichment = resolve;
+        });
+      }
+      if (functionName === 'enqueue_render_job') {
+        return Promise.resolve({
+          data: { jobId: 'mock-job-id', status: 'pending', source: 'monthly', replay: false },
+          error: null,
+        });
       }
       return Promise.resolve({ data: {}, error: null });
     });
 
     triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-chain',
-      storagePath: 'user-1/photo-chain.jpg',
+      garmentId: 'garment-order',
+      storagePath: 'user-1/photo-order.jpg',
       source: 'add_photo',
       imageProcessing: { mode: 'skip' },
     });
 
-    // Yield to event loop — enrichment is blocked awaiting analyze_garment
-    await new Promise((r) => setTimeout(r, 0));
-    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('render_garment_image', expect.anything());
+    // Render must NOT be called before enrichment resolves.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('enqueue_render_job', expect.anything());
 
-    // Resolve enrichment — render must fire in the .then() chain
-    resolveEnrich({ data: { enrichment: { refined_title: 'Chain test' } }, error: null });
+    resolveEnrichment?.({ data: { enrichment: { refined_title: 'Ordered' } }, error: null });
 
     await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: expect.objectContaining({ garmentId: 'garment-chain', source: 'add_photo', clientNonce: expect.any(String) }),
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
+        body: expect.objectContaining({ garmentId: 'garment-order', source: 'add_photo', clientNonce: expect.any(String) }),
       }));
     });
   });
 
   it('still triggers render when enrichment fails (fallback path)', async () => {
-    vi.useFakeTimers();
-    vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
+    vi.mocked(invokeEdgeFunction).mockImplementation((functionName: string) => {
       if (functionName === 'analyze_garment') {
-        return Promise.resolve({ data: null, error: 'enrichment_failed' });
+        return Promise.reject(new Error('enrichment failed'));
+      }
+      if (functionName === 'enqueue_render_job') {
+        return Promise.resolve({
+          data: { jobId: 'mock-job-id', status: 'pending', source: 'monthly', replay: false },
+          error: null,
+        });
       }
       return Promise.resolve({ data: {}, error: null });
     });
 
     triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-fail',
-      storagePath: 'user-1/photo-fail.jpg',
+      garmentId: 'garment-fallback',
+      storagePath: 'user-1/photo-fallback.jpg',
       source: 'add_photo',
       imageProcessing: { mode: 'skip' },
     });
 
-    // Flush all pending promises and the retry delay timer
-    await vi.advanceTimersByTimeAsync(5000);
-
-    expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-      body: expect.objectContaining({ garmentId: 'garment-fail', source: 'add_photo', clientNonce: expect.any(String) }),
-    }));
-
-    vi.useRealTimers();
+    await vi.waitFor(() => {
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
+        body: expect.objectContaining({ garmentId: 'garment-fallback', source: 'add_photo', clientNonce: expect.any(String) }),
+      }));
+    });
   });
 
-  it('triggers render for manual_enhance source', async () => {
-    vi.mocked(invokeEdgeFunction).mockImplementation((functionName: string) => {
-      if (functionName === 'analyze_garment') {
-        return Promise.resolve({ data: { enrichment: { refined_title: 'Test garment' } }, error: null });
-      }
-      return Promise.resolve({ data: {}, error: null });
-    });
-
+  it('triggers render for manual_enhance when skipRender is not set', async () => {
     triggerGarmentPostSaveIntelligence({
       garmentId: 'garment-enhance',
       storagePath: 'user-1/photo-enhance.jpg',
@@ -260,7 +251,7 @@ describe('triggerGarmentPostSaveIntelligence', () => {
       expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('analyze_garment', {
         body: { storagePath: 'user-1/photo-enhance.jpg', mode: 'enrich' },
       });
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
+      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('enqueue_render_job', expect.objectContaining({
         body: expect.objectContaining({ garmentId: 'garment-enhance', source: 'manual_enhance', clientNonce: expect.any(String) }),
       }));
     });
@@ -268,101 +259,15 @@ describe('triggerGarmentPostSaveIntelligence', () => {
     expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalledWith('process_garment_image', expect.anything());
   });
 
-  it('bounds render kickoff concurrency and deduplicates repeated garment requests', async () => {
-    let resolveFirstRender: (() => void) | null = null;
-    let resolveSecondRender: (() => void) | null = null;
-    let resolveThirdRender: (() => void) | null = null;
-
-    vi.mocked(invokeEdgeFunction).mockImplementation((functionName) => {
-      if (functionName === 'render_garment_image') {
-        return new Promise((resolve) => {
-          if (!resolveFirstRender) {
-            resolveFirstRender = () => resolve({ data: {}, error: null });
-            return;
-          }
-
-          if (!resolveSecondRender) {
-            resolveSecondRender = () => resolve({ data: {}, error: null });
-            return;
-          }
-
-          if (!resolveThirdRender) {
-            resolveThirdRender = () => resolve({ data: {}, error: null });
-            return;
-          }
-
-          resolve({ data: {}, error: null });
-        });
-      }
-
-      if (functionName === 'analyze_garment') {
-        return Promise.resolve({ data: { enrichment: { refined_title: 'Test' } }, error: null });
-      }
-
-      return Promise.resolve({ data: {}, error: null });
-    });
-
-    triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-a',
-      storagePath: 'user-1/photo-a.jpg',
-      source: 'batch_add',
-      imageProcessing: { mode: 'skip' },
-    });
-    triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-a',
-      storagePath: 'user-1/photo-a.jpg',
-      source: 'batch_add',
-      imageProcessing: { mode: 'skip' },
-    });
-    triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-b',
-      storagePath: 'user-1/photo-b.jpg',
-      source: 'batch_add',
-      imageProcessing: { mode: 'skip' },
-    });
-    triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-c',
-      storagePath: 'user-1/photo-c.jpg',
-      source: 'batch_add',
-      imageProcessing: { mode: 'skip' },
-    });
-    triggerGarmentPostSaveIntelligence({
-      garmentId: 'garment-d',
-      storagePath: 'user-1/photo-d.jpg',
-      source: 'batch_add',
-      imageProcessing: { mode: 'skip' },
-    });
-
-    await vi.waitFor(() => {
-      expect(
-        vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
-      ).toHaveLength(3);
-    });
-
-    expect(
-      vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
-    ).toEqual([
-      ['render_garment_image', expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-a', source: 'batch_add', clientNonce: expect.any(String) }) })],
-      ['render_garment_image', expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-b', source: 'batch_add', clientNonce: expect.any(String) }) })],
-      ['render_garment_image', expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-c', source: 'batch_add', clientNonce: expect.any(String) }) })],
-    ]);
-
-    resolveFirstRender?.();
-    await vi.waitFor(() => {
-      expect(
-        vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
-      ).toHaveLength(4);
-    });
-
-    expect(
-      vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')[3]
-    ).toEqual([
-      'render_garment_image',
-      expect.objectContaining({ body: expect.objectContaining({ garmentId: 'garment-d', source: 'batch_add', clientNonce: expect.any(String) }) }),
-    ]);
-
-    resolveSecondRender?.();
-  });
+  // Priority 5 note: the pre-P5 "bounds render kickoff concurrency and
+  // deduplicates repeated garment requests" test was removed. Concurrency
+  // and deduplication are now enforced server-side:
+  //   * enqueue_render_job's UNIQUE constraint on render_jobs.reserve_key
+  //     dedupes retries of the same clientNonce
+  //   * process_render_jobs + claim_render_job's SELECT FOR UPDATE
+  //     SKIP LOCKED bounds worker concurrency to JOB_CONCURRENCY=2
+  // The preview-branch verification in this PR covers that behavior at
+  // the SQL level.
 });
 
 describe('resumePendingGarmentRenders', () => {
@@ -371,50 +276,23 @@ describe('resumePendingGarmentRenders', () => {
     pendingGarmentRows = [];
   });
 
-  it('re-enqueues persisted pending renders and restores their saved source', async () => {
+  // Priority 5: resumePendingGarmentRenders is now a no-op. Re-execution
+  // of pending renders happens server-side via pg_cron + process_render_jobs.
+  // Kept as an exported function only so useGarments.ts doesn't need a
+  // synchronized change. Tests verify no side-effects.
+  it('does not invoke any edge function (no-op under P5)', async () => {
     pendingGarmentRows = [
-      {
-        id: 'pending-batch',
-        ai_raw: { system_signals: { source: 'batch_add' } },
-      },
-      {
-        id: 'pending-add-photo',
-        ai_raw: { system_signals: { source: 'add_photo' } },
-      },
-      {
-        id: 'pending-live-scan',
-        ai_raw: { system_signals: { source: 'live_scan' } },
-      },
+      { id: 'pending-1', ai_raw: { system_signals: { source: 'batch_add' } } },
+      { id: 'pending-2', ai_raw: { system_signals: { source: 'add_photo' } } },
     ];
 
     await resumePendingGarmentRenders('user-1');
 
-    await vi.waitFor(() => {
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: expect.objectContaining({ garmentId: 'pending-batch', source: 'batch_add', clientNonce: expect.any(String) }),
-      }));
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: expect.objectContaining({ garmentId: 'pending-add-photo', source: 'add_photo', clientNonce: expect.any(String) }),
-      }));
-      expect(vi.mocked(invokeEdgeFunction)).toHaveBeenCalledWith('render_garment_image', expect.objectContaining({
-        body: expect.objectContaining({ garmentId: 'pending-live-scan', source: 'live_scan', clientNonce: expect.any(String) }),
-      }));
-    });
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalled();
   });
 
-  it('throttles repeat pending-render sweeps for the same user', async () => {
-    pendingGarmentRows = [
-      {
-        id: 'pending-1',
-        ai_raw: { system_signals: { source: 'batch_add' } },
-      },
-    ];
-
-    await resumePendingGarmentRenders('user-2');
-    await resumePendingGarmentRenders('user-2');
-
-    expect(
-      vi.mocked(invokeEdgeFunction).mock.calls.filter(([name]) => name === 'render_garment_image')
-    ).toHaveLength(1);
+  it('accepts empty userId without throwing', async () => {
+    await expect(resumePendingGarmentRenders('')).resolves.toBeUndefined();
+    expect(vi.mocked(invokeEdgeFunction)).not.toHaveBeenCalled();
   });
 });

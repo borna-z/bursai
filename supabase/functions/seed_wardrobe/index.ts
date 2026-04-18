@@ -60,8 +60,37 @@ serve(async (req) => {
           await supabase.storage.from("garments").remove(paths);
         }
         const garmentIds = existing.map(g => g.id);
+
+        // Atomic delete-with-release per garment (Codex round 13 redesign).
+        // Each call is one server-side transaction: releases active
+        // reservations AND deletes the garment together. Service-role
+        // caller bypasses the in-RPC ownership check for admin tooling.
+        // Failures are logged but don't block the overall wipe; the
+        // post-launch orphan-reservation cron is the safety net for any
+        // garment whose atomic delete returned an error.
+        for (const gid of garmentIds) {
+          const { error: rpcErr } = await supabase.rpc(
+            "delete_garment_with_release_atomic",
+            { p_garment_id: gid, p_user_id: user.id },
+          );
+          if (rpcErr) {
+            console.warn("[seed_wardrobe] delete_garment_with_release_atomic non-ok", {
+              garment_id: gid,
+              error: rpcErr.message,
+            });
+          }
+        }
+
+        // outfit_items / wear_logs cleanup (the atomic RPC only deletes the
+        // garment row). outfit_items has no FK cascade on garment_id, and
+        // wear_logs filters by user_id independently.
         await supabase.from("outfit_items").delete().in("garment_id", garmentIds);
         await supabase.from("wear_logs").delete().eq("user_id", user.id);
+
+        // Defensive sweep: if any garment survived the atomic RPC (e.g.
+        // auth mismatch edge case or transient failure we logged above),
+        // wipe via the user-scoped filter so `delete_all` semantics hold.
+        // This is a no-op for successfully-atomic-deleted rows.
         await supabase.from("garments").delete().eq("user_id", user.id);
       }
 
