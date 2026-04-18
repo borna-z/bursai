@@ -603,6 +603,14 @@ Before merging any P5 change, answer each:
 
 When these are answered, update the scenarios and findings above, and close or re-scope the corresponding T-N.
 
+### Documented limitation — crash between garment insert and enqueue
+
+**Known gap:** If the client crashes in the <100ms window between the `garments.render_status='pending'` INSERT (`buildGarmentIntelligenceFields`) and `enqueueRenderJob` firing — OS kill, tab close, power loss, browser crash — the garment is stuck in `'pending'` with no `render_jobs` row. `resumePendingGarmentRenders` is a no-op under P5 by design (the durable queue owns render recovery, and the queue can only recover jobs that were actually enqueued). Nothing else self-heals the garment until either (a) the user deletes + re-adds it, or (b) the P5.1 server-side reconciliation cron lands.
+
+**Tracked in:** [issue #633](https://github.com/borna-z/bursai/issues/633), SLA 14 days post-P5-merge (labels: `post-launch`, `hardening`, `follow-up`, `priority:high`, `sla:2-weeks`).
+
+**Why accepted for P5 launch:** rare window (<100ms between two client-side operations), recoverable by user action (delete + re-add), no credit loss, no data corruption. Estimated <0.5% incidence across long timescales. Fixing properly requires adding new cron infrastructure that deserves its own focused review cycle rather than a rushed P5 amendment. The follow-up approach — hourly pg_cron job that resets `render_status='none'` for garments that have been stuck at `'pending'` with no `render_jobs` row for more than 10 minutes — preserves P5's durability-via-queue architecture (no client-side resume sweep, no re-enqueue logic since the original clientNonce is lost to the crash) and matches the I11 "land stuck garments in a user-retryable state" pattern round-14 established for 402. Behavior converges with existing I11 guarantees once the cron ships; until then, `'pending'` without a `render_jobs` row is a permitted transient state that the next P5.1 PR closes.
+
 ---
 
 ## Change log
