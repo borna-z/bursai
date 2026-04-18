@@ -249,6 +249,119 @@ SELECT cron.schedule(
   $$
 );
 
+-- ─── RPC: Release active render_jobs for a garment (pre-delete cleanup) ──
+-- Called by clients BEFORE they delete a garment, so render_jobs rows that
+-- are still non-terminal (pending / in_progress) get their reservations
+-- released before CASCADE wipes the job rows and orphans the reserves.
+--
+-- Codex round 12 Bug 2: without this, `DELETE FROM garments WHERE id=X`
+-- cascades render_jobs rows for X, but render_credit_transactions has no
+-- FK to render_jobs — the `reserve` txs for those jobs stay in the ledger
+-- with no matching job_id. The user's `render_credits.reserved` counter
+-- stays elevated forever because no release can ever fire (no job, no
+-- worker terminal path). Eventually the reserved count caps out available
+-- credits and the user can't enqueue new renders.
+--
+-- Authorization: SECURITY DEFINER so authenticated users can call this
+-- for garments they OWN. Ownership check: auth.uid() must match the
+-- garment's user_id, OR caller is service_role (for admin tooling /
+-- seed_wardrobe).
+--
+-- Idempotency: uses a stable 'release:garment_delete:<jobid>' idempotency
+-- key. Repeated calls (e.g. delete retry after transient failure) hit
+-- ON CONFLICT DO NOTHING and don't double-decrement the reserved counter.
+--
+-- Returns the count of reservations released. Callers typically log this
+-- for observability.
+
+CREATE OR REPLACE FUNCTION release_reservations_for_garment_delete(p_garment_id UUID)
+RETURNS INT AS $$
+DECLARE
+  v_released_count INT := 0;
+  v_job RECORD;
+  v_reserve_source TEXT;
+  v_terminal_exists INT;
+  v_owner UUID;
+BEGIN
+  -- Ownership gate. Service role (e.g. seed_wardrobe) bypasses the
+  -- auth.uid() check for admin / cleanup paths.
+  SELECT user_id INTO v_owner FROM garments WHERE id = p_garment_id;
+  IF v_owner IS NULL THEN
+    -- Garment doesn't exist (already deleted / never existed). Nothing to
+    -- release. Not an error — caller can proceed with their delete.
+    RETURN 0;
+  END IF;
+  IF v_owner IS DISTINCT FROM auth.uid() AND (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'not authorized to release reservations for garment %', p_garment_id;
+  END IF;
+
+  FOR v_job IN
+    SELECT id, user_id FROM render_jobs
+    WHERE garment_id = p_garment_id
+      AND status IN ('pending', 'in_progress')
+  LOOP
+    -- Find the reserve source for this job.
+    SELECT source INTO v_reserve_source
+    FROM render_credit_transactions
+    WHERE render_job_id = v_job.id
+      AND kind = 'reserve'
+      AND user_id = v_job.user_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    IF v_reserve_source IS NULL THEN
+      -- No reserve exists for this job. Shouldn't happen under normal
+      -- enqueue flow, but defensive — skip to the next job.
+      CONTINUE;
+    END IF;
+
+    -- Skip if already terminalized (consume or release already written).
+    SELECT 1 INTO v_terminal_exists
+    FROM render_credit_transactions
+    WHERE render_job_id = v_job.id
+      AND user_id = v_job.user_id
+      AND kind IN ('consume', 'release')
+    LIMIT 1;
+    IF v_terminal_exists IS NOT NULL THEN
+      CONTINUE;
+    END IF;
+
+    -- Decrement reserved counter and refund to the original source.
+    -- Mirrors release_credit_atomic's source-specific refund logic.
+    IF v_reserve_source = 'trial_gift' THEN
+      UPDATE render_credits
+      SET reserved = GREATEST(0, reserved - 1),
+          trial_gift_remaining = trial_gift_remaining + 1,
+          updated_at = NOW()
+      WHERE user_id = v_job.user_id;
+    ELSIF v_reserve_source = 'topup' THEN
+      UPDATE render_credits
+      SET reserved = GREATEST(0, reserved - 1),
+          topup_balance = topup_balance + 1,
+          updated_at = NOW()
+      WHERE user_id = v_job.user_id;
+    ELSE
+      -- monthly source
+      UPDATE render_credits
+      SET reserved = GREATEST(0, reserved - 1),
+          updated_at = NOW()
+      WHERE user_id = v_job.user_id;
+    END IF;
+
+    -- Write the release tx. Idempotent via UNIQUE idempotency_key.
+    INSERT INTO render_credit_transactions
+      (user_id, render_job_id, idempotency_key, kind, amount, source)
+    VALUES
+      (v_job.user_id, v_job.id, 'release:garment_delete:' || v_job.id::text, 'release', 1, v_reserve_source)
+    ON CONFLICT (idempotency_key) DO NOTHING;
+
+    v_released_count := v_released_count + 1;
+  END LOOP;
+
+  RETURN v_released_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ─── Lockdown: service-role only on RPCs ────────────────────
 -- Defense-in-depth with the role guard inside each function.
 REVOKE ALL ON FUNCTION claim_render_job(UUID) FROM PUBLIC, anon, authenticated;
@@ -256,3 +369,10 @@ REVOKE ALL ON FUNCTION recover_stale_render_jobs() FROM PUBLIC, anon, authentica
 
 GRANT EXECUTE ON FUNCTION claim_render_job(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION recover_stale_render_jobs() TO service_role;
+
+-- release_reservations_for_garment_delete is intentionally GRANTABLE to
+-- authenticated users: the ownership check inside the function (auth.uid()
+-- = garment.user_id) prevents abuse. Service role is implied but listed
+-- for symmetry.
+REVOKE ALL ON FUNCTION release_reservations_for_garment_delete(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION release_reservations_for_garment_delete(UUID) TO authenticated, service_role;
