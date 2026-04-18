@@ -1887,3 +1887,54 @@ checklist miss before it silently cross-contaminates.
   happens in microseconds or through a trigger-based simulation.
 
 Preview branch deleted. Cost: < $0.01.
+
+## Codex round 16 — terminal-failure TOCTOU heal + client-side server-state check (2026-04-18)
+
+Two findings, both P1 in Codex's classification. The first extends round 15's TOCTOU-heal pattern to a second release-then-terminalize branch that was missed in the initial fix. The second is a different bug class entirely — client-side state inference from a transport error.
+
+### Pre-fix audit of all `releaseCredit` call sites
+
+Per the user's directive to audit the pattern before fixing the two Codex-flagged instances: `grep -rn "releaseCredit\|release_credit_atomic" supabase/functions/ src/` returned four distinct call sites in edge functions (zero in `src/` — `release_credit_atomic` is service-role-only; the client never calls it directly).
+
+| # | File:Line | Followed by `render_jobs.status='failed'`? | Pre-release heal? | Post-release heal? | Verdict |
+|---|-----------|-------------------------------------------|------------------|--------------------|---------|
+| 1 | `render_garment_image/index.ts:1365` | No — legacy P4 path has no render_jobs row. `garments.render_status` is written BEFORE the release via `safeRestoreOrFailRender`. Cleanup-only release in `finally`. | N/A | N/A | Out of P5 pattern. `render_garment_image` never writes render_jobs. |
+| 2 | `process_render_jobs/index.ts:255` | Yes — deferred-stuck at max_attempts. | Yes (round 8 heal-gate) | **Yes (round 15)** | Already fixed. |
+| 3 | `process_render_jobs/index.ts:399` | No — skip terminalization writes `status='succeeded'` with `result_path=null` and does not touch `garments.render_status`. | N/A | N/A | Doesn't match pattern (no status=failed write follows). |
+| 4 | `process_render_jobs/index.ts:591` | Yes — genuine terminal failure at max_attempts. | Yes (round 4 heal-gate) | **No** — only logs `warn` on `!ok` | **Bug 2 — needs fix.** |
+
+**Audit conclusion:** Codex's round-16 Bug 2 identifies the single remaining instance. Applied the round-15 heal pattern to site #4. No other sites match the audit pattern.
+
+### Scenario R16-A — Bug 2 precondition (reuse of round-15 RPC evidence)
+
+The round-15 preview branch `gajgassnfolskexdhgid` already validated the RPC-level precondition this fix reads. The branch was torn down after round 15, but the tested behavior is deterministic and intrinsic to `release_credit_atomic`: SELECT for existing `{consume,release}` tx → if found, return `{ok:false, reason:'already_terminal'}`. That's what the round-16 Bug 2 site now tests via `releaseResult.reason === 'already_terminal'`, matching the round-15 Bug 1 site's test.
+
+**From the round-15 log (Scenario R15-A):**
+
+```
+Seed: reserve + consume txs for job_id=33333333-3333-3333-3333-333333333333, user_id=11111111-1111-1111-1111-111111111111
+
+Call: SELECT release_credit_atomic(<user>, <job>, 'release:r15_verification_attempt:codex-r15')
+     under SET LOCAL "request.jwt.claim.role" = 'service_role'
+
+Result: {"ok": false, "reason": "already_terminal"}
+```
+
+Because Bug 2's new branch is a structural copy of Bug 1's round-15 branch (same condition, same heal UPDATE shape, same `garments.render_status` untouched rule, same `succeeded_healed_toctou` telemetry label), no additional preview-branch setup is needed for Bug 2 verification at the RPC layer. The only thing that would be new to exercise is the worker's **routing** from this specific code path — but `process_render_jobs` would require the full schema + deps that last round's branch failed to apply (`MIGRATIONS_FAILED` state). Same scope-down rationale as round 15 applies.
+
+### Scenario R16-B — Bug 1 behavior (unit-test based)
+
+Client-side server-state check. No DB state to exercise — the fix is a PostgREST read of the user's own `render_jobs` rows (standard RLS SELECT, no RPC) followed by a branch decision. Covered by unit tests:
+
+- `server-state check (round 16): DOES NOT reset when a render_jobs row exists despite client retry failure` — mock sets the lookup to return a row, asserts `garments.render_status='none'` reset was NOT issued.
+- `server-state check (round 16): DOES reset when no render_jobs row is found (genuine enqueue failure)` — mock sets the lookup to return null, asserts the reset DOES fire (preserving the round-11 / round-14 behavior for the genuine-failure case).
+
+The query-error path (lookup throws or returns PostgREST error) falls through to the reset per explicit defensive code and inline comments — exercised implicitly in existing tests since the default mock returns `{data: null, error: null}` which takes the same branch as "genuine enqueue failure". No new test added for query-error specifically — the behavior matches the "no row" branch already tested.
+
+### Scope-down carried forward from round 15
+
+- **End-to-end worker deploy on preview branch.** Still blocked by `MIGRATIONS_FAILED` on `create_branch`. Round-16 does not spin up a new preview branch for this reason plus: Bug 2 precondition was already validated at the RPC layer in round 15; Bug 2 branch body is a copy-paste of the round-15 branch just in a different location within the same file.
+- **True concurrent TOCTOU at production load.** Same as round 15 — the heal is correct-by-construction; the race window is microseconds and can only be simulated via trigger-based interception, which the ledger RPC's internal atomicity resists.
+- **Vault insert from MCP.** Round-15 identified this as blocked by MCP's non-superuser `postgres` role. Not relevant to round-16 changes (neither Bug 1 nor Bug 2 touches the cron body or vault).
+
+No new preview branch was created for round 16; no branch cost incurred.
