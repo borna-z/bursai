@@ -160,6 +160,19 @@ Each test uses `SUPABASE_SERVICE_ROLE_KEY_TEST` env var. Runs in CI as part of P
 
 ### P0d-ii — Test infrastructure decision + setup
 
+**Decision (ADR, 2026-04-19)**
+Approach **(c)** — local Supabase via `supabase start` in CI + custom HTTP mock server for Gemini/Stripe (Node stdlib, no new npm packages). Rejected: (a) separate Supabase project (recurring $25+/mo plus Gemini/Stripe quota burn on every PR — wasteful for solo pre-launch); (b) bare local Supabase with no mocks (doesn't cover the 7 Gemini/Stripe-dependent flows P0d-iii needs); `msw` as mock framework (hard-rule needs explicit approval, and 7 simple mock cases don't justify a framework).
+
+Implementation notes:
+- Supabase CLI version is **pinned** in `.github/workflows/ci.yml` — never `latest`. Drift between CI CLI and the local dev CLI is the #1 way `supabase start` boots a different schema than expected.
+- CI hard-fails if `supabase db reset` does not apply every migration cleanly. Partial-schema green runs are the failure mode we most want to avoid.
+- The mock server is a tiny Node `http` class in `src/test/smoke/mocks/mock-server.ts`. P0d-ii ships the scaffolding (server, route registry, Gemini/Stripe stub registrations). Actual fixtures and edge-function wiring land in P0d-iii.
+- The 3 existing tests (signup, plan-week, garment-add) don't call edge functions or external APIs — they pass against local Supabase unchanged, no mocks required.
+
+**Status update (2026-04-19, after first CI run)**: the `smoke-local` job is gated with `if: false` pending **P0d-iv — Schema baseline migration (drift repair)**. The first local migration (`20260124173453_...`) `ALTER TABLE`s `public.garments` but no `CREATE TABLE garments` migration exists in the repo — the base schema was authored in Studio UI without a backfilled migration file, so `supabase db reset` from empty fails. The harness extension + mocks scaffolding + ADR ship as P0d-ii; the CI job stays in the workflow as a one-line `if:` flip that P0d-iv re-enables once the baseline migration lands. Using `if: false` (not `continue-on-error: true`) avoids CI-as-theater: nothing reports green for a job that didn't actually run.
+
+**P0d-iii fixture-seeding cost estimate**: ~$5–20 one-time. Seven flows × a handful of real Gemini calls per flow to capture canonical responses + a few Stripe test-mode calls. After recording, fixtures are deterministic and committed to the repo; no recurring cost on PR runs.
+
 **Problem**
 P0d v1 shipped 3 tests that run against production Supabase with test-prefixed users. That's fine for Wave 1 auth/RLS checks but cannot scale: the remaining 7 smoke tests (P0d-iii) hit Gemini and Stripe, which would burn real quota and risk test-user collision with real users. We need an isolated test environment before the expanded suite lands.
 
@@ -214,6 +227,44 @@ Once P0d-ii is done and local-Supabase-with-mocks is available, add the 7 remain
 **Deploy** None.
 
 **Depends on**: P0d-ii.
+
+---
+
+### P0d-iv — Schema baseline migration (drift repair)
+
+**Problem**
+`supabase/migrations/` has no `CREATE TABLE` migrations for the app's base tables (garments, profiles, outfits, etc.). The earliest migration file (`20260124173453_...`) `ALTER TABLE`s `public.garments`, assuming it already exists. That schema was authored in Studio UI in an earlier era without a backfilled migration file, so `supabase start` against a clean local DB fails at the first migration with `ERROR: relation "public.garments" does not exist`. This blocks P0d-ii's `smoke-local` CI job (currently gated `if: false`) and blocks P0d-iii's expanded mock-backed tests, since both depend on a bootable local schema.
+
+Surfaced when P0d-ii's CI job ran for the first time — see Findings Log entry (2026-04-19) in CLAUDE.md.
+
+**Fix**
+Generate a baseline migration from the current prod schema and commit it so a fresh `supabase db reset` reproduces the full schema.
+
+1. `npx supabase db pull --linked` against prod to dump the live schema into a single migration file. Name it `00000000000000_initial_schema.sql` — the all-zeros prefix makes it sort before every existing migration so `supabase db reset` applies it first.
+2. Inspect the generated file. Supabase's `db pull` emits a lot of auto-generated noise (default roles, extensions, storage policies that already live in later migrations). Prune anything redundant or already covered by an existing migration. The baseline should be minimal enough to apply cleanly before existing migrations run, without duplicating their work.
+3. Verify locally: `supabase start` → `supabase db reset` must complete without error and produce a schema byte-identical to prod's. Diff via `supabase db diff --linked` (should report no drift) and by spot-checking `information_schema.columns` for the headline tables (garments, profiles, outfits).
+4. Verify post-merge idempotency: `supabase db push --linked --dry-run` must report "Remote database is up to date" — the baseline has nothing new to apply against prod.
+5. Re-enable the `smoke-local` CI job by flipping the `if: false` line in `.github/workflows/ci.yml`.
+6. Smoke-test the flip in the same PR: the re-enabled job must pass on the PR's own CI run.
+
+**Strategy choice (per CLAUDE.md Database Migration Rules — "Migration drift repair strategy")**
+Solo pre-launch (no CI history that applied the current migration chain from zero, no staging env, no other developers). Per the rule block, **Strategy A (rename local)** is acceptable here — no environment exists to orphan with a timestamp shift. Document this explicitly in the PR body so the next person touching migrations knows the baseline is the authoritative starting point. Switch to Strategy B (`supabase migration repair`) the moment a second environment or developer joins the workflow.
+
+**Files**
+- `supabase/migrations/00000000000000_initial_schema.sql` (new — generated, then pruned)
+- `.github/workflows/ci.yml` (flip `if: false` → remove or `if: true` on `smoke-local`)
+- Possibly trivial tweaks to later migrations if the baseline duplicates work they do — prefer pruning the baseline over rewriting existing files
+
+**Acceptance**
+- `supabase start` + `supabase db reset` from an empty DB completes with exit 0 and produces the full app schema
+- `supabase db diff --linked` reports no drift
+- `supabase db push --linked --dry-run` reports "Remote database is up to date"
+- `smoke-local` CI job passes on the PR's own CI run
+- The 3 existing smoke tests pass against local Supabase
+
+**Deploy** None. Migration-only, post-merge `db push` is a no-op because prod already matches the baseline.
+
+**Depends on**: P0d-ii (needs the `smoke-local` job definition to exist so P0d-iv can re-enable it).
 
 ---
 

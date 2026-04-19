@@ -21,7 +21,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 **CURRENT PROMPT:** P0d-ii
 **LAST UPDATED:** 2026-04-19
-**TOTAL SCOPE:** 83 prompts across 12 waves
+**TOTAL SCOPE:** 84 prompts across 12 waves
 
 ### How to Resume the Plan
 
@@ -80,9 +80,10 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `src/test/smoke/{harness,signup,plan-week,garment-add}.ts` (new), `vitest.smoke.config.ts` (new), `vitest.config.ts` (exclude smoke), `package.json` (test:smoke script), `.github/workflows/ci.yml` (smoke step), `.env.example` (RUN_SMOKE + SUPABASE_SERVICE_ROLE_KEY_TEST)
 - Deploy: none
 
-**P0d-ii [TODO]** Test infrastructure decision + setup
-- Pick one of: (a) separate Supabase project, (b) `supabase start` local dev in CI via Supabase CLI + Docker, (c) local Supabase + mocked Gemini/Stripe via fetch override. Recommendation: (c).
-- Files: `.github/workflows/ci.yml`, `src/test/smoke/fixtures/*.json` (new), `src/test/smoke/mocks/*` (new), `src/test/smoke/harness.ts` (extend)
+**P0d-ii [DONE-partial] (PR #638, 2026-04-19)** Test infrastructure decision + setup
+- Shipped: harness extension (`SMOKE_TARGET` detection), mock server scaffolding (`mocks/mock-server.ts` + empty `gemini.ts` / `stripe.ts` route stubs), fixtures/README.md, ADR block in LAUNCH_PLAN.md. Existing 3 tests (signup/plan-week/garment-add) unchanged.
+- Deferred to P0d-iv: enabling the `smoke-local` CI job. The job definition exists in `.github/workflows/ci.yml` but is gated `if: false` — first CI run exposed pre-existing drift where the earliest local migration ALTERs `public.garments` without a `CREATE TABLE` migration anywhere in the repo. Baseline schema migration is P0d-iv's scope.
+- Files: `.github/workflows/ci.yml` (existing prod job tagged `SMOKE_TARGET=prod`; new `smoke-local` job gated off), `src/test/smoke/harness.ts` (extended), `src/test/smoke/mocks/{mock-server,gemini,stripe}.ts` (new), `src/test/smoke/fixtures/README.md` (new), `LAUNCH_PLAN.md` (ADR + new P0d-iv section)
 - Deploy: none
 
 **P0d-iii [TODO]** Expand smoke tests to remaining 7 flows
@@ -90,6 +91,12 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `src/test/smoke/{enrichment,render,outfit-generate,outfit-refine,visual-search,shopping-chat,travel-capsule}.test.ts` (new — 7 files)
 - Depends on: P0d-ii
 - Deploy: none
+
+**P0d-iv [TODO]** Schema baseline migration (drift repair) — re-enable smoke-local CI
+- Surfaced by P0d-ii's first CI run: there's no `CREATE TABLE garments` (or other base tables) migration; earliest file ALTERs garments assuming it exists. `supabase db reset` from empty fails. Fix: `supabase db pull --linked`, save as `00000000000000_initial_schema.sql`, prune auto-gen noise, verify `db reset` produces identical schema + `db push --dry-run` reports up-to-date. Strategy A (rename local) per CLAUDE.md Migration Rules — acceptable for solo pre-launch. Re-enable P0d-ii's `smoke-local` job by flipping `if: false`.
+- Files: `supabase/migrations/00000000000000_initial_schema.sql` (new), `.github/workflows/ci.yml` (remove `if: false`)
+- Depends on: P0d-ii
+- Deploy: none (migration-only, post-merge `db push` is a no-op)
 
 **P0e [TODO]** Migration drift check in CI
 - Add `npx supabase migration list --linked` + `npx supabase db push --dry-run` as required CI steps for any PR touching `supabase/migrations/`.
@@ -522,6 +529,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-19 | P0b | `.github/workflows/ci.yml:26` | Type-check step uses `bun run tsc --noEmit` without `--skipLibCheck`. CLAUDE.md pipeline + pre-commit hook both use `--skipLibCheck`. CI is stricter than local — a lib-type bump could fail CI without tripping local. | Align when convenient — add `--skipLibCheck` or document divergence. Not launch-blocking. |
 | 2026-04-19 | P0b | `.github/workflows/ci.yml:34-41` | Bundle-size check echoes `WARNING` on overflow but exits 0 → never blocks a merge. Silently passes regressions. | Promote to `exit 1` on overflow, or drop the step. Decide during performance-work wave. |
 | 2026-04-19 | P0b | `.github/workflows/ci.yml` | CI has no `deno check supabase/functions/<fn>/index.ts` step. Fix Protocol requires it for edge-function changes but CI doesn't enforce. | Add a matrix step that runs `deno check` on any changed `supabase/functions/**/index.ts` in the PR. |
+| 2026-04-19 | P0d-ii | `supabase/migrations/` | **Schema drift** — earliest migration (`20260124173453_...`) `ALTER TABLE`s `public.garments`, but no `CREATE TABLE garments` (or other base tables) migration exists in the repo. Base schema was authored in Studio UI without a backfilled migration file. `supabase start` + `supabase db reset` against an empty local DB fails with `ERROR: relation "public.garments" does not exist`. Surfaced when P0d-ii's smoke-local CI job ran for the first time. | Dedicated fix: new prompt **P0d-iv — Schema baseline migration (drift repair)** inserted between P0d-iii and P0e. P0d-ii's `smoke-local` job is gated `if: false` until P0d-iv re-enables it. |
 
 ### Completion Log
 
@@ -530,6 +538,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-19 | #635 | P0a | Husky pre-commit hook runs tsc + eslint + build |
 | 2026-04-19 | #636 | P0b | Tighten CI lint step: fail on eslint warnings (`--max-warnings 0`) |
 | 2026-04-19 | #637 | P0d | Smoke-test POC: harness + 3 tests (signup, plan-week, garment-add) + CI step gated on `RUN_SMOKE=1`. Split into P0d-ii (infra) + P0d-iii (remaining 7 flows). |
+| 2026-04-19 | #638 | P0d-ii | Test infra (partial): harness extension + mock-server scaffolding (Node stdlib) + ADR. `smoke-local` CI job exists but is gated `if: false` pending P0d-iv — first CI run exposed missing base-schema migration. Drift repair tracked as new P0d-iv. |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
