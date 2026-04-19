@@ -27,10 +27,10 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 When the user says "continue the launch plan" (or equivalent like "next prompt", "continue", "keep going"):
 1. Read `CURRENT PROMPT` above.
-2. Find it in the Prompt List below.
-3. Load ONLY the files named in its scope (respect Token Conservation rules).
+2. Open `LAUNCH_PLAN.md` at the project root and find the matching prompt heading — that file holds the full spec (problem, fix, files, acceptance, deploy) for every prompt. The compact list below in THIS file is for status tracking only.
+3. Load ONLY the files named in the prompt's `Files` section (respect Token Conservation rules).
 4. Follow the Fix Protocol (section below).
-5. After the user merges the PR, run the End-of-Session Update.
+5. Update the Launch Plan status AS PART of the fix PR (not after merge — see "Launch Plan Update" below).
 
 ### Status Legend
 - `[TODO]` — not started
@@ -39,15 +39,21 @@ When the user says "continue the launch plan" (or equivalent like "next prompt",
 - `[BLOCKED]` — waiting on user decision, external dep, or failing CI
 - `[SKIP]` — user decided not to do this prompt
 
-### End-of-Session Update (MANDATORY after every merged PR)
+### Launch Plan Update (BEFORE opening the PR, included IN the PR)
 
-At the end of every session, the agent MUST:
-1. Flip the prompt's status from `[WIP]` to `[DONE] (PR #<num>, <date>)`
-2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt
-3. Update `LAST UPDATED` to today's date (format: YYYY-MM-DD)
-4. Add any findings discovered outside prompt scope to the Findings Log
-5. Append a Completion Log row
-6. Commit this CLAUDE.md update as part of the same PR (single atomic PR per prompt)
+The tracker update lives INSIDE the fix PR — not after merge. The user's merge ratifies both the fix and the tracker state atomically. Agents cannot add commits to an already-merged PR, so the update MUST be in the same commit or a sibling commit on the same branch, before the PR is opened.
+
+Before opening the PR, the agent MUST:
+1. Flip the prompt's status from `[TODO]` to `[DONE] (PR #<num>, YYYY-MM-DD)` — the PR number comes from `gh pr create` output, so do this update as a final amend after the PR is opened, OR leave a placeholder `PR #TBD` that the agent replaces immediately post-push with a quick `git commit --amend` + `git push --force-with-lease` before the user sees the PR. Either works. The status must never be `[WIP]` in the merged state.
+2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt.
+3. Update `LAST UPDATED` to today's date (format: YYYY-MM-DD).
+4. Append a Completion Log row with the PR number and one-line summary.
+5. Add any findings discovered outside prompt scope to the Findings Log.
+6. Commit CLAUDE.md changes IN THE SAME PR as the fix — do NOT open a separate tracker PR.
+
+If the user rejects the PR entirely: the agent closes the PR and, in the next session, reverts the Launch Plan changes before starting the next prompt. If the user requests changes: amend the PR; the tracker stays aligned with the fix automatically.
+
+If an earlier merged PR somehow shipped without its tracker update (shouldn't happen if this protocol is followed): next session detects the drift by reading the Completion Log vs `git log --oneline main` and opens a single catch-up tracker PR before starting the next prompt.
 
 ### Prompt List
 
@@ -603,13 +609,16 @@ Do NOT open the PR if the reviewer flags a regression. Fix it, re-run the pipeli
 [anything spotted but not fixed — also added to Launch Plan Findings Log]
 ```
 
-### After PR merge — End-of-Session Update
-1. Flip the prompt's status in the Launch Plan from `[WIP]` to `[DONE] (PR #<num>, YYYY-MM-DD)`
+### Launch Plan Update (part of the fix PR — see Launch Plan section for full rules)
+Before opening the PR:
+1. Flip the prompt's status from `[TODO]` to `[DONE] (PR #<num>, YYYY-MM-DD)`
 2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt
 3. Update `LAST UPDATED` to today
 4. Append a row to the Completion Log
 5. Add any new findings to the Findings Log
-6. Commit this CLAUDE.md update **as part of the same PR** (one atomic PR per prompt)
+6. Commit CLAUDE.md changes IN THE SAME PR as the fix
+
+The PR number placeholder is resolved by amending the commit immediately after `gh pr create` (see Launch Plan section).
 
 ## Hard Rules — Never Break These
 
