@@ -154,6 +154,67 @@ Each test uses `SUPABASE_SERVICE_ROLE_KEY_TEST` env var. Runs in CI as part of P
 
 **Deploy** None.
 
+**History**: First pass (P0d v1) shipped 3 of 10 tests — `signup.test.ts`, `plan-week.test.ts`, `garment-add.test.ts` — plus `harness.ts`, `vitest.smoke.config.ts`, a `test:smoke` npm script, and a CI job gated on `RUN_SMOKE=1` + `SUPABASE_SERVICE_ROLE_KEY_TEST`. The 3 tests avoid Gemini and Stripe so they can run against production Supabase with `test_` prefixed users that self-clean up. The remaining 7 flows (enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule) all hit external APIs and need the infra decision in P0d-ii before they can be written responsibly — tracked in P0d-iii.
+
+---
+
+### P0d-ii — Test infrastructure decision + setup
+
+**Problem**
+P0d v1 shipped 3 tests that run against production Supabase with test-prefixed users. That's fine for Wave 1 auth/RLS checks but cannot scale: the remaining 7 smoke tests (P0d-iii) hit Gemini and Stripe, which would burn real quota and risk test-user collision with real users. We need an isolated test environment before the expanded suite lands.
+
+**Fix**
+Pick one of three approaches and set it up:
+
+1. **(a) Separate Supabase project** — clean isolation, but real $$$ for a second project. Migrations pushed via CI. Gemini/Stripe still need mocks unless the user wants to fund test quota.
+2. **(b) `supabase start` local dev in CI via Supabase CLI + Docker** — free, works offline, every CI run boots a fresh DB, migrations applied, tests exercise the full local stack. Gemini/Stripe still need mocks.
+3. **(c) Real local Supabase (option b) + mocked Gemini/Stripe via `msw` or fetch override** — same as (b) plus deterministic AI responses via recorded fixtures.
+
+**Recommendation**: (c). Local Supabase is the right isolation boundary (no shared state with prod, no extra project cost), and mocked external APIs make smoke tests deterministic. Fixtures per flow can live under `src/test/smoke/fixtures/` and be regenerated from real calls when edge-function contracts change.
+
+**Files**
+- `.github/workflows/ci.yml` — add a `smoke-local` job that runs `supabase start`, applies migrations, sets env to point at `localhost:54321`, then runs `bun run test:smoke`
+- `src/test/smoke/fixtures/*.json` (new) — recorded Gemini/Stripe responses, one per flow
+- `src/test/smoke/mocks/gemini.ts` (new) — installable fetch override that returns fixtures
+- `src/test/smoke/harness.ts` — extend to wire mocks when `SMOKE_TARGET=local` is set
+- Possibly a `supabase/seed.sql` so the local DB has the minimum objects (storage buckets, base policies, cron extensions) any smoke test depends on
+
+**Acceptance**
+- Decision recorded in an ADR-style block in this file (which of a/b/c)
+- A CI job can spin up local Supabase, apply all migrations from `supabase/migrations/`, and run smoke tests against it in under 5 minutes
+- The existing 3 tests from P0d v1 pass under the new infra unchanged
+- Mocked Gemini responses are deterministic and committed to the repo
+
+**Deploy** None.
+
+---
+
+### P0d-iii — Expand smoke tests to remaining 7 flows
+
+**Problem**
+P0d v1 shipped 3 of 10 smoke tests. The remaining 7 cover flows that hit Gemini or Stripe: enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule. Every Wave 3-8 prompt touches at least one of these flows and needs regression coverage before merge.
+
+**Fix**
+Once P0d-ii is done and local-Supabase-with-mocks is available, add the 7 remaining tests per the original P0d spec (see flow list in the P0d **Fix** section above). Each test creates a test user, exercises the flow, asserts response shape AND the DB side-effect (ai_raw populated, render_jobs row progressed to succeeded, etc.), then tears down.
+
+**Files**
+- `src/test/smoke/enrichment.test.ts` (new)
+- `src/test/smoke/render.test.ts` (new)
+- `src/test/smoke/outfit-generate.test.ts` (new)
+- `src/test/smoke/outfit-refine.test.ts` (new)
+- `src/test/smoke/visual-search.test.ts` (new)
+- `src/test/smoke/shopping-chat.test.ts` (new)
+- `src/test/smoke/travel-capsule.test.ts` (new)
+
+**Acceptance**
+- All 7 new tests pass against local-Supabase-with-mocks
+- Total smoke suite (10 tests) runs in under 5 minutes in CI
+- Failure in any test blocks PR merge
+
+**Deploy** None.
+
+**Depends on**: P0d-ii.
+
 ---
 
 ### P0e — Migration drift check in CI

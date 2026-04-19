@@ -19,9 +19,9 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P0c
+**CURRENT PROMPT:** P0d-ii
 **LAST UPDATED:** 2026-04-19
-**TOTAL SCOPE:** 81 prompts across 12 waves
+**TOTAL SCOPE:** 83 prompts across 12 waves
 
 ### How to Resume the Plan
 
@@ -36,6 +36,7 @@ When the user says "continue the launch plan" (or equivalent like "next prompt",
 - `[TODO]` — not started
 - `[WIP]` — branch open, PR not yet merged
 - `[DONE]` — merged to main (PR link appended)
+- `[DONE-partial]` — prompt has been split; a partial scope merged in one PR and the rest is tracked by explicit follow-up prompts (e.g., `Px-ii`, `Px-iii`). Use only when the split is recorded in LAUNCH_PLAN.md and new follow-up prompts are inserted in the prompt list below.
 - `[BLOCKED]` — waiting on user decision, external dep, or failing CI
 - `[SKIP]` — user decided not to do this prompt
 
@@ -73,9 +74,21 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `CLAUDE.md`
 - Deploy: none
 
-**P0d [TODO]** 10 integration smoke tests
-- One test per major flow: signup, garment add, enrichment, render, outfit generate, outfit refine, plan week, visual search, shopping chat, travel capsule. Auth → run → assert response shape.
-- Files: `src/test/smoke/*.test.ts` (new)
+**P0d [DONE-partial] (PR #637, 2026-04-19)** 10 integration smoke tests
+- Shipped 3 of 10 tests (signup, plan-week, garment-add) plus harness, vitest.smoke config, test:smoke npm script, and RUN_SMOKE=1-gated CI job. These 3 avoid Gemini/Stripe and run against production Supabase with `test_` prefixed users that self-clean up.
+- Remaining 7 flows (enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule) blocked on test infra — see P0d-ii and P0d-iii below.
+- Files: `src/test/smoke/{harness,signup,plan-week,garment-add}.ts` (new), `vitest.smoke.config.ts` (new), `vitest.config.ts` (exclude smoke), `package.json` (test:smoke script), `.github/workflows/ci.yml` (smoke step), `.env.example` (RUN_SMOKE + SUPABASE_SERVICE_ROLE_KEY_TEST)
+- Deploy: none
+
+**P0d-ii [TODO]** Test infrastructure decision + setup
+- Pick one of: (a) separate Supabase project, (b) `supabase start` local dev in CI via Supabase CLI + Docker, (c) local Supabase + mocked Gemini/Stripe via fetch override. Recommendation: (c).
+- Files: `.github/workflows/ci.yml`, `src/test/smoke/fixtures/*.json` (new), `src/test/smoke/mocks/*` (new), `src/test/smoke/harness.ts` (extend)
+- Deploy: none
+
+**P0d-iii [TODO]** Expand smoke tests to remaining 7 flows
+- After P0d-ii lands, add the 7 remaining tests: enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule. Each asserts response shape AND DB side-effect (ai_raw populated, render_jobs progressed, etc.), then tears down.
+- Files: `src/test/smoke/{enrichment,render,outfit-generate,outfit-refine,visual-search,shopping-chat,travel-capsule}.test.ts` (new — 7 files)
+- Depends on: P0d-ii
 - Deploy: none
 
 **P0e [TODO]** Migration drift check in CI
@@ -516,6 +529,7 @@ New findings discovered during implementation (not in the original audit). Agent
 |------|-----|--------|---------|
 | 2026-04-19 | #635 | P0a | Husky pre-commit hook runs tsc + eslint + build |
 | 2026-04-19 | #636 | P0b | Tighten CI lint step: fail on eslint warnings (`--max-warnings 0`) |
+| 2026-04-19 | #637 | P0d | Smoke-test POC: harness + 3 tests (signup, plan-week, garment-add) + CI step gated on `RUN_SMOKE=1`. Split into P0d-ii (infra) + P0d-iii (remaining 7 flows). |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 

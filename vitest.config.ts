@@ -9,6 +9,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}", "supabase/functions/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["node_modules", "dist", "src/test/smoke/**"],
     env: {
       VITE_SUPABASE_URL: "https://test.supabase.co",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-anon-key",
