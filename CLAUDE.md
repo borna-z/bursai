@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P0a
+**CURRENT PROMPT:** P0b
 **LAST UPDATED:** 2026-04-19
 **TOTAL SCOPE:** 81 prompts across 12 waves
 
@@ -44,7 +44,7 @@ When the user says "continue the launch plan" (or equivalent like "next prompt",
 The tracker update lives INSIDE the fix PR — not after merge. The user's merge ratifies both the fix and the tracker state atomically. Agents cannot add commits to an already-merged PR, so the update MUST be in the same commit or a sibling commit on the same branch, before the PR is opened.
 
 Before opening the PR, the agent MUST:
-1. Flip the prompt's status from `[TODO]` to `[DONE] (PR #<num>, YYYY-MM-DD)` — the PR number comes from `gh pr create` output, so do this update as a final amend after the PR is opened, OR leave a placeholder `PR #TBD` that the agent replaces immediately post-push with a quick `git commit --amend` + `git push --force-with-lease` before the user sees the PR. Either works. The status must never be `[WIP]` in the merged state.
+1. Flip the prompt's status from `[TODO]` to `[DONE] (PR #<num>, YYYY-MM-DD)` — the PR number comes from `gh pr create` output, so do this update as a final amend after the PR is opened, OR leave a placeholder `PR #635` that the agent replaces immediately post-push with a quick `git commit --amend` + `git push --force-with-lease` before the user sees the PR. Either works. The status must never be `[WIP]` in the merged state.
 2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt.
 3. Update `LAST UPDATED` to today's date (format: YYYY-MM-DD).
 4. Append a Completion Log row with the PR number and one-line summary.
@@ -59,7 +59,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 
 #### Wave 0 — Safety Net (one afternoon, do first)
 
-**P0a [TODO]** Husky pre-commit hook
+**P0a [DONE] (PR #635, 2026-04-19)** Husky pre-commit hook
 - Install `husky` as devDependency. Add `.husky/pre-commit` running tsc + eslint + build.
 - Files: `package.json`, `.husky/pre-commit` (new)
 - Deploy: none
@@ -505,13 +505,13 @@ New findings discovered during implementation (not in the original audit). Agent
 
 | Date | Prompt | Location | Description | Action |
 |------|--------|----------|-------------|--------|
-| — | — | — | — | — |
+| 2026-04-19 | P0a | `src/i18n/locales/en.ts`, `src/i18n/locales/sv.ts` | Duplicate keys `capsule.generating` and `common.delete` in both locale files — surfaced by Vite build warnings when the new pre-commit hook ran. Locale files are append-only per CLAUDE.md so this cannot be fixed inline. | Fold into the next locale-touching prompt (likely Wave 6) — consolidate duplicate keys. |
 
 ### Completion Log
 
 | Date | PR | Prompt | Summary |
 |------|-----|--------|---------|
-| — | — | — | — |
+| 2026-04-19 | #TBD | P0a | Husky pre-commit hook runs tsc + eslint + build |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
