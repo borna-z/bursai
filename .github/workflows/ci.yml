@@ -39,3 +39,18 @@ jobs:
           if [ "$MAIN_SIZE" -gt 512000 ]; then
             echo "⚠️ WARNING: Largest chunk exceeds 500KB target"
           fi
+
+      # P0d — Smoke tests. Only runs on push to main (post-merge), never on pull_request.
+      # Reason: SUPABASE_SERVICE_ROLE_KEY_TEST bypasses RLS and must not be exposed to
+      # untrusted PR code. Moving smoke to post-merge means regressions are caught by
+      # the first push after a merge, not at PR time — acceptable tradeoff vs exfil risk.
+      # If the secret isn't configured yet, shouldRunSmoke returns false and every test
+      # skips — step exits 0.
+      - name: Smoke tests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          RUN_SMOKE: "1"
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY_TEST: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_TEST }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: bun run test:smoke
