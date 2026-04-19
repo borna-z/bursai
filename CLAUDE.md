@@ -17,6 +17,496 @@ git checkout main && git pull origin main
 
 Do not proceed until you are in bursai-working with a clean git status.
 
+## Launch Plan — Single Source of Truth for All Fix Work
+
+**CURRENT PROMPT:** P0a
+**LAST UPDATED:** 2026-04-19
+**TOTAL SCOPE:** 81 prompts across 12 waves
+
+### How to Resume the Plan
+
+When the user says "continue the launch plan" (or equivalent like "next prompt", "continue", "keep going"):
+1. Read `CURRENT PROMPT` above.
+2. Find it in the Prompt List below.
+3. Load ONLY the files named in its scope (respect Token Conservation rules).
+4. Follow the Fix Protocol (section below).
+5. After the user merges the PR, run the End-of-Session Update.
+
+### Status Legend
+- `[TODO]` — not started
+- `[WIP]` — branch open, PR not yet merged
+- `[DONE]` — merged to main (PR link appended)
+- `[BLOCKED]` — waiting on user decision, external dep, or failing CI
+- `[SKIP]` — user decided not to do this prompt
+
+### End-of-Session Update (MANDATORY after every merged PR)
+
+At the end of every session, the agent MUST:
+1. Flip the prompt's status from `[WIP]` to `[DONE] (PR #<num>, <date>)`
+2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt
+3. Update `LAST UPDATED` to today's date (format: YYYY-MM-DD)
+4. Add any findings discovered outside prompt scope to the Findings Log
+5. Append a Completion Log row
+6. Commit this CLAUDE.md update as part of the same PR (single atomic PR per prompt)
+
+### Prompt List
+
+#### Wave 0 — Safety Net (one afternoon, do first)
+
+**P0a [TODO]** Husky pre-commit hook
+- Install `husky` as devDependency. Add `.husky/pre-commit` running tsc + eslint + build.
+- Files: `package.json`, `.husky/pre-commit` (new)
+- Deploy: none
+
+**P0b [TODO]** GitHub Actions CI workflow
+- Block PR merge on tsc/eslint/build/vitest failure.
+- Files: `.github/workflows/ci.yml` (new)
+- Deploy: none
+
+**P0c [TODO]** Append Fix Protocol section to CLAUDE.md *(already present after this Launch Plan block — this prompt just verifies it's in place and adjusts wording based on experience)*
+- Files: `CLAUDE.md`
+- Deploy: none
+
+**P0d [TODO]** 10 integration smoke tests
+- One test per major flow: signup, garment add, enrichment, render, outfit generate, outfit refine, plan week, visual search, shopping chat, travel capsule. Auth → run → assert response shape.
+- Files: `src/test/smoke/*.test.ts` (new)
+- Deploy: none
+
+**P0e [TODO]** Migration drift check in CI
+- Add `npx supabase migration list --linked` + `npx supabase db push --dry-run` as required CI steps for any PR touching `supabase/migrations/`.
+- Files: `.github/workflows/ci.yml`
+- Deploy: none
+
+#### Wave 1 — Security (launch-blocking)
+
+**P1 [TODO]** Auth gaps: summarize_day + process_job_queue + daily_reminders
+- All three run with no caller identity verification. Add `getUser()` pattern from `detect_duplicate_garment`.
+- Files: `supabase/functions/summarize_day/index.ts`, `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts`
+- Deploy: each function individually after merge
+
+**P2 [TODO]** Remove anon-key bypass in calendar sync_all
+- `handleSyncAll` accepts anon key OR service-role; anon path enables DoS against Google API. Service-role only.
+- Files: `supabase/functions/calendar/index.ts`
+- Deploy: `calendar`
+
+**P3 [TODO]** OAuth hardening in google_calendar_auth
+- Allowlist `redirect_uri`, replace `state: user.id` with CSRF token + user_id tuple.
+- Files: `supabase/functions/google_calendar_auth/index.ts`, `src/pages/GoogleCalendarCallback.tsx`
+- Deploy: `google_calendar_auth`
+
+**P4 [TODO]** prefetch_suggestions identity check
+- Single-user-trigger mode accepts arbitrary `user_id`. Verify caller's JWT matches `body.user_id`.
+- Files: `supabase/functions/prefetch_suggestions/index.ts`
+- Deploy: `prefetch_suggestions`
+
+**P5 [TODO]** Email domain fix
+- `hello@bursai.com` → `hello@burs.me` in both files.
+- Files: `supabase/functions/send_push_notification/index.ts`, `supabase/functions/daily_reminders/index.ts`
+- Deploy: both functions
+
+**P6 [TODO]** Outfit ownership check in suggest_accessories
+- `outfit_id` from request body queried via service client without user verification.
+- Files: `supabase/functions/suggest_accessories/index.ts`
+- Deploy: `suggest_accessories`
+
+**P7 [TODO]** Cross-user validation in process_job_queue handlers
+- Handlers don't verify `job.user_id` matches garment's user_id.
+- Files: `supabase/functions/process_job_queue/index.ts`
+- Deploy: `process_job_queue`
+
+**P8 [TODO]** Complete delete_user_account cascade
+- Add DELETEs for garment_pair_memory, feedback_signals, analytics_events, chat_messages, outfit_feedback, push_subscriptions, render_jobs, render_credits, render_credit_transactions, travel_capsules, ai_response_cache, ai_rate_limits.
+- Files: `supabase/functions/delete_user_account/index.ts`
+- Deploy: `delete_user_account`
+
+#### Wave 2 — Rate Limiting & Idempotency
+
+**P9 [TODO]** Add rate limit + overload to 14 functions
+- `import_garments_from_links`, `insights_dashboard`, `seed_wardrobe`, `send_push_notification`, `restore_subscription`, `create_portal_session`, `delete_user_account`, `calendar`, `google_calendar_auth`, `daily_reminders`, `process_job_queue`, `process_garment_image`, `generate_outfit`, `cleanup_ai_cache`.
+- Files: one per function
+- Deploy: 14 functions (one PR, still one deploy each — do them in a batch of 3-4 per session)
+
+**P10 [TODO]** UUID validation in PublicProfile + ShareOutfit
+- Validate URL params are UUIDs before `.eq()` queries.
+- Files: `src/pages/PublicProfile.tsx`, `src/pages/ShareOutfit.tsx`
+- Deploy: none
+
+**P11 [TODO]** Gate seed_wardrobe delete_all
+- Require confirmation token in request body before executing destructive op.
+- Files: `supabase/functions/seed_wardrobe/index.ts`
+- Deploy: `seed_wardrobe`
+
+**P12 [TODO]** DB-backed idempotency
+- Replace in-memory cache in `_shared/idempotency.ts` with a `request_idempotency` table (atomic upsert pattern from stripe_events).
+- Files: `supabase/functions/_shared/idempotency.ts`, new migration for `request_idempotency` table
+- Deploy: all functions using idempotency (create_checkout_session, delete_user_account)
+
+**P13 [TODO]** User-scope 7 cache namespaces
+- `style_twin`, `clone_outfit_dna`, `wardrobe_aging`, `wardrobe_gap_analysis`, `smart_shopping_list`, `suggest_accessories`, `travel_capsule` — append `_${userId}` to cacheNamespace.
+- Files: one per function (7 files)
+- Deploy: 7 functions
+
+**P14 [TODO]** Fix summarize_day events-key + suggest_outfit_combinations 8-char prefix collisions
+- User-scope summarize_day cache. Expand suggest_combos prefix to full UUID.
+- Files: `supabase/functions/summarize_day/index.ts`, `supabase/functions/suggest_outfit_combinations/index.ts`
+- Deploy: both
+
+#### Wave 3 — PhotoRoom Removal + Ghost Mannequin for All Categories
+
+**P15 [TODO]** Unwire PhotoRoom entirely
+- Delete `supabase/functions/process_garment_image/`, remove `startGarmentImageProcessingInBackground()` call, remove `image_processing_*` polling from GarmentDetail. Leave DB columns for now.
+- Files: `supabase/functions/process_garment_image/` (delete), `src/lib/garmentIntelligence.ts`, `src/pages/GarmentDetail.tsx`, `supabase/functions/process_job_queue/index.ts` (remove handleImageProcessing)
+- Deploy: `process_job_queue`
+
+**P16 [TODO]** Category-aware render prompts
+- Branch prompt by category: tops/bottoms/dresses/outerwear → true ghost mannequin; shoes → clean product shot; bags → product shot with strap; accessories → styled flat lay; jewelry/watches → clean close-up.
+- Files: `supabase/functions/render_garment_image/index.ts`, `supabase/functions/_shared/gemini-image-client.ts`
+- Deploy: `render_garment_image`
+
+**P17 [TODO]** Multi-prompt retry chain in render_garment_image
+- 3 attempts with different prompt variants before declaring failure. Use validateRenderedGarmentOutputWithGemini as gate on every retry.
+- Files: `supabase/functions/render_garment_image/index.ts`
+- Deploy: `render_garment_image`
+
+**P18 [TODO]** Tighten validateRenderedGarmentOutputWithGemini
+- Expand rejection signals per category. A shoe on a torso = reject.
+- Files: `supabase/functions/_shared/render-eligibility.ts`
+- Deploy: `render_garment_image` (consumer)
+
+**P19 [TODO]** Add timeouts to gemini-image-client.ts + render-eligibility.ts
+- Currently unbounded fetch — can hang indefinitely.
+- Files: `supabase/functions/_shared/gemini-image-client.ts`, `supabase/functions/_shared/render-eligibility.ts`
+- Deploy: `render_garment_image`
+
+#### Wave 4 — AI Retrieval Quality (Right Garments to Gemini)
+
+**P20 [TODO]** Semantic pre-filter for mood_outfit
+- Mood-aware scoring (color, formality, vibe). Send top 40 not all.
+- Files: `supabase/functions/mood_outfit/index.ts`
+- Deploy: `mood_outfit`
+
+**P21 [TODO]** Gap-aware pre-filter for wardrobe_gap_analysis
+- Category coverage scoring. Send relevant sample, not full wardrobe.
+- Files: `supabase/functions/wardrobe_gap_analysis/index.ts`
+- Deploy: `wardrobe_gap_analysis`
+
+**P22 [TODO]** Shopping-intent pre-filter for smart_shopping_list
+- Same pattern, intent-aware.
+- Files: `supabase/functions/smart_shopping_list/index.ts`
+- Deploy: `smart_shopping_list`
+
+**P23 [TODO]** Fix ID truncation
+- `suggest_outfit_combinations`, `wardrobe_aging` use 8-char slices — collision risk. Use full UUIDs in prompts.
+- Files: both functions
+- Deploy: both
+
+**P24 [TODO]** Enrichment guarantee
+- Every AI function pre-checks `ai_raw` populated. If missing, trigger `garment_enrichment` job and either wait or degrade gracefully.
+- Files: `supabase/functions/_shared/burs-ai.ts` (helper), consumers update per function
+- Deploy: all AI functions (one per session)
+
+**P25 [TODO]** Style DNA context injection
+- Include Q1-Q12 onboarding answers in every AI function's system prompt. (Depends on Wave 7's schema.)
+- Files: `supabase/functions/_shared/burs-ai.ts`, consumers
+- Deploy: all AI functions (batch)
+
+**P26 [TODO]** Remove slot:"unknown" hardcodes
+- generate_outfit + unified_stylist_engine return real slot mapping.
+- Files: `supabase/functions/generate_outfit/index.ts`, `supabase/functions/_shared/unified_stylist_engine.ts`
+- Deploy: `generate_outfit`
+
+**P27 [TODO]** Full audit + fix of clone_outfit_dna retrieval
+- Verify it sends right context (currently unaudited).
+- Files: `supabase/functions/clone_outfit_dna/index.ts`
+- Deploy: `clone_outfit_dna`
+
+#### Wave 5 — Refine Button + AI Chat Fixes
+
+**P28 [TODO]** Refine anchors garment instead of full outfit (user's repro)
+- Root cause: refine flow calls unified stylist with mode="swap" + single anchor_garment_id, losing full outfit context. Fix: pass active_look_garment_ids (all current garments) + locked_garment_ids (all except swap target) + requested_edit_slots, mode="refine".
+- Files: `src/hooks/useSwapGarment.ts`, `supabase/functions/_shared/unified_stylist_engine.ts`, `supabase/functions/style_chat/index.ts` (refine path)
+- Deploy: `style_chat`, `burs_style_engine`
+
+**P29 [TODO]** AI chat activeLook persistence
+- Verify `StyleChatActiveLookInput` serializes correctly across messages.
+- Files: `supabase/functions/_shared/style-chat-contract.ts`, `supabase/functions/style_chat/index.ts`, `src/pages/AIChat.tsx`
+- Deploy: `style_chat`
+
+**P30 [TODO]** style_chat classifier fallback
+- When hasActiveLook=true + user says "make it warmer", force intent=refine_outfit not conversation.
+- Files: `supabase/functions/_shared/style-chat-classifier.ts`
+- Deploy: `style_chat`
+
+**P31 [TODO]** RefineChips/RefineBanner payload fix
+- Send full outfit payload, not anchor-only.
+- Files: `src/components/chat/RefineChips.tsx`, `src/components/chat/RefineBanner.tsx`
+- Deploy: none
+
+#### Wave 6 — Localization
+
+**P32 [TODO]** Extend langName maps to 14 locales
+- `mood_outfit`, `smart_shopping_list`, `wardrobe_aging`, `clone_outfit_dna`, `travel_capsule`
+- Files: 5 functions
+- Deploy: 5 functions
+
+**P33 [TODO]** Localize NotFound + Auth + ResetPassword
+- Entire NotFound.tsx + placeholders in Auth.tsx + ResetPassword.tsx. Add keys to en.ts + sv.ts.
+- Files: 3 pages + 2 locale files
+- Deploy: none
+
+**P34 [TODO]** Localize ShareOutfit + PublicProfile meta tags
+- og:title/description, fallbacks.
+- Files: `src/pages/ShareOutfit.tsx`, `src/pages/PublicProfile.tsx`
+- Deploy: none
+
+**P35 [TODO]** Localize AddGarment + LiveScan + OutfitDetail + Onboarding fallbacks
+- Hardcoded English/Swedish strings in four pages.
+- Files: 4 pages + 2 locale files
+- Deploy: none
+
+**P36 [TODO]** Localize Insights.tsx
+- Weekday abbreviations via date-fns locale, axis labels, eyebrow, title fallback.
+- Files: `src/pages/Insights.tsx` + 2 locale files
+- Deploy: none
+
+**P37 [TODO]** Localize MoodOutfit MOODS + MOOD_MAP
+- 12 moods with hint strings per locale.
+- Files: `src/pages/MoodOutfit.tsx`, `supabase/functions/mood_outfit/index.ts` (MOOD_MAP keys)
+- Deploy: `mood_outfit`
+
+**P38 [TODO]** Extend token lists to all 14 locales
+- outfit-rules.ts, burs-slots.ts, travel-capsule-planner.ts — currently English + Swedish only.
+- Files: 3 shared modules
+- Deploy: ALL AI functions importing these modules (huge redeploy — batch across sessions)
+
+**P39 [TODO]** Localize day-intelligence.ts OCCASION_RULES
+- Tags per locale.
+- Files: `supabase/functions/_shared/day-intelligence.ts`
+- Deploy: consumers (burs_style_engine, style_chat, etc.)
+
+**P40 [TODO]** Multi-locale regexes
+- OutfitGenerate FORMAL_KEYWORDS + shopping_chat CHAT_SHORT_RE.
+- Files: `src/pages/OutfitGenerate.tsx`, `supabase/functions/shopping_chat/index.ts`
+- Deploy: `shopping_chat`
+
+**P41 [TODO]** Fix UnusedOutfits Swedish/English key mixing
+- Files: `src/pages/UnusedOutfits.tsx`
+- Deploy: none
+
+#### Wave 7 — Onboarding Rebuild (Full 8-Step per Spec)
+
+**P42 [TODO]** Migration: 4 new profiles columns
+- `onboarding_step`, `onboarding_garment_count`, `onboarding_started_at`, `onboarding_completed_at`. With CHECK constraint on step values.
+- Files: new migration `supabase/migrations/<ts>_onboarding_state.sql`
+- Deploy: none (migration only, post-merge db push)
+
+**P43 [TODO]** Onboarding rate-limit boost in scale-guard
+- 2000/hour + 100/min for first 24h after `onboarding_started_at`.
+- Files: `supabase/functions/_shared/scale-guard.ts`
+- Deploy: all AI functions using scale-guard (batch)
+
+**P44 [TODO]** Route gate enforcement
+- `onboarding_step !== 'completed'` → redirect. Auth/paywall exempt. Deep-link blocker.
+- Files: `src/components/auth/ProtectedRoute.tsx`, `src/App.tsx` (AnimatedRoutes)
+- Deploy: none
+
+**P45 [TODO]** Style DNA Quiz — 12-question rebuild
+- Replace existing QuickStyleQuiz with Q1-Q12 spec (identity, lifestyle, climate, style, color, fit, formality, fabric, occasions, shopping, goals, cultural). Save to profiles.preferences.styleProfile (v4 shape).
+- Files: `src/components/onboarding/QuickStyleQuiz.tsx`, `src/components/onboarding/StyleQuizV4.tsx` (new), `src/pages/Onboarding.tsx`
+- Deploy: none
+
+**P46 [TODO]** PhotoTutorial screen (NEW)
+- Visual guide, "I'm ready" button to advance.
+- Files: `src/components/onboarding/PhotoTutorialStep.tsx` (new), `src/pages/Onboarding.tsx`
+- Deploy: none
+
+**P47 [TODO]** BatchCapture screen (NEW)
+- Min 20, recommended 30, max 50. Each save sets `onboarding_garment_count++`. Progress persists.
+- Files: `src/components/onboarding/BatchCaptureStep.tsx` (new), `src/pages/Onboarding.tsx`
+- Deploy: none
+
+**P48 [TODO]** Achievement screen + grantTrialGift
+- Call `grantTrialGift(userId, 3, idempotencyKey)` on screen entry (idempotent).
+- Files: `src/components/onboarding/AchievementStep.tsx` (new), edge function integration
+- Deploy: none
+
+**P49 [TODO]** StudioSelection screen (NEW)
+- User picks exactly 3 garments. Enqueue 3 render_jobs with source='trial_gift'. Cannot skip/close.
+- Files: `src/components/onboarding/StudioSelectionStep.tsx` (new), `src/hooks/useEnqueueRenderJob.ts` (verify)
+- Deploy: none
+
+**P50 [TODO]** CoachTour — linear tour ending on rendered garment
+- Home → Wardrobe → Outfits → AI Chat → Garment Detail (one of the 3 selected). Realtime subscription to render_status.
+- Files: `src/components/onboarding/CoachTour.tsx` (new), realtime integration
+- Deploy: none
+
+**P51 [TODO]** Reveal — final tutorial page
+- Show studio render with wow copy. If not yet ready, realtime reveal. If failed, auto-retry once + use original until ready.
+- Files: `src/components/onboarding/RevealStep.tsx` (new)
+- Deploy: none
+
+#### Wave 8 — Subscription Model Enforcement (Subscription-Only)
+
+**P52 [TODO]** Auto-start trial on signup
+- Stripe customer create + subscription with 3-day trial on signup. Set onboarding_started_at.
+- Files: `supabase/functions/<new: start_trial>/index.ts` OR extend create_checkout_session, `src/pages/Auth.tsx`
+- Deploy: new/updated function
+
+**P53 [TODO]** Remove free tier from useSubscription
+- States: `trial` | `premium` | `locked`. No `free` path.
+- Files: `src/hooks/useSubscription.ts`, PaywallModal, all gates
+- Deploy: none
+
+**P54 [TODO]** Day-4 lockout enforcement
+- All AI endpoints check subscription.status + plan. Lockout → 402 response with paywall redirect.
+- Files: `supabase/functions/_shared/scale-guard.ts` (new `enforceSubscription` helper), consumers
+- Deploy: all AI functions (batch)
+
+**P55 [TODO]** Paywall page with Restore Purchase button
+- Required by App Store. Hook `restore_subscription` to button.
+- Files: `src/components/PaywallModal.tsx`, `src/pages/marketing/Paywall.tsx` (if needed)
+- Deploy: none
+
+**P56 [TODO]** SEK pricing in Stripe
+- Create monthly 119 SEK + yearly 899 SEK price IDs in Stripe dashboard. Update env vars.
+- Files: `.env.example`, deploy config docs
+- Deploy: `create_checkout_session`, `stripe_webhook` (pick up new env)
+
+**P57 [TODO]** Credit priority verification
+- Confirm `reserve_credit_atomic` applies trial_gift → monthly → topup. (Likely already correct, verify.)
+- Files: `supabase/functions/_shared/render-credits.ts` (verify comments), migration if RPC needs change
+- Deploy: none if verified
+
+#### Wave 9 — Capacitor Migration (After Web Finished)
+
+**P58 [TODO]** Capacitor scaffold + iOS/Android projects
+- `npx cap init`, configure, iOS + Android folders.
+- Files: `capacitor.config.ts`, `ios/`, `android/`
+- Deploy: none
+
+**P59 [TODO]** Camera: Median → @capacitor/camera
+- Files: `src/hooks/useMedianCamera.ts` (delete), new `src/hooks/useCamera.ts`, all consumers (AddGarment, LiveScan)
+- Deploy: none
+
+**P60 [TODO]** Status bar: Median → @capacitor/status-bar
+- Files: `src/hooks/useMedianStatusBar.ts` (delete), new hook, consumers
+- Deploy: none
+
+**P61 [TODO]** Haptics: Median bridge → @capacitor/haptics
+- Files: `src/lib/haptics.ts`
+- Deploy: none
+
+**P62 [TODO]** Deep links via @capacitor/app
+- Files: app init, routing
+- Deploy: none
+
+**P63 [TODO]** Push notifications via @capacitor/push-notifications
+- Replace web push where native better.
+- Files: push subscription flow
+- Deploy: none
+
+**P64 [TODO]** Splash screen + app icon + launch screen
+- Files: iOS/Android assets
+- Deploy: none
+
+**P65 [TODO]** iOS Info.plist permissions
+- Camera, photo library usage descriptions.
+- Files: `ios/App/App/Info.plist`
+- Deploy: none
+
+**P66 [TODO]** Android manifest permissions
+- Files: `android/app/src/main/AndroidManifest.xml`
+- Deploy: none
+
+**P67 [TODO]** Safe-area via Capacitor
+- Replace Median approach.
+- Files: CSS + layout components
+- Deploy: none
+
+**P68 [TODO]** Share API via @capacitor/share
+- Files: `src/lib/nativeShare.ts`
+- Deploy: none
+
+**P69 [TODO]** Remove all Median files + lib/median.ts
+- Files: delete 3 files + any import cleanups
+- Deploy: none
+
+#### Wave 10 — RevenueCat + StoreKit IAP (Parallel with Capacitor End-Stage)
+
+**P70 [TODO]** RevenueCat account + SDK install
+- `npm install @revenuecat/purchases-capacitor`.
+- Files: `package.json`, init code
+- Deploy: none
+
+**P71 [TODO]** RevenueCat webhook → Supabase mirror function
+- New edge function that mirrors RC subscription state to `subscriptions` table (parallel to Stripe webhook).
+- Files: `supabase/functions/revenuecat_webhook/index.ts` (new)
+- Deploy: new function
+
+**P72 [TODO]** Configure products in App Store Connect + RevenueCat dashboard
+- Monthly/yearly SKUs matching Stripe.
+- Files: docs only
+- Deploy: none
+
+**P73 [TODO]** Client-side purchase flow
+- RevenueCat Offerings → purchase → confirm.
+- Files: `src/hooks/useRevenueCat.ts` (new), `src/components/PaywallModal.tsx`
+- Deploy: none
+
+**P74 [TODO]** Restore purchases flow (App Store requirement)
+- Files: Paywall + Settings
+- Deploy: none
+
+**P75 [TODO]** Dual-path billing resolver
+- iOS=RevenueCat, Android/Web=Stripe. Both write to `subscriptions` table.
+- Files: `src/hooks/useSubscription.ts`
+- Deploy: none
+
+**P76 [TODO]** iOS introductory offer (3-day trial via StoreKit)
+- Configure in App Store Connect. Verify it fires on first purchase.
+- Files: RC config
+- Deploy: none
+
+**P77 [TODO]** Receipt validation defense endpoint
+- RC handles most, but keep a verify endpoint for defense-in-depth.
+- Files: `supabase/functions/verify_iap_receipt/index.ts` (new)
+- Deploy: new function
+
+#### Wave 11 — Launch Prep
+
+**P78 [TODO]** App Store Connect listing
+- Screenshots, app description, privacy policy URL, support URL.
+- Files: assets only
+- Deploy: none
+
+**P79 [TODO]** App Privacy labels (ATT if needed)
+- Files: App Store Connect config
+- Deploy: none
+
+**P80 [TODO]** TestFlight beta
+- Internal testers first, then external.
+- Files: build upload
+- Deploy: none
+
+**P81 [TODO]** Play Store listing + production monitoring + launch checklist
+- Screenshots, description. Sentry alerts, Supabase log retention, render queue depth dashboard.
+- Files: config + docs
+- Deploy: none
+
+### Findings Log
+
+New findings discovered during implementation (not in the original audit). Agent MUST add here when spotted out of scope.
+
+| Date | Prompt | Location | Description | Action |
+|------|--------|----------|-------------|--------|
+| — | — | — | — | — |
+
+### Completion Log
+
+| Date | PR | Prompt | Summary |
+|------|-----|--------|---------|
+| — | — | — | — |
+
 ## Prompt Workflow — Do This After Every Single Prompt
 
 ### Step 1 — Verify code quality
@@ -65,6 +555,62 @@ Deploy ONE function at a time. Wait for CLI confirmation before the next.
 PR: [URL]
 ```
 
+## Fix Protocol — Mandatory for Every Launch Plan Prompt
+
+### Before writing code
+1. Read ONLY the files named in the prompt's scope.
+2. If the fix touches shared code (`_shared/*.ts`, a hook, a context, a type), list every importer in the PR body's "Dependency radius" section.
+3. Write a 3-bullet plan: what changes, why, what could break.
+
+### While writing code
+1. Minimum change that solves the stated problem.
+2. No refactors, renames, or "while I'm here" cleanup unless the prompt explicitly scopes them.
+3. If a second bug is found: note it in the PR body under "Out of scope" AND add it to the Launch Plan Findings Log. Do NOT fix it in this prompt.
+
+### Before committing — run the full pipeline
+- `npx tsc --noEmit --skipLibCheck` → 0 errors
+- `npx eslint src/ --ext .ts,.tsx --max-warnings 0` → 0 warnings
+- `npm run build` → clean, no warnings
+- `npx vitest run` → existing tests pass
+- If an edge function changed: `deno check supabase/functions/<name>/index.ts`
+
+### Before pushing — invoke the code-reviewer subagent
+Use `Agent(subagent_type="superpowers:code-reviewer", ...)` with this brief:
+
+> Review this diff against main. Check: (1) does the fix solve the stated problem? (2) are any callers of changed symbols broken? (3) are types still correct across the dependency radius? (4) did any feature regress? Report in under 200 words.
+
+Do NOT open the PR if the reviewer flags a regression. Fix it, re-run the pipeline, re-review.
+
+### PR body template
+```
+## Problem
+[1 sentence, the bug this fixes]
+
+## Fix
+- [bullet list of changes]
+
+## Dependency radius
+[files that import any changed symbol]
+
+## Verification
+- TypeScript: 0 errors
+- Lint: 0 warnings
+- Build: clean
+- Tests: passed
+- Code-reviewer: approved
+
+## Out of scope
+[anything spotted but not fixed — also added to Launch Plan Findings Log]
+```
+
+### After PR merge — End-of-Session Update
+1. Flip the prompt's status in the Launch Plan from `[WIP]` to `[DONE] (PR #<num>, YYYY-MM-DD)`
+2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt
+3. Update `LAST UPDATED` to today
+4. Append a row to the Completion Log
+5. Add any new findings to the Findings Log
+6. Commit this CLAUDE.md update **as part of the same PR** (one atomic PR per prompt)
+
 ## Hard Rules — Never Break These
 
 - Never push directly to main — all changes via PR
@@ -76,8 +622,7 @@ PR: [URL]
 - Never delete DB schema fields
 - Never add new npm packages without asking first
 - Never add new edge functions unless the prompt explicitly says to
-- Never touch Median-specific code — `src/hooks/useMedianCamera.ts`, `src/hooks/useMedianStatusBar.ts`, `src/lib/median.ts` — Capacitor migration is coming in ~2 months, do not touch until then
-- `src/pages/Insights.tsx` — permanently frozen, never edit
+- Never touch Median-specific code until Wave 9 — `src/hooks/useMedianCamera.ts`, `src/hooks/useMedianStatusBar.ts`, `src/lib/median.ts` — Capacitor migration is scoped in Wave 9 (P59-P69) of the Launch Plan
 - `src/integrations/supabase/types.ts` — auto-generated, never edit manually
 - `src/i18n/locales/en.ts` and `sv.ts` — append-only, never reorganise existing keys
 - Never use `getClaims()` in edge functions — deprecated, broken. Use `getUser()` pattern instead
