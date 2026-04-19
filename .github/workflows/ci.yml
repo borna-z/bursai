@@ -58,21 +58,10 @@ jobs:
 
   # P0d-ii — Smoke tests against local Supabase booted via Supabase CLI in Docker.
   # Decision rationale: see the P0d-ii ADR block in LAUNCH_PLAN.md.
+  # Drift-repair rationale (Strategy V — baseline as sole truth): see the P0d-iv
+  # section of LAUNCH_PLAN.md.
   #
-  # GATED OFF (if: false) pending P0d-iv drift repair. The FIRST local migration
-  # (20260124173453_...) assumes public.garments already exists — that table
-  # was created via Studio UI without a backfilled migration file, so a fresh
-  # `supabase db reset` fails with "relation public.garments does not exist".
-  # See P0d-iv in LAUNCH_PLAN.md and the Findings Log entry in CLAUDE.md.
-  #
-  # P0d-iv flips this back on after publishing a baseline schema migration.
-  # Keeping the job definition here (rather than deleting it) means P0d-iv
-  # is a one-line `if:` change, not a re-port. Using `if: false` rather than
-  # `continue-on-error: true` because the latter is CI-as-theater — every PR
-  # would report green while the job silently fails, defeating the whole
-  # point of P0b's fail-on-warnings discipline.
-  #
-  # Guarantees once re-enabled:
+  # Guarantees:
   #   - CLI version is pinned — never `latest` — so the CI-local stack matches
   #     what developers boot. Drift is the #1 cause of "works on my machine"
   #     smoke failures.
@@ -80,7 +69,6 @@ jobs:
   #     against a partially-applied schema and report green.
   #   - No prod secrets exposed. Safe on untrusted PR code.
   smoke-local:
-    if: false  # Re-enabled in P0d-iv after drift repair lands
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

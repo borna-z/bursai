@@ -1,1 +1,0 @@
-ALTER TABLE public.wear_logs ADD COLUMN IF NOT EXISTS event_title TEXT DEFAULT NULL;

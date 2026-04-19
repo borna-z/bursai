@@ -1,1 +1,0 @@
-ALTER TABLE public.outfits ADD COLUMN IF NOT EXISTS flatlay_image_path text DEFAULT NULL;
