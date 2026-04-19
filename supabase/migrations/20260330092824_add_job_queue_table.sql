@@ -27,11 +27,13 @@ CREATE TABLE IF NOT EXISTS public.job_queue (
 -- RLS: service role only (workers use service key)
 ALTER TABLE public.job_queue ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access" ON public.job_queue;
 CREATE POLICY "Service role full access" ON public.job_queue
   FOR ALL TO service_role
   USING (true) WITH CHECK (true);
 
 -- Users can read their own job status (for polling)
+DROP POLICY IF EXISTS "Users can view own jobs" ON public.job_queue;
 CREATE POLICY "Users can view own jobs" ON public.job_queue
   FOR SELECT TO authenticated
   USING (user_id = auth.uid());

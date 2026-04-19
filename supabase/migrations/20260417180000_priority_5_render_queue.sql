@@ -31,7 +31,7 @@
 -- net.http_post.
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
-CREATE TABLE render_jobs (
+CREATE TABLE IF NOT EXISTS render_jobs (
   id                UUID PRIMARY KEY,
   user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   garment_id        UUID NOT NULL REFERENCES garments(id) ON DELETE CASCADE,
@@ -67,16 +67,16 @@ CREATE TABLE render_jobs (
 -- Hot path: worker's claim query scans non-terminal rows ordered
 -- by `locked_until NULLS FIRST, created_at` so unlocked oldest
 -- first. Partial index keeps it small (terminal rows drop out).
-CREATE INDEX idx_render_jobs_claim
+CREATE INDEX IF NOT EXISTS idx_render_jobs_claim
   ON render_jobs (status, locked_until NULLS FIRST, created_at)
   WHERE status IN ('pending','in_progress');
 
 -- Client-side "show all my in-flight renders" and per-garment
 -- "is this one done yet?" queries.
-CREATE INDEX idx_render_jobs_garment
+CREATE INDEX IF NOT EXISTS idx_render_jobs_garment
   ON render_jobs (garment_id, created_at DESC);
 
-CREATE INDEX idx_render_jobs_user_active
+CREATE INDEX IF NOT EXISTS idx_render_jobs_user_active
   ON render_jobs (user_id, created_at DESC)
   WHERE status IN ('pending','in_progress');
 
@@ -84,6 +84,7 @@ CREATE INDEX idx_render_jobs_user_active
 -- (enqueue_render_job + process_render_jobs + the two RPCs below).
 ALTER TABLE render_jobs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users read own render jobs" ON render_jobs;
 CREATE POLICY "Users read own render jobs" ON render_jobs
   FOR SELECT USING (auth.uid() = user_id);
 

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.ai_rate_limits (
 ALTER TABLE public.ai_rate_limits ENABLE ROW LEVEL SECURITY;
 
 -- Service-role only - no client access needed
+DROP POLICY IF EXISTS "Service role only" ON public.ai_rate_limits;
 CREATE POLICY "Service role only" ON public.ai_rate_limits
   FOR ALL
   TO service_role

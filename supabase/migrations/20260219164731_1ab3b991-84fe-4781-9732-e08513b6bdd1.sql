@@ -17,16 +17,19 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- RLS-policies: Användare ser bara sina egna meddelanden
+DROP POLICY IF EXISTS "Users can view own chat messages" ON public.chat_messages;
 CREATE POLICY "Users can view own chat messages"
   ON public.chat_messages
   FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own chat messages" ON public.chat_messages;
 CREATE POLICY "Users can insert own chat messages"
   ON public.chat_messages
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own chat messages" ON public.chat_messages;
 CREATE POLICY "Users can delete own chat messages"
   ON public.chat_messages
   FOR DELETE
@@ -42,6 +45,7 @@ VALUES ('body-images', 'body-images', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- RLS för body-images bucket
+DROP POLICY IF EXISTS "Users can upload own body images" ON storage.objects;
 CREATE POLICY "Users can upload own body images"
   ON storage.objects
   FOR INSERT
@@ -50,6 +54,7 @@ CREATE POLICY "Users can upload own body images"
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+DROP POLICY IF EXISTS "Users can view own body images" ON storage.objects;
 CREATE POLICY "Users can view own body images"
   ON storage.objects
   FOR SELECT
@@ -58,6 +63,7 @@ CREATE POLICY "Users can view own body images"
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+DROP POLICY IF EXISTS "Users can delete own body images" ON storage.objects;
 CREATE POLICY "Users can delete own body images"
   ON storage.objects
   FOR DELETE
@@ -66,6 +72,7 @@ CREATE POLICY "Users can delete own body images"
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+DROP POLICY IF EXISTS "Users can update own body images" ON storage.objects;
 CREATE POLICY "Users can update own body images"
   ON storage.objects
   FOR UPDATE

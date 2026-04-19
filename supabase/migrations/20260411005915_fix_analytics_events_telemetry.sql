@@ -26,7 +26,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'analytics_events' AND column_name = 'event_name'
   ) THEN
-    ALTER TABLE public.analytics_events ADD COLUMN event_name text;
+    ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS event_name text;
   ELSE
     ALTER TABLE public.analytics_events ALTER COLUMN event_name DROP NOT NULL;
   END IF;
@@ -39,7 +39,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'analytics_events' AND column_name = 'properties'
   ) THEN
-    ALTER TABLE public.analytics_events ADD COLUMN properties jsonb DEFAULT '{}'::jsonb;
+    ALTER TABLE public.analytics_events ADD COLUMN IF NOT EXISTS properties jsonb DEFAULT '{}'::jsonb;
   END IF;
 END $$;
 
@@ -59,6 +59,7 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS analytics_events_backfill_trigger ON public.analytics_events;
+DROP TRIGGER IF EXISTS analytics_events_backfill_trigger ON public.analytics_events;
 CREATE TRIGGER analytics_events_backfill_trigger
   BEFORE INSERT ON public.analytics_events
   FOR EACH ROW EXECUTE FUNCTION public.analytics_events_backfill();
@@ -68,18 +69,21 @@ CREATE TRIGGER analytics_events_backfill_trigger
 DROP POLICY IF EXISTS "analytics_events_insert_anon" ON public.analytics_events;
 
 -- 6a. Authenticated users can insert their own events
+DROP POLICY IF EXISTS "analytics_events_insert_self" ON public.analytics_events;
 CREATE POLICY "analytics_events_insert_self"
   ON public.analytics_events
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- 6b. Anonymous users can insert events where user_id is NULL
+DROP POLICY IF EXISTS "analytics_events_insert_anon" ON public.analytics_events;
 CREATE POLICY "analytics_events_insert_anon"
   ON public.analytics_events
   FOR INSERT
   WITH CHECK (user_id IS NULL);
 
 -- 7. Recreate the deny-select policy
+DROP POLICY IF EXISTS "analytics_events_deny_select" ON public.analytics_events;
 CREATE POLICY "analytics_events_deny_select"
   ON public.analytics_events
   FOR SELECT

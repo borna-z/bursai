@@ -5,6 +5,7 @@ ALTER TABLE public.wear_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "wear_logs_delete_own" ON public.wear_logs;
 
 -- Create DELETE policy allowing users to delete only their own rows
+DROP POLICY IF EXISTS "wear_logs_delete_own" ON public.wear_logs;
 CREATE POLICY "wear_logs_delete_own"
 ON public.wear_logs
 FOR DELETE

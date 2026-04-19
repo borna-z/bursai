@@ -1,6 +1,6 @@
 
 -- Feedback signals table for implicit learning
-CREATE TABLE public.feedback_signals (
+CREATE TABLE IF NOT EXISTS public.feedback_signals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   signal_type TEXT NOT NULL, -- 'save', 'ignore', 'wear_confirm', 'swap_choice', 'quick_reaction', 'rating', 'garment_edit'
@@ -12,16 +12,18 @@ CREATE TABLE public.feedback_signals (
 );
 
 -- Index for querying user signals efficiently
-CREATE INDEX idx_feedback_signals_user ON public.feedback_signals(user_id, signal_type, created_at DESC);
-CREATE INDEX idx_feedback_signals_outfit ON public.feedback_signals(outfit_id) WHERE outfit_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_feedback_signals_user ON public.feedback_signals(user_id, signal_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedback_signals_outfit ON public.feedback_signals(outfit_id) WHERE outfit_id IS NOT NULL;
 
 -- RLS
 ALTER TABLE public.feedback_signals ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can insert own signals" ON public.feedback_signals;
 CREATE POLICY "Users can insert own signals"
   ON public.feedback_signals FOR INSERT TO authenticated
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can read own signals" ON public.feedback_signals;
 CREATE POLICY "Users can read own signals"
   ON public.feedback_signals FOR SELECT TO authenticated
   USING (user_id = auth.uid());

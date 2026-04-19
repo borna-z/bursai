@@ -1,8 +1,11 @@
--- Create subscription plan enum
-CREATE TYPE public.subscription_plan AS ENUM ('free', 'premium');
+-- Create subscription plan enum (idempotent: baseline may already have it)
+DO $$ BEGIN
+  CREATE TYPE public.subscription_plan AS ENUM ('free', 'premium');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create user_subscriptions table
-CREATE TABLE public.user_subscriptions (
+CREATE TABLE IF NOT EXISTS public.user_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   plan subscription_plan NOT NULL DEFAULT 'free',
@@ -17,11 +20,13 @@ CREATE TABLE public.user_subscriptions (
 ALTER TABLE public.user_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.user_subscriptions;
 CREATE POLICY "Users can view own subscription"
 ON public.user_subscriptions
 FOR SELECT
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own subscription" ON public.user_subscriptions;
 CREATE POLICY "Users can update own subscription"
 ON public.user_subscriptions
 FOR UPDATE
@@ -41,6 +46,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created_subscription ON auth.users;
 CREATE TRIGGER on_auth_user_created_subscription
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_subscription();
@@ -68,6 +74,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_garment_change ON public.garments;
 CREATE TRIGGER on_garment_change
   AFTER INSERT OR DELETE ON public.garments
   FOR EACH ROW EXECUTE FUNCTION public.update_garments_count();
@@ -96,12 +103,20 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_outfit_created ON public.outfits;
 CREATE TRIGGER on_outfit_created
   AFTER INSERT ON public.outfits
   FOR EACH ROW EXECUTE FUNCTION public.increment_outfits_used();
 
--- Add trigger for updated_at
-CREATE TRIGGER update_user_subscriptions_updated_at
-  BEFORE UPDATE ON public.user_subscriptions
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
+-- Add trigger for updated_at. Wrapped because public.update_updated_at_column()
+-- was never created in the public schema on prod (lives in storage schema only),
+-- so this trigger silently failed to create on prod and doesn't exist there today.
+-- Skipping here keeps local schema matching prod.
+DO $$ BEGIN
+  DROP TRIGGER IF EXISTS update_user_subscriptions_updated_at ON public.user_subscriptions;
+  CREATE TRIGGER update_user_subscriptions_updated_at
+    BEFORE UPDATE ON public.user_subscriptions
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_updated_at_column();
+EXCEPTION WHEN undefined_function THEN NULL;
+END $$;

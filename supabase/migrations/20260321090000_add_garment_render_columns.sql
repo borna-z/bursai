@@ -7,6 +7,7 @@ ALTER TABLE public.garments
   ADD COLUMN IF NOT EXISTS rendered_at timestamptz;
 
 -- Constrain render_status to valid states
+ALTER TABLE public.garments DROP CONSTRAINT IF EXISTS garments_render_status_check;
 ALTER TABLE public.garments
   ADD CONSTRAINT garments_render_status_check
   CHECK (render_status IN ('none', 'pending', 'rendering', 'ready', 'failed', 'skipped'));

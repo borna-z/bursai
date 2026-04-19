@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.analytics_events (
 ALTER TABLE public.analytics_events ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can insert their own events
+DROP POLICY IF EXISTS "Users can insert own analytics events" ON public.analytics_events;
 CREATE POLICY "Users can insert own analytics events"
 ON public.analytics_events
 FOR INSERT
@@ -50,6 +51,7 @@ TO authenticated
 WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
 -- Policy: Anyone can insert anonymous events (for share page)
+DROP POLICY IF EXISTS "Anyone can insert anonymous events" ON public.analytics_events;
 CREATE POLICY "Anyone can insert anonymous events"
 ON public.analytics_events
 FOR INSERT

@@ -12,6 +12,7 @@ WHERE username IS NOT NULL;
 GRANT SELECT ON public.public_profiles TO anon, authenticated;
 
 -- We still need anon/public to be able to read public profiles, so add back a restricted policy
+DROP POLICY IF EXISTS "Public can view profiles with username (safe columns only via view)" ON public.profiles;
 CREATE POLICY "Public can view profiles with username (safe columns only via view)" ON public.profiles
   FOR SELECT
   TO anon

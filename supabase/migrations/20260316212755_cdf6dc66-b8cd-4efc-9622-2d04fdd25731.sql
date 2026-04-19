@@ -1,4 +1,4 @@
-ALTER TABLE public.garments ADD COLUMN enrichment_status text NOT NULL DEFAULT 'pending';
+ALTER TABLE public.garments ADD COLUMN IF NOT EXISTS enrichment_status text NOT NULL DEFAULT 'pending';
 
 UPDATE public.garments 
 SET enrichment_status = CASE 

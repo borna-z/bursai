@@ -2,6 +2,7 @@
 DROP POLICY IF EXISTS "wear_logs_update_own" ON public.wear_logs;
 
 -- Create UPDATE policy allowing users to update only their own rows
+DROP POLICY IF EXISTS "wear_logs_update_own" ON public.wear_logs;
 CREATE POLICY "wear_logs_update_own"
 ON public.wear_logs
 FOR UPDATE

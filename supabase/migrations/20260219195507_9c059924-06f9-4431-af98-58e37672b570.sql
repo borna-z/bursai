@@ -1,1 +1,1 @@
-ALTER TABLE public.chat_messages ADD COLUMN mode TEXT NOT NULL DEFAULT 'stylist';
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'stylist';

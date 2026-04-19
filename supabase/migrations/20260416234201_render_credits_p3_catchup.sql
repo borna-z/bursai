@@ -14,7 +14,7 @@
 
 -- ─── Tables ────────────────────────────────────────────────
 
-CREATE TABLE render_credits (
+CREATE TABLE IF NOT EXISTS render_credits (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   monthly_allowance INT NOT NULL DEFAULT 0,
   used_this_period INT NOT NULL DEFAULT 0,
@@ -26,7 +26,7 @@ CREATE TABLE render_credits (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE render_credit_transactions (
+CREATE TABLE IF NOT EXISTS render_credit_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   render_job_id UUID,
@@ -37,14 +37,14 @@ CREATE TABLE render_credit_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_render_credit_tx_user ON render_credit_transactions(user_id, created_at DESC);
-CREATE INDEX idx_render_credit_tx_job ON render_credit_transactions(render_job_id);
+CREATE INDEX IF NOT EXISTS idx_render_credit_tx_user ON render_credit_transactions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_render_credit_tx_job ON render_credit_transactions(render_job_id);
 
 -- Defense-in-depth against minting: at most one terminal transaction
 -- (consume or release) per render_job_id. Even if concurrent RPCs slip
 -- past the PL/pgSQL row lock for any reason, the second INSERT fails and
 -- its transaction rolls back, leaving balances consistent.
-CREATE UNIQUE INDEX idx_render_credit_tx_terminal_unique
+CREATE UNIQUE INDEX IF NOT EXISTS idx_render_credit_tx_terminal_unique
   ON render_credit_transactions(render_job_id)
   WHERE kind IN ('consume', 'release') AND render_job_id IS NOT NULL;
 
@@ -53,9 +53,11 @@ CREATE UNIQUE INDEX idx_render_credit_tx_terminal_unique
 ALTER TABLE render_credits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE render_credit_transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users read own credits" ON render_credits;
 CREATE POLICY "Users read own credits" ON render_credits
   FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users read own transactions" ON render_credit_transactions;
 CREATE POLICY "Users read own transactions" ON render_credit_transactions
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -71,6 +73,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created_render_credits ON auth.users;
 CREATE TRIGGER on_auth_user_created_render_credits
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION init_render_credits();

@@ -8,6 +8,7 @@ DROP POLICY IF EXISTS "Public can view profiles with username (safe columns only
 -- Add WITH CHECK that prevents changing requester_id or addressee_id
 DROP POLICY IF EXISTS "Addressee can update friendship status" ON public.friendships;
 
+DROP POLICY IF EXISTS "Addressee can update friendship status" ON public.friendships;
 CREATE POLICY "Addressee can update friendship status" ON public.friendships
   FOR UPDATE
   TO authenticated

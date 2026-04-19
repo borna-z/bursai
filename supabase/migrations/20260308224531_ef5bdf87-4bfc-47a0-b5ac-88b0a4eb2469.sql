@@ -1,5 +1,5 @@
 
-CREATE TABLE public.ai_response_cache (
+CREATE TABLE IF NOT EXISTS public.ai_response_cache (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   cache_key text NOT NULL UNIQUE,
   response jsonb NOT NULL,
@@ -8,11 +8,12 @@ CREATE TABLE public.ai_response_cache (
   expires_at timestamp with time zone NOT NULL
 );
 
-CREATE INDEX idx_ai_cache_key ON public.ai_response_cache (cache_key);
-CREATE INDEX idx_ai_cache_expires ON public.ai_response_cache (expires_at);
+CREATE INDEX IF NOT EXISTS idx_ai_cache_key ON public.ai_response_cache (cache_key);
+CREATE INDEX IF NOT EXISTS idx_ai_cache_expires ON public.ai_response_cache (expires_at);
 
 ALTER TABLE public.ai_response_cache ENABLE ROW LEVEL SECURITY;
 
 -- Only service role can access cache (edge functions use service role)
+DROP POLICY IF EXISTS "Deny all client access to ai_response_cache" ON public.ai_response_cache;
 CREATE POLICY "Deny all client access to ai_response_cache" ON public.ai_response_cache
   FOR ALL USING (false);

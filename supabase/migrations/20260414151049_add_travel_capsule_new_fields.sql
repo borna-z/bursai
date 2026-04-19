@@ -7,7 +7,7 @@
 --
 -- This migration layers on top of the later
 -- 20260414180000_add_travel_capsules_table.sql catch-up (which
--- creates the base table if missing) with ADD COLUMN IF NOT EXISTS
+-- creates the base table if missing) with ADD COLUMN IF NOT EXISTS IF NOT EXISTS
 -- guards so the order does not matter.
 -- ============================================================
 

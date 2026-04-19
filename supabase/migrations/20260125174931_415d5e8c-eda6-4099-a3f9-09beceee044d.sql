@@ -7,5 +7,6 @@ WHERE a.user_id = b.user_id
   AND a.created_at > b.created_at;
 
 -- Now add unique constraint on wear_logs to prevent future duplicates
+ALTER TABLE public.wear_logs DROP CONSTRAINT IF EXISTS wear_logs_unique_garment_day;
 ALTER TABLE public.wear_logs 
 ADD CONSTRAINT wear_logs_unique_garment_day UNIQUE (user_id, garment_id, worn_at);
