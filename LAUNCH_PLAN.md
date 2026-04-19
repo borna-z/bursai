@@ -226,7 +226,7 @@ Once P0d-ii is done and local-Supabase-with-mocks is available, add the 7 remain
 
 **Deploy** None.
 
-**Depends on**: P0d-ii.
+**Depends on**: P0d-iv (needs a bootable local schema to run the 7 mock-backed tests in the re-enabled `smoke-local` CI job). Execution order swapped from the original P0d-ii → P0d-iii → P0d-iv plan after P0d-ii's first CI run exposed missing base-schema migrations — shipping 7 new tests that skip in CI until P0d-iv lands is the same false-safety-net trap that `continue-on-error: true` would have been. P0d-iv goes first, re-enables CI with the existing 3 tests proven green, then P0d-iii adds 7 more verified-on-merge.
 
 ---
 

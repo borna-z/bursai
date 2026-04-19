@@ -87,15 +87,16 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Deploy: none
 
 **P0d-iii [TODO]** Expand smoke tests to remaining 7 flows
-- After P0d-ii lands, add the 7 remaining tests: enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule. Each asserts response shape AND DB side-effect (ai_raw populated, render_jobs progressed, etc.), then tears down.
+- After P0d-iv lands, add the 7 remaining tests: enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule. Each asserts response shape AND DB side-effect (ai_raw populated, render_jobs progressed, etc.), then tears down.
 - Files: `src/test/smoke/{enrichment,render,outfit-generate,outfit-refine,visual-search,shopping-chat,travel-capsule}.test.ts` (new — 7 files)
-- Depends on: P0d-ii
+- Depends on: P0d-iv (needs bootable local schema so the mock-backed tests can run in the re-enabled smoke-local CI)
 - Deploy: none
 
 **P0d-iv [TODO]** Schema baseline migration (drift repair) — re-enable smoke-local CI
 - Surfaced by P0d-ii's first CI run: there's no `CREATE TABLE garments` (or other base tables) migration; earliest file ALTERs garments assuming it exists. `supabase db reset` from empty fails. Fix: `supabase db pull --linked`, save as `00000000000000_initial_schema.sql`, prune auto-gen noise, verify `db reset` produces identical schema + `db push --dry-run` reports up-to-date. Strategy A (rename local) per CLAUDE.md Migration Rules — acceptable for solo pre-launch. Re-enable P0d-ii's `smoke-local` job by flipping `if: false`.
 - Files: `supabase/migrations/00000000000000_initial_schema.sql` (new), `.github/workflows/ci.yml` (remove `if: false`)
 - Depends on: P0d-ii
+- Execution order: goes BEFORE P0d-iii (swapped from original plan — dependency graph demands a bootable schema before writing 7 new mock-backed tests, same principle as rejecting `continue-on-error: true`)
 - Deploy: none (migration-only, post-merge `db push` is a no-op)
 
 **P0e [TODO]** Migration drift check in CI
