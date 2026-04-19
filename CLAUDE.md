@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P0b
+**CURRENT PROMPT:** P0c
 **LAST UPDATED:** 2026-04-19
 **TOTAL SCOPE:** 81 prompts across 12 waves
 
@@ -44,7 +44,7 @@ When the user says "continue the launch plan" (or equivalent like "next prompt",
 The tracker update lives INSIDE the fix PR — not after merge. The user's merge ratifies both the fix and the tracker state atomically. Agents cannot add commits to an already-merged PR, so the update MUST be in the same commit or a sibling commit on the same branch, before the PR is opened.
 
 Before opening the PR, the agent MUST:
-1. Flip the prompt's status from `[TODO]` to `[DONE] (PR #<num>, YYYY-MM-DD)` — the PR number comes from `gh pr create` output, so do this update as a final amend after the PR is opened, OR leave a placeholder `PR #635` that the agent replaces immediately post-push with a quick `git commit --amend` + `git push --force-with-lease` before the user sees the PR. Either works. The status must never be `[WIP]` in the merged state.
+1. Flip the prompt's status from `[TODO]` to `[DONE] (PR #<num>, YYYY-MM-DD)` — the PR number comes from `gh pr create` output, so do this update as a final amend after the PR is opened, OR leave a placeholder `PR #TBD` that the agent replaces immediately post-push with a quick `git commit --amend` + `git push --force-with-lease` before the user sees the PR. Either works. The status must never be `[WIP]` in the merged state.
 2. Move `CURRENT PROMPT` pointer to the next `[TODO]` prompt.
 3. Update `LAST UPDATED` to today's date (format: YYYY-MM-DD).
 4. Append a Completion Log row with the PR number and one-line summary.
@@ -64,9 +64,9 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `package.json`, `.husky/pre-commit` (new)
 - Deploy: none
 
-**P0b [TODO]** GitHub Actions CI workflow
+**P0b [DONE] (PR #636, 2026-04-19)** GitHub Actions CI workflow
 - Block PR merge on tsc/eslint/build/vitest failure.
-- Files: `.github/workflows/ci.yml` (new)
+- Files: `.github/workflows/ci.yml` (existed — tightened, was not actually new)
 - Deploy: none
 
 **P0c [TODO]** Append Fix Protocol section to CLAUDE.md *(already present after this Launch Plan block — this prompt just verifies it's in place and adjusts wording based on experience)*
@@ -506,12 +506,16 @@ New findings discovered during implementation (not in the original audit). Agent
 | Date | Prompt | Location | Description | Action |
 |------|--------|----------|-------------|--------|
 | 2026-04-19 | P0a | `src/i18n/locales/en.ts`, `src/i18n/locales/sv.ts` | Duplicate keys `capsule.generating` and `common.delete` in both locale files — surfaced by Vite build warnings when the new pre-commit hook ran. Locale files are append-only per CLAUDE.md so this cannot be fixed inline. | Fold into the next locale-touching prompt (likely Wave 6) — consolidate duplicate keys. |
+| 2026-04-19 | P0b | `.github/workflows/ci.yml:26` | Type-check step uses `bun run tsc --noEmit` without `--skipLibCheck`. CLAUDE.md pipeline + pre-commit hook both use `--skipLibCheck`. CI is stricter than local — a lib-type bump could fail CI without tripping local. | Align when convenient — add `--skipLibCheck` or document divergence. Not launch-blocking. |
+| 2026-04-19 | P0b | `.github/workflows/ci.yml:34-41` | Bundle-size check echoes `WARNING` on overflow but exits 0 → never blocks a merge. Silently passes regressions. | Promote to `exit 1` on overflow, or drop the step. Decide during performance-work wave. |
+| 2026-04-19 | P0b | `.github/workflows/ci.yml` | CI has no `deno check supabase/functions/<fn>/index.ts` step. Fix Protocol requires it for edge-function changes but CI doesn't enforce. | Add a matrix step that runs `deno check` on any changed `supabase/functions/**/index.ts` in the PR. |
 
 ### Completion Log
 
 | Date | PR | Prompt | Summary |
 |------|-----|--------|---------|
-| 2026-04-19 | #TBD | P0a | Husky pre-commit hook runs tsc + eslint + build |
+| 2026-04-19 | #635 | P0a | Husky pre-commit hook runs tsc + eslint + build |
+| 2026-04-19 | #636 | P0b | Tighten CI lint step: fail on eslint warnings (`--max-warnings 0`) |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
@@ -519,7 +523,7 @@ New findings discovered during implementation (not in the original audit). Agent
 
 ```bash
 npx tsc --noEmit --skipLibCheck     # must return 0 errors
-npx eslint src/ --ext .ts,.tsx --max-warnings 0   # must return 0 warnings
+npx eslint . --max-warnings 0       # must return 0 warnings (match CI scope)
 npm run build                        # must complete with no warnings (not just no errors)
 ```
 
@@ -575,7 +579,7 @@ PR: [URL]
 
 ### Before committing — run the full pipeline
 - `npx tsc --noEmit --skipLibCheck` → 0 errors
-- `npx eslint src/ --ext .ts,.tsx --max-warnings 0` → 0 warnings
+- `npx eslint . --max-warnings 0` → 0 warnings (match CI scope — whole repo)
 - `npm run build` → clean, no warnings
 - `npx vitest run` → existing tests pass
 - If an edge function changed: `deno check supabase/functions/<name>/index.ts`
