@@ -1,5 +1,20 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+// SMOKE_TARGET selects which Supabase the suite runs against:
+//   - "prod"  (default)  Credentials come from VITE_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY_TEST
+//                        + SUPABASE_ANON_KEY secrets. Used by the post-merge `smoke` CI job.
+//   - "local"            CI boots a fresh Supabase stack via `supabase start`. The step
+//                        exports SUPABASE_URL + anon/service keys from `supabase status`
+//                        to the environment so the harness reads them through the same
+//                        env-var names. No hardcoded keys — whatever the CLI version
+//                        generates at boot time is authoritative.
+// This variable is also the signal that downstream plumbing (e.g. the mock HTTP server
+// from src/test/smoke/mocks/) should be booted. P0d-ii does not yet boot it; P0d-iii
+// will, when the first Gemini/Stripe-dependent test needs it.
+export type SmokeTarget = "local" | "prod";
+export const SMOKE_TARGET: SmokeTarget =
+  process.env.SMOKE_TARGET === "local" ? "local" : "prod";
+
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY_TEST ?? "";
@@ -15,7 +30,7 @@ export const shouldRunSmoke = Boolean(
 if (process.env.RUN_SMOKE === "1" && !shouldRunSmoke) {
   // Loud signal: user asked for smoke but env is incomplete.
   console.warn(
-    "[smoke] RUN_SMOKE=1 but required env missing — need VITE_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY_TEST, and SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY). Tests will skip.",
+    `[smoke] RUN_SMOKE=1 but required env missing (SMOKE_TARGET=${SMOKE_TARGET}) — need VITE_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY_TEST, and SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY). Tests will skip.`,
   );
 }
 

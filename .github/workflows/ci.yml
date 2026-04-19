@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -40,17 +40,95 @@ jobs:
             echo "⚠️ WARNING: Largest chunk exceeds 500KB target"
           fi
 
-      # P0d — Smoke tests. Only runs on push to main (post-merge), never on pull_request.
-      # Reason: SUPABASE_SERVICE_ROLE_KEY_TEST bypasses RLS and must not be exposed to
-      # untrusted PR code. Moving smoke to post-merge means regressions are caught by
-      # the first push after a merge, not at PR time — acceptable tradeoff vs exfil risk.
-      # If the secret isn't configured yet, shouldRunSmoke returns false and every test
-      # skips — step exits 0.
-      - name: Smoke tests
+      # Post-merge smoke tests against PROD Supabase. Only runs on push to main,
+      # never on pull_request. Reason: SUPABASE_SERVICE_ROLE_KEY_TEST bypasses RLS
+      # and must not be exposed to untrusted PR code. PR-time regression coverage
+      # lives in the smoke-local job below (local Supabase, no prod secrets).
+      # If the secret isn't configured yet, shouldRunSmoke returns false and every
+      # test skips — step exits 0.
+      - name: Smoke tests (prod)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           RUN_SMOKE: "1"
+          SMOKE_TARGET: prod
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY_TEST: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_TEST }}
           SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: bun run test:smoke
+
+  # P0d-ii — Smoke tests against local Supabase booted via Supabase CLI in Docker.
+  # Decision rationale: see the P0d-ii ADR block in LAUNCH_PLAN.md.
+  #
+  # GATED OFF (if: false) pending P0d-iv drift repair. The FIRST local migration
+  # (20260124173453_...) assumes public.garments already exists — that table
+  # was created via Studio UI without a backfilled migration file, so a fresh
+  # `supabase db reset` fails with "relation public.garments does not exist".
+  # See P0d-iv in LAUNCH_PLAN.md and the Findings Log entry in CLAUDE.md.
+  #
+  # P0d-iv flips this back on after publishing a baseline schema migration.
+  # Keeping the job definition here (rather than deleting it) means P0d-iv
+  # is a one-line `if:` change, not a re-port. Using `if: false` rather than
+  # `continue-on-error: true` because the latter is CI-as-theater — every PR
+  # would report green while the job silently fails, defeating the whole
+  # point of P0b's fail-on-warnings discipline.
+  #
+  # Guarantees once re-enabled:
+  #   - CLI version is pinned — never `latest` — so the CI-local stack matches
+  #     what developers boot. Drift is the #1 cause of "works on my machine"
+  #     smoke failures.
+  #   - `supabase db reset` hard-fails on any migration error. Tests never run
+  #     against a partially-applied schema and report green.
+  #   - No prod secrets exposed. Safe on untrusted PR code.
+  smoke-local:
+    if: false  # Re-enabled in P0d-iv after drift repair lands
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      # PIN the Supabase CLI version. Bump deliberately when syncing with the
+      # dev environment — never silently via `latest`.
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: "1.226.4"
+
+      # Boot the local stack. Skip imgproxy / studio / inbucket — smoke tests
+      # don't need them, shaving boot time. Edge-runtime stays on because
+      # P0d-iii will need it for the Gemini/Stripe-dependent flows.
+      - name: Start Supabase
+        run: supabase start --exclude imgproxy --exclude studio --exclude inbucket
+
+      # Hard-fail on migration errors. `db reset` drops the local DB and
+      # re-applies every migration in supabase/migrations/ in timestamp order.
+      # Non-zero exit on any migration failure fails the CI step.
+      - name: Apply migrations (hard-fail on error)
+        run: supabase db reset --no-seed
+
+      # Read local API URL + keys from the CLI (non-secret — generated from
+      # the well-known local JWT signing secret) and hand them to the harness
+      # via the same env-var names the prod job uses. The harness itself
+      # doesn't branch on SMOKE_TARGET for credentials; the target switch is
+      # purely a signal that downstream mock-server plumbing should be booted
+      # (P0d-iii onward).
+      - name: Export local credentials
+        run: |
+          STATUS=$(supabase status --output json)
+          echo "SUPABASE_URL=$(echo "$STATUS" | jq -r '.API_URL')" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=$(echo "$STATUS" | jq -r '.ANON_KEY')" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY_TEST=$(echo "$STATUS" | jq -r '.SERVICE_ROLE_KEY')" >> $GITHUB_ENV
+
+      - name: Run smoke tests against local Supabase
+        env:
+          RUN_SMOKE: "1"
+          SMOKE_TARGET: local
+        run: bun run test:smoke
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
