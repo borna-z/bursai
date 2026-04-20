@@ -65,6 +65,11 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `package.json`, `.husky/pre-commit` (new)
 - Deploy: none
 
+**P0a-ii [DONE] (PR #641, 2026-04-20)** Add shebang to .husky/pre-commit so Windows git.exe can exec the hook
+- Prepend `#!/usr/bin/env sh` as line 1 of `.husky/pre-commit`. Without this, Windows skips the hook silently — verified by two prior agent sessions that needed `core.hooksPath` wrappers.
+- Files: `.husky/pre-commit`
+- Deploy: none
+
 **P0b [DONE] (PR #636, 2026-04-19)** GitHub Actions CI workflow
 - Block PR merge on tsc/eslint/build/vitest failure.
 - Files: `.github/workflows/ci.yml` (existed — tightened, was not actually new)
@@ -551,6 +556,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-19 | #638 | P0d-ii | Test infra (partial): harness extension + mock-server scaffolding (Node stdlib) + ADR. `smoke-local` CI job exists but is gated `if: false` pending P0d-iv — first CI run exposed missing base-schema migration. Drift repair tracked as new P0d-iv. |
 | 2026-04-20 | #TBD | P0d-iv | Schema drift repair via Strategy V: baseline dump (36 tables) as sole source of schema truth; 67 historical migrations deleted (they described a fiction — lots of silently-failed DDL); remote tracking table repaired in one atomic transaction; smoke-local CI re-enabled. Commit 1 preserves the attempted Strategy W idempotency pass in git history. |
 | 2026-04-20 | #640 | P0d-iii | Smoke-test suite expanded from 3 to 10. 7 new tests (enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule) invoke the target edge function via `supabase.functions.invoke()` and assert the response envelope — NOT DB-only. Three hardcoded Gemini URLs made overridable in `_shared/burs-ai.ts` + `_shared/gemini-image-client.ts` + `_shared/render-eligibility.ts` (backward-compat: identical behaviour when env vars unset). Mock Gemini server + `start-mock-server.ts` entrypoint + CI workflow wiring via `supabase functions serve --env-file`. AI tests skip in smoke-prod (`shouldRunAiSmoke` gate) so prod Gemini isn't hit. 10/10 passing locally with mock interception verified. **Deploy of 24 AI functions deferred** — `esm.sh 522` blocker from Supabase bundler; backward-compat keeps prod safe until retry. See Findings Log row for `_shared/burs-ai.ts:17` (now resolved). |
+| 2026-04-20 | #641 | P0a-ii | Fix .husky/pre-commit: add missing shebang so Windows git.exe executes the hook |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
