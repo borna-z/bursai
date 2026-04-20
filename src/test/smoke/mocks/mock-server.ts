@@ -73,7 +73,7 @@ export class MockServer {
     this.routes.push(...routes);
   }
 
-  async start(port: number): Promise<void> {
+  async start(port: number, host = "0.0.0.0"): Promise<void> {
     if (this.server) {
       throw new Error("[mock-server] already started");
     }
@@ -88,7 +88,10 @@ export class MockServer {
     });
     await new Promise<void>((resolve, reject) => {
       this.server!.once("error", reject);
-      this.server!.listen(port, () => {
+      // Binding to 0.0.0.0 by default — necessary so the edge-runtime Docker
+      // container can reach the mock via host.docker.internal / bridge
+      // gateway IP. Override to 127.0.0.1 in unit contexts if needed.
+      this.server!.listen(port, host, () => {
         this.server!.removeListener("error", reject);
         resolve();
       });
@@ -107,6 +110,16 @@ export class MockServer {
     const body = await readBody(req);
     const route = this.routes.find(
       (r) => r.method === req.method && r.pathPattern.test(req.url ?? ""),
+    );
+    // Minimal hit log so CI troubleshooting can see whether a test reached
+    // the mock at all. Prefix with `[mock-server hit]` to distinguish from
+    // other log lines. Stream flushed per-request so the log is not lost if
+    // the process crashes mid-test.
+    const matchLabel = route ? "route matched" : "NO ROUTE";
+    console.log(
+      `[mock-server hit] ${req.method} ${req.url} → ${matchLabel}${
+        body.length > 0 ? ` (body=${body.length}b)` : ""
+      }`,
     );
     if (!route) {
       res.writeHead(404, { "content-type": "text/plain" });

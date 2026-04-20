@@ -15,8 +15,13 @@ export type SmokeTarget = "local" | "prod";
 export const SMOKE_TARGET: SmokeTarget =
   process.env.SMOKE_TARGET === "local" ? "local" : "prod";
 
+// P0d-iii: SUPABASE_URL takes precedence over VITE_SUPABASE_URL so a local
+// smoke run (shell sets SUPABASE_URL=http://127.0.0.1:54321) is NOT silently
+// overridden by `.env.local`'s VITE_SUPABASE_URL=https://<prod>.supabase.co
+// that vitest auto-loads. Same precedence for ANON_KEY. Prod smoke only has
+// VITE_* available, so the fallback chain is still correct for that target.
 const SUPABASE_URL =
-  process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY_TEST ?? "";
 const ANON_KEY =
   process.env.SUPABASE_ANON_KEY ??
@@ -27,10 +32,28 @@ export const shouldRunSmoke = Boolean(
   process.env.RUN_SMOKE === "1" && SUPABASE_URL && SERVICE_ROLE_KEY && ANON_KEY,
 );
 
+// P0d-iii: AI edge function tests can only run when a local mock Gemini is
+// reachable from the edge-runtime container. The mock is started via
+// `src/test/smoke/mocks/start-mock-server.ts`; CI exports
+// GEMINI_URL_OVERRIDE into the functions runtime via `--env-file`, and
+// re-exports it into the test process as a sentinel the 7 AI tests check.
+// In smoke-prod we intentionally skip these: the prod stack would hit real
+// Gemini and burn cost + flakiness.
+export const shouldRunAiSmoke = Boolean(
+  shouldRunSmoke && process.env.GEMINI_URL_OVERRIDE,
+);
+
 if (process.env.RUN_SMOKE === "1" && !shouldRunSmoke) {
   // Loud signal: user asked for smoke but env is incomplete.
   console.warn(
     `[smoke] RUN_SMOKE=1 but required env missing (SMOKE_TARGET=${SMOKE_TARGET}) — need VITE_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY_TEST, and SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY). Tests will skip.`,
+  );
+}
+if (shouldRunSmoke && SMOKE_TARGET === "local" && !shouldRunAiSmoke) {
+  // Loud signal: local target should have the mock up — missing it means CI
+  // forgot to wire start-mock-server.ts and the AI tests will silently skip.
+  console.warn(
+    "[smoke] SMOKE_TARGET=local but GEMINI_URL_OVERRIDE is unset — the 7 AI smoke tests will skip. Ensure the mock server was started and its URL exported to both `supabase functions serve --env-file` and the vitest process.",
   );
 }
 

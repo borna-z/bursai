@@ -111,11 +111,104 @@ jobs:
           echo "SUPABASE_ANON_KEY=$(echo "$STATUS" | jq -r '.ANON_KEY')" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY_TEST=$(echo "$STATUS" | jq -r '.SERVICE_ROLE_KEY')" >> $GITHUB_ENV
 
+      # P0d-iii — Boot the Gemini mock server on port 54330, bound to
+      # 0.0.0.0 so the edge-runtime Docker container can reach it via the
+      # Supabase network bridge gateway. The mock intercepts the OpenAI-
+      # compatible chat/completions endpoint AND Gemini's native
+      # generateContent endpoint (used by image-gen + render-eligibility).
+      - name: Start mock Gemini server
+        run: |
+          nohup bun run src/test/smoke/mocks/start-mock-server.ts > mock-server.log 2>&1 &
+          echo $! > mock-server.pid
+          for i in $(seq 1 20); do
+            if curl -fsS -X POST http://127.0.0.1:54330/v1beta/openai/chat/completions \
+              -H 'Content-Type: application/json' \
+              -d '{"messages":[{"role":"user","content":"ping"}]}' > /dev/null 2>&1; then
+              echo "mock-server up"
+              break
+            fi
+            sleep 0.5
+          done
+        env:
+          MOCK_SERVER_PORT: "54330"
+
+      # Discover the Supabase-network bridge gateway so the edge-runtime
+      # container can reach the mock. Docker Desktop resolves
+      # host.docker.internal but GitHub Actions' Linux Docker does not map
+      # it by default — use the network's gateway IP which is always
+      # routable from inside containers on that bridge.
+      - name: Resolve container→host URL
+        run: |
+          GATEWAY=$(docker network inspect supabase_network_khvkwojtlkcvxjxztduj \
+            --format '{{(index .IPAM.Config 0).Gateway}}')
+          if [ -z "$GATEWAY" ]; then
+            echo "Failed to discover supabase network gateway IP"
+            exit 1
+          fi
+          echo "MOCK_BASE_URL=http://$GATEWAY:54330" >> $GITHUB_ENV
+
+      # Write an env file that `supabase functions serve` will inject into
+      # the edge-runtime container. GEMINI_API_KEY is required by callBursAI
+      # even when the URL is mocked (the function short-circuits on missing
+      # key before it ever calls fetch). The three URL overrides cover every
+      # Gemini entry-point the smoke-tested functions reach:
+      #   - GEMINI_URL_OVERRIDE        → burs-ai.ts (22 AI functions)
+      #   - GEMINI_IMAGE_URL_OVERRIDE  → gemini-image-client.ts (render_garment_image)
+      #   - GEMINI_TEXT_URL_OVERRIDE   → render-eligibility.ts (render gate)
+      - name: Write edge-function env file
+        run: |
+          cat > supabase/functions/.env.smoke <<EOF
+          GEMINI_API_KEY=smoke-test-mock-key
+          GEMINI_URL_OVERRIDE=${MOCK_BASE_URL}/v1beta/openai/chat/completions
+          GEMINI_IMAGE_URL_OVERRIDE=${MOCK_BASE_URL}/v1beta/models/gemini-2.5-flash-image:generateContent
+          GEMINI_TEXT_URL_OVERRIDE=${MOCK_BASE_URL}/v1beta/models/gemini-2.5-flash:generateContent
+          EOF
+
+      # Replace the edge-runtime started by `supabase start` with a new
+      # runtime whose env file includes our mock URLs. `supabase functions
+      # serve` stops + restarts the edge runtime container in-place, so
+      # callers still reach functions at http://127.0.0.1:54321/functions/v1.
+      - name: Start supabase functions serve with mock URLs
+        run: |
+          nohup supabase functions serve \
+            --env-file supabase/functions/.env.smoke \
+            --no-verify-jwt > functions-serve.log 2>&1 &
+          echo $! > functions-serve.pid
+          for i in $(seq 1 40); do
+            if curl -fsS -X POST http://127.0.0.1:54321/functions/v1/visual_search \
+              -H 'Authorization: Bearer not-a-valid-jwt' \
+              -H 'Content-Type: application/json' \
+              -d '{}' | grep -q "Unauthorized"; then
+              echo "functions-serve up"
+              break
+            fi
+            sleep 1
+          done
+
       - name: Run smoke tests against local Supabase
         env:
           RUN_SMOKE: "1"
           SMOKE_TARGET: local
+          # Sentinel for the 7 AI smoke tests — they gate on this via
+          # shouldRunAiSmoke in harness.ts. The value is not read at
+          # runtime (tests invoke functions through the supabase-js
+          # client; the URL override is read by the edge-runtime from
+          # the .env.smoke file above). Setting it here just flips the
+          # test-gate from skip → run.
+          GEMINI_URL_OVERRIDE: "http://mock-sentinel-do-not-use-directly/"
         run: bun run test:smoke
+
+      - name: Show background logs on failure
+        if: failure()
+        run: |
+          echo "=== mock-server.log ===" && cat mock-server.log || true
+          echo "=== functions-serve.log ===" && cat functions-serve.log || true
+
+      - name: Tear down mock server + functions serve
+        if: always()
+        run: |
+          if [ -f mock-server.pid ]; then kill "$(cat mock-server.pid)" 2>/dev/null || true; fi
+          if [ -f functions-serve.pid ]; then kill "$(cat functions-serve.pid)" 2>/dev/null || true; fi
 
       - name: Stop Supabase
         if: always()

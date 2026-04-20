@@ -14,7 +14,18 @@
 
 import { logger } from "./logger.ts";
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+// GEMINI_URL is the OpenAI-compatible endpoint for Gemini. Default points at
+// Google's production endpoint. The `GEMINI_URL_OVERRIDE` env var exists so a
+// local mock server (smoke tests, `src/test/smoke/mocks/`) can intercept calls
+// without changing production behavior. When the env var is unset, behavior is
+// identical to the original hardcoded value. Unit here: a fully-qualified URL
+// ending in `/v1beta/openai/chat/completions` — downstream `fetch(GEMINI_URL,
+// ...)` appends nothing, so the override must be a full URL.
+// `typeof Deno !== "undefined"` guards the module against non-Deno runtimes
+// (Node/vitest unit tests under `__tests__/`) where accessing `Deno.env`
+// directly would throw `ReferenceError: Deno is not defined` at module load.
+const GEMINI_URL = (typeof Deno !== "undefined" ? Deno.env.get("GEMINI_URL_OVERRIDE") : undefined)
+  ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const log = logger("burs_ai");
 
 // ─── Complexity-based model routing ───────────────────────────
