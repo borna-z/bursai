@@ -7,6 +7,13 @@
  * - Authorized domain includes: burs.me
  * - Only minimum approved calendar scope requested for primary-calendar event reads:
  *     https://www.googleapis.com/auth/calendar.events.readonly
+ *
+ * Security hardening (Prompt 3 / Wave 1):
+ * - `redirect_uri` is validated against an explicit allowlist before being
+ *   sent to Google. Unknown origins are rejected with 400.
+ * - The `state` param is a single-use CSRF token (`<user_id>.<nonce>`) backed
+ *   by the `public.oauth_csrf` table with a 10-minute TTL. Consumed on
+ *   callback to prevent replay.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -14,6 +21,35 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
+
+// Hardcoded production, canonical-domain, and local-dev redirect URIs. The
+// callback route is mounted at `/calendar/callback` in AnimatedRoutes.tsx.
+// Additional origins (Vercel previews, staging projects) can be layered on
+// via the `ALLOWED_CALENDAR_REDIRECT_URIS` env var (comma-separated).
+const ALLOWED_REDIRECT_URIS = [
+  "https://app.burs.me/calendar/callback",
+  "https://burs.me/calendar/callback",
+  "http://localhost:8080/calendar/callback",
+];
+
+function buildAllowedRedirectSet(): Set<string> {
+  const envExtras = (Deno.env.get("ALLOWED_CALENDAR_REDIRECT_URIS") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return new Set([...ALLOWED_REDIRECT_URIS, ...envExtras]);
+}
+
+// CSRF token lifetime: 10 minutes. Users who idle on the Google consent
+// screen longer than this have to restart the flow — acceptable UX.
+const CSRF_TTL_MS = 10 * 60 * 1000;
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,25 +60,23 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
     if (!clientId || !clientSecret) {
-      return new Response(JSON.stringify({ error: "Google Calendar not configured" }), {
-        status: 500,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Google Calendar not configured" }, 500);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const { action, code, redirect_uri } = await req.json();
+    const body = await req.json();
+    const { action, code, redirect_uri, state: clientState } = body ?? {};
+
+    const allowedRedirects = buildAllowedRedirectSet();
 
     // --- ACTION: get_auth_url ---
     if (action === "get_auth_url") {
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Unauthorized" }, 401);
       }
 
       // Verify user exists
@@ -51,12 +85,33 @@ Deno.serve(async (req) => {
       });
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) {
-        return new Response(JSON.stringify({ error: "Invalid auth" }), {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Invalid auth" }, 401);
       }
       const user = userData.user;
+
+      if (typeof redirect_uri !== "string" || !allowedRedirects.has(redirect_uri)) {
+        return jsonResponse({ error: "redirect_uri not allowed" }, 400);
+      }
+
+      // Issue a single-use CSRF token. We store the token row under the
+      // service role (RLS-enabled table, no policies).
+      const adminClient = createClient(supabaseUrl, serviceRoleKey);
+      const csrfToken = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + CSRF_TTL_MS).toISOString();
+
+      const { error: insertCsrfError } = await adminClient
+        .from("oauth_csrf")
+        .insert({ token: csrfToken, user_id: user.id, expires_at: expiresAt });
+
+      if (insertCsrfError) {
+        console.error("oauth_csrf insert error:", insertCsrfError);
+        return jsonResponse({ error: "Failed to initiate OAuth" }, 500);
+      }
+
+      // State format: <user_id>.<csrf_token>. Both halves are verified on
+      // callback — the user_id half must match the caller's JWT-derived id,
+      // the csrf half must match an un-expired row keyed to the same user.
+      const state = `${user.id}.${csrfToken}`;
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -65,23 +120,18 @@ Deno.serve(async (req) => {
         scope: GOOGLE_SCOPES,
         access_type: "offline",
         prompt: "consent",
-        state: user.id,
+        state,
       });
 
       const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-      return new Response(JSON.stringify({ url }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ url }, 200);
     }
 
     // --- ACTION: exchange_code ---
     if (action === "exchange_code") {
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Unauthorized" }, 401);
       }
 
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -89,12 +139,61 @@ Deno.serve(async (req) => {
       });
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) {
-        return new Response(JSON.stringify({ error: "Invalid auth" }), {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Invalid auth" }, 401);
       }
       const user = userData.user;
+
+      if (typeof redirect_uri !== "string" || !allowedRedirects.has(redirect_uri)) {
+        return jsonResponse({ error: "redirect_uri not allowed" }, 400);
+      }
+
+      // CSRF verification: state must be `<user_id>.<csrf_token>` where the
+      // user_id half equals the caller's JWT user and the csrf half matches
+      // an un-expired row bound to the same user. We consume the row on
+      // success so a replay of the same state fails the next lookup.
+      if (typeof clientState !== "string" || !clientState.includes(".")) {
+        return jsonResponse({ error: "Invalid state" }, 401);
+      }
+      const dotIdx = clientState.indexOf(".");
+      const stateUserId = clientState.slice(0, dotIdx);
+      const stateCsrf = clientState.slice(dotIdx + 1);
+      if (!stateUserId || !stateCsrf || stateUserId !== user.id) {
+        return jsonResponse({ error: "Invalid state" }, 401);
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+      const { data: csrfRow, error: csrfSelectError } = await adminClient
+        .from("oauth_csrf")
+        .select("token, user_id, expires_at")
+        .eq("token", stateCsrf)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (csrfSelectError) {
+        console.error("oauth_csrf select error:", csrfSelectError);
+        return jsonResponse({ error: "Invalid state" }, 401);
+      }
+      if (!csrfRow) {
+        return jsonResponse({ error: "Invalid state" }, 401);
+      }
+      if (new Date(csrfRow.expires_at).getTime() < Date.now()) {
+        // Expired — clean the row out to keep the table small and return 401.
+        await adminClient.from("oauth_csrf").delete().eq("token", stateCsrf);
+        return jsonResponse({ error: "Invalid state" }, 401);
+      }
+
+      // Consume the token BEFORE talking to Google. If the Google exchange
+      // fails we lose the nonce but that is safe — the user just restarts.
+      const { error: deleteCsrfError } = await adminClient
+        .from("oauth_csrf")
+        .delete()
+        .eq("token", stateCsrf)
+        .eq("user_id", user.id);
+      if (deleteCsrfError) {
+        console.error("oauth_csrf delete error:", deleteCsrfError);
+        return jsonResponse({ error: "Invalid state" }, 401);
+      }
 
       // Exchange authorization code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -112,17 +211,10 @@ Deno.serve(async (req) => {
       const tokenData = await tokenResponse.json();
       if (!tokenResponse.ok) {
         console.error("Token exchange failed:", tokenData);
-        return new Response(JSON.stringify({ error: "Failed to exchange code" }), {
-          status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Failed to exchange code" }, 400);
       }
 
       const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
-
-      // Use service role to upsert calendar_connections
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
       // Delete existing google connection for this user
       await adminClient.from("calendar_connections").delete().eq("user_id", user.id).eq("provider", "google");
@@ -139,25 +231,17 @@ Deno.serve(async (req) => {
 
       if (insertError) {
         console.error("Insert connection error:", insertError);
-        return new Response(JSON.stringify({ error: "Failed to save connection" }), {
-          status: 500,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Failed to save connection" }, 500);
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ success: true }, 200);
     }
 
     // --- ACTION: disconnect ---
     if (action === "disconnect") {
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Unauthorized" }, 401);
       }
 
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -165,14 +249,10 @@ Deno.serve(async (req) => {
       });
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) {
-        return new Response(JSON.stringify({ error: "Invalid auth" }), {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Invalid auth" }, 401);
       }
       const user = userData.user;
 
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
       // Delete connection
@@ -184,15 +264,10 @@ Deno.serve(async (req) => {
       // Update last sync
       await adminClient.from("profiles").update({ last_calendar_sync: null }).eq("id", user.id);
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ success: true }, 200);
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action" }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Invalid action" }, 400);
   } catch (error) {
     console.error("Google calendar auth error:", error);
     return new Response(JSON.stringify({ error: "An unexpected error occurred" }), {

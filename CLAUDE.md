@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P3
+**CURRENT PROMPT:** P4
 **LAST UPDATED:** 2026-04-20
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -123,10 +123,10 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `supabase/functions/calendar/index.ts`
 - Deploy: `calendar`
 
-**P3 [TODO]** OAuth hardening in google_calendar_auth
+**P3 [DONE] (PR #646, 2026-04-20)** OAuth hardening in google_calendar_auth
 - Allowlist `redirect_uri`, replace `state: user.id` with CSRF token + user_id tuple.
-- Files: `supabase/functions/google_calendar_auth/index.ts`, `src/pages/GoogleCalendarCallback.tsx`
-- Deploy: `google_calendar_auth`
+- Files: `supabase/functions/google_calendar_auth/index.ts`, `src/pages/GoogleCalendarCallback.tsx`, new migration `supabase/migrations/20260420200957_oauth_csrf.sql`
+- Deploy: `google_calendar_auth` (+ `npx supabase db push --linked --yes` post-merge to provision the `oauth_csrf` table and the `oauth_csrf_cleanup` pg_cron schedule)
 
 **P4 [TODO]** prefetch_suggestions identity check
 - Single-user-trigger mode accepts arbitrary `user_id`. Verify caller's JWT matches `body.user_id`.
@@ -564,6 +564,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #643 | P1 | Add JWT verification + service-role bypass to summarize_day (JWT-only), process_job_queue (bypass), daily_reminders (bypass) |
 | 2026-04-20 | #644 | P2 | Calendar handleSyncAll: reject anon-key callers, service-role only (DoS fix) |
 | 2026-04-20 | #645 | P0e | Wave 0 catch-up: CI step checks `supabase migration list --linked` + `db push --dry-run` on any PR touching supabase/migrations/ |
+| 2026-04-20 | #646 | P3 | OAuth hardening for google_calendar_auth: server-side `redirect_uri` allowlist (hardcoded 3 URIs + optional `ALLOWED_CALENDAR_REDIRECT_URIS` env extras) + single-use CSRF token `state = <user_id>.<nonce>` backed by new `public.oauth_csrf` table (10-min TTL, consumed on callback, hourly `oauth_csrf_cleanup` pg_cron). Client passes `state` from URL back to backend verbatim. Post-merge: `supabase db push` provisions the table + cron, then deploy `google_calendar_auth`. |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 

@@ -53,6 +53,9 @@ export default function GoogleCalendarCallback() {
   useEffect(() => {
     const code = searchParams.get('code');
     const error = searchParams.get('error');
+    // `state` is the CSRF token Google echoes back from the initial auth URL.
+    // The backend verifies it against a single-use row in `oauth_csrf`.
+    const state = searchParams.get('state');
 
     if (error) {
       setStatus('error');
@@ -63,6 +66,12 @@ export default function GoogleCalendarCallback() {
     if (!code) {
       setStatus('error');
       setMessage(t('gcal.no_code'));
+      return;
+    }
+
+    if (!state) {
+      setStatus('error');
+      setMessage(t('gcal.error'));
       return;
     }
 
@@ -77,6 +86,7 @@ export default function GoogleCalendarCallback() {
             action: 'exchange_code',
             code,
             redirect_uri: redirectUri,
+            state,
           },
         });
         if (cancelled) return;
