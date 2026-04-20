@@ -106,7 +106,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Execution order: ran BEFORE P0d-iii (swapped from original plan — dependency graph demands a bootable schema before writing 7 new mock-backed tests, same principle as rejecting `continue-on-error: true`)
 - Deploy: none (migration + tracking repair only; post-merge `db push` is a no-op)
 
-**P0e [TODO]** Migration drift check in CI
+**P0e [DONE] (PR #645, 2026-04-20)** Migration drift check in CI
 - Add `npx supabase migration list --linked` + `npx supabase db push --dry-run` as required CI steps for any PR touching `supabase/migrations/`.
 - Files: `.github/workflows/ci.yml`
 - Deploy: none
@@ -546,6 +546,8 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | P0a | `.husky/pre-commit` | File lacks `#!/usr/bin/env sh` shebang. On Windows, git.exe cannot exec the hook directly → pre-commit runs are skipped unless the agent wraps it via `core.hooksPath`. Surfaced by P0d-iv and P0d-iii agent sessions — both had to use a wrapper to run the full tsc + eslint + build pipeline. | Tiny follow-up prompt (P0a-ii) prepends shebang. Parallel PR alongside PR #640. |
 | 2026-04-20 | P0d-iii | `supabase/functions/travel_capsule/index.ts:838` (resolveId) + `:762` (deterministic fallback) | `resolveId()` expects string ids, but the deterministic fallback at line 762 writes garment objects into capsule_items. Downstream `id.trim()` crashes on the object path. Surfaced when P0d-iii's `travel-capsule.test.ts` mock routing revealed the fallback path — test was tightened so happy path avoids the crash, but the production code path is latent. | Dedicated prompt in a future wave — coerce resolveId inputs to string or fix fallback to emit ids, not objects. Not a launch-blocker (deterministic fallback rarely triggers in prod), but should be fixed before sign-off. |
 | 2026-04-20 | P1 | `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts` | **Mistake pattern — cron-only vs user-facing auth.** Initial P1 agent brief included a `getUser()` fallback pattern copied from `detect_duplicate_garment` for cron-only functions. Codex caught that the fallback allowed any authenticated end-user to invoke service-role-escalated code (DoS against queue processing + notification storm). Correct pattern for cron-only endpoints is hard-reject of non-service-role callers via `timingSafeEqual(token, SERVICE_ROLE_KEY)`. User-facing functions continue to use the `getUser()` fallback. | Fixed in follow-up commit on PR #643. For future prompts: user-facing functions use `getUser()` fallback; cron-only functions use hard-reject only. |
+| 2026-04-20 | P0e | process (not a file) | **Prompt ordering mistake.** P1 and P2 were executed before P0e because the P1 agent brief instructed "move CURRENT PROMPT to P2" (should have been "P0e"). No correctness impact — P0e is independent of P1/P2 scope — but Wave 0 safety net was briefly incomplete during Wave 1 work. | Future prompt briefs must verify CURRENT PROMPT against the prompt list and move to the earliest `[TODO]`, not just the next-numbered prompt. |
+| 2026-04-20 | P2 | `supabase/functions/calendar/index.ts` (handleSyncAll) | **Possible dead code.** `handleSyncAll` has no discoverable caller — zero in-repo invokers, zero matching rows in `cron.job` for 'calendar' or 'sync_all' patterns. May be dead code OR called by a Supabase Dashboard scheduled function outside pg_cron. | Future cleanup prompt — verify Dashboard → Edge Functions → Schedules for a calendar sync entry. If nothing, delete `handleSyncAll` entirely. |
 
 ### Completion Log
 
@@ -561,6 +563,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #642 | P0d-iii-deploy | Retry-deployed all 24 AI function consumers of the Gemini URL env-var refactor. esm.sh 522 cleared; no code changes. |
 | 2026-04-20 | #643 | P1 | Add JWT verification + service-role bypass to summarize_day (JWT-only), process_job_queue (bypass), daily_reminders (bypass) |
 | 2026-04-20 | #644 | P2 | Calendar handleSyncAll: reject anon-key callers, service-role only (DoS fix) |
+| 2026-04-20 | #645 | P0e | Wave 0 catch-up: CI step checks `supabase migration list --linked` + `db push --dry-run` on any PR touching supabase/migrations/ |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
