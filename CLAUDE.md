@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P0e
+**CURRENT PROMPT:** P2
 **LAST UPDATED:** 2026-04-20
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -113,7 +113,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 
 #### Wave 1 — Security (launch-blocking)
 
-**P1 [TODO]** Auth gaps: summarize_day + process_job_queue + daily_reminders
+**P1 [DONE] (PR #643, 2026-04-20)** Auth gaps: summarize_day + process_job_queue + daily_reminders
 - All three run with no caller identity verification. Add `getUser()` pattern from `detect_duplicate_garment`.
 - Files: `supabase/functions/summarize_day/index.ts`, `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts`
 - Deploy: each function individually after merge
@@ -558,6 +558,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #640 | P0d-iii | Smoke-test suite expanded from 3 to 10. 7 new tests (enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule) invoke the target edge function via `supabase.functions.invoke()` and assert the response envelope — NOT DB-only. Three hardcoded Gemini URLs made overridable in `_shared/burs-ai.ts` + `_shared/gemini-image-client.ts` + `_shared/render-eligibility.ts` (backward-compat: identical behaviour when env vars unset). Mock Gemini server + `start-mock-server.ts` entrypoint + CI workflow wiring via `supabase functions serve --env-file`. AI tests skip in smoke-prod (`shouldRunAiSmoke` gate) so prod Gemini isn't hit. 10/10 passing locally with mock interception verified. **Deploy of 24 AI functions deferred** — `esm.sh 522` blocker from Supabase bundler; backward-compat keeps prod safe until retry. See Findings Log row for `_shared/burs-ai.ts:17` (now resolved). |
 | 2026-04-20 | #641 | P0a-ii | Fix .husky/pre-commit: add missing shebang so Windows git.exe executes the hook |
 | 2026-04-20 | #642 | P0d-iii-deploy | Retry-deployed all 24 AI function consumers of the Gemini URL env-var refactor. esm.sh 522 cleared; no code changes. |
+| 2026-04-20 | #643 | P1 | Add JWT verification + service-role bypass to summarize_day (JWT-only), process_job_queue (bypass), daily_reminders (bypass) |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
