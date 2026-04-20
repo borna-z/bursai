@@ -1,1 +1,0 @@
-ALTER TABLE public.outfits ADD COLUMN IF NOT EXISTS style_score jsonb DEFAULT NULL;

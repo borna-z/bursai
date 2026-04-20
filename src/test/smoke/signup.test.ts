@@ -21,7 +21,7 @@ describe.skipIf(!shouldRunSmoke)("smoke: signup", () => {
     }
   });
 
-  it("creates a profile row with onboarding.completed=false for a new auth user", async () => {
+  it("creates a profile row for a new auth user via the on_auth_user_created trigger", async () => {
     const user = await createTestUser(admin);
     createdUserId = user.id;
 
@@ -37,8 +37,15 @@ describe.skipIf(!shouldRunSmoke)("smoke: signup", () => {
     expect(error).toBeNull();
     expect(profile).not.toBeNull();
     expect(profile?.id).toBe(user.id);
-    expect(profile?.display_name).toBeTruthy();
-    const prefs = profile?.preferences as { onboarding?: { completed?: boolean } } | null;
-    expect(prefs?.onboarding?.completed).toBe(false);
+    // NOTE: display_name and onboarding completion state are intentionally not
+    // asserted. handle_new_user() reads display_name from
+    // raw_user_meta_data.full_name; createTestUser() doesn't pass user_metadata,
+    // so display_name is NULL on a trigger-created profile — that is correct
+    // behaviour, not a bug. preferences.onboarding.completed was never set by
+    // the trigger either — per Wave 7 P42, the real onboarding state lives in
+    // dedicated profiles columns (onboarding_step, onboarding_completed_at),
+    // not inside preferences jsonb. The original assertions were testing
+    // fiction — they passed CI only because the prod smoke step silently
+    // skipped (see 2026-04-20 Findings Log entry in CLAUDE.md).
   });
 });
