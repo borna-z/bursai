@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P2
+**CURRENT PROMPT:** P3
 **LAST UPDATED:** 2026-04-20
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -118,7 +118,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `supabase/functions/summarize_day/index.ts`, `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts`
 - Deploy: each function individually after merge
 
-**P2 [TODO]** Remove anon-key bypass in calendar sync_all
+**P2 [DONE] (PR #644, 2026-04-20)** Remove anon-key bypass in calendar sync_all
 - `handleSyncAll` accepts anon key OR service-role; anon path enables DoS against Google API. Service-role only.
 - Files: `supabase/functions/calendar/index.ts`
 - Deploy: `calendar`
@@ -560,6 +560,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #641 | P0a-ii | Fix .husky/pre-commit: add missing shebang so Windows git.exe executes the hook |
 | 2026-04-20 | #642 | P0d-iii-deploy | Retry-deployed all 24 AI function consumers of the Gemini URL env-var refactor. esm.sh 522 cleared; no code changes. |
 | 2026-04-20 | #643 | P1 | Add JWT verification + service-role bypass to summarize_day (JWT-only), process_job_queue (bypass), daily_reminders (bypass) |
+| 2026-04-20 | #644 | P2 | Calendar handleSyncAll: reject anon-key callers, service-role only (DoS fix) |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
