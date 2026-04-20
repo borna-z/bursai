@@ -18,6 +18,28 @@ serve(async (req) => {
       return overloadResponse(CORS_HEADERS);
     }
 
+    // ── Auth: require valid user JWT (P1) ──
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+
     const { events, weather } = await req.json();
 
     if (!events || events.length === 0) {
@@ -28,7 +50,7 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      supabaseUrl,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 

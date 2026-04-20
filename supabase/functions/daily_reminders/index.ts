@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { timingSafeEqual } from "../_shared/timing-safe.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -8,9 +9,25 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // ── Auth: cron-only endpoint — reject anything that isn't the service role (P1) ──
+    // This function sends push notifications to all users; any authenticated user
+    // invoking it could trigger a notification storm (DoS + spam vector).
+    // Use timing-safe comparison to avoid byte-by-byte key extraction.
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "") ?? "";
+    if (!token || !SUPABASE_SERVICE_ROLE_KEY || !timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY
     );
 
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");

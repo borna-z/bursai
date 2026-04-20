@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P0e
+**CURRENT PROMPT:** P2
 **LAST UPDATED:** 2026-04-20
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -113,7 +113,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 
 #### Wave 1 — Security (launch-blocking)
 
-**P1 [TODO]** Auth gaps: summarize_day + process_job_queue + daily_reminders
+**P1 [DONE] (PR #643, 2026-04-20)** Auth gaps: summarize_day + process_job_queue + daily_reminders
 - All three run with no caller identity verification. Add `getUser()` pattern from `detect_duplicate_garment`.
 - Files: `supabase/functions/summarize_day/index.ts`, `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts`
 - Deploy: each function individually after merge
@@ -545,6 +545,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | P0d-iii | `supabase/functions/_shared/burs-ai.ts:17` | **`GEMINI_URL` is a hardcoded `const`**, not read from env. That makes edge-function Gemini calls impossible to reroute through the mock server booted by `src/test/smoke/mocks/mock-server.ts` — the whole reason P0d-ii's mock infrastructure exists. Surfaced when writing P0d-iii smoke tests: to hit `analyze_garment` / `render_garment_image` / etc. under local Supabase with a mocked Gemini, the edge-runtime needs `GEMINI_URL` overridable via `Deno.env.get("GEMINI_URL_OVERRIDE") ?? "https://generativelanguage..."`. **Resolved in P0d-iii (PR #640, 2026-04-20)** — approach expanded per user (CTO) direction. Three shared URLs made overridable (`GEMINI_URL_OVERRIDE` in `burs-ai.ts`, `GEMINI_IMAGE_URL_OVERRIDE` in `gemini-image-client.ts`, `GEMINI_TEXT_URL_OVERRIDE` in `render-eligibility.ts`), all backward-compatible (unset → original hardcoded value). 7 tests rewritten to invoke edge functions via `supabase.functions.invoke()`; CI workflow boots `start-mock-server.ts` + `supabase functions serve --env-file`. AI function redeploy **not completed this session** — Supabase deploy bundler hit `esm.sh 522 Origin unreachable` repeatedly on `import 'https://esm.sh/@supabase/supabase-js@2'`; external infra blocker. Backward-compat of the env-var pattern means prod is safe without deploy: functions keep using the hardcoded URLs until next successful deploy picks up the env-var fallback. Follow-up RESOLVED 2026-04-20: all 24 consumers successfully redeployed. |
 | 2026-04-20 | P0a | `.husky/pre-commit` | File lacks `#!/usr/bin/env sh` shebang. On Windows, git.exe cannot exec the hook directly → pre-commit runs are skipped unless the agent wraps it via `core.hooksPath`. Surfaced by P0d-iv and P0d-iii agent sessions — both had to use a wrapper to run the full tsc + eslint + build pipeline. | Tiny follow-up prompt (P0a-ii) prepends shebang. Parallel PR alongside PR #640. |
 | 2026-04-20 | P0d-iii | `supabase/functions/travel_capsule/index.ts:838` (resolveId) + `:762` (deterministic fallback) | `resolveId()` expects string ids, but the deterministic fallback at line 762 writes garment objects into capsule_items. Downstream `id.trim()` crashes on the object path. Surfaced when P0d-iii's `travel-capsule.test.ts` mock routing revealed the fallback path — test was tightened so happy path avoids the crash, but the production code path is latent. | Dedicated prompt in a future wave — coerce resolveId inputs to string or fix fallback to emit ids, not objects. Not a launch-blocker (deterministic fallback rarely triggers in prod), but should be fixed before sign-off. |
+| 2026-04-20 | P1 | `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts` | **Mistake pattern — cron-only vs user-facing auth.** Initial P1 agent brief included a `getUser()` fallback pattern copied from `detect_duplicate_garment` for cron-only functions. Codex caught that the fallback allowed any authenticated end-user to invoke service-role-escalated code (DoS against queue processing + notification storm). Correct pattern for cron-only endpoints is hard-reject of non-service-role callers via `timingSafeEqual(token, SERVICE_ROLE_KEY)`. User-facing functions continue to use the `getUser()` fallback. | Fixed in follow-up commit on PR #643. For future prompts: user-facing functions use `getUser()` fallback; cron-only functions use hard-reject only. |
 
 ### Completion Log
 
@@ -558,6 +559,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #640 | P0d-iii | Smoke-test suite expanded from 3 to 10. 7 new tests (enrichment, render, outfit-generate, outfit-refine, visual-search, shopping-chat, travel-capsule) invoke the target edge function via `supabase.functions.invoke()` and assert the response envelope — NOT DB-only. Three hardcoded Gemini URLs made overridable in `_shared/burs-ai.ts` + `_shared/gemini-image-client.ts` + `_shared/render-eligibility.ts` (backward-compat: identical behaviour when env vars unset). Mock Gemini server + `start-mock-server.ts` entrypoint + CI workflow wiring via `supabase functions serve --env-file`. AI tests skip in smoke-prod (`shouldRunAiSmoke` gate) so prod Gemini isn't hit. 10/10 passing locally with mock interception verified. **Deploy of 24 AI functions deferred** — `esm.sh 522` blocker from Supabase bundler; backward-compat keeps prod safe until retry. See Findings Log row for `_shared/burs-ai.ts:17` (now resolved). |
 | 2026-04-20 | #641 | P0a-ii | Fix .husky/pre-commit: add missing shebang so Windows git.exe executes the hook |
 | 2026-04-20 | #642 | P0d-iii-deploy | Retry-deployed all 24 AI function consumers of the Gemini URL env-var refactor. esm.sh 522 cleared; no code changes. |
+| 2026-04-20 | #643 | P1 | Add JWT verification + service-role bypass to summarize_day (JWT-only), process_job_queue (bypass), daily_reminders (bypass) |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
