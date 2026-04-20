@@ -186,11 +186,32 @@ function buildChatCompletionResponse(reqBody: string): OpenAIResponse {
   }
 
   // visual_search — returns a matches array under structured content.
+  //
+  // Extract every UUID in the user prompt (visual_search passes the wardrobe
+  // as `ID:<uuid> | <title> | ...` lines) and echo them back as one match
+  // each. That lets the smoke test assert the wardrobe it seeded was actually
+  // forwarded — including `in_laundry: true` garments, which visual_search
+  // must not filter out. If the function ever adds an `in_laundry = false`
+  // filter, the in_laundry garment won't appear in the prompt, its UUID
+  // won't be echoed, and the test fails loudly.
   if (/visual.search|matches|outfit.?match/i.test(haystack)) {
+    const uuidRegex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+    const forwardedIds = Array.from(new Set(userPrompt.match(uuidRegex) ?? []));
+    const matches = forwardedIds.length > 0
+      ? forwardedIds.map((id, i) => ({
+          garment_id: id,
+          detected_item: `mock item ${i + 1}`,
+          confidence: 90,
+          reason: "close match by color and category (smoke mock)",
+        }))
+      : [
+          // Fallback — no wardrobe IDs found (older callers). Preserves the
+          // prior empty-but-structurally-valid shape so nothing downstream
+          // crashes when nothing is forwarded.
+          { garment_id: null, score: 0.8, reason: "close match by color and category (smoke mock)" },
+        ];
     const matchesPayload = {
-      matches: [
-        { garment_id: null, score: 0.8, reason: "close match by color and category (smoke mock)" },
-      ],
+      matches,
       gaps: [],
       description: "smoke mock visual search result",
     };

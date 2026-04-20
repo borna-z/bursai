@@ -21,7 +21,11 @@ import { logger } from "./logger.ts";
 // identical to the original hardcoded value. Unit here: a fully-qualified URL
 // ending in `/v1beta/openai/chat/completions` — downstream `fetch(GEMINI_URL,
 // ...)` appends nothing, so the override must be a full URL.
-const GEMINI_URL = Deno.env.get("GEMINI_URL_OVERRIDE") ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+// `typeof Deno !== "undefined"` guards the module against non-Deno runtimes
+// (Node/vitest unit tests under `__tests__/`) where accessing `Deno.env`
+// directly would throw `ReferenceError: Deno is not defined` at module load.
+const GEMINI_URL = (typeof Deno !== "undefined" ? Deno.env.get("GEMINI_URL_OVERRIDE") : undefined)
+  ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const log = logger("burs_ai");
 
 // ─── Complexity-based model routing ───────────────────────────
