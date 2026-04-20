@@ -187,16 +187,18 @@ function buildChatCompletionResponse(reqBody: string): OpenAIResponse {
 
   // visual_search — returns a matches array under structured content.
   //
-  // Extract every UUID in the user prompt (visual_search passes the wardrobe
-  // as `ID:<uuid> | <title> | ...` lines) and echo them back as one match
-  // each. That lets the smoke test assert the wardrobe it seeded was actually
-  // forwarded — including `in_laundry: true` garments, which visual_search
-  // must not filter out. If the function ever adds an `in_laundry = false`
-  // filter, the in_laundry garment won't appear in the prompt, its UUID
-  // won't be echoed, and the test fails loudly.
+  // Extract every UUID in the full prompt (visual_search puts the wardrobe
+  // block in the SYSTEM message as `ID:<uuid> | <title> | ...` lines, not
+  // the user message — we scan `haystack` which already concatenates both
+  // roles) and echo them back as one match each. That lets the smoke test
+  // assert the wardrobe it seeded was actually forwarded — including
+  // `in_laundry: true` garments, which visual_search must not filter out.
+  // If the function ever adds an `in_laundry = false` filter, the in_laundry
+  // garment won't appear in the prompt, its UUID won't be echoed, and the
+  // test fails loudly.
   if (/visual.search|matches|outfit.?match/i.test(haystack)) {
     const uuidRegex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
-    const forwardedIds = Array.from(new Set(userPrompt.match(uuidRegex) ?? []));
+    const forwardedIds = Array.from(new Set(haystack.match(uuidRegex) ?? []));
     const matches = forwardedIds.length > 0
       ? forwardedIds.map((id, i) => ({
           garment_id: id,
