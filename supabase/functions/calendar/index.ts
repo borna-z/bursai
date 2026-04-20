@@ -10,6 +10,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { timingSafeEqual } from "../_shared/timing-safe.ts";
 
 // ─── SSRF protection ──────────────────────────────────────────
 const BLOCKED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
@@ -383,10 +384,14 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
 async function handleSyncAll(authHeader: string): Promise<Response> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const expectedAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  const providedKey = authHeader.replace('Bearer ', '');
 
-  if (providedKey !== expectedAnonKey && providedKey !== serviceRoleKey) {
+  // ── Auth: cron-only endpoint — reject anything that isn't the service role (P2) ──
+  // Previously accepted anon key OR service role. Anon key is public (embedded in the
+  // frontend bundle), so any caller could trigger a global calendar sync — a DoS vector
+  // against the Google Calendar API and a cost center. Use timing-safe comparison to
+  // avoid byte-by-byte key extraction.
+  const providedKey = authHeader.replace('Bearer ', '');
+  if (!providedKey || !serviceRoleKey || !timingSafeEqual(providedKey, serviceRoleKey)) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
