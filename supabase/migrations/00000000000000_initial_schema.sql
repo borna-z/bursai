@@ -2645,8 +2645,137 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
 
 
+-- ============================================================================
+-- Cross-schema bootstrap — not captured by `supabase db dump --schema public`
+-- ============================================================================
+--
+-- These objects live outside the public schema but are part of prod state the
+-- app depends on. Copied verbatim from prod (no pattern upgrades, no
+-- normalization — baseline equals prod byte-for-byte):
+--
+--   - Storage bucket `garments` + 4 owner-scoped RLS policies on storage.objects
+--   - 2 triggers on auth.users: on_auth_user_created (profiles row) and
+--     on_auth_user_created_render_credits (render credit provisioning)
+--   - 2 pg_cron schedules: process-render-jobs (retry worker, every 1 min) and
+--     reset-render-credit-periods (hourly)
+--
+-- **Vault dependency** — the process-render-jobs cron body reads
+-- service_role_key and functions_base_url from vault.decrypted_secrets. On
+-- first deploy in any new environment, run the one-time vault seed from
+-- CLAUDE.md's "P5 first-time-deploy vault inserts" section. Without it the
+-- cron registers fine but fails at runtime (NULL URL → 400) — same
+-- NULL-propagation pattern documented in CLAUDE.md "Secrets inside
+-- migrations" block.
+
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
 
 
+-- Storage bucket: garment images (private).
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('garments', 'garments', false)
+ON CONFLICT (id) DO NOTHING;
+
+
+-- Storage RLS policies: scope every CRUD action on bucket 'garments' to the
+-- uploading user's folder. Path convention is <user_id>/<rest>.
+DROP POLICY IF EXISTS "Users can delete own garments" ON storage.objects;
+CREATE POLICY "Users can delete own garments" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'garments'::text AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Users can read own garments" ON storage.objects;
+CREATE POLICY "Users can read own garments" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'garments'::text AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Users can update own garments" ON storage.objects;
+CREATE POLICY "Users can update own garments" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'garments'::text AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Users can upload own garments" ON storage.objects;
+CREATE POLICY "Users can upload own garments" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'garments'::text AND (storage.foldername(name))[1] = auth.uid()::text);
+
+
+-- Auth triggers: fire per-row on new user signup.
+-- Function references schema-qualified because the dump's `SET search_path = ''`
+-- at the top of this file means bare names won't resolve at migration-apply
+-- time. Prod's pg_get_triggerdef output shows the bare names because it was
+-- queried under a default search_path that included public.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+DROP TRIGGER IF EXISTS on_auth_user_created_render_credits ON auth.users;
+CREATE TRIGGER on_auth_user_created_render_credits AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.init_render_credits();
+
+
+-- Cron: render queue retry worker. Every minute. Copied verbatim from prod
+-- cron.job row (jobid=2). Vault-dependency noted in the header above.
+SELECT cron.schedule(
+  'process-render-jobs',
+  '*/1 * * * *',
+  $cron$
+  SELECT net.http_post(
+    url := (
+      SELECT decrypted_secret FROM vault.decrypted_secrets
+      WHERE name = 'functions_base_url' LIMIT 1
+    ) || '/functions/v1/process_render_jobs',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'service_role_key' LIMIT 1
+      )
+    ),
+    body := '{}'::jsonb,
+    -- Worst-case worker batch runtime: MAX_JOBS_PER_RUN=5 / JOB_CONCURRENCY=2
+    -- = 3 serial batches, each up to ~45s per invokeRender timeout, ~= 135s.
+    -- Plus DB round-trips, claim RPC, release RPC, telemetry writes. 180s
+    -- gives ~45s headroom. Codex round 8 caught that the prior 50s cutoff
+    -- truncated normal-load batches, logged `cron.job_run_details.status='failed'`
+    -- after each partial run, and let the next cron tick (+60s) start a
+    -- second worker invocation on top of the still-running first one.
+    timeout_milliseconds := 180000
+  );
+  $cron$
+);
+
+
+-- Cron: monthly render-credit period reset. Hourly check. Copied verbatim
+-- from prod cron.job row (jobid=1). Schema-qualified for the same
+-- search_path reason documented on the auth triggers above.
+SELECT cron.schedule(
+  'reset-render-credit-periods',
+  '0 * * * *',
+  'SELECT public.reset_expired_periods_batch();'
+);
+
+
+-- --------------------------------------------------------------------------
+-- Function search_path override for trigger functions called via auth.users.
+-- --------------------------------------------------------------------------
+-- The supabase_auth_admin role has `search_path=auth` (role-level config from
+-- goTrue). When the auth service INSERTs a new user, `on_auth_user_created_*`
+-- triggers fire as supabase_auth_admin; their SECURITY DEFINER function
+-- bodies run with the caller's search_path unless the function carries its
+-- own SET clause.
+--
+-- handle_new_user schema-qualifies every reference (`public.profiles`,
+-- `public.subscriptions`), so it works. init_render_credits does not — the
+-- pg_dump body reads `INSERT INTO render_credits ...` unqualified. Prod
+-- somehow resolves this at runtime (5/5 recent users have credits rows), but
+-- a fresh local `supabase db reset` fails under search_path=auth with
+-- `relation "render_credits" does not exist`.
+--
+-- Minimal fix: add a proconfig SET search_path to the function via ALTER
+-- FUNCTION, leaving the pg_dump body untouched. This is the smallest
+-- deviation-from-prod-dump that makes the baseline reproducibly bootable
+-- and is consistent with how CLAUDE.md recommends hardening
+-- SECURITY DEFINER functions.
+ALTER FUNCTION public.init_render_credits() SET search_path = public;
 
 
 
