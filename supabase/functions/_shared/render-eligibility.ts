@@ -1,6 +1,8 @@
 export const PRODUCT_READY_RENDER_GATE_PROVIDER = 'skip-product-ready-v1';
 const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
-const GEMINI_TEXT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent`;
+// `GEMINI_TEXT_URL_OVERRIDE` lets smoke-test mocks intercept the gate calls.
+// Unset → identical to the original hardcoded Google endpoint below.
+const GEMINI_TEXT_API_URL = Deno.env.get("GEMINI_TEXT_URL_OVERRIDE") ?? `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent`;
 
 export type RenderEligibilityDecision = 'render' | 'skip_product_ready';
 export type RenderOutputValidationDecision = 'accept' | 'reject_visible_mannequin';

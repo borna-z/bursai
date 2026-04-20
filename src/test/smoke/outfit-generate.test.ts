@@ -5,18 +5,16 @@ import {
   createTestUser,
   deleteTestUser,
   getAuthedClient,
-  shouldRunSmoke,
+  shouldRunAiSmoke,
 } from "./harness";
 
-// Validates the DB shape `generate_outfit` / `burs_style_engine` writes back:
-// an `outfits` row + one `outfit_items` row per slot (top, bottom, shoes). The
-// edge function calls Gemini behind the mock server; this test guards the
-// persistence contract — specifically that `outfit_items.slot` is free-form
-// text (no CHECK constraint pinning it to a fixed vocabulary), that the FK to
-// outfits enforces ownership transitively via the RLS policy, and that
-// retrieval via join by slot returns the expected garments. Drift in any of
-// these would break the outfits surface silently.
-describe.skipIf(!shouldRunSmoke)("smoke: outfit generation persistence", () => {
+// Invokes `generate_outfit` (which proxies to `burs_style_engine` via the
+// unified_stylist_engine helper). Seeds a top/bottom/shoes wardrobe so the
+// engine has enough candidates to form a complete outfit. Gemini is
+// intercepted by the local mock server; a tool_call response with
+// chosen_index: 0 lets the engine finalize selection and return an envelope
+// the shim can shape.
+describe.skipIf(!shouldRunAiSmoke)("smoke: outfit generate (generate_outfit)", () => {
   let admin: SupabaseClient;
   beforeAll(() => {
     admin = createAdminClient();
@@ -25,9 +23,6 @@ describe.skipIf(!shouldRunSmoke)("smoke: outfit generation persistence", () => {
 
   afterEach(async () => {
     if (createdUserId) {
-      // outfit_items cascades from outfits; outfits cascades from auth.users.
-      // Delete garments explicitly since the afterEach in garment-add.test.ts
-      // does the same (cascade not guaranteed).
       await admin.from("outfits").delete().eq("user_id", createdUserId);
       await admin.from("garments").delete().eq("user_id", createdUserId);
       await deleteTestUser(admin, createdUserId);
@@ -35,61 +30,41 @@ describe.skipIf(!shouldRunSmoke)("smoke: outfit generation persistence", () => {
     }
   });
 
-  it("creates an outfit with three slot assignments and retrieves them by join", async () => {
+  it("invokes generate_outfit with a seeded wardrobe and receives a complete outfit envelope", async () => {
     const user = await createTestUser(admin);
     createdUserId = user.id;
 
     const client = await getAuthedClient(user.email, user.password);
 
-    const garmentRows = [
-      { category: "top", color_primary: "white", title: "Crew Tee" },
-      { category: "bottom", color_primary: "navy", title: "Straight Jeans" },
-      { category: "shoes", color_primary: "black", title: "White Sneakers" },
-    ].map((g) => ({ user_id: user.id, ...g }));
-
-    const { data: garments, error: gErr } = await client
-      .from("garments")
-      .insert(garmentRows)
-      .select("id, category");
-    expect(gErr).toBeNull();
-    expect(garments).toHaveLength(3);
-    const byCategory = new Map(garments!.map((g) => [g.category, g.id]));
-
-    const { data: outfit, error: outErr } = await client
-      .from("outfits")
-      .insert({
-        user_id: user.id,
-        occasion: "casual",
-        style_vibe: "minimalist",
-        explanation: "smoke-test generated outfit",
-        confidence_score: 0.85,
-        confidence_level: "high",
-      })
-      .select("id, occasion, confidence_score")
-      .single();
-    expect(outErr).toBeNull();
-    expect(outfit?.occasion).toBe("casual");
-    const outfitId = outfit!.id;
-
-    const { error: itemsErr } = await client.from("outfit_items").insert([
-      { outfit_id: outfitId, garment_id: byCategory.get("top"), slot: "top" },
-      { outfit_id: outfitId, garment_id: byCategory.get("bottom"), slot: "bottom" },
-      { outfit_id: outfitId, garment_id: byCategory.get("shoes"), slot: "shoes" },
+    const { error: seedErr } = await client.from("garments").insert([
+      { user_id: user.id, title: "White Crew Tee", category: "top", color_primary: "white", material: "cotton", formality: 2, season_tags: ["spring", "summer", "autumn"] },
+      { user_id: user.id, title: "Straight Jeans", category: "bottom", color_primary: "navy", material: "denim", formality: 2, season_tags: ["spring", "summer", "autumn", "winter"] },
+      { user_id: user.id, title: "White Sneakers", category: "shoes", color_primary: "white", material: "leather", formality: 2, season_tags: ["spring", "summer", "autumn"] },
     ]);
-    expect(itemsErr).toBeNull();
+    expect(seedErr).toBeNull();
 
-    const { data: joined, error: joinErr } = await client
-      .from("outfit_items")
-      .select("slot, garment_id, garments ( category, title )")
-      .eq("outfit_id", outfitId)
-      .order("slot", { ascending: true });
-    expect(joinErr).toBeNull();
-    expect(joined).toHaveLength(3);
-    const slots = joined!.map((r) => r.slot).sort();
-    expect(slots).toEqual(["bottom", "shoes", "top"]);
-    for (const row of joined!) {
-      expect(row.garment_id).toBe(byCategory.get(row.slot));
-      expect((row.garments as { category: string } | null)?.category).toBe(row.slot);
-    }
+    const { data, error } = await client.functions.invoke("generate_outfit", {
+      body: {
+        occasion: "vardag",
+        weather: { temperature: 18, precipitation: 0, wind_speed: 5 },
+        locale: "en",
+      },
+    });
+
+    expect(error).toBeNull();
+    expect(data).toBeTruthy();
+    // generate_outfit shim returns { items, explanation, confidence_*, ... }
+    // See supabase/functions/generate_outfit/index.ts — the shim maps
+    // `selected.garment_ids` into items with slot:"unknown".
+    const envelope = data as {
+      items?: Array<{ slot: string; garment_id: string }>;
+      explanation?: string;
+      confidence_score?: number;
+      unified_engine?: boolean;
+    };
+    expect(Array.isArray(envelope.items)).toBe(true);
+    expect(envelope.items?.length).toBeGreaterThanOrEqual(2);
+    expect(typeof envelope.explanation === "string" || envelope.explanation === null).toBe(true);
+    expect(envelope.unified_engine).toBe(true);
   });
 });

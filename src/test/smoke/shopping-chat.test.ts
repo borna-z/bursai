@@ -5,17 +5,17 @@ import {
   createTestUser,
   deleteTestUser,
   getAuthedClient,
-  shouldRunSmoke,
+  shouldRunAiSmoke,
 } from "./harness";
 
-// Validates the chat_messages persistence contract shared by `shopping_chat`
-// and `style_chat`. Both stream Gemini responses (mocked at the infra layer)
-// and persist the conversation to `chat_messages` keyed by `mode` (stylist vs
-// shopping). This test guards: the `mode` column accepts free-form values,
-// the user_id RLS policy is enforced, and role='user'/'assistant' turns can
-// be retrieved in chronological order. Drift in any of those would corrupt
-// conversation continuity across sessions.
-describe.skipIf(!shouldRunSmoke)("smoke: shopping chat persistence", () => {
+// Invokes `shopping_chat`. The function is a streaming chat endpoint that
+// hits streamBursAI — the mock Gemini server returns an SSE stream that
+// matches OpenAI's `chat.completion.chunk` shape. shopping_chat pipes the
+// upstream body through, so the client receives SSE chunks. Smoke test
+// assertion: the invoke returns without error, response is non-empty.
+// Correctness of the streaming protocol itself is tested in prompt-builder
+// level unit tests (out of scope for a smoke).
+describe.skipIf(!shouldRunAiSmoke)("smoke: shopping chat (shopping_chat)", () => {
   let admin: SupabaseClient;
   beforeAll(() => {
     admin = createAdminClient();
@@ -30,52 +30,27 @@ describe.skipIf(!shouldRunSmoke)("smoke: shopping chat persistence", () => {
     }
   });
 
-  it("persists a user/assistant turn pair with mode=shopping and reads them back in order", async () => {
+  it("invokes shopping_chat with a short casual message and receives a 2xx streaming response", async () => {
     const user = await createTestUser(admin);
     createdUserId = user.id;
 
     const client = await getAuthedClient(user.email, user.password);
 
-    // Insert sequentially so created_at defaults differ — a batched insert
-    // would stamp both rows with the same `now()` and retrieval order would
-    // be arbitrary. Real shopping_chat writes arrive as separate INSERTs too,
-    // so this mirrors production.
-    const { data: userInserted, error: userErr } = await client
-      .from("chat_messages")
-      .insert({
-        user_id: user.id,
-        role: "user",
-        content: "Should I buy these white sneakers?",
-        mode: "shopping",
-      })
-      .select("id, role, mode, created_at")
-      .single();
-    expect(userErr).toBeNull();
-    expect(userInserted?.role).toBe("user");
-    expect(userInserted?.mode).toBe("shopping");
+    const { data, error } = await client.functions.invoke("shopping_chat", {
+      body: {
+        // CHAT_SHORT_RE ("hi|hey|thanks|ok|...") triggers the
+        // conversational fast path in shopping_chat. That routes through
+        // streamBursAI with complexity:"trivial", max_tokens:120 — one
+        // quick Gemini call intercepted by the mock.
+        messages: [{ role: "user", content: "hi" }],
+        locale: "en",
+      },
+    });
 
-    const { data: assistantInserted, error: asstErr } = await client
-      .from("chat_messages")
-      .insert({
-        user_id: user.id,
-        role: "assistant",
-        content: "They'd work with [[garment:abc-123]] and your navy trousers. 8/10 — clear gap-fill.",
-        mode: "shopping",
-      })
-      .select("id, role, content, created_at")
-      .single();
-    expect(asstErr).toBeNull();
-    expect(assistantInserted?.role).toBe("assistant");
-    expect(assistantInserted?.content).toContain("[[garment:");
-
-    const { data: thread, error: readError } = await client
-      .from("chat_messages")
-      .select("role, content, mode")
-      .eq("user_id", user.id)
-      .eq("mode", "shopping")
-      .order("created_at", { ascending: true });
-    expect(readError).toBeNull();
-    expect(thread).toHaveLength(2);
-    expect(thread?.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(error).toBeNull();
+    // Shopping chat returns text/event-stream. supabase-js surfaces this
+    // as a Blob / stream / parsed string depending on version. In every
+    // version, a successful call yields truthy `data`.
+    expect(data ?? "").toBeTruthy();
   });
 });

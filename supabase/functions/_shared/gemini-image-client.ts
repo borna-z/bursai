@@ -13,7 +13,11 @@
 // so stale reservations don't short-circuit the new pipeline.
 
 export const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
-export const GEMINI_IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`;
+// `GEMINI_IMAGE_URL_OVERRIDE` lets smoke-test mock servers intercept image-gen
+// calls without touching prod behavior. Unset → identical to the original
+// hardcoded Google endpoint below. Must be a full URL (callers fetch it
+// directly without further path manipulation).
+export const GEMINI_IMAGE_API_URL = Deno.env.get("GEMINI_IMAGE_URL_OVERRIDE") ?? `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`;
 
 // ─── Types ─────────────────────────────────────────────────
 
