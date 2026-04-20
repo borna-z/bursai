@@ -65,7 +65,7 @@ describe('GoogleCalendarCallback', () => {
   it('shows loading state while exchanging code', () => {
     // Make invoke hang forever
     invokeMock.mockReturnValue(new Promise(() => {}));
-    renderWithParams('code=abc123');
+    renderWithParams('code=abc123&state=user.csrf');
     expect(screen.getByText('Connecting your calendar')).toBeInTheDocument();
     expect(screen.getByText('Syncing')).toBeInTheDocument();
   });
@@ -85,6 +85,30 @@ describe('GoogleCalendarCallback', () => {
     });
   });
 
+  it('shows error when state param is missing (CSRF protection)', async () => {
+    renderWithParams('code=abc123');
+    await waitFor(() => {
+      // Page shows "Something went wrong" headline + same message (the
+      // gcal.error fallback) when state is missing.
+      expect(screen.getAllByText('Something went wrong').length).toBeGreaterThan(0);
+    });
+    // Edge function must NOT be invoked when state is missing.
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('passes state verbatim to the exchange_code edge function call', () => {
+    invokeMock.mockReturnValue(new Promise(() => {}));
+    renderWithParams('code=abc123&state=user-uuid.csrf-nonce');
+    expect(invokeMock).toHaveBeenCalledWith('google_calendar_auth', {
+      body: {
+        action: 'exchange_code',
+        code: 'abc123',
+        redirect_uri: 'https://app.test/calendar/callback',
+        state: 'user-uuid.csrf-nonce',
+      },
+    });
+  });
+
   it('shows back to settings button on error', async () => {
     renderWithParams('error=denied');
     await waitFor(() => {
@@ -99,7 +123,7 @@ describe('GoogleCalendarCallback', () => {
     let resolveExchange: (v: unknown) => void;
     invokeMock.mockReturnValue(new Promise(r => { resolveExchange = r; }));
 
-    const { unmount } = renderWithParams('code=abc123');
+    const { unmount } = renderWithParams('code=abc123&state=user.csrf');
     unmount();
 
     // Resolve after unmount — should not throw

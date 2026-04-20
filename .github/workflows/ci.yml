@@ -300,5 +300,8 @@ jobs:
           # --dry-run catches any remote-only or timestamp-mismatch drift. New
           # migrations introduced by this PR will list as pending, which is
           # expected and non-fatal; only actual drift fails the step.
-          supabase db push --linked --dry-run --yes
+          # Pin v1.226.4 CLI: --yes was added in v2.x, not available here.
+          # --password flag is the non-interactive auth path; SUPABASE_DB_PASSWORD
+          # env var exposed above.
+          supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD"
           echo "::endgroup::"
