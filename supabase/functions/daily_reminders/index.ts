@@ -10,32 +10,19 @@ Deno.serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // ── Auth: service-role for cron, or valid user JWT (P1) ──
+    // ── Auth: cron-only endpoint — reject anything that isn't the service role (P1) ──
+    // This function sends push notifications to all users; any authenticated user
+    // invoking it could trigger a notification storm (DoS + spam vector).
+    // Use timing-safe comparison to avoid byte-by-byte key extraction.
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "") ?? "";
-    const isServiceRoleCaller =
-      !!token && !!SUPABASE_SERVICE_ROLE_KEY && timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY);
-
-    if (!isServiceRoleCaller) {
-      if (!authHeader?.startsWith("Bearer ") || !token) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
-      }
-      const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user }, error: userError } = await authClient.auth.getUser(token);
-      if (userError || !user) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
-      }
+    if (!token || !SUPABASE_SERVICE_ROLE_KEY || !timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
     }
 
     const supabaseAdmin = createClient(
