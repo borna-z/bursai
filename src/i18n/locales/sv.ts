@@ -2695,9 +2695,10 @@ const sv: Record<string, string> = {
     'travel.companions_label': 'Vem reser du med?',
     'travel.style_label': 'Stilpreferens',
     'travel.what_kind': 'Vilken typ av resa?',
-    'capsule.generating': 'Skapar...',
+    // NOTE: see matching note in en.ts — `capsule.generating` and `common.delete`
+    // duplicates removed here; earlier namespace-scoped definitions (around
+    // line 1055 and 1216) are the source of truth.
     'capsule.items_count': 'plagg',
-    'common.delete': 'Radera',
     'gaps.insufficient_title': 'Lägg till fler plagg först',
     'gaps.insufficient_desc': 'Din garderob behöver minst 5 plagg innan BURS kan hitta luckor. Lägg till några till för att låsa upp skanningen.',
     'gaps.insufficient_cta': 'Lägg till plagg',

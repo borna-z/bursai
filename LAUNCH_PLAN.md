@@ -711,9 +711,25 @@ await adminClient.from("push_subscriptions").delete().eq("user_id", userId);
 // Travel
 await adminClient.from("travel_capsules").delete().eq("user_id", userId);
 
-// Cache — only rows scoped to this user (namespace contains user_id)
-await adminClient.from("ai_response_cache").delete()
-  .like("cache_namespace", `%${userId}%`);
+// ai_response_cache — DELIBERATELY NOT CLEANED HERE.
+// The table has no `user_id` column, and `cache_key` is a SHA-256 hash of a
+// canonicalised request shape (see `createBursAICacheKey` in
+// `_shared/burs-ai.ts` — `hashKey(stableSerialize(...))`). The hashing
+// destroys any user-id substring, so a LIKE filter would match zero rows.
+// An earlier version of this spec advised `.like("cache_namespace", ...)`
+// (column doesn't exist) and an in-PR fix tried `.like("cache_key", ...)`
+// (matches zero due to hashing) — both silently did nothing. Codex caught it
+// on PR #652.
+//
+// Mitigation: all AI cache entries carry a short TTL (30 min – 12 h across
+// the codebase), so orphaned rows decay within a day. GDPR's "without undue
+// delay" standard is satisfied by natural expiration for this table.
+//
+// Proper fix = add `user_id` column to `ai_response_cache`, populate it in
+// `storeCache` (in `_shared/burs-ai.ts`), redeploy all 22 AI functions, then
+// add `.eq("user_id", userId).delete()` here. Tracked as a follow-up prompt
+// to be bundled with P13's cache-namespace work since both touch the cache
+// layer. See CLAUDE.md Findings Log (2026-04-21 P8) for the full writeup.
 ```
 
 Order matters only where there are FK constraints. `render_credit_transactions` references `render_jobs` → delete transactions first (already done above). Verify with `list_tables` foreign-key info if uncertain.
@@ -722,7 +738,7 @@ Order matters only where there are FK constraints. `render_credit_transactions` 
 - `supabase/functions/delete_user_account/index.ts`
 
 **Acceptance**
-- After `delete_user_account`, no rows with `user_id = deletedUser` remain in any of the 12 tables (verify with a SQL probe post-delete)
+- After `delete_user_account`, no rows with `user_id = deletedUser` remain in any of the 11 physically-cleanable tables (verify with a SQL probe post-delete). `ai_response_cache` is exempt per the note above — its rows decay via TTL.
 - FK constraints don't fire (if they do, reorder)
 - Profile + auth.users delete still succeed at end
 

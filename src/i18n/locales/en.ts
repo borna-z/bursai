@@ -3123,9 +3123,12 @@ const en: Record<string, string> = {
     'travel.companions_label': 'Who are you with?',
     'travel.style_label': 'Style preference',
     'travel.what_kind': 'What kind of trip?',
-    'capsule.generating': 'Generating...',
+    // NOTE: `capsule.generating` and `common.delete` were duplicated here and
+    // in their proper namespace sections earlier in the file. Duplicates were
+    // surfaced by Vite build warnings (Findings Log 2026-04-19, P0a). The
+    // earlier occurrences (capsule.generating at ~line 1166, common.delete at
+    // ~line 1313) are the source of truth; these later duplicates removed.
     'capsule.items_count': 'items',
-    'common.delete': 'Delete',
     'gaps.insufficient_title': 'Add more garments first',
     'gaps.insufficient_desc': 'Your wardrobe needs at least 5 pieces before BURS can spot gaps. Add a few more to unlock the scan.',
     'gaps.insufficient_cta': 'Add garments',

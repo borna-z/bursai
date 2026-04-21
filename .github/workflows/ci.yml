@@ -23,7 +23,9 @@ jobs:
         run: bunx eslint . --max-warnings 0
 
       - name: Type check
-        run: bun run tsc --noEmit
+        # Match the local pipeline + pre-commit hook (both use --skipLibCheck).
+        # Without the flag, a lib-type bump could fail CI without tripping local.
+        run: bun run tsc --noEmit --skipLibCheck
 
       - name: Run tests
         run: bun run test
@@ -34,10 +36,14 @@ jobs:
       - name: Check bundle size
         run: |
           MAIN_SIZE=$(find dist/assets -name '*.js' -exec du -b {} + | sort -rn | head -1 | awk '{print $1}')
-          echo "Largest JS chunk: $(echo "scale=2; $MAIN_SIZE / 1024 / 1024" | bc) MB"
-          # Fail if any single chunk exceeds 500KB
+          SIZE_KB=$(echo "scale=0; $MAIN_SIZE / 1024" | bc)
+          echo "Largest JS chunk: ${SIZE_KB} KB"
+          # Hard-fail when a single chunk exceeds 500 KB. Earlier version echoed
+          # "WARNING" and exited 0, which meant bundle regressions passed merge
+          # silently — defeating the purpose of the check.
           if [ "$MAIN_SIZE" -gt 512000 ]; then
-            echo "⚠️ WARNING: Largest chunk exceeds 500KB target"
+            echo "::error::Largest JS chunk (${SIZE_KB} KB) exceeds 500 KB target — investigate chunk splitting in vite.config.ts"
+            exit 1
           fi
 
       # Post-merge smoke tests against PROD Supabase. Only runs on push to main,
@@ -54,7 +60,24 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY_TEST: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_TEST }}
           SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: bun run test:smoke
+        run: |
+          # Fail loudly when any required secret is missing. Earlier behaviour:
+          # harness.ts shouldRunSmoke() returned false on a missing secret and
+          # Vitest then reported every test as skipped with exit 0 — green CI
+          # while actually running zero assertions. See Findings Log P0d-iv.
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY_TEST" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY_TEST secret is not configured. Provision it in repo settings so post-merge smoke tests actually run."
+            exit 1
+          fi
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "::error::VITE_SUPABASE_URL secret is not configured."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::VITE_SUPABASE_PUBLISHABLE_KEY secret is not configured."
+            exit 1
+          fi
+          bun run test:smoke
 
   # P0d-ii — Smoke tests against local Supabase booted via Supabase CLI in Docker.
   # Decision rationale: see the P0d-ii ADR block in LAUNCH_PLAN.md.
@@ -305,3 +328,80 @@ jobs:
           # env var exposed above.
           supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD"
           echo "::endgroup::"
+
+  # P0b follow-up — Deno type check for edge functions. Only runs when a PR (or
+  # push to main) touches `supabase/functions/**/index.ts`. Complements the
+  # bun/tsc check that runs on `src/` — Deno has its own type-checker and will
+  # catch issues tsc misses (Deno-specific globals, ESM URL imports).
+  #
+  # Gating strategy mirrors migration-drift-check: detect the diff at shell
+  # level so this job runs unconditionally at the job level (keeps build-and-
+  # test + smoke-local + migration-drift-check running on every PR) but only
+  # actually type-checks when edge-function code changed.
+  #
+  # Scope-limit: only per-file index.ts changes are checked. A `_shared/` module
+  # change surfaces in its consumers via a separate grouped edit — not worth
+  # type-checking all 39 functions for every _shared diff (would take 10+ min
+  # on first cold deno-cache). Consumers of changed shared modules are tested
+  # by their own deploy verification when they're redeployed.
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so `git diff` against the base ref resolves.
+          fetch-depth: 0
+
+      - name: Detect changed edge functions
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA=$(git rev-parse "$HEAD_SHA^" 2>/dev/null || echo "$HEAD_SHA")
+          fi
+          # Three-dot diff: same semantics as migration-drift-check.
+          # Match `supabase/functions/<name>/index.ts` but skip `_shared/` —
+          # shared modules aren't entry-points and deno check'ing them in
+          # isolation is low-value.
+          CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" \
+            | grep -E '^supabase/functions/[^_][^/]+/index\.ts$' | tr '\n' ' ' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+            echo "Functions to type-check: $CHANGED"
+          else
+            echo "files=" >> "$GITHUB_OUTPUT"
+            echo "No edge-function entry-point changes — deno check will be skipped."
+          fi
+
+      - name: Setup Deno
+        if: steps.detect.outputs.files != ''
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      # Cache the deno dep resolution so subsequent runs skip network fetches
+      # for std@<version> and esm.sh imports. Keyed on the workflow file +
+      # any edge-function file, so a new import bumps the cache.
+      - name: Cache Deno dependencies
+        if: steps.detect.outputs.files != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml', 'supabase/functions/**/*.ts') }}
+          restore-keys: |
+            deno-${{ runner.os }}-
+
+      - name: Deno check changed functions
+        if: steps.detect.outputs.files != ''
+        run: |
+          for f in ${{ steps.detect.outputs.files }}; do
+            echo "::group::deno check $f"
+            deno check "$f"
+            echo "::endgroup::"
+          done
