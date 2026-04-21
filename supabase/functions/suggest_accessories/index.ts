@@ -30,6 +30,23 @@ serve(async (req) => {
     const { outfit_id } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
 
+    // Verify outfit belongs to user — service client bypasses RLS, so this
+    // ownership check prevents cross-user enumeration via arbitrary outfit_id.
+    // Single query with (id AND user_id) collapses "not yours" and "doesn't
+    // exist" into one 404 — no enumeration oracle.
+    const { data: outfitRow, error: outfitError } = await serviceClient
+      .from("outfits")
+      .select("id")
+      .eq("id", outfit_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (outfitError || !outfitRow) {
+      return new Response(JSON.stringify({ error: "Outfit not found" }), {
+        status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     // Parallel DB queries
     const [outfitItemsRes, accessoriesRes] = await Promise.all([
       serviceClient
