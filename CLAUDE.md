@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P7
+**CURRENT PROMPT:** P8
 **LAST UPDATED:** 2026-04-21
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -143,7 +143,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `supabase/functions/suggest_accessories/index.ts`
 - Deploy: `suggest_accessories`
 
-**P7 [TODO]** Cross-user validation in process_job_queue handlers
+**P7 [DONE] (PR #651, 2026-04-21)** Cross-user validation in process_job_queue handlers
 - Handlers don't verify `job.user_id` matches garment's user_id.
 - Files: `supabase/functions/process_job_queue/index.ts`
 - Deploy: `process_job_queue`
@@ -572,7 +572,8 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-21 | #647 | P4 | prefetch_suggestions identity check: single-user-trigger path now validates caller's JWT via `supabase.auth.getUser(token)` and asserts `user.id === body.user_id` before running `processSingleUser`. 401 on missing/invalid token, 403 on mismatch. Cron-batch path intentionally untouched (separate unauditted gap — see Findings Log). Post-merge: deploy `prefetch_suggestions`. |
 | 2026-04-21 | #648 | P5 | Email domain fix: VAPID `mailto:` contact string in `webpush.setVapidDetails()` changed from `hello@bursai.com` to `hello@burs.me` in both `send_push_notification` and `daily_reminders`. VAPID `sub` claim is an RFC 8292 abuse-contact identifier — FCM/APNs don't validate it, zero behavioural impact on push delivery. Post-merge: deploy both functions. |
 | 2026-04-21 | #649 | (doc fix) | LAUNCH_PLAN.md P1 cron-only section rewritten: removed the `if (!isServiceRole) { JWT fallback }` anti-pattern that Codex rejected on PR #643. Replaced with the hard-reject `timingSafeEqual` pattern that actually shipped. Added a rule-of-thumb block (user-facing vs cron-only vs dual-mode) so future prompts picking auth patterns have one canonical reference. No code changes; CURRENT PROMPT stayed P6. |
-| 2026-04-21 | #650 | P6 | Outfit ownership check in `suggest_accessories`: before the parallel query fetching `outfit_items` via service client, added a single-query ownership check (`outfits.select(id).eq(id).eq(user_id).maybeSingle()`) that returns 404 on "not yours" OR "doesn't exist" (collapses both paths into one response — no enumeration oracle). Post-merge: deploy `suggest_accessories`. |
+| 2026-04-21 | #650 | P6 | Outfit ownership check in `suggest_accessories`: before the parallel query fetching `outfit_items` via service client, added a single-query ownership check (`outfits.select(id).eq(id).eq(user_id).maybeSingle()`) that returns 404 on "not yours" OR "doesn't exist" (collapses both paths into one response — no enumeration oracle). Codex P2 follow-up: split `outfitError` to 500 (retriable/monitored) vs `!outfitRow` to 404 (enumeration-safe). Post-merge: deploy `suggest_accessories`. |
+| 2026-04-21 | #651 | P7 | Cross-user validation in `process_job_queue` handlers: `handleGarmentEnrichment` and `handleImageProcessing` now require `userId` and filter the garments query on both `.eq("id", garmentId)` AND `.eq("user_id", userId)`. Error message is "Garment not found or not owned" — collapses missing-garment and cross-user cases. `handleBatchAnalysis` left alone (no garment_id in payload, no attack vector). Also tightened `submitJob` in `_shared/scale-guard.ts`: `userId?: string` → `userId: string` (defensive type constraint; zero in-repo callers today so no breakage). Post-merge: deploy `process_job_queue`. |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 

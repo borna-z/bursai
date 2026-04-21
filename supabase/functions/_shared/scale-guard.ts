@@ -347,7 +347,11 @@ export function logTelemetry(supabase: any | null, event: TelemetryEvent): void 
 export interface JobSubmission {
   jobType: string;
   payload: Record<string, unknown>;
-  userId?: string;
+  // Required — every job must belong to a user so process_job_queue handlers
+  // can enforce cross-user ownership checks (P7). System-level jobs without a
+  // user are not a supported shape; if that need arises, add an explicit
+  // `systemJob` discriminator rather than reverting this field to optional.
+  userId: string;
   priority?: number;
   maxAttempts?: number;
 }
@@ -382,7 +386,7 @@ export async function submitJob(
     .insert({
       job_type: job.jobType,
       payload: job.payload,
-      user_id: job.userId || null,
+      user_id: job.userId,
       priority: job.priority ?? 0,
       max_attempts: job.maxAttempts ?? 3,
       status: "pending",
