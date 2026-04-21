@@ -785,9 +785,15 @@ async function invokeRender(
 ): Promise<RenderResult> {
   const url = `${supabaseUrl}/functions/v1/render_garment_image`;
   const controller = new AbortController();
-  // Gemini image generation typical latency: 8-25s. 45s ceiling leaves
-  // margin for network + any retries inside render_garment_image itself.
-  const timeout = setTimeout(() => controller.abort(), 45_000);
+  // Wave 3-B fix 5 (Codex P1 round 4): raised from 45s → 240s to fit the
+  // P17 3-variant retry chain. Per-outer-attempt worst-case budget is
+  // ~61s (gemini-image-client inner: 2 attempts × 30s + 1s backoff) plus
+  // ~25s validator, so 3 outer attempts = ~258s worst case — but realistic
+  // Gemini P95 latency is 12-25s per attempt, so P95 end-to-end is ~90s.
+  // 240s gives headroom for the worst case while keeping a hung render
+  // from monopolizing a worker slot indefinitely. Less than the platform
+  // edge-function timeout (set higher at the project level).
+  const timeout = setTimeout(() => controller.abort(), 240_000);
 
   try {
     const res = await fetch(url, {

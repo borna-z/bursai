@@ -169,13 +169,18 @@ export async function enqueueRenderJob(
     // server returned a response) from 'transport' (no HTTP response at all
     // — server may or may not have processed). Banner uses this to decide
     // whether to keep the optimistic `'pending'` flip on ambiguous errors.
+    //
+    // Wave 3-B fix 5 (Codex P2 round 4): `getHttpStatus` returns
+    // `number | null` (NEVER `undefined`), so the prior `!== undefined`
+    // test mis-classified every transport failure as 'http'. Use `!= null`
+    // (idiomatic double-equals check covers both null and undefined).
     const httpStatus = getHttpStatus(error);
     throw new RenderEnqueueError(
       error.message || 'render enqueue failed',
       httpStatus ?? 0,
       (error as { code?: string }).code,
       clientNonce,
-      httpStatus !== undefined ? 'http' : 'transport',
+      httpStatus != null ? 'http' : 'transport',
     );
   }
   if (!data || !data.jobId) {
