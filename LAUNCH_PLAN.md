@@ -357,25 +357,29 @@ const userId = user.id;
 // ... rest uses userId, not req body user_id
 ```
 
-For cron-style endpoints (`process_job_queue`, `daily_reminders`):
-Also accept service-role key via `timingSafeEqual`:
+For cron-only endpoints (`process_job_queue`, `daily_reminders`):
+**HARD-REJECT any caller that isn't the service role.** No JWT fallback. These endpoints should never be callable by end-users — `process_job_queue` grants service-role access to write any user's job state, and `daily_reminders` sends push notifications to every subscribed user. A fallback that lets authenticated users through enables DoS against the queue and notification-storm attacks.
+
+> Historical context: an earlier version of this spec included an `if (!isServiceRole) { require user JWT }` fallback copied from the `summarize_day` pattern. Codex rejected this on PR #643 for exactly that reason. Hard-reject is the final shipped pattern across both functions. When future prompts harden other cron-only endpoints (e.g., P7 on `process_job_queue` handlers), copy the hard-reject pattern below — NOT the user-facing pattern above.
+
 ```typescript
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 
-const providedKey = authHeader.replace("Bearer ", "");
-const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const isServiceRole = timingSafeEqual(providedKey, serviceKey);
-
-if (!isServiceRole) {
-  // require user JWT (same pattern as summarize_day)
-  const { data: { user }, error } = await userClient.auth.getUser(providedKey);
-  if (error || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
-  }
+const authHeader = req.headers.get("Authorization");
+const token = authHeader?.replace("Bearer ", "") ?? "";
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+if (!token || !serviceRoleKey || !timingSafeEqual(token, serviceRoleKey)) {
+  return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
 }
+// Cron confirmed as caller — proceed with service-role client for service-level reads/writes
 ```
+
+Rule of thumb for which pattern to use on a new endpoint:
+- **User-facing** (client calls via `supabase.functions.invoke()`): use the `summarize_day` pattern above — `getUser(token)` against anon-key client.
+- **Cron-only** (invoked only by pg_cron with service-role Bearer): use the hard-reject pattern here — `timingSafeEqual(token, SERVICE_ROLE_KEY)` and nothing else.
+- **Dual-mode** (both user-facing and cron): use `timingSafeEqual` as a fast-path service-role bypass ABOVE the user JWT check, so cron takes the short path and end-users still work. P4's `prefetch_suggestions` is an example, though P4 only touched the user-facing branch.
 
 **Files**
 - `supabase/functions/summarize_day/index.ts`
