@@ -129,6 +129,40 @@ function classifyGeminiError(status: number, message: string): RenderProviderErr
   return new RenderProviderError("gemini_api", `Gemini API error (${status}): ${message}`, status);
 }
 
+/**
+ * Wave 3-B P19: bounded-latency fetch. Without this, a hung Gemini connection
+ * ties up the edge-function isolate indefinitely — eventually hitting the
+ * platform's 60s global timeout, but only after consuming the full
+ * render_garment_image time budget and starving other concurrent renders.
+ *
+ * Uses AbortController + setTimeout so the connection is hard-aborted
+ * client-side at the requested deadline. Caller receives a TypeError/AbortError
+ * which the outer retry logic classifies as `gemini_timeout`.
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Wave 3-B F15: sleep with jitter for exponential backoff. Jitter prevents
+ * thundering-herd retries from synchronized worker pods (process_render_jobs
+ * runs up to JOB_CONCURRENCY=2 parallel, cron fires every 60s).
+ */
+function sleepWithJitter(baseMs: number): Promise<void> {
+  const jitter = Math.floor(Math.random() * baseMs * 0.25);
+  return new Promise((resolve) => setTimeout(resolve, baseMs + jitter));
+}
+
 function extractGeminiParts(aiData: GeminiGenerateContentResponse | null): GeminiPart[] {
   return aiData?.candidates?.flatMap((candidate) => candidate?.content?.parts ?? []) ?? [];
 }
@@ -217,37 +251,122 @@ export async function generateGeminiImage(
   const responseModalities = params.responseModalities ?? ["TEXT", "IMAGE"];
   const aspectRatio = params.aspectRatio ?? "4:5";
 
+  // Wave 3-B P19 + F15: bounded-latency fetch with transport-level backoff on
+  // retryable Gemini failures (429 / 5xx). Each attempt has its own timeout
+  // so a single hang doesn't eat the whole budget. Up to 3 attempts total:
+  //   attempt 1: immediate
+  //   attempt 2: ~1.5s pause (+ jitter)
+  //   attempt 3: ~3.5s pause (+ jitter)
+  // Total worst-case wall clock with 60s per-attempt timeout = ~185s, but
+  // realistic worst case (3x 25s) ≈ 80s — still under the caller's 300s
+  // UI poll window. Non-retryable classes (auth, model_path, no_image)
+  // throw immediately without wasting retry budget.
+  const FETCH_TIMEOUT_MS = 60_000;
+  const MAX_ATTEMPTS = 3;
+  const BACKOFF_MS = [0, 1500, 3500];
+
+  const requestBody = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: params.prompt },
+          {
+            inlineData: {
+              mimeType: sourceDataUrl.slice(5, sourceDataUrl.indexOf(";")),
+              data: sourceDataUrl.split(",")[1],
+            },
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      responseModalities,
+      imageConfig: {
+        aspectRatio,
+      },
+    },
+  });
+
+  let response: Response | null = null;
+  let lastTransportError: unknown = null;
+  let attempt = 0;
   const started = Date.now();
 
-  const response = await fetch(GEMINI_IMAGE_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": params.apiKey,
-    },
-    body: JSON.stringify({
-      contents: [
+  for (attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      await sleepWithJitter(BACKOFF_MS[attempt - 1]);
+    }
+
+    try {
+      response = await fetchWithTimeout(
+        GEMINI_IMAGE_API_URL,
         {
-          role: "user",
-          parts: [
-            { text: params.prompt },
-            {
-              inlineData: {
-                mimeType: sourceDataUrl.slice(5, sourceDataUrl.indexOf(";")),
-                data: sourceDataUrl.split(",")[1],
-              },
-            },
-          ],
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": params.apiKey,
+          },
+          body: requestBody,
         },
-      ],
-      generationConfig: {
-        responseModalities,
-        imageConfig: {
-          aspectRatio,
-        },
-      },
-    }),
-  });
+        FETCH_TIMEOUT_MS,
+      );
+    } catch (transportError) {
+      // AbortError (timeout) or network-level TypeError. Retry with backoff
+      // unless we've exhausted attempts.
+      lastTransportError = transportError;
+      const isAbort = transportError instanceof DOMException && transportError.name === "AbortError";
+      console.warn("gemini-image-client transport failure", {
+        garmentId: params.garmentId,
+        attempt,
+        reason: isAbort ? "timeout" : "network",
+        error: transportError instanceof Error ? transportError.message : String(transportError),
+      });
+      if (attempt >= MAX_ATTEMPTS) {
+        throw new RenderProviderError(
+          isAbort ? "gemini_timeout" : "gemini_network",
+          isAbort
+            ? `Gemini request timed out after ${FETCH_TIMEOUT_MS}ms (${MAX_ATTEMPTS} attempts)`
+            : `Gemini network error: ${transportError instanceof Error ? transportError.message : String(transportError)}`,
+        );
+      }
+      continue;
+    }
+
+    // Response received. Decide whether to retry based on HTTP status.
+    if (response.ok) break;
+
+    // 429 rate-limit and 5xx server errors are transient — back off + retry.
+    if ((response.status === 429 || response.status >= 500) && attempt < MAX_ATTEMPTS) {
+      const peekText = await response.text().catch(() => "");
+      console.warn("gemini-image-client retryable status", {
+        garmentId: params.garmentId,
+        attempt,
+        status: response.status,
+        bodyPreview: peekText.slice(0, 200),
+      });
+      // We've read the body — null out `response` so the post-loop parse
+      // block doesn't try to re-read a consumed stream.
+      response = null;
+      continue;
+    }
+
+    // Non-retryable failure (4xx except 429, or exhausted attempts) — fall
+    // through to the post-loop error classification.
+    break;
+  }
+
+  if (!response) {
+    // All attempts exhausted against retryable statuses. lastTransportError
+    // will be null because we successfully got responses but they were
+    // retryable. Construct a synthetic message.
+    throw new RenderProviderError(
+      "gemini_api",
+      lastTransportError instanceof Error
+        ? `Gemini retries exhausted: ${lastTransportError.message}`
+        : `Gemini retries exhausted after ${MAX_ATTEMPTS} attempts`,
+    );
+  }
 
   const latencyMs = Date.now() - started;
   const responseText = await response.text();

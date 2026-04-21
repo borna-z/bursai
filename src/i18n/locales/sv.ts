@@ -2800,6 +2800,14 @@ const sv: Record<string, string> = {
   'gaps.preview_direction': 'Riktning',
   'gaps.preview_budget': 'Budget',
   'gaps.preview_open_full': 'Öppna fullständig skanning',
+  // Wave 3-B F20+F21+F22 — studiorendering väntar + misslyckad UX.
+  'render.pending_label': 'Studio…',
+  'render.pending_hint': 'Tar cirka 20 sekunder',
+  'render.failed_title': 'Studiobilden kunde inte slutföras',
+  'render.failed_hint': 'Din ursprungliga bild finns kvar i garderoben.',
+  'render.retry': 'Försök igen',
+  'render.retry_started': 'Försöker rendera igen…',
+  'render.retry_failed': 'Kunde inte starta nytt försök — försök igen',
 };
 
 export default sv;
