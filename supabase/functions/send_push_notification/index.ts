@@ -1,10 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("send_push_notification")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {
@@ -21,6 +26,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } =
@@ -33,6 +42,8 @@ Deno.serve(async (req) => {
     }
 
     const userId = user.id;
+
+    await enforceRateLimit(serviceClient, userId, "send_push_notification");
 
     const { title, body, url } = await req.json();
 
@@ -93,6 +104,9 @@ Deno.serve(async (req) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("send_push_notification error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,

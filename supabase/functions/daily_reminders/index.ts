@@ -2,10 +2,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
+import { checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  // Cron-only endpoint — no per-user rate limit (the caller is always the
+  // service role, and the service role is not rate-limited). Overload guard
+  // still applies: if the worker is tripping its own circuit breaker we
+  // short-circuit before spending DB/vapid budget.
+  if (checkOverload("daily_reminders")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {

@@ -88,11 +88,22 @@ export function SeedProvider({ children }: { children: ReactNode }) {
     setTotalToProcess(SEED_GARMENTS.length);
     setStartTime(Date.now());
 
-    // Step 1: Delete all existing
+    // Step 1: Delete all existing.
+    // P11 requires a two-step flow: request a confirmation token first,
+    // then submit it alongside `delete_all`. The token is consumed on use
+    // (5-minute TTL) so a malicious same-origin script can't wipe via one
+    // drive-by POST.
     setStep('deleting');
     try {
+      const { data: tokenData, error: tokenErr } = await supabase.functions.invoke('seed_wardrobe', {
+        body: { action: 'request_delete_token' },
+      });
+      if (tokenErr) throw tokenErr;
+      const confirmationToken = (tokenData as { confirmation_token?: string } | null)?.confirmation_token;
+      if (!confirmationToken) throw new Error('No confirmation token returned');
+
       const { error } = await supabase.functions.invoke('seed_wardrobe', {
-        body: { action: 'delete_all' },
+        body: { action: 'delete_all', confirmation: confirmationToken },
       });
       if (error) throw error;
       toast.success(t('seed.deleted'));

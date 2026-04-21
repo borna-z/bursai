@@ -11,6 +11,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 // ─── SSRF protection ──────────────────────────────────────────
 const BLOCKED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
@@ -325,6 +326,7 @@ async function getAuthenticatedUser(
 async function handleSyncIcs(authHeader: string): Promise<Response> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -333,6 +335,9 @@ async function handleSyncIcs(authHeader: string): Promise<Response> {
   const userOrError = await getAuthenticatedUser(supabase);
   if (typeof userOrError !== 'string') return userOrError;
   const userId = userOrError;
+
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+  await enforceRateLimit(serviceClient, userId, "calendar");
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles').select('ics_url').eq('id', userId).single();
@@ -348,6 +353,7 @@ async function handleSyncIcs(authHeader: string): Promise<Response> {
 async function handleSyncGoogle(authHeader: string): Promise<Response> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -357,6 +363,9 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
   if (typeof userOrError !== 'string') return userOrError;
   const userId = userOrError;
 
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  await enforceRateLimit(adminClient, userId, "calendar");
+
   const { data: connection, error: connError } = await supabase
     .from('calendar_connections').select('*')
     .eq('user_id', userId).eq('provider', 'google').single();
@@ -364,9 +373,6 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
   if (connError || !connection) {
     return jsonResponse({ error: 'No Google Calendar connection found' }, 400);
   }
-
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
   const result = await syncGoogleForUser(
     adminClient, userId,
@@ -460,6 +466,10 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
+  if (checkOverload("calendar")) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
@@ -483,6 +493,9 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error('Calendar function error:', error);
     return jsonResponse({ error: 'An unexpected error occurred' }, 500);
   }

@@ -22,6 +22,8 @@ import {
   failJob,
   withConcurrencyLimit,
   logTelemetry,
+  checkOverload,
+  overloadResponse,
 } from "../_shared/scale-guard.ts";
 import { logger } from "../_shared/logger.ts";
 
@@ -47,6 +49,12 @@ const JOB_CONCURRENCY = 3;
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  // Cron-only endpoint — no per-user rate limit (service role only).
+  // Overload guard still applies to short-circuit if the worker is unhealthy.
+  if (checkOverload("process_job_queue")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {

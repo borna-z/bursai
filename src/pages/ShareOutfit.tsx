@@ -14,6 +14,7 @@ import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 import { EASE_CURVE } from '@/lib/motion';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { isUuid } from '@/lib/validators';
 
 interface OutfitItem {
   id: string;
@@ -60,7 +61,14 @@ export default function ShareOutfitPage() {
 
   useEffect(() => {
     const fetchOutfit = async () => {
-      if (!id) return;
+      // P10 — validate UUID shape before issuing a query. Non-UUID strings
+      // otherwise surface as Postgres 22P02 ("invalid input syntax for uuid")
+      // errors in RLS logs — noise at best, enumeration oracle at worst.
+      if (!id || !isUuid(id)) {
+        setNotFound(true);
+        setIsLoading(false);
+        return;
+      }
       trackEvent('share_opened', { outfit_id: id });
 
       const { data, error } = await supabase

@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { validateCompleteOutfit } from '@/lib/outfitValidation';
+import { isValidUsername } from '@/lib/validators';
 import { motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 
@@ -58,7 +59,14 @@ export default function PublicProfile() {
 
   useEffect(() => {
     const load = async () => {
-      if (!username) { setNotFound(true); setLoading(false); return; }
+      // P10 — reject malformed usernames before issuing a query. Invalid
+      // shapes short-circuit to the not-found view; no row trip through RLS
+      // and no Postgres error leak for cases like `//username` or `..`.
+      if (!username || !isValidUsername(username)) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
 
       const { data: rawProfile, error } = await supabase
         .from('public_profiles')

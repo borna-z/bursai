@@ -2,10 +2,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("delete_user_account")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   // Return cached response for duplicate idempotent requests
@@ -47,6 +52,8 @@ Deno.serve(async (req) => {
 
     // Use service role client for admin operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    await enforceRateLimit(adminClient, userId, "delete_user_account");
 
     console.log(`Starting account deletion for user: ${userId}`);
 
@@ -233,11 +240,14 @@ Deno.serve(async (req) => {
     await storeIdempotencyResult(req, response);
     return response;
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error("Account deletion error:", error);
     return new Response(
-      JSON.stringify({ 
-        error: "Failed to delete account", 
-        details: error instanceof Error ? error.message : "Unknown error" 
+      JSON.stringify({
+        error: "Failed to delete account",
+        details: error instanceof Error ? error.message : "Unknown error"
       }),
       {
         status: 500,

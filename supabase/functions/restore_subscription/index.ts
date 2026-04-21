@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -30,6 +31,10 @@ function getStripeConfig() {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("restore_subscription")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {
@@ -68,6 +73,8 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2025-08-27.basil" });
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    await enforceRateLimit(serviceClient, user.id, "restore_subscription");
 
     // Find Stripe customer by email
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
@@ -171,6 +178,9 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {

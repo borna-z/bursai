@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { logger } from "../_shared/logger.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 import {
   buildInsightsDashboard,
   type GarmentInsightRow,
@@ -44,6 +45,10 @@ serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  if (checkOverload("insights_dashboard")) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -69,6 +74,8 @@ serve(async (req) => {
 
     const userId = userData.user.id;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    await enforceRateLimit(supabase, userId, "insights_dashboard");
 
     // --- App-level cache ---
     const cacheKey = `insights_dashboard_${userId}`;
@@ -187,6 +194,9 @@ serve(async (req) => {
 
     return jsonResponse(payload);
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     log.exception("Failed to generate insights dashboard", error);
     return jsonResponse({ error: "Failed to generate insights dashboard" }, 500);
   }

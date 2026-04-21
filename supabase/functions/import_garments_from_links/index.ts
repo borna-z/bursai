@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 // ============ TYPES ============
 interface ImportRequest {
@@ -247,6 +248,10 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
+  if (checkOverload("import_garments_from_links")) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   try {
     // Auth check
     const authHeader = req.headers.get('Authorization');
@@ -280,6 +285,8 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
+
+    await enforceRateLimit(supabaseAdmin, user.id, "import_garments_from_links");
 
     // Parse and validate request
     const body: ImportRequest = await req.json();
@@ -519,6 +526,9 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: any) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error('Import error:', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),

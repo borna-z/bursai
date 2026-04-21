@@ -4,6 +4,7 @@ import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 interface GarmentDef {
   title: string;
@@ -22,6 +23,10 @@ interface GarmentDef {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("seed_wardrobe")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   // Return cached response for duplicate idempotent requests
@@ -45,10 +50,100 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { action, garments, garment_index } = await req.json();
+    await enforceRateLimit(supabase, user.id, "seed_wardrobe");
+
+    const body = await req.json();
+    const { action, garments, garment_index, confirmation } = body;
+
+    // Action: request_delete_token — issues a one-use 5-minute token
+    // that MUST be echoed back in a subsequent `delete_all` call. Decouples
+    // the destructive op from a single malicious POST body: the attacker
+    // must first receive the server-issued token, then replay it within
+    // the window. Token is 32 cryptographically random bytes (256 bits of
+    // entropy) via crypto.getRandomValues, hex-encoded.
+    if (action === "request_delete_token") {
+      const tokenBytes = new Uint8Array(32);
+      crypto.getRandomValues(tokenBytes);
+      const newToken = Array.from(tokenBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+      const { error: updateErr } = await supabase
+        .from("profiles")
+        .update({
+          delete_confirmation_token: newToken,
+          delete_confirmation_expires_at: expiresAt,
+        })
+        .eq("id", user.id);
+
+      if (updateErr) {
+        console.error("[seed_wardrobe] failed to store delete token:", updateErr.message);
+        return new Response(JSON.stringify({ error: "Could not issue confirmation token" }), {
+          status: 500,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ confirmation_token: newToken, expires_at: expiresAt }),
+        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
+    }
 
     // Action: delete_all
     if (action === "delete_all") {
+      // P11 — destructive-op gate. Require a fresh server-issued confirmation
+      // token. Caller must first POST {action:"request_delete_token"} to
+      // receive one; it's consumed on first delete_all. Same-tab flow only —
+      // any cross-tab or replay attack would have to intercept the token in
+      // the short 5-minute window, after which the stored value expires.
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("delete_confirmation_token, delete_confirmation_expires_at")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileErr) {
+        console.error("[seed_wardrobe] profile lookup failed:", profileErr.message);
+        return new Response(JSON.stringify({ error: "Could not verify confirmation" }), {
+          status: 500,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+
+      const storedToken = profile?.delete_confirmation_token;
+      const expiresAt = profile?.delete_confirmation_expires_at
+        ? new Date(profile.delete_confirmation_expires_at)
+        : null;
+
+      if (!confirmation || !storedToken || confirmation !== storedToken) {
+        return new Response(
+          JSON.stringify({
+            error: "Confirmation token required. POST {action:\"request_delete_token\"} first.",
+          }),
+          {
+            status: 403,
+            headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      if (!expiresAt || expiresAt.getTime() < Date.now()) {
+        return new Response(JSON.stringify({ error: "Confirmation token expired" }), {
+          status: 403,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+
+      // Consume the token so it can't be replayed. Done BEFORE the wipe so
+      // that even if the wipe partially fails the token is already burned.
+      await supabase
+        .from("profiles")
+        .update({
+          delete_confirmation_token: null,
+          delete_confirmation_expires_at: null,
+        })
+        .eq("id", user.id);
+
       const { data: existing } = await supabase
         .from("garments")
         .select("id, image_path")
@@ -200,6 +295,9 @@ serve(async (req) => {
     await storeIdempotencyResult(req, response);
     return response;
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return rateLimitResponse(e, CORS_HEADERS);
+    }
     console.error("seed_wardrobe error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);
   }

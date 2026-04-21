@@ -19,6 +19,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
 
@@ -54,6 +55,10 @@ function jsonResponse(body: unknown, status: number): Response {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (checkOverload("google_calendar_auth")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {
@@ -96,6 +101,7 @@ Deno.serve(async (req) => {
       // Issue a single-use CSRF token. We store the token row under the
       // service role (RLS-enabled table, no policies).
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
+      await enforceRateLimit(adminClient, user.id, "google_calendar_auth");
       const csrfToken = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + CSRF_TTL_MS).toISOString();
 
@@ -162,6 +168,7 @@ Deno.serve(async (req) => {
       }
 
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
+      await enforceRateLimit(adminClient, user.id, "google_calendar_auth");
 
       const { data: csrfRow, error: csrfSelectError } = await adminClient
         .from("oauth_csrf")
@@ -254,6 +261,7 @@ Deno.serve(async (req) => {
       const user = userData.user;
 
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
+      await enforceRateLimit(adminClient, user.id, "google_calendar_auth");
 
       // Delete connection
       await adminClient.from("calendar_connections").delete().eq("user_id", user.id).eq("provider", "google");
@@ -269,6 +277,9 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ error: "Invalid action" }, 400);
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     console.error("Google calendar auth error:", error);
     return new Response(JSON.stringify({ error: "An unexpected error occurred" }), {
       status: 500,
