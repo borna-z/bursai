@@ -366,10 +366,15 @@ jobs:
             BASE_SHA=$(git rev-parse "$HEAD_SHA^" 2>/dev/null || echo "$HEAD_SHA")
           fi
           # Three-dot diff: same semantics as migration-drift-check.
+          # --diff-filter=ACMR: only Added/Copied/Modified/Renamed files —
+          # excludes Deleted (D) and Unmerged (U). A PR that deletes an edge
+          # function's index.ts would otherwise feed the removed path to
+          # `deno check`, which would file-not-found and block legitimate
+          # deletions (Codex P2 on PR #653).
           # Match `supabase/functions/<name>/index.ts` but skip `_shared/` —
           # shared modules aren't entry-points and deno check'ing them in
           # isolation is low-value.
-          CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" \
+          CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" \
             | grep -E '^supabase/functions/[^_][^/]+/index\.ts$' | tr '\n' ' ' || true)
           if [ -n "$CHANGED" ]; then
             echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
