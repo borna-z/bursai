@@ -47,8 +47,22 @@ const log = logger("enqueue_render_job");
  * sync with render_garment_image's RENDER_PROMPT_VERSION — both fold this
  * into the idempotency-key baseKey, so a mismatch would cause reserve
  * short-circuit misses.
+ *
+ * v1 → v2 (Wave 3-B fix 10, Codex P1 round 7, 2026-04-21):
+ * render_garment_image was bumped to v2 earlier in the wave but this file
+ * was missed. That left the two sides drifted: enqueue reserved v1 keys
+ * while render_garment_image's local-constant fallback (for internal
+ * invocations missing the forwarded promptVersion) computed v2 keys. For
+ * in-flight jobs in that fallback path, consume/release would miss their
+ * v1 reserve → `no_reservation` → user either double-charged (on a
+ * subsequent retry that mints a fresh v2 reservation) or orphaned reserve
+ * persists until cleanup cron. The two sides are now back in lockstep.
+ * For pre-deploy in-flight v1 jobs: the render_jobs row carries
+ * `prompt_version='v1'`, the worker forwards that value, and
+ * render_garment_image uses the forwarded value via `internalPromptVersion`
+ * — so completions land on the v1 reserve as expected.
  */
-const RENDER_PROMPT_VERSION = "v1";
+const RENDER_PROMPT_VERSION = "v2";
 
 const VALID_SOURCES = new Set([
   "add_photo",

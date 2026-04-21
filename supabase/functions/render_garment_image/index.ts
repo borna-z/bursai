@@ -4,6 +4,7 @@ import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
+import { classifyCategory, type CategoryClass } from '../_shared/render-category.ts';
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from '../_shared/scale-guard.ts';
 import { getBalance, reserveCredit, consumeCredit, releaseCredit } from '../_shared/render-credits.ts';
 import {
@@ -34,28 +35,10 @@ import { timingSafeEqual } from '../_shared/timing-safe.ts';
 const RENDER_PROMPT_VERSION = 'v2';
 
 // Wave 3-B P16: category classification for prompt + validation routing.
-const GHOST_MANNEQUIN_CATEGORIES = new Set(['top', 'tops', 'bottom', 'bottoms', 'dress', 'dresses', 'outerwear']);
-const BAG_SUBCATEGORY_HINTS = ['bag', 'handbag', 'backpack', 'tote', 'clutch', 'satchel'];
-const FLAT_LAY_SUBCATEGORY_HINTS = ['scarf', 'hat', 'beanie', 'cap', 'gloves', 'belt', 'tie'];
-const JEWELRY_SUBCATEGORY_HINTS = ['jewelry', 'jewellery', 'watch', 'ring', 'necklace', 'bracelet', 'earring'];
-
-type CategoryClass = 'ghost_mannequin' | 'shoes' | 'bag' | 'flat_lay' | 'jewelry' | 'accessory_generic';
-
-function classifyCategory(category: string | null | undefined, subcategory: string | null | undefined): CategoryClass {
-  const cat = (category ?? '').toLowerCase();
-  const sub = (subcategory ?? '').toLowerCase();
-
-  if (GHOST_MANNEQUIN_CATEGORIES.has(cat)) return 'ghost_mannequin';
-  if (cat === 'shoes' || cat === 'shoe' || cat === 'footwear') return 'shoes';
-  if (cat === 'accessory' || cat === 'accessories') {
-    if (BAG_SUBCATEGORY_HINTS.some((hint) => sub.includes(hint))) return 'bag';
-    if (JEWELRY_SUBCATEGORY_HINTS.some((hint) => sub.includes(hint))) return 'jewelry';
-    if (FLAT_LAY_SUBCATEGORY_HINTS.some((hint) => sub.includes(hint))) return 'flat_lay';
-    return 'accessory_generic';
-  }
-  // Unknown category → treat as ghost mannequin (historical default).
-  return 'ghost_mannequin';
-}
+// Moved to `_shared/render-category.ts` in Wave 3-B fix 10 (Codex P2 r7) so
+// render-eligibility's validator uses the same branching decision — before
+// the extract, the two sides disagreed on unknown-category defaults and
+// systematically rejected valid renders as `reject_wrong_category`.
 
 /** Monthly allowance of 0 → user is not a paying subscriber right now (trialing or canceled). */
 function isTrialFromBalance(monthlyAllowance: number): boolean {

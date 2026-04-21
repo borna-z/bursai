@@ -1,3 +1,5 @@
+import { classifyCategory, type CategoryClass } from './render-category.ts';
+
 export const PRODUCT_READY_RENDER_GATE_PROVIDER = 'skip-product-ready-v1';
 const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
 // `GEMINI_TEXT_URL_OVERRIDE` lets smoke-test mocks intercept the gate calls.
@@ -201,8 +203,10 @@ export async function assessRenderEligibilityWithGemini(opts: {
  *   - logoOrTextPreserved: catches Gemini's "helpful" stripping of branding
  *   - correctCategory: catches "rendered a shoe but put it on a torso"
  *
- * `expectGhostMannequin=false` paths check for product-photo cleanliness
- * instead of mannequin absence — the right frame for non-wearables.
+ * Non-ghost-mannequin paths check for product-photo cleanliness instead of
+ * mannequin absence — the right frame for non-wearables. Routing is driven
+ * by `classifyCategory` from `_shared/render-category.ts` so prompt-side
+ * and validator-side branching can never drift.
  */
 export async function validateRenderedGarmentOutputWithGemini(opts: {
   apiKey: string;
@@ -220,37 +224,40 @@ export async function validateRenderedGarmentOutputWithGemini(opts: {
   const subcategory = (opts.subcategory ?? '').toLowerCase();
   const expectLogoOrText = opts.expectLogoOrText === true;
 
-  // Codex P1 on PR #661: these arrays MUST mirror `classifyCategory()` in
-  // render_garment_image/index.ts. Earlier versions accepted only the plural
-  // `'shoes'`, but the caller's prompt builder also accepts `'shoe'` and
-  // `'footwear'`. When a garment is stored with the singular variant, the
-  // prompt asked Gemini for a shoe product shot while the validator fell
-  // into the generic-accessory branch — which rejected the correct render
-  // as `reject_wrong_category` and exhausted the retry chain on otherwise
-  // valid shoes. Keep these two sources of truth in lockstep.
-  const GHOST_MANNEQUIN_CATEGORIES = ['top', 'tops', 'bottom', 'bottoms', 'dress', 'dresses', 'outerwear'];
-  const SHOE_CATEGORIES = ['shoes', 'shoe', 'footwear'];
-  const expectGhostMannequin = GHOST_MANNEQUIN_CATEGORIES.includes(category);
-  const isShoeCategory = SHOE_CATEGORIES.includes(category);
+  // Wave 3-B fix 10 (Codex P2 round 7): use the SHARED classifier from
+  // `_shared/render-category.ts` so the validator's routing decision can
+  // never drift from the prompt builder's. Earlier rounds tried to inline
+  // the same lists here but missed the unknown-category fallback —
+  // classifyCategory defaults unknown categories to 'ghost_mannequin' while
+  // the validator's `else` branch was defaulting to accessory, producing
+  // systematic `reject_wrong_category` rejections on non-canonical
+  // `garments.category` values.
+  const categoryClass: CategoryClass = classifyCategory(opts.category ?? null, opts.subcategory ?? null);
 
   // Describe the expected presentation shape so Gemini's JSON decision
-  // maps back to the right reject enum.
+  // maps back to the right reject enum. Accessory sub-variants (bag /
+  // flat_lay / jewelry / accessory_generic) share the same validator
+  // prompt because the accepted-visual criteria are identical (clean
+  // product-catalog shot, no body parts). The sub-variants differ at the
+  // generation side (framing + composition) but not at the validation
+  // side (what counts as "acceptable").
   let presentationDescription: string;
   let rejectionList: string[];
-  if (expectGhostMannequin) {
+  if (categoryClass === 'ghost_mannequin') {
     presentationDescription = 'ghost / shadow mannequin product imagery — garment shape with NO visible mannequin, body, head, neck, shoulders, torso, hips, arms, hands, legs, or feet underneath.';
     rejectionList = [
       'Reject with decision="reject_visible_mannequin" if ANY body part or mannequin structure is visible.',
       'Reject with decision="reject_wrong_category" if the rendered item is not the expected garment category.',
     ];
-  } else if (isShoeCategory) {
+  } else if (categoryClass === 'shoes') {
     presentationDescription = 'clean product-catalog shoe photograph — single shoe or matched pair against pure white. NO person, NO feet, NO legs, NO mannequin visible.';
     rejectionList = [
       'Reject with decision="reject_visible_mannequin" if ANY foot, leg, or person is visible.',
       'Reject with decision="reject_wrong_category" if the rendered item is not shoes (e.g. it rendered a shirt by mistake).',
     ];
   } else {
-    // accessory / bag / hat / jewelry / watch / etc.
+    // categoryClass is one of: 'bag' | 'flat_lay' | 'jewelry' | 'accessory_generic'
+    // (unknown categories already routed to 'ghost_mannequin' above).
     presentationDescription = 'clean product-catalog accessory photograph against pure white — item alone with NO body parts (no head, neck, hands, wrist, fingers) visible underneath or supporting it.';
     rejectionList = [
       'Reject with decision="reject_visible_mannequin" if ANY person, body part, mannequin, or model is visible (including a head under a hat, a wrist under a watch, fingers through a ring).',
@@ -362,7 +369,7 @@ export async function validateRenderedGarmentOutputWithGemini(opts: {
     model: GEMINI_TEXT_MODEL,
     category,
     subcategory: opts.subcategory ?? null,
-    expectGhostMannequin,
+    categoryClass,
     expectLogoOrText,
     decision: assessment.decision,
     confidence: assessment.confidence,
