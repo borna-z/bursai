@@ -475,6 +475,25 @@ serve(async (req) => {
         }
 
         // Failure path.
+        //
+        // Wave 3-B fix 7: explicit narrowing. The earlier happy-path /
+        // deferred / skipped branches all `return` — but Deno's TS compiler
+        // still sees the union as `{ok:true rendered}|{ok:true skipped}|
+        // {ok:true deferred}|{ok:false ...}` here because it doesn't follow
+        // control-flow-based exhaustiveness through those returns. An
+        // explicit `if (renderResult.ok)` guard would never trigger at
+        // runtime (those branches all returned) but it pins the type
+        // inference so `renderResult.errorClass` / `.errorMessage` resolve
+        // to the failure-variant shape.
+        if (renderResult.ok) {
+          // Unreachable in practice — happy / deferred / skipped all
+          // returned above. Kept as a defensive assertion so future edits
+          // that add a new ok:true variant are caught here rather than
+          // silently bypassing the failure-path logic below.
+          throw new Error(
+            `Unreachable: ok:true renderResult slipped past earlier branches (jobId=${job.id})`,
+          );
+        }
         const isFinal = job.attempts >= job.max_attempts;
 
         if (isFinal) {
