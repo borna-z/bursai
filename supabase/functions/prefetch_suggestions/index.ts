@@ -27,7 +27,14 @@ const BATCH_SIZE = 100;
 
 async function processSingleUser(
   userId: string,
-  supabaseClient: ReturnType<typeof createClient>,
+  // Same supabase-js generic-narrowing issue as in calendar.ts (see the
+  // comment there). A recent @supabase/supabase-js bump infers a stricter
+  // `SupabaseClient<unknown, ..., never, never, ...>` for
+  // `ReturnType<typeof createClient>`, which breaks when a caller passes
+  // the differently-inferred client from `createClient(url, key)`. Use
+  // `any` to preserve prior runtime behaviour without threading generated
+  // Database types through the whole file.
+  supabaseClient: any,
 ): Promise<{ status: 'ok' | 'skipped' | 'error'; error?: string }> {
   try {
     const { data: garments } = await supabaseClient
