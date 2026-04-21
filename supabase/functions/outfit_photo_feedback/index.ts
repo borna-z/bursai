@@ -123,6 +123,11 @@ Also provide a short, helpful commentary (2-3 sentences) with actionable styling
       functionName: "outfit_photo_feedback",
       cacheTtlSeconds: 7200, // 2 hours
       cacheNamespace: `feedback_${outfit_id}`,
+      // Codex P1 round 2 on PR #659: pass userId so storeCache populates
+      // ai_response_cache.user_id for the GDPR cascade delete. The outfit
+      // belongs to this user (ownership already verified at `.eq("user_id", ...)`
+      // check above), so the cache row is legitimately theirs.
+      userId: user.id,
     }, supabase);
 
     if (!feedback) throw new Error("AI did not return structured feedback");

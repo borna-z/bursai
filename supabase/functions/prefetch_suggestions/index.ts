@@ -83,6 +83,11 @@ ${garmentList}`);
       max_tokens: estimateMaxTokens({ outputItems: 2, perItemTokens: 80, baseTokens: 150 }),
       cacheTtlSeconds: 43200,
       cacheNamespace: `daily_suggestions_${userId}`,
+      // Codex P1 round 2 on PR #659: pass userId so storeCache populates
+      // ai_response_cache.user_id for the GDPR cascade delete. Applies to
+      // both the batch-cron path (userId is the active user we're
+      // processing) and the single-user-trigger path.
+      userId,
       functionName: "prefetch_suggestions",
     }, supabaseClient);
 

@@ -135,6 +135,9 @@ ${garmentList}`,
       functionName: "visual_search",
       cacheTtlSeconds: 1800, // 30 minutes
       cacheNamespace: `visual_search_${userId}`,
+      // Codex P1 round 2 on PR #659: pass userId so storeCache populates
+      // ai_response_cache.user_id for the GDPR cascade delete.
+      userId,
     }, serviceClient);
 
     const garmentIdSet = new Set(garments.map(g => g.id));

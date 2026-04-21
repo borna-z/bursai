@@ -89,6 +89,11 @@ Consider that some materials age differently (leather improves, cotton pills, sy
       functionName: "assess_garment_condition",
       cacheTtlSeconds: 86400, // 24 hours — condition doesn't change fast
       cacheNamespace: `assess_condition_${garment_id}`,
+      // Codex P1 round 2 on PR #659: pass userId so storeCache populates
+      // ai_response_cache.user_id for the GDPR cascade delete. The garment
+      // belongs to this user (ownership verified at `.eq("user_id", ...)`
+      // check above), so the cache row is legitimately theirs.
+      userId: user.id,
     }, supabase);
 
     await supabase
