@@ -535,7 +535,12 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 // ─── Garment state helpers (unchanged) ───
 
 async function updateGarmentRenderState(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
+  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
+  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
+  // the caller passes the real service-role client, breaking deno-check on
+  // every write. Runtime behaviour is unchanged.
+  supabase: any,
   garmentId: string,
   updates: Record<string, unknown>,
   context: string,
@@ -547,7 +552,12 @@ async function updateGarmentRenderState(
 }
 
 async function claimGarmentRender(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
+  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
+  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
+  // the caller passes the real service-role client, breaking deno-check on
+  // every write. Runtime behaviour is unchanged.
+  supabase: any,
   garmentId: string,
   mannequinPresentation: MannequinPresentation,
   force?: boolean,
@@ -577,7 +587,12 @@ async function claimGarmentRender(
 }
 
 async function safeMarkRenderFailed(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
+  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
+  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
+  // the caller passes the real service-role client, breaking deno-check on
+  // every write. Runtime behaviour is unchanged.
+  supabase: any,
   garmentId: string,
   updates: Record<string, unknown>,
   context: string,
@@ -613,7 +628,12 @@ async function safeMarkRenderFailed(
  * Falls back to safeMarkRenderFailed when there is no prior image to restore.
  */
 async function safeRestoreOrFailRender(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
+  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
+  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
+  // the caller passes the real service-role client, breaking deno-check on
+  // every write. Runtime behaviour is unchanged.
+  supabase: any,
   garmentId: string,
   updates: Record<string, unknown>,
   context: string,
@@ -681,7 +701,8 @@ serve(async (req) => {
     return overloadResponse(CORS_HEADERS);
   }
 
-  let supabase: ReturnType<typeof createClient> | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
+  let supabase: any = null;
   let garmentIdForFailure: string | null = null;
   let priorRenderedPath: string | null = null;
   let isForceRender = false;
@@ -952,11 +973,13 @@ serve(async (req) => {
             // worker, or a direct internal call predating round 6).
             let presentationForHeal = internalPresentation;
             if (!presentationForHeal) {
-              const { data: profileForHeal } = await supabase
+              const { data: profileForHealRaw } = await supabase
                 .from('profiles')
                 .select('mannequin_presentation')
                 .eq('id', user.id)
                 .maybeSingle();
+              // Same supabase-js narrowing cast.
+              const profileForHeal = profileForHealRaw as { mannequin_presentation?: string | null } | null;
               presentationForHeal = normalizeMannequinPresentation(
                 profileForHeal?.mannequin_presentation,
               );
@@ -1024,15 +1047,24 @@ serve(async (req) => {
     // profile. This keeps the base key / reserve_key stable across the
     // enqueue→worker delay, so a profile change mid-queue doesn't produce a
     // second reserve transaction (Codex round 6).
-    let mannequinPresentation: string;
+    // Typed as MannequinPresentation so downstream calls into
+    // mannequinPresentationInstruction() + claimGarmentRender() see the
+    // literal-union type Deno expects. `internalPresentation` is already
+    // normalized at parse time (see internal-mode branch at ~line 536) so the
+    // assignment is safe; `normalizeMannequinPresentation` also returns
+    // MannequinPresentation.
+    let mannequinPresentation: MannequinPresentation;
     if (internalPresentation) {
-      mannequinPresentation = internalPresentation;
+      mannequinPresentation = internalPresentation as MannequinPresentation;
     } else {
-      const { data: profile } = await supabase
+      const { data: profileRaw } = await supabase
         .from('profiles')
         .select('mannequin_presentation')
         .eq('id', garment.user_id)
         .maybeSingle();
+      // Same supabase-js `any` cast as `garment` / `garmentForPrompt` — the
+      // profile query narrows to `never` under Deno's strict inference.
+      const profile = profileRaw as { mannequin_presentation?: string | null } | null;
       mannequinPresentation = normalizeMannequinPresentation(profile?.mannequin_presentation);
     }
     // Same reasoning for prompt version — constant value can change across
