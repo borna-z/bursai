@@ -1,0 +1,24 @@
+-- Fix latent footgun in public.init_render_credits() trigger function.
+--
+-- Shipped: the function uses an unqualified `INSERT INTO render_credits ...`
+-- and has no explicit search_path setting (proconfig=null). SECURITY DEFINER
+-- functions without `SET search_path` inherit the caller's search_path.
+-- Normal signup via the regular Supabase Auth flow resolves the unqualified
+-- reference because the `supabase_auth_admin` role's session happens to have
+-- public on the search_path; but `admin.auth.admin.createUser(...)` (used by
+-- the post-merge smoke tests and by any service-role user-provisioning code)
+-- fires the trigger under a search_path that does NOT include public, so
+-- `INSERT INTO render_credits` fails with 42P01 "relation does not exist"
+-- and the whole createUser transaction aborts.
+--
+-- This finding was first documented in CLAUDE.md's P0d-iv Findings Log and
+-- the same ALTER was included in the P0d-iv baseline migration for fresh
+-- CLI stacks, but it was never applied to prod. The smoke-prod CI job now
+-- reproduces this reliably because the secrets are finally provisioned and
+-- the suite actually runs end-to-end for the first time.
+--
+-- Fix: pin search_path=public on the function so the unqualified reference
+-- resolves deterministically regardless of the caller's session search_path.
+-- Idempotent; safe to re-apply.
+
+ALTER FUNCTION public.init_render_credits() SET search_path = public;
