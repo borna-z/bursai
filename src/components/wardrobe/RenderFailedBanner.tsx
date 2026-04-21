@@ -77,68 +77,99 @@ export function RenderFailedBanner({
 
       toast.success(t('render.retry_started'));
     } catch (error) {
-      // Codex P1 rounds 2-5 on PR #661. The only question the banner needs
-      // to answer: "did the server accept the request?" If yes, we keep the
-      // optimistic 'pending' flip so the worker reconciles without the user
-      // clicking Try Again and minting a second reservation.
+      // Codex P1 rounds 2–6 on PR #661. The banner's single job: decide
+      // whether to keep the optimistic 'pending' flip (worker will
+      // reconcile) or revert to 'failed' (banner reappears so user can
+      // retry).
       //
-      // The ONLY way to be unsure server-side is when we never got an HTTP
-      // response at all — i.e. `fetch()` rejected before reading the response.
-      // `enqueueRenderJob` tags that case as `kind='transport'`. Every other
-      // case has a response back:
+      // Round 6 punchline: `error.kind` alone isn't enough. `kind='http'`
+      // status>=500 is overloaded — enqueue_render_job's TOP-LEVEL catch
+      // (around its line 372) returns a generic 500 even when an exception
+      // fires AFTER the render_jobs INSERT has already succeeded. In that
+      // case the server DID create a row but the client sees 500 →
+      // revert → user taps Try Again → fresh clientNonce → second
+      // reservation. Double-charge.
       //
-      //   * kind='http' with 4xx → business denial (402/403/429/400),
-      //     definitive rejection, no reserve claimed, revert to 'failed'.
-      //   * kind='http' with 5xx → enqueue_render_job's specific 5xx paths
-      //     (`insert_failed`, `enqueue_inconsistent_state`, `rpc_error`) are
-      //     all no-queue outcomes: the server errored BEFORE or DURING its
-      //     own cleanup, so no render_jobs row is created. Worker has
-      //     nothing to reconcile → revert to 'failed' or the garment is
-      //     stranded at pending with the banner hidden. (Codex P1 round 5
-      //     caught this — the earlier `isRenderEnqueueRetryable(5xx)` check
-      //     misclassified these as ambiguous.)
-      //   * kind='no_job_confirmation' → 200 response with missing jobId,
-      //     no row guaranteed, revert.
+      // Fix: stop guessing. For the ambiguous error classes (`transport`
+      // and `http:5xx`), query `render_jobs` directly using the nonce to
+      // get authoritative server-state. Pattern mirrors
+      // `startGarmentRenderInBackground`'s server-state check
+      // (garmentIntelligence.ts ~line 521). RLS on `render_jobs` restricts
+      // the query to this user's rows; we also filter explicitly on
+      // user_id + garment_id + a clientNonce suffix match (reserve_key
+      // format is `reserve:<userId>_<garmentId>_<presentation>_<version>_<nonce>`).
       //
-      // So: transport is the ONLY ambiguous case.
-      const isAmbiguousEnqueueError =
-        error instanceof RenderEnqueueError && error.kind === 'transport';
+      // Default = revert. Only keep 'pending' when we have POSITIVE
+      // evidence a row exists. Can't verify (transient DB error,
+      // unauthenticated) → revert (safer — worst case is the user sees
+      // the banner on an already-queued retry, taps Try Again, and the
+      // new reservation is the same-nonce replay so reserve's idempotency
+      // catches it).
+      let keepPending = false;
 
-      if (!isAmbiguousEnqueueError) {
-        // Definitive rejection (e.g. 402 insufficient_credits, 403, 429,
-        // 400 validation) OR a non-enqueue error (optimistic UPDATE itself
-        // failed, unexpected JS throw). Safe to revert — the server did not
-        // create a render job.
+      if (
+        error instanceof RenderEnqueueError
+        && error.clientNonce
+        && (error.kind === 'transport' || (error.kind === 'http' && error.status >= 500))
+      ) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: existingRow } = await supabase
+              .from('render_jobs')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('garment_id', garmentId)
+              .like('reserve_key', `%${error.clientNonce}`)
+              .maybeSingle();
+            if (existingRow) {
+              keepPending = true;
+              // Log at warn (not info) because (a) our lint rule allows
+              // only warn/error at the client level, and (b) this path is
+              // rare enough that it's worth Sentry-visible when it fires.
+              console.warn(
+                'RenderFailedBanner: render_jobs row exists for ambiguous enqueue failure — keeping pending',
+                { garmentId, jobId: existingRow.id, errorKind: error.kind, errorStatus: error.status },
+              );
+            }
+          }
+        } catch (verifyErr) {
+          // Server-state check itself failed. Fall through to revert —
+          // strictly safer than staying at 'pending' for the edge case
+          // where the row genuinely doesn't exist.
+          console.warn('RenderFailedBanner server-state verify threw, reverting', {
+            garmentId,
+            error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+          });
+        }
+      }
+
+      if (!keepPending) {
+        // Definitive or unverifiable: revert so the banner reappears and
+        // the user has a retry affordance.
         await supabase
           .from('garments')
           .update({ render_status: 'failed' } as Record<string, unknown>)
           .eq('id', garmentId);
         queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
-      } else {
-        // Ambiguous: keep the optimistic 'pending'. Just invalidate so the
-        // shimmer overlay renders; worker state write wins.
-        queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
-      }
 
-      if (isAmbiguousEnqueueError) {
-        // Soft toast — we sent the request; the server may or may not have
-        // accepted. The UI now shows the pending shimmer so the user knows
-        // something is happening. If it turns out the server didn't queue
-        // anything, the banner reappears when the worker terminalizes.
-        toast(t('render.retry_started'));
-      } else {
-        // Surface specific server error message for business denials
-        // (402 trial-locked / insufficient credits etc.) so users understand
-        // the next action. Fall back to generic copy for unknown errors.
+        // Surface specific server error for business denials (402
+        // trial-locked / insufficient credits / 429 rate-limit / etc.).
         const message = error instanceof RenderEnqueueError && error.message
           ? error.message
           : t('render.retry_failed');
         toast.error(message);
+      } else {
+        // Row exists server-side → worker reconciles. Don't touch status.
+        queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
+        toast(t('render.retry_started'));
       }
 
       console.error('RenderFailedBanner retry failed', {
         garmentId,
-        ambiguous: isAmbiguousEnqueueError,
+        keepPending,
+        errorKind: error instanceof RenderEnqueueError ? error.kind : null,
+        errorStatus: error instanceof RenderEnqueueError ? error.status : null,
         error,
       });
     } finally {
