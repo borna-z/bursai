@@ -41,7 +41,19 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (outfitError || !outfitRow) {
+    if (outfitError) {
+      // Real backend failure (PostgREST/network/transient DB error). Surface as
+      // 5xx so clients can retry and monitoring can catch outages — do NOT mask
+      // as 404, which would hide infra issues behind a user-level "not found".
+      console.error("suggest_accessories: ownership query failed", outfitError);
+      return new Response(JSON.stringify({ error: "Server error" }), {
+        status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+    if (!outfitRow) {
+      // Ownership-or-existence check failed. Collapse both cases ("outfit doesn't
+      // exist" AND "outfit belongs to another user") into one 404 — prevents
+      // enumeration oracle. Error-path above already excluded real server errors.
       return new Response(JSON.stringify({ error: "Outfit not found" }), {
         status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
