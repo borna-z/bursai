@@ -22,6 +22,8 @@ import {
   failJob,
   withConcurrencyLimit,
   logTelemetry,
+  checkOverload,
+  overloadResponse,
 } from "../_shared/scale-guard.ts";
 import { logger } from "../_shared/logger.ts";
 
@@ -47,6 +49,12 @@ const JOB_CONCURRENCY = 3;
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  // Cron-only endpoint — no per-user rate limit (service role only).
+  // Overload guard still applies to short-circuit if the worker is unhealthy.
+  if (checkOverload("process_job_queue")) {
+    return overloadResponse(CORS_HEADERS);
   }
 
   try {
@@ -158,7 +166,10 @@ serve(async (req) => {
 
     // Periodic cleanup (10% chance per invocation)
     if (Math.random() < 0.1) {
-      supabase.rpc("cleanup_old_jobs").catch(() => {});
+      // `.then(_, _)` instead of `.catch` — newer supabase-js typings model
+      // the rpc builder as a thenable, not a full Promise, so `.catch` is
+      // missing on the type. Fire-and-forget: ignore both resolution paths.
+      supabase.rpc("cleanup_old_jobs").then(() => {}, () => {});
     }
 
     return new Response(

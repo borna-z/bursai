@@ -25,9 +25,6 @@ vi.mock('@/components/layout/BottomNav', () => ({
 vi.mock('@/components/layout/OfflineBanner', () => ({
   OfflineBanner: () => <div>Offline banner</div>,
 }));
-vi.mock('@/components/layout/SeedProgressPill', () => ({
-  SeedProgressPill: () => <div>Seed progress</div>,
-}));
 vi.mock('@/components/layout/MilestoneCelebration', () => ({
   MilestoneCelebration: () => <div>Milestone celebration</div>,
 }));

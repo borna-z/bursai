@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { BottomNav } from './BottomNav';
 import { OfflineBanner } from './OfflineBanner';
-import { SeedProgressPill } from './SeedProgressPill';
 import { useKeyboardAdjust } from '@/hooks/useKeyboardAdjust';
 import { useMedianStatusBar } from '@/hooks/useMedianStatusBar';
 import { useViewportShell } from '@/hooks/useViewportShell';
@@ -69,7 +68,6 @@ export function AppLayout({ children, hideNav = false, disableMainScroll = false
         {children}
       </main>
       {!hideNav && <BottomNav />}
-      <SeedProgressPill />
       <MilestoneCelebration />
     </div>
   );

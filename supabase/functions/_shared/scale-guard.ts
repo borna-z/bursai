@@ -52,6 +52,26 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   assess_garment_condition:    { maxPerHour: 30, maxPerMinute: 5 },
   detect_duplicate_garment:    { maxPerHour: 40, maxPerMinute: 8 },
 
+  // Non-AI / utility functions (P9 — Wave 2-A)
+  // generate_outfit: matches burs_style_engine because they call each other
+  generate_outfit:             { maxPerHour: 30, maxPerMinute: 5 },
+  // import_garments_from_links: expensive (scraping + AI enrichment)
+  import_garments_from_links:  { maxPerHour: 10, maxPerMinute: 2 },
+  // insights_dashboard: 8 parallel queries per call — moderate cost
+  insights_dashboard:          { maxPerHour: 60, maxPerMinute: 15 },
+  // send_push_notification: mass-notification abuse vector
+  send_push_notification:      { maxPerHour: 30, maxPerMinute: 10 },
+  // restore_subscription: Stripe API calls — cost + throttle concern
+  restore_subscription:        { maxPerHour: 10, maxPerMinute: 2 },
+  // create_portal_session: Stripe API calls
+  create_portal_session:       { maxPerHour: 10, maxPerMinute: 2 },
+  // delete_user_account: one-way action — no legitimate rapid repeat
+  delete_user_account:         { maxPerHour: 3,  maxPerMinute: 1 },
+  // calendar: sync + event read calls to Google Calendar API
+  calendar:                    { maxPerHour: 30, maxPerMinute: 10 },
+  // google_calendar_auth: OAuth handshake — low-frequency by design
+  google_calendar_auth:        { maxPerHour: 10, maxPerMinute: 2 },
+
   // Default for unlisted functions
   __default:                   { maxPerHour: 60, maxPerMinute: 12 },
 };
@@ -187,7 +207,10 @@ export async function enforceRateLimit(
 
   // Periodic cleanup (1% chance)
   if (Math.random() < 0.01) {
-    supabaseAdmin.rpc("cleanup_old_rate_limits").catch(() => {});
+    // `.then(_, _)` instead of `.catch` — newer supabase-js typings model
+    // the rpc builder as a thenable, not a full Promise, so `.catch` is
+    // missing on the type. Fire-and-forget: ignore both paths.
+    supabaseAdmin.rpc("cleanup_old_rate_limits").then(() => {}, () => {});
   }
 
   return {

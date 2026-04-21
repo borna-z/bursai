@@ -35,3 +35,4 @@ supabase/.temp/
 .claude/settings.local.json
 .superpowers/
 docs/superpowers/
+.claude/scheduled_tasks.lock

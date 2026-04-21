@@ -22,11 +22,6 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'light', resolvedTheme: 'light', accentColor: 'blue', setTheme: vi.fn(), setAccentColor: vi.fn() })),
 }));
 
-vi.mock('@/contexts/SeedContext', () => ({
-  useSeed: vi.fn(() => ({ seeding: false, progress: 0 })),
-  useSeedMaybe: vi.fn(() => null),
-}));
-
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(() => ({
     user: { id: 'u1' },

@@ -32,12 +32,18 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import ShareOutfitPage from '../ShareOutfit';
 
+// P10 (Wave 2-A) — `ShareOutfitPage` now validates the URL `:id` as a UUID
+// via `isUuid` before hitting Supabase. The fixture id has to be a real UUID
+// shape or the component short-circuits to the not-found view and no DB call
+// runs. The value is arbitrary — just needs to match the 8-4-4-4-12 hex shape.
+const TEST_OUTFIT_ID = '11111111-1111-4111-8111-111111111111';
+
 function createOutfitsQueryResult() {
   return {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
       data: {
-        id: 'outfit-1',
+        id: TEST_OUTFIT_ID,
         occasion: 'Dinner',
         style_vibe: null,
         explanation: 'Rendered look',
@@ -66,7 +72,7 @@ function createOutfitsQueryResult() {
 function renderPage() {
   return render(
     <HelmetProvider>
-      <MemoryRouter initialEntries={['/share/outfit-1']}>
+      <MemoryRouter initialEntries={[`/share/${TEST_OUTFIT_ID}`]}>
         <Routes>
           <Route path="/share/:id" element={<ShareOutfitPage />} />
         </Routes>

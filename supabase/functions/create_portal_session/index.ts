@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { CORS_HEADERS, resolveAppOrigin } from "../_shared/cors.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -32,6 +33,10 @@ serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
+  if (checkOverload("create_portal_session")) {
+    return overloadResponse(CORS_HEADERS);
+  }
+
   try {
     logStep("Function started");
 
@@ -42,6 +47,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Auth check
     const authHeader = req.headers.get("Authorization");
@@ -64,6 +70,9 @@ serve(async (req) => {
     }
     
     logStep("User authenticated", { userId: user.id, email: user.email });
+
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    await enforceRateLimit(serviceClient, user.id, "create_portal_session");
 
     const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2025-08-27.basil" });
 
@@ -91,6 +100,9 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return rateLimitResponse(error, CORS_HEADERS);
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
