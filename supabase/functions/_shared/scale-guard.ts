@@ -207,7 +207,10 @@ export async function enforceRateLimit(
 
   // Periodic cleanup (1% chance)
   if (Math.random() < 0.01) {
-    supabaseAdmin.rpc("cleanup_old_rate_limits").catch(() => {});
+    // `.then(_, _)` instead of `.catch` — newer supabase-js typings model
+    // the rpc builder as a thenable, not a full Promise, so `.catch` is
+    // missing on the type. Fire-and-forget: ignore both paths.
+    supabaseAdmin.rpc("cleanup_old_rate_limits").then(() => {}, () => {});
   }
 
   return {

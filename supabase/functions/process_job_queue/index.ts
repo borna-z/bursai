@@ -166,7 +166,10 @@ serve(async (req) => {
 
     // Periodic cleanup (10% chance per invocation)
     if (Math.random() < 0.1) {
-      supabase.rpc("cleanup_old_jobs").catch(() => {});
+      // `.then(_, _)` instead of `.catch` — newer supabase-js typings model
+      // the rpc builder as a thenable, not a full Promise, so `.catch` is
+      // missing on the type. Fire-and-forget: ignore both resolution paths.
+      supabase.rpc("cleanup_old_jobs").then(() => {}, () => {});
     }
 
     return new Response(
