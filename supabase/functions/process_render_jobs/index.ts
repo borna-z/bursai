@@ -435,7 +435,16 @@ serve(async (req) => {
           return;
         }
 
-        if (renderResult.ok) {
+        // Wave 3-B fix 5: explicit discriminator narrowing. Earlier branches
+        // (deferred at line ~176, skipped at line ~385) already returned for
+        // those ok:true variants, but Deno's TS compiler doesn't follow
+        // control-flow-based exhaustiveness back through those returns — it
+        // still sees `renderResult.ok === true` as matching all three
+        // `ok: true` arms of the union. Use `"rendered_image_path" in` to
+        // pin this block to the rendered variant so `.rendered_image_path`
+        // resolves to string. Surfaced only now because process_render_jobs
+        // was the first file deno-check saw changed in this PR.
+        if (renderResult.ok && "rendered_image_path" in renderResult) {
           // render_garment_image itself already:
           //   * called consume_credit_atomic with the canonical jobId
           //   * wrote garments.rendered_image_path / render_status='ready'
@@ -466,6 +475,25 @@ serve(async (req) => {
         }
 
         // Failure path.
+        //
+        // Wave 3-B fix 7: explicit narrowing. The earlier happy-path /
+        // deferred / skipped branches all `return` — but Deno's TS compiler
+        // still sees the union as `{ok:true rendered}|{ok:true skipped}|
+        // {ok:true deferred}|{ok:false ...}` here because it doesn't follow
+        // control-flow-based exhaustiveness through those returns. An
+        // explicit `if (renderResult.ok)` guard would never trigger at
+        // runtime (those branches all returned) but it pins the type
+        // inference so `renderResult.errorClass` / `.errorMessage` resolve
+        // to the failure-variant shape.
+        if (renderResult.ok) {
+          // Unreachable in practice — happy / deferred / skipped all
+          // returned above. Kept as a defensive assertion so future edits
+          // that add a new ok:true variant are caught here rather than
+          // silently bypassing the failure-path logic below.
+          throw new Error(
+            `Unreachable: ok:true renderResult slipped past earlier branches (jobId=${job.id})`,
+          );
+        }
         const isFinal = job.attempts >= job.max_attempts;
 
         if (isFinal) {
@@ -785,9 +813,28 @@ async function invokeRender(
 ): Promise<RenderResult> {
   const url = `${supabaseUrl}/functions/v1/render_garment_image`;
   const controller = new AbortController();
-  // Gemini image generation typical latency: 8-25s. 45s ceiling leaves
-  // margin for network + any retries inside render_garment_image itself.
-  const timeout = setTimeout(() => controller.abort(), 45_000);
+  // Wave 3-B fix 5 (Codex P1 round 4 → 5): raised from 45s → 300s to fit
+  // the P17 3-variant retry chain.
+  //
+  // Budget math (worst case):
+  //   Per outer attempt in render_garment_image:
+  //     - gemini-image-client inner retry: max 30 + 1 + 30 = 61s
+  //     - validator (render-eligibility timeout):           25s
+  //   = ~86s per outer attempt
+  //   × 3 attempts                                        = 258s
+  //   + eligibility gate (once, first call):               25s
+  //   + preflight, upload, DB writes, network:          ~10s
+  //   TOTAL worst case                                   ~293s
+  //
+  // 300s gives ~7s headroom. Realistic P95 end-to-end is ~90s because
+  // Gemini typically returns in 12-25s per call, so the worker's hard
+  // abort only fires for genuinely hung renders. Less than the platform
+  // edge-function timeout (set higher at the project level).
+  //
+  // Fix 5 round 5 (Codex P2): earlier 240s budget didn't cover the full
+  // 258s+ worst case; slow runs would abort before the third variant
+  // could finish.
+  const timeout = setTimeout(() => controller.abort(), 300_000);
 
   try {
     const res = await fetch(url, {

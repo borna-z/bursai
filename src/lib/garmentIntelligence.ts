@@ -32,6 +32,32 @@ export interface EnqueueRenderJobResult {
   replay: boolean;
 }
 
+/**
+ * Wave 3-B fix 4 (Codex P2 round 3 on PR #661).
+ *
+ * The old shape had only `status: number` but `status === 0` was overloaded
+ * across two very different failure modes:
+ *
+ *   1. **transport**: `fetch()` rejected before reading the response body
+ *      (network abort, DNS failure, CORS preflight fail, timeout). Server may
+ *      have accepted the request and INSERTed a render_jobs row before the
+ *      connection dropped. Banner/worker reconciliation is appropriate.
+ *
+ *   2. **no_job_confirmation**: a response arrived and parsed fine, but the
+ *      body was missing the canonical `jobId`. This means no row is
+ *      guaranteed to exist server-side, so no worker will ever reconcile
+ *      `render_status='pending'` back to a terminal state.
+ *
+ * Consumers that leave the garment at `'pending'` on ambiguous errors (the
+ * `RenderFailedBanner` retry flow) MUST distinguish these two — otherwise
+ * a no_job_confirmation failure strands the garment in 'pending' forever,
+ * the banner hides, and the user has no way to recover.
+ *
+ * `kind` defaults to `'http'` so existing throw sites / test fixtures that
+ * construct `RenderEnqueueError` positionally aren't broken.
+ */
+export type RenderEnqueueErrorKind = 'http' | 'transport' | 'no_job_confirmation';
+
 export class RenderEnqueueError extends Error {
   constructor(
     message: string,
@@ -41,6 +67,7 @@ export class RenderEnqueueError extends Error {
         MUST reuse this value via options.clientNonce — see
         EnqueueRenderJobResult.clientNonce for the full rationale. */
     public readonly clientNonce?: string,
+    public readonly kind: RenderEnqueueErrorKind = 'http',
   ) {
     super(message);
     this.name = 'RenderEnqueueError';
@@ -137,15 +164,38 @@ export async function enqueueRenderJob(
     // getHttpStatus extracts from context.status; falls back to 0 for
     // transport failures (no HTTP response) so isRenderEnqueueRetryable
     // still treats those as retryable.
+    //
+    // Wave 3-B fix 4: pass `kind` to distinguish 'http' (has a real status,
+    // server returned a response) from 'transport' (no HTTP response at all
+    // — server may or may not have processed). Banner uses this to decide
+    // whether to keep the optimistic `'pending'` flip on ambiguous errors.
+    //
+    // Wave 3-B fix 5 (Codex P2 round 4): `getHttpStatus` returns
+    // `number | null` (NEVER `undefined`), so the prior `!== undefined`
+    // test mis-classified every transport failure as 'http'. Use `!= null`
+    // (idiomatic double-equals check covers both null and undefined).
+    const httpStatus = getHttpStatus(error);
     throw new RenderEnqueueError(
       error.message || 'render enqueue failed',
-      getHttpStatus(error) ?? 0,
+      httpStatus ?? 0,
       (error as { code?: string }).code,
       clientNonce,
+      httpStatus != null ? 'http' : 'transport',
     );
   }
   if (!data || !data.jobId) {
-    throw new RenderEnqueueError('render enqueue returned no jobId', 0, undefined, clientNonce);
+    // Wave 3-B fix 4: no_job_confirmation. The response arrived (no transport
+    // error, parsed fine) but lacked the canonical jobId. This path means no
+    // row is guaranteed to exist server-side — worker/cron reconciliation
+    // cannot recover the garment from `'pending'`. Banner MUST revert to
+    // `'failed'` so the user sees the retry affordance.
+    throw new RenderEnqueueError(
+      'render enqueue returned no jobId',
+      0,
+      undefined,
+      clientNonce,
+      'no_job_confirmation',
+    );
   }
   return {
     jobId: data.jobId,

@@ -3182,6 +3182,15 @@ const en: Record<string, string> = {
   'gaps.preview_direction': 'Direction',
   'gaps.preview_budget': 'Budget',
   'gaps.preview_open_full': 'Open full scan',
+  // Wave 3-B F20+F21+F22 — studio render pending + failed UX. See
+  // RenderPendingOverlay.tsx and RenderFailedBanner.tsx.
+  'render.pending_label': 'Studio…',
+  'render.pending_hint': 'Takes about 20 seconds',
+  'render.failed_title': "Studio photo couldn't complete",
+  'render.failed_hint': 'Your original photo stays in your wardrobe.',
+  'render.retry': 'Try again',
+  'render.retry_started': 'Retrying studio render…',
+  'render.retry_failed': 'Could not start retry — please try again',
 };
 
 export default en;

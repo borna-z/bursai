@@ -54,6 +54,7 @@ import { buildStyleAroundState, buildStyleFlowSearch } from '@/lib/styleFlowStat
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { GarmentProcessingBadge } from '@/components/wardrobe/GarmentProcessingBadge';
 import { RenderPendingOverlay } from '@/components/wardrobe/RenderPendingOverlay';
+import { RenderFailedBanner } from '@/components/wardrobe/RenderFailedBanner';
 
 export default function GarmentDetailPage() {
   const navigate = useNavigate();
@@ -371,6 +372,14 @@ export default function GarmentDetailPage() {
             {lastWornDisplay}
           </span>
         </motion.div>
+
+        {/* ─── Wave 3-B F22: render-failed banner (no-ops unless render_status='failed') ─── */}
+        <RenderFailedBanner
+          garmentId={garment.id}
+          renderStatus={garment.render_status}
+          renderError={garment.render_error}
+          className="mx-1"
+        />
 
         {/* ─── Season Tags ─── */}
         {seasonParts.length > 0 && (
