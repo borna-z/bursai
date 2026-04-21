@@ -75,15 +75,16 @@ export default function GarmentDetailPage() {
   const enrichmentStatus: EnrichmentStatus = (garment?.enrichment_status as EnrichmentStatus) || 'none';
 
   useEffect(() => {
+    // P15: `image_processing_status` removed from the poll gate — nothing
+    // transitions it anymore after PhotoRoom unwired. Enrichment + render
+    // status remain the only volatile fields.
     const shouldPoll =
       enrichmentStatus === 'pending' ||
       enrichmentStatus === 'in_progress' ||
-      garment?.image_processing_status === 'pending' ||
-      garment?.image_processing_status === 'processing' ||
       garment?.render_status === 'pending' ||
       garment?.render_status === 'rendering';
     setIsEnrichmentPending(shouldPoll);
-  }, [enrichmentStatus, garment?.image_processing_status, garment?.render_status]);
+  }, [enrichmentStatus, garment?.render_status]);
 
   const { data: similarGarments } = useSimilarGarments(garment);
   const { data: outfitHistory } = useGarmentOutfitHistory(id);

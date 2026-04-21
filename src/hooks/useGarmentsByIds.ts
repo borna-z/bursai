@@ -19,10 +19,11 @@ export function useGarmentsByIds(ids: string[]) {
     enabled: ids.length > 0,
     staleTime: 5 * 60 * 1000,
     refetchInterval: (query) => {
+      // P15: `image_processing_status` removed from the poll gate — nothing
+      // transitions it anymore after PhotoRoom unwired. Render status is
+      // the only remaining volatile field.
       const garments = query.state.data || [];
       const hasProcessingGarments = garments.some((garment) =>
-        garment.image_processing_status === 'pending' ||
-        garment.image_processing_status === 'processing' ||
         garment.render_status === 'pending' ||
         garment.render_status === 'rendering'
       );

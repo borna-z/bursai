@@ -5,12 +5,17 @@
  * Claims and processes pending jobs with concurrency control.
  *
  * Supported job types:
- * - image_processing: legacy garment image-processing jobs
  * - garment_enrichment: deep AI enrichment of garment metadata
  * - batch_analysis: bulk wardrobe analysis jobs
  *
  * Each job type has its own handler. New types can be added by
  * registering a handler in JOB_HANDLERS.
+ *
+ * P15 (2026-04-21): `image_processing` job type removed along with the
+ * `process_garment_image` edge function. Any residual image_processing
+ * rows in job_queue will be left unhandled — claimJob only queries
+ * job_type IN the JOB_HANDLERS keys, so they're effectively frozen. A
+ * future schema-cleanup PR can DELETE them outright.
  */
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -37,7 +42,6 @@ type JobHandler = (
 ) => Promise<Record<string, unknown>>;
 
 const JOB_HANDLERS: Record<string, JobHandler> = {
-  image_processing: handleImageProcessing,
   garment_enrichment: handleGarmentEnrichment,
   batch_analysis: handleBatchAnalysis,
 };
@@ -187,46 +191,6 @@ serve(async (req) => {
 
 
 // ── Job Handlers ─────────────────────────────────────────────────
-
-/**
- * Image processing handler: marks legacy jobs as skipped.
- */
-async function handleImageProcessing(
-  supabase: any,
-  payload: Record<string, unknown>,
-  userId: string | null,
-): Promise<Record<string, unknown>> {
-  const garmentId = payload.garment_id as string;
-  if (!garmentId) throw new Error("Missing garment_id in payload");
-  if (!userId) throw new Error("Missing user_id on job");
-
-  // Ownership guard — job.user_id must match the garment's owner.
-  // Prevents a poisoned job row from executing service-role work against
-  // a garment that belongs to another user.
-  const { data: garment, error } = await supabase
-    .from("garments")
-    .select("id, image_path")
-    .eq("id", garmentId)
-    .eq("user_id", userId)
-    .single();
-
-  if (error || !garment) throw new Error(`Garment not found or not owned: ${garmentId}`);
-  if (!garment.image_path) throw new Error("No image_path for garment");
-
-  await supabase
-    .from("garments")
-    .update({
-      image_processing_status: "ready",
-      processed_image_path: null,
-      image_processing_provider: "disabled",
-      image_processing_confidence: null,
-      image_processing_error: null,
-      image_processed_at: new Date().toISOString(),
-    })
-    .eq("id", garmentId);
-
-  return { status: "skipped", garmentId, userId };
-}
 
 /**
  * Garment enrichment handler: deep AI analysis of garment images.
