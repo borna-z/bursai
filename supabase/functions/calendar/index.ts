@@ -187,8 +187,14 @@ async function refreshAccessToken(
 // ─── Shared sync routines ─────────────────────────────────────
 
 /** Sync a single user's ICS calendar */
+// NOTE: `supabase: any` because `ReturnType<typeof createClient>` now infers a
+// strict generic signature (`SupabaseClient<unknown, ..., never, never, ...>`)
+// since a recent @supabase/supabase-js bump, which narrows every `.from()`
+// chain return to `never` and breaks `.insert(rows)` / `.update(...)` typings.
+// The function body uses untyped chains, so `any` preserves prior runtime
+// behaviour without forcing the whole file onto generated Database types.
 async function syncIcsForUser(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userId: string,
   icsUrl: string
 ): Promise<{ success: boolean; synced: number; error?: string }> {
@@ -228,7 +234,8 @@ const GOOGLE_SYNC_WINDOW_DAYS = 30;
 const GOOGLE_MAX_RESULTS = 250;
 
 async function syncGoogleForUser(
-  supabase: ReturnType<typeof createClient>,
+  // See syncIcsForUser note above — same supabase-js generic narrowing fix.
+  supabase: any,
   userId: string,
   accessToken: string,
   refreshToken: string | null,
@@ -312,7 +319,8 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 
 async function getAuthenticatedUser(
-  supabase: ReturnType<typeof createClient>
+  // See syncIcsForUser note — same supabase-js generic narrowing fix.
+  supabase: any,
 ): Promise<string | Response> {
   const { data: userData, error } = await supabase.auth.getUser();
   if (error || !userData.user) {

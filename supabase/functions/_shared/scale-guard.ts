@@ -59,8 +59,6 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   import_garments_from_links:  { maxPerHour: 10, maxPerMinute: 2 },
   // insights_dashboard: 8 parallel queries per call — moderate cost
   insights_dashboard:          { maxPerHour: 60, maxPerMinute: 15 },
-  // seed_wardrobe: has destructive delete_all mode — tight limit
-  seed_wardrobe:               { maxPerHour: 5,  maxPerMinute: 1 },
   // send_push_notification: mass-notification abuse vector
   send_push_notification:      { maxPerHour: 30, maxPerMinute: 10 },
   // restore_subscription: Stripe API calls — cost + throttle concern

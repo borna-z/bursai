@@ -23,11 +23,6 @@ vi.mock('@/contexts/ThemeContext', async (importOriginal) => {
   return { ...actual, useTheme: () => ({ theme: 'light', accentColor: 'blue', setAccentColor: vi.fn() }) };
 });
 
-vi.mock('@/contexts/SeedContext', () => ({
-  useSeed: () => ({ isSeedMode: false, progress: 0 }),
-  SeedProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 describe('Onboarding', () => {
   it('renders without crashing', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
