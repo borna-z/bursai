@@ -19,8 +19,8 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P4
-**LAST UPDATED:** 2026-04-20
+**CURRENT PROMPT:** P5
+**LAST UPDATED:** 2026-04-21
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
 ### How to Resume the Plan
@@ -128,7 +128,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `supabase/functions/google_calendar_auth/index.ts`, `src/pages/GoogleCalendarCallback.tsx`, new migration `supabase/migrations/20260420200957_oauth_csrf.sql`
 - Deploy: `google_calendar_auth` (+ `npx supabase db push --linked --yes` post-merge to provision the `oauth_csrf` table and the `oauth_csrf_cleanup` pg_cron schedule)
 
-**P4 [TODO]** prefetch_suggestions identity check
+**P4 [DONE] (PR #647, 2026-04-21)** prefetch_suggestions identity check
 - Single-user-trigger mode accepts arbitrary `user_id`. Verify caller's JWT matches `body.user_id`.
 - Files: `supabase/functions/prefetch_suggestions/index.ts`
 - Deploy: `prefetch_suggestions`
@@ -548,6 +548,8 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | P1 | `supabase/functions/process_job_queue/index.ts`, `supabase/functions/daily_reminders/index.ts` | **Mistake pattern — cron-only vs user-facing auth.** Initial P1 agent brief included a `getUser()` fallback pattern copied from `detect_duplicate_garment` for cron-only functions. Codex caught that the fallback allowed any authenticated end-user to invoke service-role-escalated code (DoS against queue processing + notification storm). Correct pattern for cron-only endpoints is hard-reject of non-service-role callers via `timingSafeEqual(token, SERVICE_ROLE_KEY)`. User-facing functions continue to use the `getUser()` fallback. | Fixed in follow-up commit on PR #643. For future prompts: user-facing functions use `getUser()` fallback; cron-only functions use hard-reject only. |
 | 2026-04-20 | P0e | process (not a file) | **Prompt ordering mistake.** P1 and P2 were executed before P0e because the P1 agent brief instructed "move CURRENT PROMPT to P2" (should have been "P0e"). No correctness impact — P0e is independent of P1/P2 scope — but Wave 0 safety net was briefly incomplete during Wave 1 work. | Future prompt briefs must verify CURRENT PROMPT against the prompt list and move to the earliest `[TODO]`, not just the next-numbered prompt. |
 | 2026-04-20 | P2 | `supabase/functions/calendar/index.ts` (handleSyncAll) | **Possible dead code.** `handleSyncAll` has no discoverable caller — zero in-repo invokers, zero matching rows in `cron.job` for 'calendar' or 'sync_all' patterns. May be dead code OR called by a Supabase Dashboard scheduled function outside pg_cron. | Future cleanup prompt — verify Dashboard → Edge Functions → Schedules for a calendar sync entry. If nothing, delete `handleSyncAll` entirely. |
+| 2026-04-21 | P4 | `supabase/functions/prefetch_suggestions/index.ts` (cron-batch path, lines 123+) | **Cron-batch path has no auth gate.** P4 hardened the single-user-trigger path but the else branch (cron batch mode) accepts any caller with no Authorization check. A drive-by anon POST with an empty body (or any body missing `trigger: "first_5_garments"`) falls through to the batch path and triggers up to 100 parallel AI calls — DoS / cost-amplification vector against Gemini. This is `verify_jwt = false` in config.toml, so there's no platform-level gate either. | Dedicated follow-up prompt — apply the cron-only hard-reject pattern (P1 `process_job_queue`/`daily_reminders` pattern): require `timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)` before entering the batch loop. Out of P4 scope because P4's spec only named "single-user-trigger mode"; scope-creeping would bundle auth changes across both modes into one PR. |
+| 2026-04-21 | P4 | main repo `C:\Users\borna\OneDrive\Desktop\BZ\Burs\bursai-working` | **Stale mid-merge cruft in main repo.** Main repo is stuck on branch `prompt-p0d-iii-deploy-retry` at `6de4c09a` with an in-progress merge bringing `origin/main` (d02d6ac5) into the branch — CLAUDE.md conflict unresolved, 8 files auto-merged (all already on origin). Leftover from a prior agent session. P4 worked around it by using the existing `heuristic-swanson-e41ab7` worktree (clean on main at d02d6ac5) and `npm ci`-ing dependencies there. | User action: from main repo, `git merge --abort` + `git checkout main` + `git pull --ff-only`. Also 9 worktrees under `.claude/worktrees/` from prior agents — prune unused ones with `git worktree remove <path>` once no longer needed. Not launch-blocking; agents can keep using clean worktrees. |
 
 ### Completion Log
 
@@ -565,6 +567,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #644 | P2 | Calendar handleSyncAll: reject anon-key callers, service-role only (DoS fix) |
 | 2026-04-20 | #645 | P0e | Wave 0 catch-up: CI step checks `supabase migration list --linked` + `db push --dry-run` on any PR touching supabase/migrations/ |
 | 2026-04-20 | #646 | P3 | OAuth hardening for google_calendar_auth: server-side `redirect_uri` allowlist (hardcoded 3 URIs + optional `ALLOWED_CALENDAR_REDIRECT_URIS` env extras) + single-use CSRF token `state = <user_id>.<nonce>` backed by new `public.oauth_csrf` table (10-min TTL, consumed on callback, hourly `oauth_csrf_cleanup` pg_cron). Client passes `state` from URL back to backend verbatim. Post-merge: `supabase db push` provisions the table + cron, then deploy `google_calendar_auth`. |
+| 2026-04-21 | #647 | P4 | prefetch_suggestions identity check: single-user-trigger path now validates caller's JWT via `supabase.auth.getUser(token)` and asserts `user.id === body.user_id` before running `processSingleUser`. 401 on missing/invalid token, 403 on mismatch. Cron-batch path intentionally untouched (separate unauditted gap — see Findings Log). Post-merge: deploy `prefetch_suggestions`. |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
