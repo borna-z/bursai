@@ -45,7 +45,11 @@ async function processSingleUser(
 
     if (!garments || garments.length < 5) return { status: "skipped" };
 
-    const garmentList = garments.map(g => compactGarment(g)).join("\n");
+    // Explicit `any` on the callback param — deno-check TS7006 wants it
+    // because `supabaseClient: any` propagates through to `garments` so the
+    // inferred type on `.map(g => ...)` is implicitly any. Functionally
+    // equivalent; `compactGarment` narrows the shape internally.
+    const garmentList = garments.map((g: any) => compactGarment(g)).join("\n");
     const prompt = compressPrompt(`You are a personal stylist. Suggest 2 outfits for today from this wardrobe.
 Pick garments by their short ID (first 8 chars).
 
