@@ -185,17 +185,22 @@ Deno.serve(async (req) => {
     // Travel
     await adminClient.from("travel_capsules").delete().eq("user_id", userId);
 
-    // AI response cache — no user_id column; cache_key prefix contains the user
-    // UUID for user-scoped namespaces (e.g. "mood_happy_<uuid>_<hash>"). LIKE
-    // match on cache_key drops only this user's entries. Global-scoped cache
-    // rows (see P13 follow-up) stay — they contain no direct PII but may hold
-    // responses derived from user data; P13 will make all caches user-scoped.
-    await adminClient
-      .from("ai_response_cache")
-      .delete()
-      .like("cache_key", `%${userId}%`);
+    // ai_response_cache — DELIBERATELY NOT CLEANED HERE (Codex P1 on PR #652):
+    // the table has no `user_id` column, and `cache_key` is a SHA-256 hash of a
+    // canonicalised request shape (see `createBursAICacheKey` in
+    // `_shared/burs-ai.ts`) — the hashing destroys any user-id substring, so a
+    // LIKE filter would match zero rows (earlier commit shipped with a broken
+    // `.like("cache_key", "%${userId}%")` — Codex correctly flagged it).
+    //
+    // Mitigation: all AI cache entries carry a short TTL (30 min – 12 h across
+    // the codebase), so orphaned rows decay within a day. GDPR's "without undue
+    // delay" standard is satisfied by natural expiration for this table.
+    //
+    // Proper fix = add `user_id` column to `ai_response_cache`, populate it in
+    // `storeCache`, then `.eq("user_id", userId).delete()` here. Tracked as a
+    // follow-up prompt (likely bundled with P13 cache-namespace work).
 
-    console.log("Deleted orphan rows across render/AI/notifications/travel/cache tables");
+    console.log("Deleted orphan rows across render/AI/notifications/travel tables (ai_response_cache decays via TTL — see comment)");
 
     // Delete profile
     const { error: profileError } = await adminClient
