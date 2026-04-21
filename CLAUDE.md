@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P5
+**CURRENT PROMPT:** P6
 **LAST UPDATED:** 2026-04-21
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -133,7 +133,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `supabase/functions/prefetch_suggestions/index.ts`
 - Deploy: `prefetch_suggestions`
 
-**P5 [TODO]** Email domain fix
+**P5 [DONE] (PR #648, 2026-04-21)** Email domain fix
 - `hello@bursai.com` → `hello@burs.me` in both files.
 - Files: `supabase/functions/send_push_notification/index.ts`, `supabase/functions/daily_reminders/index.ts`
 - Deploy: both functions
@@ -550,6 +550,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | P2 | `supabase/functions/calendar/index.ts` (handleSyncAll) | **Possible dead code.** `handleSyncAll` has no discoverable caller — zero in-repo invokers, zero matching rows in `cron.job` for 'calendar' or 'sync_all' patterns. May be dead code OR called by a Supabase Dashboard scheduled function outside pg_cron. | Future cleanup prompt — verify Dashboard → Edge Functions → Schedules for a calendar sync entry. If nothing, delete `handleSyncAll` entirely. |
 | 2026-04-21 | P4 | `supabase/functions/prefetch_suggestions/index.ts` (cron-batch path, lines 123+) | **Cron-batch path has no auth gate.** P4 hardened the single-user-trigger path but the else branch (cron batch mode) accepts any caller with no Authorization check. A drive-by anon POST with an empty body (or any body missing `trigger: "first_5_garments"`) falls through to the batch path and triggers up to 100 parallel AI calls — DoS / cost-amplification vector against Gemini. This is `verify_jwt = false` in config.toml, so there's no platform-level gate either. | Dedicated follow-up prompt — apply the cron-only hard-reject pattern (P1 `process_job_queue`/`daily_reminders` pattern): require `timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)` before entering the batch loop. Out of P4 scope because P4's spec only named "single-user-trigger mode"; scope-creeping would bundle auth changes across both modes into one PR. |
 | 2026-04-21 | P4 | main repo `C:\Users\borna\OneDrive\Desktop\BZ\Burs\bursai-working` | **Stale mid-merge cruft in main repo.** Main repo is stuck on branch `prompt-p0d-iii-deploy-retry` at `6de4c09a` with an in-progress merge bringing `origin/main` (d02d6ac5) into the branch — CLAUDE.md conflict unresolved, 8 files auto-merged (all already on origin). Leftover from a prior agent session. P4 worked around it by using the existing `heuristic-swanson-e41ab7` worktree (clean on main at d02d6ac5) and `npm ci`-ing dependencies there. | User action: from main repo, `git merge --abort` + `git checkout main` + `git pull --ff-only`. Also 9 worktrees under `.claude/worktrees/` from prior agents — prune unused ones with `git worktree remove <path>` once no longer needed. Not launch-blocking; agents can keep using clean worktrees. |
+| 2026-04-21 | P5 | `src/hooks/__tests__/useDeepLink.test.tsx` lines 48, 66 | **Test fixtures still use legacy `app.bursai.com` domain.** Deep-link test fixtures construct URLs like `https://app.bursai.com/u/borna` and `https://app.bursai.com/outfit/abc-123`. Real prod domain is `burs.me` (via `app.burs.me`). Fixtures will match URL shape regardless of domain — no functional test regression today — but if the hook ever adds domain-whitelisting, these fixtures will silently diverge from prod behaviour. Surfaced by the P5 grep sweep for `bursai.com` across the repo. | Out-of-scope for P5 (which specifically scoped to the two edge-function files). Fold into a future frontend-cleanup prompt that updates test fixtures to `app.burs.me`. Not launch-blocking. |
 
 ### Completion Log
 
@@ -568,6 +569,7 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #645 | P0e | Wave 0 catch-up: CI step checks `supabase migration list --linked` + `db push --dry-run` on any PR touching supabase/migrations/ |
 | 2026-04-20 | #646 | P3 | OAuth hardening for google_calendar_auth: server-side `redirect_uri` allowlist (hardcoded 3 URIs + optional `ALLOWED_CALENDAR_REDIRECT_URIS` env extras) + single-use CSRF token `state = <user_id>.<nonce>` backed by new `public.oauth_csrf` table (10-min TTL, consumed on callback, hourly `oauth_csrf_cleanup` pg_cron). Client passes `state` from URL back to backend verbatim. Post-merge: `supabase db push` provisions the table + cron, then deploy `google_calendar_auth`. |
 | 2026-04-21 | #647 | P4 | prefetch_suggestions identity check: single-user-trigger path now validates caller's JWT via `supabase.auth.getUser(token)` and asserts `user.id === body.user_id` before running `processSingleUser`. 401 on missing/invalid token, 403 on mismatch. Cron-batch path intentionally untouched (separate unauditted gap — see Findings Log). Post-merge: deploy `prefetch_suggestions`. |
+| 2026-04-21 | #648 | P5 | Email domain fix: VAPID `mailto:` contact string in `webpush.setVapidDetails()` changed from `hello@bursai.com` to `hello@burs.me` in both `send_push_notification` and `daily_reminders`. VAPID `sub` claim is an RFC 8292 abuse-contact identifier — FCM/APNs don't validate it, zero behavioural impact on push delivery. Post-merge: deploy both functions. |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 
