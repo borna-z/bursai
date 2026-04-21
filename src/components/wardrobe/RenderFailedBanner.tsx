@@ -83,11 +83,11 @@ export function RenderFailedBanner({
       // accepted the request:
       //
       //   * Transport failure (fetch rejected before reading the response
-      //     body → status=0) — server may have INSERTed render_jobs and
-      //     reserved a credit but the client never saw the 200.
-      //   * 5xx on the edge function — same: `enqueue_render_job`'s Codex-
-      //     hardened flow sometimes completes reserve+insert before a late
-      //     error surfaces.
+      //     body → status=0, kind='transport') — server may have INSERTed
+      //     render_jobs and reserved a credit but the client never saw 200.
+      //   * 5xx on the edge function (status>=500, kind='http') — same:
+      //     `enqueue_render_job`'s Codex-hardened flow sometimes completes
+      //     reserve+insert before a late error surfaces.
       //
       // If we unconditionally flip the garment back to 'failed' in those
       // cases, the banner reappears, the user clicks "Try again", a FRESH
@@ -96,21 +96,21 @@ export function RenderFailedBanner({
       // exactly the double-charge scenario the reserve_key + replay flag
       // exist to prevent.
       //
-      // `isRenderEnqueueRetryable` already encodes the classification for
-      // the other call sites in garmentIntelligence.ts:
-      //   * status === 0 / undefined (transport abort) → retryable → ambiguous
-      //   * status >= 500 → retryable → ambiguous
-      //   * other (4xx business denials) → definitive rejection → revert safe
+      // Codex P2 round 3: `status === 0` is NOT always ambiguous. Two sub-
+      // cases collapse to the same zero:
+      //   * kind='transport' → network abort, server may have accepted.
+      //     Keep optimistic 'pending', let worker reconcile.
+      //   * kind='no_job_confirmation' → 200 response but body missing jobId.
+      //     NO render_jobs row exists → nothing in the worker pipeline will
+      //     ever terminalize the garment. Leaving 'pending' strands it.
+      //     MUST revert to 'failed' so the user sees the banner + retry.
       //
-      // For ambiguous errors we LEAVE the optimistic `render_status='pending'`
-      // flip in place: the shimmer overlay takes over the UI, and the worker's
-      // next claim (or stale-claim recovery) writes the authoritative terminal
-      // state. If the job genuinely did NOT land server-side, it's covered by
-      // the process_render_jobs stuck-render terminalization path (round-16
-      // TOCTOU heal). User never sees 'failed' during an ambiguous case, so
-      // they never click Try Again a second time.
+      // Ambiguous check combines BOTH: retryable status AND not a
+      // no-job-confirmation failure.
       const isAmbiguousEnqueueError =
-        error instanceof RenderEnqueueError && isRenderEnqueueRetryable(error.status);
+        error instanceof RenderEnqueueError
+        && isRenderEnqueueRetryable(error.status)
+        && error.kind !== 'no_job_confirmation';
 
       if (!isAmbiguousEnqueueError) {
         // Definitive rejection (e.g. 402 insufficient_credits, 403, 429,
