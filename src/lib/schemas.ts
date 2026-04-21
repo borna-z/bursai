@@ -29,7 +29,6 @@ export type ProfilePreferences = z.infer<typeof profilePreferencesSchema>;
 export const profileSchema = z.object({
   id: z.string().uuid(),
   display_name: z.string().nullable().optional(),
-  avatar_path: z.string().nullable().optional(),
   body_image_path: z.string().nullable().optional(),
   home_city: z.string().nullable().optional(),
   height_cm: z.number().nullable().optional(),
