@@ -54,27 +54,17 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Service client created first — idempotency.ts (P12) needs a
-    // service-role DB client to atomically claim the key in
-    // `public.request_idempotency` before we proceed with any work.
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Return cached / pending / 409 response for duplicate idempotent requests
-    const cachedResponse = await checkIdempotency(req, serviceClient);
-    if (cachedResponse) {
-      logStep("Returning cached or pending idempotent response", {
-        status: cachedResponse.status,
-      });
-      return cachedResponse;
-    }
-
-    // Auth check
+    // Auth FIRST — Codex P1 round 2 on PR #658: idempotency keys must be
+    // scoped by (functionName, userId), and the userId comes from the
+    // verified JWT. Pre-auth idempotency lookups risked replaying another
+    // user's cached payload when keys collided.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       throw new Error("No authorization header provided");
     }
 
-    // Create anon client to verify user
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -90,6 +80,21 @@ serve(async (req) => {
     }
 
     logStep("User authenticated", { userId: user.id, email: user.email });
+
+    // Now with a verified user.id, check idempotency scoped to
+    // (create_checkout_session, user.id). The raw `x-idempotency-key`
+    // header is composed with those into the DB key by the helper.
+    const idempotencyScope = {
+      functionName: "create_checkout_session",
+      userId: user.id,
+    };
+    const cachedResponse = await checkIdempotency(req, serviceClient, idempotencyScope);
+    if (cachedResponse) {
+      logStep("Returning cached or pending idempotent response", {
+        status: cachedResponse.status,
+      });
+      return cachedResponse;
+    }
 
     // Rate limiting: max 5 attempts per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -187,7 +192,7 @@ serve(async (req) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       status: 200,
     });
-    await storeIdempotencyResult(req, response, serviceClient);
+    await storeIdempotencyResult(req, response, serviceClient, idempotencyScope);
     return response;
   } catch (error) {
     // Log the full error for debugging, but don't leak raw messages to the

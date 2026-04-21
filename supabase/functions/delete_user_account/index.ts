@@ -18,20 +18,12 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Service client created first — idempotency.ts (P12) needs a
-    // service-role DB client to atomically claim the key in
-    // `public.request_idempotency` before we proceed with any work.
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Return cached / pending / 409 response for duplicate idempotent requests
-    const cachedResponse = await checkIdempotency(req, adminClient);
-    if (cachedResponse) {
-      console.log("[DELETE-USER] Returning cached or pending idempotent response", {
-        status: cachedResponse.status,
-      });
-      return cachedResponse;
-    }
-
+    // Auth FIRST — Codex P1 round 2 on PR #658: idempotency keys must be
+    // scoped by (functionName, userId), and the userId comes from the
+    // verified JWT. Pre-auth idempotency lookups risked replaying another
+    // user's cached payload when keys collided.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
@@ -58,6 +50,21 @@ Deno.serve(async (req) => {
     const userId = user.id;
 
     await enforceRateLimit(adminClient, userId, "delete_user_account");
+
+    // Now with a verified user.id, check idempotency scoped to
+    // (delete_user_account, user.id). The raw `x-idempotency-key` header
+    // is composed with those into the DB key by the helper.
+    const idempotencyScope = {
+      functionName: "delete_user_account",
+      userId,
+    };
+    const cachedResponse = await checkIdempotency(req, adminClient, idempotencyScope);
+    if (cachedResponse) {
+      console.log("[DELETE-USER] Returning cached or pending idempotent response", {
+        status: cachedResponse.status,
+      });
+      return cachedResponse;
+    }
 
     console.log(`Starting account deletion for user: ${userId}`);
 
@@ -241,7 +248,7 @@ Deno.serve(async (req) => {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       }
     );
-    await storeIdempotencyResult(req, response, adminClient);
+    await storeIdempotencyResult(req, response, adminClient, idempotencyScope);
     return response;
   } catch (error) {
     if (error instanceof RateLimitError) {
