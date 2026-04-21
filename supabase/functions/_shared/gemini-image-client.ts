@@ -255,9 +255,9 @@ export async function generateGeminiImage(
   // on retryable Gemini failures (429 / 5xx). Each attempt has its own
   // timeout so a single hang doesn't eat the whole budget.
   //
-  // Wave 3-B fix 5 (Codex P1 round 4): budget tightened so a full outer
-  // retry chain fits under the worker's AbortController timeout in
-  // process_render_jobs (raised in the same commit from 45s → 240s).
+  // Wave 3-B fix 5 (Codex P1 round 4 → 5): budget tightened so a full
+  // outer retry chain fits under the worker's AbortController timeout in
+  // process_render_jobs (raised in the same wave from 45s → 300s).
   //
   // Per-attempt inner budget after fix 5:
   //   attempt 1: immediate, 30s timeout
@@ -265,10 +265,11 @@ export async function generateGeminiImage(
   // Max inner wall clock per call: 30 + 1 + 30 ≈ 61s.
   //
   // Outer retry chain (render_garment_image) adds 3 prompt variants × this
-  // client call × ~25s validator per attempt = ~258s worst case, which the
-  // worker's 240s abort can tolerate given realistic Gemini P95 latency
-  // (12-25s per attempt). Non-retryable classes (auth, model_path,
-  // no_image) throw immediately without wasting retry budget.
+  // client call × ~25s validator per attempt = ~258s + eligibility + misc
+  // ≈ 293s worst case. The worker's 300s abort gives ~7s headroom. P95
+  // end-to-end is ~90s because Gemini typically returns in 12-25s per call.
+  // Non-retryable classes (auth, model_path, no_image) throw immediately
+  // without wasting retry budget.
   const FETCH_TIMEOUT_MS = 30_000;
   const MAX_ATTEMPTS = 2;
   const BACKOFF_MS = [0, 1000];

@@ -813,15 +813,28 @@ async function invokeRender(
 ): Promise<RenderResult> {
   const url = `${supabaseUrl}/functions/v1/render_garment_image`;
   const controller = new AbortController();
-  // Wave 3-B fix 5 (Codex P1 round 4): raised from 45s → 240s to fit the
-  // P17 3-variant retry chain. Per-outer-attempt worst-case budget is
-  // ~61s (gemini-image-client inner: 2 attempts × 30s + 1s backoff) plus
-  // ~25s validator, so 3 outer attempts = ~258s worst case — but realistic
-  // Gemini P95 latency is 12-25s per attempt, so P95 end-to-end is ~90s.
-  // 240s gives headroom for the worst case while keeping a hung render
-  // from monopolizing a worker slot indefinitely. Less than the platform
+  // Wave 3-B fix 5 (Codex P1 round 4 → 5): raised from 45s → 300s to fit
+  // the P17 3-variant retry chain.
+  //
+  // Budget math (worst case):
+  //   Per outer attempt in render_garment_image:
+  //     - gemini-image-client inner retry: max 30 + 1 + 30 = 61s
+  //     - validator (render-eligibility timeout):           25s
+  //   = ~86s per outer attempt
+  //   × 3 attempts                                        = 258s
+  //   + eligibility gate (once, first call):               25s
+  //   + preflight, upload, DB writes, network:          ~10s
+  //   TOTAL worst case                                   ~293s
+  //
+  // 300s gives ~7s headroom. Realistic P95 end-to-end is ~90s because
+  // Gemini typically returns in 12-25s per call, so the worker's hard
+  // abort only fires for genuinely hung renders. Less than the platform
   // edge-function timeout (set higher at the project level).
-  const timeout = setTimeout(() => controller.abort(), 240_000);
+  //
+  // Fix 5 round 5 (Codex P2): earlier 240s budget didn't cover the full
+  // 258s+ worst case; slow runs would abort before the third variant
+  // could finish.
+  const timeout = setTimeout(() => controller.abort(), 300_000);
 
   try {
     const res = await fetch(url, {

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   enqueueRenderJob,
-  isRenderEnqueueRetryable,
   RenderEnqueueError,
 } from '@/lib/garmentIntelligence';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,39 +77,32 @@ export function RenderFailedBanner({
 
       toast.success(t('render.retry_started'));
     } catch (error) {
-      // Codex P1 round 2 on PR #661. The error handling here is tricky
-      // because `enqueueRenderJob` can throw AFTER the server has already
-      // accepted the request:
+      // Codex P1 rounds 2-5 on PR #661. The only question the banner needs
+      // to answer: "did the server accept the request?" If yes, we keep the
+      // optimistic 'pending' flip so the worker reconciles without the user
+      // clicking Try Again and minting a second reservation.
       //
-      //   * Transport failure (fetch rejected before reading the response
-      //     body → status=0, kind='transport') — server may have INSERTed
-      //     render_jobs and reserved a credit but the client never saw 200.
-      //   * 5xx on the edge function (status>=500, kind='http') — same:
-      //     `enqueue_render_job`'s Codex-hardened flow sometimes completes
-      //     reserve+insert before a late error surfaces.
+      // The ONLY way to be unsure server-side is when we never got an HTTP
+      // response at all — i.e. `fetch()` rejected before reading the response.
+      // `enqueueRenderJob` tags that case as `kind='transport'`. Every other
+      // case has a response back:
       //
-      // If we unconditionally flip the garment back to 'failed' in those
-      // cases, the banner reappears, the user clicks "Try again", a FRESH
-      // clientNonce is generated, a SECOND reserve_key + render_jobs row
-      // lands, and the same intent produces two credit reservations —
-      // exactly the double-charge scenario the reserve_key + replay flag
-      // exist to prevent.
+      //   * kind='http' with 4xx → business denial (402/403/429/400),
+      //     definitive rejection, no reserve claimed, revert to 'failed'.
+      //   * kind='http' with 5xx → enqueue_render_job's specific 5xx paths
+      //     (`insert_failed`, `enqueue_inconsistent_state`, `rpc_error`) are
+      //     all no-queue outcomes: the server errored BEFORE or DURING its
+      //     own cleanup, so no render_jobs row is created. Worker has
+      //     nothing to reconcile → revert to 'failed' or the garment is
+      //     stranded at pending with the banner hidden. (Codex P1 round 5
+      //     caught this — the earlier `isRenderEnqueueRetryable(5xx)` check
+      //     misclassified these as ambiguous.)
+      //   * kind='no_job_confirmation' → 200 response with missing jobId,
+      //     no row guaranteed, revert.
       //
-      // Codex P2 round 3: `status === 0` is NOT always ambiguous. Two sub-
-      // cases collapse to the same zero:
-      //   * kind='transport' → network abort, server may have accepted.
-      //     Keep optimistic 'pending', let worker reconcile.
-      //   * kind='no_job_confirmation' → 200 response but body missing jobId.
-      //     NO render_jobs row exists → nothing in the worker pipeline will
-      //     ever terminalize the garment. Leaving 'pending' strands it.
-      //     MUST revert to 'failed' so the user sees the banner + retry.
-      //
-      // Ambiguous check combines BOTH: retryable status AND not a
-      // no-job-confirmation failure.
+      // So: transport is the ONLY ambiguous case.
       const isAmbiguousEnqueueError =
-        error instanceof RenderEnqueueError
-        && isRenderEnqueueRetryable(error.status)
-        && error.kind !== 'no_job_confirmation';
+        error instanceof RenderEnqueueError && error.kind === 'transport';
 
       if (!isAmbiguousEnqueueError) {
         // Definitive rejection (e.g. 402 insufficient_credits, 403, 429,
