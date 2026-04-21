@@ -19,7 +19,7 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ## Launch Plan — Single Source of Truth for All Fix Work
 
-**CURRENT PROMPT:** P6
+**CURRENT PROMPT:** P7
 **LAST UPDATED:** 2026-04-21
 **TOTAL SCOPE:** 84 prompts across 12 waves
 
@@ -138,7 +138,7 @@ If an earlier merged PR somehow shipped without its tracker update (shouldn't ha
 - Files: `supabase/functions/send_push_notification/index.ts`, `supabase/functions/daily_reminders/index.ts`
 - Deploy: both functions
 
-**P6 [TODO]** Outfit ownership check in suggest_accessories
+**P6 [DONE] (PR #650, 2026-04-21)** Outfit ownership check in suggest_accessories
 - `outfit_id` from request body queried via service client without user verification.
 - Files: `supabase/functions/suggest_accessories/index.ts`
 - Deploy: `suggest_accessories`
@@ -571,6 +571,8 @@ New findings discovered during implementation (not in the original audit). Agent
 | 2026-04-20 | #646 | P3 | OAuth hardening for google_calendar_auth: server-side `redirect_uri` allowlist (hardcoded 3 URIs + optional `ALLOWED_CALENDAR_REDIRECT_URIS` env extras) + single-use CSRF token `state = <user_id>.<nonce>` backed by new `public.oauth_csrf` table (10-min TTL, consumed on callback, hourly `oauth_csrf_cleanup` pg_cron). Client passes `state` from URL back to backend verbatim. Post-merge: `supabase db push` provisions the table + cron, then deploy `google_calendar_auth`. |
 | 2026-04-21 | #647 | P4 | prefetch_suggestions identity check: single-user-trigger path now validates caller's JWT via `supabase.auth.getUser(token)` and asserts `user.id === body.user_id` before running `processSingleUser`. 401 on missing/invalid token, 403 on mismatch. Cron-batch path intentionally untouched (separate unauditted gap — see Findings Log). Post-merge: deploy `prefetch_suggestions`. |
 | 2026-04-21 | #648 | P5 | Email domain fix: VAPID `mailto:` contact string in `webpush.setVapidDetails()` changed from `hello@bursai.com` to `hello@burs.me` in both `send_push_notification` and `daily_reminders`. VAPID `sub` claim is an RFC 8292 abuse-contact identifier — FCM/APNs don't validate it, zero behavioural impact on push delivery. Post-merge: deploy both functions. |
+| 2026-04-21 | #649 | (doc fix) | LAUNCH_PLAN.md P1 cron-only section rewritten: removed the `if (!isServiceRole) { JWT fallback }` anti-pattern that Codex rejected on PR #643. Replaced with the hard-reject `timingSafeEqual` pattern that actually shipped. Added a rule-of-thumb block (user-facing vs cron-only vs dual-mode) so future prompts picking auth patterns have one canonical reference. No code changes; CURRENT PROMPT stayed P6. |
+| 2026-04-21 | #650 | P6 | Outfit ownership check in `suggest_accessories`: before the parallel query fetching `outfit_items` via service client, added a single-query ownership check (`outfits.select(id).eq(id).eq(user_id).maybeSingle()`) that returns 404 on "not yours" OR "doesn't exist" (collapses both paths into one response — no enumeration oracle). Post-merge: deploy `suggest_accessories`. |
 
 ## Prompt Workflow — Do This After Every Single Prompt
 

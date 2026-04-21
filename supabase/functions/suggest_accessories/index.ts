@@ -30,6 +30,35 @@ serve(async (req) => {
     const { outfit_id } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
 
+    // Verify outfit belongs to user — service client bypasses RLS, so this
+    // ownership check prevents cross-user enumeration via arbitrary outfit_id.
+    // Single query with (id AND user_id) collapses "not yours" and "doesn't
+    // exist" into one 404 — no enumeration oracle.
+    const { data: outfitRow, error: outfitError } = await serviceClient
+      .from("outfits")
+      .select("id")
+      .eq("id", outfit_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (outfitError) {
+      // Real backend failure (PostgREST/network/transient DB error). Surface as
+      // 5xx so clients can retry and monitoring can catch outages — do NOT mask
+      // as 404, which would hide infra issues behind a user-level "not found".
+      console.error("suggest_accessories: ownership query failed", outfitError);
+      return new Response(JSON.stringify({ error: "Server error" }), {
+        status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+    if (!outfitRow) {
+      // Ownership-or-existence check failed. Collapse both cases ("outfit doesn't
+      // exist" AND "outfit belongs to another user") into one 404 — prevents
+      // enumeration oracle. Error-path above already excluded real server errors.
+      return new Response(JSON.stringify({ error: "Outfit not found" }), {
+        status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     // Parallel DB queries
     const [outfitItemsRes, accessoriesRes] = await Promise.all([
       serviceClient
