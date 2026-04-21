@@ -42,13 +42,6 @@ serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
-  // Return cached response for duplicate idempotent requests
-  const cachedResponse = checkIdempotency(req);
-  if (cachedResponse) {
-    logStep("Returning cached idempotent response");
-    return cachedResponse;
-  }
-
   try {
     logStep("Function started");
 
@@ -61,6 +54,20 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
+    // Service client created first — idempotency.ts (P12) needs a
+    // service-role DB client to atomically claim the key in
+    // `public.request_idempotency` before we proceed with any work.
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Return cached / pending / 409 response for duplicate idempotent requests
+    const cachedResponse = await checkIdempotency(req, serviceClient);
+    if (cachedResponse) {
+      logStep("Returning cached or pending idempotent response", {
+        status: cachedResponse.status,
+      });
+      return cachedResponse;
+    }
+
     // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -71,21 +78,18 @@ serve(async (req) => {
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
     if (userError || !user) {
       throw new Error(`Authentication error: ${userError?.message || 'No user'}`);
     }
-    
+
     if (!user.email) {
       throw new Error("User email not available");
     }
-    
-    logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Service client for DB operations
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    logStep("User authenticated", { userId: user.id, email: user.email });
 
     // Rate limiting: max 5 attempts per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -183,14 +187,33 @@ serve(async (req) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       status: 200,
     });
-    await storeIdempotencyResult(req, response);
+    await storeIdempotencyResult(req, response, serviceClient);
     return response;
   } catch (error) {
+    // Log the full error for debugging, but don't leak raw messages to the
+    // client — the previous shape returned `{ error: errorMessage }` which
+    // could surface env-variable names, Stripe SDK internals, or Postgres
+    // error text to an end user. With P12 the idempotency check now runs
+    // inside this try (previously outside), widening the potential leak
+    // surface, so tighten the response body to a generic string.
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      status: 500,
-    });
+
+    // Known-safe exception: authentication errors are already-sanitized
+    // strings we produce ourselves ("Authentication error: ..."), so
+    // forward the original status and message.
+    const isAuthError = errorMessage.startsWith("Authentication error") ||
+      errorMessage === "No authorization header provided" ||
+      errorMessage === "User email not available";
+
+    return new Response(
+      JSON.stringify({
+        error: isAuthError ? errorMessage : "Failed to create checkout session. Please try again.",
+      }),
+      {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: isAuthError ? 401 : 500,
+      },
+    );
   }
 });

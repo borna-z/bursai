@@ -13,14 +13,25 @@ Deno.serve(async (req) => {
     return overloadResponse(CORS_HEADERS);
   }
 
-  // Return cached response for duplicate idempotent requests
-  const cachedResponse = checkIdempotency(req);
-  if (cachedResponse) {
-    console.log("[DELETE-USER] Returning cached idempotent response");
-    return cachedResponse;
-  }
-
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Service client created first — idempotency.ts (P12) needs a
+    // service-role DB client to atomically claim the key in
+    // `public.request_idempotency` before we proceed with any work.
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Return cached / pending / 409 response for duplicate idempotent requests
+    const cachedResponse = await checkIdempotency(req, adminClient);
+    if (cachedResponse) {
+      console.log("[DELETE-USER] Returning cached or pending idempotent response", {
+        status: cachedResponse.status,
+      });
+      return cachedResponse;
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
@@ -29,11 +40,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create client with user's token to verify identity
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
+    // Create anon client with user's token to verify identity
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -49,9 +56,6 @@ Deno.serve(async (req) => {
     }
 
     const userId = user.id;
-
-    // Use service role client for admin operations
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     await enforceRateLimit(adminClient, userId, "delete_user_account");
 
@@ -237,7 +241,7 @@ Deno.serve(async (req) => {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       }
     );
-    await storeIdempotencyResult(req, response);
+    await storeIdempotencyResult(req, response, adminClient);
     return response;
   } catch (error) {
     if (error instanceof RateLimitError) {
