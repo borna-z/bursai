@@ -45,7 +45,7 @@ describe('useDeepLink', () => {
     isMedianAppMock.mockReturnValue(true);
     renderHook(() => useDeepLink());
     const event = new CustomEvent('median-deeplink', {
-      detail: { url: 'https://app.bursai.com/u/borna' },
+      detail: { url: 'https://app.burs.me/u/borna' },
     });
     window.dispatchEvent(event);
     expect(navigateMock).toHaveBeenCalledWith('/u/borna', { replace: true });
@@ -63,7 +63,7 @@ describe('useDeepLink', () => {
     isMedianAppMock.mockReturnValue(true);
     renderHook(() => useDeepLink());
     window.dispatchEvent(
-      new CustomEvent('median-deeplink', { detail: { url: 'https://app.bursai.com/outfit/abc-123' } }),
+      new CustomEvent('median-deeplink', { detail: { url: 'https://app.burs.me/outfit/abc-123' } }),
     );
     expect(navigateMock).toHaveBeenCalledWith('/outfit/abc-123', { replace: true });
   });
