@@ -435,7 +435,16 @@ serve(async (req) => {
           return;
         }
 
-        if (renderResult.ok) {
+        // Wave 3-B fix 5: explicit discriminator narrowing. Earlier branches
+        // (deferred at line ~176, skipped at line ~385) already returned for
+        // those ok:true variants, but Deno's TS compiler doesn't follow
+        // control-flow-based exhaustiveness back through those returns — it
+        // still sees `renderResult.ok === true` as matching all three
+        // `ok: true` arms of the union. Use `"rendered_image_path" in` to
+        // pin this block to the rendered variant so `.rendered_image_path`
+        // resolves to string. Surfaced only now because process_render_jobs
+        // was the first file deno-check saw changed in this PR.
+        if (renderResult.ok && "rendered_image_path" in renderResult) {
           // render_garment_image itself already:
           //   * called consume_credit_atomic with the canonical jobId
           //   * wrote garments.rendered_image_path / render_status='ready'
