@@ -220,8 +220,18 @@ export async function validateRenderedGarmentOutputWithGemini(opts: {
   const subcategory = (opts.subcategory ?? '').toLowerCase();
   const expectLogoOrText = opts.expectLogoOrText === true;
 
+  // Codex P1 on PR #661: these arrays MUST mirror `classifyCategory()` in
+  // render_garment_image/index.ts. Earlier versions accepted only the plural
+  // `'shoes'`, but the caller's prompt builder also accepts `'shoe'` and
+  // `'footwear'`. When a garment is stored with the singular variant, the
+  // prompt asked Gemini for a shoe product shot while the validator fell
+  // into the generic-accessory branch — which rejected the correct render
+  // as `reject_wrong_category` and exhausted the retry chain on otherwise
+  // valid shoes. Keep these two sources of truth in lockstep.
   const GHOST_MANNEQUIN_CATEGORIES = ['top', 'tops', 'bottom', 'bottoms', 'dress', 'dresses', 'outerwear'];
+  const SHOE_CATEGORIES = ['shoes', 'shoe', 'footwear'];
   const expectGhostMannequin = GHOST_MANNEQUIN_CATEGORIES.includes(category);
+  const isShoeCategory = SHOE_CATEGORIES.includes(category);
 
   // Describe the expected presentation shape so Gemini's JSON decision
   // maps back to the right reject enum.
@@ -233,7 +243,7 @@ export async function validateRenderedGarmentOutputWithGemini(opts: {
       'Reject with decision="reject_visible_mannequin" if ANY body part or mannequin structure is visible.',
       'Reject with decision="reject_wrong_category" if the rendered item is not the expected garment category.',
     ];
-  } else if (category === 'shoes') {
+  } else if (isShoeCategory) {
     presentationDescription = 'clean product-catalog shoe photograph — single shoe or matched pair against pure white. NO person, NO feet, NO legs, NO mannequin visible.';
     rejectionList = [
       'Reject with decision="reject_visible_mannequin" if ANY foot, leg, or person is visible.',

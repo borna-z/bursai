@@ -378,20 +378,40 @@ function buildGarmentRenderPrompt(garment: {
  * preserved it. Avoids pinging the validator with a false "logo missing"
  * rejection on plain items.
  *
- * Double-filter chain: `extractPromptEnrichment` runs every field through
- * `normalizeMetadataValue`, which already drops 'none' / 'unknown' / 'n/a'
- * strings. `sanitizeEnrichmentValue` then strips control chars and returns
- * null on empty — so a `Boolean(...)` coerce here only returns true when the
- * enrichment explicitly described real branding. Plain items ("solid cotton
- * tee, no logo") produce null at the `normalizeMetadataValue` stage and
- * never reach here as truthy.
+ * Codex P2 on PR #661: `normalizeMetadataValue` only filters 'null' /
+ * 'unknown' / 'n/a' but the analyze_garment model often emits free-form
+ * negative strings like "no logo", "none visible", "no branding", "plain",
+ * or "not applicable". Those would pass the earlier normalizer as truthy
+ * strings and set `expectLogoOrText=true` on plain items — the validator
+ * then rejects every render with `reject_logo_missing` and exhausts the
+ * retry chain. Explicit negative-marker filter below catches the common
+ * phrasings.
  */
+const NEGATIVE_BRANDING_PATTERNS = [
+  /^none$/i,
+  /^no\b/i,          // "no logo", "no text", "no branding", "no graphic"
+  /^not\b/i,         // "not visible", "not present", "not applicable"
+  /^absent$/i,
+  /^n\/?a$/i,
+  /^plain$/i,
+  /^nothing\b/i,
+  /^blank$/i,
+  /^empty$/i,
+];
+
+function isPositiveBrandingValue(value: string | null): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return !NEGATIVE_BRANDING_PATTERNS.some((re) => re.test(trimmed));
+}
+
 function sourceHasBranding(aiRaw: unknown): boolean {
   const enrichment = extractPromptEnrichment(aiRaw);
-  return Boolean(
-    sanitizeEnrichmentValue(enrichment.textOnGarment)
-    || sanitizeEnrichmentValue(enrichment.logoDescription)
-    || sanitizeEnrichmentValue(enrichment.graphicDescription),
+  return (
+    isPositiveBrandingValue(sanitizeEnrichmentValue(enrichment.textOnGarment))
+    || isPositiveBrandingValue(sanitizeEnrichmentValue(enrichment.logoDescription))
+    || isPositiveBrandingValue(sanitizeEnrichmentValue(enrichment.graphicDescription))
   );
 }
 
@@ -845,7 +865,14 @@ serve(async (req) => {
     // Selecting render_provider so we can snapshot + restore it on unclaim
     // paths (Bug 2 fix). claimGarmentRender overwrites it to 'gemini'; if
     // reserve fails after claim, we restore prior provider along with status.
-    const { data: garment, error: garmentError } = await supabase
+    // Cast to `any` after the null guard. Same supabase-js generic-narrowing
+    // issue as in calendar.ts + prefetch_suggestions.ts: the recent typings
+    // collapse `.single()` return to `SupabaseClient<unknown, ..., never, never>`
+    // which makes every downstream `garment.<field>` access fail deno-check
+    // with TS2339 'Property X does not exist on type never'. All field
+    // accesses below are runtime-safe — the select list enumerates them
+    // explicitly.
+    const { data: garmentRaw, error: garmentError } = await supabase
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, ' +
@@ -854,6 +881,7 @@ serve(async (req) => {
       .eq('id', garmentId)
       .eq('user_id', user.id)
       .single();
+    const garment = garmentRaw as any;
 
     if (garmentError || !garment) {
       return new Response(JSON.stringify({ error: 'Garment not found' }), {
@@ -1301,12 +1329,15 @@ serve(async (req) => {
 
     try {
       // ── Re-fetch garment after claim to get latest enrichment data ──
+      // Same supabase-js `any` cast as above — `.maybeSingle()` collapses to
+      // `never` under strict inference, breaking downstream `.category`,
+      // `.subcategory`, `.ai_raw` accesses inside the retry loop.
       const { data: freshGarment } = await supabase
         .from('garments')
         .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path')
         .eq('id', garment.id)
         .maybeSingle();
-      const garmentForPrompt = freshGarment ?? garment;
+      const garmentForPrompt: any = freshGarment ?? garment;
 
       // ── Download source image as base64 ──
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
@@ -1346,19 +1377,26 @@ serve(async (req) => {
       const INPUT_MIN_BYTES = 4096; // 4KB — anything smaller is near-certainly corrupt
       const INPUT_MAX_BYTES = 20 * 1024 * 1024; // 20MB sanity cap on decode
 
+      // Codex P2 on PR #661: these preflight failure paths run AFTER
+      // `claimGarmentRender` has already moved the garment out of 'ready',
+      // so a force regenerate with a problematic source would leave the
+      // user with no render at all if we just `safeMarkRenderFailed`. Use
+      // `safeRestoreOrFailRender` instead — it restores `priorRenderedPath`
+      // for force calls with an existing good render, and falls through to
+      // safeMarkRenderFailed for first-time / no-prior cases.
       if (imageBytes.length < INPUT_MIN_BYTES) {
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: `Source image too small (${imageBytes.length} bytes). Re-upload a clearer photo.`,
-        }, 'input_preflight_too_small');
+        }, 'input_preflight_too_small', priorRenderedPath, isForceRender);
         return new Response(
           JSON.stringify({ ok: true, rendered: false, error: 'Source image too small' }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
       if (imageBytes.length > INPUT_MAX_BYTES) {
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: `Source image too large (${imageBytes.length} bytes).`,
-        }, 'input_preflight_too_large');
+        }, 'input_preflight_too_large', priorRenderedPath, isForceRender);
         return new Response(
           JSON.stringify({ ok: true, rendered: false, error: 'Source image too large' }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
@@ -1377,9 +1415,9 @@ serve(async (req) => {
       }
       const inputDims = extractImageDimensions(imageBytes);
       if (inputDims && (inputDims.width < INPUT_MIN_DIMENSION || inputDims.height < INPUT_MIN_DIMENSION)) {
-        await safeMarkRenderFailed(supabase, garment.id, {
+        await safeRestoreOrFailRender(supabase, garment.id, {
           render_error: `Source image resolution too low (${inputDims.width}×${inputDims.height}). Use a clearer photo (min ${INPUT_MIN_DIMENSION}×${INPUT_MIN_DIMENSION}).`,
-        }, 'input_preflight_low_resolution');
+        }, 'input_preflight_low_resolution', priorRenderedPath, isForceRender);
         return new Response(
           JSON.stringify({ ok: true, rendered: false, error: 'Source resolution too low', dims: inputDims }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
