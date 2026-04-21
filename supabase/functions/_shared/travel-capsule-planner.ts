@@ -28,7 +28,12 @@ export interface TravelCapsuleCoverageGap {
     | 'missing_top'
     | 'missing_bottom'
     | 'missing_dress_or_separates'
-    | 'insufficient_complete_outfits';
+    | 'insufficient_complete_outfits'
+    // `ai_empty_fallback` is used when the AI returns zero complete outfits
+    // and we show a friendlier "built 1 of N" message in place of the
+    // generic insufficient_complete_outfits gap. Surfaced by deno-check on
+    // PR #659 — pre-existing literal that wasn't in the union.
+    | 'ai_empty_fallback';
   message: string;
   missing_slots?: TravelCapsuleCoreSlot[];
   uncovered_outfits?: number;

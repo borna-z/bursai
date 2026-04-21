@@ -27,7 +27,14 @@ const BATCH_SIZE = 100;
 
 async function processSingleUser(
   userId: string,
-  supabaseClient: ReturnType<typeof createClient>,
+  // Same supabase-js generic-narrowing issue as in calendar.ts (see the
+  // comment there). A recent @supabase/supabase-js bump infers a stricter
+  // `SupabaseClient<unknown, ..., never, never, ...>` for
+  // `ReturnType<typeof createClient>`, which breaks when a caller passes
+  // the differently-inferred client from `createClient(url, key)`. Use
+  // `any` to preserve prior runtime behaviour without threading generated
+  // Database types through the whole file.
+  supabaseClient: any,
 ): Promise<{ status: 'ok' | 'skipped' | 'error'; error?: string }> {
   try {
     const { data: garments } = await supabaseClient
@@ -38,7 +45,11 @@ async function processSingleUser(
 
     if (!garments || garments.length < 5) return { status: "skipped" };
 
-    const garmentList = garments.map(g => compactGarment(g)).join("\n");
+    // Explicit `any` on the callback param — deno-check TS7006 wants it
+    // because `supabaseClient: any` propagates through to `garments` so the
+    // inferred type on `.map(g => ...)` is implicitly any. Functionally
+    // equivalent; `compactGarment` narrows the shape internally.
+    const garmentList = garments.map((g: any) => compactGarment(g)).join("\n");
     const prompt = compressPrompt(`You are a personal stylist. Suggest 2 outfits for today from this wardrobe.
 Pick garments by their short ID (first 8 chars).
 
@@ -83,6 +94,11 @@ ${garmentList}`);
       max_tokens: estimateMaxTokens({ outputItems: 2, perItemTokens: 80, baseTokens: 150 }),
       cacheTtlSeconds: 43200,
       cacheNamespace: `daily_suggestions_${userId}`,
+      // Codex P1 round 2 on PR #659: pass userId so storeCache populates
+      // ai_response_cache.user_id for the GDPR cascade delete. Applies to
+      // both the batch-cron path (userId is the active user we're
+      // processing) and the single-user-trigger path.
+      userId,
       functionName: "prefetch_suggestions",
     }, supabaseClient);
 

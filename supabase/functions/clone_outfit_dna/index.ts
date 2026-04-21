@@ -64,7 +64,10 @@ serve(async (req) => {
       max_tokens: estimateMaxTokens({ outputItems: 3, perItemTokens: 120, baseTokens: 150 }),
       functionName: "clone_outfit_dna",
       cacheTtlSeconds: 1800,
-      cacheNamespace: "clone_dna",
+      // P13: user-scope prevents cross-user cache hits. userId also
+      // populates ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `clone_dna_${user.id}`,
+      userId: user.id,
       messages: [
         { role: "system", content: `Fashion DNA analyst. User loves this outfit, wants similar variations.
 DNA:\n${outfitDNA}\nOccasion:${outfit.occasion} Style:${outfit.style_vibe || "casual"}

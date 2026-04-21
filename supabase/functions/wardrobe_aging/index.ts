@@ -61,7 +61,10 @@ serve(async (req) => {
       max_tokens: estimateMaxTokens({ inputItems: garments.length, outputItems: 5, perItemTokens: 50, baseTokens: 150 }),
       functionName: "wardrobe_aging",
       cacheTtlSeconds: 3600,
-      cacheNamespace: "wardrobe_aging",
+      // P13: user-scope prevents cross-user cache hits. userId also
+      // populates ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `wardrobe_aging_${userId}`,
+      userId,
       messages: [
         {
           role: "system",

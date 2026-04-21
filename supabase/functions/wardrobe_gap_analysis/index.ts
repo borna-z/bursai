@@ -281,7 +281,10 @@ CRITICAL RULES:
       }],
       tool_choice: { type: "function", function: { name: "identify_gaps" } },
       cacheTtlSeconds: 3600,
-      cacheNamespace: "wardrobe_gap",
+      // P13: user-scope prevents cross-user cache hits. userId also
+      // populates ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `wardrobe_gap_${user.id}`,
+      userId: user.id,
       functionName: "wardrobe_gap_analysis",
       }, supabase);
       result = aiResponse.data;

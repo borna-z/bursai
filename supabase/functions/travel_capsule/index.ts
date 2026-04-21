@@ -804,7 +804,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           timeout: 35000,
           functionName: "travel_capsule",
           cacheTtlSeconds: 1800,
-          cacheNamespace: "travel_capsule",
+          // P13: user-scope prevents cross-user cache hits. userId also
+          // populates ai_response_cache.user_id for the GDPR cascade delete.
+          cacheNamespace: `travel_capsule_${userId}`,
+          userId,
           tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
         };
 
@@ -956,9 +959,13 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     const validatedOutfits: typeof resolvedOutfits = [];
 
     for (const outfit of outfits) {
-      const outfitGarments = outfit.items
+      // Explicit annotations so deno-check doesn't widen `outfit.items`
+      // (from the `any[]` outfits array at line 892) into `unknown[]`.
+      // The items are known to be garment-id strings by the schema contract.
+      const outfitItems: string[] = outfit.items ?? [];
+      const outfitGarments = outfitItems
         .map((id: string) => garmentById.get(id))
-        .filter((garment): garment is GarmentRow => Boolean(garment));
+        .filter((garment: GarmentRow | undefined): garment is GarmentRow => Boolean(garment));
       let validation = validateTravelCapsuleOutfitGarments(outfitGarments as TravelCapsuleGarmentLike[]);
       const isComplete = validation.isComplete;
 
@@ -967,14 +974,14 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
         continue;
       }
 
-      const presentSlots = new Set(validation.presentSlots);
+      const presentSlots = new Set<string>(validation.presentSlots);
       const hasDress = presentSlots.has('dress');
       const hasTop = presentSlots.has('top');
       const hasBottom = presentSlots.has('bottom');
       const hasShoes = presentSlots.has('shoes');
 
-      const usedInOutfit = new Set(outfit.items);
-      const patched = [...outfit.items];
+      const usedInOutfit = new Set<string>(outfitItems);
+      const patched: string[] = [...outfitItems];
       let wasPatched = false;
 
       // 5-level fallback

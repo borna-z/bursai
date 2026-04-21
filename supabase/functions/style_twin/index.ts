@@ -88,7 +88,10 @@ serve(async (req) => {
       max_tokens: 400,
       functionName: "style_twin",
       cacheTtlSeconds: 7200,
-      cacheNamespace: "style_twin",
+      // P13: user-scope prevents cross-user cache hits. userId also
+      // populates ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `style_twin_${userId}`,
+      userId,
       messages: [
         {
           role: "system",

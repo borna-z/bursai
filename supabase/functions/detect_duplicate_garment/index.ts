@@ -189,6 +189,11 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
             functionName: "detect_duplicate_garment",
             cacheTtlSeconds: 3600, // 1 hour
             cacheNamespace: `dupcheck_${userId}`,
+            // Codex P1 round 2 on PR #659: pass userId so storeCache
+            // populates ai_response_cache.user_id for the GDPR cascade
+            // delete (FK cascade from auth.users). Without this, rows
+            // would have user_id = NULL and bypass cleanup.
+            userId,
           }, serviceClient);
 
           try {
