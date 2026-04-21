@@ -49,11 +49,14 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
 
-    await enforceRateLimit(adminClient, userId, "delete_user_account");
-
-    // Now with a verified user.id, check idempotency scoped to
-    // (delete_user_account, user.id). The raw `x-idempotency-key` header
-    // is composed with those into the DB key by the helper.
+    // Idempotency BEFORE rate limit — Codex P1 round 3 on PR #658:
+    // delete_user_account's per-minute limit is 1. A legitimate client
+    // retry (e.g., network blip during the slow cascade delete) with the
+    // same x-idempotency-key would otherwise hit 429 before reaching the
+    // dedupe cache, breaking the retry contract. Ordering:
+    //   auth -> idempotency (cached/409 short-circuit) -> rate limit -> work
+    // Retries of a completed or in-flight request get the cached 200 or
+    // a 409 Retry-After, never a 429.
     const idempotencyScope = {
       functionName: "delete_user_account",
       userId,
@@ -65,6 +68,8 @@ Deno.serve(async (req) => {
       });
       return cachedResponse;
     }
+
+    await enforceRateLimit(adminClient, userId, "delete_user_account");
 
     console.log(`Starting account deletion for user: ${userId}`);
 
