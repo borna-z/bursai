@@ -759,7 +759,12 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       }
 
       return {
-        capsule_items: Array.from(capsuleMap.values()),
+        // Emit garment IDs (strings), NOT GarmentRow objects — matches the
+        // shape the AI returns so `resolveId` + downstream consumers can treat
+        // `capsule_items` as string[] uniformly. Earlier shape (values()) was
+        // GarmentRow[] which crashed `resolveId` at `id.trim()` on the
+        // deterministic-fallback path (Findings Log 2026-04-20, P0d-iii).
+        capsule_items: Array.from(capsuleMap.keys()),
         outfits,
         packing_tips: [
           "Choose pieces that layer well.",
@@ -864,7 +869,9 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     if (resolvedItems.length === 0 || resolvedOutfits.length === 0) {
       console.warn("Resolved capsule is empty, applying deterministic fallback mapping");
       const fallback = buildDeterministicFallback();
-      resolvedItems = fallback.capsule_items.map((garment: GarmentRow) => garment.id).filter((id: string) => validIds.has(id));
+      // `fallback.capsule_items` is now string[] (see buildDeterministicFallback
+      // fix above). Filter directly — no object-to-id mapping needed.
+      resolvedItems = fallback.capsule_items.filter((id: string) => validIds.has(id));
       resolvedOutfits = fallback.outfits
         .map((o: any) => ({ ...o, items: (o.items || []).filter((id: string) => validIds.has(id)) }))
         .filter((o: any) => o.items.length >= 2);
@@ -1054,8 +1061,18 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     for (const o of scheduledOutfits) {
       for (const id of o.items) usedInAnyOutfit.add(id);
     }
+    // `fallback.capsule_items` is now string[] (see buildDeterministicFallback
+    // fix at line ~762 — shape matches AI output). Map back to garment objects
+    // via `allGarmentById` before merging with `capsule_items` (GarmentRow[]),
+    // so the `g.id` filter treats both sides uniformly. Dropping this coercion
+    // silently filters out fallback-only garments — outfits would reference
+    // IDs missing from prunedCapsule/packing_list (Codex P1 on PR #656).
+    const fallbackCapsuleGarments = fallback.capsule_items
+      .map((id: string) => allGarmentById.get(id))
+      .filter((g): g is GarmentRow => Boolean(g));
+
     const prunedCapsule = Array.from(new Map(
-      [...capsule_items, ...fallback.capsule_items]
+      [...capsule_items, ...fallbackCapsuleGarments]
         .filter((g: any) => usedInAnyOutfit.has(g.id) || mustHaveIds.includes(g.id))
         .map((g: any) => [g.id, g]),
     ).values());
