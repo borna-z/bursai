@@ -114,7 +114,7 @@ async function sendWebPush(
   );
 
   webpush.setVapidDetails(
-    "mailto:hello@bursai.com",
+    "mailto:hello@burs.me",
     vapidPublicKey,
     vapidPrivateKey
   );

@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       "https://esm.sh/web-push@3.6.7"
     );
     webpush.setVapidDetails(
-      "mailto:hello@bursai.com",
+      "mailto:hello@burs.me",
       vapidPublicKey,
       vapidPrivateKey
     );
