@@ -4,6 +4,7 @@ import { callBursAI, compressPrompt, compactGarment, bursAIErrorResponse, estima
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { withConcurrencyLimit, logTelemetry } from "../_shared/scale-guard.ts";
+import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { logger } from "../_shared/logger.ts";
 
 const log = logger("prefetch_suggestions");
@@ -140,6 +141,23 @@ serve(async (req) => {
       const result = await processSingleUser(triggeredUserId, supabase);
       log.info("Single-user prefetch", { userId: triggeredUserId, result: result.status });
       return new Response(JSON.stringify({ triggered: triggeredUserId, ...result }), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
+    // Cron-batch mode — hard-reject non-service-role callers. This branch kicks
+    // off up to 100 parallel AI calls (BATCH_SIZE users × bounded CONCURRENCY),
+    // so exposing it to any authenticated end-user (or anon, since
+    // `verify_jwt = false` in config.toml) lets a single drive-by POST burn
+    // Gemini quota and DoS the service. Use the P1 cron-only hard-reject
+    // pattern — timingSafeEqual against SERVICE_ROLE_KEY, no JWT fallback. The
+    // single-user-trigger path above (P4) handles authenticated end-users with
+    // JWT → user.id match; cron is the only legitimate caller for the batch.
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "").trim() ?? "";
+    if (!token || !SUPABASE_SERVICE_ROLE_KEY || !timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
