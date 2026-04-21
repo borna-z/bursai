@@ -5,7 +5,11 @@ import { AlertTriangle, Loader2, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { enqueueRenderJob, RenderEnqueueError } from '@/lib/garmentIntelligence';
+import {
+  enqueueRenderJob,
+  isRenderEnqueueRetryable,
+  RenderEnqueueError,
+} from '@/lib/garmentIntelligence';
 import { supabase } from '@/integrations/supabase/client';
 import { hapticMedium } from '@/lib/haptics';
 
@@ -74,21 +78,77 @@ export function RenderFailedBanner({
 
       toast.success(t('render.retry_started'));
     } catch (error) {
-      // Roll back the optimistic flip — leave the banner so the user can
-      // try again. If enqueue returned a specific business denial (402
-      // trial-locked or insufficient credits), surface that verbatim;
-      // otherwise fall back to a generic retry-failed toast.
-      await supabase
-        .from('garments')
-        .update({ render_status: 'failed' } as Record<string, unknown>)
-        .eq('id', garmentId);
-      queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
+      // Codex P1 round 2 on PR #661. The error handling here is tricky
+      // because `enqueueRenderJob` can throw AFTER the server has already
+      // accepted the request:
+      //
+      //   * Transport failure (fetch rejected before reading the response
+      //     body → status=0) — server may have INSERTed render_jobs and
+      //     reserved a credit but the client never saw the 200.
+      //   * 5xx on the edge function — same: `enqueue_render_job`'s Codex-
+      //     hardened flow sometimes completes reserve+insert before a late
+      //     error surfaces.
+      //
+      // If we unconditionally flip the garment back to 'failed' in those
+      // cases, the banner reappears, the user clicks "Try again", a FRESH
+      // clientNonce is generated, a SECOND reserve_key + render_jobs row
+      // lands, and the same intent produces two credit reservations —
+      // exactly the double-charge scenario the reserve_key + replay flag
+      // exist to prevent.
+      //
+      // `isRenderEnqueueRetryable` already encodes the classification for
+      // the other call sites in garmentIntelligence.ts:
+      //   * status === 0 / undefined (transport abort) → retryable → ambiguous
+      //   * status >= 500 → retryable → ambiguous
+      //   * other (4xx business denials) → definitive rejection → revert safe
+      //
+      // For ambiguous errors we LEAVE the optimistic `render_status='pending'`
+      // flip in place: the shimmer overlay takes over the UI, and the worker's
+      // next claim (or stale-claim recovery) writes the authoritative terminal
+      // state. If the job genuinely did NOT land server-side, it's covered by
+      // the process_render_jobs stuck-render terminalization path (round-16
+      // TOCTOU heal). User never sees 'failed' during an ambiguous case, so
+      // they never click Try Again a second time.
+      const isAmbiguousEnqueueError =
+        error instanceof RenderEnqueueError && isRenderEnqueueRetryable(error.status);
 
-      const message = error instanceof RenderEnqueueError && error.message
-        ? error.message
-        : t('render.retry_failed');
-      toast.error(message);
-      console.error('RenderFailedBanner retry failed', { garmentId, error });
+      if (!isAmbiguousEnqueueError) {
+        // Definitive rejection (e.g. 402 insufficient_credits, 403, 429,
+        // 400 validation) OR a non-enqueue error (optimistic UPDATE itself
+        // failed, unexpected JS throw). Safe to revert — the server did not
+        // create a render job.
+        await supabase
+          .from('garments')
+          .update({ render_status: 'failed' } as Record<string, unknown>)
+          .eq('id', garmentId);
+        queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
+      } else {
+        // Ambiguous: keep the optimistic 'pending'. Just invalidate so the
+        // shimmer overlay renders; worker state write wins.
+        queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
+      }
+
+      if (isAmbiguousEnqueueError) {
+        // Soft toast — we sent the request; the server may or may not have
+        // accepted. The UI now shows the pending shimmer so the user knows
+        // something is happening. If it turns out the server didn't queue
+        // anything, the banner reappears when the worker terminalizes.
+        toast(t('render.retry_started'));
+      } else {
+        // Surface specific server error message for business denials
+        // (402 trial-locked / insufficient credits etc.) so users understand
+        // the next action. Fall back to generic copy for unknown errors.
+        const message = error instanceof RenderEnqueueError && error.message
+          ? error.message
+          : t('render.retry_failed');
+        toast.error(message);
+      }
+
+      console.error('RenderFailedBanner retry failed', {
+        garmentId,
+        ambiguous: isAmbiguousEnqueueError,
+        error,
+      });
     } finally {
       setIsRetrying(false);
     }
