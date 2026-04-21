@@ -156,6 +156,47 @@ Deno.serve(async (req) => {
     await adminClient.from("user_roles").delete().eq("user_id", userId);
     console.log("Deleted subscriptions & roles");
 
+    // P8: Orphan-row cleanup across 11 additional tables that were missed by
+    // the earlier cascade. Required for GDPR right-to-erasure — these rows
+    // previously persisted after account deletion.
+    //
+    // Silent-delete pattern (no error throw): leaf-only cleanup — if a single
+    // table delete fails we still want the remaining cascade + profile + auth
+    // user delete to proceed. Storage/garments/profile/auth deletes above throw
+    // because they're load-bearing; these rows are soft-orphan cleanup.
+
+    // Render pipeline (transactions FK both credits and jobs — delete leaves first)
+    await adminClient.from("render_credit_transactions").delete().eq("user_id", userId);
+    await adminClient.from("render_jobs").delete().eq("user_id", userId);
+    await adminClient.from("render_credits").delete().eq("user_id", userId);
+
+    // AI / analytics (chat_messages already handled above — not repeated)
+    await adminClient.from("feedback_signals").delete().eq("user_id", userId);
+    await adminClient.from("garment_pair_memory").delete().eq("user_id", userId);
+    await adminClient.from("analytics_events").delete().eq("user_id", userId);
+    await adminClient.from("ai_rate_limits").delete().eq("user_id", userId);
+
+    // Feedback / social
+    await adminClient.from("outfit_feedback").delete().eq("user_id", userId);
+
+    // Notifications
+    await adminClient.from("push_subscriptions").delete().eq("user_id", userId);
+
+    // Travel
+    await adminClient.from("travel_capsules").delete().eq("user_id", userId);
+
+    // AI response cache — no user_id column; cache_key prefix contains the user
+    // UUID for user-scoped namespaces (e.g. "mood_happy_<uuid>_<hash>"). LIKE
+    // match on cache_key drops only this user's entries. Global-scoped cache
+    // rows (see P13 follow-up) stay — they contain no direct PII but may hold
+    // responses derived from user data; P13 will make all caches user-scoped.
+    await adminClient
+      .from("ai_response_cache")
+      .delete()
+      .like("cache_key", `%${userId}%`);
+
+    console.log("Deleted orphan rows across render/AI/notifications/travel/cache tables");
+
     // Delete profile
     const { error: profileError } = await adminClient
       .from("profiles")
