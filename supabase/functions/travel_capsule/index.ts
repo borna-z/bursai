@@ -759,7 +759,12 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
       }
 
       return {
-        capsule_items: Array.from(capsuleMap.values()),
+        // Emit garment IDs (strings), NOT GarmentRow objects — matches the
+        // shape the AI returns so `resolveId` + downstream consumers can treat
+        // `capsule_items` as string[] uniformly. Earlier shape (values()) was
+        // GarmentRow[] which crashed `resolveId` at `id.trim()` on the
+        // deterministic-fallback path (Findings Log 2026-04-20, P0d-iii).
+        capsule_items: Array.from(capsuleMap.keys()),
         outfits,
         packing_tips: [
           "Choose pieces that layer well.",
@@ -864,7 +869,9 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     if (resolvedItems.length === 0 || resolvedOutfits.length === 0) {
       console.warn("Resolved capsule is empty, applying deterministic fallback mapping");
       const fallback = buildDeterministicFallback();
-      resolvedItems = fallback.capsule_items.map((garment: GarmentRow) => garment.id).filter((id: string) => validIds.has(id));
+      // `fallback.capsule_items` is now string[] (see buildDeterministicFallback
+      // fix above). Filter directly — no object-to-id mapping needed.
+      resolvedItems = fallback.capsule_items.filter((id: string) => validIds.has(id));
       resolvedOutfits = fallback.outfits
         .map((o: any) => ({ ...o, items: (o.items || []).filter((id: string) => validIds.has(id)) }))
         .filter((o: any) => o.items.length >= 2);
