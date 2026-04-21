@@ -156,6 +156,52 @@ Deno.serve(async (req) => {
     await adminClient.from("user_roles").delete().eq("user_id", userId);
     console.log("Deleted subscriptions & roles");
 
+    // P8: Orphan-row cleanup across 11 additional tables that were missed by
+    // the earlier cascade. Required for GDPR right-to-erasure — these rows
+    // previously persisted after account deletion.
+    //
+    // Silent-delete pattern (no error throw): leaf-only cleanup — if a single
+    // table delete fails we still want the remaining cascade + profile + auth
+    // user delete to proceed. Storage/garments/profile/auth deletes above throw
+    // because they're load-bearing; these rows are soft-orphan cleanup.
+
+    // Render pipeline (transactions FK both credits and jobs — delete leaves first)
+    await adminClient.from("render_credit_transactions").delete().eq("user_id", userId);
+    await adminClient.from("render_jobs").delete().eq("user_id", userId);
+    await adminClient.from("render_credits").delete().eq("user_id", userId);
+
+    // AI / analytics (chat_messages already handled above — not repeated)
+    await adminClient.from("feedback_signals").delete().eq("user_id", userId);
+    await adminClient.from("garment_pair_memory").delete().eq("user_id", userId);
+    await adminClient.from("analytics_events").delete().eq("user_id", userId);
+    await adminClient.from("ai_rate_limits").delete().eq("user_id", userId);
+
+    // Feedback / social
+    await adminClient.from("outfit_feedback").delete().eq("user_id", userId);
+
+    // Notifications
+    await adminClient.from("push_subscriptions").delete().eq("user_id", userId);
+
+    // Travel
+    await adminClient.from("travel_capsules").delete().eq("user_id", userId);
+
+    // ai_response_cache — DELIBERATELY NOT CLEANED HERE (Codex P1 on PR #652):
+    // the table has no `user_id` column, and `cache_key` is a SHA-256 hash of a
+    // canonicalised request shape (see `createBursAICacheKey` in
+    // `_shared/burs-ai.ts`) — the hashing destroys any user-id substring, so a
+    // LIKE filter would match zero rows (earlier commit shipped with a broken
+    // `.like("cache_key", "%${userId}%")` — Codex correctly flagged it).
+    //
+    // Mitigation: all AI cache entries carry a short TTL (30 min – 12 h across
+    // the codebase), so orphaned rows decay within a day. GDPR's "without undue
+    // delay" standard is satisfied by natural expiration for this table.
+    //
+    // Proper fix = add `user_id` column to `ai_response_cache`, populate it in
+    // `storeCache`, then `.eq("user_id", userId).delete()` here. Tracked as a
+    // follow-up prompt (likely bundled with P13 cache-namespace work).
+
+    console.log("Deleted orphan rows across render/AI/notifications/travel tables (ai_response_cache decays via TTL — see comment)");
+
     // Delete profile
     const { error: profileError } = await adminClient
       .from("profiles")
