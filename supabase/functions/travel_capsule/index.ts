@@ -1061,8 +1061,18 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
     for (const o of scheduledOutfits) {
       for (const id of o.items) usedInAnyOutfit.add(id);
     }
+    // `fallback.capsule_items` is now string[] (see buildDeterministicFallback
+    // fix at line ~762 — shape matches AI output). Map back to garment objects
+    // via `allGarmentById` before merging with `capsule_items` (GarmentRow[]),
+    // so the `g.id` filter treats both sides uniformly. Dropping this coercion
+    // silently filters out fallback-only garments — outfits would reference
+    // IDs missing from prunedCapsule/packing_list (Codex P1 on PR #656).
+    const fallbackCapsuleGarments = fallback.capsule_items
+      .map((id: string) => allGarmentById.get(id))
+      .filter((g): g is GarmentRow => Boolean(g));
+
     const prunedCapsule = Array.from(new Map(
-      [...capsule_items, ...fallback.capsule_items]
+      [...capsule_items, ...fallbackCapsuleGarments]
         .filter((g: any) => usedInAnyOutfit.has(g.id) || mustHaveIds.includes(g.id))
         .map((g: any) => [g.id, g]),
     ).values());
