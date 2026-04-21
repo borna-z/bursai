@@ -187,14 +187,19 @@ async function handleImageProcessing(
 ): Promise<Record<string, unknown>> {
   const garmentId = payload.garment_id as string;
   if (!garmentId) throw new Error("Missing garment_id in payload");
+  if (!userId) throw new Error("Missing user_id on job");
 
+  // Ownership guard — job.user_id must match the garment's owner.
+  // Prevents a poisoned job row from executing service-role work against
+  // a garment that belongs to another user.
   const { data: garment, error } = await supabase
     .from("garments")
     .select("id, image_path")
     .eq("id", garmentId)
+    .eq("user_id", userId)
     .single();
 
-  if (error || !garment) throw new Error(`Garment not found: ${garmentId}`);
+  if (error || !garment) throw new Error(`Garment not found or not owned: ${garmentId}`);
   if (!garment.image_path) throw new Error("No image_path for garment");
 
   await supabase
@@ -219,19 +224,24 @@ async function handleImageProcessing(
 async function handleGarmentEnrichment(
   supabase: any,
   payload: Record<string, unknown>,
-  _userId: string | null,
+  userId: string | null,
 ): Promise<Record<string, unknown>> {
   const garmentId = payload.garment_id as string;
   const locale = (payload.locale as string) || "en";
   if (!garmentId) throw new Error("Missing garment_id in payload");
+  if (!userId) throw new Error("Missing user_id on job");
 
+  // Ownership guard — job.user_id must match the garment's owner.
+  // Prevents a poisoned job row from executing service-role AI enrichment
+  // against a garment that belongs to another user (and overwriting their ai_raw).
   const { data: garment, error } = await supabase
     .from("garments")
     .select("id, image_path, enrichment_status")
     .eq("id", garmentId)
+    .eq("user_id", userId)
     .single();
 
-  if (error || !garment) throw new Error(`Garment not found: ${garmentId}`);
+  if (error || !garment) throw new Error(`Garment not found or not owned: ${garmentId}`);
   if (!garment.image_path) throw new Error("No image for enrichment");
 
   await supabase
