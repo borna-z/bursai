@@ -113,6 +113,30 @@ serve(async (req) => {
     } catch { /* fall through to cron mode */ }
 
     if (triggeredUserId) {
+      // Verify caller's JWT matches body.user_id — prevents one authenticated
+      // user from triggering a prefetch against another user's wardrobe/cache.
+      const authHeader = req.headers.get("Authorization");
+      const token = authHeader?.replace("Bearer ", "").trim() ?? "";
+      if (!token) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+      if (user.id !== triggeredUserId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+
       const result = await processSingleUser(triggeredUserId, supabase);
       log.info("Single-user prefetch", { userId: triggeredUserId, result: result.status });
       return new Response(JSON.stringify({ triggered: triggeredUserId, ...result }), {
