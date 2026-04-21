@@ -13,14 +13,17 @@ Deno.serve(async (req) => {
     return overloadResponse(CORS_HEADERS);
   }
 
-  // Return cached response for duplicate idempotent requests
-  const cachedResponse = checkIdempotency(req);
-  if (cachedResponse) {
-    console.log("[DELETE-USER] Returning cached idempotent response");
-    return cachedResponse;
-  }
-
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Auth FIRST — Codex P1 round 2 on PR #658: idempotency keys must be
+    // scoped by (functionName, userId), and the userId comes from the
+    // verified JWT. Pre-auth idempotency lookups risked replaying another
+    // user's cached payload when keys collided.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
@@ -29,11 +32,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create client with user's token to verify identity
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
+    // Create anon client with user's token to verify identity
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -50,8 +49,25 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
 
-    // Use service role client for admin operations
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Idempotency BEFORE rate limit — Codex P1 round 3 on PR #658:
+    // delete_user_account's per-minute limit is 1. A legitimate client
+    // retry (e.g., network blip during the slow cascade delete) with the
+    // same x-idempotency-key would otherwise hit 429 before reaching the
+    // dedupe cache, breaking the retry contract. Ordering:
+    //   auth -> idempotency (cached/409 short-circuit) -> rate limit -> work
+    // Retries of a completed or in-flight request get the cached 200 or
+    // a 409 Retry-After, never a 429.
+    const idempotencyScope = {
+      functionName: "delete_user_account",
+      userId,
+    };
+    const cachedResponse = await checkIdempotency(req, adminClient, idempotencyScope);
+    if (cachedResponse) {
+      console.log("[DELETE-USER] Returning cached or pending idempotent response", {
+        status: cachedResponse.status,
+      });
+      return cachedResponse;
+    }
 
     await enforceRateLimit(adminClient, userId, "delete_user_account");
 
@@ -237,7 +253,7 @@ Deno.serve(async (req) => {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       }
     );
-    await storeIdempotencyResult(req, response);
+    await storeIdempotencyResult(req, response, adminClient, idempotencyScope);
     return response;
   } catch (error) {
     if (error instanceof RateLimitError) {

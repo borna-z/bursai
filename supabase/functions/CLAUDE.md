@@ -91,7 +91,7 @@ const { data } = await callBursAI({
 | `burs-voice.ts` | Voice identity fragments (`VOICE_STYLIST_CHAT`, `VOICE_SHOPPING`, etc.) for consistent premium tone in AI prompts |
 | `unified_stylist_engine.ts` | Middleware to `burs_style_engine` function. Modes: generate, suggest, swap, refine. Also contains slot normalization logic (`normalizeIds()`) |
 | `logger.ts` | Structured JSON logging: `const log = logger("fn_name"); log.info(...); log.error(...); log.exception(...)` |
-| `idempotency.ts` | In-memory TTL cache (5min default) for request deduplication |
+| `idempotency.ts` | DB-backed request deduplication via `public.request_idempotency` table (P12). Atomic claim using UPSERT+ignoreDuplicates (same pattern as stripe_events). 60s claim TTL, 5min completed-result TTL. Both helpers take `supabaseAdmin` as 2nd arg. Consumers: `create_checkout_session`, `delete_user_account`. |
 | `stripe-config.ts` | Environment-based Stripe test/live mode switching |
 | `render-eligibility.ts` | Gemini vision gate — determines if garment images need ghost-mannequin rendering |
 | `insights-dashboard.ts` | Wardrobe analytics metrics engine (color temperature, wear patterns, etc.) |

@@ -42,13 +42,6 @@ serve(async (req) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
-  // Return cached response for duplicate idempotent requests
-  const cachedResponse = checkIdempotency(req);
-  if (cachedResponse) {
-    logStep("Returning cached idempotent response");
-    return cachedResponse;
-  }
-
   try {
     logStep("Function started");
 
@@ -61,31 +54,47 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Auth check
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Auth FIRST — Codex P1 round 2 on PR #658: idempotency keys must be
+    // scoped by (functionName, userId), and the userId comes from the
+    // verified JWT. Pre-auth idempotency lookups risked replaying another
+    // user's cached payload when keys collided.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       throw new Error("No authorization header provided");
     }
 
-    // Create anon client to verify user
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
     if (userError || !user) {
       throw new Error(`Authentication error: ${userError?.message || 'No user'}`);
     }
-    
+
     if (!user.email) {
       throw new Error("User email not available");
     }
-    
+
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Service client for DB operations
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Now with a verified user.id, check idempotency scoped to
+    // (create_checkout_session, user.id). The raw `x-idempotency-key`
+    // header is composed with those into the DB key by the helper.
+    const idempotencyScope = {
+      functionName: "create_checkout_session",
+      userId: user.id,
+    };
+    const cachedResponse = await checkIdempotency(req, serviceClient, idempotencyScope);
+    if (cachedResponse) {
+      logStep("Returning cached or pending idempotent response", {
+        status: cachedResponse.status,
+      });
+      return cachedResponse;
+    }
 
     // Rate limiting: max 5 attempts per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -183,14 +192,33 @@ serve(async (req) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       status: 200,
     });
-    await storeIdempotencyResult(req, response);
+    await storeIdempotencyResult(req, response, serviceClient, idempotencyScope);
     return response;
   } catch (error) {
+    // Log the full error for debugging, but don't leak raw messages to the
+    // client — the previous shape returned `{ error: errorMessage }` which
+    // could surface env-variable names, Stripe SDK internals, or Postgres
+    // error text to an end user. With P12 the idempotency check now runs
+    // inside this try (previously outside), widening the potential leak
+    // surface, so tighten the response body to a generic string.
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      status: 500,
-    });
+
+    // Known-safe exception: authentication errors are already-sanitized
+    // strings we produce ourselves ("Authentication error: ..."), so
+    // forward the original status and message.
+    const isAuthError = errorMessage.startsWith("Authentication error") ||
+      errorMessage === "No authorization header provided" ||
+      errorMessage === "User email not available";
+
+    return new Response(
+      JSON.stringify({
+        error: isAuthError ? errorMessage : "Failed to create checkout session. Please try again.",
+      }),
+      {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: isAuthError ? 401 : 500,
+      },
+    );
   }
 });
