@@ -804,7 +804,10 @@ Write all text content (notes, tips, reasoning) in ${LOCALE_NAMES[locale] || "En
           timeout: 35000,
           functionName: "travel_capsule",
           cacheTtlSeconds: 1800,
-          cacheNamespace: "travel_capsule",
+          // P13: user-scope prevents cross-user cache hits. userId also
+          // populates ai_response_cache.user_id for the GDPR cascade delete.
+          cacheNamespace: `travel_capsule_${userId}`,
+          userId,
           tool_choice: { type: "function", function: { name: "create_travel_capsule" } },
         };
 

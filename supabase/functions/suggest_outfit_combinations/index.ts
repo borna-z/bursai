@@ -115,7 +115,12 @@ serve(async (req) => {
       max_tokens: estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
       functionName: "suggest_outfit_combinations",
       cacheTtlSeconds: 1800,
-      cacheNamespace: `suggest_combos_${user.id.slice(0, 8)}`,
+      // P14: use the full UUID, not an 8-char slice. With 65k+ users the
+      // birthday-collision probability on an 8-hex-char prefix is non-trivial;
+      // full UUID guarantees no cross-user hit. userId also populates
+      // ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `suggest_combos_${user.id}`,
+      userId: user.id,
       messages: [
         { role: "system", content: `Stylist: rediscover unused garments.
 Rules: 2-3 outfits, each top+bottom+shoes(min 3). Prioritize unused IDs:${unusedIds}. Color harmony. Only IDs from list. ${lang}.${styleContext ? `\nStyle:${styleContext}` : ""}${recentContext}

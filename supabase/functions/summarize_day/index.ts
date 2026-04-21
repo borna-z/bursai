@@ -93,7 +93,13 @@ serve(async (req) => {
         max_tokens: estimateMaxTokens({ inputItems: events.length, perItemTokens: 80, baseTokens: 200 }),
         functionName: "summarize_day",
         cacheTtlSeconds: 3600,
-        cacheNamespace: `summarize_day_${eventsCacheKey}`,
+        // P14: user-scope — previously `summarize_day_${eventsCacheKey}` was
+        // keyed only by a 40-char slice of event titles, so two users with
+        // identical calendar content (e.g. "Standup" + "Lunch") would
+        // cross-leak each other's personalised day summary. userId also
+        // populates ai_response_cache.user_id for the GDPR cascade delete.
+        cacheNamespace: `summarize_day_${user.id}_${eventsCacheKey}`,
+        userId: user.id,
         messages: [
           { role: "system", content: systemPrompt },
           {

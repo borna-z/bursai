@@ -97,7 +97,10 @@ serve(async (req) => {
       max_tokens: estimateMaxTokens({ outputItems: Math.min(accessories.length, 3), perItemTokens: 60, baseTokens: 120 }),
       functionName: "suggest_accessories",
       cacheTtlSeconds: 1800,
-      cacheNamespace: "suggest_accessories",
+      // P13: user-scope prevents cross-user cache hits. userId also
+      // populates ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `suggest_accessories_${user.id}`,
+      userId: user.id,
       messages: [
         { role: "system", content: `Accessory stylist. Outfit:${outfitDesc}\nACCESSORIES:\n${accessoryList}\nSelect up to 3. Consider color, material, occasion.` },
         { role: "user", content: "Suggest accessories for this outfit." },

@@ -116,7 +116,10 @@ Create 4-6 prioritized shopping suggestions.`;
       }],
       tool_choice: { type: "function", function: { name: "shopping_list" } },
       cacheTtlSeconds: 3600,
-      cacheNamespace: "smart_shopping",
+      // P13: user-scope prevents cross-user cache hits. userId also
+      // populates ai_response_cache.user_id for the GDPR cascade delete.
+      cacheNamespace: `smart_shopping_${userId}`,
+      userId,
       functionName: "smart_shopping_list",
     });
 

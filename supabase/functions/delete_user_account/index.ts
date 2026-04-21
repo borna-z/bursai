@@ -208,22 +208,26 @@ Deno.serve(async (req) => {
     // Travel
     await adminClient.from("travel_capsules").delete().eq("user_id", userId);
 
-    // ai_response_cache — DELIBERATELY NOT CLEANED HERE (Codex P1 on PR #652):
-    // the table has no `user_id` column, and `cache_key` is a SHA-256 hash of a
-    // canonicalised request shape (see `createBursAICacheKey` in
-    // `_shared/burs-ai.ts`) — the hashing destroys any user-id substring, so a
-    // LIKE filter would match zero rows (earlier commit shipped with a broken
-    // `.like("cache_key", "%${userId}%")` — Codex correctly flagged it).
-    //
-    // Mitigation: all AI cache entries carry a short TTL (30 min – 12 h across
-    // the codebase), so orphaned rows decay within a day. GDPR's "without undue
-    // delay" standard is satisfied by natural expiration for this table.
-    //
-    // Proper fix = add `user_id` column to `ai_response_cache`, populate it in
-    // `storeCache`, then `.eq("user_id", userId).delete()` here. Tracked as a
-    // follow-up prompt (likely bundled with P13 cache-namespace work).
+    // ai_response_cache — explicit cleanup (Wave 2-C / P13+P14 schema change).
+    // The table now has a `user_id` column (migration
+    // 20260421180000_ai_response_cache_user_id.sql) with an ON DELETE CASCADE
+    // FK to auth.users. The subsequent `auth.admin.deleteUser` call at the
+    // bottom of this function will cascade-delete rows automatically, but we
+    // also do an explicit delete here for three reasons:
+    //   (1) consistency with the rest of this cascade, which uses explicit
+    //       per-table deletes for auditability;
+    //   (2) safety — if auth.admin.deleteUser fails partway through, the
+    //       user's cache rows are already gone;
+    //   (3) we clean PRE-MIGRATION rows too. Rows stored before the schema
+    //       change have user_id = NULL and won't match this delete either.
+    //       Those decay via their normal 30min-12h TTLs (GDPR "without undue
+    //       delay" is satisfied inside a day). Net effect: post-migration
+    //       rows clean immediately; pre-migration rows clean within a day.
+    // Codex P1 on PR #652 correctly flagged the broken `.like("cache_key", ...)`
+    // approach that motivated the schema change.
+    await adminClient.from("ai_response_cache").delete().eq("user_id", userId);
 
-    console.log("Deleted orphan rows across render/AI/notifications/travel tables (ai_response_cache decays via TTL — see comment)");
+    console.log("Deleted orphan rows across render/AI/notifications/travel/cache tables");
 
     // Delete profile
     const { error: profileError } = await adminClient

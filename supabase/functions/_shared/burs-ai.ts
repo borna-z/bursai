@@ -96,6 +96,22 @@ export interface BursAIOptions {
   extraBody?: Record<string, any>;
   /** Function name for observability logging */
   functionName?: string;
+  /**
+   * Owner of this AI call's cached response. Required for the GDPR
+   * cascade-delete to actually remove this user's cache rows on account
+   * deletion (see migration 20260421180000_ai_response_cache_user_id.sql
+   * and P8 Findings Log, 2026-04-21).
+   *
+   * When set, `storeCache` persists it in `ai_response_cache.user_id` so
+   * the FK cascade from `auth.users` cleans the rows automatically.
+   *
+   * Leave undefined for system/cron cache entries that don't belong to a
+   * specific user — those rows get `user_id = NULL` and decay via TTL.
+   *
+   * Consumers that pass user-scoped `cacheNamespace` values (P13/P14)
+   * should also pass `userId` so the two mechanisms stay consistent.
+   */
+  userId?: string;
 }
 
 export interface BursAIResponse {
@@ -265,10 +281,26 @@ async function checkCache(supabase: any, cacheKey: string): Promise<any | null> 
 }
 
 async function storeCache(
-  supabase: any, cacheKey: string, response: any, modelUsed: string, ttlSeconds: number
+  supabase: any,
+  cacheKey: string,
+  response: any,
+  modelUsed: string,
+  ttlSeconds: number,
+  userId?: string,
 ): Promise<void> {
   try {
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+    // `user_id` column added by migration 20260421180000_ai_response_cache_user_id.sql
+    // with ON DELETE CASCADE to auth.users. Populating it here is what makes
+    // GDPR right-to-erasure actually work on this table — without it the
+    // FK has nothing to match on and delete_user_account can't clean the
+    // rows (the cache_key is a SHA-256 hash, so a `.like(user_id%)` filter
+    // matches nothing).
+    //
+    // `user_id: null` for calls without a userId option is explicit; the
+    // column is nullable by design (system/cron cache entries have no
+    // owner). Older bundled copies of burs-ai.ts on untouched functions
+    // simply don't set the column at all — equivalent to NULL.
     await supabase.from("ai_response_cache").upsert(
       {
         cache_key: cacheKey,
@@ -278,6 +310,7 @@ async function storeCache(
         expires_at: expiresAt,
         hit_count: 0,
         compressed: false,
+        user_id: userId ?? null,
       },
       { onConflict: "cache_key" }
     );
@@ -599,7 +632,7 @@ export async function callBursAI(
         }
 
         if (cacheTtlSeconds > 0 && cacheKey) {
-          if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, parsed.result, model, cacheTtlSeconds);
+          if (supabaseServiceClient) storeCache(supabaseServiceClient, cacheKey, parsed.result, model, cacheTtlSeconds, options.userId);
         }
         const costInfo = extractUsageAndCost(aiData, model);
         logUsage(supabaseServiceClient, {
