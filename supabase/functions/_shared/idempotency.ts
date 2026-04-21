@@ -16,30 +16,45 @@
  *   await storeIdempotencyResult(req, response, supabaseAdmin);
  *   return response;
  *
- * Race handling — this is the reason the module exists:
- *   checkIdempotency does an atomic UPSERT with
- *   `ignoreDuplicates: true` (same pattern as stripe_events). Whichever
- *   isolate's INSERT wins the primary-key race owns the key and returns
- *   `null` so the caller proceeds with the real work. The loser reads back
- *   the existing row:
- *     - status === 0 (still pending): returns 409 + Retry-After so the
- *       client retries in a moment. The pending claim has a short TTL
- *       (CLAIM_TTL_MS) so a crashed isolate doesn't deadlock retries.
- *     - status > 0 (completed): returns the cached response as-is.
+ * Race handling — the reason the module exists:
+ *   Three serialized claim attempts, each using a database-level atomic
+ *   operation. Only one isolate can "own" the key at a time.
  *
- * The service-role client is a required argument — idempotency.ts was a pure
- * helper before P12, so this is a breaking change. Only 2 consumers in-repo;
- * both updated in the same PR.
+ *   1. Fresh-key claim: UPSERT with ignoreDuplicates (INSERT ... ON CONFLICT
+ *      DO NOTHING). Winner inserts the pending row; losers see no row
+ *      returned and fall through. Same pattern as stripe_events.
+ *
+ *   2. Expired-row reclaim: conditional UPDATE with `.lt("expires_at", now)`
+ *      WHERE-clause. If the row is still expired at write-time, the update
+ *      overwrites it with a fresh pending claim. Postgres serializes this
+ *      against concurrent updaters at the row-lock level; exactly one
+ *      isolate wins. Losers re-read state.
+ *
+ *   3. Current state read: plain SELECT to decide what to return.
+ *      - status > 0, not expired  -> cached response
+ *      - status = 0, not expired  -> 409 Retry-After (another isolate
+ *                                    is still processing; its claim will
+ *                                    expire in ≤60s if it crashed)
+ *
+ *   The Codex P1 finding on PR #658 surfaced the bug that motivated the
+ *   reclaim step: returning `null` on expired rows without acquiring the
+ *   key meant two concurrent retries both saw `expired`, both fell
+ *   through, and both executed side effects until storeIdempotencyResult
+ *   clobbered (last write wins). The conditional-UPDATE reclaim closes
+ *   that window.
  */
 
-/** TTL for completed responses — long enough to cover normal client retry windows. */
+import { CORS_HEADERS } from "./cors.ts";
+
+/** TTL for completed responses — covers typical client retry windows. */
 const DEFAULT_RESULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * TTL for pending claims. Intentionally short: if the claiming isolate
  * crashes before calling storeIdempotencyResult, the claim expires in 60s
  * and retries can proceed. Long enough to cover the slowest expected
- * downstream call (Stripe API round-trips are ~1-3s).
+ * downstream call (Stripe API round-trips are ~1-3s, delete-user cascades
+ * ~10-20s worst case).
  */
 const CLAIM_TTL_MS = 60 * 1000; // 1 minute
 
@@ -52,18 +67,36 @@ export function getIdempotencyKey(req: Request): string | null {
 }
 
 /**
+ * Build the 409 "another isolate is still processing" response. Shared
+ * helper so both the in-flight and post-reclaim-race branches return
+ * identical shapes — and crucially both include CORS_HEADERS so browser
+ * clients can actually read the status + Retry-After hint. Codex P2 on
+ * PR #658 caught that the earlier version was missing CORS.
+ */
+function concurrentResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error: "A request with this idempotency key is currently being processed. Retry shortly.",
+    }),
+    {
+      status: 409,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+        "Retry-After": "2",
+      },
+    },
+  );
+}
+
+/**
  * Check whether a response for this idempotency key already exists.
  *
  * - Returns `null` if the caller should proceed with the real work (no
- *   header, or we just claimed the key).
+ *   header, or we just claimed/reclaimed the key).
  * - Returns a 409 `Response` with `Retry-After` if another isolate is
  *   currently processing the same key.
  * - Returns the cached `Response` if the request was already processed.
- *
- * Atomic claim implementation: we `upsert` a placeholder row (status = 0)
- * with `ignoreDuplicates: true`. On success, `inserted` is the new row —
- * we own the key. On conflict, `inserted` is null — somebody else owns it,
- * and we look up the stored row to decide what to return.
  */
 export async function checkIdempotency(
   req: Request,
@@ -73,18 +106,21 @@ export async function checkIdempotency(
   if (!key) return null;
 
   const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
   const claimExpiresAt = new Date(nowMs + CLAIM_TTL_MS).toISOString();
 
-  // Atomic claim via upsert. `ignoreDuplicates` makes the SELECT return 0
-  // rows on conflict — mirrors the stripe_events pattern in
-  // `supabase/functions/stripe_webhook/index.ts`.
+  // ── Attempt 1: fresh-key claim (no row exists yet) ────────────────
+  // Atomic INSERT-if-absent. Winner gets `inserted=<row>`, losers see
+  // `inserted=null` because `ignoreDuplicates: true` suppresses the
+  // conflict into a zero-row result. Mirrors stripe_events at
+  // `stripe_webhook/index.ts:79-91`.
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from("request_idempotency")
     .upsert(
       {
         key,
         body: "",
-        status: 0, // 0 = pending; real response will overwrite via storeIdempotencyResult
+        status: 0,
         headers: {},
         expires_at: claimExpiresAt,
       },
@@ -94,19 +130,20 @@ export async function checkIdempotency(
     .maybeSingle();
 
   if (insertError) {
-    // DB error — fail open (proceed without idempotency guarantee) so a
-    // transient Postgres blip doesn't block user-facing calls entirely.
+    // DB error — fail open so a transient Postgres blip doesn't block
+    // user-facing calls entirely. The consumer will proceed without
+    // idempotency, and storeIdempotencyResult will attempt to persist
+    // the result for future retries.
     console.warn("[idempotency] claim upsert failed:", insertError.message);
     return null;
   }
 
   if (inserted) {
-    // We claimed the key — caller proceeds. storeIdempotencyResult will
-    // overwrite the placeholder with the real response.
+    // Fresh key — we claimed it. Caller proceeds.
     return null;
   }
 
-  // Conflict — somebody else owns this key. Read the existing row.
+  // Row exists. Read current state.
   const { data: existing, error: selectError } = await supabaseAdmin
     .from("request_idempotency")
     .select("body, status, headers, expires_at")
@@ -119,41 +156,89 @@ export async function checkIdempotency(
   }
 
   if (!existing) {
-    // Row existed during the upsert but disappeared before our SELECT
-    // (cleanup cron, or TTL boundary). Caller proceeds without a claim.
+    // Disappeared between our upsert-ignoring-conflict and the select
+    // (cleanup cron, or explicit DELETE). Caller proceeds.
     return null;
   }
 
-  if (new Date(existing.expires_at).getTime() <= nowMs) {
-    // Stale pending claim (the owning isolate likely crashed). Caller
-    // proceeds; storeIdempotencyResult on this run will overwrite via
-    // upsert and extend the TTL.
+  const expiresAtMs = new Date(existing.expires_at).getTime();
+
+  if (expiresAtMs > nowMs) {
+    // Fresh row — either completed (return cached) or still-processing (409).
+    if (existing.status > 0) {
+      const headers = new Headers(existing.headers as Record<string, string>);
+      return new Response(existing.body, {
+        status: existing.status,
+        headers,
+      });
+    }
+    return concurrentResponse();
+  }
+
+  // ── Attempt 2: expired-row reclaim ────────────────────────────────
+  // Row exists but its TTL has passed. Previously we fell through with
+  // `return null` and let the caller proceed, but that left the stale
+  // row in place until the hourly cleanup cron — so multiple concurrent
+  // retries all took the same branch, all proceeded, and all executed
+  // side effects (the Codex P1 finding on PR #658).
+  //
+  // Fix: conditional UPDATE with `.lt("expires_at", nowIso)` as the
+  // WHERE clause. Postgres serializes concurrent updaters at the row
+  // level — exactly one isolate's UPDATE affects the row. Losers see
+  // `reclaimed=null` and re-read the current state.
+  const { data: reclaimed, error: reclaimError } = await supabaseAdmin
+    .from("request_idempotency")
+    .update({
+      body: "",
+      status: 0,
+      headers: {},
+      expires_at: claimExpiresAt,
+    })
+    .eq("key", key)
+    .lt("expires_at", nowIso)
+    .select("key")
+    .maybeSingle();
+
+  if (reclaimError) {
+    console.warn("[idempotency] reclaim update failed:", reclaimError.message);
     return null;
   }
 
-  if (existing.status > 0) {
-    // Completed — return the cached response.
-    const headers = new Headers(existing.headers as Record<string, string>);
-    return new Response(existing.body, {
-      status: existing.status,
+  if (reclaimed) {
+    // We reclaimed the expired row. Caller proceeds.
+    return null;
+  }
+
+  // Lost the reclaim race — another isolate moved the row out of the
+  // expired state. Re-read and decide.
+  const { data: current, error: currentError } = await supabaseAdmin
+    .from("request_idempotency")
+    .select("body, status, headers, expires_at")
+    .eq("key", key)
+    .maybeSingle();
+
+  if (currentError || !current) {
+    // Row gone or error. Caller proceeds without a claim.
+    return null;
+  }
+
+  if (new Date(current.expires_at).getTime() <= nowMs) {
+    // Still expired (cleanup cron, or another race). Caller proceeds;
+    // storeIdempotencyResult will upsert and refresh the TTL.
+    return null;
+  }
+
+  if (current.status > 0) {
+    const headers = new Headers(current.headers as Record<string, string>);
+    return new Response(current.body, {
+      status: current.status,
       headers,
     });
   }
 
-  // status === 0 + not expired: another isolate is still processing this
-  // key. Return 409 so the client retries shortly.
-  return new Response(
-    JSON.stringify({
-      error: "A request with this idempotency key is currently being processed. Retry shortly.",
-    }),
-    {
-      status: 409,
-      headers: {
-        "Content-Type": "application/json",
-        "Retry-After": "2",
-      },
-    },
-  );
+  // status === 0 and not expired — the winner of the reclaim race is
+  // actively processing. Return 409 so the client retries shortly.
+  return concurrentResponse();
 }
 
 /**
