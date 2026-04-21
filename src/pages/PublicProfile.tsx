@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Loader2, Shirt, Users, Crown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { hapticLight } from '@/lib/haptics';
@@ -20,7 +20,6 @@ interface PublicProfile {
   id: string;
   username: string;
   display_name: string | null;
-  avatar_path: string | null;
 }
 
 interface PublicOutfit {
@@ -50,7 +49,6 @@ export default function PublicProfile() {
   const prefersReduced = useReducedMotion();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [outfits, setOutfits] = useState<PublicOutfit[]>([]);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -64,7 +62,7 @@ export default function PublicProfile() {
 
       const { data: rawProfile, error } = await supabase
         .from('public_profiles')
-        .select('id, username, display_name, avatar_path')
+        .select('id, username, display_name')
         .eq('username', username)
         .single();
 
@@ -72,11 +70,9 @@ export default function PublicProfile() {
       if (error || !profileData) { setNotFound(true); setLoading(false); return; }
       setProfile(profileData);
 
-      // Avatar
-      if (profileData.avatar_path) {
-        const { data: url } = await supabase.storage.from('avatars').createSignedUrl(profileData.avatar_path, 3600);
-        if (url) setAvatarUrl(url.signedUrl);
-      }
+      // Avatar-image display removed (Wave 0+1 cleanup sweep): the `avatars`
+      // storage bucket is gone, feature retired. Avatar renders with initials
+      // fallback only — see CLAUDE.md Findings Log 2026-04-20, P0d-iv.
 
       // Shared outfits
       const { data: outfitData } = await supabase
@@ -151,7 +147,6 @@ export default function PublicProfile() {
           {/* Profile header */}
           <motion.div className="flex flex-col items-center gap-4 pb-8" {...stagger(0)}>
             <Avatar className="w-24 h-24 ring-2 ring-border/30 ring-offset-2 ring-offset-background">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
               <AvatarFallback className="bg-primary/8 text-primary font-semibold text-2xl">{initials}</AvatarFallback>
             </Avatar>
             <div className="text-center space-y-1">

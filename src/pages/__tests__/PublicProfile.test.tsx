@@ -42,7 +42,6 @@ function createProfileQueryResult() {
         id: 'user-1',
         username: 'stylist',
         display_name: 'Style Test',
-        avatar_path: null,
       },
       error: null,
     }),

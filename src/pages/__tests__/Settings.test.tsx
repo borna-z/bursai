@@ -16,7 +16,6 @@ vi.mock('@/hooks/useProfile', () => ({
 }));
 
 vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => false }));
-vi.mock('@/hooks/useAvatarUrl', () => ({ useAvatarUrl: () => null }));
 vi.mock('@/hooks/useSubscription', () => ({ useSubscription: () => ({ data: { plan: 'free' }, isLoading: false }) }));
 
 vi.mock('@/contexts/LanguageContext', () => ({

@@ -1,0 +1,17 @@
+-- Drop the `avatar_path` column from public.profiles.
+--
+-- Context: the `avatars` storage bucket + its 4 RLS policies were dropped from
+-- prod at an unknown date (see CLAUDE.md Findings Log 2026-04-20, P0d-iv). Any
+-- remaining `avatar_path` values in the column are dangling references to a
+-- bucket that no longer exists — avatar uploads have been broken for every new
+-- user, and the 2 of 7 prod profiles with populated `avatar_path` point to
+-- objects whose signed-URL reads already 404.
+--
+-- Product decision (per Findings Log): remove the feature rather than restore
+-- the bucket. All client-side references were deleted in this PR's frontend
+-- changes (useAvatarUrl hook, ProfileCard upload path, PublicProfile signed-URL
+-- read, schema field, test mocks). Dropping the column now closes the loop —
+-- the schema catches up with the already-dead feature.
+--
+-- Idempotent. Safe to re-run.
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS avatar_path;
