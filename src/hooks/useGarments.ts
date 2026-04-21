@@ -98,18 +98,19 @@ export function useGarments(filters?: GarmentFilters) {
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
     refetchInterval: (query) => {
+      // P15: `image_processing_status` removed from the poll gate — nothing
+      // transitions it anymore after PhotoRoom unwired. Render status is
+      // the only remaining volatile field.
       const pages = query.state.data?.pages ?? [];
       const hasProcessingGarments = pages.some((page) =>
         page.items.some((garment) =>
-          garment.image_processing_status === 'pending' ||
-          garment.image_processing_status === 'processing' ||
           garment.render_status === 'pending' ||
           garment.render_status === 'rendering'
         )
       );
 
       // Bounded to 10s to avoid hammering supabase on large wardrobes while
-      // image processing / render status updates settle.
+      // render status updates settle.
       return hasProcessingGarments ? 10000 : false;
     },
   });

@@ -287,11 +287,13 @@ interface TriggerGarmentPostSaveIntelligenceOptions {
   garmentId: string;
   storagePath: string;
   source: 'add_photo' | 'batch_add' | 'live_scan' | 'manual_enhance';
+  // P15: 'edge' and 'full' variants removed when process_garment_image was
+  // unwired. All current callers pass { mode: 'skip' }; 'local' is retained
+  // for callers that might run client-side processing (e.g. Capacitor
+  // camera integration in Wave 9).
   imageProcessing?:
-    | { mode: 'edge' }
     | { mode: 'local'; run: () => Promise<void> }
-    | { mode: 'skip' }
-    | { mode: 'full' };
+    | { mode: 'skip' };
   /** Skip Gemini render for this garment (default: auto based on source) */
   skipRender?: boolean;
 }
@@ -356,12 +358,9 @@ export function triggerGarmentPostSaveIntelligence({
       }
     });
 
-  // imageProcessing stays separate and parallel — it does not affect render prompt content
-  if (imageProcessing.mode === 'edge' || imageProcessing.mode === 'full') {
-    startGarmentImageProcessingInBackground(garmentId, source).catch((err) => {
-      logger.error(`[${source}] garment image processing trigger error (non-blocking):`, err);
-    });
-  } else if (imageProcessing.mode === 'local') {
+  // imageProcessing stays separate and parallel — it does not affect render prompt content.
+  // P15: 'edge'/'full' branch removed; only 'local' survives. 'skip' (default) does nothing.
+  if (imageProcessing.mode === 'local') {
     imageProcessing.run().catch((err) => {
       logger.error(`[${source}] local garment image processing error (non-blocking):`, err);
     });
@@ -418,18 +417,6 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
   const retrySuccess = await attempt();
   if (!retrySuccess) {
     await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
-  }
-}
-
-async function startGarmentImageProcessingInBackground(garmentId: string, source: string): Promise<void> {
-  const { error } = await invokeEdgeFunction<{ ok?: boolean; skipped?: boolean; error?: string }>('process_garment_image', {
-    timeout: 1000,
-    retries: 0,
-    body: { garmentId, source },
-  });
-
-  if (error) {
-    logger.warn('Garment image processing trigger did not confirm in time', error);
   }
 }
 
