@@ -463,7 +463,7 @@ export function garmentReadinessSignals(garment: GarmentRow): GarmentReadinessSi
           : null;
 
   const analysisConfidence = analysisConfidenceRaw == null ? null : clamp01(analysisConfidenceRaw);
-  const enrichmentReady = garment.enrichment_status === 'complete';
+  const enrichmentReady = garment.enrichment_status === 'complete' || garment.enrichment_status === 'completed';
   const imageReady = garment.image_processing_status === 'ready' || garment.image_processing_status === 'failed';
   const imageConfidence = garment.image_processing_confidence == null ? null : clamp01(garment.image_processing_confidence);
   const createdAt = garment.created_at ? new Date(garment.created_at).getTime() : null;
