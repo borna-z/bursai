@@ -53,7 +53,7 @@ serve(async (req) => {
 
     const langName = locale === "sv" ? "svenska" : "English";
     const garmentList = garments.map(g =>
-      `${g.id.slice(0, 8)}|${g.title}|${g.material || "?"}|cond:${g.condition_score ?? "?"}|worn:${g.wear_count ?? 0}|added:${g.created_at?.split("T")[0] || "?"}`
+      `${g.id}|${g.title}|${g.material || "?"}|cond:${g.condition_score ?? "?"}|worn:${g.wear_count ?? 0}|added:${g.created_at?.split("T")[0] || "?"}`
     ).join("\n");
 
     const { data: result } = await callBursAI({

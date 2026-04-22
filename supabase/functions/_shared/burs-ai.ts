@@ -186,7 +186,7 @@ export function compactGarment(g: {
   subcategory?: string | null;
 }): string {
   const parts = [
-    g.id.slice(0, 8),
+    g.id,
     g.title,
     g.subcategory || g.category,
     g.color_primary,
@@ -194,6 +194,120 @@ export function compactGarment(g: {
   if (g.material) parts.push(g.material);
   if (g.formality != null) parts.push(`f${g.formality}`);
   return parts.join("|");
+}
+
+// ─── Enrichment helpers (P24) ─────────────────────────────────
+
+/**
+ * Two enrichment paths coexist in the codebase and historically persist
+ * different terminal values to `garments.enrichment_status`:
+ *   - frontend direct-enrich path (`src/lib/garmentIntelligence.ts`,
+ *     `src/pages/GarmentDetail.tsx`, `src/components/onboarding/QuickUploadStep.tsx`)
+ *     writes `'complete'`
+ *   - backend job-queue path (`supabase/functions/process_job_queue/index.ts`
+ *     handler) writes `'completed'`
+ *
+ * Readers MUST treat both as ready — collapsing to one spelling requires a
+ * schema-cleanup migration (logged in Findings Log, 2026-04-22). Until then,
+ * these helpers accept both. Failed spelling `'failed'` is consistent across
+ * writers, no divergence there.
+ */
+export function isEnrichmentReady(status: string | null | undefined): boolean {
+  return status === "complete" || status === "completed";
+}
+
+export function isEnrichmentFailed(status: string | null | undefined): boolean {
+  return status === "failed";
+}
+
+/**
+ * Returns only garments whose `enrichment_status` is a terminal "ready" value
+ * (accepts both `'complete'` and `'completed'` — see isEnrichmentReady). Use
+ * when an AI call depends on `ai_raw` fields (style_archetype, occasion_tags,
+ * versatility_score, etc.) that the garment_enrichment job populates.
+ */
+export function filterEnrichedGarments<T extends { enrichment_status?: string | null }>(
+  garments: T[],
+): T[] {
+  return garments.filter((g) => isEnrichmentReady(g.enrichment_status));
+}
+
+/**
+ * Polls `garments.enrichment_status` until all given IDs resolve to a terminal
+ * state (ready via `isEnrichmentReady` or failed) or the timeout elapses.
+ *
+ * Does NOT submit new enrichment jobs — that is the caller's decision. If the
+ * caller wants a missing row enqueued, submit via `scale-guard.submitJob`
+ * before calling this helper.
+ *
+ * Phantom IDs (in input, not returned by the DB query — garment deleted or
+ * never existed) are bucketed as `failed` so callers don't hang on the full
+ * timeout waiting for rows that will never appear.
+ */
+export async function waitForEnrichment(
+  supabase: any,
+  garmentIds: string[],
+  opts: { timeoutMs?: number; pollIntervalMs?: number } = {},
+): Promise<{ ready: string[]; pending: string[]; failed: string[] }> {
+  // Coerce non-finite inputs (NaN, Infinity, -Infinity) to the defaults BEFORE
+  // the clamp. Without coercion, `Math.max(50, NaN)` yields NaN — `sleep(NaN)`
+  // then resolves immediately and `remaining <= 0` never holds for NaN, which
+  // turns the loop into an unbounded busy-poll. `Math.max(0, Infinity)` yields
+  // Infinity which never expires. Floors: timeout >= 0, poll >= 50ms (50ms
+  // chosen as the smallest interval that still respects the DB layer's
+  // connection-reuse budget). Codex P2 rounds 3 + 4 on PR #663.
+  const rawTimeout = opts.timeoutMs;
+  const rawPoll = opts.pollIntervalMs;
+  const timeoutMs = Math.max(0, Number.isFinite(rawTimeout) ? (rawTimeout as number) : 5000);
+  const pollIntervalMs = Math.max(50, Number.isFinite(rawPoll) ? (rawPoll as number) : 500);
+
+  if (garmentIds.length === 0) {
+    return { ready: [], pending: [], failed: [] };
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  const ready = new Set<string>();
+  const failed = new Set<string>();
+  const pending = new Set<string>(garmentIds);
+
+  while (pending.size > 0) {
+    const { data, error } = await supabase
+      .from("garments")
+      .select("id, enrichment_status")
+      .in("id", Array.from(pending));
+
+    if (error || !Array.isArray(data)) break;
+
+    const returnedIds = new Set<string>();
+    for (const row of data as Array<{ id: string; enrichment_status?: string | null }>) {
+      returnedIds.add(row.id);
+      if (isEnrichmentReady(row.enrichment_status)) {
+        ready.add(row.id);
+        pending.delete(row.id);
+      } else if (isEnrichmentFailed(row.enrichment_status)) {
+        failed.add(row.id);
+        pending.delete(row.id);
+      }
+    }
+
+    for (const id of Array.from(pending)) {
+      if (!returnedIds.has(id)) {
+        failed.add(id);
+        pending.delete(id);
+      }
+    }
+
+    if (pending.size === 0) break;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await sleep(Math.min(pollIntervalMs, remaining));
+  }
+
+  return {
+    ready: Array.from(ready),
+    pending: Array.from(pending),
+    failed: Array.from(failed),
+  };
 }
 
 // ─── DB Cache ─────────────────────────────────────────────────

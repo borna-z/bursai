@@ -51,7 +51,7 @@ async function processSingleUser(
     // equivalent; `compactGarment` narrows the shape internally.
     const garmentList = garments.map((g: any) => compactGarment(g)).join("\n");
     const prompt = compressPrompt(`You are a personal stylist. Suggest 2 outfits for today from this wardrobe.
-Pick garments by their short ID (first 8 chars).
+Pick garments by their ID.
 
 WARDROBE:
 ${garmentList}`);

@@ -108,7 +108,7 @@ serve(async (req) => {
       `${g.id}|${g.title}|${g.category}${g.subcategory ? "/" + g.subcategory : ""}|${g.color_primary}|w${g.wear_count || 0}|${g.last_worn_at || "never"}`
     ).join("\n");
 
-    const unusedIds = unusedGarments.map(g => g.id.slice(0, 8)).join(",");
+    const unusedIds = unusedGarments.map(g => g.id).join(",");
 
     const { data: result } = await callBursAI({
       complexity: "standard",
