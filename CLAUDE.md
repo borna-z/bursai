@@ -573,6 +573,48 @@ Closes Wave 4 by draining all open findings — pre-existing (Waves 0-3) plus an
 - Files: `supabase/functions/verify_iap_receipt/index.ts` (new)
 - Deploy: new function
 
+#### Wave 10.5 — Vertex AI + Gemini 3 Migration (Pre-Launch)
+
+Migrates BURS's entire AI surface from Google AI Studio + Gemini 2.5 → **Vertex AI** (`aiplatform.googleapis.com`, region `europe-west4`, service-account OAuth) + **Gemini 3.x** models. Model mapping: `gemini-2.5-flash` → `gemini-3-flash` (GA), `gemini-2.5-flash-lite` → `gemini-3.1-flash-lite-preview`, `gemini-2.5-flash-image` → `gemini-3.1-flash-image-preview` ("Nano Banana 2").
+
+**Full plan, audit table, breaking changes, risks, cost:** see [`docs/VERTEX_MIGRATION_PLAN.md`](docs/VERTEX_MIGRATION_PLAN.md).
+
+Slotted between Wave 10 and Wave 11 so the AI upgrade lands before TestFlight (Wave 11 P80) but after the subscription + IAP plumbing stabilizes. 6 PRs corresponding to the 6 phases in the plan doc.
+
+**P(V1) [TODO]** Phase 1 — Shared Vertex client + auth shim
+- New `supabase/functions/_shared/vertex-auth.ts` (SA JSON → JWT → OAuth token + cache). Rewrite `_shared/burs-ai.ts` transport: Vertex REST + Bearer auth + OpenAI↔native adapter + preview-model fallback + SSE keepalive injection. Update `_shared/scale-guard.ts` `estimateCost()` pricing map.
+- Files: `supabase/functions/_shared/vertex-auth.ts` (new), `supabase/functions/_shared/burs-ai.ts`, `supabase/functions/_shared/scale-guard.ts`
+- Deploy: **none** (code ships on main, no caller uses the new path until Phase 2).
+- Pre-req: new Supabase secrets `GCP_SERVICE_ACCOUNT_JSON_B64`, `GCP_PROJECT_ID`, `GCP_LOCATION=europe-west4` provisioned by user. Vertex AI quota increase submitted for all three target models in `europe-west4`.
+
+**P(V2) [TODO]** Phase 2 — Tier 1 functions (5, one PR)
+- Flip `wardrobe_aging`, `style_twin`, `summarize_day`, `wardrobe_gap_analysis`, `prefetch_suggestions` to new transport. Model IDs auto-upgrade via `COMPLEXITY_CHAINS`.
+- Deploy: 5 functions. Gate: 24h clean prod telemetry.
+
+**P(V3) [TODO]** Phase 3 — Tier 2 functions (7, two PRs)
+- Non-multimodal PR: `detect_duplicate_garment`, `suggest_accessories`, `suggest_outfit_combinations`, `clone_outfit_dna`, `travel_capsule`.
+- Multimodal PR: `visual_search`, `assess_garment_condition` + token-budget benchmark for §4.3 image tokenization.
+- Deploy: 7 functions. Gate: 24h clean telemetry after multimodal PR.
+
+**P(V4) [TODO]** Phase 4 — Tier 3 hot path (8 PRs: 7 function flips + 1 prep-only)
+- Order: `analyze_garment` → `outfit_photo_feedback` → `burs_style_engine` → `generate_outfit` → `mood_outfit` (streaming+keepalive, single-turn) → **PR 4-6 thought-signature plumbing (prep-only, no function flip)** → `shopping_chat` (streaming) → `style_chat` (streaming, LAST).
+- Deploy: 7 functions. PR 4-6 deploys no function — just lands the migration + shared signature adapter.
+- Schema: `chat_messages.thought_signature TEXT NULL` migration ships in PR 4-6 BEFORE either chat function flips (Codex P1 on PR #667 — original sequence flipped shopping_chat before the signature plumbing, creating a 24h degradation window).
+
+**P(V5) [TODO]** Phase 5 — Image generation + text gate (1 PR)
+- `_shared/gemini-image-client.ts` → `gemini-3.1-flash-image-preview` (Nano Banana 2) + Vertex endpoint + OAuth.
+- `_shared/render-eligibility.ts` text-gate → `gemini-3-flash` + Vertex.
+- `RENDER_PROMPT_VERSION` v2 → v3 (invalidates stale credit reservations per Wave 3-B precedent).
+- Visual quality benchmark across 6 category variants before merge.
+- Deploy: `render_garment_image`, `generate_garment_images`, `generate_flatlay`. Gate: 48h clean telemetry.
+
+**P(V6) [TODO]** Phase 6 — Cleanup + canonical doc flip
+- Remove OpenAI-compat adapter layer in `_shared/burs-ai.ts`. Remove `GEMINI_API_KEY` secret (after 7-day stability window). Collapse 3 `GEMINI_*_URL_OVERRIDE` env vars into single `VERTEX_URL_OVERRIDE`. Update smoke-test mock server to Vertex REST shapes.
+- **Canonical doc flips** (only land AFTER migration is proven):
+  - Root `CLAUDE.md` "AI" row in Project Identity → new target-state description.
+  - `supabase/functions/CLAUDE.md` § "AI Calls" routing table → new model IDs + env-var list.
+- Deploy: all 22 AI functions (burs-ai.ts shared-module radius).
+
 #### Wave 11 — Launch Prep
 
 **P78 [TODO]** App Store Connect listing
