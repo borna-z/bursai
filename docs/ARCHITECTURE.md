@@ -158,7 +158,6 @@ signature verification or are read-only.
 | `style_chat` | AI stylist conversation | JWT | Yes |
 | `mood_outfit` | Mood-based outfit generation | JWT | Yes |
 | `visual_search` | Photo-based wardrobe matching | JWT | Yes |
-| `smart_shopping_list` | AI shopping recommendations | JWT | Yes |
 | `wardrobe_aging` | Garment lifespan predictions | JWT | Yes |
 | `style_twin` | Style archetype matching | JWT | Yes |
 | `generate_flatlay` | AI flat-lay image generation | JWT | Yes |

@@ -18,6 +18,27 @@ Full executable spec for every prompt referenced by CLAUDE.md's Launch Plan sect
 
 ---
 
+## Standing Rules
+
+### Wave Closure Rule — Findings Cleanup Before Advancing (effective 2026-04-23)
+
+Every wave ends with an **Nx.9 Findings Cleanup sub-wave**. The next wave does not begin until the cleanup closes. Goal: drain the Findings Log's "NOT RESOLVED" rows attributable to that wave (plus any inherited from earlier waves) to zero.
+
+**Mechanics**
+1. After Wave N's last functional sub-wave ships, the next agent opens **Wave N.9**.
+2. The opening agent re-reads the entire Findings Log in CLAUDE.md, filters rows whose Action column does NOT contain `RESOLVED in PR #...`, and groups them into PR-sized clusters by theme (schema, docs, i18n, observability, housekeeping).
+3. Each cluster ships as a focused PR. Completion Log rows carry the `[cleanup]` suffix for trivial filtering.
+4. `CURRENT PROMPT` does not advance past Wave N.9 until every open row attributable to Wave N or earlier is either `RESOLVED` or carries a `Scheduled: Wave Y` deferral annotation.
+5. User-action items (secret provisioning, dashboard checks, manual git housekeeping) live as checkbox lists inside N.9 PR bodies — not as their own PRs.
+
+**Scope freeze**: N.9 is NOT for new features or scope-expanded fixes. Anything requiring architectural decisions gets `Scheduled:` + opens its own prompt in the next wave.
+
+**History carryover**: Waves 0-3 accumulated findings before this rule existed. They all roll into **Wave 4.9** (first application). Waves 5+ keep findings self-contained.
+
+**Suffix convention on the prompt ID:** cleanup PRs are numbered `W<N>.9-A`, `W<N>.9-B`, etc., in alphabetical order of merge sequence. They do not consume P-numbers from the main prompt list (those are reserved for forward work).
+
+---
+
 ## Wave 0 — Safety Net (do first)
 
 ### P0a — Husky pre-commit hook
@@ -1558,6 +1579,281 @@ Requires passing garment metadata to both functions. In `generate_outfit`, the b
 - Documented in PR body
 
 **Deploy** `clone_outfit_dna`
+
+---
+
+## Wave 4.5 — Secondary Image + Swap Primary (Product Feature)
+
+Optional second image per garment, addable **only after the garment is already saved and rendered** — not part of the initial AddGarment flow. Once a secondary exists, the user chooses which image is the **primary / source of truth** via a one-tap swap. The primary drives:
+- The wardrobe card display.
+- Every AI consumer of `image_path` (analyze_garment enrichment, render_garment_image, outfit scoring — all read `image_path` today and continue to read `image_path` post-swap with zero code change).
+
+Swap triggers re-enrichment + re-render so the AI outputs stay in sync with the new primary. Entirely opt-in per garment, no backfill.
+
+### Design note — why swap VALUES, not a pointer column
+
+Swap is implemented as a single atomic UPDATE that exchanges the values of `image_path` and `secondary_image_path`:
+
+```sql
+UPDATE "public"."garments"
+SET image_path = secondary_image_path,
+    secondary_image_path = image_path
+WHERE id = $1 AND user_id = auth.uid();
+```
+
+This keeps `image_path` as the **universal source of truth**. Every reader — wardrobe card, `analyze_garment`, `render_garment_image`, outfit scoring, edge functions that fetch garments, React Query selectors — continues reading `image_path` with zero code changes. Alternative designs (a `primary_is_secondary` flag, a `primary_image_slot` enum) would require touching every single reader; the value-swap approach is O(1) in blast radius.
+
+---
+
+### P27a — Schema: nullable `secondary_image_path` on garments
+
+**Problem**
+Garments have a single `image_path`. There's no way to store an alternate image the user might prefer once they see the render.
+
+**Fix**
+1. New migration adds one column:
+   ```sql
+   ALTER TABLE "public"."garments"
+     ADD COLUMN IF NOT EXISTS "secondary_image_path" "text";
+   ```
+   Nullable. No default. No CHECK constraint. Matches existing `original_image_path` / `processed_image_path` / `rendered_image_path` naming.
+2. No storage-bucket migration — existing `garments` bucket reused. File convention: `${userId}/${garmentId}_secondary.jpg`.
+3. No backfill. No swap RPC — swap is one atomic UPDATE (see design note above), executable from the Supabase JS client.
+
+**Files**
+- New migration `supabase/migrations/<ts>_garments_secondary_image.sql`
+
+**Acceptance**
+- `npx supabase migration list --linked` shows the new migration as Local-only until post-merge push.
+- `npx supabase db push --linked --dry-run` lists exactly this migration.
+- Existing rows unchanged; new column defaults to NULL.
+
+**Deploy**
+Post-merge from main: `npx supabase db push --linked --yes`. No edge-function redeploy (every consumer continues reading `image_path` — the new column is inert until wired up in P27b).
+
+---
+
+### P27b — Secondary image management: add, swap primary, delete (post-save, GarmentDetail only)
+
+**Problem**
+The column exists but there's no UI. Users can't add, swap, or remove a secondary.
+
+**Fix**
+Entry point is `src/pages/GarmentDetail.tsx` **only**. Do NOT touch `AddGarment.tsx`, `LiveScan.tsx` as a first-step, or onboarding — the feature is post-save-only per product spec.
+
+**Guardrail** (applies to every action below): action is disabled while `render_status === 'pending' | 'rendering'` OR `enrichment_status === 'processing' | 'in_progress'`. Show a toast "Wait for current enrichment / render to finish" on disabled-click. This prevents racing the worker.
+
+**Add secondary**
+1. "Add alternate photo" button in GarmentDetail. Invokes the existing `LiveScan` capture component (no new Median-hook code — `useMedianCamera.ts`, `useMedianStatusBar.ts`, `src/lib/median.ts` stay frozen until Wave 9). Browser fallback to file input is already built into LiveScan.
+2. Upload to `garments/${userId}/${garmentId}_secondary.jpg` in the existing `garments` bucket.
+3. Single `UPDATE garments SET secondary_image_path = $1 WHERE id = $2 AND user_id = $3`.
+4. Triggers NOTHING in the AI pipeline — the secondary is not the primary yet.
+5. Haptic: `hapticLight()` on tap.
+
+**Swap primary ↔ secondary**
+1. "Use this as primary" button on the secondary preview.
+2. Atomic UPDATE (see design note):
+   ```sql
+   UPDATE "public"."garments"
+   SET image_path = secondary_image_path,
+       secondary_image_path = image_path,
+       enrichment_status = 'pending',
+       ai_raw = NULL,
+       ai_analyzed_at = NULL,
+       ai_provider = NULL,
+       silhouette = NULL,
+       visual_weight = NULL,
+       texture_intensity = NULL,
+       style_archetype = NULL,
+       occasion_tags = NULL,
+       versatility_score = NULL,
+       render_status = 'pending',
+       rendered_image_path = NULL,
+       rendered_at = NULL,
+       render_error = NULL
+   WHERE id = $1 AND user_id = auth.uid();
+   ```
+   RLS enforces ownership. Single statement = no intermediate state; a concurrent read sees either the pre-swap row or the post-swap row, never both.
+3. Client-side enqueues:
+   - Fresh enrichment via the same code path AddGarment uses today (likely `triggerGarmentPostSaveIntelligence` in `src/lib/garmentIntelligence.ts` — verify).
+   - Fresh render job via `useEnqueueRenderJob.ts` (the existing hook — verify it handles the "already exists, being replaced" case; if not, extend).
+4. Render credit ledger: swap consumes one render credit. This is expected behavior and called out in the PR body — the user asked for a fresh render based on a new source.
+5. Haptic: `hapticLight()` on swap confirmation; toast "Primary photo updated — re-rendering…".
+
+**Delete secondary**
+1. "Remove" button on the secondary preview.
+2. Supabase storage delete on `garments/${userId}/${garmentId}_secondary.jpg`.
+3. `UPDATE garments SET secondary_image_path = NULL WHERE id = $1 AND user_id = $2`.
+4. Triggers NOTHING in the AI pipeline — the secondary was not primary.
+
+**UI**
+- In GarmentDetail hero: primary image large (unchanged), small thumbnail of secondary adjacent with subtle "alternate" label.
+- Tap secondary thumbnail → modal expansion with the two action buttons "Use as primary" and "Remove".
+- Motion: `EASE_CURVE` from `src/lib/motion.ts` on the modal transition.
+
+**Files**
+- `src/pages/GarmentDetail.tsx`
+- `src/components/garment/SecondaryImageManager.tsx` (new)
+- `src/lib/garmentIntelligence.ts` (only if the existing trigger path needs a re-entrant variant — verify at scope time)
+- `src/hooks/useEnqueueRenderJob.ts` (same — verify)
+
+**Acceptance**
+- With zero secondary: GarmentDetail shows "Add alternate photo" button; no secondary UI elsewhere.
+- After add: secondary thumbnail appears; "Use as primary" and "Remove" work.
+- After swap: primary image updates immediately (optimistic), enrichment + render re-fire, re-rendered image arrives and displays. The OLD primary is now the secondary — user can swap back.
+- After delete: secondary thumbnail disappears, storage object gone, column NULL.
+- Guardrail: action buttons disabled during in-flight enrichment/render with a toast on disabled-click.
+- No Median-hook file is modified.
+- Wardrobe card (`src/pages/Wardrobe.tsx`) and all AI edge functions are NOT modified (they read `image_path` and continue to read `image_path`).
+
+**Deploy** none (backend untouched; pure client + DB work)
+
+---
+
+## Wave 4.9 — Findings Cleanup (closing sub-wave, first application of Wave Closure Rule)
+
+Wave 4.9 closes Wave 4 by draining every open Findings Log row attributable to Waves 0-3 + anything discovered during Wave 4-B / 4-C / 4.5 implementation. PR clusters below are the starting scope as of the rule's introduction (2026-04-23); the Wave 4.9 opening agent re-audits the Findings Log at entry and adds any newer open rows.
+
+Each Wave 4.9 PR's Completion Log row carries the `[cleanup]` suffix for filterability.
+
+---
+
+### W4.9-A — Schema cleanup (biggest PR)
+
+**Problem**
+Four findings share the `garments` + `job_queue` tables and MUST ship together because they interlock: drop a column that a gate still reads → gate breaks at runtime; drop the column without backfilling `enrichment_status` spelling → helpers silently see partial data.
+
+**Fix**
+1. New migration `supabase/migrations/<ts>_drop_image_processing_columns.sql`:
+   ```sql
+   ALTER TABLE public.garments
+     DROP COLUMN IF EXISTS image_processing_status,
+     DROP COLUMN IF EXISTS image_processing_provider,
+     DROP COLUMN IF EXISTS image_processing_confidence,
+     DROP COLUMN IF EXISTS image_processing_error,
+     DROP COLUMN IF EXISTS image_processed_at,
+     DROP COLUMN IF EXISTS processed_image_path;
+   DELETE FROM public.job_queue WHERE job_type = 'image_processing';
+   ```
+2. New migration `supabase/migrations/<ts>_backfill_enrichment_status.sql`:
+   ```sql
+   UPDATE public.garments SET enrichment_status = 'completed' WHERE enrichment_status = 'complete';
+   UPDATE public.garments SET enrichment_status = 'processing' WHERE enrichment_status = 'in_progress';
+   ```
+3. Remove the `image_processing_status !== 'ready'` gate line in `supabase/functions/_shared/outfit-scoring-body.ts` around line 467 (verify line number at edit time — shifting content may have moved it).
+4. Update 3 frontend writers to emit canonical enrichment_status values:
+   - `src/lib/garmentIntelligence.ts:437` — `'complete'` → `'completed'`
+   - `src/pages/GarmentDetail.tsx:215` — `'complete'` → `'completed'`
+   - `src/components/onboarding/QuickUploadStep.tsx:108` — `'complete'` → `'completed'`
+5. Keep `isEnrichmentReady` helper's dual-spelling acceptance (shipped in P24) indefinitely as defensive programming — bounded cost, future-proofs against writer drift.
+6. Pre-drop grep sweep: `grep -rn "image_processing_" src/ supabase/` must return zero non-migration matches before running the column-drop migration. Attach grep output to PR body.
+7. Pre-drop backup: from Supabase SQL editor, run `COPY public.garments TO '/tmp/garments_backup_pre_4_9_a.csv' CSV HEADER;` and save the file off-server for 30 days.
+
+**Files**
+- `supabase/migrations/<ts>_drop_image_processing_columns.sql` (new)
+- `supabase/migrations/<ts>_backfill_enrichment_status.sql` (new)
+- `supabase/functions/_shared/outfit-scoring-body.ts`
+- `src/lib/garmentIntelligence.ts`
+- `src/pages/GarmentDetail.tsx`
+- `src/components/onboarding/QuickUploadStep.tsx`
+
+**Acceptance**
+- `SELECT DISTINCT enrichment_status FROM garments` returns only `{completed, processing, pending, failed}` post-backfill.
+- `SELECT column_name FROM information_schema.columns WHERE table_name='garments' AND column_name LIKE 'image_processing%'` returns zero rows.
+- `SELECT count(*) FROM public.job_queue WHERE job_type = 'image_processing'` returns 0.
+- Full `npx vitest run` passes; tsc/eslint/build clean.
+- `deno check supabase/functions/burs_style_engine/index.ts` clean post-edit.
+
+**Deploy** `burs_style_engine` (only runtime consumer of outfit-scoring-body whose behavior changes here).
+
+---
+
+### W4.9-B — Docs + i18n drift
+
+**Problem**
+Two doc-only findings bundled because both are zero-code-impact and share the "documentation maintenance" theme.
+
+**Fix**
+1. Fix LAUNCH_PLAN.md P8 spec column-name error (P8 Finding): the `.like("cache_namespace", ...)` reference in the P8 Fix section points to a column that never existed on `ai_response_cache`. Replace that code block with the TTL-decay mitigation comment that actually shipped in PR #652 + a pointer to the L554 schema change (PR #659) that fixed the underlying impossibility via a `user_id` column.
+2. Remove 5 orphan `settings.avatar_*` i18n keys from all 14 locale files (cleanup B Finding). Keys: `settings.avatar_invalid`, `settings.avatar_too_large`, `settings.avatar_updated`, `settings.avatar_error`, `settings.change_photo`. Safe to delete — PR #654 removed the only caller (`ProfileCard.tsx` avatar upload path). The append-only rule in CLAUDE.md protects LIVE keys; dead ones can be removed.
+3. Confirm via grep: `grep -rn "settings.avatar_" src/` returns zero matches post-edit.
+
+**Files**
+- `LAUNCH_PLAN.md` (P8 section body)
+- `src/i18n/locales/en.ts` + `sv.ts` + 12 other locale files (14 total)
+
+**Acceptance**
+- `grep -rn "settings.avatar_" src/` returns zero matches.
+- LAUNCH_PLAN.md P8 section no longer references a `cache_namespace` column.
+- tsc/eslint/build clean; vitest passes.
+
+**Deploy** None.
+
+---
+
+### W4.9-C — Observability hook: validator_unavailable fail-open
+
+**Problem**
+When `validateRenderedGarmentOutputWithGemini` fails open on attempt 1 (the "fail-open-on-first-attempt" path — shipped intentionally in Wave 3-B so a validator outage doesn't block rendering), there is no signal. Aggregate validator outages are invisible until user-facing render quality degrades. Wave 3-B Finding #8.
+
+**Fix**
+At the fail-open branch in `supabase/functions/render_garment_image/index.ts`, add:
+```ts
+Sentry.captureMessage('render_validator_unavailable', {
+  level: 'warning',
+  tags: {
+    attempt: attemptIndex,      // 1, 2, or 3
+    category: presentationClass,
+    reason: classifiedReason,   // 'validator_fetch_failed' | 'validator_timeout' | 'validator_bad_response'
+  },
+});
+```
+
+Use the existing reason-classification code path (same variable names as current code — do not invent new ones). If classifiedReason is `undefined`, pass `'unknown'`.
+
+**Files**
+- `supabase/functions/render_garment_image/index.ts`
+
+**Acceptance**
+- Sentry DSN receives the new message type in a preview deploy (manually triggered via known-bad validator URL override).
+- Tag values populate correctly.
+- Production Sentry alert rule configured is a follow-up task, NOT a merge blocker.
+
+**Deploy** `render_garment_image`.
+
+---
+
+### W4.9-D — P0c execution: Fix Protocol wording audit
+
+**Problem**
+P0c was scheduled at the start of Wave 0 as "verify the Fix Protocol section in CLAUDE.md is in place and adjust wording based on experience." It has been superseded multiple times since — the Launch Plan Update rule now lives inside Fix Protocol; the code-reviewer agent call is post-code pre-push, not gated. Some prose no longer matches current practice.
+
+**Fix**
+Read the Fix Protocol section of root CLAUDE.md end-to-end. For each bullet, confirm it reflects what we actually do today. Where prose diverges:
+- Update wording to match current practice.
+- Preserve section structure; don't reorganize.
+- Leave correct rules untouched even if adjacent ones need edits.
+
+Prose-only audit. No code, no migration.
+
+**Files**
+- `CLAUDE.md` (Fix Protocol section only)
+
+**Acceptance**
+- A new agent reading Fix Protocol for the first time finds instructions that produce the workflow we actually follow (Agent(code-reviewer) post-code pre-push, Launch Plan Update inside the fix PR, etc.).
+- No unreferenced rules remain; no references to removed tools/workflows.
+
+**Deploy** None.
+
+---
+
+### Wave 4.9 user-action items (checkbox list inside W4.9-A or W4.9-B PR body)
+
+These are user tasks, not agent tasks. Tracking them here ensures nothing slips:
+
+- [ ] Provision `SUPABASE_SERVICE_ROLE_KEY_TEST` in GitHub repo Settings → Secrets and variables → Actions (P0d-iv Finding). Until this lands, every push-to-main smoke-prod CI step fails loud by design (shipped in PR #653).
+- [ ] In `C:\Users\borna\OneDrive\Desktop\BZ\Burs\bursai-working` (primary repo, NOT a worktree): `git merge --abort && git checkout main && git pull --ff-only`. Then list worktrees (`git worktree list`) and prune unused ones (`git worktree remove <path>`). Surfaced during P4 session (stale merge state from prior agent).
+- [ ] Audit Supabase Dashboard → Edge Functions → Schedules for any entry targeting `calendar` or `sync_all`. If none present: `calendar.handleSyncAll` handler is dead code — file follow-up mini-PR to delete. P2 Finding.
 
 ---
 

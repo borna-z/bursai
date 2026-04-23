@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, estimateMaxTokens, filterEnrichedGarments } from "../_shared/burs-ai.ts";
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
@@ -8,6 +8,7 @@ import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, rec
 import { classifySlot } from "../_shared/burs-slots.ts";
 import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { logger } from "../_shared/logger.ts";
+import { MOOD_MAP, rankGarmentsForMood, formalityLabel } from "../_shared/retrieval.ts";
 
 const log = logger("mood_outfit");
 
@@ -18,21 +19,6 @@ const AI_TIMEOUT_MS = 26000;
 function normalizeValue(value: unknown): string {
   return String(value || "").trim().toLowerCase();
 }
-
-const MOOD_MAP: Record<string, { formality: string; colors: string; materials: string; vibe: string }> = {
-  cozy: { formality: "casual, low", colors: "warm earth tones, cream, beige, soft browns", materials: "knit, fleece, cashmere, cotton", vibe: "soft, comfortable, enveloping" },
-  confident: { formality: "smart-casual to formal", colors: "strong, saturated - black, red, navy, white", materials: "structured fabrics, leather, tailored wool", vibe: "powerful, sharp, put-together" },
-  creative: { formality: "relaxed, expressive", colors: "unexpected combos, bold accents, patterns", materials: "mixed textures, statement pieces", vibe: "artistic, unique, eye-catching" },
-  invisible: { formality: "neutral, blending", colors: "muted neutrals, grey, navy, black, white", materials: "standard, unremarkable", vibe: "understated, minimal, no-attention" },
-  romantic: { formality: "soft elegant", colors: "pastels, blush, soft white, dusty rose", materials: "silk, lace, flowing fabrics", vibe: "gentle, feminine, dreamy" },
-  energetic: { formality: "casual, sporty-chic", colors: "bright, vibrant - yellow, orange, electric blue", materials: "lightweight, breathable", vibe: "active, upbeat, fun" },
-  grounded: { formality: "casual, relaxed", colors: "olive, khaki, tan, warm brown, sage", materials: "cotton, linen, canvas, suede", vibe: "earthy, authentic, natural" },
-  sharp: { formality: "formal, tailored", colors: "black, charcoal, cream, gold accents", materials: "tailored wool, crisp cotton, structured fabrics", vibe: "precise, polished, intentional" },
-  soft: { formality: "casual-elegant, low contrast", colors: "powder blue, lavender, light grey, off-white", materials: "cashmere, soft knit, silk blend", vibe: "muted, gentle, calming" },
-  bold: { formality: "statement, high-impact", colors: "red, deep black, white, high contrast", materials: "leather, structured fabrics, bold textures", vibe: "maximum, unapologetic, attention-commanding" },
-  editorial: { formality: "avant-garde, fashion-forward", colors: "navy, gold, deep teal, monochrome", materials: "architectural fabrics, unusual cuts, layering", vibe: "magazine-ready, conceptual, curated" },
-  playful: { formality: "casual, fun", colors: "pink, orange, purple, unexpected color combos", materials: "mixed prints, playful textures", vibe: "fun, spontaneous, joyful" },
-};
 
 function inferSlotFromGarment(garment: { category?: string | null; subcategory?: string | null }): string {
   return classifySlot(garment.category, garment.subcategory) || "top";
@@ -190,7 +176,7 @@ async function generateMoodOutfitPayload(
 
   const { data: garments, error: gErr } = await supabase
     .from("garments")
-    .select("id, title, category, subcategory, color_primary, material, formality, pattern, wear_count")
+    .select("id, title, category, subcategory, color_primary, color_secondary, material, formality, pattern, wear_count, season_tags, enrichment_status, ai_raw, created_at")
     .eq("user_id", userId)
     .eq("in_laundry", false)
     .order("created_at", { ascending: false })
@@ -207,22 +193,92 @@ async function generateMoodOutfitPayload(
     };
   }
 
-  const garmentList = garments.map((g) => `${g.id}|${g.title}|${g.category}|${g.color_primary}|${g.material || "?"}|f${g.formality || 3}`).join("\n");
+  // Wave 4-B (P20): semantic pre-filter. Rank garments for this mood,
+  // cap at 40. If >=70% of the top candidates are enriched we filter to
+  // enriched-only for cleaner signals; otherwise we send what we have.
+  const RETRIEVAL_LIMIT = 40;
+  const ranked = rankGarmentsForMood(mood, garments, { limit: RETRIEVAL_LIMIT * 2, weather });
+  const enrichedInRanked = filterEnrichedGarments(ranked);
+  const enrichmentRatio = ranked.length > 0 ? enrichedInRanked.length / ranked.length : 0;
+  const enrichmentFilterApplied = enrichmentRatio >= 0.7;
+  const scoredPool = enrichmentFilterApplied ? enrichedInRanked : ranked;
+  const initialPrompt = scoredPool.slice(0, RETRIEVAL_LIMIT);
+  const promptGarments = [...initialPrompt];
+
+  // Slot-coverage guarantee (Codex P1 on PR #664): truncating to 40 can
+  // drop the last shoe / bottom / dress when a wardrobe skews heavily
+  // toward one category (e.g. 35 tops + 3 bottoms + 2 shoes). The outer
+  // `canBuildCompleteOutfitPath(garments)` check already confirmed the
+  // FULL wardrobe can produce a valid outfit — we just need the subset
+  // to preserve that path. Greedily extend the prompt with the next-best
+  // ranked garments (and then unranked wardrobe rows as fallback) until
+  // a complete path is restored. Worst case adds a handful of items.
+  if (!canBuildCompleteOutfitPath(promptGarments)) {
+    const already = new Set(promptGarments.map((g) => g.id));
+    const seen = new Set<string>(already);
+    const candidates: typeof garments = [];
+    for (const g of scoredPool) {
+      if (!seen.has(g.id)) { candidates.push(g); seen.add(g.id); }
+    }
+    for (const g of garments) {
+      if (!seen.has(g.id)) { candidates.push(g); seen.add(g.id); }
+    }
+    for (const g of candidates) {
+      promptGarments.push(g);
+      already.add(g.id);
+      if (canBuildCompleteOutfitPath(promptGarments)) break;
+    }
+  }
+
+  log.info("retrieval.prefilter", {
+    requestId,
+    userId,
+    mood,
+    total_garments_available: garments.length,
+    garments_ranked: ranked.length,
+    garments_enriched_in_top: enrichedInRanked.length,
+    garments_sent_to_ai: promptGarments.length,
+    enrichment_filter_applied: enrichmentFilterApplied,
+    slot_coverage_forced: promptGarments.length > initialPrompt.length,
+  });
+
+  // Structured garment shape — replaces the opaque pipe-delimited
+  // `f3` code with English formality labels + enrichment fields so
+  // the model reasons on semantics, not on encoded numbers.
+  const garmentEntries = promptGarments.map((g) => {
+    const aiRaw = g.ai_raw as { occasion_tags?: string[] | null; style_archetype?: string | null } | null;
+    const occasionTags = Array.isArray(aiRaw?.occasion_tags) ? aiRaw!.occasion_tags!.join(",") : "";
+    const archetype = aiRaw?.style_archetype || "";
+    return {
+      id: g.id,
+      title: g.title || "",
+      category: g.category || "",
+      subcategory: g.subcategory || "",
+      color: g.color_primary || "",
+      material: g.material || "",
+      pattern: g.pattern || "",
+      formality: formalityLabel(g.formality),
+      occasion_tags: occasionTags,
+      style: archetype,
+    };
+  });
+  const garmentList = JSON.stringify(garmentEntries);
   const langName = locale === "sv" ? "svenska" : "English";
 
   const aiResponse = await callBursAI({
     stream: false,
     complexity: "complex",
     timeout: AI_TIMEOUT_MS,
-    max_tokens: estimateMaxTokens({ outputItems: 5, perItemTokens: 40, baseTokens: 120 }),
+    max_tokens: estimateMaxTokens({ inputItems: promptGarments.length, outputItems: 5, perItemTokens: 40, baseTokens: 200 }),
     functionName: "mood_outfit",
     messages: [
       { role: "system", content: `${VOICE_MOOD_OUTFIT}
 
 Mood:"${mood}" - Direction: ${moodParams.formality} | Colors: ${moodParams.colors} | Vibe: ${moodParams.vibe}
 ${weather?.temperature !== undefined ? `Weather: ${weather.temperature}C` : ""}
-Rules: return a complete, wearable outfit only. Valid cores are top+bottom+shoes or dress+shoes. If weather-appropriate outerwear exists and the weather calls for it, include outerwear. Never return a base outfit without shoes. Only IDs from list. Prioritize less-worn. Respond in ${langName}.
-WARDROBE:\n${garmentList}` },
+Rules: return a complete, wearable outfit only. Valid cores are top+bottom+shoes or dress+shoes. If weather-appropriate outerwear exists and the weather calls for it, include outerwear. Never return a base outfit without shoes. Only use IDs from the WARDROBE JSON below — any other ID is invalid. Prioritize less-worn. Respond in ${langName}.
+WARDROBE (JSON array of ${promptGarments.length} pre-ranked garments):
+${garmentList}` },
       { role: "user", content: `Feeling ${mood}. Create outfit.` },
     ],
     tools: [{

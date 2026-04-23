@@ -40,7 +40,6 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   suggest_accessories:         { maxPerHour: 30, maxPerMinute: 5 },
   clone_outfit_dna:            { maxPerHour: 20, maxPerMinute: 4 },
   travel_capsule:              { maxPerHour: 15, maxPerMinute: 3 },
-  smart_shopping_list:         { maxPerHour: 20, maxPerMinute: 4 },
   shopping_chat:               { maxPerHour: 60, maxPerMinute: 10 },
   visual_search:               { maxPerHour: 30, maxPerMinute: 5 },
 
