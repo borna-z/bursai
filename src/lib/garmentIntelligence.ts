@@ -346,6 +346,13 @@ interface TriggerGarmentPostSaveIntelligenceOptions {
     | { mode: 'skip' };
   /** Skip Gemini render for this garment (default: auto based on source) */
   skipRender?: boolean;
+  /**
+   * Forwarded to `startGarmentRenderInBackground` when it fires after
+   * enrichment settles. Used by re-render flows (Wave 4.5-B swap) that
+   * must bypass the worker's product-ready gate on an already-rendered
+   * garment. Default: first-time generation (force:false).
+   */
+  renderOptions?: { force?: boolean };
 }
 
 export function buildGarmentIntelligenceFields({
@@ -385,6 +392,7 @@ export function triggerGarmentPostSaveIntelligence({
   source,
   imageProcessing = { mode: 'skip' as const },
   skipRender,
+  renderOptions,
 }: TriggerGarmentPostSaveIntelligenceOptions): void {
   const shouldRender = !skipRender && (
     source === 'add_photo' || source === 'batch_add'
@@ -394,7 +402,7 @@ export function triggerGarmentPostSaveIntelligence({
   enrichGarmentInBackground(garmentId, storagePath)
     .then(() => {
       if (shouldRender) {
-        startGarmentRenderInBackground(garmentId, source).catch((err) => {
+        startGarmentRenderInBackground(garmentId, source, renderOptions).catch((err) => {
           logger.error(`[${source}] render trigger error (post-enrichment):`, err);
         });
       }
@@ -402,7 +410,7 @@ export function triggerGarmentPostSaveIntelligence({
     .catch((err) => {
       logger.error(`[${source}] enrichment error:`, err);
       if (shouldRender) {
-        startGarmentRenderInBackground(garmentId, source).catch((err2) => {
+        startGarmentRenderInBackground(garmentId, source, renderOptions).catch((err2) => {
           logger.error(`[${source}] render trigger error (post-enrichment-failure):`, err2);
         });
       }
@@ -470,15 +478,24 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
   }
 }
 
-async function startGarmentRenderInBackground(garmentId: string, source: string): Promise<void> {
+export async function startGarmentRenderInBackground(
+  garmentId: string,
+  source: RenderTriggerSource,
+  options: { force?: boolean } = {},
+): Promise<void> {
   // Single transport-level retry with the SAME nonce on any retryable
   // failure (network/timeout/abort = status 0/undefined, or server 5xx).
   // See isRenderEnqueueRetryable for the full classification. Any
   // subsequent retries happen via the server-side cron safety net (which
   // reclaims the reserved row) or the user's next app-open — we don't
   // loop client-side to avoid hammering a distressed backend.
+  //
+  // options.force is forwarded to every enqueueRenderJob call so callers
+  // regenerating an already-rendered garment (e.g. Wave 4.5-B swap flow
+  // in SecondaryImageManager) can bypass the worker's product-ready gate.
+  // Default false preserves the first-time generation behaviour.
   try {
-    await enqueueRenderJob(garmentId, source as RenderTriggerSource);
+    await enqueueRenderJob(garmentId, source, { force: options.force });
     return;
   } catch (err) {
     if (err instanceof RenderEnqueueError && err.status === 402) {
@@ -515,8 +532,9 @@ async function startGarmentRenderInBackground(garmentId: string, source: string)
         err,
       );
       try {
-        await enqueueRenderJob(garmentId, source as RenderTriggerSource, {
+        await enqueueRenderJob(garmentId, source, {
           clientNonce: err.clientNonce,
+          force: options.force,
         });
         return;
       } catch (retryErr) {

@@ -153,6 +153,10 @@ vi.mock('@/components/garment/GarmentSimilarItems', () => ({
   GarmentSimilarItems: () => <div data-testid="similar-items" />,
 }));
 
+vi.mock('@/components/garment/SecondaryImageManager', () => ({
+  SecondaryImageManager: () => <div data-testid="secondary-image-manager" />,
+}));
+
 vi.mock('@/components/wardrobe/GarmentProcessingBadge', () => ({
   GarmentProcessingBadge: () => null,
 }));

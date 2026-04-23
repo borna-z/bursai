@@ -31,6 +31,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { GarmentEnrichmentPanel, SpecRow, extractEnrichment, type EnrichmentStatus } from '@/components/garment/GarmentEnrichmentPanel';
 import { GarmentOutfitHistory } from '@/components/garment/GarmentOutfitHistory';
 import { GarmentSimilarItems } from '@/components/garment/GarmentSimilarItems';
+import { SecondaryImageManager } from '@/components/garment/SecondaryImageManager';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -338,6 +339,9 @@ export default function GarmentDetailPage() {
             ) : null}
           </div>
         </motion.div>
+
+        {/* ─── Wave 4.5-B P27b: Secondary-image add/swap/delete ─── */}
+        <SecondaryImageManager garment={garment} />
 
         <div className="px-[var(--page-px)] pt-5 page-cluster">
         {/* ─── Title + Category ─── */}

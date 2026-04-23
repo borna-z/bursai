@@ -2808,6 +2808,21 @@ const sv: Record<string, string> = {
   'render.retry': 'Försök igen',
   'render.retry_started': 'Försöker rendera igen…',
   'render.retry_failed': 'Kunde inte starta nytt försök — försök igen',
+
+  // Wave 4.5-B P27b — secondary-image add/swap/delete
+  'garment.secondary_title': 'Alternativ bild',
+  'garment.secondary_add': 'Lägg till alternativ bild',
+  'garment.secondary_add_desc': 'Växla mellan vinklar utan att förlora din huvudbild.',
+  'garment.secondary_use_primary': 'Använd som huvudbild',
+  'garment.secondary_remove': 'Ta bort',
+  'garment.secondary_swap_confirm_title': 'Använd den här bilden som huvudbild?',
+  'garment.secondary_swap_confirm_desc': 'Vi analyserar och renderar om utifrån den nya bilden. En renderingskredit används.',
+  'garment.secondary_delete_confirm_title': 'Ta bort alternativ bild?',
+  'garment.secondary_delete_confirm_desc': 'Din huvudbild påverkas inte.',
+  'garment.secondary_add_success': 'Alternativ bild sparad',
+  'garment.secondary_swap_success': 'Huvudbilden uppdaterad — renderar om…',
+  'garment.secondary_delete_success': 'Alternativ bild borttagen',
+  'garment.secondary_busy_toast': 'Vänta tills pågående analys eller rendering är klar',
 };
 
 export default sv;

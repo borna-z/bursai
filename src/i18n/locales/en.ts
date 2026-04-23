@@ -3191,6 +3191,21 @@ const en: Record<string, string> = {
   'render.retry': 'Try again',
   'render.retry_started': 'Retrying studio render…',
   'render.retry_failed': 'Could not start retry — please try again',
+
+  // Wave 4.5-B P27b — secondary-image add/swap/delete
+  'garment.secondary_title': 'Alternate photo',
+  'garment.secondary_add': 'Add alternate photo',
+  'garment.secondary_add_desc': 'Swap between angles without losing your main photo.',
+  'garment.secondary_use_primary': 'Use as primary',
+  'garment.secondary_remove': 'Remove',
+  'garment.secondary_swap_confirm_title': 'Use this photo as primary?',
+  'garment.secondary_swap_confirm_desc': "We'll re-analyze and re-render from the new photo. This uses one render credit.",
+  'garment.secondary_delete_confirm_title': 'Remove alternate photo?',
+  'garment.secondary_delete_confirm_desc': 'Your main photo stays untouched.',
+  'garment.secondary_add_success': 'Alternate photo saved',
+  'garment.secondary_swap_success': 'Primary photo updated — re-rendering…',
+  'garment.secondary_delete_success': 'Alternate photo removed',
+  'garment.secondary_busy_toast': 'Wait for current enrichment or render to finish',
 };
 
 export default en;
