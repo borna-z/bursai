@@ -1,4 +1,6 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS } from "./cors.ts";
+import { classifySlot } from "./burs-slots.ts";
 
 export type UnifiedStylistMode = "generate" | "suggest" | "swap" | "refine";
 
@@ -84,11 +86,29 @@ export async function invokeUnifiedStylistEngine(params: {
   const currentGarmentId = shouldUseSwap
     ? (activeLookIds.find((id) => !lockedGarmentIds.includes(id)) ?? activeLookIds[0] ?? null)
     : null;
-  const otherItems = shouldUseSwap
-    ? activeLookIds
-      .filter((id) => id !== currentGarmentId)
-      .map((garmentId) => ({ slot: "unknown", garment_id: garmentId }))
+
+  // P26: resolve real slot for each other garment in the active look via
+  // classifySlot. Falls back to "unknown" only when the garment is missing
+  // from the fetch or its category/subcategory is unrecognisable.
+  const otherIds = shouldUseSwap
+    ? activeLookIds.filter((id) => id !== currentGarmentId)
     : [];
+  let otherItems: Array<{ slot: string; garment_id: string }> = [];
+  if (otherIds.length > 0) {
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: garmentRows } = await serviceClient
+      .from("garments")
+      .select("id, category, subcategory")
+      .in("id", otherIds);
+    const slotMap = new Map<string, string>();
+    for (const g of garmentRows || []) {
+      slotMap.set(g.id, classifySlot(g.category, g.subcategory) || "unknown");
+    }
+    otherItems = otherIds.map((garmentId) => ({
+      slot: slotMap.get(garmentId) || "unknown",
+      garment_id: garmentId,
+    }));
+  }
 
   const payload = {
     mode: shouldUseSwap ? "swap" : mode,

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { classifySlot } from "../_shared/burs-slots.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,8 +70,25 @@ serve(async (req) => {
       });
     }
 
+    // P26: resolve real slot for each selected garment via classifySlot.
+    // Falls back to "unknown" only when the garment is missing from the fetch
+    // (e.g., deleted mid-request) or its category/subcategory is unrecognisable.
+    const slotByGarment = new Map<string, string>();
+    if (selected.garment_ids.length > 0) {
+      const { data: garmentRows } = await serviceClient
+        .from("garments")
+        .select("id, category, subcategory")
+        .in("id", selected.garment_ids);
+      for (const g of garmentRows || []) {
+        slotByGarment.set(g.id, classifySlot(g.category, g.subcategory) || "unknown");
+      }
+    }
+
     return new Response(JSON.stringify({
-      items: selected.garment_ids.map((garment_id) => ({ slot: "unknown", garment_id })),
+      items: selected.garment_ids.map((garment_id) => ({
+        slot: slotByGarment.get(garment_id) || "unknown",
+        garment_id,
+      })),
       explanation: selected.rationale,
       confidence_score: selected.confidence,
       confidence_level: selected.confidence_level,
