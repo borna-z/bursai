@@ -89,6 +89,7 @@ const { data } = await callBursAI({
 | `burs-ai.ts` | AI abstraction: `callBursAI()`, `streamBursAI()` (streaming with keepalive pings), `bursAIErrorResponse()` (standard error formatter), `estimateMaxTokens()` (dynamic token budgets), `compressPrompt()` (text normalization), `compactGarment()` (garment→string, full UUID after P23), `isEnrichmentReady()` / `isEnrichmentFailed()` (predicates — accept BOTH `'complete'` and `'completed'` spellings), `filterEnrichedGarments()` (drops rows not ready), `waitForEnrichment()` (polls `garments.enrichment_status` until terminal or timeout; phantom IDs bucketed as failed), `checkRateLimit()`. Complexity-based model routing, Gemini fallback chains, DB response caching, token budget auto-set, cost tracking |
 | `scale-guard.ts` | Scale infrastructure: `enforceRateLimit()`, `rateLimitResponse()`, `checkOverload()`, `recordError()` (circuit breaker tracking), `overloadResponse()`, `estimateCost()`, `logTelemetry()`, job queue primitives (`submitJob`/`claimJob`/`completeJob`/`failJob`/`getJobStatus`), `withConcurrencyLimit()` |
 | `burs-voice.ts` | Voice identity fragments (`VOICE_STYLIST_CHAT`, `VOICE_SHOPPING`, etc.) for consistent premium tone in AI prompts |
+| `retrieval.ts` | AI retrieval quality (Wave 4-B): `MOOD_MAP` (mood prompt hints, shared between `mood_outfit` + `wardrobe_gap_analysis`), `rankGarmentsForMood()` (top-N semantic pre-filter — formality / color family / occasion tags / weather / wear-count decay), `computeWardrobeCoverage()` (structured category × color × season × formality summary + derived gaps), `stratifiedSample()` (representative sample across categories weighted by wear and recency), `formalityLabel()` (numeric formality → English label, replaces opaque `f3` code), `intentToCacheKey()` (stable djb2 hash of a `WardrobeGapIntent` for cache partitioning), `scanEventHints()` (keyword-based formality/season extraction from upcoming_events descriptions) |
 | `unified_stylist_engine.ts` | Middleware to `burs_style_engine` function. Modes: generate, suggest, swap, refine. Also contains slot normalization logic (`normalizeIds()`) |
 | `logger.ts` | Structured JSON logging: `const log = logger("fn_name"); log.info(...); log.error(...); log.exception(...)` |
 | `idempotency.ts` | DB-backed request deduplication via `public.request_idempotency` table (P12). Atomic claim using UPSERT+ignoreDuplicates (same pattern as stripe_events). 60s claim TTL, 5min completed-result TTL. Both helpers take `supabaseAdmin` as 2nd arg. Consumers: `create_checkout_session`, `delete_user_account`. |
@@ -150,7 +151,6 @@ Base limits are defined in `RATE_LIMIT_TIERS` in `scale-guard.ts`. Subscription 
 | `suggest_outfit_combinations` | 30 | 5 | Moderate AI |
 | `suggest_accessories` | 30 | 5 | Moderate AI |
 | `clone_outfit_dna` | 20 | 4 | Moderate AI |
-| `smart_shopping_list` | 20 | 4 | Moderate AI |
 | `travel_capsule` | 15 | 3 | Moderate AI |
 | `summarize_day` | 40 | 8 | Light AI |
 | `detect_duplicate_garment` | 40 | 8 | Light AI |

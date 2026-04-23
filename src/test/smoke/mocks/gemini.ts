@@ -267,6 +267,56 @@ function buildChatCompletionResponse(reqBody: string): OpenAIResponse {
     return openAIResponse(JSON.stringify(capsulePayload), model);
   }
 
+  // wardrobe_gap_analysis — gap list + (when shopping intent provided)
+  // shopping_recommendations. The prompt always includes the literal
+  // strings "WARDROBE COVERAGE" and "gaps_derived" (from the
+  // computeWardrobeCoverage JSON). We branch before the outfit branch
+  // below because the outfit branch matches "wardrobe" too.
+  if (/wardrobe coverage|gaps_derived/i.test(haystack)) {
+    const uuidRegex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+    const ids = Array.from(new Set(haystack.match(uuidRegex) ?? []));
+    const firstIds = ids.slice(0, 3);
+    // Codex P2 round 3 on PR #664: match on markers that appear ONLY
+    // when intent is provided in the prompt text — NOT on tool-schema
+    // field names that would leak into haystack if a future caller
+    // bleeds tool schema into messages. "shopping assistant mode" is
+    // in `modeInstructions` only when intent is present; "SHOPPING
+    // INTENT" is the block header emitted only when intent is present.
+    const hasShoppingIntent = /shopping assistant mode|shopping intent/i.test(haystack);
+    const gapPayload: Record<string, unknown> = {
+      gaps: [
+        {
+          item: "Navy tailored straight-leg trousers",
+          category: "bottom",
+          color: "Navy",
+          reason: "Expands the wardrobe's bottom coverage for sharper looks.",
+          new_outfits: 8,
+          price_range: "$70-140",
+          search_query: "navy tailored straight leg trousers",
+          pairing_garment_ids: firstIds,
+          key_insight: "Smoke mock gap insight.",
+        },
+      ],
+    };
+    if (hasShoppingIntent) {
+      gapPayload.shopping_recommendations = [
+        {
+          priority: 1,
+          category: "outerwear",
+          item: "Charcoal unstructured blazer",
+          reasoning: "Matches the user's shopping intent for formal, winter-appropriate tailoring.",
+          fills_gap: true,
+          price_range: "$140-280",
+          search_query: "charcoal unstructured blazer",
+        },
+      ];
+    }
+    if (hasTools) {
+      return openAIToolCallResponse(gapPayload, "identify_gaps", model);
+    }
+    return openAIResponse(JSON.stringify(gapPayload), model);
+  }
+
   // burs_style_engine / generate_outfit / style_chat refine — outfit JSON.
   // When the request includes a tool (select_outfit / suggest_outfits), we
   // return tool_calls matching that tool's argument schema. Otherwise we

@@ -64,7 +64,7 @@ export function validateBaseOutfit<TGarment extends BasicGarmentLike>(items: Out
     isStandard: validation.isStandard,
     isDressBased: validation.isDressBased,
     missing: validation.missing.filter((slot): slot is 'top' | 'bottom' | 'dress' => slot !== 'shoes'),
-    presentSlots: validation.presentSlots.filter((slot): slot is string => slot !== 'unknown'),
+    presentSlots: validation.presentSlots.filter((slot) => slot !== 'unknown'),
   };
 }
 
@@ -117,7 +117,7 @@ export function validateCompleteOutfit<TGarment extends BasicGarmentLike>(items:
     isStandard: validation.isStandard,
     isDressBased: validation.isDressBased,
     missing: validation.missing,
-    presentSlots: validation.presentSlots.filter((slot): slot is string => slot !== 'unknown'),
+    presentSlots: validation.presentSlots.filter((slot) => slot !== 'unknown'),
   };
 }
 
