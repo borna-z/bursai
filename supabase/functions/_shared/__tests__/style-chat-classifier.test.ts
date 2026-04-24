@@ -541,6 +541,58 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("swap_top");
   });
+
+  // Codex P2 round 8 — declarative statements with refinement keywords
+  // must NOT be force-flipped to refine_outfit.
+  it("does NOT override 'I need a formal outfit' (declarative 'I need' + formal)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("I need a formal outfit"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'I want something warmer' (declarative 'I want')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("I want something warmer"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'looking for a casual vibe' (declarative 'looking for')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("looking for a casual vibe"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'my top is too formal' (declarative 'my')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("my top is too formal"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Longer casual descriptive message (>3 words) now also skips the bare-modifier path.
+  it("does NOT override 'this coat is a bit casual for me' (descriptive, 7 words)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("this coat is a bit casual for me"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Very short 3-word refinement still overrides.
+  it("DOES override 'cooler please thanks' (3-word casual chip)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("cooler please thanks"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

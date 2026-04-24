@@ -231,7 +231,7 @@ const QUESTION_STARTS = new Set([
 // Detection: if the message body contains a refinement verb pattern
 // ("make it X", "swap the Y", etc.), treat it as a request regardless of
 // trailing "?" or modal starter.
-const IMPERATIVE_REFINE_PHRASE_RE = /\b(make|swap|change|try|keep|lose|drop|remove|add)\s+(it|this|them|the|a|an|some|something|my)\b/i;
+const IMPERATIVE_REFINE_PHRASE_RE = /\b(make|swap|change|try|keep|lose|drop|remove|add)\s+(it|this|them|the|a|an|some|something|my)\b|\bdress\s+(it|this|them)\s+(up|down)\b/i;
 
 // Codex P2 round 5: guard against info-seeking statements like
 // "tell me the difference between formal and casual dress codes".
@@ -261,6 +261,20 @@ const MODAL_REQUEST_STARTS = new Set(["can", "could", "would"]);
 // refinement verb (make|swap|change|try|keep|lose|drop|remove|add).
 const IMPERATIVE_REFINE_VERBS = new Set([
   "make", "swap", "change", "try", "keep", "lose", "drop", "remove", "add",
+  // Round 8: "dress it up" / "dress this down" — REFINEMENT_WORDS_RE already
+  // only passes the multi-word pattern (not bare "dress"), so this is safe
+  // against declarative noun uses ("I want a dress").
+  "dress",
+]);
+
+// Codex P2 round 8: the bare-modifier short-chip path was too permissive —
+// "I need a formal outfit" (5 words, "formal" in REFINEMENT_WORDS_RE,
+// no imperative, no question marker) would flip to refine_outfit, hijacking
+// a generation-intent statement. Declarative sentence starters ("I need",
+// "I want", "I'd like", "looking for") signal intent, not refinement.
+const DECLARATIVE_STARTS = new Set([
+  "i", "we", "my", "our", "looking", "need", "want", "trying",
+  "wish", "hoping", "planning", "searching", "thinking",
 ]);
 
 function looksLikeRefinementRequest(message: string): boolean {
@@ -307,12 +321,16 @@ function looksLikeRefinementRequest(message: string): boolean {
   if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return true;
 
   // (e) Bare modifier / short-chip message path — e.g. "warmer",
-  // "more formal", "softer", "different vibe". Common in chat UIs with
-  // quick-reply chips. Short (≤6 words) and passes all the guards above.
-  // Longer descriptive messages (> 6 words, no imperative) fall through
-  // to the classifier's original conversation intent.
+  // "more formal", "softer", "different vibe", "cooler please". These are
+  // common in chat UIs with quick-reply chips. Guards:
+  //   - First word must not be a DECLARATIVE_START ("I need" / "my top" /
+  //     "looking for ...") — those signal generation/statement intent.
+  //   - Message must be ≤ 3 words. Longer short-chip-shaped sentences like
+  //     "I need a formal outfit" (5 words, statement) would slip through
+  //     otherwise. Real refinement chips are 1–3 tokens in practice.
+  if (DECLARATIVE_STARTS.has(firstCleaned)) return false;
   const wordCount = trimmed.split(/\s+/).length;
-  return wordCount <= 6;
+  return wordCount <= 3;
 }
 
 export function applyActiveLookRefinementOverride(
