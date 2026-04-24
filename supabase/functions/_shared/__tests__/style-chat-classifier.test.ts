@@ -593,6 +593,68 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 9 — non-clothing imperative objects must NOT be
+  // misrouted as refinement (`change my password`, `change my account
+  // settings`, `swap my email`).
+  it("does NOT override 'change my password' (non-clothing 'my' object)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my password"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'can you change my password?' (non-clothing polite modal)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("can you change my password?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change my account settings' (non-clothing + 3 words)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my account settings"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'swap my email' (non-clothing + short)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap my email"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Clothing-specific imperatives still override correctly.
+  it("DOES override 'change my top' (clothing 'my' + clothing noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my top"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_top");
+  });
+
+  it("DOES override 'swap shoes' (verb + clothing noun, no article)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap shoes"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_shoes");
+  });
+
+  it("DOES override 'change the outfit' (verb + article + outfit)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the outfit"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

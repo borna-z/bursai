@@ -231,7 +231,24 @@ const QUESTION_STARTS = new Set([
 // Detection: if the message body contains a refinement verb pattern
 // ("make it X", "swap the Y", etc.), treat it as a request regardless of
 // trailing "?" or modal starter.
-const IMPERATIVE_REFINE_PHRASE_RE = /\b(make|swap|change|try|keep|lose|drop|remove|add)\s+(it|this|them|the|a|an|some|something|my)\b|\bdress\s+(it|this|them)\s+(up|down)\b/i;
+// Codex P2 round 9: tightened to clothing-specific objects. The old shape
+// `(verb) + (it|this|them|the|a|an|some|something|my)` matched "change my
+// password" / "change my account settings" — forcing refine_outfit on
+// non-clothing requests whenever an active look existed. The new shape
+// requires EITHER an outfit-implying pronoun (it/this/them) OR a
+// clothing-specific noun (with optional article/possessive).
+const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants|trousers|skirt|jeans|jacket|coat|blazer|cardigan|outerwear|dress|style|vibe";
+const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
+  // (1) verb + outfit-implying pronoun: "make it warmer", "change this"
+  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)\\b` +
+  // (2) verb + (article|possessive) + clothing noun: "change my top", "swap the shoes"
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something)\\s+(?:${CLOTHING_NOUNS})\\b` +
+  // (3) verb + clothing noun (no article): "swap shoes", "change jacket"
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})\\b` +
+  // (4) dress-up/dress-down phrase: "dress it up", "dress this down"
+  `|\\bdress\\s+(it|this|them)\\s+(up|down)\\b`,
+  "i",
+);
 
 // Codex P2 round 5: guard against info-seeking statements like
 // "tell me the difference between formal and casual dress codes".
@@ -276,6 +293,14 @@ const DECLARATIVE_STARTS = new Set([
   "i", "we", "my", "our", "looking", "need", "want", "trying",
   "wish", "hoping", "planning", "searching", "thinking",
 ]);
+
+// Codex P2 round 9: the bare-modifier path also over-matched — "change my
+// password" is 3 words, starts with "change" (in REFINEMENT_WORDS_RE gate),
+// and word-count ≤ 3, so it would return true. Split the refinement gate:
+// the bare-modifier path now requires a refinement ADJECTIVE (describing
+// the desired state), not a bare imperative verb like "swap" or "change"
+// that could be about non-clothing targets.
+const REFINEMENT_ADJECTIVES_RE = /\b(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)\b/i;
 
 function looksLikeRefinementRequest(message: string): boolean {
   const trimmed = message.trim();
@@ -325,10 +350,17 @@ function looksLikeRefinementRequest(message: string): boolean {
   // common in chat UIs with quick-reply chips. Guards:
   //   - First word must not be a DECLARATIVE_START ("I need" / "my top" /
   //     "looking for ...") — those signal generation/statement intent.
+  //   - Message must contain a REFINEMENT_ADJECTIVE (warmer / cooler /
+  //     formal / casual / different / elevated / softer / sharper /
+  //     dressier / dressy). Bare refinement verbs ("swap", "change")
+  //     without clothing-specific context fall through to conversation
+  //     (prevents "change my password" false positives on non-clothing
+  //     targets).
   //   - Message must be ≤ 3 words. Longer short-chip-shaped sentences like
   //     "I need a formal outfit" (5 words, statement) would slip through
   //     otherwise. Real refinement chips are 1–3 tokens in practice.
   if (DECLARATIVE_STARTS.has(firstCleaned)) return false;
+  if (!REFINEMENT_ADJECTIVES_RE.test(trimmed)) return false;
   const wordCount = trimmed.split(/\s+/).length;
   return wordCount <= 3;
 }
