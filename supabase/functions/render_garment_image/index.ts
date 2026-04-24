@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
+import { captureWarning, classifyValidatorError } from '../_shared/observability.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
 import { classifyCategory, type CategoryClass } from '../_shared/render-category.ts';
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from '../_shared/scale-guard.ts';
@@ -1677,6 +1678,14 @@ serve(async (req) => {
           // an unavailable gate means we can't trust accept-by-default;
           // treat as retryable.
           if (attemptIndex === 0) {
+            // Wave 4.9-C: emit a structured observability signal so aggregate
+            // validator outages are visible instead of silently degrading.
+            // Fire-and-forget — failures here must never block the render path.
+            captureWarning('render_validator_unavailable', {
+              attempt: attemptIndex + 1,
+              category: categoryClass,
+              reason: classifyValidatorError(validationError),
+            });
             console.warn('render_garment_image validator unavailable — accepting attempt', {
               garmentId: garment.id,
               attempt: attemptIndex + 1,

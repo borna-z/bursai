@@ -36,3 +36,4 @@ supabase/.temp/
 .superpowers/
 docs/superpowers/
 .claude/scheduled_tasks.lock
+deno.lock
