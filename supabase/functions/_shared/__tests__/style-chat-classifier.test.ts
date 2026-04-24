@@ -655,6 +655,78 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 10 — upstream gate was narrower than downstream matcher,
+  // so these never reached looksLikeRefinementRequest.
+  it("DOES override 'remove the jacket' (gate now admits 'remove')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("remove the jacket"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_outerwear");
+  });
+
+  it("DOES override 'add a jacket' (gate now admits 'add')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("add a jacket"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_outerwear");
+  });
+
+  it("DOES override 'try the shoes' (gate now admits 'try')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("try the shoes"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_shoes");
+  });
+
+  it("DOES override 'keep the top' (gate now admits 'keep')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("keep the top"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_top");
+  });
+
+  it("DOES override 'drop the blazer' (gate now admits 'drop')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("drop the blazer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_outerwear");
+  });
+
+  it("DOES override 'lose the blazer' (gate now admits 'lose')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("lose the blazer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  // Round-9 negatives still hold with the broader gate (downstream filters kick in).
+  it("still does NOT override 'remove the comment' (non-clothing object)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("remove the comment"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("still does NOT override 'add a comment' (non-clothing object)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("add a comment"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

@@ -187,7 +187,14 @@ function parseClassifierResponse(raw: string): ClassifierResult {
 // (`dress it up` / `dress this down`) pair with REFINEMENT_HINT_PATTERNS
 // below — without them, the bare word `dress` would over-match ("my dress",
 // "a dress") and force non-refinement messages into the refine flow.
-const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|swap|change|different|elevated|softer|sharper|dressier|dressy)\b|\bdress\s+(it|this|them)\s+(up|down)\b/i;
+// Codex P2 round 10: the gate must admit every message that the downstream
+// `looksLikeRefinementRequest` is prepared to accept — otherwise legitimate
+// refinement commands like "remove the jacket" or "add a jacket" are
+// rejected upstream and never reach the override. Broadened to include all
+// IMPERATIVE_REFINE_VERBS; the downstream matcher keeps "change my password"
+// / "swap my email" out of the refine path via its clothing-specific
+// phrase regex and adjective-only bare-modifier gate.
+const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)\b|\b(make|swap|change|try|keep|lose|drop|remove|add|dress)\b/i;
 
 const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }> = [
   { pattern: /\bwarmer\b/i, hint: "warmer" },
