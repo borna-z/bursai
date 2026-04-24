@@ -23,15 +23,21 @@ interface ParsedDsn {
   publicKey: string;
   projectId: string;
   host: string;
+  /** Optional path prefix between host and /api/ — used by SaaS tenants.
+      For DSN `https://key@host/prefix/42`, pathPrefix is `/prefix` and
+      projectId is `42`. For a bare `https://key@host/42`, pathPrefix is "". */
+  pathPrefix: string;
 }
 
 function parseDsn(dsn: string): ParsedDsn | null {
   try {
     const url = new URL(dsn);
     const publicKey = url.username;
-    const projectId = url.pathname.replace(/^\//, "");
-    if (!publicKey || !projectId) return null;
-    return { publicKey, projectId, host: url.host };
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    if (!publicKey || pathParts.length === 0) return null;
+    const projectId = pathParts.pop() as string;
+    const pathPrefix = pathParts.length ? "/" + pathParts.join("/") : "";
+    return { publicKey, projectId, host: url.host, pathPrefix };
   } catch {
     return null;
   }
@@ -85,7 +91,7 @@ export function captureWarning(
   if (!PARSED_DSN) return;
 
   const url =
-    `https://${PARSED_DSN.host}/api/${PARSED_DSN.projectId}/store/` +
+    `https://${PARSED_DSN.host}${PARSED_DSN.pathPrefix}/api/${PARSED_DSN.projectId}/store/` +
     `?sentry_version=7&sentry_client=burs-edge-fn/0.0.1&sentry_key=${PARSED_DSN.publicKey}`;
 
   const body = JSON.stringify({
