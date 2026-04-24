@@ -727,6 +727,77 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("conversation");
   });
+
+  // Codex P2 round 11 #1 — modal fast-path requires 2nd word = "you".
+  // "Can I ..." / "Would this ..." are info/impact questions, not requests.
+  it("does NOT override 'Can I make it warmer?' (modal starter but 'I', not 'you')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can I make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Would this change my style?' (modal + 'this')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would this change my style?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Could this be warmer?' (modal + 'this')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could this be warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive: modal + 'you' still overrides (round 4 behavior preserved).
+  it("still DOES override 'Can you make it warmer?' (modal + 'you')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  // Codex P2 round 11 #2 — phrase-path guard against declarative openers.
+  // "I want to change my style" / "looking to swap my jacket" are statements,
+  // not commands.
+  it("does NOT override 'I want to change my style' (declarative 'I want')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("I want to change my style"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'looking to swap my jacket' (declarative 'looking')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("looking to swap my jacket"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'my outfit needs to change the jacket' (declarative 'my')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("my outfit needs to change the jacket"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive: imperative phrase with NON-declarative opener still overrides.
+  it("still DOES override 'please change my top' (non-declarative opener 'please')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("please change my top"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

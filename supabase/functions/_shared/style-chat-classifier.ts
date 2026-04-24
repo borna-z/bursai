@@ -325,7 +325,17 @@ function looksLikeRefinementRequest(message: string): boolean {
   // with a refinement imperative phrase is a request, not a question,
   // regardless of a trailing "?". We check this FIRST so modal-phrased
   // imperatives override the question markers that would otherwise fire.
-  if (MODAL_REQUEST_STARTS.has(firstCleaned) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
+  //
+  // Codex P2 round 11: require the 2nd word to be "you" — only assistant-
+  // directed modal phrasing ("can YOU...") is a request. "Can I make it
+  // warmer?" / "Would this change my style?" are info/impact questions
+  // and must stay on the conversational path.
+  const secondWord = (trimmed.toLowerCase().split(/\s+/)[1] ?? "").replace(/[^a-z]/g, "");
+  if (
+    MODAL_REQUEST_STARTS.has(firstCleaned) &&
+    secondWord === "you" &&
+    IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)
+  ) {
     return true;
   }
 
@@ -350,7 +360,15 @@ function looksLikeRefinementRequest(message: string): boolean {
 
   // (d) Explicit imperative verb phrase (no question markers) —
   // "make it warmer", "swap the shoes", "change the top".
-  if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return true;
+  //
+  // Codex P2 round 11: declarative-starter guard. A message like
+  // "I want to change my style" / "looking to swap my jacket" matches the
+  // imperative phrase regex on the "change my ..." / "swap my ..." clause
+  // but is a statement, not a command. Rejecting declarative openers here
+  // keeps the override focused on true imperatives.
+  if (!DECLARATIVE_STARTS.has(firstCleaned) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
+    return true;
+  }
 
   // (e) Bare modifier / short-chip message path — e.g. "warmer",
   // "more formal", "softer", "different vibe", "cooler please". These are
