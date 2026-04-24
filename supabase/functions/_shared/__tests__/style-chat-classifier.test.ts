@@ -335,4 +335,87 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.needs_more_context).toBe(false);
     expect(out.refinement_hint).toBe("warmer");
   });
+
+  // Codex P2 round 3 — `dressier` + `dress it up/down` phrases were in the
+  // hint patterns but unreachable because the gate regex rejected them first.
+  it("DOES override 'dress it up' (multi-word refinement phrase)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("dress it up a bit"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'dress this down' (multi-word refinement phrase)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("dress this down for coffee"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'make it dressier'", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it dressier"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("does NOT over-match bare 'dress' as a noun ('I want a dress' should stay conversation)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("I want a dress for the weekend"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+});
+
+describe("classifyIntent exception path (Codex P2 round 3)", () => {
+  const throwingCallAI = async () => {
+    throw new Error("transient provider failure");
+  };
+
+  it("applies override on exception: active look + refine word forces refine_outfit + clears needs_more_context", async () => {
+    const out = await classifyIntent({
+      userMessage: "make it warmer",
+      hasActiveLook: true,
+      hasAnchor: false,
+      garmentCount: 5,
+      lastMessages: [],
+      lockedSlots: [],
+    }, throwingCallAI);
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.needs_more_context).toBe(false);
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("falls back to CLASSIFIER_FALLBACK unchanged when exception + no active look", async () => {
+    const out = await classifyIntent({
+      userMessage: "make it warmer",
+      hasActiveLook: false,
+      hasAnchor: false,
+      garmentCount: 5,
+      lastMessages: [],
+      lockedSlots: [],
+    }, throwingCallAI);
+    expect(out.intent).toBe("conversation");
+    expect(out.needs_more_context).toBe(true);
+  });
+
+  it("falls back to CLASSIFIER_FALLBACK unchanged when exception + active look + non-refine question", async () => {
+    const out = await classifyIntent({
+      userMessage: "what's the weather like",
+      hasActiveLook: true,
+      hasAnchor: false,
+      garmentCount: 5,
+      lastMessages: [],
+      lockedSlots: [],
+    }, throwingCallAI);
+    expect(out.intent).toBe("conversation");
+    expect(out.needs_more_context).toBe(true);
+  });
 });

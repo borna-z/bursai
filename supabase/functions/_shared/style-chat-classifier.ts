@@ -183,7 +183,11 @@ function parseClassifierResponse(raw: string): ClassifierResult {
  * already handles that case correctly by routing to conversation +
  * needs_more_context=true (rule at line 77 of the prompt).
  */
-const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|swap|change|different|elevated|softer|sharper)\b/i;
+// Whole-word keywords OR multi-word phrases. The multi-word phrases
+// (`dress it up` / `dress this down`) pair with REFINEMENT_HINT_PATTERNS
+// below — without them, the bare word `dress` would over-match ("my dress",
+// "a dress") and force non-refinement messages into the refine flow.
+const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|swap|change|different|elevated|softer|sharper|dressier)\b|\bdress\s+(it|this|them)\s+(up|down)\b/i;
 
 const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }> = [
   { pattern: /\bwarmer\b/i, hint: "warmer" },
@@ -268,6 +272,11 @@ export async function classifyIntent(
     );
     return applyActiveLookRefinementOverride(parseClassifierResponse(raw), input);
   } catch {
-    return CLASSIFIER_FALLBACK;
+    // Codex P2 round 3: apply the override in the transport/exception path
+    // too, so a provider hiccup during "make it warmer" on an active look
+    // still promotes to refine_outfit + clears needs_more_context — same as
+    // the parse-fallback path. Without this, transient Gemini errors would
+    // silently route the user into clarify mode.
+    return applyActiveLookRefinementOverride(CLASSIFIER_FALLBACK, input);
   }
 }
