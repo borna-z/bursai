@@ -422,6 +422,59 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("more_formal");
   });
+
+  // Codex P2 round 5 — info-seeking statement path.
+  it("does NOT override 'tell me the difference between formal and casual' (info-seeking)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("tell me the difference between formal and casual dress codes"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'explain formal vs casual style' (info-seeking)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("explain formal vs casual style"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'describe what softer means' (info-seeking)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("describe what softer means"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Long statement without imperative verb phrase — let classifier's
+  // original conversation intent stand (don't over-force).
+  it("does NOT override long descriptive statement 'I think this outfit should be warmer and more casual for the occasion'", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("I think this outfit should be warmer and more casual for the occasion"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Bare-modifier short chip messages still override.
+  it("DOES override 'different vibe' (2-word bare-modifier chip)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("different vibe"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'cooler' (single-word bare modifier)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("cooler"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

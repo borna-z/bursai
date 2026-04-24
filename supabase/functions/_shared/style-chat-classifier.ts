@@ -233,19 +233,48 @@ const QUESTION_STARTS = new Set([
 // trailing "?" or modal starter.
 const IMPERATIVE_REFINE_PHRASE_RE = /\b(make|swap|change|try|keep|lose|drop|remove|add)\s+(it|this|them|the|a|an|some|something|my)\b/i;
 
-function looksLikeQuestion(message: string): boolean {
+// Codex P2 round 5: guard against info-seeking statements like
+// "tell me the difference between formal and casual dress codes".
+// The old `looksLikeQuestion` (deny-list: has `?` OR interrogative start)
+// missed this class — no `?`, starts with `tell` (not in question starts).
+// Switched to an allow-list: the override fires only when the message
+// either has an explicit imperative refinement verb phrase (e.g. "make
+// it warmer") OR is a short bare-modifier message (e.g. "warmer",
+// "more formal", "different vibe") that doesn't start with an info-seeking
+// verb or interrogative word.
+const INFO_SEEKING_STARTS = new Set([
+  "tell", "explain", "describe", "define", "list", "show",
+  "teach", "help", "give",
+]);
+
+function looksLikeRefinementRequest(message: string): boolean {
   const trimmed = message.trim();
-  // Escape hatch — imperative refinement phrasing overrides the question
-  // markers. "Can you make it warmer?" is a request, not a question.
-  if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return false;
-  if (trimmed.includes("?")) return true;
+  // (a) Explicit imperative verb phrase — e.g. "make it warmer", "swap the
+  // shoes", "Can you change the top?". This is the strong signal: we treat
+  // as refine even when phrased as a question.
+  if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return true;
+
+  // (b) Bare modifier / short-chip message path — e.g. "warmer",
+  // "more formal", "softer", "different vibe". These are common in chat
+  // UIs that expose quick-reply chips, and they match REFINEMENT_WORDS_RE
+  // but have no verb phrase. Guard: no `?`, no interrogative starter, no
+  // info-seeking starter, and the whole message must be short (≤ 6 words).
+  if (trimmed.includes("?")) return false;
   const firstWord = trimmed.toLowerCase().split(/\s+/)[0] ?? "";
   // Codex P2 round 2: split on apostrophe so contractions like "what's",
   // "who's", "isn't", "don't" normalize to their base interrogative
   // ("what", "who", "isn", "don") before the set lookup.
   const beforeApostrophe = firstWord.split(/['\u2019]/)[0] ?? "";
-  const cleaned = beforeApostrophe.replace(/[^a-z]/g, "");
-  return QUESTION_STARTS.has(cleaned);
+  const firstCleaned = beforeApostrophe.replace(/[^a-z]/g, "");
+  if (QUESTION_STARTS.has(firstCleaned)) return false;
+  if (INFO_SEEKING_STARTS.has(firstCleaned)) return false;
+
+  // Short-chip heuristic: 6 words or fewer and passes all guards above.
+  // Longer messages with no imperative phrase are treated as conversation
+  // (they might be user statements / descriptions / soft requests; let the
+  // classifier's original intent stand rather than force a refine).
+  const wordCount = trimmed.split(/\s+/).length;
+  return wordCount <= 6;
 }
 
 export function applyActiveLookRefinementOverride(
@@ -255,7 +284,7 @@ export function applyActiveLookRefinementOverride(
   if (!input.hasActiveLook) return result;
   if (result.intent !== "conversation") return result;
   if (!REFINEMENT_WORDS_RE.test(input.userMessage)) return result;
-  if (looksLikeQuestion(input.userMessage)) return result;
+  if (!looksLikeRefinementRequest(input.userMessage)) return result;
 
   return {
     ...result,
