@@ -704,7 +704,7 @@ Tables currently NOT cleared (from `list_tables` + audit):
 - `render_credits`
 - `render_credit_transactions`
 - `travel_capsules`
-- `ai_response_cache` (rows where `cache_namespace` contains user_id)
+- `ai_response_cache` (rows matching the user — see L554 note below; pre-L554 the column didn't exist)
 - `ai_rate_limits`
 
 **Fix**
@@ -732,25 +732,22 @@ await adminClient.from("push_subscriptions").delete().eq("user_id", userId);
 // Travel
 await adminClient.from("travel_capsules").delete().eq("user_id", userId);
 
-// ai_response_cache — DELIBERATELY NOT CLEANED HERE.
-// The table has no `user_id` column, and `cache_key` is a SHA-256 hash of a
-// canonicalised request shape (see `createBursAICacheKey` in
-// `_shared/burs-ai.ts` — `hashKey(stableSerialize(...))`). The hashing
-// destroys any user-id substring, so a LIKE filter would match zero rows.
-// An earlier version of this spec advised `.like("cache_namespace", ...)`
-// (column doesn't exist) and an in-PR fix tried `.like("cache_key", ...)`
-// (matches zero due to hashing) — both silently did nothing. Codex caught it
-// on PR #652.
+// ai_response_cache — shipped via L554 (PR #659, Wave 2-C): nullable `user_id`
+// column + partial index, populated by `storeCache` in `_shared/burs-ai.ts`
+// for every user-scoped call. FK cascade on `auth.users.id ON DELETE CASCADE`
+// handles the row cleanup automatically when `auth.admin.deleteUser()` runs
+// below. The explicit `.eq("user_id", userId).delete()` line is kept here as
+// belt-and-suspenders so cleanup is independent of cascade ordering:
+await adminClient.from("ai_response_cache").delete().eq("user_id", userId);
 //
-// Mitigation: all AI cache entries carry a short TTL (30 min – 12 h across
-// the codebase), so orphaned rows decay within a day. GDPR's "without undue
-// delay" standard is satisfied by natural expiration for this table.
-//
-// Proper fix = add `user_id` column to `ai_response_cache`, populate it in
-// `storeCache` (in `_shared/burs-ai.ts`), redeploy all 22 AI functions, then
-// add `.eq("user_id", userId).delete()` here. Tracked as a follow-up prompt
-// to be bundled with P13's cache-namespace work since both touch the cache
-// layer. See CLAUDE.md Findings Log (2026-04-21 P8) for the full writeup.
+// Historical context (for future maintainers): pre-L554, the table had no
+// `user_id` column and `cache_key` was a SHA-256 hash that destroyed any
+// user-id substring, so neither `.like("cache_namespace", ...)` (column
+// never existed) nor `.like("cache_key", ...)` (hashed away) could match
+// any rows. PR #652 shipped a TTL-decay mitigation comment; PR #659 added
+// the `user_id` column + index and redeployed all 22 AI functions. See
+// CLAUDE.md Findings Log (2026-04-21 P8) + Completion Log (PR #659 L554)
+// for the full writeup.
 ```
 
 Order matters only where there are FK constraints. `render_credit_transactions` references `render_jobs` → delete transactions first (already done above). Verify with `list_tables` foreign-key info if uncertain.
