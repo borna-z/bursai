@@ -279,6 +279,15 @@ const INFO_SEEKING_STARTS = new Set([
 // lets us keep the polite-modal override without swallowing wh- questions.
 const MODAL_REQUEST_STARTS = new Set(["can", "could", "would"]);
 
+// Codex P2 round 13: polite filler words that can appear between "you"
+// and the meaningful verb. Used to skip-past when deciding whether the
+// first meaningful word after a modal request is an imperative verb or
+// an info-seeking verb. "Can you please explain ..." — "please" is a
+// filler; "explain" is the word that determines intent.
+const POLITE_FILLERS = new Set([
+  "please", "kindly", "just", "maybe", "perhaps", "possibly",
+]);
+
 // Codex P1 round 7: direct imperatives with a trailing "?" ("make it warmer?",
 // "swap the shoes?") are still commands — the "?" is emphatic punctuation,
 // not a question marker. Detection: message starts with an imperative
@@ -335,13 +344,25 @@ function looksLikeRefinementRequest(message: string): boolean {
   // "Could you TELL me ..."). An info verb between "you" and the refinement
   // phrase signals explanation/guidance intent, not a command. This keeps
   // direct imperatives ("Can you make it warmer?") on the refine path.
+  //
+  // Codex P2 round 13: polite-filler stacking. "Can you please explain how
+  // to make it warmer?" bypasses a bare 3rd-word check because words[2] is
+  // "please". Scan forward past a fixed set of polite fillers (please,
+  // kindly, just, maybe, perhaps) and inspect the FIRST meaningful word
+  // after "you" — if THAT word is info-seeking, reject.
   const words = trimmed.toLowerCase().split(/\s+/);
   const secondWord = (words[1] ?? "").replace(/[^a-z]/g, "");
-  const thirdWord = (words[2] ?? "").replace(/[^a-z]/g, "");
+  let scanIdx = 2;
+  while (scanIdx < words.length) {
+    const w = (words[scanIdx] ?? "").replace(/[^a-z]/g, "");
+    if (!POLITE_FILLERS.has(w)) break;
+    scanIdx++;
+  }
+  const firstSignificantAfterModal = (words[scanIdx] ?? "").replace(/[^a-z]/g, "");
   if (
     MODAL_REQUEST_STARTS.has(firstCleaned) &&
     secondWord === "you" &&
-    !INFO_SEEKING_STARTS.has(thirdWord) &&
+    !INFO_SEEKING_STARTS.has(firstSignificantAfterModal) &&
     IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)
   ) {
     return true;

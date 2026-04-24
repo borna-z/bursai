@@ -848,6 +848,49 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 13 — polite filler stacking. Modal fast-path skips past
+  // please/kindly/just before checking for info-seeking verbs.
+  it("does NOT override 'Can you please explain how to make it warmer?' (filler + info verb)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you please explain how to make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Can you kindly help me change the jacket?' (filler + help)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you kindly help me change the jacket?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Would you just please explain formality?' (stacked fillers + explain)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you just please explain formality"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive: fillers BEFORE imperative verb still allow override.
+  it("DOES override 'Can you just make it warmer?' (filler + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you just make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'Could you maybe swap the shoes?' (filler 'maybe' + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you maybe swap the shoes?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
