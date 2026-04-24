@@ -269,6 +269,12 @@ const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
 const INFO_SEEKING_STARTS = new Set([
   "tell", "explain", "describe", "define", "list", "show",
   "teach", "help", "give",
+  // Codex P2 round 16: advisory verbs — "Can you suggest how to make it
+  // warmer?" / "Would you recommend a different vibe?" are guidance
+  // questions, not refinement commands. Including them here routes such
+  // messages to the interrogative guard regardless of imperative-phrase
+  // matches later in the sentence.
+  "suggest", "recommend", "advise", "propose",
 ]);
 
 // Codex P2 round 6: polite modal requests that open with can/could/would

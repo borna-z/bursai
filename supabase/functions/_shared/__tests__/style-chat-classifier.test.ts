@@ -1005,6 +1005,50 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 16 — advisory verbs (suggest/recommend/advise/propose)
+  // are guidance requests, not refinement commands. Modal fast-path must
+  // reject them even when a later imperative phrase matches.
+  it("does NOT override 'Can you suggest how to make it warmer?' (modal + suggest)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you suggest how to make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Could you recommend how to swap the shoes?' (modal + recommend)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you recommend how to swap the shoes?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Would you advise on making it warmer?' (modal + advise)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you advise on making it warmer"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Can you please suggest how to swap the shoes?' (filler + suggest)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you please suggest how to swap the shoes?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Info-seeking non-modal openers also covered.
+  it("does NOT override 'suggest how to make it warmer' (advisory verb as opener)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("suggest how to make it warmer"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
