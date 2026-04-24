@@ -368,13 +368,24 @@ function looksLikeRefinementRequest(message: string): boolean {
     return true;
   }
 
-  // (b) Direct-imperative fast-path — "make it warmer?", "swap the shoes?".
-  // A message that STARTS with a refinement verb (make/swap/change/etc.)
-  // AND matches the imperative verb-phrase pattern is a command; the "?"
-  // is emphatic punctuation. This keeps "make it warmer?" on the refine
-  // path without letting wh-questions like "How can I change my style?"
-  // (which starts with "how", not an imperative verb) through.
-  if (IMPERATIVE_REFINE_VERBS.has(firstCleaned) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
+  // (b) Direct-imperative fast-path — "make it warmer?", "swap the shoes?",
+  // "please make it warmer?". A message that STARTS with a refinement verb
+  // (make/swap/change/etc.), OR with a politeness filler followed by a
+  // refinement verb, AND matches the imperative verb-phrase pattern is a
+  // command; the "?" is emphatic punctuation.
+  //
+  // Codex P2 round 14: extended past POLITE_FILLERS so "please make it
+  // warmer?" / "kindly change my top?" reach the override. Skip fillers at
+  // position 0 onwards, then require the first meaningful word to be an
+  // imperative refinement verb.
+  let firstMeaningfulIdx = 0;
+  while (firstMeaningfulIdx < words.length) {
+    const w = (words[firstMeaningfulIdx] ?? "").replace(/[^a-z]/g, "");
+    if (!POLITE_FILLERS.has(w)) break;
+    firstMeaningfulIdx++;
+  }
+  const firstMeaningful = (words[firstMeaningfulIdx] ?? "").replace(/[^a-z]/g, "");
+  if (IMPERATIVE_REFINE_VERBS.has(firstMeaningful) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
     return true;
   }
 
@@ -383,9 +394,14 @@ function looksLikeRefinementRequest(message: string): boolean {
   // MUST run before the general imperative fast-path below, so inputs like
   // "How can I change my style?" don't slip through on the `change my`
   // pattern match.
+  //
+  // Codex P2 round 14: also check firstMeaningful so a politeness filler
+  // doesn't let info-seeking verbs slip past — "please explain how to
+  // make it warmer" (no "?") would otherwise hit (d) via the `make it`
+  // phrase match.
   if (hasQuestionMark) return false;
-  if (QUESTION_STARTS.has(firstCleaned)) return false;
-  if (INFO_SEEKING_STARTS.has(firstCleaned)) return false;
+  if (QUESTION_STARTS.has(firstCleaned) || QUESTION_STARTS.has(firstMeaningful)) return false;
+  if (INFO_SEEKING_STARTS.has(firstCleaned) || INFO_SEEKING_STARTS.has(firstMeaningful)) return false;
 
   // (d) Explicit imperative verb phrase (no question markers) —
   // "make it warmer", "swap the shoes", "change the top".

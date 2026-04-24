@@ -891,6 +891,52 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 14 — polite-prefixed direct imperatives with "?".
+  it("DOES override 'please make it warmer?' (politeness + imperative + '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("please make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'please swap the shoes?' (politeness + imperative + '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("please swap the shoes?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_shoes");
+  });
+
+  it("DOES override 'kindly change my top?' (kindly + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("kindly change my top?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_top");
+  });
+
+  // Codex P2 round 14 (secondary) — polite filler must NOT let info-seeking
+  // verbs slip past the (c) interrogative/info guard.
+  it("does NOT override 'please explain how to make it warmer' (politeness + info verb, no '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("please explain how to make it warmer"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'please tell me how to swap the shoes' (politeness + info verb)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("please tell me how to swap the shoes"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
