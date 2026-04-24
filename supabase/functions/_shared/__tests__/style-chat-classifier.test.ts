@@ -798,6 +798,56 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 12 — modal + info-seeking 3rd word = explanatory question.
+  it("does NOT override 'Can you explain how to make it warmer?' (info-seeking 3rd word)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you explain how to make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Could you tell me how to swap the shoes?' (info-seeking 3rd word)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you tell me how to swap the shoes?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Would you describe the change my top would need?' (info-seeking 3rd word 'describe')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you describe the change my top would need"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Can you help me make it warmer?' (info-seeking 3rd word 'help')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you help me make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive: direct modal + imperative 3rd word still overrides.
+  it("still DOES override 'Can you make it warmer?' (direct imperative 3rd word 'make')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'Would you please make it warmer?' (polite modifier, not info-seeking)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you please make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

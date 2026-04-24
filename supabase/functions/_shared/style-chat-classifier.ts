@@ -330,10 +330,18 @@ function looksLikeRefinementRequest(message: string): boolean {
   // directed modal phrasing ("can YOU...") is a request. "Can I make it
   // warmer?" / "Would this change my style?" are info/impact questions
   // and must stay on the conversational path.
-  const secondWord = (trimmed.toLowerCase().split(/\s+/)[1] ?? "").replace(/[^a-z]/g, "");
+  //
+  // Codex P2 round 12: reject info-seeking 3rd word ("Can you EXPLAIN ...",
+  // "Could you TELL me ..."). An info verb between "you" and the refinement
+  // phrase signals explanation/guidance intent, not a command. This keeps
+  // direct imperatives ("Can you make it warmer?") on the refine path.
+  const words = trimmed.toLowerCase().split(/\s+/);
+  const secondWord = (words[1] ?? "").replace(/[^a-z]/g, "");
+  const thirdWord = (words[2] ?? "").replace(/[^a-z]/g, "");
   if (
     MODAL_REQUEST_STARTS.has(firstCleaned) &&
     secondWord === "you" &&
+    !INFO_SEEKING_STARTS.has(thirdWord) &&
     IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)
   ) {
     return true;
