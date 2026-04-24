@@ -247,32 +247,52 @@ const INFO_SEEKING_STARTS = new Set([
   "teach", "help", "give",
 ]);
 
+// Codex P2 round 6: polite modal requests that open with can/could/would
+// are the ONLY case where an imperative verb phrase should override a
+// question marker. General questions like "How can I change my style?"
+// also contain "change my" but are genuine advice requests, not refinement
+// commands. Separating modal-starters from arbitrary interrogatives
+// lets us keep the polite-modal override without swallowing wh- questions.
+const MODAL_REQUEST_STARTS = new Set(["can", "could", "would"]);
+
 function looksLikeRefinementRequest(message: string): boolean {
   const trimmed = message.trim();
-  // (a) Explicit imperative verb phrase — e.g. "make it warmer", "swap the
-  // shoes", "Can you change the top?". This is the strong signal: we treat
-  // as refine even when phrased as a question.
-  if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return true;
 
-  // (b) Bare modifier / short-chip message path — e.g. "warmer",
-  // "more formal", "softer", "different vibe". These are common in chat
-  // UIs that expose quick-reply chips, and they match REFINEMENT_WORDS_RE
-  // but have no verb phrase. Guard: no `?`, no interrogative starter, no
-  // info-seeking starter, and the whole message must be short (≤ 6 words).
-  if (trimmed.includes("?")) return false;
   const firstWord = trimmed.toLowerCase().split(/\s+/)[0] ?? "";
   // Codex P2 round 2: split on apostrophe so contractions like "what's",
   // "who's", "isn't", "don't" normalize to their base interrogative
   // ("what", "who", "isn", "don") before the set lookup.
   const beforeApostrophe = firstWord.split(/['\u2019]/)[0] ?? "";
   const firstCleaned = beforeApostrophe.replace(/[^a-z]/g, "");
+  const hasQuestionMark = trimmed.includes("?");
+
+  // (a) Polite modal-request fast-path — "Can you make it warmer?",
+  // "Could you swap the shoes?". A modal starter (can/could/would) paired
+  // with a refinement imperative phrase is a request, not a question,
+  // regardless of a trailing "?". We check this FIRST so modal-phrased
+  // imperatives override the question markers that would otherwise fire.
+  if (MODAL_REQUEST_STARTS.has(firstCleaned) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
+    return true;
+  }
+
+  // (b) General interrogative guard — wh-questions ("what", "how", "why",
+  // "which", etc.), plus messages containing "?". Codex round 6: this
+  // MUST run before the general imperative fast-path below, so inputs like
+  // "How can I change my style?" don't slip through on the `change my`
+  // pattern match.
+  if (hasQuestionMark) return false;
   if (QUESTION_STARTS.has(firstCleaned)) return false;
   if (INFO_SEEKING_STARTS.has(firstCleaned)) return false;
 
-  // Short-chip heuristic: 6 words or fewer and passes all guards above.
-  // Longer messages with no imperative phrase are treated as conversation
-  // (they might be user statements / descriptions / soft requests; let the
-  // classifier's original intent stand rather than force a refine).
+  // (c) Explicit imperative verb phrase (no question markers) —
+  // "make it warmer", "swap the shoes", "change the top".
+  if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return true;
+
+  // (d) Bare modifier / short-chip message path — e.g. "warmer",
+  // "more formal", "softer", "different vibe". Common in chat UIs with
+  // quick-reply chips. Short (≤6 words) and passes all the guards above.
+  // Longer descriptive messages (> 6 words, no imperative) fall through
+  // to the classifier's original conversation intent.
   const wordCount = trimmed.split(/\s+/).length;
   return wordCount <= 6;
 }

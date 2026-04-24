@@ -475,6 +475,43 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("cooler");
   });
+
+  // Codex P2 round 6 — wh-questions containing imperative verbs ("How can I
+  // change my style?") must stay as conversation. The imperative fast-path
+  // must NOT bypass the interrogative guard when the message doesn't open
+  // with a modal request.
+  it("does NOT override 'How can I change my style?' (wh-question with imperative verb)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("How can I change my style?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'How do I make this warmer?' (wh-question with make it-style phrase)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("How do I make this warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Why would I swap the shoes?' (wh-question, even with 'would')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Why would I swap the shoes"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Polite modal requests still override (verify round 4 behavior preserved).
+  it("still DOES override 'Would you change my top?' (modal starter + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you change my top?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
