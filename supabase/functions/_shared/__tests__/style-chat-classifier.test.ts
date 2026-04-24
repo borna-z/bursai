@@ -1049,6 +1049,87 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("conversation");
   });
+
+  // Codex P2 round 17 — pronoun branch narrowed to require a refinement
+  // adjective after "it/this/them". Non-outfit "verb + pronoun" phrases
+  // stay conversation.
+  it("does NOT override 'Can you remove this comment?' (pronoun, no refinement adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you remove this comment?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'add this to my shopping list' (pronoun, no refinement adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("add this to my shopping list"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change this file' (pronoun, no refinement adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change this file"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'remove it from the list' (pronoun, no refinement adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("remove it from the list"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive regressions — pronoun + refinement adj still overrides.
+  it("still DOES override 'make it warmer' (pronoun + adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'make it much cooler' (pronoun + intensifier + adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it much cooler"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
+
+  it("DOES override 'change it to something dressier' (pronoun + phrase + adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change it to something dressier"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  // Demonstrative + clothing still overrides via branch (2).
+  it("DOES override 'change this jacket' (demonstrative + clothing noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change this jacket"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_outerwear");
+  });
+
+  it("DOES override 'swap that top' (demonstrative + clothing noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap that top"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_top");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

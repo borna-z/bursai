@@ -242,14 +242,23 @@ const QUESTION_STARTS = new Set([
 // `(verb) + (it|this|them|the|a|an|some|something|my)` matched "change my
 // password" / "change my account settings" — forcing refine_outfit on
 // non-clothing requests whenever an active look existed. The new shape
-// requires EITHER an outfit-implying pronoun (it/this/them) OR a
-// clothing-specific noun (with optional article/possessive).
+// requires EITHER an outfit-implying pronoun followed by refinement context
+// OR a clothing-specific noun.
+//
+// Codex P2 round 17: pronoun branch (1) further narrowed. "verb + it/this/them"
+// alone matched "Can you remove this comment?" / "add this to my shopping
+// list" / "change this file" — too loose. Now requires a REFINEMENT
+// ADJECTIVE (warmer/cooler/formal/casual/different/elevated/softer/sharper/
+// dressier/dressy) after the pronoun (any intermediate words allowed for
+// intensifiers like "much" / "really" / "a bit"). Unchanged semantics for
+// legitimate refinements: "make it warmer", "change it to something dressier",
+// "make it much cooler". Dress-up/down stays in its own branch (4).
 const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants|trousers|skirt|jeans|jacket|coat|blazer|cardigan|outerwear|dress|style|vibe";
 const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
-  // (1) verb + outfit-implying pronoun: "make it warmer", "change this"
-  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)\\b` +
-  // (2) verb + (article|possessive) + clothing noun: "change my top", "swap the shoes"
-  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something)\\s+(?:${CLOTHING_NOUNS})\\b` +
+  // (1) verb + outfit pronoun + (optional intermediate) + refinement adjective
+  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)\\b` +
+  // (2) verb + (article|possessive|demonstrative) + clothing noun: "change my top", "swap the shoes", "change this jacket"
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})\\b` +
   // (3) verb + clothing noun (no article): "swap shoes", "change jacket"
   `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})\\b` +
   // (4) dress-up/dress-down phrase: "dress it up", "dress this down"
