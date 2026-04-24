@@ -187,7 +187,7 @@ function parseClassifierResponse(raw: string): ClassifierResult {
 // (`dress it up` / `dress this down`) pair with REFINEMENT_HINT_PATTERNS
 // below — without them, the bare word `dress` would over-match ("my dress",
 // "a dress") and force non-refinement messages into the refine flow.
-const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|swap|change|different|elevated|softer|sharper|dressier)\b|\bdress\s+(it|this|them)\s+(up|down)\b/i;
+const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|swap|change|different|elevated|softer|sharper|dressier|dressy)\b|\bdress\s+(it|this|them)\s+(up|down)\b/i;
 
 const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }> = [
   { pattern: /\bwarmer\b/i, hint: "warmer" },
@@ -225,8 +225,19 @@ const QUESTION_STARTS = new Set([
   "isn", "don", "doesn", "aren", "wasn", "weren", "didn", "couldn", "won", "wouldn", "shouldn",
 ]);
 
+// Codex P1 round 4: polite modal-phrased refinement requests like
+// "Can you make it warmer?" or "Could you swap the shoes?" should still
+// trigger the override. They're imperatives dressed up as questions.
+// Detection: if the message body contains a refinement verb pattern
+// ("make it X", "swap the Y", etc.), treat it as a request regardless of
+// trailing "?" or modal starter.
+const IMPERATIVE_REFINE_PHRASE_RE = /\b(make|swap|change|try|keep|lose|drop|remove|add)\s+(it|this|them|the|a|an|some|something|my)\b/i;
+
 function looksLikeQuestion(message: string): boolean {
   const trimmed = message.trim();
+  // Escape hatch — imperative refinement phrasing overrides the question
+  // markers. "Can you make it warmer?" is a request, not a question.
+  if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return false;
   if (trimmed.includes("?")) return true;
   const firstWord = trimmed.toLowerCase().split(/\s+/)[0] ?? "";
   // Codex P2 round 2: split on apostrophe so contractions like "what's",
@@ -253,6 +264,12 @@ export function applyActiveLookRefinementOverride(
     // and routes to clarify mode — so the override must also clear that flag,
     // otherwise the forced refine intent never reaches the refine path.
     needs_more_context: false,
+    // Codex P2 round 4: preserve/force `clear_active_look: false` — a
+    // `conversation` classifier output could have `clear_active_look: true`
+    // (e.g. when the user starts a new topic). Forcing refine_outfit while
+    // also asking the client to clear the active-look state contradicts the
+    // intent and drops the very outfit we're trying to refine.
+    clear_active_look: false,
     refinement_hint: result.refinement_hint ?? inferRefinementHint(input.userMessage),
   };
 }

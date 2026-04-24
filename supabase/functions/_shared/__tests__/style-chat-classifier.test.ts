@@ -224,10 +224,13 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.refinement_hint).toBe("different_style");
   });
 
-  it("preserves locked_slots + clear_active_look; clears needs_more_context (Codex P2)", () => {
-    // Codex P2 fix — needs_more_context must be cleared when forcing refine
-    // (otherwise style_chat routes to clarify mode before intent). Other fields
-    // (locked_slots, clear_active_look) pass through untouched.
+  it("preserves locked_slots; clears needs_more_context + clear_active_look (Codex P2 rounds 1+4)", () => {
+    // Codex P2 round 1 — needs_more_context must be cleared when forcing
+    // refine (otherwise style_chat routes to clarify mode before intent).
+    // Codex P2 round 4 — clear_active_look must also flip to false:
+    // refine_outfit + clear_active_look=true would contradict each other
+    // (the client would clear the outfit we're trying to refine).
+    // locked_slots passes through untouched.
     const input: ClassifierResult = {
       intent: "conversation",
       needs_more_context: true,
@@ -237,8 +240,8 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     };
     const out = applyActiveLookRefinementOverride(input, makeInput("make it warmer"));
     expect(out.needs_more_context).toBe(false);
+    expect(out.clear_active_look).toBe(false);
     expect(out.locked_slots).toEqual(["top"]);
-    expect(out.clear_active_look).toBe(true);
   });
 
   it("does NOT override when input is already a non-conversation intent (e.g. generate_outfit)", () => {
@@ -371,6 +374,53 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
       makeInput("I want a dress for the weekend"),
     );
     expect(out.intent).toBe("conversation");
+  });
+
+  // Codex P1 round 4 — polite modal refinement requests must still override.
+  it("DOES override 'Can you make it warmer?' (polite modal request + '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'Could you swap the shoes?' (polite modal request + '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you swap the shoes?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_shoes");
+  });
+
+  it("DOES override 'Would you change it to something cooler?' (modal + ?)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you change it to something cooler?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
+
+  it("still does NOT override info-seeking modal 'Can you explain why this works?' (no imperative verb phrase)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you explain why this works"),
+    );
+    // No "make it" / "swap the" / etc., starts with "Can" → stays a question.
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Codex P2 round 4 — "dressy" was mapped in hint patterns but missing from gate.
+  it("DOES override 'make it dressy' (dressy keyword now in gate)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it dressy"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
   });
 });
 
