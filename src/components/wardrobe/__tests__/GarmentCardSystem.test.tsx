@@ -18,7 +18,6 @@ const garment = {
   formality: 4,
   ai_raw: { occasions: ['work', 'travel'] },
   in_laundry: false,
-  image_processing_status: null,
   render_status: null,
 } as unknown as Garment;
 

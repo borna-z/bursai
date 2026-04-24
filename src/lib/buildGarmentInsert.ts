@@ -45,7 +45,6 @@ export function buildGarmentInsert(
     ...buildGarmentIntelligenceFields({
       storagePath: resolvedStoragePath,
       enableRender: enableStudioQuality,
-      skipImageProcessing: true,
     }),
   };
 

@@ -7,7 +7,6 @@ describe('garmentImage', () => {
       getPreferredGarmentImagePath({
         image_path: 'original.jpg',
         original_image_path: 'original.jpg',
-        image_processing_status: 'ready',
         rendered_image_path: 'rendered.png',
         render_status: 'ready',
       } as never),
@@ -19,7 +18,6 @@ describe('garmentImage', () => {
       getPreferredGarmentImagePath({
         image_path: 'original.jpg',
         original_image_path: 'original.jpg',
-        image_processing_status: 'ready',
         rendered_image_path: null,
         render_status: 'pending',
       } as never),
@@ -31,18 +29,7 @@ describe('garmentImage', () => {
       getPreferredGarmentImagePath({
         image_path: 'original.jpg',
         original_image_path: 'original.jpg',
-        image_processing_status: 'ready',
         render_status: 'none',
-      } as never),
-    ).toBe('original.jpg');
-  });
-
-  it('falls back to original image when processing is not ready', () => {
-    expect(
-      getPreferredGarmentImagePath({
-        image_path: 'legacy.jpg',
-        original_image_path: 'original.jpg',
-        image_processing_status: 'processing',
       } as never),
     ).toBe('original.jpg');
   });
@@ -55,40 +42,33 @@ describe('garmentImage', () => {
     ).toBe('legacy.jpg');
   });
 
-  it('returns soft fallback copy for failed processing', () => {
-    expect(getGarmentProcessingMessage('failed')).toEqual({
-      label: 'Using original photo',
-      tone: 'muted',
-    });
-  });
-
   it('shows render message when render is pending', () => {
-    expect(getGarmentProcessingMessage('ready', 'pending')).toEqual({
+    expect(getGarmentProcessingMessage('pending')).toEqual({
       label: 'Studio-quality image is processing in the background',
       tone: 'muted',
     });
   });
 
   it('shows render message when rendering', () => {
-    expect(getGarmentProcessingMessage('ready', 'rendering')).toEqual({
+    expect(getGarmentProcessingMessage('rendering')).toEqual({
       label: 'Studio-quality image is processing in the background',
       tone: 'muted',
     });
   });
 
   it('shows neutral fallback copy when render fails', () => {
-    expect(getGarmentProcessingMessage('ready', 'failed')).toEqual({
+    expect(getGarmentProcessingMessage('failed')).toEqual({
       label: 'Using original photo',
       tone: 'muted',
     });
   });
 
   it('returns null when render is intentionally skipped', () => {
-    expect(getGarmentProcessingMessage('ready', 'skipped')).toBeNull();
+    expect(getGarmentProcessingMessage('skipped')).toBeNull();
   });
 
-  it('falls through to processing message when render is none', () => {
-    expect(getGarmentProcessingMessage('pending', 'none')).toBeNull();
+  it('returns null when render is none and the original is displayed', () => {
+    expect(getGarmentProcessingMessage('none')).toBeNull();
   });
 
   it('reports rendered as the display source when rendered asset is active', () => {
@@ -101,7 +81,7 @@ describe('garmentImage', () => {
   });
 
   it('returns truthful rendered-source copy when rendered asset is visible', () => {
-    expect(getGarmentProcessingMessage('ready', 'ready', 'rendered')).toEqual({
+    expect(getGarmentProcessingMessage('ready', 'rendered')).toEqual({
       label: 'Using studio-quality image',
       tone: 'success',
     });

@@ -19,8 +19,6 @@ export interface AISuggestion {
     color_primary: string;
     image_path: string | null;
     original_image_path?: string | null;
-    processed_image_path?: string | null;
-    image_processing_status?: string | null;
     rendered_image_path?: string | null;
     render_status?: string | null;
   }[];
@@ -138,7 +136,7 @@ export function useAISuggestions() {
 
       const { data: liveGarments, error: garmentsError } = await supabase
         .from('garments')
-        .select('id, title, category, color_primary, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status')
+        .select('id, title, category, color_primary, image_path, original_image_path, rendered_image_path, render_status')
         .in('id', garmentIds);
 
       if (garmentsError) throw garmentsError;
@@ -161,9 +159,6 @@ export function useAISuggestions() {
     gcTime: 1000 * 60 * 60,
     retry: 1,
     refetchInterval: (query) => {
-      // P15: `image_processing_status` removed from the poll gate — nothing
-      // transitions it anymore after PhotoRoom unwired. Render status is
-      // the only remaining volatile field.
       const suggestions = query.state.data?.suggestions || [];
       const hasProcessingGarments = suggestions.some((suggestion) =>
         suggestion.garments.some((garment) =>

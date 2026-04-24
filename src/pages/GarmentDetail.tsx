@@ -77,11 +77,9 @@ export default function GarmentDetailPage() {
   const enrichmentStatus: EnrichmentStatus = (garment?.enrichment_status as EnrichmentStatus) || 'none';
 
   useEffect(() => {
-    // P15: `image_processing_status` removed from the poll gate — nothing
-    // transitions it anymore after PhotoRoom unwired. Enrichment + render
-    // status remain the only volatile fields.
     const shouldPoll =
       enrichmentStatus === 'pending' ||
+      enrichmentStatus === 'processing' ||
       enrichmentStatus === 'in_progress' ||
       garment?.render_status === 'pending' ||
       garment?.render_status === 'rendering';
@@ -123,7 +121,7 @@ export default function GarmentDetailPage() {
   const displayImagePath = garment ? getPreferredGarmentImagePath(garment) : undefined;
   const displayImageSource = garment ? getPreferredGarmentImageSource(garment) : undefined;
   const processingMessage = garment
-    ? getGarmentProcessingMessage(garment.image_processing_status, garment.render_status, displayImageSource)
+    ? getGarmentProcessingMessage(garment.render_status, displayImageSource)
     : null;
 
   const categorySummary = garment
@@ -199,7 +197,7 @@ export default function GarmentDetailPage() {
 
     setIsRetrying(true);
     try {
-      await supabase.from('garments').update({ enrichment_status: 'in_progress' } as Record<string, unknown>).eq('id', garment.id);
+      await supabase.from('garments').update({ enrichment_status: 'processing' } as Record<string, unknown>).eq('id', garment.id);
       const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
         body: { storagePath: garment.image_path, mode: 'enrich' },
       });
@@ -213,7 +211,7 @@ export default function GarmentDetailPage() {
 
       const currentRaw = (garment.ai_raw as Record<string, unknown>) || {};
       const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
-      const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'complete' };
+      const updates: Record<string, unknown> = { ai_raw: mergedRaw as Json, enrichment_status: 'completed' };
 
       if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {
         updates.title = (data.enrichment.refined_title as string).substring(0, 50);
@@ -331,7 +329,6 @@ export default function GarmentDetailPage() {
 
             {processingMessage ? (
               <GarmentProcessingBadge
-                status={garment.image_processing_status}
                 renderStatus={garment.render_status}
                 className="bg-background/85 backdrop-blur-sm"
                 displaySource={displayImageSource}

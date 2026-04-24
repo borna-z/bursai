@@ -3,11 +3,8 @@ import type { Json, TablesInsert } from '@/integrations/supabase/types';
 import { invokeEdgeFunction, getHttpStatus } from '@/lib/edgeFunctionClient';
 import { logger } from '@/lib/logger';
 import {
-  GARMENT_IMAGE_PROCESSING_VERSION,
   GARMENT_ENRICHMENT_RETRY_DELAY_MS,
 } from '@/config/constants';
-
-export { GARMENT_IMAGE_PROCESSING_VERSION };
 
 type RenderTriggerSource = 'add_photo' | 'batch_add' | 'live_scan' | 'manual_enhance' | 'retry';
 
@@ -329,8 +326,6 @@ interface BuildGarmentIntelligenceFieldsOptions {
   storagePath: string;
   /** Set render_status to 'pending' on insert for studio render flows. */
   enableRender?: boolean;
-  /** Opt out of image preprocessing for save-first flows. */
-  skipImageProcessing?: boolean;
 }
 
 interface TriggerGarmentPostSaveIntelligenceOptions {
@@ -358,30 +353,13 @@ interface TriggerGarmentPostSaveIntelligenceOptions {
 export function buildGarmentIntelligenceFields({
   storagePath,
   enableRender = false,
-  skipImageProcessing = false,
 }: BuildGarmentIntelligenceFieldsOptions): Pick<
   TablesInsert<'garments'>,
-  | 'enrichment_status'
-  | 'original_image_path'
-  | 'processed_image_path'
-  | 'image_processing_status'
-  | 'image_processing_provider'
-  | 'image_processing_version'
-  | 'image_processing_confidence'
-  | 'image_processing_error'
-  | 'image_processed_at'
-  | 'render_status'
+  'enrichment_status' | 'original_image_path' | 'render_status'
 > {
   return {
     enrichment_status: 'pending',
     original_image_path: storagePath,
-    processed_image_path: null,
-    image_processing_status: skipImageProcessing ? 'ready' : 'pending',
-    image_processing_provider: null,
-    image_processing_version: GARMENT_IMAGE_PROCESSING_VERSION,
-    image_processing_confidence: null,
-    image_processing_error: null,
-    image_processed_at: null,
     render_status: enableRender ? 'pending' : 'none',
   };
 }
@@ -426,7 +404,7 @@ export function triggerGarmentPostSaveIntelligence({
 }
 
 async function enrichGarmentInBackground(garmentId: string, storagePath: string): Promise<void> {
-  await supabase.from('garments').update({ enrichment_status: 'in_progress' }).eq('id', garmentId);
+  await supabase.from('garments').update({ enrichment_status: 'processing' }).eq('id', garmentId);
 
   const attempt = async (): Promise<boolean> => {
     const { data, error } = await invokeEdgeFunction<{ enrichment?: Record<string, unknown>; error?: string }>('analyze_garment', {
@@ -442,7 +420,7 @@ async function enrichGarmentInBackground(garmentId: string, storagePath: string)
     const mergedRaw = { ...currentRaw, enrichment: data.enrichment };
     const updates: Record<string, unknown> = {
       ai_raw: mergedRaw as Json,
-      enrichment_status: 'complete',
+      enrichment_status: 'completed',
     };
 
     if (data.enrichment.refined_title && typeof data.enrichment.refined_title === 'string') {

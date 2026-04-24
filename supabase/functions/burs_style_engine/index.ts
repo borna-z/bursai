@@ -848,7 +848,7 @@ serve(async (req) => {
     const [garmentsRawRes, profileRes, recentOutfitsRes, feedbackRes, wearLogsRes, laundryCountRes, pairMemoryRes, feedbackSignalsRes, plannedNotWornRes] = await Promise.all([
       supabase
         .from("garments")
-        .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, created_at, enrichment_status, image_processing_status, image_processing_confidence, ai_raw")
+        .select("id, title, category, subcategory, color_primary, color_secondary, pattern, material, fit, formality, season_tags, wear_count, last_worn_at, image_path, created_at, enrichment_status, ai_raw")
         .eq("user_id", userId)
         .eq("in_laundry", false)
         .order("created_at", { ascending: false })

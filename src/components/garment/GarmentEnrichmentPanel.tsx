@@ -75,7 +75,7 @@ export function SpecRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'complete' | 'failed';
+export type EnrichmentStatus = 'none' | 'pending' | 'in_progress' | 'processing' | 'complete' | 'completed' | 'failed';
 
 interface GarmentEnrichmentPanelProps {
   enrichment: EnrichmentData | null;

@@ -57,8 +57,6 @@ function createOutfitsQueryResult() {
             color_primary: 'black',
             image_path: 'raw.jpg',
             original_image_path: 'raw.jpg',
-            processed_image_path: 'processed.png',
-            image_processing_status: 'ready',
             rendered_image_path: 'rendered.png',
             render_status: 'ready',
           },

@@ -3,14 +3,13 @@ import { getGarmentProcessingMessage, type GarmentDisplaySource } from '@/lib/ga
 import { cn } from '@/lib/utils';
 
 interface GarmentProcessingBadgeProps {
-  status?: string | null;
   renderStatus?: string | null;
   className?: string;
   displaySource?: GarmentDisplaySource;
 }
 
-export function GarmentProcessingBadge({ status, renderStatus, className, displaySource = 'original' }: GarmentProcessingBadgeProps) {
-  const message = getGarmentProcessingMessage(status, renderStatus, displaySource);
+export function GarmentProcessingBadge({ renderStatus, className, displaySource = 'original' }: GarmentProcessingBadgeProps) {
+  const message = getGarmentProcessingMessage(renderStatus, displaySource);
 
   if (!message) return null;
 

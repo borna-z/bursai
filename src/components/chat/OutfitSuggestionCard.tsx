@@ -111,7 +111,7 @@ export function OutfitSuggestionCard({
     try {
       const { data } = await supabase
         .from('garments')
-        .select('id, title, category, color_primary, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status')
+        .select('id, title, category, color_primary, image_path, original_image_path, rendered_image_path, render_status')
         .eq('user_id', user.id)
         .eq('category', current.category)
         .neq('id', current.id)

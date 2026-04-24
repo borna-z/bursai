@@ -537,8 +537,6 @@ describe('useLiveScan', () => {
 
     expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
       render_status: 'none',
-      image_processing_status: 'ready',
-      processed_image_path: null,
     }));
 
     await vi.waitFor(() => {

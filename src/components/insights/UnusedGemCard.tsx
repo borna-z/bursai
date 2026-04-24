@@ -12,8 +12,6 @@ interface UnusedGemCardProps {
     title: string;
     image_path: string | null;
     original_image_path?: string | null;
-    processed_image_path?: string | null;
-    image_processing_status?: string | null;
     rendered_image_path?: string | null;
     render_status?: string | null;
     category: string;

@@ -12,8 +12,6 @@ export const FRAME_CROP_RATIO = 0.7;
 export const FRAME_MAX_DIM = 480;
 export const FRAME_QUALITY = 0.5;
 
-export const GARMENT_IMAGE_PROCESSING_VERSION = 'background-removal-v1';
-
 // ── Confidence thresholds ─────────────────────────────────────────────────────
 /** Below this the garment is flagged for manual review after AI analysis. */
 export const GARMENT_REVIEW_CONFIDENCE_THRESHOLD = 0.55;

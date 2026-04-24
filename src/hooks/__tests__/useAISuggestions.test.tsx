@@ -93,9 +93,9 @@ describe('useAISuggestions', () => {
     });
     supabaseInMock.mockResolvedValue({
       data: [
-        { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg', original_image_path: 'top.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
-        { id: 'g2', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
-        { id: 'g7', title: 'Shoes', category: 'shoes', color_primary: 'white', image_path: 'shoes.jpg', original_image_path: 'shoes.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g1', title: 'Top', category: 'top', color_primary: 'black', image_path: 'top.jpg', original_image_path: 'top.jpg', rendered_image_path: null, render_status: 'none' },
+        { id: 'g2', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', rendered_image_path: null, render_status: 'none' },
+        { id: 'g7', title: 'Shoes', category: 'shoes', color_primary: 'white', image_path: 'shoes.jpg', original_image_path: 'shoes.jpg', rendered_image_path: null, render_status: 'none' },
       ],
       error: null,
     });
@@ -131,9 +131,9 @@ describe('useAISuggestions', () => {
   it('filters invalid standard suggestions missing a bottom', async () => {
     supabaseInMock.mockResolvedValueOnce({
       data: [
-        { id: 'g3', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top2.jpg', original_image_path: 'top2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
-        { id: 'g4', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
-        { id: 'g8', title: 'Shoes', category: 'shoes', color_primary: 'tan', image_path: 'shoes2.jpg', original_image_path: 'shoes2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g3', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top2.jpg', original_image_path: 'top2.jpg', rendered_image_path: null, render_status: 'none' },
+        { id: 'g4', title: 'Bottom', category: 'bottom', color_primary: 'blue', image_path: 'bottom.jpg', original_image_path: 'bottom.jpg', rendered_image_path: null, render_status: 'none' },
+        { id: 'g8', title: 'Shoes', category: 'shoes', color_primary: 'tan', image_path: 'shoes2.jpg', original_image_path: 'shoes2.jpg', rendered_image_path: null, render_status: 'none' },
       ],
       error: null,
     });
@@ -210,9 +210,9 @@ describe('useAISuggestions', () => {
     });
     supabaseInMock.mockResolvedValueOnce({
       data: [
-        { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg', original_image_path: 'top3.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
-        { id: 'g6', title: 'Bottom', category: 'bottom', color_primary: 'black', image_path: 'bottom2.jpg', original_image_path: 'bottom2.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
-        { id: 'g9', title: 'Shoes', category: 'shoes', color_primary: 'black', image_path: 'shoes3.jpg', original_image_path: 'shoes3.jpg', processed_image_path: null, image_processing_status: 'ready', rendered_image_path: null, render_status: 'none' },
+        { id: 'g5', title: 'Top', category: 'top', color_primary: 'white', image_path: 'top3.jpg', original_image_path: 'top3.jpg', rendered_image_path: null, render_status: 'none' },
+        { id: 'g6', title: 'Bottom', category: 'bottom', color_primary: 'black', image_path: 'bottom2.jpg', original_image_path: 'bottom2.jpg', rendered_image_path: null, render_status: 'none' },
+        { id: 'g9', title: 'Shoes', category: 'shoes', color_primary: 'black', image_path: 'shoes3.jpg', original_image_path: 'shoes3.jpg', rendered_image_path: null, render_status: 'none' },
       ],
       error: null,
     });

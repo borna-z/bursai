@@ -78,7 +78,6 @@ export async function saveGarmentInBackground(
       ...buildGarmentIntelligenceFields({
         storagePath,
         enableRender: enableStudioQuality,
-        skipImageProcessing: true,
       }),
     });
 

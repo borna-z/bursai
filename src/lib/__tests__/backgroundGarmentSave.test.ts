@@ -234,10 +234,8 @@ describe('saveGarmentInBackground', () => {
 
     expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
       render_status: 'none',
-      image_processing_status: 'ready',
       image_path: 'user-1/test-uuid.jpg',
       original_image_path: 'user-1/test-uuid.jpg',
-      processed_image_path: null,
     }));
 
     await Promise.resolve();

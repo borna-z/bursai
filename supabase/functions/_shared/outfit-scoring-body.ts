@@ -437,8 +437,6 @@ export function buildPersonalUniform(wearLogs: WearLog[], garments: GarmentRow[]
 export interface GarmentReadinessSignals {
   analysisConfidence: number | null;
   enrichmentReady: boolean;
-  imageReady: boolean;
-  imageConfidence: number | null;
   isRecentlyAdded: boolean;
   penalty: number;
 }
@@ -464,37 +462,28 @@ export function garmentReadinessSignals(garment: GarmentRow): GarmentReadinessSi
 
   const analysisConfidence = analysisConfidenceRaw == null ? null : clamp01(analysisConfidenceRaw);
   const enrichmentReady = garment.enrichment_status === 'complete' || garment.enrichment_status === 'completed';
-  const imageReady = garment.image_processing_status === 'ready' || garment.image_processing_status === 'failed';
-  const imageConfidence = garment.image_processing_confidence == null ? null : clamp01(garment.image_processing_confidence);
   const createdAt = garment.created_at ? new Date(garment.created_at).getTime() : null;
   const ageHours = createdAt == null ? Number.POSITIVE_INFINITY : (Date.now() - createdAt) / 36e5;
   const isRecentlyAdded = Number.isFinite(ageHours) && ageHours <= 72;
 
   let penalty = 0;
   if (!enrichmentReady) penalty += 0.55;
-  if (!imageReady) penalty += 0.3;
 
   if (analysisConfidence != null && analysisConfidence < 0.75) {
     penalty += Math.min(0.8, (0.75 - analysisConfidence) * 2);
-  }
-
-  if (imageConfidence != null && imageConfidence < 0.55) {
-    penalty += Math.min(0.25, (0.55 - imageConfidence) * 0.6);
   }
 
   if (isRecentlyAdded && analysisConfidence != null && analysisConfidence < 0.65) {
     penalty += 0.45;
   }
 
-  if (isRecentlyAdded && (!enrichmentReady || !imageReady)) {
+  if (isRecentlyAdded && !enrichmentReady) {
     penalty += 0.2;
   }
 
   return {
     analysisConfidence,
     enrichmentReady,
-    imageReady,
-    imageConfidence,
     isRecentlyAdded,
     penalty: Math.min(1.6, penalty),
   };
