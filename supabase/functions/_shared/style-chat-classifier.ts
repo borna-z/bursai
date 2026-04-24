@@ -265,14 +265,22 @@ const QUESTION_STARTS = new Set([
 // active-look refinement. Bare-chip paths ("different style" / "different
 // vibe") still work via BENIGN_CHIP_FILLERS which retains these words.
 const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants|trousers|skirt|jeans|jacket|coat|blazer|cardigan|outerwear|dress";
+// Codex P2 round 20: branch (1)'s adjective must now be at the END of the
+// phrase (modulo politeness words + punctuation). The earlier shape
+// matched "change this to formal language" / "add this casual note"
+// because `(?:\\s+[a-z]+)*` greedily consumed intermediate words and then
+// the adjective matched mid-sentence, followed by unrelated nouns like
+// "language" / "note". Anchoring to end-of-string with a politeness/
+// punctuation trail forces the adjective to be the refinement terminus.
 const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
-  // (1) verb + outfit pronoun + (optional intermediate) + refinement adjective
-  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)\\b` +
-  // (2) verb + (article|possessive|demonstrative) + clothing noun: "change my top", "swap the shoes", "change this jacket"
+  // (1) verb + outfit pronoun + (intermediate) + refinement adjective, with
+  //     ONLY politeness words + punctuation allowed after the adjective.
+  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
+  // (2) verb + (article|possessive|demonstrative) + clothing noun
   `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})\\b` +
-  // (3) verb + clothing noun (no article): "swap shoes", "change jacket"
+  // (3) verb + clothing noun (no article)
   `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})\\b` +
-  // (4) dress-up/dress-down phrase: "dress it up", "dress this down"
+  // (4) dress-up / dress-down phrase
   `|\\bdress\\s+(it|this|them)\\s+(up|down)\\b`,
   "i",
 );

@@ -1287,6 +1287,75 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("less_formal");
   });
+
+  // Codex P2 round 20 — pronoun branch must anchor to end-of-phrase. Mid-
+  // sentence refinement adjectives followed by unrelated nouns are
+  // conversational/meta requests, not outfit refinements.
+  it("does NOT override 'change this to formal language' (adj + unrelated noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change this to formal language"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'add this casual note' (adj + unrelated noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("add this casual note"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'make it warmer in the kitchen' (adj + unrelated trailing text)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer in the kitchen"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive regressions — adjective at the end (optionally with politeness
+  // or punctuation) still fires.
+  it("still DOES override 'make it warmer' (adj at end)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'make it warmer?' (adj + trailing punctuation)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'make it warmer please' (adj + politeness trail)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer please"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'make it warmer please thanks' (adj + stacked politeness)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer please thanks"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'change it to something dressier' (intermediate + adj at end)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change it to something dressier"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
