@@ -272,10 +272,21 @@ const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants
 // the adjective matched mid-sentence, followed by unrelated nouns like
 // "language" / "note". Anchoring to end-of-string with a politeness/
 // punctuation trail forces the adjective to be the refinement terminus.
+//
+// Codex P2 round 21: round 20's anchor was too strict — common occasion
+// context phrasings like "make it warmer for tonight" / "make it cooler
+// for work" couldn't match because `for tonight` / `for work` follow the
+// adjective. Loosen the trailing pattern with an optional `for <X>` clause
+// (1-3 alpha words) sandwiched between optional politeness pre/suffix.
+// This still rejects the round-20 false-positive class because mid-sentence
+// nouns like "language" / "note" don't start with `for`, so the trail
+// pattern doesn't extend past them and the end-anchor `[\\s.,?!]*$` fails.
 const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
   // (1) verb + outfit pronoun + (intermediate) + refinement adjective, with
-  //     ONLY politeness words + punctuation allowed after the adjective.
-  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
+  //     politeness words + optional `for <occasion>` (1-3 words) + punctuation
+  //     allowed after the adjective. End-anchored — adjective must terminate
+  //     the meaningful phrase modulo politeness/occasion/punctuation.
+  `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
   // (2) verb + (article|possessive|demonstrative) + clothing noun
   `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})\\b` +
   // (3) verb + clothing noun (no article)

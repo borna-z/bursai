@@ -1356,6 +1356,112 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 21 — pronoun branch must accept `for <occasion>` trailing
+  // context (1-3 words). Real users add occasion phrasing to refinement
+  // requests: "make it warmer for tonight", "make it cooler for work".
+  // Round 20's strict end-anchor blocked these; round 21 widens the trail.
+  it("DOES override 'make it warmer for tonight' (Codex round 21 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer for tonight"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'make it cooler for work' (Codex round 21 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it cooler for work"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
+
+  it("DOES override 'make it warmer for the meeting' (for + 2 words)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer for the meeting"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'make it cooler for the date night' (for + 3 words = max)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it cooler for the date night"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
+
+  it("DOES override 'make it dressier for the wedding' (different adjective + for X)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it dressier for the wedding"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'make it warmer please for tonight' (politeness prefix + for X)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer please for tonight"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'make it warmer for tonight please' (for X + politeness suffix)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer for tonight please"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'make it warmer for tonight.' (for X + period)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer for tonight."),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  // Round 21 must NOT regress round-20 rejections — non-`for` trailing
+  // tokens still terminate the match because the end-anchor `[\s.,?!]*$`
+  // requires the trail pattern to consume EVERY remaining word.
+  it("does NOT override 'make it warmer than the other' (trailing 'than' is not 'for')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer than the other"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change this to formal language for now' (mid-sentence adj + unrelated noun before `for`)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change this to formal language for now"),
+    );
+    // 'language' breaks the trail before `for now` is reached, so end-anchor fails.
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'make it warmer for the office party tonight' (>3 trailing words exceeds cap)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer for the office party tonight"),
+    );
+    // 4 words after `for` — beyond {1,3} cap — falls back to conversation.
+    // Users hitting this cap can rephrase: "make it warmer for the party".
+    expect(out.intent).toBe("conversation");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
