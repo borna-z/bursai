@@ -113,7 +113,7 @@ describe('Plan page', () => {
             id: 'item-1',
             slot: 'top',
             garment_id: 'g1',
-            garment: { id: 'g1', title: 'White Shirt', image_path: '/shirt.jpg', processed_image_path: null },
+            garment: { id: 'g1', title: 'White Shirt', image_path: '/shirt.jpg' },
           }],
         },
       }],

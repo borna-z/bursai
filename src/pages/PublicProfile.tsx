@@ -36,8 +36,6 @@ interface PublicOutfit {
     subcategory: string | null;
     image_path: string | null;
     original_image_path?: string | null;
-    processed_image_path?: string | null;
-    image_processing_status?: string | null;
     rendered_image_path?: string | null;
     render_status?: string | null;
   } | null }[];
@@ -85,7 +83,7 @@ export default function PublicProfile() {
       // Shared outfits
       const { data: outfitData } = await supabase
         .from('outfits')
-        .select('id, occasion, style_vibe, explanation, generated_at, outfit_items(id, slot, garment:garments(id, title, category, subcategory, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status))')
+        .select('id, occasion, style_vibe, explanation, generated_at, outfit_items(id, slot, garment:garments(id, title, category, subcategory, image_path, original_image_path, rendered_image_path, render_status))')
         .eq('user_id', profileData.id)
         .eq('share_enabled', true)
         .order('generated_at', { ascending: false })

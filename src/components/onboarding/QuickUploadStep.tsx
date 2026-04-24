@@ -105,7 +105,7 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
             analysisConfidence: analysis?.confidence,
             source: 'quick_upload',
           }),
-          enrichment_status: analysis ? 'complete' : 'failed',
+          enrichment_status: analysis ? 'completed' : 'failed',
           imported_via: 'quick_upload',
         });
 

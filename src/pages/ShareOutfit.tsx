@@ -25,8 +25,6 @@ interface OutfitItem {
     color_primary: string;
     image_path: string | null;
     original_image_path?: string | null;
-    processed_image_path?: string | null;
-    image_processing_status?: string | null;
     rendered_image_path?: string | null;
     render_status?: string | null;
   } | null;
@@ -73,7 +71,7 @@ export default function ShareOutfitPage() {
 
       const { data, error } = await supabase
         .from('outfits')
-        .select(`id, occasion, style_vibe, explanation, share_enabled, outfit_items (id, slot, garment:garments (id, title, color_primary, image_path, original_image_path, processed_image_path, image_processing_status, rendered_image_path, render_status))`)
+        .select(`id, occasion, style_vibe, explanation, share_enabled, outfit_items (id, slot, garment:garments (id, title, color_primary, image_path, original_image_path, rendered_image_path, render_status))`)
         .eq('id', id).eq('share_enabled', true).single();
 
       if (error || !data) { setNotFound(true); setIsLoading(false); return; }

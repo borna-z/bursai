@@ -98,9 +98,6 @@ export function useGarments(filters?: GarmentFilters) {
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
     refetchInterval: (query) => {
-      // P15: `image_processing_status` removed from the poll gate — nothing
-      // transitions it anymore after PhotoRoom unwired. Render status is
-      // the only remaining volatile field.
       const pages = query.state.data?.pages ?? [];
       const hasProcessingGarments = pages.some((page) =>
         page.items.some((garment) =>

@@ -101,15 +101,13 @@ describe('standardizeGarmentAiRaw', () => {
 
 
 describe('buildGarmentIntelligenceFields', () => {
-  it('marks save-first render records as ready for original-photo display until studio render finishes', () => {
+  it('marks save-first render records as pending render for studio generation', () => {
     expect(buildGarmentIntelligenceFields({
       storagePath: 'user-1/photo.jpg',
       enableRender: true,
-      skipImageProcessing: true,
     })).toEqual(expect.objectContaining({
       original_image_path: 'user-1/photo.jpg',
-      image_processing_status: 'ready',
-      image_processing_error: null,
+      enrichment_status: 'pending',
       render_status: 'pending',
     }));
   });

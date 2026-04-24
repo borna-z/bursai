@@ -41,8 +41,6 @@ export interface GarmentRow {
   image_path: string;
   created_at: string | null;
   enrichment_status: string | null;
-  image_processing_status: string | null;
-  image_processing_confidence: number | null;
   ai_raw: any;
   // Enrichment fields from ai_raw (populated at load time with safe defaults)
   silhouette: string;           // e.g. "boxy", "fitted", "relaxed", "straight", "a-line"
@@ -894,7 +892,7 @@ export function occasionTemplateScore(
     wear_count: null, last_worn_at: null, image_path: '',
     silhouette: 'straight', visual_weight: 5, texture_intensity: 3, layering_role: 'standalone',
     versatility_score: 5, occasion_tags: [], style_archetype: '',
-  } as GarmentRow);
+  } as unknown as GarmentRow);
 
   let score = 7;
 
@@ -1308,7 +1306,7 @@ export function isCompleteOutfit(
   }));
   const completeValidation = validateCompleteOutfit(normalizedItems);
   const baseMissing = completeValidation.missing.filter((slot) => slot !== 'shoes' && slot !== 'outerwear');
-  const missing = [...baseMissing];
+  const missing: string[] = [...baseMissing];
   const hasDress = completeValidation.isDressBased;
 
   if (mode === 'no_shoes') {

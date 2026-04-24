@@ -204,7 +204,6 @@ const mockGarment = {
   condition_score: null,
   condition_notes: null,
   image_path: 'path.jpg',
-  image_processing_status: 'ready',
   render_status: 'ready',
   enrichment_status: 'none',
   ai_raw: null,

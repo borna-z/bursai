@@ -20,8 +20,6 @@ function makeGarment(overrides: Partial<GarmentBasic> & { id: string }): Garment
     color_primary: 'black',
     image_path: null,
     original_image_path: null,
-    processed_image_path: null,
-    image_processing_status: null,
     rendered_image_path: null,
     render_status: null,
     ...overrides,

@@ -10,7 +10,6 @@ interface SimilarGarment {
   image_path?: string | null;
   render_image_path?: string | null;
   nobg_image_path?: string | null;
-  image_processing_status?: string | null;
   render_status?: string | null;
 }
 

@@ -433,12 +433,6 @@ export type Database = {
           fts: unknown
           id: string
           image_path: string | null
-          image_processed_at: string | null
-          image_processing_confidence: number | null
-          image_processing_error: string | null
-          image_processing_provider: string | null
-          image_processing_status: string
-          image_processing_version: string | null
           imported_via: string | null
           in_laundry: boolean | null
           last_worn_at: string | null
@@ -446,7 +440,6 @@ export type Database = {
           occasion_tags: string[] | null
           original_image_path: string | null
           pattern: string | null
-          processed_image_path: string | null
           purchase_currency: string | null
           purchase_price: number | null
           render_error: string | null
@@ -485,12 +478,6 @@ export type Database = {
           fts?: unknown
           id?: string
           image_path?: string | null
-          image_processed_at?: string | null
-          image_processing_confidence?: number | null
-          image_processing_error?: string | null
-          image_processing_provider?: string | null
-          image_processing_status?: string
-          image_processing_version?: string | null
           imported_via?: string | null
           in_laundry?: boolean | null
           last_worn_at?: string | null
@@ -498,7 +485,6 @@ export type Database = {
           occasion_tags?: string[] | null
           original_image_path?: string | null
           pattern?: string | null
-          processed_image_path?: string | null
           purchase_currency?: string | null
           purchase_price?: number | null
           render_error?: string | null
@@ -537,12 +523,6 @@ export type Database = {
           fts?: unknown
           id?: string
           image_path?: string | null
-          image_processed_at?: string | null
-          image_processing_confidence?: number | null
-          image_processing_error?: string | null
-          image_processing_provider?: string | null
-          image_processing_status?: string
-          image_processing_version?: string | null
           imported_via?: string | null
           in_laundry?: boolean | null
           last_worn_at?: string | null
@@ -550,7 +530,6 @@ export type Database = {
           occasion_tags?: string[] | null
           original_image_path?: string | null
           pattern?: string | null
-          processed_image_path?: string | null
           purchase_currency?: string | null
           purchase_price?: number | null
           render_error?: string | null
