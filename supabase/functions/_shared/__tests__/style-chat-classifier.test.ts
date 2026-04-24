@@ -1130,6 +1130,81 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("swap_top");
   });
+
+  // Codex P1 round 18 — negated-formality hints must map to opposite direction.
+  // "less casual" = MORE formal; "less dressy" = LESS formal.
+  it("maps 'make it less casual' to more_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it less casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("maps 'make it less dressy' to less_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it less dressy"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("maps 'make it less formal' to less_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it less formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("maps 'make it less elevated' to less_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it less elevated"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("maps 'not as casual' to more_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      // "not as casual" is 3 words + "a bit" = 5 tokens → falls through the
+      // short-chip word-count check. Use a shorter imperative phrasing.
+      makeInput("make it not as casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("maps 'not as dressy' to less_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not as dressy"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  // Regressions: positive/non-negated directions still map correctly.
+  it("still maps 'make it more formal' to more_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it more formal"),
+    );
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("still maps bare 'casual' chip to less_formal hint", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("casual"),
+    );
+    expect(out.refinement_hint).toBe("less_formal");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

@@ -199,6 +199,12 @@ const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|different|elevated|s
 const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }> = [
   { pattern: /\bwarmer\b/i, hint: "warmer" },
   { pattern: /\bcooler\b/i, hint: "cooler" },
+  // Codex P1 round 18: negated-formality patterns — must run BEFORE the
+  // generic casual/formal/dressy mappings below, otherwise "less casual"
+  // would fall through to the bare `\bcasual\b` match and invert to
+  // `less_formal`. "less casual" = MORE formal; "less dressy" = LESS formal.
+  { pattern: /\b(less|not as|not so)\s+(casual|relaxed|soft|softer)\b/i, hint: "more_formal" },
+  { pattern: /\b(less|not as|not so)\s+(formal|dressy|dressier|elevated|sharp|sharper)\b/i, hint: "less_formal" },
   { pattern: /\b(elevated|sharper|more formal|dressier|dress it up|dress this up)\b/i, hint: "more_formal" },
   { pattern: /\b(softer|less formal|more casual|dress it down|dress this down)\b/i, hint: "less_formal" },
   { pattern: /\bshoes?\b/i, hint: "swap_shoes" },
