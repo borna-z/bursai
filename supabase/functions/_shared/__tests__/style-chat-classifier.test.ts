@@ -224,7 +224,10 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.refinement_hint).toBe("different_style");
   });
 
-  it("preserves other fields (needs_more_context, locked_slots, clear_active_look)", () => {
+  it("preserves locked_slots + clear_active_look; clears needs_more_context (Codex P2)", () => {
+    // Codex P2 fix — needs_more_context must be cleared when forcing refine
+    // (otherwise style_chat routes to clarify mode before intent). Other fields
+    // (locked_slots, clear_active_look) pass through untouched.
     const input: ClassifierResult = {
       intent: "conversation",
       needs_more_context: true,
@@ -233,7 +236,7 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
       clear_active_look: true,
     };
     const out = applyActiveLookRefinementOverride(input, makeInput("make it warmer"));
-    expect(out.needs_more_context).toBe(true);
+    expect(out.needs_more_context).toBe(false);
     expect(out.locked_slots).toEqual(["top"]);
     expect(out.clear_active_look).toBe(true);
   });
@@ -248,5 +251,63 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     };
     const out = applyActiveLookRefinementOverride(gen, makeInput("make it warmer"));
     expect(out.intent).toBe("generate_outfit");
+  });
+
+  // Codex P1 round 1 — guard against misrouting questions that contain refinement words.
+  it("does NOT override a question ending in '?' (e.g. 'difference between formal and casual?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("what's the difference between formal and casual dress codes?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override a question starting with interrogative word (no '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("what is the difference between formal and casual"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override a 'how do I' question", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("how do I swap shoes on an outfit"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("DOES override imperative 'swap the shoes' (no question marker)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap the shoes"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  // Codex P2 round 1 — override must clear needs_more_context so the forced
+  // refine intent actually reaches the refine path in style_chat.
+  it("clears needs_more_context=true when forcing refine_outfit (Codex P2)", () => {
+    const resultWithNmc: ClassifierResult = {
+      intent: "conversation",
+      needs_more_context: true,
+      refinement_hint: null,
+      locked_slots: null,
+      clear_active_look: false,
+    };
+    const out = applyActiveLookRefinementOverride(resultWithNmc, makeInput("make it warmer"));
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.needs_more_context).toBe(false);
+  });
+
+  it("clears needs_more_context on CLASSIFIER_FALLBACK shape when user has active look + refine word", () => {
+    // CLASSIFIER_FALLBACK = { intent: "conversation", needs_more_context: true, ... }
+    // This is the shape returned when the AI response fails to parse — we still
+    // want the refine override to kick in and clear the clarify flag.
+    const out = applyActiveLookRefinementOverride(CLASSIFIER_FALLBACK, makeInput("make it warmer"));
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.needs_more_context).toBe(false);
+    expect(out.refinement_hint).toBe("warmer");
   });
 });

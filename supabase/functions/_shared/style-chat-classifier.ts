@@ -206,6 +206,25 @@ function inferRefinementHint(message: string): RefinementHint {
   return null;
 }
 
+/**
+ * Codex P1 round 1: guard against misrouting questions that happen to contain
+ * refinement keywords (e.g. "what's the difference between formal and casual
+ * dress codes?") into the refine flow. A genuine chat question is identifiable
+ * by either an explicit `?` OR an interrogative first word.
+ */
+const QUESTION_STARTS = new Set([
+  "what", "why", "how", "when", "where", "who", "which",
+  "is", "are", "was", "were", "do", "does", "did", "can", "could", "would", "should", "may", "might",
+]);
+
+function looksLikeQuestion(message: string): boolean {
+  const trimmed = message.trim();
+  if (trimmed.includes("?")) return true;
+  const firstWord = trimmed.toLowerCase().split(/\s+/)[0] ?? "";
+  const cleaned = firstWord.replace(/[^a-z]/g, "");
+  return QUESTION_STARTS.has(cleaned);
+}
+
 export function applyActiveLookRefinementOverride(
   result: ClassifierResult,
   input: ClassifierInput,
@@ -213,10 +232,15 @@ export function applyActiveLookRefinementOverride(
   if (!input.hasActiveLook) return result;
   if (result.intent !== "conversation") return result;
   if (!REFINEMENT_WORDS_RE.test(input.userMessage)) return result;
+  if (looksLikeQuestion(input.userMessage)) return result;
 
   return {
     ...result,
     intent: "refine_outfit",
+    // Codex P2 round 1: style_chat checks `needs_more_context` BEFORE intent
+    // and routes to clarify mode — so the override must also clear that flag,
+    // otherwise the forced refine intent never reaches the refine path.
+    needs_more_context: false,
     refinement_hint: result.refinement_hint ?? inferRefinementHint(input.userMessage),
   };
 }
