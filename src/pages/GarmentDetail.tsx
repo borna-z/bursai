@@ -80,6 +80,7 @@ export default function GarmentDetailPage() {
     const shouldPoll =
       enrichmentStatus === 'pending' ||
       enrichmentStatus === 'processing' ||
+      enrichmentStatus === 'in_progress' ||
       garment?.render_status === 'pending' ||
       garment?.render_status === 'rendering';
     setIsEnrichmentPending(shouldPoll);
