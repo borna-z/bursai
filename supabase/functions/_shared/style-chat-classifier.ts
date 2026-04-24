@@ -259,7 +259,12 @@ const QUESTION_STARTS = new Set([
 // intensifiers like "much" / "really" / "a bit"). Unchanged semantics for
 // legitimate refinements: "make it warmer", "change it to something dressier",
 // "make it much cooler". Dress-up/down stays in its own branch (4).
-const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants|trousers|skirt|jeans|jacket|coat|blazer|cardigan|outerwear|dress|style|vibe";
+// Codex P2 round 19: dropped `style` and `vibe` — too generic. "change my
+// style" / "Would you change my style?" is commonly about identity/
+// preferences (a conversational/STYLE_IDENTITY_ANALYSIS request), not an
+// active-look refinement. Bare-chip paths ("different style" / "different
+// vibe") still work via BENIGN_CHIP_FILLERS which retains these words.
+const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants|trousers|skirt|jeans|jacket|coat|blazer|cardigan|outerwear|dress";
 const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
   // (1) verb + outfit pronoun + (optional intermediate) + refinement adjective
   `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)\\b` +
@@ -352,6 +357,11 @@ const BENIGN_CHIP_FILLERS = new Set([
   "please", "kindly", "thanks", "thx", "thank", "you",
   "vibe", "style", "look", "outfit", "feel", "mood",
   "it", "this", "that",
+  // Codex P2 round 19: allow short negated-formality chips like "not as
+  // casual" / "not as dressy" / "not so formal" to reach the override.
+  // Hint inference already supports these patterns — the bare-chip path
+  // just needed to recognize the filler tokens.
+  "not", "as", "so",
 ]);
 
 function looksLikeRefinementRequest(message: string): boolean {

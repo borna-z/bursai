@@ -1205,6 +1205,88 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.refinement_hint).toBe("less_formal");
   });
+
+  // Codex P2 round 19 #1 — "style" and "vibe" no longer in CLOTHING_NOUNS.
+  // Style-identity questions stay conversational.
+  it("does NOT override 'change my style' (style is no longer a clothing noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my style"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Would you change my style?' (identity question)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you change my style?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change my style preferences' (identity)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my style preferences"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change my vibe' (generic identity)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my vibe"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Bare-chip paths still recognize style/vibe as fillers — "different vibe"
+  // works via the short-chip whitelist because these words are in
+  // BENIGN_CHIP_FILLERS, not CLOTHING_NOUNS.
+  it("still DOES override 'different vibe' (vibe in BENIGN_CHIP_FILLERS)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("different vibe"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'different style' (style in BENIGN_CHIP_FILLERS)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("different style"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  // Codex P2 round 19 #2 — "not as casual" / "not as dressy" as bare chips
+  // now pass the token whitelist because "not" and "as" are added as fillers.
+  it("DOES override bare 'not as casual' (negated chip) and maps to more_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not as casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override bare 'not as dressy' (negated chip) and maps to less_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not as dressy"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override bare 'not so formal' (negated chip with 'so')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not so formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
