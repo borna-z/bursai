@@ -1462,6 +1462,113 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     // Users hitting this cap can rephrase: "make it warmer for the party".
     expect(out.intent).toBe("conversation");
   });
+
+  // Codex P2 round 22 — branches (2) and (3) of IMPERATIVE_REFINE_PHRASE_RE
+  // must end-anchor so prefix matches inside compound nouns ("dress code",
+  // "coat of arms") don't hijack conversation into refine_outfit.
+  it("does NOT override 'change my dress code' (Codex round 22 example: compound noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my dress code"),
+    );
+    // `change my dress` would have matched the OLD `\b`-ended branch (2);
+    // round-22 end-anchor rejects because ` code` isn't a refinement adj,
+    // politeness, or `for <X>` clause.
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change my coat of arms' (Codex round 22 example: prepositional phrase)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my coat of arms"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'swap the shirt collar' (compound clothing noun follower)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap the shirt collar"),
+    );
+    // ` collar` not in trail whitelist → end-anchor fails.
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Round 22 must NOT regress the simple verb+det+noun cases (legitimate
+  // refinements in the wild).
+  it("still DOES override 'change the jacket' (bare branch 2)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the jacket"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'swap shoes' (bare branch 3)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap shoes"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'change my outfit' (branch 2 with my-possessive)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my outfit"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'change the jacket please' (branch 2 + politeness)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the jacket please"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'swap the shoes for tonight' (branch 2 + for X)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap the shoes for tonight"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'swap the dress for the wedding' (branch 2 + for X with article)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap the dress for the wedding"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'make the jacket warmer' (branch 2 + refinement adj trail)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make the jacket warmer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'make the jacket warmer for tonight' (branch 2 + adj + for X)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make the jacket warmer for tonight"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'change the outfit.' (branch 2 + period)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the outfit."),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

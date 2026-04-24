@@ -281,16 +281,30 @@ const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants
 // This still rejects the round-20 false-positive class because mid-sentence
 // nouns like "language" / "note" don't start with `for`, so the trail
 // pattern doesn't extend past them and the end-anchor `[\\s.,?!]*$` fails.
+//
+// Codex P2 round 22: branches (2) and (3) used `\\b` (word boundary) at the
+// end, so prefix matches inside compound nouns hijacked legitimate
+// conversational requests — "change my dress code" matched `change my dress`
+// and "change my coat of arms" matched `change my coat`. End-anchor both
+// branches with the same politeness/for-X/punctuation trail as branch (1),
+// PLUS allow refinement adjectives in the trail (`warmer`/`cooler`/etc.) so
+// real refinements like "make the jacket warmer" or "swap the dress for the
+// wedding" still match. Compound-noun follow-ons like ` code` / ` of` aren't
+// in any of the trail tokens, so the end-anchor fails for those phrasings.
 const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
   // (1) verb + outfit pronoun + (intermediate) + refinement adjective, with
   //     politeness words + optional `for <occasion>` (1-3 words) + punctuation
   //     allowed after the adjective. End-anchored — adjective must terminate
   //     the meaningful phrase modulo politeness/occasion/punctuation.
   `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
-  // (2) verb + (article|possessive|demonstrative) + clothing noun
-  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})\\b` +
-  // (3) verb + clothing noun (no article)
-  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})\\b` +
+  // (2) verb + (article|possessive|demonstrative) + clothing noun, end-anchored
+  //     with optional refinement-adjective + politeness + `for <occasion>` trail.
+  //     Round 22: end-anchor needed to reject compound-noun follow-ons like
+  //     "change my dress code" / "change my coat of arms". Refinement-adjective
+  //     trail keeps "make the jacket warmer" matching.
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})(?:\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy))*(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
+  // (3) verb + clothing noun (no article), same end-anchor + trail as (2).
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})(?:\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy))*(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
   // (4) dress-up / dress-down phrase
   `|\\bdress\\s+(it|this|them)\\s+(up|down)\\b`,
   "i",
