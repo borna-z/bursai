@@ -164,6 +164,63 @@ function parseClassifierResponse(raw: string): ClassifierResult {
   };
 }
 
+/**
+ * P30: Post-classification override for the "refine words with active look" case.
+ *
+ * The LLM classifier sometimes returns `intent: "conversation"` on messages
+ * like "make it warmer" even when an active look is present — treating them
+ * as generic chat instead of the refine flow they clearly signal. That hits
+ * users with an active outfit who expect "make it warmer" to regenerate a
+ * warmer variant; instead it falls back to the conversational path and the
+ * refine UI never fires.
+ *
+ * Deterministic override: when an active look exists AND the classifier
+ * returned `conversation` AND the message contains a refinement keyword,
+ * flip the intent to `refine_outfit` and (if the classifier didn't already
+ * fill one) infer a `refinement_hint` from the specific keyword that matched.
+ *
+ * We do NOT override when `hasActiveLook` is false — the classifier prompt
+ * already handles that case correctly by routing to conversation +
+ * needs_more_context=true (rule at line 77 of the prompt).
+ */
+const REFINEMENT_WORDS_RE = /\b(warmer|cooler|formal|casual|swap|change|different|elevated|softer|sharper)\b/i;
+
+const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }> = [
+  { pattern: /\bwarmer\b/i, hint: "warmer" },
+  { pattern: /\bcooler\b/i, hint: "cooler" },
+  { pattern: /\b(elevated|sharper|more formal|dressier|dress it up|dress this up)\b/i, hint: "more_formal" },
+  { pattern: /\b(softer|less formal|more casual|dress it down|dress this down)\b/i, hint: "less_formal" },
+  { pattern: /\bshoes?\b/i, hint: "swap_shoes" },
+  { pattern: /\b(top|shirt|blouse|sweater)\b/i, hint: "swap_top" },
+  { pattern: /\b(bottom|pants|trousers|skirt|jeans)\b/i, hint: "swap_bottom" },
+  { pattern: /\b(jacket|coat|blazer|outerwear|cardigan)\b/i, hint: "swap_outerwear" },
+  { pattern: /\b(formal|dressy)\b/i, hint: "more_formal" },
+  { pattern: /\bcasual\b/i, hint: "less_formal" },
+  { pattern: /\b(different|change|swap)\b/i, hint: "different_style" },
+];
+
+function inferRefinementHint(message: string): RefinementHint {
+  for (const { pattern, hint } of REFINEMENT_HINT_PATTERNS) {
+    if (pattern.test(message)) return hint;
+  }
+  return null;
+}
+
+export function applyActiveLookRefinementOverride(
+  result: ClassifierResult,
+  input: ClassifierInput,
+): ClassifierResult {
+  if (!input.hasActiveLook) return result;
+  if (result.intent !== "conversation") return result;
+  if (!REFINEMENT_WORDS_RE.test(input.userMessage)) return result;
+
+  return {
+    ...result,
+    intent: "refine_outfit",
+    refinement_hint: result.refinement_hint ?? inferRefinementHint(input.userMessage),
+  };
+}
+
 export async function classifyIntent(
   input: ClassifierInput,
   callAI: CallAIFn,
@@ -177,7 +234,7 @@ export async function classifyIntent(
       ],
       "trivial",
     );
-    return parseClassifierResponse(raw);
+    return applyActiveLookRefinementOverride(parseClassifierResponse(raw), input);
   } catch {
     return CLASSIFIER_FALLBACK;
   }
