@@ -215,13 +215,21 @@ function inferRefinementHint(message: string): RefinementHint {
 const QUESTION_STARTS = new Set([
   "what", "why", "how", "when", "where", "who", "which",
   "is", "are", "was", "were", "do", "does", "did", "can", "could", "would", "should", "may", "might",
+  // Contraction stems — the split-on-apostrophe path in `looksLikeQuestion`
+  // yields these for "isn't", "don't", "doesn't", "can't", "couldn't",
+  // "won't", "wouldn't", "shouldn't", "aren't", "wasn't", "weren't", "didn't".
+  "isn", "don", "doesn", "aren", "wasn", "weren", "didn", "couldn", "won", "wouldn", "shouldn",
 ]);
 
 function looksLikeQuestion(message: string): boolean {
   const trimmed = message.trim();
   if (trimmed.includes("?")) return true;
   const firstWord = trimmed.toLowerCase().split(/\s+/)[0] ?? "";
-  const cleaned = firstWord.replace(/[^a-z]/g, "");
+  // Codex P2 round 2: split on apostrophe so contractions like "what's",
+  // "who's", "isn't", "don't" normalize to their base interrogative
+  // ("what", "who", "isn", "don") before the set lookup.
+  const beforeApostrophe = firstWord.split(/['\u2019]/)[0] ?? "";
+  const cleaned = beforeApostrophe.replace(/[^a-z]/g, "");
   return QUESTION_STARTS.has(cleaned);
 }
 

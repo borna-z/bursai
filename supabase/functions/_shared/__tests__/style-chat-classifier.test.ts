@@ -278,6 +278,31 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("conversation");
   });
 
+  // Codex P2 round 2 — contractions in the interrogative starter.
+  it("does NOT override 'what's the difference between formal and casual' (contraction, no '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("what's the difference between formal and casual"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'who's more formal' (contraction)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("who's more formal than who"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'isn't this too casual' (negative contraction)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("isn't this too casual"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
   it("DOES override imperative 'swap the shoes' (no question marker)", () => {
     const out = applyActiveLookRefinementOverride(
       CONVERSATION_RESULT,
