@@ -255,6 +255,14 @@ const INFO_SEEKING_STARTS = new Set([
 // lets us keep the polite-modal override without swallowing wh- questions.
 const MODAL_REQUEST_STARTS = new Set(["can", "could", "would"]);
 
+// Codex P1 round 7: direct imperatives with a trailing "?" ("make it warmer?",
+// "swap the shoes?") are still commands — the "?" is emphatic punctuation,
+// not a question marker. Detection: message starts with an imperative
+// refinement verb (make|swap|change|try|keep|lose|drop|remove|add).
+const IMPERATIVE_REFINE_VERBS = new Set([
+  "make", "swap", "change", "try", "keep", "lose", "drop", "remove", "add",
+]);
+
 function looksLikeRefinementRequest(message: string): boolean {
   const trimmed = message.trim();
 
@@ -275,7 +283,17 @@ function looksLikeRefinementRequest(message: string): boolean {
     return true;
   }
 
-  // (b) General interrogative guard — wh-questions ("what", "how", "why",
+  // (b) Direct-imperative fast-path — "make it warmer?", "swap the shoes?".
+  // A message that STARTS with a refinement verb (make/swap/change/etc.)
+  // AND matches the imperative verb-phrase pattern is a command; the "?"
+  // is emphatic punctuation. This keeps "make it warmer?" on the refine
+  // path without letting wh-questions like "How can I change my style?"
+  // (which starts with "how", not an imperative verb) through.
+  if (IMPERATIVE_REFINE_VERBS.has(firstCleaned) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
+    return true;
+  }
+
+  // (c) General interrogative guard — wh-questions ("what", "how", "why",
   // "which", etc.), plus messages containing "?". Codex round 6: this
   // MUST run before the general imperative fast-path below, so inputs like
   // "How can I change my style?" don't slip through on the `change my`
@@ -284,11 +302,11 @@ function looksLikeRefinementRequest(message: string): boolean {
   if (QUESTION_STARTS.has(firstCleaned)) return false;
   if (INFO_SEEKING_STARTS.has(firstCleaned)) return false;
 
-  // (c) Explicit imperative verb phrase (no question markers) —
+  // (d) Explicit imperative verb phrase (no question markers) —
   // "make it warmer", "swap the shoes", "change the top".
   if (IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) return true;
 
-  // (d) Bare modifier / short-chip message path — e.g. "warmer",
+  // (e) Bare modifier / short-chip message path — e.g. "warmer",
   // "more formal", "softer", "different vibe". Common in chat UIs with
   // quick-reply chips. Short (≤6 words) and passes all the guards above.
   // Longer descriptive messages (> 6 words, no imperative) fall through

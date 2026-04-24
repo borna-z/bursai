@@ -512,6 +512,35 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P1 round 7 — direct imperatives with trailing "?" are emphatic
+  // commands, not questions. Must still override.
+  it("DOES override 'make it warmer?' (direct imperative + trailing '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'swap the shoes?' (direct imperative + trailing '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("swap the shoes?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_shoes");
+  });
+
+  it("DOES override 'change the top?' (direct imperative + trailing '?')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the top?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("swap_top");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
