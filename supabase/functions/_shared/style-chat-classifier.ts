@@ -318,6 +318,21 @@ const DECLARATIVE_STARTS = new Set([
 // that could be about non-clothing targets.
 const REFINEMENT_ADJECTIVES_RE = /\b(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)\b/i;
 
+// Codex P2 round 15: words considered "benign" when composing a bare-
+// modifier refinement chip. Required so "different question" / "formal vs
+// casual" / "formal question" don't slip through the short-chip path.
+// Token whitelist: every content word must be EITHER a refinement
+// adjective (per REFINEMENT_ADJECTIVES_RE) OR one of these benign
+// companions (articles, intensifiers, pronouns, outfit-context nouns,
+// politeness). Any unrecognized content word rejects the chip.
+const BENIGN_CHIP_FILLERS = new Set([
+  "a", "an", "the",
+  "more", "less", "bit", "slightly", "way", "really", "quite", "very", "much", "even",
+  "please", "kindly", "thanks", "thx", "thank", "you",
+  "vibe", "style", "look", "outfit", "feel", "mood",
+  "it", "this", "that",
+]);
+
 function looksLikeRefinementRequest(message: string): boolean {
   const trimmed = message.trim();
 
@@ -418,21 +433,29 @@ function looksLikeRefinementRequest(message: string): boolean {
   // (e) Bare modifier / short-chip message path — e.g. "warmer",
   // "more formal", "softer", "different vibe", "cooler please". These are
   // common in chat UIs with quick-reply chips. Guards:
-  //   - First word must not be a DECLARATIVE_START ("I need" / "my top" /
-  //     "looking for ...") — those signal generation/statement intent.
-  //   - Message must contain a REFINEMENT_ADJECTIVE (warmer / cooler /
-  //     formal / casual / different / elevated / softer / sharper /
-  //     dressier / dressy). Bare refinement verbs ("swap", "change")
-  //     without clothing-specific context fall through to conversation
-  //     (prevents "change my password" false positives on non-clothing
-  //     targets).
-  //   - Message must be ≤ 3 words. Longer short-chip-shaped sentences like
-  //     "I need a formal outfit" (5 words, statement) would slip through
-  //     otherwise. Real refinement chips are 1–3 tokens in practice.
+  //   - First word must not be a DECLARATIVE_START.
+  //   - Message must contain a REFINEMENT_ADJECTIVE.
+  //   - Message must be ≤ 4 words (bumped from 3 so "a bit more casual"
+  //     qualifies; the token whitelist below keeps it tight).
+  //   - Codex P2 round 15: every content word must be EITHER a refinement
+  //     adjective OR a BENIGN_CHIP_FILLER. This rejects "different
+  //     question" / "formal vs casual" / "formal question" etc., where the
+  //     message contains a refinement adjective but also unrelated content
+  //     nouns that signal conversation/question intent.
   if (DECLARATIVE_STARTS.has(firstCleaned)) return false;
   if (!REFINEMENT_ADJECTIVES_RE.test(trimmed)) return false;
-  const wordCount = trimmed.split(/\s+/).length;
-  return wordCount <= 3;
+  const tokens = trimmed
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z]/g, ""))
+    .filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 4) return false;
+  for (const token of tokens) {
+    if (BENIGN_CHIP_FILLERS.has(token)) continue;
+    if (REFINEMENT_ADJECTIVES_RE.test(token)) continue;
+    return false;
+  }
+  return true;
 }
 
 export function applyActiveLookRefinementOverride(

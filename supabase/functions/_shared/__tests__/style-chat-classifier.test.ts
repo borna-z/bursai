@@ -937,6 +937,74 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("conversation");
   });
+
+  // Codex P2 round 15 — bare-modifier path requires token-level whitelist.
+  // Short adjective-bearing messages mixed with non-refinement content words
+  // must stay conversation.
+  it("does NOT override 'different question' (adjective + 'question' noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("different question"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'formal vs casual' (adjectives + 'vs')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("formal vs casual"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'formal question' (adjective + 'question')", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("formal question"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'warmer weather' (adjective + unrelated noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("warmer weather"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Positive regressions — composition with benign fillers still works.
+  it("DOES override 'a bit warmer' (filler + adjective)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("a bit warmer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'slightly more formal' (3-word filler stack + adjective)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("slightly more formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'a different vibe' (article + adjective + outfit noun)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("a different vibe"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'way more casual' (intensifier + adjective)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("way more casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
