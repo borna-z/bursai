@@ -2444,11 +2444,6 @@ const sv: Record<string, string> = {
     'insights.writing_report': 'Writing your style report...',
 
     // Settings keys
-    'settings.change_photo': 'Change photo',
-    'settings.avatar_updated': 'Photo updated',
-    'settings.avatar_error': 'Could not update photo',
-    'settings.avatar_invalid': 'Invalid image format',
-    'settings.avatar_too_large': 'Image too large (max 5MB)',
     'settings.no_profile_title': 'No style profile yet',
     'settings.no_profile_desc': 'Complete the style quiz during onboarding to personalize your experience.',
     'settings.row.view_coach': 'View coach',
