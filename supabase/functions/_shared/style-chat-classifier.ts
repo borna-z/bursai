@@ -212,8 +212,15 @@ const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }>
   // `less_formal` for "not casual"). Alternation order keeps `not as` /
   // `not so` matching first for those phrasings, with `not` only firing
   // when the more-specific patterns fail.
-  { pattern: /\b(less|not as|not so|not)\s+(casual|relaxed|soft|softer)\b/i, hint: "more_formal" },
-  { pattern: /\b(less|not as|not so|not)\s+(formal|dressy|dressier|elevated|sharp|sharper)\b/i, hint: "less_formal" },
+  //
+  // Codex P1 round 26: add `not too` so phrasings like "make it not too
+  // formal" / "make it not too casual" also produce the correct inverted
+  // hint. `not too` matches before plain `not` in the alternation order,
+  // so "not too formal" → `less_formal` (correct) instead of falling to
+  // bare `not` + " too formal" — `too` isn't in the formal-list, so the
+  // pattern would have failed and dropped through to the generic match.
+  { pattern: /\b(less|not as|not so|not too|not)\s+(casual|relaxed|soft|softer)\b/i, hint: "more_formal" },
+  { pattern: /\b(less|not as|not so|not too|not)\s+(formal|dressy|dressier|elevated|sharp|sharper)\b/i, hint: "less_formal" },
   { pattern: /\b(elevated|sharper|more formal|dressier|dress it up|dress this up)\b/i, hint: "more_formal" },
   { pattern: /\b(softer|less formal|more casual|dress it down|dress this down)\b/i, hint: "less_formal" },
   { pattern: /\bshoes?\b/i, hint: "swap_shoes" },
@@ -421,6 +428,11 @@ const BENIGN_CHIP_FILLERS = new Set([
   // Hint inference already supports these patterns — the bare-chip path
   // just needed to recognize the filler tokens.
   "not", "as", "so",
+  // Codex P1 round 26: allow `not too <adj>` chips like "not too formal" /
+  // "not too dressy" / "not too casual" to reach the override. The hint
+  // pattern at REFINEMENT_HINT_PATTERNS already matches `not too` (added
+  // round 26), but the bare-chip path needed `too` in the whitelist.
+  "too",
 ]);
 
 // Codex P2 round 24 #1: short refinement chips with `?` ("warmer?",

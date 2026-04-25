@@ -1841,6 +1841,57 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("less_formal");
   });
+
+  // Codex P1 round 26 — `not too` must match the negation pattern, otherwise
+  // "make it not too formal" / "make it not too casual" fall through to the
+  // generic formal/casual patterns and invert the hint.
+  it("DOES override 'make it not too formal' with hint=less_formal (Codex round 26 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not too formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'make it not too casual' with hint=more_formal (Codex round 26 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not too casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'not too dressy' bare chip with hint=less_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not too dressy"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'make it not too elevated' with hint=less_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not too elevated"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  // Round 26 must NOT regress earlier negation forms — alternation order
+  // preserves `not as` / `not so` / `not too` matching for their literal
+  // phrasings, with bare `not` only firing as a fallback.
+  it("still DOES override 'not too formal' with hint=less_formal (no `make it` prefix)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not too formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
