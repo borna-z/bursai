@@ -481,7 +481,8 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   gurtel: 'accessory', // de (ascii)
   'mütze': 'accessory', // de
   mutze: 'accessory', // de (ascii)
-  sac: 'accessory', // fr
+  // omitted 'sac' — substring of Spanish 'saco' (jacket); kept consistent
+  // with ACCESSORY_TOKENS removal in the same round.
   'écharpe': 'accessory', // fr
   echarpe: 'accessory', // fr (ascii)
   ceinture: 'accessory', // fr
@@ -502,7 +503,8 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   'chapéu': 'accessory', // pt
   chapeu: 'accessory', // pt (ascii)
   cachecol: 'accessory', // pt
-  tas: 'accessory', // nl
+  // omitted 'tas' — substring of Spanish 'botas' (boots); kept consistent
+  // with ACCESSORY_TOKENS removal in the same round.
   sjaal: 'accessory', // nl
   riem: 'accessory', // nl
   hoed: 'accessory', // nl
