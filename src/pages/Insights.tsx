@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 
 import { CategoryDonut } from '@/components/insights/CategoryDonut';
 import { ColorPaletteBar } from '@/components/insights/ColorPaletteBar';
@@ -25,7 +26,7 @@ function heatmapCount(status: string): number {
 export default function InsightsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { t } = useLanguage();
+  const { t, dateFnsLocale } = useLanguage();
   const vm = useInsightsDashboardAdapter();
 
   const handleRefresh = useCallback(async () => {
@@ -33,7 +34,10 @@ export default function InsightsPage() {
   }, [queryClient]);
 
   const wearByDay = useMemo(() => {
-    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    // 2024-01-01 is a Monday; map Mon..Sun to narrow weekday labels via the active locale.
+    const days = [1, 2, 3, 4, 5, 6, 7].map((day) =>
+      format(new Date(2024, 0, day), 'EEEEE', { locale: dateFnsLocale }),
+    );
     const counts = new Array(7).fill(0);
     for (const entry of vm.behavior.heatmapDays) {
       const dow = new Date(entry.date).getDay();
@@ -41,7 +45,7 @@ export default function InsightsPage() {
       counts[idx] += heatmapCount(entry.status);
     }
     return days.map((day, i) => ({ day, count: counts[i] }));
-  }, [vm.behavior.heatmapDays]);
+  }, [vm.behavior.heatmapDays, dateFnsLocale]);
 
   const healthAxes = useMemo(() => [
     { label: 'Variety', value: Math.min(vm.health.categoryBalance.length * 15, 100) },
@@ -61,7 +65,7 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <PageHeader
-        eyebrow="INSIGHTS"
+        eyebrow={t('nav.insights')}
         title={t('insights.yourStyleStory') || 'Your Style Story'}
       />
       <PullToRefresh onRefresh={handleRefresh}>

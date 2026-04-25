@@ -2819,6 +2819,13 @@ const sv: Record<string, string> = {
   'garment.secondary_swap_success': 'Huvudbilden uppdaterad — renderar om…',
   'garment.secondary_delete_success': 'Alternativ bild borttagen',
   'garment.secondary_busy_toast': 'Vänta tills pågående analys eller rendering är klar',
+  'notfound.title': 'Sidan hittades inte',
+  'notfound.return_home': 'Tillbaka till start',
+  'share.meta_title_template': '{occasion}-outfit | Stylad av BURS',
+  'share.meta_description_full': 'Kolla in denna outfit stylad av BURS — din personliga AI-stylist.',
+  'share.meta_description_short': 'Kolla in denna outfit stylad av BURS.',
+  'profile.meta_title_template': '{name} — BURS-stilprofil',
+  'profile.meta_description_template': 'Kolla in {name}s stil på BURS',
 };
 
 export default sv;

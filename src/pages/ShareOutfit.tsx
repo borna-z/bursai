@@ -145,15 +145,15 @@ export default function ShareOutfitPage() {
   return (
     <>
       <Helmet>
-        <title>{`${outfit.occasion} Outfit | Styled by BURS`}</title>
-        <meta name="description" content={outfit.explanation || 'Check out this outfit styled by BURS — your personal AI stylist.'} />
-        <meta property="og:title" content={`${outfit.occasion} Outfit | Styled by BURS`} />
-        <meta property="og:description" content={outfit.explanation || 'Check out this outfit styled by BURS.'} />
+        <title>{t('share.meta_title_template').replace('{occasion}', outfit.occasion)}</title>
+        <meta name="description" content={outfit.explanation || t('share.meta_description_full')} />
+        <meta property="og:title" content={t('share.meta_title_template').replace('{occasion}', outfit.occasion)} />
+        <meta property="og:description" content={outfit.explanation || t('share.meta_description_short')} />
         <meta property="og:type" content="article" />
         <meta property="og:image" content="https://burs.me/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${outfit.occasion} Outfit | Styled by BURS`} />
-        <meta name="twitter:description" content={outfit.explanation || 'Check out this outfit styled by BURS.'} />
+        <meta name="twitter:title" content={t('share.meta_title_template').replace('{occasion}', outfit.occasion)} />
+        <meta name="twitter:description" content={outfit.explanation || t('share.meta_description_short')} />
       </Helmet>
     <div className="min-h-screen bg-background">
       <PageHeader

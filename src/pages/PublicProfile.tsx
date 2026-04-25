@@ -139,8 +139,8 @@ export default function PublicProfile() {
   return (
     <>
       <Helmet>
-        <title>{`${displayName} — BURS Style Profile`}</title>
-        <meta name="description" content={`Check out ${displayName}'s style on BURS`} />
+        <title>{t('profile.meta_title_template').replace('{name}', displayName)}</title>
+        <meta name="description" content={t('profile.meta_description_template').replace('{name}', displayName)} />
       </Helmet>
       <div className="min-h-screen bg-background">
         <PageHeader
