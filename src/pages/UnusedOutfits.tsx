@@ -26,7 +26,7 @@ import { stripBrands } from '@/lib/stripBrands';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 import type { Garment } from '@/hooks/useGarments';
 
-const OCCASIONS = ['vardag', 'jobb', 'dejt', 'fest', 'casual', 'smart_casual'];
+const OCCASIONS = ['casual', 'work', 'date', 'party', 'workout', 'travel'];
 
 interface GeneratedOutfitCard {
   id: string;
@@ -287,7 +287,7 @@ export default function UnusedOutfits() {
                         </p>
                       </div>
                       <p className="label-editorial text-muted-foreground/60 text-[0.6rem] uppercase tracking-[0.14em] mt-2">
-                        {outfit.items.filter((item) => unusedSet.has(item.garment.id)).length} unused pieces
+                        {outfit.items.filter((item) => unusedSet.has(item.garment.id)).length} {t('insights.unused_pieces_label')}
                       </p>
                     </div>
                   </div>

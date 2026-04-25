@@ -2652,6 +2652,7 @@ const sv: Record<string, string> = {
     'insights.unused_error_desc': 'Vi kunde inte bygga ett set från de oanvända plaggen den här gången.',
     'insights.unused_footer_title': 'Din garderob är ett levande galleri.',
     'insights.unused_footer_body': 'Rotera in dessa i din veckoplan och se din kostnad per användning sjunka.',
+    'insights.unused_pieces_label': 'oanvända plagg',
     'outfit.generation_unavailable': 'Outfit-generering är inte tillgänglig just nu',
     'outfit.generation_failed': 'Generering misslyckades',
     'outfit.something_wrong_retry': 'Något gick fel. Försök igen.',
