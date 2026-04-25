@@ -1764,6 +1764,83 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     // modal fast-path. Then `?` guard at (c) blocks path (e) (12 tokens > 4).
     expect(out.intent).toBe("conversation");
   });
+
+  // Codex P1 round 25 — plain `not` negation in hint inference.
+  // "make it not formal" / "make it not casual" must produce the inverted
+  // hint, not fall through to the generic formal/casual rules.
+  it("DOES override 'make it not formal' with hint=less_formal (Codex round 25 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'make it not casual' with hint=more_formal (Codex round 25 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'not formal' bare chip with hint=less_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'not casual' bare chip with hint=more_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("not casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'make it not dressy' with hint=less_formal", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not dressy"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  // Round 25 must NOT regress the existing `not as` / `not so` / `less`
+  // negation patterns — alternation order ensures they still match first.
+  it("still DOES override 'make it not as formal' with hint=less_formal (regression)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not as formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("still DOES override 'make it not so casual' with hint=more_formal (regression)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make it not so casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("still DOES override 'less formal' with hint=less_formal (regression)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("less formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

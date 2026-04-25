@@ -203,8 +203,17 @@ const REFINEMENT_HINT_PATTERNS: Array<{ pattern: RegExp; hint: RefinementHint }>
   // generic casual/formal/dressy mappings below, otherwise "less casual"
   // would fall through to the bare `\bcasual\b` match and invert to
   // `less_formal`. "less casual" = MORE formal; "less dressy" = LESS formal.
-  { pattern: /\b(less|not as|not so)\s+(casual|relaxed|soft|softer)\b/i, hint: "more_formal" },
-  { pattern: /\b(less|not as|not so)\s+(formal|dressy|dressier|elevated|sharp|sharper)\b/i, hint: "less_formal" },
+  //
+  // Codex P1 round 25: extend the negation alternation to accept plain
+  // `not` so messages like "make it not formal" / "make it not casual"
+  // get the correct inverted hint. Without this, plain-`not` phrasings
+  // fell through to the generic `formal`/`casual` patterns at lines below
+  // and produced the OPPOSITE hint (`more_formal` for "not formal",
+  // `less_formal` for "not casual"). Alternation order keeps `not as` /
+  // `not so` matching first for those phrasings, with `not` only firing
+  // when the more-specific patterns fail.
+  { pattern: /\b(less|not as|not so|not)\s+(casual|relaxed|soft|softer)\b/i, hint: "more_formal" },
+  { pattern: /\b(less|not as|not so|not)\s+(formal|dressy|dressier|elevated|sharp|sharper)\b/i, hint: "less_formal" },
   { pattern: /\b(elevated|sharper|more formal|dressier|dress it up|dress this up)\b/i, hint: "more_formal" },
   { pattern: /\b(softer|less formal|more casual|dress it down|dress this down)\b/i, hint: "less_formal" },
   { pattern: /\bshoes?\b/i, hint: "swap_shoes" },
