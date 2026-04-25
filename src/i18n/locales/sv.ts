@@ -2826,6 +2826,22 @@ const sv: Record<string, string> = {
   'share.meta_description_short': 'Kolla in denna outfit stylad av BURS.',
   'profile.meta_title_template': '{name} — BURS-stilprofil',
   'profile.meta_description_template': 'Kolla in {name}s stil på BURS',
+  'livescan.coach.scan_title': 'Skanna vad som helst',
+  'livescan.coach.scan_body': 'Rikta mot ett plagg och håll stilla. BURS känner igen kategori, färg och material.',
+  'livescan.coach.cta_label': 'Skapa en look',
+  'livescan.scan_aria': 'Skanna',
+  'livescan.scanning_label': 'Skannar',
+  'livescan.scan_instruction': 'Rikta kameran mot ditt plagg',
+  'onboarding.eyebrow_generic': 'Introduktion',
+  'onboarding.getstarted.eyebrow_ready': 'Klar',
+  'onboarding.getstarted.title_ready': 'Din garderob är redo.',
+  'onboarding.accent.preview_outline': 'Kontur',
+  'onboarding.accent.preview_favorite': 'Favorit',
+  'onboarding.accent.preview_premium': 'Premium',
+  'onboarding.quiz.eyebrow': 'Stilprofil',
+  'onboarding.quiz.title_intro': 'Berätta hur du klär dig.',
+  'onboarding.quiz.intro_desc': 'Tio snabba svar hjälper BURS att skräddarsy outfits, planering och garderobsråd efter ditt verkliga liv.',
+  'onboarding.upload.title_intro': 'Lägg till ditt första plagg.',
 };
 
 export default sv;

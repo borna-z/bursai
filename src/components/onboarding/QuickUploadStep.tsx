@@ -149,8 +149,8 @@ export function QuickUploadStep({ onComplete, onSkip }: QuickUploadStepProps) {
           <div className="mt-5">
             <PageIntro
               center
-              eyebrow="Onboarding"
-              title="Add your first piece."
+              eyebrow={t('onboarding.eyebrow_generic')}
+              title={t('onboarding.upload.title_intro')}
               description={t('onboarding.quickUpload.subtitle') || 'Snap or pick up to 5 items to kickstart your wardrobe. You can always add more later.'}
             />
           </div>
