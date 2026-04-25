@@ -215,9 +215,9 @@ const OCCASION_RULES: Array<{ occasion: string; formality: DayFormality; confide
       // sv
       'flygplats', 'flyg', 'tåg', 'station', 'hotell', 'resa',
       // no
-      'flyplass', 'fly', 'tog', 'stasjon', 'hotell', 'reise',
+      'flyplass', 'stasjon', 'hotell', 'reise',
       // da
-      'lufthavn', 'fly', 'tog', 'station', 'hotel', 'rejse',
+      'lufthavn', 'station', 'hotel', 'rejse',
       // fi
       'lentokenttä', 'lento', 'juna', 'asema', 'hotelli', 'matka',
       // de
@@ -397,9 +397,9 @@ function inferEventOccasion(event: DayEventInput): EventIntelligence {
     // sv
     'flygplats', 'tåg', 'hotell',
     // no
-    'flyplass', 'tog', 'hotell',
+    'flyplass', 'hotell',
     // da
-    'lufthavn', 'tog', 'hotel',
+    'lufthavn', 'hotel',
     // fi
     'lentokenttä', 'juna', 'asema', 'hotelli',
     // de
@@ -457,7 +457,7 @@ function inferEventOccasion(event: DayEventInput): EventIntelligence {
     // sv
     'utomhus', 'promenad', 'vandring',
     // no
-    'utendørs', 'tur',
+    'utendørs',
     // da
     'udendørs', 'gåtur',
     // fi

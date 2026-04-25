@@ -67,7 +67,7 @@ const SHOES_TOKENS = [
   // Swedish
   'skor', 'stovlar', 'stövlar',
   // Norwegian / Danish
-  'sko', 'støvler',
+  'sko', 'stovler', 'støvler',
   // Finnish
   'kengät', 'kengat', 'saappaat',
   // German
@@ -434,6 +434,7 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   // Shoes in 12 additional locales (exact-alias forms)
   sko: 'shoes', // no, da
   'støvler': 'shoes', // no, da
+  stovler: 'shoes', // no, da (ascii)
   'kengät': 'shoes', // fi
   kengat: 'shoes', // fi (ascii)
   saappaat: 'shoes', // fi
