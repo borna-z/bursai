@@ -106,8 +106,11 @@ const SHOES_TOKENS = [
   'schoenen', 'laarzen',
   // Polish
   'buty', 'trampki',
-  // Arabic
-  'حذاء', 'أحذية',
+  // Arabic — أحذية (boots-plural) needs NFD-form variant because the input
+  // pipeline runs `.normalize('NFD')`. NFC "أ" (U+0623) decomposes into "ا"
+  // (U+0627) + combining hamza-above (U+0654), and U+0654 is OUTSIDE the
+  // U+0300-U+036F strip range, so the NFC token never matches NFD input.
+  'حذاء', 'أحذية', 'أحذية',
   // Persian / Farsi
   'کفش', 'چکمه',
 ];
@@ -160,8 +163,8 @@ const ACCESSORY_TOKENS = [
   'borsa', 'sciarpa', 'cintura', 'cappello',
   // Portuguese
   'bolsa', 'lenco', 'lenço', 'cinto', 'chapeu', 'chapéu', 'cachecol',
-  // Dutch
-  'tas', 'sjaal', 'riem', 'hoed',
+  // Dutch (omitted "tas" — substring collision with "botas" boots)
+  'sjaal', 'riem', 'hoed',
   // Polish
   'torba', 'szalik', 'pasek', 'kapelusz',
   // Arabic

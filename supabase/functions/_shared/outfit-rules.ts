@@ -138,8 +138,8 @@ const ACCESSORY_TOKENS = [
   'borsa', 'sciarpa', 'cintura', 'cappello',
   // Portuguese
   'bolsa', 'lenço', 'lenco', 'cinto', 'chapéu', 'chapeu', 'cachecol',
-  // Dutch
-  'tas', 'sjaal', 'riem', 'hoed',
+  // Dutch (omitted "tas" — substring collision with "botas" boots)
+  'sjaal', 'riem', 'hoed',
   // Polish
   'torba', 'szalik', 'pasek', 'kapelusz',
   // Arabic
