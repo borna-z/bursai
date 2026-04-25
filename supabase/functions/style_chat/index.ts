@@ -910,7 +910,7 @@ serve(async (req) => {
       });
     }
 
-    const supabase: ReturnType<typeof createClient> = createClient(
+    const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
@@ -1159,10 +1159,17 @@ serve(async (req) => {
 
     const [profileRes, calendarCtx, recentOutfitsCtx, rejectionsCtx, wardrobeCtx, pairMemoryRes, negPairMemoryRes] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
-      getCalendarContext(supabase, user.id, lang),
-      getRecentOutfitsContext(supabase, user.id),
-      getRejectionsContext(supabase, user.id),
-      getWardrobeContext(supabase, user.id, safeMessages as MessageInput[], selectedGarmentIds),
+      // Codex P30 round 1: cast to bare-form ReturnType<typeof createClient>
+      // at each call site — the wardrobe-context.ts function signatures
+      // declare the bare form, but the local `supabase` const has its
+      // Database generic inferred from the typed createClient invocation.
+      // Annotating the const declaration globally would lose Database
+      // inference for downstream queries (e.g. `supabase.from("profiles")...`
+      // would return `never`); per-call-site casts keep both sides happy.
+      getCalendarContext(supabase as ReturnType<typeof createClient>, user.id, lang),
+      getRecentOutfitsContext(supabase as ReturnType<typeof createClient>, user.id),
+      getRejectionsContext(supabase as ReturnType<typeof createClient>, user.id),
+      getWardrobeContext(supabase as ReturnType<typeof createClient>, user.id, safeMessages as MessageInput[], selectedGarmentIds),
       supabase
         .from('garment_pair_memory')
         .select('garment_a_id, garment_b_id, positive_count, negative_count')
