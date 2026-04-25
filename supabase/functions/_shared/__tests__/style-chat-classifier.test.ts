@@ -1569,6 +1569,85 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     );
     expect(out.intent).toBe("refine_outfit");
   });
+
+  // Codex P2 round 23 — branches (2) and (3) trail adjective slot must
+  // accept optional `more|less` quantifier prefix. "make the jacket less
+  // formal" / "change the top more casual" are common phrasings that round
+  // 22's bare-adjective trail rejected.
+  it("DOES override 'make the jacket less formal' (Codex round 23 example: less + adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make the jacket less formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'change the top more casual' (Codex round 23 example: more + adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the top more casual"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  it("DOES override 'make the dress more formal' (more + adj on dress)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make the dress more formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'change the jacket less casual please' (less + adj + politeness)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change the jacket less casual please"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'make the jacket more casual for tonight' (more + adj + for X)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make the jacket more casual for tonight"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'make shoes more formal' (branch 3: bare verb+noun + more/adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("make shoes more formal"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  // Round 23 must NOT regress the round-22 compound-noun rejections. The
+  // `more|less` prefix is OPTIONAL in the adjective slot, so "code" / "of"
+  // still don't match the slot and end-anchor still fails.
+  it("does NOT override 'change my dress code more formal' (compound noun before more+adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my dress code more formal"),
+    );
+    // ` code` after `dress` is not a refinement adjective with or without
+    // `more|less` prefix — trail can't extend past it, end-anchor rejects.
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'change my coat less of arms' (less + non-adjective)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("change my coat less of arms"),
+    );
+    // `less of` doesn't fit the `(more|less) <refinement-adj>` slot — `of`
+    // isn't in the adjective list — trail rejects.
+    expect(out.intent).toBe("conversation");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

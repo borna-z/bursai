@@ -291,6 +291,16 @@ const CLOTHING_NOUNS = "outfit|look|shoes?|top|shirt|blouse|sweater|bottom|pants
 // real refinements like "make the jacket warmer" or "swap the dress for the
 // wedding" still match. Compound-noun follow-ons like ` code` / ` of` aren't
 // in any of the trail tokens, so the end-anchor fails for those phrasings.
+//
+// Codex P2 round 23: branches (2) and (3) only allowed BARE refinement
+// adjectives in the trail, so commands like "make the jacket less formal"
+// or "change the top more casual" failed because of the `more`/`less`
+// quantifier prefix. Branch (1)'s `(?:\\s+[a-z]+)*` between pronoun and
+// adjective absorbed `more`/`less` naturally, but branches (2)/(3) had no
+// such intermediate slot. Add an optional `(more|less)` prefix to the
+// trail's adjective slot. Negative cases ("change my dress code more
+// formal") still reject because `code` doesn't match `more`/`less` either,
+// so the trail can't extend past the compound-noun follower.
 const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
   // (1) verb + outfit pronoun + (intermediate) + refinement adjective, with
   //     politeness words + optional `for <occasion>` (1-3 words) + punctuation
@@ -298,13 +308,13 @@ const IMPERATIVE_REFINE_PHRASE_RE = new RegExp(
   //     the meaningful phrase modulo politeness/occasion/punctuation.
   `\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(it|this|them)(?:\\s+[a-z]+)*\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy)(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
   // (2) verb + (article|possessive|demonstrative) + clothing noun, end-anchored
-  //     with optional refinement-adjective + politeness + `for <occasion>` trail.
-  //     Round 22: end-anchor needed to reject compound-noun follow-ons like
-  //     "change my dress code" / "change my coat of arms". Refinement-adjective
-  //     trail keeps "make the jacket warmer" matching.
-  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})(?:\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy))*(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
+  //     with optional refinement-adjective (with optional `more|less` prefix) +
+  //     politeness + `for <occasion>` trail. Round 22: end-anchor needed to
+  //     reject compound-noun follow-ons. Round 23: `more|less` quantifier
+  //     prefix on adjective slot for "less formal"/"more casual" phrasings.
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(the|my|a|an|some|something|this|that)\\s+(?:${CLOTHING_NOUNS})(?:\\s+(?:(?:more|less)\\s+)?(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy))*(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
   // (3) verb + clothing noun (no article), same end-anchor + trail as (2).
-  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})(?:\\s+(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy))*(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
+  `|\\b(make|swap|change|try|keep|lose|drop|remove|add)\\s+(?:${CLOTHING_NOUNS})(?:\\s+(?:(?:more|less)\\s+)?(warmer|cooler|formal|casual|different|elevated|softer|sharper|dressier|dressy))*(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*(?:\\s+for(?:\\s+[a-z]+){1,3})?(?:\\s+(please|thanks|thx|thank|you|kindly|now|today))*[\\s.,?!]*$` +
   // (4) dress-up / dress-down phrase
   `|\\bdress\\s+(it|this|them)\\s+(up|down)\\b`,
   "i",
