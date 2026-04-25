@@ -216,8 +216,16 @@ serve(async (req) => {
 
     await enforceRateLimit(serviceClient, user.id, "clone_outfit_dna");
 
-    const { outfit_id } = await req.json();
+    const { outfit_id, locale = "en" } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");
+
+    const LOCALE_NAMES: Record<string, string> = {
+      sv: "Svenska", en: "English", no: "Norsk", da: "Dansk", fi: "Suomi",
+      de: "Deutsch", fr: "Français", es: "Español", it: "Italiano",
+      pt: "Português", nl: "Nederlands", pl: "Polski",
+      ar: "العربية", fa: "فارسی",
+    };
+    const langName = LOCALE_NAMES[locale] || "English";
 
     // Parallel DB queries — reference outfit + user's wardrobe.
     // P27: SELECT expanded to include subcategory + ai_raw + enrichment_status
@@ -388,7 +396,8 @@ Rules:
 1. Every variation MUST be a complete outfit — top+bottom+shoes OR dress+shoes. Include outerwear when the reference has it.
 2. Preserve the DNA: formality band, color harmony, style archetype. Use DIFFERENT pieces, not the reference's own garments.
 3. Return 3 distinct variations with clearly different pieces across them (don't repeat the same top in all three).
-4. Pick garments by their full ID.`,
+4. Pick garments by their full ID.
+5. Respond in ${langName}.`,
         },
         { role: "user", content: "Generate 3 similar outfit variations." },
       ],

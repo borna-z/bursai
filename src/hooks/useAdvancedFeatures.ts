@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 
 // Step 18: Condition tracking
@@ -19,10 +20,11 @@ export function useAssessCondition() {
 
 // Step 19: Outfit DNA cloning
 export function useCloneOutfitDNA() {
+  const { locale } = useLanguage();
   return useMutation({
     mutationFn: async (outfitId: string) => {
       const { data, error } = await invokeEdgeFunction<{ variations: Array<{ name: string; garment_ids: string[]; explanation: string }>; error?: string }>('clone_outfit_dna', {
-        body: { outfit_id: outfitId },
+        body: { outfit_id: outfitId, locale },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

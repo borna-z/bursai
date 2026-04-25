@@ -263,7 +263,13 @@ async function generateMoodOutfitPayload(
     };
   });
   const garmentList = JSON.stringify(garmentEntries);
-  const langName = locale === "sv" ? "svenska" : "English";
+  const LOCALE_NAMES: Record<string, string> = {
+    sv: "Svenska", en: "English", no: "Norsk", da: "Dansk", fi: "Suomi",
+    de: "Deutsch", fr: "Français", es: "Español", it: "Italiano",
+    pt: "Português", nl: "Nederlands", pl: "Polski",
+    ar: "العربية", fa: "فارسی",
+  };
+  const langName = LOCALE_NAMES[locale] || "English";
 
   const aiResponse = await callBursAI({
     stream: false,
