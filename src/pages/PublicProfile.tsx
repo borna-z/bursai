@@ -14,6 +14,7 @@ import { OutfitReactions } from '@/components/social/OutfitReactions';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { validateCompleteOutfit } from '@/lib/outfitValidation';
 import { isValidUsername } from '@/lib/validators';
+import { interpolateMeta } from '@/lib/i18nFallback';
 import { motion, useReducedMotion } from 'framer-motion';
 import { EASE_CURVE } from '@/lib/motion';
 
@@ -139,8 +140,28 @@ export default function PublicProfile() {
   return (
     <>
       <Helmet>
-        <title>{`${displayName} — BURS Style Profile`}</title>
-        <meta name="description" content={`Check out ${displayName}'s style on BURS`} />
+        {/* Function replacer + humanize-fallback detection. (Codex P2, PR #678)
+            Function replacer prevents `$&`/`$'`/`` $` `` in user-controlled
+            display_name from being interpreted as JS regex special tokens.
+            Hard fallback covers the cold-start case where LanguageProvider's
+            dict hasn't loaded yet (t() returns 'Meta title template'). */}
+        <title>
+          {interpolateMeta(
+            t,
+            'profile.meta_title_template',
+            { name: displayName },
+            `${displayName} | BURS`,
+          )}
+        </title>
+        <meta
+          name="description"
+          content={interpolateMeta(
+            t,
+            'profile.meta_description_template',
+            { name: displayName },
+            `${displayName}'s wardrobe and outfits on BURS`,
+          )}
+        />
       </Helmet>
       <div className="min-h-screen bg-background">
         <PageHeader

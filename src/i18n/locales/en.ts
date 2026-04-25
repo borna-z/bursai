@@ -3202,6 +3202,13 @@ const en: Record<string, string> = {
   'garment.secondary_swap_success': 'Primary photo updated — re-rendering…',
   'garment.secondary_delete_success': 'Alternate photo removed',
   'garment.secondary_busy_toast': 'Wait for current enrichment or render to finish',
+  'notfound.title': 'Page not found',
+  'notfound.return_home': 'Return to Home',
+  'share.meta_title_template': '{occasion} Outfit | Styled by BURS',
+  'share.meta_description_full': 'Check out this outfit styled by BURS — your personal AI stylist.',
+  'share.meta_description_short': 'Check out this outfit styled by BURS.',
+  'profile.meta_title_template': '{name} — BURS Style Profile',
+  'profile.meta_description_template': "Check out {name}'s style on BURS",
 };
 
 export default en;
