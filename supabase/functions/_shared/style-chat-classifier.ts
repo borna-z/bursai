@@ -346,7 +346,14 @@ const INFO_SEEKING_STARTS = new Set([
 // also contain "change my" but are genuine advice requests, not refinement
 // commands. Separating modal-starters from arbitrary interrogatives
 // lets us keep the polite-modal override without swallowing wh- questions.
-const MODAL_REQUEST_STARTS = new Set(["can", "could", "would"]);
+//
+// Codex P2 round 24 #2: add `will` so phrasings like "Will you make it
+// warmer?" / "Will you swap the shoes?" reach the modal fast-path.
+// Without it, those messages got rejected as generic questions despite
+// being direct refinement commands. The `secondWord === "you"` constraint
+// at the call site keeps "Will I look better?" / "Will this work?"
+// (info questions) from sneaking through.
+const MODAL_REQUEST_STARTS = new Set(["can", "could", "would", "will"]);
 
 // Codex P2 round 13: polite filler words that can appear between "you"
 // and the meaningful verb. Used to skip-past when deciding whether the
@@ -406,6 +413,31 @@ const BENIGN_CHIP_FILLERS = new Set([
   // just needed to recognize the filler tokens.
   "not", "as", "so",
 ]);
+
+// Codex P2 round 24 #1: short refinement chips with `?` ("warmer?",
+// "more formal?", "cooler please?") are still chip-style commands — the
+// `?` is emphatic punctuation, not interrogation. The chip-shape detector
+// is the same gate path (e) uses (≤4 tokens, contains a refinement
+// adjective, every token is benign/adjective, first word not declarative).
+// Extracting it as a standalone predicate lets the `?` guard at path (c)
+// skip the rejection for genuine chips while still blocking conversational
+// questions like "is this warmer?" / "what's warmer?".
+function isShortRefinementChip(trimmed: string, firstCleaned: string): boolean {
+  if (DECLARATIVE_STARTS.has(firstCleaned)) return false;
+  if (!REFINEMENT_ADJECTIVES_RE.test(trimmed)) return false;
+  const tokens = trimmed
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z]/g, ""))
+    .filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 4) return false;
+  for (const token of tokens) {
+    if (BENIGN_CHIP_FILLERS.has(token)) continue;
+    if (REFINEMENT_ADJECTIVES_RE.test(token)) continue;
+    return false;
+  }
+  return true;
+}
 
 function looksLikeRefinementRequest(message: string): boolean {
   const trimmed = message.trim();
@@ -488,7 +520,13 @@ function looksLikeRefinementRequest(message: string): boolean {
   // doesn't let info-seeking verbs slip past — "please explain how to
   // make it warmer" (no "?") would otherwise hit (d) via the `make it`
   // phrase match.
-  if (hasQuestionMark) return false;
+  //
+  // Codex P2 round 24 #1: short refinement chips with `?` ("warmer?",
+  // "more formal?") are still chip commands — bypass the `?` guard when
+  // `isShortRefinementChip` matches. Conversational questions like
+  // "is this warmer?" still reject because their first word ("is") isn't
+  // benign/adjective in the chip whitelist.
+  if (hasQuestionMark && !isShortRefinementChip(trimmed, firstCleaned)) return false;
   if (QUESTION_STARTS.has(firstCleaned) || QUESTION_STARTS.has(firstMeaningful)) return false;
   if (INFO_SEEKING_STARTS.has(firstCleaned) || INFO_SEEKING_STARTS.has(firstMeaningful)) return false;
 
@@ -506,30 +544,10 @@ function looksLikeRefinementRequest(message: string): boolean {
 
   // (e) Bare modifier / short-chip message path — e.g. "warmer",
   // "more formal", "softer", "different vibe", "cooler please". These are
-  // common in chat UIs with quick-reply chips. Guards:
-  //   - First word must not be a DECLARATIVE_START.
-  //   - Message must contain a REFINEMENT_ADJECTIVE.
-  //   - Message must be ≤ 4 words (bumped from 3 so "a bit more casual"
-  //     qualifies; the token whitelist below keeps it tight).
-  //   - Codex P2 round 15: every content word must be EITHER a refinement
-  //     adjective OR a BENIGN_CHIP_FILLER. This rejects "different
-  //     question" / "formal vs casual" / "formal question" etc., where the
-  //     message contains a refinement adjective but also unrelated content
-  //     nouns that signal conversation/question intent.
-  if (DECLARATIVE_STARTS.has(firstCleaned)) return false;
-  if (!REFINEMENT_ADJECTIVES_RE.test(trimmed)) return false;
-  const tokens = trimmed
-    .toLowerCase()
-    .split(/\s+/)
-    .map((t) => t.replace(/[^a-z]/g, ""))
-    .filter(Boolean);
-  if (tokens.length === 0 || tokens.length > 4) return false;
-  for (const token of tokens) {
-    if (BENIGN_CHIP_FILLERS.has(token)) continue;
-    if (REFINEMENT_ADJECTIVES_RE.test(token)) continue;
-    return false;
-  }
-  return true;
+  // common in chat UIs with quick-reply chips. Codex P2 round 24 #1:
+  // delegated to the standalone `isShortRefinementChip` helper so the same
+  // shape check can be reused by the `?` guard at path (c).
+  return isShortRefinementChip(trimmed, firstCleaned);
 }
 
 export function applyActiveLookRefinementOverride(

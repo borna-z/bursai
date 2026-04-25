@@ -1648,6 +1648,122 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     // isn't in the adjective list — trail rejects.
     expect(out.intent).toBe("conversation");
   });
+
+  // Codex P2 round 24 #1 — short refinement chips with `?` ("warmer?",
+  // "more formal?") are chip-style commands, not questions. The `?` guard
+  // at path (c) now bypasses for `isShortRefinementChip` matches.
+  it("DOES override 'warmer?' (Codex round 24 #1: short chip with question mark)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'more formal?' (Codex round 24 #1: short modifier chip with ?)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("more formal?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("more_formal");
+  });
+
+  it("DOES override 'cooler please?' (chip + politeness + ?)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("cooler please?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
+
+  it("DOES override 'softer?' (single-word adjective chip with ?)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("softer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  // Round 24 #1 must NOT regress the conversational-question rejection.
+  // The chip whitelist is strict — a non-benign first token kills the chip.
+  it("does NOT override 'is this warmer?' (interrogative with `?`, `is` not in chip whitelist)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("is this warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override \"what's warmer?\" (interrogative with apostrophe + `?`)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("what's warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'how is more formal?' (5-word interrogative > 4-token chip cap)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("how is more formal than that"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Codex P2 round 24 #2 — `MODAL_REQUEST_STARTS` must include `will` so
+  // "Will you make it warmer?" reaches the modal fast-path instead of
+  // falling through to the `?` guard rejection.
+  it("DOES override 'Will you make it warmer?' (Codex round 24 #2: will + you + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will you make it warmer?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'Will you swap the shoes?' (will + you + clothing-noun branch)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will you swap the shoes?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'Will you make it less formal?' (will + you + less + adj)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will you make it less formal?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("less_formal");
+  });
+
+  // Round 24 #2 must NOT regress info questions starting with `will`.
+  // The `secondWord === "you"` constraint at the call site filters those.
+  it("does NOT override 'Will I look better in this?' (will + I, not addressed to assistant)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will I look better in this?"),
+    );
+    // secondWord = "i" not "you" → modal fast-path rejects, no refinement adj
+    // for path (e), `?` triggers (c) rejection. → conversation.
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Will you tell me how to make it warmer?' (will + you + info-seeking verb)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will you tell me how to make it warmer?"),
+    );
+    // firstSignificantAfterModal = "tell" → INFO_SEEKING_STARTS rejects
+    // modal fast-path. Then `?` guard at (c) blocks path (e) (12 tokens > 4).
+    expect(out.intent).toBe("conversation");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {
