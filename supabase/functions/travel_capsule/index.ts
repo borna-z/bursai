@@ -484,8 +484,10 @@ serve(async (req) => {
       .single();
 
     const LOCALE_NAMES: Record<string, string> = {
-      sv: "svenska", en: "English", no: "norsk", da: "dansk", fi: "finska",
-      de: "Deutsch", fr: "français", es: "español",
+      sv: "Svenska", en: "English", no: "Norsk", da: "Dansk", fi: "Suomi",
+      de: "Deutsch", fr: "Français", es: "Español", it: "Italiano",
+      pt: "Português", nl: "Nederlands", pl: "Polski",
+      ar: "العربية", fa: "فارسی",
     };
     const localeName = LOCALE_NAMES[locale] || "English";
     const isSv = locale === "sv";

@@ -51,7 +51,13 @@ serve(async (req) => {
       });
     }
 
-    const langName = locale === "sv" ? "svenska" : "English";
+    const LOCALE_NAMES: Record<string, string> = {
+      sv: "Svenska", en: "English", no: "Norsk", da: "Dansk", fi: "Suomi",
+      de: "Deutsch", fr: "Français", es: "Español", it: "Italiano",
+      pt: "Português", nl: "Nederlands", pl: "Polski",
+      ar: "العربية", fa: "فارسی",
+    };
+    const langName = LOCALE_NAMES[locale] || "English";
     const garmentList = garments.map(g =>
       `${g.id}|${g.title}|${g.material || "?"}|cond:${g.condition_score ?? "?"}|worn:${g.wear_count ?? 0}|added:${g.created_at?.split("T")[0] || "?"}`
     ).join("\n");

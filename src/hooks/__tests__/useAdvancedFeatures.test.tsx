@@ -3,9 +3,10 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-const { invokeEdgeFunctionMock, useAuthMock, supabaseFromMock } = vi.hoisted(() => ({
+const { invokeEdgeFunctionMock, useAuthMock, useLanguageMock, supabaseFromMock } = vi.hoisted(() => ({
   invokeEdgeFunctionMock: vi.fn(),
   useAuthMock: vi.fn(),
+  useLanguageMock: vi.fn(),
   supabaseFromMock: vi.fn(),
 }));
 
@@ -14,6 +15,9 @@ vi.mock('@/lib/edgeFunctionClient', () => ({
 }));
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: useAuthMock,
+}));
+vi.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: useLanguageMock,
 }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { from: supabaseFromMock },
@@ -42,6 +46,7 @@ describe('useAdvancedFeatures', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuthMock.mockReturnValue({ user: { id: 'user-1' } });
+    useLanguageMock.mockReturnValue({ locale: 'en', t: (key: string) => key });
   });
 
   describe('useCostPerWear', () => {
@@ -90,7 +95,7 @@ describe('useAdvancedFeatures', () => {
       await act(async () => {
         await result.current.mutateAsync('o1');
       });
-      expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('clone_outfit_dna', { body: { outfit_id: 'o1' } });
+      expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('clone_outfit_dna', { body: { outfit_id: 'o1', locale: 'en' } });
     });
 
     it('suggest accessories surfaces data.error as a thrown Error', async () => {
