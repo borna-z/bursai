@@ -374,7 +374,15 @@ function inferEventOccasion(event: DayEventInput): EventIntelligence {
   let bestRule = OCCASION_RULES[OCCASION_RULES.length - 1];
   let bestScore = 0;
   for (const rule of OCCASION_RULES) {
-    const score = rule.tags.reduce((acc, tag) => acc + (haystack.includes(tag) ? 1 : 0), 0);
+    // Codex P1 (PR #682): dedupe tags before scoring so cross-locale repeats
+    // (e.g. "restaurant" appearing in en/fr/de/nl/no/da entries of the dinner
+    // rule) don't sum to artificially high scores. "Client meeting at
+    // restaurant" should resolve to `work` (client+meeting=2) not `dinner`
+    // (restaurant×6=6 with duplicates, =1 deduped).
+    const score = Array.from(new Set(rule.tags)).reduce(
+      (acc, tag) => acc + (haystack.includes(tag) ? 1 : 0),
+      0,
+    );
     if (score > bestScore) {
       bestScore = score;
       bestRule = rule;

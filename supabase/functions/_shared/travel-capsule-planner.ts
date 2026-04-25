@@ -156,7 +156,8 @@ const ACCESSORY_TOKENS = [
   // German
   'tasche', 'schal', 'gurtel', 'gürtel', 'mutze', 'mütze',
   // French
-  'sac', 'echarpe', 'écharpe', 'ceinture', 'chapeau',
+  // omitted 'sac' — 3-char French "bag" substring of Spanish "saco" (jacket)
+  'echarpe', 'écharpe', 'ceinture', 'chapeau',
   // Spanish
   'bolso', 'bufanda', 'cinturon', 'cinturón', 'sombrero',
   // Italian
