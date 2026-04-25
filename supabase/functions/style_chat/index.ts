@@ -14,6 +14,7 @@ import {
   type StyleChatResponseEnvelope,
   type StylistChatMode,
   type ClassifierResult,
+  type StyleChatIntentKind,
 } from "../_shared/style-chat-contract.ts";
 import { classifyIntent, type ClassifierInput } from "../_shared/style-chat-classifier.ts";
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
@@ -909,7 +910,7 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
+    const supabase: ReturnType<typeof createClient> = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
