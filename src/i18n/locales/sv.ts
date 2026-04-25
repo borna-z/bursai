@@ -2842,6 +2842,18 @@ const sv: Record<string, string> = {
   'onboarding.quiz.title_intro': 'Berätta hur du klär dig.',
   'onboarding.quiz.intro_desc': 'Tio snabba svar hjälper BURS att skräddarsy outfits, planering och garderobsråd efter ditt verkliga liv.',
   'onboarding.upload.title_intro': 'Lägg till ditt första plagg.',
+  'mood.hint.confident': 'Skarp. Säker.',
+  'mood.hint.cozy': 'Varm. Omslutande.',
+  'mood.hint.creative': 'Oväntat. Konstfullt.',
+  'mood.hint.invisible': 'Tyst. Tonalt.',
+  'mood.hint.romantic': 'Mjuk. Drömsk.',
+  'mood.hint.grounded': 'Jordnära. Äkta.',
+  'mood.hint.sharp': 'Skräddarsydd. Precis.',
+  'mood.hint.soft': 'Dämpad. Mild.',
+  'mood.hint.bold': 'Statement. Maxat.',
+  'mood.hint.editorial': 'Avantgarde.',
+  'mood.hint.energetic': 'Vibrerande. Rörlig.',
+  'mood.hint.playful': 'Oväntat. Roligt.',
 };
 
 export default sv;

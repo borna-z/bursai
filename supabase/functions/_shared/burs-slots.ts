@@ -37,6 +37,30 @@ const TOP_TOKENS: readonly string[] = [
   "tank_top", "tank", "cardigan", "camisole",
   // Swedish
   "tröja", "skjorta",
+  // Norwegian
+  "genser", "skjorte",
+  // Danish
+  "trøje", "troje",
+  // Finnish
+  "paita", "neule",
+  // German
+  "hemd", "pullover", "pulli",
+  // French
+  "chemise", "chemisier", "pull",
+  // Spanish
+  "camisa", "camiseta", "blusa", "jersey",
+  // Italian
+  "camicia", "camicetta", "maglione", "maglietta",
+  // Portuguese (camisa/camiseta/blusa shared with es; add unique pt)
+  "camisola",
+  // Dutch
+  "trui",
+  // Polish
+  "koszula", "koszulka", "sweter", "bluzka",
+  // Arabic
+  "قميص", "بلوزة",
+  // Persian / Farsi
+  "پیراهن", "بلوز",
 ];
 
 const BOTTOM_TOKENS: readonly string[] = [
@@ -44,6 +68,30 @@ const BOTTOM_TOKENS: readonly string[] = [
   "leggings",
   // Swedish
   "byxor", "kjol",
+  // Norwegian
+  "bukse", "bukser", "skjørt", "skjort",
+  // Danish (bukser shared with no; add unique da)
+  "nederdel",
+  // Finnish
+  "housut", "hame",
+  // German
+  "hose", "hosen",
+  // French
+  "pantalon", "jupe",
+  // Spanish
+  "pantalones", "falda",
+  // Italian
+  "pantaloni", "gonna",
+  // Portuguese
+  "calça", "calca", "calças", "calcas", "saia",
+  // Dutch
+  "broek",
+  // Polish
+  "spodnie", "spódnica", "spodnica",
+  // Arabic
+  "بنطلون", "تنورة",
+  // Persian / Farsi
+  "شلوار", "دامن",
 ];
 
 const SHOES_TOKENS: readonly string[] = [
@@ -51,6 +99,28 @@ const SHOES_TOKENS: readonly string[] = [
   "footwear",
   // Swedish
   "skor", "stövlar",
+  // Norwegian / Danish
+  "sko", "støvler", "stovler",
+  // Finnish
+  "kengät", "kengat", "saappaat",
+  // German
+  "schuhe", "stiefel",
+  // French
+  "chaussures", "bottes", "baskets",
+  // Spanish
+  "zapatos", "botas", "zapatillas",
+  // Italian
+  "scarpe", "stivali",
+  // Portuguese
+  "sapatos", "sapato", "tênis", "tenis",
+  // Dutch
+  "schoenen", "laarzen",
+  // Polish
+  "buty", "trampki",
+  // Arabic
+  "حذاء", "أحذية",
+  // Persian / Farsi
+  "کفش", "چکمه",
 ];
 
 const OUTERWEAR_TOKENS: readonly string[] = [
@@ -58,12 +128,55 @@ const OUTERWEAR_TOKENS: readonly string[] = [
   "trench", "vest",
   // Swedish
   "jacka", "kappa", "rock", "väst",
+  // Norwegian
+  "jakke", "frakk",
+  // Danish
+  "frakke",
+  // Finnish
+  "takki",
+  // German
+  "jacke", "mantel",
+  // French
+  "manteau", "veste",
+  // Spanish
+  "chaqueta", "abrigo",
+  // Italian
+  "giacca", "cappotto",
+  // Portuguese
+  "jaqueta", "casaco",
+  // Dutch
+  "jas",
+  // Polish
+  "kurtka", "płaszcz", "plaszcz",
+  // Arabic
+  "سترة", "معطف",
+  // Persian / Farsi
+  "کت", "پالتو",
 ];
 
 const DRESS_TOKENS: readonly string[] = [
   "dress", "jumpsuit", "overall", "romper", "fullbody", "full body",
   // Swedish
   "klänning",
+  // Norwegian / Danish
+  "kjole",
+  // Finnish
+  "mekko",
+  // German
+  "kleid",
+  // French
+  "robe",
+  // Spanish
+  "vestido",
+  // Italian
+  "vestito", "abito",
+  // Portuguese (vestido shared with es)
+  // Dutch
+  "jurk",
+  // Polish
+  "sukienka",
+  // Arabic
+  "فستان",
 ];
 
 const ACCESSORY_TOKENS: readonly string[] = [
@@ -71,6 +184,30 @@ const ACCESSORY_TOKENS: readonly string[] = [
   "jewelry", "jewellery",
   // Swedish
   "halsduk", "mössa", "bälte", "väska", "smycke",
+  // Norwegian
+  "veske", "skjerf", "belte",
+  // Danish
+  "taske", "tørklæde", "torklaede", "bælte", "baelte",
+  // Finnish
+  "laukku", "huivi", "vyö", "vyo", "hattu",
+  // German
+  "tasche", "schal", "gürtel", "gurtel", "mütze", "mutze",
+  // French
+  "sac", "écharpe", "echarpe", "ceinture", "chapeau",
+  // Spanish
+  "bolso", "bufanda", "cinturón", "cinturon", "sombrero",
+  // Italian
+  "borsa", "sciarpa", "cintura", "cappello",
+  // Portuguese
+  "bolsa", "lenço", "lenco", "cinto", "chapéu", "chapeu", "cachecol",
+  // Dutch
+  "tas", "sjaal", "riem", "hoed",
+  // Polish
+  "torba", "szalik", "pasek", "kapelusz",
+  // Arabic
+  "حقيبة", "وشاح", "حزام", "قبعة",
+  // Persian / Farsi
+  "کیف", "شال", "کمربند", "کلاه",
 ];
 
 // ── Direct alias map (exact slot-string synonyms) ────────────

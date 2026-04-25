@@ -23,18 +23,18 @@ import { toast } from 'sonner';
 import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM, DISTANCE } from '@/lib/motion';
 
 const MOODS = [
-  { key: 'confident', accent: '#2C2C2C', palette: ['#2C2C2C', '#8B0000', '#F5F0E8'], hint: 'Sharp. Owned.' },
-  { key: 'cozy',      accent: '#C4A882', palette: ['#C4A882', '#8B6B4A', '#F5EDE0'], hint: 'Warm. Enveloping.' },
-  { key: 'creative',  accent: '#7B5EA7', palette: ['#7B5EA7', '#D4A843', '#2D1B4E'], hint: 'Unexpected. Artful.' },
-  { key: 'invisible', accent: '#888888', palette: ['#888888', '#C8C4BC', '#1C1917'], hint: 'Quiet. Tonal.' },
-  { key: 'romantic',  accent: '#D4537E', palette: ['#D4537E', '#E8A0B8', '#FFF0F5'], hint: 'Soft. Dreamy.' },
-  { key: 'grounded',  accent: '#4A7C4A', palette: ['#4A7C4A', '#8B6B3D', '#C4A87A'], hint: 'Earthy. Real.' },
-  { key: 'sharp',     accent: '#C9A86C', palette: ['#1C1917', '#C9A86C', '#F5F0E8'], hint: 'Tailored. Precise.' },
-  { key: 'soft',      accent: '#85B7EB', palette: ['#85B7EB', '#B4C8D8', '#E8EDF2'], hint: 'Muted. Gentle.' },
-  { key: 'bold',      accent: '#C0392B', palette: ['#C0392B', '#1C1917', '#FFE0E0'], hint: 'Statement. Maximum.' },
-  { key: 'editorial', accent: '#185FA5', palette: ['#185FA5', '#C9A86C', '#0A2438'], hint: 'Avant-garde.' },
-  { key: 'energetic', accent: '#D85A30', palette: ['#EF9F27', '#D85A30', '#1C1917'], hint: 'Vibrant. Moving.' },
-  { key: 'playful',   accent: '#9B59B6', palette: ['#D4537E', '#EF9F27', '#534AB7'], hint: 'Unexpected. Fun.' },
+  { key: 'confident', accent: '#2C2C2C', palette: ['#2C2C2C', '#8B0000', '#F5F0E8'], hintKey: 'mood.hint.confident' },
+  { key: 'cozy',      accent: '#C4A882', palette: ['#C4A882', '#8B6B4A', '#F5EDE0'], hintKey: 'mood.hint.cozy' },
+  { key: 'creative',  accent: '#7B5EA7', palette: ['#7B5EA7', '#D4A843', '#2D1B4E'], hintKey: 'mood.hint.creative' },
+  { key: 'invisible', accent: '#888888', palette: ['#888888', '#C8C4BC', '#1C1917'], hintKey: 'mood.hint.invisible' },
+  { key: 'romantic',  accent: '#D4537E', palette: ['#D4537E', '#E8A0B8', '#FFF0F5'], hintKey: 'mood.hint.romantic' },
+  { key: 'grounded',  accent: '#4A7C4A', palette: ['#4A7C4A', '#8B6B3D', '#C4A87A'], hintKey: 'mood.hint.grounded' },
+  { key: 'sharp',     accent: '#C9A86C', palette: ['#1C1917', '#C9A86C', '#F5F0E8'], hintKey: 'mood.hint.sharp' },
+  { key: 'soft',      accent: '#85B7EB', palette: ['#85B7EB', '#B4C8D8', '#E8EDF2'], hintKey: 'mood.hint.soft' },
+  { key: 'bold',      accent: '#C0392B', palette: ['#C0392B', '#1C1917', '#FFE0E0'], hintKey: 'mood.hint.bold' },
+  { key: 'editorial', accent: '#185FA5', palette: ['#185FA5', '#C9A86C', '#0A2438'], hintKey: 'mood.hint.editorial' },
+  { key: 'energetic', accent: '#D85A30', palette: ['#EF9F27', '#D85A30', '#1C1917'], hintKey: 'mood.hint.energetic' },
+  { key: 'playful',   accent: '#9B59B6', palette: ['#D4537E', '#EF9F27', '#534AB7'], hintKey: 'mood.hint.playful' },
 ] as const;
 
 type MoodOutfitResponse = {
@@ -386,7 +386,7 @@ export default function MoodOutfitPage() {
                             {t(`ai.mood_${mood.key}`)}
                           </span>
                           <span className="label-editorial text-muted-foreground/60 text-[0.6rem]">
-                            {mood.hint}
+                            {t(mood.hintKey)}
                           </span>
                           <div className="flex gap-1.5 pt-1">
                             {mood.palette.map((color, i) => (
