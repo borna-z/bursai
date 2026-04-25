@@ -37,7 +37,7 @@ When the user says "continue the launch plan" (or equivalent like "next prompt",
 - `[WIP]` — branch open, PR not yet merged
 - `[DONE]` — merged to main (PR link appended)
 - `[DONE-partial]` — prompt has been split; a partial scope merged in one PR and the rest is tracked by explicit follow-up prompts (e.g., `Px-ii`, `Px-iii`). Use only when the split is recorded in LAUNCH_PLAN.md and new follow-up prompts are inserted in the prompt list below.
-- `[DONE-subsumed]` — prompt's intent was fully delivered by one or more EARLIER prompts whose scope expanded beyond their original spec. The PR(s) that delivered the intent are cited in the prompt body. No new code shipped under this prompt's number — only a tracker flip with citations + investigation notes documenting why the original spec is stale. Distinct from `[DONE]` (no new PR), `[DONE-partial]` (no follow-up prompts needed), and `[SKIP]` (intent NOT delivered, user opted out).
+- `[DONE-subsumed]` — prompt's intent was fully delivered by one or more EARLIER prompts whose scope expanded beyond their original spec. The PR(s) that delivered the intent are cited in the prompt body. No new code shipped under this prompt's number — only a tracker flip with citations + investigation notes documenting why the original spec is stale. Distinct from: `[DONE]` (where the prompt's own PR delivers the intent), `[DONE-partial]` (where new follow-up prompts are inserted to track remaining scope), and `[SKIP]` (where the intent is NOT delivered because the user opted out).
 - `[BLOCKED]` — waiting on user decision, external dep, or failing CI
 - `[SKIP]` — user decided not to do this prompt
 
