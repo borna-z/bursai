@@ -174,7 +174,7 @@ const BOTTOM_TOKENS = [
   // Swedish
   'byxor', 'kjol',
   // Norwegian
-  'bukse', 'bukser', 'skjort', 'skjørt',
+  'bukse', 'bukser', 'skjørt',
   // Danish
   'nederdel',
   // Finnish

@@ -152,7 +152,7 @@ const BOTTOM_TOKENS = [
   // Swedish
   'byxor', 'kjol',
   // Norwegian
-  'bukse', 'bukser', 'skjørt', 'skjort',
+  'bukse', 'bukser', 'skjørt',
   // Danish
   'nederdel',
   // Finnish
@@ -412,7 +412,6 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   bukse: 'bottom', // no
   bukser: 'bottom', // no, da
   'skjørt': 'bottom', // no
-  skjort: 'bottom', // no (ascii)
   nederdel: 'bottom', // da
   housut: 'bottom', // fi
   hame: 'bottom', // fi
