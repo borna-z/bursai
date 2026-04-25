@@ -4,13 +4,16 @@
  * Routes via `action` field in request body:
  *   "sync_ics"    — sync a single user's ICS calendar (auth required)
  *   "sync_google" — sync a single user's Google Calendar (auth required)
- *   "sync_all"    — cron job: sync all users' ICS + Google calendars (service role)
+ *
+ * Note: a third `"sync_all"` cron route was removed on 2026-04-25 (P2 finding).
+ * It had no caller in-repo and zero pg_cron schedules referenced it for the
+ * full 7-day audit window — confirmed dead code. The dispatcher now returns
+ * 400 for `action: "sync_all"` (falls through to the default "Unknown action").
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
 
 // ─── SSRF protection ──────────────────────────────────────────
@@ -395,78 +398,6 @@ async function handleSyncGoogle(authHeader: string): Promise<Response> {
   return jsonResponse({ success: true, synced: result.synced, calendarsSynced: result.calendarsSynced, syncWindowDays: result.syncWindowDays });
 }
 
-async function handleSyncAll(authHeader: string): Promise<Response> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-  // ── Auth: cron-only endpoint — reject anything that isn't the service role (P2) ──
-  // Previously accepted anon key OR service role. Anon key is public (embedded in the
-  // frontend bundle), so any caller could trigger a global calendar sync — a DoS vector
-  // against the Google Calendar API and a cost center. Use timing-safe comparison to
-  // avoid byte-by-byte key extraction.
-  const providedKey = authHeader.replace('Bearer ', '');
-  if (!providedKey || !serviceRoleKey || !timingSafeEqual(providedKey, serviceRoleKey)) {
-    return jsonResponse({ error: 'Unauthorized' }, 401);
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-  const { data: profiles, error: profilesError } = await supabase
-    .from('profiles').select('id, ics_url').not('ics_url', 'is', null);
-
-  if (profilesError) return jsonResponse({ error: 'Failed to fetch profiles' }, 500);
-  if (!profiles || profiles.length === 0) return jsonResponse({ synced_users: 0, total_events: 0 });
-
-  let syncedUsers = 0;
-  let totalEvents = 0;
-  const errors: string[] = [];
-
-  // Sync ICS users
-  for (const profile of profiles) {
-    if (!profile.ics_url) continue;
-    const result = await syncIcsForUser(supabase, profile.id, profile.ics_url);
-    if (result.success) { syncedUsers++; totalEvents += result.synced; }
-    else errors.push(`User ${profile.id.substring(0, 8)}: ${result.error}`);
-  }
-
-  // Sync Google Calendar connections
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-
-  if (clientId && clientSecret) {
-    const { data: googleConns, error: gError } = await supabase
-      .from('calendar_connections')
-      .select('id, user_id, access_token, refresh_token, token_expires_at')
-      .eq('provider', 'google');
-
-    if (!gError && googleConns && googleConns.length > 0) {
-      console.log(`Found ${googleConns.length} Google Calendar connections`);
-
-      for (const conn of googleConns) {
-        try {
-          const result = await syncGoogleForUser(
-            supabase, conn.user_id,
-            conn.access_token, conn.refresh_token,
-            conn.token_expires_at, conn.id
-          );
-          if (result.success) { syncedUsers++; totalEvents += result.synced; }
-          else errors.push(`Google user ${conn.user_id.substring(0, 8)}: ${result.error}`);
-        } catch (err) {
-          errors.push(`Google user ${conn.user_id.substring(0, 8)}: ${String(err)}`);
-        }
-      }
-    }
-  }
-
-  console.log(`Sync complete: ${syncedUsers} users, ${totalEvents} events`);
-  return jsonResponse({
-    synced_users: syncedUsers,
-    total_users: profiles.length,
-    total_events: totalEvents,
-    errors: errors.length > 0 ? errors : undefined,
-  });
-}
-
 // ─── Main handler ─────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -495,9 +426,9 @@ Deno.serve(async (req) => {
         return await handleSyncIcs(authHeader);
       case 'sync_google':
         return await handleSyncGoogle(authHeader);
-      case 'sync_all':
-        return await handleSyncAll(authHeader);
       default:
+        // Note: `sync_all` was removed on 2026-04-25 (P2 finding — dead code).
+        // It now falls through here and returns 400.
         return jsonResponse({ error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
