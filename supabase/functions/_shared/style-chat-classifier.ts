@@ -393,6 +393,7 @@ const MODAL_REQUEST_STARTS = new Set(["can", "could", "would", "will"]);
 const POLITE_FILLERS = new Set([
   "please", "kindly", "just", "maybe", "perhaps", "possibly",
   "briefly", "quickly", "honestly", "actually", "specifically", "simply",
+  "really", "definitely", "totally",
   "ok", "okay", "yeah", "yes", "yep", "sure", "alright", "hmm", "well", "so",
 ]);
 
@@ -517,10 +518,23 @@ function looksLikeRefinementRequest(message: string): boolean {
     scanIdx++;
   }
   const firstSignificantAfterModal = (words[scanIdx] ?? "").replace(/[^a-z]/g, "");
+  // Codex P1 round 28: tighten modal fast-path from a denylist
+  // (`!INFO_SEEKING_STARTS.has(...)`) to an allowlist
+  // (`IMPERATIVE_REFINE_VERBS.has(...)`). The denylist was incomplete by
+  // construction — Codex kept finding new advisory verbs (`summarize`,
+  // `outline`, etc.) that fell through. Combined with the mid-sentence
+  // regex match in `IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)`, advisory
+  // questions like "Can you summarize how to make it warmer?" / "Can you
+  // outline how to swap the shoes?" got force-routed to refine_outfit.
+  // The allowlist requires the first significant word after the modal+you
+  // (and optional polite-filler/adverb skip) to be one of the canonical
+  // refinement verbs (make/swap/change/try/keep/lose/drop/remove/add/dress).
+  // Anything else is a non-refinement modal question — let path (c)'s
+  // `?` guard reject it.
   if (
     MODAL_REQUEST_STARTS.has(firstCleaned) &&
     secondWord === "you" &&
-    !INFO_SEEKING_STARTS.has(firstSignificantAfterModal) &&
+    IMPERATIVE_REFINE_VERBS.has(firstSignificantAfterModal) &&
     IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)
   ) {
     return true;

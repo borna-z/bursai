@@ -1994,10 +1994,76 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
       CONVERSATION_RESULT,
       makeInput("Can you really make it warmer?"),
     );
-    // scanIdx skips "really", firstSignificantAfterModal = "make" → not
-    // info-seeking → modal fast-path fires.
+    // scanIdx skips "really", firstSignificantAfterModal = "make" → in
+    // IMPERATIVE_REFINE_VERBS → modal fast-path fires.
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("warmer");
+  });
+
+  // Codex P1 round 28 — modal fast-path tightened from a denylist
+  // (`!INFO_SEEKING_STARTS.has(...)`) to an allowlist
+  // (`IMPERATIVE_REFINE_VERBS.has(firstSignificantAfterModal)`). Advisory
+  // verbs that aren't in the small INFO_SEEKING_STARTS set (`summarize`,
+  // `outline`, etc.) no longer slip past on a mid-sentence regex match.
+  it("does NOT override 'Can you summarize how to make it warmer?' (Codex round 28 example: summarize)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you summarize how to make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Can you outline how to swap the shoes?' (Codex round 28 example: outline)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you outline how to swap the shoes?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Could you walk me through how to change the jacket?' (modal + non-imperative verb)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you walk me through how to change the jacket?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Will you compare formal and casual options?' (modal + advisory verb)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will you compare formal and casual options?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Round 28 must NOT regress the legitimate modal-imperative requests —
+  // when firstSignificantAfterModal IS an imperative refinement verb,
+  // the allowlist permits the override.
+  it("still DOES override 'Could you change the jacket?' (canonical modal + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you change the jacket?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'Would you swap the shoes?' (modal + swap)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Would you swap the shoes?"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("still DOES override 'Can you definitely make it warmer?' (modal + adverb 'definitely' + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you definitely make it warmer?"),
+    );
+    // 'definitely' added to POLITE_FILLERS in round 28 so it's skipped
+    // past, leaving 'make' as firstSignificantAfterModal.
+    expect(out.intent).toBe("refine_outfit");
   });
 });
 
