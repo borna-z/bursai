@@ -65,14 +65,286 @@ export interface DayIntelligence {
 }
 
 const OCCASION_RULES: Array<{ occasion: string; formality: DayFormality; confidence: number; tags: string[] }> = [
-  { occasion: 'formal', formality: 5, confidence: 0.98, tags: ['wedding', 'black tie', 'gala', 'ceremony', 'award', 'banquet'] },
-  { occasion: 'party', formality: 4, confidence: 0.9, tags: ['party', 'celebration', 'birthday', 'cocktail', 'reception'] },
-  { occasion: 'work', formality: 4, confidence: 0.9, tags: ['boardroom', 'client', 'presentation', 'interview', 'pitch', 'office', 'meeting'] },
-  { occasion: 'dinner', formality: 4, confidence: 0.84, tags: ['dinner', 'restaurant', 'drinks', 'date', 'anniversary'] },
-  { occasion: 'travel', formality: 2, confidence: 0.95, tags: ['airport', 'flight', 'terminal', 'train', 'station', 'hotel', 'check-in', 'travel', 'commute'] },
-  { occasion: 'workout', formality: 1, confidence: 0.97, tags: ['gym', 'workout', 'run club', 'yoga', 'pilates', 'training', 'spin'] },
-  { occasion: 'social', formality: 3, confidence: 0.72, tags: ['brunch', 'coffee', 'lunch', 'shopping', 'museum'] },
-  { occasion: 'remote', formality: 2, confidence: 0.7, tags: ['remote', 'wfh', 'work from home', 'home office'] },
+  {
+    occasion: 'formal',
+    formality: 5,
+    confidence: 0.98,
+    tags: [
+      // en
+      'wedding', 'black tie', 'gala', 'ceremony', 'award', 'banquet',
+      // sv
+      'bröllop', 'gala', 'ceremoni', 'prisutdelning', 'galakväll',
+      // no
+      'bryllup', 'seremoni', 'galla',
+      // da
+      'bryllup', 'ceremoni',
+      // fi
+      'häät', 'seremonia', 'gaala', 'juhlatilaisuus',
+      // de
+      'hochzeit', 'zeremonie', 'festakt', 'gala',
+      // fr
+      'mariage', 'cérémonie', 'remise des prix',
+      // es
+      'boda', 'ceremonia',
+      // it
+      'matrimonio', 'cerimonia',
+      // pt
+      'casamento', 'cerimônia', 'cerimonia',
+      // nl
+      'bruiloft', 'ceremonie',
+      // pl
+      'ślub', 'ceremonia', 'gala',
+      // ar
+      'زفاف', 'حفل', 'مراسم',
+      // fa
+      'عروسی', 'مراسم',
+    ],
+  },
+  {
+    occasion: 'party',
+    formality: 4,
+    confidence: 0.9,
+    tags: [
+      // en
+      'party', 'celebration', 'birthday', 'cocktail', 'reception',
+      // sv
+      'fest', 'födelsedag', 'firande',
+      // no
+      'fest', 'bursdag', 'feiring',
+      // da
+      'fest', 'fødselsdag', 'fejring',
+      // fi
+      'juhla', 'syntymäpäivä', 'cocktailtilaisuus',
+      // de
+      'feier', 'geburtstag', 'empfang',
+      // fr
+      'fête', 'anniversaire', 'réception', 'cocktail',
+      // es
+      'fiesta', 'cumpleaños', 'celebración',
+      // it
+      'festa', 'compleanno', 'ricevimento',
+      // pt
+      'festa', 'aniversário', 'comemoração',
+      // nl
+      'feest', 'verjaardag', 'receptie',
+      // pl
+      'impreza', 'urodziny', 'przyjęcie',
+      // ar
+      'حفلة', 'عيد ميلاد',
+      // fa
+      'مهمانی', 'تولد', 'جشن',
+    ],
+  },
+  {
+    occasion: 'work',
+    formality: 4,
+    confidence: 0.9,
+    tags: [
+      // en
+      'boardroom', 'client', 'presentation', 'interview', 'pitch', 'office', 'meeting',
+      // sv
+      'möte', 'kund', 'presentation', 'intervju', 'kontor', 'styrelsemöte',
+      // no
+      'møte', 'kunde', 'presentasjon', 'intervju', 'kontor',
+      // da
+      'møde', 'kunde', 'præsentation', 'samtale', 'kontor',
+      // fi
+      'kokous', 'asiakas', 'esitys', 'haastattelu', 'toimisto', 'palaveri',
+      // de
+      'besprechung', 'meeting', 'kunde', 'präsentation', 'vorstellungsgespräch', 'büro',
+      // fr
+      'réunion', 'client', 'présentation', 'entretien', 'bureau',
+      // es
+      'reunión', 'cliente', 'presentación', 'entrevista', 'oficina',
+      // it
+      'riunione', 'cliente', 'presentazione', 'colloquio', 'ufficio',
+      // pt
+      'reunião', 'cliente', 'apresentação', 'entrevista', 'escritório',
+      // nl
+      'vergadering', 'klant', 'presentatie', 'sollicitatiegesprek', 'kantoor',
+      // pl
+      'spotkanie', 'klient', 'prezentacja', 'rozmowa kwalifikacyjna', 'biuro',
+      // ar
+      'اجتماع', 'مقابلة', 'عميل', 'مكتب',
+      // fa
+      'جلسه', 'مصاحبه', 'مشتری', 'دفتر',
+    ],
+  },
+  {
+    occasion: 'dinner',
+    formality: 4,
+    confidence: 0.84,
+    tags: [
+      // en
+      'dinner', 'restaurant', 'drinks', 'date', 'anniversary',
+      // sv
+      'middag', 'restaurang', 'årsdag',
+      // no
+      'middag', 'restaurant', 'jubileum',
+      // da
+      'middag', 'restaurant', 'jubilæum',
+      // fi
+      'illallinen', 'ravintola', 'vuosipäivä', 'treffit',
+      // de
+      'abendessen', 'restaurant', 'jahrestag',
+      // fr
+      'dîner', 'restaurant', 'anniversaire de mariage',
+      // es
+      'restaurante', 'aniversario',
+      // it
+      'ristorante', 'anniversario',
+      // pt
+      'jantar', 'restaurante', 'aniversário de casamento',
+      // nl
+      'diner', 'restaurant', 'jubileum',
+      // pl
+      'kolacja', 'restauracja', 'rocznica', 'randka',
+      // ar
+      'عشاء', 'مطعم',
+      // fa
+      'شام', 'رستوران', 'سالگرد',
+    ],
+  },
+  {
+    occasion: 'travel',
+    formality: 2,
+    confidence: 0.95,
+    tags: [
+      // en
+      'airport', 'flight', 'terminal', 'train', 'station', 'hotel', 'check-in', 'travel', 'commute',
+      // sv
+      'flygplats', 'flyg', 'tåg', 'station', 'hotell', 'resa',
+      // no
+      'flyplass', 'stasjon', 'hotell', 'reise',
+      // da
+      'lufthavn', 'station', 'hotel', 'rejse',
+      // fi
+      'lentokenttä', 'lento', 'juna', 'asema', 'hotelli', 'matka',
+      // de
+      'flughafen', 'flug', 'bahnhof', 'hotel', 'reise',
+      // fr
+      'aéroport', 'gare', 'hôtel', 'voyage',
+      // es
+      'aeropuerto', 'vuelo', 'estación', 'tren', 'hotel', 'viaje',
+      // it
+      'aeroporto', 'volo', 'stazione', 'treno', 'albergo', 'viaggio',
+      // pt
+      'aeroporto', 'voo', 'estação', 'comboio', 'hotel', 'viagem',
+      // nl
+      'luchthaven', 'vlucht', 'station', 'trein', 'reis',
+      // pl
+      'lotnisko', 'dworzec', 'pociąg', 'podróż',
+      // ar
+      'مطار', 'رحلة', 'محطة', 'فندق', 'سفر',
+      // fa
+      'فرودگاه', 'پرواز', 'ایستگاه', 'هتل', 'سفر',
+    ],
+  },
+  {
+    occasion: 'workout',
+    formality: 1,
+    confidence: 0.97,
+    tags: [
+      // en
+      'gym', 'workout', 'run club', 'yoga', 'pilates', 'training', 'spin',
+      // sv
+      'träning', 'löpning', 'styrketräning',
+      // no
+      'trening', 'løping', 'styrketrening',
+      // da
+      'træning', 'løb', 'styrketræning',
+      // fi
+      'kuntosali', 'treeni', 'lenkki', 'jooga',
+      // de
+      'fitnessstudio', 'training', 'laufen', 'yoga',
+      // fr
+      'gymnase', 'entraînement', 'musculation',
+      // es
+      'gimnasio', 'entrenamiento', 'correr', 'pilates',
+      // it
+      'palestra', 'allenamento', 'corsa', 'yoga',
+      // pt
+      'academia', 'treino', 'corrida',
+      // nl
+      'sportschool', 'training', 'hardlopen',
+      // pl
+      'siłownia', 'trening', 'bieganie', 'joga',
+      // ar
+      'صالة', 'تمرين', 'رياضة', 'يوغا',
+      // fa
+      'باشگاه', 'تمرین', 'دویدن', 'یوگا',
+    ],
+  },
+  {
+    occasion: 'social',
+    formality: 3,
+    confidence: 0.72,
+    tags: [
+      // en
+      'brunch', 'coffee', 'lunch', 'shopping', 'museum',
+      // sv
+      'lunch', 'kaffe', 'shopping', 'museum',
+      // no
+      'lunsj', 'kaffe', 'museum',
+      // da
+      'frokost', 'kaffe', 'shopping', 'museum',
+      // fi
+      'lounas', 'kahvi', 'museo', 'ostokset',
+      // de
+      'mittagessen', 'kaffee', 'einkaufen', 'museum',
+      // fr
+      'déjeuner', 'café', 'musée', 'shopping',
+      // es
+      'almuerzo', 'café', 'museo',
+      // it
+      'pranzo', 'caffè', 'museo',
+      // pt
+      'almoço', 'café', 'museu', 'compras',
+      // nl
+      'lunch', 'koffie', 'winkelen', 'museum',
+      // pl
+      'lunch', 'kawa', 'zakupy', 'muzeum',
+      // ar
+      'غداء', 'قهوة', 'متحف',
+      // fa
+      'ناهار', 'قهوه', 'موزه', 'خرید',
+    ],
+  },
+  {
+    occasion: 'remote',
+    formality: 2,
+    confidence: 0.7,
+    tags: [
+      // en
+      'remote', 'wfh', 'work from home', 'home office',
+      // sv
+      'distansarbete', 'hemmakontor', 'jobba hemifrån',
+      // no
+      'hjemmekontor', 'fjernarbeid',
+      // da
+      'hjemmekontor', 'fjernarbejde',
+      // fi
+      'etätyö', 'kotitoimisto',
+      // de
+      'homeoffice', 'fernarbeit',
+      // fr
+      'télétravail', 'bureau à domicile',
+      // es
+      'teletrabajo', 'trabajo desde casa',
+      // it
+      'telelavoro', 'smart working',
+      // pt
+      'teletrabalho', 'trabalho remoto',
+      // nl
+      'thuiswerken', 'thuiskantoor',
+      // pl
+      'praca zdalna', 'home office',
+      // ar
+      'عمل عن بعد', 'العمل من المنزل',
+      // fa
+      'دورکاری', 'کار از خانه',
+    ],
+  },
 ];
 
 function normalizeText(input: string | null | undefined): string {
@@ -102,7 +374,15 @@ function inferEventOccasion(event: DayEventInput): EventIntelligence {
   let bestRule = OCCASION_RULES[OCCASION_RULES.length - 1];
   let bestScore = 0;
   for (const rule of OCCASION_RULES) {
-    const score = rule.tags.reduce((acc, tag) => acc + (haystack.includes(tag) ? 1 : 0), 0);
+    // Codex P1 (PR #682): dedupe tags before scoring so cross-locale repeats
+    // (e.g. "restaurant" appearing in en/fr/de/nl/no/da entries of the dinner
+    // rule) don't sum to artificially high scores. "Client meeting at
+    // restaurant" should resolve to `work` (client+meeting=2) not `dinner`
+    // (restaurant×6=6 with duplicates, =1 deduped).
+    const score = Array.from(new Set(rule.tags)).reduce(
+      (acc, tag) => acc + (haystack.includes(tag) ? 1 : 0),
+      0,
+    );
     if (score > bestScore) {
       bestScore = score;
       bestRule = rule;
@@ -119,9 +399,96 @@ function inferEventOccasion(event: DayEventInput): EventIntelligence {
 
   const locationText = normalizeText(event.location);
   const titleText = normalizeText(event.title);
-  const travelTagged = ['airport', 'terminal', 'station', 'flight', 'train', 'hotel'].some((token) => haystack.includes(token));
-  const workoutTagged = ['gym', 'workout', 'run', 'training', 'yoga', 'pilates'].some((token) => haystack.includes(token));
-  const outdoorTagged = ['park', 'outdoor', 'walk', 'run club', 'hike'].some((token) => haystack.includes(token));
+  const travelTagged = [
+    // en
+    'airport', 'terminal', 'station', 'flight', 'train', 'hotel',
+    // sv
+    'flygplats', 'tåg', 'hotell',
+    // no
+    'flyplass', 'hotell',
+    // da
+    'lufthavn', 'hotel',
+    // fi
+    'lentokenttä', 'juna', 'asema', 'hotelli',
+    // de
+    'flughafen', 'bahnhof', 'hotel',
+    // fr
+    'aéroport', 'gare', 'hôtel',
+    // es
+    'aeropuerto', 'estación', 'tren', 'hotel',
+    // it
+    'aeroporto', 'stazione', 'treno', 'albergo',
+    // pt
+    'aeroporto', 'estação', 'comboio',
+    // nl
+    'luchthaven', 'trein',
+    // pl
+    'lotnisko', 'dworzec', 'pociąg',
+    // ar
+    'مطار', 'محطة', 'فندق',
+    // fa
+    'فرودگاه', 'ایستگاه', 'هتل',
+  ].some((token) => haystack.includes(token));
+  const workoutTagged = [
+    // en
+    'gym', 'workout', 'run', 'training', 'yoga', 'pilates',
+    // sv
+    'träning', 'löpning',
+    // no
+    'trening', 'løping',
+    // da
+    'træning', 'løb',
+    // fi
+    'kuntosali', 'treeni', 'jooga',
+    // de
+    'fitnessstudio', 'training', 'laufen',
+    // fr
+    'gymnase', 'entraînement', 'musculation',
+    // es
+    'gimnasio', 'entrenamiento',
+    // it
+    'palestra', 'allenamento',
+    // pt
+    'academia', 'treino', 'corrida',
+    // nl
+    'sportschool', 'hardlopen',
+    // pl
+    'siłownia', 'trening', 'bieganie',
+    // ar
+    'صالة', 'تمرين', 'يوغا',
+    // fa
+    'باشگاه', 'تمرین', 'یوگا',
+  ].some((token) => haystack.includes(token));
+  const outdoorTagged = [
+    // en
+    'park', 'outdoor', 'walk', 'run club', 'hike',
+    // sv
+    'utomhus', 'promenad', 'vandring',
+    // no
+    'utendørs',
+    // da
+    'udendørs', 'gåtur',
+    // fi
+    'ulkona', 'ulkoilu', 'vaellus',
+    // de
+    'draußen', 'spaziergang', 'wanderung',
+    // fr
+    'extérieur', 'promenade', 'randonnée',
+    // es
+    'exterior', 'paseo', 'senderismo',
+    // it
+    'esterno', 'passeggiata', 'escursione',
+    // pt
+    'exterior', 'passeio', 'caminhada',
+    // nl
+    'buiten', 'wandeling',
+    // pl
+    'zewnątrz', 'spacer',
+    // ar
+    'خارجي', 'نزهة',
+    // fa
+    'بیرون', 'پیاده‌روی',
+  ].some((token) => haystack.includes(token));
 
   const tags: string[] = [];
   if (travelTagged) tags.push('travel');

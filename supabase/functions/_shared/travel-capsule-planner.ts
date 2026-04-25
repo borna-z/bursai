@@ -61,11 +61,147 @@ export interface TravelCapsulePlanSummary {
   slots: TravelCapsulePlanSlot[];
 }
 
-const DRESS_TOKENS = ['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klanning', 'klänning'];
-const SHOES_TOKENS = ['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear', 'skor', 'stövlar'];
-const OUTERWEAR_TOKENS = ['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka', 'jacka', 'kappa'];
-const ACCESSORY_TOKENS = ['accessory', 'accessories', 'bag', 'hat', 'belt', 'scarf', 'jewelry', 'jewellery', 'smycke', 'vaska', 'väska'];
-const BOTTOM_TOKENS = ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings', 'byxor', 'kjol'];
+const DRESS_TOKENS = [
+  'dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper',
+  // Swedish
+  'klanning', 'klänning',
+  // Norwegian / Danish
+  'kjole',
+  // Finnish
+  'mekko',
+  // German
+  'kleid',
+  // French
+  'robe',
+  // Spanish / Portuguese
+  'vestido',
+  // Italian
+  'vestito', 'abito',
+  // Dutch
+  'jurk',
+  // Polish
+  'sukienka',
+  // Arabic
+  'فستان',
+];
+const SHOES_TOKENS = [
+  'shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear',
+  // Swedish (ascii forms because input is accent-stripped before matching)
+  'skor', 'stovlar', 'stövlar',
+  // Norwegian / Danish
+  'sko', 'stovler', 'støvler',
+  // Finnish
+  'kengat', 'kengät', 'saappaat',
+  // German
+  'schuhe', 'stiefel',
+  // French
+  'chaussures', 'bottes', 'baskets',
+  // Spanish
+  'zapatos', 'botas', 'zapatillas',
+  // Italian
+  'scarpe', 'stivali',
+  // Portuguese
+  'sapatos', 'sapato', 'tenis', 'tênis',
+  // Dutch
+  'schoenen', 'laarzen',
+  // Polish
+  'buty', 'trampki',
+  // Arabic — أحذية (boots-plural) needs NFD-form variant because the input
+  // pipeline runs `.normalize('NFD')`. NFC "أ" (U+0623) decomposes into "ا"
+  // (U+0627) + combining hamza-above (U+0654), and U+0654 is OUTSIDE the
+  // U+0300-U+036F strip range, so the NFC token never matches NFD input.
+  'حذاء', 'أحذية', 'أحذية',
+  // Persian / Farsi
+  'کفش', 'چکمه',
+];
+const OUTERWEAR_TOKENS = [
+  'outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka',
+  // Swedish
+  'jacka', 'kappa',
+  // Norwegian
+  'jakke', 'frakk',
+  // Danish
+  'frakke',
+  // Finnish
+  'takki',
+  // German
+  'jacke', 'mantel',
+  // French
+  'manteau', 'veste',
+  // Spanish
+  'chaqueta', 'abrigo',
+  // Italian
+  'giacca', 'cappotto',
+  // Portuguese
+  'jaqueta', 'casaco',
+  // Dutch
+  'jas',
+  // Polish
+  'kurtka', 'plaszcz', 'płaszcz',
+  // Arabic
+  'سترة', 'معطف',
+  // Persian / Farsi
+  'کت', 'پالتو',
+];
+const ACCESSORY_TOKENS = [
+  'accessory', 'accessories', 'bag', 'hat', 'belt', 'scarf', 'jewelry', 'jewellery',
+  // Swedish (ascii pairs needed; input is accent-stripped at match time)
+  'smycke', 'vaska', 'väska', 'halsduk', 'mossa', 'mössa', 'balte', 'bälte',
+  // Norwegian
+  'veske', 'skjerf', 'belte',
+  // Danish
+  'taske', 'torklaede', 'tørklæde', 'baelte', 'bælte',
+  // Finnish
+  'laukku', 'huivi', 'vyo', 'vyö', 'hattu',
+  // German
+  'tasche', 'schal', 'gurtel', 'gürtel', 'mutze', 'mütze',
+  // French
+  // omitted 'sac' — 3-char French "bag" substring of Spanish "saco" (jacket)
+  'echarpe', 'écharpe', 'ceinture', 'chapeau',
+  // Spanish
+  'bolso', 'bufanda', 'cinturon', 'cinturón', 'sombrero',
+  // Italian
+  'borsa', 'sciarpa', 'cintura', 'cappello',
+  // Portuguese
+  'bolsa', 'lenco', 'lenço', 'cinto', 'chapeu', 'chapéu', 'cachecol',
+  // Dutch (omitted "tas" — substring collision with "botas" boots)
+  'sjaal', 'riem', 'hoed',
+  // Polish
+  'torba', 'szalik', 'pasek', 'kapelusz',
+  // Arabic
+  'حقيبة', 'وشاح', 'حزام', 'قبعة',
+  // Persian / Farsi
+  'کیف', 'شال', 'کمربند', 'کلاه',
+];
+const BOTTOM_TOKENS = [
+  'bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings',
+  // Swedish
+  'byxor', 'kjol',
+  // Norwegian
+  'bukse', 'bukser', 'skjørt',
+  // Danish
+  'nederdel',
+  // Finnish
+  'housut', 'hame',
+  // German
+  'hose', 'hosen',
+  // French
+  'pantalon', 'jupe',
+  // Spanish
+  'pantalones', 'falda',
+  // Italian
+  'pantaloni', 'gonna',
+  // Portuguese
+  'calca', 'calça', 'calcas', 'calças', 'saia',
+  // Dutch
+  'broek',
+  // Polish
+  'spodnie', 'spodnica', 'spódnica',
+  // Arabic
+  'بنطلون', 'تنورة',
+  // Persian / Farsi
+  'شلوار', 'دامن',
+];
 
 function normalizeTokenValue(value: unknown): string {
   return String(value || '')

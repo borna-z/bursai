@@ -3225,6 +3225,18 @@ const en: Record<string, string> = {
   'onboarding.quiz.title_intro': 'Tell us how you dress.',
   'onboarding.quiz.intro_desc': 'Ten quick answers help BURS tune outfits, planning, and wardrobe guidance around your real life.',
   'onboarding.upload.title_intro': 'Add your first piece.',
+  'mood.hint.confident': 'Sharp. Owned.',
+  'mood.hint.cozy': 'Warm. Enveloping.',
+  'mood.hint.creative': 'Unexpected. Artful.',
+  'mood.hint.invisible': 'Quiet. Tonal.',
+  'mood.hint.romantic': 'Soft. Dreamy.',
+  'mood.hint.grounded': 'Earthy. Real.',
+  'mood.hint.sharp': 'Tailored. Precise.',
+  'mood.hint.soft': 'Muted. Gentle.',
+  'mood.hint.bold': 'Statement. Maximum.',
+  'mood.hint.editorial': 'Avant-garde.',
+  'mood.hint.energetic': 'Vibrant. Moving.',
+  'mood.hint.playful': 'Unexpected. Fun.',
 };
 
 export default en;

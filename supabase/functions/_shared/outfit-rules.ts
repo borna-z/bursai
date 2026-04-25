@@ -39,11 +39,144 @@ export interface ValidateOutfitResult {
   topLayerRoles: CanonicalLayerRole[];
 }
 
-const DRESS_TOKENS = ['dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper', 'klanning', 'klänning'];
-const SHOES_TOKENS = ['shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear', 'skor', 'stovlar', 'stövlar'];
-const OUTERWEAR_TOKENS = ['outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka', 'windbreaker', 'jacka', 'kappa', 'rock'];
-const ACCESSORY_TOKENS = ['accessory', 'bag', 'hat', 'belt', 'scarf', 'jewelry', 'smycke', 'vaska', 'väska'];
-const BOTTOM_TOKENS = ['bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings', 'culottes', 'byxor', 'kjol'];
+const DRESS_TOKENS = [
+  'dress', 'jumpsuit', 'overall', 'fullbody', 'full body', 'romper',
+  // Swedish
+  'klanning', 'klänning',
+  // Norwegian / Danish
+  'kjole',
+  // Finnish
+  'mekko',
+  // German
+  'kleid',
+  // French
+  'robe',
+  // Spanish / Portuguese
+  'vestido',
+  // Italian
+  'vestito', 'abito',
+  // Dutch
+  'jurk',
+  // Polish
+  'sukienka',
+  // Arabic
+  'فستان',
+];
+const SHOES_TOKENS = [
+  'shoes', 'shoe', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'footwear',
+  // Swedish
+  'skor', 'stovlar', 'stövlar',
+  // Norwegian / Danish
+  'sko', 'stovler', 'støvler',
+  // Finnish
+  'kengät', 'kengat', 'saappaat',
+  // German
+  'schuhe', 'stiefel',
+  // French
+  'chaussures', 'bottes', 'baskets',
+  // Spanish
+  'zapatos', 'botas', 'zapatillas',
+  // Italian
+  'scarpe', 'stivali',
+  // Portuguese
+  'sapatos', 'sapato', 'tênis', 'tenis',
+  // Dutch
+  'schoenen', 'laarzen',
+  // Polish
+  'buty', 'trampki',
+  // Arabic
+  'حذاء', 'أحذية',
+  // Persian / Farsi
+  'کفش', 'چکمه',
+];
+const OUTERWEAR_TOKENS = [
+  'outerwear', 'coat', 'jacket', 'blazer', 'trench', 'parka', 'windbreaker',
+  // Swedish
+  'jacka', 'kappa', 'rock',
+  // Norwegian
+  'jakke', 'frakk',
+  // Danish
+  'frakke',
+  // Finnish
+  'takki',
+  // German
+  'jacke', 'mantel',
+  // French
+  'manteau', 'veste',
+  // Spanish
+  'chaqueta', 'abrigo',
+  // Italian
+  'giacca', 'cappotto',
+  // Portuguese
+  'jaqueta', 'casaco',
+  // Dutch
+  'jas',
+  // Polish
+  'kurtka', 'płaszcz', 'plaszcz',
+  // Arabic
+  'سترة', 'معطف',
+  // Persian / Farsi
+  'کت', 'پالتو',
+];
+const ACCESSORY_TOKENS = [
+  'accessory', 'bag', 'hat', 'belt', 'scarf', 'jewelry',
+  // Swedish
+  'smycke', 'vaska', 'väska', 'halsduk', 'mossa', 'mössa', 'balte', 'bälte',
+  // Norwegian
+  'veske', 'skjerf', 'belte',
+  // Danish
+  'taske', 'tørklæde', 'torklaede', 'bælte', 'baelte',
+  // Finnish
+  'laukku', 'huivi', 'vyö', 'vyo', 'hattu',
+  // German
+  'tasche', 'schal', 'gürtel', 'gurtel', 'mütze', 'mutze',
+  // French
+  // omitted 'sac' — 3-char French "bag" substring of Spanish "saco" (jacket)
+  'écharpe', 'echarpe', 'ceinture', 'chapeau',
+  // Spanish
+  'bolso', 'bufanda', 'cinturón', 'cinturon', 'sombrero',
+  // Italian
+  'borsa', 'sciarpa', 'cintura', 'cappello',
+  // Portuguese
+  'bolsa', 'lenço', 'lenco', 'cinto', 'chapéu', 'chapeu', 'cachecol',
+  // Dutch (omitted "tas" — substring collision with "botas" boots)
+  'sjaal', 'riem', 'hoed',
+  // Polish
+  'torba', 'szalik', 'pasek', 'kapelusz',
+  // Arabic
+  'حقيبة', 'وشاح', 'حزام', 'قبعة',
+  // Persian / Farsi
+  'کیف', 'شال', 'کمربند', 'کلاه',
+];
+const BOTTOM_TOKENS = [
+  'bottom', 'pants', 'jeans', 'trousers', 'shorts', 'skirt', 'chinos', 'leggings', 'culottes',
+  // Swedish
+  'byxor', 'kjol',
+  // Norwegian
+  'bukse', 'bukser', 'skjørt',
+  // Danish
+  'nederdel',
+  // Finnish
+  'housut', 'hame',
+  // German
+  'hose', 'hosen',
+  // French
+  'pantalon', 'jupe',
+  // Spanish
+  'pantalones', 'falda',
+  // Italian
+  'pantaloni', 'gonna',
+  // Portuguese
+  'calça', 'calca', 'calças', 'calcas', 'saia',
+  // Dutch
+  'broek',
+  // Polish
+  'spodnie', 'spódnica', 'spodnica',
+  // Arabic
+  'بنطلون', 'تنورة',
+  // Persian / Farsi
+  'شلوار', 'دامن',
+];
 
 const BASE_LAYER_TOKENS = [
   't-shirt',
@@ -68,6 +201,38 @@ const BASE_LAYER_TOKENS = [
   'crew neck',
   'henley',
   'linne',
+  // German
+  'hemd',
+  // French
+  'chemise',
+  'chemisier',
+  'débardeur',
+  'debardeur',
+  // Spanish
+  'camisa',
+  'camiseta',
+  'blusa',
+  // Italian
+  'camicia',
+  'camicetta',
+  'maglietta',
+  'canotta',
+  // Portuguese
+  'camisola',
+  // Polish
+  'koszula',
+  'koszulka',
+  'bluzka',
+  // Norwegian / Danish (skjorte = shirt)
+  'skjorte',
+  // Finnish
+  'paita',
+  // Arabic
+  'قميص',
+  'بلوزة',
+  // Persian / Farsi
+  'پیراهن',
+  'بلوز',
 ];
 
 const MID_LAYER_TOKENS = [
@@ -88,6 +253,48 @@ const MID_LAYER_TOKENS = [
   'vest',
   'vast',
   'väst',
+  // German
+  'pullover',
+  'pulli',
+  'kapuzenpullover',
+  // French
+  'pull',
+  'sweat',
+  'gilet',
+  // Spanish (cárdigan accent-strips to existing 'cardigan')
+  'jersey',
+  'cárdigan',
+  'sudadera',
+  'chaleco',
+  // Italian
+  'maglione',
+  'maglia',
+  'felpa',
+  // Portuguese
+  'suéter',
+  'sueter',
+  'moletom',
+  // Dutch
+  'trui',
+  // Polish
+  'sweter',
+  'bluza',
+  'kamizelka',
+  // Norwegian
+  'genser',
+  'hettegenser',
+  // Danish
+  'trøje',
+  'troje',
+  // Finnish
+  'neule',
+  'villapaita',
+  'huppari',
+  'liivi',
+  // Arabic
+  'كنزة',
+  // Persian / Farsi
+  'سویشرت',
 ];
 
 const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
@@ -139,6 +346,25 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   jacka: 'outerwear',
   kappa: 'outerwear',
   rock: 'outerwear',
+  // Outerwear in 12 additional locales
+  jakke: 'outerwear', // no
+  frakk: 'outerwear', // no
+  frakke: 'outerwear', // da
+  takki: 'outerwear', // fi
+  jacke: 'outerwear', // de
+  mantel: 'outerwear', // de
+  manteau: 'outerwear', // fr
+  veste: 'outerwear', // fr
+  chaqueta: 'outerwear', // es
+  abrigo: 'outerwear', // es
+  giacca: 'outerwear', // it
+  cappotto: 'outerwear', // it
+  jaqueta: 'outerwear', // pt
+  casaco: 'outerwear', // pt
+  jas: 'outerwear', // nl
+  kurtka: 'outerwear', // pl
+  plaszcz: 'outerwear', // pl (ascii)
+  'płaszcz': 'outerwear', // pl
   dress: 'dress',
   jumpsuit: 'dress',
   overall: 'dress',
@@ -146,11 +372,146 @@ const EXPLICIT_SLOT_MAP: Record<string, CanonicalOutfitSlot> = {
   full_body: 'dress',
   klanning: 'dress',
   klänning: 'dress',
+  // Dress in 12 additional locales
+  kjole: 'dress', // no, da
+  mekko: 'dress', // fi
+  kleid: 'dress', // de
+  robe: 'dress', // fr
+  vestido: 'dress', // es, pt
+  vestito: 'dress', // it
+  abito: 'dress', // it
+  jurk: 'dress', // nl
+  sukienka: 'dress', // pl
+  // Top in 12 additional locales (exact-alias forms)
+  genser: 'top', // no
+  skjorte: 'top', // no, da
+  trøje: 'top', // da
+  troje: 'top', // da (ascii)
+  paita: 'top', // fi
+  neule: 'top', // fi
+  hemd: 'top', // de
+  pullover: 'top', // de
+  pulli: 'top', // de
+  chemise: 'top', // fr
+  chemisier: 'top', // fr
+  pull: 'top', // fr
+  camisa: 'top', // es, pt
+  camiseta: 'top', // es, pt
+  blusa: 'top', // es, pt
+  jersey: 'top', // es
+  camicia: 'top', // it
+  camicetta: 'top', // it
+  maglione: 'top', // it
+  maglietta: 'top', // it
+  camisola: 'top', // pt
+  trui: 'top', // nl
+  koszula: 'top', // pl
+  koszulka: 'top', // pl
+  sweter: 'top', // pl
+  bluzka: 'top', // pl
+  // Bottom in 12 additional locales (exact-alias forms)
+  bukse: 'bottom', // no
+  bukser: 'bottom', // no, da
+  'skjørt': 'bottom', // no
+  nederdel: 'bottom', // da
+  housut: 'bottom', // fi
+  hame: 'bottom', // fi
+  hose: 'bottom', // de
+  hosen: 'bottom', // de
+  pantalon: 'bottom', // fr
+  jupe: 'bottom', // fr
+  pantalones: 'bottom', // es
+  falda: 'bottom', // es
+  pantaloni: 'bottom', // it
+  gonna: 'bottom', // it
+  'calça': 'bottom', // pt
+  calca: 'bottom', // pt (ascii)
+  saia: 'bottom', // pt
+  broek: 'bottom', // nl
+  spodnie: 'bottom', // pl
+  'spódnica': 'bottom', // pl
+  spodnica: 'bottom', // pl (ascii)
+  // Shoes in 12 additional locales (exact-alias forms)
+  sko: 'shoes', // no, da
+  'støvler': 'shoes', // no, da
+  stovler: 'shoes', // no, da (ascii)
+  'kengät': 'shoes', // fi
+  kengat: 'shoes', // fi (ascii)
+  saappaat: 'shoes', // fi
+  schuhe: 'shoes', // de
+  stiefel: 'shoes', // de
+  chaussures: 'shoes', // fr
+  bottes: 'shoes', // fr
+  baskets: 'shoes', // fr
+  zapatos: 'shoes', // es
+  botas: 'shoes', // es
+  zapatillas: 'shoes', // es
+  scarpe: 'shoes', // it
+  stivali: 'shoes', // it
+  sapatos: 'shoes', // pt
+  sapato: 'shoes', // pt
+  'tênis': 'shoes', // pt
+  tenis: 'shoes', // pt (ascii)
+  schoenen: 'shoes', // nl
+  laarzen: 'shoes', // nl
+  buty: 'shoes', // pl
+  trampki: 'shoes', // pl
   accessory: 'accessory',
   bag: 'accessory',
   hat: 'accessory',
   scarf: 'accessory',
   belt: 'accessory',
+  // Accessory in 12 additional locales (exact-alias forms)
+  veske: 'accessory', // no
+  skjerf: 'accessory', // no
+  belte: 'accessory', // no
+  taske: 'accessory', // da
+  'tørklæde': 'accessory', // da
+  torklaede: 'accessory', // da (ascii)
+  'bælte': 'accessory', // da
+  baelte: 'accessory', // da (ascii)
+  laukku: 'accessory', // fi
+  huivi: 'accessory', // fi
+  'vyö': 'accessory', // fi
+  vyo: 'accessory', // fi (ascii)
+  hattu: 'accessory', // fi
+  tasche: 'accessory', // de
+  schal: 'accessory', // de
+  'gürtel': 'accessory', // de
+  gurtel: 'accessory', // de (ascii)
+  'mütze': 'accessory', // de
+  mutze: 'accessory', // de (ascii)
+  // omitted 'sac' — substring of Spanish 'saco' (jacket); kept consistent
+  // with ACCESSORY_TOKENS removal in the same round.
+  'écharpe': 'accessory', // fr
+  echarpe: 'accessory', // fr (ascii)
+  ceinture: 'accessory', // fr
+  chapeau: 'accessory', // fr
+  bolso: 'accessory', // es
+  bufanda: 'accessory', // es
+  'cinturón': 'accessory', // es
+  cinturon: 'accessory', // es (ascii)
+  sombrero: 'accessory', // es
+  borsa: 'accessory', // it
+  sciarpa: 'accessory', // it
+  cintura: 'accessory', // it
+  cappello: 'accessory', // it
+  bolsa: 'accessory', // pt
+  'lenço': 'accessory', // pt
+  lenco: 'accessory', // pt (ascii)
+  cinto: 'accessory', // pt
+  'chapéu': 'accessory', // pt
+  chapeu: 'accessory', // pt (ascii)
+  cachecol: 'accessory', // pt
+  // omitted 'tas' — substring of Spanish 'botas' (boots); kept consistent
+  // with ACCESSORY_TOKENS removal in the same round.
+  sjaal: 'accessory', // nl
+  riem: 'accessory', // nl
+  hoed: 'accessory', // nl
+  torba: 'accessory', // pl
+  szalik: 'accessory', // pl
+  pasek: 'accessory', // pl
+  kapelusz: 'accessory', // pl
 };
 
 function normalizeTokenValue(value: unknown): string {
