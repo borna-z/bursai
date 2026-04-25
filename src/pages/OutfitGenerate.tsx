@@ -74,16 +74,49 @@ function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
   ).isValid;
 }
 
-/* ── Most-formal calendar event (multi-locale) ── */
-// Matches formality-trigger words across the 14 supported locales.
-// Bumped to /u flag so \b correctly handles non-ASCII word boundaries
-// (Swedish ö, German ü, French é, Arabic/Persian scripts, etc.).
-// Translator-pass needed for completeness — see CLAUDE.md Findings Log.
-const FORMAL_KEYWORDS = /\b(meeting|presentation|conference|interview|client|dinner|lunch|board|pitch|wedding|formal|work|office|möte|jobb|presentation|intervju|bröllop|fest|middag|dejt|møde|jobsamtale|præsentation|bryllup|jobbintervju|presentasjon|kokous|esitys|työhaastattelu|häät|juhla|besprechung|vorstellungsgespräch|hochzeit|abendessen|treffen|réunion|entretien|mariage|dîner|reunión|entrevista|presentación|boda|cena|fiesta|riunione|colloquio|presentazione|matrimonio|reunião|apresentação|casamento|jantar|festa|vergadering|sollicitatie|presentatie|bruiloft|diner|spotkanie|prezentacja|rozmowa|wesele|przyjęcie)\b/iu;
+/* ── Most-formal calendar event (multi-locale, locale-scoped) ── */
+// Per-locale formality-trigger keyword maps. Locale-scoping prevents
+// cross-language collisions — e.g. Polish "cena" (price) would otherwise match
+// Spanish/Italian "cena" (dinner) and bias outfit generation to "formal".
+// English is always merged in as a fallback because users frequently label
+// events in English regardless of UI locale ("Quarterly review", "Standup").
+// /u flag so \b correctly handles non-ASCII word boundaries (Swedish ö,
+// German ü, French é, Polish ł, etc.). Translator-pass still needed —
+// see CLAUDE.md Findings Log.
+const FORMAL_KEYWORDS_BY_LOCALE: Record<string, RegExp> = (() => {
+  const tokens: Record<string, string> = {
+    en: 'meeting|presentation|conference|interview|client|dinner|lunch|board|pitch|wedding|formal|work|office',
+    sv: 'möte|jobb|intervju|bröllop|fest|middag|dejt',
+    da: 'møde|jobsamtale|præsentation|bryllup',
+    no: 'jobbintervju|presentasjon|bryllup',
+    fi: 'kokous|esitys|työhaastattelu|häät|juhla',
+    de: 'besprechung|vorstellungsgespräch|hochzeit|abendessen|treffen',
+    fr: 'réunion|entretien|mariage|dîner',
+    es: 'reunión|entrevista|presentación|boda|cena|fiesta',
+    it: 'riunione|colloquio|presentazione|matrimonio|cena',
+    pt: 'reunião|apresentação|casamento|jantar|festa',
+    nl: 'vergadering|sollicitatie|presentatie|bruiloft|diner',
+    // Polish intentionally OMITS "cena" (means "price" in PL) to avoid
+    // colliding with Spanish/Italian "cena" (dinner).
+    pl: 'spotkanie|prezentacja|rozmowa|wesele|przyjęcie',
+  };
+  const result: Record<string, RegExp> = {};
+  result.en = new RegExp(`\\b(${tokens.en})\\b`, 'iu');
+  for (const [k, v] of Object.entries(tokens)) {
+    if (k === 'en') continue;
+    result[k] = new RegExp(`\\b(${v}|${tokens.en})\\b`, 'iu');
+  }
+  return result;
+})();
 
-function getMostFormalEvent(events: { title: string }[] | undefined | null) {
+function getFormalKeywords(locale: string): RegExp {
+  return FORMAL_KEYWORDS_BY_LOCALE[locale] ?? FORMAL_KEYWORDS_BY_LOCALE.en;
+}
+
+function getMostFormalEvent(events: { title: string }[] | undefined | null, locale: string) {
   if (!events?.length) return null;
-  return events.find(e => FORMAL_KEYWORDS.test(e.title)) ?? events[0];
+  const re = getFormalKeywords(locale);
+  return events.find(e => re.test(e.title)) ?? events[0];
 }
 
 /* ── Weather styling advice ── */
@@ -196,7 +229,7 @@ export default function OutfitGeneratePage() {
     if (!calendarEvents?.length) return null;
     return buildDayIntelligence(calendarEvents, weather ?? undefined);
   }, [calendarEvents, weather]);
-  const primaryEvent = getMostFormalEvent(calendarEvents);
+  const primaryEvent = getMostFormalEvent(calendarEvents, locale);
   const clearPreferredGarments = useCallback(() => {
     navigate(location.pathname, { replace: true });
   }, [location.pathname, navigate]);
