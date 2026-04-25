@@ -751,9 +751,9 @@ export default function LiveScan() {
           <div className="mx-auto flex w-full max-w-md items-center justify-center px-4 py-4">
             <Card surface="utility" className="w-full max-w-sm p-4">
               <div className="mb-4 text-center">
-                <p className="label-editorial text-muted-foreground/40">SCANNING</p>
+                <p className="label-editorial text-muted-foreground/40">{t('livescan.scanning_label')}</p>
                 <p className="mt-1.5 font-display italic text-[0.95rem] text-foreground/60 leading-snug">
-                  Point camera at your clothing item
+                  {t('livescan.scan_instruction')}
                 </p>
               </div>
               <div className="flex items-center justify-center">
@@ -761,9 +761,9 @@ export default function LiveScan() {
                   step={2}
                   currentStep={coach.currentStep}
                   isCoachActive={coach.isStepActive(2)}
-                  title="Scan anything"
-                  body="Point at a garment and hold still. BURS detects category, colour and material."
-                  ctaLabel="Generate a look"
+                  title={t('livescan.coach.scan_title')}
+                  body={t('livescan.coach.scan_body')}
+                  ctaLabel={t('livescan.coach.cta_label')}
                   onCta={() => {
                     coach.advanceStep();
                     navigate('/ai/generate');
@@ -780,7 +780,7 @@ export default function LiveScan() {
                         'flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-foreground transition-all active:scale-90',
                         !canCapture ? 'opacity-30' : 'opacity-100'
                       )}
-                      aria-label="Scan"
+                      aria-label={t('livescan.scan_aria')}
                     >
                       <div className={cn(
                         'h-12 w-12 rounded-full transition-colors',

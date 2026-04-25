@@ -58,7 +58,7 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
               className={cn('px-4 py-2 text-sm font-medium border-2 bg-transparent transition-colors duration-300', dark && 'rounded-xl')}
               style={{ borderColor: accentColor.hex, color: accentColor.hex }}
             >
-              Outline
+              {t('onboarding.accent.preview_outline')}
             </button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -66,13 +66,13 @@ export function AccentColorStep({ onComplete }: AccentColorStepProps) {
               className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white transition-colors duration-300"
               style={{ backgroundColor: accentColor.hex }}
             >
-              <Heart className="w-3 h-3" /> Favorit
+              <Heart className="w-3 h-3" /> {t('onboarding.accent.preview_favorite')}
             </span>
             <span
               className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-300"
               style={{ backgroundColor: accentColor.hex + '18', color: accentColor.hex }}
             >
-              <Star className="w-3 h-3" /> Premium
+              <Star className="w-3 h-3" /> {t('onboarding.accent.preview_premium')}
             </span>
           </div>
         </motion.div>

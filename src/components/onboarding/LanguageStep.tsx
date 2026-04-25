@@ -22,8 +22,8 @@ export function LanguageStep({ onComplete }: LanguageStepProps) {
         <Card surface="editorial" className="p-6">
           <PageIntro
             center
-            eyebrow="Onboarding"
-            title="Choose your language."
+            eyebrow={t('onboarding.eyebrow_generic')}
+            title={t('onboarding.language.title')}
             description={t('onboarding.language.subtitle')}
           />
         </Card>

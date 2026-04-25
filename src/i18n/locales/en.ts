@@ -3209,6 +3209,22 @@ const en: Record<string, string> = {
   'share.meta_description_short': 'Check out this outfit styled by BURS.',
   'profile.meta_title_template': '{name} — BURS Style Profile',
   'profile.meta_description_template': "Check out {name}'s style on BURS",
+  'livescan.coach.scan_title': 'Scan anything',
+  'livescan.coach.scan_body': 'Point at a garment and hold still. BURS detects category, colour and material.',
+  'livescan.coach.cta_label': 'Generate a look',
+  'livescan.scan_aria': 'Scan',
+  'livescan.scanning_label': 'Scanning',
+  'livescan.scan_instruction': 'Point camera at your clothing item',
+  'onboarding.eyebrow_generic': 'Onboarding',
+  'onboarding.getstarted.eyebrow_ready': 'Ready',
+  'onboarding.getstarted.title_ready': 'Your wardrobe is ready.',
+  'onboarding.accent.preview_outline': 'Outline',
+  'onboarding.accent.preview_favorite': 'Favorite',
+  'onboarding.accent.preview_premium': 'Premium',
+  'onboarding.quiz.eyebrow': 'Style profile',
+  'onboarding.quiz.title_intro': 'Tell us how you dress.',
+  'onboarding.quiz.intro_desc': 'Ten quick answers help BURS tune outfits, planning, and wardrobe guidance around your real life.',
+  'onboarding.upload.title_intro': 'Add your first piece.',
 };
 
 export default en;

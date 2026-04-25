@@ -44,8 +44,8 @@ export function GetStartedStep({ onAction }: GetStartedStepProps) {
           <div className="mt-5">
             <PageIntro
               center
-              eyebrow="Ready"
-              title="Your wardrobe is ready."
+              eyebrow={t('onboarding.getstarted.eyebrow_ready')}
+              title={t('onboarding.getstarted.title_ready')}
               description={t('onboarding.getstarted.subtitle')}
             />
           </div>

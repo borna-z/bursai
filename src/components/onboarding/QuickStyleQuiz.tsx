@@ -458,9 +458,9 @@ export function QuickStyleQuiz({ onComplete, onSkip, isSaving }: Props) {
         <Card surface="editorial" className="p-6">
           <PageIntro
             center
-            eyebrow="Style profile"
-            title="Tell us how you dress."
-            description="Ten quick answers help BURS tune outfits, planning, and wardrobe guidance around your real life."
+            eyebrow={t('onboarding.quiz.eyebrow')}
+            title={t('onboarding.quiz.title_intro')}
+            description={t('onboarding.quiz.intro_desc')}
           />
           <div className="mt-6">
             <ProgressDots current={qi} />
