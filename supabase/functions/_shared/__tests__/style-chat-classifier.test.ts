@@ -1892,6 +1892,113 @@ describe("applyActiveLookRefinementOverride (P30)", () => {
     expect(out.intent).toBe("refine_outfit");
     expect(out.refinement_hint).toBe("less_formal");
   });
+
+  // Codex P1 round 27 #1 — path (d) removed; mid-sentence imperative
+  // matches in descriptive/article-style text no longer hijack conversation.
+  it("does NOT override 'Article: how to make it warmer' (Codex round 27 #1: descriptive prefix)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Article: how to make it warmer"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'This guide says swap the shoes' (descriptive narration)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("This guide says swap the shoes"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'The blog explained how to change the jacket' (long descriptive narration)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("The blog explained how to change the jacket"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Round 27 #1 must NOT regress legitimate interjection-prefixed
+  // imperatives. Path (b)'s polite-filler skip now includes common
+  // interjections so these reach the imperative fast-path.
+  it("DOES override 'yeah make it warmer' (interjection prefix on imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("yeah make it warmer"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
+
+  it("DOES override 'ok change the jacket' (interjection prefix on imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("ok change the jacket"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'sure swap the shoes' (interjection prefix on branch 2 imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("sure swap the shoes"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+  });
+
+  it("DOES override 'alright make it cooler' (multi-char interjection prefix)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("alright make it cooler"),
+    );
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("cooler");
+  });
+
+  // Codex P1 round 27 #2 — modal fast-path must skip manner adverbs before
+  // the info-seeking guard, otherwise advisory questions like "Can you
+  // briefly explain how to make it warmer?" force refine_outfit.
+  it("does NOT override 'Can you briefly explain how to make it warmer?' (Codex round 27 #2 example)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you briefly explain how to make it warmer?"),
+    );
+    // After my fix, scanIdx skips "briefly", firstSignificantAfterModal =
+    // "explain" → INFO_SEEKING_STARTS rejects modal fast-path. Then `?`
+    // guard at path (c) rejects (12 tokens > 4-token chip cap).
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Could you quickly tell me how to make it warmer?' (modal + adverb + tell)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Could you quickly tell me how to make it warmer?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  it("does NOT override 'Will you honestly suggest a different style?' (modal + adverb + suggest)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Will you honestly suggest a different style?"),
+    );
+    expect(out.intent).toBe("conversation");
+  });
+
+  // Round 27 #2 must NOT regress modal-imperative fast-path matches —
+  // adverbs in POLITE_FILLERS only kick in when the post-adverb word is
+  // info-seeking. "Can you really make it warmer?" still fires.
+  it("still DOES override 'Can you really make it warmer?' (modal + adverb + imperative)", () => {
+    const out = applyActiveLookRefinementOverride(
+      CONVERSATION_RESULT,
+      makeInput("Can you really make it warmer?"),
+    );
+    // scanIdx skips "really", firstSignificantAfterModal = "make" → not
+    // info-seeking → modal fast-path fires.
+    expect(out.intent).toBe("refine_outfit");
+    expect(out.refinement_hint).toBe("warmer");
+  });
 });
 
 describe("classifyIntent exception path (Codex P2 round 3)", () => {

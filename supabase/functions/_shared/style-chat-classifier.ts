@@ -376,8 +376,24 @@ const MODAL_REQUEST_STARTS = new Set(["can", "could", "would", "will"]);
 // first meaningful word after a modal request is an imperative verb or
 // an info-seeking verb. "Can you please explain ..." — "please" is a
 // filler; "explain" is the word that determines intent.
+//
+// Codex P1 round 27 #2: extended with manner adverbs (`briefly`, `quickly`,
+// `honestly`, `actually`, `specifically`, `simply`) so phrasings like
+// "Can you briefly explain how to make it warmer?" reach the
+// info-seeking guard correctly. Without skipping `briefly`,
+// firstSignificantAfterModal would be the adverb itself and the
+// INFO_SEEKING_STARTS check would miss the explanatory intent.
+//
+// Codex P1 round 27 #1: extended with common interjection prefixes
+// (`ok`, `okay`, `yeah`, `yes`, `yep`, `sure`, `alright`, `hmm`, `well`,
+// `so`) so messages like "yeah make it warmer" / "ok change the jacket"
+// reach path (b) imperative fast-path. This is needed because path (d)
+// (the mid-sentence regex fallback) was removed in the same round to
+// reject descriptive text like "Article: how to make it warmer".
 const POLITE_FILLERS = new Set([
   "please", "kindly", "just", "maybe", "perhaps", "possibly",
+  "briefly", "quickly", "honestly", "actually", "specifically", "simply",
+  "ok", "okay", "yeah", "yes", "yep", "sure", "alright", "hmm", "well", "so",
 ]);
 
 // Codex P1 round 7: direct imperatives with a trailing "?" ("make it warmer?",
@@ -551,17 +567,18 @@ function looksLikeRefinementRequest(message: string): boolean {
   if (QUESTION_STARTS.has(firstCleaned) || QUESTION_STARTS.has(firstMeaningful)) return false;
   if (INFO_SEEKING_STARTS.has(firstCleaned) || INFO_SEEKING_STARTS.has(firstMeaningful)) return false;
 
-  // (d) Explicit imperative verb phrase (no question markers) —
-  // "make it warmer", "swap the shoes", "change the top".
+  // (d) REMOVED in Codex P1 round 27 #1.
   //
-  // Codex P2 round 11: declarative-starter guard. A message like
-  // "I want to change my style" / "looking to swap my jacket" matches the
-  // imperative phrase regex on the "change my ..." / "swap my ..." clause
-  // but is a statement, not a command. Rejecting declarative openers here
-  // keeps the override focused on true imperatives.
-  if (!DECLARATIVE_STARTS.has(firstCleaned) && IMPERATIVE_REFINE_PHRASE_RE.test(trimmed)) {
-    return true;
-  }
+  // Path (d) previously fired `IMPERATIVE_REFINE_PHRASE_RE.test(trimmed) &&
+  // !DECLARATIVE_STARTS.has(firstCleaned)` — the regex matches mid-sentence,
+  // so descriptive text like "Article: how to make it warmer" or "This
+  // guide says swap the shoes" was force-converted into refine_outfit when
+  // an active look existed. With path (b)'s polite-filler skip extended
+  // to interjections (`yeah`, `ok`, `hmm`) and manner adverbs (`briefly`,
+  // `quickly`, etc.), every legitimate imperative refinement that path (d)
+  // used to catch now flows through path (b)'s firstMeaningful check, which
+  // is anchored to the start of the message. The mid-sentence regex test
+  // is no longer needed and the false-positive class is eliminated.
 
   // (e) Bare modifier / short-chip message path — e.g. "warmer",
   // "more formal", "softer", "different vibe", "cooler please". These are
