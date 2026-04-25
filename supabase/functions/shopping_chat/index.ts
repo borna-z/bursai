@@ -134,7 +134,15 @@ serve(async (req) => {
     // --- Conversational fast path ---
     const latestUserMessage = (messages as any[]).filter(m => m.role === 'user').slice(-1)[0];
     const latestText = (typeof latestUserMessage?.content === 'string' ? latestUserMessage.content : '').trim();
-    const CHAT_SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|ok|okay|got it|sounds good|nice|cool|great|perfect|yes|no|maybe|haha|lol|exactly|interesting|fair enough|appreciate it|noted|understood)[!.,?\s]*$/i;
+    // P40 — Conversational short-reply detector across the 14 supported locales.
+    // Greetings + thanks + affirmations. Translator-pass needed for completeness
+    // (see CLAUDE.md Findings Log). The /iu flags make ^/$ anchors work correctly
+    // with right-to-left Arabic/Persian scripts and Latin diacritics.
+    // Greeting/thanks/affirmation tokens across the 14 supported locales.
+    // Order: en, sv, da, no, fi, de, fr, es, it, pt, nl, pl, ar, fa.
+    // Some tokens recur across language families (e.g. "hej" sv+da, "ja" de+nl,
+    // "no" en+es) — alternation handles duplicates harmlessly.
+    const CHAT_SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|ok|okay|got it|sounds good|nice|cool|great|perfect|yes|no|maybe|haha|lol|exactly|interesting|fair enough|appreciate it|noted|understood|hej|hejsan|tjena|tack|jo|nej|kanske|hej hej|farvel|tak|nej|hei|takk|nei|moi|kiitos|kyllä|ei|hallo|danke|servus|ja|nein|tschüss|bonjour|salut|merci|oui|non|au revoir|hola|gracias|sí|adiós|ciao|grazie|sì|arrivederci|oi|olá|obrigado|obrigada|sim|não|tchau|hoi|dank je|dank u|nee|doei|cześć|witaj|dzień dobry|dziękuję|tak|nie|do widzenia|مرحبا|أهلا|شكرا|نعم|لا|وداعا|سلام|درود|ممنون|بله|نه|خداحافظ)[!.,?\s]*$/iu;
 
     if (CHAT_SHORT_RE.test(latestText)) {
       const response = await streamBursAI({

@@ -74,8 +74,12 @@ function isGeneratedOutfitComplete(outfit: GeneratedOutfit): boolean {
   ).isValid;
 }
 
-/* ── Most-formal calendar event ── */
-const FORMAL_KEYWORDS = /\b(meeting|presentation|conference|interview|client|dinner|lunch|board|pitch|wedding|formal|work|office)\b/i;
+/* ── Most-formal calendar event (multi-locale) ── */
+// Matches formality-trigger words across the 14 supported locales.
+// Bumped to /u flag so \b correctly handles non-ASCII word boundaries
+// (Swedish ö, German ü, French é, Arabic/Persian scripts, etc.).
+// Translator-pass needed for completeness — see CLAUDE.md Findings Log.
+const FORMAL_KEYWORDS = /\b(meeting|presentation|conference|interview|client|dinner|lunch|board|pitch|wedding|formal|work|office|möte|jobb|presentation|intervju|bröllop|fest|middag|dejt|møde|jobsamtale|præsentation|bryllup|jobbintervju|presentasjon|kokous|esitys|työhaastattelu|häät|juhla|besprechung|vorstellungsgespräch|hochzeit|abendessen|treffen|réunion|entretien|mariage|dîner|reunión|entrevista|presentación|boda|cena|fiesta|riunione|colloquio|presentazione|matrimonio|reunião|apresentação|casamento|jantar|festa|vergadering|sollicitatie|presentatie|bruiloft|diner|spotkanie|prezentacja|rozmowa|wesele|przyjęcie)\b/iu;
 
 function getMostFormalEvent(events: { title: string }[] | undefined | null) {
   if (!events?.length) return null;
