@@ -35,6 +35,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
   const [dict, setDict] = useState<Record<string, string>>({});
   const [enDict, setEnDict] = useState<Record<string, string>>({});
+  // Track the currently-loaded date-fns locale in state so consumers re-render
+  // when the async chunk lands. Previously the useEffect fired-and-forgot
+  // loadDateFnsLocale and the synchronous getDateFnsLocale read returned enUS
+  // until some unrelated rerender happened — leaving non-en users pinned to
+  // English weekday labels in Insights and similar consumers. (Codex P2 x2,
+  // PR #678) Initial value is the cached locale (or enUS) which is what
+  // getDateFnsLocale would have returned anyway.
+  const [dateFnsLocale, setDateFnsLocaleState] = useState<DateFnsLocale>(() => getDateFnsLocale(locale));
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
 
@@ -65,7 +73,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // Load date-fns locale independently — a transient chunk-load failure
     // must not block translations, and rejecting (instead of swallowing)
     // lets the next locale-change effect retry the load.
-    loadDateFnsLocale(locale).catch(() => {});
+    // Sync the loaded locale into state so consumers re-render once the chunk
+    // lands. On failure we fall back to the synchronous-getter value (enUS).
+    setDateFnsLocaleState(getDateFnsLocale(locale));
+    loadDateFnsLocale(locale)
+      .then((loaded) => {
+        if (!isActive) return;
+        setDateFnsLocaleState(loaded);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setDateFnsLocaleState(getDateFnsLocale(locale));
+      });
 
     return () => {
       isActive = false;
@@ -115,8 +134,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const humanized = segment.replace(/[_-]/g, ' ');
     return humanized.charAt(0).toUpperCase() + humanized.slice(1);
   }, [dict, enDict]);
-
-  const dateFnsLocale = getDateFnsLocale(locale);
 
   const value = useMemo(() => ({
     locale,

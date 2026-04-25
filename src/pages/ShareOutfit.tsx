@@ -13,6 +13,7 @@ import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
 import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 import { EASE_CURVE } from '@/lib/motion';
+import { interpolateMeta, safeT } from '@/lib/i18nFallback';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { isUuid } from '@/lib/validators';
 
@@ -144,16 +145,57 @@ export default function ShareOutfitPage() {
 
   return (
     <>
+      {/*
+        Meta tags use interpolateMeta + safeT (Codex P2 fixes, PR #678):
+        - Function replacer prevents user-controlled outfit.occasion containing
+          `$&`/`$'`/`` $` `` from triggering JS regex substitution rules.
+        - Humanize-fallback detection covers the cold-start case where the
+          LanguageProvider's dict hasn't loaded yet (t() returns 'Meta title
+          template' / 'Meta description full' instead of the real templates).
+        - Hard fallbacks preserve a sensible OG card title even pre-hydration.
+      */}
       <Helmet>
-        <title>{t('share.meta_title_template').replace('{occasion}', outfit.occasion)}</title>
-        <meta name="description" content={outfit.explanation || t('share.meta_description_full')} />
-        <meta property="og:title" content={t('share.meta_title_template').replace('{occasion}', outfit.occasion)} />
-        <meta property="og:description" content={outfit.explanation || t('share.meta_description_short')} />
+        <title>
+          {interpolateMeta(
+            t,
+            'share.meta_title_template',
+            { occasion: outfit.occasion },
+            `${outfit.occasion} Outfit | Styled by BURS`,
+          )}
+        </title>
+        <meta
+          name="description"
+          content={outfit.explanation || safeT(t, 'share.meta_description_full', 'A styled outfit on BURS')}
+        />
+        <meta
+          property="og:title"
+          content={interpolateMeta(
+            t,
+            'share.meta_title_template',
+            { occasion: outfit.occasion },
+            `${outfit.occasion} Outfit | Styled by BURS`,
+          )}
+        />
+        <meta
+          property="og:description"
+          content={outfit.explanation || safeT(t, 'share.meta_description_short', 'Styled by BURS')}
+        />
         <meta property="og:type" content="article" />
         <meta property="og:image" content="https://burs.me/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={t('share.meta_title_template').replace('{occasion}', outfit.occasion)} />
-        <meta name="twitter:description" content={outfit.explanation || t('share.meta_description_short')} />
+        <meta
+          name="twitter:title"
+          content={interpolateMeta(
+            t,
+            'share.meta_title_template',
+            { occasion: outfit.occasion },
+            `${outfit.occasion} Outfit | Styled by BURS`,
+          )}
+        />
+        <meta
+          name="twitter:description"
+          content={outfit.explanation || safeT(t, 'share.meta_description_short', 'Styled by BURS')}
+        />
       </Helmet>
     <div className="min-h-screen bg-background">
       <PageHeader
