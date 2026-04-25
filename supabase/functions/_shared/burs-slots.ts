@@ -68,8 +68,10 @@ const BOTTOM_TOKENS: readonly string[] = [
   "leggings",
   // Swedish
   "byxor", "kjol",
-  // Norwegian
-  "bukse", "bukser", "skjørt", "skjort",
+  // Norwegian (omitted "skjort" no-ø — substring of "skjorte" (no/da shirt)
+  // and normalizeSlot() checks BOTTOM before TOP. "skjørt" with-ø is safe
+  // because U+00F8 stays a single codepoint through NFD strip.)
+  "bukse", "bukser", "skjørt",
   // Danish (bukser shared with no; add unique da)
   "nederdel",
   // Finnish
