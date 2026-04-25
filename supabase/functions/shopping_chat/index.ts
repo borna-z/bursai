@@ -134,7 +134,20 @@ serve(async (req) => {
     // --- Conversational fast path ---
     const latestUserMessage = (messages as any[]).filter(m => m.role === 'user').slice(-1)[0];
     const latestText = (typeof latestUserMessage?.content === 'string' ? latestUserMessage.content : '').trim();
-    const CHAT_SHORT_RE = /^(hi|hey|hello|thanks|thank you|thx|ok|okay|got it|sounds good|nice|cool|great|perfect|yes|no|maybe|haha|lol|exactly|interesting|fair enough|appreciate it|noted|understood)[!.,?\s]*$/i;
+    // P40 — Conversational short-reply detector across the 14 supported locales.
+    // Greetings + thanks + affirmations. Translator-pass needed for completeness
+    // (see CLAUDE.md Findings Log). The /iu flags make ^/$ anchors work correctly
+    // with right-to-left Arabic/Persian scripts and Latin diacritics.
+    // Greeting/thanks/affirmation tokens across the 14 supported locales.
+    // Order: en, sv, da, no, fi, de, fr, es, it, pt, nl, pl, ar, fa.
+    // Some tokens recur across language families (e.g. "hej" sv+da, "ja" de+nl,
+    // "no" en+es) — alternation handles duplicates harmlessly.
+    //
+    // Punctuation: leading [¿¡]? for Spanish inverted marks; trailing class
+    // includes ASCII (!.,?), Spanish (¿¡), and Arabic comma/question (،؟) so
+    // common localized greetings like ¿hola?, ¡hola!, مرحبا،, مرحبا؟ all hit
+    // the fast path instead of falling through to the full RAG pipeline.
+    const CHAT_SHORT_RE = /^[¿¡]?(hi|hey|hello|thanks|thank you|thx|ok|okay|got it|sounds good|nice|cool|great|perfect|yes|no|maybe|haha|lol|exactly|interesting|fair enough|appreciate it|noted|understood|hej|hejsan|tjena|tack|jo|nej|kanske|hej hej|farvel|tak|nej|hei|takk|nei|moi|kiitos|kyllä|ei|hallo|danke|servus|ja|nein|tschüss|bonjour|salut|merci|oui|non|au revoir|hola|gracias|sí|adiós|ciao|grazie|sì|arrivederci|oi|olá|obrigado|obrigada|sim|não|tchau|hoi|dank je|dank u|nee|doei|cześć|witaj|dzień dobry|dziękuję|tak|nie|do widzenia|مرحبا|أهلا|شكرا|نعم|لا|وداعا|سلام|درود|ممنون|بله|نه|خداحافظ)[!.,?¿¡؟،\s]*$/iu;
 
     if (CHAT_SHORT_RE.test(latestText)) {
       const response = await streamBursAI({
@@ -152,9 +165,13 @@ serve(async (req) => {
     }
 
     // Fetch context in parallel
+    // Cast supabase to widen the inferred narrow public-schema type back to the
+    // open `ReturnType<typeof createClient>` shape that getWardrobeContext takes.
+    // Same pattern as style_chat/index.ts:1172. Pre-existing TS2345 surfaced when
+    // P40 changes triggered deno-check on this file.
     const [profileRes, wardrobeResult] = await Promise.all([
       supabase.from("profiles").select("display_name, preferences, home_city, height_cm, weight_kg").eq("id", user.id).single(),
-      getWardrobeContext(supabase, user.id),
+      getWardrobeContext(supabase as ReturnType<typeof createClient>, user.id),
     ]);
 
     const profile = profileRes.data;
