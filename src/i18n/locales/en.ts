@@ -3080,6 +3080,7 @@ const en: Record<string, string> = {
     'insights.unused_error_desc': 'We could not build a set from the unused garments this time.',
     'insights.unused_footer_title': 'Your closet is a living gallery.',
     'insights.unused_footer_body': 'Rotate these into your weekly plan and watch your cost-per-wear drop.',
+    'insights.unused_pieces_label': 'unused pieces',
     'outfit.generation_unavailable': 'Outfit generation is unavailable right now',
     'outfit.generation_failed': 'Generation failed',
     'outfit.something_wrong_retry': 'Something went wrong. Please try again.',
