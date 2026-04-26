@@ -122,9 +122,9 @@ describe('useOnboarding', () => {
     });
   });
 
-  it('completeOnboarding swallows raw Postgres 42883 function-does-not-exist (direct-Postgres deploy-window)', async () => {
-    // Deploy window via direct-Postgres path (tests, local dev): the RPC
-    // error has raw Postgres SQLSTATE 42883. The legacy write must still
+  it('completeOnboarding swallows raw Postgres 42883 ONLY when profile lacks onboarding_step (pre-migration)', async () => {
+    // Pre-migration: profile DOES NOT have the `onboarding_step` key. RPC
+    // throws raw Postgres SQLSTATE 42883. The legacy write must still
     // happen so ProtectedRoute's pre-migration fallback can pass the user
     // through on next navigation.
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -149,11 +149,10 @@ describe('useOnboarding', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('completeOnboarding swallows PostgREST PGRST202 RPC-not-found (primary deploy-window path)', async () => {
-    // Deploy window via the primary PostgREST path that supabase-js uses:
-    // PostgREST returns its own error code `PGRST202` for "function absent
-    // from schema cache" before raw Postgres errors ever reach the client.
-    // This is what real-world deploy-window callers see.
+  it('completeOnboarding swallows PostgREST PGRST202 ONLY when profile lacks onboarding_step (pre-migration)', async () => {
+    // Pre-migration via the primary PostgREST path: profile lacks the
+    // `onboarding_step` key AND the error code is `PGRST202`. Swallow,
+    // write legacy flag, log warning.
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const postgrestMissingError = Object.assign(
       new Error('Could not find the function public.advance_onboarding_step in the schema cache'),
@@ -174,6 +173,60 @@ describe('useOnboarding', () => {
       expect.any(Error),
     );
     consoleWarnSpy.mockRestore();
+  });
+
+  it('completeOnboarding RETHROWS PGRST202 when profile already has onboarding_step (post-migration stale schema cache)', async () => {
+    // Post-migration scenario flagged by Codex: the column EXISTS on the
+    // loaded profile but PostgREST's schema cache is stale and returns
+    // PGRST202 for the new RPC. Without this guard we'd swallow + write
+    // the legacy flag → split-brain (column='not_started', legacy=true) →
+    // ProtectedRoute redirects to /onboarding, Onboarding.tsx Navigates to
+    // /, redirect loop. Throwing keeps both states aligned (neither set);
+    // user retries; PostgREST cache eventually refreshes.
+    const postgrestStaleError = Object.assign(
+      new Error('Could not find the function public.advance_onboarding_step in the schema cache'),
+      { code: 'PGRST202' },
+    );
+    mockRpc.mockResolvedValueOnce({ data: null, error: postgrestStaleError });
+    mockUseProfile.mockReturnValue({
+      data: {
+        preferences: { onboarding: { completed: false } },
+        onboarding_step: 'not_started',
+      },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await expect(result.current.completeOnboarding()).rejects.toThrow(
+        'Could not find the function',
+      );
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('completeOnboarding RETHROWS 42883 when profile already has onboarding_step (post-migration anomaly)', async () => {
+    // Equivalent post-migration sanity check via the raw Postgres path:
+    // column exists, error is 42883 (extremely unusual but defensive). Same
+    // split-brain risk; same throw policy.
+    const missingFnError = Object.assign(
+      new Error('function advance_onboarding_step(uuid, text) does not exist'),
+      { code: '42883' },
+    );
+    mockRpc.mockResolvedValueOnce({ data: null, error: missingFnError });
+    mockUseProfile.mockReturnValue({
+      data: {
+        preferences: { onboarding: { completed: false } },
+        onboarding_step: 'not_started',
+      },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await expect(result.current.completeOnboarding()).rejects.toThrow(
+        'function advance_onboarding_step',
+      );
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it('completeOnboarding rethrows non-42883 RPC errors and skips legacy write (post-migration safety)', async () => {

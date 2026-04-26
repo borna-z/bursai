@@ -71,30 +71,41 @@ export default function OnboardingPage() {
     // The new ProtectedRoute gate prefers this signal once the migration
     // applies.
     //
-    // Failure handling: swallow ONLY the two error codes that signal
-    // "RPC not deployed yet" — Supabase clients see PostgREST's
-    // `PGRST202` (function absent from schema cache) before they ever see
-    // raw Postgres `42883 function does not exist`. Both are tolerated to
-    // cover direct-Postgres clients (tests, local dev) as well as the
-    // primary PostgREST path. This is the deploy-window scenario between
-    // Vercel auto-deploy and `npx supabase db push --linked --yes`.
-    // ProtectedRoute's pre-migration fallback then trusts the legacy flag
-    // we write below.
+    // Failure handling: ONLY swallow when ALL of the following are true:
+    //   (1) the loaded profile genuinely lacks the `onboarding_step` column
+    //       (pre-migration window — `useProfile`'s `.select('*')` doesn't
+    //       return a column that doesn't exist on the row), AND
+    //   (2) the RPC error code is `42883` (raw Postgres "function does not
+    //       exist") OR `PGRST202` (PostgREST "function absent from schema
+    //       cache").
     //
-    // All OTHER errors (transient network, ownership mismatch, invalid step,
-    // etc.) propagate. Swallowing them post-migration would create split-
-    // brain: legacy flag set, column still 'not_started' → ProtectedRoute
-    // (column-based) keeps redirecting to /onboarding while Onboarding.tsx
-    // sees `preferences.onboarding.completed=true` and bounces back to /.
-    // The outer `handleGetStartedAction` already swallows the throw to keep
-    // navigation moving for the user; Sentry/console will record the failure.
+    // The column-existence gate matters because `PGRST202` is ALSO returned
+    // when PostgREST's schema cache is stale POST-migration. Swallowing
+    // indiscriminately in that window creates split-brain: column stays
+    // `'not_started'`, legacy flag becomes `true`, ProtectedRoute
+    // (column-based) redirects to `/onboarding`, Onboarding.tsx
+    // (preferences-based) `Navigate to "/"`, redirect loop. Once the column
+    // exists on the loaded profile, propagating any RPC error keeps both
+    // flags aligned (neither set) — user retries on their own and
+    // PostgREST eventually refreshes its cache. The outer
+    // `handleGetStartedAction` already swallows the throw to keep
+    // navigation moving for the user.
+    //
+    // All OTHER errors (transient network, ownership mismatch, invalid
+    // step name, etc.) propagate per the same rationale.
+    const profileLacksOnboardingColumn =
+      (profile as { onboarding_step?: string | null } | null)?.onboarding_step ===
+      undefined;
     try {
       await advanceOnboardingStep(user.id, 'completed');
     } catch (rpcError) {
       const code = (rpcError as { code?: string } | null)?.code;
-      if (code !== '42883' && code !== 'PGRST202') throw rpcError;
+      const isDeployWindowMissing = code === '42883' || code === 'PGRST202';
+      if (!profileLacksOnboardingColumn || !isDeployWindowMissing) {
+        throw rpcError;
+      }
       console.warn(
-        'advance_onboarding_step RPC missing (deploy window — falling back to legacy flag):',
+        'advance_onboarding_step RPC missing (pre-migration window — falling back to legacy flag):',
         rpcError,
       );
     }
