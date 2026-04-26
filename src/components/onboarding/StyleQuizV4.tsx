@@ -328,9 +328,10 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
       if (qi === 3) setShowQ4Hint(true);
       return;
     }
+    cancelPendingAdvance();
     if (qi < TOTAL - 1) {
       setDir(1);
-      setQi((prev) => prev + 1);
+      setQi((prev) => (prev < TOTAL - 1 ? prev + 1 : prev));
       setShowQ4Hint(false);
       return;
     }
@@ -345,19 +346,42 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
   };
 
   const back = () => {
+    cancelPendingAdvance();
     if (qi > 0) {
       setDir(-1);
-      setQi((prev) => prev - 1);
+      setQi((prev) => (prev > 0 ? prev - 1 : prev));
     }
   };
 
+  // Track the auto-advance timer so a manual Next press can cancel it
+  // before it fires (Codex round 3 P2 — without cancellation, the manual
+  // increment + the deferred increment combined to push qi past TOTAL-1
+  // and render `null` for one frame). Functional bounds check inside the
+  // setQi update is the second guard: even if a stale timer fires after
+  // the index has advanced, it's a no-op rather than an overshoot.
+  const advanceTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (advanceTimerRef.current !== null) {
+        window.clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = null;
+      }
+    };
+  }, []);
+  const cancelPendingAdvance = useCallback(() => {
+    if (advanceTimerRef.current !== null) {
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, []);
+
   const setAndAdvance = <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => {
     set(key, val);
-    window.setTimeout(() => {
-      if (qi < TOTAL - 1) {
-        setDir(1);
-        setQi((prev) => prev + 1);
-      }
+    cancelPendingAdvance();
+    advanceTimerRef.current = window.setTimeout(() => {
+      advanceTimerRef.current = null;
+      setDir(1);
+      setQi((prev) => (prev < TOTAL - 1 ? prev + 1 : prev));
     }, 220);
   };
 
