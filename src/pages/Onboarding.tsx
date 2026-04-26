@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import type { Json } from '@/integrations/supabase/types';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
@@ -16,6 +17,7 @@ import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
+import { advanceOnboardingStep } from '@/lib/advanceOnboardingStep';
 import { asPreferences } from '@/types/preferences';
 
 import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
@@ -52,6 +54,7 @@ function StepProgress({ current }: { current: StepKey }) {
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const updateProfile = useUpdateProfile();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
@@ -62,6 +65,20 @@ export default function OnboardingPage() {
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   const completeOnboarding = async () => {
+    if (!user) return;
+
+    // Wave 7 P44: server-known onboarding completion. The new ProtectedRoute
+    // gate reads `profiles.onboarding_step !== 'completed'` ONLY — without
+    // the RPC call below, the legacy preferences write below would set
+    // `onboarding.completed=true` (ignored) AND leave `onboarding_step` at
+    // its default `'not_started'`, trapping the user in a redirect loop on
+    // the next protected navigation. RPC error → throw + skip the legacy
+    // write so we don't ship a half-state.
+    await advanceOnboardingStep(user.id, 'completed');
+
+    // Legacy preferences flag — kept for backward compat with consumers that
+    // still read `preferences.onboarding.*` (useFirstRunCoach, etc.). PR 2-5
+    // migrate those readers; until then both writes happen in lockstep.
     const currentPrefs = asPreferences(profile?.preferences);
     await updateProfile.mutateAsync({
       preferences: {

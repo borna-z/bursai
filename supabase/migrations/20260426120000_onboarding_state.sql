@@ -162,9 +162,17 @@ BEGIN
       USING ERRCODE = '22023';  -- invalid_parameter_value
   END IF;
 
+  -- FOR UPDATE serializes concurrent transitions on the same profile row.
+  -- Without it, two parallel calls (multi-tab, retry storm) can both pass
+  -- the read-then-validate forward-only check from the same `v_current`
+  -- snapshot, then race the UPDATE — the slower writer overwrites the
+  -- faster one with a LOWER target step. With the row lock, the second
+  -- call blocks until the first commits, re-reads the now-updated step,
+  -- and validates against the post-write state.
   SELECT onboarding_step INTO v_current
   FROM public.profiles
-  WHERE id = p_user_id;
+  WHERE id = p_user_id
+  FOR UPDATE;
 
   IF v_current IS NULL THEN
     -- Profile row missing entirely (not the column being NULL — the column

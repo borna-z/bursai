@@ -45,6 +45,16 @@ export const profileSchema = z.object({
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
   last_calendar_sync: z.string().nullable().optional(),
+  // Wave 7 P42: onboarding state machine columns. Without these, zod's
+  // default `.strip()` mode would silently drop the keys when `useProfile()`
+  // runs `safeParse(profileSchema, ...)` — making the new ProtectedRoute
+  // gate read `step` as `undefined` and redirect every user (incl. ones
+  // already at 'completed') to /onboarding. Onboarding source of truth is
+  // the column, not preferences.onboarding.completed.
+  onboarding_step: z.string().nullable().optional(),
+  onboarding_garment_count: z.number().nullable().optional(),
+  onboarding_started_at: z.string().nullable().optional(),
+  onboarding_completed_at: z.string().nullable().optional(),
 });
 
 export type ValidatedProfile = z.infer<typeof profileSchema>;

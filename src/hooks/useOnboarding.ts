@@ -1,7 +1,7 @@
 import { useProfile, useUpdateProfile } from './useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { asPreferences } from '@/types/preferences';
-import { supabase } from '@/integrations/supabase/client';
+import { advanceOnboardingStep } from '@/lib/advanceOnboardingStep';
 
 /**
  * Simplified onboarding hook — onboarding completes after quiz + tutorial.
@@ -31,17 +31,7 @@ export function useOnboarding() {
     // The RPC is forward-only: returns `{ok:false}` (does NOT throw) for
     // no-op or backwards transitions, throws only on ownership mismatch or
     // invalid step name. Duplicate calls are safe no-ops.
-    //
-    // `as any` cast: `src/integrations/supabase/types.ts` is auto-generated
-    // and regenerates post-merge per CLAUDE.md hard rule — until then, the
-    // new RPC isn't in the typed Functions union. The cast goes away once
-    // types.ts is regenerated.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rpcError } = await (supabase.rpc as any)(
-      'advance_onboarding_step',
-      { p_user_id: user.id, p_to_step: 'completed' },
-    );
-    if (rpcError) throw rpcError;
+    await advanceOnboardingStep(user.id, 'completed');
 
     // Legacy preferences flag — kept for backward compat with consumers that
     // still read `preferences.onboarding.*` (useFirstRunCoach, etc.). PR 2-5
