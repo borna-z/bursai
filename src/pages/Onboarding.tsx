@@ -67,18 +67,32 @@ export default function OnboardingPage() {
   const completeOnboarding = async () => {
     if (!user) return;
 
-    // Wave 7 P44: server-known onboarding completion. The new ProtectedRoute
-    // gate reads `profiles.onboarding_step !== 'completed'` ONLY — without
-    // the RPC call below, the legacy preferences write below would set
-    // `onboarding.completed=true` (ignored) AND leave `onboarding_step` at
-    // its default `'not_started'`, trapping the user in a redirect loop on
-    // the next protected navigation. RPC error → throw + skip the legacy
-    // write so we don't ship a half-state.
-    await advanceOnboardingStep(user.id, 'completed');
+    // Wave 7 P44: best-effort write to the server-known
+    // `profiles.onboarding_step` column. The new ProtectedRoute gate prefers
+    // this signal once the migration applies.
+    //
+    // Failure handling: swallow RPC errors. During the deploy window between
+    // Vercel auto-deploy and `npx supabase db push --linked --yes`, the RPC
+    // doesn't exist yet on the DB (Postgres `42883 function does not exist`)
+    // and a thrown error here would block the legacy preferences write
+    // below — leaving the user in a redirect loop because ProtectedRoute's
+    // pre-migration fallback only passes users whose legacy flag is already
+    // true. Real-world non-deploy-window errors at this call are unreachable
+    // for a user completing their own onboarding with the hardcoded
+    // `'completed'` target. Console warning preserves observability.
+    try {
+      await advanceOnboardingStep(user.id, 'completed');
+    } catch (rpcError) {
+      console.warn(
+        'advance_onboarding_step RPC failed (expected during deploy window):',
+        rpcError,
+      );
+    }
 
-    // Legacy preferences flag — kept for backward compat with consumers that
-    // still read `preferences.onboarding.*` (useFirstRunCoach, etc.). PR 2-5
-    // migrate those readers; until then both writes happen in lockstep.
+    // Legacy preferences flag — primary signal for ProtectedRoute's
+    // pre-migration fallback during the deploy window, secondary signal for
+    // legacy consumers (useFirstRunCoach, etc.) post-migration. Always
+    // written; this is the failure-resistant path.
     const currentPrefs = asPreferences(profile?.preferences);
     await updateProfile.mutateAsync({
       preferences: {

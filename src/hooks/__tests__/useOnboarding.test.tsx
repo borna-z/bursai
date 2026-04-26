@@ -122,17 +122,30 @@ describe('useOnboarding', () => {
     });
   });
 
-  it('completeOnboarding throws + skips legacy write when RPC errors out', async () => {
-    mockRpc.mockResolvedValueOnce({ data: null, error: new Error('rpc failed') });
+  it('completeOnboarding swallows RPC error and still writes legacy flag (deploy-window resilience)', async () => {
+    // Deploy window: Vercel ships frontend before `npx supabase db push --linked
+    // --yes` applies the migration. RPC throws Postgres `42883 function does
+    // not exist`. The legacy write must still happen so ProtectedRoute's
+    // pre-migration fallback can pass the user through on next navigation.
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: new Error('function advance_onboarding_step(uuid, text) does not exist'),
+    });
     mockUseProfile.mockReturnValue({
       data: { preferences: { onboarding: { completed: false } } },
       isLoading: false,
     });
     const { result } = renderHook(() => useOnboarding());
     await act(async () => {
-      await expect(result.current.completeOnboarding()).rejects.toThrow('rpc failed');
+      await result.current.completeOnboarding();
     });
-    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('advance_onboarding_step RPC failed'),
+      expect.any(Error),
+    );
+    consoleWarnSpy.mockRestore();
   });
 
   it('completeOnboarding tolerates ok:false (no-op) RPC response — duplicate completion is safe', async () => {
