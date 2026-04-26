@@ -122,17 +122,44 @@ describe('useOnboarding', () => {
     });
   });
 
-  it('completeOnboarding swallows ONLY Postgres 42883 function-does-not-exist (deploy-window)', async () => {
-    // Deploy window: Vercel ships frontend before `npx supabase db push --linked
-    // --yes` applies the migration. The RPC error has Postgres SQLSTATE 42883.
-    // The legacy write must still happen so ProtectedRoute's pre-migration
-    // fallback can pass the user through on next navigation.
+  it('completeOnboarding swallows raw Postgres 42883 function-does-not-exist (direct-Postgres deploy-window)', async () => {
+    // Deploy window via direct-Postgres path (tests, local dev): the RPC
+    // error has raw Postgres SQLSTATE 42883. The legacy write must still
+    // happen so ProtectedRoute's pre-migration fallback can pass the user
+    // through on next navigation.
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const missingFnError = Object.assign(
       new Error('function advance_onboarding_step(uuid, text) does not exist'),
       { code: '42883' },
     );
     mockRpc.mockResolvedValueOnce({ data: null, error: missingFnError });
+    mockUseProfile.mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await result.current.completeOnboarding();
+    });
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('advance_onboarding_step RPC missing'),
+      expect.any(Error),
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('completeOnboarding swallows PostgREST PGRST202 RPC-not-found (primary deploy-window path)', async () => {
+    // Deploy window via the primary PostgREST path that supabase-js uses:
+    // PostgREST returns its own error code `PGRST202` for "function absent
+    // from schema cache" before raw Postgres errors ever reach the client.
+    // This is what real-world deploy-window callers see.
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const postgrestMissingError = Object.assign(
+      new Error('Could not find the function public.advance_onboarding_step in the schema cache'),
+      { code: 'PGRST202' },
+    );
+    mockRpc.mockResolvedValueOnce({ data: null, error: postgrestMissingError });
     mockUseProfile.mockReturnValue({
       data: { preferences: { onboarding: { completed: false } } },
       isLoading: false,

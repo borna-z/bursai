@@ -71,10 +71,15 @@ export default function OnboardingPage() {
     // The new ProtectedRoute gate prefers this signal once the migration
     // applies.
     //
-    // Failure handling: swallow ONLY Postgres `42883 function does not exist`,
-    // which is the deploy-window scenario between Vercel auto-deploy and
-    // `npx supabase db push --linked --yes`. ProtectedRoute's pre-migration
-    // fallback then trusts the legacy flag we write below.
+    // Failure handling: swallow ONLY the two error codes that signal
+    // "RPC not deployed yet" — Supabase clients see PostgREST's
+    // `PGRST202` (function absent from schema cache) before they ever see
+    // raw Postgres `42883 function does not exist`. Both are tolerated to
+    // cover direct-Postgres clients (tests, local dev) as well as the
+    // primary PostgREST path. This is the deploy-window scenario between
+    // Vercel auto-deploy and `npx supabase db push --linked --yes`.
+    // ProtectedRoute's pre-migration fallback then trusts the legacy flag
+    // we write below.
     //
     // All OTHER errors (transient network, ownership mismatch, invalid step,
     // etc.) propagate. Swallowing them post-migration would create split-
@@ -87,7 +92,7 @@ export default function OnboardingPage() {
       await advanceOnboardingStep(user.id, 'completed');
     } catch (rpcError) {
       const code = (rpcError as { code?: string } | null)?.code;
-      if (code !== '42883') throw rpcError;
+      if (code !== '42883' && code !== 'PGRST202') throw rpcError;
       console.warn(
         'advance_onboarding_step RPC missing (deploy window — falling back to legacy flag):',
         rpcError,
