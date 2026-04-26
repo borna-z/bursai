@@ -12,7 +12,7 @@ vi.mock('framer-motion', () => ({
 }));
 
 vi.mock('@/components/auth/ProtectedRoute', () => ({
-  ProtectedRoute: ({ children }: PropsWithChildren<{ skipOnboardingCheck?: boolean }>) => <>{children}</>,
+  ProtectedRoute: ({ children }: PropsWithChildren) => <>{children}</>,
 }));
 
 vi.mock('@/components/layout/BursLoadingScreen', () => ({

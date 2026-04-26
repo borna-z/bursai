@@ -122,7 +122,7 @@ export function AnimatedRoutes() {
             <Route path="/auth" element={<Auth />} />
             <Route path="/welcome" element={<Navigate to="/auth" replace />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/onboarding" element={<ProtectedRoute skipOnboardingCheck><Onboarding /></ProtectedRoute>} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<Index />} />
             <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
