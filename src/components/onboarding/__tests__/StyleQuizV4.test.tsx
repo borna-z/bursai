@@ -75,13 +75,16 @@ describe('StyleQuizV4', () => {
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
-  it('restores Q1 answers from localStorage on remount', () => {
+  it('restores Q1 answers + touched flags from localStorage on remount', () => {
     const draft = {
-      ...createEmptyStyleProfileV4(),
-      gender: 'masculine' as const,
-      height_cm: 182,
-      build: 'athletic' as const,
-      ageRange: '35-44' as const,
+      answers: {
+        ...createEmptyStyleProfileV4(),
+        gender: 'masculine' as const,
+        height_cm: 182,
+        build: 'athletic' as const,
+        ageRange: '35-44' as const,
+      },
+      q1Touched: { gender: true, build: true, ageRange: true },
     };
     window.localStorage.setItem(
       `burs.quizV4.draft.user-1`,
@@ -90,19 +93,38 @@ describe('StyleQuizV4', () => {
     render(<StyleQuizV4 onComplete={vi.fn()} onSkip={vi.fn()} isSaving={false} userId="user-1" />);
     const heightInput = screen.getByPlaceholderText('175') as HTMLInputElement;
     expect(heightInput.value).toBe('182');
-    // Persisted draft hydrates touched-state implicitly via the gate, so
-    // Next should be enabled without further interaction.
+    // Touched flags persisted as all-true → gate opens.
     expect(getNext()).not.toBeDisabled();
   });
 
-  it('persists answer changes to localStorage', () => {
+  it('does NOT enable Next when partial draft has untouched enum fields (Codex round 2 P2)', () => {
+    // User typed only height before reload. q1Touched persisted as all-false
+    // for the enum fields. Even though enum DEFAULTS are valid choices, the
+    // gate must keep Next disabled until the user explicitly confirms them.
+    const draft = {
+      answers: { ...createEmptyStyleProfileV4(), height_cm: 170 },
+      q1Touched: { gender: false, build: false, ageRange: false },
+    };
+    window.localStorage.setItem(
+      'burs.quizV4.draft.user-partial',
+      JSON.stringify(draft),
+    );
+    render(<StyleQuizV4 onComplete={vi.fn()} onSkip={vi.fn()} isSaving={false} userId="user-partial" />);
+    const heightInput = screen.getByPlaceholderText('175') as HTMLInputElement;
+    expect(heightInput.value).toBe('170');
+    expect(getNext()).toBeDisabled();
+  });
+
+  it('persists answer changes + touched flags to localStorage', () => {
     render(<StyleQuizV4 onComplete={vi.fn()} onSkip={vi.fn()} isSaving={false} userId="user-2" />);
     fireEvent.click(screen.getByText('styleQuizV4.gender.feminine'));
     const stored = window.localStorage.getItem('burs.quizV4.draft.user-2');
     expect(stored).toBeTruthy();
     const parsed = JSON.parse(stored!);
-    expect(parsed.gender).toBe('feminine');
-    expect(parsed.version).toBe(STYLE_PROFILE_VERSION);
+    expect(parsed.answers.gender).toBe('feminine');
+    expect(parsed.answers.version).toBe(STYLE_PROFILE_VERSION);
+    expect(parsed.q1Touched.gender).toBe(true);
+    expect(parsed.q1Touched.build).toBe(false);
   });
 
   it('clears the draft on skip', () => {

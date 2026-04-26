@@ -53,22 +53,36 @@ interface Props {
 const TOTAL = 12;
 const DRAFT_KEY_PREFIX = 'burs.quizV4.draft.';
 
-function readDraft(userId: string): StyleProfileV4 | null {
+interface QuizDraft {
+  answers: StyleProfileV4;
+  q1Touched: Q1Touched;
+}
+
+function readDraft(userId: string): QuizDraft | null {
   try {
     const raw = window.localStorage.getItem(`${DRAFT_KEY_PREFIX}${userId}`);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<StyleProfileV4>;
-    if (!parsed || typeof parsed !== 'object' || parsed.version !== STYLE_PROFILE_VERSION) {
-      return null;
-    }
-    // Merge with defaults so any missing fields stay sane.
-    return { ...createEmptyStyleProfileV4(), ...parsed } as StyleProfileV4;
+    const parsed = JSON.parse(raw) as Partial<QuizDraft>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const answers = parsed.answers as Partial<StyleProfileV4> | undefined;
+    if (!answers || answers.version !== STYLE_PROFILE_VERSION) return null;
+    const q1Touched = parsed.q1Touched && typeof parsed.q1Touched === 'object'
+      ? {
+          gender: !!parsed.q1Touched.gender,
+          build: !!parsed.q1Touched.build,
+          ageRange: !!parsed.q1Touched.ageRange,
+        }
+      : { gender: false, build: false, ageRange: false };
+    return {
+      answers: { ...createEmptyStyleProfileV4(), ...answers } as StyleProfileV4,
+      q1Touched,
+    };
   } catch {
     return null;
   }
 }
 
-function writeDraft(userId: string, value: StyleProfileV4): void {
+function writeDraft(userId: string, value: QuizDraft): void {
   try {
     window.localStorage.setItem(`${DRAFT_KEY_PREFIX}${userId}`, JSON.stringify(value));
   } catch {
@@ -235,21 +249,17 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
   const [dir, setDir] = useState(1);
   const [showQ4Hint, setShowQ4Hint] = useState(false);
 
-  // Hydrate answers + q1Touched from localStorage in lockstep so a restored
-  // draft with valid Q1 answers passes the gate without re-touching chips.
+  // Hydrate answers + q1Touched from localStorage in lockstep. Codex P2 round 2
+  // (PR #685): q1Touched is persisted alongside answers, so a draft where the
+  // user only touched height (for example) does NOT auto-pass the Q1 gate on
+  // reload — they have to confirm the enum picks they actually intended.
   const [{ answers, q1Touched }, setQuizState] = useState<{
     answers: StyleProfileV4;
     q1Touched: Q1Touched;
   }>(() => {
     const draft = readDraft(draftKeyUser);
     if (!draft) return { answers: createEmptyStyleProfileV4(), q1Touched: { gender: false, build: false, ageRange: false } };
-    return {
-      answers: draft,
-      // Treat any persisted draft as having touched the Q1 enums — the user
-      // has been here before and the gate's "explicit interaction" check
-      // is moot. height_cm is gated by its 0 sentinel anyway.
-      q1Touched: { gender: true, build: true, ageRange: true },
-    };
+    return { answers: draft.answers, q1Touched: draft.q1Touched };
   });
 
   const setAnswers = useCallback(
@@ -273,16 +283,16 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
   );
 
   // Persist on every change. Wrapped in a ref so the persist effect only
-  // fires once per actual answer mutation, not on initial mount (which
-  // would otherwise overwrite a freshly-loaded draft with the same data).
+  // fires once per actual mutation, not on initial mount (which would
+  // otherwise overwrite a freshly-loaded draft with the same data).
   const hydrated = useRef(false);
   useEffect(() => {
     if (!hydrated.current) {
       hydrated.current = true;
       return;
     }
-    writeDraft(draftKeyUser, answers);
-  }, [answers, draftKeyUser]);
+    writeDraft(draftKeyUser, { answers, q1Touched });
+  }, [answers, q1Touched, draftKeyUser]);
 
   const set = useCallback(<K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => {
     setAnswers((prev) => ({ ...prev, [key]: val }));

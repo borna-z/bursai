@@ -453,5 +453,10 @@ export function migrateV4ToV3Compat(
     freeNote: v4.cultural ?? '',
     freeText: v4.cultural ?? '',
   };
-  return { ...v4, ...compat };
+  // V4 wins for any name collision with V3 mirror keys (Codex round 2 P1 on
+  // PR #685). The V4 canonical schema must persist intact; compat keys only
+  // populate V3 names that aren't already V4 fields. Earlier `{ ...v4,
+  // ...compat }` overwrote `gender: 'feminine'` with `gender: 'female'`,
+  // corrupting V4 schema for AI consumers and any downstream V4 reader.
+  return { ...compat, ...v4 };
 }
