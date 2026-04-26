@@ -961,6 +961,10 @@ export type Database = {
           last_active_at: string
           last_calendar_sync: string | null
           mannequin_presentation: string
+          onboarding_completed_at: string | null
+          onboarding_garment_count: number
+          onboarding_started_at: string | null
+          onboarding_step: string
           preferences: Json | null
           stripe_customer_id: string | null
           updated_at: string | null
@@ -980,6 +984,10 @@ export type Database = {
           last_active_at?: string
           last_calendar_sync?: string | null
           mannequin_presentation?: string
+          onboarding_completed_at?: string | null
+          onboarding_garment_count?: number
+          onboarding_started_at?: string | null
+          onboarding_step?: string
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
@@ -999,6 +1007,10 @@ export type Database = {
           last_active_at?: string
           last_calendar_sync?: string | null
           mannequin_presentation?: string
+          onboarding_completed_at?: string | null
+          onboarding_garment_count?: number
+          onboarding_started_at?: string | null
+          onboarding_step?: string
           preferences?: Json | null
           stripe_customer_id?: string | null
           updated_at?: string | null
@@ -1617,6 +1629,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_onboarding_step: {
+        Args: { p_to_step: string; p_user_id: string }
+        Returns: Json
+      }
       claim_render_job: {
         Args: { p_job_id?: string }
         Returns: {
@@ -1645,6 +1661,10 @@ export type Database = {
       grant_trial_gift_atomic: {
         Args: { p_amount: number; p_idempotency_key: string; p_user_id: string }
         Returns: Json
+      }
+      increment_onboarding_garment_count: {
+        Args: { p_user_id: string }
+        Returns: number
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       recover_stale_render_jobs: { Args: never; Returns: number }
