@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Loader2 } from 'lucide-react';
 import { isOnboardingExempt } from '@/components/auth/onboardingExempt';
+import { asPreferences } from '@/types/preferences';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -37,14 +38,31 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Source of truth: profile.onboarding_step. Once a row exists, the column
-  // has NOT NULL DEFAULT 'not_started' so missing-value handling collapses to
-  // the same redirect. Cast guards against types.ts being temporarily stale
-  // (auto-generated; regen runs post-merge per CLAUDE.md).
+  // Source of truth: profile.onboarding_step. Once the migration applies,
+  // every profile row has the column set (NOT NULL DEFAULT 'not_started')
+  // and the legacy fallback below never fires. Cast guards against types.ts
+  // being temporarily stale (auto-generated; regen runs post-merge per
+  // CLAUDE.md hard rule).
   if (profile && !isOnboardingExempt(location.pathname)) {
     const step =
       (profile as { onboarding_step?: string | null }).onboarding_step ?? null;
-    if (step !== 'completed') {
+
+    if (step === null) {
+      // Deploy-window fallback: the frontend may ship before
+      // `npx supabase db push --linked --yes` applies the migration on the
+      // backend. During that window the column doesn't exist on the row, so
+      // `step` is undefined (zod's `.optional()` honours the missing key).
+      // Without this fallback, every authenticated user — including those
+      // whose legacy `preferences.onboarding.completed=true` is already set —
+      // would be redirected to /onboarding, and the OLD Onboarding.tsx page
+      // would `Navigate to "/"` on `preferences?.onboarding?.completed === true`,
+      // creating a redirect loop. Trust the legacy flag until the column
+      // propagates.
+      const prefs = asPreferences(profile.preferences);
+      if (prefs?.onboarding?.completed !== true) {
+        return <Navigate to="/onboarding" replace />;
+      }
+    } else if (step !== 'completed') {
       return <Navigate to="/onboarding" replace />;
     }
   }

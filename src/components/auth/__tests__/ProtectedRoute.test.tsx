@@ -144,13 +144,32 @@ describe('ProtectedRoute — onboarding gate (Wave 7 P44)', () => {
     expect(screen.getByText('Onboarding Page')).toBeInTheDocument();
   });
 
-  it('redirects to /onboarding when onboarding_step is missing on the profile (column not yet hydrated)', () => {
-    // Simulates a profile where the new column hasn't propagated to the
-    // client yet — onboarding_step is undefined on the row.
+  it('falls back to legacy preferences.onboarding.completed=true when onboarding_step is undefined (pre-migration deploy window)', () => {
+    // Frontend ships before `npx supabase db push --linked --yes` applies
+    // the migration on the backend. During that window the column doesn't
+    // exist on the profile row, so `step` is undefined. The gate must trust
+    // the legacy flag for already-completed users — otherwise they'd
+    // redirect-loop with the OLD Onboarding.tsx page.
     mockProfile({ preferences: { onboarding: { completed: true } } });
 
     renderWithRouter();
-    // Without onboarding_step === 'completed', the gate redirects.
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('redirects to /onboarding when onboarding_step is undefined AND legacy flag is also incomplete', () => {
+    // Pre-migration window, user has never finished onboarding under either
+    // schema → must traverse onboarding flow.
+    mockProfile({ preferences: { onboarding: { completed: false } } });
+
+    renderWithRouter();
+    expect(screen.getByText('Onboarding Page')).toBeInTheDocument();
+  });
+
+  it('redirects to /onboarding when onboarding_step is undefined AND profile has no preferences', () => {
+    // Pre-migration window, brand-new user with empty preferences → redirect.
+    mockProfile({ preferences: null });
+
+    renderWithRouter();
     expect(screen.getByText('Onboarding Page')).toBeInTheDocument();
   });
 
