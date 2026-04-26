@@ -108,12 +108,20 @@ CREATE INDEX IF NOT EXISTS idx_profiles_onboarding_step
 -- 4. Backfill existing rows from preferences.onboarding.completed.
 --    Idempotent: second run touches zero rows because the WHERE excludes
 --    rows already at step='completed'.
+--
+--    Predicate uses a direct JSONB equality against `'true'::jsonb` instead
+--    of `(... ->> 'completed')::boolean`. The text-cast version throws
+--    `invalid input syntax for type boolean` on any non-boolean literal at
+--    `preferences.onboarding.completed` (untyped JSONB lets a misbehaving
+--    client write anything there), which would roll the whole migration
+--    back on a single malformed row. JSONB equality returns FALSE for
+--    string/number/null values without raising.
 -- ───────────────────────────────────────────────────────────────────
 
 UPDATE public.profiles
 SET onboarding_step = 'completed',
     onboarding_completed_at = COALESCE(onboarding_completed_at, updated_at, NOW())
-WHERE (preferences->'onboarding'->>'completed')::boolean IS TRUE
+WHERE preferences->'onboarding'->'completed' = 'true'::jsonb
   AND onboarding_step <> 'completed';
 
 
@@ -267,6 +275,40 @@ ALTER FUNCTION public.increment_onboarding_garment_count(uuid) OWNER TO postgres
 REVOKE ALL ON FUNCTION public.increment_onboarding_garment_count(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.increment_onboarding_garment_count(uuid)
   TO authenticated, service_role;
+
+
+-- ───────────────────────────────────────────────────────────────────
+-- 7. Column-level UPDATE revoke — tamper-proof onboarding boost.
+--
+-- The scale-guard onboarding tier (Wave 7 P43) reads
+-- `profiles.onboarding_started_at` + `onboarding_step` to decide whether
+-- to grant the 3x rate-limit boost for the first 24h after onboarding
+-- starts. Without column-level protection, the existing RLS policy
+-- (`Users can manage own profile`) lets an authenticated user UPDATE
+-- their own profile row freely — including resetting `started_at` to
+-- NOW() repeatedly, holding `onboarding_step != 'completed'`, and
+-- thereby keeping the 3x boost indefinitely. That's a self-service
+-- quota bypass.
+--
+-- Fix: revoke UPDATE on these 4 columns from the `authenticated` and
+-- `anon` roles. The SECURITY DEFINER RPCs above (`advance_onboarding_step`,
+-- `increment_onboarding_garment_count`) run as `postgres` and bypass
+-- column-level GRANTs, so the legitimate write path is preserved. The
+-- service_role (used by edge functions and admin tooling) also bypasses
+-- via its `BYPASSRLS` capability.
+--
+-- INSERT permission is left intact because the existing client-side
+-- profile auto-create in `useProfile.ts` doesn't set these columns —
+-- it relies on the NOT NULL DEFAULT — so a column-level INSERT revoke
+-- would be unnecessary and risk breaking that flow.
+-- ───────────────────────────────────────────────────────────────────
+
+REVOKE UPDATE (
+  onboarding_step,
+  onboarding_garment_count,
+  onboarding_started_at,
+  onboarding_completed_at
+) ON public.profiles FROM authenticated, anon;
 
 
 COMMIT;
