@@ -41,7 +41,7 @@ import {
 } from '@/types/styleProfile';
 
 interface Props {
-  onComplete: (profile: StyleProfileV4) => void;
+  onComplete: (profile: StyleProfileV4) => void | Promise<void>;
   onSkip: () => void;
   isSaving: boolean;
   /** Used to scope the localStorage draft key per user; falls back to
@@ -311,7 +311,7 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
     [setAnswers],
   );
 
-  const next = () => {
+  const next = async () => {
     // Gate-check before advancing. If invalid, surface inline hint on Q4
     // and bail without changing the question index.
     if (!canAdvance(qi, answers, q1Touched)) {
@@ -324,8 +324,14 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
       setShowQ4Hint(false);
       return;
     }
-    clearDraft(draftKeyUser);
-    onComplete({ ...answers, version: STYLE_PROFILE_VERSION });
+    // Final step: await parent persistence BEFORE clearing the draft so a
+    // failed save (or reload mid-failure) doesn't lose the user's answers.
+    try {
+      await onComplete({ ...answers, version: STYLE_PROFILE_VERSION });
+      clearDraft(draftKeyUser);
+    } catch {
+      // Keep the draft for retry; parent surfaces the error toast.
+    }
   };
 
   const back = () => {

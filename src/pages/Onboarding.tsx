@@ -183,6 +183,10 @@ export default function OnboardingPage() {
       } else {
         toast.error(t('onboarding.error'));
       }
+      // Rethrow so StyleQuizV4 keeps its localStorage draft on failure (P45
+      // Codex round 1 P2 — draft must survive a failed parent persistence so
+      // the user can retry without losing answers).
+      throw error;
     } finally {
       setIsSavingQuiz(false);
     }
@@ -246,7 +250,7 @@ export default function OnboardingPage() {
           {stepKey === 'lang' ? <LanguageStep onComplete={() => { hapticLight(); setLanguageStepDone(true); }} /> : null}
           {stepKey === 'quiz' ? (
             <StyleQuizV4
-              onComplete={(profile) => { hapticLight(); handleQuizComplete(profile); }}
+              onComplete={(profile) => { hapticLight(); return handleQuizComplete(profile); }}
               onSkip={async () => { hapticLight(); setQuizDone(true); }}
               isSaving={isSavingQuiz}
               userId={user?.id}

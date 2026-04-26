@@ -425,7 +425,7 @@ export function migrateV4ToV3Compat(
     comfortVsStyle: 100 - v4.formalityCeiling,
     adventurousness: '',
     trendFollowing: '',
-    genderNeutral: v4.gender === 'neutral' ? 'yes' : 'no',
+    genderNeutral: v4.gender === 'neutral' ? 'yes' : '',
     // Fit & silhouette
     fit: v4.fitOverall,
     layering: v4.layering,
