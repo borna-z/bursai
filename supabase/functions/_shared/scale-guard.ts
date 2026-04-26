@@ -81,32 +81,81 @@ export function getRateLimitTier(functionName: string): RateLimitTier {
 
 // ── Subscription-tier multipliers ───────────────────────────────
 // Premium users get 2x the base limits; free users get 75%.
-// Cache subscription lookups per-isolate to avoid repeated DB hits.
-type SubscriptionPlan = "free" | "premium";
+// Onboarding users (first 24h after onboarding_started_at, while
+// onboarding_step is not 'completed') get 3x — the boost lets them populate
+// their wardrobe and run the AI feature tour without bumping into rate limits.
+// Wave 8 forward-compat: when the free tier is removed, the override below
+// stays — only the TIER_MULTIPLIERS values change.
+// Cache resolved plan per-isolate to avoid repeated DB hits.
+type SubscriptionPlan = "free" | "premium" | "onboarding";
 
 const TIER_MULTIPLIERS: Record<SubscriptionPlan, number> = {
   free: 0.75,
   premium: 2.0,
+  onboarding: 3.0,
 };
 
 const subscriptionCache = new Map<string, { plan: SubscriptionPlan; fetchedAt: number }>();
 const SUBSCRIPTION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const ONBOARDING_BOOST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-async function resolveUserPlan(supabaseAdmin: any, userId: string): Promise<SubscriptionPlan> {
+/**
+ * Resolve a user's effective rate-limit plan. Exported so tests can hit it
+ * directly without mocking the full enforceRateLimit pipeline. Public consumers
+ * outside scale-guard.ts and its tests should not import this — the contract
+ * is "called by enforceRateLimit, output cached per-isolate".
+ */
+export async function resolveUserPlan(supabaseAdmin: any, userId: string): Promise<SubscriptionPlan> {
   const cached = subscriptionCache.get(userId);
   if (cached && Date.now() - cached.fetchedAt < SUBSCRIPTION_CACHE_TTL_MS) {
     return cached.plan;
   }
 
   try {
-    const { data } = await supabaseAdmin
-      .from("subscriptions")
-      .select("plan, status")
-      .eq("user_id", userId)
-      .single();
+    // Both lookups in parallel — neither is on the caller's hot path under
+    // cache, but we still want to avoid serial network round-trips on cache
+    // miss. .single() returns { data, error: PGRST116 } for 0 rows (does not
+    // throw), so a missing profile or subscription falls through cleanly.
+    const [subRes, profileRes] = await Promise.all([
+      supabaseAdmin
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("user_id", userId)
+        .single(),
+      supabaseAdmin
+        .from("profiles")
+        .select("onboarding_step, onboarding_started_at")
+        .eq("id", userId)
+        .single(),
+    ]);
 
+    // Onboarding boost takes precedence over subscription plan when active.
+    // Resolved plan is cached for 5 min; a user crossing the 24h window
+    // mid-cache may stay boosted for up to 5 extra minutes — acceptable
+    // (the cost is bounded and the boost is generous, not abusive).
+    const profile = profileRes?.data as
+      | { onboarding_step?: string | null; onboarding_started_at?: string | null }
+      | null
+      | undefined;
+    if (
+      profile &&
+      profile.onboarding_started_at &&
+      profile.onboarding_step !== "completed"
+    ) {
+      const startedMs = new Date(profile.onboarding_started_at).getTime();
+      if (
+        Number.isFinite(startedMs) &&
+        Date.now() - startedMs < ONBOARDING_BOOST_WINDOW_MS
+      ) {
+        const plan: SubscriptionPlan = "onboarding";
+        subscriptionCache.set(userId, { plan, fetchedAt: Date.now() });
+        return plan;
+      }
+    }
+
+    const sub = subRes?.data as { plan?: string; status?: string } | null | undefined;
     const isPremium =
-      data && data.plan === "premium" && ["active", "trialing"].includes(data.status);
+      sub && sub.plan === "premium" && ["active", "trialing"].includes(sub.status ?? "");
     const plan: SubscriptionPlan = isPremium ? "premium" : "free";
     subscriptionCache.set(userId, { plan, fetchedAt: Date.now() });
     return plan;
@@ -116,7 +165,15 @@ async function resolveUserPlan(supabaseAdmin: any, userId: string): Promise<Subs
   }
 }
 
-function applyTierMultiplier(tier: RateLimitTier, plan: SubscriptionPlan): RateLimitTier {
+/**
+ * Test-only helper to clear the per-isolate subscription cache.
+ * Not exported to other functions; only consumed by `__tests__/scale-guard.test.ts`.
+ */
+export function __resetSubscriptionCacheForTests(): void {
+  subscriptionCache.clear();
+}
+
+export function applyTierMultiplier(tier: RateLimitTier, plan: SubscriptionPlan): RateLimitTier {
   const m = TIER_MULTIPLIERS[plan];
   return {
     maxPerHour: Math.max(1, Math.round(tier.maxPerHour * m)),
