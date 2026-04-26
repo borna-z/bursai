@@ -278,37 +278,70 @@ GRANT EXECUTE ON FUNCTION public.increment_onboarding_garment_count(uuid)
 
 
 -- ───────────────────────────────────────────────────────────────────
--- 7. Column-level UPDATE revoke — tamper-proof onboarding boost.
+-- 7. Column-level UPDATE lock — tamper-proof onboarding boost.
 --
 -- The scale-guard onboarding tier (Wave 7 P43) reads
 -- `profiles.onboarding_started_at` + `onboarding_step` to decide whether
 -- to grant the 3x rate-limit boost for the first 24h after onboarding
 -- starts. Without column-level protection, the existing RLS policy
--- (`Users can manage own profile`) lets an authenticated user UPDATE
--- their own profile row freely — including resetting `started_at` to
--- NOW() repeatedly, holding `onboarding_step != 'completed'`, and
--- thereby keeping the 3x boost indefinitely. That's a self-service
--- quota bypass.
+-- (`Users can manage own profile`) plus the baseline
+-- `GRANT ALL ON public.profiles TO authenticated, anon` (see initial
+-- schema lines 2532-2534) lets a user UPDATE their own profile row
+-- freely — including resetting `started_at` to NOW() repeatedly,
+-- holding `onboarding_step != 'completed'`, and thereby keeping the
+-- 3x boost indefinitely. That's a self-service quota bypass.
 --
--- Fix: revoke UPDATE on these 4 columns from the `authenticated` and
--- `anon` roles. The SECURITY DEFINER RPCs above (`advance_onboarding_step`,
--- `increment_onboarding_garment_count`) run as `postgres` and bypass
--- column-level GRANTs, so the legitimate write path is preserved. The
--- service_role (used by edge functions and admin tooling) also bypasses
--- via its `BYPASSRLS` capability.
+-- Why this needs both REVOKE table-level AND GRANT column-level:
+-- PostgreSQL's `REVOKE UPDATE (col)` only revokes column-level grants.
+-- A table-level `GRANT UPDATE` (which `GRANT ALL` includes) continues
+-- to permit UPDATE on every column regardless of column-level revokes.
+-- To genuinely lock specific columns, you must (a) REVOKE the
+-- table-level UPDATE and (b) GRANT UPDATE only on the explicitly
+-- allowed columns. The list below mirrors every existing column on
+-- `profiles` EXCEPT the 4 new onboarding columns, preserving the
+-- pre-PR write-permission surface for everything else.
 --
--- INSERT permission is left intact because the existing client-side
--- profile auto-create in `useProfile.ts` doesn't set these columns —
--- it relies on the NOT NULL DEFAULT — so a column-level INSERT revoke
--- would be unnecessary and risk breaking that flow.
+-- The SECURITY DEFINER RPCs above (`advance_onboarding_step`,
+-- `increment_onboarding_garment_count`) run with the privileges of
+-- their owner (`postgres`, set via `ALTER FUNCTION ... OWNER TO
+-- postgres`) and so bypass column-level GRANTs entirely — they remain
+-- the only legitimate writers. The `service_role` (used by edge
+-- functions and admin tooling) bypasses via its baseline `GRANT ALL`
+-- which we don't touch here.
+--
+-- INSERT permission is unchanged: the client-side profile auto-create
+-- in `useProfile.ts` doesn't set these columns (relies on the NOT NULL
+-- DEFAULT), and the `handle_new_user` trigger is SECURITY DEFINER as
+-- `postgres`, so neither path is affected.
+--
+-- DELETE / SELECT / TRUNCATE permissions are unchanged.
 -- ───────────────────────────────────────────────────────────────────
 
-REVOKE UPDATE (
-  onboarding_step,
-  onboarding_garment_count,
-  onboarding_started_at,
-  onboarding_completed_at
-) ON public.profiles FROM authenticated, anon;
+-- (a) Revoke the table-level UPDATE that the baseline `GRANT ALL` granted.
+REVOKE UPDATE ON public.profiles FROM authenticated, anon;
+
+-- (b) Grant UPDATE on every existing column EXCEPT the 4 new onboarding
+-- columns. Mirrors the column list from the baseline initial schema
+-- (lines 1085-1105) minus `avatar_path` (dropped in
+-- 20260421124000_drop_profiles_avatar_path.sql).
+GRANT UPDATE (
+  display_name,
+  avatar_url,
+  home_city,
+  preferences,
+  created_at,
+  updated_at,
+  body_image_path,
+  height_cm,
+  weight_kg,
+  ics_url,
+  last_calendar_sync,
+  stripe_customer_id,
+  username,
+  is_premium,
+  mannequin_presentation,
+  last_active_at
+) ON public.profiles TO authenticated;
 
 
 COMMIT;
