@@ -67,24 +67,29 @@ export default function OnboardingPage() {
   const completeOnboarding = async () => {
     if (!user) return;
 
-    // Wave 7 P44: best-effort write to the server-known
-    // `profiles.onboarding_step` column. The new ProtectedRoute gate prefers
-    // this signal once the migration applies.
+    // Wave 7 P44: write the server-known `profiles.onboarding_step` column.
+    // The new ProtectedRoute gate prefers this signal once the migration
+    // applies.
     //
-    // Failure handling: swallow RPC errors. During the deploy window between
-    // Vercel auto-deploy and `npx supabase db push --linked --yes`, the RPC
-    // doesn't exist yet on the DB (Postgres `42883 function does not exist`)
-    // and a thrown error here would block the legacy preferences write
-    // below — leaving the user in a redirect loop because ProtectedRoute's
-    // pre-migration fallback only passes users whose legacy flag is already
-    // true. Real-world non-deploy-window errors at this call are unreachable
-    // for a user completing their own onboarding with the hardcoded
-    // `'completed'` target. Console warning preserves observability.
+    // Failure handling: swallow ONLY Postgres `42883 function does not exist`,
+    // which is the deploy-window scenario between Vercel auto-deploy and
+    // `npx supabase db push --linked --yes`. ProtectedRoute's pre-migration
+    // fallback then trusts the legacy flag we write below.
+    //
+    // All OTHER errors (transient network, ownership mismatch, invalid step,
+    // etc.) propagate. Swallowing them post-migration would create split-
+    // brain: legacy flag set, column still 'not_started' → ProtectedRoute
+    // (column-based) keeps redirecting to /onboarding while Onboarding.tsx
+    // sees `preferences.onboarding.completed=true` and bounces back to /.
+    // The outer `handleGetStartedAction` already swallows the throw to keep
+    // navigation moving for the user; Sentry/console will record the failure.
     try {
       await advanceOnboardingStep(user.id, 'completed');
     } catch (rpcError) {
+      const code = (rpcError as { code?: string } | null)?.code;
+      if (code !== '42883') throw rpcError;
       console.warn(
-        'advance_onboarding_step RPC failed (expected during deploy window):',
+        'advance_onboarding_step RPC missing (deploy window — falling back to legacy flag):',
         rpcError,
       );
     }

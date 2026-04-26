@@ -122,16 +122,17 @@ describe('useOnboarding', () => {
     });
   });
 
-  it('completeOnboarding swallows RPC error and still writes legacy flag (deploy-window resilience)', async () => {
+  it('completeOnboarding swallows ONLY Postgres 42883 function-does-not-exist (deploy-window)', async () => {
     // Deploy window: Vercel ships frontend before `npx supabase db push --linked
-    // --yes` applies the migration. RPC throws Postgres `42883 function does
-    // not exist`. The legacy write must still happen so ProtectedRoute's
-    // pre-migration fallback can pass the user through on next navigation.
+    // --yes` applies the migration. The RPC error has Postgres SQLSTATE 42883.
+    // The legacy write must still happen so ProtectedRoute's pre-migration
+    // fallback can pass the user through on next navigation.
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    mockRpc.mockResolvedValueOnce({
-      data: null,
-      error: new Error('function advance_onboarding_step(uuid, text) does not exist'),
-    });
+    const missingFnError = Object.assign(
+      new Error('function advance_onboarding_step(uuid, text) does not exist'),
+      { code: '42883' },
+    );
+    mockRpc.mockResolvedValueOnce({ data: null, error: missingFnError });
     mockUseProfile.mockReturnValue({
       data: { preferences: { onboarding: { completed: false } } },
       isLoading: false,
@@ -142,10 +143,54 @@ describe('useOnboarding', () => {
     });
     expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('advance_onboarding_step RPC failed'),
+      expect.stringContaining('advance_onboarding_step RPC missing'),
       expect.any(Error),
     );
     consoleWarnSpy.mockRestore();
+  });
+
+  it('completeOnboarding rethrows non-42883 RPC errors and skips legacy write (post-migration safety)', async () => {
+    // Post-migration scenario: transient network failure or ownership
+    // mismatch. Swallowing here would create a split-brain (column not
+    // updated, legacy flag set) → ProtectedRoute (column-based) keeps
+    // redirecting to /onboarding while Onboarding.tsx (preferences-based)
+    // bounces back to /. Throwing keeps the two states aligned: neither
+    // is set → user retries.
+    const transientError = Object.assign(new Error('network timeout'), {
+      code: '08006',
+    });
+    mockRpc.mockResolvedValueOnce({ data: null, error: transientError });
+    mockUseProfile.mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await expect(result.current.completeOnboarding()).rejects.toThrow(
+        'network timeout',
+      );
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('completeOnboarding rethrows when RPC error has no code (defensive — not deploy-window)', async () => {
+    // Defensive: an error without a `code` field is not the deploy-window
+    // signal. Treat as a real failure.
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: new Error('something else broke'),
+    });
+    mockUseProfile.mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await expect(result.current.completeOnboarding()).rejects.toThrow(
+        'something else broke',
+      );
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
   it('completeOnboarding tolerates ok:false (no-op) RPC response — duplicate completion is safe', async () => {
