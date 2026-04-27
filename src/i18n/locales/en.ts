@@ -3464,6 +3464,17 @@ const en: Record<string, string> = {
   'photoTutorial.bullet.one_garment': 'One garment per photo',
   'photoTutorial.bullet.one_garment_body': 'Photograph each piece on its own so we can analyse it precisely.',
   'photoTutorial.cta_label': 'I’m ready',
+
+  // Wave 7 P47 — Batch capture screen
+  'batchCapture.eyebrow': 'Build your wardrobe',
+  'batchCapture.title': 'Add 20 pieces to begin.',
+  'batchCapture.subtitle': 'The more we see, the better we style. Aim for 30 to unlock a richer wardrobe map.',
+  'batchCapture.progress_label': 'Wardrobe progress',
+  'batchCapture.add_photos_cta': 'Add photos',
+  'batchCapture.continue_cta': 'Continue',
+  'batchCapture.done_cta': "I'm done",
+  'batchCapture.min_helper': 'of 20 minimum',
+  'batchCapture.recommended_helper': 'of 30 recommended',
 };
 
 export default en;
