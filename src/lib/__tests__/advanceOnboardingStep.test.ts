@@ -72,4 +72,43 @@ describe('advanceOnboardingStep (Wave 7 P42 RPC wrapper)', () => {
     const result = await advanceOnboardingStep('user-1', 'completed');
     expect(result).toEqual({ ok: false });
   });
+
+  it('Wave 7 P0 audit fix #4: invalidates the [profile, userId] cache on RPC success', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { ok: true, from: 'not_started', to: 'language' },
+      error: null,
+    });
+    const invalidateQueries = vi.fn();
+    // Minimal QueryClient stub — only invalidateQueries is exercised by the wrapper.
+    const queryClient = { invalidateQueries } as unknown as Parameters<
+      typeof advanceOnboardingStep
+    >[2];
+    await advanceOnboardingStep('user-1', 'language', queryClient);
+    expect(invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['profile', 'user-1'] });
+  });
+
+  it('Wave 7 P0 audit fix #4: does NOT invalidate cache when RPC throws (error path stays clean)', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: new Error('boom'),
+    });
+    const invalidateQueries = vi.fn();
+    const queryClient = { invalidateQueries } as unknown as Parameters<
+      typeof advanceOnboardingStep
+    >[2];
+    await expect(advanceOnboardingStep('user-1', 'language', queryClient)).rejects.toThrow(
+      'boom',
+    );
+    expect(invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it('Wave 7 P0 audit fix #4: skips invalidation when no queryClient is passed (back-compat)', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { ok: true, from: 'not_started', to: 'language' },
+      error: null,
+    });
+    // Should not throw — back-compat for callers that haven't been updated yet.
+    await expect(advanceOnboardingStep('user-1', 'language')).resolves.toBeDefined();
+  });
 });

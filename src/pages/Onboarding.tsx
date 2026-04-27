@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 import type { Json } from '@/integrations/supabase/types';
 import { Card } from '@/components/ui/card';
@@ -15,15 +16,16 @@ import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { StyleQuizV4 } from '@/components/onboarding/StyleQuizV4';
 import { PhotoTutorialStep } from '@/components/onboarding/PhotoTutorialStep';
 import { BatchCaptureStep } from '@/components/onboarding/BatchCaptureStep';
+import { AchievementStep } from '@/components/onboarding/AchievementStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
-import { advanceOnboardingStep } from '@/lib/advanceOnboardingStep';
+import { advanceOnboardingStep, type OnboardingStep } from '@/lib/advanceOnboardingStep';
 import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -59,12 +61,83 @@ export default function OnboardingPage() {
   const updateProfile = useUpdateProfile();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
+  const queryClient = useQueryClient();
 
   const [languageStepDone, setLanguageStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
   const [photoTutorialDone, setPhotoTutorialDone] = useState(false);
   const [batchCaptureDone, setBatchCaptureDone] = useState(false);
+  const [achievementDone, setAchievementDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+
+  // Wave 7 P0 audit fix #5: hydrate local step state from the server-known
+  // `profile.onboarding_step` column on mount. Without this, a user who reloads
+  // mid-flow (or after a transient disconnect that triggered a remount) loses
+  // their progress because every local boolean defaults to `false` — they'd
+  // be sent back to the language step regardless of how far they'd gotten.
+  //
+  // Server step → local boolean mapping. Steps `studio_selection`, `coach_tour`,
+  // `reveal` aren't built yet (P49+), but a user with one of those values has
+  // already passed achievement, so we still flip every prior boolean. The
+  // `completed` case is already handled below by the `onboardingCompleted`
+  // Navigate-to-`/` short-circuit, so we don't need to handle it here.
+  //
+  // Hydration runs at most ONCE per mount. Subsequent profile refetches (e.g.
+  // after `advanceOnboardingStep` invalidates the cache) MUST NOT re-seed
+  // the local state — that would override the user's just-completed step
+  // transition. The `hasHydratedRef` guards against that.
+  const hasHydratedRef = useRef(false);
+  useEffect(() => {
+    if (hasHydratedRef.current) return;
+    const serverStep = (profile as { onboarding_step?: OnboardingStep | null } | null)
+      ?.onboarding_step;
+    if (!serverStep) return;
+    hasHydratedRef.current = true;
+
+    // `not_started` → no flips, show language step (default state).
+    if (serverStep === 'not_started') return;
+    // `language` → user picked language but hasn't done quiz yet.
+    if (serverStep === 'language') {
+      setLanguageStepDone(true);
+      return;
+    }
+    // `quiz` → quiz submitted, show photo_tutorial.
+    if (serverStep === 'quiz') {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      return;
+    }
+    // `photo_tutorial` → tutorial confirmed, show batch_capture.
+    if (serverStep === 'photo_tutorial') {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      setPhotoTutorialDone(true);
+      return;
+    }
+    // `batch_capture` → enough garments captured, show achievement.
+    if (serverStep === 'batch_capture') {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      setPhotoTutorialDone(true);
+      setBatchCaptureDone(true);
+      return;
+    }
+    // `achievement`, `studio_selection`, `coach_tour`, `reveal` → all post-
+    // achievement. P49+ aren't built yet; treat as `getstarted` for now so
+    // the user isn't trapped on the celebration screen indefinitely.
+    if (
+      serverStep === 'achievement' ||
+      serverStep === 'studio_selection' ||
+      serverStep === 'coach_tour' ||
+      serverStep === 'reveal'
+    ) {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      setPhotoTutorialDone(true);
+      setBatchCaptureDone(true);
+      setAchievementDone(true);
+    }
+  }, [profile]);
 
   const completeOnboarding = async () => {
     if (!user) return;
@@ -99,7 +172,7 @@ export default function OnboardingPage() {
       (profile as { onboarding_step?: string | null } | null)?.onboarding_step ===
       undefined;
     try {
-      await advanceOnboardingStep(user.id, 'completed');
+      await advanceOnboardingStep(user.id, 'completed', queryClient);
     } catch (rpcError) {
       const code = (rpcError as { code?: string } | null)?.code;
       const isDeployWindowMissing = code === '42883' || code === 'PGRST202';
@@ -114,15 +187,64 @@ export default function OnboardingPage() {
 
     // Legacy preferences flag — primary signal for ProtectedRoute's
     // pre-migration fallback during the deploy window, secondary signal for
-    // legacy consumers (useFirstRunCoach, etc.) post-migration. Always
-    // written; this is the failure-resistant path.
+    // legacy consumers (useFirstRunCoach, etc.) post-migration.
+    //
+    // Wave 7 P0 audit fix #10: retry-on-failure (max 2 attempts, 500ms apart).
+    // The column gate is canonical, so if RPC succeeded above the user is
+    // already considered complete server-side. A failed legacy write here
+    // would briefly leave the deploy-window fallback path inconsistent — log
+    // warn, don't throw. The next profile refetch resolves everything via
+    // the column path; no redirect loop because the column write already
+    // succeeded.
     const currentPrefs = asPreferences(profile?.preferences);
-    await updateProfile.mutateAsync({
+    const legacyPayload = {
       preferences: {
         ...currentPrefs,
         onboarding: { completed: true },
       } as unknown as Json,
-    });
+    };
+    let lastLegacyError: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await updateProfile.mutateAsync(legacyPayload);
+        lastLegacyError = null;
+        break;
+      } catch (legacyError) {
+        lastLegacyError = legacyError;
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+    }
+    if (lastLegacyError) {
+      console.warn(
+        'Legacy preferences.onboarding.completed write failed after retries. ' +
+          'Column gate (onboarding_step=completed) is canonical and already set; ' +
+          'next profile refetch will resolve any inconsistency:',
+        lastLegacyError,
+      );
+    }
+  };
+
+  const handleLanguageStepComplete = async () => {
+    // Wave 7 P0 audit fix #6: previously the language-pick handler only flipped
+    // the local `languageStepDone` boolean. The server `onboarding_step`
+    // stayed at `'not_started'`, so a user who reloaded after picking a
+    // language but before completing the quiz lost their language choice
+    // (per finding #5's hydration map, `not_started` → show language step).
+    //
+    // Pattern matches the deploy-window-tolerant handlers below: try the
+    // RPC, on error toast + console.warn, then flip the local flag anyway
+    // so the user isn't trapped on the language picker.
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'language', queryClient);
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(language) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setLanguageStepDone(true);
   };
 
   const handleQuizComplete = async (styleProfile: StyleProfileV4) => {
@@ -177,7 +299,7 @@ export default function OnboardingPage() {
       // try/catch so RPC errors during the deploy window (or transient
       // network) don't block the UI from progressing locally.
       try {
-        await advanceOnboardingStep(user.id, 'photo_tutorial');
+        await advanceOnboardingStep(user.id, 'photo_tutorial', queryClient);
       } catch (rpcError) {
         console.warn('advance_onboarding_step(photo_tutorial) failed (non-fatal):', rpcError);
       }
@@ -209,7 +331,7 @@ export default function OnboardingPage() {
     // pattern used after the quiz step (P45).
     if (user) {
       try {
-        await advanceOnboardingStep(user.id, 'batch_capture');
+        await advanceOnboardingStep(user.id, 'batch_capture', queryClient);
       } catch (rpcError) {
         console.warn('advance_onboarding_step(batch_capture) failed (non-fatal):', rpcError);
         toast.error(t('onboarding.error'));
@@ -227,13 +349,35 @@ export default function OnboardingPage() {
     // remains the failure-resistant exit path.
     if (user) {
       try {
-        await advanceOnboardingStep(user.id, 'achievement');
+        await advanceOnboardingStep(user.id, 'achievement', queryClient);
       } catch (rpcError) {
         console.warn('advance_onboarding_step(achievement) failed (non-fatal):', rpcError);
         toast.error(t('onboarding.error'));
       }
     }
     setBatchCaptureDone(true);
+  };
+
+  const handleAchievementComplete = async () => {
+    // Wave 7 P48: advance backend state machine to 'studio_selection'.
+    // Mirrors the deploy-window-tolerant pattern from the previous handlers
+    // — RPC errors should NOT strand the user on this celebratory screen.
+    // Note: P48's spec also calls for crediting 3 trial-gift renders here,
+    // but that requires a new edge function (CLAUDE.md hard rule: no new
+    // edge functions without explicit user approval). The credit grant ships
+    // in a follow-up PR. For now, the screen advances to the next step
+    // without granting credits — P49 (StudioSelection) will need them
+    // before it can render, which is why P49 is gated behind that
+    // follow-up.
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'studio_selection', queryClient);
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(studio_selection) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setAchievementDone(true);
   };
 
   const handleGetStartedAction = async (path: string) => {
@@ -273,7 +417,9 @@ export default function OnboardingPage() {
         ? 'photo_tutorial'
         : !batchCaptureDone
           ? 'batch_capture'
-          : 'getstarted';
+          : !achievementDone
+            ? 'achievement'
+            : 'getstarted';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -293,7 +439,7 @@ export default function OnboardingPage() {
           transition={{ duration: 0.28, ease: EASE_CURVE }}
           className="relative z-10"
         >
-          {stepKey === 'lang' ? <LanguageStep onComplete={() => { hapticLight(); setLanguageStepDone(true); }} /> : null}
+          {stepKey === 'lang' ? <LanguageStep onComplete={() => { hapticLight(); handleLanguageStepComplete(); }} /> : null}
           {stepKey === 'quiz' ? (
             <StyleQuizV4
               onComplete={(profile) => { hapticLight(); return handleQuizComplete(profile); }}
@@ -310,6 +456,11 @@ export default function OnboardingPage() {
           {stepKey === 'batch_capture' ? (
             <BatchCaptureStep
               onComplete={() => { hapticLight(); handleBatchCaptureComplete(); }}
+            />
+          ) : null}
+          {stepKey === 'achievement' ? (
+            <AchievementStep
+              onComplete={() => { hapticLight(); handleAchievementComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}

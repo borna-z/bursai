@@ -5,6 +5,7 @@ const mockUseAuth = vi.fn();
 const mockUseProfile = vi.fn();
 const mockMutateAsync = vi.fn();
 const mockRpc = vi.fn();
+const mockInvalidateQueries = vi.fn();
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: (...args: unknown[]) => mockUseAuth(...args),
@@ -19,6 +20,10 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: (...args: unknown[]) => mockRpc(...args),
   },
+}));
+
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
 }));
 
 import { useOnboarding } from '../useOnboarding';
@@ -303,5 +308,65 @@ describe('useOnboarding', () => {
     expect(mockMutateAsync).toHaveBeenCalledWith({
       preferences: { onboarding: { completed: true } },
     });
+  });
+
+  it('Wave 7 P0 audit fix #4: invalidates [profile, userId] cache on successful RPC', async () => {
+    mockUseProfile.mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await result.current.completeOnboarding();
+    });
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['profile', 'user-1'],
+    });
+  });
+
+  it('Wave 7 P0 audit fix #10: legacy write retries on failure and tolerates final failure', async () => {
+    // RPC succeeds, legacy write fails the first 2 attempts and succeeds on the
+    // 3rd. completeOnboarding should NOT throw.
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockUseProfile.mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    });
+    mockMutateAsync
+      .mockRejectedValueOnce(new Error('transient 1'))
+      .mockRejectedValueOnce(new Error('transient 2'))
+      .mockResolvedValueOnce({});
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await result.current.completeOnboarding();
+    });
+    expect(mockMutateAsync).toHaveBeenCalledTimes(3);
+    // Succeeded on retry, no warning emitted.
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('Wave 7 P0 audit fix #10: logs warn but does not throw when all 3 legacy-write attempts fail', async () => {
+    // RPC succeeds → step='completed' is canonical. Legacy write fails 3
+    // times. Should still resolve (no throw); warn logged.
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockUseProfile.mockReturnValue({
+      data: { preferences: { onboarding: { completed: false } } },
+      isLoading: false,
+    });
+    mockMutateAsync
+      .mockRejectedValueOnce(new Error('persistent 1'))
+      .mockRejectedValueOnce(new Error('persistent 2'))
+      .mockRejectedValueOnce(new Error('persistent 3'));
+    const { result } = renderHook(() => useOnboarding());
+    await act(async () => {
+      await result.current.completeOnboarding();
+    });
+    expect(mockMutateAsync).toHaveBeenCalledTimes(3);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Legacy preferences.onboarding.completed write failed after retries'),
+      expect.any(Error),
+    );
+    consoleWarnSpy.mockRestore();
   });
 });
