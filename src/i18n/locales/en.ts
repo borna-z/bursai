@@ -3516,6 +3516,18 @@ const en: Record<string, string> = {
   'coachTour.cta_label': "I'm ready",
   'coachTour.cta_label_with_render': 'Show me my renders',
   'coachTour.first_render_ready': 'Your first render is ready.',
+
+  // Wave 7 P51 — Reveal screen (final onboarding step showing the studio render)
+  'reveal.eyebrow': 'Look at that.',
+  'reveal.title_ready': 'Your studio shot is ready.',
+  'reveal.title_cooking': "We're framing your first piece.",
+  'reveal.subtitle_ready': 'The other two are still rendering — you can see them in your wardrobe whenever they land.',
+  'reveal.subtitle_cooking': 'It usually takes a moment. The first one will appear here as soon as it lands.',
+  'reveal.cooking_label': 'Rendering…',
+  'reveal.hero_aria_ready': 'Your studio render',
+  'reveal.hero_aria_cooking': 'Studio render preview, still rendering',
+  'reveal.loading': 'Looking for your renders…',
+  'reveal.cta_label': 'Start using BURS',
 };
 
 export default en;
