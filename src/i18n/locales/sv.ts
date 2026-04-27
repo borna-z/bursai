@@ -3115,6 +3115,24 @@ const sv: Record<string, string> = {
   'studioSelection.enqueue_error': 'Kunde inte starta dina renderingar. Försök igen?',
   'studioSelection.no_credits': 'Inga rendrekrediter hittades. Försök igen från föregående steg.',
   'studioSelection.partial_progress': 'Slutför dina tidigare val. Vänta ett ögonblick.',
+
+  // Wave 7 P50 — CoachTour: 5 tipskort medan studio-renderingarna körs i bakgrunden
+  'coachTour.eyebrow': 'Snabbgenomgång',
+  'coachTour.title': 'Välkommen till BURS — låt oss ta en kort genomgång.',
+  'coachTour.subtitle': 'Fem saker att veta medan dina studio-renderingar förbereds i bakgrunden.',
+  'coachTour.tip_home_title': 'Hem — din dagsplanering',
+  'coachTour.tip_home_body': 'Väder, kalender och ett fräscht outfitförslag varje morgon.',
+  'coachTour.tip_wardrobe_title': 'Garderob — alla plagg du äger',
+  'coachTour.tip_wardrobe_body': 'Tryck på ett plagg för att se hur ofta du använt det och vad som matchar bäst.',
+  'coachTour.tip_outfits_title': 'Outfits — sparade looks',
+  'coachTour.tip_outfits_body': 'Skapa kombinationer från det du äger. Spara dem du älskar.',
+  'coachTour.tip_chat_title': 'AI-stylist — chatta med motorn',
+  'coachTour.tip_chat_body': 'Be om en förfinad look. ”Gör den varmare.” ”Byt skorna.”',
+  'coachTour.tip_renders_title': 'Studio-renderingar — dina tre val',
+  'coachTour.tip_renders_body': 'Öppna ett plagg för att se dess rena studiobild. De renderas i bakgrunden.',
+  'coachTour.cta_label': 'Jag är redo',
+  'coachTour.cta_label_with_render': 'Visa mina renderingar',
+  'coachTour.first_render_ready': 'Din första rendering är klar.',
 };
 
 export default sv;
