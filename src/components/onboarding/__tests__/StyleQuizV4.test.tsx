@@ -97,6 +97,23 @@ describe('StyleQuizV4', () => {
     expect(getNext()).not.toBeDisabled();
   });
 
+  it('keeps Next disabled when height is outside the realistic 100-220cm range (Codex round 10 P2)', () => {
+    render(<StyleQuizV4 onComplete={vi.fn()} onSkip={vi.fn()} isSaving={false} />);
+    fireEvent.click(screen.getByText('styleQuizV4.gender.feminine'));
+    fireEvent.click(screen.getByText('styleQuizV4.build.athletic'));
+    fireEvent.click(screen.getByText('25-34'));
+    const heightInput = screen.getByPlaceholderText('175') as HTMLInputElement;
+    // Below floor → still disabled
+    fireEvent.change(heightInput, { target: { value: '50' } });
+    expect(getNext()).toBeDisabled();
+    // Above ceiling → still disabled
+    fireEvent.change(heightInput, { target: { value: '999' } });
+    expect(getNext()).toBeDisabled();
+    // In range → enabled
+    fireEvent.change(heightInput, { target: { value: '170' } });
+    expect(getNext()).not.toBeDisabled();
+  });
+
   it('does NOT enable Next when partial draft has untouched enum fields (Codex round 2 P2)', () => {
     // User typed only height before reload. q1Touched persisted as all-false
     // for the enum fields. Even though enum DEFAULTS are valid choices, the

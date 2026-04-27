@@ -107,17 +107,25 @@ interface Q1Touched {
   ageRange: boolean;
 }
 
+/** Realistic adult human height bounds in cm. Codex round 10 P2 on PR #685
+ * — without these, `> 0` lets users proceed with `1` or `999`, which then
+ * land in `profile.height_cm` and distort downstream body/fit logic. */
+export const HEIGHT_CM_MIN = 100;
+export const HEIGHT_CM_MAX = 220;
+
 /** Returns true when the user has supplied enough answers on the current
  * question to advance. Q3 / Q9 / Q12 always return true (optional fields). */
 function canAdvance(qi: number, answers: StyleProfileV4, q1Touched: Q1Touched): boolean {
   switch (qi) {
     case 0:
-      // Q1 — identity & body. All four must be set; height_cm has a clean
-      // 0 sentinel, the three enums need explicit-touch tracking because
-      // their defaults are valid choices.
+      // Q1 — identity & body. All four must be set; height_cm enforces a
+      // realistic bound rather than just `> 0` (Codex round 10 P2). The
+      // three enums need explicit-touch tracking because their defaults are
+      // valid choices.
       return (
         q1Touched.gender
-        && answers.height_cm > 0
+        && answers.height_cm >= HEIGHT_CM_MIN
+        && answers.height_cm <= HEIGHT_CM_MAX
         && q1Touched.build
         && q1Touched.ageRange
       );
