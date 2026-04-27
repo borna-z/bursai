@@ -25,14 +25,26 @@ import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 import { advanceOnboardingStep, type OnboardingStep } from '@/lib/advanceOnboardingStep';
 import { asPreferences } from '@/types/preferences';
+import { interpolateMeta } from '@/lib/i18nFallback';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
 const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'studio_selection', 'coach_tour', 'reveal', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
-function StepProgress({ current }: { current: StepKey }) {
+function StepProgress({ current, t }: { current: StepKey; t: (key: string) => string }) {
   const index = STEPS.indexOf(current);
+  const n = String(index + 1).padStart(2, '0');
+  const total = String(STEPS.length).padStart(2, '0');
+  // Wave 7.9 P1 #4: i18n the "Step N of M" hardcoded English. Same
+  // placeholder pattern as ShareOutfit/PublicProfile meta tags
+  // (`interpolateMeta` from i18nFallback.ts).
+  const progressLabel = interpolateMeta(
+    t,
+    'onboarding.progress_label',
+    { n, total },
+    `Step ${n} of ${total}`,
+  );
 
   return (
     <div className="fixed inset-x-5" style={{ top: 'calc(var(--safe-area-top) + 16px)', zIndex: 'var(--z-modal)' as unknown as number }}>
@@ -49,9 +61,7 @@ function StepProgress({ current }: { current: StepKey }) {
             </div>
           ))}
         </div>
-        <p className="label-editorial mt-2 text-center tracking-[0.18em]">
-          Step {String(index + 1).padStart(2, '0')} of {String(STEPS.length).padStart(2, '0')}
-        </p>
+        <p className="label-editorial mt-2 text-center tracking-[0.18em]">{progressLabel}</p>
       </div>
     </div>
   );
@@ -374,6 +384,23 @@ export default function OnboardingPage() {
     setPhotoTutorialDone(true);
   };
 
+  const handleQuizSkip = async () => {
+    // Wave 7.9 P1 #3: previously the skip handler only flipped local
+    // `quizDone` to true; the server `onboarding_step` stayed at 'language',
+    // so a reload after skipping would send the user back to the quiz
+    // screen (Onboarding hydration: `language` → show quiz). Mirror the
+    // post-completion handler — advance the column to 'photo_tutorial' so
+    // the next reload starts where the user left off.
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'photo_tutorial', queryClient);
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(photo_tutorial after skip) failed (non-fatal):', rpcError);
+      }
+    }
+    setQuizDone(true);
+  };
+
   const handleBatchCaptureComplete = async () => {
     // Wave 7 P47: advance backend state machine to 'achievement'. Mirrors the
     // deploy-window-tolerant pattern from handlePhotoTutorialComplete: log the
@@ -519,7 +546,7 @@ export default function OnboardingPage() {
         className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(157,126,86,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(88,99,148,0.08),transparent_26%)]"
       />
 
-      <StepProgress current={stepKey} />
+      <StepProgress current={stepKey} t={t} />
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -534,7 +561,7 @@ export default function OnboardingPage() {
           {stepKey === 'quiz' ? (
             <StyleQuizV4
               onComplete={(profile) => { hapticLight(); return handleQuizComplete(profile); }}
-              onSkip={async () => { hapticLight(); setQuizDone(true); }}
+              onSkip={() => { hapticLight(); void handleQuizSkip(); }}
               isSaving={isSavingQuiz}
               userId={user?.id}
             />

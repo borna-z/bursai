@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
@@ -45,6 +45,13 @@ export function AchievementStep({ onComplete }: AchievementStepProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  // Wave 7.9 P1 #5: double-tap guard.
+  const [advancing, setAdvancing] = useState(false);
+  const handleAdvance = () => {
+    if (advancing) return;
+    setAdvancing(true);
+    onComplete();
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -166,7 +173,7 @@ export function AchievementStep({ onComplete }: AchievementStepProps) {
         </motion.div>
 
         <div className="action-bar-floating rounded-[1.6rem] p-3">
-          <Button onClick={onComplete} size="lg" className="w-full">
+          <Button onClick={handleAdvance} size="lg" disabled={advancing} className="w-full">
             {safeT(t, 'achievement.cta_label', 'Choose my 3 pieces')}
             <ArrowRight className="h-4 w-4" />
           </Button>

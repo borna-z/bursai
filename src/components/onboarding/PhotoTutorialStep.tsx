@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -105,6 +106,13 @@ function Example({ good, labelKey, fallback }: ExampleProps) {
 
 export function PhotoTutorialStep({ onComplete }: PhotoTutorialStepProps) {
   const { t } = useLanguage();
+  // Wave 7.9 P1 #5: double-tap guard.
+  const [advancing, setAdvancing] = useState(false);
+  const handleAdvance = () => {
+    if (advancing) return;
+    setAdvancing(true);
+    onComplete();
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -175,7 +183,7 @@ export function PhotoTutorialStep({ onComplete }: PhotoTutorialStepProps) {
         </Card>
 
         <div className="action-bar-floating rounded-[1.6rem] p-3">
-          <Button onClick={onComplete} size="lg" className="w-full">
+          <Button onClick={handleAdvance} size="lg" disabled={advancing} className="w-full">
             {safeT(t, 'photoTutorial.cta_label', 'I’m ready')}
             <ArrowRight className="h-4 w-4" />
           </Button>

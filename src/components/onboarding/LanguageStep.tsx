@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -15,6 +16,17 @@ interface LanguageStepProps {
 
 export function LanguageStep({ onComplete }: LanguageStepProps) {
   const { locale, setLocale, t } = useLanguage();
+  // Wave 7.9 P1 #5: prevent double-tap from firing onComplete twice. Parent
+  // (Onboarding.tsx) handler is async + does an `advanceOnboardingStep` RPC;
+  // a double-fire would issue 2 forward-only transitions (second one no-ops
+  // server-side via 'backwards/no_op' but still costs a round-trip + a toast
+  // on transient failure).
+  const [advancing, setAdvancing] = useState(false);
+  const handleAdvance = () => {
+    if (advancing) return;
+    setAdvancing(true);
+    onComplete();
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -66,7 +78,7 @@ export function LanguageStep({ onComplete }: LanguageStepProps) {
         </div>
 
         <div className="action-bar-floating rounded-[1.6rem] p-3">
-          <Button onClick={onComplete} size="lg" className="w-full">
+          <Button onClick={handleAdvance} size="lg" disabled={advancing} className="w-full">
             {t('onboarding.body.continue')}
           </Button>
         </div>

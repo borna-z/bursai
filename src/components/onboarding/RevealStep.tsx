@@ -60,6 +60,15 @@ interface WatchedGarment {
 export function RevealStep({ onComplete }: RevealStepProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  // Wave 7.9 P1 #5: double-tap guard. Parent's `handleRevealComplete` calls
+  // `completeOnboarding` which writes server step + legacy preferences flag;
+  // a double-fire issues 2 forward-only RPCs and 2 legacy writes.
+  const [advancing, setAdvancing] = useState(false);
+  const handleAdvance = () => {
+    if (advancing) return;
+    setAdvancing(true);
+    onComplete();
+  };
 
   // Fetch the canonical 3 watched render_job garment IDs (same pattern as
   // CoachTourStep). The status filter lets us pick up rows that completed
@@ -316,7 +325,7 @@ export function RevealStep({ onComplete }: RevealStepProps) {
         ) : null}
 
         <div className="action-bar-floating rounded-[1.6rem] p-3">
-          <Button onClick={onComplete} size="lg" className="w-full">
+          <Button onClick={handleAdvance} size="lg" disabled={advancing} className="w-full">
             {safeT(t, 'reveal.cta_label', 'Start using BURS')}
             <ArrowRight className="h-4 w-4" />
           </Button>

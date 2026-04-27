@@ -11,7 +11,7 @@ import { PageIntro } from '@/components/ui/page-intro';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EASE_CURVE } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { safeT } from '@/lib/i18nFallback';
+import { interpolateMeta, safeT } from '@/lib/i18nFallback';
 
 import {
   ARCHETYPE_OPTIONS,
@@ -139,7 +139,17 @@ function canAdvance(qi: number, answers: StyleProfileV4, q1Touched: Q1Touched): 
 
 // ─── Helper components (mirror QuickStyleQuiz patterns) ───
 
-function ProgressDots({ current }: { current: number }) {
+function ProgressDots({ current, t }: { current: number; t: (key: string) => string }) {
+  // Wave 7.9 P1 #4: i18n the "Question N of M" hardcoded English. Same
+  // placeholder pattern as `Onboarding.tsx`'s StepProgress.
+  const n = String(current + 1).padStart(2, '0');
+  const total = String(TOTAL).padStart(2, '0');
+  const progressLabel = interpolateMeta(
+    t,
+    'styleQuizV4.progress_label',
+    { n, total },
+    `Question ${n} of ${total}`,
+  );
   return (
     <div className="space-y-3">
       <div className="flex gap-1.5">
@@ -155,7 +165,7 @@ function ProgressDots({ current }: { current: number }) {
         ))}
       </div>
       <p className="text-center text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">
-        Question {String(current + 1).padStart(2, '0')} of {String(TOTAL).padStart(2, '0')}
+        {progressLabel}
       </p>
     </div>
   );
@@ -511,10 +521,21 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
                 <div className="flex items-center gap-3">
                   <Input
                     type="number"
+                    inputMode="numeric"
+                    step={1}
                     min={HEIGHT_CM_MIN}
                     max={HEIGHT_CM_MAX}
                     value={answers.height_cm > 0 ? answers.height_cm : ''}
-                    onChange={(e) => set('height_cm', Number(e.target.value) || 0)}
+                    onChange={(e) => {
+                      // Wave 7.9 P2 #2: prior `Number(e.target.value)` accepted
+                      // fractional values like '175.5' which then landed in
+                      // `profile.height_cm` (an integer column on prod) and
+                      // got truncated server-side, but bypassed our
+                      // `HEIGHT_CM_MIN/MAX` integer guard. parseInt ignores
+                      // the decimal portion at the input layer.
+                      const parsed = parseInt(e.target.value, 10);
+                      set('height_cm', Number.isFinite(parsed) ? parsed : 0);
+                    }}
                     placeholder="175"
                     className="w-32 text-center text-base font-medium"
                   />
@@ -1154,7 +1175,7 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
             }
           />
           <div className="mt-6">
-            <ProgressDots current={qi} />
+            <ProgressDots current={qi} t={t} />
           </div>
         </Card>
 

@@ -203,8 +203,14 @@ describe('migrateV4ToV3Compat — V3 vocab wins on collision keys (audit finding
     const out = migrateV4ToV3Compat(v4);
     // String mirror of height
     expect((out as { height: string }).height).toBe(String(v4.height_cm));
-    // comfortVsStyle = 100 - formalityCeiling
-    expect((out as { comfortVsStyle: number }).comfortVsStyle).toBe(100 - v4.formalityCeiling);
+    // Wave 7.9 P2 #1: comfortVsStyle = 100 - average(floor, ceiling),
+    // not just `100 - ceiling`. Floor=30 + ceiling=60 → average 45 →
+    // comfort 55. Previously this returned `100 - 60 = 40`.
+    const expectedComfort = Math.max(
+      0,
+      Math.min(100, Math.round(100 - (v4.formalityFloor + v4.formalityCeiling) / 2)),
+    );
+    expect((out as { comfortVsStyle: number }).comfortVsStyle).toBe(expectedComfort);
     // styleWords mirrored from archetypes
     expect((out as { styleWords: string[] }).styleWords).toEqual(v4.archetypes.slice(0, 5));
     // V3 dead fields default to ''/[]
@@ -216,6 +222,34 @@ describe('migrateV4ToV3Compat — V3 vocab wins on collision keys (audit finding
     const v4 = { ...createEmptyStyleProfileV4(), gender: 'neutral' as const };
     const out = migrateV4ToV3Compat(v4);
     expect((out as { genderNeutral: string }).genderNeutral).toBe('yes');
+  });
+
+  it('Wave 7.9 P2 #1 — comfortVsStyle averages floor + ceiling instead of just ceiling', () => {
+    // Casualwear lover: low floor, mid ceiling.
+    const casual = {
+      ...createEmptyStyleProfileV4(),
+      formalityFloor: 10,
+      formalityCeiling: 60,
+    };
+    // average = 35, comfort = 100 - 35 = 65
+    expect((migrateV4ToV3Compat(casual) as { comfortVsStyle: number }).comfortVsStyle).toBe(65);
+
+    // Always formal: high floor, high ceiling.
+    const formal = {
+      ...createEmptyStyleProfileV4(),
+      formalityFloor: 80,
+      formalityCeiling: 95,
+    };
+    // average = 87.5, comfort = 100 - 87.5 = 12.5, rounded = 13
+    expect((migrateV4ToV3Compat(formal) as { comfortVsStyle: number }).comfortVsStyle).toBe(13);
+
+    // Boundary: edge values clamp to 0..100 even with extreme floor/ceiling.
+    const minimum = {
+      ...createEmptyStyleProfileV4(),
+      formalityFloor: 0,
+      formalityCeiling: 0,
+    };
+    expect((migrateV4ToV3Compat(minimum) as { comfortVsStyle: number }).comfortVsStyle).toBe(100);
   });
 
   it('genderNeutral mirror is empty for non-neutral gender', () => {

@@ -51,7 +51,29 @@ export const profileSchema = z.object({
   // gate read `step` as `undefined` and redirect every user (incl. ones
   // already at 'completed') to /onboarding. Onboarding source of truth is
   // the column, not preferences.onboarding.completed.
-  onboarding_step: z.string().nullable().optional(),
+  //
+  // Wave 7.9 P2 #5: tightened from `z.string()` to a `z.enum([...])` so a
+  // backend writing an unknown step (e.g. typo, future enum value, or stale
+  // backend writing into a freshly-redeployed frontend) causes `safeParse`
+  // to fail and `safeParse` then falls through to the `data as T` cast
+  // path. Net effect for the consumer: identical to pre-P2-#5 (we're only
+  // tightening the validation layer, not changing the consumer contract),
+  // but loud-fail instead of silent-strip if a real divergence appears.
+  onboarding_step: z
+    .enum([
+      'not_started',
+      'language',
+      'quiz',
+      'photo_tutorial',
+      'batch_capture',
+      'achievement',
+      'studio_selection',
+      'coach_tour',
+      'reveal',
+      'completed',
+    ])
+    .nullable()
+    .optional(),
   onboarding_garment_count: z.number().nullable().optional(),
   onboarding_started_at: z.string().nullable().optional(),
   onboarding_completed_at: z.string().nullable().optional(),
