@@ -3062,6 +3062,25 @@ const sv: Record<string, string> = {
   'styleQuizV4.q12.title': 'Något annat BURS bör veta?',
   'styleQuizV4.q12.subtitle': 'Kulturella, religiösa eller tillgänglighetsbehov vi ska respektera. Valfritt.',
   'styleQuizV4.q12.placeholder': 't.ex. alltid täcka axlar, föredrar mer täckande snitt, inga klackar.',
+
+  // Wave 7 P46 — Foto-guide för onboarding
+  'photoTutorial.eyebrow': 'Så fotar du',
+  'photoTutorial.title': 'Ta en riktigt bra plaggbild.',
+  'photoTutorial.subtitle': 'En minut här sparar timmar sen. Fem snabba regler och vi är igång.',
+  'photoTutorial.examples_label': 'Snabbt överblick',
+  'photoTutorial.example.good': 'Plant, ljust, hela plagget syns',
+  'photoTutorial.example.bad': 'Mörkt, rörigt eller beskuret',
+  'photoTutorial.bullet.lighting': 'Mjukt, jämnt ljus',
+  'photoTutorial.bullet.lighting_body': 'Dagsljus vid ett fönster är bäst. Undvik hårda skuggor eller dramatiskt sidoljus.',
+  'photoTutorial.bullet.surface': 'Ren bakgrund',
+  'photoTutorial.bullet.surface_body': 'Lägg plagget plant på säng, golv eller mot en vägg i en enfärgad ton.',
+  'photoTutorial.bullet.framing': 'Hela plagget i bild',
+  'photoTutorial.bullet.framing_body': 'Visa hela plagget från kant till kant. Håll kameran rakt ovanför.',
+  'photoTutorial.bullet.isolation': 'Inga personer i bilden',
+  'photoTutorial.bullet.isolation_body': 'Händer, speglar och ansikten förvirrar AI:n. Bara plagget, tack.',
+  'photoTutorial.bullet.one_garment': 'Ett plagg per foto',
+  'photoTutorial.bullet.one_garment_body': 'Fota varje plagg för sig så att vi kan analysera det exakt.',
+  'photoTutorial.cta_label': 'Jag är redo',
 };
 
 export default sv;

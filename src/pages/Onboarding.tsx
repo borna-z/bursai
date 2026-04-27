@@ -13,6 +13,7 @@ import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { StyleQuizV4 } from '@/components/onboarding/StyleQuizV4';
+import { PhotoTutorialStep } from '@/components/onboarding/PhotoTutorialStep';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
@@ -22,7 +23,7 @@ import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'upload', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'upload', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -61,6 +62,7 @@ export default function OnboardingPage() {
 
   const [languageStepDone, setLanguageStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
+  const [photoTutorialDone, setPhotoTutorialDone] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
@@ -199,6 +201,23 @@ export default function OnboardingPage() {
     }
   };
 
+  const handlePhotoTutorialComplete = async () => {
+    // Wave 7 P46: advance backend state machine to 'batch_capture'. RPC errors
+    // during the deploy window (or transient network) should NOT block the user
+    // from progressing locally — toast + log, then advance the local step so
+    // they aren't trapped on the tutorial screen. Mirrors the deploy-window
+    // pattern used after the quiz step (P45).
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'batch_capture');
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(batch_capture) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setPhotoTutorialDone(true);
+  };
+
   const handleGetStartedAction = async (path: string) => {
     try {
       await completeOnboarding();
@@ -232,9 +251,11 @@ export default function OnboardingPage() {
     ? 'lang'
     : !quizDone
       ? 'quiz'
-      : !uploadDone
-        ? 'upload'
-        : 'getstarted';
+      : !photoTutorialDone
+        ? 'photo_tutorial'
+        : !uploadDone
+          ? 'upload'
+          : 'getstarted';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -261,6 +282,11 @@ export default function OnboardingPage() {
               onSkip={async () => { hapticLight(); setQuizDone(true); }}
               isSaving={isSavingQuiz}
               userId={user?.id}
+            />
+          ) : null}
+          {stepKey === 'photo_tutorial' ? (
+            <PhotoTutorialStep
+              onComplete={() => { hapticLight(); handlePhotoTutorialComplete(); }}
             />
           ) : null}
           {stepKey === 'upload' ? (
