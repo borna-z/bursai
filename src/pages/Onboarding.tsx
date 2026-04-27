@@ -19,6 +19,7 @@ import { BatchCaptureStep } from '@/components/onboarding/BatchCaptureStep';
 import { AchievementStep } from '@/components/onboarding/AchievementStep';
 import { StudioSelectionStep } from '@/components/onboarding/StudioSelectionStep';
 import { CoachTourStep } from '@/components/onboarding/CoachTourStep';
+import { RevealStep } from '@/components/onboarding/RevealStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
@@ -27,7 +28,7 @@ import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'studio_selection', 'coach_tour', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'studio_selection', 'coach_tour', 'reveal', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -72,6 +73,7 @@ export default function OnboardingPage() {
   const [achievementDone, setAchievementDone] = useState(false);
   const [studioSelectionDone, setStudioSelectionDone] = useState(false);
   const [coachTourDone, setCoachTourDone] = useState(false);
+  const [revealDone, setRevealDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   // Wave 7 P0 audit fix #5: hydrate local step state from the server-known
@@ -157,14 +159,9 @@ export default function OnboardingPage() {
       setStudioSelectionDone(true);
       return;
     }
-    // `reveal` → P51 not built yet; treat as getstarted so the user isn't
-    // trapped on a screen that expects further forward state. Safe because
-    // all 3 render_jobs were enqueued in P49 before this server-state
-    // transition. The reveal copy will surface in P51 when it ships.
-    //
-    // TODO(P51): when Reveal ships, split this branch — server state
-    // 'reveal' should map to a dedicated local boolean (not collapse to
-    // getstarted) and add 'reveal' to the STEPS array.
+    // `reveal` → user is on the Reveal screen (P51 — final tour page
+    // showing the studio render). Flip every prior boolean so RevealStep
+    // is what renders. revealDone stays false (current step).
     if (serverStep === 'reveal') {
       setLanguageStepDone(true);
       setQuizDone(true);
@@ -434,10 +431,7 @@ export default function OnboardingPage() {
   const handleCoachTourComplete = async () => {
     // Wave 7 P50: advance backend state machine to 'reveal'. Same
     // deploy-window-tolerant pattern — log + toast on RPC error, then flip
-    // the local flag anyway so the user moves on (P51 Reveal isn't built
-    // yet so the next step collapses to GetStarted; safe because the 3
-    // renders were enqueued in P49 and continue cooking regardless of
-    // which screen the user lands on next).
+    // the local flag anyway so the user moves on to RevealStep (P51).
     if (user) {
       try {
         await advanceOnboardingStep(user.id, 'reveal', queryClient);
@@ -447,6 +441,28 @@ export default function OnboardingPage() {
       }
     }
     setCoachTourDone(true);
+  };
+
+  const handleRevealComplete = async () => {
+    // Wave 7 P51: final onboarding step. Server-side advance to 'completed'
+    // happens inside `completeOnboarding` (which also writes the legacy
+    // preferences flag with retry). Local `revealDone=true` is essentially
+    // a no-op visually (the next step is `getstarted`, but
+    // `onboardingCompleted` short-circuits to Navigate("/") immediately
+    // after preferences write).
+    try {
+      await completeOnboarding();
+    } catch (err) {
+      // completeOnboarding handles the legacy-write retry internally.
+      // If it throws here it means the RPC itself failed in the
+      // post-migration window — log but advance the local flag anyway
+      // so the user lands on Home (the navigation happens via the
+      // onboardingCompleted check).
+      console.warn('completeOnboarding from RevealStep failed (non-fatal):', err);
+      toast.error(t('onboarding.error'));
+    }
+    setRevealDone(true);
+    navigate('/');
   };
 
   const handleGetStartedAction = async (path: string) => {
@@ -492,7 +508,9 @@ export default function OnboardingPage() {
               ? 'studio_selection'
               : !coachTourDone
                 ? 'coach_tour'
-                : 'getstarted';
+                : !revealDone
+                  ? 'reveal'
+                  : 'getstarted';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -544,6 +562,11 @@ export default function OnboardingPage() {
           {stepKey === 'coach_tour' ? (
             <CoachTourStep
               onComplete={() => { hapticLight(); handleCoachTourComplete(); }}
+            />
+          ) : null}
+          {stepKey === 'reveal' ? (
+            <RevealStep
+              onComplete={() => { hapticLight(); handleRevealComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}

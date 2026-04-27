@@ -3133,6 +3133,18 @@ const sv: Record<string, string> = {
   'coachTour.cta_label': 'Jag är redo',
   'coachTour.cta_label_with_render': 'Visa mina renderingar',
   'coachTour.first_render_ready': 'Din första rendering är klar.',
+
+  // Wave 7 P51 — Avslöjande-skärm (sista onboarding-steget med studio-renderingen)
+  'reveal.eyebrow': 'Titta där.',
+  'reveal.title_ready': 'Din studiobild är klar.',
+  'reveal.title_cooking': 'Vi ramar in ditt första plagg.',
+  'reveal.subtitle_ready': 'De andra två renderas fortfarande — de syns i din garderob när de är klara.',
+  'reveal.subtitle_cooking': 'Det tar oftast en stund. Den första visas här så fort den landar.',
+  'reveal.cooking_label': 'Renderar…',
+  'reveal.hero_aria_ready': 'Din studio-rendering',
+  'reveal.hero_aria_cooking': 'Förhandsvisning av studio-rendering, renderas fortfarande',
+  'reveal.loading': 'Letar efter dina renderingar…',
+  'reveal.cta_label': 'Börja använda BURS',
 };
 
 export default sv;
