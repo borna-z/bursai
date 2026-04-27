@@ -3485,6 +3485,19 @@ const en: Record<string, string> = {
   'achievement.gift.title': 'Three studio renders, on us',
   'achievement.gift.body': 'Pick three favourite pieces and we’ll turn them into clean, magazine-ready studio shots — yours to keep.',
   'achievement.cta_label': 'Choose my 3 pieces',
+
+  // Wave 7 P49 — StudioSelection: pick exactly 3 garments to render as studio shots
+  'studioSelection.eyebrow': 'Three studio renders, on us',
+  'studioSelection.title': 'Pick your three',
+  'studioSelection.subtitle': "We'll turn them into clean, magazine-ready studio shots.",
+  'studioSelection.counter_format': '{count} of 3',
+  'studioSelection.counter_complete': '3 of 3 — perfect',
+  'studioSelection.cta_label': 'Render my 3 pieces',
+  'studioSelection.max_reached': 'You can only pick 3. Tap a selection to swap.',
+  'studioSelection.empty_wardrobe': "We couldn't load your wardrobe. Pull to refresh.",
+  'studioSelection.enqueue_error': "Couldn't start your renders. Try again?",
+  'studioSelection.no_credits': 'No render credits found. Please retry from the previous step.',
+  'studioSelection.partial_progress': 'Finishing your previous picks. Hold on a sec.',
 };
 
 export default en;
