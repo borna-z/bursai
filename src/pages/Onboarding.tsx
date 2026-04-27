@@ -15,6 +15,7 @@ import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { StyleQuizV4 } from '@/components/onboarding/StyleQuizV4';
 import { PhotoTutorialStep } from '@/components/onboarding/PhotoTutorialStep';
 import { BatchCaptureStep } from '@/components/onboarding/BatchCaptureStep';
+import { AchievementStep } from '@/components/onboarding/AchievementStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
@@ -23,7 +24,7 @@ import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -64,6 +65,7 @@ export default function OnboardingPage() {
   const [quizDone, setQuizDone] = useState(false);
   const [photoTutorialDone, setPhotoTutorialDone] = useState(false);
   const [batchCaptureDone, setBatchCaptureDone] = useState(false);
+  const [achievementDone, setAchievementDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   const completeOnboarding = async () => {
@@ -236,6 +238,28 @@ export default function OnboardingPage() {
     setBatchCaptureDone(true);
   };
 
+  const handleAchievementComplete = async () => {
+    // Wave 7 P48: advance backend state machine to 'studio_selection'.
+    // Mirrors the deploy-window-tolerant pattern from the previous handlers
+    // — RPC errors should NOT strand the user on this celebratory screen.
+    // Note: P48's spec also calls for crediting 3 trial-gift renders here,
+    // but that requires a new edge function (CLAUDE.md hard rule: no new
+    // edge functions without explicit user approval). The credit grant ships
+    // in a follow-up PR. For now, the screen advances to the next step
+    // without granting credits — P49 (StudioSelection) will need them
+    // before it can render, which is why P49 is gated behind that
+    // follow-up.
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'studio_selection');
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(studio_selection) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setAchievementDone(true);
+  };
+
   const handleGetStartedAction = async (path: string) => {
     try {
       await completeOnboarding();
@@ -273,7 +297,9 @@ export default function OnboardingPage() {
         ? 'photo_tutorial'
         : !batchCaptureDone
           ? 'batch_capture'
-          : 'getstarted';
+          : !achievementDone
+            ? 'achievement'
+            : 'getstarted';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -310,6 +336,11 @@ export default function OnboardingPage() {
           {stepKey === 'batch_capture' ? (
             <BatchCaptureStep
               onComplete={() => { hapticLight(); handleBatchCaptureComplete(); }}
+            />
+          ) : null}
+          {stepKey === 'achievement' ? (
+            <AchievementStep
+              onComplete={() => { hapticLight(); handleAchievementComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}

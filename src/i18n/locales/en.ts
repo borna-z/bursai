@@ -3475,6 +3475,14 @@ const en: Record<string, string> = {
   'batchCapture.done_cta': "I'm done",
   'batchCapture.min_helper': 'of 20 minimum',
   'batchCapture.recommended_helper': 'of 30 recommended',
+
+  // Wave 7 P48 — Achievement / trial-gift celebration screen
+  'achievement.eyebrow': 'Wardrobe captured',
+  'achievement.title': 'Your studio is ready.',
+  'achievement.subtitle': 'You did the hard part. Now the magic begins.',
+  'achievement.gift.title': 'Three studio renders, on us',
+  'achievement.gift.body': 'Pick three favourite pieces and we’ll turn them into clean, magazine-ready studio shots — yours to keep.',
+  'achievement.cta_label': 'Choose my 3 pieces',
 };
 
 export default en;

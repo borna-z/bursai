@@ -3092,6 +3092,14 @@ const sv: Record<string, string> = {
   'batchCapture.done_cta': 'Klar',
   'batchCapture.min_helper': 'av 20 minimum',
   'batchCapture.recommended_helper': 'av 30 rekommenderade',
+
+  // Wave 7 P48 — Belöningsskärm med 3 gratis studio-renderingar
+  'achievement.eyebrow': 'Garderoben är inne',
+  'achievement.title': 'Din studio är redo.',
+  'achievement.subtitle': 'Du har gjort det svåra. Nu börjar magin.',
+  'achievement.gift.title': 'Tre studio-renderingar, från oss',
+  'achievement.gift.body': 'Välj tre favoritplagg så förvandlar vi dem till rena, magasinklara studiobilder — dina att behålla.',
+  'achievement.cta_label': 'Välj mina 3 plagg',
 };
 
 export default sv;
