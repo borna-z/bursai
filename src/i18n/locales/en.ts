@@ -3445,6 +3445,25 @@ const en: Record<string, string> = {
   'styleQuizV4.q12.title': 'Anything else BURS should know?',
   'styleQuizV4.q12.subtitle': 'Cultural, religious, or accessibility needs we should respect. Optional.',
   'styleQuizV4.q12.placeholder': 'e.g. always cover shoulders, prefer modest cuts, no high heels.',
+
+  // Wave 7 P46 — Photo tutorial onboarding step
+  'photoTutorial.eyebrow': 'How to scan',
+  'photoTutorial.title': 'Take a great garment photo.',
+  'photoTutorial.subtitle': 'A minute here saves hours later. Five quick rules and we’re off.',
+  'photoTutorial.examples_label': 'At a glance',
+  'photoTutorial.example.good': 'Flat, well-lit, full garment',
+  'photoTutorial.example.bad': 'Dim, cluttered, or cropped',
+  'photoTutorial.bullet.lighting': 'Bright, even light',
+  'photoTutorial.bullet.lighting_body': 'Daylight near a window works best. Avoid harsh shadows or moody side-light.',
+  'photoTutorial.bullet.surface': 'Plain background',
+  'photoTutorial.bullet.surface_body': 'Lay the piece flat on a bed, floor, or wall in one solid colour.',
+  'photoTutorial.bullet.framing': 'Whole garment in frame',
+  'photoTutorial.bullet.framing_body': 'Show the full piece edge to edge. Keep the camera straight overhead.',
+  'photoTutorial.bullet.isolation': 'No people in the shot',
+  'photoTutorial.bullet.isolation_body': 'Hands, mirrors, and faces confuse the AI. Just the garment, please.',
+  'photoTutorial.bullet.one_garment': 'One garment per photo',
+  'photoTutorial.bullet.one_garment_body': 'Photograph each piece on its own so we can analyse it precisely.',
+  'photoTutorial.cta_label': 'I’m ready',
 };
 
 export default en;
