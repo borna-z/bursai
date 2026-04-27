@@ -3102,6 +3102,19 @@ const sv: Record<string, string> = {
   'achievement.gift.title': 'Tre studio-renderingar, från oss',
   'achievement.gift.body': 'Välj tre favoritplagg så förvandlar vi dem till rena, magasinklara studiobilder — dina att behålla.',
   'achievement.cta_label': 'Välj mina 3 plagg',
+
+  // Wave 7 P49 — StudioSelection: välj exakt 3 plagg som renderas som studiobilder
+  'studioSelection.eyebrow': 'Tre studio-renderingar, från oss',
+  'studioSelection.title': 'Välj dina tre',
+  'studioSelection.subtitle': 'Vi förvandlar dem till rena, magasinklara studiobilder.',
+  'studioSelection.counter_format': '{count} av 3',
+  'studioSelection.counter_complete': '3 av 3 — perfekt',
+  'studioSelection.cta_label': 'Rendera mina 3 plagg',
+  'studioSelection.max_reached': 'Du kan bara välja 3. Tryck på ett val för att byta.',
+  'studioSelection.empty_wardrobe': 'Vi kunde inte ladda din garderob. Dra för att uppdatera.',
+  'studioSelection.enqueue_error': 'Kunde inte starta dina renderingar. Försök igen?',
+  'studioSelection.no_credits': 'Inga rendrekrediter hittades. Försök igen från föregående steg.',
+  'studioSelection.partial_progress': 'Slutför dina tidigare val. Vänta ett ögonblick.',
 };
 
 export default sv;

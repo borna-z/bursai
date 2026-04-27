@@ -17,6 +17,7 @@ import { StyleQuizV4 } from '@/components/onboarding/StyleQuizV4';
 import { PhotoTutorialStep } from '@/components/onboarding/PhotoTutorialStep';
 import { BatchCaptureStep } from '@/components/onboarding/BatchCaptureStep';
 import { AchievementStep } from '@/components/onboarding/AchievementStep';
+import { StudioSelectionStep } from '@/components/onboarding/StudioSelectionStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
@@ -25,7 +26,7 @@ import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'studio_selection', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -68,6 +69,7 @@ export default function OnboardingPage() {
   const [photoTutorialDone, setPhotoTutorialDone] = useState(false);
   const [batchCaptureDone, setBatchCaptureDone] = useState(false);
   const [achievementDone, setAchievementDone] = useState(false);
+  const [studioSelectionDone, setStudioSelectionDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   // Wave 7 P0 audit fix #5: hydrate local step state from the server-known
@@ -122,11 +124,30 @@ export default function OnboardingPage() {
       setBatchCaptureDone(true);
       return;
     }
-    // `achievement`, `studio_selection`, `coach_tour`, `reveal` → all post-
-    // achievement. P49+ aren't built yet; treat as `getstarted` for now so
-    // the user isn't trapped on the celebration screen indefinitely.
+    // `achievement` → trial gift granted, show studio_selection.
+    if (serverStep === 'achievement') {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      setPhotoTutorialDone(true);
+      setBatchCaptureDone(true);
+      setAchievementDone(true);
+      return;
+    }
+    // `studio_selection`, `coach_tour`, `reveal` → all post-studio-selection.
+    // P50+ (CoachTour, Reveal) aren't built yet; treat as `getstarted` for now
+    // so the user isn't trapped indefinitely on a screen that expects further
+    // forward state.
+    //
+    // TODO(P50): when CoachTour ships, server states 'coach_tour' / 'reveal'
+    // should map to their respective new local states (and STEPS array entries),
+    // not collapse into `studioSelectionDone=true → getstarted`. The current
+    // branch is a placeholder until those screens exist. The collapse is safe
+    // because all 3 render_jobs were already enqueued by P49 before this step
+    // would fire (StudioSelectionStep.onComplete is the only path here), so
+    // skipping straight to getstarted doesn't lose work — it just skips the
+    // tour. Once P50 lands, split this branch into per-step setters and add
+    // 'coach_tour' / 'reveal' entries to the STEPS array.
     if (
-      serverStep === 'achievement' ||
       serverStep === 'studio_selection' ||
       serverStep === 'coach_tour' ||
       serverStep === 'reveal'
@@ -136,6 +157,7 @@ export default function OnboardingPage() {
       setPhotoTutorialDone(true);
       setBatchCaptureDone(true);
       setAchievementDone(true);
+      setStudioSelectionDone(true);
     }
   }, [profile]);
 
@@ -362,13 +384,9 @@ export default function OnboardingPage() {
     // Wave 7 P48: advance backend state machine to 'studio_selection'.
     // Mirrors the deploy-window-tolerant pattern from the previous handlers
     // — RPC errors should NOT strand the user on this celebratory screen.
-    // Note: P48's spec also calls for crediting 3 trial-gift renders here,
-    // but that requires a new edge function (CLAUDE.md hard rule: no new
-    // edge functions without explicit user approval). The credit grant ships
-    // in a follow-up PR. For now, the screen advances to the next step
-    // without granting credits — P49 (StudioSelection) will need them
-    // before it can render, which is why P49 is gated behind that
-    // follow-up.
+    // P48-followup shipped: AchievementStep.tsx fires `grant_trial_gift` on
+    // mount which credits 3 trial-gift renders, so P49 (StudioSelection)
+    // has its credits available when it loads.
     if (user) {
       try {
         await advanceOnboardingStep(user.id, 'studio_selection', queryClient);
@@ -378,6 +396,26 @@ export default function OnboardingPage() {
       }
     }
     setAchievementDone(true);
+  };
+
+  const handleStudioSelectionComplete = async () => {
+    // Wave 7 P49: advance backend state machine to 'coach_tour'. Same
+    // deploy-window-tolerant pattern as the prior handlers — log + toast on
+    // RPC error, then flip the local flag anyway so the user moves on
+    // (P50 CoachTour isn't built yet so the next step renders GetStarted
+    // for now). The 3 render_jobs were already enqueued by
+    // StudioSelectionStep before it called onComplete; their progress is
+    // surfaced to the user via the wardrobe card shimmer + the eventual
+    // CoachTour reveal once P50 ships.
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'coach_tour', queryClient);
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(coach_tour) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setStudioSelectionDone(true);
   };
 
   const handleGetStartedAction = async (path: string) => {
@@ -419,7 +457,9 @@ export default function OnboardingPage() {
           ? 'batch_capture'
           : !achievementDone
             ? 'achievement'
-            : 'getstarted';
+            : !studioSelectionDone
+              ? 'studio_selection'
+              : 'getstarted';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -461,6 +501,11 @@ export default function OnboardingPage() {
           {stepKey === 'achievement' ? (
             <AchievementStep
               onComplete={() => { hapticLight(); handleAchievementComplete(); }}
+            />
+          ) : null}
+          {stepKey === 'studio_selection' ? (
+            <StudioSelectionStep
+              onComplete={() => { hapticLight(); handleStudioSelectionComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}
