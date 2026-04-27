@@ -124,7 +124,14 @@ export default function OnboardingPage() {
   };
 
   const handleQuizComplete = async (styleProfile: StyleProfileV4) => {
-    if (!user) return;
+    // Throw rather than silently no-op (Codex round 8 P2 on PR #685): a
+    // resolved void return signals "save succeeded" to StyleQuizV4, which
+    // then clears the localStorage draft. If auth dropped at submit time,
+    // a silent return would lose the user's answers without a retry path.
+    if (!user) {
+      toast.error(t('onboarding.sessionExpired') || 'Session expired. Please log out and sign in again.');
+      throw new Error('No authenticated user');
+    }
     setIsSavingQuiz(true);
     try {
       const currentPrefs = asPreferences(profile?.preferences);

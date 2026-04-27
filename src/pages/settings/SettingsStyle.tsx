@@ -25,17 +25,32 @@ import {
   v3ClimateToV4,
   v3FitToV4,
   v3GenderToV4,
+  v3LayeringToV4,
+  v3PaletteVibeToV4,
+  v3PrimaryGoalToV4,
   v4ClimateToV3,
   v4FitToV3,
   v4GenderToV3,
+  v4LayeringToV3,
+  v4PaletteVibeToV3,
+  v4PrimaryGoalToV3,
   type Climate as V4Climate,
   type FitOverall as V4FitOverall,
   type Gender as V4Gender,
+  type Layering as V4Layering,
+  type PaletteVibe as V4PaletteVibe,
+  type PrimaryGoal as V4PrimaryGoal,
 } from '@/types/styleProfile';
 
 const V4_GENDER_VALUES = new Set(['feminine', 'masculine', 'neutral', 'prefer_not']);
 const V4_FIT_VALUES = new Set(['fitted', 'regular', 'relaxed', 'oversized', 'mixed']);
 const V4_CLIMATE_VALUES = new Set(['nordic', 'temperate', 'mediterranean', 'tropical', 'desert', 'varies']);
+const V4_LAYERING_VALUES = new Set(['minimal', 'some', 'love']);
+const V4_PALETTE_VALUES = new Set(['neutrals', 'bold', 'dark', 'pastels', 'earth', 'mixed']);
+const V4_GOAL_VALUES = new Set([
+  'reduce_decisions', 'discover_style', 'curate_capsule',
+  'special_events', 'professional_polish', 'sustainability', 'fun_experimenting',
+]);
 
 // ── Color palette ──
 
@@ -102,6 +117,21 @@ export default function SettingsStyle() {
         // editing climate on a V4 profile preserves V4 schema integrity.
         const v4 = v3ClimateToV4(value);
         if (v4) newSp = { ...sp, climate: v4 };
+      } else if (key === 'layering') {
+        // Codex round 8 P1: V4 enum is 'minimal'|'some'|'love'; V3 dropdown
+        // emits 'minimal'|'moderate'|'loves'. Translate.
+        const v4 = v3LayeringToV4(value);
+        if (v4) newSp = { ...sp, layering: v4 };
+      } else if (key === 'paletteVibe') {
+        // Codex round 8 P1: V4 paletteVibe has 6 values; V3 dropdown has 4
+        // different ones. Translate to V4 to preserve schema.
+        const v4 = v3PaletteVibeToV4(value);
+        if (v4) newSp = { ...sp, paletteVibe: v4 };
+      } else if (key === 'primaryGoal') {
+        // Codex round 8 P1: V4 has 7 goal values; V3 has 5 different ones.
+        // Translate at write time.
+        const v4 = v3PrimaryGoalToV4(value);
+        if (v4) newSp = { ...sp, primaryGoal: v4 };
       }
     }
 
@@ -133,6 +163,18 @@ export default function SettingsStyle() {
     typeof sp.climate === 'string' && V4_CLIMATE_VALUES.has(sp.climate)
       ? v4ClimateToV3(sp.climate as V4Climate)
       : sp.climate;
+  const displayLayering =
+    typeof sp.layering === 'string' && V4_LAYERING_VALUES.has(sp.layering)
+      ? v4LayeringToV3(sp.layering as V4Layering)
+      : sp.layering;
+  const displayPaletteVibe =
+    typeof sp.paletteVibe === 'string' && V4_PALETTE_VALUES.has(sp.paletteVibe)
+      ? v4PaletteVibeToV3(sp.paletteVibe as V4PaletteVibe)
+      : sp.paletteVibe;
+  const displayPrimaryGoal =
+    typeof sp.primaryGoal === 'string' && V4_GOAL_VALUES.has(sp.primaryGoal)
+      ? v4PrimaryGoalToV3(sp.primaryGoal as V4PrimaryGoal)
+      : sp.primaryGoal;
 
   const toggleColor = async (field: 'favoriteColors' | 'dislikedColors', color: string) => {
     const current = sp[field] || [];
@@ -415,7 +457,7 @@ export default function SettingsStyle() {
                 { value: 'loose', label: t('style.loose') || 'Loose/relaxed' },
                 { value: 'oversized', label: t('q3.fit.oversized') || 'Oversized' },
               ]} />
-              <FieldSelect label={t('q3.q15') || 'Layering'} value={sp.layering} onChange={v => updateStyleField('layering', v)} options={[
+              <FieldSelect label={t('q3.q15') || 'Layering'} value={displayLayering} onChange={v => updateStyleField('layering', v)} options={[
                 { value: 'minimal', label: t('q3.layer.minimal') || 'Minimal layers' },
                 { value: 'moderate', label: t('q3.layer.moderate') || 'Some layering' },
                 { value: 'loves', label: t('q3.layer.loves') || 'Love layering' },
@@ -449,7 +491,7 @@ export default function SettingsStyle() {
                 <Label className="label-editorial text-muted-foreground/60">{t('settings.disliked_colors')}</Label>
                 <ColorGrid field="dislikedColors" />
               </div>
-              <FieldSelect label={t('q3.q21') || 'Palette vibe'} value={sp.paletteVibe} onChange={v => updateStyleField('paletteVibe', v)} options={[
+              <FieldSelect label={t('q3.q21') || 'Palette vibe'} value={displayPaletteVibe} onChange={v => updateStyleField('paletteVibe', v)} options={[
                 { value: 'neutral', label: t('q3.palette.neutral') || 'Neutral/earth tones' },
                 { value: 'muted', label: t('q3.palette.muted') || 'Muted/dusty' },
                 { value: 'bold', label: t('q3.palette.bold') || 'Bold/saturated' },
@@ -523,7 +565,7 @@ export default function SettingsStyle() {
           <SectionHeader id="goals" icon={Heart} title={t('q3.s8.title') || 'Goals'} summary={sp.primaryGoal || undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-5 pb-5 space-y-4">
-              <FieldSelect label={t('q3.q31') || 'Primary goal with BURS'} value={sp.primaryGoal} onChange={v => updateStyleField('primaryGoal', v)} options={[
+              <FieldSelect label={t('q3.q31') || 'Primary goal with BURS'} value={displayPrimaryGoal} onChange={v => updateStyleField('primaryGoal', v)} options={[
                 { value: 'save_time', label: t('q3.goal.save_time') || 'Save time getting dressed' },
                 { value: 'better_style', label: t('q3.goal.better_style') || 'Improve my style' },
                 { value: 'wardrobe_org', label: t('q3.goal.wardrobe_org') || 'Organize my wardrobe' },

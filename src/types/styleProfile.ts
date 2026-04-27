@@ -488,6 +488,111 @@ export function v3ClimateToV4(value: string): Climate | null {
   }
 }
 
+/** Map V4 `Layering` → V3 SettingsStyle layering vocab. V4 'some' → V3
+ * 'moderate', V4 'love' → V3 'loves'; 'minimal' shared. */
+export function v4LayeringToV3(layering: Layering): 'minimal' | 'moderate' | 'loves' {
+  switch (layering) {
+    case 'some':
+      return 'moderate';
+    case 'love':
+      return 'loves';
+    case 'minimal':
+    default:
+      return 'minimal';
+  }
+}
+
+/** Inverse of `v4LayeringToV3`. Returns null on unrecognized input. */
+export function v3LayeringToV4(value: string): Layering | null {
+  switch (value) {
+    case 'minimal':
+      return 'minimal';
+    case 'moderate':
+      return 'some';
+    case 'loves':
+      return 'love';
+    default:
+      return null;
+  }
+}
+
+/** Map V4 `PaletteVibe` → V3 SettingsStyle paletteVibe vocab. V4 'neutrals' →
+ * V3 'neutral', 'pastels' / 'earth' → 'muted', 'dark' / 'mixed' → 'monochrome';
+ * 'bold' shared. */
+export function v4PaletteVibeToV3(vibe: PaletteVibe): 'neutral' | 'muted' | 'bold' | 'monochrome' {
+  switch (vibe) {
+    case 'neutrals':
+      return 'neutral';
+    case 'pastels':
+    case 'earth':
+      return 'muted';
+    case 'dark':
+    case 'mixed':
+      return 'monochrome';
+    case 'bold':
+    default:
+      return 'bold';
+  }
+}
+
+/** Inverse of `v4PaletteVibeToV3`. Returns null on unrecognized input. */
+export function v3PaletteVibeToV4(value: string): PaletteVibe | null {
+  switch (value) {
+    case 'neutral':
+      return 'neutrals';
+    case 'muted':
+      return 'pastels';
+    case 'bold':
+      return 'bold';
+    case 'monochrome':
+      return 'dark';
+    default:
+      return null;
+  }
+}
+
+/** Map V4 `PrimaryGoal` → V3 SettingsStyle primaryGoal vocab. Best-effort
+ * collapse of V4's 7 buckets onto V3's 5; V4-only goals map to nearest V3
+ * intent. */
+export function v4PrimaryGoalToV3(goal: PrimaryGoal): 'save_time' | 'better_style' | 'wardrobe_org' | 'reduce_waste' | 'plan_outfits' {
+  switch (goal) {
+    case 'reduce_decisions':
+      return 'save_time';
+    case 'discover_style':
+    case 'professional_polish':
+    case 'fun_experimenting':
+      return 'better_style';
+    case 'curate_capsule':
+      return 'wardrobe_org';
+    case 'sustainability':
+      return 'reduce_waste';
+    case 'special_events':
+    default:
+      return 'plan_outfits';
+  }
+}
+
+/** Inverse of `v4PrimaryGoalToV3`. Returns null on unrecognized input. V4
+ * has 7 buckets to V3's 5, so V4-only goals (`special_events`,
+ * `professional_polish`, `fun_experimenting`) can only be reached via the
+ * quiz, never re-selected from SettingsStyle. */
+export function v3PrimaryGoalToV4(value: string): PrimaryGoal | null {
+  switch (value) {
+    case 'save_time':
+      return 'reduce_decisions';
+    case 'better_style':
+      return 'discover_style';
+    case 'wardrobe_org':
+      return 'curate_capsule';
+    case 'reduce_waste':
+      return 'sustainability';
+    case 'plan_outfits':
+      return 'special_events';
+    default:
+      return null;
+  }
+}
+
 /**
  * Merge a V4 profile with V3-compatible mirror keys so legacy readers see
  * populated values. Returned object has BOTH shapes (V4 + V3) — V4 readers
