@@ -282,18 +282,30 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
     [],
   );
 
+  // Hydration ref shared by the key-change effect and the persist effect.
+  // Declared BEFORE the key-change effect so it can suppress the persist
+  // effect on the same render when re-hydrating from a new key (Codex round
+  // 9 P1 on PR #685).
+  const hydrated = useRef(false);
+
   // Re-hydrate when the draft key changes (Codex round 6 P2 on PR #685). If
   // the component first mounted with userId=undefined → 'anon' fallback, and
   // userId later resolves to a real value, this effect reads the new key's
-  // draft (if any) and replaces in-memory state. Without this, the persist
-  // effect below would write the anon-initialized state to the new user key
-  // and silently overwrite their previously saved draft.
+  // draft (if any) and replaces in-memory state.
   const previousDraftKey = useRef(draftKeyUser);
   useEffect(() => {
     if (previousDraftKey.current === draftKeyUser) return;
     previousDraftKey.current = draftKeyUser;
     const draft = readDraft(draftKeyUser);
     if (draft) {
+      // Suppress the persist effect for THIS render so it doesn't write the
+      // pre-update (still anon-typed) in-memory state to the new key
+      // before setQuizState commits and overwrite the user's existing draft
+      // on disk (Codex round 9 P1 — fixes the race between key-change and
+      // persist effects when draftKeyUser flips). After re-render, the
+      // persist effect will run again with the loaded draft state and write
+      // it back to the same key (idempotent no-op).
+      hydrated.current = false;
       setQuizState({ answers: draft.answers, q1Touched: draft.q1Touched });
     }
     // No draft at the new key: the persist effect below will write current
@@ -301,10 +313,10 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
     // migrating any in-progress 'anon' work to the user-scoped key.
   }, [draftKeyUser]);
 
-  // Persist on every change. Wrapped in a ref so the persist effect only
-  // fires once per actual mutation, not on initial mount (which would
-  // otherwise overwrite a freshly-loaded draft with the same data).
-  const hydrated = useRef(false);
+  // Persist on every change. The hydrated ref skips the very first render
+  // (initial mount) and any render where the key-change effect just loaded
+  // a new draft (so the loaded draft isn't immediately overwritten by stale
+  // pre-hydration state).
   useEffect(() => {
     if (!hydrated.current) {
       hydrated.current = true;
