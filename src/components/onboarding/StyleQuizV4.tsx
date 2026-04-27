@@ -511,8 +511,8 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
                 <div className="flex items-center gap-3">
                   <Input
                     type="number"
-                    min={100}
-                    max={250}
+                    min={HEIGHT_CM_MIN}
+                    max={HEIGHT_CM_MAX}
                     value={answers.height_cm > 0 ? answers.height_cm : ''}
                     onChange={(e) => set('height_cm', Number(e.target.value) || 0)}
                     placeholder="175"
