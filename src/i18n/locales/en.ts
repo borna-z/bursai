@@ -3498,6 +3498,24 @@ const en: Record<string, string> = {
   'studioSelection.enqueue_error': "Couldn't start your renders. Try again?",
   'studioSelection.no_credits': 'No render credits found. Please retry from the previous step.',
   'studioSelection.partial_progress': 'Finishing your previous picks. Hold on a sec.',
+
+  // Wave 7 P50 — CoachTour: 5-card walk-through shown while studio renders cook in background
+  'coachTour.eyebrow': 'Quick tour',
+  'coachTour.title': "Welcome to BURS — let's take a quick tour.",
+  'coachTour.subtitle': 'Five things to know while your studio renders cook in the background.',
+  'coachTour.tip_home_title': 'Home — your daily plan',
+  'coachTour.tip_home_body': 'Weather, calendar, and a fresh outfit suggestion every morning.',
+  'coachTour.tip_wardrobe_title': 'Wardrobe — every piece you own',
+  'coachTour.tip_wardrobe_body': 'Tap any garment to see how often you wear it and what pairs best.',
+  'coachTour.tip_outfits_title': 'Outfits — saved looks',
+  'coachTour.tip_outfits_body': 'Generate combinations from what you own. Save the ones you love.',
+  'coachTour.tip_chat_title': 'AI Stylist — chat with the engine',
+  'coachTour.tip_chat_body': 'Ask for a refined look. "Make it warmer." "Swap the shoes."',
+  'coachTour.tip_renders_title': 'Studio renders — your three picks',
+  'coachTour.tip_renders_body': 'Open any garment to see its clean studio shot. They render in the background.',
+  'coachTour.cta_label': "I'm ready",
+  'coachTour.cta_label_with_render': 'Show me my renders',
+  'coachTour.first_render_ready': 'Your first render is ready.',
 };
 
 export default en;

@@ -18,6 +18,7 @@ import { PhotoTutorialStep } from '@/components/onboarding/PhotoTutorialStep';
 import { BatchCaptureStep } from '@/components/onboarding/BatchCaptureStep';
 import { AchievementStep } from '@/components/onboarding/AchievementStep';
 import { StudioSelectionStep } from '@/components/onboarding/StudioSelectionStep';
+import { CoachTourStep } from '@/components/onboarding/CoachTourStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
@@ -26,7 +27,7 @@ import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'studio_selection', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'achievement', 'studio_selection', 'coach_tour', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -70,6 +71,7 @@ export default function OnboardingPage() {
   const [batchCaptureDone, setBatchCaptureDone] = useState(false);
   const [achievementDone, setAchievementDone] = useState(false);
   const [studioSelectionDone, setStudioSelectionDone] = useState(false);
+  const [coachTourDone, setCoachTourDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   // Wave 7 P0 audit fix #5: hydrate local step state from the server-known
@@ -133,31 +135,44 @@ export default function OnboardingPage() {
       setAchievementDone(true);
       return;
     }
-    // `studio_selection`, `coach_tour`, `reveal` → all post-studio-selection.
-    // P50+ (CoachTour, Reveal) aren't built yet; treat as `getstarted` for now
-    // so the user isn't trapped indefinitely on a screen that expects further
-    // forward state.
-    //
-    // TODO(P50): when CoachTour ships, server states 'coach_tour' / 'reveal'
-    // should map to their respective new local states (and STEPS array entries),
-    // not collapse into `studioSelectionDone=true → getstarted`. The current
-    // branch is a placeholder until those screens exist. The collapse is safe
-    // because all 3 render_jobs were already enqueued by P49 before this step
-    // would fire (StudioSelectionStep.onComplete is the only path here), so
-    // skipping straight to getstarted doesn't lose work — it just skips the
-    // tour. Once P50 lands, split this branch into per-step setters and add
-    // 'coach_tour' / 'reveal' entries to the STEPS array.
-    if (
-      serverStep === 'studio_selection' ||
-      serverStep === 'coach_tour' ||
-      serverStep === 'reveal'
-    ) {
+    // `studio_selection` → user is mid-pick on the studio-selection screen.
+    // Flip everything up to (but not including) studio_selection so the
+    // StudioSelectionStep is what renders.
+    if (serverStep === 'studio_selection') {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      setPhotoTutorialDone(true);
+      setBatchCaptureDone(true);
+      setAchievementDone(true);
+      return;
+    }
+    // `coach_tour` → render jobs were enqueued, user is on the tour screen.
+    // Flip studio_selection done so CoachTourStep is what renders.
+    if (serverStep === 'coach_tour') {
       setLanguageStepDone(true);
       setQuizDone(true);
       setPhotoTutorialDone(true);
       setBatchCaptureDone(true);
       setAchievementDone(true);
       setStudioSelectionDone(true);
+      return;
+    }
+    // `reveal` → P51 not built yet; treat as getstarted so the user isn't
+    // trapped on a screen that expects further forward state. Safe because
+    // all 3 render_jobs were enqueued in P49 before this server-state
+    // transition. The reveal copy will surface in P51 when it ships.
+    //
+    // TODO(P51): when Reveal ships, split this branch — server state
+    // 'reveal' should map to a dedicated local boolean (not collapse to
+    // getstarted) and add 'reveal' to the STEPS array.
+    if (serverStep === 'reveal') {
+      setLanguageStepDone(true);
+      setQuizDone(true);
+      setPhotoTutorialDone(true);
+      setBatchCaptureDone(true);
+      setAchievementDone(true);
+      setStudioSelectionDone(true);
+      setCoachTourDone(true);
     }
   }, [profile]);
 
@@ -401,12 +416,10 @@ export default function OnboardingPage() {
   const handleStudioSelectionComplete = async () => {
     // Wave 7 P49: advance backend state machine to 'coach_tour'. Same
     // deploy-window-tolerant pattern as the prior handlers — log + toast on
-    // RPC error, then flip the local flag anyway so the user moves on
-    // (P50 CoachTour isn't built yet so the next step renders GetStarted
-    // for now). The 3 render_jobs were already enqueued by
-    // StudioSelectionStep before it called onComplete; their progress is
-    // surfaced to the user via the wardrobe card shimmer + the eventual
-    // CoachTour reveal once P50 ships.
+    // RPC error, then flip the local flag anyway so the user moves on. The
+    // 3 render_jobs were already enqueued by StudioSelectionStep before it
+    // called onComplete; their progress is surfaced via CoachTourStep's
+    // realtime subscription (and the eventual Reveal screen once P51 ships).
     if (user) {
       try {
         await advanceOnboardingStep(user.id, 'coach_tour', queryClient);
@@ -416,6 +429,24 @@ export default function OnboardingPage() {
       }
     }
     setStudioSelectionDone(true);
+  };
+
+  const handleCoachTourComplete = async () => {
+    // Wave 7 P50: advance backend state machine to 'reveal'. Same
+    // deploy-window-tolerant pattern — log + toast on RPC error, then flip
+    // the local flag anyway so the user moves on (P51 Reveal isn't built
+    // yet so the next step collapses to GetStarted; safe because the 3
+    // renders were enqueued in P49 and continue cooking regardless of
+    // which screen the user lands on next).
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'reveal', queryClient);
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(reveal) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setCoachTourDone(true);
   };
 
   const handleGetStartedAction = async (path: string) => {
@@ -459,7 +490,9 @@ export default function OnboardingPage() {
             ? 'achievement'
             : !studioSelectionDone
               ? 'studio_selection'
-              : 'getstarted';
+              : !coachTourDone
+                ? 'coach_tour'
+                : 'getstarted';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -506,6 +539,11 @@ export default function OnboardingPage() {
           {stepKey === 'studio_selection' ? (
             <StudioSelectionStep
               onComplete={() => { hapticLight(); handleStudioSelectionComplete(); }}
+            />
+          ) : null}
+          {stepKey === 'coach_tour' ? (
+            <CoachTourStep
+              onComplete={() => { hapticLight(); handleCoachTourComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}
