@@ -96,8 +96,17 @@ const TIER_MULTIPLIERS: Record<SubscriptionPlan, number> = {
 };
 
 const subscriptionCache = new Map<string, { plan: SubscriptionPlan; fetchedAt: number }>();
+// Default 5-minute TTL for stable plans (free/premium). Onboarding plans use a
+// shorter TTL so completion (or the 24h-window expiry) is reflected within
+// ~60 seconds — otherwise a freshly-completed user would keep the 3x boost for
+// up to 5 minutes after they shouldn't have it (Wave 7 audit P0 #3).
 const SUBSCRIPTION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const ONBOARDING_CACHE_TTL_MS = 60 * 1000; // 60 seconds — short TTL for transient onboarding plan
 const ONBOARDING_BOOST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function ttlForPlan(plan: SubscriptionPlan): number {
+  return plan === "onboarding" ? ONBOARDING_CACHE_TTL_MS : SUBSCRIPTION_CACHE_TTL_MS;
+}
 
 /**
  * Resolve a user's effective rate-limit plan. Exported so tests can hit it
@@ -107,7 +116,9 @@ const ONBOARDING_BOOST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
  */
 export async function resolveUserPlan(supabaseAdmin: any, userId: string): Promise<SubscriptionPlan> {
   const cached = subscriptionCache.get(userId);
-  if (cached && Date.now() - cached.fetchedAt < SUBSCRIPTION_CACHE_TTL_MS) {
+  // Per-plan TTL: onboarding caches for 60s (so completion or 24h-window
+  // expiry surfaces fast), free/premium for 5min (stable, low-churn).
+  if (cached && Date.now() - cached.fetchedAt < ttlForPlan(cached.plan)) {
     return cached.plan;
   }
 
@@ -130,9 +141,9 @@ export async function resolveUserPlan(supabaseAdmin: any, userId: string): Promi
     ]);
 
     // Onboarding boost takes precedence over subscription plan when active.
-    // Resolved plan is cached for 5 min; a user crossing the 24h window
-    // mid-cache may stay boosted for up to 5 extra minutes — acceptable
-    // (the cost is bounded and the boost is generous, not abusive).
+    // Onboarding plans cache for 60s (see ttlForPlan + Wave 7 audit P0 #3);
+    // a user crossing the 24h window or completing onboarding mid-cache
+    // sees the boost lift within 60 seconds.
     const profile = profileRes?.data as
       | { onboarding_step?: string | null; onboarding_started_at?: string | null }
       | null
@@ -186,8 +197,14 @@ export function applyTierMultiplier(tier: RateLimitTier, plan: SubscriptionPlan)
  * Uses the ai_rate_limits table. Throws RateLimitError(429) when exceeded.
  *
  * Limits scale by subscription tier: premium=2x, free=0.75x of base.
- * Functions with noTierMultiplier:true bypass tier scaling entirely —
- * the raw configured values apply equally to all users regardless of plan.
+ * Functions with noTierMultiplier:true bypass free/premium tier scaling — the
+ * raw configured values apply to free AND premium users (parity choice for
+ * abuse-sensitive endpoints like analyze_garment). Onboarding users (Wave 7
+ * P43) ALWAYS get the 3x boost regardless of noTierMultiplier — the boost is
+ * scoped to the first 24h post-onboarding-start AND requires onboarding_step
+ * to still be mid-flow, so the abuse window is bounded. Without this carve-out,
+ * BatchCapture's parallel analyze_garment calls would throttle at 30/min
+ * instead of 90/min, breaking the onboarding UX (Wave 7 audit P0 #2).
  * Returns { allowed: true, remaining: { hour, minute } } on success.
  */
 export async function enforceRateLimit(
@@ -198,13 +215,18 @@ export async function enforceRateLimit(
 ): Promise<{ allowed: true; remaining: { hour: number; minute: number } }> {
   const baseTier = { ...getRateLimitTier(functionName), ...overrides };
 
-  // noTierMultiplier: skip plan resolution and multiplier entirely — use raw base values.
-  // All other functions resolve the user's subscription plan and scale accordingly.
+  // Always resolve the user's plan — we need to know if they're onboarding.
+  // resolveUserPlan is cached per-isolate (60s for onboarding, 5min otherwise),
+  // so the cost is one DB round-trip per user per cache window, not per call.
+  const plan = await resolveUserPlan(supabaseAdmin, userId);
+
   let tier: { maxPerHour: number; maxPerMinute: number };
-  if (baseTier.noTierMultiplier) {
+  if (baseTier.noTierMultiplier && plan !== "onboarding") {
+    // free / premium with noTierMultiplier: raw base values, no scaling.
     tier = { maxPerHour: baseTier.maxPerHour, maxPerMinute: baseTier.maxPerMinute };
   } else {
-    const plan = await resolveUserPlan(supabaseAdmin, userId);
+    // Onboarding ALWAYS gets the 3x boost (even on noTierMultiplier endpoints);
+    // free / premium without noTierMultiplier get their normal multiplier.
     tier = applyTierMultiplier(baseTier, plan);
   }
 

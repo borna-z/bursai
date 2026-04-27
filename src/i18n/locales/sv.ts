@@ -3092,6 +3092,8 @@ const sv: Record<string, string> = {
   'batchCapture.done_cta': 'Klar',
   'batchCapture.min_helper': 'av 20 minimum',
   'batchCapture.recommended_helper': 'av 30 rekommenderade',
+  // Wave 7 P0 audit fix #8 — visas när increment_onboarding_garment_count-RPC misslyckas trots att plagget sparades.
+  'batchCapture.count_update_failed': 'Kunde inte uppdatera räknaren. Ditt foto är sparat.',
 
   // Wave 7 P48 — Belöningsskärm med 3 gratis studio-renderingar
   'achievement.eyebrow': 'Garderoben är inne',

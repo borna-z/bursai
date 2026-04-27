@@ -1,3 +1,5 @@
+import type { QueryClient } from '@tanstack/react-query';
+
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -38,9 +40,18 @@ export interface AdvanceOnboardingStepResult {
   target?: OnboardingStep;
 }
 
+/**
+ * Optional `queryClient` is passed by hook-layer callers (which can resolve
+ * `useQueryClient()`) so we can invalidate the React Query `['profile', userId]`
+ * cache as a side effect after the RPC succeeds. The `App.tsx` `QueryClient` is
+ * a module-local const (not exported), so we accept the instance via param
+ * rather than importing a singleton — keeps non-React callers (server-side
+ * tests, rare module-scope usage) compiling without a provider.
+ */
 export async function advanceOnboardingStep(
   userId: string,
   toStep: OnboardingStep,
+  queryClient?: QueryClient,
 ): Promise<AdvanceOnboardingStepResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.rpc as any)(
@@ -48,5 +59,11 @@ export async function advanceOnboardingStep(
     { p_user_id: userId, p_to_step: toStep },
   );
   if (error) throw error;
+  // Wave 7 P0 audit fix #4: invalidate profile cache so step changes propagate to ProtectedRoute immediately.
+  // Without this, `useProfile`'s 10-min staleTime keeps the old `onboarding_step` value visible to gates
+  // (ProtectedRoute, Onboarding.tsx hydration), producing redirect loops for users who just completed a step.
+  if (queryClient) {
+    queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+  }
   return (data ?? { ok: false }) as AdvanceOnboardingStepResult;
 }

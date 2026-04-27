@@ -22,12 +22,7 @@ import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 import {
   STYLE_PROFILE_VERSION,
-  v3ClimateToV4,
   v3FitToV4,
-  v3GenderToV4,
-  v3LayeringToV4,
-  v3PaletteVibeToV4,
-  v3PrimaryGoalToV4,
   v4ClimateToV3,
   v4FitToV3,
   v4GenderToV3,
@@ -95,44 +90,37 @@ export default function SettingsStyle() {
   const isV4 = (sp as { version?: number }).version === STYLE_PROFILE_VERSION;
 
   const updateStyleField = async (key: keyof StyleProfile, value: unknown) => {
-    // V4 schema integrity (Codex rounds 4-5 on PR #685):
-    // - `gender`: V3 + V4 share the field name. Translate V3 dropdown input
-    //   to the V4 enum so the canonical value stays a V4 enum.
+    // V4-aware write strategy (PR #688 audit finding #9 alignment with
+    // `migrateV4ToV3Compat`):
+    //
+    // The persisted record carries V4-only canonical keys (`fitOverall`,
+    // `formalityCeiling`, `archetypes`, `lifestyle`) AND V3-mirror keys with
+    // V3 vocab on every same-name collision (`gender`, `climate`, `layering`,
+    // `paletteVibe`, `primaryGoal`). Five legacy edge readers
+    // (`burs_style_engine`, `style_chat`, `_shared/outfit-scoring.ts`)
+    // string-match on V3 enums, so we MUST persist V3 vocab on the
+    // colliding keys. Translating dropdown input to V4 vocab on write would
+    // re-introduce the original bug (V3 readers stop parsing the field).
+    //
+    // - Same-name collisions (gender, climate, layering, paletteVibe,
+    //   primaryGoal): pass the V3 dropdown value through unchanged. The
+    //   `v3*ToV4` translators are still exported for any future code that
+    //   genuinely needs the V4 enum from a V3 input (e.g. building a V4
+    //   profile object in tests), but Settings doesn't need them.
     // - `fit`: V3 'fit' and V4 'fitOverall' are DIFFERENT keys for the same
     //   conceptual field. Update BOTH — V3 mirror keeps V3 vocab for legacy
-    //   readers, V4 canonical gets the V4 enum so V4-aware consumers don't
-    //   read stale data after a Settings edit (round 5 P1).
-    // Non-V4 (pre-quiz) records pass through with no translation.
+    //   readers, V4 canonical (`fitOverall`) gets the V4 enum so V4-aware
+    //   consumers don't read stale data after a Settings edit (Codex round 5
+    //   P1 on PR #685).
+    // Non-V4 (pre-quiz) records pass through with no translation either way.
     let newSp: Record<string, unknown> = { ...sp, [key]: value };
     if (isV4 && typeof value === 'string') {
-      if (key === 'gender') {
-        const v4 = v3GenderToV4(value);
-        if (v4) newSp = { ...sp, gender: v4 };
-      } else if (key === 'fit') {
+      if (key === 'fit') {
         const v4 = v3FitToV4(value);
         if (v4) newSp = { ...sp, fit: value, fitOverall: v4 };
-      } else if (key === 'climate') {
-        // V3 climate dropdown emits 'cold'/'warm'/'mixed' which aren't valid
-        // V4 enum values. Translate to V4 (Codex round 6 P1 on PR #685) so
-        // editing climate on a V4 profile preserves V4 schema integrity.
-        const v4 = v3ClimateToV4(value);
-        if (v4) newSp = { ...sp, climate: v4 };
-      } else if (key === 'layering') {
-        // Codex round 8 P1: V4 enum is 'minimal'|'some'|'love'; V3 dropdown
-        // emits 'minimal'|'moderate'|'loves'. Translate.
-        const v4 = v3LayeringToV4(value);
-        if (v4) newSp = { ...sp, layering: v4 };
-      } else if (key === 'paletteVibe') {
-        // Codex round 8 P1: V4 paletteVibe has 6 values; V3 dropdown has 4
-        // different ones. Translate to V4 to preserve schema.
-        const v4 = v3PaletteVibeToV4(value);
-        if (v4) newSp = { ...sp, paletteVibe: v4 };
-      } else if (key === 'primaryGoal') {
-        // Codex round 8 P1: V4 has 7 goal values; V3 has 5 different ones.
-        // Translate at write time.
-        const v4 = v3PrimaryGoalToV4(value);
-        if (v4) newSp = { ...sp, primaryGoal: v4 };
       }
+      // Other collision keys (gender / climate / layering / paletteVibe /
+      // primaryGoal) intentionally fall through with V3 vocab preserved.
     }
 
     try {

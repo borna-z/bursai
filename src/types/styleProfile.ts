@@ -595,8 +595,14 @@ export function v3PrimaryGoalToV4(value: string): PrimaryGoal | null {
 
 /**
  * Merge a V4 profile with V3-compatible mirror keys so legacy readers see
- * populated values. Returned object has BOTH shapes (V4 + V3) — V4 readers
- * use the canonical V4 keys, V3 readers find their expected keys populated.
+ * populated values. Returned object has BOTH shapes (V4 + V3 compat) — V4
+ * canonical-only fields (`fitOverall`, `formalityCeiling`, `archetypes`,
+ * `lifestyle`, …) keep V4 shape; V3-mirror-only fields (`weekdayLife`,
+ * `workFormality`, …) populate V3 names; same-name collision fields persist
+ * V3 vocab so legacy edge readers (`burs_style_engine`, `style_chat`,
+ * `_shared/outfit-scoring.ts`) keep emitting populated prompt lines that
+ * the AI parses correctly. V4-aware UIs (`SettingsStyle`) detect V3 vocab
+ * via the per-field `V4_*_VALUES` allowlist and translate as needed.
  *
  * Heuristics:
  *  - `comfortVsStyle: 100 - formalityCeiling` (ceiling 90 = comfort 10,
@@ -606,60 +612,89 @@ export function v3PrimaryGoalToV4(value: string): PrimaryGoal | null {
  *  - V3 fields V4 doesn't capture (weekday, weekend, workFormality,
  *    specialOccasion, topStyle, bottomLength, etc.) defaulted to `''` so
  *    legacy `if (sp.X)` guards skip cleanly.
+ *
+ * Audit finding #9 fix (PR #688): the previous implementation finished with
+ * `{ ...compat, ...v4 }` which let raw V4 enum values (`gender: 'feminine'`,
+ * `climate: 'nordic'`, `layering: 'love'`, `paletteVibe: 'neutrals'`,
+ * `primaryGoal: 'discover_style'`) overwrite the carefully-translated V3
+ * vocab on the same-name collision keys. Five legacy edge readers couldn't
+ * parse those V4 values and silently degraded outfit ranking, chat replies,
+ * and scoring. We now build the merged object explicitly so V3-vocab
+ * collision keys win and V4-only fields stay untouched.
  */
 export function migrateV4ToV3Compat(
   v4: StyleProfileV4,
 ): StyleProfileV4 & V3CompatKeys {
-  const compat: V3CompatKeys = {
-    // Identity
-    gender: v4GenderToV3(v4.gender),
-    ageRange: v4.ageRange,
-    climate: v4.climate,
+  // V4-only fields (no V3 collision) — spread V4 raw.
+  const {
+    gender: _g,
+    climate: _c,
+    paletteVibe: _pv,
+    primaryGoal: _pg,
+    layering: _l,
+    favoriteColors: _fc,
+    dislikedColors: _dc,
+    archetypes: _a,
+    occasions: _o,
+    styleIcons: _si,
+    cultural: _cu,
+    ageRange: _ar,
+    ...v4OnlyFields
+  } = v4;
+
+  // V3-mirror-only fields (V3 names V4 doesn't have — pure compat).
+  const v3MirrorOnly: V3CompatKeys = {
     height: String(v4.height_cm),
-    // Daily life — V4 doesn't capture; legacy guards skip
     weekdayLife: '',
     workFormality: '',
     weekendLife: '',
     specialOccasion: '',
-    // Style direction
     styleWords: v4.archetypes.slice(0, 5),
     comfortVsStyle: 100 - v4.formalityCeiling,
     adventurousness: '',
     trendFollowing: '',
     genderNeutral: v4.gender === 'neutral' ? 'yes' : '',
-    // Fit & silhouette — V3 mirror uses V3 vocabulary (V4 'fitted' → V3 'slim',
-    // V4 'relaxed' → V3 'loose', etc.) so legacy readers that string-match on
-    // V3 enums (Codex round 5 P2 on PR #685) keep working.
-    fit: v4FitToV3(v4.fitOverall),
-    layering: v4.layering,
     topFit: '',
     bottomLength: '',
-    // Color & pattern
-    favoriteColors: v4.favoriteColors,
-    dislikedColors: v4.dislikedColors,
-    paletteVibe: v4.paletteVibe,
     patternFeeling: v4.patternComfort,
-    // Philosophy
     shoppingMindset: '',
     sustainability: '',
     capsuleWardrobe: '',
     wardrobeFrustrations: [],
-    // Inspiration
-    styleIcons: v4.styleIcons ?? '',
     hardestOccasions: v4.occasions,
     fabricFeel: '',
     signaturePieces: '',
-    // Goals
-    primaryGoal: v4.primaryGoal,
-    bursGoal: v4.primaryGoal,
+    bursGoal: v4PrimaryGoalToV3(v4.primaryGoal),
     morningTime: '',
     freeNote: v4.cultural ?? '',
     freeText: v4.cultural ?? '',
   };
-  // V4 wins for any name collision with V3 mirror keys (Codex round 2 P1 on
-  // PR #685). The V4 canonical schema must persist intact; compat keys only
-  // populate V3 names that aren't already V4 fields. Earlier `{ ...v4,
-  // ...compat }` overwrote `gender: 'feminine'` with `gender: 'female'`,
-  // corrupting V4 schema for AI consumers and any downstream V4 reader.
-  return { ...compat, ...v4 };
+
+  return {
+    // 1. V3 mirror-only keys.
+    ...v3MirrorOnly,
+    // 2. V4-only fields (no name collision) — preserve V4 schema.
+    ...v4OnlyFields,
+    // 3. Pure-array / pure-string fields shared by name (no vocab translation needed).
+    favoriteColors: v4.favoriteColors,
+    dislikedColors: v4.dislikedColors,
+    archetypes: v4.archetypes,
+    occasions: v4.occasions,
+    styleIcons: v4.styleIcons ?? '',
+    cultural: v4.cultural ?? '',
+    ageRange: v4.ageRange, // V4 superset of V3 — pass through.
+    // 4. Same-name collision fields — V3 vocab WINS so legacy readers parse
+    //    them. V4-aware code reads `version: 4` + the V4-only canonical
+    //    fields (e.g. `fitOverall`, `formalityCeiling`) for V4-shaped data.
+    //    Per-field translators (`v4*ToV3`) are exported so SettingsStyle and
+    //    other V4-aware UIs can normalize either direction at edit time.
+    gender: v4GenderToV3(v4.gender),
+    climate: v4ClimateToV3(v4.climate),
+    layering: v4LayeringToV3(v4.layering),
+    paletteVibe: v4PaletteVibeToV3(v4.paletteVibe),
+    primaryGoal: v4PrimaryGoalToV3(v4.primaryGoal),
+    // 5. V4 has no `fit` key (V4 uses `fitOverall`); the V3 mirror's `fit`
+    //    is a separate name — translate from `fitOverall`.
+    fit: v4FitToV3(v4.fitOverall),
+  } as StyleProfileV4 & V3CompatKeys;
 }

@@ -3475,6 +3475,8 @@ const en: Record<string, string> = {
   'batchCapture.done_cta': "I'm done",
   'batchCapture.min_helper': 'of 20 minimum',
   'batchCapture.recommended_helper': 'of 30 recommended',
+  // Wave 7 P0 audit fix #8 — surfaced when increment_onboarding_garment_count RPC fails after a successful garment save.
+  'batchCapture.count_update_failed': "Couldn't update progress counter. Your photo is saved.",
 
   // Wave 7 P48 — Achievement / trial-gift celebration screen
   'achievement.eyebrow': 'Wardrobe captured',

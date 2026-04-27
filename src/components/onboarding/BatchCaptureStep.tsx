@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, Camera, Check, ImagePlus, Loader2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Card } from '@/components/ui/card';
 import { PageIntro } from '@/components/ui/page-intro';
@@ -49,10 +51,15 @@ export function BatchCaptureStep({ onComplete }: BatchCaptureStepProps) {
   const { uploadGarmentImage } = useStorage();
   const { analyzeGarment } = useAnalyzeGarment();
   const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
 
-  // Server count is the persisted source of truth (survives reloads). We
-  // mirror it locally so the UI can update optimistically while a capture is
-  // mid-flight; refetch reconciles the two on the next poll.
+  // Server count is the persisted source of truth (survives reloads). After
+  // each successful per-file pipeline, `incrementOnboardingGarmentCount`
+  // invalidates the `['profile', userId]` cache key (Cluster B side effect)
+  // so this value re-fetches automatically and the canonical count drives
+  // the UI. `optimisticBumps` only covers the brief window between the
+  // user pressing "Add photos" and the RPC settling, so the counter never
+  // visibly stalls at the start of an upload.
   const serverCount = (profile as { onboarding_garment_count?: number | null } | null)
     ?.onboarding_garment_count ?? 0;
   const [optimisticBumps, setOptimisticBumps] = useState(0);
@@ -60,28 +67,18 @@ export function BatchCaptureStep({ onComplete }: BatchCaptureStepProps) {
   const [isAdvancing, setIsAdvancing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Server count + in-flight optimistic bumps. We don't subtract failed
-  // captures from the optimistic counter because the server only increments
-  // on success — successful uploads land in serverCount on the next refetch
-  // and we reset the optimistic delta then.
+  // Server count + in-flight optimistic bumps. The bump is +1 for the brief
+  // window each in-flight upload spends between "garment row saved" and
+  // "RPC settled (success or failure)" — both branches decrement it. On
+  // success, the cache invalidation triggers a refetch so `serverCount`
+  // becomes canonical. On failure, we explicitly refetch profile so the
+  // counter snaps back to the canonical value (no phantom bumps stick
+  // around if the counter RPC failed).
   const totalCount = serverCount + optimisticBumps;
   const reachedMin = totalCount >= MIN_GARMENTS;
   const reachedRecommended = totalCount >= RECOMMENDED_GARMENTS;
   // Progress bar capped visually at 30; counter keeps incrementing past it.
   const progressValue = Math.min(100, (totalCount / RECOMMENDED_GARMENTS) * 100);
-
-  // Reconcile optimistic counter when the server count catches up. We only
-  // shrink optimisticBumps — never grow — because the server is authoritative
-  // and additional bumps could come in between renders.
-  useEffect(() => {
-    if (optimisticBumps === 0) return;
-    // Server caught up to or past where we expected; reset the local delta.
-    setOptimisticBumps(0);
-    // We intentionally only depend on serverCount: when it advances, the
-    // useEffect fires and resets the optimistic counter to avoid double-
-    // counting. optimisticBumps is read inside but should not retrigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverCount]);
 
   const remainingSlots = useMemo(
     () => Math.max(0, MAX_GARMENTS - totalCount - items.filter((i) => i.status !== 'done' && i.status !== 'error').length),
@@ -188,21 +185,51 @@ export function BatchCaptureStep({ onComplete }: BatchCaptureStepProps) {
         });
       }
 
-      // Bump the server-side onboarding counter ONLY after the garment row
-      // committed. Failure here doesn't roll back the garment — it just
-      // means the user's onboarding boost may be reduced if the count
-      // drifts. Surface a warning rather than blocking the flow.
-      try {
-        await incrementOnboardingGarmentCount(user.id);
-      } catch (countErr) {
-        logger.warn('BatchCapture: count increment failed (garment saved, count may drift):', countErr);
-      }
-
+      // Garment row committed. Now reflect it in the counter immediately so
+      // the user gets instant feedback while the RPC + cache invalidation
+      // are in flight. The bump is paired with the decrement below — both
+      // success and failure paths decrement, so optimisticBumps never sticks
+      // beyond the lifetime of an in-flight RPC.
       setOptimisticBumps((current) => current + 1);
       setItems((current) =>
         current.map((entry) => (entry.id === itemId ? { ...entry, status: 'done' } : entry)),
       );
       hapticLight();
+
+      // Bump the server-side onboarding counter ONLY after the garment row
+      // committed. The garment is saved either way — only the counter is
+      // affected by RPC failure.
+      try {
+        // Pass queryClient so the wrapper invalidates ['profile', userId]
+        // on success — without it, useProfile's 10-min staleTime keeps
+        // serverCount stale and the counter visibly oscillates
+        // serverCount → +1 → serverCount only minutes later. (Code-reviewer
+        // P1 round 1 on the integrated audit-fix diff.)
+        await incrementOnboardingGarmentCount(user.id, queryClient);
+        // Success: cache invalidation (Cluster B side effect of
+        // incrementOnboardingGarmentCount) refreshes `serverCount` to
+        // the canonical value. Back off our optimistic guess so the two
+        // don't double-count once the refetch resolves.
+        setOptimisticBumps((current) => Math.max(0, current - 1));
+      } catch (countErr) {
+        logger.warn('BatchCapture: count increment failed (garment saved, count may drift):', countErr);
+        // Failure: the garment is still saved, but the counter RPC didn't
+        // run. Drop the optimistic bump and refetch the profile so the
+        // counter snaps back to the canonical (lower) value rather than
+        // showing a stale +1 that would otherwise persist for the rest of
+        // the session. Toast the user so they understand the count
+        // reverted but their photo is safe.
+        setOptimisticBumps((current) => Math.max(0, current - 1));
+        void queryClient.refetchQueries({ queryKey: ['profile', user.id] });
+        toast.error(
+          safeT(
+            t,
+            'batchCapture.count_update_failed',
+            "Couldn't update progress counter. Your photo is saved.",
+          ),
+        );
+      }
+
       return true;
     } catch (err) {
       logger.error('BatchCapture: per-file pipeline failed:', err);
