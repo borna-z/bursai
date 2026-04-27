@@ -3145,6 +3145,10 @@ const sv: Record<string, string> = {
   'reveal.hero_aria_cooking': 'Förhandsvisning av studio-rendering, renderas fortfarande',
   'reveal.loading': 'Letar efter dina renderingar…',
   'reveal.cta_label': 'Börja använda BURS',
+
+  // ── Wave 7.9 — Onboarding progress + quiz progress i18n (P1 #4) ───
+  'onboarding.progress_label': 'Steg {n} av {total}',
+  'styleQuizV4.progress_label': 'Fråga {n} av {total}',
 };
 
 export default sv;

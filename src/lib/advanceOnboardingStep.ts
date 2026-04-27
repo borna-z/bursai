@@ -10,9 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
  * mismatch / invalid step name / network errors.
  *
  * Centralised here so:
- *   - The 4 onboarding-completing surfaces (`useOnboarding.completeOnboarding`,
- *     `Onboarding.tsx` local completion, future PR 2-5 step transitions) share
- *     one implementation.
+ *   - The onboarding step transitions (Onboarding.tsx local completion +
+ *     per-step handlers, BatchCaptureStep, etc.) share one implementation.
+ *     Wave 7.9: the dead `useOnboarding` hook (only consumer of the
+ *     wrapper outside `Onboarding.tsx`) was removed — runtime lives
+ *     entirely in `Onboarding.tsx`.
  *   - The transitional `as any` cast lives in exactly one place. Goes away on
  *     the next `supabase gen types typescript --linked` regen, which adds the
  *     new RPC to the typed Functions union (the regen runs post-merge per

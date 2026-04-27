@@ -3528,6 +3528,14 @@ const en: Record<string, string> = {
   'reveal.hero_aria_cooking': 'Studio render preview, still rendering',
   'reveal.loading': 'Looking for your renders…',
   'reveal.cta_label': 'Start using BURS',
+
+  // ── Wave 7.9 — Onboarding progress + quiz progress i18n (P1 #4) ───
+  // Placeholder pattern: '{n}' / '{total}' replaced via String.replace at
+  // render time (LanguageContext's `t: (key) => string` has no built-in
+  // interpolation; .replace is the path-of-least-resistance, matches
+  // P34/P36 precedent).
+  'onboarding.progress_label': 'Step {n} of {total}',
+  'styleQuizV4.progress_label': 'Question {n} of {total}',
 };
 
 export default en;

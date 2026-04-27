@@ -115,6 +115,13 @@ export function CoachTourStep({ onComplete }: CoachTourStepProps) {
   const { user } = useAuth();
 
   const [firstRenderReady, setFirstRenderReady] = useState(false);
+  // Wave 7.9 P1 #5: double-tap guard.
+  const [advancing, setAdvancing] = useState(false);
+  const handleAdvance = () => {
+    if (advancing) return;
+    setAdvancing(true);
+    onComplete();
+  };
 
   // Source-of-truth for the 3 watched garments: the 3 most-recent
   // non-terminal render_jobs for this user. P49 enqueued exactly 3, and
@@ -307,7 +314,7 @@ export function CoachTourStep({ onComplete }: CoachTourStepProps) {
         ) : null}
 
         <div className="action-bar-floating rounded-[1.6rem] p-3">
-          <Button onClick={onComplete} size="lg" className="w-full">
+          <Button onClick={handleAdvance} size="lg" disabled={advancing} className="w-full">
             {firstRenderReady ? <Sparkles className="h-4 w-4" /> : null}
             {ctaCopy}
             <ArrowRight className="h-4 w-4" />

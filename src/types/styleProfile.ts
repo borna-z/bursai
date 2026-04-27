@@ -605,9 +605,12 @@ export function v3PrimaryGoalToV4(value: string): PrimaryGoal | null {
  * via the per-field `V4_*_VALUES` allowlist and translate as needed.
  *
  * Heuristics:
- *  - `comfortVsStyle: 100 - formalityCeiling` (ceiling 90 = comfort 10,
- *    ceiling 30 = comfort 70). Rough but lets the legacy comfort scoring
- *    in `_shared/outfit-scoring.ts` keep producing useful gradients.
+ *  - `comfortVsStyle: 100 - average(formalityFloor, formalityCeiling)` —
+ *    Wave 7.9 P2 #1: previously `100 - formalityCeiling` ignored the floor
+ *    entirely, so a user who set floor=10 (loves comfortable casualwear)
+ *    + ceiling=80 (can dress up if needed) got the same comfort score as
+ *    a user with floor=80 + ceiling=80 (always formal). Averaging the two
+ *    captures the user's typical dressed-state, not just the upper bound.
  *  - V3 `wardrobeFrustrations` doesn't exist in V4 — defaulted to `[]`.
  *  - V3 fields V4 doesn't capture (weekday, weekend, workFormality,
  *    specialOccasion, topStyle, bottomLength, etc.) defaulted to `''` so
@@ -650,7 +653,13 @@ export function migrateV4ToV3Compat(
     weekendLife: '',
     specialOccasion: '',
     styleWords: v4.archetypes.slice(0, 5),
-    comfortVsStyle: 100 - v4.formalityCeiling,
+    // Wave 7.9 P2 #1 fix: average floor + ceiling so comfortVsStyle reflects
+    // the user's TYPICAL dress-up state, not just the upper bound. Clamped
+    // to 0-100 because `Math.round` of `100 - average` keeps the V3 scale.
+    comfortVsStyle: Math.max(
+      0,
+      Math.min(100, Math.round(100 - (v4.formalityFloor + v4.formalityCeiling) / 2)),
+    ),
     adventurousness: '',
     trendFollowing: '',
     genderNeutral: v4.gender === 'neutral' ? 'yes' : '',

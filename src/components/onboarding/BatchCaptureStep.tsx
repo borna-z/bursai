@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, Camera, Check, ImagePlus, Loader2, X } from 'lucide-react';
@@ -65,7 +65,45 @@ export function BatchCaptureStep({ onComplete }: BatchCaptureStepProps) {
   const [optimisticBumps, setOptimisticBumps] = useState(0);
   const [items, setItems] = useState<CaptureItem[]>([]);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  // Wave 7.9 P1 #6: prevents handleFiles from re-entering if the user picks
+  // files again before the previous batch finishes processing. Without this,
+  // `remainingSlots` is captured inside each `handleFiles` invocation BEFORE
+  // its files start the per-file pipeline, so two overlapping picks can
+  // both pass the slice check and land beyond MAX_GARMENTS server-side.
+  const isHandlingFilesRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Wave 7.9 P2 #6: revoke ALL outstanding ObjectURLs on unmount so a fast
+  // back/forward through onboarding doesn't leak the captured-thumbnail
+  // blob URLs. removeItem already revokes per-item; this is the bulk
+  // cleanup path. Closure captures the latest items[] via a ref so the
+  // cleanup runs against current state on unmount, not stale state from
+  // the first render. Same ref doubles as the in-loop `inFlight` source for
+  // the MAX_GARMENTS race fix below — avoids reading stale closure state
+  // between iterations.
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+  // Mirror optimisticBumps + serverCount in refs so the loop in `handleFiles`
+  // reads the freshest values between iterations. Closure-captured values
+  // from the start of handleFiles would lag the +1 from each prior
+  // iteration's `setOptimisticBumps`, leaving the hard-cap check stale.
+  const optimisticBumpsRef = useRef(optimisticBumps);
+  useEffect(() => {
+    optimisticBumpsRef.current = optimisticBumps;
+  }, [optimisticBumps]);
+  const serverCountRef = useRef(serverCount);
+  useEffect(() => {
+    serverCountRef.current = serverCount;
+  }, [serverCount]);
+  useEffect(() => {
+    return () => {
+      for (const item of itemsRef.current) {
+        URL.revokeObjectURL(item.preview);
+      }
+    };
+  }, []);
 
   // Server count + in-flight optimistic bumps. The bump is +1 for the brief
   // window each in-flight upload spends between "garment row saved" and
@@ -242,16 +280,43 @@ export function BatchCaptureStep({ onComplete }: BatchCaptureStepProps) {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || !user) return;
-    const list = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, remainingSlots);
+    // Wave 7.9 P1 #6: re-entry lock. If a previous batch is still processing,
+    // bail — the file input is reset on the previous handler's exit, but a
+    // user who hits "Add photos" twice rapidly can still re-enter before
+    // the input clear fires. Per-call MAX_GARMENTS check still happens
+    // INSIDE the loop (below) so even if this guard ever misses, the
+    // hard cap holds.
+    if (isHandlingFilesRef.current) return;
+    isHandlingFilesRef.current = true;
+    try {
+      // Filter to images first; then enforce MAX_GARMENTS per file rather
+      // than at the slice point. The slice was a static snapshot of
+      // `remainingSlots`, but server count + optimistic bumps can change
+      // between successive picks. Recomputing in-loop closes the race.
+      const candidates = Array.from(files).filter((f) => f.type.startsWith('image/'));
 
-    // Sequential processing: prevents the per-isolate Gemini rate limit from
-    // tripping when a user picks 20 files at once, and keeps the counter
-    // monotonically increasing in the UI.
-    for (const file of list) {
-      await processFile(file);
+      // Sequential processing: prevents the per-isolate Gemini rate limit
+      // from tripping when a user picks 20 files at once, and keeps the
+      // counter monotonically increasing in the UI.
+      for (const file of candidates) {
+        // Hard cap check at file boundary using LIVE refs so each iteration
+        // sees the fresh values written by setState in prior iterations.
+        // Server count + optimistic bumps + already-in-flight items must
+        // stay below MAX_GARMENTS; without ref reads, closure-captured
+        // values from the start of handleFiles would lag and let the hard
+        // cap drift.
+        const liveItems = itemsRef.current;
+        const inFlight = liveItems.filter((i) => i.status === 'uploading' || i.status === 'analyzing').length;
+        if (serverCountRef.current + optimisticBumpsRef.current + inFlight >= MAX_GARMENTS) {
+          break;
+        }
+        await processFile(file);
+      }
+
+      if (inputRef.current) inputRef.current.value = '';
+    } finally {
+      isHandlingFilesRef.current = false;
     }
-
-    if (inputRef.current) inputRef.current.value = '';
   };
 
   const handleAdvance = async () => {

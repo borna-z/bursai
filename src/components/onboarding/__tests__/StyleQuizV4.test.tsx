@@ -114,6 +114,18 @@ describe('StyleQuizV4', () => {
     expect(getNext()).not.toBeDisabled();
   });
 
+  it('Wave 7.9 P2 #2 — coerces fractional height to integer at the input layer', () => {
+    render(<StyleQuizV4 onComplete={vi.fn()} onSkip={vi.fn()} isSaving={false} userId="user-frac" />);
+    const heightInput = screen.getByPlaceholderText('175') as HTMLInputElement;
+    fireEvent.change(heightInput, { target: { value: '175.7' } });
+    // Persisted answers reflect the integer-only value (parseInt strips
+    // the decimal portion before reaching state).
+    const stored = window.localStorage.getItem('burs.quizV4.draft.user-frac');
+    expect(stored).toBeTruthy();
+    const parsed = JSON.parse(stored!);
+    expect(parsed.answers.height_cm).toBe(175);
+  });
+
   it('does NOT enable Next when partial draft has untouched enum fields (Codex round 2 P2)', () => {
     // User typed only height before reload. q1Touched persisted as all-false
     // for the enum fields. Even though enum DEFAULTS are valid choices, the
