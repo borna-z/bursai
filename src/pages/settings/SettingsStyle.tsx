@@ -324,7 +324,10 @@ export default function SettingsStyle() {
                 { value: 'prefer_not', label: t('q3.gender.prefer_not') || 'Prefer not to say' },
               ]} />
               <FieldSelect label={t('q3.q2') || 'Age range'} value={sp.ageRange} onChange={v => updateStyleField('ageRange', v)} options={
-                ['18-24', '25-34', '35-44', '45-54', '55+'].map(v => ({ value: v, label: v }))
+                // V4 schema added the granular '55-64' / '65+' buckets (Codex
+                // round 7 P2 on PR #685); legacy V3 records with '55+' still
+                // render with no selection but can be upgraded by re-picking.
+                ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'].map(v => ({ value: v, label: v }))
               } />
               <FieldSelect label={t('q3.q4') || 'Climate'} value={displayClimate} onChange={v => updateStyleField('climate', v)} options={[
                 { value: 'cold', label: t('q3.climate.cold') || 'Cold' },
