@@ -14,7 +14,7 @@ import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
 import { StyleQuizV4 } from '@/components/onboarding/StyleQuizV4';
 import { PhotoTutorialStep } from '@/components/onboarding/PhotoTutorialStep';
-import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
+import { BatchCaptureStep } from '@/components/onboarding/BatchCaptureStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
@@ -23,7 +23,7 @@ import { asPreferences } from '@/types/preferences';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
-const STEPS = ['lang', 'quiz', 'photo_tutorial', 'upload', 'getstarted'] as const;
+const STEPS = ['lang', 'quiz', 'photo_tutorial', 'batch_capture', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
 
 function StepProgress({ current }: { current: StepKey }) {
@@ -63,7 +63,7 @@ export default function OnboardingPage() {
   const [languageStepDone, setLanguageStepDone] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
   const [photoTutorialDone, setPhotoTutorialDone] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
+  const [batchCaptureDone, setBatchCaptureDone] = useState(false);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
   const completeOnboarding = async () => {
@@ -218,6 +218,24 @@ export default function OnboardingPage() {
     setPhotoTutorialDone(true);
   };
 
+  const handleBatchCaptureComplete = async () => {
+    // Wave 7 P47: advance backend state machine to 'achievement'. Mirrors the
+    // deploy-window-tolerant pattern from handlePhotoTutorialComplete: log the
+    // RPC error, surface a toast, but still flip the local flag so the user
+    // moves on to GetStarted. Failure here doesn't strand the user — the
+    // legacy `preferences.onboarding.completed` write later in the flow
+    // remains the failure-resistant exit path.
+    if (user) {
+      try {
+        await advanceOnboardingStep(user.id, 'achievement');
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(achievement) failed (non-fatal):', rpcError);
+        toast.error(t('onboarding.error'));
+      }
+    }
+    setBatchCaptureDone(true);
+  };
+
   const handleGetStartedAction = async (path: string) => {
     try {
       await completeOnboarding();
@@ -253,8 +271,8 @@ export default function OnboardingPage() {
       ? 'quiz'
       : !photoTutorialDone
         ? 'photo_tutorial'
-        : !uploadDone
-          ? 'upload'
+        : !batchCaptureDone
+          ? 'batch_capture'
           : 'getstarted';
 
   return (
@@ -289,10 +307,9 @@ export default function OnboardingPage() {
               onComplete={() => { hapticLight(); handlePhotoTutorialComplete(); }}
             />
           ) : null}
-          {stepKey === 'upload' ? (
-            <QuickUploadStep
-              onComplete={() => { hapticLight(); setUploadDone(true); }}
-              onSkip={() => { hapticLight(); setUploadDone(true); }}
+          {stepKey === 'batch_capture' ? (
+            <BatchCaptureStep
+              onComplete={() => { hapticLight(); handleBatchCaptureComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}

@@ -3081,6 +3081,17 @@ const sv: Record<string, string> = {
   'photoTutorial.bullet.one_garment': 'Ett plagg per foto',
   'photoTutorial.bullet.one_garment_body': 'Fota varje plagg för sig så att vi kan analysera det exakt.',
   'photoTutorial.cta_label': 'Jag är redo',
+
+  // Wave 7 P47 — Batch capture screen
+  'batchCapture.eyebrow': 'Bygg din garderob',
+  'batchCapture.title': 'Lägg till 20 plagg för att börja.',
+  'batchCapture.subtitle': 'Ju mer vi ser, desto bättre stylar vi. Sikta på 30 för en rikare garderobsanalys.',
+  'batchCapture.progress_label': 'Garderobsförlopp',
+  'batchCapture.add_photos_cta': 'Lägg till bilder',
+  'batchCapture.continue_cta': 'Fortsätt',
+  'batchCapture.done_cta': 'Klar',
+  'batchCapture.min_helper': 'av 20 minimum',
+  'batchCapture.recommended_helper': 'av 30 rekommenderade',
 };
 
 export default sv;
