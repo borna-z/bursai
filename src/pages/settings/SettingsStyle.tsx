@@ -76,36 +76,31 @@ export default function SettingsStyle() {
   const isV4 = (sp as { version?: number }).version === STYLE_PROFILE_VERSION;
 
   const updateStyleField = async (key: keyof StyleProfile, value: unknown) => {
-    // V4 schema integrity (Codex round 4 P2 on PR #685): when the persisted
-    // record is V4, translate V3-vocab dropdown selections to V4 enums for
-    // `gender` and `fit` before saving so the canonical V4 shape isn't
-    // silently corrupted by a SettingsStyle edit. For non-V4 (pre-quiz)
-    // records, the legacy V3 strings are written through unchanged.
-    let normalized: unknown = value;
+    // V4 schema integrity (Codex rounds 4-5 on PR #685):
+    // - `gender`: V3 + V4 share the field name. Translate V3 dropdown input
+    //   to the V4 enum so the canonical value stays a V4 enum.
+    // - `fit`: V3 'fit' and V4 'fitOverall' are DIFFERENT keys for the same
+    //   conceptual field. Update BOTH — V3 mirror keeps V3 vocab for legacy
+    //   readers, V4 canonical gets the V4 enum so V4-aware consumers don't
+    //   read stale data after a Settings edit (round 5 P1).
+    // Non-V4 (pre-quiz) records pass through with no translation.
+    let newSp: Record<string, unknown> = { ...sp, [key]: value };
     if (isV4 && typeof value === 'string') {
       if (key === 'gender') {
         const v4 = v3GenderToV4(value);
-        if (v4) normalized = v4;
+        if (v4) newSp = { ...sp, gender: v4 };
       } else if (key === 'fit') {
         const v4 = v3FitToV4(value);
-        if (v4) normalized = v4;
+        if (v4) newSp = { ...sp, fit: value, fitOverall: v4 };
       }
     }
 
-    const newSp = { ...sp, [key]: normalized };
-    // Mannequin helper expects V3-style 'male'/'female'/'mixed'; map the
-    // normalized V4 value back when relevant so its existing logic still
-    // resolves.
-    const mannequinInput =
-      key === 'gender'
-        ? typeof normalized === 'string' && V4_GENDER_VALUES.has(normalized)
-          ? v4GenderToV3(normalized as V4Gender)
-          : value
-        : undefined;
     try {
       await updateProfile.mutateAsync({
+        // Mannequin helper expects V3 vocab ('male'/'female'/'mixed'); the
+        // dropdown emits V3 strings directly so we can pass `value` through.
         mannequin_presentation: key === 'gender'
-          ? mannequinPresentationFromStyleProfileGender(mannequinInput)
+          ? mannequinPresentationFromStyleProfileGender(value)
           : undefined,
         preferences: { ...prefs, styleProfile: newSp } as Json,
       });

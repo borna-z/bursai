@@ -483,8 +483,10 @@ export function migrateV4ToV3Compat(
     adventurousness: '',
     trendFollowing: '',
     genderNeutral: v4.gender === 'neutral' ? 'yes' : '',
-    // Fit & silhouette
-    fit: v4.fitOverall,
+    // Fit & silhouette — V3 mirror uses V3 vocabulary (V4 'fitted' → V3 'slim',
+    // V4 'relaxed' → V3 'loose', etc.) so legacy readers that string-match on
+    // V3 enums (Codex round 5 P2 on PR #685) keep working.
+    fit: v4FitToV3(v4.fitOverall),
     layering: v4.layering,
     topFit: '',
     bottomLength: '',
