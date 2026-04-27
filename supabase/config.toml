@@ -23,6 +23,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.google_calendar_auth]
     verify_jwt = false
+  [functions.grant_trial_gift]
+    verify_jwt = false
   [functions.import_garments_from_links]
     verify_jwt = false
   [functions.mood_outfit]

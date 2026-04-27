@@ -1,9 +1,13 @@
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
 import { EASE_CURVE } from '@/lib/motion';
 import { safeT } from '@/lib/i18nFallback';
 
@@ -14,29 +18,79 @@ interface AchievementStepProps {
 /**
  * Wave 7 P48 — Achievement screen.
  *
- * Frontend-only celebration shown immediately after BatchCapture and before
+ * Celebratory screen shown immediately after BatchCapture and before
  * StudioSelection. Acknowledges the user's effort, sets expectation for the
  * "3 free studio renders" the next step uses, and primes them to choose
  * which 3 garments to render.
  *
- * Scope decision: the LAUNCH_PLAN.md P48 spec calls for an additional
- * `grant_trial_gift` edge function that calls the `grant_trial_gift_atomic`
- * RPC to credit the user with 3 render credits. CLAUDE.md's "Never add new
- * edge functions unless the prompt explicitly says to" hard rule (combined
- * with the user being asleep when this PR was built) means we ship the
- * celebratory SCREEN now and defer the credit grant to a follow-up PR. The
- * RPC + helper (`grantTrialGift` in `_shared/render-credits.ts:300`) already
- * exist; the follow-up is ~50 LOC: a new `grant_trial_gift` edge function
- * + a `useEffect` mount hook here that calls
- * `invokeEdgeFunction('grant_trial_gift', { body: { idempotency_key:
- * `onboarding_gift_${userId}` } })`. Idempotency means a re-mount during
- * dev hot-reload or a network retry won't double-credit.
+ * Wave 7 P48-followup: on mount, fires the `grant_trial_gift` edge function
+ * which credits the user with 3 trial render credits via the
+ * `grant_trial_gift_atomic` RPC. The grant is idempotent server-side on the
+ * key `onboarding_gift_${userId}` — dev hot-reload, network retries, or a
+ * duplicate background invocation cannot double-credit. The amount (3) is
+ * hardcoded server-side so the client cannot escalate its own gift.
  *
- * Until then, P49 (StudioSelection) cannot render — that's a known
- * future-PR dependency tracked in the launch plan.
+ * Failure handling: non-fatal. If the grant fails (network blip, transient
+ * DB error, RPC missing), we log + continue — the user still advances when
+ * they tap the CTA. P49 (StudioSelection) detects 0-credit state and
+ * surfaces a retry path; we do NOT gate the CTA on the grant succeeding,
+ * because blocking on a probably-already-completed-anyway server call would
+ * wedge the onboarding flow on flaky networks.
+ *
+ * Cache invalidation: on success, we invalidate `['render_credits', userId]`
+ * so any reader (P49 StudioSelection chiefly) re-fetches and sees the 3
+ * credits without waiting for staleTime to elapse.
  */
 export function AchievementStep({ onComplete }: AchievementStepProps) {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await invokeEdgeFunction<{
+          ok?: boolean;
+          amount?: number;
+          duplicate?: boolean;
+          reason?: string;
+        }>('grant_trial_gift', { body: {} });
+
+        if (cancelled) return;
+
+        if (error) {
+          // Non-fatal — log + continue. P49 surfaces a retry path if the
+          // credits never landed.
+          console.warn('[AchievementStep] grant_trial_gift failed (non-fatal):', error);
+          return;
+        }
+
+        if (data && data.ok === false) {
+          console.warn(
+            '[AchievementStep] grant_trial_gift returned ok:false (non-fatal):',
+            data,
+          );
+          return;
+        }
+
+        // Success — invalidate render_credits cache so P49 (StudioSelection)
+        // sees the 3 credits without waiting for staleTime.
+        queryClient.invalidateQueries({
+          queryKey: ['render_credits', user.id],
+        });
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('[AchievementStep] grant_trial_gift threw (non-fatal):', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, queryClient]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
