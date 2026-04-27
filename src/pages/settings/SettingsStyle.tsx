@@ -22,16 +22,20 @@ import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 import {
   STYLE_PROFILE_VERSION,
+  v3ClimateToV4,
   v3FitToV4,
   v3GenderToV4,
+  v4ClimateToV3,
   v4FitToV3,
   v4GenderToV3,
-  type Gender as V4Gender,
+  type Climate as V4Climate,
   type FitOverall as V4FitOverall,
+  type Gender as V4Gender,
 } from '@/types/styleProfile';
 
 const V4_GENDER_VALUES = new Set(['feminine', 'masculine', 'neutral', 'prefer_not']);
 const V4_FIT_VALUES = new Set(['fitted', 'regular', 'relaxed', 'oversized', 'mixed']);
+const V4_CLIMATE_VALUES = new Set(['nordic', 'temperate', 'mediterranean', 'tropical', 'desert', 'varies']);
 
 // ── Color palette ──
 
@@ -92,6 +96,12 @@ export default function SettingsStyle() {
       } else if (key === 'fit') {
         const v4 = v3FitToV4(value);
         if (v4) newSp = { ...sp, fit: value, fitOverall: v4 };
+      } else if (key === 'climate') {
+        // V3 climate dropdown emits 'cold'/'warm'/'mixed' which aren't valid
+        // V4 enum values. Translate to V4 (Codex round 6 P1 on PR #685) so
+        // editing climate on a V4 profile preserves V4 schema integrity.
+        const v4 = v3ClimateToV4(value);
+        if (v4) newSp = { ...sp, climate: v4 };
       }
     }
 
@@ -119,6 +129,10 @@ export default function SettingsStyle() {
     typeof sp.fit === 'string' && V4_FIT_VALUES.has(sp.fit)
       ? v4FitToV3(sp.fit as V4FitOverall)
       : sp.fit;
+  const displayClimate =
+    typeof sp.climate === 'string' && V4_CLIMATE_VALUES.has(sp.climate)
+      ? v4ClimateToV3(sp.climate as V4Climate)
+      : sp.climate;
 
   const toggleColor = async (field: 'favoriteColors' | 'dislikedColors', color: string) => {
     const current = sp[field] || [];
@@ -312,7 +326,7 @@ export default function SettingsStyle() {
               <FieldSelect label={t('q3.q2') || 'Age range'} value={sp.ageRange} onChange={v => updateStyleField('ageRange', v)} options={
                 ['18-24', '25-34', '35-44', '45-54', '55+'].map(v => ({ value: v, label: v }))
               } />
-              <FieldSelect label={t('q3.q4') || 'Climate'} value={sp.climate} onChange={v => updateStyleField('climate', v)} options={[
+              <FieldSelect label={t('q3.q4') || 'Climate'} value={displayClimate} onChange={v => updateStyleField('climate', v)} options={[
                 { value: 'cold', label: t('q3.climate.cold') || 'Cold' },
                 { value: 'temperate', label: t('q3.climate.temperate') || 'Temperate' },
                 { value: 'warm', label: t('q3.climate.warm') || 'Warm' },

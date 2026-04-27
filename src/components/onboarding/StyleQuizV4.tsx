@@ -282,6 +282,25 @@ export function StyleQuizV4({ onComplete, onSkip, isSaving, userId }: Props) {
     [],
   );
 
+  // Re-hydrate when the draft key changes (Codex round 6 P2 on PR #685). If
+  // the component first mounted with userId=undefined → 'anon' fallback, and
+  // userId later resolves to a real value, this effect reads the new key's
+  // draft (if any) and replaces in-memory state. Without this, the persist
+  // effect below would write the anon-initialized state to the new user key
+  // and silently overwrite their previously saved draft.
+  const previousDraftKey = useRef(draftKeyUser);
+  useEffect(() => {
+    if (previousDraftKey.current === draftKeyUser) return;
+    previousDraftKey.current = draftKeyUser;
+    const draft = readDraft(draftKeyUser);
+    if (draft) {
+      setQuizState({ answers: draft.answers, q1Touched: draft.q1Touched });
+    }
+    // No draft at the new key: the persist effect below will write current
+    // state there on the same render (deps include draftKeyUser), effectively
+    // migrating any in-progress 'anon' work to the user-scoped key.
+  }, [draftKeyUser]);
+
   // Persist on every change. Wrapped in a ref so the persist effect only
   // fires once per actual mutation, not on initial mount (which would
   // otherwise overwrite a freshly-loaded draft with the same data).

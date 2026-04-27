@@ -449,6 +449,45 @@ export function v3FitToV4(value: string): FitOverall | null {
   }
 }
 
+/** Map V4 `Climate` → V3 SettingsStyle climate dropdown vocabulary
+ * (`'cold' | 'temperate' | 'warm' | 'tropical' | 'mixed'`). V4 'nordic' →
+ * 'cold', 'mediterranean' / 'desert' → 'warm', 'varies' → 'mixed'; passthrough
+ * for shared values. Used for read display in V3-vocab UIs. */
+export function v4ClimateToV3(climate: Climate): 'cold' | 'temperate' | 'warm' | 'tropical' | 'mixed' {
+  switch (climate) {
+    case 'nordic':
+      return 'cold';
+    case 'mediterranean':
+    case 'desert':
+      return 'warm';
+    case 'varies':
+      return 'mixed';
+    case 'temperate':
+    case 'tropical':
+    default:
+      return climate === 'tropical' ? 'tropical' : 'temperate';
+  }
+}
+
+/** Inverse of `v4ClimateToV3`. Translates a V3 climate dropdown value to the
+ * V4 enum at write time. Returns null on unrecognized input. */
+export function v3ClimateToV4(value: string): Climate | null {
+  switch (value) {
+    case 'cold':
+      return 'nordic';
+    case 'temperate':
+      return 'temperate';
+    case 'warm':
+      return 'mediterranean';
+    case 'tropical':
+      return 'tropical';
+    case 'mixed':
+      return 'varies';
+    default:
+      return null;
+  }
+}
+
 /**
  * Merge a V4 profile with V3-compatible mirror keys so legacy readers see
  * populated values. Returned object has BOTH shapes (V4 + V3) — V4 readers
