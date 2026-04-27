@@ -12,7 +12,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { GetStartedStep } from '@/components/onboarding/GetStartedStep';
 import { LanguageStep } from '@/components/onboarding/LanguageStep';
-import { QuickStyleQuiz } from '@/components/onboarding/QuickStyleQuiz';
+import { StyleQuizV4 } from '@/components/onboarding/StyleQuizV4';
 import { QuickUploadStep } from '@/components/onboarding/QuickUploadStep';
 import { EASE_CURVE } from '@/lib/motion';
 import { hapticLight } from '@/lib/haptics';
@@ -20,7 +20,7 @@ import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPres
 import { advanceOnboardingStep } from '@/lib/advanceOnboardingStep';
 import { asPreferences } from '@/types/preferences';
 
-import type { StyleProfileV3 } from '@/components/onboarding/StyleQuizV3';
+import { migrateV4ToV3Compat, type StyleProfileV4 } from '@/types/styleProfile';
 
 const STEPS = ['lang', 'quiz', 'upload', 'getstarted'] as const;
 type StepKey = typeof STEPS[number];
@@ -123,28 +123,63 @@ export default function OnboardingPage() {
     });
   };
 
-  const handleQuizComplete = async (styleProfile: StyleProfileV3) => {
+  const handleQuizComplete = async (styleProfile: StyleProfileV4) => {
+    // Throw rather than silently no-op (Codex round 8 P2 on PR #685): a
+    // resolved void return signals "save succeeded" to StyleQuizV4, which
+    // then clears the localStorage draft. If auth dropped at submit time,
+    // a silent return would lose the user's answers without a retry path.
+    if (!user) {
+      toast.error(t('onboarding.sessionExpired') || 'Session expired. Please log out and sign in again.');
+      throw new Error('No authenticated user');
+    }
     setIsSavingQuiz(true);
     try {
       const currentPrefs = asPreferences(profile?.preferences);
+      // Map V4 gender enum to the mannequin presentation helper's expected
+      // 'male' | 'female' input. 'feminine'/'masculine' map directly;
+      // 'neutral'/'prefer_not' fall through to 'mixed'.
+      const mannequinInput =
+        styleProfile.gender === 'feminine'
+          ? 'female'
+          : styleProfile.gender === 'masculine'
+            ? 'male'
+            : styleProfile.gender;
+
+      // Wave 7 P45: persist a V4 record merged with V3-compat mirror keys so
+      // legacy edge-function readers (`burs_style_engine`, `style_chat`,
+      // `_shared/outfit-scoring.ts`) keep finding their expected fields
+      // populated until they're migrated to read V4 directly. Without the
+      // shim, new V4-only users would get silent AI-quality regression.
+      const styleProfileForStorage = migrateV4ToV3Compat(styleProfile);
       const updates: Record<string, unknown> = {
-        mannequin_presentation: mannequinPresentationFromStyleProfileGender(styleProfile.gender),
+        mannequin_presentation: mannequinPresentationFromStyleProfileGender(mannequinInput),
         preferences: {
           ...currentPrefs,
-          styleProfile: { ...styleProfile },
+          styleProfile: styleProfileForStorage,
           favoriteColors: styleProfile.favoriteColors,
           dislikedColors: styleProfile.dislikedColors,
-          fitPreference: styleProfile.fit,
-          styleVibe: styleProfile.styleWords[0] || 'smart-casual',
-          genderNeutral: styleProfile.genderNeutral === 'yes',
+          fitPreference: styleProfile.fitOverall,
+          styleVibe: styleProfile.archetypes[0] || 'smart-casual',
+          genderNeutral: styleProfile.gender === 'neutral',
         },
       };
 
-      if (styleProfile.height && !Number.isNaN(Number(styleProfile.height))) {
-        updates.height_cm = Number(styleProfile.height);
+      if (styleProfile.height_cm && !Number.isNaN(styleProfile.height_cm) && styleProfile.height_cm > 0) {
+        updates.height_cm = styleProfile.height_cm;
       }
 
       await updateProfile.mutateAsync(updates);
+
+      // Wave 7 P45: advance backend state machine to the next step. This is
+      // NOT 'completed' — that comes after later steps in the flow. Wrap in
+      // try/catch so RPC errors during the deploy window (or transient
+      // network) don't block the UI from progressing locally.
+      try {
+        await advanceOnboardingStep(user.id, 'photo_tutorial');
+      } catch (rpcError) {
+        console.warn('advance_onboarding_step(photo_tutorial) failed (non-fatal):', rpcError);
+      }
+
       setQuizDone(true);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '';
@@ -155,6 +190,10 @@ export default function OnboardingPage() {
       } else {
         toast.error(t('onboarding.error'));
       }
+      // Rethrow so StyleQuizV4 keeps its localStorage draft on failure (P45
+      // Codex round 1 P2 — draft must survive a failed parent persistence so
+      // the user can retry without losing answers).
+      throw error;
     } finally {
       setIsSavingQuiz(false);
     }
@@ -217,10 +256,11 @@ export default function OnboardingPage() {
         >
           {stepKey === 'lang' ? <LanguageStep onComplete={() => { hapticLight(); setLanguageStepDone(true); }} /> : null}
           {stepKey === 'quiz' ? (
-            <QuickStyleQuiz
-              onComplete={(profile) => { hapticLight(); handleQuizComplete(profile); }}
+            <StyleQuizV4
+              onComplete={(profile) => { hapticLight(); return handleQuizComplete(profile); }}
               onSkip={async () => { hapticLight(); setQuizDone(true); }}
               isSaving={isSavingQuiz}
+              userId={user?.id}
             />
           ) : null}
           {stepKey === 'upload' ? (

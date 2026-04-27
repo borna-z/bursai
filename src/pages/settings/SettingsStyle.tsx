@@ -20,6 +20,37 @@ import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import type { StyleProfile } from '@/types/preferences';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
+import {
+  STYLE_PROFILE_VERSION,
+  v3ClimateToV4,
+  v3FitToV4,
+  v3GenderToV4,
+  v3LayeringToV4,
+  v3PaletteVibeToV4,
+  v3PrimaryGoalToV4,
+  v4ClimateToV3,
+  v4FitToV3,
+  v4GenderToV3,
+  v4LayeringToV3,
+  v4PaletteVibeToV3,
+  v4PrimaryGoalToV3,
+  type Climate as V4Climate,
+  type FitOverall as V4FitOverall,
+  type Gender as V4Gender,
+  type Layering as V4Layering,
+  type PaletteVibe as V4PaletteVibe,
+  type PrimaryGoal as V4PrimaryGoal,
+} from '@/types/styleProfile';
+
+const V4_GENDER_VALUES = new Set(['feminine', 'masculine', 'neutral', 'prefer_not']);
+const V4_FIT_VALUES = new Set(['fitted', 'regular', 'relaxed', 'oversized', 'mixed']);
+const V4_CLIMATE_VALUES = new Set(['nordic', 'temperate', 'mediterranean', 'tropical', 'desert', 'varies']);
+const V4_LAYERING_VALUES = new Set(['minimal', 'some', 'love']);
+const V4_PALETTE_VALUES = new Set(['neutrals', 'bold', 'dark', 'pastels', 'earth', 'mixed']);
+const V4_GOAL_VALUES = new Set([
+  'reduce_decisions', 'discover_style', 'curate_capsule',
+  'special_events', 'professional_polish', 'sustainability', 'fun_experimenting',
+]);
 
 // ── Color palette ──
 
@@ -61,10 +92,53 @@ export default function SettingsStyle() {
 
   // ── Helpers ──
 
+  const isV4 = (sp as { version?: number }).version === STYLE_PROFILE_VERSION;
+
   const updateStyleField = async (key: keyof StyleProfile, value: unknown) => {
-    const newSp = { ...sp, [key]: value };
+    // V4 schema integrity (Codex rounds 4-5 on PR #685):
+    // - `gender`: V3 + V4 share the field name. Translate V3 dropdown input
+    //   to the V4 enum so the canonical value stays a V4 enum.
+    // - `fit`: V3 'fit' and V4 'fitOverall' are DIFFERENT keys for the same
+    //   conceptual field. Update BOTH — V3 mirror keeps V3 vocab for legacy
+    //   readers, V4 canonical gets the V4 enum so V4-aware consumers don't
+    //   read stale data after a Settings edit (round 5 P1).
+    // Non-V4 (pre-quiz) records pass through with no translation.
+    let newSp: Record<string, unknown> = { ...sp, [key]: value };
+    if (isV4 && typeof value === 'string') {
+      if (key === 'gender') {
+        const v4 = v3GenderToV4(value);
+        if (v4) newSp = { ...sp, gender: v4 };
+      } else if (key === 'fit') {
+        const v4 = v3FitToV4(value);
+        if (v4) newSp = { ...sp, fit: value, fitOverall: v4 };
+      } else if (key === 'climate') {
+        // V3 climate dropdown emits 'cold'/'warm'/'mixed' which aren't valid
+        // V4 enum values. Translate to V4 (Codex round 6 P1 on PR #685) so
+        // editing climate on a V4 profile preserves V4 schema integrity.
+        const v4 = v3ClimateToV4(value);
+        if (v4) newSp = { ...sp, climate: v4 };
+      } else if (key === 'layering') {
+        // Codex round 8 P1: V4 enum is 'minimal'|'some'|'love'; V3 dropdown
+        // emits 'minimal'|'moderate'|'loves'. Translate.
+        const v4 = v3LayeringToV4(value);
+        if (v4) newSp = { ...sp, layering: v4 };
+      } else if (key === 'paletteVibe') {
+        // Codex round 8 P1: V4 paletteVibe has 6 values; V3 dropdown has 4
+        // different ones. Translate to V4 to preserve schema.
+        const v4 = v3PaletteVibeToV4(value);
+        if (v4) newSp = { ...sp, paletteVibe: v4 };
+      } else if (key === 'primaryGoal') {
+        // Codex round 8 P1: V4 has 7 goal values; V3 has 5 different ones.
+        // Translate at write time.
+        const v4 = v3PrimaryGoalToV4(value);
+        if (v4) newSp = { ...sp, primaryGoal: v4 };
+      }
+    }
+
     try {
       await updateProfile.mutateAsync({
+        // Mannequin helper expects V3 vocab ('male'/'female'/'mixed'); the
+        // dropdown emits V3 strings directly so we can pass `value` through.
         mannequin_presentation: key === 'gender'
           ? mannequinPresentationFromStyleProfileGender(value)
           : undefined,
@@ -72,6 +146,35 @@ export default function SettingsStyle() {
       });
     } catch { toast.error(t('settings.pref_error')); }
   };
+
+  // Display values for V4-vocab fields shown via legacy V3 dropdowns. When
+  // the persisted record is V4, transform `gender`/`fit` for display so the
+  // FieldSelect can highlight the matching option (otherwise the dropdown
+  // shows nothing selected, leading to silent edits that overwrite V4).
+  const displayGender =
+    typeof sp.gender === 'string' && V4_GENDER_VALUES.has(sp.gender)
+      ? v4GenderToV3(sp.gender as V4Gender)
+      : sp.gender;
+  const displayFit =
+    typeof sp.fit === 'string' && V4_FIT_VALUES.has(sp.fit)
+      ? v4FitToV3(sp.fit as V4FitOverall)
+      : sp.fit;
+  const displayClimate =
+    typeof sp.climate === 'string' && V4_CLIMATE_VALUES.has(sp.climate)
+      ? v4ClimateToV3(sp.climate as V4Climate)
+      : sp.climate;
+  const displayLayering =
+    typeof sp.layering === 'string' && V4_LAYERING_VALUES.has(sp.layering)
+      ? v4LayeringToV3(sp.layering as V4Layering)
+      : sp.layering;
+  const displayPaletteVibe =
+    typeof sp.paletteVibe === 'string' && V4_PALETTE_VALUES.has(sp.paletteVibe)
+      ? v4PaletteVibeToV3(sp.paletteVibe as V4PaletteVibe)
+      : sp.paletteVibe;
+  const displayPrimaryGoal =
+    typeof sp.primaryGoal === 'string' && V4_GOAL_VALUES.has(sp.primaryGoal)
+      ? v4PrimaryGoalToV3(sp.primaryGoal as V4PrimaryGoal)
+      : sp.primaryGoal;
 
   const toggleColor = async (field: 'favoriteColors' | 'dislikedColors', color: string) => {
     const current = sp[field] || [];
@@ -256,16 +359,19 @@ export default function SettingsStyle() {
           <SectionHeader id="identity" icon={User} title={t('q3.s1.title') || 'About you'} summary={[sp.gender, sp.ageRange, sp.climate].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-5 pb-5 space-y-4">
-              <FieldSelect label={t('q3.q1') || 'Gender'} value={sp.gender} onChange={v => updateStyleField('gender', v)} options={[
+              <FieldSelect label={t('q3.q1') || 'Gender'} value={displayGender} onChange={v => updateStyleField('gender', v)} options={[
                 { value: 'male', label: t('q3.gender.male') || 'Male' },
                 { value: 'female', label: t('q3.gender.female') || 'Female' },
                 { value: 'nonbinary', label: t('q3.gender.nonbinary') || 'Non-binary' },
                 { value: 'prefer_not', label: t('q3.gender.prefer_not') || 'Prefer not to say' },
               ]} />
               <FieldSelect label={t('q3.q2') || 'Age range'} value={sp.ageRange} onChange={v => updateStyleField('ageRange', v)} options={
-                ['18-24', '25-34', '35-44', '45-54', '55+'].map(v => ({ value: v, label: v }))
+                // V4 schema added the granular '55-64' / '65+' buckets (Codex
+                // round 7 P2 on PR #685); legacy V3 records with '55+' still
+                // render with no selection but can be upgraded by re-picking.
+                ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'].map(v => ({ value: v, label: v }))
               } />
-              <FieldSelect label={t('q3.q4') || 'Climate'} value={sp.climate} onChange={v => updateStyleField('climate', v)} options={[
+              <FieldSelect label={t('q3.q4') || 'Climate'} value={displayClimate} onChange={v => updateStyleField('climate', v)} options={[
                 { value: 'cold', label: t('q3.climate.cold') || 'Cold' },
                 { value: 'temperate', label: t('q3.climate.temperate') || 'Temperate' },
                 { value: 'warm', label: t('q3.climate.warm') || 'Warm' },
@@ -345,13 +451,13 @@ export default function SettingsStyle() {
           <SectionHeader id="fit" icon={Shirt} title={t('q3.s4.title') || 'Fit & silhouette'} summary={[sp.fit, sp.layering].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-5 pb-5 space-y-4">
-              <FieldSelect label={t('q3.q14') || 'Overall fit'} value={sp.fit} onChange={v => updateStyleField('fit', v)} options={[
+              <FieldSelect label={t('q3.q14') || 'Overall fit'} value={displayFit} onChange={v => updateStyleField('fit', v)} options={[
                 { value: 'slim', label: t('style.slim') || 'Slim' },
                 { value: 'regular', label: t('style.regular') || 'Regular' },
                 { value: 'loose', label: t('style.loose') || 'Loose/relaxed' },
                 { value: 'oversized', label: t('q3.fit.oversized') || 'Oversized' },
               ]} />
-              <FieldSelect label={t('q3.q15') || 'Layering'} value={sp.layering} onChange={v => updateStyleField('layering', v)} options={[
+              <FieldSelect label={t('q3.q15') || 'Layering'} value={displayLayering} onChange={v => updateStyleField('layering', v)} options={[
                 { value: 'minimal', label: t('q3.layer.minimal') || 'Minimal layers' },
                 { value: 'moderate', label: t('q3.layer.moderate') || 'Some layering' },
                 { value: 'loves', label: t('q3.layer.loves') || 'Love layering' },
@@ -385,7 +491,7 @@ export default function SettingsStyle() {
                 <Label className="label-editorial text-muted-foreground/60">{t('settings.disliked_colors')}</Label>
                 <ColorGrid field="dislikedColors" />
               </div>
-              <FieldSelect label={t('q3.q21') || 'Palette vibe'} value={sp.paletteVibe} onChange={v => updateStyleField('paletteVibe', v)} options={[
+              <FieldSelect label={t('q3.q21') || 'Palette vibe'} value={displayPaletteVibe} onChange={v => updateStyleField('paletteVibe', v)} options={[
                 { value: 'neutral', label: t('q3.palette.neutral') || 'Neutral/earth tones' },
                 { value: 'muted', label: t('q3.palette.muted') || 'Muted/dusty' },
                 { value: 'bold', label: t('q3.palette.bold') || 'Bold/saturated' },
@@ -459,7 +565,7 @@ export default function SettingsStyle() {
           <SectionHeader id="goals" icon={Heart} title={t('q3.s8.title') || 'Goals'} summary={sp.primaryGoal || undefined} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-5 pb-5 space-y-4">
-              <FieldSelect label={t('q3.q31') || 'Primary goal with BURS'} value={sp.primaryGoal} onChange={v => updateStyleField('primaryGoal', v)} options={[
+              <FieldSelect label={t('q3.q31') || 'Primary goal with BURS'} value={displayPrimaryGoal} onChange={v => updateStyleField('primaryGoal', v)} options={[
                 { value: 'save_time', label: t('q3.goal.save_time') || 'Save time getting dressed' },
                 { value: 'better_style', label: t('q3.goal.better_style') || 'Improve my style' },
                 { value: 'wardrobe_org', label: t('q3.goal.wardrobe_org') || 'Organize my wardrobe' },
