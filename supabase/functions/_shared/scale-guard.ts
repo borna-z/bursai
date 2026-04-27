@@ -66,6 +66,11 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   create_portal_session:       { maxPerHour: 10, maxPerMinute: 2 },
   // delete_user_account: one-way action — no legitimate rapid repeat
   delete_user_account:         { maxPerHour: 3,  maxPerMinute: 1 },
+  // grant_trial_gift (Wave 7 P48-followup): idempotent server-side on
+  // `onboarding_gift_${userId}`, so retries are cheap, but tight limits
+  // still bound retry-storm / abuse vectors against the trial credit ledger.
+  // Onboarding tier multiplier (3x) is irrelevant — the gift is one-shot.
+  grant_trial_gift:            { maxPerHour: 20, maxPerMinute: 5 },
   // calendar: sync + event read calls to Google Calendar API
   calendar:                    { maxPerHour: 30, maxPerMinute: 10 },
   // google_calendar_auth: OAuth handshake — low-frequency by design
