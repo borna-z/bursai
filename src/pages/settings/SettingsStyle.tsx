@@ -20,6 +20,18 @@ import { EASE_CURVE, STAGGER_DELAY, DURATION_MEDIUM } from '@/lib/motion';
 import type { StyleProfile } from '@/types/preferences';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
+import {
+  STYLE_PROFILE_VERSION,
+  v3FitToV4,
+  v3GenderToV4,
+  v4FitToV3,
+  v4GenderToV3,
+  type Gender as V4Gender,
+  type FitOverall as V4FitOverall,
+} from '@/types/styleProfile';
+
+const V4_GENDER_VALUES = new Set(['feminine', 'masculine', 'neutral', 'prefer_not']);
+const V4_FIT_VALUES = new Set(['fitted', 'regular', 'relaxed', 'oversized', 'mixed']);
 
 // ── Color palette ──
 
@@ -61,17 +73,57 @@ export default function SettingsStyle() {
 
   // ── Helpers ──
 
+  const isV4 = (sp as { version?: number }).version === STYLE_PROFILE_VERSION;
+
   const updateStyleField = async (key: keyof StyleProfile, value: unknown) => {
-    const newSp = { ...sp, [key]: value };
+    // V4 schema integrity (Codex round 4 P2 on PR #685): when the persisted
+    // record is V4, translate V3-vocab dropdown selections to V4 enums for
+    // `gender` and `fit` before saving so the canonical V4 shape isn't
+    // silently corrupted by a SettingsStyle edit. For non-V4 (pre-quiz)
+    // records, the legacy V3 strings are written through unchanged.
+    let normalized: unknown = value;
+    if (isV4 && typeof value === 'string') {
+      if (key === 'gender') {
+        const v4 = v3GenderToV4(value);
+        if (v4) normalized = v4;
+      } else if (key === 'fit') {
+        const v4 = v3FitToV4(value);
+        if (v4) normalized = v4;
+      }
+    }
+
+    const newSp = { ...sp, [key]: normalized };
+    // Mannequin helper expects V3-style 'male'/'female'/'mixed'; map the
+    // normalized V4 value back when relevant so its existing logic still
+    // resolves.
+    const mannequinInput =
+      key === 'gender'
+        ? typeof normalized === 'string' && V4_GENDER_VALUES.has(normalized)
+          ? v4GenderToV3(normalized as V4Gender)
+          : value
+        : undefined;
     try {
       await updateProfile.mutateAsync({
         mannequin_presentation: key === 'gender'
-          ? mannequinPresentationFromStyleProfileGender(value)
+          ? mannequinPresentationFromStyleProfileGender(mannequinInput)
           : undefined,
         preferences: { ...prefs, styleProfile: newSp } as Json,
       });
     } catch { toast.error(t('settings.pref_error')); }
   };
+
+  // Display values for V4-vocab fields shown via legacy V3 dropdowns. When
+  // the persisted record is V4, transform `gender`/`fit` for display so the
+  // FieldSelect can highlight the matching option (otherwise the dropdown
+  // shows nothing selected, leading to silent edits that overwrite V4).
+  const displayGender =
+    typeof sp.gender === 'string' && V4_GENDER_VALUES.has(sp.gender)
+      ? v4GenderToV3(sp.gender as V4Gender)
+      : sp.gender;
+  const displayFit =
+    typeof sp.fit === 'string' && V4_FIT_VALUES.has(sp.fit)
+      ? v4FitToV3(sp.fit as V4FitOverall)
+      : sp.fit;
 
   const toggleColor = async (field: 'favoriteColors' | 'dislikedColors', color: string) => {
     const current = sp[field] || [];
@@ -256,7 +308,7 @@ export default function SettingsStyle() {
           <SectionHeader id="identity" icon={User} title={t('q3.s1.title') || 'About you'} summary={[sp.gender, sp.ageRange, sp.climate].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-5 pb-5 space-y-4">
-              <FieldSelect label={t('q3.q1') || 'Gender'} value={sp.gender} onChange={v => updateStyleField('gender', v)} options={[
+              <FieldSelect label={t('q3.q1') || 'Gender'} value={displayGender} onChange={v => updateStyleField('gender', v)} options={[
                 { value: 'male', label: t('q3.gender.male') || 'Male' },
                 { value: 'female', label: t('q3.gender.female') || 'Female' },
                 { value: 'nonbinary', label: t('q3.gender.nonbinary') || 'Non-binary' },
@@ -345,7 +397,7 @@ export default function SettingsStyle() {
           <SectionHeader id="fit" icon={Shirt} title={t('q3.s4.title') || 'Fit & silhouette'} summary={[sp.fit, sp.layering].filter(Boolean).join(' · ')} />
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
             <div className="px-5 pb-5 space-y-4">
-              <FieldSelect label={t('q3.q14') || 'Overall fit'} value={sp.fit} onChange={v => updateStyleField('fit', v)} options={[
+              <FieldSelect label={t('q3.q14') || 'Overall fit'} value={displayFit} onChange={v => updateStyleField('fit', v)} options={[
                 { value: 'slim', label: t('style.slim') || 'Slim' },
                 { value: 'regular', label: t('style.regular') || 'Regular' },
                 { value: 'loose', label: t('style.loose') || 'Loose/relaxed' },

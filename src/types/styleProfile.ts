@@ -378,7 +378,7 @@ export type V3CompatKeys = Partial<LegacyStyleProfile>;
 /** Map V4 gender enum → V3 `'male' | 'female' | 'nonbinary' | 'prefer_not'`.
  * V4 'feminine' → V3 'female', V4 'masculine' → V3 'male', V4 'neutral' →
  * V3 'nonbinary', V4 'prefer_not' passes through. */
-function v4GenderToV3(gender: Gender): 'male' | 'female' | 'nonbinary' | 'prefer_not' {
+export function v4GenderToV3(gender: Gender): 'male' | 'female' | 'nonbinary' | 'prefer_not' {
   switch (gender) {
     case 'feminine':
       return 'female';
@@ -389,6 +389,63 @@ function v4GenderToV3(gender: Gender): 'male' | 'female' | 'nonbinary' | 'prefer
     case 'prefer_not':
     default:
       return 'prefer_not';
+  }
+}
+
+/** Inverse of `v4GenderToV3`. Used by V3-vocabulary UIs (e.g. `SettingsStyle`)
+ * to normalize a dropdown selection to the V4 enum before saving so V4 schema
+ * integrity is preserved (Codex round 4 P2 on PR #685). Returns the V4 enum
+ * if the input matches a known V3 string, or `null` if unrecognized. */
+export function v3GenderToV4(value: string): Gender | null {
+  switch (value) {
+    case 'female':
+      return 'feminine';
+    case 'male':
+      return 'masculine';
+    case 'nonbinary':
+      return 'neutral';
+    case 'prefer_not':
+      return 'prefer_not';
+    default:
+      return null;
+  }
+}
+
+/** Map V4 `fitOverall` → V3 `fit` dropdown vocabulary so the legacy SettingsStyle
+ * select can show the user's existing pick as selected. V4 'fitted' → V3 'slim',
+ * 'relaxed' → 'loose', 'mixed' → 'regular' (closest match), 'regular' / 'oversized'
+ * pass through. */
+export function v4FitToV3(fit: FitOverall): 'slim' | 'regular' | 'loose' | 'oversized' {
+  switch (fit) {
+    case 'fitted':
+      return 'slim';
+    case 'relaxed':
+      return 'loose';
+    case 'mixed':
+      return 'regular';
+    case 'regular':
+    case 'oversized':
+    default:
+      return fit === 'oversized' ? 'oversized' : 'regular';
+  }
+}
+
+/** Inverse of `v4FitToV3`. Translates a V3-vocabulary dropdown selection back
+ * to the V4 `fitOverall` enum at write time. Returns null on unrecognized
+ * input so the caller can fall through to the raw value (best-effort mapping
+ * for legacy data). */
+export function v3FitToV4(value: string): FitOverall | null {
+  switch (value) {
+    case 'slim':
+      return 'fitted';
+    case 'loose':
+      return 'relaxed';
+    case 'regular':
+      return 'regular';
+    case 'oversized':
+      return 'oversized';
+    default:
+      return null;
   }
 }
 
