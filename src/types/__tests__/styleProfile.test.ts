@@ -15,7 +15,9 @@ import {
   createEmptyStyleProfileV4,
   migrateV3ToV4,
   migrateV4ToV3Compat,
+  v3ArchetypeToV4,
   v3ClimateToV4,
+  v3ColorToV4,
   v3FitToV4,
   v3GenderToV4,
   v3LayeringToV4,
@@ -304,5 +306,105 @@ describe('migrateV4ToV3Compat — V3 vocab wins on collision keys (audit finding
     // Default V4 fitOverall='regular' → V3 fit='regular'.
     expect((out as { fit: string }).fit).toBe('regular');
     expect(out.version).toBe(STYLE_PROFILE_VERSION);
+  });
+});
+
+// ─── V3 → V4 vocab normalization (Wave 7.9 audit P1 #8 + #10) ───
+
+describe('v3ArchetypeToV4', () => {
+  it('passthroughs every direct V4 ID match', () => {
+    for (const id of ['minimal', 'classic', 'street', 'preppy', 'bohemian', 'sporty', 'edgy', 'romantic', 'scandi', 'avantgarde', 'workwear', 'soft']) {
+      expect(v3ArchetypeToV4(id)).toBe(id);
+    }
+  });
+
+  it('renames V3 archetype names to V4 IDs', () => {
+    expect(v3ArchetypeToV4('streetwear')).toBe('street');
+    expect(v3ArchetypeToV4('scandinavian')).toBe('scandi');
+  });
+
+  it('collapses V3-only names to closest V4 semantic match', () => {
+    expect(v3ArchetypeToV4('elegant')).toBe('classic');
+    expect(v3ArchetypeToV4('vintage')).toBe('classic');
+    expect(v3ArchetypeToV4('artsy')).toBe('avantgarde');
+  });
+
+  it('returns null on unknown input', () => {
+    expect(v3ArchetypeToV4('xyz')).toBeNull();
+    expect(v3ArchetypeToV4('')).toBeNull();
+  });
+});
+
+describe('v3ColorToV4', () => {
+  it('passthroughs every direct V4 swatch ID', () => {
+    for (const id of ['black', 'white', 'grey', 'navy', 'blue', 'beige', 'camel', 'brown', 'olive', 'green', 'red', 'burgundy', 'pink', 'purple', 'orange', 'teal', 'cream', 'denim']) {
+      expect(v3ColorToV4(id)).toBe(id);
+    }
+  });
+
+  it('maps V3-only color names to closest V4 swatch', () => {
+    expect(v3ColorToV4('yellow')).toBe('orange');
+    expect(v3ColorToV4('coral')).toBe('pink');
+    expect(v3ColorToV4('cognac')).toBe('camel');
+    expect(v3ColorToV4('lavender')).toBe('purple');
+    expect(v3ColorToV4('charcoal')).toBe('grey');
+    expect(v3ColorToV4('forest')).toBe('green');
+    expect(v3ColorToV4('cobalt')).toBe('blue');
+  });
+
+  it('returns null on unknown input', () => {
+    expect(v3ColorToV4('xyz')).toBeNull();
+    expect(v3ColorToV4('')).toBeNull();
+  });
+});
+
+describe('migrateV3ToV4 — vocab normalization', () => {
+  it('normalizes V3 styleWords through v3ArchetypeToV4 and dedupes', () => {
+    const v4 = migrateV3ToV4({
+      styleWords: ['streetwear', 'scandinavian', 'elegant', 'street', 'classic', 'vintage'],
+    } as Parameters<typeof migrateV3ToV4>[0]);
+    // streetwear→street, scandinavian→scandi, elegant→classic,
+    // street (passthrough, dup of streetwear→street, dropped),
+    // classic (passthrough — already added by elegant, dropped),
+    // vintage→classic (dup, dropped). Order preserved.
+    expect(v4.archetypes).toEqual(['street', 'scandi', 'classic']);
+  });
+
+  it('drops unknown archetype names rather than emitting corrupt vocab', () => {
+    const v4 = migrateV3ToV4({
+      styleWords: ['classic', 'made_up_name', 'streetwear'],
+    } as Parameters<typeof migrateV3ToV4>[0]);
+    expect(v4.archetypes).toEqual(['classic', 'street']);
+  });
+
+  it('caps archetypes at 5 after dedup', () => {
+    const v4 = migrateV3ToV4({
+      styleWords: ['minimal', 'classic', 'street', 'preppy', 'bohemian', 'sporty', 'edgy'],
+    } as Parameters<typeof migrateV3ToV4>[0]);
+    expect(v4.archetypes).toHaveLength(5);
+  });
+
+  it('normalizes V3 favoriteColors / dislikedColors through v3ColorToV4', () => {
+    const v4 = migrateV3ToV4({
+      favoriteColors: ['black', 'coral', 'gold'],
+      dislikedColors: ['cobalt', 'mustard', 'unknown'],
+    } as Parameters<typeof migrateV3ToV4>[0]);
+    expect(v4.favoriteColors).toEqual(['black', 'pink', 'camel']);
+    expect(v4.dislikedColors).toEqual(['blue', 'orange']);
+  });
+
+  it('dedupes colors that map to the same V4 swatch (e.g. plum + lavender → purple)', () => {
+    const v4 = migrateV3ToV4({
+      favoriteColors: ['plum', 'lavender', 'purple'],
+    } as Parameters<typeof migrateV3ToV4>[0]);
+    // plum→purple (added), lavender→purple (dup, dropped), purple (dup, dropped).
+    expect(v4.favoriteColors).toEqual(['purple']);
+  });
+
+  it('caps favoriteColors at 3 after normalization', () => {
+    const v4 = migrateV3ToV4({
+      favoriteColors: ['black', 'white', 'navy', 'grey', 'blue'],
+    } as Parameters<typeof migrateV3ToV4>[0]);
+    expect(v4.favoriteColors).toHaveLength(3);
   });
 });

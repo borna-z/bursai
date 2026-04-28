@@ -21,6 +21,8 @@ import type { StyleProfile } from '@/types/preferences';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { mannequinPresentationFromStyleProfileGender } from '@/lib/mannequinPresentation';
 import {
+  ARCHETYPE_OPTIONS,
+  COLOR_SWATCHES,
   STYLE_PROFILE_VERSION,
   v3FitToV4,
   v4ClimateToV3,
@@ -48,6 +50,13 @@ const V4_GOAL_VALUES = new Set([
 ]);
 
 // ── Color palette ──
+//
+// 36-entry V3 legacy palette. Wave 7.9 audit P1 #10 introduced the
+// curated V4 18-set via `COLOR_SWATCHES` (imported above). The 36-entry
+// map remains so legacy V3 records that already stored V3-only color
+// names (`yellow`, `coral`, `gold`, `cobalt`, …) keep rendering with
+// their saved selection visible. V4-aware records use the V4 18 only —
+// see the `paletteOptions` derivation below.
 
 const COLOR_MAP: Record<string, string> = {
   black: '#111111', white: '#F6F4F1', grey: '#9CA3AF', navy: '#1E3A5F',
@@ -60,9 +69,14 @@ const COLOR_MAP: Record<string, string> = {
   camel: '#C19A6B', rust: '#B7410E', cognac: '#9A463D',
   teal: '#008080', plum: '#8E4585', mustard: '#FFDB58', gold: '#FFD700',
   indigo: '#4B0082', cobalt: '#0047AB',
+  // V4 swatches not in the legacy V3 list. Without these entries,
+  // the swatch dot would render with no background color when V4 mode
+  // shows them in the grid (Wave 7.9 audit P1 #10).
+  denim: '#4B6C8A',
 };
 
 const COLORS = Object.keys(COLOR_MAP);
+const V4_COLOR_IDS = COLOR_SWATCHES.map((s) => s.id) as readonly string[];
 
 type SectionId = 'body' | 'identity' | 'daily' | 'style' | 'fit' | 'colors' | 'philosophy' | 'inspiration' | 'goals';
 
@@ -172,11 +186,42 @@ export default function SettingsStyle() {
     await updateStyleField(field, next);
   };
 
+  // Wave 7.9 audit P1 #8 + #10 — V4-aware vocab options.
+  //
+  // Legacy V3 records render the original 12 V3 archetype names + 36 V3
+  // colors so existing users keep seeing their saved picks. V4 records
+  // render V4's curated 12 archetypes + 18 colors, matching the Style DNA
+  // Quiz V4 vocabulary. On edit through this page, V4-vocab IDs are
+  // written to BOTH the V3 mirror (`styleWords` / `favoriteColors` /
+  // `dislikedColors`) AND the V4 canonical fields — see toggleMulti.
+  const archetypeOptions = isV4
+    ? (ARCHETYPE_OPTIONS as readonly string[])
+    : (['minimal', 'classic', 'streetwear', 'romantic', 'edgy', 'bohemian', 'preppy', 'sporty', 'elegant', 'scandinavian', 'vintage', 'artsy'] as readonly string[]);
+  const colorOptions = isV4 ? V4_COLOR_IDS : COLORS;
+
   const toggleMulti = async (field: 'styleWords' | 'wardrobeFrustrations' | 'hardestOccasions', val: string, max = 5) => {
     const current = (sp[field] as string[]) || [];
     const next = current.includes(val)
       ? current.filter(v => v !== val)
       : current.length >= max ? current : [...current, val];
+
+    // Wave 7.9 audit P1 #8: when the record is V4, `styleWords` is the V3
+    // mirror of `archetypes`. Mirror writes to BOTH so the V4 canonical
+    // field doesn't drift from edits made through this V3-vocab UI. The
+    // ChipMulti renders V4 vocab when isV4=true (see render block) so the
+    // V3 mirror also ends up holding V4 IDs — that's intentional. Legacy
+    // V3 readers (`burs_style_engine`, etc.) read `styleWords` and accept
+    // any string; they won't crash on V4 archetype IDs.
+    if (isV4 && field === 'styleWords') {
+      const newSp: Record<string, unknown> = { ...sp, styleWords: next, archetypes: next };
+      try {
+        await updateProfile.mutateAsync({
+          preferences: { ...prefs, styleProfile: newSp } as Json,
+        });
+      } catch { toast.error(t('settings.pref_error')); }
+      return;
+    }
+
     await updateStyleField(field, next);
   };
 
@@ -258,11 +303,11 @@ export default function SettingsStyle() {
 
   const ColorGrid = ({ field }: { field: 'favoriteColors' | 'dislikedColors' }) => (
     <div className="flex flex-wrap gap-2">
-      {COLORS.map(color => {
+      {colorOptions.map(color => {
         const selected = (sp[field] || []).includes(color);
         return (
           <Chip key={color} selected={selected} onClick={() => { hapticLight(); toggleColor(field, color); }} className="capitalize text-xs font-body rounded-full">
-            <span className="w-3 h-3 rounded-full flex-shrink-0 border border-foreground/10 shadow-sm" style={{ backgroundColor: COLOR_MAP[color] }} />
+            <span className="w-3 h-3 rounded-full flex-shrink-0 border border-foreground/10 shadow-sm" style={{ backgroundColor: COLOR_MAP[color] || '#9CA3AF' }} />
             {t(`color.${color}`) !== `color.${color}` ? t(`color.${color}`) : color}
           </Chip>
         );
@@ -406,7 +451,7 @@ export default function SettingsStyle() {
             <div className="px-5 pb-5 space-y-4">
               <div className="space-y-1.5">
                 <Label className="label-editorial text-muted-foreground/60">{t('q3.q9') || 'Style words'}</Label>
-                <ChipMulti field="styleWords" options={['minimal', 'classic', 'streetwear', 'romantic', 'edgy', 'bohemian', 'preppy', 'sporty', 'elegant', 'scandinavian', 'vintage', 'artsy']} />
+                <ChipMulti field="styleWords" options={[...archetypeOptions]} />
               </div>
               <div className="space-y-1.5">
                 <Label className="label-editorial text-muted-foreground/60">

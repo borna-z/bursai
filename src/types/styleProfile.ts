@@ -241,6 +241,93 @@ export function createEmptyStyleProfileV4(): StyleProfileV4 {
 // ─── V3 → V4 migration helper ───
 
 /**
+ * Wave 7.9 followup (P1 #8 from Wave 7 audit) — V3 archetype name → V4
+ * `ArchetypeId` translation table. The legacy StyleQuizV3 + SettingsStyle
+ * `ChipMulti` for `styleWords` use V3 vocab (e.g. `'streetwear'`,
+ * `'scandinavian'`, `'elegant'`); V4's `archetypes` array is constrained to
+ * `ARCHETYPE_OPTIONS` (12 IDs). Without normalization, `migrateV3ToV4`
+ * silently emitted V3 strings into the V4 `archetypes` field, breaking any
+ * V4 reader that filters/scores against the V4 enum.
+ *
+ *   V3-only `'elegant'` / `'vintage'` collapse to V4 `'classic'` (closest
+ *   semantic). V3-only `'artsy'` collapses to V4 `'avantgarde'`. V4-only
+ *   IDs (`'workwear'`, `'soft'`) are unreachable from V3 input — they only
+ *   land via the live V4 quiz.
+ */
+export const V3_ARCHETYPE_TO_V4: Record<string, ArchetypeId> = {
+  minimal: 'minimal',
+  classic: 'classic',
+  streetwear: 'street',
+  romantic: 'romantic',
+  edgy: 'edgy',
+  bohemian: 'bohemian',
+  preppy: 'preppy',
+  sporty: 'sporty',
+  elegant: 'classic',
+  scandinavian: 'scandi',
+  vintage: 'classic',
+  artsy: 'avantgarde',
+};
+
+/** Resolves a V3 archetype name to a V4 `ArchetypeId`. Pass-through if
+ * already V4. Returns `null` for unrecognized input so callers can drop
+ * the entry rather than emit a corrupt vocab token. */
+export function v3ArchetypeToV4(value: string): ArchetypeId | null {
+  if ((ARCHETYPE_OPTIONS as readonly string[]).includes(value)) {
+    return value as ArchetypeId;
+  }
+  const mapped = V3_ARCHETYPE_TO_V4[value];
+  return mapped ?? null;
+}
+
+/**
+ * Wave 7.9 followup (P1 #10 from Wave 7 audit) — V3-only color name → V4
+ * `ColorSwatchId` translation table. SettingsStyle's `COLOR_MAP` historically
+ * carried 36 entries; V4's `COLOR_SWATCHES` is the curated 18. Without
+ * normalization, legacy V3 records would put V3-only names (`'yellow'`,
+ * `'coral'`, `'gold'`, `'cobalt'`, …) into the V4 `favoriteColors` /
+ * `dislikedColors` arrays, polluting AI prompt vocab. Closest visual /
+ * semantic match per swatch:
+ *
+ *   yellow→orange, ivory→cream, sand→beige, khaki→olive, charcoal→grey,
+ *   skyblue→blue, turquoise→teal, forest→green, mint→green, sage→olive,
+ *   coral→pink, lavender→purple, rust→brown, cognac→camel, plum→purple,
+ *   mustard→orange, gold→camel, indigo→navy, cobalt→blue.
+ */
+export const V3_COLOR_TO_V4: Record<string, ColorSwatchId> = {
+  yellow: 'orange',
+  ivory: 'cream',
+  sand: 'beige',
+  khaki: 'olive',
+  charcoal: 'grey',
+  skyblue: 'blue',
+  turquoise: 'teal',
+  forest: 'green',
+  mint: 'green',
+  sage: 'olive',
+  coral: 'pink',
+  lavender: 'purple',
+  rust: 'brown',
+  cognac: 'camel',
+  plum: 'purple',
+  mustard: 'orange',
+  gold: 'camel',
+  indigo: 'navy',
+  cobalt: 'blue',
+};
+
+/** Resolves a V3 color name to a V4 `ColorSwatchId`. Pass-through if already
+ * V4. Returns `null` for unrecognized input so the caller can drop rather
+ * than emit a corrupt token. */
+export function v3ColorToV4(value: string): ColorSwatchId | null {
+  if ((COLOR_SWATCHES as readonly { id: string }[]).some((s) => s.id === value)) {
+    return value as ColorSwatchId;
+  }
+  const mapped = V3_COLOR_TO_V4[value];
+  return mapped ?? null;
+}
+
+/**
  * Upgrade an existing V3 record (or the legacy untyped StyleProfile shape)
  * to V4. Used by AI prompt builders that may still encounter older records;
  * the live quiz writes V4 directly. Best-guess mappings:
@@ -251,6 +338,12 @@ export function createEmptyStyleProfileV4(): StyleProfileV4 {
  *  - V3 `fit: 'loose'` → V4 `fitOverall: 'relaxed'`
  *  - V3 `workFormality: 'business'/'formal'` → ceiling 80, else 60
  *  - V3 `morningTime: 'enjoy'` → primaryGoal `discover_style`
+ *  - V3 `styleWords` archetype names → V4 `archetypes` via
+ *    `v3ArchetypeToV4` (Wave 7.9 audit P1 #8).
+ *  - V3 `favoriteColors`/`dislikedColors` → V4 vocab via `v3ColorToV4`
+ *    (Wave 7.9 audit P1 #10).
+ *  - V3 `ageRange: '55+'` → V4 `'55-64'` (NOT `'65+'` — `'55+'` is
+ *    "55 or older" in V3 with no upper distinction; conservative collapse).
  *  - Lifestyle / build / fabricPreferred default to even / prefer_not / [].
  */
 export function migrateV3ToV4(
@@ -341,16 +434,52 @@ export function migrateV3ToV4(
 
   const v3Height = typeof v3.height === 'string' ? Number(v3.height) : 0;
 
+  // Normalize V3 archetype names → V4 vocab + dedupe (Wave 7.9 audit P1 #8).
+  // Drop tokens that don't map to a known V4 archetype rather than carry
+  // through corrupt vocab.
+  const archetypes: ArchetypeId[] = [];
+  if (Array.isArray(v3.styleWords)) {
+    const seen = new Set<ArchetypeId>();
+    for (const raw of v3.styleWords as unknown[]) {
+      if (typeof raw !== 'string') continue;
+      const v4 = v3ArchetypeToV4(raw);
+      if (v4 && !seen.has(v4)) {
+        seen.add(v4);
+        archetypes.push(v4);
+        if (archetypes.length >= 5) break;
+      }
+    }
+  }
+
+  // Normalize V3 color names → V4 vocab + dedupe (Wave 7.9 audit P1 #10).
+  // Drop unknown tokens. V3 records can store any of 36 names; V4's curated
+  // 18 catches the closest match.
+  const normalizeColors = (raw: unknown, max: number): ColorSwatchId[] => {
+    if (!Array.isArray(raw)) return [];
+    const out: ColorSwatchId[] = [];
+    const seen = new Set<ColorSwatchId>();
+    for (const value of raw) {
+      if (typeof value !== 'string') continue;
+      const v4 = v3ColorToV4(value);
+      if (v4 && !seen.has(v4)) {
+        seen.add(v4);
+        out.push(v4);
+        if (out.length >= max) break;
+      }
+    }
+    return out;
+  };
+
   return {
     ...base,
     gender,
     height_cm: Number.isFinite(v3Height) && v3Height > 0 ? v3Height : 0,
     ageRange,
     climate,
-    archetypes: Array.isArray(v3.styleWords) ? (v3.styleWords as string[]).slice(0, 5) : [],
+    archetypes,
     styleIcons: typeof v3.styleIcons === 'string' ? v3.styleIcons : '',
-    favoriteColors: Array.isArray(v3.favoriteColors) ? (v3.favoriteColors as string[]).slice(0, 3) : [],
-    dislikedColors: Array.isArray(v3.dislikedColors) ? (v3.dislikedColors as string[]).slice(0, 3) : [],
+    favoriteColors: normalizeColors(v3.favoriteColors, 3),
+    dislikedColors: normalizeColors(v3.dislikedColors, 3),
     paletteVibe,
     patternComfort,
     fitOverall,

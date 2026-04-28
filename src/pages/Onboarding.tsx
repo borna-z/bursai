@@ -473,23 +473,31 @@ export default function OnboardingPage() {
   const handleRevealComplete = async () => {
     // Wave 7 P51: final onboarding step. Server-side advance to 'completed'
     // happens inside `completeOnboarding` (which also writes the legacy
-    // preferences flag with retry). Local `revealDone=true` is essentially
-    // a no-op visually (the next step is `getstarted`, but
-    // `onboardingCompleted` short-circuits to Navigate("/") immediately
-    // after preferences write).
+    // preferences flag with retry).
+    //
+    // Wave 7.9 audit B.P0.2 + polish #5 — `navigate('/')` was previously
+    // unconditional, even when `completeOnboarding` threw. The throw path
+    // means the RPC itself failed AND `profileLacksOnboardingColumn` is
+    // false (otherwise we'd swallow per the deploy-window gate). Hard-
+    // navigating in that state pushed the user to `/` while the column
+    // was still `'reveal'`, ProtectedRoute then redirected back to
+    // `/onboarding`, hydration showed Reveal again — redirect loop on
+    // every retry.
+    //
+    // Fix: rely on `onboardingCompleted` short-circuit (line 519) which
+    // `<Navigate to="/" replace />`s as soon as the legacy preferences
+    // flag flips. On success: advance local state + let the short-circuit
+    // navigate. On failure: surface the toast + RE-THROW so RevealStep's
+    // `handleAdvance` await catches and resets its `advancing` flag,
+    // letting the user retry without page reload.
     try {
       await completeOnboarding();
     } catch (err) {
-      // completeOnboarding handles the legacy-write retry internally.
-      // If it throws here it means the RPC itself failed in the
-      // post-migration window — log but advance the local flag anyway
-      // so the user lands on Home (the navigation happens via the
-      // onboardingCompleted check).
       console.warn('completeOnboarding from RevealStep failed (non-fatal):', err);
       toast.error(t('onboarding.error'));
+      throw err;
     }
     setRevealDone(true);
-    navigate('/');
   };
 
   const handleGetStartedAction = async (path: string) => {
@@ -593,7 +601,7 @@ export default function OnboardingPage() {
           ) : null}
           {stepKey === 'reveal' ? (
             <RevealStep
-              onComplete={() => { hapticLight(); handleRevealComplete(); }}
+              onComplete={() => { hapticLight(); return handleRevealComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}

@@ -3528,6 +3528,11 @@ const en: Record<string, string> = {
   'reveal.hero_aria_cooking': 'Studio render preview, still rendering',
   'reveal.loading': 'Looking for your renders…',
   'reveal.cta_label': 'Start using BURS',
+  // Wave 7.9 audit polish #1 — distinct copy when ALL 3 trial-gift renders
+  // failed and auto-retry didn't recover. Calmer "your originals are safe"
+  // tone instead of the cooking-state copy reading as a lie.
+  'reveal.title_all_failed': 'Your originals look great too.',
+  'reveal.subtitle_all_failed': "We had trouble rendering your studio shots — but every photo is safe in your wardrobe. You can retry from any garment's detail page.",
 
   // ── Wave 7.9 — Onboarding progress + quiz progress i18n (P1 #4) ───
   // Placeholder pattern: '{n}' / '{total}' replaced via String.replace at

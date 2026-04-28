@@ -77,9 +77,13 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: (table: string) => {
       if (table === 'render_jobs') {
+        // Wave 7.9 — RevealStep adds `.in('status', [...])` between `.eq()`
+        // and `.order()` (audit D.P1.3 status filter parity with CoachTour).
+        // Builder includes `.in()` so the chain stays terminal at `.limit()`.
         const builder = {
           select: () => builder,
           eq: () => builder,
+          in: () => builder,
           order: () => builder,
           limit: () => Promise.resolve(renderJobsResponseRef.current),
         };
@@ -333,5 +337,78 @@ describe('RevealStep', () => {
     unmount();
 
     expect(removeChannelMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Wave 7.9 audit polish #1 — distinct copy when ALL 3 watched garments
+  // are in the 'failed' state. Without the all-failed branch, the cooking
+  // copy + shimmer would feel like a quiet lie.
+  it('shows the all-failed title + subtitle when every watched garment is failed', async () => {
+    garmentsResponseRef.current = {
+      data: [
+        {
+          id: 'g1',
+          image_path: 'orig/g1.jpg',
+          original_image_path: 'orig/g1.jpg',
+          rendered_image_path: null,
+          render_status: 'failed',
+        },
+        {
+          id: 'g2',
+          image_path: 'orig/g2.jpg',
+          original_image_path: 'orig/g2.jpg',
+          rendered_image_path: null,
+          render_status: 'failed',
+        },
+        {
+          id: 'g3',
+          image_path: 'orig/g3.jpg',
+          original_image_path: 'orig/g3.jpg',
+          rendered_image_path: null,
+          render_status: 'failed',
+        },
+      ],
+      error: null,
+    };
+
+    renderWithQueryClient(<RevealStep onComplete={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Your originals look great too\./i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/We had trouble rendering your studio shots/i),
+    ).toBeInTheDocument();
+    // Shimmer overlay must be hidden — auto-retry has already fired (one
+    // per garment), there's nothing visibly cooking. The "Rendering…" badge
+    // should not be on screen.
+    expect(screen.queryByText('Rendering')).not.toBeInTheDocument();
+  });
+
+  // Wave 7.9 audit B.P0.2 — onComplete failure resets `advancing` so the CTA
+  // re-enables for retry. Without this, a transient `completeOnboarding`
+  // RPC failure left the button permanently disabled until page reload.
+  it('resets the advancing flag if onComplete throws so the user can retry', async () => {
+    const onComplete = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('first attempt failed'))
+      .mockResolvedValueOnce(undefined);
+
+    renderWithQueryClient(<RevealStep onComplete={onComplete} />);
+
+    const cta = screen.getByRole('button', { name: /Start using BURS/i });
+
+    // First click: handler rejects. The advancing reset is async (await
+    // chain inside handleAdvance), so we waitFor the button to re-enable.
+    fireEvent.click(cta);
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(cta).not.toBeDisabled());
+
+    // Second click: succeeds. Advancing stays true on resolution because
+    // the parent will navigate via the onboardingCompleted short-circuit;
+    // we just confirm onComplete fired again.
+    fireEvent.click(cta);
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(2));
   });
 });
