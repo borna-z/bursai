@@ -157,11 +157,27 @@ serve(async (req) => {
     }
 
     // Layer 1: pre-check existing subscription state. If we already minted
-    // a Stripe subscription for this user, short-circuit with ok:true and
-    // skip Stripe entirely. Exit-criteria: stripe_subscription_id is set AND
-    // status is not 'canceled' (a canceled trial / sub means the user can
-    // start a new one — though P54+ may eventually disallow that; out of
-    // scope here).
+    // a Stripe subscription for this user (regardless of current status),
+    // short-circuit with ok:true and skip Stripe entirely.
+    //
+    // Codex P1 round 2 on PR #698 — DO NOT carve out 'canceled' status
+    // here. Stripe caches idempotency-key responses for ~24h. If we let a
+    // canceled user re-enter this Stripe call with the fixed key
+    // `start_trial_sub_${userId}`, Stripe replays the ORIGINAL trialing
+    // subscription payload, and we write status='trialing' + the OLD
+    // stripe_subscription_id back to the DB — silently restoring premium
+    // state for up to 24h until the next webhook reconciliation. Worse,
+    // it's a trial-cycling vector (cancel → wait → re-trigger → another
+    // 3 free days). Re-subscribe paths (paywall + create_checkout_session
+    // + restore_subscription) own the canceled-account flow; start_trial
+    // is exclusively for the FIRST trial mint per user.
+    //
+    // Status enum spread across all paths: `'incomplete'`,
+    // `'incomplete_expired'`, `'trialing'`, `'active'`, `'past_due'`,
+    // `'unpaid'`, `'canceled'`. We treat any non-null
+    // `stripe_subscription_id` as a definitive "already started" signal —
+    // user's actual entitlement comes from `subscriptions.status` read by
+    // P54+ enforce + the frontend paywall.
     const { data: existing, error: existingError } = await adminClient
       .from("subscriptions")
       .select("status, plan, stripe_subscription_id, stripe_customer_id, current_period_end")
@@ -177,7 +193,7 @@ serve(async (req) => {
       console.warn("[start_trial] subscriptions pre-check failed (continuing):", existingError.message);
     }
 
-    if (existing?.stripe_subscription_id && existing.status !== "canceled") {
+    if (existing?.stripe_subscription_id) {
       log("Pre-check short-circuit (already started)", {
         userId,
         status: existing.status,
