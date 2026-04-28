@@ -71,6 +71,12 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   // still bound retry-storm / abuse vectors against the trial credit ledger.
   // Onboarding tier multiplier (3x) is irrelevant — the gift is one-shot.
   grant_trial_gift:            { maxPerHour: 20, maxPerMinute: 5 },
+  // start_trial (Wave 8 P52): Stripe customers.create + subscriptions.create
+  // on first SIGNED_IN. Idempotent across three layers (DB pre-check,
+  // request_idempotency, Stripe-side keys) so re-fires are cheap. Same budget
+  // as sibling Stripe-API endpoints (restore_subscription, create_portal_session).
+  // Onboarding tier multiplier (3x) is irrelevant — the trial start is one-shot.
+  start_trial:                 { maxPerHour: 10, maxPerMinute: 2 },
   // calendar: sync + event read calls to Google Calendar API
   calendar:                    { maxPerHour: 30, maxPerMinute: 10 },
   // google_calendar_auth: OAuth handshake — low-frequency by design

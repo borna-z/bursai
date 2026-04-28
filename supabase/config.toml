@@ -37,6 +37,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.shopping_chat]
     verify_jwt = false
+  [functions.start_trial]
+    verify_jwt = false
   [functions.stripe_webhook]
     verify_jwt = false
   [functions.style_chat]
