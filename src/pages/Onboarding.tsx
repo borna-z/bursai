@@ -484,12 +484,30 @@ export default function OnboardingPage() {
     // `/onboarding`, hydration showed Reveal again — redirect loop on
     // every retry.
     //
-    // Fix: rely on `onboardingCompleted` short-circuit (line 519) which
-    // `<Navigate to="/" replace />`s as soon as the legacy preferences
-    // flag flips. On success: advance local state + let the short-circuit
-    // navigate. On failure: surface the toast + RE-THROW so RevealStep's
-    // `handleAdvance` await catches and resets its `advancing` flag,
-    // letting the user retry without page reload.
+    // Codex P2 round 5 (PR #696): rely-on-short-circuit alone was too
+    // aggressive. `completeOnboarding` resolves successfully in 4 cases:
+    // (a) RPC ok + legacy ok — happy path, onboardingCompleted=true, the
+    //     `<Navigate to="/" replace />` short-circuit fires. Good.
+    // (b) RPC ok + legacy FAILED after 3 retries — column is canonical
+    //     (`onboarding_step='completed'`) but the preferences flag never
+    //     got written, so `onboardingCompleted=false`. Without an
+    //     explicit navigate, `setRevealDone(true)` advances the local
+    //     state machine to `getstarted` and the user sees the GetStarted
+    //     screen instead of Home — confusing, even though server-side
+    //     they ARE done.
+    // (c) RPC missing (deploy window) + legacy ok — same as (a) via the
+    //     legacy-flag fallback.
+    // (d) RPC missing + legacy FAILED — both signals broken; user retries.
+    //
+    // Fix: navigate('/') explicitly AFTER the resolve. The short-circuit
+    // still fires when onboardingCompleted=true (cases a/c) and our
+    // explicit navigate is a no-op redirect-to-current. In case (b) the
+    // explicit navigate routes the user to Home; ProtectedRoute on Home
+    // sees `onboarding_step='completed'` (canonical column) and lets
+    // them through — no redirect loop.
+    //
+    // Throw path stays untouched: catch + toast + re-throw so RevealStep
+    // resets `advancing` and the user can retry without page reload.
     try {
       await completeOnboarding();
     } catch (err) {
@@ -498,6 +516,7 @@ export default function OnboardingPage() {
       throw err;
     }
     setRevealDone(true);
+    navigate('/');
   };
 
   const handleGetStartedAction = async (path: string) => {

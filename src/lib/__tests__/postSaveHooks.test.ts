@@ -154,4 +154,37 @@ describe('runPostSaveHooks', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(loggerErrorMock).toHaveBeenCalled();
   });
+
+  // Codex P2 round 5 (PR #696): `candidate.analysis` is nullable for the
+  // BatchCaptureStep refactor. Without null-safety, the analytics dereferences
+  // and the dedup call would TypeError post-insert and bubble up as a
+  // misleading "finalize failed" — even though the row is already persisted.
+  it('null analysis: does not throw and emits null category/subcategory in analytics', () => {
+    const candidate = makeCandidate({}, {});
+    candidate.analysis = null;
+    expect(() =>
+      runPostSaveHooks('garment-null', 'user-1/garment-null.jpg', candidate),
+    ).not.toThrow();
+    // garment_intake event must surface null fields where analysis was the source.
+    const intakeCall = trackEventMock.mock.calls.find(([name]) => name === 'garment_intake');
+    expect(intakeCall).toBeDefined();
+    expect(intakeCall?.[1]).toEqual(
+      expect.objectContaining({
+        category: null,
+        subcategory: null,
+      }),
+    );
+  });
+
+  it('null analysis: skips the duplicate-detection edge call entirely', () => {
+    const candidate = makeCandidate({}, {});
+    candidate.analysis = null;
+    runPostSaveHooks('garment-null-2', 'user-1/garment-null-2.jpg', candidate);
+    // No detect_duplicate_garment invocation should fire when there's nothing
+    // to compare against.
+    const dedupCalls = invokeEdgeFunctionMock.mock.calls.filter(
+      ([fn]) => fn === 'detect_duplicate_garment',
+    );
+    expect(dedupCalls.length).toBe(0);
+  });
 });
