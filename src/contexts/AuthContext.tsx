@@ -57,11 +57,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' && session?.user?.id && session.access_token) {
           const triggerKey = `${session.user.id}:${session.access_token.slice(0, 16)}`;
           if (!triggeredTrialKeys.current.has(triggerKey)) {
+            // Add to dedup set BEFORE invoke to prevent thundering-herd from
+            // back-to-back SIGNED_IN events (token refresh races, multi-tab
+            // re-hydrate). On any failure we roll back the entry below so the
+            // next SIGNED_IN re-fires.
             triggeredTrialKeys.current.add(triggerKey);
             void supabase.functions
               .invoke('start_trial', { body: {} })
+              .then((result) => {
+                // Codex P1 round 1 on PR #698 — supabase-js's
+                // functions.invoke() resolves with `{ data, error }` on
+                // 4xx/5xx HTTP responses INSTEAD of rejecting the promise.
+                // Without this `.then` check, a transient 5xx (or any
+                // non-2xx from start_trial) would be treated as success and
+                // poison the dedup set, leaving the user on the free row
+                // until sign-out / token rotation. Roll back the dedup
+                // entry on `result.error` so the next SIGNED_IN re-fires.
+                if (result?.error) {
+                  logger.warn('[AuthContext] start_trial returned error', result.error);
+                  triggeredTrialKeys.current.delete(triggerKey);
+                }
+              })
               .catch((err) => {
-                logger.warn('[AuthContext] start_trial invoke failed', err);
+                // Network / transport failures throw and land here. Same
+                // rollback so the next SIGNED_IN retries.
+                logger.warn('[AuthContext] start_trial invoke threw', err);
+                triggeredTrialKeys.current.delete(triggerKey);
               });
           }
         }

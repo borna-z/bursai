@@ -327,6 +327,31 @@ serve(async (req) => {
       console.warn("[start_trial] profiles.stripe_customer_id mirror failed:", profileError.message);
     }
 
+    // Codex P1 round 1 on PR #698 — mirror plan into the legacy
+    // `user_subscriptions` table. The frontend `useSubscription` hook still
+    // reads `user_subscriptions` (P53 will migrate it to `subscriptions`),
+    // so without this mirror the UI would keep showing free-tier gating
+    // (paywall + limits) until `stripe_webhook` fires its own dual-write
+    // 1-30 seconds later on `customer.subscription.created`. Same dual-write
+    // pattern stripe_webhook uses (lines 304-308). UPSERT (not UPDATE like
+    // the webhook) because `start_trial` runs from the AuthContext listener
+    // which fires BEFORE useSubscription's bootstrap upsert — so the row
+    // may not exist yet. Best-effort: failure here doesn't roll back the
+    // canonical `subscriptions` upsert above.
+    const { error: legacyMirrorError } = await adminClient
+      .from("user_subscriptions")
+      .upsert(
+        {
+          user_id: userId,
+          plan: "premium",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+    if (legacyMirrorError) {
+      console.warn("[start_trial] user_subscriptions mirror failed:", legacyMirrorError.message);
+    }
+
     log("Trial started", { userId, customerId, subscriptionId: subscription.id, trialEnd });
 
     const response = new Response(
