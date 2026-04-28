@@ -180,7 +180,7 @@ serve(async (req) => {
     // P54+ enforce + the frontend paywall.
     const { data: existing, error: existingError } = await adminClient
       .from("subscriptions")
-      .select("status, plan, stripe_subscription_id, stripe_customer_id, current_period_end")
+      .select("status, plan, stripe_subscription_id, stripe_customer_id, current_period_end, created_at")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -204,6 +204,45 @@ serve(async (req) => {
           ok: true,
           already_started: true,
           status: existing.status,
+        }),
+        {
+          status: 200,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        },
+      );
+      await storeIdempotencyResult(req, response, adminClient, idempotencyScope);
+      return response;
+    }
+
+    // Codex P1 round 3 on PR #698 — scope gate. AuthContext fires this on
+    // every SIGNED_IN, not just first signup. Without this gate, legacy
+    // users who signed up BEFORE Wave 8 ships would be auto-enrolled in a
+    // 3-day trial on their next login — broader behavior change than P52's
+    // documented scope ("on signup completion"). Eligibility signal:
+    // `subscriptions.created_at` is set by `handle_new_user` trigger at
+    // signup, so a recently-created subscriptions row indicates a fresh
+    // signup. The 24h window covers email-confirm delays + weekend
+    // signups while excluding existing accounts. Pre-launch onboarding /
+    // legacy free-tier users will be migrated through the paywall path
+    // (P54+ + create_checkout_session + restore_subscription).
+    const SIGNUP_TRIAL_ELIGIBILITY_MS = 24 * 60 * 60 * 1000;
+    const subscriptionCreatedAt = existing?.created_at
+      ? new Date(existing.created_at).getTime()
+      : null;
+    const isFreshSignup =
+      subscriptionCreatedAt !== null &&
+      Date.now() - subscriptionCreatedAt < SIGNUP_TRIAL_ELIGIBILITY_MS;
+
+    if (existing && !isFreshSignup) {
+      log("Pre-check short-circuit (not eligible — legacy user)", {
+        userId,
+        subscriptionCreatedAt: existing.created_at,
+      });
+      const response = new Response(
+        JSON.stringify({
+          ok: true,
+          already_started: false,
+          reason: "not_eligible",
         }),
         {
           status: 200,
