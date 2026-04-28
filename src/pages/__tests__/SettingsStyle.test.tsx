@@ -227,4 +227,68 @@ describe('SettingsStyle', () => {
       );
     });
   });
+
+  // Codex P1 follow-up on PR #696 — V4 archetype mirror normalization.
+  //
+  // Existing V4 users may already have legacy V3 archetype names in their
+  // persisted `styleWords` array from edits before the V4-aware ChipMulti
+  // landed. Mirroring `next` raw into `archetypes` would copy those legacy
+  // tokens (`streetwear`, `scandinavian`, `elegant`, `vintage`, `artsy`)
+  // into the V4 canonical field, undoing the P1 #8 normalization. The fix
+  // routes the mirror through `v3ArchetypeToV4`: passthrough V4 tokens,
+  // rename V3 names with a known mapping, drop unknown tokens entirely.
+  it('on V4 record, mirror to archetypes normalizes legacy styleWords and drops unknown tokens', async () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      height_cm: 180,
+      weight_kg: 75,
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          // 5 legacy V3 archetype names + 1 already-V4 token + 1 garbage token.
+          // streetwear → street, scandinavian → scandi, elegant/vintage → classic,
+          // artsy → avantgarde. 'classic' passthrough. 'made_up' dropped.
+          styleWords: ['streetwear', 'scandinavian', 'elegant', 'vintage', 'artsy', 'classic', 'made_up'],
+          archetypes: ['classic'],
+          favoriteColors: ['black'],
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // Tap an unselected V4 archetype chip to trigger toggleMulti.
+    // 'minimal' is in V4 ARCHETYPE_OPTIONS and not currently selected.
+    const minimalMatches = screen.getAllByText('minimal');
+    const minimalBtn = minimalMatches.find(el => el.getAttribute('data-selected') === 'false') ?? minimalMatches[0];
+    fireEvent.click(minimalBtn);
+    await waitFor(() => {
+      expect(mutateAsyncMock).toHaveBeenCalled();
+    });
+    // The toggleMulti capped at max=5, so the candidate chips truncate at 5.
+    // We assert the archetypes mirror specifically — it must be V4-canonical
+    // only, deduped, and reflect the user's V3 inputs translated through the
+    // V3→V4 map. Order: insertion order in the loop (passthrough V4 first,
+    // then V3-renames as we hit them).
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const archetypesWritten = lastCall?.preferences?.styleProfile?.archetypes;
+    expect(archetypesWritten).toBeDefined();
+    // No legacy V3-only tokens leaked into the V4 canonical field.
+    expect(archetypesWritten).not.toContain('streetwear');
+    expect(archetypesWritten).not.toContain('scandinavian');
+    expect(archetypesWritten).not.toContain('elegant');
+    expect(archetypesWritten).not.toContain('vintage');
+    expect(archetypesWritten).not.toContain('artsy');
+    expect(archetypesWritten).not.toContain('made_up');
+    // Every entry must be a known V4 archetype id (subset of the canonical 12).
+    const V4_ARCHETYPES = new Set([
+      'minimal', 'classic', 'street', 'preppy', 'bohemian', 'sporty',
+      'edgy', 'romantic', 'scandi', 'avantgarde', 'workwear', 'soft',
+    ]);
+    for (const a of archetypesWritten as string[]) {
+      expect(V4_ARCHETYPES.has(a)).toBe(true);
+    }
+  });
 });

@@ -24,6 +24,7 @@ import {
   ARCHETYPE_OPTIONS,
   COLOR_SWATCHES,
   STYLE_PROFILE_VERSION,
+  v3ArchetypeToV4,
   v3FitToV4,
   v4ClimateToV3,
   v4FitToV3,
@@ -31,6 +32,7 @@ import {
   v4LayeringToV3,
   v4PaletteVibeToV3,
   v4PrimaryGoalToV3,
+  type ArchetypeId as V4ArchetypeId,
   type Climate as V4Climate,
   type FitOverall as V4FitOverall,
   type Gender as V4Gender,
@@ -212,8 +214,31 @@ export default function SettingsStyle() {
     // V3 mirror also ends up holding V4 IDs — that's intentional. Legacy
     // V3 readers (`burs_style_engine`, etc.) read `styleWords` and accept
     // any string; they won't crash on V4 archetype IDs.
+    //
+    // Codex P1 follow-up on PR #696: existing V4 users may already have
+    // stale V3 archetype names ('streetwear', 'scandinavian', 'elegant',
+    // 'vintage', 'artsy') in their persisted `styleWords` array from
+    // earlier edits before the V4-aware ChipMulti landed. Mirroring `next`
+    // raw into `archetypes` would copy those legacy tokens into the V4
+    // canonical field, undoing the normalization work in P1 #8. Normalize
+    // through `v3ArchetypeToV4` first — passthrough for already-V4 tokens,
+    // rename for V3 names with a known mapping, drop unknown tokens
+    // entirely (rather than silently corrupt the V4 vocab). The V3 mirror
+    // (`styleWords`) keeps the user-facing list (which is V4-vocab on V4
+    // records via the ChipMulti render); only the V4 canonical
+    // (`archetypes`) gets the strict-vocab guard.
     if (isV4 && field === 'styleWords') {
-      const newSp: Record<string, unknown> = { ...sp, styleWords: next, archetypes: next };
+      const archetypesNormalized: V4ArchetypeId[] = [];
+      const seen = new Set<V4ArchetypeId>();
+      for (const token of next) {
+        if (typeof token !== 'string') continue;
+        const v4 = v3ArchetypeToV4(token);
+        if (v4 && !seen.has(v4)) {
+          seen.add(v4);
+          archetypesNormalized.push(v4);
+        }
+      }
+      const newSp: Record<string, unknown> = { ...sp, styleWords: next, archetypes: archetypesNormalized };
       try {
         await updateProfile.mutateAsync({
           preferences: { ...prefs, styleProfile: newSp } as Json,
