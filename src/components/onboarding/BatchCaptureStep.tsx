@@ -15,11 +15,9 @@ import { useStorage } from '@/hooks/useStorage';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
-import {
-  buildGarmentIntelligenceFields,
-  standardizeGarmentAiRaw,
-  triggerGarmentPostSaveIntelligence,
-} from '@/lib/garmentIntelligence';
+import { buildGarmentInsert } from '@/lib/buildGarmentInsert';
+import { triggerGarmentPostSaveIntelligence } from '@/lib/garmentIntelligence';
+import type { GarmentIntakeCandidate } from '@/lib/reviewCandidate';
 import { compressImage } from '@/lib/imageCompression';
 import { incrementOnboardingGarmentCount } from '@/lib/incrementOnboardingGarmentCount';
 import { hapticLight } from '@/lib/haptics';
@@ -164,35 +162,34 @@ export function BatchCaptureStep({ onComplete }: BatchCaptureStepProps) {
       const fallbackTitle =
         rawFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim() || 'New garment';
 
-      const intelligenceFields = buildGarmentIntelligenceFields({
-        storagePath: path,
-        enableRender: true,
+      // Wave 7.9 audit P2 #7 — share the canonical garment-row builder with
+      // LiveScan / AddGarment instead of duplicating the 22-field shape
+      // here. `analysis` is now nullable on the candidate (we may not have
+      // a successful AI analysis at this point); buildGarmentInsert falls
+      // back to the per-field defaults when it's null, so the insert still
+      // succeeds with sane category/color seeds — enrichment fills the
+      // rest in via `triggerGarmentPostSaveIntelligence` below.
+      const candidate: GarmentIntakeCandidate = {
+        blob: file as Blob,
+        analysis: analysis ?? null,
+        userId: user.id,
+        source: 'batch_add',
+        enableStudioQuality: true,
+        confidence: analysis?.confidence ?? null,
+        existingGarmentId: garmentId,
+        existingStoragePath: path,
+        fieldOverrides: {
+          title: analysis?.title || fallbackTitle,
+        },
+      };
+      const insertPayload = buildGarmentInsert(candidate, path, {
+        // Preserve the analytics taxonomy: distinguish onboarding batch
+        // capture from generic batch_add (which is the source enum used
+        // by other multi-garment intake flows).
+        importedVia: 'batch_capture',
       });
 
-      const { error: insertError } = await supabase.from('garments').insert({
-        id: garmentId,
-        user_id: user.id,
-        image_path: path,
-        title: analysis?.title || fallbackTitle,
-        category: analysis?.category || 'top',
-        subcategory: analysis?.subcategory || null,
-        color_primary: analysis?.color_primary || 'black',
-        color_secondary: analysis?.color_secondary || null,
-        pattern: analysis?.pattern || null,
-        material: analysis?.material || null,
-        fit: analysis?.fit || null,
-        season_tags: analysis?.season_tags || null,
-        formality: analysis?.formality || 3,
-        ai_analyzed_at: analysis ? new Date().toISOString() : null,
-        ai_provider: analysis?.ai_provider || null,
-        ai_raw: standardizeGarmentAiRaw({
-          aiRaw: analysis?.ai_raw || null,
-          analysisConfidence: analysis?.confidence,
-          source: 'batch_capture',
-        }),
-        imported_via: 'batch_capture',
-        ...intelligenceFields,
-      });
+      const { error: insertError } = await supabase.from('garments').insert(insertPayload);
 
       if (insertError) throw insertError;
 

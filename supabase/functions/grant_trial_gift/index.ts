@@ -38,10 +38,36 @@ import {
   rateLimitResponse,
   checkOverload,
   overloadResponse,
+  recordError,
 } from "../_shared/scale-guard.ts";
 import { grantTrialGift } from "../_shared/render-credits.ts";
 
 const TRIAL_GIFT_AMOUNT = 3;
+
+/** Wave 7.9 audit A.P0 — map RPC `result.reason` strings to HTTP status
+ * codes. The previous version returned 500 for every `ok:false`, masking
+ * client-side validation errors as transient infrastructure failures. The
+ * canonical reason taxonomy comes from `grant_trial_gift_atomic` and the
+ * underlying `grantTrialGift` helper:
+ *
+ *   - `'invalid_amount'` → 400 (caller passed a non-positive amount —
+ *     server-side hardcoded so this should never fire, but route correctly
+ *     if it does)
+ *   - `'invalid_user'` → 400 (userId not a UUID or not in profiles)
+ *   - `'rpc_error'` / unknown → 500 (genuinely transient / infrastructure)
+ *
+ * Routing 4xx for the validation reasons keeps the client's error surface
+ * actionable (caller knows it's a permanent rejection, not a retry case).
+ */
+function statusForReason(reason: string | undefined): number {
+  switch (reason) {
+    case "invalid_amount":
+    case "invalid_user":
+      return 400;
+    default:
+      return 500;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -122,13 +148,20 @@ Deno.serve(async (req) => {
         reason: result.reason,
         error: result.error,
       });
+      const status = statusForReason(result.reason);
+      // Only record errors for genuinely transient failures (5xx). 4xx
+      // routes are deterministic client problems and shouldn't trip the
+      // overload guard.
+      if (status >= 500) {
+        recordError("grant_trial_gift");
+      }
       return new Response(
         JSON.stringify({
           ok: false,
           reason: result.reason ?? "unknown_error",
         }),
         {
-          status: 500,
+          status,
           headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
         },
       );
@@ -149,6 +182,15 @@ Deno.serve(async (req) => {
     if (err instanceof RateLimitError) {
       return rateLimitResponse(err, CORS_HEADERS);
     }
+    // Wave 7.9 audit A.P0 — record overload-guard error for transport-level
+    // failures (network blips, RPC throws, JSON parse errors). Without this,
+    // the overload guard never trips even under heavy upstream-error load
+    // because every transport failure was caught and returned as a fresh
+    // 500 with no telemetry signal. The guard's `recordError` increments an
+    // in-isolate counter; once the counter exceeds the threshold the next
+    // `checkOverload` short-circuits with 503 and gives the upstream time
+    // to recover before we keep hammering it.
+    recordError("grant_trial_gift");
     console.error("[grant_trial_gift] unexpected error:", err);
     return new Response(
       JSON.stringify({

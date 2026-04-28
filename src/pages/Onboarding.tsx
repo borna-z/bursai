@@ -473,20 +473,47 @@ export default function OnboardingPage() {
   const handleRevealComplete = async () => {
     // Wave 7 P51: final onboarding step. Server-side advance to 'completed'
     // happens inside `completeOnboarding` (which also writes the legacy
-    // preferences flag with retry). Local `revealDone=true` is essentially
-    // a no-op visually (the next step is `getstarted`, but
-    // `onboardingCompleted` short-circuits to Navigate("/") immediately
-    // after preferences write).
+    // preferences flag with retry).
+    //
+    // Wave 7.9 audit B.P0.2 + polish #5 — `navigate('/')` was previously
+    // unconditional, even when `completeOnboarding` threw. The throw path
+    // means the RPC itself failed AND `profileLacksOnboardingColumn` is
+    // false (otherwise we'd swallow per the deploy-window gate). Hard-
+    // navigating in that state pushed the user to `/` while the column
+    // was still `'reveal'`, ProtectedRoute then redirected back to
+    // `/onboarding`, hydration showed Reveal again — redirect loop on
+    // every retry.
+    //
+    // Codex P2 round 5 (PR #696): rely-on-short-circuit alone was too
+    // aggressive. `completeOnboarding` resolves successfully in 4 cases:
+    // (a) RPC ok + legacy ok — happy path, onboardingCompleted=true, the
+    //     `<Navigate to="/" replace />` short-circuit fires. Good.
+    // (b) RPC ok + legacy FAILED after 3 retries — column is canonical
+    //     (`onboarding_step='completed'`) but the preferences flag never
+    //     got written, so `onboardingCompleted=false`. Without an
+    //     explicit navigate, `setRevealDone(true)` advances the local
+    //     state machine to `getstarted` and the user sees the GetStarted
+    //     screen instead of Home — confusing, even though server-side
+    //     they ARE done.
+    // (c) RPC missing (deploy window) + legacy ok — same as (a) via the
+    //     legacy-flag fallback.
+    // (d) RPC missing + legacy FAILED — both signals broken; user retries.
+    //
+    // Fix: navigate('/') explicitly AFTER the resolve. The short-circuit
+    // still fires when onboardingCompleted=true (cases a/c) and our
+    // explicit navigate is a no-op redirect-to-current. In case (b) the
+    // explicit navigate routes the user to Home; ProtectedRoute on Home
+    // sees `onboarding_step='completed'` (canonical column) and lets
+    // them through — no redirect loop.
+    //
+    // Throw path stays untouched: catch + toast + re-throw so RevealStep
+    // resets `advancing` and the user can retry without page reload.
     try {
       await completeOnboarding();
     } catch (err) {
-      // completeOnboarding handles the legacy-write retry internally.
-      // If it throws here it means the RPC itself failed in the
-      // post-migration window — log but advance the local flag anyway
-      // so the user lands on Home (the navigation happens via the
-      // onboardingCompleted check).
       console.warn('completeOnboarding from RevealStep failed (non-fatal):', err);
       toast.error(t('onboarding.error'));
+      throw err;
     }
     setRevealDone(true);
     navigate('/');
@@ -593,7 +620,7 @@ export default function OnboardingPage() {
           ) : null}
           {stepKey === 'reveal' ? (
             <RevealStep
-              onComplete={() => { hapticLight(); handleRevealComplete(); }}
+              onComplete={() => { hapticLight(); return handleRevealComplete(); }}
             />
           ) : null}
           {stepKey === 'getstarted' ? <GetStartedStep onAction={(path) => { hapticLight(); handleGetStartedAction(path); }} /> : null}

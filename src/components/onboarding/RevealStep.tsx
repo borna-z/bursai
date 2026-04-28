@@ -15,7 +15,11 @@ import { EASE_CURVE } from '@/lib/motion';
 import { safeT } from '@/lib/i18nFallback';
 
 interface RevealStepProps {
-  onComplete: () => void;
+  /** Parent's completion handler. Called when the user taps the CTA.
+   * Returns a Promise so RevealStep can detect rejection and reset its
+   * `advancing` state — without that, a failed `completeOnboarding`
+   * would leave the CTA permanently disabled (Wave 7.9 audit B.P0.2). */
+  onComplete: () => void | Promise<void>;
 }
 
 interface WatchedGarment {
@@ -63,19 +67,30 @@ export function RevealStep({ onComplete }: RevealStepProps) {
   // Wave 7.9 P1 #5: double-tap guard. Parent's `handleRevealComplete` calls
   // `completeOnboarding` which writes server step + legacy preferences flag;
   // a double-fire issues 2 forward-only RPCs and 2 legacy writes.
+  //
+  // Wave 7.9 audit B.P0.2 — await onComplete + reset on rejection so a
+  // failed save lets the user retry. Without this, `advancing=true` stuck
+  // the CTA disabled until page reload after any RPC failure.
   const [advancing, setAdvancing] = useState(false);
-  const handleAdvance = () => {
+  const handleAdvance = async () => {
     if (advancing) return;
     setAdvancing(true);
-    onComplete();
+    try {
+      await Promise.resolve(onComplete());
+    } catch {
+      setAdvancing(false);
+    }
   };
 
   // Fetch the canonical 3 watched render_job garment IDs (same pattern as
-  // CoachTourStep). The status filter lets us pick up rows that completed
-  // (succeeded/failed) BETWEEN P49's enqueue and this mount — we need
-  // succeeded rows because that's the happy path here, AND we need failed
-  // rows to trigger the auto-retry. Pending/in_progress are still in
-  // flight. Limit 3 because P49 only enqueues 3.
+  // CoachTourStep). Status filter narrows to the canonical 4-state CHECK
+  // constraint values so we don't pick up older terminal jobs from a prior
+  // session — P49's 3 freshly-enqueued jobs are always the most-recent rows.
+  // Without the filter (Wave 7.9 audit D.P1.3) this query could include
+  // stale `'cancelled'` or pre-onboarding rows on accounts that retried.
+  // We intentionally INCLUDE 'succeeded' + 'failed' here (CoachTour excludes
+  // them) because Reveal needs to know about both: succeeded → display the
+  // hero, failed → trigger auto-retry below.
   const { data: watchedJobs, isLoading: jobsLoading } = useQuery({
     queryKey: ['reveal-render-jobs', user?.id],
     enabled: Boolean(user?.id),
@@ -85,6 +100,7 @@ export function RevealStep({ onComplete }: RevealStepProps) {
         .from('render_jobs')
         .select('garment_id, status')
         .eq('user_id', user!.id)
+        .in('status', ['pending', 'in_progress', 'succeeded', 'failed'])
         .order('created_at', { ascending: false })
         .limit(3);
       if (error) {
@@ -219,6 +235,15 @@ export function RevealStep({ onComplete }: RevealStepProps) {
   const heroIsReady = hero?.render_status === 'ready' && Boolean(hero.rendered_image_path);
   const heroPath = hero ? getPreferredGarmentImagePath(hero) : undefined;
 
+  // Wave 7.9 audit polish #1 — distinct copy when EVERY watched garment is
+  // 'failed'. The cooking copy reads as a quiet lie if all 3 retries also
+  // fail; this branch surfaces a calmer "your originals are safe" tone +
+  // hides the shimmer so the card doesn't feel apologetic. Guarded on
+  // `garments.length > 0` so the empty initial state (still fetching)
+  // doesn't trip the all-failed branch.
+  const allFailed =
+    garments.length > 0 && garments.every((g) => g.render_status === 'failed');
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="page-shell !max-w-lg !px-6 !pb-32 !pt-[calc(var(--safe-area-top)+6rem)] page-cluster">
@@ -250,7 +275,9 @@ export function RevealStep({ onComplete }: RevealStepProps) {
             <h1 className="mt-3 font-display text-[2rem] italic font-medium leading-tight tracking-[-0.02em] text-foreground">
               {heroIsReady
                 ? safeT(t, 'reveal.title_ready', 'Your studio shot is ready.')
-                : safeT(t, 'reveal.title_cooking', "We're framing your first piece.")}
+                : allFailed
+                  ? safeT(t, 'reveal.title_all_failed', 'Your originals look great too.')
+                  : safeT(t, 'reveal.title_cooking', "We're framing your first piece.")}
             </h1>
             <p className="mt-3 text-[0.92rem] leading-6 text-muted-foreground">
               {heroIsReady
@@ -259,11 +286,17 @@ export function RevealStep({ onComplete }: RevealStepProps) {
                     'reveal.subtitle_ready',
                     'The other two are still rendering — you can see them in your wardrobe whenever they land.',
                   )
-                : safeT(
-                    t,
-                    'reveal.subtitle_cooking',
-                    'It usually takes a moment. The first one will appear here as soon as it lands.',
-                  )}
+                : allFailed
+                  ? safeT(
+                      t,
+                      'reveal.subtitle_all_failed',
+                      "We had trouble rendering your studio shots — but every photo is safe in your wardrobe. You can retry from any garment's detail page.",
+                    )
+                  : safeT(
+                      t,
+                      'reveal.subtitle_cooking',
+                      'It usually takes a moment. The first one will appear here as soon as it lands.',
+                    )}
             </p>
           </motion.div>
         </Card>
@@ -290,7 +323,7 @@ export function RevealStep({ onComplete }: RevealStepProps) {
                   className="h-full w-full object-cover"
                 />
               ) : null}
-              {!heroIsReady ? (
+              {!heroIsReady && !allFailed ? (
                 <div
                   aria-hidden="true"
                   className="absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[2px]"

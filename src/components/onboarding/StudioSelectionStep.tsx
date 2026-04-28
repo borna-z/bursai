@@ -220,19 +220,11 @@ export function StudioSelectionStep({ onComplete }: StudioSelectionStepProps) {
       onComplete();
     } catch (err) {
       console.warn('[StudioSelectionStep] enqueue failed:', err);
-      // If the error came from `RenderEnqueueError`, it carries the nonce
-      // that was actually used on the failing request. Record it so a
-      // subsequent retry pulls the same nonce out of the Map — the
-      // pre-loop check (`if (!nonce)`) already preserves an existing entry,
-      // but this branch is a belt-and-suspenders for any future code path
-      // that mints nonces outside this component.
-      if (err instanceof RenderEnqueueError && err.clientNonce) {
-        // We don't know which garmentId failed at the throw site (the loop
-        // throws by reference into our await), but the nonce-Map already
-        // has the right entry from the pre-flight `set()` above, so this
-        // hook is a no-op for the current contract. Left as a placeholder
-        // so the diff is reviewable when the contract evolves.
-      }
+      // The pre-flight `clientNoncesRef.set()` block above captures the
+      // nonce per-garment BEFORE the enqueue call, so the Map is always
+      // up-to-date for the next retry attempt — no extra bookkeeping
+      // needed in the catch. Wave 7.9 cleanup: removed a placeholder
+      // `RenderEnqueueError` branch that did nothing.
       const insufficient = isInsufficientCreditsError(err);
       const fallbackKey = insufficient
         ? 'studioSelection.no_credits'

@@ -516,14 +516,18 @@ export async function claimJob(
   const now = new Date().toISOString();
   const lockedUntil = new Date(Date.now() + lockDurationMs).toISOString();
 
-  // Atomic claim: find pending job where lock is expired or null
+  // Atomic claim: find pending job where lock is expired or null. The
+  // increment of `attempts` happens below as a separate UPDATE because
+  // supabase-js's `.update()` body can't reference the existing row's
+  // value (no `attempts: attempts + 1` shorthand). Wave 7.9 cleanup:
+  // dropped a stale `supabase.rpc ? undefined : undefined` no-op that
+  // pre-dated the split.
   const { data, error } = await supabase
     .from("job_queue")
     .update({
       status: "processing",
       started_at: now,
       locked_until: lockedUntil,
-      attempts: supabase.rpc ? undefined : undefined, // handled below
     })
     .eq("job_type", jobType)
     .in("status", ["pending", "processing"])

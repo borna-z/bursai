@@ -3145,6 +3145,10 @@ const sv: Record<string, string> = {
   'reveal.hero_aria_cooking': 'Förhandsvisning av studio-rendering, renderas fortfarande',
   'reveal.loading': 'Letar efter dina renderingar…',
   'reveal.cta_label': 'Börja använda BURS',
+  // Wave 7.9 audit polish #1 — distinkt kopia när alla 3 trial-gift-renderingar
+  // misslyckats och auto-retry inte hjälpt.
+  'reveal.title_all_failed': 'Dina originalbilder ser också bra ut.',
+  'reveal.subtitle_all_failed': 'Vi hade problem med att rendera dina studioshoter — men alla bilder är säkra i din garderob. Du kan försöka igen från varje plaggs detaljsida.',
 
   // ── Wave 7.9 — Onboarding progress + quiz progress i18n (P1 #4) ───
   'onboarding.progress_label': 'Steg {n} av {total}',

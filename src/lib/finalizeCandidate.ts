@@ -7,7 +7,13 @@ import { runPostSaveHooks } from './postSaveHooks';
 
 export interface GarmentIntakeCandidate {
   blob: Blob;
-  analysis: GarmentAnalysis;
+  // Wave 7.9 audit P2 #7 — `analysis` is nullable so callers that ran the
+  // AI analyze step but got an error (BatchCaptureStep) can still feed the
+  // candidate through `buildGarmentInsert` with `fieldOverrides` carrying
+  // sane fallbacks. Pre-existing call sites (LiveScan, AddGarment) still
+  // pass a populated analysis — they typed `non-null` historically and
+  // those guards stay green under the wider type.
+  analysis: GarmentAnalysis | null;
   userId: string;
   source: 'live_scan' | 'add_photo' | 'batch_add';
   enableStudioQuality?: boolean;

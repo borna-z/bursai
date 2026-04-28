@@ -32,19 +32,29 @@ export function runPostSaveHooks(
     needs_review: decision.needsReview,
   });
 
+  // Codex P2 round 5 (PR #696): `candidate.analysis` was widened to
+  // `GarmentAnalysis | null` for the BatchCaptureStep refactor. The
+  // analytics + dedup paths below dereferenced `.category` / `.subcategory`
+  // / etc. directly, which would TypeError on `null` and bubble into
+  // `finalizeCandidate`'s caller as a post-insert failure (the row is
+  // already persisted at this point — the failure is misleading). Null-
+  // safe accessors below; `detectDuplicates` early-returns when the
+  // candidate has no analysis (it can't dedup against unknown features).
   trackEvent('garment_intake', {
     source: candidate.source,
     confidence: candidate.confidence ?? null,
-    category: candidate.analysis.category,
-    subcategory: candidate.analysis.subcategory ?? null,
+    category: candidate.analysis?.category ?? null,
+    subcategory: candidate.analysis?.subcategory ?? null,
     needs_review: decision.needsReview,
     auto_saved: !decision.needsReview,
     studio_quality: candidate.enableStudioQuality ?? true,
   });
 
-  detectDuplicates(candidate.analysis, garmentId, storagePath).catch((err) => {
-    logger.error('Duplicate detection error (non-blocking):', err);
-  });
+  if (candidate.analysis) {
+    detectDuplicates(candidate.analysis, garmentId, storagePath).catch((err) => {
+      logger.error('Duplicate detection error (non-blocking):', err);
+    });
+  }
 }
 
 async function detectDuplicates(
