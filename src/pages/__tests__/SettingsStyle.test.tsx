@@ -507,6 +507,34 @@ describe('SettingsStyle', () => {
     expect(styleWordsWritten).toEqual([]);
   });
 
+  // Codex P2 round 4 (PR #696): V3 chip set must NOT include V4-only
+  // swatches like `denim`. Earlier rounds added `denim` to COLOR_MAP so
+  // V4 chips could resolve a hex; that leaked into `Object.keys(COLOR_MAP)`
+  // making legacy V3 users see/pick `denim` even though it's V4 vocab.
+  // Fix hardcodes the V3 36-color list explicitly.
+  it('round 4: V3 record (no version=4) does NOT render the V4-only denim chip', () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      preferences: {
+        styleProfile: {
+          // Legacy V3 — no version field
+          gender: 'female',
+          styleWords: ['minimal'],
+          favoriteColors: [],
+          dislikedColors: [],
+          fit: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // V3 chip set must include legacy IDs like 'gold' / 'cobalt' but
+    // exclude V4-only ones like 'denim'.
+    expect(screen.queryAllByText('denim').length).toBe(0);
+    // Sanity: legacy V3 chips DO render.
+    expect(screen.getAllByText('gold').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('cobalt').length).toBeGreaterThan(0);
+  });
+
   it('non-V4 record: toggleColor passes through without normalization', async () => {
     profileDataMock.mockReturnValue({
       id: 'u1',

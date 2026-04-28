@@ -79,7 +79,25 @@ const COLOR_MAP: Record<string, string> = {
   denim: '#4B6C8A',
 };
 
-const COLORS = Object.keys(COLOR_MAP);
+// Codex P2 round 4 (PR #696): V3 chip set is HARDCODED as the original
+// 36-color list, NOT derived from `Object.keys(COLOR_MAP)`. The earlier
+// round 3 fix added `denim` to `COLOR_MAP` so V4 chips have a hex value
+// — but `Object.keys` leaked `denim` into the V3 set, letting legacy
+// V3 users pick a swatch that's V4-only vocab. Keeping the V3 list
+// explicit prevents cross-version vocab drift in saved V3 profiles.
+const LEGACY_V3_COLORS: readonly string[] = [
+  'black', 'white', 'grey', 'navy',
+  'blue', 'red', 'green', 'beige',
+  'brown', 'pink', 'yellow', 'orange',
+  'purple', 'ivory', 'cream', 'sand',
+  'khaki', 'charcoal', 'skyblue', 'turquoise',
+  'olive', 'forest', 'mint', 'sage',
+  'burgundy', 'coral', 'lavender',
+  'camel', 'rust', 'cognac',
+  'teal', 'plum', 'mustard', 'gold',
+  'indigo', 'cobalt',
+];
+const COLORS = LEGACY_V3_COLORS;
 const V4_COLOR_IDS = COLOR_SWATCHES.map((s) => s.id) as readonly string[];
 
 type SectionId = 'body' | 'identity' | 'daily' | 'style' | 'fit' | 'colors' | 'philosophy' | 'inspiration' | 'goals';
