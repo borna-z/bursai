@@ -1,0 +1,22 @@
+# Claude context exclusions for token efficiency.
+#
+# CLAUDE.md's Wave Index points at one wave file at a time. The "completed" wave
+# files (and standing-rules) are excluded by default so Claude doesn't load
+# them on every session. When working on a specific completed wave (e.g. for
+# audit / regression triage), explicitly Read the file instead of relying on
+# context auto-load.
+#
+# The CURRENT WAVE FILE (per CLAUDE.md "Launch Plan — Current Wave") is NOT
+# excluded so it loads naturally during launch-plan work.
+
+docs/launch/wave-0-safety-net.md
+docs/launch/wave-1-security.md
+docs/launch/wave-2-rate-limiting.md
+docs/launch/wave-3-ghost-mannequin.md
+docs/launch/wave-4-ai-retrieval.md
+docs/launch/wave-4.5-secondary-image.md
+docs/launch/wave-4.9-findings-cleanup.md
+docs/launch/wave-5-refine-chat.md
+docs/launch/wave-6-localization.md
+docs/launch/wave-7-onboarding.md
+docs/launch/standing-rules.md
