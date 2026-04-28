@@ -107,6 +107,67 @@ export default function SettingsStyle() {
 
   const isV4 = (sp as { version?: number }).version === STYLE_PROFILE_VERSION;
 
+  // Codex P1 round 3 follow-up on PR #696 — V4 normalized arrays shared by
+  // render + toggle paths.
+  //
+  // The previous rounds normalized the WRITE path (output to archetypes
+  // mirror, output favoriteColors). But the READ path (chip selected state
+  // in ChipMulti / ColorGrid + max-cap check in toggleMulti) still derived
+  // from raw `sp[field]`, which produced two concrete UX bugs:
+  //
+  // (a) Color chip flip-direction: V4 user with `favoriteColors: ['gold']`
+  //     sees `camel` rendered UNSELECTED (raw .includes('camel') is false)
+  //     but click handler treats `normalizedCurrent.includes('camel')` as
+  //     true (gold→camel) and REMOVES instead of adding. Opposite of user
+  //     intent.
+  //
+  // (b) StyleWords cap-stuck: V4 user with 5 hidden V3 tokens
+  //     ['streetwear','scandinavian','elegant','vintage','artsy'] hits
+  //     `current.length >= 5` cap immediately. Visible V4 chips can't be
+  //     added because cap is full; hidden tokens can't be removed because
+  //     they're not in the V4 chip list. User is stuck.
+  //
+  // Fix: memoize the normalized arrays here and use them for BOTH the
+  // chip-selected render state AND the toggle includes/max/filter checks.
+  // Pass-through for non-V4 records (no normalization, legacy V3 vocab
+  // preserved as-is).
+  const normalizedStyleWordsV4 = useMemo(() => {
+    if (!isV4) return null;
+    const seen = new Set<V4ArchetypeId>();
+    const out: V4ArchetypeId[] = [];
+    for (const token of (sp.styleWords as string[] | undefined) ?? []) {
+      if (typeof token !== 'string') continue;
+      const v4 = v3ArchetypeToV4(token);
+      if (v4 && !seen.has(v4)) {
+        seen.add(v4);
+        out.push(v4);
+      }
+    }
+    return out;
+  }, [isV4, sp]);
+
+  const normalizeColorsV4Memoized = (raw: readonly string[] | undefined): V4ColorSwatchId[] => {
+    const seen = new Set<V4ColorSwatchId>();
+    const out: V4ColorSwatchId[] = [];
+    for (const token of raw ?? []) {
+      if (typeof token !== 'string') continue;
+      const v4 = v3ColorToV4(token);
+      if (v4 && !seen.has(v4)) {
+        seen.add(v4);
+        out.push(v4);
+      }
+    }
+    return out;
+  };
+  const normalizedFavoriteColorsV4 = useMemo(
+    () => (isV4 ? normalizeColorsV4Memoized(sp.favoriteColors) : null),
+    [isV4, sp],
+  );
+  const normalizedDislikedColorsV4 = useMemo(
+    () => (isV4 ? normalizeColorsV4Memoized(sp.dislikedColors) : null),
+    [isV4, sp],
+  );
+
   const updateStyleField = async (key: keyof StyleProfile, value: unknown) => {
     // V4-aware write strategy (PR #688 audit finding #9 alignment with
     // `migrateV4ToV3Compat`):
@@ -183,39 +244,22 @@ export default function SettingsStyle() {
       : sp.primaryGoal;
 
   const toggleColor = async (field: 'favoriteColors' | 'dislikedColors', color: string) => {
-    const current = sp[field] || [];
-
-    // Codex P1 follow-up on PR #696 (V4 color normalization on edit):
-    // For V4 records, the chip grid only renders V4_COLOR_IDS (the curated
-    // 18). But existing V4 profiles can already carry legacy V3 color ids
-    // (`gold`, `cobalt`, `coral`, `mustard`, ...) from saves predating the
-    // V4-aware ColorGrid. Without normalization, those hidden tokens
-    // can't be removed by the user (they're not in the chip set) and
-    // every subsequent toggle preserves them via the spread, leaking
-    // corrupt vocab into downstream AI consumers indefinitely.
+    // Codex P1 round 2 (PR #696): for V4 records, normalize the existing
+    // array through `v3ColorToV4` BEFORE applying the toggle so legacy
+    // V3 ids (gold, cobalt, ...) get translated to V4 vocab and the
+    // user can actually remove them by tapping their V4-translated chip.
     //
-    // Fix: when isV4=true, normalize the existing array through
-    // `v3ColorToV4` (passthrough V4 ids, rename V3 ids with a known
-    // mapping, drop unknowns) BEFORE applying the toggle. The result is
-    // a clean V4-vocab array that only grows or shrinks by the user's
-    // explicit pick. Mirror behavior to the archetype-mirror normalization
-    // in toggleMulti above.
-    let normalizedCurrent: readonly string[];
-    if (isV4) {
-      const seen = new Set<V4ColorSwatchId>();
-      const out: V4ColorSwatchId[] = [];
-      for (const token of current) {
-        if (typeof token !== 'string') continue;
-        const v4 = v3ColorToV4(token);
-        if (v4 && !seen.has(v4)) {
-          seen.add(v4);
-          out.push(v4);
-        }
-      }
-      normalizedCurrent = out;
-    } else {
-      normalizedCurrent = current;
-    }
+    // Codex P1 round 3 (PR #696): the SAME normalized array is now
+    // exposed via the memoized `normalizedFavoriteColorsV4` /
+    // `normalizedDislikedColorsV4` so the ColorGrid render uses the same
+    // source of truth for the `selected` chip state. Without that, the
+    // chip would show UNSELECTED while the click handler treated it as
+    // already selected — opposite-of-intent click outcome for migrated
+    // users.
+    const memoized =
+      field === 'favoriteColors' ? normalizedFavoriteColorsV4 : normalizedDislikedColorsV4;
+    const normalizedCurrent: readonly string[] =
+      isV4 && memoized ? memoized : (sp[field] || []);
 
     const next = normalizedCurrent.includes(color)
       ? normalizedCurrent.filter(c => c !== color)
@@ -237,7 +281,17 @@ export default function SettingsStyle() {
   const colorOptions = isV4 ? V4_COLOR_IDS : COLORS;
 
   const toggleMulti = async (field: 'styleWords' | 'wardrobeFrustrations' | 'hardestOccasions', val: string, max = 5) => {
-    const current = (sp[field] as string[]) || [];
+    // Codex P1 round 3 (PR #696): for V4 records' styleWords, normalize
+    // the existing array against the V4 vocab BEFORE the includes/max/
+    // filter checks. Otherwise a profile with 5 hidden V3 tokens
+    // (streetwear/scandinavian/elegant/vintage/artsy) would already be
+    // at the cap, so no V4 chip could be added — and the user can't
+    // deselect the hidden ones because they're not in the V4 chip set.
+    // Mirror behavior to toggleColor's memoized normalized array.
+    const current: string[] =
+      isV4 && field === 'styleWords' && normalizedStyleWordsV4
+        ? [...normalizedStyleWordsV4]
+        : ((sp[field] as string[]) || []);
     const next = current.includes(val)
       ? current.filter(v => v !== val)
       : current.length >= max ? current : [...current, val];
@@ -349,31 +403,56 @@ export default function SettingsStyle() {
 
   const ChipMulti = ({ field, options, max = 5 }: {
     field: 'styleWords' | 'wardrobeFrustrations' | 'hardestOccasions'; options: string[]; max?: number;
-  }) => (
-    <div className="flex flex-wrap gap-2">
-      {options.map(v => (
-        <Chip key={v} selected={(sp[field] as string[] || []).includes(v)} onClick={() => { hapticLight(); toggleMulti(field, v, max); }} className="text-xs capitalize font-body rounded-full">
-          {t(`q3.opt.${v}`) !== `q3.opt.${v}` ? t(`q3.opt.${v}`) : v.replace(/_/g, ' ')}
-        </Chip>
-      ))}
-    </div>
-  );
+  }) => {
+    // Codex P1 round 3 (PR #696): on V4 records, the styleWords chip
+    // selected-state must derive from the SAME normalized array the
+    // toggle handler uses. Otherwise a chip rendered as 'street'
+    // (V4-canonical translation of stored 'streetwear') would show
+    // UNSELECTED while click flow treats it as selected — bouncing
+    // user intent. For non-styleWords fields and non-V4 records, fall
+    // back to raw `sp[field]`.
+    const selectedSource: readonly string[] =
+      isV4 && field === 'styleWords' && normalizedStyleWordsV4
+        ? normalizedStyleWordsV4
+        : ((sp[field] as string[]) || []);
+    return (
+      <div className="flex flex-wrap gap-2">
+        {options.map(v => (
+          <Chip key={v} selected={selectedSource.includes(v)} onClick={() => { hapticLight(); toggleMulti(field, v, max); }} className="text-xs capitalize font-body rounded-full">
+            {t(`q3.opt.${v}`) !== `q3.opt.${v}` ? t(`q3.opt.${v}`) : v.replace(/_/g, ' ')}
+          </Chip>
+        ))}
+      </div>
+    );
+  };
 
   // ── Color grid ──
 
-  const ColorGrid = ({ field }: { field: 'favoriteColors' | 'dislikedColors' }) => (
-    <div className="flex flex-wrap gap-2">
-      {colorOptions.map(color => {
-        const selected = (sp[field] || []).includes(color);
-        return (
-          <Chip key={color} selected={selected} onClick={() => { hapticLight(); toggleColor(field, color); }} className="capitalize text-xs font-body rounded-full">
-            <span className="w-3 h-3 rounded-full flex-shrink-0 border border-foreground/10 shadow-sm" style={{ backgroundColor: COLOR_MAP[color] || '#9CA3AF' }} />
-            {t(`color.${color}`) !== `color.${color}` ? t(`color.${color}`) : color}
-          </Chip>
-        );
-      })}
-    </div>
-  );
+  const ColorGrid = ({ field }: { field: 'favoriteColors' | 'dislikedColors' }) => {
+    // Codex P1 round 3 (PR #696): on V4 records, the chip selected-state
+    // must derive from the SAME normalized color array the toggle uses.
+    // Without this, a profile with `favoriteColors: ['gold']` shows the
+    // 'camel' chip (V4 translation) UNSELECTED while toggleColor treats
+    // 'camel' as selected — first click REMOVES instead of adds. Same
+    // root cause as the styleWords issue handled in ChipMulti above.
+    const memoized =
+      field === 'favoriteColors' ? normalizedFavoriteColorsV4 : normalizedDislikedColorsV4;
+    const selectedSource: readonly string[] =
+      isV4 && memoized ? memoized : (sp[field] || []);
+    return (
+      <div className="flex flex-wrap gap-2">
+        {colorOptions.map(color => {
+          const selected = selectedSource.includes(color);
+          return (
+            <Chip key={color} selected={selected} onClick={() => { hapticLight(); toggleColor(field, color); }} className="capitalize text-xs font-body rounded-full">
+              <span className="w-3 h-3 rounded-full flex-shrink-0 border border-foreground/10 shadow-sm" style={{ backgroundColor: COLOR_MAP[color] || '#9CA3AF' }} />
+              {t(`color.${color}`) !== `color.${color}` ? t(`color.${color}`) : color}
+            </Chip>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <AppLayout>

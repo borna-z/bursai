@@ -377,6 +377,136 @@ describe('SettingsStyle', () => {
     expect(colorsWritten).toEqual(['black']);
   });
 
+  // Codex P1 round 3 follow-up on PR #696 — render-vs-toggle parity bugs.
+  //
+  // Round 2 normalized the WRITE path. But the READ path (chip selected
+  // state) still used raw `sp[field]`. Two concrete UX bugs:
+  // (a) V4 user with stored `gold` saw `camel` (V4 translation) UNSELECTED
+  //     while click flipped it as if SELECTED → first click REMOVES.
+  // (b) V4 user with 5 hidden V3 styleWords hit the cap so no V4 chip
+  //     could be added; hidden tokens couldn't be removed because they
+  //     weren't in the V4 chip set.
+  //
+  // Round 3 memoizes the normalized arrays once and threads them through
+  // both render (Chip selected) AND toggle (includes/max/filter).
+  it('round 3: V4 user with stored gold sees camel chip rendered as SELECTED', () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          styleWords: [],
+          archetypes: [],
+          favoriteColors: ['gold'], // V3-only id; v3ColorToV4('gold') = 'camel'
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // The V4 18-color set includes 'camel'. With normalized rendering the
+    // camel chip must reflect SELECTED because gold→camel.
+    const camelMatches = screen.getAllByText('camel');
+    const camelChip = camelMatches.find(el => el.getAttribute('data-selected') === 'true');
+    expect(camelChip).toBeTruthy();
+  });
+
+  it('round 3: V4 user with stored gold tapping the camel chip REMOVES it (not adds)', async () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          styleWords: [],
+          archetypes: [],
+          favoriteColors: ['gold'],
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    const camelMatches = screen.getAllByText('camel');
+    const camelChip =
+      camelMatches.find(el => el.getAttribute('data-selected') === 'true') ?? camelMatches[0];
+    fireEvent.click(camelChip);
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const colorsWritten = lastCall?.preferences?.styleProfile?.favoriteColors;
+    // gold normalized to camel, then removed by the toggle. Result: empty.
+    expect(colorsWritten).toEqual([]);
+  });
+
+  it('round 3: V4 user with 5 hidden V3 styleWords can still add a V4 chip (cap applies to normalized)', async () => {
+    // 5 V3 tokens that all map to V4 ids:
+    //   streetwear → street, scandinavian → scandi, elegant → classic,
+    //   vintage → classic, artsy → avantgarde
+    // After normalization + dedup: ['street', 'scandi', 'classic', 'avantgarde']
+    // (4 distinct V4 ids, NOT 5). The user can add a 5th V4 chip.
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          styleWords: ['streetwear', 'scandinavian', 'elegant', 'vintage', 'artsy'],
+          archetypes: [],
+          favoriteColors: [],
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // 'minimal' is in V4 ARCHETYPE_OPTIONS and not in the user's normalized list.
+    const minimalMatches = screen.getAllByText('minimal');
+    const minimalBtn =
+      minimalMatches.find(el => el.getAttribute('data-selected') === 'false') ?? minimalMatches[0];
+    fireEvent.click(minimalBtn);
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const styleWordsWritten = lastCall?.preferences?.styleProfile?.styleWords;
+    // Cap was 5; normalized had 4 unique entries; 'minimal' added → 5 total.
+    // The new array reflects the normalized state (V4 vocab) + the new pick.
+    expect(styleWordsWritten).toEqual(expect.arrayContaining(['minimal']));
+    expect(styleWordsWritten?.length).toBe(5);
+  });
+
+  it('round 3: V4 user can deselect a chip whose stored token was a V3 alias', async () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          // 'streetwear' is V3-only; v3ArchetypeToV4 → 'street'.
+          styleWords: ['streetwear'],
+          archetypes: ['street'],
+          favoriteColors: [],
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // The V4 chip 'street' should render SELECTED; tapping it REMOVES.
+    const streetMatches = screen.getAllByText('street');
+    const streetChip =
+      streetMatches.find(el => el.getAttribute('data-selected') === 'true') ?? streetMatches[0];
+    fireEvent.click(streetChip);
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const styleWordsWritten = lastCall?.preferences?.styleProfile?.styleWords;
+    // After deselect, the normalized list has zero entries.
+    expect(styleWordsWritten).toEqual([]);
+  });
+
   it('non-V4 record: toggleColor passes through without normalization', async () => {
     profileDataMock.mockReturnValue({
       id: 'u1',
