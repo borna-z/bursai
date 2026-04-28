@@ -185,12 +185,37 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingError) {
-      // DB read failure on a hot path. Log and fail soft — let the rest of
-      // the flow proceed; if there really is an existing subscription, the
-      // Stripe-side idempotency key will prevent a duplicate customer mint,
-      // and the upsert at the end will overwrite cleanly. Log loud so we
-      // see this if it ever happens in prod.
-      console.warn("[start_trial] subscriptions pre-check failed (continuing):", existingError.message);
+      // Codex P1 round 4 on PR #698 — fail CLOSED. A transient DB read
+      // failure on a user who already has a Stripe subscription
+      // (minted by create_checkout_session, NOT this function) would
+      // mean we can't see their stripe_subscription_id. Without that
+      // signal, we'd fall through to fresh Stripe customer +
+      // subscription creation. The `start_trial_*` Stripe idempotency
+      // keys are unique to THIS function — they don't deduplicate
+      // against customers/subscriptions that other code paths created.
+      // So we'd mint a duplicate customer, a duplicate subscription,
+      // AND overwrite the row with trialing state, demoting an
+      // already-subscribed user to a 3-day trial with bonus Stripe
+      // billable objects.
+      //
+      // Return 503 so AuthContext's invoke-result-error rollback fires
+      // and the next SIGNED_IN retries. By then, the DB blip is likely
+      // resolved and we recover cleanly. Don't cache the failure (no
+      // storeIdempotencyResult) — next call should retry, not replay
+      // a stale 503.
+      console.error("[start_trial] subscriptions pre-check failed (failing closed):", existingError.message);
+      recordError("start_trial");
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          reason: "precheck_failed",
+          error: existingError.message,
+        }),
+        {
+          status: 503,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (existing?.stripe_subscription_id) {
