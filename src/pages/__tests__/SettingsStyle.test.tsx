@@ -291,4 +291,118 @@ describe('SettingsStyle', () => {
       expect(V4_ARCHETYPES.has(a)).toBe(true);
     }
   });
+
+  // Codex P1 round 2 follow-up on PR #696 — V4 color normalization on edit.
+  //
+  // Existing V4 profiles can carry legacy V3 color ids (`gold`, `cobalt`,
+  // `coral`, ...) from saves predating the V4-aware ColorGrid. The chip
+  // grid only renders the V4 18, so those hidden tokens can't be removed
+  // by the user, and every toggle preserves them via spread — leaking
+  // corrupt vocab into downstream AI consumers indefinitely. Fix routes
+  // the existing array through `v3ColorToV4` (passthrough V4, rename V3,
+  // drop unknown) BEFORE applying the toggle.
+  it('on V4 record, toggleColor normalizes legacy V3 color ids (gold/cobalt/...) before writing', async () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      height_cm: 180,
+      weight_kg: 75,
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          styleWords: [],
+          archetypes: [],
+          // Legacy V3 ids only (gold→camel, cobalt→blue, coral→pink),
+          // 1 already-V4 token (black), 1 unknown garbage.
+          favoriteColors: ['gold', 'cobalt', 'coral', 'black', 'unknownColor'],
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // Tap a V4 chip that's not in the user's list — 'white' is in V4_COLOR_IDS.
+    const whiteBtn = screen.getAllByText('white')[0];
+    fireEvent.click(whiteBtn);
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const colorsWritten = lastCall?.preferences?.styleProfile?.favoriteColors;
+    expect(colorsWritten).toBeDefined();
+    // Legacy V3 ids must be gone — replaced with their V4-canonical mapping.
+    expect(colorsWritten).not.toContain('gold');
+    expect(colorsWritten).not.toContain('cobalt');
+    expect(colorsWritten).not.toContain('coral');
+    expect(colorsWritten).not.toContain('unknownColor');
+    // Translation: gold→camel, cobalt→blue, coral→pink. black passthrough.
+    // 'white' is the new toggle.
+    expect(colorsWritten).toEqual(expect.arrayContaining(['camel', 'blue', 'pink', 'black', 'white']));
+    // Every entry must be a V4 swatch id.
+    const V4_COLORS = new Set([
+      'black', 'white', 'grey', 'navy', 'blue', 'beige', 'camel', 'brown',
+      'olive', 'green', 'red', 'burgundy', 'pink', 'purple', 'orange',
+      'teal', 'cream', 'denim',
+    ]);
+    for (const c of colorsWritten as string[]) {
+      expect(V4_COLORS.has(c)).toBe(true);
+    }
+  });
+
+  it('on V4 record, toggleColor on a legacy V3 id removes its V4-translated equivalent (no orphan corrupt token)', async () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      height_cm: 180,
+      weight_kg: 75,
+      preferences: {
+        styleProfile: {
+          version: 4,
+          gender: 'feminine',
+          styleWords: [],
+          archetypes: [],
+          favoriteColors: ['black', 'pink'], // pink (V4-canonical) is the visible chip.
+          dislikedColors: [],
+          fit: 'regular',
+          fitOverall: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // Tap 'pink' to deselect — pink is in V4_COLOR_IDS.
+    const pinkMatches = screen.getAllByText('pink');
+    const pinkBtn = pinkMatches.find(el => el.getAttribute('data-selected') === 'true') ?? pinkMatches[0];
+    fireEvent.click(pinkBtn);
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const colorsWritten = lastCall?.preferences?.styleProfile?.favoriteColors;
+    expect(colorsWritten).toEqual(['black']);
+  });
+
+  it('non-V4 record: toggleColor passes through without normalization', async () => {
+    profileDataMock.mockReturnValue({
+      id: 'u1',
+      height_cm: 180,
+      weight_kg: 75,
+      preferences: {
+        styleProfile: {
+          // No version=4 → legacy V3 record path.
+          gender: 'female',
+          styleWords: ['minimal'],
+          // Legacy V3 colors stay as-is for legacy users; the V3 chip set
+          // includes them (36-color grid).
+          favoriteColors: ['gold', 'black'],
+          dislikedColors: [],
+          fit: 'regular',
+        },
+      },
+    });
+    renderPage();
+    // Tap 'white' — V3 chip set has it.
+    const whiteBtn = screen.getAllByText('white')[0];
+    fireEvent.click(whiteBtn);
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+    const lastCall = mutateAsyncMock.mock.calls.at(-1)?.[0];
+    const colorsWritten = lastCall?.preferences?.styleProfile?.favoriteColors;
+    // V3 path preserves the array exactly + appends the new pick.
+    expect(colorsWritten).toEqual(['gold', 'black', 'white']);
+  });
 });

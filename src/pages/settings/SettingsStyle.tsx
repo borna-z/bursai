@@ -25,6 +25,7 @@ import {
   COLOR_SWATCHES,
   STYLE_PROFILE_VERSION,
   v3ArchetypeToV4,
+  v3ColorToV4,
   v3FitToV4,
   v4ClimateToV3,
   v4FitToV3,
@@ -34,6 +35,7 @@ import {
   v4PrimaryGoalToV3,
   type ArchetypeId as V4ArchetypeId,
   type Climate as V4Climate,
+  type ColorSwatchId as V4ColorSwatchId,
   type FitOverall as V4FitOverall,
   type Gender as V4Gender,
   type Layering as V4Layering,
@@ -182,9 +184,42 @@ export default function SettingsStyle() {
 
   const toggleColor = async (field: 'favoriteColors' | 'dislikedColors', color: string) => {
     const current = sp[field] || [];
-    const next = current.includes(color)
-      ? current.filter(c => c !== color)
-      : [...current, color];
+
+    // Codex P1 follow-up on PR #696 (V4 color normalization on edit):
+    // For V4 records, the chip grid only renders V4_COLOR_IDS (the curated
+    // 18). But existing V4 profiles can already carry legacy V3 color ids
+    // (`gold`, `cobalt`, `coral`, `mustard`, ...) from saves predating the
+    // V4-aware ColorGrid. Without normalization, those hidden tokens
+    // can't be removed by the user (they're not in the chip set) and
+    // every subsequent toggle preserves them via the spread, leaking
+    // corrupt vocab into downstream AI consumers indefinitely.
+    //
+    // Fix: when isV4=true, normalize the existing array through
+    // `v3ColorToV4` (passthrough V4 ids, rename V3 ids with a known
+    // mapping, drop unknowns) BEFORE applying the toggle. The result is
+    // a clean V4-vocab array that only grows or shrinks by the user's
+    // explicit pick. Mirror behavior to the archetype-mirror normalization
+    // in toggleMulti above.
+    let normalizedCurrent: readonly string[];
+    if (isV4) {
+      const seen = new Set<V4ColorSwatchId>();
+      const out: V4ColorSwatchId[] = [];
+      for (const token of current) {
+        if (typeof token !== 'string') continue;
+        const v4 = v3ColorToV4(token);
+        if (v4 && !seen.has(v4)) {
+          seen.add(v4);
+          out.push(v4);
+        }
+      }
+      normalizedCurrent = out;
+    } else {
+      normalizedCurrent = current;
+    }
+
+    const next = normalizedCurrent.includes(color)
+      ? normalizedCurrent.filter(c => c !== color)
+      : [...normalizedCurrent, color];
     await updateStyleField(field, next);
   };
 
