@@ -1,0 +1,77 @@
+import React from 'react';
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useTokens } from '../theme/ThemeProvider';
+import { fonts, radii } from '../theme/tokens';
+
+type Variant = 'primary' | 'outline' | 'quiet' | 'accent';
+type Size = 'sm' | 'md';
+
+export function Button({
+  label,
+  onPress,
+  variant = 'primary',
+  size = 'md',
+  block = false,
+  disabled = false,
+  leadingIcon,
+  trailingIcon,
+  style,
+}: {
+  label: string;
+  onPress?: () => void;
+  variant?: Variant;
+  size?: Size;
+  block?: boolean;
+  disabled?: boolean;
+  leadingIcon?: React.ReactNode;
+  trailingIcon?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const t = useTokens();
+
+  const palette = (() => {
+    switch (variant) {
+      case 'primary':
+        return { bg: t.fg,         color: t.bg,        border: 'transparent' };
+      case 'accent':
+        return { bg: t.accent,     color: t.accentFg,  border: 'transparent' };
+      case 'outline':
+        return { bg: 'transparent', color: t.fg,        border: t.border2 };
+      case 'quiet':
+        return { bg: 'transparent', color: t.fg2,       border: 'transparent' };
+    }
+  })();
+
+  const dims = size === 'sm' ? { height: 36, paddingX: 14, fontSize: 12.5 } : { height: 44, paddingX: 20, fontSize: 13 };
+
+  return (
+    <Pressable
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        {
+          height: dims.height,
+          paddingHorizontal: dims.paddingX,
+          borderRadius: radii.pill,
+          backgroundColor: palette.bg,
+          borderWidth: 1,
+          borderColor: palette.border,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          opacity: disabled ? 0.45 : 1,
+          alignSelf: block ? 'stretch' : 'flex-start',
+          transform: pressed ? [{ scale: 0.97 }] : [],
+        },
+        block ? { width: '100%' } : null,
+        style,
+      ]}>
+      {leadingIcon ? <View style={{ marginRight: 4 }}>{leadingIcon}</View> : null}
+      <Text style={{ fontFamily: fonts.uiSemi, fontSize: dims.fontSize, lineHeight: dims.fontSize, letterSpacing: -0.13, color: palette.color, fontWeight: '600' }}>
+        {label}
+      </Text>
+      {trailingIcon ? <View style={{ marginLeft: 4 }}>{trailingIcon}</View> : null}
+    </Pressable>
+  );
+}

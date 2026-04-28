@@ -37,3 +37,14 @@ supabase/.temp/
 docs/superpowers/
 .claude/scheduled_tasks.lock
 deno.lock
+
+# React Native mobile app (mobile/ has its own .gitignore for build artifacts;
+# these are belt-and-suspenders to keep cross-platform metadata out of root commits)
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/ios/Pods/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
