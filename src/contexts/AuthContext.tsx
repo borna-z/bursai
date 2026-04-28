@@ -23,11 +23,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Wave 8 P52 — track which (userId, accessToken) pairs we've already
   // fired start_trial for in this tab. supabase-js fires SIGNED_IN multiple
   // times per session (token refresh, rehydrate-from-storage, focus
-  // re-validate). Keying on the access-token prefix means a fresh sign-in
-  // (with a new token) re-fires once even within the same browser tab,
-  // catching the case where the user signs out and back in. The edge
-  // function itself is idempotent across three layers, so this guard is a
-  // bandwidth optimization, not a correctness gate.
+  // re-validate). Keying on the FULL access token (not a prefix) means a
+  // fresh sign-in OR a token refresh (both produce a new JWT) re-fires
+  // once, catching the case where the user signs out and back in
+  // — including local-only sign-out fallbacks that don't emit SIGNED_OUT.
+  // The edge function itself is idempotent across three layers, so this
+  // guard is a bandwidth optimization, not a correctness gate.
+  //
+  // Codex P2 round 2 on PR #698 — earlier version used
+  // `access_token.slice(0, 16)` which captured only the JWT header
+  // (constant prefix `eyJhbGciOi...`), collapsing the key to
+  // `userId + <constant>`. Token-refresh + local-sign-out paths were
+  // therefore silently suppressed.
   const triggeredTrialKeys = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -55,7 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // after sign-out can only ever write for the JWT's owner. No risk of
         // cross-user contamination.
         if (event === 'SIGNED_IN' && session?.user?.id && session.access_token) {
-          const triggerKey = `${session.user.id}:${session.access_token.slice(0, 16)}`;
+          // Use the full access_token (not a prefix) — JWT headers are
+          // constant, so a prefix slice collapses to a static value and
+          // suppresses every token-refresh / local-sign-out re-fire.
+          const triggerKey = `${session.user.id}:${session.access_token}`;
           if (!triggeredTrialKeys.current.has(triggerKey)) {
             // Add to dedup set BEFORE invoke to prevent thundering-herd from
             // back-to-back SIGNED_IN events (token refresh races, multi-tab
