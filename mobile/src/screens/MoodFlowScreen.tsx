@@ -12,7 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -28,13 +28,20 @@ import { BackIcon } from '../components/icons';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'MoodFlow'>;
 
-const MOOD_LABEL = 'Confident';
-const TIME_LABEL = 'Day';
+// Defaults used when a caller (deep link, future test harness) lands on MoodFlow without
+// supplying params. The MoodOutfitScreen entry path always passes both.
+const DEFAULT_MOOD = 'Confident';
+const DEFAULT_TIME = 'Day';
 
 export function MoodFlowScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  // Read the user's selections threaded through from MoodOutfitScreen. Codex P2 on PR #706.
+  const MOOD_LABEL = route.params?.moodId ?? DEFAULT_MOOD;
+  const TIME_LABEL = route.params?.time ?? DEFAULT_TIME;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

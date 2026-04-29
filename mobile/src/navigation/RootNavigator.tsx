@@ -40,7 +40,10 @@ export type RootStackParamList = {
   StyleChat: undefined;
   StyleMe: undefined;
   MoodOutfit: undefined;
-  MoodFlow: undefined;
+  // moodId / time flow through from MoodOutfitScreen so MoodFlow renders the user's
+  // actual selections instead of a hardcoded placeholder. Both optional so direct nav
+  // (e.g. from a future deep link) still lands on the screen with sane defaults.
+  MoodFlow: { moodId?: string; time?: string } | undefined;
 
   // Travel capsule wizard
   TravelCapsule: undefined;

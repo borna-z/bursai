@@ -97,10 +97,13 @@ export function MoodOutfitScreen() {
         </View>
 
         {/* ============ FIND MY OUTFIT ============ */}
+        {/* Thread mood + time selections into MoodFlow so the loading copy + result chips
+            match what the user picked here. Codex P2 on PR #706 — earlier impl dropped
+            both selections so MoodFlow always rendered the hardcoded "Confident · Day". */}
         <Button
           label="Find my outfit"
           disabled={!moodId}
-          onPress={() => nav.navigate('MoodFlow')}
+          onPress={() => moodId && nav.navigate('MoodFlow', { moodId, time })}
           block
         />
       </ScrollView>
