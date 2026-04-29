@@ -1,0 +1,317 @@
+// Style Chat — AI stylist conversation surface.
+// Pixel-faithful port of design_handoff_burs_rn/source/extra-screens.jsx StyleChatScreen
+// + audit-screens.jsx StyleChatV2Screen (memory panel + history affordance).
+//
+// Layout: top header (back · "AI" + "Style Chat" · history button) → memory panel
+// (collapsible chip row showing remembered facts + Edit) → message list (FlatList,
+// inverted, keeps newest at the bottom and scrolls correctly with the keyboard) →
+// suggestion chip row → composer (pill input + accent send button).
+//
+// Why inverted FlatList:
+//   - RN's keyboard handling is much smoother when the list grows from the bottom up.
+//     Inverting flips the data order so item 0 is the newest message at the bottom.
+//   - We render the data array in reverse-chronological order so the newest sits at
+//     index 0 of the inverted list.
+// KeyboardAvoidingView wraps the screen so the composer + last messages stay visible
+// when the keyboard rises. iOS uses `padding`, Android uses `height` per the standard
+// RN guidance — Android's `padding` mode tends to cut off content above the keyboard.
+
+import React, { useMemo, useState } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { useTokens } from '../theme/ThemeProvider';
+import { fonts, radii } from '../theme/tokens';
+import { Eyebrow } from '../components/Eyebrow';
+import { Caption } from '../components/Caption';
+import { Chip } from '../components/Chip';
+import { IconBtn } from '../components/IconBtn';
+import { OutfitCard } from '../components/OutfitCard';
+import { BackIcon, ChevronIcon } from '../components/icons';
+import type { RootStackParamList } from '../navigation/RootNavigator';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+type Message =
+  | { id: string; role: 'user' | 'ai'; kind: 'text';   text: string;  time?: string }
+  | { id: string; role: 'ai';          kind: 'outfit'; name: string;  sub: string;   hues: number[] };
+
+// Mock conversation — newest first because the FlatList is inverted. Real impl will hydrate
+// from a Supabase chat-messages query and prepend new turns as they stream in.
+const MESSAGES: Message[] = [
+  { id: 'm6', role: 'ai',   kind: 'outfit', name: 'Coffee · with chore', sub: '5 PIECES · LAYERED', hues: [45, 32, 38, 28] },
+  { id: 'm5', role: 'ai',   kind: 'text',   text: 'Sand canvas chore over the cardigan. Keeps you sharp without overheating.' },
+  { id: 'm4', role: 'user', kind: 'text',   text: 'Add a jacket?' },
+  { id: 'm3', role: 'ai',   kind: 'outfit', name: 'Coffee · soft tailored', sub: '4 PIECES · 14° CLOUDY', hues: [32, 38, 200, 28] },
+  { id: 'm2', role: 'ai',   kind: 'text',   text: 'Cream wool tee, navy cardigan if it stays under 16°. Lean to your bone sneakers — bone tones the linen up.' },
+  { id: 'm1', role: 'user', kind: 'text',   text: 'What goes with my linen trousers for a coffee meeting?', time: 'Today, 09:14' },
+];
+
+const SUGGESTIONS = [
+  'What to wear today?',
+  'Style me for dinner',
+  'Too formal',
+  'More casual',
+];
+
+const MEMORY_FACTS = [
+  'Editorial · earth tones',
+  'Top M · Bottom 32',
+  'Avoids loud prints',
+];
+
+export function StyleChatScreen() {
+  const t = useTokens();
+  const nav = useNavigation<Nav>();
+  const [draft, setDraft] = useState('');
+  const [memoryOpen, setMemoryOpen] = useState(true);
+
+  const data = useMemo(() => MESSAGES, []);
+
+  const send = () => {
+    if (!draft.trim()) return;
+    // Real impl: append a user message + kick off AI request. For the design pass we just
+    // clear the input — the static MESSAGES list represents the visual end-state.
+    setDraft('');
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+        style={{ flex: 1 }}>
+
+        {/* ============ HEADER ============ */}
+        <View style={[s.header, { borderBottomColor: t.border }]}>
+          <IconBtn variant="ghost" onPress={() => nav.goBack()} ariaLabel="Back">
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow style={{ marginBottom: 1 }}>AI</Eyebrow>
+            <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontWeight: '500', fontSize: 18, color: t.fg, letterSpacing: -0.18 }}>
+              Style Chat
+            </Text>
+          </View>
+          <IconBtn variant="ghost" onPress={() => {}} ariaLabel="History">
+            {/* Hamburger glyph mirrors styleChatV2 history button */}
+            <View style={{ width: 18, height: 12, justifyContent: 'space-between' }}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={{ height: 1.6, backgroundColor: t.fg, borderRadius: 1 }} />
+              ))}
+            </View>
+          </IconBtn>
+        </View>
+
+        {/* ============ MEMORY PANEL ============ */}
+        {memoryOpen ? (
+          <View style={[s.memoryPanel, { borderBottomColor: t.border, backgroundColor: t.card }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Eyebrow>Style memory</Eyebrow>
+              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }}>
+                <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Hide</Text>
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {MEMORY_FACTS.map((fact) => (
+                <View
+                  key={fact}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: radii.pill,
+                    backgroundColor: t.accentSoft,
+                  }}>
+                  <Text style={{ fontFamily: fonts.uiMed, fontSize: 11, color: t.accent, letterSpacing: -0.1 }}>
+                    {fact}
+                  </Text>
+                </View>
+              ))}
+              <Pressable
+                onPress={() => {}}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: radii.pill,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                }}>
+                <Text style={{ fontFamily: fonts.uiMed, fontSize: 11, color: t.fg2, letterSpacing: -0.1 }}>
+                  Edit
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {/* ============ MESSAGE LIST (FlatList inverted) ============ */}
+        <FlatList
+          data={data}
+          keyExtractor={(m) => m.id}
+          inverted
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 }}
+          renderItem={({ item }) => <MessageItem msg={item} />}
+          ListFooterComponent={
+            <Caption style={{ textAlign: 'center', paddingVertical: 6 }}>
+              {/* Footer in inverted list = top of the screen — i.e. start-of-conversation timestamp.
+                  Extract to a local const so TS can narrow the kind === 'text' branch and expose .time. */}
+              {(() => {
+                const first = data[data.length - 1];
+                return first && first.kind === 'text' ? first.time : null;
+              })()}
+            </Caption>
+          }
+        />
+
+        {/* ============ SUGGESTION CHIPS ============ */}
+        <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
+            {SUGGESTIONS.map((sug) => (
+              <Chip key={sug} label={sug} onPress={() => setDraft(sug)} />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* ============ COMPOSER ============ */}
+        <View style={[s.composer, { borderTopColor: t.border, backgroundColor: t.bg }]}>
+          <View
+            style={[
+              s.inputPill,
+              { backgroundColor: t.card, borderColor: t.border },
+            ]}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Ask your stylist…"
+              placeholderTextColor={t.fg3}
+              multiline
+              style={{
+                flex: 1,
+                fontFamily: fonts.ui,
+                fontSize: 14,
+                color: t.fg,
+                paddingVertical: 8,
+                paddingHorizontal: 4,
+                maxHeight: 100,
+              }}
+            />
+          </View>
+          <Pressable
+            onPress={send}
+            disabled={!draft.trim()}
+            accessibilityLabel="Send"
+            style={({ pressed }) => [
+              s.sendBtn,
+              {
+                backgroundColor: draft.trim() ? t.accent : t.bg2,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}>
+            <ChevronIcon color={draft.trim() ? t.accentFg : t.fg3} />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+// Message bubble — inline so styling stays close to the parent context. Bubble has 18px
+// radius with one corner squared to point toward the speaker (4px radius on speaker-side).
+function MessageItem({ msg }: { msg: Message }) {
+  const t = useTokens();
+
+  if (msg.kind === 'outfit') {
+    // AI outfit attachment — left-aligned, ~78% width like the prototype.
+    return (
+      <View style={{ alignSelf: 'flex-start', width: '78%', marginVertical: 4 }}>
+        <OutfitCard name={msg.name} sub={msg.sub} hues={msg.hues} />
+      </View>
+    );
+  }
+
+  const isUser = msg.role === 'user';
+  return (
+    <View
+      style={{
+        alignSelf: isUser ? 'flex-end' : 'flex-start',
+        maxWidth: '82%',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        backgroundColor: isUser ? t.fg : t.card,
+        borderRadius: 18,
+        borderBottomRightRadius: isUser ? 4 : 18,
+        borderBottomLeftRadius: isUser ? 18 : 4,
+        borderWidth: isUser ? 0 : 1,
+        borderColor: t.border,
+      }}>
+      <Text
+        style={{
+          fontFamily: fonts.ui,
+          fontSize: 13.5,
+          lineHeight: 19,
+          color: isUser ? t.bg : t.fg,
+          letterSpacing: -0.13,
+        }}>
+        {msg.text}
+      </Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  memoryPanel: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+  },
+  inputPill: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
