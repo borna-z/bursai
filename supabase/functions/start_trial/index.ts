@@ -141,9 +141,21 @@ serve(async (req) => {
     const userId = user.id;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Rate limit AFTER auth. start_trial uses the same 10/hr, 2/min budget as
-    // sibling Stripe-API endpoints (restore_subscription, create_portal_session).
-    await enforceRateLimit(adminClient, userId, "start_trial");
+    // Codex P1 round 7 on PR #698 — DO NOT call enforceRateLimit yet.
+    // Rate-limiting must come AFTER all the cheap short-circuit paths
+    // (idempotency cache, DB pre-check on stripe_subscription_id,
+    // user_metadata.trial_pending gate) so that:
+    //   1. Repeated SIGNED_IN events from focus changes / multi-tab
+    //      re-establishments / token refresh don't burn the 2/min cap
+    //      with no-op short-circuit calls. This previously meant a
+    //      legitimate retry after a transient failure could 429 before
+    //      the function even reached its idempotent paths.
+    //   2. Already-trialing users hitting this endpoint via re-fires
+    //      don't consume quota when they're going to short-circuit
+    //      anyway.
+    // We re-introduce enforceRateLimit just before the Stripe customer
+    // creation, so only calls that ACTUALLY proceed to billing
+    // operations consume rate-limit budget.
 
     // Layer 2: DB-backed idempotency. Only meaningful if the client passes
     // x-idempotency-key (AuthContext does not — re-fires across the same
@@ -298,6 +310,14 @@ serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeConfig.secretKey, { apiVersion: "2025-08-27.basil" });
+
+    // Codex P1 round 7 on PR #698 — rate limit ONLY for calls that
+    // actually proceed to Stripe billing. Idempotent / no-op short-
+    // circuits above (cached responses, already-started, not-eligible)
+    // don't consume quota. start_trial uses the same 10/hr, 2/min
+    // budget as sibling Stripe-API endpoints (restore_subscription,
+    // create_portal_session).
+    await enforceRateLimit(adminClient, userId, "start_trial");
 
     // Layer 3a: Stripe-side idempotency on customer creation. Key is derived
     // from userId so retries across isolates / sessions / TTL windows reuse
