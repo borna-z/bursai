@@ -13,8 +13,18 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+// Codex P1 round 5 on PR #700 — useSubscription now reads useProfile to
+// detect the onboarding-boost bypass window (mirrors backend
+// resolveUserPlan). Default mock returns no profile so existing tests
+// that pre-date the bypass keep their original derivation. Tests that
+// exercise the bypass call mockOnboardingProfile directly.
+vi.mock('@/hooks/useProfile', () => ({
+  useProfile: vi.fn(),
+}));
+
 import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 
 const createWrapper = () => {
@@ -57,6 +67,26 @@ function mockAuthGuest() {
   });
 }
 
+function mockOnboardingProfile(opts: {
+  startedMsAgo?: number;
+  step?: string | null;
+} = {}) {
+  const startedMsAgo = opts.startedMsAgo ?? 1_000; // 1s ago by default
+  const step = opts.step === undefined ? 'language' : opts.step;
+  vi.mocked(useProfile).mockReturnValue({
+    data: {
+      id: 'user-1',
+      onboarding_started_at: new Date(Date.now() - startedMsAgo).toISOString(),
+      onboarding_step: step,
+    },
+    isLoading: false,
+  } as any);
+}
+
+function mockNoProfile() {
+  vi.mocked(useProfile).mockReturnValue({ data: null, isLoading: false } as any);
+}
+
 const baseSubscription = {
   id: 'sub-1',
   user_id: 'user-1',
@@ -73,6 +103,9 @@ const baseSubscription = {
 describe('useSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: no profile → no onboarding bypass → existing tests keep
+    // their original deriveState behavior.
+    mockNoProfile();
   });
 
   it('exposes only the premium tier in PLAN_LIMITS (free tier dropped in P53)', () => {
@@ -356,6 +389,99 @@ describe('useSubscription', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.paywallReason).toBe('subscription_required');
+  });
+
+  it('onboarding-boost user with active+free subscription is treated as trialing (Codex P1 round 5)', async () => {
+    // The signup race window: handle_new_user trigger creates
+    // {plan:'free', status:'active'} BEFORE start_trial upserts to
+    // {plan:'premium', status:'trialing'}. Without the onboarding
+    // bypass, the frontend would lock these users out (showing paywalls,
+    // blocking onboarding actions) while the backend explicitly allows
+    // them via resolveUserPlan's 'onboarding' short-circuit.
+    mockAuthUser();
+    mockOnboardingProfile({ startedMsAgo: 60_000 }); // 1 min ago
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'free',
+      status: 'active',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('trialing');
+    expect(result.current.isPremium).toBe(true);
+    expect(result.current.canAddGarment()).toBe(true);
+    expect(result.current.canCreateOutfit()).toBe(true);
+  });
+
+  it('onboarding-boost user with no subscription row is treated as trialing', async () => {
+    // Edge: trigger fires AFTER profile is created but BEFORE the
+    // subscriptions row insert lands (race within the trigger). Frontend
+    // shouldn't lock the user out while they're still in onboarding.
+    mockAuthUser();
+    mockOnboardingProfile({ startedMsAgo: 5_000 });
+    mockSupabaseSubscription(null);
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.state).toBe('trialing');
+    expect(result.current.isPremium).toBe(true);
+    expect(result.current.canAddGarment()).toBe(true);
+  });
+
+  it('completed-onboarding user falls back to subscription-row derivation', async () => {
+    // Once onboarding_step === 'completed', the bypass closes and the
+    // subscription row alone determines state. Mirrors backend exit from
+    // the onboarding plan.
+    mockAuthUser();
+    mockOnboardingProfile({ startedMsAgo: 60_000, step: 'completed' });
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'free',
+      status: 'active',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
+  });
+
+  it('onboarding-boost expires after 24h window (mirrors backend ONBOARDING_BOOST_WINDOW_MS)', async () => {
+    // 25h ago — outside the boost window. Bypass should NOT fire even
+    // though step is still pre-completion. User falls back to active+free
+    // → locked. Mirrors backend `Date.now() - startedMs < 24h` check.
+    mockAuthUser();
+    mockOnboardingProfile({
+      startedMsAgo: 25 * 60 * 60 * 1000,
+      step: 'photo_tutorial',
+    });
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'free',
+      status: 'active',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
   });
 
   it('exposes plan as an alias for state (backward compat)', async () => {

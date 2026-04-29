@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile, type Profile } from '@/hooks/useProfile';
 import type { Database } from '@/integrations/supabase/types';
 
 // Wave 8 P53 — drop the free tier. Subscription state is now a 3-way machine
@@ -67,6 +68,33 @@ function derivePaywallReason(
   return 'subscription_required';
 }
 
+// Codex P1 round 5 on PR #700 — mirror backend `resolveUserPlan`'s
+// onboarding-boost window. New signups get a `subscriptions` row with
+// `plan='free', status='active'` from `handle_new_user` BEFORE
+// `start_trial` upserts to `plan='premium', status='trialing'`. During
+// that async window (or if start_trial fails transiently), the row
+// looks like every other locked legacy free user. The backend grants
+// onboarding users access regardless of subscription row state via
+// `resolveUserPlan` short-circuit; the frontend MUST mirror so UI gates
+// don't block onboarding actions while backend allows them.
+//
+// 3 conditions (matches `_shared/scale-guard.ts:162-170` exactly):
+//   1. profile.onboarding_started_at is set
+//   2. profile.onboarding_step !== 'completed'
+//   3. Date.now() - startedMs < 24h boost window
+//
+// All 3 must hold. Once the user completes onboarding OR 24h elapses,
+// the bypass closes and `deriveState` falls back to the subscription row.
+const ONBOARDING_BOOST_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isInOnboardingBoost(profile: Profile | null | undefined): boolean {
+  if (!profile?.onboarding_started_at) return false;
+  if (profile.onboarding_step === 'completed') return false;
+  const startedMs = new Date(profile.onboarding_started_at).getTime();
+  if (!Number.isFinite(startedMs)) return false;
+  return Date.now() - startedMs < ONBOARDING_BOOST_WINDOW_MS;
+}
+
 function deriveState(subscription: Subscription | null | undefined): SubscriptionState {
   if (!subscription) return 'locked';
   if (subscription.status === 'trialing') {
@@ -100,6 +128,9 @@ function deriveState(subscription: Subscription | null | undefined): Subscriptio
 export function useSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  // Codex P1 round 5 on PR #700 — see comment above isInOnboardingBoost.
+  // useProfile is already cached project-wide so this is a free read.
+  const { data: profile } = useProfile();
 
   const query = useQuery({
     queryKey: ['subscription', user?.id],
@@ -120,7 +151,15 @@ export function useSubscription() {
   });
 
   const subscription = query.data;
-  const state: SubscriptionState = deriveState(subscription);
+  // Onboarding-boost bypass wins over the subscription row. Mirrors
+  // backend enforceSubscription's behavior so UI doesn't gate when API
+  // allows. Treats onboarding users as 'trialing' for state semantics
+  // (effectively pre-paying premium) so isPremium=true and gating helpers
+  // (canAddGarment, canCreateOutfit) return true throughout the boost window.
+  const onboardingBypass = isInOnboardingBoost(profile);
+  const state: SubscriptionState = onboardingBypass
+    ? 'trialing'
+    : deriveState(subscription);
   const paywallReason: PaywallReason = derivePaywallReason(subscription);
   const isPremium = state !== 'locked';
   // `plan` mirrors `state`. Kept as a separate field for backward-compat with
