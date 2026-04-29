@@ -32,13 +32,18 @@ function buildHeaderEyebrow(): string {
   return 'Last 30 days';
 }
 
-// Returns "Mar 28" / "Apr 26" — short month + day-of-month for the wear-chart range labels.
-// `daysAgo` is subtracted from `today` via setDate so DST transitions don't skip a day.
+// Returns localized "Mar 28" / "28 mars" / "3月28日" for the wear-chart range labels —
+// short month + day-of-month, formatted in the device locale. `daysAgo` is subtracted
+// from `today` via setDate so DST transitions don't skip a day.
+//
+// Passing `undefined` to toLocaleDateString uses the runtime's default locale (the device
+// locale on RN+Hermes); we then format `month` and `day` together in one call so the locale's
+// natural ordering wins (e.g. "28 mars" in fr, "3月28日" in ja). Codex P2 on PR #702 — the
+// previous "en-US" hardcode forced English on every device.
 function formatRangeDate(today: Date, daysAgo: number): string {
   const d = new Date(today);
   d.setDate(today.getDate() - daysAgo);
-  const mon = d.toLocaleDateString('en-US', { month: 'short' });
-  return `${mon} ${d.getDate()}`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 // Placeholder palette — represents the user's actual wardrobe color share, ordered by share desc.
