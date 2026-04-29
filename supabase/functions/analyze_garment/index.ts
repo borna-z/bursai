@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 interface AnalyzeRequest {
   storagePath?: string;
@@ -294,6 +294,13 @@ serve(async (req) => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     await enforceRateLimit(serviceClient, userId, "analyze_garment");
+
+    // Wave 8 P54 — paywall gate. Onboarding-plan users bypass via the
+    // resolveUserPlan check inside enforceSubscription.
+    const subCheck = await enforceSubscription(serviceClient, userId);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     // Resolve image URL
     let resolvedImageUrl: string;

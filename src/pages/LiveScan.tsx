@@ -13,7 +13,7 @@ import { hapticLight } from '@/lib/haptics';
 import { useLiveScan } from '@/hooks/useLiveScan';
 import { useAutoDetect, type FramingHint } from '@/hooks/useAutoDetect';
 import { PageErrorBoundary } from '@/components/layout/PageErrorBoundary';
-import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
+import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isMedianApp, isMedianAndroid } from '@/lib/median';
@@ -326,14 +326,17 @@ export default function LiveScan() {
 
   const coach = useFirstRunCoach();
   const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
-  const { subscription, isPremium, isLoading: isSubLoading } = useSubscription();
+  const { isPremium, isLoading: isSubLoading } = useSubscription();
 
-  // Guard: don't allow scanning until subscription data is loaded (prevents race condition)
-  const remainingSlots = isPremium ? Infinity : isSubLoading ? 0 : PLAN_LIMITS.free.maxGarments - (subscription?.garments_count || 0) - scanCount;
+  // Wave 8 P53 — free tier removed. trialing+premium both have unlimited
+  // slots; locked users go through the paywall. Guard the loading window
+  // (treat as locked) so a fast tap before the subscription query resolves
+  // can't bypass enforcement.
+  const remainingSlots = isPremium ? Infinity : 0;
   const canCapture = useFileInputMode
     ? !isProcessing && !lastResult && !showAccepted
     : cameraReady && !isProcessing && !lastResult && !showAccepted;
-  const hasSlots = isPremium || remainingSlots > 0;
+  const hasSlots = !isSubLoading && (isPremium || remainingSlots > 0);
 
   const handleAutoCaptureRef = useRef<() => void>(() => {});
 

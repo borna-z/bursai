@@ -6,7 +6,7 @@ import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, 
 import { captureWarning, classifyValidatorError } from '../_shared/observability.ts';
 import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
 import { classifyCategory, type CategoryClass } from '../_shared/render-category.ts';
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from '../_shared/scale-guard.ts';
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from '../_shared/scale-guard.ts';
 import { getBalance, reserveCredit, consumeCredit, releaseCredit } from '../_shared/render-credits.ts';
 import {
   generateGeminiImage,
@@ -864,6 +864,15 @@ serve(async (req) => {
     // limited in enqueue_render_job.
     if (!isInternalInvocation) {
       await enforceRateLimit(supabase, user.id, 'render_garment_image');
+
+      // Wave 8 P54 — paywall gate. Skipped on internal worker invocations
+      // for the same reason as the rate limit above: the worker is not a
+      // user, the user was already gated by enqueue_render_job's credit
+      // reservation upstream.
+      const subCheck = await enforceSubscription(supabase, user.id);
+      if (!subCheck.allowed) {
+        return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+      }
     }
 
     // ── Fetch garment ──

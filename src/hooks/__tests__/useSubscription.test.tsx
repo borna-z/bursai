@@ -60,7 +60,12 @@ function mockAuthGuest() {
 const baseSubscription = {
   id: 'sub-1',
   user_id: 'user-1',
-  period_start: new Date().toISOString(),
+  stripe_customer_id: 'cus_1',
+  stripe_subscription_id: 'sub_stripe_1',
+  stripe_mode: 'live',
+  price_id: 'price_1',
+  garments_count: 0,
+  current_period_end: new Date(Date.now() + 86400000).toISOString(),
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -70,14 +75,14 @@ describe('useSubscription', () => {
     vi.clearAllMocks();
   });
 
-  it('has correct plan limits defined', () => {
-    expect(PLAN_LIMITS.free.maxGarments).toBe(10);
-    expect(PLAN_LIMITS.free.maxOutfitsPerMonth).toBe(10);
+  it('exposes only the premium tier in PLAN_LIMITS (free tier dropped in P53)', () => {
     expect(PLAN_LIMITS.premium.maxGarments).toBe(Infinity);
     expect(PLAN_LIMITS.premium.maxOutfitsPerMonth).toBe(Infinity);
+    // The `free` key should no longer exist on PLAN_LIMITS.
+    expect((PLAN_LIMITS as Record<string, unknown>).free).toBeUndefined();
   });
 
-  it('returns default free-plan state when no user is logged in', () => {
+  it('returns locked state when no user is logged in', () => {
     mockAuthGuest();
 
     const { result } = renderHook(() => useSubscription(), {
@@ -85,82 +90,38 @@ describe('useSubscription', () => {
     });
 
     expect(result.current.subscription).toBeUndefined();
-    expect(result.current.plan).toBe('free');
+    expect(result.current.state).toBe('locked');
     expect(result.current.isPremium).toBe(false);
-    expect(result.current.canAddGarment()).toBe(true);
-    expect(result.current.canCreateOutfit()).toBe(true);
-  });
-
-  it('returns correct state for a free user with partial usage', async () => {
-    mockAuthUser();
-    mockSupabaseSubscription({
-      ...baseSubscription,
-      plan: 'free',
-      garments_count: 5,
-      outfits_used_month: 3,
-    });
-
-    const { result } = renderHook(() => useSubscription(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
-
-    expect(result.current.plan).toBe('free');
-    expect(result.current.isPremium).toBe(false);
-    expect(result.current.canAddGarment()).toBe(true);
-    expect(result.current.canCreateOutfit()).toBe(true);
-    expect(result.current.remainingGarments()).toBe(5);
-    expect(result.current.remainingOutfits()).toBe(7);
-  });
-
-  it('blocks a free user who has hit both garment and outfit limits', async () => {
-    mockAuthUser();
-    mockSupabaseSubscription({
-      ...baseSubscription,
-      plan: 'free',
-      garments_count: 10,
-      outfits_used_month: 10,
-    });
-
-    const { result } = renderHook(() => useSubscription(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
-
+    // Both gating helpers deny in locked state.
     expect(result.current.canAddGarment()).toBe(false);
     expect(result.current.canCreateOutfit()).toBe(false);
     expect(result.current.remainingGarments()).toBe(0);
     expect(result.current.remainingOutfits()).toBe(0);
   });
 
-  it('blocks adding a garment at exactly the garment limit (boundary check)', async () => {
+  it('returns locked state when there is no subscription row', async () => {
     mockAuthUser();
-    mockSupabaseSubscription({
-      ...baseSubscription,
-      plan: 'free',
-      garments_count: 10,
-      outfits_used_month: 0,
-    });
+    mockSupabaseSubscription(null);
 
     const { result } = renderHook(() => useSubscription(), {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(result.current.subscription).toBeNull();
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
     expect(result.current.canAddGarment()).toBe(false);
-    expect(result.current.canCreateOutfit()).toBe(true);
+    expect(result.current.canCreateOutfit()).toBe(false);
   });
 
-  it('gives premium users unlimited access regardless of counts', async () => {
+  it('treats status="trialing" as the trialing state (isPremium=true)', async () => {
     mockAuthUser();
     mockSupabaseSubscription({
       ...baseSubscription,
       plan: 'premium',
-      garments_count: 100,
-      outfits_used_month: 50,
+      status: 'trialing',
     });
 
     const { result } = renderHook(() => useSubscription(), {
@@ -169,10 +130,114 @@ describe('useSubscription', () => {
 
     await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
 
+    expect(result.current.state).toBe('trialing');
     expect(result.current.isPremium).toBe(true);
     expect(result.current.canAddGarment()).toBe(true);
     expect(result.current.canCreateOutfit()).toBe(true);
     expect(result.current.remainingGarments()).toBe(Infinity);
     expect(result.current.remainingOutfits()).toBe(Infinity);
+  });
+
+  it('treats status="active" + plan="premium" as the premium state', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'active',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('premium');
+    expect(result.current.isPremium).toBe(true);
+    expect(result.current.canAddGarment()).toBe(true);
+    expect(result.current.canCreateOutfit()).toBe(true);
+    expect(result.current.remainingGarments()).toBe(Infinity);
+    expect(result.current.remainingOutfits()).toBe(Infinity);
+  });
+
+  it('treats legacy status="active" + plan="free" as locked', async () => {
+    mockAuthUser();
+    // This is the row shape `handle_new_user` writes server-side for fresh
+    // users before `start_trial` upserts to premium. Until P54's backend
+    // gates fire, frontend treats this row as locked.
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'free',
+      status: 'active',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
+    expect(result.current.canAddGarment()).toBe(false);
+    expect(result.current.canCreateOutfit()).toBe(false);
+  });
+
+  it('treats status="canceled" + plan="premium" as locked', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'canceled',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
+  });
+
+  it('treats status="past_due" as locked', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'past_due',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
+    expect(result.current.canAddGarment()).toBe(false);
+    expect(result.current.canCreateOutfit()).toBe(false);
+  });
+
+  it('exposes plan as an alias for state (backward compat)', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'active',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    // `plan` mirrors `state` so existing `plan === 'premium'` style checks
+    // continue to work for premium users; trialing users now see
+    // plan === 'trialing' (no longer 'free').
+    expect(result.current.plan).toBe('premium');
   });
 });

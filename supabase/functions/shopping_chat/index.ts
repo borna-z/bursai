@@ -4,7 +4,7 @@ import { streamBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_SHOPPING } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 // ---------- i18n ----------
 
@@ -120,6 +120,12 @@ serve(async (req) => {
     }
 
     await enforceRateLimit(serviceClient, user.id, "shopping_chat");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const { messages, locale: rawLocale } = await req.json();
     if (!messages || !Array.isArray(messages)) {

@@ -3153,6 +3153,12 @@ const sv: Record<string, string> = {
   // ── Wave 7.9 — Onboarding progress + quiz progress i18n (P1 #4) ───
   'onboarding.progress_label': 'Steg {n} av {total}',
   'styleQuizV4.progress_label': 'Fråga {n} av {total}',
+
+  // ── Wave 8 P53 — Paywall-anledningar för nya låsta tillståndsmaskinen ───
+  'paywall.subscription_required.title': 'Prenumerera för att fortsätta styla',
+  'paywall.subscription_required.body': 'BURS är en prenumerationstjänst. Starta din gratis provperiod för att låsa upp obegränsade outfits, smartare AI och hela din garderob.',
+  'paywall.trial_expired.title': 'Din provperiod har upphört',
+  'paywall.trial_expired.body': 'Prenumerera för att fortsätta använda din garderob, skapa outfits och få personlig styling.',
 };
 
 export default sv;

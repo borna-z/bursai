@@ -4,7 +4,7 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens, filterEnrichedGarme
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
 import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { logger } from "../_shared/logger.ts";
@@ -168,6 +168,15 @@ async function generateMoodOutfitPayload(
     return await responseToPayload(overloadResponse(CORS_HEADERS));
   }
   await enforceRateLimit(serviceClient, userId, "mood_outfit");
+  throwIfAborted(signal);
+
+  // Wave 8 P54 — paywall gate. Streaming function: convert the 402 Response
+  // to its JSON payload via responseToPayload, matching the overload pattern
+  // above (the streaming wrapper sends payloads, not Response objects).
+  const subCheck = await enforceSubscription(serviceClient, userId);
+  if (!subCheck.allowed) {
+    return await responseToPayload(subscriptionLockedResponse(subCheck.reason, CORS_HEADERS));
+  }
   throwIfAborted(signal);
 
   const { mood, weather, locale = "sv" } = await req.json();

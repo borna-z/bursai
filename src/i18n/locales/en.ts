@@ -3541,6 +3541,16 @@ const en: Record<string, string> = {
   // P34/P36 precedent).
   'onboarding.progress_label': 'Step {n} of {total}',
   'styleQuizV4.progress_label': 'Question {n} of {total}',
+
+  // ── Wave 8 P53 — Paywall reasons for the new locked-state machine ───
+  // `subscription_required` fires when a user has no active row and never
+  // started the auto-trial (legacy users + edge cases where start_trial
+  // didn't run). `trial_expired` fires when the 3-day trial ended without
+  // conversion. Both replace the old "free tier limit reached" framing.
+  'paywall.subscription_required.title': 'Subscribe to keep styling',
+  'paywall.subscription_required.body': 'BURS is a subscription service. Start your free trial to unlock unlimited outfits, smarter AI, and your full wardrobe.',
+  'paywall.trial_expired.title': 'Your free trial has ended',
+  'paywall.trial_expired.body': 'Subscribe to keep using your wardrobe, generating outfits, and getting personalized styling.',
 };
 
 export default en;

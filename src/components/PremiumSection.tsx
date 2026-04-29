@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Crown, Infinity as InfinityIcon, Sparkles, Loader2, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -16,6 +15,13 @@ import { prepareExternalNavigation } from '@/lib/externalNavigation';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { logger } from '@/lib/logger';
 
+// Wave 8 P53 — `subscription` shape comes from the new `subscriptions`
+// table (not the legacy `user_subscriptions` mirror). The legacy
+// `outfits_used_month` field doesn't exist on the new row, but that
+// quota UI is dead now anyway because there's no free tier — the
+// `!isPremium` branch only fires for locked users, who see CTAs not
+// quotas. We defensively read the field as optional so the type stays
+// clean.
 interface PremiumSectionProps {
   isPremium: boolean;
   subscription: Subscription | null | undefined;
@@ -137,20 +143,14 @@ export function PremiumSection({ isPremium, subscription, limits }: PremiumSecti
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>{t('premium.garments')}</span>
-                <span className="text-muted-foreground">{subscription?.garments_count || 0} / {limits.maxGarments}</span>
-              </div>
-              <Progress value={((subscription?.garments_count || 0) / limits.maxGarments) * 100} className="h-2" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>{t('premium.outfits_month')}</span>
-                <span className="text-muted-foreground">{subscription?.outfits_used_month || 0} / {limits.maxOutfitsPerMonth}</span>
-              </div>
-              <Progress value={((subscription?.outfits_used_month || 0) / limits.maxOutfitsPerMonth) * 100} className="h-2" />
-            </div>
+            {/* Wave 8 P53 — quota progress UI dropped (free tier is gone, this
+                branch only renders for locked / past-due users who need the
+                upgrade CTA, not quota meters). `subscription` and `limits`
+                refs left in the prop interface for future re-introduction if
+                we add a downgraded UX. The empty quota `<p>` was removed in
+                Wave 8 PR 2 code-review (P2 finding) — `limits.maxGarments`
+                is now always `Infinity` so the conditional always rendered
+                an empty `<p>`. */}
             <div className="space-y-2">
               <p className="text-center text-xs font-medium text-amber-600">{t('trial.first_free')}</p>
               <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" onClick={() => handleUpgrade('monthly')} disabled={isLoadingCheckout !== null}>

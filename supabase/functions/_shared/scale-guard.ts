@@ -353,6 +353,137 @@ export function rateLimitResponse(
   );
 }
 
+// ─── Subscription Enforcement (Wave 8 P54) ──────────────────────
+/**
+ * Subscription gate result. Discriminated union — callers branch on `allowed`.
+ *
+ * - allowed:true  → user has an active subscription OR is mid-onboarding
+ *   (the P43 boost grants AI access during the first 24h post-onboarding-start
+ *   regardless of subscription state, so BatchCapture's analyze_garment storm
+ *   isn't gated by missing trial signup).
+ * - allowed:false, reason:'expired' → status='trialing' but current_period_end
+ *   has passed. Distinct UX signal — paywall can show "Your free trial ended".
+ * - allowed:false, reason:'locked'  → everything else (no subscription row,
+ *   status='canceled' / 'past_due' / 'incomplete', plan='free' on a row whose
+ *   status is 'active', etc). Generic paywall.
+ */
+export type EnforceSubscriptionResult =
+  | { allowed: true }
+  | { allowed: false; reason: "locked" | "expired" };
+
+/**
+ * Gate AI work on subscription state. Call AFTER `enforceRateLimit` and
+ * BEFORE the expensive AI call.
+ *
+ * Allowed states (return `{allowed:true}`):
+ *   1. resolveUserPlan → 'onboarding' (Wave 7 P43 boost still active)
+ *   2. subscription.status='trialing' AND current_period_end is null OR > NOW()
+ *      (null tolerance handles the brief window between Stripe-side trial
+ *      creation and webhook-driven `current_period_end` mirror — Wave 8 P52)
+ *   3. subscription.status='active' AND plan='premium'
+ *
+ * Everything else returns `{allowed:false, reason}`. Reason classification:
+ *   - 'expired' if status='trialing' and current_period_end is in the past
+ *   - 'locked'  for every other denied path (no row, canceled, past_due,
+ *     active+free, incomplete, etc).
+ *
+ * Cost: 0-1 DB reads. resolveUserPlan caches per-isolate (60s onboarding /
+ * 5min stable), so onboarding-plan callers short-circuit on the cache hit.
+ * Non-onboarding callers do one `subscriptions` SELECT. Telemetry: none —
+ * the caller's outer telemetry already covers the "denied" signal via the
+ * 402 response, and adding a write here would cost more than the gate saves.
+ *
+ * Failure mode: any thrown error (transport, auth, unexpected schema) is
+ * caught and treated as `{allowed:false, reason:'locked'}` — fail closed.
+ * Pre-check failures must NOT silently grant access; that's the entire
+ * point of the gate. The caller's outer try/catch handles the 402 response.
+ */
+export async function enforceSubscription(
+  supabaseAdmin: any,
+  userId: string,
+): Promise<EnforceSubscriptionResult> {
+  try {
+    // Onboarding boost — short-circuits the subscription check.
+    // resolveUserPlan reuses its per-isolate cache (60s for onboarding,
+    // 5min for stable plans), so this is at most 0-1 DB reads per cache window.
+    const plan = await resolveUserPlan(supabaseAdmin, userId);
+    if (plan === "onboarding") {
+      return { allowed: true };
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("subscriptions")
+      .select("status, plan, current_period_end")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("enforceSubscription: subscriptions read failed:", error.message ?? error);
+      return { allowed: false, reason: "locked" };
+    }
+
+    const sub = data as
+      | { status?: string | null; plan?: string | null; current_period_end?: string | null }
+      | null
+      | undefined;
+
+    if (!sub) {
+      return { allowed: false, reason: "locked" };
+    }
+
+    if (sub.status === "trialing") {
+      // null current_period_end → tolerated (webhook-lag at trial start).
+      // current_period_end > NOW() → still inside trial window.
+      if (!sub.current_period_end) {
+        return { allowed: true };
+      }
+      const periodEndMs = new Date(sub.current_period_end).getTime();
+      if (Number.isFinite(periodEndMs) && periodEndMs > Date.now()) {
+        return { allowed: true };
+      }
+      return { allowed: false, reason: "expired" };
+    }
+
+    if (sub.status === "active" && sub.plan === "premium") {
+      return { allowed: true };
+    }
+
+    return { allowed: false, reason: "locked" };
+  } catch (err) {
+    // Fail closed — never grant access on unexpected errors. Existing
+    // resolveUserPlan / supabase-js paths shouldn't throw, but a transient
+    // outage or schema drift must not become an open gate.
+    console.warn(
+      "enforceSubscription: unexpected error, denying:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { allowed: false, reason: "locked" };
+  }
+}
+
+/**
+ * Build a standard 402 Payment Required response for a denied subscription gate.
+ *
+ * Body shape: `{ error: 'subscription_required', reason }` — frontends switch
+ * on `reason` to choose paywall copy ('expired' → "Your trial ended",
+ * 'locked' → generic "Subscribe to continue").
+ */
+export function subscriptionLockedResponse(
+  reason: "locked" | "expired",
+  cors: Record<string, string>,
+): Response {
+  return new Response(
+    JSON.stringify({ error: "subscription_required", reason }),
+    {
+      status: 402,
+      headers: {
+        ...cors,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
 
 // ─── AI Cost Estimation ─────────────────────────────────────────
 /**

@@ -4,8 +4,10 @@ import {
   __resetSubscriptionCacheForTests,
   applyTierMultiplier,
   enforceRateLimit,
+  enforceSubscription,
   getRateLimitTier,
   resolveUserPlan,
+  subscriptionLockedResponse,
 } from "../scale-guard.ts";
 
 // ────────────────────────────────────────────────────────────────────
@@ -539,5 +541,303 @@ describe("enforceRateLimit — onboarding boost on noTierMultiplier endpoint (Wa
 
     expect(result.remaining.minute).toBe(14); // 15 - 0 - 1
     expect(result.remaining.hour).toBe(89); // 90 - 0 - 1
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// enforceSubscription — Wave 8 P54 paywall gate
+//
+// The gate runs AFTER enforceRateLimit and BEFORE the AI call. It's
+// allowed-states (return {allowed:true}):
+//   1. resolveUserPlan → 'onboarding' (Wave 7 P43 boost still active)
+//   2. status='trialing' AND (current_period_end is null OR future)
+//   3. status='active' AND plan='premium'
+// Everything else returns {allowed:false, reason}: 'expired' iff
+// status='trialing' and current_period_end has passed; 'locked' otherwise.
+// ────────────────────────────────────────────────────────────────────
+
+interface EnforceSubMockOptions {
+  // Drives both resolveUserPlan's subscription read AND enforceSubscription's
+  // own subscription read. Pass distinct shapes when the test cares; otherwise
+  // pass the same shape and the mock returns it for both.
+  subscription?:
+    | {
+        plan?: string | null;
+        status?: string | null;
+        current_period_end?: string | null;
+      }
+    | null;
+  // Drives resolveUserPlan's profile read (onboarding boost detection).
+  profile?: {
+    onboarding_step?: string | null;
+    onboarding_started_at?: string | null;
+  } | null;
+  // Force the `subscriptions` SELECT (the second one — enforceSubscription's)
+  // to return an error, exercising the fail-closed branch.
+  subscriptionsErrorOnSecondRead?: boolean;
+  // Throw inside the supabase builder to exercise the outer try/catch fail-closed path.
+  throwOnQuery?: boolean;
+}
+
+function createEnforceSubscriptionMock(opts: EnforceSubMockOptions) {
+  // We need to distinguish between resolveUserPlan's `.single()` chain on
+  // `subscriptions` (returns {plan, status} only) and enforceSubscription's
+  // `.maybeSingle()` chain on `subscriptions` (returns {status, plan,
+  // current_period_end}). Both call .from('subscriptions').select(...).eq(...)
+  // and then either .single() OR .maybeSingle(). The mock's `single` returns
+  // the resolveUserPlan-shape; `maybeSingle` returns the full shape.
+  let subscriptionsHits = 0;
+  return {
+    from(table: string) {
+      const builder: {
+        select: () => typeof builder;
+        eq: () => typeof builder;
+        single: () => Promise<{ data: unknown; error: unknown }>;
+        maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+      } = {
+        select: () => builder,
+        eq: () => builder,
+        single: async () => {
+          if (opts.throwOnQuery) throw new Error("simulated DB outage");
+          if (table === "subscriptions") {
+            subscriptionsHits++;
+            return {
+              data: opts.subscription
+                ? { plan: opts.subscription.plan, status: opts.subscription.status }
+                : null,
+              error: null,
+            };
+          }
+          if (table === "profiles") {
+            return { data: opts.profile ?? null, error: null };
+          }
+          return { data: null, error: null };
+        },
+        maybeSingle: async () => {
+          if (opts.throwOnQuery) throw new Error("simulated DB outage");
+          if (table === "subscriptions") {
+            subscriptionsHits++;
+            // resolveUserPlan calls .single() first; this is enforceSubscription's
+            // own call after the cache hit / miss path settles.
+            if (opts.subscriptionsErrorOnSecondRead) {
+              return { data: null, error: { message: "simulated read error" } };
+            }
+            return { data: opts.subscription ?? null, error: null };
+          }
+          return { data: null, error: null };
+        },
+      };
+      return builder;
+    },
+  };
+}
+
+describe("enforceSubscription — Wave 8 P54 gate", () => {
+  beforeEach(() => {
+    __resetSubscriptionCacheForTests();
+  });
+
+  it("returns {allowed:true} when resolveUserPlan returns 'onboarding' (boost overrides)", async () => {
+    // Onboarding boost: started 1h ago, mid-flow. resolveUserPlan returns
+    // 'onboarding'. Even with NO subscription row, the gate should allow.
+    const recentStart = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
+    const supabase = createEnforceSubscriptionMock({
+      subscription: null,
+      profile: {
+        onboarding_step: "batch_capture",
+        onboarding_started_at: recentStart,
+      },
+    });
+
+    expect(await enforceSubscription(supabase, "user-onboarding")).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("returns {allowed:false, reason:'locked'} when no subscription row exists", async () => {
+    const supabase = createEnforceSubscriptionMock({
+      subscription: null,
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-no-row")).toEqual({
+      allowed: false,
+      reason: "locked",
+    });
+  });
+
+  it("returns {allowed:true} for status='trialing' with future current_period_end", async () => {
+    const futureEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(); // +2 days
+    const supabase = createEnforceSubscriptionMock({
+      subscription: { status: "trialing", plan: "premium", current_period_end: futureEnd },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-trial-active")).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("returns {allowed:false, reason:'expired'} for status='trialing' with past current_period_end", async () => {
+    const pastEnd = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(); // -1h
+    const supabase = createEnforceSubscriptionMock({
+      subscription: { status: "trialing", plan: "premium", current_period_end: pastEnd },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-trial-expired")).toEqual({
+      allowed: false,
+      reason: "expired",
+    });
+  });
+
+  it("returns {allowed:true} for status='trialing' with null current_period_end (webhook-lag tolerance)", async () => {
+    // Brief window between Stripe-side trial creation and webhook-driven
+    // current_period_end mirror — Wave 8 P52 acceptance criterion.
+    const supabase = createEnforceSubscriptionMock({
+      subscription: { status: "trialing", plan: "premium", current_period_end: null },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-trial-null")).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("returns {allowed:true} for status='active' + plan='premium'", async () => {
+    const supabase = createEnforceSubscriptionMock({
+      subscription: {
+        status: "active",
+        plan: "premium",
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-paid")).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("returns {allowed:false, reason:'locked'} for status='active' + plan='free'", async () => {
+    // A row with status='active' but plan='free' is a free-tier user — denied
+    // (Wave 8 explicitly removes the free tier; this guards the row shape).
+    const supabase = createEnforceSubscriptionMock({
+      subscription: { status: "active", plan: "free", current_period_end: null },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-active-free")).toEqual({
+      allowed: false,
+      reason: "locked",
+    });
+  });
+
+  it("returns {allowed:false, reason:'locked'} for status='canceled' + plan='premium'", async () => {
+    const supabase = createEnforceSubscriptionMock({
+      subscription: {
+        status: "canceled",
+        plan: "premium",
+        current_period_end: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-canceled")).toEqual({
+      allowed: false,
+      reason: "locked",
+    });
+  });
+
+  it("returns {allowed:false, reason:'locked'} for status='past_due'", async () => {
+    const supabase = createEnforceSubscriptionMock({
+      subscription: {
+        status: "past_due",
+        plan: "premium",
+        current_period_end: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+    });
+
+    expect(await enforceSubscription(supabase, "user-past-due")).toEqual({
+      allowed: false,
+      reason: "locked",
+    });
+  });
+
+  it("returns {allowed:true} for onboarding plan even when subscription would otherwise lock", async () => {
+    // Cross-check: onboarding boost overrides ANY subscription state.
+    // Here the subscription is past_due (would normally lock) but the user
+    // is mid-onboarding so the gate must allow. Verifies the bypass is the
+    // FIRST check, not a fallthrough after the subscription read.
+    const recentStart = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const supabase = createEnforceSubscriptionMock({
+      subscription: { status: "past_due", plan: "premium", current_period_end: null },
+      profile: {
+        onboarding_step: "quiz",
+        onboarding_started_at: recentStart,
+      },
+    });
+
+    expect(await enforceSubscription(supabase, "user-onboarding-pastdue")).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("fails closed with reason:'locked' when DB read errors (does NOT silently grant)", async () => {
+    // Pre-check failures must NOT silently grant access — that's the entire
+    // point of the gate. If the subscriptions table read fails after the
+    // resolveUserPlan onboarding check returns 'free' or 'premium' (i.e.,
+    // the cache miss path runs), the function denies with 'locked'.
+    const supabase = createEnforceSubscriptionMock({
+      subscription: null, // resolveUserPlan returns 'free'
+      profile: { onboarding_step: "completed", onboarding_started_at: null },
+      subscriptionsErrorOnSecondRead: true,
+    });
+
+    expect(await enforceSubscription(supabase, "user-db-error")).toEqual({
+      allowed: false,
+      reason: "locked",
+    });
+  });
+
+  it("fails closed with reason:'locked' when resolveUserPlan throws unexpectedly", async () => {
+    // Outer try/catch covers any thrown error from resolveUserPlan or the
+    // subscriptions read — fail closed.
+    const supabase = createEnforceSubscriptionMock({
+      throwOnQuery: true,
+    });
+
+    // resolveUserPlan itself swallows throws and returns 'free' (its own
+    // fail-safe), so this exercises the case where its returned 'free' value
+    // then proceeds to the subscriptions read which also throws via the
+    // same throwOnQuery flag. Either path lands at fail-closed 'locked'.
+    expect(await enforceSubscription(supabase, "user-throws")).toEqual({
+      allowed: false,
+      reason: "locked",
+    });
+  });
+});
+
+describe("subscriptionLockedResponse — Wave 8 P54 response builder", () => {
+  it("returns 402 with {error:'subscription_required', reason:'locked'} body", async () => {
+    const cors = { "access-control-allow-origin": "*" };
+    const res = subscriptionLockedResponse("locked", cors);
+
+    expect(res.status).toBe(402);
+    expect(res.headers.get("content-type")).toBe("application/json");
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+
+    const body = await res.json();
+    expect(body).toEqual({ error: "subscription_required", reason: "locked" });
+  });
+
+  it("returns 402 with reason:'expired' for trial-end UX", async () => {
+    const cors = { "access-control-allow-origin": "*" };
+    const res = subscriptionLockedResponse("expired", cors);
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body).toEqual({ error: "subscription_required", reason: "expired" });
   });
 });

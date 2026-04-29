@@ -7,14 +7,22 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 // bucket was dropped from prod and the feature is retired per product decision.
 // See CLAUDE.md Findings Log (2026-04-20, P0d-iv). Component now renders the
 // initials-fallback Avatar only.
+//
+// Wave 8 P53 — badge now derives from the 3-state subscription machine
+// (`trialing` / `premium` / `locked`). Free-plan badge is gone with the
+// free tier itself.
 export function ProfileCard() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
-  const { isPremium, plan } = useSubscription();
+  const { state } = useSubscription();
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || '';
   const initials = displayName.slice(0, 2).toUpperCase();
   const email = user?.email || '';
+
+  const badgeLabel =
+    state === 'premium' ? 'Premium' : state === 'trialing' ? 'On free trial' : 'Subscribe';
+  const badgeIsPositive = state !== 'locked';
 
   return (
     <div className="flex items-center gap-4 py-2">
@@ -27,9 +35,9 @@ export function ProfileCard() {
       <div className="flex-1 min-w-0">
         <p className="text-[17px] font-medium truncate">{displayName}</p>
         {/* Plan tier badge */}
-        <div className={`mt-1 mb-0.5 inline-flex items-center px-2 py-0.5 ${isPremium ? 'bg-foreground' : 'bg-secondary'}`}>
-          <span className={`font-body text-[11px] ${isPremium ? 'text-background' : 'text-foreground/50'}`}>
-            {plan === 'premium' ? 'Plus' : 'Free plan'}
+        <div className={`mt-1 mb-0.5 inline-flex items-center px-2 py-0.5 ${badgeIsPositive ? 'bg-foreground' : 'bg-secondary'}`}>
+          <span className={`font-body text-[11px] ${badgeIsPositive ? 'text-background' : 'text-foreground/50'}`}>
+            {badgeLabel}
           </span>
         </div>
         <p className="text-[13px] text-muted-foreground/60 truncate">{email}</p>

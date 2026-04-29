@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -40,6 +40,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     await enforceRateLimit(serviceClient, userId, "visual_search");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, userId);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const { image_base64, locale = "sv" } = await req.json();
     if (!image_base64) throw new Error("Missing image_base64");

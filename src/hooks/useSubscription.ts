@@ -1,32 +1,47 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Database } from '@/integrations/supabase/types';
 
-export type SubscriptionPlan = 'free' | 'premium';
+// Wave 8 P53 — drop the free tier. Subscription state is now a 3-way machine
+// derived exclusively from the canonical `subscriptions` table that P52
+// (PR #698, start_trial) writes:
+//
+//   * `'trialing'` — user is in the auto-granted 3-day Stripe trial
+//   * `'premium'` — paid + active
+//   * `'locked'`  — everything else (no row, canceled, past_due, plan='free' active, …)
+//
+// `isPremium` is true for both `'trialing'` and `'premium'`. `'locked'` is the
+// only state that should gate UI / surface paywalls.
+//
+// We read directly from `subscriptions` (NOT the legacy `user_subscriptions`).
+// `handle_new_user` provisions a row on signup; `start_trial` upserts it to
+// `plan='premium', status='trialing'`. There's no need for a client-side
+// bootstrap mutation any more — that was a workaround for a missing trigger.
+export type SubscriptionState = 'trialing' | 'premium' | 'locked';
 
-export interface Subscription {
-  id: string;
-  user_id: string;
-  plan: SubscriptionPlan;
-  garments_count: number;
-  outfits_used_month: number;
-  period_start: string;
-  created_at: string;
-  updated_at: string;
-}
+// Public alias kept for the small number of consumers that destructure `plan`
+// (e.g. `ProfileCard` for badge copy). The semantic source of truth is `state`.
+export type SubscriptionPlan = SubscriptionState;
 
-// Plan limits
+export type Subscription = Database['public']['Tables']['subscriptions']['Row'];
+
+// Plan limits — only premium remains. `free` is gone post-P53; if a consumer
+// somehow lands here while locked, the gating helpers return false / 0 so the
+// limits object is informational only.
 export const PLAN_LIMITS = {
-  free: {
-    maxGarments: 10,
-    maxOutfitsPerMonth: 10,
-  },
   premium: {
     maxGarments: Infinity,
     maxOutfitsPerMonth: Infinity,
   },
-};
+} as const;
+
+function deriveState(subscription: Subscription | null | undefined): SubscriptionState {
+  if (!subscription) return 'locked';
+  if (subscription.status === 'trialing') return 'trialing';
+  if (subscription.status === 'active' && subscription.plan === 'premium') return 'premium';
+  return 'locked';
+}
 
 export function useSubscription() {
   const { user } = useAuth();
@@ -38,77 +53,49 @@ export function useSubscription() {
       if (!user) return null;
 
       const { data, error } = await supabase
-        .from('user_subscriptions')
+        .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) throw error;
-      return (data as unknown as Subscription) ?? null;
+      return data ?? null;
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Bootstrap a free subscription row for users that don't have one yet
-  const bootstrap = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error('Not authenticated');
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .upsert({ user_id: user.id, plan: 'free' }, { onConflict: 'user_id', ignoreDuplicates: true })
-        .select()
-        .single();
-      if (error) throw error;
-      return data as unknown as Subscription;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
-    },
-  });
-  const { isPending: isBootstrapping, mutate: bootstrapSubscription } = bootstrap;
-
-  useEffect(() => {
-    if (query.data === null && !query.isLoading && !isBootstrapping) {
-      bootstrapSubscription();
-    }
-  }, [bootstrapSubscription, isBootstrapping, query.data, query.isLoading]);
-
   const subscription = query.data;
-  const plan = subscription?.plan || 'free';
-  const limits = PLAN_LIMITS[plan];
+  const state: SubscriptionState = deriveState(subscription);
+  const isPremium = state !== 'locked';
+  // `plan` mirrors `state`. Kept as a separate field for backward-compat with
+  // consumers that used `plan === 'premium'` style checks. Both still work.
+  const plan: SubscriptionPlan = state;
+  const limits = PLAN_LIMITS.premium;
 
-  // Check if user can add more garments (false while loading to prevent bypass)
+  // Locked users can't add garments. Trialing + premium are effectively
+  // unlimited (PLAN_LIMITS.premium.maxGarments === Infinity). While loading
+  // we deny to prevent bypass during query hydration.
   const canAddGarment = () => {
     if (query.isLoading) return false;
-    if (plan === 'premium') return true;
-    const currentCount = subscription?.garments_count || 0;
-    return currentCount < limits.maxGarments;
+    return state !== 'locked';
   };
 
-  // Check if user can create more outfits this month (false while loading to prevent bypass)
   const canCreateOutfit = () => {
     if (query.isLoading) return false;
-    if (plan === 'premium') return true;
-    const usedThisMonth = subscription?.outfits_used_month || 0;
-    return usedThisMonth < limits.maxOutfitsPerMonth;
+    return state !== 'locked';
   };
 
-  // Get remaining garment slots
   const remainingGarments = () => {
-    if (plan === 'premium') return Infinity;
-    const currentCount = subscription?.garments_count || 0;
-    return Math.max(0, limits.maxGarments - currentCount);
+    if (state === 'locked') return 0;
+    return Infinity;
   };
 
-  // Get remaining outfit generations this month
   const remainingOutfits = () => {
-    if (plan === 'premium') return Infinity;
-    const usedThisMonth = subscription?.outfits_used_month || 0;
-    return Math.max(0, limits.maxOutfitsPerMonth - usedThisMonth);
+    if (state === 'locked') return 0;
+    return Infinity;
   };
 
-  // Refresh subscription data
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
   };
@@ -116,7 +103,8 @@ export function useSubscription() {
   return {
     subscription,
     plan,
-    isPremium: plan === 'premium',
+    state,
+    isPremium,
     isLoading: query.isLoading,
     canAddGarment,
     canCreateOutfit,

@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { invokeUnifiedStylistEngine } from "../_shared/unified_stylist_engine.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
 
 serve(async (req) => {
@@ -43,6 +43,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     await enforceRateLimit(serviceClient, user.id, "generate_outfit");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const body = await req.json();
     const unified = await invokeUnifiedStylistEngine({

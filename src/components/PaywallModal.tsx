@@ -11,16 +11,38 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedPricing } from '@/lib/localizedPricing';
 import { logger } from '@/lib/logger';
 
+// Wave 8 P53 — add two new reasons sourced from the locked-subscription
+// state machine: `subscription_required` (no row / never trialed) and
+// `trial_expired` (trial ended without conversion). The original two
+// (`garments` / `outfits`) are kept as legacy paths but with the free tier
+// removed they should now only fire if a locked user somehow reaches a
+// quota check before the broader paywall gate redirects them.
 interface PaywallModalProps {
   isOpen: boolean;
   onClose: () => void;
-  reason: 'garments' | 'outfits';
+  reason: 'garments' | 'outfits' | 'subscription_required' | 'trial_expired';
 }
 
 export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
   const [isLoading, setIsLoading] = useState<'monthly' | 'yearly' | null>(null);
   const { t, locale } = useLanguage();
   const pricing = getLocalizedPricing(locale);
+
+  const titleKey =
+    reason === 'subscription_required'
+      ? 'paywall.subscription_required.title'
+      : reason === 'trial_expired'
+        ? 'paywall.trial_expired.title'
+        : 'paywall.title';
+
+  const bodyKey =
+    reason === 'subscription_required'
+      ? 'paywall.subscription_required.body'
+      : reason === 'trial_expired'
+        ? 'paywall.trial_expired.body'
+        : reason === 'garments'
+          ? 'paywall.garment_limit'
+          : 'paywall.outfit_limit';
 
   const handleStartPremium = async (plan: 'monthly' | 'yearly') => {
     const nav = prepareExternalNavigation();
@@ -40,11 +62,9 @@ export function PaywallModal({ isOpen, onClose, reason }: PaywallModalProps) {
           <div className="mx-auto w-16 h-16 rounded-full gradient-premium flex items-center justify-center mb-4">
             <Crown className="w-8 h-8 text-white" />
           </div>
-          <DialogTitle className="font-display italic text-2xl">{t('paywall.title')}</DialogTitle>
+          <DialogTitle className="font-display italic text-2xl">{t(titleKey)}</DialogTitle>
           <DialogDescription className="text-base leading-relaxed">
-            {reason === 'garments'
-              ? t('paywall.garment_limit')
-              : t('paywall.outfit_limit')}
+            {t(bodyKey)}
           </DialogDescription>
         </DialogHeader>
 
