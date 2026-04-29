@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 // Avatar-upload was removed (Wave 0+1 cleanup sweep): the `avatars` storage
@@ -11,17 +12,26 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 // Wave 8 P53 — badge now derives from the 3-state subscription machine
 // (`trialing` / `premium` / `locked`). Free-plan badge is gone with the
 // free tier itself.
+//
+// Codex P2 round 2 on PR #700 — badge labels routed through `t()` so
+// non-English locales render the localized status. Falls back to English
+// when locale is missing the key (LanguageContext default).
 export function ProfileCard() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const { state } = useSubscription();
+  const { t } = useLanguage();
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || '';
   const initials = displayName.slice(0, 2).toUpperCase();
   const email = user?.email || '';
 
   const badgeLabel =
-    state === 'premium' ? 'Premium' : state === 'trialing' ? 'On free trial' : 'Subscribe';
+    state === 'premium'
+      ? t('profile.subscription_status.premium')
+      : state === 'trialing'
+        ? t('profile.subscription_status.trialing')
+        : t('profile.subscription_status.locked');
   const badgeIsPositive = state !== 'locked';
 
   return (

@@ -3159,6 +3159,10 @@ const sv: Record<string, string> = {
   'paywall.subscription_required.body': 'BURS är en prenumerationstjänst. Starta din gratis provperiod för att låsa upp obegränsade outfits, smartare AI och hela din garderob.',
   'paywall.trial_expired.title': 'Din provperiod har upphört',
   'paywall.trial_expired.body': 'Prenumerera för att fortsätta använda din garderob, skapa outfits och få personlig styling.',
+  // Codex P2 round 2 on PR #700 — ProfileCard badge was hardcoded English.
+  'profile.subscription_status.premium': 'Premium',
+  'profile.subscription_status.trialing': 'Provperiod',
+  'profile.subscription_status.locked': 'Prenumerera',
 };
 
 export default sv;

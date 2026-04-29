@@ -32,7 +32,7 @@ export function LinkImportForm() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const { canAddGarment, isPremium } = useSubscription();
+  const { canAddGarment, isPremium, paywallReason } = useSubscription();
   
   const [linksText, setLinksText] = useState('');
   const [linkItems, setLinkItems] = useState<LinkItem[]>([]);
@@ -315,7 +315,7 @@ export function LinkImportForm() {
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
-        reason="garments"
+        reason={paywallReason}
       />
     </div>
   );

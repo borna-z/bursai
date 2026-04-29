@@ -51,7 +51,7 @@ export function GarmentConfirmSheet({
 }: GarmentConfirmSheetProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { isPremium } = useSubscription();
+  const { isPremium, paywallReason } = useSubscription();
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
 
@@ -431,7 +431,7 @@ export function GarmentConfirmSheet({
         </SheetContent>
       </Sheet>
 
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason={paywallReason} />
     </>
   );
 }

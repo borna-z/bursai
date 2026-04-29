@@ -271,6 +271,60 @@ describe('useSubscription', () => {
     expect(result.current.canCreateOutfit()).toBe(false);
   });
 
+  it('paywallReason returns "trial_expired" when trialing past current_period_end (Codex P2 round 2)', async () => {
+    // Mirrors backend `enforceSubscription` denial reason for expired trials.
+    // Used by PaywallModal callers to show "Your trial has ended" copy
+    // distinct from generic "Subscribe to continue".
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'trialing',
+      current_period_end: new Date(Date.now() - 3600_000).toISOString(),
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.paywallReason).toBe('trial_expired');
+    // State is 'locked' (not 'trialing') because deriveState also detects expiry.
+    expect(result.current.state).toBe('locked');
+  });
+
+  it('paywallReason returns "subscription_required" for canceled premium', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'canceled',
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.paywallReason).toBe('subscription_required');
+    expect(result.current.state).toBe('locked');
+  });
+
+  it('paywallReason returns "subscription_required" when no subscription row exists', async () => {
+    mockAuthUser();
+    mockSupabaseSubscription(null);
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.paywallReason).toBe('subscription_required');
+  });
+
   it('exposes plan as an alias for state (backward compat)', async () => {
     mockAuthUser();
     mockSupabaseSubscription({

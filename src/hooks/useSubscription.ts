@@ -36,6 +36,32 @@ export const PLAN_LIMITS = {
   },
 } as const;
 
+// Codex P2 round 2 on PR #700 — derive the paywall reason from the
+// underlying subscription row so the UI can surface "Your trial has
+// ended" copy distinct from generic "Subscribe to continue". Mirrors
+// the backend `enforceSubscription` denial reason: trialing rows whose
+// current_period_end is in the past surface as `trial_expired`;
+// everything else (no row, canceled, past_due, active+free legacy)
+// surfaces as `subscription_required`. Callers should pass this value
+// to PaywallModal's `reason` prop instead of the legacy quota-style
+// reasons (`'garments'` / `'outfits'`) which mention the dead free tier.
+export type PaywallReason = 'subscription_required' | 'trial_expired';
+
+function derivePaywallReason(
+  subscription: Subscription | null | undefined,
+): PaywallReason {
+  if (
+    subscription?.status === 'trialing' &&
+    subscription.current_period_end
+  ) {
+    const periodEnd = new Date(subscription.current_period_end).getTime();
+    if (Number.isFinite(periodEnd) && periodEnd < Date.now()) {
+      return 'trial_expired';
+    }
+  }
+  return 'subscription_required';
+}
+
 function deriveState(subscription: Subscription | null | undefined): SubscriptionState {
   if (!subscription) return 'locked';
   if (subscription.status === 'trialing') {
@@ -84,6 +110,7 @@ export function useSubscription() {
 
   const subscription = query.data;
   const state: SubscriptionState = deriveState(subscription);
+  const paywallReason: PaywallReason = derivePaywallReason(subscription);
   const isPremium = state !== 'locked';
   // `plan` mirrors `state`. Kept as a separate field for backward-compat with
   // consumers that used `plan === 'premium'` style checks. Both still work.
@@ -121,6 +148,7 @@ export function useSubscription() {
     subscription,
     plan,
     state,
+    paywallReason,
     isPremium,
     isLoading: query.isLoading,
     canAddGarment,

@@ -3551,6 +3551,10 @@ const en: Record<string, string> = {
   'paywall.subscription_required.body': 'BURS is a subscription service. Start your free trial to unlock unlimited outfits, smarter AI, and your full wardrobe.',
   'paywall.trial_expired.title': 'Your free trial has ended',
   'paywall.trial_expired.body': 'Subscribe to keep using your wardrobe, generating outfits, and getting personalized styling.',
+  // Codex P2 round 2 on PR #700 — ProfileCard badge was hardcoded English.
+  'profile.subscription_status.premium': 'Premium',
+  'profile.subscription_status.trialing': 'On free trial',
+  'profile.subscription_status.locked': 'Subscribe',
 };
 
 export default en;
