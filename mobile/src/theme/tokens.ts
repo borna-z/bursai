@@ -86,15 +86,19 @@ export const spacing = {
   '7':   28,
 } as const;
 
-// Font families. Real .ttf files load via expo-font in App.tsx (see assets/fonts/).
-// Until the user drops the .ttf files in place, RN falls back to system serif/sans.
+// Font families — these strings MUST match the keys passed to `useFonts({...})` in App.tsx,
+// which in turn come from @expo-google-fonts/playfair-display + @expo-google-fonts/dm-sans.
+// Mismatch = silent system-font fallback (the old "Italic Playfair not rendering" bug).
+//
+// `display` is plain italic (regular weight); `displayMedium` is the heavier italic used by
+// page titles + large numerals. The DM Sans family covers the rest of the UI.
 export const fonts = {
-  display:        'PlayfairDisplay-Italic',
-  displayMedium:  'PlayfairDisplay-MediumItalic',
-  ui:             'DMSans-Regular',
-  uiMed:          'DMSans-Medium',
-  uiSemi:         'DMSans-SemiBold',
-  uiBold:         'DMSans-Bold',
+  display:        'PlayfairDisplay_400Regular_Italic',
+  displayMedium:  'PlayfairDisplay_500Medium_Italic',
+  ui:             'DMSans_400Regular',
+  uiMed:          'DMSans_500Medium',
+  uiSemi:         'DMSans_600SemiBold',
+  uiBold:         'DMSans_700Bold',
 } as const;
 
 // Type scale — every screen uses these via the typography components.
