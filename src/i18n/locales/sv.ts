@@ -3163,6 +3163,15 @@ const sv: Record<string, string> = {
   'profile.subscription_status.premium': 'Premium',
   'profile.subscription_status.trialing': 'Provperiod',
   'profile.subscription_status.locked': 'Prenumerera',
+
+  // ── Wave 8 P55 — Återställ köp (App Store-riktlinje 3.1.1) ───────────
+  // Knappen måste alltid synas på varje paywall-yta även innan användaren
+  // har loggat in på Stripe — Apple-granskare testar återställningsflödet
+  // genom att först logga in på en ny enhet och trycka på Återställ.
+  'paywall.restore_purchase': 'Återställ köp',
+  'paywall.restore_success': 'Prenumeration återställd',
+  'paywall.restore_no_subscription': 'Vi hittade ingen aktiv prenumeration på det här kontot',
+  'paywall.restore_error': 'Kunde inte återställa prenumeration. Försök igen.',
 };
 
 export default sv;

@@ -3555,6 +3555,18 @@ const en: Record<string, string> = {
   'profile.subscription_status.premium': 'Premium',
   'profile.subscription_status.trialing': 'On free trial',
   'profile.subscription_status.locked': 'Subscribe',
+
+  // ── Wave 8 P55 — Restore Purchase (App Store guideline 3.1.1) ───────
+  // The button must always be visible on every paywall surface even before
+  // the user is signed into Stripe — Apple reviewers test the restore flow
+  // by first signing into a fresh device and tapping Restore. We surface
+  // three outcomes: success (active/trialing sub found), no-subscription
+  // (Stripe customer exists but no live subscription), and error (network /
+  // 5xx / auth).
+  'paywall.restore_purchase': 'Restore Purchase',
+  'paywall.restore_success': 'Subscription restored',
+  'paywall.restore_no_subscription': "We couldn't find an active subscription on this account",
+  'paywall.restore_error': "Couldn't restore subscription. Try again.",
 };
 
 export default en;
