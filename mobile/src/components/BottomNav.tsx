@@ -68,7 +68,7 @@ export function BottomNav({
             { transform: pressed ? [{ scale: 0.95 }] : [] },
           ]}>
           <LinearGradient
-            colors={[t.accent, '#7c5a23']}
+            colors={[t.accent, t.accentDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFillObject}

@@ -14,6 +14,12 @@ export type ThemeTokens = {
   border: string;
   border2: string;
   accent: string;
+  /**
+   * Darker companion to `accent`, used as the bottom stop of the FAB gradient
+   * (and any future "accent → deeper" gradient). Precomputed because RN can't
+   * do CSS `color-mix(oklab, accent 80%, black)` at runtime.
+   */
+  accentDeep: string;
   accentFg: string;
   accentSoft: string;
   shadowSm: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
@@ -31,6 +37,7 @@ export const light: ThemeTokens = {
   border:   '#DDD0BB',
   border2:  '#CFC0A8',
   accent:   '#AD8137',
+  accentDeep: '#7C5A23', // accent darkened ~28% — bottom stop of FAB / "accent → deeper" gradients
   accentFg: '#FFFFFF',
   accentSoft: 'rgba(173,129,55,0.12)',
   shadowSm: { color: '#1C1917', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.04 },
@@ -48,6 +55,7 @@ export const dark: ThemeTokens = {
   border:   '#2F2C26',
   border2:  '#3F3B33',
   accent:   '#CDA56C',
+  accentDeep: '#93764D', // same ~28% darkening recipe applied to dark accent
   accentFg: '#17140F',
   accentSoft: 'rgba(205,165,108,0.14)',
   shadowSm: { color: '#000000', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.4 },
