@@ -8,17 +8,33 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { AddPieceStep1 } from '../screens/AddPieceStep1';
+import { AddPieceStep2 } from '../screens/AddPieceStep2';
+import { AddPieceStep3 } from '../screens/AddPieceStep3';
+import { StyleChatScreen } from '../screens/StyleChatScreen';
+import { StyleMeScreen } from '../screens/StyleMeScreen';
+import { MoodOutfitScreen } from '../screens/MoodOutfitScreen';
+import { MoodFlowScreen } from '../screens/MoodFlowScreen';
 import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
 
+/**
+ * Staged-photo shape for the AddPiece flow. Threaded from Step 1 through Step 2 and Step 3
+ * via route params so the user's actual count + hue selections drive the downstream rows
+ * (Codex P2 on PR #706 — earlier impl rendered fixed 5-item mocks regardless of choices).
+ *
+ * Plain serializable data so React Navigation can persist it through state restoration.
+ */
+export type AddPiecePhoto = { id: number; hue: number };
+
 export type RootStackParamList = {
   MainTabs: { initialTab?: TabId } | undefined;
 
-  // Add piece flow (3 steps)
+  // Add piece flow (3 steps) — photos thread through so each step renders the user's batch.
   AddPieceStep1: undefined;
-  AddPieceStep2: undefined;
-  AddPieceStep3: undefined;
+  AddPieceStep2: { photos?: AddPiecePhoto[] } | undefined;
+  AddPieceStep3: { photos?: AddPiecePhoto[] } | undefined;
   LiveScan: undefined;
 
   // Outfit / garment / sharing
@@ -33,7 +49,10 @@ export type RootStackParamList = {
   StyleChat: undefined;
   StyleMe: undefined;
   MoodOutfit: undefined;
-  MoodFlow: undefined;
+  // moodId / time flow through from MoodOutfitScreen so MoodFlow renders the user's
+  // actual selections instead of a hardcoded placeholder. Both optional so direct nav
+  // (e.g. from a future deep link) still lands on the screen with sane defaults.
+  MoodFlow: { moodId?: string; time?: string } | undefined;
 
   // Travel capsule wizard
   TravelCapsule: undefined;
@@ -79,10 +98,7 @@ const placeholder = (eyebrow: string, title: string, body?: string) => {
 };
 
 const Placeholders = {
-  // Add piece flow
-  AddPieceStep1: placeholder('New garment', 'Add pieces', 'Step 1 — choose source + multi-photo grid. Coming next.'),
-  AddPieceStep2: placeholder('Step 2 of 3', 'Analyzing', 'Per-item progress + counter. Coming next.'),
-  AddPieceStep3: placeholder('Step 3 of 3', 'Confirm batch', 'Piece selector + form fields + sticky save. Coming next.'),
+  // Add piece flow — only LiveScan is still a placeholder; Step1/Step2/Step3 now have real impls.
   LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
 
   // Outfit / garment / sharing
@@ -93,11 +109,7 @@ const Placeholders = {
   ShareOutfit: placeholder('Share', 'Share outfit'),
   PublicProfile: placeholder('Public', 'Profile'),
 
-  // Stylist / mood / occasion
-  StyleChat: placeholder('Stylist', 'Style chat'),
-  StyleMe: placeholder('Style me', "What's the occasion?"),
-  MoodOutfit: placeholder('Dress how you feel', 'Mood outfit'),
-  MoodFlow: placeholder('Mood', 'Pick a mood'),
+  // (StyleChat / StyleMe / MoodOutfit / MoodFlow now have real impls — see Stack.Screen list below.)
 
   // Travel capsule
   TravelCapsule: placeholder('Trip', 'Travel capsule'),
@@ -141,10 +153,10 @@ export function RootNavigator() {
       }}>
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
-      {/* Add piece flow */}
-      <Stack.Screen name="AddPieceStep1" component={Placeholders.AddPieceStep1} />
-      <Stack.Screen name="AddPieceStep2" component={Placeholders.AddPieceStep2} />
-      <Stack.Screen name="AddPieceStep3" component={Placeholders.AddPieceStep3} />
+      {/* Add piece flow — real implementations */}
+      <Stack.Screen name="AddPieceStep1" component={AddPieceStep1} />
+      <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
+      <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
 
       {/* Outfit / garment / sharing */}
@@ -155,11 +167,11 @@ export function RootNavigator() {
       <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
 
-      {/* Stylist / mood / occasion */}
-      <Stack.Screen name="StyleChat" component={Placeholders.StyleChat} />
-      <Stack.Screen name="StyleMe" component={Placeholders.StyleMe} />
-      <Stack.Screen name="MoodOutfit" component={Placeholders.MoodOutfit} />
-      <Stack.Screen name="MoodFlow" component={Placeholders.MoodFlow} />
+      {/* Stylist / mood / occasion — real implementations */}
+      <Stack.Screen name="StyleChat" component={StyleChatScreen} />
+      <Stack.Screen name="StyleMe" component={StyleMeScreen} />
+      <Stack.Screen name="MoodOutfit" component={MoodOutfitScreen} />
+      <Stack.Screen name="MoodFlow" component={MoodFlowScreen} />
 
       {/* Travel capsule */}
       <Stack.Screen name="TravelCapsule" component={Placeholders.TravelCapsule} />
