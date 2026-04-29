@@ -6,8 +6,11 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-function requireEnv(name: 'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'): string {
-  const value = process.env[name];
+// Expo's Metro bundler inlines `process.env.EXPO_PUBLIC_*` via static text replacement —
+// it does NOT resolve dynamic property access (`process.env[name]`), which would otherwise
+// always be undefined in production bundles. Reads MUST be at the call site with dot
+// notation so the transform can see them. Codex P1 #3 on PR #699.
+function requireEnv(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
       `Missing required Supabase env var: ${name}. ` +
@@ -17,8 +20,8 @@ function requireEnv(name: 'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_PUB
   return value;
 }
 
-export const supabaseUrl = requireEnv('EXPO_PUBLIC_SUPABASE_URL');
-export const supabasePublishableKey = requireEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+export const supabaseUrl = requireEnv('EXPO_PUBLIC_SUPABASE_URL', process.env.EXPO_PUBLIC_SUPABASE_URL);
+export const supabasePublishableKey = requireEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
