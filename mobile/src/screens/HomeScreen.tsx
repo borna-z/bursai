@@ -46,17 +46,20 @@ function greetingFor(d: Date): string {
   return 'Good night';
 }
 
-const MS_PER_DAY = 86_400_000;
 type WeekDay = { dow: string; n: number; active: boolean; dot: boolean };
 
 // 7-day rolling window starting from today. The `dot` (gold marker = "has a planned outfit")
 // is currently a deterministic placeholder pattern matching the design prototype's visual rhythm —
 // once `planned_outfits` is wired, replace with `plannedDates.has(d.toISOString().slice(0,10))`.
+//
+// Iteration uses `setDate(getDate() + i)` rather than fixed-ms arithmetic so a DST transition
+// inside the window doesn't skip or duplicate a local calendar day. Codex P2 #5 on PR #699.
 function buildMiniWeek(today: Date): WeekDay[] {
   const dotPattern = [true, true, true, false, true, false, false];
   const out: WeekDay[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(today.getTime() + i * MS_PER_DAY);
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
     out.push({
       dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
       n: d.getDate(),
