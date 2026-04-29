@@ -186,7 +186,7 @@ export function AddPieceStep2() {
 
       {/* ============ STICKY CTA ============ */}
       <View style={[s.stickyBar, { borderTopColor: t.border, backgroundColor: t.bg }]}>
-        <Button label="Review & confirm" onPress={() => nav.navigate('AddPieceStep3')} block />
+        <Button label="Review & confirm" onPress={() => nav.navigate('AddPieceStep3', { photos })} block />
       </View>
     </SafeAreaView>
   );
