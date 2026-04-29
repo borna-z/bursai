@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { collectOccasionSignals, hasOccasionSignal, normalizeSignalText } from "../_shared/style-signals.ts";
 import { logger } from "../_shared/logger.ts";
 
@@ -784,6 +784,12 @@ serve(async (req) => {
       return overloadResponse(CORS_HEADERS);
     }
     await enforceRateLimit(serviceClient, userId, "burs_style_engine");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, userId);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const dayContext: DayContextInput | null = body.day_context && typeof body.day_context === "object"
       ? body.day_context as DayContextInput

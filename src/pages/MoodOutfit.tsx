@@ -132,7 +132,7 @@ async function readMoodOutfitSse(
 
 export default function MoodOutfitPage() {
   const { t, locale } = useLanguage();
-  const { isPremium } = useSubscription();
+  const { isPremium, paywallReason } = useSubscription();
   const { user } = useAuth();
   const { weather } = useWeather();
   const navigate = useNavigate();
@@ -202,7 +202,20 @@ export default function MoodOutfitPage() {
         garmentIds: data.items.map((item) => item.garment_id),
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
+      // Codex P2 round 4 on PR #700 — when the backend P54 gate denies
+      // (HTTP 402 OR in-stream `responseToPayload(subscriptionLockedResponse)`
+      // payload), the throw-with-error-message above carries 'subscription_required'.
+      // Without this branch users hit the gate (e.g., trial just expired
+      // between page load and API call, or webhook lag) would only see a
+      // generic toast — paywall flow never fires. Map the error to the
+      // paywall trigger so backend lockout consistently produces the
+      // upgrade UX. Other errors keep their existing toast surface.
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg === 'subscription_required') {
+        setShowPaywall(true);
+      } else {
+        toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -408,7 +421,7 @@ export default function MoodOutfitPage() {
         )}
       </AnimatedPage>
 
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason={paywallReason} />
     </AppLayout>
   );
 }

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   createAdminClient,
-  createTestUser,
+  createTrialingTestUser,
   deleteTestUser,
   getAuthedClient,
   shouldRunAiSmoke,
@@ -31,7 +31,7 @@ describe.skipIf(!shouldRunAiSmoke)("smoke: shopping chat (shopping_chat)", () =>
   });
 
   it("invokes shopping_chat with a short casual message and receives a 2xx streaming response", async () => {
-    const user = await createTestUser(admin);
+    const user = await createTrialingTestUser(admin);
     createdUserId = user.id;
 
     const client = await getAuthedClient(user.email, user.password);

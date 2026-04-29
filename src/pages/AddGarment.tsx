@@ -16,7 +16,7 @@ import { categoryLabel, colorLabel } from '@/lib/humanize';
 
 export default function AddGarmentPage() {
   const { t } = useLanguage();
-  const { isPremium } = useSubscription();
+  const { isPremium, paywallReason } = useSubscription();
   const garment = useAddGarment({ t });
 
   if (garment.step === 'batch') {
@@ -137,7 +137,7 @@ export default function AddGarmentPage() {
         </div>
       )}
 
-      <PaywallModal isOpen={garment.showPaywall} onClose={() => garment.setShowPaywall(false)} reason="garments" />
+      <PaywallModal isOpen={garment.showPaywall} onClose={() => garment.setShowPaywall(false)} reason={paywallReason} />
 
       <DuplicateWarningSheet
         open={garment.showDuplicateSheet}

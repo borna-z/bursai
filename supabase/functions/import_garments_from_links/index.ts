@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 // ============ TYPES ============
 interface ImportRequest {
@@ -287,6 +287,12 @@ Deno.serve(async (req) => {
     }
 
     await enforceRateLimit(supabaseAdmin, user.id, "import_garments_from_links");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(supabaseAdmin, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     // Parse and validate request
     const body: ImportRequest = await req.json();

@@ -14,7 +14,7 @@ import {
 } from "../_shared/travel-capsule-planner.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 interface GarmentRow {
   id: string;
@@ -408,6 +408,10 @@ serve(async (req) => {
     // ─────────────────────────────────────────────
     // FIX 4 — GET HANDLER (list saved capsules)
     // ─────────────────────────────────────────────
+    // Wave 8 P54 code-review fix — GET path NOT gated by enforceSubscription.
+    // Locked / expired users keep read access to capsules they already paid to
+    // generate (standard SaaS pattern: subscription gates AI compute, not data
+    // reads). Rate-limit gate above still applies to prevent abuse.
     if (req.method === 'GET') {
       const { data, error } = await supabase
         .from('travel_capsules')
@@ -417,6 +421,14 @@ serve(async (req) => {
         .limit(10);
       if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: CORS_HEADERS });
       return new Response(JSON.stringify({ capsules: data ?? [] }), { status: 200, headers: CORS_HEADERS });
+    }
+
+    // Wave 8 P54 — paywall gate guards POST path (capsule generation = AI
+    // compute). Onboarding plan short-circuits in enforceSubscription, so
+    // BatchCapture-window users aren't blocked.
+    const subCheck = await enforceSubscription(supabase, userId);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
     }
 
     // ─────────────────────────────────────────────

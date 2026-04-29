@@ -4,7 +4,7 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { VOICE_GAP_ANALYSIS } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import {
   computeWardrobeCoverage,
   stratifiedSample,
@@ -277,6 +277,12 @@ serve(async (req) => {
     const user = { id: userData.user.id };
 
     await enforceRateLimit(supabase, user.id, "wardrobe_gap_analysis");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(supabase, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     // Parse optional locale + optional intent from body
     let locale = "en";

@@ -20,7 +20,7 @@ import { classifyIntent, type ClassifierInput } from "../_shared/style-chat-clas
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
@@ -971,6 +971,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
     await enforceRateLimit(serviceClient, user.id, "style_chat");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     // ── Fast path: skip expensive DB queries for trivial conversational turns ──
     const safeMessagesQuick = (Array.isArray(messages) ? messages : []).slice(-3);

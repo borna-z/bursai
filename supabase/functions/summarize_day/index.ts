@@ -5,7 +5,7 @@ import { VOICE_DAY_SUMMARY } from "../_shared/burs-voice.ts";
 import { buildDayIntelligence } from "../_shared/day-intelligence.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -53,6 +53,14 @@ serve(async (req) => {
       supabaseUrl,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Wave 8 P54 — paywall gate. summarize_day lacks enforceRateLimit
+    // (zero-input early-return guards against abuse), so the gate goes
+    // immediately after service client construction.
+    const subCheck = await enforceSubscription(serviceClient, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const intelligence = buildDayIntelligence(events, weather || undefined);
 

@@ -92,6 +92,55 @@ export async function deleteTestUser(
   if (error) throw error;
 }
 
+/**
+ * Wave 8 P54 — promote the freshly-created test user from the trigger-default
+ * `plan='free', status='active'` (which is now LOCKED per the new
+ * `enforceSubscription` gate in every AI edge function) to a synthetic
+ * `plan='premium', status='trialing'` row mirroring what `start_trial` writes
+ * post-signup. Sets `current_period_end` to NOW + 3 days so the trial is
+ * comfortably in-window for the duration of any smoke test.
+ *
+ * Updates the existing subscriptions row (created by the `handle_new_user`
+ * trigger) rather than upserting — the row is guaranteed to exist by the
+ * time createTestUser returns (trigger fires inline with the auth insert).
+ *
+ * NOT mirrored to legacy `user_subscriptions` table — smoke tests don't
+ * exercise that code path post-P53 (frontend hook reads `subscriptions`
+ * exclusively now). If a smoke test starts asserting on user_subscriptions
+ * directly, extend this helper to mirror.
+ */
+export async function promoteToTrialing(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await admin
+    .from("subscriptions")
+    .update({
+      status: "trialing",
+      plan: "premium",
+      current_period_end: trialEnd,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+/**
+ * Convenience wrapper for the common smoke-test pattern of createTestUser
+ * followed by promoteToTrialing. Use for any smoke test that invokes a
+ * gated AI edge function (P54 — basically every function calling callBursAI).
+ * Keep using `createTestUser` directly for tests that need to exercise the
+ * trigger-default subscription state (e.g., signup.test.ts).
+ */
+export async function createTrialingTestUser(
+  admin: SupabaseClient,
+): Promise<TestUser> {
+  const user = await createTestUser(admin);
+  await promoteToTrialing(admin, user.id);
+  return user;
+}
+
 export async function getAuthedClient(
   email: string,
   password: string,

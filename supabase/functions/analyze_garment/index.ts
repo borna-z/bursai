@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 interface AnalyzeRequest {
   storagePath?: string;
@@ -29,6 +29,20 @@ const TITLE_LANG_MAP: Record<string, string> = {
   ja: '日本語の短い説明タイトル（最大30文字）',
 };
 
+interface DetectedGarment {
+  title: string;
+  category: string;
+  subcategory: string;
+  color_primary: string;
+  color_secondary: string | null;
+  pattern: string | null;
+  material: string | null;
+  fit: string | null;
+  season_tags: string[];
+  formality: number;
+  confidence: number | null;
+}
+
 interface GarmentAnalysis {
   title: string;
   category: string;
@@ -41,6 +55,25 @@ interface GarmentAnalysis {
   season_tags: string[];
   formality: number;
   confidence?: number;
+  // Wave 8 PR 2 deno-check fix (Fix Protocol exception A) — these
+  // multi-garment-detection fields were used by the runtime mapping
+  // logic at lines 437-471 but never declared on the interface. Latent
+  // drift from a prior unrelated PR; surfaced by CI deno-check after
+  // this PR's `enforceSubscription` injection touched the file. The
+  // base GarmentAnalysis fields use partial-optional (`?: string | null`)
+  // because they tolerate missing keys from parse-then-fallback paths;
+  // the DetectedGarment sub-shape uses required-nullable because the
+  // .map() always sets every field explicitly.
+  image_contains_multiple_garments?: boolean;
+  // detected_garments items typed as `unknown` so the existing
+  // `.filter((item) => item && typeof item === 'object')` +
+  // `item as Record<string, unknown>` defensive re-validation
+  // pattern stays valid. Using `DetectedGarment[]` here would
+  // make the cast invalid (DetectedGarment has no index signature).
+  // The DetectedGarment interface remains for external consumers
+  // who want a name for the response shape (since `analysis.detected_garments`
+  // is assigned the well-typed `detectedGarments` array of DetectedGarment).
+  detected_garments?: unknown[];
 }
 
 function normalizeCategory(cat: string): string {
@@ -294,6 +327,13 @@ serve(async (req) => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     await enforceRateLimit(serviceClient, userId, "analyze_garment");
+
+    // Wave 8 P54 — paywall gate. Onboarding-plan users bypass via the
+    // resolveUserPlan check inside enforceSubscription.
+    const subCheck = await enforceSubscription(serviceClient, userId);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     // Resolve image URL
     let resolvedImageUrl: string;

@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateWardrobeQueries } from '@/hooks/useGarments';
 import { useNavigate } from 'react-router-dom';
-import { useSubscription, PLAN_LIMITS } from '@/hooks/useSubscription';
+import { useSubscription } from '@/hooks/useSubscription';
 import { PaywallModal } from '@/components/PaywallModal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -32,7 +32,7 @@ export function LinkImportForm() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const { canAddGarment, subscription, isPremium } = useSubscription();
+  const { canAddGarment, isPremium, paywallReason } = useSubscription();
   
   const [linksText, setLinksText] = useState('');
   const [linkItems, setLinkItems] = useState<LinkItem[]>([]);
@@ -52,10 +52,14 @@ export function LinkImportForm() {
   const linkCount = parsedLinks.length;
   const isOverMax = linkCount > MAX_LINKS;
 
-  const currentCount = subscription?.garments_count || 0;
-  const maxAllowed = isPremium ? Infinity : PLAN_LIMITS.free.maxGarments;
-  const canAddCount = Math.max(0, maxAllowed - currentCount);
-  const wouldExceedLimit = !isPremium && linkCount > canAddCount;
+  // Wave 8 P53 — free tier removed. trialing+premium have unlimited slots
+  // (capped only by the per-batch MAX_LINKS UI limit). Locked users go
+  // straight to the paywall via canAddGarment() check below, not via an
+  // inline warning. Codex P3 round 1 on PR #700 dropped the legacy
+  // "free limit: 0" copy that the old `wouldExceedLimit = !isPremium`
+  // path produced for both locked users AND during query hydration
+  // (when isPremium is briefly false) — misleading + contradicts the
+  // no-free-tier UX.
 
   const handleImport = async () => {
     if (!user || linkCount === 0 || isOverMax) return;
@@ -65,9 +69,10 @@ export function LinkImportForm() {
       return;
     }
 
-    const linksToImport = isPremium 
-      ? parsedLinks.slice(0, MAX_LINKS) 
-      : parsedLinks.slice(0, Math.min(canAddCount, MAX_LINKS));
+    // canAddGarment() check above already routed locked users to the
+    // paywall, so by the time we reach here the user is trialing or
+    // premium → unlimited slots, just cap at the per-batch MAX_LINKS.
+    const linksToImport = parsedLinks.slice(0, MAX_LINKS);
 
     if (linksToImport.length === 0) {
       setShowPaywall(true);
@@ -187,7 +192,7 @@ export function LinkImportForm() {
     : 0;
 
   const failedItems = linkItems.filter(item => item.status === 'failed');
-  const importCount = Math.min(linkCount, isPremium ? MAX_LINKS : canAddCount);
+  const importCount = Math.min(linkCount, MAX_LINKS);
 
   return (
     <div className="space-y-6">
@@ -214,13 +219,6 @@ export function LinkImportForm() {
           <p className="text-sm text-destructive flex items-center gap-1">
             <AlertCircle className="w-4 h-4" />
             {t('import.max_links').replace('{max}', String(MAX_LINKS))}
-          </p>
-        )}
-        {wouldExceedLimit && !isOverMax && (
-          <p className="text-sm text-amber-600 flex items-center gap-1">
-            <AlertCircle className="w-4 h-4" />
-            {t('import.free_limit').replace('{count}', String(canAddCount))}
-            {linkCount > canAddCount && ` ${t('import.free_limit_only').replace('{count}', String(canAddCount))}`}
           </p>
         )}
       </div>
@@ -317,7 +315,7 @@ export function LinkImportForm() {
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
-        reason="garments"
+        reason={paywallReason}
       />
     </div>
   );

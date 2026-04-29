@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   return;
                 }
                 // Codex P2 round 5 on PR #698 — useSubscription caches
-                // user_subscriptions for 5 minutes. Without this
+                // the subscriptions row for 5 minutes. Without this
                 // invalidation, the UI would keep showing free-tier
                 // limits + paywall gating until cache expiry, even
                 // though start_trial just upserted plan='premium'.

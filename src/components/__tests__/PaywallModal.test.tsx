@@ -42,4 +42,17 @@ describe('PaywallModal smoke', () => {
     render(<PaywallModal isOpen={false} onClose={onClose} reason="garments" />);
     expect(screen.queryByText('paywall.title')).not.toBeInTheDocument();
   });
+
+  // Wave 8 P53 — two new reasons for the locked-state paywall.
+  it('renders subscription_required title + body keys', () => {
+    render(<PaywallModal isOpen={true} onClose={onClose} reason="subscription_required" />);
+    expect(screen.getByText('paywall.subscription_required.title')).toBeInTheDocument();
+    expect(screen.getByText('paywall.subscription_required.body')).toBeInTheDocument();
+  });
+
+  it('renders trial_expired title + body keys', () => {
+    render(<PaywallModal isOpen={true} onClose={onClose} reason="trial_expired" />);
+    expect(screen.getByText('paywall.trial_expired.title')).toBeInTheDocument();
+    expect(screen.getByText('paywall.trial_expired.body')).toBeInTheDocument();
+  });
 });
