@@ -567,8 +567,20 @@ interface EnforceSubMockOptions {
         current_period_end?: string | null;
       }
     | null;
-  // Drives resolveUserPlan's profile read (onboarding boost detection).
+  // Drives the direct profile read in enforceSubscription (Codex P1 round 6
+  // on PR #700). enforceSubscription now bypasses resolveUserPlan's cache
+  // and reads profile directly via .maybeSingle() to avoid a stale-plan
+  // race where enforceRateLimit cached 'free' before the user entered
+  // onboarding.
   profile?: {
+    onboarding_step?: string | null;
+    onboarding_started_at?: string | null;
+  } | null;
+  // Drives resolveUserPlan's profile read via .single() (used by
+  // enforceRateLimit's cache resolution — separate code path now). Defaults
+  // to `profile` if unset; tests that want to exercise the cache-race
+  // regression set this explicitly to null while leaving `profile` populated.
+  legacyProfile?: {
     onboarding_step?: string | null;
     onboarding_started_at?: string | null;
   } | null;
@@ -609,7 +621,14 @@ function createEnforceSubscriptionMock(opts: EnforceSubMockOptions) {
             };
           }
           if (table === "profiles") {
-            return { data: opts.profile ?? null, error: null };
+            // Used by resolveUserPlan (called from enforceRateLimit's cache
+            // path). Defaults to `profile` for backward compat; tests
+            // targeting the cache-race regression set `legacyProfile` to
+            // null while leaving `profile` populated.
+            const legacy = opts.legacyProfile === undefined
+              ? opts.profile
+              : opts.legacyProfile;
+            return { data: legacy ?? null, error: null };
           }
           return { data: null, error: null };
         },
@@ -624,6 +643,11 @@ function createEnforceSubscriptionMock(opts: EnforceSubMockOptions) {
             }
             return { data: opts.subscription ?? null, error: null };
           }
+          if (table === "profiles") {
+            // Used by enforceSubscription's direct profile read (Codex
+            // P1 round 6 — bypasses resolveUserPlan's cache).
+            return { data: opts.profile ?? null, error: null };
+          }
           return { data: null, error: null };
         },
       };
@@ -637,9 +661,10 @@ describe("enforceSubscription — Wave 8 P54 gate", () => {
     __resetSubscriptionCacheForTests();
   });
 
-  it("returns {allowed:true} when resolveUserPlan returns 'onboarding' (boost overrides)", async () => {
-    // Onboarding boost: started 1h ago, mid-flow. resolveUserPlan returns
-    // 'onboarding'. Even with NO subscription row, the gate should allow.
+  it("returns {allowed:true} when profile shows onboarding bypass (boost overrides subscription)", async () => {
+    // Onboarding boost: started 1h ago, mid-flow. enforceSubscription reads
+    // profile directly (Codex P1 round 6). Even with NO subscription row,
+    // the gate should allow.
     const recentStart = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
     const supabase = createEnforceSubscriptionMock({
       subscription: null,
@@ -650,6 +675,31 @@ describe("enforceSubscription — Wave 8 P54 gate", () => {
     });
 
     expect(await enforceSubscription(supabase, "user-onboarding")).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("bypasses resolveUserPlan cache for onboarding check (Codex P1 round 6 cache-race regression)", async () => {
+    // Cache-race scenario: enforceRateLimit fired earlier and cached the
+    // user's plan as 'free' (5min TTL). Within that window, the user
+    // entered onboarding (advance_onboarding_step set onboarding_started_at
+    // and step='language'). enforceSubscription must NOT trust the stale
+    // cache — it must read profile directly so the bypass fires.
+    //
+    // Mock: legacyProfile=null (resolveUserPlan would NOT see onboarding)
+    // but profile=onboarding (direct read DOES). Subscription is the
+    // signup-default 'free'/'active' shape, which would lock without bypass.
+    const recentStart = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
+    const supabase = createEnforceSubscriptionMock({
+      subscription: { plan: "free", status: "active" },
+      legacyProfile: null,
+      profile: {
+        onboarding_step: "batch_capture",
+        onboarding_started_at: recentStart,
+      },
+    });
+
+    expect(await enforceSubscription(supabase, "user-cache-race")).toEqual({
       allowed: true,
     });
   });

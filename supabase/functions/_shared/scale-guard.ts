@@ -403,26 +403,56 @@ export async function enforceSubscription(
   userId: string,
 ): Promise<EnforceSubscriptionResult> {
   try {
-    // Onboarding boost — short-circuits the subscription check.
-    // resolveUserPlan reuses its per-isolate cache (60s for onboarding,
-    // 5min for stable plans), so this is at most 0-1 DB reads per cache window.
-    const plan = await resolveUserPlan(supabaseAdmin, userId);
-    if (plan === "onboarding") {
-      return { allowed: true };
+    // Codex P1 round 6 on PR #700 — read profile.onboarding_* directly
+    // instead of going through resolveUserPlan's cache. resolveUserPlan
+    // is shared with enforceRateLimit, which caches non-onboarding plans
+    // for 5 min per-isolate. If a user transitions INTO onboarding within
+    // that 5-min window after a 'free'/'premium' cache hit, the cached
+    // value misses the new onboarding state and enforceSubscription
+    // would 402 the user despite backend intent to bypass. Reading
+    // profile fresh per-call closes the cache-race window. Acceptable
+    // perf hit: this query is 1 row by primary key, and we already do
+    // one DB read here for the subscriptions row — paralellize them.
+    const [profileResult, subResult] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select("onboarding_started_at, onboarding_step")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("subscriptions")
+        .select("status, plan, current_period_end")
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ]);
+
+    // Profile read failure is non-fatal for subscription gating — fall
+    // through to the subscription row check. The onboarding bypass is
+    // an additive permit, not a denial signal.
+    const profile = profileResult.data as
+      | { onboarding_started_at?: string | null; onboarding_step?: string | null }
+      | null
+      | undefined;
+    if (
+      profile &&
+      profile.onboarding_started_at &&
+      profile.onboarding_step !== "completed"
+    ) {
+      const startedMs = new Date(profile.onboarding_started_at).getTime();
+      if (
+        Number.isFinite(startedMs) &&
+        Date.now() - startedMs < ONBOARDING_BOOST_WINDOW_MS
+      ) {
+        return { allowed: true };
+      }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("subscriptions")
-      .select("status, plan, current_period_end")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.warn("enforceSubscription: subscriptions read failed:", error.message ?? error);
+    if (subResult.error) {
+      console.warn("enforceSubscription: subscriptions read failed:", subResult.error.message ?? subResult.error);
       return { allowed: false, reason: "locked" };
     }
 
-    const sub = data as
+    const sub = subResult.data as
       | { status?: string | null; plan?: string | null; current_period_end?: string | null }
       | null
       | undefined;
