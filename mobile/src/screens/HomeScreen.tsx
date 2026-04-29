@@ -2,6 +2,10 @@
 // Sections: greeting header · Today's look hero card · Your Stylist hub grid · Discover hub grid ·
 // This week mini-strip · Ask the stylist row · Your rhythm stat blocks · BottomNav.
 // Source of truth for visual values: styles.css (`.card-hero`, `.hub-tile`, `.mini-day`, `.stat-block`).
+//
+// All time-dependent values (header eyebrow date, time-of-day greeting, MiniWeek 7-day window)
+// derive from `new Date()` at render time so the UI stays accurate as days roll forward.
+// Codex P2 #4 on PR #699 — the original prototype hardcoded "Sat · Apr 26 / SAT 26 → FRI 2".
 
 import React from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
@@ -24,11 +28,55 @@ import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
 
 type HomeNav = NativeStackNavigationProp<RootStackParamList>;
 
+// "Sat · Apr 26" — short weekday + dot separator + short month + day-of-month.
+function formatHeaderDate(d: Date): string {
+  const dow = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const mon = d.toLocaleDateString('en-US', { month: 'short' });
+  return `${dow} · ${mon} ${d.getDate()}`;
+}
+
+// Time-of-day greeting buckets: night (22:00–04:59) · morning (05:00–11:59) ·
+// afternoon (12:00–16:59) · evening (17:00–21:59).
+function greetingFor(d: Date): string {
+  const h = d.getHours();
+  if (h < 5)  return 'Good night';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 22) return 'Good evening';
+  return 'Good night';
+}
+
+const MS_PER_DAY = 86_400_000;
+type WeekDay = { dow: string; n: number; active: boolean; dot: boolean };
+
+// 7-day rolling window starting from today. The `dot` (gold marker = "has a planned outfit")
+// is currently a deterministic placeholder pattern matching the design prototype's visual rhythm —
+// once `planned_outfits` is wired, replace with `plannedDates.has(d.toISOString().slice(0,10))`.
+function buildMiniWeek(today: Date): WeekDay[] {
+  const dotPattern = [true, true, true, false, true, false, false];
+  const out: WeekDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today.getTime() + i * MS_PER_DAY);
+    out.push({
+      dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+      n: d.getDate(),
+      active: i === 0,
+      dot: dotPattern[i],
+    });
+  }
+  return out;
+}
+
 export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   const t = useTokens();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<HomeNav>();
   const push = (route: keyof RootStackParamList) => () => nav.navigate(route as never);
+
+  const now = new Date();
+  const headerDate = formatHeaderDate(now);
+  const greeting = greetingFor(now);
+  const week = buildMiniWeek(now);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -44,8 +92,8 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
         {/* ============ HEADER ============ */}
         <View style={s.header}>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Sat · Apr 26</Eyebrow>
-            <PageTitle>Good morning, Borna</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{headerDate}</Eyebrow>
+            <PageTitle>{greeting}, Borna</PageTitle>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 2 }}>
             <Pressable
@@ -121,7 +169,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
               <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>Calendar →</Text>
             </Pressable>
           </View>
-          <MiniWeek onPress={() => goTab('plan')} />
+          <MiniWeek days={week} onPress={() => goTab('plan')} />
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
             <Button label="Wear today" size="sm" onPress={push('OutfitDetail')} block style={{ flex: 1 }} />
             <Button label="Restyle" variant="outline" size="sm" onPress={push('StyleMe')} />
@@ -227,22 +275,12 @@ function OutfitThumb({ label }: { label: string }) {
   );
 }
 
-function MiniWeek({ onPress }: { onPress: () => void }) {
+function MiniWeek({ days, onPress }: { days: WeekDay[]; onPress: () => void }) {
   const t = useTokens();
-  // [day, num, active, dot]
-  const days: Array<[string, number, boolean, 'gold' | null]> = [
-    ['SAT', 26, true, 'gold'],
-    ['SUN', 27, false, 'gold'],
-    ['MON', 28, false, 'gold'],
-    ['TUE', 29, false, null],
-    ['WED', 30, false, 'gold'],
-    ['THU', 1,  false, null],
-    ['FRI', 2,  false, null],
-  ];
   return (
     <View style={{ flexDirection: 'row', gap: 5 }}>
-      {days.map(([d, n, active, dot], i) => {
-        const dotColor = dot === 'gold' ? t.accent : active ? t.bg : t.fg3;
+      {days.map((day, i) => {
+        const dotColor = day.dot ? t.accent : day.active ? t.bg : t.fg3;
         return (
           <Pressable
             key={i}
@@ -250,18 +288,18 @@ function MiniWeek({ onPress }: { onPress: () => void }) {
             style={[
               s.miniDay,
               {
-                backgroundColor: active ? t.fg : t.card,
-                borderColor: active ? t.fg : t.border,
+                backgroundColor: day.active ? t.fg : t.card,
+                borderColor: day.active ? t.fg : t.border,
                 flex: 1,
               },
             ]}>
-            <Text style={{ fontSize: 9, letterSpacing: 1.3, color: active ? t.bg : t.fg2, fontFamily: fonts.uiSemi, opacity: active ? 0.75 : 1 }}>
-              {d}
+            <Text style={{ fontSize: 9, letterSpacing: 1.3, color: day.active ? t.bg : t.fg2, fontFamily: fonts.uiSemi, opacity: day.active ? 0.75 : 1 }}>
+              {day.dow}
             </Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', fontFamily: fonts.uiSemi, color: active ? t.bg : t.fg }}>
-              {n}
+            <Text style={{ fontSize: 14, fontWeight: '600', fontFamily: fonts.uiSemi, color: day.active ? t.bg : t.fg }}>
+              {day.n}
             </Text>
-            <View style={{ width: 4, height: 4, borderRadius: 4, backgroundColor: dotColor, opacity: dot ? 1 : 0.25 }} />
+            <View style={{ width: 4, height: 4, borderRadius: 4, backgroundColor: dotColor, opacity: day.dot ? 1 : 0.25 }} />
           </Pressable>
         );
       })}
