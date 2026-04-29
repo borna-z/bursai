@@ -257,18 +257,50 @@ serve(async (req) => {
     // login (broader than P52's documented "on signup completion"); (b)
     // permanently locked out fresh signups whose first call failed
     // transiently OR whose email-confirm took >24h. Replaced with the
-    // `user_metadata.trial_pending` flag set by the signUp() callback in
-    // AuthContext (only present on actual signups, never on returning
-    // logins). Legacy users + OAuth signups don't carry the flag — they
-    // re-subscribe via the paywall path (P54+ + create_checkout_session
-    // + restore_subscription).
+    // `trial_pending` flag set in raw_user_meta_data by the
+    // `handle_new_user` AFTER INSERT trigger (covers email + OAuth) AND
+    // by the email/password signUp() callback (defense in depth). Legacy
+    // users (auth.users rows created before the migration) never carry
+    // the flag — they re-subscribe via the paywall path (P54+ +
+    // create_checkout_session + restore_subscription).
+    //
+    // Codex P1 round 8 on PR #698 — read the flag from a FRESH DB row,
+    // NOT from `user.user_metadata` (which comes from the verified JWT
+    // claims). The `handle_new_user` trigger is AFTER INSERT, so the
+    // FIRST session JWT issued by Supabase auth can carry pre-trigger
+    // metadata for OAuth and email-confirm signups. The JWT-based check
+    // therefore silently skipped fresh signups, leaving them on the free
+    // plan until token refresh. `adminClient.auth.admin.getUserById`
+    // hits the database authoritatively and always sees the post-trigger
+    // state.
     //
     // Defense in depth: the flag is in user_metadata which a malicious
     // user CAN set via updateUser({data: {...}}), but the worst-case
     // exploit is claiming ONE trial — DB pre-check above prevents
     // re-mints, and Stripe-side idempotency keys prevent duplicate
     // billing objects. Net per-user trial cap is 1, same as intended.
-    const trialPending = (user.user_metadata as { trial_pending?: unknown })?.trial_pending === true;
+    const { data: freshUser, error: freshUserError } = await adminClient.auth.admin.getUserById(userId);
+    if (freshUserError || !freshUser?.user) {
+      // Failing closed: the user disappeared between auth and the metadata
+      // read (account deletion race?), or the auth admin API blipped.
+      // Either way, return 503 so AuthContext's invoke-error rollback
+      // re-fires next SIGNED_IN.
+      console.error("[start_trial] auth.admin.getUserById failed (failing closed):", freshUserError?.message);
+      recordError("start_trial");
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          reason: "user_lookup_failed",
+          error: freshUserError?.message ?? "user not found",
+        }),
+        {
+          status: 503,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const trialPending = (freshUser.user.user_metadata as { trial_pending?: unknown })?.trial_pending === true;
     if (!trialPending) {
       log("Pre-check short-circuit (not eligible — no trial_pending flag)", { userId });
       const response = new Response(
@@ -449,13 +481,17 @@ serve(async (req) => {
     }
 
     // Clear `trial_pending` from user_metadata so future SIGNED_IN events
-    // don't re-fire start_trial. Preserve existing keys (e.g. display_name)
-    // via spread — supabase auth admin replaces user_metadata wholesale,
-    // not merge. Best-effort: failure here doesn't roll back; the DB
-    // pre-check above short-circuits any subsequent re-fires anyway, and
-    // the metadata value catches up on the next token refresh.
+    // short-circuit at the not_eligible gate above. Preserve existing keys
+    // (display_name, full_name from OAuth, avatar_url, etc.) via spread —
+    // supabase auth admin replaces user_metadata wholesale, not merge.
+    // Spread `freshUser.user.user_metadata` rather than `user.user_metadata`
+    // so we capture the post-trigger state (Codex round 8 — JWT claims may
+    // be pre-trigger). Best-effort: failure here doesn't roll back; the DB
+    // pre-check on `subscriptions.stripe_subscription_id` short-circuits
+    // any subsequent re-fires anyway, and the metadata value catches up on
+    // the next token refresh.
     const updatedMetadata = {
-      ...(user.user_metadata ?? {}),
+      ...(freshUser.user.user_metadata ?? {}),
       trial_pending: false,
     };
     const { error: clearMetadataError } = await adminClient.auth.admin.updateUserById(
