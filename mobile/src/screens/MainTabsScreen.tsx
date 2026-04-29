@@ -5,7 +5,7 @@
 // Why not @react-navigation/bottom-tabs? The design's center FAB pushes onto the parent stack,
 // not "switches tab," so a custom container is simpler than a custom tabBar component.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useNavigation, type RouteProp, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +25,14 @@ export function MainTabsScreen() {
   const route = useRoute<Route>();
   const initial: TabId = route.params?.initialTab ?? 'today';
   const [tab, setTab] = useState<TabId>(initial);
+
+  // Sync with subsequent navigate('MainTabs', { initialTab: ... }) calls — useState only
+  // honours the initial value, so a deep-link / external nav.navigate that updates params
+  // on an already-mounted MainTabs would otherwise be silently ignored. Codex P2 #2 on PR #699.
+  const paramTab = route.params?.initialTab;
+  useEffect(() => {
+    if (paramTab) setTab(paramTab);
+  }, [paramTab]);
 
   return (
     <View style={{ flex: 1 }}>

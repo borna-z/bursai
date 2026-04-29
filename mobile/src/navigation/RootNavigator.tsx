@@ -68,9 +68,67 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// One placeholder factory per route — keeps the file flat and the eyebrow/title accurate.
-const placeholder = (eyebrow: string, title: string, body?: string) => () =>
-  <PlaceholderScreen eyebrow={eyebrow} title={title} body={body} />;
+// Placeholder components MUST be created at module scope — not inside RootNavigator's render —
+// so React Navigation sees stable function references across re-renders (e.g. after a theme
+// change). Building them per-render would unmount/remount every screen in the stack, blowing
+// away local screen state. Codex P1 #2 on PR #699.
+const placeholder = (eyebrow: string, title: string, body?: string) => {
+  const Screen = () => <PlaceholderScreen eyebrow={eyebrow} title={title} body={body} />;
+  Screen.displayName = `Placeholder(${title})`;
+  return Screen;
+};
+
+const Placeholders = {
+  // Add piece flow
+  AddPieceStep1: placeholder('New garment', 'Add pieces', 'Step 1 — choose source + multi-photo grid. Coming next.'),
+  AddPieceStep2: placeholder('Step 2 of 3', 'Analyzing', 'Per-item progress + counter. Coming next.'),
+  AddPieceStep3: placeholder('Step 3 of 3', 'Confirm batch', 'Piece selector + form fields + sticky save. Coming next.'),
+  LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
+
+  // Outfit / garment / sharing
+  Outfits: placeholder('Looks', 'Your outfits'),
+  OutfitDetail: placeholder('Today', 'Outfit'),
+  EditGarment: placeholder('Edit', 'Edit piece'),
+  GarmentDetail: placeholder('Detail', 'Piece'),
+  ShareOutfit: placeholder('Share', 'Share outfit'),
+  PublicProfile: placeholder('Public', 'Profile'),
+
+  // Stylist / mood / occasion
+  StyleChat: placeholder('Stylist', 'Style chat'),
+  StyleMe: placeholder('Style me', "What's the occasion?"),
+  MoodOutfit: placeholder('Dress how you feel', 'Mood outfit'),
+  MoodFlow: placeholder('Mood', 'Pick a mood'),
+
+  // Travel capsule
+  TravelCapsule: placeholder('Trip', 'Travel capsule'),
+  TravelMustHaves: placeholder('Step 5 of 6', 'Pick must-haves'),
+  TravelPackingList: placeholder('Step 6 of 6', 'Packing list'),
+
+  // Discover / lists
+  WardrobeGaps: placeholder('Discover', 'Wardrobe gaps'),
+  UsedGarments: placeholder('Most worn', 'Used pieces'),
+  UnusedOutfits: placeholder('Quiet shelf', 'Unused outfits'),
+
+  // Settings
+  Settings: placeholder('Settings', 'Preferences'),
+  SettingsAppearance: placeholder('Appearance', 'Theme & motion'),
+  SettingsStyle: placeholder('Style', 'Your preferences'),
+  SettingsNotifications: placeholder('Notifications', 'Reminders'),
+  SettingsAccount: placeholder('Account', 'Sign-in & billing'),
+  SettingsPrivacy: placeholder('Privacy', 'Data & sharing'),
+
+  // Profile / account / extras
+  Profile: placeholder('You', 'Profile'),
+  Notifications: placeholder('Inbox', 'Notifications'),
+  ResetPassword: placeholder('Account', 'Reset password'),
+  BillingSuccess: placeholder('Welcome', 'Premium activated'),
+  BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
+  NotFound: placeholder('Off the rail', '404'),
+
+  // Search / filters
+  Search: placeholder('Find', 'Search'),
+  Filters: placeholder('Refine', 'Filters'),
+} as const;
 
 export function RootNavigator() {
   return (
@@ -84,54 +142,54 @@ export function RootNavigator() {
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
       {/* Add piece flow */}
-      <Stack.Screen name="AddPieceStep1" component={placeholder('New garment', 'Add pieces', 'Step 1 — choose source + multi-photo grid. Coming next.')} />
-      <Stack.Screen name="AddPieceStep2" component={placeholder('Step 2 of 3', 'Analyzing', 'Per-item progress + counter. Coming next.')} />
-      <Stack.Screen name="AddPieceStep3" component={placeholder('Step 3 of 3', 'Confirm batch', 'Piece selector + form fields + sticky save. Coming next.')} />
-      <Stack.Screen name="LiveScan" component={placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.')} />
+      <Stack.Screen name="AddPieceStep1" component={Placeholders.AddPieceStep1} />
+      <Stack.Screen name="AddPieceStep2" component={Placeholders.AddPieceStep2} />
+      <Stack.Screen name="AddPieceStep3" component={Placeholders.AddPieceStep3} />
+      <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
 
       {/* Outfit / garment / sharing */}
-      <Stack.Screen name="Outfits" component={placeholder('Looks', 'Your outfits')} />
-      <Stack.Screen name="OutfitDetail" component={placeholder('Today', 'Outfit')} />
-      <Stack.Screen name="EditGarment" component={placeholder('Edit', 'Edit piece')} />
-      <Stack.Screen name="GarmentDetail" component={placeholder('Detail', 'Piece')} />
-      <Stack.Screen name="ShareOutfit" component={placeholder('Share', 'Share outfit')} />
-      <Stack.Screen name="PublicProfile" component={placeholder('Public', 'Profile')} />
+      <Stack.Screen name="Outfits" component={Placeholders.Outfits} />
+      <Stack.Screen name="OutfitDetail" component={Placeholders.OutfitDetail} />
+      <Stack.Screen name="EditGarment" component={Placeholders.EditGarment} />
+      <Stack.Screen name="GarmentDetail" component={Placeholders.GarmentDetail} />
+      <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
+      <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
 
       {/* Stylist / mood / occasion */}
-      <Stack.Screen name="StyleChat" component={placeholder('Stylist', 'Style chat')} />
-      <Stack.Screen name="StyleMe" component={placeholder('Style me', "What's the occasion?")} />
-      <Stack.Screen name="MoodOutfit" component={placeholder('Dress how you feel', 'Mood outfit')} />
-      <Stack.Screen name="MoodFlow" component={placeholder('Mood', 'Pick a mood')} />
+      <Stack.Screen name="StyleChat" component={Placeholders.StyleChat} />
+      <Stack.Screen name="StyleMe" component={Placeholders.StyleMe} />
+      <Stack.Screen name="MoodOutfit" component={Placeholders.MoodOutfit} />
+      <Stack.Screen name="MoodFlow" component={Placeholders.MoodFlow} />
 
       {/* Travel capsule */}
-      <Stack.Screen name="TravelCapsule" component={placeholder('Trip', 'Travel capsule')} />
-      <Stack.Screen name="TravelMustHaves" component={placeholder('Step 5 of 6', 'Pick must-haves')} />
-      <Stack.Screen name="TravelPackingList" component={placeholder('Step 6 of 6', 'Packing list')} />
+      <Stack.Screen name="TravelCapsule" component={Placeholders.TravelCapsule} />
+      <Stack.Screen name="TravelMustHaves" component={Placeholders.TravelMustHaves} />
+      <Stack.Screen name="TravelPackingList" component={Placeholders.TravelPackingList} />
 
       {/* Discover / lists */}
-      <Stack.Screen name="WardrobeGaps" component={placeholder('Discover', 'Wardrobe gaps')} />
-      <Stack.Screen name="UsedGarments" component={placeholder('Most worn', 'Used pieces')} />
-      <Stack.Screen name="UnusedOutfits" component={placeholder('Quiet shelf', 'Unused outfits')} />
+      <Stack.Screen name="WardrobeGaps" component={Placeholders.WardrobeGaps} />
+      <Stack.Screen name="UsedGarments" component={Placeholders.UsedGarments} />
+      <Stack.Screen name="UnusedOutfits" component={Placeholders.UnusedOutfits} />
 
       {/* Settings */}
-      <Stack.Screen name="Settings" component={placeholder('Settings', 'Preferences')} />
-      <Stack.Screen name="SettingsAppearance" component={placeholder('Appearance', 'Theme & motion')} />
-      <Stack.Screen name="SettingsStyle" component={placeholder('Style', 'Your preferences')} />
-      <Stack.Screen name="SettingsNotifications" component={placeholder('Notifications', 'Reminders')} />
-      <Stack.Screen name="SettingsAccount" component={placeholder('Account', 'Sign-in & billing')} />
-      <Stack.Screen name="SettingsPrivacy" component={placeholder('Privacy', 'Data & sharing')} />
+      <Stack.Screen name="Settings" component={Placeholders.Settings} />
+      <Stack.Screen name="SettingsAppearance" component={Placeholders.SettingsAppearance} />
+      <Stack.Screen name="SettingsStyle" component={Placeholders.SettingsStyle} />
+      <Stack.Screen name="SettingsNotifications" component={Placeholders.SettingsNotifications} />
+      <Stack.Screen name="SettingsAccount" component={Placeholders.SettingsAccount} />
+      <Stack.Screen name="SettingsPrivacy" component={Placeholders.SettingsPrivacy} />
 
       {/* Profile / account / extras */}
-      <Stack.Screen name="Profile" component={placeholder('You', 'Profile')} />
-      <Stack.Screen name="Notifications" component={placeholder('Inbox', 'Notifications')} />
-      <Stack.Screen name="ResetPassword" component={placeholder('Account', 'Reset password')} />
-      <Stack.Screen name="BillingSuccess" component={placeholder('Welcome', 'Premium activated')} />
-      <Stack.Screen name="BillingCancel" component={placeholder('Cancelled', 'Plan cancelled')} />
-      <Stack.Screen name="NotFound" component={placeholder('Off the rail', '404')} />
+      <Stack.Screen name="Profile" component={Placeholders.Profile} />
+      <Stack.Screen name="Notifications" component={Placeholders.Notifications} />
+      <Stack.Screen name="ResetPassword" component={Placeholders.ResetPassword} />
+      <Stack.Screen name="BillingSuccess" component={Placeholders.BillingSuccess} />
+      <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />
+      <Stack.Screen name="NotFound" component={Placeholders.NotFound} />
 
       {/* Search / filters */}
-      <Stack.Screen name="Search" component={placeholder('Find', 'Search')} />
-      <Stack.Screen name="Filters" component={placeholder('Refine', 'Filters')} />
+      <Stack.Screen name="Search" component={Placeholders.Search} />
+      <Stack.Screen name="Filters" component={Placeholders.Filters} />
     </Stack.Navigator>
   );
 }
