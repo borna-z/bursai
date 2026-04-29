@@ -180,7 +180,7 @@ serve(async (req) => {
     // P54+ enforce + the frontend paywall.
     const { data: existing, error: existingError } = await adminClient
       .from("subscriptions")
-      .select("status, plan, stripe_subscription_id, stripe_customer_id, current_period_end, created_at")
+      .select("status, plan, stripe_subscription_id, stripe_customer_id, current_period_end")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -239,30 +239,26 @@ serve(async (req) => {
       return response;
     }
 
-    // Codex P1 round 3 on PR #698 — scope gate. AuthContext fires this on
-    // every SIGNED_IN, not just first signup. Without this gate, legacy
-    // users who signed up BEFORE Wave 8 ships would be auto-enrolled in a
-    // 3-day trial on their next login — broader behavior change than P52's
-    // documented scope ("on signup completion"). Eligibility signal:
-    // `subscriptions.created_at` is set by `handle_new_user` trigger at
-    // signup, so a recently-created subscriptions row indicates a fresh
-    // signup. The 24h window covers email-confirm delays + weekend
-    // signups while excluding existing accounts. Pre-launch onboarding /
-    // legacy free-tier users will be migrated through the paywall path
-    // (P54+ + create_checkout_session + restore_subscription).
-    const SIGNUP_TRIAL_ELIGIBILITY_MS = 24 * 60 * 60 * 1000;
-    const subscriptionCreatedAt = existing?.created_at
-      ? new Date(existing.created_at).getTime()
-      : null;
-    const isFreshSignup =
-      subscriptionCreatedAt !== null &&
-      Date.now() - subscriptionCreatedAt < SIGNUP_TRIAL_ELIGIBILITY_MS;
-
-    if (existing && !isFreshSignup) {
-      log("Pre-check short-circuit (not eligible — legacy user)", {
-        userId,
-        subscriptionCreatedAt: existing.created_at,
-      });
+    // Codex P1 round 5 on PR #698 — scope gate via explicit per-signup
+    // signal. The earlier 24h `subscriptions.created_at` recency check
+    // had two failure modes: (a) auto-enrolled legacy users on their next
+    // login (broader than P52's documented "on signup completion"); (b)
+    // permanently locked out fresh signups whose first call failed
+    // transiently OR whose email-confirm took >24h. Replaced with the
+    // `user_metadata.trial_pending` flag set by the signUp() callback in
+    // AuthContext (only present on actual signups, never on returning
+    // logins). Legacy users + OAuth signups don't carry the flag — they
+    // re-subscribe via the paywall path (P54+ + create_checkout_session
+    // + restore_subscription).
+    //
+    // Defense in depth: the flag is in user_metadata which a malicious
+    // user CAN set via updateUser({data: {...}}), but the worst-case
+    // exploit is claiming ONE trial — DB pre-check above prevents
+    // re-mints, and Stripe-side idempotency keys prevent duplicate
+    // billing objects. Net per-user trial cap is 1, same as intended.
+    const trialPending = (user.user_metadata as { trial_pending?: unknown })?.trial_pending === true;
+    if (!trialPending) {
+      log("Pre-check short-circuit (not eligible — no trial_pending flag)", { userId });
       const response = new Response(
         JSON.stringify({
           ok: true,
@@ -430,6 +426,24 @@ serve(async (req) => {
       );
     if (legacyMirrorError) {
       console.warn("[start_trial] user_subscriptions mirror failed:", legacyMirrorError.message);
+    }
+
+    // Clear `trial_pending` from user_metadata so future SIGNED_IN events
+    // don't re-fire start_trial. Preserve existing keys (e.g. display_name)
+    // via spread — supabase auth admin replaces user_metadata wholesale,
+    // not merge. Best-effort: failure here doesn't roll back; the DB
+    // pre-check above short-circuits any subsequent re-fires anyway, and
+    // the metadata value catches up on the next token refresh.
+    const updatedMetadata = {
+      ...(user.user_metadata ?? {}),
+      trial_pending: false,
+    };
+    const { error: clearMetadataError } = await adminClient.auth.admin.updateUserById(
+      userId,
+      { user_metadata: updatedMetadata },
+    );
+    if (clearMetadataError) {
+      console.warn("[start_trial] trial_pending metadata clear failed:", clearMetadataError.message);
     }
 
     log("Trial started", { userId, customerId, subscriptionId: subscription.id, trialEnd });
