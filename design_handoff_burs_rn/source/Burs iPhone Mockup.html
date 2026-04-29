@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Burs — iPhone Mockup</title>
+<link rel="stylesheet" href="styles.css?v=10" />
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(ellipse at top, hsl(34 32% 96%), hsl(33 27% 90%));
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: hsl(24 13% 10%);
+    min-height: 100vh;
+  }
+  body.dark-bg { background: radial-gradient(ellipse at top, #1a1714, #0a0907); color: #e8dfd2; }
+
+  .stage {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 36px 16px 60px;
+    gap: 28px;
+  }
+
+  .stage-head {
+    width: 100%;
+    max-width: 1280px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 0 4px;
+  }
+  .stage-head h1 {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 32px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .stage-head .eyebrow {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  body.dark-bg .controls { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); }
+  .controls button {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    font: 600 12px 'DM Sans', sans-serif;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.55;
+  }
+  .controls button.active {
+    background: hsl(24 13% 10%);
+    color: hsl(34 32% 95%);
+    opacity: 1;
+  }
+  body.dark-bg .controls button.active {
+    background: hsl(34 32% 95%);
+    color: hsl(24 13% 10%);
+  }
+
+  .phones-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 36px;
+    align-items: flex-start;
+  }
+
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .phone-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    opacity: 0.6;
+  }
+  .phone-label strong {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 16px;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    opacity: 1;
+    margin-right: 6px;
+  }
+
+  /* iPhone hardware shell */
+  .iphone {
+    width: 412px;
+    height: 866px;
+    border-radius: 56px;
+    background: linear-gradient(160deg, #1a1817, #0a0907);
+    padding: 11px;
+    position: relative;
+    box-shadow:
+      0 60px 120px rgba(0,0,0,0.35),
+      0 24px 60px rgba(0,0,0,0.22),
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      inset 0 -2px 0 rgba(0,0,0,0.6);
+  }
+  /* hardware buttons */
+  .iphone::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 110px;
+    width: 4px;
+    height: 32px;
+    border-radius: 2px 0 0 2px;
+    background: linear-gradient(90deg, #1a1817, #2a2724);
+  }
+  .iphone .vol-up,
+  .iphone .vol-down,
+  .iphone .power {
+    position: absolute;
+    background: linear-gradient(90deg, #2a2724, #1a1817);
+  }
+  .iphone .vol-up { left: -2px; top: 170px; width: 4px; height: 60px; border-radius: 2px 0 0 2px; }
+  .iphone .vol-down { left: -2px; top: 240px; width: 4px; height: 60px; border-radius: 2px 0 0 2px; }
+  .iphone .power { right: -2px; top: 200px; width: 4px; height: 90px; border-radius: 0 2px 2px 0; }
+
+  .iphone-screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 46px;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg, hsl(34 32% 95%));
+  }
+
+  /* Dynamic island */
+  .dynamic-island {
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 124px;
+    height: 36px;
+    border-radius: 22px;
+    background: #000;
+    z-index: 100;
+  }
+
+  /* Inside the phone, the device is full-bleed */
+  .iphone-screen .device {
+    width: 100%;
+    height: 100%;
+    border-radius: 46px;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    opacity: 0.5;
+    letter-spacing: 0.04em;
+    max-width: 600px;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <header class="stage-head">
+    <div>
+      <p class="eyebrow">Burs · Native iOS</p>
+      <h1>Scrollable mockup</h1>
+    </div>
+    <div class="controls" id="controls">
+      <button data-screen="home" class="active">Today</button>
+      <button data-screen="wardrobe">Wardrobe</button>
+      <button data-screen="plan">Plan</button>
+      <button data-screen="insights">Insights</button>
+      <button data-screen="add">Add</button>
+      <button data-screen="settings">Settings</button>
+      <button data-screen="chat">Chat</button>
+      <button data-screen="travel">Travel</button>
+      <button data-screen="mood">Mood</button>
+      <button data-screen="billingSuccess">Paid</button>
+      <button data-screen="notFound">404</button>
+    </div>
+    <div class="controls">
+      <button id="theme-light" class="active">Light</button>
+      <button id="theme-dark">Dark</button>
+    </div>
+  </header>
+
+  <div class="phones-row" id="phones-row"></div>
+
+  <p class="footer">Scroll inside the phone to see all the details — every screen is fully native and continuous from top to bottom under the floating tab bar.</p>
+</div>
+
+<div id="root" style="display:none"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Load screens + router + secondary screens (registers globals) -->
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="router.jsx"></script>
+<script type="text/babel" src="extra-screens.jsx"></script>
+<script type="text/babel" src="more-screens.jsx"></script>
+<script type="text/babel" src="audit-screens.jsx"></script>
+
+<script type="text/babel">
+  // Full screen registry — every screen the prototype can navigate to
+  function getRegistry() {
+    return {
+      home: HomeScreen,
+      wardrobe: WardrobeScreen,
+      plan: PlanScreen,
+      insights: InsightsFullScreen,
+      add: AddGarmentStep1,
+      add2: AddGarmentStep2,
+      add3: AddGarmentStep3,
+      // Stylist
+      chat: StyleChatV2Screen,
+      chatLegacy: StyleChatScreen,
+      outfits: OutfitsScreen,
+      styleme: StyleMeScreen,
+      mood: MoodFlowScreen,
+      moodLegacy: MoodOutfitScreen,
+      // Discover
+      travel: TravelCapsuleScreen,
+      travelMustHaves: PickMustHavesScreen,
+      travelPacking: TravelPackingScreen,
+      gaps: WardrobeGapsScreen,
+      settings: SettingsScreen,
+      // Settings sub-pages
+      settingsAppearance: SettingsAppearanceScreen,
+      settingsStyle: SettingsStyleScreen,
+      settingsNotifications: SettingsNotificationsScreen,
+      settingsAccount: SettingsAccountScreen,
+      settingsPrivacy: SettingsPrivacyScreen,
+      // Audit additions
+      insightsFull: InsightsFullScreen,
+      editGarment: EditGarmentScreen,
+      unusedOutfits: UnusedOutfitsScreen,
+      usedGarments: UsedGarmentsScreen,
+      resetPassword: ResetPasswordScreen,
+      notFound: NotFoundScreen,
+      shareOutfit: ShareOutfitScreen,
+      publicProfile: PublicProfileScreen,
+      billingSuccess: BillingSuccessScreen,
+      billingCancel: BillingCancelScreen,
+      legal: LegalScreen,
+      // Detail
+      outfit: OutfitDetailScreen,
+      garment: GarmentDetailScreen,
+      search: SearchScreen,
+      filters: FiltersScreen,
+      // Aux
+      profile: ProfileScreen,
+      notifications: NotificationsScreen,
+      // Onboarding (single connected flow)
+      onboarding: OnboardingScreen,
+      // Plan
+      planMonth: PlanMonthScreen,
+      // Capture
+      liveScan: LiveScanScreen,
+      // Care
+      laundry: LaundryScreen,
+      // Commerce
+      shopGap: ShopGapScreen,
+      wishlist: WishlistScreen,
+      // Account
+      paywall: PaywallScreen,
+      help: HelpScreen,
+      deleteAccount: DeleteAccountScreen,
+      // Empty / error states
+      emptyWardrobe: EmptyWardrobeScreen,
+      noConnection: NoConnectionScreen,
+      error: ErrorScreen,
+    };
+  }
+
+  function Phone({ initialScreen, theme }) {
+    return (
+      <div className="phone-wrap">
+        <div className="iphone">
+          <span className="vol-up"></span>
+          <span className="vol-down"></span>
+          <span className="power"></span>
+          <div className="iphone-screen">
+            <div className="dynamic-island"></div>
+            <Router
+              initial={initialScreen}
+              registry={getRegistry()}
+              theme={theme}
+            />
+          </div>
+        </div>
+        <div className="phone-label">
+          <strong>Tap anything</strong> · the prototype is fully wired
+        </div>
+      </div>
+    );
+  }
+
+  function Stage() {
+    const [screen, setScreen] = React.useState('home');
+    const [theme, setTheme] = React.useState('light');
+
+    React.useEffect(() => {
+      // Wire top toolbar buttons
+      document.querySelectorAll('#controls button').forEach(b => {
+        b.onclick = () => {
+          document.querySelectorAll('#controls button').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          setScreen(b.dataset.screen === 'home' ? 'home' : b.dataset.screen);
+        };
+      });
+      document.getElementById('theme-light').onclick = () => {
+        document.getElementById('theme-light').classList.add('active');
+        document.getElementById('theme-dark').classList.remove('active');
+        document.body.classList.remove('dark-bg');
+        setTheme('light');
+      };
+      document.getElementById('theme-dark').onclick = () => {
+        document.getElementById('theme-dark').classList.add('active');
+        document.getElementById('theme-light').classList.remove('active');
+        document.body.classList.add('dark-bg');
+        setTheme('dark');
+      };
+    }, []);
+
+    return <Phone initialScreen={screen} theme={theme} />;
+  }
+
+  // Mount stage into the row container
+  const row = document.getElementById('phones-row');
+  // Wait a tick so screens.jsx finishes registering globals
+  setTimeout(() => {
+    ReactDOM.createRoot(row).render(<Stage />);
+  }, 0);
+</script>
+</body>
+</html>
