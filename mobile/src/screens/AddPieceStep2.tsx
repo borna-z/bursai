@@ -9,11 +9,11 @@
 // PR this hooks into the real analyzer pipeline; for now it's a static snapshot showing
 // what the screen looks like mid-batch.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -24,32 +24,73 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { CloseIcon } from '../components/icons';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'AddPieceStep2'>;
 
 type ItemState = 'done' | 'now' | 'wait';
 type Item = { n: number; label: string; state: ItemState; hue: number };
 
-const ITEMS: Item[] = [
-  { n: 1, label: 'Cream wool overshirt', state: 'done', hue: 32 },
-  { n: 2, label: 'Charcoal trouser',    state: 'done', hue: 28 },
-  { n: 3, label: 'White oxford',        state: 'done', hue: 200 },
-  { n: 4, label: 'Reading colors…',     state: 'now',  hue: 18 },
-  { n: 5, label: 'Queued',              state: 'wait', hue: 45 },
+// Demo labels cycled by photo index — used for the "done" rows so they read like real
+// AI-detected garment titles. The "now" / "wait" rows use generic copy.
+const DEMO_LABELS = [
+  'Cream wool overshirt',
+  'Charcoal trouser',
+  'White oxford',
+  'Rust crewneck',
+  'Camel loafers',
+  'Linen tee',
+  'Wool cardigan',
+  'Bone sneaker',
+  'Cotton chore',
+  'Silk scarf',
 ];
 
-const TOTAL = ITEMS.length;
-const DONE = ITEMS.filter((i) => i.state === 'done').length;
+// Fallback batch when the screen is opened directly (deep-link, future tests). Real entry
+// from Step 1 always passes `route.params.photos`.
+const DEFAULT_PHOTOS: AddPiecePhoto[] = [
+  { id: 1, hue: 32 }, { id: 2, hue: 28 }, { id: 3, hue: 200 },
+  { id: 4, hue: 18 }, { id: 5, hue: 45 },
+];
 
 function hueGrad(h: number): [string, string] {
   return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
 }
 
+// Mid-batch snapshot: ~60% of items done, the next one "now", rest "wait". Always leave at
+// least one non-done row when more than one photo is staged so the screen visibly shows
+// progress; for a single photo, mark it as "now".
+function buildItems(photos: AddPiecePhoto[]): Item[] {
+  const total = photos.length;
+  if (total === 0) return [];
+  const done = total === 1 ? 0 : Math.max(1, Math.min(total - 1, Math.floor(total * 0.6)));
+  return photos.map((p, i) => {
+    let state: ItemState;
+    let label: string;
+    if (i < done) {
+      state = 'done';
+      label = DEMO_LABELS[i % DEMO_LABELS.length];
+    } else if (i === done) {
+      state = 'now';
+      label = 'Reading colors…';
+    } else {
+      state = 'wait';
+      label = 'Queued';
+    }
+    return { n: i + 1, label, state, hue: p.hue };
+  });
+}
+
 export function AddPieceStep2() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const pct = (DONE / TOTAL) * 100;
+  const route = useRoute<Route>();
+  const photos = route.params?.photos ?? DEFAULT_PHOTOS;
+  const items = useMemo(() => buildItems(photos), [photos]);
+  const total = items.length;
+  const done = items.filter((it) => it.state === 'done').length;
+  const pct = total > 0 ? (done / total) * 100 : 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
@@ -63,7 +104,7 @@ export function AddPieceStep2() {
           <PageTitle size={26}>Analyzing</PageTitle>
         </View>
         <Pressable
-          onPress={() => nav.navigate('AddPieceStep3')}
+          onPress={() => nav.navigate('AddPieceStep3', { photos })}
           style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
           <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2, fontWeight: '500' }}>Skip</Text>
         </Pressable>
@@ -77,8 +118,8 @@ export function AddPieceStep2() {
         <View style={{ alignItems: 'center', gap: 6 }}>
           <Eyebrow>Reading the batch</Eyebrow>
           <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontWeight: '500', fontSize: 32, lineHeight: 34, letterSpacing: -0.32 }}>
-            <Text style={{ color: t.accent }}>{DONE}</Text>
-            <Text style={{ color: t.fg3 }}> / {TOTAL}</Text>
+            <Text style={{ color: t.accent }}>{done}</Text>
+            <Text style={{ color: t.fg3 }}> / {total}</Text>
           </Text>
           <Caption>pieces tagged</Caption>
         </View>
@@ -90,7 +131,7 @@ export function AddPieceStep2() {
 
         {/* ============ PER-ITEM LIST ============ */}
         <View style={{ gap: 8 }}>
-          {ITEMS.map((it) => {
+          {items.map((it) => {
             const isWait = it.state === 'wait';
             const isNow  = it.state === 'now';
             const isDone = it.state === 'done';

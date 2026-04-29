@@ -24,7 +24,7 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CameraIcon, ImageIcon } from '../components/icons';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -36,7 +36,7 @@ function hueGrad(h: number): [string, string] {
   return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
 }
 
-type Photo = { id: number; hue: number };
+type Photo = AddPiecePhoto;
 
 export function AddPieceStep1() {
   const t = useTokens();
@@ -227,9 +227,12 @@ export function AddPieceStep1() {
             We&rsquo;ll tag each one automatically
           </Text>
         </View>
+        {/* Pass the staged photos forward so Step 2 + Step 3 reflect the user's real batch.
+            Codex P2 on PR #706 — earlier impl dropped photos here, leaving downstream
+            screens stuck on fixed 5-item mocks regardless of count. */}
         <Button
           label={`Analyze ${ready > 1 ? 'all' : 'piece'}`}
-          onPress={() => nav.navigate('AddPieceStep2')}
+          onPress={() => nav.navigate('AddPieceStep2', { photos })}
           disabled={ready === 0}
         />
       </View>

@@ -9,11 +9,11 @@
 // hue + title + category + color + material + fit + seasons. Real edit handlers wire up
 // in a later PR — this PR shows the shell + visual fidelity.
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -24,12 +24,12 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'AddPieceStep3'>;
 
-type Piece = {
-  hue: number;
+type PieceMeta = {
   title: string;
   cat: string;
   color: string;
@@ -37,26 +37,56 @@ type Piece = {
   fit: string;
   seasons: string[];
 };
+type Piece = PieceMeta & { hue: number };
 
-const PIECES: Piece[] = [
-  { hue: 32,  title: 'Cream wool overshirt', cat: 'Outerwear · Overshirt', color: 'Cream',    material: 'Wool blend',     fit: 'Regular',  seasons: ['Spring', 'Autumn'] },
-  { hue: 28,  title: 'Charcoal trouser',     cat: 'Bottoms · Trouser',     color: 'Charcoal', material: 'Wool',           fit: 'Tailored', seasons: ['Autumn', 'Winter'] },
-  { hue: 200, title: 'White oxford shirt',   cat: 'Tops · Shirt',          color: 'White',    material: 'Cotton poplin',  fit: 'Regular',  seasons: ['Spring', 'Summer', 'Autumn'] },
-  { hue: 18,  title: 'Rust crewneck',        cat: 'Tops · Knit',           color: 'Rust',     material: 'Merino wool',    fit: 'Relaxed',  seasons: ['Autumn', 'Winter'] },
-  { hue: 45,  title: 'Camel loafers',        cat: 'Shoes · Loafer',        color: 'Camel',    material: 'Suede',          fit: '—',        seasons: ['Spring', 'Autumn'] },
+// Demo metadata cycled by photo index. The user's actual photos drive `hue` + count;
+// the AI-detected fields are placeholders until the analyzer pipeline wires up.
+const DEMO_META: PieceMeta[] = [
+  { title: 'Cream wool overshirt', cat: 'Outerwear · Overshirt', color: 'Cream',    material: 'Wool blend',    fit: 'Regular',  seasons: ['Spring', 'Autumn'] },
+  { title: 'Charcoal trouser',     cat: 'Bottoms · Trouser',    color: 'Charcoal', material: 'Wool',          fit: 'Tailored', seasons: ['Autumn', 'Winter'] },
+  { title: 'White oxford shirt',   cat: 'Tops · Shirt',         color: 'White',    material: 'Cotton poplin', fit: 'Regular',  seasons: ['Spring', 'Summer', 'Autumn'] },
+  { title: 'Rust crewneck',        cat: 'Tops · Knit',          color: 'Rust',     material: 'Merino wool',   fit: 'Relaxed',  seasons: ['Autumn', 'Winter'] },
+  { title: 'Camel loafers',        cat: 'Shoes · Loafer',       color: 'Camel',    material: 'Suede',         fit: '—',        seasons: ['Spring', 'Autumn'] },
+  { title: 'Linen tee',            cat: 'Tops · Tee',           color: 'Sand',     material: 'Linen',         fit: 'Relaxed',  seasons: ['Spring', 'Summer'] },
+  { title: 'Wool cardigan',        cat: 'Outerwear · Knit',     color: 'Navy',     material: 'Lambswool',     fit: 'Regular',  seasons: ['Autumn', 'Winter'] },
+  { title: 'Bone sneaker',         cat: 'Shoes · Sneaker',      color: 'Bone',     material: 'Leather',       fit: '—',        seasons: ['Spring', 'Summer', 'Autumn'] },
+  { title: 'Cotton chore',         cat: 'Outerwear · Chore',    color: 'Sand',     material: 'Cotton canvas', fit: 'Regular',  seasons: ['Spring', 'Autumn'] },
+  { title: 'Silk scarf',           cat: 'Accessory · Scarf',    color: 'Olive',    material: 'Silk',          fit: '—',        seasons: ['Spring', 'Autumn', 'Winter'] },
 ];
 
 const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
+
+// Fallback batch when the screen is opened directly (deep-link, future tests). Real entry
+// from Step 2 always passes `route.params.photos`.
+const DEFAULT_PHOTOS: AddPiecePhoto[] = [
+  { id: 1, hue: 32 }, { id: 2, hue: 28 }, { id: 3, hue: 200 },
+  { id: 4, hue: 18 }, { id: 5, hue: 45 },
+];
 
 function hueGrad(h: number): [string, string] {
   return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
 }
 
+// Zip user photos with cycled demo metadata. User's actual hues drive the gradient thumbs;
+// metadata cycles through the DEMO_META list to give each piece a different identity.
+function buildPieces(photos: AddPiecePhoto[]): Piece[] {
+  return photos.map((p, i) => ({ hue: p.hue, ...DEMO_META[i % DEMO_META.length] }));
+}
+
 export function AddPieceStep3() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  // Treat both `undefined` params AND an explicitly-empty array as "use the demo batch" —
+  // an empty pieces list would crash the hero / form / save-bar at p.title etc.
+  const passed = route.params?.photos;
+  const photos = passed && passed.length > 0 ? passed : DEFAULT_PHOTOS;
+  const pieces = useMemo(() => buildPieces(photos), [photos]);
   const [active, setActive] = useState(0);
-  const p = PIECES[active];
+  // Clamp active index in case the user came from a Step 2 with a different batch and we
+  // re-rendered with a smaller pieces array — index 0 is always safe when pieces > 0.
+  const safeActive = pieces.length === 0 ? 0 : Math.min(active, pieces.length - 1);
+  const p = pieces[safeActive];
 
   // Save → reset to MainTabs (Today). The flow is "you opened the FAB, finished adding pieces,
   // now you're back at the home tab" — match the prototype's `nav.replace('home')`.
@@ -88,8 +118,8 @@ export function AddPieceStep3() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 10, gap: 6 }}
         style={{ borderBottomWidth: 1, borderBottomColor: t.border, flexGrow: 0 }}>
-        {PIECES.map((pp, i) => {
-          const isActive = i === active;
+        {pieces.map((pp, i) => {
+          const isActive = i === safeActive;
           return (
             <Pressable
               key={i}
@@ -218,7 +248,7 @@ export function AddPieceStep3() {
       {/* ============ STICKY SAVE BAR ============ */}
       <View style={[s.stickyBar, { borderTopColor: t.border, backgroundColor: t.bg }]}>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>{PIECES.length} pieces</Eyebrow>
+          <Eyebrow style={{ marginBottom: 2 }}>{pieces.length} pieces</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
             Edit any before saving
           </Text>

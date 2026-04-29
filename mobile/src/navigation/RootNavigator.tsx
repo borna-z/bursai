@@ -19,13 +19,22 @@ import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
 
+/**
+ * Staged-photo shape for the AddPiece flow. Threaded from Step 1 through Step 2 and Step 3
+ * via route params so the user's actual count + hue selections drive the downstream rows
+ * (Codex P2 on PR #706 — earlier impl rendered fixed 5-item mocks regardless of choices).
+ *
+ * Plain serializable data so React Navigation can persist it through state restoration.
+ */
+export type AddPiecePhoto = { id: number; hue: number };
+
 export type RootStackParamList = {
   MainTabs: { initialTab?: TabId } | undefined;
 
-  // Add piece flow (3 steps)
+  // Add piece flow (3 steps) — photos thread through so each step renders the user's batch.
   AddPieceStep1: undefined;
-  AddPieceStep2: undefined;
-  AddPieceStep3: undefined;
+  AddPieceStep2: { photos?: AddPiecePhoto[] } | undefined;
+  AddPieceStep3: { photos?: AddPiecePhoto[] } | undefined;
   LiveScan: undefined;
 
   // Outfit / garment / sharing

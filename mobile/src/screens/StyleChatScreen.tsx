@@ -116,11 +116,14 @@ export function StyleChatScreen() {
         </View>
 
         {/* ============ MEMORY PANEL ============ */}
+        {/* Collapsible — when expanded, shows fact chips + Edit + Hide. When collapsed,
+            renders a thin "Show" pill row so the user can reopen without leaving the screen.
+            Codex P3 on PR #706 — earlier impl had no path back from collapsed. */}
         {memoryOpen ? (
           <View style={[s.memoryPanel, { borderBottomColor: t.border, backgroundColor: t.card }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Eyebrow>Style memory</Eyebrow>
-              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }}>
+              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }} accessibilityLabel="Hide style memory">
                 <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Hide</Text>
               </Pressable>
             </View>
@@ -154,7 +157,19 @@ export function StyleChatScreen() {
               </Pressable>
             </View>
           </View>
-        ) : null}
+        ) : (
+          <Pressable
+            onPress={() => setMemoryOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Show style memory"
+            style={({ pressed }) => [
+              s.memoryRailRow,
+              { borderBottomColor: t.border, backgroundColor: t.bg, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <Eyebrow>Style memory</Eyebrow>
+            <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Show</Text>
+          </Pressable>
+        )}
 
         {/* ============ MESSAGE LIST (FlatList inverted) ============ */}
         <FlatList
@@ -286,6 +301,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  memoryRailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderBottomWidth: 1,
   },
   composer: {
