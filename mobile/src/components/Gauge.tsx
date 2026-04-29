@@ -23,6 +23,15 @@ export type GaugeProps = {
   label: string;
   delta?: string;
   deltaDir?: 'up' | 'down';
+  /**
+   * Controls whether the gauge is currently shown. When this flips from false → true,
+   * the ring resets to "empty" and re-animates to its target offset. Required because
+   * MainTabsScreen keeps every tab mounted (`display: 'none'` for inactive tabs), so a
+   * plain mount-time animation would run while Insights is hidden — and the user would
+   * see the ring already at its final position when they navigate to the tab.
+   * Defaults to `true` so a standalone usage (tests / future screens) animates on mount.
+   */
+  visible?: boolean;
 };
 
 export function Gauge({
@@ -32,6 +41,7 @@ export function Gauge({
   label,
   delta,
   deltaDir = 'up',
+  visible = true,
 }: GaugeProps) {
   const t = useTokens();
   const SIZE = 78;
@@ -41,9 +51,14 @@ export function Gauge({
   const pct = Math.max(0, Math.min(1, value / max));
   const targetOffset = C * (1 - pct);
 
-  // Animate from "empty" (full circumference offset) to target on mount.
+  // Animate from "empty" (full circumference offset) to target whenever the gauge becomes
+  // visible. While hidden, the ring is parked at `C` so the next reveal animates fresh.
   const offset = useRef(new Animated.Value(C)).current;
   useEffect(() => {
+    if (!visible) {
+      offset.setValue(C);
+      return;
+    }
     Animated.timing(offset, {
       toValue: targetOffset,
       duration: 600,
@@ -51,7 +66,7 @@ export function Gauge({
       // SVG props can't use the native driver — strokeDashoffset isn't a transform/opacity.
       useNativeDriver: false,
     }).start();
-  }, [offset, targetOffset]);
+  }, [offset, targetOffset, visible, C]);
 
   const showPct = unit === '%';
   const showUnit = unit && unit !== '%';

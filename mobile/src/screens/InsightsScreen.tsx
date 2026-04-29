@@ -62,7 +62,10 @@ const MOST_WORN: { title: string; wears: string }[] = [
   { title: 'White oxford',        wears: '7 wears'  },
 ];
 
-export function InsightsScreen() {
+// `active` reflects whether this tab is currently shown — MainTabsScreen keeps every tab
+// mounted but hides inactive ones with `display: 'none'`, so the parent must tell us when
+// we're actually visible. Defaults to true so standalone usage (tests / future routes) works.
+export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const t = useTokens();
   const now = new Date();
   const headerEyebrow = buildHeaderEyebrow();
@@ -93,15 +96,19 @@ export function InsightsScreen() {
         </View>
 
         {/* ============ GAUGES — 3 col ============ */}
+        {/* `visible={active}` re-runs the ring animation each time the tab becomes active.
+            Without this, the mount-time animation runs once while Insights is hidden behind
+            the default Today tab — by the time the user lands here, the rings are already
+            at their target offset. */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Gauge value={82} max={100} unit="%" label="Cost / wear efficiency" delta="18%"           deltaDir="up" />
+            <Gauge value={82} max={100} unit="%" label="Cost / wear efficiency" delta="18%"           deltaDir="up"   visible={active} />
           </View>
           <View style={{ flex: 1 }}>
-            <Gauge value={47} max={100} unit="%" label="Outfit variety"          delta="6 new combos" deltaDir="up" />
+            <Gauge value={47} max={100} unit="%" label="Outfit variety"          delta="6 new combos" deltaDir="up"   visible={active} />
           </View>
           <View style={{ flex: 1 }}>
-            <Gauge value={91} max={100} unit="%" label="Care & laundry on time"  delta="2 overdue"    deltaDir="down" />
+            <Gauge value={91} max={100} unit="%" label="Care & laundry on time"  delta="2 overdue"    deltaDir="down" visible={active} />
           </View>
         </View>
 
