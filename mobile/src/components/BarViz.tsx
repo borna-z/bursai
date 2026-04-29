@@ -2,10 +2,12 @@
 // Mirrors design_handoff_burs_rn/source/screens.jsx `.bar-viz` + `.bar` / `.bar.hi`.
 //
 // Container: 80px tall, bars bottom-aligned, gap 6px between bars.
-// Each bar's height is its value as a percentage of the max in the dataset.
-// Bars whose RAW value (not normalized) crosses `threshold` (default 65) get the solid accent;
-// the rest get accentSoft. This matches the prototype's `.bar.hi` rule which keys off the same
-// 0..100 scale the data is already in — so pass values in 0..100 to keep that visual contract.
+// Each value is treated as an ABSOLUTE 0–100 percentage (clamped) — matches the
+// prototype's `style={{ height: \`${h}%\` }}` direct passthrough. Earlier this file
+// renormalized by dataset max, which inflated every chart whose max < 100 (e.g.
+// 65 rendering as ~72% when max=90 — Codex P1 on PR #702).
+// Bars whose value exceeds `threshold` (default 65) get the solid accent;
+// the rest get accentSoft.
 //
 // Rounded top corners only — `borderRadius: '6px 6px 2px 2px'` in the CSS — RN supports this via
 // the per-corner radius props.
@@ -22,7 +24,6 @@ export function BarViz({
   threshold?: number;
 }) {
   const t = useTokens();
-  const max = values.length ? Math.max(...values, 1) : 1;
 
   return (
     <View
@@ -33,7 +34,7 @@ export function BarViz({
         height: 80,
       }}>
       {values.map((v, i) => {
-        const heightPct = Math.max(0, Math.min(100, (v / max) * 100));
+        const heightPct = Math.max(0, Math.min(100, v));
         const hi = v > threshold;
         return (
           <View
