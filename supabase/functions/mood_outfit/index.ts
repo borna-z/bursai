@@ -173,6 +173,16 @@ async function generateMoodOutfitPayload(
   // Wave 8 P54 — paywall gate. Streaming function: convert the 402 Response
   // to its JSON payload via responseToPayload, matching the overload pattern
   // above (the streaming wrapper sends payloads, not Response objects).
+  //
+  // Codex P2 round 4 on PR #700 — the responseToPayload conversion strips
+  // the HTTP 402 status, so the frontend SSE reader (`readMoodOutfitSse`)
+  // sees a 200 OK with the locked payload in the SSE body. The page-level
+  // catch in `src/pages/MoodOutfit.tsx` now detects `error: 'subscription_required'`
+  // and triggers the paywall flow, satisfying Codex's "emit a dedicated SSE
+  // error type that the page maps to paywall open" alternative. If a future
+  // refactor moves this gate pre-stream (returning a real 402 at the
+  // transport layer), the frontend catch still handles that path identically
+  // — see the comment in the page-level catch for the dual-path rationale.
   const subCheck = await enforceSubscription(serviceClient, userId);
   if (!subCheck.allowed) {
     return await responseToPayload(subscriptionLockedResponse(subCheck.reason, CORS_HEADERS));
