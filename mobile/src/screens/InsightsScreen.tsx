@@ -12,7 +12,7 @@
 // without a double-pad.
 
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet } from 'react-native';
+import { ScrollView, Text, useWindowDimensions, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -72,10 +72,18 @@ const MOST_WORN: { title: string; wears: string }[] = [
 // we're actually visible. Defaults to true so standalone usage (tests / future routes) works.
 export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const t = useTokens();
+  const { width: screenWidth } = useWindowDimensions();
   const now = new Date();
   const headerEyebrow = buildHeaderEyebrow();
   const rangeStart = formatRangeDate(now, 29); // 30 days inclusive of today
   const rangeEnd   = formatRangeDate(now, 0);
+
+  // Three-column gauge row math: card_width = (screenWidth - 40 horizontal padding - 16 inter-card gap) / 3.
+  // Each Gauge needs SVG 78 + horizontal padding 24 ≈ 102px to render without clipping.
+  // Solving 102 ≤ (W - 56) / 3 gives W ≥ 362, so phones at 320 (SE) and 360 (common Android)
+  // overflow. Below ≈380 we drop to a 2+1 stack: the third gauge spans the full row.
+  // Codex P2 on PR #702.
+  const compactGauges = screenWidth < 380;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
@@ -100,19 +108,24 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
           <StatBlock num="68%"   label="Wardrobe used"  style={{ flex: 1 }} />
         </View>
 
-        {/* ============ GAUGES — 3 col ============ */}
+        {/* ============ GAUGES — 3 col on ≥380dp, 2+1 stack on narrower phones ============ */}
         {/* `visible={active}` re-runs the ring animation each time the tab becomes active.
             Without this, the mount-time animation runs once while Insights is hidden behind
             the default Today tab — by the time the user lands here, the rings are already
             at their target offset. */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 8,
+            flexWrap: compactGauges ? 'wrap' : 'nowrap',
+          }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Gauge value={82} max={100} unit="%" label="Cost / wear efficiency" delta="18%"           deltaDir="up"   visible={active} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Gauge value={47} max={100} unit="%" label="Outfit variety"          delta="6 new combos" deltaDir="up"   visible={active} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={compactGauges ? { width: '100%' } : { flex: 1, minWidth: 0 }}>
             <Gauge value={91} max={100} unit="%" label="Care & laundry on time"  delta="2 overdue"    deltaDir="down" visible={active} />
           </View>
         </View>
