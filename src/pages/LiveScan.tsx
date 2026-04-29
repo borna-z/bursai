@@ -326,7 +326,7 @@ export default function LiveScan() {
 
   const coach = useFirstRunCoach();
   const { scanCount, isProcessing, lastResult, lastAccepted, clearLastAccepted, error, capture, captureFromFile, accept, retake, finish } = useLiveScan();
-  const { isPremium, isLoading: isSubLoading } = useSubscription();
+  const { isPremium, isLoading: isSubLoading, paywallReason } = useSubscription();
 
   // Wave 8 P53 — free tier removed. trialing+premium both have unlimited
   // slots; locked users go through the paywall. Guard the loading window
@@ -826,7 +826,7 @@ export default function LiveScan() {
         onSelectOriginal={() => { void handleAccept(false); }}
       />
 
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason={paywallReason} />
     </div>
     </AppLayout>
     </PageErrorBoundary>

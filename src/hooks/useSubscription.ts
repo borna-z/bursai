@@ -55,7 +55,12 @@ function derivePaywallReason(
     subscription.current_period_end
   ) {
     const periodEnd = new Date(subscription.current_period_end).getTime();
-    if (Number.isFinite(periodEnd) && periodEnd < Date.now()) {
+    // Codex P2 round 3 on PR #700 — boundary alignment with backend.
+    // Backend enforceSubscription denies when periodEnd is NOT strictly future
+    // (`periodEndMs > Date.now()` → allowed). Frontend uses `<=` to match,
+    // so the exact-instant tick (periodEnd === Date.now()) is locked on both
+    // sides. Without this, the UI showed trialing while the API returned 402.
+    if (Number.isFinite(periodEnd) && periodEnd <= Date.now()) {
       return 'trial_expired';
     }
   }
@@ -76,9 +81,15 @@ function deriveState(subscription: Subscription | null | undefined): Subscriptio
     // by backend" UX. Null `current_period_end` is allowed (matches
     // backend's null-tolerance for the brief window between trial mint
     // and the first webhook write).
+    //
+    // Codex P2 round 3 on PR #700 — boundary alignment. Backend uses
+    // `periodEndMs > Date.now()` → allowed (strictly future). Frontend
+    // uses `<= Date.now()` → locked, so the exact-instant tick is locked
+    // on both sides. Earlier `<` left a 1-ms window where UI said
+    // trialing but API returned 402.
     if (subscription.current_period_end) {
       const periodEnd = new Date(subscription.current_period_end).getTime();
-      if (Number.isFinite(periodEnd) && periodEnd < Date.now()) return 'locked';
+      if (Number.isFinite(periodEnd) && periodEnd <= Date.now()) return 'locked';
     }
     return 'trialing';
   }

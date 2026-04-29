@@ -271,6 +271,39 @@ describe('useSubscription', () => {
     expect(result.current.canCreateOutfit()).toBe(false);
   });
 
+  it('treats trialing with current_period_end exactly == Date.now() as locked (Codex P2 round 3 boundary fix)', async () => {
+    // Backend `enforceSubscription` allows when `periodEndMs > Date.now()`
+    // (strictly future). Frontend MUST use `<= Date.now()` to mirror — at
+    // the exact-instant tick (periodEnd === Date.now()), backend returns
+    // 402 with reason='expired'; frontend must show 'locked' so the UI
+    // doesn't claim trialing while every API call fails. Without this fix
+    // there's a 1-ms window of "UI allowed, backend blocked" inconsistency.
+    const fixedNow = 1740000000000;
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'trialing',
+      current_period_end: new Date(fixedNow).toISOString(),
+    });
+
+    try {
+      const { result } = renderHook(() => useSubscription(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+      expect(result.current.state).toBe('locked');
+      expect(result.current.paywallReason).toBe('trial_expired');
+      expect(result.current.isPremium).toBe(false);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
   it('paywallReason returns "trial_expired" when trialing past current_period_end (Codex P2 round 2)', async () => {
     // Mirrors backend `enforceSubscription` denial reason for expired trials.
     // Used by PaywallModal callers to show "Your trial has ended" copy

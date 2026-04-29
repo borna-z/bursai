@@ -132,7 +132,7 @@ async function readMoodOutfitSse(
 
 export default function MoodOutfitPage() {
   const { t, locale } = useLanguage();
-  const { isPremium } = useSubscription();
+  const { isPremium, paywallReason } = useSubscription();
   const { user } = useAuth();
   const { weather } = useWeather();
   const navigate = useNavigate();
@@ -408,7 +408,7 @@ export default function MoodOutfitPage() {
         )}
       </AnimatedPage>
 
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason={paywallReason} />
     </AppLayout>
   );
 }
