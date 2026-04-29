@@ -65,7 +65,15 @@ interface GarmentAnalysis {
   // the DetectedGarment sub-shape uses required-nullable because the
   // .map() always sets every field explicitly.
   image_contains_multiple_garments?: boolean;
-  detected_garments?: DetectedGarment[];
+  // detected_garments items typed as `unknown` so the existing
+  // `.filter((item) => item && typeof item === 'object')` +
+  // `item as Record<string, unknown>` defensive re-validation
+  // pattern stays valid. Using `DetectedGarment[]` here would
+  // make the cast invalid (DetectedGarment has no index signature).
+  // The DetectedGarment interface remains for external consumers
+  // who want a name for the response shape (since `analysis.detected_garments`
+  // is assigned the well-typed `detectedGarments` array of DetectedGarment).
+  detected_garments?: unknown[];
 }
 
 function normalizeCategory(cat: string): string {
