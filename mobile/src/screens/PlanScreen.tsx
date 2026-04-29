@@ -25,6 +25,16 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+// Local-date YYYY-MM-DD. `Date.prototype.toISOString()` converts to UTC first, so a local
+// midnight in e.g. CET (UTC+1) returns yesterday's date — wrong for hydrating queries against
+// the day the user actually sees. Codex P2 on PR #701.
+function localISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // Build the rolling 7-day window (today first). Dot pattern matches HomeScreen's MiniWeek
 // so the two views agree on which days are "planned" until the planned_outfits query lands.
 // `setDate(getDate() + i)` not ms-arithmetic so DST transitions don't skip a calendar day.
@@ -39,7 +49,7 @@ function buildPlanWeek(today: Date): WeekDay[] {
       n: d.getDate(),
       active: i === 0,
       planned: dotPattern[i],
-      iso: d.toISOString().slice(0, 10),
+      iso: localISODate(d),
     });
   }
   return out;
@@ -47,10 +57,29 @@ function buildPlanWeek(today: Date): WeekDay[] {
 
 const SLOTS: ReadonlyArray<string> = ['OUTER', 'TOP', 'BOTTOM', 'SHOES'];
 
-const COMING_UP: ReadonlyArray<{ when: string; label: string }> = [
-  { when: 'MON 28', label: 'Office · tailored' },
-  { when: 'WED 30', label: 'Dinner · evening' },
+// Placeholder labels paired by index with future planned days. Real labels come from
+// `planned_outfits` once the query is wired; until then we cycle through these so the UI
+// has copy without inventing a calendar.
+const UPCOMING_LABELS: ReadonlyArray<string> = [
+  'Office · tailored',
+  'Dinner · evening',
+  'Studio · creative',
+  'Brunch · soft',
 ];
+
+// Derive "Coming up" rows from the same week we just rendered — keeps the gold dots in
+// the WeekStrip and the upcoming list strictly in lockstep, and the labels can never go
+// stale (e.g. "MON 28" on April 29 would already be in the past). Codex P2 on PR #701.
+function buildComingUp(week: WeekDay[]): ReadonlyArray<{ when: string; label: string; iso?: string }> {
+  return week
+    .filter((d) => !d.active && d.planned)
+    .slice(0, 2)
+    .map((d, i) => ({
+      when: `${d.dow} ${d.n}`,
+      label: UPCOMING_LABELS[i % UPCOMING_LABELS.length],
+      iso: d.iso,
+    }));
+}
 
 export function PlanScreen() {
   const t = useTokens();
@@ -59,6 +88,7 @@ export function PlanScreen() {
   const now = new Date();
   const headerEyebrow = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const week = buildPlanWeek(now);
+  const comingUp = buildComingUp(week);
 
   const goOutfit = () => nav.navigate('OutfitDetail');
 
@@ -133,9 +163,9 @@ export function PlanScreen() {
         <View>
           <Eyebrow style={{ marginBottom: 10 }}>Coming up</Eyebrow>
           <View>
-            {COMING_UP.map((item, i) => (
+            {comingUp.map((item, i) => (
               <Pressable
-                key={`${item.when}-${i}`}
+                key={item.iso ?? `${item.when}-${i}`}
                 onPress={goOutfit}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.when} ${item.label}`}
@@ -143,7 +173,7 @@ export function PlanScreen() {
                   s.upcomingRow,
                   {
                     borderBottomColor: t.border,
-                    borderBottomWidth: i === COMING_UP.length - 1 ? 0 : 1,
+                    borderBottomWidth: i === comingUp.length - 1 ? 0 : 1,
                     opacity: pressed ? 0.85 : 1,
                   },
                 ]}>
