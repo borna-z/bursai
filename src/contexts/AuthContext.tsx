@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { buildAppUrl } from '@/lib/appUrl';
 import { logger } from '@/lib/logger';
@@ -19,6 +20,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Wave 8 P52 — track which (userId, accessToken) pairs we've already
+  // fired start_trial for in this tab. supabase-js fires SIGNED_IN multiple
+  // times per session (token refresh, rehydrate-from-storage, focus
+  // re-validate). Keying on the FULL access token (not a prefix) means a
+  // fresh sign-in OR a token refresh (both produce a new JWT) re-fires
+  // once, catching the case where the user signs out and back in
+  // — including local-only sign-out fallbacks that don't emit SIGNED_OUT.
+  // The edge function itself is idempotent across three layers, so this
+  // guard is a bandwidth optimization, not a correctness gate.
+  //
+  // Codex P2 round 2 on PR #698 — earlier version used
+  // `access_token.slice(0, 16)` which captured only the JWT header
+  // (constant prefix `eyJhbGciOi...`), collapsing the key to
+  // `userId + <constant>`. Token-refresh + local-sign-out paths were
+  // therefore silently suppressed.
+  const triggeredTrialKeys = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -28,6 +47,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Wave 8 P52 — auto-start a 3-day Stripe trial on first SIGNED_IN.
+        // Fire-and-forget: we don't block the UI on a Stripe API call. The
+        // edge function is idempotent across DB pre-check +
+        // request_idempotency + Stripe-side keys, AND server-side gates on
+        // a fresh `auth.users.raw_user_meta_data.trial_pending` read (not
+        // on JWT claims). So calling for legacy users / returning logins
+        // results in cheap short-circuits without burning rate-limit quota
+        // (Codex round 7).
+        //
+        // Codex P1 round 8 on PR #698 — the previous version gated this
+        // call on `session.user.user_metadata.trial_pending === true`,
+        // i.e. the JWT claim. But `handle_new_user` is an AFTER INSERT
+        // trigger that updates raw_user_meta_data after the row is
+        // inserted, so the FIRST session JWT issued by Supabase auth can
+        // carry pre-trigger metadata (no trial_pending flag yet). The
+        // gate then silently skipped fresh OAuth + email-confirm signups
+        // on their first SIGNED_IN, leaving them on the free plan until a
+        // later token refresh. Eligibility is now decided exclusively
+        // server-side from the live DB row, so the client just dedupes
+        // and dispatches.
+        //
+        // The edge function never trusts client-supplied userId — it
+        // derives from the verified JWT — so an in-flight invoke that
+        // completes after sign-out can only ever write for the JWT's
+        // owner. No risk of cross-user contamination.
+        if (event === 'SIGNED_IN' && session?.user?.id && session.access_token) {
+          // Use the full access_token (not a prefix) — JWT headers are
+          // constant, so a prefix slice collapses to a static value and
+          // suppresses every token-refresh / local-sign-out re-fire.
+          const triggerKey = `${session.user.id}:${session.access_token}`;
+          if (!triggeredTrialKeys.current.has(triggerKey)) {
+            // Add to dedup set BEFORE invoke to prevent thundering-herd
+            // from back-to-back SIGNED_IN events (token refresh races,
+            // multi-tab re-hydrate). On any failure we roll back the
+            // entry below so the next SIGNED_IN re-fires.
+            triggeredTrialKeys.current.add(triggerKey);
+            void supabase.functions
+              .invoke('start_trial', { body: {} })
+              .then((result) => {
+                // Codex P1 round 1 on PR #698 — supabase-js's
+                // functions.invoke() resolves with `{ data, error }` on
+                // 4xx/5xx HTTP responses INSTEAD of rejecting the promise.
+                // Without this `.then` check, a transient 5xx would be
+                // treated as success and poison the dedup set, leaving
+                // the user on the free row until sign-out / token rotation.
+                if (result?.error) {
+                  logger.warn('[AuthContext] start_trial returned error', result.error);
+                  triggeredTrialKeys.current.delete(triggerKey);
+                  return;
+                }
+                // Codex P2 round 5 on PR #698 — useSubscription caches
+                // user_subscriptions for 5 minutes. Without this
+                // invalidation, the UI would keep showing free-tier
+                // limits + paywall gating until cache expiry, even
+                // though start_trial just upserted plan='premium'.
+                // Force a refetch so the UI flips to trialing
+                // immediately after the trial mints. (No-op for
+                // not_eligible / already_started responses — the cache
+                // either has nothing to refresh or refetches the same
+                // current state.)
+                queryClient.invalidateQueries({ queryKey: ['subscription'] });
+              })
+              .catch((err) => {
+                // Network / transport failures throw and land here. Same
+                // rollback so the next SIGNED_IN retries.
+                logger.warn('[AuthContext] start_trial invoke threw', err);
+                triggeredTrialKeys.current.delete(triggerKey);
+              });
+          }
+        }
+
+        // Reset the dedup set on sign-out so a subsequent sign-in (including
+        // sign-in as a different user on the same tab) is never silently
+        // skipped because of a stale stored key. Belt-and-suspenders against
+        // supabase-js queueing or replaying SIGNED_IN events with older
+        // tokens — addresses code-reviewer P1 finding pre-push.
+        if (event === 'SIGNED_OUT') {
+          triggeredTrialKeys.current.clear();
+        }
       }
     );
 
@@ -45,20 +144,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
     const redirectUrl = buildAppUrl('/auth');
-    
+
+    // Wave 8 P52 — set `trial_pending: true` in user_metadata so the
+    // onAuthStateChange listener above knows this is a fresh signup
+    // (vs. a returning user logging in). start_trial server-side clears
+    // the flag after a successful Stripe trial mint.
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: displayName ? { display_name: displayName } : undefined
+        data: {
+          ...(displayName ? { display_name: displayName } : {}),
+          trial_pending: true,
+        },
       }
     });
-    
+
     return { data, error: error as Error | null };
   }, []);
 
