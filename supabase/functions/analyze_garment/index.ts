@@ -29,6 +29,20 @@ const TITLE_LANG_MAP: Record<string, string> = {
   ja: '日本語の短い説明タイトル（最大30文字）',
 };
 
+interface DetectedGarment {
+  title: string;
+  category: string;
+  subcategory: string;
+  color_primary: string;
+  color_secondary: string | null;
+  pattern: string | null;
+  material: string | null;
+  fit: string | null;
+  season_tags: string[];
+  formality: number;
+  confidence: number | null;
+}
+
 interface GarmentAnalysis {
   title: string;
   category: string;
@@ -41,6 +55,17 @@ interface GarmentAnalysis {
   season_tags: string[];
   formality: number;
   confidence?: number;
+  // Wave 8 PR 2 deno-check fix (Fix Protocol exception A) — these
+  // multi-garment-detection fields were used by the runtime mapping
+  // logic at lines 437-471 but never declared on the interface. Latent
+  // drift from a prior unrelated PR; surfaced by CI deno-check after
+  // this PR's `enforceSubscription` injection touched the file. The
+  // base GarmentAnalysis fields use partial-optional (`?: string | null`)
+  // because they tolerate missing keys from parse-then-fallback paths;
+  // the DetectedGarment sub-shape uses required-nullable because the
+  // .map() always sets every field explicitly.
+  image_contains_multiple_garments?: boolean;
+  detected_garments?: DetectedGarment[];
 }
 
 function normalizeCategory(cat: string): string {

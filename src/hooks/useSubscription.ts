@@ -38,7 +38,24 @@ export const PLAN_LIMITS = {
 
 function deriveState(subscription: Subscription | null | undefined): SubscriptionState {
   if (!subscription) return 'locked';
-  if (subscription.status === 'trialing') return 'trialing';
+  if (subscription.status === 'trialing') {
+    // Codex P2 round 1 on PR #700 — mirror backend `enforceSubscription`:
+    // a trialing row whose `current_period_end` is in the past is treated
+    // as expired (the backend returns 402 with `reason:'expired'` even if
+    // the Stripe webhook hasn't transitioned `status` to `past_due`/
+    // `canceled` yet — which is the typical 1–30s webhook lag window).
+    // If the frontend still reported 'trialing'/`isPremium=true` here,
+    // the UI would render unlocked actions (trial badge, AI buttons, etc.)
+    // while every API call returns 402 — broken "allowed in UI, blocked
+    // by backend" UX. Null `current_period_end` is allowed (matches
+    // backend's null-tolerance for the brief window between trial mint
+    // and the first webhook write).
+    if (subscription.current_period_end) {
+      const periodEnd = new Date(subscription.current_period_end).getTime();
+      if (Number.isFinite(periodEnd) && periodEnd < Date.now()) return 'locked';
+    }
+    return 'trialing';
+  }
   if (subscription.status === 'active' && subscription.plan === 'premium') return 'premium';
   return 'locked';
 }

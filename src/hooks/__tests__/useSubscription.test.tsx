@@ -138,6 +138,56 @@ describe('useSubscription', () => {
     expect(result.current.remainingOutfits()).toBe(Infinity);
   });
 
+  it('treats status="trialing" with past current_period_end as locked (Codex P2 round 1)', async () => {
+    // Mirrors backend `enforceSubscription` behavior: a trialing row whose
+    // `current_period_end` is in the past is denied with `reason:'expired'`,
+    // even before the Stripe webhook transitions `status` to canceled. Frontend
+    // must show 'locked' here so the UI doesn't render unlocked actions while
+    // the API returns 402 (the "allowed in UI, blocked by backend" trap that
+    // motivated this fix).
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'trialing',
+      // 1 hour in the past — backend would return 402 for this row.
+      current_period_end: new Date(Date.now() - 3600_000).toISOString(),
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('locked');
+    expect(result.current.isPremium).toBe(false);
+    expect(result.current.canAddGarment()).toBe(false);
+    expect(result.current.canCreateOutfit()).toBe(false);
+  });
+
+  it('treats status="trialing" with null current_period_end as trialing (webhook-lag tolerance)', async () => {
+    // Backend `enforceSubscription` allows trialing with null `current_period_end`
+    // (the brief window between Stripe trial mint and the first webhook write).
+    // Frontend mirrors so the trialing UX isn't broken during that window.
+    mockAuthUser();
+    mockSupabaseSubscription({
+      ...baseSubscription,
+      plan: 'premium',
+      status: 'trialing',
+      current_period_end: null,
+    });
+
+    const { result } = renderHook(() => useSubscription(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.subscription).not.toBeUndefined());
+
+    expect(result.current.state).toBe('trialing');
+    expect(result.current.isPremium).toBe(true);
+  });
+
   it('treats status="active" + plan="premium" as the premium state', async () => {
     mockAuthUser();
     mockSupabaseSubscription({
