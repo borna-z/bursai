@@ -586,10 +586,83 @@ Per `docs/launch/wave-8.5-style-memory.md:421-465`. Ensure:
 
 ---
 
-## Open questions for the user (resolve before P83 ships)
+## Resolved architectural decisions (locked-in 2026-04-29 by user direction "enterprise-level quality")
 
-1. **`reject` disambiguation**: outfit-level `reject_outfit` (with backend read updated to `outfit_id`-based penalty) OR garment-level `never_suggest_garment` (preserves current `garment_id`-based semantic)? **Recommend outfit-level + separate `never_suggest_garment` for the new UI.** ← affects P83 + P86 + P88
-2. **Mark-as-worn signal source**: extend 4 broken callers to call `recordSignal('wear_outfit')` (Option α) OR P87 summary builder treats every `wear_logs` row as a synthetic `wear_outfit` event (Option β)? **Recommend β — simpler, no new round-trips, wear_logs is already universally persisted.** ← affects P86 scope
-3. **`memory_ingest` shape**: new edge function (Option A), Postgres trigger on feedback_signals (Option B), or hybrid client-hook-calls-edge-function (Option C)? **Recommend C** — keeps the single hook signature, validates server-side, gives `style_chat` preference-inference a natural home. ← affects P85 + entire wave architecture
-4. **Quick reaction surface coverage**: scope-cap to OutfitDetail (current) or extend to Home/Plan/OutfitGenerate/AIChat? **Default scope-cap unless UX brief says otherwise.** ← affects P86 scope
-5. **`burs_style_engine` summary fallback**: keep legacy `feedback_signals.limit(200)` read as fallback during rollout, OR commit to summary-only? **Recommend fallback during the first 30 days post-launch**, then deprecate. ← affects P88 deploy strategy
+These decisions are committed for Wave 8.5. P83-P92 execute against these specifications. Subsequent prompts cite this section by number.
+
+### D1 — Reject disambiguation: BOTH names exist (outfit-level + garment-level)
+
+- `reject_outfit` = outfit-level signal ("this combination doesn't work for me"). Penalizes the *combination* via `outfit_id`; individual garments stay viable for other contexts.
+- `never_suggest_garment` = garment-level signal ("I never want to see this garment again"). Hard exclusion: garment dropped from all candidate pools.
+- Legacy `reject` (currently penalizes `sig.garment_id` despite outfit-level user intent) → maps to `reject_outfit`. **`burs_style_engine:995` read site updates in P88 to use `outfit_id` for penalty calc** — fixing the latent bug where outfit-level rejections poisoned individual garments.
+
+Affects: P83 (normalize map adds both names; legacy `reject` → `reject_outfit`), P86 (UI for both — outfit-level reject button + garment-level "Never suggest"), P88 (read-site fix).
+
+### D2 — Mark-as-worn signal source: β (wear_logs as authoritative)
+
+- `wear_logs` is already universally persisted from all 4 surfaces (OutfitDetail / Plan / Home TodayOutfitCard / OutfitGenerate / GarmentDetail). Single source of truth.
+- P87 summary builder reads `wear_logs` directly; each row is treated as a synthetic `wear_outfit` event during summary derivation.
+- P88+P89 read `wear_logs` for wear history (existing reads preserved).
+- "Planned follow-through" semantic derived by joining `wear_logs` → `planned_outfits` (status='worn' AND date matches).
+- **No new frontend `recordSignal('wear_outfit')` writes added.** The 4 broken callers in §6b stay as-is; the build-out of `feedback_signals` from `wear_logs` happens server-side in P87.
+
+Affects: P86 (wear-related callers untouched), P87 (read wear_logs as event source), P89 (read wear_logs for chat context).
+
+### D3 — `memory_ingest` shape: Option C — hybrid (client-hook → edge-function → Postgres RPC)
+
+```
+Frontend:  useFeedbackSignals.record({signal_type, ...metadata})
+              ↓ supabase.functions.invoke('memory_ingest', {...})
+Edge:      memory_ingest/index.ts
+              - JWT auth via getUser()
+              - normalizeStyleMemorySignal(signal_type) [P83]
+              - request_idempotency dedup [P12]
+              - enforceRateLimit (new tier: maxPerHour 200, maxPerMinute 30)
+              ↓ supabase.rpc('ingest_memory_event', {...})
+Postgres:  ingest_memory_event(p_user_id, p_event_type, ...) SECURITY DEFINER
+              - INSERT feedback_signals
+              - UPSERT garment_pair_memory (recompute weights from event_type)
+              - REFRESH user_style_summaries (debounced via updated_at check; rebuild if >24h stale)
+              - all in ONE transaction — partial failures impossible
+```
+
+- Why C over A (pure edge fn no RPC): atomicity. Without the RPC wrapping all three writes in one transaction, a transient failure between `feedback_signals` insert and `garment_pair_memory` update leaves memory inconsistent.
+- Why C over B (Postgres trigger): observability + testability. Triggers on user tables are invisible to call-tree tracing, can't be rate-limited via scale-guard, and force every memory write through one shape.
+- Why C over D2-style "frontend writes direct, server reads": atomicity + taxonomy enforcement. Direct frontend writes can't validate against canonical signal names; the edge function is the only safe place.
+
+Affects: P85 (build the 3-layer architecture), P86 (rewrite useFeedbackSignals to call memory_ingest instead of direct INSERT), all subsequent prompts (assume the architecture).
+
+### D4 — Quick reaction surface coverage: extend to all 4 surfaces (Home + Plan + OutfitGenerate + AIChat)
+
+- Home `TodayOutfitCard` — primary daily touchpoint, must capture quick reaction
+- Plan calendar (when viewing a planned outfit's detail) — captures pre-wear sentiment
+- OutfitGenerate (post-generation, before save) — captures initial reaction
+- AIChat `OutfitSuggestionCard` — chat-driven outfits need feedback loop (otherwise the AI never learns from chat-suggested outfits)
+
+Cost: ~1-2h UI work per surface (add 4-emoji reaction control + wire to memory_ingest). Payoff: 5× signal density.
+
+Affects: P86 (4 new UI placements + signal writes via memory_ingest).
+
+### D5 — `burs_style_engine` summary read strategy: summary-only with lazy materialization on cache miss
+
+- `burs_style_engine` and `style_chat` read `user_style_summaries` exclusively. The legacy `feedback_signals.limit(200)` read in `burs_style_engine:898` is REMOVED in P88.
+- On cache miss (new user with no row, OR stale row >7d old): edge function builds summary on-the-fly via the deterministic builder (P87), persists it, returns. Future calls hit the persisted row directly.
+- Self-healing on cache miss — no operator intervention, no 30-day dual-read window.
+- Build cost amortized: first AI call after a long quiet period pays the build, every subsequent call is ~1ms summary read.
+
+Affects: P87 (builder must be callable both as scheduled refresh AND as on-demand cache miss recovery), P88 (drop legacy reads, add summary-only read with lazy fallback), P89 (same pattern as P88).
+
+### Enterprise polish baked into the wave
+
+| Concern | Mechanism | Where it lands |
+|---|---|---|
+| Idempotency | `request_idempotency` table + idempotency_key in `memory_ingest` body | P85 |
+| Rate limiting | New tier `memory_ingest: { maxPerHour: 200, maxPerMinute: 30 }` in `_shared/scale-guard.ts` | P85 |
+| Schema evolution | `user_style_summaries.version integer NOT NULL DEFAULT 1` | P84 (already in spec) |
+| Confidence scoring | Every summary field carries 0-1 confidence; minimum N=3 occurrences before promoting to `preferred_*`/`avoided_*` | P87 (already in spec) |
+| Recency decay | 90-day half-life across all signal weights (matches existing pair_memory behavior at `outfit-scoring.ts:485-535`) | P87 |
+| Atomicity | Triple-write (feedback_signals + garment_pair_memory + summary refresh) inside ONE Postgres RPC `ingest_memory_event` | P85 |
+| Observability | Every `memory_ingest` invocation emits `analytics_events` row via `callBursAI` wrapping (existing BURS pattern) | P85 |
+| Privacy | Every memory row in P90 GDPR export; reset wipes summary + signals + pair memory in one transaction | P90 |
+| Cross-user write protection | Edge function derives userId from verified JWT; Postgres RPC re-checks with `auth.uid()` | P85 |
+| Auth gate uniformity | `enforceSubscription` applied to `memory_ingest` per Wave 8 P54 pattern (memory writes are a paid feature surface) | P85 |
