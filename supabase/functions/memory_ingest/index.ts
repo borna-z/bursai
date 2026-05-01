@@ -320,7 +320,15 @@ Deno.serve(async (req) => {
     // supply `value`, and (c) the raw alias encodes polarity. The RPC
     // accepts these alias strings directly (`p_value IN ('like','dislike',
     // 'thumbs_down','positive','negative','thumbs_up')` per the SQL body).
-    if (canonical === "quick_reaction" && value === "") {
+    //
+    // "Not supplied" includes BOTH the literal `null` (`coerceOptionalString`
+    // returns `null` for `undefined`/`null` input) AND the empty string (the
+    // explicit "" pass-through that some clients emit). Any non-empty
+    // value the caller supplies is preserved verbatim.
+    if (
+      canonical === "quick_reaction" &&
+      (value === null || value === "")
+    ) {
       if (rawEventType === "like") {
         value = "like";
       } else if (

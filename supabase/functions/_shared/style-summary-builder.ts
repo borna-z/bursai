@@ -38,7 +38,7 @@ import {
   CANONICAL_STYLE_MEMORY_SIGNALS,
   type CanonicalStyleMemorySignal,
   normalizeStyleMemorySignal,
-} from "./style-memory-signals";
+} from "./style-memory-signals.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC TYPES
