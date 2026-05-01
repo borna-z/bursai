@@ -8,18 +8,23 @@
  *   2. Validates the body shape (event_type required; arrays + scalars
  *      coerced safely from JSON).
  *   3. Normalizes legacy or canonical event_type via the P83 helper. Drops
- *      unknown / dead-enum signals with HTTP 400.
- *   4. Gates on rate limit (memory_ingest tier in scale-guard.ts:
+ *      unknown / dead-enum signals with HTTP 400. For lossy reaction
+ *      legacy aliases (`like` / `dislike` / `thumbs_down` → `quick_reaction`),
+ *      auto-fills `value` from the raw alias when the caller didn't
+ *      supply one — preserves polarity through normalization.
+ *   4. Dedupes via the standard request_idempotency helper (P12) BEFORE
+ *      gating on rate limit / subscription. Retries of a logical write
+ *      (same idempotency key) short-circuit to the cached response without
+ *      burning rate-limit quota or paying for a fresh subscription
+ *      lookup. Idempotency scoped on
+ *      `(memory_ingest, userId, raw x-idempotency-key OR sha256(body))`.
+ *   5. Gates on rate limit (memory_ingest tier in scale-guard.ts:
  *      200/hr, 30/min) — tight enough to bound runaway useEffect storms
  *      from client bugs, loose enough that active users tapping save/wear/
  *      rate dozens of times per session aren't throttled.
- *   5. Gates on subscription state (Wave 8 P54 paywall). Memory writes are
+ *   6. Gates on subscription state (Wave 8 P54 paywall). Memory writes are
  *      a paid-tier feature; trialing + premium users pass. Onboarding
  *      bypasses (Wave 7 P43 — first 24h post-onboarding-start).
- *   6. Dedupes via the standard request_idempotency helper (P12) so
- *      retries collapse to a single feedback_signals row + single
- *      pair-memory delta. Idempotency scoped on
- *      `(memory_ingest, userId, raw x-idempotency-key OR sha256(body))`.
  *   7. Calls the `ingest_memory_event` Postgres RPC, which atomically
  *      INSERTs feedback_signals + UPSERTs garment_pair_memory + marks
  *      user_style_summaries dirty in ONE transaction.
@@ -266,7 +271,7 @@ Deno.serve(async (req) => {
     }
 
     const feedbackText = coerceOptionalString(body.feedback_text);
-    const value = coerceOptionalString(body.value);
+    let value = coerceOptionalString(body.value);
     const source = coerceOptionalString(body.source);
     if (
       feedbackText === undefined ||
@@ -304,24 +309,40 @@ Deno.serve(async (req) => {
       metadata = body.metadata as Record<string, unknown>;
     }
 
-    // ── 5. Rate limit ──────────────────────────────────────────────────
-    // Gate on memory_ingest tier (200/hr, 30/min). Onboarding multiplier
-    // (3x) applies — new users explore heavily and we want every tap.
-    await enforceRateLimit(adminClient, userId, "memory_ingest");
-
-    // ── 6. Subscription gate ───────────────────────────────────────────
-    // Memory writes are a paid-tier feature. Onboarding bypasses (Wave 7
-    // P43 — first 24h post-onboarding-start). Trialing + active+premium
-    // pass. Everything else 402.
-    const subResult = await enforceSubscription(adminClient, userId);
-    if (!subResult.allowed) {
-      return subscriptionLockedResponse(subResult.reason, CORS_HEADERS);
+    // ── 4b. Preserve polarity through lossy reaction normalization ─────
+    // Legacy reaction aliases (`like`, `dislike`, `thumbs_down`) collapse
+    // to the canonical `quick_reaction` and lose their direction in the
+    // process. The `ingest_memory_event` RPC derives pair-memory direction
+    // exclusively from `p_value` (or `p_metadata.value`), so a normalized
+    // `quick_reaction` event with no explicit `value` would be directionless
+    // and skip the pair-memory write entirely. Auto-fill `value` from the
+    // raw alias when (a) canonical is `quick_reaction`, (b) caller did NOT
+    // supply `value`, and (c) the raw alias encodes polarity. The RPC
+    // accepts these alias strings directly (`p_value IN ('like','dislike',
+    // 'thumbs_down','positive','negative','thumbs_up')` per the SQL body).
+    if (canonical === "quick_reaction" && value === "") {
+      if (rawEventType === "like") {
+        value = "like";
+      } else if (
+        rawEventType === "dislike" ||
+        rawEventType === "thumbs_down"
+      ) {
+        value = rawEventType;
+      }
     }
 
-    // ── 7. Idempotency ─────────────────────────────────────────────────
+    // ── 5. Idempotency (run BEFORE rate-limit / subscription gates) ────
     // Standard request_idempotency helper. Scope is (memory_ingest, userId,
-    // x-idempotency-key). Re-fires within 5min window collapse to cached
-    // response. Auto-injected userId scope prevents cross-user replay.
+    // x-idempotency-key). Re-fires within the 5-min window collapse to a
+    // cached response. Auto-injected userId scope prevents cross-user replay.
+    //
+    // Order matters: idempotency BEFORE the gates so duplicate retries of a
+    // logical write (same key) short-circuit to the cached response without
+    // burning rate-limit quota. memory_ingest is a high-frequency endpoint
+    // — clients tap save/wear/rate dozens of times per session and may
+    // retry on transient network errors. Gating-first would let a retry
+    // storm starve the legitimate next event under the per-minute cap even
+    // though the duplicate's side effects are already prevented.
     const idempotencyScope = {
       functionName: "memory_ingest",
       userId,
@@ -329,6 +350,20 @@ Deno.serve(async (req) => {
     const cached = await checkIdempotency(req, adminClient, idempotencyScope);
     if (cached) {
       return cached;
+    }
+
+    // ── 6. Rate limit ──────────────────────────────────────────────────
+    // Gate on memory_ingest tier (200/hr, 30/min). Onboarding multiplier
+    // (3x) applies — new users explore heavily and we want every tap.
+    await enforceRateLimit(adminClient, userId, "memory_ingest");
+
+    // ── 7. Subscription gate ───────────────────────────────────────────
+    // Memory writes are a paid-tier feature. Onboarding bypasses (Wave 7
+    // P43 — first 24h post-onboarding-start). Trialing + active+premium
+    // pass. Everything else 402.
+    const subResult = await enforceSubscription(adminClient, userId);
+    if (!subResult.allowed) {
+      return subscriptionLockedResponse(subResult.reason, CORS_HEADERS);
     }
 
     // ── 8. Call the RPC ────────────────────────────────────────────────
