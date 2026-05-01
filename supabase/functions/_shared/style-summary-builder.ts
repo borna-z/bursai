@@ -671,6 +671,7 @@ interface FeatureAggregations {
   colors: FeatureMap;
   fits: FeatureMap;
   categories: FeatureMap;
+  archetypes: FeatureMap;
 }
 
 /** Per-value aggregated +/- decayed counts. */
@@ -690,6 +691,7 @@ function aggregateFeatures(
   const colors: FeatureMap = new Map();
   const fits: FeatureMap = new Map();
   const categories: FeatureMap = new Map();
+  const archetypes: FeatureMap = new Map();
 
   for (const ev of events) {
     if (ev.direction === 0) continue; // neutral events don't shift preference
@@ -702,10 +704,11 @@ function aggregateFeatures(
       contribute(colors, normalizeColor(g.color_secondary), w, positive);
       contribute(fits, normalizeFit(g.fit), w, positive);
       contribute(categories, normalizeCategory(g.category), w, positive);
+      contribute(archetypes, normalizeArchetype(g.style_archetype), w, positive);
     }
   }
 
-  return { colors, fits, categories };
+  return { colors, fits, categories, archetypes };
 }
 
 function contribute(
@@ -733,6 +736,12 @@ function normalizeColor(value: string | null | undefined): string | null {
 function normalizeFit(value: string | null | undefined): string | null {
   if (!value || typeof value !== "string") return null;
   return value.trim().toLowerCase();
+}
+
+function normalizeArchetype(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function normalizeCategory(value: string | null | undefined): string | null {
@@ -859,35 +868,28 @@ function computeStyleArchetypes(
     items.set(v, { confidence: 0.85, explicit: true });
   }
 
-  // 2. Repeated behavior from garment.style_archetype on positive events.
-  // We re-aggregate from events for cleanliness — each archetype gets
-  // weighted by net positive events touching it.
-  const archetypeAgg = new Map<string, FeatureCounts>();
-  for (const g of inputs.garments) {
-    if (!g.style_archetype) continue;
-    const v = String(g.style_archetype).trim().toLowerCase();
-    if (!v) continue;
-    if (!archetypeAgg.has(v)) {
-      archetypeAgg.set(v, { positive: 0, negative: 0, raw: 0 });
-    }
-    archetypeAgg.get(v)!.raw += 1;
-  }
-  // Walk the categories aggregation as a proxy: an archetype's "warmth" is
-  // proportional to its garment-presence × positive-engagement-ratio.
-  // We use total positives across all categories as a reference.
-  let totalPositive = 0;
-  for (const c of aggregations.categories.values()) {
-    totalPositive += c.positive;
-  }
-  for (const [v, counts] of archetypeAgg.entries()) {
-    if (counts.raw < 2) continue;
-    if (items.has(v)) continue;
-    // Confidence: medium (explicit gets 0.85, repeated 0.55 max).
-    const confidence = clamp(
-      0.4 + (counts.raw / 10) * 0.15,
-      0.4,
-      0.6,
-    );
+  // 2. Repeated behavior from `garment.style_archetype`, weighted by
+  // POSITIVE/NEGATIVE event evidence — NOT by inventory size.
+  //
+  // Earlier revisions of this builder counted archetypes purely from the
+  // user's owned garments (inventory size), which let archetypes get
+  // promoted to the persisted summary even when interaction signals were
+  // neutral or actively negative. Because `style_archetypes` feeds the
+  // engine readers, that biased recommendations toward whatever the user
+  // happened to own rather than what they actually engaged with. The
+  // archetype map populated by `aggregateFeatures` carries decayed
+  // positive/negative counts per archetype, so we now apply the same
+  // PROMOTION_FLOOR + Wilson smoothing rule used for colors / fits /
+  // categories — net positive evidence required, raw event count must
+  // clear the floor, otherwise the archetype is dropped.
+  for (const [v, counts] of aggregations.archetypes.entries()) {
+    if (counts.raw < PROMOTION_FLOOR) continue;
+    if (items.has(v)) continue; // explicit profile entry already added
+    const net = counts.positive - counts.negative;
+    if (net <= 0) continue;
+    // Wilson-smoothed confidence, capped well below the explicit-profile
+    // ceiling (0.85) so direct user statements still rank first.
+    const confidence = clamp(net / (net + SMOOTHING_PRIOR), 0, 0.7);
     items.set(v, { confidence, explicit: false });
   }
 

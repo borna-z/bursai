@@ -214,10 +214,31 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // ── 2. Parse body ─────────────────────────────────────────────────
+    // Accept only plain JSON objects. JSON.parse happily returns null /
+    // arrays / bare primitives for valid-but-non-object inputs (e.g.,
+    // `null`, `42`, `[]`, `"hello"`); without an explicit shape check the
+    // subsequent `body.event_type` access would throw and surface as
+    // an opaque 500 internal_error from the outer catch — masking a
+    // client bug as an infrastructure failure and tipping the overload
+    // guard. Reject with the documented 400 invalid-body envelope instead.
     let body: Record<string, unknown>;
     try {
       const raw = await req.text();
-      body = raw.length > 0 ? JSON.parse(raw) : {};
+      const parsed = raw.length > 0 ? JSON.parse(raw) : {};
+      if (
+        parsed === null ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
+        return new Response(
+          JSON.stringify({ error: "invalid body" }),
+          {
+            status: 400,
+            headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          },
+        );
+      }
+      body = parsed as Record<string, unknown>;
     } catch (parseErr) {
       console.warn(
         "[memory_ingest] body parse failed:",
