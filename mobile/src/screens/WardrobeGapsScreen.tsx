@@ -56,12 +56,30 @@ export function WardrobeGapsScreen() {
   const nav = useNavigation<Nav>();
   const [analyzing, setAnalyzing] = React.useState(false);
   const [analyzed, setAnalyzed] = React.useState(true);
+  // Track the in-flight mock-analysis timer so we can cancel it on unmount. Without this, an
+  // unmount-during-analysis fires setAnalyzing/setAnalyzed on a torn-down component (RN logs a
+  // "state update on unmounted component" warning). Codex P3 round 6. When the real
+  // gap-analysis hook lands this becomes an AbortController on the fetch.
+  const analysisTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (analysisTimerRef.current != null) {
+        clearTimeout(analysisTimerRef.current);
+        analysisTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const runAnalysis = () => {
+    if (analysisTimerRef.current != null) {
+      clearTimeout(analysisTimerRef.current);
+    }
     setAnalyzing(true);
     setAnalyzed(false);
     // Mock analysis. Once the gap-analysis hook lands, replace with the real fetch.
-    setTimeout(() => {
+    analysisTimerRef.current = setTimeout(() => {
+      analysisTimerRef.current = null;
       setAnalyzing(false);
       setAnalyzed(true);
     }, 900);

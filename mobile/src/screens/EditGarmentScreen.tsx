@@ -59,7 +59,7 @@ const SEED_BY_ID: Record<string, SeedEntry> = {
   g5: { title: 'Wool overshirt', category: 'Outer',  subcategory: 'Overshirt', wearCount: 23, colorId: 'beige', materials: ['Wool'] },
   g6: { title: 'Striped oxford', category: 'Top',    subcategory: 'Shirt',     wearCount: 9,  colorId: 'white', materials: ['Cotton'] },
   g7: { title: 'Black denim',    category: 'Bottom', subcategory: 'Jean',      wearCount: 11, colorId: 'black', materials: ['Denim'] },
-  g8: { title: 'Cashmere knit',  category: 'Top',    subcategory: 'Knit',      wearCount: 7,  colorId: 'rust',  materials: ['Wool'] },
+  g8: { title: 'Cashmere knit',  category: 'Top',    subcategory: 'Knit',      wearCount: 7,  colorId: 'rust',  materials: ['Cashmere'] },
   g9: { title: 'Suede boot',     category: 'Shoes',  subcategory: 'Chelsea',   wearCount: 4,  colorId: 'brown', materials: ['Leather'] },
 };
 
@@ -100,7 +100,7 @@ const COLOR_SWATCHES: { id: string; label: string; color: string }[] = [
 ];
 
 const CATEGORIES = ['Top', 'Bottom', 'Shoes', 'Outer', 'Dress', 'Accessory'];
-const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Silk', 'Leather', 'Denim', 'Synthetic'];
+const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Cashmere', 'Silk', 'Leather', 'Denim', 'Synthetic'];
 const FITS = ['Slim', 'Regular', 'Loose', 'Oversized'];
 const PATTERNS = ['Solid', 'Striped', 'Checked', 'Floral', 'Other'];
 const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
