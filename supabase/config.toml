@@ -27,6 +27,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.import_garments_from_links]
     verify_jwt = false
+  [functions.memory_ingest]
+    verify_jwt = false
   [functions.mood_outfit]
     verify_jwt = false
   [functions.outfit_photo_feedback]
