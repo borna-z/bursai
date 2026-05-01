@@ -444,7 +444,14 @@ export function GarmentDetailScreen() {
                 <View key={g.id} style={{ width: '48%', flexGrow: 1 }}>
                   <GarmentCard
                     garment={g}
-                    onPress={() => nav.navigate('GarmentDetail', { id: g.id })}
+                    // `push`, not `navigate` — same-route drill-down. `navigate` would reuse the
+                    // current GarmentDetail entry (React Navigation collapses same-route + same-key
+                    // calls), so tapping a similar piece would mutate the current screen instead of
+                    // adding a stack entry. Back would then exit the detail flow entirely instead of
+                    // returning to the prior garment, and local UI state (selected tab + scroll
+                    // position + collapsible state) would bleed across garments. `push` always adds
+                    // a fresh entry. Codex P2 round 7.
+                    onPress={() => nav.push('GarmentDetail', { id: g.id })}
                   />
                 </View>
               ))}
