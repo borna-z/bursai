@@ -1,6 +1,8 @@
 // Wardrobe gaps — opened from HomeScreen Discover hub or Wardrobe smart tile.
 // Top: hero card describing the analysis (eyebrow / italic gap count + caption / Analyse CTA).
-// Body: list of detected gaps as ListRow with category icon + name + priority badge + chevron.
+// Body: list of detected gaps as ListRow — left: category icon tile + name + reason caption,
+// right: priority badge (High / Med / Low). Rows are non-pressable for now (no shop-the-gap
+// destination yet), so ListRow correctly hides the default chevron.
 // Loading state shows a spinner while analysing; empty state confirms wardrobe is complete.
 //
 // Source: design_handoff_burs_rn/source/extra-screens.jsx WardrobeGapsScreen + handoff README §10.

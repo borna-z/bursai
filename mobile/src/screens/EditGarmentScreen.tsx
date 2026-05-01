@@ -105,7 +105,11 @@ export function EditGarmentScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}>
         <View style={[s.headerRow, { borderBottomColor: t.border }]}>
-          <Pressable onPress={() => nav.goBack()} accessibilityLabel="Cancel" hitSlop={8}>
+          <Pressable
+            onPress={() => nav.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+            hitSlop={8}>
             <Text
               style={{
                 fontFamily: fonts.uiMed,

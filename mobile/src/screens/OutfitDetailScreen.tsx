@@ -187,6 +187,8 @@ export function OutfitDetailScreen() {
               {OUTFIT_FIXTURE.pieces.map((p) => (
                 <Pressable
                   key={p.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p.name}, ${p.sub}`}
                   onPress={() => nav.navigate('GarmentDetail', { id: p.id })}
                   style={({ pressed }) => [
                     s.pieceCard,

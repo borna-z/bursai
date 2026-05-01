@@ -152,10 +152,12 @@ export function GarmentDetailScreen() {
         <View style={[s.tabStrip, { borderColor: t.border, backgroundColor: t.card }]}>
           {(['info', 'outfits', 'similar'] as Tab[]).map((id) => {
             const active = tab === id;
+            const label = id === 'info' ? 'Info' : id === 'outfits' ? 'Outfits' : 'Similar';
             return (
               <Pressable
                 key={id}
                 accessibilityRole="tab"
+                accessibilityLabel={label}
                 accessibilityState={{ selected: active }}
                 onPress={() => setTab(id)}
                 style={[
@@ -171,7 +173,7 @@ export function GarmentDetailScreen() {
                     color: active ? t.bg : t.fg2,
                     letterSpacing: -0.1,
                   }}>
-                  {id === 'info' ? 'Info' : id === 'outfits' ? 'Outfits' : 'Similar'}
+                  {label}
                 </Text>
               </Pressable>
             );
