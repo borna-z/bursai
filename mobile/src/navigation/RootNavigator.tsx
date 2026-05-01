@@ -8,6 +8,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+// AddPiece flow + stylist screens (from origin/main, PR #706 — Wave 8.5 P82)
 import { AddPieceStep1 } from '../screens/AddPieceStep1';
 import { AddPieceStep2 } from '../screens/AddPieceStep2';
 import { AddPieceStep3 } from '../screens/AddPieceStep3';
@@ -15,6 +16,16 @@ import { StyleChatScreen } from '../screens/StyleChatScreen';
 import { StyleMeScreen } from '../screens/StyleMeScreen';
 import { MoodOutfitScreen } from '../screens/MoodOutfitScreen';
 import { MoodFlowScreen } from '../screens/MoodFlowScreen';
+// Wardrobe detail screens (this PR — #707)
+import { OutfitsScreen } from '../screens/OutfitsScreen';
+import { OutfitDetailScreen } from '../screens/OutfitDetailScreen';
+import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
+import { EditGarmentScreen } from '../screens/EditGarmentScreen';
+import { WardrobeGapsScreen } from '../screens/WardrobeGapsScreen';
+import { SearchScreen } from '../screens/SearchScreen';
+import { FiltersScreen } from '../screens/FiltersScreen';
+import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
+import { UnusedOutfitsScreen } from '../screens/UnusedOutfitsScreen';
 import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
@@ -82,7 +93,29 @@ export type RootStackParamList = {
 
   // Search / filters
   Search: undefined;
-  Filters: undefined;
+  // FiltersScreen accepts an optional initial selection (so re-opening the sheet preserves the
+  // previous picks) and an `onApply` callback fired with the chosen filters before goBack.
+  // Callback-in-params is the standard React Navigation v6 pattern for transient modal-style
+  // returns where deep-linking + persistence don't apply (Wardrobe isn't a stack route — it's a
+  // tab inside MainTabsScreen — so `nav.navigate('Wardrobe', ...)` isn't an option). RN may log
+  // a non-serializable-params warning in dev; benign here because Filters is never deep-linked
+  // and never restored from persisted nav state. Codex P2 round 8.
+  Filters: { initial?: WardrobeFilters; onApply?: (filters: WardrobeFilters) => void } | undefined;
+};
+
+/**
+ * Wardrobe filter selection passed back from FiltersScreen via the route's `onApply` callback.
+ * Mirrors the local FiltersScreen state shape (multi-select for Category/Color/Material/Fit/
+ * Season; single-select for Sort). When the wardrobe filtering hook lands, this becomes the
+ * input shape for the server-side query (or the in-memory client-side filter).
+ */
+export type WardrobeFilters = {
+  categories: string[];
+  colors: string[];
+  materials: string[];
+  fits: string[];
+  seasons: string[];
+  sort: string;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -98,14 +131,11 @@ const placeholder = (eyebrow: string, title: string, body?: string) => {
 };
 
 const Placeholders = {
-  // Add piece flow — only LiveScan is still a placeholder; Step1/Step2/Step3 now have real impls.
+  // Add piece flow — only LiveScan is still a placeholder; Step1/Step2/Step3 are real (PR #706).
   LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
 
-  // Outfit / garment / sharing
-  Outfits: placeholder('Looks', 'Your outfits'),
-  OutfitDetail: placeholder('Today', 'Outfit'),
-  EditGarment: placeholder('Edit', 'Edit piece'),
-  GarmentDetail: placeholder('Detail', 'Piece'),
+  // Outfit / garment / sharing — Outfits, OutfitDetail, EditGarment, GarmentDetail are now
+  // real screens (PR #707). ShareOutfit + PublicProfile remain placeholders.
   ShareOutfit: placeholder('Share', 'Share outfit'),
   PublicProfile: placeholder('Public', 'Profile'),
 
@@ -116,10 +146,8 @@ const Placeholders = {
   TravelMustHaves: placeholder('Step 5 of 6', 'Pick must-haves'),
   TravelPackingList: placeholder('Step 6 of 6', 'Packing list'),
 
-  // Discover / lists
-  WardrobeGaps: placeholder('Discover', 'Wardrobe gaps'),
-  UsedGarments: placeholder('Most worn', 'Used pieces'),
-  UnusedOutfits: placeholder('Quiet shelf', 'Unused outfits'),
+  // Discover / lists — all three are real screens now (PR #707).
+  // (no placeholders remaining in this group)
 
   // Settings
   Settings: placeholder('Settings', 'Preferences'),
@@ -137,9 +165,8 @@ const Placeholders = {
   BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
   NotFound: placeholder('Off the rail', '404'),
 
-  // Search / filters
-  Search: placeholder('Find', 'Search'),
-  Filters: placeholder('Refine', 'Filters'),
+  // Search / filters — both are real screens now (PR #707).
+  // (no placeholders remaining in this group)
 } as const;
 
 export function RootNavigator() {
@@ -153,21 +180,22 @@ export function RootNavigator() {
       }}>
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
-      {/* Add piece flow — real implementations */}
+      {/* Add piece flow — real implementations (PR #706) */}
       <Stack.Screen name="AddPieceStep1" component={AddPieceStep1} />
       <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
 
-      {/* Outfit / garment / sharing */}
-      <Stack.Screen name="Outfits" component={Placeholders.Outfits} />
-      <Stack.Screen name="OutfitDetail" component={Placeholders.OutfitDetail} />
-      <Stack.Screen name="EditGarment" component={Placeholders.EditGarment} />
-      <Stack.Screen name="GarmentDetail" component={Placeholders.GarmentDetail} />
+      {/* Outfit / garment / sharing — Outfits / OutfitDetail / EditGarment / GarmentDetail
+          are real screens (PR #707); ShareOutfit + PublicProfile remain placeholders. */}
+      <Stack.Screen name="Outfits" component={OutfitsScreen} />
+      <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
+      <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
+      <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
       <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
 
-      {/* Stylist / mood / occasion — real implementations */}
+      {/* Stylist / mood / occasion — real implementations (PR #706) */}
       <Stack.Screen name="StyleChat" component={StyleChatScreen} />
       <Stack.Screen name="StyleMe" component={StyleMeScreen} />
       <Stack.Screen name="MoodOutfit" component={MoodOutfitScreen} />
@@ -178,10 +206,10 @@ export function RootNavigator() {
       <Stack.Screen name="TravelMustHaves" component={Placeholders.TravelMustHaves} />
       <Stack.Screen name="TravelPackingList" component={Placeholders.TravelPackingList} />
 
-      {/* Discover / lists */}
-      <Stack.Screen name="WardrobeGaps" component={Placeholders.WardrobeGaps} />
-      <Stack.Screen name="UsedGarments" component={Placeholders.UsedGarments} />
-      <Stack.Screen name="UnusedOutfits" component={Placeholders.UnusedOutfits} />
+      {/* Discover / lists — all three real (PR #707) */}
+      <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
+      <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
+      <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
 
       {/* Settings */}
       <Stack.Screen name="Settings" component={Placeholders.Settings} />
@@ -199,9 +227,9 @@ export function RootNavigator() {
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />
       <Stack.Screen name="NotFound" component={Placeholders.NotFound} />
 
-      {/* Search / filters */}
-      <Stack.Screen name="Search" component={Placeholders.Search} />
-      <Stack.Screen name="Filters" component={Placeholders.Filters} />
+      {/* Search / filters — both real (PR #707) */}
+      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="Filters" component={FiltersScreen} />
     </Stack.Navigator>
   );
 }

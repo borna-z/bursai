@@ -209,3 +209,53 @@ export const GridIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
     <Rect x={14} y={14} width={7} height={7} rx={1.2} />
   </Svg>
 );
+
+export const ListIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round">
+    <Path d="M8 6h13M8 12h13M8 18h13" />
+    <Circle cx={4} cy={6} r={1} fill={color} />
+    <Circle cx={4} cy={12} r={1} fill={color} />
+    <Circle cx={4} cy={18} r={1} fill={color} />
+  </Svg>
+);
+
+export const EditIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 20h9" />
+    <Path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+  </Svg>
+);
+
+export const MoreIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={5} cy={12} r={1.6} fill={color} />
+    <Circle cx={12} cy={12} r={1.6} fill={color} />
+    <Circle cx={19} cy={12} r={1.6} fill={color} />
+  </Svg>
+);
+
+export const ShareIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 3v13" />
+    <Path d="m7 8 5-5 5 5" />
+    <Path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+  </Svg>
+);
+
+export const StarIcon = ({ size = 22, color = 'currentColor', active }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? color : 'none'} stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="m12 3 2.85 5.78L21 9.7l-4.5 4.39L17.62 21 12 18.04 6.38 21l1.12-6.91L3 9.7l6.15-.92L12 3z" />
+  </Svg>
+);
+
+export const MinusIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round">
+    <Path d="M5 12h14" />
+  </Svg>
+);
+
+export const CheckIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="m5 12 5 5L20 6" />
+  </Svg>
+);
