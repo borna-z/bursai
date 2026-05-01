@@ -101,6 +101,30 @@ function coerceStringArray(input: unknown): string[] | null {
 }
 
 /**
+ * RFC 4122 UUID format check (8-4-4-4-12 hex, case-insensitive). The RPC
+ * declares `outfit_id uuid` and `garment_ids uuid[]` parameters, so any
+ * non-UUID value would fail Postgres type coercion with a generic
+ * `invalid input syntax for type uuid` error and be reported back as
+ * HTTP 500 `rpc_failed`. Repeated malformed calls would also tip the
+ * overload guard, masking actual infrastructure issues. Validate at the
+ * boundary so malformed payloads return a client-actionable HTTP 400.
+ */
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(input: string): boolean {
+  return UUID_REGEX.test(input);
+}
+
+/** All elements must be RFC 4122 UUIDs. Empty array OK. */
+function isUuidArray(arr: readonly string[]): boolean {
+  for (const v of arr) {
+    if (!isUuid(v)) return false;
+  }
+  return true;
+}
+
+/**
  * Coerce an optional string field. Returns the string when present, null
  * when absent, the special `undefined` sentinel when the key is set to a
  * non-string.
@@ -251,6 +275,18 @@ Deno.serve(async (req) => {
         },
       );
     }
+    // outfit_id, when present, must be a UUID. The RPC parameter is `uuid`
+    // and a non-UUID would crash Postgres type coercion → HTTP 500. Reject
+    // at the boundary with a client-actionable 400 instead.
+    if (outfitId !== null && !isUuid(outfitId)) {
+      return new Response(
+        JSON.stringify({ error: "outfit_id must be a UUID" }),
+        {
+          status: 400,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     const garmentIds = coerceStringArray(body.garment_ids);
     const removedGarmentIds = coerceStringArray(body.removed_garment_ids);
@@ -263,6 +299,24 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "garment_ids / removed_garment_ids / added_garment_ids must be string arrays",
+        }),
+        {
+          status: 400,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        },
+      );
+    }
+    // Each element must be a UUID — RPC parameters are `uuid[]`. Same
+    // rationale as outfit_id: client-actionable 400 instead of opaque 500.
+    if (
+      !isUuidArray(garmentIds) ||
+      !isUuidArray(removedGarmentIds) ||
+      !isUuidArray(addedGarmentIds)
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "garment_ids / removed_garment_ids / added_garment_ids must contain only UUIDs",
         }),
         {
           status: 400,

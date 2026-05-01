@@ -207,11 +207,14 @@ BEGIN
     p_outfit_id,
     v_representative_garment_id,
     p_value,
-    -- Compose final metadata: caller-provided + auto-injected arrays + source.
-    -- Caller-provided keys win on collision (allows overrides).
+    -- Compose final metadata: auto-injected arrays + source as DEFAULTS,
+    -- caller-provided keys override on collision. PostgreSQL's `||` is
+    -- right-wins on duplicates, so auto-injected fields go on the LEFT
+    -- and caller metadata goes on the RIGHT. `jsonb_strip_nulls` then
+    -- trims any null values (e.g., when no removed_garment_ids were
+    -- supplied) without affecting non-null caller keys.
     jsonb_strip_nulls(
-      COALESCE(p_metadata, '{}'::jsonb)
-      || jsonb_build_object(
+      jsonb_build_object(
         'garment_ids', CASE WHEN array_length(p_garment_ids, 1) > 0 THEN to_jsonb(p_garment_ids) ELSE NULL END,
         'removed_garment_ids', CASE WHEN array_length(p_removed_garment_ids, 1) > 0 THEN to_jsonb(p_removed_garment_ids) ELSE NULL END,
         'added_garment_ids', CASE WHEN array_length(p_added_garment_ids, 1) > 0 THEN to_jsonb(p_added_garment_ids) ELSE NULL END,
@@ -219,6 +222,7 @@ BEGIN
         'feedback_text', p_feedback_text,
         'source', p_source
       )
+      || COALESCE(p_metadata, '{}'::jsonb)
     ),
     now()
   )
