@@ -35,27 +35,93 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'OutfitDetail'>;
 
-const OUTFIT_FIXTURE = {
-  name: 'Studio brunch',
-  kicker: "Today's look",
-  occasion: 'Brunch',
-  formality: 'Smart casual',
-  wearCount: 12,
-  hues: [32, 38, 200, 28] as [number, number, number, number],
-  pieces: [
-    { id: 'p1', name: 'Wool overshirt',       sub: 'Outer · Wool',     hue: 32 },
-    { id: 'p2', name: 'Cream linen trouser',  sub: 'Bottoms · Linen',  hue: 38 },
-    { id: 'p3', name: 'Bone leather sneaker', sub: 'Shoes · Leather',  hue: 28 },
-    { id: 'p4', name: 'Gold-frame sunglasses', sub: 'Accessory',       hue: 45 },
-  ],
+type OutfitFixture = {
+  name: string;
+  kicker: string;
+  occasion: string;
+  formality: string;
+  wearCount: number;
+  hues: [number, number, number, number];
+  pieces: { id: string; name: string; sub: string; hue: number }[];
 };
+
+// Keyed by the same `id` that `OutfitsScreen.OUTFITS` emits, plus a default for callers that
+// navigate without an id (e.g. HomeScreen Today's Look). When a backend hook lands this map
+// is replaced by a `useOutfit(id)` query — the rest of the screen reads from `outfit` either way.
+// Codex P1 round 2: previously the screen ignored the route `id` and always rendered Studio brunch.
+const OUTFITS: Record<string, OutfitFixture> = {
+  o1: {
+    name: 'Studio brunch', kicker: "Today's look", occasion: 'Brunch', formality: 'Smart casual', wearCount: 12,
+    hues: [32, 38, 200, 28],
+    pieces: [
+      { id: 'p1', name: 'Wool overshirt',       sub: 'Outer · Wool',     hue: 32 },
+      { id: 'p2', name: 'Cream linen trouser',  sub: 'Bottoms · Linen',  hue: 38 },
+      { id: 'p3', name: 'Bone leather sneaker', sub: 'Shoes · Leather',  hue: 28 },
+      { id: 'p4', name: 'Gold-frame sunglasses', sub: 'Accessory',       hue: 45 },
+    ],
+  },
+  o2: {
+    name: 'Sunday casual', kicker: 'Saved look', occasion: 'Casual', formality: 'Casual', wearCount: 8,
+    hues: [200, 220, 28, 45],
+    pieces: [
+      { id: 'p5', name: 'Cream cotton tee',  sub: 'Tops · Cotton',  hue: 32 },
+      { id: 'p6', name: 'Black denim',       sub: 'Bottoms · Denim', hue: 220 },
+      { id: 'p7', name: 'Canvas sneaker',    sub: 'Shoes · Canvas',  hue: 200 },
+      { id: 'p8', name: 'Brown leather belt', sub: 'Accessory',      hue: 28 },
+    ],
+  },
+  o3: {
+    name: 'Boardroom', kicker: 'Saved look', occasion: 'Office', formality: 'Business', wearCount: 4,
+    hues: [220, 28, 200, 18],
+    pieces: [
+      { id: 'p9',  name: 'Navy blazer',       sub: 'Outer · Wool',     hue: 220 },
+      { id: 'p10', name: 'Charcoal trouser',  sub: 'Bottoms · Wool',   hue: 28 },
+      { id: 'p11', name: 'White oxford',      sub: 'Tops · Cotton',    hue: 200 },
+      { id: 'p12', name: 'Suede loafer',      sub: 'Shoes · Suede',    hue: 18 },
+    ],
+  },
+  o4: {
+    name: 'Gallery night', kicker: 'Saved look', occasion: 'Evening', formality: 'Smart', wearCount: 6,
+    hues: [280, 28, 18, 200],
+    pieces: [
+      { id: 'p13', name: 'Cashmere knit',     sub: 'Tops · Cashmere',  hue: 18 },
+      { id: 'p14', name: 'Charcoal trouser',  sub: 'Bottoms · Wool',   hue: 28 },
+      { id: 'p15', name: 'Chelsea boot',      sub: 'Shoes · Leather',  hue: 18 },
+      { id: 'p16', name: 'Wool overcoat',     sub: 'Outer · Wool',     hue: 280 },
+    ],
+  },
+  o5: {
+    name: 'Weekend run', kicker: 'Saved look', occasion: 'Active', formality: 'Casual', wearCount: 0,
+    hues: [120, 200, 32, 45],
+    pieces: [
+      { id: 'p17', name: 'Performance tee',   sub: 'Tops · Synthetic', hue: 200 },
+      { id: 'p18', name: 'Running short',     sub: 'Bottoms · Tech',   hue: 32 },
+      { id: 'p19', name: 'Trail runner',      sub: 'Shoes · Tech',     hue: 120 },
+      { id: 'p20', name: 'Cap',               sub: 'Accessory',        hue: 45 },
+    ],
+  },
+  o6: {
+    name: 'Date — soft', kicker: 'Saved look', occasion: 'Date', formality: 'Smart', wearCount: 2,
+    hues: [350, 32, 28, 18],
+    pieces: [
+      { id: 'p21', name: 'Linen overshirt',   sub: 'Outer · Linen',    hue: 32 },
+      { id: 'p22', name: 'Cream tee',         sub: 'Tops · Cotton',    hue: 32 },
+      { id: 'p23', name: 'Black denim',       sub: 'Bottoms · Denim',  hue: 28 },
+      { id: 'p24', name: 'Bone sneaker',      sub: 'Shoes · Leather',  hue: 18 },
+    ],
+  },
+};
+const DEFAULT_OUTFIT_ID = 'o1';
 
 export function OutfitDetailScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  // Route param accepted for future routing; fixture below is shape-stable so the screen is
-  // demoable before a backend hook lands.
-  useRoute<Route>();
+  const route = useRoute<Route>();
+  const id = route.params?.id;
+  // Look up by route id; fall back to default fixture so callers that navigate without an id
+  // (e.g. HomeScreen "Today's Look" tile) still get a stable demo. When the backend hook lands
+  // this becomes `const { data: outfit } = useOutfit(id ?? defaultId);`.
+  const outfit = (id && OUTFITS[id]) || OUTFITS[DEFAULT_OUTFIT_ID]!;
 
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
@@ -83,7 +149,7 @@ export function OutfitDetailScreen() {
                 color: t.fg,
                 letterSpacing: -0.18,
               }}>
-              {OUTFIT_FIXTURE.name}
+              {outfit.name}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -104,12 +170,12 @@ export function OutfitDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
           <View>
-            <Eyebrow style={{ marginBottom: 4 }}>{OUTFIT_FIXTURE.kicker}</Eyebrow>
-            <PageTitle>{OUTFIT_FIXTURE.name}</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{outfit.kicker}</Eyebrow>
+            <PageTitle>{outfit.name}</PageTitle>
           </View>
 
           <View style={s.thumbGrid}>
-            {OUTFIT_FIXTURE.hues.map((h, i) => (
+            {outfit.hues.map((h, i) => (
               <View key={i} style={[s.thumbCell, { borderColor: t.border }]}>
                 <LinearGradient
                   colors={[`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`]}
@@ -119,7 +185,7 @@ export function OutfitDetailScreen() {
                 />
                 <View style={[s.thumbLabel, { backgroundColor: t.card, borderColor: t.border }]}>
                   <Text style={[s.thumbLabelText, { color: t.fg2 }]}>
-                    {OUTFIT_FIXTURE.pieces[i]?.sub.split(' · ')[0]?.toUpperCase() ?? ''}
+                    {outfit.pieces[i]?.sub.split(' · ')[0]?.toUpperCase() ?? ''}
                   </Text>
                 </View>
               </View>
@@ -127,9 +193,9 @@ export function OutfitDetailScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-            <MetaChip label={OUTFIT_FIXTURE.occasion} />
-            <MetaChip label={OUTFIT_FIXTURE.formality} />
-            <MetaChip label={`${OUTFIT_FIXTURE.wearCount} wears`} />
+            <MetaChip label={outfit.occasion} />
+            <MetaChip label={outfit.formality} />
+            <MetaChip label={`${outfit.wearCount} wears`} />
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -177,14 +243,14 @@ export function OutfitDetailScreen() {
             <View style={s.sectionHead}>
               <Eyebrow>Garments in this outfit</Eyebrow>
               <Text style={{ color: t.fg2, fontFamily: fonts.uiMed, fontSize: 11 }}>
-                {OUTFIT_FIXTURE.pieces.length}
+                {outfit.pieces.length}
               </Text>
             </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
-              {OUTFIT_FIXTURE.pieces.map((p) => (
+              {outfit.pieces.map((p) => (
                 <Pressable
                   key={p.id}
                   accessibilityRole="button"

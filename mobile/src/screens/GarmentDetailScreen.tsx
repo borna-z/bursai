@@ -28,34 +28,108 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'GarmentDetail'>;
 
-const GARMENT = {
-  name: 'Wool overshirt',
-  category: 'Outerwear',
-  subcategory: 'Overshirt',
-  hue: 32,
-  wearCount: 23,
-  fields: [
-    { label: 'Category', value: 'Outerwear' },
-    { label: 'Color', value: 'Beige' },
-    { label: 'Material', value: 'Wool blend' },
-    { label: 'Fit', value: 'Regular' },
-    { label: 'Season', value: 'Spring · Autumn' },
-    { label: 'Brand', value: 'Folk' },
-    { label: 'Price', value: '€189' },
-    { label: 'Cost per wear', value: '€8.20' },
-    { label: 'Last worn', value: '18 days ago' },
-  ],
-  tags: ['Beige', 'Wool', 'Mid-weight', 'Workwear', '3-season', 'Quiet luxe'],
-  outfits: [
-    { id: 'o1', name: 'Studio brunch', sub: '4 pieces',  hue: 32 },
-    { id: 'o3', name: 'Boardroom',     sub: '5 pieces',  hue: 220 },
-  ] satisfies GarmentCardData[],
-  similar: [
-    { id: 's1', name: 'Sand chore',     sub: 'Outer · Cotton', hue: 45 },
-    { id: 's2', name: 'Camel cardigan', sub: 'Knit · Wool',    hue: 38 },
-    { id: 's3', name: 'Brown blazer',   sub: 'Outer · Wool',   hue: 18 },
-  ] satisfies GarmentCardData[],
+type GarmentFixture = {
+  name: string;
+  category: string;
+  subcategory: string;
+  hue: number;
+  wearCount: number;
+  fields: { label: string; value: string }[];
+  tags: string[];
+  outfits: GarmentCardData[];
+  similar: GarmentCardData[];
 };
+
+// Keyed by the same `id` that Wardrobe / Search / Used / Unused / OutfitDetail emit. When the
+// backend hook lands this gets replaced by `useGarment(id)` — the rest of the screen reads from
+// `garment` either way. Codex P1 round 2: previously the screen ignored the route `id` and
+// always rendered the wool overshirt regardless of which card was tapped.
+const GARMENTS: Record<string, GarmentFixture> = {
+  g1: {
+    name: 'Cream tee', category: 'Tops', subcategory: 'Tee', hue: 32, wearCount: 31,
+    fields: [
+      { label: 'Category', value: 'Tops · Tee' },
+      { label: 'Color', value: 'Cream' },
+      { label: 'Material', value: 'Cotton' },
+      { label: 'Fit', value: 'Regular' },
+      { label: 'Season', value: 'Spring · Summer' },
+      { label: 'Brand', value: 'Sunspel' },
+      { label: 'Price', value: '€55' },
+      { label: 'Cost per wear', value: '€1.77' },
+      { label: 'Last worn', value: '2 days ago' },
+    ],
+    tags: ['Cream', 'Cotton', 'Light-weight', 'Daily', 'SS', 'Quiet luxe'],
+    outfits: [{ id: 'o2', name: 'Sunday casual', sub: '3 pieces', hue: 200 }],
+    similar: [
+      { id: 's4', name: 'Striped knit',  sub: 'Tops · Cotton',   hue: 215 },
+      { id: 's5', name: 'White oxford',  sub: 'Tops · Cotton',   hue: 200 },
+    ],
+  },
+  g2: {
+    name: 'Navy blazer', category: 'Outerwear', subcategory: 'Blazer', hue: 215, wearCount: 3,
+    fields: [
+      { label: 'Category', value: 'Outerwear · Blazer' },
+      { label: 'Color', value: 'Navy' },
+      { label: 'Material', value: 'Wool' },
+      { label: 'Fit', value: 'Tailored' },
+      { label: 'Season', value: 'Autumn · Winter' },
+      { label: 'Brand', value: 'Drake\'s' },
+      { label: 'Price', value: '€680' },
+      { label: 'Cost per wear', value: '€226' },
+      { label: 'Last worn', value: '45 days ago' },
+    ],
+    tags: ['Navy', 'Wool', 'Tailored', 'Office', 'FW', 'Heritage'],
+    outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 220 }],
+    similar: [
+      { id: 's6', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
+      { id: 's7', name: 'Charcoal trouser', sub: 'Bottoms · Wool', hue: 28 },
+    ],
+  },
+  g3: {
+    name: 'Linen trouser', category: 'Bottoms', subcategory: 'Trouser', hue: 38, wearCount: 14,
+    fields: [
+      { label: 'Category', value: 'Bottoms · Trouser' },
+      { label: 'Color', value: 'Cream' },
+      { label: 'Material', value: 'Linen' },
+      { label: 'Fit', value: 'Regular' },
+      { label: 'Season', value: 'Spring · Summer' },
+      { label: 'Brand', value: 'Folk' },
+      { label: 'Price', value: '€140' },
+      { label: 'Cost per wear', value: '€10' },
+      { label: 'Last worn', value: '4 days ago' },
+    ],
+    tags: ['Cream', 'Linen', 'Mid-weight', 'Daily', 'SS', 'Quiet luxe'],
+    outfits: [{ id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 }],
+    similar: [
+      { id: 's8', name: 'Olive chino', sub: 'Bottoms · Cotton', hue: 75 },
+    ],
+  },
+  g5: {
+    name: 'Wool overshirt', category: 'Outerwear', subcategory: 'Overshirt', hue: 32, wearCount: 23,
+    fields: [
+      { label: 'Category', value: 'Outerwear · Overshirt' },
+      { label: 'Color', value: 'Beige' },
+      { label: 'Material', value: 'Wool blend' },
+      { label: 'Fit', value: 'Regular' },
+      { label: 'Season', value: 'Spring · Autumn' },
+      { label: 'Brand', value: 'Folk' },
+      { label: 'Price', value: '€189' },
+      { label: 'Cost per wear', value: '€8.20' },
+      { label: 'Last worn', value: '18 days ago' },
+    ],
+    tags: ['Beige', 'Wool', 'Mid-weight', 'Workwear', '3-season', 'Quiet luxe'],
+    outfits: [
+      { id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 },
+      { id: 'o3', name: 'Boardroom',     sub: '5 pieces', hue: 220 },
+    ],
+    similar: [
+      { id: 's1', name: 'Sand chore',     sub: 'Outer · Cotton', hue: 45 },
+      { id: 's2', name: 'Camel cardigan', sub: 'Knit · Wool',    hue: 38 },
+      { id: 's3', name: 'Brown blazer',   sub: 'Outer · Wool',   hue: 18 },
+    ],
+  },
+};
+const DEFAULT_GARMENT_ID = 'g5';
 
 type Tab = 'info' | 'outfits' | 'similar';
 
@@ -63,8 +137,11 @@ export function GarmentDetailScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  // Route param plumbed for future hook lookup.
-  useRoute<Route>();
+  const route = useRoute<Route>();
+  const id = route.params?.id;
+  // Look up by route id; fall back to default when an unfamiliar id is passed (e.g. from a
+  // search hit not in this fixture map). Real backend hook will replace this lookup outright.
+  const garment = (id && GARMENTS[id]) || GARMENTS[DEFAULT_GARMENT_ID]!;
 
   const [tab, setTab] = React.useState<Tab>('info');
 
@@ -75,7 +152,7 @@ export function GarmentDetailScreen() {
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Eyebrow>{GARMENT.category}</Eyebrow>
+          <Eyebrow>{garment.category}</Eyebrow>
           <Text
             numberOfLines={1}
             style={{
@@ -87,7 +164,7 @@ export function GarmentDetailScreen() {
               color: t.fg,
               letterSpacing: -0.18,
             }}>
-            {GARMENT.name}
+            {garment.name}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -114,8 +191,8 @@ export function GarmentDetailScreen() {
         <View style={[s.hero, { borderColor: t.border }]}>
           <LinearGradient
             colors={[
-              `hsl(${GARMENT.hue}, 38%, 78%)`,
-              `hsl(${(GARMENT.hue + 30) % 360}, 30%, 62%)`,
+              `hsl(${garment.hue}, 38%, 78%)`,
+              `hsl(${(garment.hue + 30) % 360}, 30%, 62%)`,
             ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -133,7 +210,7 @@ export function GarmentDetailScreen() {
                 color: t.fg,
                 letterSpacing: -0.14,
               }}>
-              {GARMENT.wearCount}
+              {garment.wearCount}
             </Text>
             <Text
               style={{
@@ -183,12 +260,12 @@ export function GarmentDetailScreen() {
         {tab === 'info' ? (
           <View style={{ gap: 12 }}>
             <View style={[s.fieldGroup, { backgroundColor: t.card, borderColor: t.border }]}>
-              {GARMENT.fields.map((f, i) => (
+              {garment.fields.map((f, i) => (
                 <ListRow
                   key={f.label}
                   title={f.label}
                   hideChevron
-                  last={i === GARMENT.fields.length - 1}
+                  last={i === garment.fields.length - 1}
                   right={
                     <Text
                       style={{
@@ -207,7 +284,7 @@ export function GarmentDetailScreen() {
             <View>
               <Eyebrow style={{ marginBottom: 8 }}>Tags</Eyebrow>
               <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                {GARMENT.tags.map((tag) => (
+                {garment.tags.map((tag) => (
                   <View
                     key={tag}
                     style={[s.tagChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
@@ -220,11 +297,11 @@ export function GarmentDetailScreen() {
         ) : null}
 
         {tab === 'outfits' ? (
-          GARMENT.outfits.length === 0 ? (
+          garment.outfits.length === 0 ? (
             <EmptyTab title="Not in any outfit yet" body="Build a look featuring this piece." />
           ) : (
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {GARMENT.outfits.map((g) => (
+              {garment.outfits.map((g) => (
                 <View key={g.id} style={{ width: '48%', flexGrow: 1 }}>
                   <GarmentCard
                     garment={g}
@@ -237,11 +314,11 @@ export function GarmentDetailScreen() {
         ) : null}
 
         {tab === 'similar' ? (
-          GARMENT.similar.length === 0 ? (
+          garment.similar.length === 0 ? (
             <EmptyTab title="No similar pieces" body="We didn't find anything matching this style yet." />
           ) : (
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {GARMENT.similar.map((g) => (
+              {garment.similar.map((g) => (
                 <View key={g.id} style={{ width: '48%', flexGrow: 1 }}>
                   <GarmentCard
                     garment={g}
