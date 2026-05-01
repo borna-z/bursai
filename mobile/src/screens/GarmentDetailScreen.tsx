@@ -427,7 +427,14 @@ export function GarmentDetailScreen() {
                 <View key={g.id} style={{ width: '48%', flexGrow: 1 }}>
                   <GarmentCard
                     garment={g}
-                    onPress={() => nav.navigate('OutfitDetail', { id: g.id })}
+                    // `push` not `navigate` — drill-down across detail routes. In a flow like
+                    // OutfitDetail → GarmentDetail → tap outfit-card (or Outfits-tab → tap),
+                    // `navigate('OutfitDetail', …)` would focus the OutfitDetail instance
+                    // already earlier in the stack and reuse its local state (rating / notes /
+                    // worn / saved toggles), producing per-outfit state bleed and a wrong
+                    // back-stack. `push` always adds a fresh entry. Codex P1 round 9, mirrors
+                    // the round-7 similar-items fix.
+                    onPress={() => nav.push('OutfitDetail', { id: g.id })}
                   />
                 </View>
               ))}
@@ -469,7 +476,11 @@ export function GarmentDetailScreen() {
             paddingBottom: insets.bottom + 12,
           },
         ]}>
-        <Button label="Wear today" block onPress={() => nav.navigate('OutfitDetail', undefined)} />
+        {/* `push` not `navigate` — same defect class as the outfits-tab card-tap above. If the
+            user reached this GarmentDetail via OutfitDetail, `navigate('OutfitDetail', …)` would
+            collapse onto that earlier instance and reuse its rating/notes/worn/saved state.
+            `push` always adds a fresh entry. Codex P1 round 9 (sibling fix). */}
+        <Button label="Wear today" block onPress={() => nav.push('OutfitDetail', undefined)} />
       </View>
     </SafeAreaView>
   );

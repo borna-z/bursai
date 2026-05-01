@@ -267,7 +267,14 @@ export function OutfitDetailScreen() {
                   key={p.id}
                   accessibilityRole="button"
                   accessibilityLabel={`${p.name}, ${p.sub}`}
-                  onPress={() => nav.navigate('GarmentDetail', { id: p.id })}
+                  // `push` not `navigate` — drill-down across detail routes. In a flow like
+                  // GarmentDetail → OutfitDetail → tap piece, `navigate('GarmentDetail', …)`
+                  // would collapse onto the existing GarmentDetail entry earlier in the stack,
+                  // mutating its params (so the previously-viewed garment's rating/scroll/tab
+                  // state would now belong to a different garment) and shortening the back
+                  // stack. `push` always adds a fresh entry. Codex P1 round 9, mirrors round 7
+                  // similar-items fix.
+                  onPress={() => nav.push('GarmentDetail', { id: p.id })}
                   style={({ pressed }) => [
                     s.pieceCard,
                     {
