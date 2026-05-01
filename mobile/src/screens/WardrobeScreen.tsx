@@ -22,7 +22,7 @@ import { SearchBar } from '../components/SearchBar';
 import { SmartTile } from '../components/SmartTile';
 import { GarmentCard, type GarmentCardData } from '../components/GarmentCard';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -42,10 +42,56 @@ const GARMENTS: GarmentCardData[] = [
 
 type TabKey = 'garments' | 'outfits' | 'laundry';
 
+// Map FiltersScreen's `Outerwear` label to the abbreviated `Outer` token used inside this
+// fixture's `sub` field ("Outer · Wool"). The wardrobe data uses short category names; the
+// filter sheet shows the full name. Without this alias, ticking "Outerwear" would filter to
+// zero matches even though Outer items exist. Real-data version of this is server-side or a
+// canonical category enum shared across both surfaces.
+const CATEGORY_ALIAS: Record<string, string[]> = {
+  Outerwear: ['Outer'],
+};
+
+const matchesFilters = (garment: GarmentCardData, f: WardrobeFilters): boolean => {
+  const [catRaw, matRaw] = garment.sub.split(' · ');
+  const cat = (catRaw ?? '').trim();
+  const mat = (matRaw ?? '').trim();
+  if (f.categories.length > 0) {
+    const expandedCats = f.categories.flatMap((c) => [c, ...(CATEGORY_ALIAS[c] ?? [])]);
+    if (!expandedCats.some((c) => c.toLowerCase() === cat.toLowerCase())) return false;
+  }
+  if (f.materials.length > 0) {
+    if (!f.materials.some((m) => m.toLowerCase() === mat.toLowerCase())) return false;
+  }
+  // Color/Fit/Season aren't on the fixture shape yet — the future garment row carries them.
+  // Until then, those filters are accepted but no-op against the demo data.
+  return true;
+};
+
+const filterActiveCount = (f: WardrobeFilters | null): number =>
+  f
+    ? f.categories.length +
+      f.colors.length +
+      f.materials.length +
+      f.fits.length +
+      f.seasons.length
+    : 0;
+
 export function WardrobeScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('garments');
+  // Filter state lives at the WardrobeScreen scope. FiltersScreen receives the current filters
+  // as `initial` (so re-opening preserves picks) and writes back via `onApply`. Without this
+  // wiring the Apply button was a silent no-op — Codex P2 round 10. When the wardrobe-query
+  // hook lands, this state becomes the input shape for that hook (or a contextual filter
+  // store). `null` distinguishes "user has never opened Filters" from "filters are empty".
+  const [filters, setFilters] = React.useState<WardrobeFilters | null>(null);
+
+  const visibleGarments = React.useMemo(
+    () => (filters ? GARMENTS.filter((g) => matchesFilters(g, filters)) : GARMENTS),
+    [filters],
+  );
+  const activeFilterCount = filterActiveCount(filters);
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry stays as a local tab until a route lands.
@@ -57,11 +103,22 @@ export function WardrobeScreen() {
     setActiveTab(key);
   };
 
+  const openFilters = () => {
+    nav.navigate('Filters', {
+      initial: filters ?? undefined,
+      onApply: (next: WardrobeFilters) => setFilters(next),
+    });
+  };
+
   const header = (
     <View style={{ gap: 14, paddingHorizontal: 20, paddingBottom: 16 }}>
       <View style={s.header}>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 4 }}>Inventory · {GARMENTS.length}</Eyebrow>
+          <Eyebrow style={{ marginBottom: 4 }}>
+            {activeFilterCount > 0
+              ? `Filtered · ${visibleGarments.length} of ${GARMENTS.length}`
+              : `Inventory · ${GARMENTS.length}`}
+          </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
         </View>
         <IconBtn
@@ -83,8 +140,13 @@ export function WardrobeScreen() {
           placeholder={`Search ${GARMENTS.length} garments…`}
           onPress={() => nav.navigate('Search')}
         />
-        <IconBtn ariaLabel="Filter" onPress={() => nav.navigate('Filters')}>
-          <FilterIcon color={t.fg} />
+        <IconBtn
+          ariaLabel={
+            activeFilterCount > 0 ? `Filter · ${activeFilterCount} active` : 'Filter'
+          }
+          variant={activeFilterCount > 0 ? 'solid' : 'default'}
+          onPress={openFilters}>
+          <FilterIcon color={activeFilterCount > 0 ? t.accentFg : t.fg} />
         </IconBtn>
         <IconBtn ariaLabel="Grid">
           <GridIcon color={t.fg} />
@@ -115,7 +177,7 @@ export function WardrobeScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
-        data={GARMENTS}
+        data={visibleGarments}
         keyExtractor={(g) => g.id ?? g.name}
         numColumns={3}
         ListHeaderComponent={header}
