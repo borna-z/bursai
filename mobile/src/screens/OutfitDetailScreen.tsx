@@ -128,6 +128,10 @@ export function OutfitDetailScreen() {
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
   const [saved, setSaved] = React.useState(false);
+  // "Wear today" toggle. Mirrors the `saved` toggle shape (outline → accent + label flip) so
+  // visual press feedback maps to a real state change. When the wear-log mutation lands this
+  // becomes a `useLogWear()` mutation hook with an optimistic `worn` flag. Codex P2 round 8.
+  const [worn, setWorn] = React.useState(false);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -201,7 +205,13 @@ export function OutfitDetailScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label="Wear today" block style={{ flex: 1 }} />
+            <Button
+              label={worn ? 'Worn today' : 'Wear today'}
+              variant={worn ? 'accent' : 'primary'}
+              block
+              style={{ flex: 1 }}
+              onPress={() => setWorn((v) => !v)}
+            />
             <Button label="Restyle" variant="outline" onPress={() => nav.navigate('StyleMe')} />
             <Button
               label={saved ? 'Saved' : 'Save'}

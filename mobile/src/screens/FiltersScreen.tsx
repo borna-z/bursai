@@ -9,7 +9,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -17,9 +17,10 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Chip } from '../components/Chip';
 import { Button } from '../components/Button';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'Filters'>;
 
 const CATEGORIES = ['Outerwear', 'Tops', 'Bottoms', 'Shoes', 'Dress', 'Accessories'];
 const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Silk', 'Leather', 'Denim', 'Cashmere', 'Synthetic'];
@@ -51,14 +52,22 @@ const COLORS: { id: string; label: string; color: string }[] = [
 export function FiltersScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
 
-  const [categories, setCategories] = React.useState<string[]>([]);
-  const [colors, setColors] = React.useState<string[]>([]);
-  const [materials, setMaterials] = React.useState<string[]>([]);
-  const [fits, setFits] = React.useState<string[]>([]);
-  const [seasons, setSeasons] = React.useState<string[]>([]);
-  const [sort, setSort] = React.useState<string>('name_asc');
+  // Hydrate from `route.params.initial` so re-opening the sheet preserves the prior selection
+  // (e.g. tapping "Filters" twice in a row from Wardrobe shouldn't reset the user's picks).
+  // Codex P2 round 8: previously these all initialised to empty + sort='name_asc' regardless
+  // of the caller's prior state. We freeze the initial state in a ref so subsequent renders
+  // (e.g. caused by a parent re-mounting the screen with a refreshed `onApply` callback) don't
+  // wipe the user's in-progress edits.
+  const initialRef = React.useRef<WardrobeFilters | undefined>(route.params?.initial);
+  const [categories, setCategories] = React.useState<string[]>(initialRef.current?.categories ?? []);
+  const [colors, setColors] = React.useState<string[]>(initialRef.current?.colors ?? []);
+  const [materials, setMaterials] = React.useState<string[]>(initialRef.current?.materials ?? []);
+  const [fits, setFits] = React.useState<string[]>(initialRef.current?.fits ?? []);
+  const [seasons, setSeasons] = React.useState<string[]>(initialRef.current?.seasons ?? []);
+  const [sort, setSort] = React.useState<string>(initialRef.current?.sort ?? 'name_asc');
 
   const togglePick = (val: string, list: string[], setList: (xs: string[]) => void) =>
     setList(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
@@ -74,6 +83,16 @@ export function FiltersScreen() {
 
   const activeCount =
     categories.length + colors.length + materials.length + fits.length + seasons.length;
+
+  const apply = () => {
+    // Hand the chosen filters back to the caller (typically Wardrobe). If no callback was
+    // supplied we still goBack so the screen remains usable as a standalone preview, but the
+    // selection is dropped — which is what the no-caller flow always does anyway. When the
+    // wardrobe filtering hook lands, the caller passes a setter from `useWardrobeFilters()`
+    // here.
+    route.params?.onApply?.({ categories, colors, materials, fits, seasons, sort });
+    nav.goBack();
+  };
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -240,7 +259,7 @@ export function FiltersScreen() {
         <Button
           label={activeCount > 0 ? `Apply filters · ${activeCount}` : 'Apply filters'}
           block
-          onPress={() => nav.goBack()}
+          onPress={apply}
         />
       </View>
     </SafeAreaView>

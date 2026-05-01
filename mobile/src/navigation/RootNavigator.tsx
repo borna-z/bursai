@@ -93,7 +93,29 @@ export type RootStackParamList = {
 
   // Search / filters
   Search: undefined;
-  Filters: undefined;
+  // FiltersScreen accepts an optional initial selection (so re-opening the sheet preserves the
+  // previous picks) and an `onApply` callback fired with the chosen filters before goBack.
+  // Callback-in-params is the standard React Navigation v6 pattern for transient modal-style
+  // returns where deep-linking + persistence don't apply (Wardrobe isn't a stack route — it's a
+  // tab inside MainTabsScreen — so `nav.navigate('Wardrobe', ...)` isn't an option). RN may log
+  // a non-serializable-params warning in dev; benign here because Filters is never deep-linked
+  // and never restored from persisted nav state. Codex P2 round 8.
+  Filters: { initial?: WardrobeFilters; onApply?: (filters: WardrobeFilters) => void } | undefined;
+};
+
+/**
+ * Wardrobe filter selection passed back from FiltersScreen via the route's `onApply` callback.
+ * Mirrors the local FiltersScreen state shape (multi-select for Category/Color/Material/Fit/
+ * Season; single-select for Sort). When the wardrobe filtering hook lands, this becomes the
+ * input shape for the server-side query (or the in-memory client-side filter).
+ */
+export type WardrobeFilters = {
+  categories: string[];
+  colors: string[];
+  materials: string[];
+  fits: string[];
+  seasons: string[];
+  sort: string;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
