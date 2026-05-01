@@ -64,7 +64,10 @@ export function SearchScreen() {
   const [recent, setRecent] = React.useState<string[]>(RECENT_FIXTURE);
 
   const trimmed = query.trim();
-  const showResults = trimmed.length >= 1;
+  // Require 3+ chars before switching out of the recent-searches state. Earlier impl flipped on
+  // the first character, flooding users with broad matches mid-typing. Codex P2 round 4 (cross-PR).
+  const MIN_QUERY_LEN = 3;
+  const showResults = trimmed.length >= MIN_QUERY_LEN;
 
   const results = React.useMemo(() => {
     if (!showResults) return [];

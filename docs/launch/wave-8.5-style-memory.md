@@ -20,7 +20,7 @@ Wave 8.5 fixes and unifies the existing BURS style memory system so outfit gener
 
 ---
 
-### P82 — Audit current style memory wiring
+### P82 — Audit current style memory wiring [DONE] (PR #708, 2026-04-29)
 
 **Problem**
 Before changing memory infrastructure, we need a precise picture of where signals are written, where they are read, where pair memory is updated, and which flows are missing the write. Skipping the audit risks duplicating systems and leaving silent gaps.

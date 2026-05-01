@@ -6,8 +6,9 @@
 //   - withBadge    : same plus the dark scrim "01" / "02" pill top-left
 //   - add          : dashed border + accent + sign + "Add" label — used as the trailing tile
 //
-// Number badge sits over a colourful gradient and needs to read from any hue, so the scrim
-// is a fixed semi-transparent dark rgba rather than a theme token.
+// Number badge + remove button sit over a colourful gradient and need to read from any hue,
+// so they use the theme-invariant `scrimBg` / `scrimFg` token pair (added in PR #708 — Wave
+// 8.5 P82). Same values in light + dark.
 
 import React from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -15,9 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { CloseIcon, PlusIcon } from './icons';
-
-const SCRIM_BG = 'rgba(0,0,0,0.6)';
-const SCRIM_FG = '#FFFFFF';
 
 type PhotoTileProps = {
   /** Tile index, rendered as a 2-digit dark scrim badge at top-left. Hidden if undefined. */
@@ -108,14 +106,14 @@ export function PhotoTile({
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: radii.pill,
-            backgroundColor: SCRIM_BG,
+            backgroundColor: t.scrimBg,
           }}>
           <Text
             style={{
               fontFamily: fonts.uiBold,
               fontSize: 9,
               fontWeight: '700',
-              color: SCRIM_FG,
+              color: t.scrimFg,
               letterSpacing: 0.4,
             }}>
             {String(index).padStart(2, '0')}
@@ -137,13 +135,13 @@ export function PhotoTile({
               width: 20,
               height: 20,
               borderRadius: 10,
-              backgroundColor: SCRIM_BG,
+              backgroundColor: t.scrimBg,
               alignItems: 'center',
               justifyContent: 'center',
               opacity: pressed ? 0.7 : 1,
             },
           ]}>
-          <CloseIcon size={12} color={SCRIM_FG} />
+          <CloseIcon size={12} color={t.scrimFg} />
         </Pressable>
       ) : null}
     </Pressable>
