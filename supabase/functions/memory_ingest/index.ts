@@ -113,10 +113,22 @@ function coerceOptionalString(
   return input;
 }
 
-/** Coerce optional rating: integer 1-5 or null/undefined. */
+/**
+ * Coerce optional rating: integer 1-5, null/undefined for omitted, or
+ * `undefined` (sentinel for "rejected by validator").
+ *
+ * The RPC's `rate_outfit` branch derives pair-memory direction directly
+ * from the rating value (`>= 4` → positive, `<= 2` → negative), so a
+ * malformed payload like `rating: 0`, `rating: 10`, or `rating: 3.5`
+ * would silently write incorrect feedback signals. Reject with HTTP 400
+ * (caller maps `undefined` return to that response) for any value
+ * outside the documented 1-5 integer contract.
+ */
 function coerceOptionalRating(input: unknown): number | null | undefined {
   if (input === undefined || input === null) return null;
   if (typeof input !== "number" || !Number.isFinite(input)) return undefined;
+  if (!Number.isInteger(input)) return undefined;
+  if (input < 1 || input > 5) return undefined;
   return input;
 }
 

@@ -477,7 +477,7 @@ function synthesizeEvents(
     if (canonical === null) continue;
     const decay = decayWeight(nowMs, sig.created_at);
     if (decay <= 0) continue;
-    const direction = directionForSignal(canonical, sig.value);
+    const direction = directionForSignal(canonical, sig.value, sig.metadata);
     const garmentIds = resolveGarmentIdsForSignal(sig, garmentsByOutfit);
     events.push({
       signal: canonical,
@@ -605,6 +605,7 @@ function resolveGarmentIdsForSignal(
 function directionForSignal(
   signal: CanonicalStyleMemorySignal,
   value: string | null | undefined,
+  metadata?: Record<string, unknown> | null,
 ): 1 | -1 | 0 {
   if ((POSITIVE_SIGNALS as ReadonlyArray<string>).includes(signal)) return 1;
   if ((NEGATIVE_SIGNALS as ReadonlyArray<string>).includes(signal)) return -1;
@@ -626,8 +627,20 @@ function directionForSignal(
     return 0;
   }
   if (signal === "quick_reaction") {
-    if (typeof value === "string") {
-      const v = value.toLowerCase();
+    // Polarity may live in either `sig.value` (preferred) OR `metadata.value`
+    // (legacy + ingest-helper writers). Mirrors the RPC contract at
+    // `ingest_memory_event` lines 322-326 (`p_value` OR `p_metadata.value`).
+    // Without the metadata fallback, summary aggregation under-counts
+    // color/fit/category preferences for any quick_reaction whose polarity
+    // was emitted via metadata only.
+    const candidates: Array<string | null | undefined> = [value];
+    if (metadata && typeof metadata === "object") {
+      const metaValue = metadata["value"];
+      if (typeof metaValue === "string") candidates.push(metaValue);
+    }
+    for (const candidate of candidates) {
+      if (typeof candidate !== "string") continue;
+      const v = candidate.toLowerCase();
       if (v === "like" || v === "positive" || v === "thumbs_up") return 1;
       if (v === "dislike" || v === "negative" || v === "thumbs_down") return -1;
     }
