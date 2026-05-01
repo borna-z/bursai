@@ -37,19 +37,20 @@ type Used = {
   lastWornDays: number;
 };
 
+// Canonical wardrobe ids — must stay aligned with WardrobeScreen.GARMENTS, SearchScreen.ALL_GARMENTS,
+// GarmentDetailScreen.GARMENTS, and EditGarmentScreen.SEED_BY_ID. Any rewrite here ripples to
+// those four files. Codex P1 round 4: prior version had divergent labels (g6 → "Linen tee" vs
+// canonical "Striped oxford") and stray g10–g12 ids that had no detail fixture.
 const USED: Used[] = [
-  { id: 'g6',  name: 'Linen tee',         category: 'Tops · Cotton',     wearCount: 31, lastWornDays: 2,  hue: 32 },
-  { id: 'g1',  name: 'Wool overshirt',    category: 'Outer · Wool',      wearCount: 23, lastWornDays: 18, hue: 38 },
-  { id: 'g3',  name: 'Linen trouser',     category: 'Bottoms · Linen',   wearCount: 14, lastWornDays: 4,  hue: 200 },
-  { id: 'g7',  name: 'Black denim',       category: 'Bottoms · Denim',   wearCount: 11, lastWornDays: 9,  hue: 220 },
-  { id: 'g2',  name: 'White oxford',      category: 'Tops · Cotton',     wearCount: 9,  lastWornDays: 1,  hue: 200 },
-  { id: 'g8',  name: 'Cashmere knit',     category: 'Tops · Cashmere',   wearCount: 7,  lastWornDays: 21, hue: 18 },
-  { id: 'g5',  name: 'Sand chore',        category: 'Outer · Cotton',    wearCount: 6,  lastWornDays: 5,  hue: 45 },
-  { id: 'g4',  name: 'Bone leather sneaker', category: 'Shoes · Leather', wearCount: 5,  lastWornDays: 3,  hue: 32 },
-  { id: 'g9',  name: 'Charcoal trouser',  category: 'Bottoms · Wool',    wearCount: 4,  lastWornDays: 30, hue: 28 },
-  { id: 'g10', name: 'Navy blazer',       category: 'Outer · Wool',      wearCount: 3,  lastWornDays: 45, hue: 220 },
-  { id: 'g11', name: 'Striped knit',      category: 'Tops · Cotton',     wearCount: 2,  lastWornDays: 12, hue: 215 },
-  { id: 'g12', name: 'Suede loafer',      category: 'Shoes · Suede',     wearCount: 1,  lastWornDays: 60, hue: 28 },
+  { id: 'g1', name: 'Cream tee',      category: 'Tops · Cotton',   wearCount: 31, lastWornDays: 2,  hue: 32 },
+  { id: 'g5', name: 'Wool overshirt', category: 'Outer · Wool',    wearCount: 23, lastWornDays: 18, hue: 32 },
+  { id: 'g3', name: 'Linen trouser',  category: 'Bottoms · Linen', wearCount: 14, lastWornDays: 4,  hue: 38 },
+  { id: 'g7', name: 'Black denim',    category: 'Bottoms · Denim', wearCount: 11, lastWornDays: 9,  hue: 220 },
+  { id: 'g6', name: 'Striped oxford', category: 'Tops · Cotton',   wearCount: 9,  lastWornDays: 1,  hue: 200 },
+  { id: 'g8', name: 'Cashmere knit',  category: 'Tops · Cashmere', wearCount: 7,  lastWornDays: 21, hue: 18 },
+  { id: 'g4', name: 'Leather loafer', category: 'Shoes · Suede',   wearCount: 5,  lastWornDays: 3,  hue: 28 },
+  { id: 'g9', name: 'Suede boot',     category: 'Shoes · Suede',   wearCount: 4,  lastWornDays: 12, hue: 18 },
+  { id: 'g2', name: 'Navy blazer',    category: 'Outer · Wool',    wearCount: 3,  lastWornDays: 45, hue: 215 },
 ];
 
 export function UsedGarmentsScreen() {

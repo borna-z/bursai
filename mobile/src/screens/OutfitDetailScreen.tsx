@@ -45,69 +45,71 @@ type OutfitFixture = {
   pieces: { id: string; name: string; sub: string; hue: number }[];
 };
 
-// Keyed by the same `id` that `OutfitsScreen.OUTFITS` emits, plus a default for callers that
-// navigate without an id (e.g. HomeScreen Today's Look). When a backend hook lands this map
-// is replaced by a `useOutfit(id)` query — the rest of the screen reads from `outfit` either way.
-// Codex P1 round 2: previously the screen ignored the route `id` and always rendered Studio brunch.
+// Outfit fixtures keyed by the `id` that `OutfitsScreen.OUTFITS` emits, plus a default for
+// callers that navigate without an id (HomeScreen Today's Look). Each piece references a
+// canonical wardrobe id (`g1`–`g9`) so tapping a piece routes to the correct GarmentDetail
+// fixture — Codex P1 round 4: previously pieces used opaque `p1`–`p24` ids that had no
+// matching record in GarmentDetailScreen.GARMENTS, sending every tap to the unknown-id
+// placeholder. Names + subs match WardrobeScreen.GARMENTS verbatim so cross-screen previews
+// stay consistent.
 const OUTFITS: Record<string, OutfitFixture> = {
   o1: {
     name: 'Studio brunch', kicker: "Today's look", occasion: 'Brunch', formality: 'Smart casual', wearCount: 12,
     hues: [32, 38, 200, 28],
     pieces: [
-      { id: 'p1', name: 'Wool overshirt',       sub: 'Outer · Wool',     hue: 32 },
-      { id: 'p2', name: 'Cream linen trouser',  sub: 'Bottoms · Linen',  hue: 38 },
-      { id: 'p3', name: 'Bone leather sneaker', sub: 'Shoes · Leather',  hue: 28 },
-      { id: 'p4', name: 'Gold-frame sunglasses', sub: 'Accessory',       hue: 45 },
+      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
+      { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',   hue: 32 },
+      { id: 'g3', name: 'Linen trouser',  sub: 'Bottoms · Linen', hue: 38 },
+      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
     ],
   },
   o2: {
     name: 'Sunday casual', kicker: 'Saved look', occasion: 'Casual', formality: 'Casual', wearCount: 8,
     hues: [200, 220, 28, 45],
     pieces: [
-      { id: 'p5', name: 'Cream cotton tee',  sub: 'Tops · Cotton',  hue: 32 },
-      { id: 'p6', name: 'Black denim',       sub: 'Bottoms · Denim', hue: 220 },
-      { id: 'p7', name: 'Canvas sneaker',    sub: 'Shoes · Canvas',  hue: 200 },
-      { id: 'p8', name: 'Brown leather belt', sub: 'Accessory',      hue: 28 },
+      { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',   hue: 32 },
+      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
+      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
     ],
   },
   o3: {
     name: 'Boardroom', kicker: 'Saved look', occasion: 'Office', formality: 'Business', wearCount: 4,
-    hues: [220, 28, 200, 18],
+    hues: [215, 28, 200, 18],
     pieces: [
-      { id: 'p9',  name: 'Navy blazer',       sub: 'Outer · Wool',     hue: 220 },
-      { id: 'p10', name: 'Charcoal trouser',  sub: 'Bottoms · Wool',   hue: 28 },
-      { id: 'p11', name: 'White oxford',      sub: 'Tops · Cotton',    hue: 200 },
-      { id: 'p12', name: 'Suede loafer',      sub: 'Shoes · Suede',    hue: 18 },
+      { id: 'g2', name: 'Navy blazer',    sub: 'Outer · Wool',    hue: 215 },
+      { id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton',   hue: 200 },
+      { id: 'g3', name: 'Linen trouser',  sub: 'Bottoms · Linen', hue: 38 },
+      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
     ],
   },
   o4: {
     name: 'Gallery night', kicker: 'Saved look', occasion: 'Evening', formality: 'Smart', wearCount: 6,
-    hues: [280, 28, 18, 200],
+    hues: [18, 220, 18, 215],
     pieces: [
-      { id: 'p13', name: 'Cashmere knit',     sub: 'Tops · Cashmere',  hue: 18 },
-      { id: 'p14', name: 'Charcoal trouser',  sub: 'Bottoms · Wool',   hue: 28 },
-      { id: 'p15', name: 'Chelsea boot',      sub: 'Shoes · Leather',  hue: 18 },
-      { id: 'p16', name: 'Wool overcoat',     sub: 'Outer · Wool',     hue: 280 },
+      { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere', hue: 18 },
+      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
+      { id: 'g9', name: 'Suede boot',     sub: 'Shoes · Suede',   hue: 18 },
+      { id: 'g2', name: 'Navy blazer',    sub: 'Outer · Wool',    hue: 215 },
     ],
   },
   o5: {
     name: 'Weekend run', kicker: 'Saved look', occasion: 'Active', formality: 'Casual', wearCount: 0,
-    hues: [120, 200, 32, 45],
+    hues: [32, 220, 28, 32],
     pieces: [
-      { id: 'p17', name: 'Performance tee',   sub: 'Tops · Synthetic', hue: 200 },
-      { id: 'p18', name: 'Running short',     sub: 'Bottoms · Tech',   hue: 32 },
-      { id: 'p19', name: 'Trail runner',      sub: 'Shoes · Tech',     hue: 120 },
-      { id: 'p20', name: 'Cap',               sub: 'Accessory',        hue: 45 },
+      { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',   hue: 32 },
+      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
+      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
+      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
     ],
   },
   o6: {
     name: 'Date — soft', kicker: 'Saved look', occasion: 'Date', formality: 'Smart', wearCount: 2,
-    hues: [350, 32, 28, 18],
+    hues: [18, 220, 28, 32],
     pieces: [
-      { id: 'p21', name: 'Linen overshirt',   sub: 'Outer · Linen',    hue: 32 },
-      { id: 'p22', name: 'Cream tee',         sub: 'Tops · Cotton',    hue: 32 },
-      { id: 'p23', name: 'Black denim',       sub: 'Bottoms · Denim',  hue: 28 },
-      { id: 'p24', name: 'Bone sneaker',      sub: 'Shoes · Leather',  hue: 18 },
+      { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere', hue: 18 },
+      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
+      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
+      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
     ],
   },
 };

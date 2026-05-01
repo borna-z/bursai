@@ -61,8 +61,8 @@ const GARMENTS: Record<string, GarmentFixture> = {
     tags: ['Cream', 'Cotton', 'Light-weight', 'Daily', 'SS', 'Quiet luxe'],
     outfits: [{ id: 'o2', name: 'Sunday casual', sub: '3 pieces', hue: 200 }],
     similar: [
-      { id: 's4', name: 'Striped knit',  sub: 'Tops · Cotton',   hue: 215 },
-      { id: 's5', name: 'White oxford',  sub: 'Tops · Cotton',   hue: 200 },
+      { id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton',   hue: 200 },
+      { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere', hue: 18 },
     ],
   },
   g2: {
@@ -79,10 +79,9 @@ const GARMENTS: Record<string, GarmentFixture> = {
       { label: 'Last worn', value: '45 days ago' },
     ],
     tags: ['Navy', 'Wool', 'Tailored', 'Office', 'FW', 'Heritage'],
-    outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 220 }],
+    outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 215 }],
     similar: [
-      { id: 's6', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
-      { id: 's7', name: 'Charcoal trouser', sub: 'Bottoms · Wool', hue: 28 },
+      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
     ],
   },
   g3: {
@@ -101,7 +100,7 @@ const GARMENTS: Record<string, GarmentFixture> = {
     tags: ['Cream', 'Linen', 'Mid-weight', 'Daily', 'SS', 'Quiet luxe'],
     outfits: [{ id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 }],
     similar: [
-      { id: 's8', name: 'Olive chino', sub: 'Bottoms · Cotton', hue: 75 },
+      { id: 'g7', name: 'Black denim', sub: 'Bottoms · Denim', hue: 220 },
     ],
   },
   g4: {
@@ -119,7 +118,7 @@ const GARMENTS: Record<string, GarmentFixture> = {
     ],
     tags: ['Bone', 'Leather', 'Refined', '3-season', 'Quiet luxe'],
     outfits: [{ id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 }],
-    similar: [{ id: 's9', name: 'Suede chelsea', sub: 'Shoes · Suede', hue: 18 }],
+    similar: [{ id: 'g9', name: 'Suede boot', sub: 'Shoes · Suede', hue: 18 }],
   },
   g5: {
     name: 'Wool overshirt', category: 'Outerwear', subcategory: 'Overshirt', hue: 32, wearCount: 23,
@@ -137,12 +136,11 @@ const GARMENTS: Record<string, GarmentFixture> = {
     tags: ['Beige', 'Wool', 'Mid-weight', 'Workwear', '3-season', 'Quiet luxe'],
     outfits: [
       { id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 },
-      { id: 'o3', name: 'Boardroom',     sub: '5 pieces', hue: 220 },
+      { id: 'o3', name: 'Boardroom',     sub: '4 pieces', hue: 215 },
     ],
     similar: [
-      { id: 's1', name: 'Sand chore',     sub: 'Outer · Cotton', hue: 45 },
-      { id: 's2', name: 'Camel cardigan', sub: 'Knit · Wool',    hue: 38 },
-      { id: 's3', name: 'Brown blazer',   sub: 'Outer · Wool',   hue: 18 },
+      { id: 'g2', name: 'Navy blazer',   sub: 'Outer · Wool',    hue: 215 },
+      { id: 'g8', name: 'Cashmere knit', sub: 'Tops · Cashmere', hue: 18 },
     ],
   },
   g6: {
@@ -160,7 +158,7 @@ const GARMENTS: Record<string, GarmentFixture> = {
     ],
     tags: ['Striped', 'Cotton', 'Mid-weight', 'Office', '3-season', 'Heritage'],
     outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 220 }],
-    similar: [{ id: 's10', name: 'White oxford', sub: 'Tops · Cotton', hue: 200 }],
+    similar: [{ id: 'g1', name: 'Cream tee', sub: 'Tops · Cotton', hue: 32 }],
   },
   g7: {
     name: 'Black denim', category: 'Bottoms', subcategory: 'Jean', hue: 220, wearCount: 11,
@@ -177,7 +175,7 @@ const GARMENTS: Record<string, GarmentFixture> = {
     ],
     tags: ['Black', 'Denim', 'Slim', 'Daily', 'FW', 'Workwear'],
     outfits: [{ id: 'o2', name: 'Sunday casual', sub: '3 pieces', hue: 200 }],
-    similar: [{ id: 's11', name: 'Olive chino', sub: 'Bottoms · Cotton', hue: 75 }],
+    similar: [{ id: 'g3', name: 'Linen trouser', sub: 'Bottoms · Linen', hue: 38 }],
   },
   g8: {
     name: 'Cashmere knit', category: 'Tops', subcategory: 'Knit', hue: 18, wearCount: 7,
@@ -194,7 +192,7 @@ const GARMENTS: Record<string, GarmentFixture> = {
     ],
     tags: ['Rust', 'Cashmere', 'Soft', 'FW', 'Quiet luxe'],
     outfits: [{ id: 'o4', name: 'Gallery night', sub: '4 pieces', hue: 280 }],
-    similar: [{ id: 's12', name: 'Camel cardigan', sub: 'Knit · Wool', hue: 38 }],
+    similar: [{ id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton', hue: 200 }],
   },
   g9: {
     name: 'Suede boot', category: 'Shoes', subcategory: 'Chelsea', hue: 18, wearCount: 4,
@@ -211,7 +209,7 @@ const GARMENTS: Record<string, GarmentFixture> = {
     ],
     tags: ['Brown', 'Suede', 'Refined', 'FW', 'Quiet luxe'],
     outfits: [{ id: 'o4', name: 'Gallery night', sub: '4 pieces', hue: 280 }],
-    similar: [{ id: 's13', name: 'Suede loafer', sub: 'Shoes · Suede', hue: 28 }],
+    similar: [{ id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede', hue: 28 }],
   },
 };
 
