@@ -8,6 +8,15 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { OutfitsScreen } from '../screens/OutfitsScreen';
+import { OutfitDetailScreen } from '../screens/OutfitDetailScreen';
+import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
+import { EditGarmentScreen } from '../screens/EditGarmentScreen';
+import { WardrobeGapsScreen } from '../screens/WardrobeGapsScreen';
+import { SearchScreen } from '../screens/SearchScreen';
+import { FiltersScreen } from '../screens/FiltersScreen';
+import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
+import { UnusedOutfitsScreen } from '../screens/UnusedOutfitsScreen';
 import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
@@ -85,11 +94,8 @@ const Placeholders = {
   AddPieceStep3: placeholder('Step 3 of 3', 'Confirm batch', 'Piece selector + form fields + sticky save. Coming next.'),
   LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
 
-  // Outfit / garment / sharing
-  Outfits: placeholder('Looks', 'Your outfits'),
-  OutfitDetail: placeholder('Today', 'Outfit'),
-  EditGarment: placeholder('Edit', 'Edit piece'),
-  GarmentDetail: placeholder('Detail', 'Piece'),
+  // Outfit / garment / sharing — Outfits, OutfitDetail, EditGarment, GarmentDetail
+  // are now real screens (this PR). ShareOutfit + PublicProfile remain placeholders.
   ShareOutfit: placeholder('Share', 'Share outfit'),
   PublicProfile: placeholder('Public', 'Profile'),
 
@@ -104,10 +110,8 @@ const Placeholders = {
   TravelMustHaves: placeholder('Step 5 of 6', 'Pick must-haves'),
   TravelPackingList: placeholder('Step 6 of 6', 'Packing list'),
 
-  // Discover / lists
-  WardrobeGaps: placeholder('Discover', 'Wardrobe gaps'),
-  UsedGarments: placeholder('Most worn', 'Used pieces'),
-  UnusedOutfits: placeholder('Quiet shelf', 'Unused outfits'),
+  // Discover / lists — all three are real screens now (this PR).
+  // (no placeholders remaining in this group)
 
   // Settings
   Settings: placeholder('Settings', 'Preferences'),
@@ -125,9 +129,8 @@ const Placeholders = {
   BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
   NotFound: placeholder('Off the rail', '404'),
 
-  // Search / filters
-  Search: placeholder('Find', 'Search'),
-  Filters: placeholder('Refine', 'Filters'),
+  // Search / filters — both are real screens now (this PR).
+  // (no placeholders remaining in this group)
 } as const;
 
 export function RootNavigator() {
@@ -148,10 +151,10 @@ export function RootNavigator() {
       <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
 
       {/* Outfit / garment / sharing */}
-      <Stack.Screen name="Outfits" component={Placeholders.Outfits} />
-      <Stack.Screen name="OutfitDetail" component={Placeholders.OutfitDetail} />
-      <Stack.Screen name="EditGarment" component={Placeholders.EditGarment} />
-      <Stack.Screen name="GarmentDetail" component={Placeholders.GarmentDetail} />
+      <Stack.Screen name="Outfits" component={OutfitsScreen} />
+      <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
+      <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
+      <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
       <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
 
@@ -167,9 +170,9 @@ export function RootNavigator() {
       <Stack.Screen name="TravelPackingList" component={Placeholders.TravelPackingList} />
 
       {/* Discover / lists */}
-      <Stack.Screen name="WardrobeGaps" component={Placeholders.WardrobeGaps} />
-      <Stack.Screen name="UsedGarments" component={Placeholders.UsedGarments} />
-      <Stack.Screen name="UnusedOutfits" component={Placeholders.UnusedOutfits} />
+      <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
+      <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
+      <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
 
       {/* Settings */}
       <Stack.Screen name="Settings" component={Placeholders.Settings} />
@@ -188,8 +191,8 @@ export function RootNavigator() {
       <Stack.Screen name="NotFound" component={Placeholders.NotFound} />
 
       {/* Search / filters */}
-      <Stack.Screen name="Search" component={Placeholders.Search} />
-      <Stack.Screen name="Filters" component={Placeholders.Filters} />
+      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="Filters" component={FiltersScreen} />
     </Stack.Navigator>
   );
 }
