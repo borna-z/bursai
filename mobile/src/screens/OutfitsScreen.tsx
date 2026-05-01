@@ -32,21 +32,28 @@ type OutfitFixture = {
   occasion: string;
   formality: string;
   wearCount: number;
+  /** Days since last worn — drives the "Recent" filter. `null` for never-worn outfits. */
+  lastWornDays: number | null;
+  /** Whether the user has saved a feedback note on this outfit. Drives "With notes" filter. */
+  hasNotes: boolean;
   /** Four hues for the 2x2 garment thumb grid. */
   hues: [number, number, number, number];
 };
 
 const OUTFITS: OutfitFixture[] = [
-  { id: 'o1', name: 'Studio brunch',  occasion: 'Brunch',  formality: 'Smart casual', wearCount: 12, hues: [32, 38, 200, 28] },
-  { id: 'o2', name: 'Sunday casual',  occasion: 'Casual',  formality: 'Casual',       wearCount: 8,  hues: [200, 220, 28, 45] },
-  { id: 'o3', name: 'Boardroom',      occasion: 'Office',  formality: 'Business',     wearCount: 4,  hues: [220, 28, 200, 18] },
-  { id: 'o4', name: 'Gallery night',  occasion: 'Evening', formality: 'Smart',        wearCount: 6,  hues: [280, 28, 18, 200] },
-  { id: 'o5', name: 'Weekend run',    occasion: 'Active',  formality: 'Casual',       wearCount: 0,  hues: [120, 200, 32, 45] },
-  { id: 'o6', name: 'Date — soft',    occasion: 'Date',    formality: 'Smart',        wearCount: 2,  hues: [350, 32, 28, 18] },
+  { id: 'o1', name: 'Studio brunch',  occasion: 'Brunch',  formality: 'Smart casual', wearCount: 12, lastWornDays: 1,    hasNotes: true,  hues: [32, 38, 200, 28] },
+  { id: 'o2', name: 'Sunday casual',  occasion: 'Casual',  formality: 'Casual',       wearCount: 8,  lastWornDays: 4,    hasNotes: false, hues: [200, 220, 28, 45] },
+  { id: 'o3', name: 'Boardroom',      occasion: 'Office',  formality: 'Business',     wearCount: 4,  lastWornDays: 21,   hasNotes: true,  hues: [220, 28, 200, 18] },
+  { id: 'o4', name: 'Gallery night',  occasion: 'Evening', formality: 'Smart',        wearCount: 6,  lastWornDays: 6,    hasNotes: false, hues: [280, 28, 18, 200] },
+  { id: 'o5', name: 'Weekend run',    occasion: 'Active',  formality: 'Casual',       wearCount: 0,  lastWornDays: null, hasNotes: false, hues: [120, 200, 32, 45] },
+  { id: 'o6', name: 'Date — soft',    occasion: 'Date',    formality: 'Smart',        wearCount: 2,  lastWornDays: 30,   hasNotes: true,  hues: [350, 32, 28, 18] },
 ];
 
 type FilterKey = 'all' | 'recent' | 'with_notes';
 type ViewMode = 'grid' | 'list';
+
+// "Recent" cutoff: outfits worn in the last 14 days. Tunable.
+const RECENT_DAYS = 14;
 
 export function OutfitsScreen() {
   const t = useTokens();
@@ -54,8 +61,19 @@ export function OutfitsScreen() {
   const [filter, setFilter] = React.useState<FilterKey>('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid');
 
-  // Filter is presentational only for now — swap when an outfits hook lands.
-  const visible = OUTFITS;
+  // Apply the active filter chip. Codex P2 round 5: previously `visible` was constant, so the
+  // filter chips were no-ops — they're now wired to drive the list (and the empty state).
+  // When the outfits hook lands this becomes a server-side `?filter=` arg or a `useMemo` over
+  // the hook's return value; the UI contract above stays identical.
+  const visible = React.useMemo(() => {
+    if (filter === 'recent') {
+      return OUTFITS.filter((o) => o.lastWornDays != null && o.lastWornDays <= RECENT_DAYS);
+    }
+    if (filter === 'with_notes') {
+      return OUTFITS.filter((o) => o.hasNotes);
+    }
+    return OUTFITS;
+  }, [filter]);
 
   const header = (
     <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
@@ -142,6 +160,20 @@ export function OutfitsScreen() {
   );
 
   if (visible.length === 0) {
+    // Filter-aware empty state. The "No outfits yet" / "Style me" copy is reserved for the
+    // genuine zero-data case (filter==='all'); filter-specific misses get their own quiet
+    // copy + a "Show all" reset CTA so the user understands the filter is the cause.
+    const isFiltered = filter !== 'all';
+    const title = !isFiltered
+      ? 'No outfits yet'
+      : filter === 'recent'
+        ? 'Nothing worn lately'
+        : 'No outfits with notes';
+    const body = !isFiltered
+      ? 'Generate your first look from your wardrobe.'
+      : filter === 'recent'
+        ? `Nothing logged in the last ${RECENT_DAYS} days. Try wearing one of your saved looks.`
+        : 'You haven\'t added feedback notes to any outfit yet.';
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         {header}
@@ -157,12 +189,16 @@ export function OutfitsScreen() {
               textAlign: 'center',
               letterSpacing: -0.26,
             }}>
-            No outfits yet
+            {title}
           </Text>
-          <Caption style={{ textAlign: 'center', marginTop: 6, marginBottom: 18, maxWidth: 240 }}>
-            Generate your first look from your wardrobe.
+          <Caption style={{ textAlign: 'center', marginTop: 6, marginBottom: 18, maxWidth: 260 }}>
+            {body}
           </Caption>
-          <Button label="Style me" onPress={() => nav.navigate('StyleMe')} />
+          {isFiltered ? (
+            <Button label="Show all" variant="outline" onPress={() => setFilter('all')} />
+          ) : (
+            <Button label="Style me" onPress={() => nav.navigate('StyleMe')} />
+          )}
         </View>
       </SafeAreaView>
     );

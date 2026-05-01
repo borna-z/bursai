@@ -37,20 +37,30 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'EditGarment'>;
 
 // Tiny seed map of known garment ids → form defaults. Lets EditGarment open with the right
-// title / category / wear count when launched from GarmentDetail's edit affordance, and falls
-// back to a generic placeholder for any other id. Codex P1 round 3 #1: route param `id` is
-// now received instead of dropped to undefined. When the backend hook lands this becomes
-// `useGarment(id)` and seeds every form field from the real row.
-const SEED_BY_ID: Record<string, { title: string; category: string; subcategory: string; wearCount: number; colorId: string }> = {
-  g1: { title: 'Cream tee',         category: 'Top',    subcategory: 'Tee',       wearCount: 31, colorId: 'cream' },
-  g2: { title: 'Navy blazer',       category: 'Outer',  subcategory: 'Blazer',    wearCount: 3,  colorId: 'navy' },
-  g3: { title: 'Linen trouser',     category: 'Bottom', subcategory: 'Trouser',   wearCount: 14, colorId: 'cream' },
-  g4: { title: 'Leather loafer',    category: 'Shoes',  subcategory: 'Loafer',    wearCount: 5,  colorId: 'beige' },
-  g5: { title: 'Wool overshirt',    category: 'Outer',  subcategory: 'Overshirt', wearCount: 23, colorId: 'beige' },
-  g6: { title: 'Striped oxford',    category: 'Top',    subcategory: 'Shirt',     wearCount: 9,  colorId: 'white' },
-  g7: { title: 'Black denim',       category: 'Bottom', subcategory: 'Jean',      wearCount: 11, colorId: 'black' },
-  g8: { title: 'Cashmere knit',     category: 'Top',    subcategory: 'Knit',      wearCount: 7,  colorId: 'rust' },
-  g9: { title: 'Suede boot',        category: 'Shoes',  subcategory: 'Chelsea',   wearCount: 4,  colorId: 'brown' },
+// title / category / wear count / material when launched from GarmentDetail's edit affordance,
+// and falls back to a generic placeholder for any other id. Codex P1 round 3 #1: route param `id`
+// is now received. Codex P2 round 5: `materials` was previously hardcoded `['Wool']` for every
+// id (so g1 "Cream tee" rendered with material "Wool" — wrong). Each entry now seeds material
+// from the canonical garment record. When the backend hook lands this becomes `useGarment(id)`
+// and seeds every form field from the real row.
+type SeedEntry = {
+  title: string;
+  category: string;
+  subcategory: string;
+  wearCount: number;
+  colorId: string;
+  materials: string[];
+};
+const SEED_BY_ID: Record<string, SeedEntry> = {
+  g1: { title: 'Cream tee',      category: 'Top',    subcategory: 'Tee',       wearCount: 31, colorId: 'cream', materials: ['Cotton'] },
+  g2: { title: 'Navy blazer',    category: 'Outer',  subcategory: 'Blazer',    wearCount: 3,  colorId: 'navy',  materials: ['Wool'] },
+  g3: { title: 'Linen trouser',  category: 'Bottom', subcategory: 'Trouser',   wearCount: 14, colorId: 'cream', materials: ['Linen'] },
+  g4: { title: 'Leather loafer', category: 'Shoes',  subcategory: 'Loafer',    wearCount: 5,  colorId: 'beige', materials: ['Leather'] },
+  g5: { title: 'Wool overshirt', category: 'Outer',  subcategory: 'Overshirt', wearCount: 23, colorId: 'beige', materials: ['Wool'] },
+  g6: { title: 'Striped oxford', category: 'Top',    subcategory: 'Shirt',     wearCount: 9,  colorId: 'white', materials: ['Cotton'] },
+  g7: { title: 'Black denim',    category: 'Bottom', subcategory: 'Jean',      wearCount: 11, colorId: 'black', materials: ['Denim'] },
+  g8: { title: 'Cashmere knit',  category: 'Top',    subcategory: 'Knit',      wearCount: 7,  colorId: 'rust',  materials: ['Wool'] },
+  g9: { title: 'Suede boot',     category: 'Shoes',  subcategory: 'Chelsea',   wearCount: 4,  colorId: 'brown', materials: ['Leather'] },
 };
 
 // 30 named colors with hex/hsl values. Keeping these as a data constant (not tokens) — the
@@ -112,7 +122,7 @@ export function EditGarmentScreen() {
   const [category, setCategory] = React.useState(seed.category);
   const [subcategory, setSubcategory] = React.useState(seed.subcategory);
   const [primaryColor, setPrimaryColor] = React.useState(seed.colorId);
-  const [materials, setMaterials] = React.useState<string[]>(['Wool']);
+  const [materials, setMaterials] = React.useState<string[]>(seed.materials);
   const [fit, setFit] = React.useState('Regular');
   const [pattern, setPattern] = React.useState('Solid');
   const [seasons, setSeasons] = React.useState<string[]>(['Spring', 'Autumn']);
