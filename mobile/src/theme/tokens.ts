@@ -22,6 +22,12 @@ export type ThemeTokens = {
   accentDeep: string;
   accentFg: string;
   accentSoft: string;
+  /**
+   * Single destructive-action color (delete row, "Sign out", "Cancel subscription"). Warm
+   * terracotta tuned to sit on the same palette as `accent` rather than a generic system red,
+   * to keep the editorial mood. Codex P1 round 1 — replaces hardcoded EditGarmentScreen hex.
+   */
+  destructive: string;
   shadowSm: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
   shadow: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
 };
@@ -40,6 +46,7 @@ export const light: ThemeTokens = {
   accentDeep: '#7C5A23', // accent darkened ~28% — bottom stop of FAB / "accent → deeper" gradients
   accentFg: '#FFFFFF',
   accentSoft: 'rgba(173,129,55,0.12)',
+  destructive: '#C25B45', // warm terracotta; AA-contrast on light bg
   shadowSm: { color: '#1C1917', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.04 },
   shadow:   { color: '#1C1917', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.08 },
 };
@@ -58,6 +65,7 @@ export const dark: ThemeTokens = {
   accentDeep: '#93764D', // same ~28% darkening recipe applied to dark accent
   accentFg: '#17140F',
   accentSoft: 'rgba(205,165,108,0.14)',
+  destructive: '#E27865', // lighter shifted hue; readable on charcoal bg
   shadowSm: { color: '#000000', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.4 },
   shadow:   { color: '#000000', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.4 },
 };

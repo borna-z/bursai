@@ -54,7 +54,10 @@ export function ListRow({
       />
     ) : null);
 
-  const showChevron = !hideChevron && (onPress != null || right == null);
+  // Chevron is the default trailing affordance for a drilldown row. If a custom `right`
+  // element is provided, the caller is expected to supply its own chevron (or none) inside
+  // that slot — rendering both produces duplicate trailing affordances. Codex P2 round 1.
+  const showChevron = !hideChevron && right == null && onPress != null;
 
   const inner = (
     <>

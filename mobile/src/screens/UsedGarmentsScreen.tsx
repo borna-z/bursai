@@ -8,7 +8,7 @@
 // Source: design_handoff_burs_rn/source/audit-screens.jsx UsedGarmentsScreen + the user brief.
 
 import React from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -111,7 +111,11 @@ export function UsedGarmentsScreen() {
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={[s.sep, { backgroundColor: t.border }]} />}
         renderItem={({ item }) => (
-          <View style={s.rowWrap}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.name}, ${item.wearCount} wears`}
+            onPress={() => nav.navigate('GarmentDetail', { id: item.id })}
+            style={({ pressed }) => [s.rowWrap, { opacity: pressed ? 0.7 : 1 }]}>
             <View style={s.rowInner}>
               <LinearGradient
                 colors={[`hsl(${item.hue}, 38%, 78%)`, `hsl(${(item.hue + 30) % 360}, 30%, 62%)`]}
@@ -161,7 +165,7 @@ export function UsedGarmentsScreen() {
                 <ChevronIcon color={t.fg3} />
               </View>
             </View>
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

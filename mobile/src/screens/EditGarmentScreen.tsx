@@ -368,7 +368,7 @@ export function EditGarmentScreen() {
               style={{
                 fontFamily: fonts.uiSemi,
                 fontSize: 13,
-                color: '#C25B45',
+                color: t.destructive,
                 letterSpacing: -0.1,
               }}>
               Delete piece
