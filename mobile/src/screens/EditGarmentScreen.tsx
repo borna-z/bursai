@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -34,6 +34,24 @@ import { MinusIcon, PlusIcon } from '../components/icons';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'EditGarment'>;
+
+// Tiny seed map of known garment ids → form defaults. Lets EditGarment open with the right
+// title / category / wear count when launched from GarmentDetail's edit affordance, and falls
+// back to a generic placeholder for any other id. Codex P1 round 3 #1: route param `id` is
+// now received instead of dropped to undefined. When the backend hook lands this becomes
+// `useGarment(id)` and seeds every form field from the real row.
+const SEED_BY_ID: Record<string, { title: string; category: string; subcategory: string; wearCount: number; colorId: string }> = {
+  g1: { title: 'Cream tee',         category: 'Top',    subcategory: 'Tee',       wearCount: 31, colorId: 'cream' },
+  g2: { title: 'Navy blazer',       category: 'Outer',  subcategory: 'Blazer',    wearCount: 3,  colorId: 'navy' },
+  g3: { title: 'Linen trouser',     category: 'Bottom', subcategory: 'Trouser',   wearCount: 14, colorId: 'cream' },
+  g4: { title: 'Leather loafer',    category: 'Shoes',  subcategory: 'Loafer',    wearCount: 5,  colorId: 'beige' },
+  g5: { title: 'Wool overshirt',    category: 'Outer',  subcategory: 'Overshirt', wearCount: 23, colorId: 'beige' },
+  g6: { title: 'Striped oxford',    category: 'Top',    subcategory: 'Shirt',     wearCount: 9,  colorId: 'white' },
+  g7: { title: 'Black denim',       category: 'Bottom', subcategory: 'Jean',      wearCount: 11, colorId: 'black' },
+  g8: { title: 'Cashmere knit',     category: 'Top',    subcategory: 'Knit',      wearCount: 7,  colorId: 'rust' },
+  g9: { title: 'Suede boot',        category: 'Shoes',  subcategory: 'Chelsea',   wearCount: 4,  colorId: 'brown' },
+};
 
 // 30 named colors with hex/hsl values. Keeping these as a data constant (not tokens) — the
 // "no hardcoded hex" rule has a carve-out for data/color constants. Same convention as the
@@ -81,17 +99,25 @@ const FORMALITIES = ['Casual', 'Smart', 'Business', 'Formal'];
 export function EditGarmentScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const editingId = route.params?.id;
+  // Seed the form fields from the matching SEED_BY_ID entry when the route id is known; fall
+  // back to the wool-overshirt default for unknown / missing ids so the form is still demoable
+  // without a backend. Codex P1 round 3 #1: route param is now read instead of dropped.
+  // Use an explicit ternary (not `editingId && SEED_BY_ID[editingId]`) so TypeScript narrows
+  // the seed type cleanly — `&&` would let an empty-string id propagate as `""` into the union.
+  const seed = (editingId ? SEED_BY_ID[editingId] : undefined) ?? SEED_BY_ID.g5!;
 
-  const [title, setTitle] = React.useState('Wool overshirt');
-  const [category, setCategory] = React.useState('Outer');
-  const [subcategory, setSubcategory] = React.useState('Overshirt');
-  const [primaryColor, setPrimaryColor] = React.useState('beige');
+  const [title, setTitle] = React.useState(seed.title);
+  const [category, setCategory] = React.useState(seed.category);
+  const [subcategory, setSubcategory] = React.useState(seed.subcategory);
+  const [primaryColor, setPrimaryColor] = React.useState(seed.colorId);
   const [materials, setMaterials] = React.useState<string[]>(['Wool']);
   const [fit, setFit] = React.useState('Regular');
   const [pattern, setPattern] = React.useState('Solid');
   const [seasons, setSeasons] = React.useState<string[]>(['Spring', 'Autumn']);
   const [formalities, setFormalities] = React.useState<string[]>(['Smart']);
-  const [wearCount, setWearCount] = React.useState(23);
+  const [wearCount, setWearCount] = React.useState(seed.wearCount);
   const [price, setPrice] = React.useState('189');
   const [inLaundry, setInLaundry] = React.useState(false);
   const [archive, setArchive] = React.useState(false);

@@ -104,6 +104,23 @@ const GARMENTS: Record<string, GarmentFixture> = {
       { id: 's8', name: 'Olive chino', sub: 'Bottoms · Cotton', hue: 75 },
     ],
   },
+  g4: {
+    name: 'Leather loafer', category: 'Shoes', subcategory: 'Loafer', hue: 28, wearCount: 5,
+    fields: [
+      { label: 'Category', value: 'Shoes · Loafer' },
+      { label: 'Color', value: 'Bone' },
+      { label: 'Material', value: 'Leather' },
+      { label: 'Fit', value: 'Regular' },
+      { label: 'Season', value: 'Spring · Autumn' },
+      { label: 'Brand', value: 'Crockett & Jones' },
+      { label: 'Price', value: '€420' },
+      { label: 'Cost per wear', value: '€84' },
+      { label: 'Last worn', value: '3 days ago' },
+    ],
+    tags: ['Bone', 'Leather', 'Refined', '3-season', 'Quiet luxe'],
+    outfits: [{ id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 }],
+    similar: [{ id: 's9', name: 'Suede chelsea', sub: 'Shoes · Suede', hue: 18 }],
+  },
   g5: {
     name: 'Wool overshirt', category: 'Outerwear', subcategory: 'Overshirt', hue: 32, wearCount: 23,
     fields: [
@@ -128,7 +145,107 @@ const GARMENTS: Record<string, GarmentFixture> = {
       { id: 's3', name: 'Brown blazer',   sub: 'Outer · Wool',   hue: 18 },
     ],
   },
+  g6: {
+    name: 'Striped oxford', category: 'Tops', subcategory: 'Shirt', hue: 200, wearCount: 9,
+    fields: [
+      { label: 'Category', value: 'Tops · Shirt' },
+      { label: 'Color', value: 'White / Blue' },
+      { label: 'Material', value: 'Cotton poplin' },
+      { label: 'Fit', value: 'Regular' },
+      { label: 'Season', value: 'Spring · Summer · Autumn' },
+      { label: 'Brand', value: 'Drake\'s' },
+      { label: 'Price', value: '€220' },
+      { label: 'Cost per wear', value: '€24.40' },
+      { label: 'Last worn', value: '1 day ago' },
+    ],
+    tags: ['Striped', 'Cotton', 'Mid-weight', 'Office', '3-season', 'Heritage'],
+    outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 220 }],
+    similar: [{ id: 's10', name: 'White oxford', sub: 'Tops · Cotton', hue: 200 }],
+  },
+  g7: {
+    name: 'Black denim', category: 'Bottoms', subcategory: 'Jean', hue: 220, wearCount: 11,
+    fields: [
+      { label: 'Category', value: 'Bottoms · Jean' },
+      { label: 'Color', value: 'Black' },
+      { label: 'Material', value: 'Denim' },
+      { label: 'Fit', value: 'Slim' },
+      { label: 'Season', value: 'Autumn · Winter' },
+      { label: 'Brand', value: 'A.P.C.' },
+      { label: 'Price', value: '€220' },
+      { label: 'Cost per wear', value: '€20' },
+      { label: 'Last worn', value: '9 days ago' },
+    ],
+    tags: ['Black', 'Denim', 'Slim', 'Daily', 'FW', 'Workwear'],
+    outfits: [{ id: 'o2', name: 'Sunday casual', sub: '3 pieces', hue: 200 }],
+    similar: [{ id: 's11', name: 'Olive chino', sub: 'Bottoms · Cotton', hue: 75 }],
+  },
+  g8: {
+    name: 'Cashmere knit', category: 'Tops', subcategory: 'Knit', hue: 18, wearCount: 7,
+    fields: [
+      { label: 'Category', value: 'Tops · Knit' },
+      { label: 'Color', value: 'Rust' },
+      { label: 'Material', value: 'Cashmere' },
+      { label: 'Fit', value: 'Relaxed' },
+      { label: 'Season', value: 'Autumn · Winter' },
+      { label: 'Brand', value: 'Folk' },
+      { label: 'Price', value: '€340' },
+      { label: 'Cost per wear', value: '€48.50' },
+      { label: 'Last worn', value: '21 days ago' },
+    ],
+    tags: ['Rust', 'Cashmere', 'Soft', 'FW', 'Quiet luxe'],
+    outfits: [{ id: 'o4', name: 'Gallery night', sub: '4 pieces', hue: 280 }],
+    similar: [{ id: 's12', name: 'Camel cardigan', sub: 'Knit · Wool', hue: 38 }],
+  },
+  g9: {
+    name: 'Suede boot', category: 'Shoes', subcategory: 'Chelsea', hue: 18, wearCount: 4,
+    fields: [
+      { label: 'Category', value: 'Shoes · Chelsea' },
+      { label: 'Color', value: 'Brown' },
+      { label: 'Material', value: 'Suede' },
+      { label: 'Fit', value: 'Regular' },
+      { label: 'Season', value: 'Autumn · Winter' },
+      { label: 'Brand', value: 'Grenson' },
+      { label: 'Price', value: '€395' },
+      { label: 'Cost per wear', value: '€98.75' },
+      { label: 'Last worn', value: '12 days ago' },
+    ],
+    tags: ['Brown', 'Suede', 'Refined', 'FW', 'Quiet luxe'],
+    outfits: [{ id: 'o4', name: 'Gallery night', sub: '4 pieces', hue: 280 }],
+    similar: [{ id: 's13', name: 'Suede loafer', sub: 'Shoes · Suede', hue: 28 }],
+  },
 };
+
+// Stable hue derived from id hash — same id always maps to the same colour, different ids are
+// reliably distinct. djb2-ish 32-bit accumulator. Used by the unknown-id fallback so users can
+// see at a glance that distinct routes are landing on distinct (placeholder) detail pages,
+// rather than all collapsing onto the same wool-overshirt fixture (Codex P1 round 3 #2).
+function hashToHue(id: string): number {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+// Render a labeled placeholder when the route id isn't in `GARMENTS`. Honest about being a
+// placeholder, unique per id (via the hash above), so users don't think they're seeing the
+// wrong garment's data. Replaced when the real `useGarment(id)` query lands — at which point
+// it can render a true 404 / not-found state instead.
+function makeUnknownGarment(id: string): GarmentFixture {
+  return {
+    name: `Item · ${id}`,
+    category: 'Wardrobe',
+    subcategory: 'Demo placeholder',
+    hue: hashToHue(id),
+    wearCount: 0,
+    fields: [
+      { label: 'ID', value: id },
+      { label: 'Status', value: 'Demo placeholder' },
+      { label: 'Note', value: 'Real data lands once the backend hook ships' },
+    ],
+    tags: ['Demo'],
+    outfits: [],
+    similar: [],
+  };
+}
 const DEFAULT_GARMENT_ID = 'g5';
 
 type Tab = 'info' | 'outfits' | 'similar';
@@ -139,9 +256,16 @@ export function GarmentDetailScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<Route>();
   const id = route.params?.id;
-  // Look up by route id; fall back to default when an unfamiliar id is passed (e.g. from a
-  // search hit not in this fixture map). Real backend hook will replace this lookup outright.
-  const garment = (id && GARMENTS[id]) || GARMENTS[DEFAULT_GARMENT_ID]!;
+  // Three-way resolution:
+  //   1. id present + matches a fixture → render that fixture (the demoable wardrobe set g1–g9)
+  //   2. id present + not in fixture map → synthesize a labeled placeholder via hash-to-hue,
+  //      so users see a distinct (placeholder) detail per id rather than every unmapped id
+  //      collapsing onto wool-overshirt. Real backend hook replaces this with a 404 state.
+  //   3. id absent (e.g. HomeScreen Today's Look) → fall back to the canonical default fixture.
+  // Codex P1 round 3 #2: silent fallback to default for unknown ids was misleading.
+  const garment = id
+    ? (GARMENTS[id] ?? makeUnknownGarment(id))
+    : GARMENTS[DEFAULT_GARMENT_ID]!;
 
   const [tab, setTab] = React.useState<Tab>('info');
 
@@ -171,7 +295,7 @@ export function GarmentDetailScreen() {
           <IconBtn
             ariaLabel="Edit piece"
             variant="ghost"
-            onPress={() => nav.navigate('EditGarment', undefined)}>
+            onPress={() => nav.navigate('EditGarment', id ? { id } : undefined)}>
             <EditIcon color={t.fg} />
           </IconBtn>
           <IconBtn ariaLabel="More options" variant="ghost">
