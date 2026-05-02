@@ -65,7 +65,12 @@ export function SettingsAccountScreen() {
                 Borna Krneta
               </Text>
               <Caption>borna@example.com</Caption>
-              <Pressable accessibilityRole="link" onPress={() => {}} hitSlop={6}>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() =>
+                  Alert.alert('Coming soon', 'Profile photo upload coming soon.')
+                }
+                hitSlop={6}>
                 <Text
                   style={{
                     fontFamily: fonts.uiSemi,
@@ -85,8 +90,21 @@ export function SettingsAccountScreen() {
         <View style={{ gap: 8 }}>
           <Eyebrow>Account</Eyebrow>
           <Card padding={4}>
-            <SettingsRow title="Full name" value="Borna Krneta" onPress={() => {}} />
-            <SettingsRow icon={<MailIcon size={18} color={t.accent} />} title="Email" value="borna@example.com" onPress={() => {}} />
+            <SettingsRow
+              title="Full name"
+              value="Borna Krneta"
+              onPress={() =>
+                Alert.alert('Full name', 'Edit your name in Profile.')
+              }
+            />
+            <SettingsRow
+              icon={<MailIcon size={18} color={t.accent} />}
+              title="Email"
+              value="borna@example.com"
+              onPress={() =>
+                Alert.alert('Email', 'Contact support to change your email.')
+              }
+            />
             <SettingsRow
               icon={<KeyIcon size={18} color={t.accent} />}
               title="Change password"
@@ -97,7 +115,9 @@ export function SettingsAccountScreen() {
               title="Connected accounts"
               value="Google"
               last
-              onPress={() => {}}
+              onPress={() =>
+                Alert.alert('Coming soon', 'Google sign-in coming soon.')
+              }
             />
           </Card>
         </View>
@@ -110,7 +130,9 @@ export function SettingsAccountScreen() {
               icon={<FileIcon size={18} color={t.accent} />}
               title="Export my data"
               caption="Get a copy as a ZIP archive"
-              onPress={() => {}}
+              onPress={() =>
+                Alert.alert('Export', 'Your data export will be emailed to you.')
+              }
             />
             <SettingsRow
               icon={<TrashIcon size={18} color={t.destructive} />}
@@ -124,7 +146,15 @@ export function SettingsAccountScreen() {
                   'This permanently removes your wardrobe, outfits, and learned style. This cannot be undone.',
                   [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => {} },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () =>
+                        Alert.alert(
+                          'Account deletion requested',
+                          'Your account will be removed within 30 days.',
+                        ),
+                    },
                   ],
                 )
               }

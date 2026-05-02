@@ -44,6 +44,12 @@ import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
+// Missing-screens cleanup PR (feat/mobile-cleanup-missing-screens)
+import { MonthCalendarScreen } from '../screens/MonthCalendarScreen';
+import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
+import { LaundryScreen } from '../screens/LaundryScreen';
+import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
+import { LiveScanScreen } from '../screens/LiveScanScreen';
 import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
@@ -79,6 +85,13 @@ export type RootStackParamList = {
   GarmentDetail: { id?: string } | undefined;
   ShareOutfit: { id?: string } | undefined;
   PublicProfile: { handle?: string } | undefined;
+  // Outfit-generation flow (loading → result). garmentId optional for "Wear today"
+  // / "Restyle from this piece" entry points that anchor on a specific item.
+  OutfitGenerate: { garmentId?: string } | undefined;
+
+  // Calendar + laundry (cleanup PR)
+  MonthCalendar: undefined;
+  Laundry: undefined;
 
   // Stylist / mood / occasion
   StyleChat: undefined;
@@ -155,12 +168,9 @@ const placeholder = (eyebrow: string, title: string, body?: string) => {
 };
 
 const Placeholders = {
-  // Add piece flow — only LiveScan is still a placeholder; Step1/Step2/Step3 are real (PR #706).
-  LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
-
+  // (LiveScan + ShareOutfit are real now — see Stack.Screen list below.)
   // Outfit / garment / sharing — Outfits, OutfitDetail, EditGarment, GarmentDetail are now
-  // real screens (PR #707). ShareOutfit + PublicProfile remain placeholders.
-  ShareOutfit: placeholder('Share', 'Share outfit'),
+  // real screens (PR #707). PublicProfile remains a placeholder.
   PublicProfile: placeholder('Public', 'Profile'),
 
   // (StyleChat / StyleMe / MoodOutfit / MoodFlow now have real impls — see Stack.Screen list below.)
@@ -218,16 +228,21 @@ export function RootNavigator() {
       <Stack.Screen name="AddPieceStep1" component={AddPieceStep1} />
       <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
-      <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
+      <Stack.Screen name="LiveScan" component={LiveScanScreen} />
 
-      {/* Outfit / garment / sharing — Outfits / OutfitDetail / EditGarment / GarmentDetail
-          are real screens (PR #707); ShareOutfit + PublicProfile remain placeholders. */}
+      {/* Outfit / garment / sharing — Outfits / OutfitDetail / EditGarment / GarmentDetail /
+          ShareOutfit are real screens; PublicProfile remains a placeholder. */}
       <Stack.Screen name="Outfits" component={OutfitsScreen} />
       <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
       <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
       <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
-      <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
+      <Stack.Screen name="ShareOutfit" component={ShareOutfitScreen} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
+      <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
+
+      {/* Calendar + laundry (cleanup PR) */}
+      <Stack.Screen name="MonthCalendar" component={MonthCalendarScreen} />
+      <Stack.Screen name="Laundry" component={LaundryScreen} />
 
       {/* Stylist / mood / occasion — real implementations (PR #706) */}
       <Stack.Screen name="StyleChat" component={StyleChatScreen} />

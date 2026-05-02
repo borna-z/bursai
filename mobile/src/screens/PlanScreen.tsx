@@ -8,7 +8,7 @@
 // `new Date()` at render so the screen stays accurate as days roll forward.
 
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -109,8 +109,8 @@ export function PlanScreen() {
             <Eyebrow style={{ marginBottom: 4 }}>{headerEyebrow}</Eyebrow>
             <PageTitle>Your Week</PageTitle>
           </View>
-          {/* Calendar btn → month view; route ships with the Plan-month screen later. */}
-          <IconBtn ariaLabel="Open calendar">
+          {/* Calendar btn → month view (MonthCalendarScreen). */}
+          <IconBtn ariaLabel="Open calendar" onPress={() => nav.navigate('MonthCalendar')}>
             <CalendarIcon color={t.fg} />
           </IconBtn>
         </View>
@@ -150,8 +150,28 @@ export function PlanScreen() {
 
           <Button label="Wear today" onPress={goOutfit} block />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('StyleMe')} />
-            <Button label="Clear" variant="outline" size="sm" block style={{ flex: 1 }} />
+            <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('OutfitGenerate')} />
+            <Button
+              label="Clear"
+              variant="outline"
+              size="sm"
+              block
+              style={{ flex: 1 }}
+              onPress={() =>
+                Alert.alert(
+                  'Clear plans',
+                  'This will remove all planned outfits.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clear',
+                      style: 'destructive',
+                      onPress: () => Alert.alert('Cleared', 'Planned outfits cleared.'),
+                    },
+                  ],
+                )
+              }
+            />
             <Button label="+ Add" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('AddPieceStep1')} />
           </View>
         </View>

@@ -7,7 +7,7 @@
 // virtualization gives stable scroll perf without a complex layout calc per row.
 
 import React from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -94,10 +94,15 @@ export function WardrobeScreen() {
   const activeFilterCount = filterActiveCount(filters);
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
-  // local state — Outfits is its own screen, Laundry stays as a local tab until a route lands.
+  // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route
+  // (cleanup PR), so tapping the chip pushes onto the parent stack.
   const onTab = (key: TabKey) => () => {
     if (key === 'outfits') {
       nav.navigate('Outfits');
+      return;
+    }
+    if (key === 'laundry') {
+      nav.navigate('Laundry');
       return;
     }
     setActiveTab(key);
@@ -154,16 +159,20 @@ export function WardrobeScreen() {
       </View>
 
       <View style={s.tileRow}>
-        <SmartTile num="12" label="Recently added" />
+        <SmartTile num="12" label="Recently added" onPress={() => nav.navigate('Search')} />
         <SmartTile num="38" label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
       </View>
       <View style={s.tileRow}>
         <SmartTile num="7" label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
-        <SmartTile num="4" label="In laundry" />
+        <SmartTile num="4" label="In laundry" onPress={() => nav.navigate('Laundry')} />
       </View>
 
       <View style={s.tileRow}>
-        <SmartTile num="4" label="Wishlist" />
+        <SmartTile
+          num="4"
+          label="Wishlist"
+          onPress={() => Alert.alert('Coming soon', 'Wishlist feature coming soon.')}
+        />
         <SmartTile num="5" label="Gaps" onPress={() => nav.navigate('WardrobeGaps')} />
       </View>
 

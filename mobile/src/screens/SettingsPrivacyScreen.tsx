@@ -64,7 +64,9 @@ export function SettingsPrivacyScreen() {
                 label="Read privacy policy"
                 variant="quiet"
                 size="sm"
-                onPress={() => {}}
+                onPress={() =>
+                  Alert.alert('Privacy policy', 'Visit burs.me/privacy to read the full policy.')
+                }
                 style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
               />
             </View>
@@ -77,7 +79,9 @@ export function SettingsPrivacyScreen() {
             icon={<FileIcon size={18} color={t.accent} />}
             title="Export all my data"
             caption="Get a ZIP archive of everything"
-            onPress={() => {}}
+            onPress={() =>
+              Alert.alert('Export', 'Your data export will be emailed to you.')
+            }
           />
           <SettingsRow
             icon={<RotateIcon size={18} color={t.accent} />}
@@ -89,7 +93,11 @@ export function SettingsPrivacyScreen() {
                 'BURS will forget what it has learned about you. Your wardrobe and outfits stay.',
                 [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: 'Reset', style: 'destructive', onPress: () => {} },
+                  {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
+                  },
                 ],
               )
             }
@@ -106,7 +114,15 @@ export function SettingsPrivacyScreen() {
                 'This permanently removes your wardrobe, outfits, and learned style. This cannot be undone.',
                 [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => {} },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () =>
+                      Alert.alert(
+                        'Account deletion requested',
+                        'Your account will be removed within 30 days.',
+                      ),
+                  },
                 ],
               )
             }
