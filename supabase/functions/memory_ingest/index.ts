@@ -125,6 +125,30 @@ function isUuidArray(arr: readonly string[]): boolean {
 }
 
 /**
+ * Synthesize a deterministic idempotency key from the raw request body.
+ *
+ * `checkIdempotency` is a no-op when `x-idempotency-key` is absent. Per
+ * the documented contract (`raw x-idempotency-key OR sha256(body)`), we
+ * fall back to a stable hash of the raw JSON text when the client omits
+ * the header. Identical bodies within the 5-min cache window collapse
+ * to one row; semantically distinct events get distinct keys.
+ *
+ * The "auto:" prefix is purely for telemetry / debugging — it makes
+ * synthetic keys visually distinguishable from client-supplied UUIDs in
+ * `request_idempotency.key`. The shared helper treats the raw key as
+ * opaque; the prefix has no semantic effect.
+ */
+async function synthesizeBodyHashKey(rawBody: string): Promise<string> {
+  const text = rawBody.length > 0 ? rawBody : "{}";
+  const encoded = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  const hex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return "auto:" + hex;
+}
+
+/**
  * Coerce an optional string field. Returns the string when present, null
  * when absent, the special `undefined` sentinel when the key is set to a
  * non-string.
@@ -222,9 +246,10 @@ Deno.serve(async (req) => {
     // client bug as an infrastructure failure and tipping the overload
     // guard. Reject with the documented 400 invalid-body envelope instead.
     let body: Record<string, unknown>;
+    let rawBodyText = "";
     try {
-      const raw = await req.text();
-      const parsed = raw.length > 0 ? JSON.parse(raw) : {};
+      rawBodyText = await req.text();
+      const parsed = rawBodyText.length > 0 ? JSON.parse(rawBodyText) : {};
       if (
         parsed === null ||
         typeof parsed !== "object" ||
@@ -438,11 +463,34 @@ Deno.serve(async (req) => {
     // retry on transient network errors. Gating-first would let a retry
     // storm starve the legitimate next event under the per-minute cap even
     // though the duplicate's side effects are already prevented.
+    //
+    // Body-hash fallback: `checkIdempotency` is a no-op when no
+    // `x-idempotency-key` header is supplied. Without a fallback, normal
+    // browser/network retries would silently double-write feedback_signals
+    // and pair-memory weights (cumulative, ranking-driving), skewing user
+    // preferences. Synthesize a stable key from sha256(rawBody) when the
+    // client omits the header. Identical logical writes in the 5-min
+    // window collapse to one row; semantically distinct events (different
+    // body) get distinct keys.
+    const clientIdempotencyKey = req.headers.get("x-idempotency-key");
+    const effectiveIdempotencyKey = clientIdempotencyKey ??
+      (await synthesizeBodyHashKey(rawBodyText));
+    // Build a minimal Request that exposes the effective key. The
+    // shared helper only reads `x-idempotency-key`; method/body/url
+    // are irrelevant here.
+    const idempotencyReq = new Request(req.url, {
+      method: "POST",
+      headers: { "x-idempotency-key": effectiveIdempotencyKey },
+    });
     const idempotencyScope = {
       functionName: "memory_ingest",
       userId,
     };
-    const cached = await checkIdempotency(req, adminClient, idempotencyScope);
+    const cached = await checkIdempotency(
+      idempotencyReq,
+      adminClient,
+      idempotencyScope,
+    );
     if (cached) {
       return cached;
     }
@@ -559,7 +607,16 @@ Deno.serve(async (req) => {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       },
     );
-    await storeIdempotencyResult(req, response, adminClient, idempotencyScope);
+    // Store the cached result against the SAME synthetic key the check
+    // used; otherwise a body-hash fallback check would never land in the
+    // cache (because the original `req` has no x-idempotency-key header)
+    // and retries would still re-run the RPC.
+    await storeIdempotencyResult(
+      idempotencyReq,
+      response,
+      adminClient,
+      idempotencyScope,
+    );
     return response;
   } catch (err) {
     if (err instanceof RateLimitError) {

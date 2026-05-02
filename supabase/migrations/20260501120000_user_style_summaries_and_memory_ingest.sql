@@ -156,8 +156,14 @@ BEGIN
   v_caller_role := current_setting('request.jwt.claim.role', true);
   IF v_caller_role IS NULL OR v_caller_role NOT IN ('service_role', 'authenticated') THEN
     -- Attempt session_user-level fallback (server-side direct calls).
-    IF current_user NOT IN ('postgres', 'service_role') THEN
-      RAISE EXCEPTION 'ingest_memory_event: unauthorized caller (role=%)', current_user
+    -- Inside a SECURITY DEFINER function `current_user` always resolves to
+    -- the function owner (postgres) regardless of who invoked us, so it
+    -- can NEVER fail this check and the gate would let any caller with a
+    -- missing/invalid JWT role claim through. `session_user` is the
+    -- original invoker identity (anon / authenticated / service_role / ...)
+    -- and is the correct fallback signal here.
+    IF session_user NOT IN ('postgres', 'service_role') THEN
+      RAISE EXCEPTION 'ingest_memory_event: unauthorized caller (role=%)', session_user
         USING ERRCODE = '42501';
     END IF;
   ELSIF v_caller_role = 'authenticated' THEN
