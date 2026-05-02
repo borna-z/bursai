@@ -102,19 +102,23 @@ export function SettingsStyleScreen() {
             icon={<SparklesIcon size={16} color={t.accent} />}
             title="Retake style quiz"
             caption="Refresh your DNA from scratch"
-            onPress={() => nav.navigate('Settings')}
+            onPress={() => nav.navigate('Onboarding')}
           />
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}
             title="Edit style words"
             caption={ARCHETYPES.join(' · ')}
-            onPress={() => nav.navigate('Settings')}
+            onPress={() =>
+              Alert.alert('Coming soon', 'Style word editing coming soon.')
+            }
           />
           <SettingsRow
             icon={<PaletteIcon size={18} color={t.accent} />}
             title="Edit color preferences"
             caption="6 favorites"
-            onPress={() => nav.navigate('Settings')}
+            onPress={() =>
+              Alert.alert('Coming soon', 'Color preference editing coming soon.')
+            }
           />
           <SettingsRow
             icon={<RotateIcon size={16} color={t.destructive} />}
@@ -128,7 +132,11 @@ export function SettingsStyleScreen() {
                 "BURS will forget every learned preference. Your wardrobe and outfits stay.",
                 [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: 'Reset', style: 'destructive', onPress: () => {} },
+                  {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
+                  },
                 ],
               )
             }

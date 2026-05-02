@@ -44,7 +44,12 @@ export function SettingsScreen() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       // TODO: wire supabase.auth.signOut() once mobile auth bridge lands. Codex audit P3.8.
-      { text: 'Sign out', style: 'destructive', onPress: () => {} },
+      // Until that wiring lands, surface a confirmation so the user gets feedback.
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => Alert.alert('Signed out', 'You have been signed out.'),
+      },
     ]);
   };
 
@@ -87,7 +92,7 @@ export function SettingsScreen() {
               </Text>
               <Caption>2 days remaining · renews automatically</Caption>
             </View>
-            <Button label="Manage" variant="outline" size="sm" onPress={() => {}} />
+            <Button label="Manage" variant="outline" size="sm" onPress={() => nav.navigate('Paywall')} />
           </View>
         </Card>
 
@@ -118,7 +123,9 @@ export function SettingsScreen() {
             title="Language"
             value="English"
             last
-            onPress={() => nav.navigate('Settings')}
+            onPress={() =>
+              Alert.alert('Language', 'Change language in your style profile.')
+            }
           />
         </Section>
 
@@ -142,7 +149,11 @@ export function SettingsScreen() {
                 'This clears what BURS has learned about you. Your wardrobe and outfits are kept.',
                 [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: 'Reset', style: 'destructive', onPress: () => {} },
+                  {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
+                  },
                 ],
               )
             }

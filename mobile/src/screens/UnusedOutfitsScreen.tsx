@@ -180,7 +180,7 @@ export function UnusedOutfitsScreen() {
         <Button
           label="Generate outfit from unused"
           block
-          onPress={() => nav.navigate('StyleMe')}
+          onPress={() => nav.navigate('OutfitGenerate')}
         />
       </View>
     </SafeAreaView>

@@ -48,7 +48,7 @@ export function ProfileScreen() {
             <Eyebrow style={{ marginBottom: 4 }}>Your profile</Eyebrow>
             <PageTitle>Borna Krneta</PageTitle>
           </View>
-          <Button label="Edit" variant="outline" size="sm" onPress={() => {}} />
+          <Button label="Edit" variant="outline" size="sm" onPress={() => nav.navigate('SettingsAccount')} />
         </View>
 
         {/* ============ AVATAR + IDENTITY ============ */}

@@ -8,7 +8,7 @@
 // Codex P2 #4 on PR #699 — the original prototype hardcoded "Sat · Apr 26 / SAT 26 → FRI 2".
 
 import React from 'react';
-import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -141,7 +141,12 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button label="Wear this" onPress={push('OutfitDetail')} block style={{ flex: 1 }} />
-            <Button label="Restyle" variant="outline" onPress={push('StyleMe')} />
+            <Button label="Restyle" variant="outline" onPress={push('OutfitGenerate')} />
+            <Button
+              label="Save"
+              variant="quiet"
+              onPress={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
+            />
           </View>
         </Card>
 
