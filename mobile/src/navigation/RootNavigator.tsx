@@ -26,6 +26,19 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { FiltersScreen } from '../screens/FiltersScreen';
 import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
 import { UnusedOutfitsScreen } from '../screens/UnusedOutfitsScreen';
+// Travel + Settings + Profile + Notifications + ResetPassword (this PR)
+import { TravelCapsuleScreen } from '../screens/TravelCapsuleScreen';
+import { TravelMustHavesScreen } from '../screens/TravelMustHavesScreen';
+import { TravelPackingListScreen } from '../screens/TravelPackingListScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
+import { SettingsStyleScreen } from '../screens/SettingsStyleScreen';
+import { SettingsNotificationsScreen } from '../screens/SettingsNotificationsScreen';
+import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
+import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
@@ -141,26 +154,8 @@ const Placeholders = {
 
   // (StyleChat / StyleMe / MoodOutfit / MoodFlow now have real impls — see Stack.Screen list below.)
 
-  // Travel capsule
-  TravelCapsule: placeholder('Trip', 'Travel capsule'),
-  TravelMustHaves: placeholder('Step 5 of 6', 'Pick must-haves'),
-  TravelPackingList: placeholder('Step 6 of 6', 'Packing list'),
+  // (Travel / Settings / Profile / Notifications / ResetPassword are real now — see Stack.Screen list.)
 
-  // Discover / lists — all three are real screens now (PR #707).
-  // (no placeholders remaining in this group)
-
-  // Settings
-  Settings: placeholder('Settings', 'Preferences'),
-  SettingsAppearance: placeholder('Appearance', 'Theme & motion'),
-  SettingsStyle: placeholder('Style', 'Your preferences'),
-  SettingsNotifications: placeholder('Notifications', 'Reminders'),
-  SettingsAccount: placeholder('Account', 'Sign-in & billing'),
-  SettingsPrivacy: placeholder('Privacy', 'Data & sharing'),
-
-  // Profile / account / extras
-  Profile: placeholder('You', 'Profile'),
-  Notifications: placeholder('Inbox', 'Notifications'),
-  ResetPassword: placeholder('Account', 'Reset password'),
   BillingSuccess: placeholder('Welcome', 'Premium activated'),
   BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
   NotFound: placeholder('Off the rail', '404'),
@@ -201,28 +196,28 @@ export function RootNavigator() {
       <Stack.Screen name="MoodOutfit" component={MoodOutfitScreen} />
       <Stack.Screen name="MoodFlow" component={MoodFlowScreen} />
 
-      {/* Travel capsule */}
-      <Stack.Screen name="TravelCapsule" component={Placeholders.TravelCapsule} />
-      <Stack.Screen name="TravelMustHaves" component={Placeholders.TravelMustHaves} />
-      <Stack.Screen name="TravelPackingList" component={Placeholders.TravelPackingList} />
+      {/* Travel capsule — real implementations (this PR) */}
+      <Stack.Screen name="TravelCapsule" component={TravelCapsuleScreen} />
+      <Stack.Screen name="TravelMustHaves" component={TravelMustHavesScreen} />
+      <Stack.Screen name="TravelPackingList" component={TravelPackingListScreen} />
 
       {/* Discover / lists — all three real (PR #707) */}
       <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
       <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
       <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
 
-      {/* Settings */}
-      <Stack.Screen name="Settings" component={Placeholders.Settings} />
-      <Stack.Screen name="SettingsAppearance" component={Placeholders.SettingsAppearance} />
-      <Stack.Screen name="SettingsStyle" component={Placeholders.SettingsStyle} />
-      <Stack.Screen name="SettingsNotifications" component={Placeholders.SettingsNotifications} />
-      <Stack.Screen name="SettingsAccount" component={Placeholders.SettingsAccount} />
-      <Stack.Screen name="SettingsPrivacy" component={Placeholders.SettingsPrivacy} />
+      {/* Settings — real implementations (this PR) */}
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
+      <Stack.Screen name="SettingsStyle" component={SettingsStyleScreen} />
+      <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsScreen} />
+      <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
+      <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
 
-      {/* Profile / account / extras */}
-      <Stack.Screen name="Profile" component={Placeholders.Profile} />
-      <Stack.Screen name="Notifications" component={Placeholders.Notifications} />
-      <Stack.Screen name="ResetPassword" component={Placeholders.ResetPassword} />
+      {/* Profile / account / extras — Profile + Notifications + ResetPassword real (this PR) */}
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="BillingSuccess" component={Placeholders.BillingSuccess} />
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />
       <Stack.Screen name="NotFound" component={Placeholders.NotFound} />
