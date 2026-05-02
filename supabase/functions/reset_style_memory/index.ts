@@ -105,16 +105,24 @@ Deno.serve(async (req) => {
   }
 
   // ─── Idempotency (destructive op — double-tap guard) ────────────────
-  const idempotencyKey =
-    req.headers.get("X-Idempotency-Key") ?? `${FN_NAME}:${userId}`;
-  const cached = await checkIdempotency(
-    supabaseAdmin,
-    FN_NAME,
+  //
+  // The shared helper reads `X-Idempotency-Key` from the request directly
+  // and namespaces by (functionName, userId). Returns a baked `Response`
+  // when a prior call's result is cached / a concurrent in-flight claim
+  // exists; returns `null` when the caller should proceed (fresh key OR
+  // no key supplied at all).
+  //
+  // For destructive ops with no client-supplied key, the helper no-ops
+  // (the request proceeds idempotently each call). That's acceptable
+  // here — the AlertDialog double-confirmation is the human guard, and
+  // the underlying RPC is intrinsically idempotent (re-running the
+  // wipe just deletes zero rows the second time).
+  const cachedResponse = await checkIdempotency(req, supabaseAdmin, {
+    functionName: FN_NAME,
     userId,
-    idempotencyKey,
-  );
-  if (cached?.cached_response) {
-    return jsonResponse(cached.cached_response, 200);
+  });
+  if (cachedResponse) {
+    return cachedResponse;
   }
 
   // ─── Audit BEFORE — forensic trace for this destructive op ───────────
@@ -122,7 +130,10 @@ Deno.serve(async (req) => {
     await supabaseAdmin.from("analytics_events").insert({
       user_id: userId,
       event_type: "reset_style_memory_initiated",
-      metadata: { fn: FN_NAME, idempotency_key: idempotencyKey },
+      metadata: {
+        fn: FN_NAME,
+        idempotency_key: req.headers.get("X-Idempotency-Key") ?? null,
+      },
     });
   } catch (auditErr) {
     // Audit logging is non-critical; don't block the user on telemetry
@@ -172,7 +183,7 @@ Deno.serve(async (req) => {
         event_type: "reset_style_memory_completed",
         metadata: {
           fn: FN_NAME,
-          idempotency_key: idempotencyKey,
+          idempotency_key: req.headers.get("X-Idempotency-Key") ?? null,
           ...responseBody.tables_cleared,
         },
       });
@@ -183,14 +194,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Cache the response for idempotency replay.
+    const successResponse = jsonResponse(responseBody, 200);
+
+    // Cache the response for idempotency replay. Pass a clone so the
+    // helper can consume the body via .clone() while we still return the
+    // original to the caller.
     try {
       await storeIdempotencyResult(
+        req,
+        successResponse.clone(),
         supabaseAdmin,
-        FN_NAME,
-        userId,
-        idempotencyKey,
-        responseBody,
+        { functionName: FN_NAME, userId },
       );
     } catch (cacheErr) {
       console.warn(
@@ -199,7 +213,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return jsonResponse(responseBody, 200);
+    return successResponse;
   } catch (err) {
     console.error("[reset_style_memory] threw", err);
     recordError(FN_NAME);
