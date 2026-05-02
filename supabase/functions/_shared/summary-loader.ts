@@ -131,12 +131,24 @@ export async function loadOrBuildSummary(
     // Persist. Failure here is non-fatal — return the in-memory row to the
     // caller so the current request still benefits from the summary;
     // next request will retry the persist.
+    //
+    // supabase-js returns `{ data, error }` rather than throwing on RLS /
+    // CHECK / network errors, so we capture both and log explicitly. The
+    // bare-await form would silently succeed on any error response.
     try {
-      await supabaseAdmin
+      const { error: persistError } = await supabaseAdmin
         .from("user_style_summaries")
         .upsert(row, { onConflict: "user_id" });
+      if (persistError) {
+        console.error(
+          "[summary-loader] persist returned error",
+          typeof persistError === "object"
+            ? JSON.stringify(persistError)
+            : String(persistError),
+        );
+      }
     } catch (persistErr) {
-      console.error("[summary-loader] persist failed", persistErr);
+      console.error("[summary-loader] persist threw", persistErr);
     }
     return row;
   } catch (buildErr) {

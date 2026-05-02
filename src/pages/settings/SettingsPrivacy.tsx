@@ -111,9 +111,44 @@ export default function SettingsPrivacy() {
         supabase.from('inspiration_saves').select('*').eq('user_id', userId),
       ]);
 
+      // Self-audit P2: surface partial-failure to the user. Previously the
+      // toast.success fired even when several SELECTs returned errors, so a
+      // user could believe their export was complete when half the tables
+      // were `[]`. Track which tables errored so we can warn instead.
+      const tableResults: Array<{ name: string; error: unknown }> = [
+        { name: 'profile', error: profileRes.error },
+        { name: 'garments', error: garmentsRes.error },
+        { name: 'outfits', error: outfitsRes.error },
+        { name: 'user_style_summaries', error: summariesRes.error },
+        { name: 'feedback_signals', error: signalsRes.error },
+        { name: 'garment_pair_memory', error: pairsRes.error },
+        { name: 'wear_logs', error: wearLogsRes.error },
+        { name: 'chat_messages', error: chatMsgsRes.error },
+        { name: 'outfit_feedback', error: outfitFeedbackRes.error },
+        { name: 'outfit_reactions', error: outfitReactionsRes.error },
+        { name: 'swap_events', error: swapEventsRes.error },
+        { name: 'planned_outfits', error: plannedRes.error },
+        { name: 'user_style_profiles', error: styleProfilesRes.error },
+        { name: 'inspiration_saves', error: savesRes.error },
+      ];
+      const failedTables = tableResults.filter((r) => r.error != null);
+      if (failedTables.length > 0) {
+        logger.warn(
+          'Export partial errors:',
+          failedTables.map((r) => r.name),
+        );
+      }
+
       const data = {
         exportedAt: new Date().toISOString(),
         version: 2,
+        // Wave 8.5 PR B (P90): structured partial-failure marker — when
+        // present, the export is incomplete. Downstream tooling that
+        // consumes the JSON can detect missing tables explicitly instead
+        // of treating empty arrays as "user has zero rows in this table".
+        partial: failedTables.length > 0
+          ? failedTables.map((r) => r.name)
+          : undefined,
         profile: profileRes.data ?? null,
         garments: garmentsRes.data ?? [],
         outfits: outfitsRes.data ?? [],
@@ -144,7 +179,15 @@ export default function SettingsPrivacy() {
       a.click();
       // Defer revoke so iOS Safari WebView completes the download (audit P2-1).
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success(t('settings.export_success'));
+      if (failedTables.length > 0) {
+        // Partial export — user got SOME data but several tables failed.
+        // Surface this so they don't believe the JSON is authoritative.
+        toast.warning(
+          `${t('settings.export_success')} (${failedTables.length} ${failedTables.length === 1 ? 'table' : 'tables'} partial)`,
+        );
+      } else {
+        toast.success(t('settings.export_success'));
+      }
     } catch (err) {
       logger.error('Export failed:', err);
       toast.error(t('settings.export_error'));

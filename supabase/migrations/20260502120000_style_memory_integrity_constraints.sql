@@ -126,6 +126,76 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_garment_pair_memory_unique_pair
 COMMENT ON INDEX public.idx_garment_pair_memory_unique_pair IS
   'Wave 8.5 PR B integrity. Required by PR A _upsert_garment_pair_memory race fix and PR B ingest_memory_event RPC. Partial — legacy null-pair rows excluded.';
 
+-- Step 3: replace `_upsert_garment_pair_memory` to use ON CONFLICT instead of
+-- the legacy SELECT-then-INSERT-or-UPDATE pattern. Without this, the UNIQUE
+-- INDEX above would surface the race in PR A's helper as a constraint
+-- violation on every concurrent write — `ingest_memory_event` would start
+-- throwing 500 errors on N×(N-1)/2 pair upserts during legitimate save / wear
+-- events. Self-audit P0 finding.
+--
+-- The INSERT ... ON CONFLICT path is now atomic: Postgres guarantees exactly
+-- one winner per (user_id, garment_a_id, garment_b_id) tuple. The
+-- ON CONFLICT DO UPDATE branch increments the same counter the legacy UPDATE
+-- branch did.
+
+CREATE OR REPLACE FUNCTION public._upsert_garment_pair_memory(
+  p_user_id uuid,
+  p_a uuid,
+  p_b uuid,
+  p_delta integer
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_a = p_b THEN
+    -- Refuse self-pair — shouldn't happen but defensive.
+    RETURN;
+  END IF;
+
+  INSERT INTO public.garment_pair_memory (
+    user_id,
+    garment_a_id,
+    garment_b_id,
+    positive_count,
+    negative_count,
+    last_positive_at,
+    last_negative_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    p_user_id,
+    p_a,
+    p_b,
+    CASE WHEN p_delta > 0 THEN 1 ELSE 0 END,
+    CASE WHEN p_delta < 0 THEN 1 ELSE 0 END,
+    CASE WHEN p_delta > 0 THEN now() ELSE NULL END,
+    CASE WHEN p_delta < 0 THEN now() ELSE NULL END,
+    now(),
+    now()
+  )
+  ON CONFLICT (user_id, garment_a_id, garment_b_id) WHERE garment_a_id IS NOT NULL AND garment_b_id IS NOT NULL
+  DO UPDATE SET
+    positive_count   = public.garment_pair_memory.positive_count
+                     + CASE WHEN p_delta > 0 THEN 1 ELSE 0 END,
+    negative_count   = public.garment_pair_memory.negative_count
+                     + CASE WHEN p_delta < 0 THEN 1 ELSE 0 END,
+    last_positive_at = CASE WHEN p_delta > 0 THEN now() ELSE public.garment_pair_memory.last_positive_at END,
+    last_negative_at = CASE WHEN p_delta < 0 THEN now() ELSE public.garment_pair_memory.last_negative_at END,
+    updated_at       = now();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public._upsert_garment_pair_memory(uuid, uuid, uuid, integer)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._upsert_garment_pair_memory(uuid, uuid, uuid, integer)
+  TO service_role;
+
+COMMENT ON FUNCTION public._upsert_garment_pair_memory(uuid, uuid, uuid, integer) IS
+  'Wave 8.5 PR B P0 fix: race-free ON CONFLICT version. Replaces PR A''s SELECT-then-INSERT pattern that raced under the new UNIQUE INDEX.';
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 2 — user_style_summaries: CHECK constraints on version + confidence
 -- ─────────────────────────────────────────────────────────────────────────────
