@@ -12,7 +12,7 @@ import { Eyebrow } from '../../components/Eyebrow';
 import { PageTitle } from '../../components/PageTitle';
 import { Button } from '../../components/Button';
 import { CheckIcon } from '../../components/icons';
-import { setLocale, t as tr } from '../../lib/i18n';
+import { getLocale, setLocale, t as tr } from '../../lib/i18n';
 import { hapticLight, hapticSelection } from '../../lib/haptics';
 
 export type LanguageCode = 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
@@ -40,7 +40,10 @@ export function LanguageStep({
   onComplete: (code: LanguageCode) => void;
 }) {
   const t = useTokens();
-  const [selected, setSelected] = React.useState<LanguageCode>(initial ?? 'en');
+  // Default to the detected system locale (set at import in lib/i18n.ts) so a
+  // Swedish-system user sees Svenska pre-selected, not English. Caller-supplied
+  // `initial` still wins (used for re-entry from a persisted draft).
+  const [selected, setSelected] = React.useState<LanguageCode>(initial ?? (getLocale() as LanguageCode));
 
   return (
     <View style={{ flex: 1 }}>

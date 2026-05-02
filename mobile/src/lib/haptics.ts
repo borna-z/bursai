@@ -1,47 +1,53 @@
-// Tap-feedback shim. The real implementation will use `expo-haptics`
-// (`Haptics.impactAsync(...)`) once the package is added — adding new packages
-// requires explicit user approval per CLAUDE.md, so this file is a no-op stub
-// today. The point: every Pressable in the app calls one of these helpers, so
-// the day expo-haptics is added is a one-line wire-up at the bottom of this
-// file rather than a 30-site sweep.
+// Tap-feedback wrappers around expo-haptics. Centralized so call-sites
+// (`hapticLight()` etc.) stay decoupled from the underlying API — switching to
+// react-native-haptic-feedback or a custom native module later is one file.
 //
 // Usage:
 //   import { hapticLight } from '../lib/haptics';
 //   <Pressable onPress={() => { hapticLight(); doThing(); }} />
 //
-// Helpers map onto Expo's intensity scale:
-//   light    → Haptics.ImpactFeedbackStyle.Light
-//   medium   → Haptics.ImpactFeedbackStyle.Medium
-//   heavy    → Haptics.ImpactFeedbackStyle.Heavy
-//   success  → Haptics.NotificationFeedbackType.Success
-//   warning  → Haptics.NotificationFeedbackType.Warning
-//   error    → Haptics.NotificationFeedbackType.Error
-//   selection→ Haptics.selectionAsync()
+// All calls are fire-and-forget. expo-haptics returns a Promise but we never
+// await — UI feedback shouldn't block the next action. Errors swallow because
+// (a) on web/simulator the API silently no-ops, (b) on a real device a haptic
+// failure is never user-visible.
+
+import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
+
+// Web has no haptic surface — skip the no-op call to avoid console noise.
+const supported = Platform.OS === 'ios' || Platform.OS === 'android';
+
+function safe(fn: () => Promise<unknown>): void {
+  if (!supported) return;
+  fn().catch(() => {
+    // Swallow — haptics are non-critical UI feedback.
+  });
+}
 
 export function hapticLight(): void {
-  // no-op until expo-haptics is wired
+  safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
 }
 
 export function hapticMedium(): void {
-  // no-op
+  safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium));
 }
 
 export function hapticHeavy(): void {
-  // no-op
+  safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy));
 }
 
 export function hapticSuccess(): void {
-  // no-op
+  safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
 }
 
 export function hapticWarning(): void {
-  // no-op
+  safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning));
 }
 
 export function hapticError(): void {
-  // no-op
+  safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error));
 }
 
 export function hapticSelection(): void {
-  // no-op
+  safe(() => Haptics.selectionAsync());
 }

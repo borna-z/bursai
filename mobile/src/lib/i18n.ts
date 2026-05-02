@@ -12,14 +12,32 @@
 //   - placeholders use {name} syntax: t('paywall.trial', { price: '119 SEK' })
 
 import React from 'react';
+import * as Localization from 'expo-localization';
 
 export type Locale =
   | 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
 
-// Currently always English — the LanguageStep stores the user's pick into
-// onboarding state but doesn't yet flip the active locale. Once a real i18n
-// store lands, `setLocale` will swap the active dictionary.
-let activeLocale: Locale = 'en';
+const SUPPORTED_LOCALES: ReadonlyArray<Locale> = [
+  'en', 'sv', 'fr', 'de', 'es', 'it', 'ar', 'fa', 'pl', 'pt',
+];
+
+// Pick the closest supported locale from the device's preferred-language list.
+// `getLocales()` returns a ranked array — if the user's first preference is fr-CA
+// we strip the region tag and match against `fr`. Falls back to en.
+function detectInitialLocale(): Locale {
+  try {
+    const ranked = Localization.getLocales?.() ?? [];
+    for (const entry of ranked) {
+      const tag = (entry.languageCode ?? '').toLowerCase() as Locale;
+      if (SUPPORTED_LOCALES.includes(tag)) return tag;
+    }
+  } catch {
+    // Localization API can throw on web in obscure browsers — fall through to en.
+  }
+  return 'en';
+}
+
+let activeLocale: Locale = detectInitialLocale();
 
 const subscribers = new Set<() => void>();
 
