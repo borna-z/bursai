@@ -39,11 +39,11 @@ const APP_VERSION = '2.0.4';
 export function SettingsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const push = (route: keyof RootStackParamList) => () => nav.navigate(route as never);
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
+      // TODO: wire supabase.auth.signOut() once mobile auth bridge lands. Codex audit P3.8.
       { text: 'Sign out', style: 'destructive', onPress: () => {} },
     ]);
   };
@@ -61,7 +61,7 @@ export function SettingsScreen() {
           </View>
           <IconBtn
             ariaLabel="Profile"
-            onPress={push('Profile')}
+            onPress={() => nav.navigate('Profile')}
             style={{ backgroundColor: t.accent, borderColor: 'transparent' }}>
             <Text style={{ color: t.accentFg, fontFamily: fonts.uiSemi, fontSize: 14, fontWeight: '600' }}>
               B
@@ -111,14 +111,14 @@ export function SettingsScreen() {
             }
             title="Borna Krneta"
             caption="borna@example.com"
-            onPress={push('Profile')}
+            onPress={() => nav.navigate('Profile')}
           />
           <SettingsRow
             icon={<GlobeIcon size={18} color={t.accent} />}
             title="Language"
             value="English"
             last
-            onPress={push('Settings')}
+            onPress={() => nav.navigate('Settings')}
           />
         </Section>
 
@@ -128,7 +128,7 @@ export function SettingsScreen() {
             icon={<TshirtIcon size={18} color={t.accent} />}
             title="Style profile"
             caption="Quiet luxe · Earth tones"
-            onPress={push('SettingsStyle')}
+            onPress={() => nav.navigate('SettingsStyle')}
           />
           <SettingsRow
             icon={<TrashIcon size={18} color={t.destructive} />}
@@ -155,14 +155,14 @@ export function SettingsScreen() {
             icon={<PaletteIcon size={18} color={t.accent} />}
             title="Appearance"
             value="System"
-            onPress={push('SettingsAppearance')}
+            onPress={() => nav.navigate('SettingsAppearance')}
           />
           <SettingsRow
             icon={<BellIcon size={18} color={t.accent} />}
             title="Notifications"
             caption="Daily looks · weather · stylist"
             last
-            onPress={push('SettingsNotifications')}
+            onPress={() => nav.navigate('SettingsNotifications')}
           />
         </Section>
 
@@ -172,14 +172,14 @@ export function SettingsScreen() {
             icon={<GearIcon size={18} color={t.accent} />}
             title="Account"
             caption="Email, password, connected accounts"
-            onPress={push('SettingsAccount')}
+            onPress={() => nav.navigate('SettingsAccount')}
           />
           <SettingsRow
             icon={<LockIcon size={18} color={t.accent} />}
             title="Privacy & data"
             caption="Export, reset memory, delete account"
             last
-            onPress={push('SettingsPrivacy')}
+            onPress={() => nav.navigate('SettingsPrivacy')}
           />
         </Section>
 

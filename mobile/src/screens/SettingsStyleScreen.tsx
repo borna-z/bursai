@@ -9,6 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
+import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Card } from '../components/Card';
@@ -24,14 +25,8 @@ const ARCHETYPES = ['Minimal', 'Editorial', 'Earth tones'] as const;
 const FORMALITY_LEVELS = ['Loungewear', 'Casual', 'Smart casual', 'Business', 'Formal'] as const;
 const CURRENT_FORMALITY = 'Smart casual';
 
-const FAVORITE_COLORS = [
-  '#F4ECDD', // cream
-  '#C8B89C', // sand
-  '#8B6F4E', // brown
-  '#1D1916', // black
-  '#2E3B4E', // navy
-  '#A8966C', // olive
-];
+// Sourced from `theme/styleColors.ts` (single source of truth shared with ProfileScreen).
+const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES;
 
 export function SettingsStyleScreen() {
   const t = useTokens();

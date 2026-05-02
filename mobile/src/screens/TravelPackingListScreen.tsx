@@ -6,7 +6,7 @@
 // footer button.
 
 import React from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -86,19 +86,28 @@ export function TravelPackingListScreen() {
   const nav = useNavigation<Nav>();
   const [packed, setPacked] = React.useState<Set<string>>(new Set());
 
-  const togglePacked = (id: string) => {
+  // Codex audit P3.7 — share placeholder until react-native-share is wired in.
+  // TODO: replace with native Share API or react-native-share once content schema lands.
+  const handleShare = React.useCallback(() => {
+    Alert.alert('Share packing list', 'Sharing coming soon.');
+  }, []);
+
+  const togglePacked = React.useCallback((id: string) => {
     setPacked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
   const packedCount = packed.size;
-  const progress = packedCount / TOTAL;
+  // Codex audit P2.3 — guard against TOTAL===0 once the live wardrobe hook lands.
+  const progress = TOTAL > 0 ? packedCount / TOTAL : 0;
 
-  const renderItem = ({ item, index, section }: { item: PackingItem; index: number; section: Section }) => {
+  // Memoised so SectionList row memoisation isn't invalidated on parent re-renders.
+  // Codex audit P2.2.
+  const renderItem = React.useCallback(({ item, index, section }: { item: PackingItem; index: number; section: Section }) => {
     const isPacked = packed.has(item.id);
     const isLast = index === section.data.length - 1;
     return (
@@ -119,11 +128,14 @@ export function TravelPackingListScreen() {
             opacity: pressed ? 0.7 : isPacked ? 0.55 : 1,
           },
         ]}>
+        {/* Decorative gradient — hidden from screen readers. Codex audit P2.6. */}
         <LinearGradient
           colors={[`hsl(${item.hue}, 38%, 78%)`, `hsl(${(item.hue + 30) % 360}, 30%, 62%)`]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ width: 44, height: 44, borderRadius: radii.md }}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
         />
         <View style={{ flex: 1, gap: 2 }}>
           <Text
@@ -165,7 +177,7 @@ export function TravelPackingListScreen() {
         </View>
       </Pressable>
     );
-  };
+  }, [packed, t, togglePacked]);
 
   const renderSectionHeader = ({ section }: { section: Section }) => {
     const sectionPacked = section.data.filter((d) => packed.has(d.id)).length;
@@ -186,7 +198,9 @@ export function TravelPackingListScreen() {
   const renderSectionFooter = ({ section }: { section: Section }) => (
     <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
       <Pressable
-        onPress={() => nav.navigate('Wardrobe' as never)}
+        // Wardrobe is a tab inside MainTabs, not a stack route — go via the tab container.
+        // Codex audit P0.1.
+        onPress={() => nav.navigate('MainTabs', { initialTab: 'wardrobe' })}
         accessibilityRole="button"
         accessibilityLabel={`Add from wardrobe to ${section.title}`}
         style={({ pressed }) => [
@@ -222,12 +236,14 @@ export function TravelPackingListScreen() {
           <Eyebrow style={{ marginBottom: 4 }}>Lisbon · 5 days</Eyebrow>
           <PageTitle>Your capsule</PageTitle>
         </View>
-        <IconBtn ariaLabel="Share">
+        <IconBtn ariaLabel="Share" onPress={handleShare}>
           <ShareIcon color={t.fg} />
         </IconBtn>
       </View>
 
-      {/* Trip summary pill row */}
+      {/* Trip summary pill row.
+          TODO: thread destination/dates/tripType from route params once the wizard wires
+          its state through TravelMustHaves → TravelPackingList. Codex audit P2.9. */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {['May 12 – 17', '5 nights', '18–24°', 'City'].map((label) => (
           <View
@@ -317,6 +333,7 @@ export function TravelPackingListScreen() {
           variant="accent"
           block
           leadingIcon={<ShareIcon color={t.accentFg} size={14} />}
+          onPress={handleShare}
           style={{ flex: 1 }}
         />
       </View>

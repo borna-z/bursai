@@ -41,16 +41,33 @@ export function ResetPasswordScreen() {
 
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+  // Track in-flight timer + mounted flag so we don't setState after unmount.
+  // Codex audit P1.4. The ref pattern survives unmount during the 700ms mock delay; once
+  // supabase.auth.resetPasswordForEmail() is wired, the same guard prevents promise
+  // resolution from updating an unmounted component.
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const handleSubmit = () => {
     if (!isEmailValid) return;
     setSubmitting(true);
-    // Real Supabase auth.resetPasswordForEmail() call goes here when wired.
-    setTimeout(() => {
+    // TODO: replace with supabase.auth.resetPasswordForEmail() once mobile auth bridge lands.
+    timerRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
       setSubmitting(false);
       setState('success');
     }, 700);
   };
 
+  // `mailto:` opens compose, not the inbox — no public scheme exists for "open inbox".
+  // Honest label below ("Open mail to compose") matches what the OS will actually do.
+  // Codex audit P1.6.
   const handleOpenMail = () => {
     Linking.openURL('mailto:').catch(() => {});
   };

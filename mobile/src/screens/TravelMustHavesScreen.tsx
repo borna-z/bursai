@@ -62,14 +62,14 @@ export function TravelMustHavesScreen() {
     return GARMENT_FIXTURES.filter((g) => g.category === filter);
   }, [filter]);
 
-  const toggle = (id: string) => {
+  const toggle = React.useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
   const header = (
     <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
@@ -78,7 +78,7 @@ export function TravelMustHavesScreen() {
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 4 }}>Step 2 of 4</Eyebrow>
+          <Eyebrow style={{ marginBottom: 4 }}>Step 2 of 3</Eyebrow>
           <PageTitle>Must-haves</PageTitle>
         </View>
       </View>
@@ -92,7 +92,9 @@ export function TravelMustHavesScreen() {
     </View>
   );
 
-  const renderTile = ({ item }: { item: GarmentFixture }) => {
+  // Memoised renderTile — preserves FlatList row memoisation across parent re-renders.
+  // Codex audit P2.2.
+  const renderTile = React.useCallback(({ item }: { item: GarmentFixture }) => {
     const isSelected = selected.has(item.id);
     return (
       <Pressable
@@ -125,7 +127,7 @@ export function TravelMustHavesScreen() {
         </View>
       </Pressable>
     );
-  };
+  }, [selected, toggle, t.accent, t.accentFg, t.border]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>

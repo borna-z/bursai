@@ -19,12 +19,14 @@ import { Button } from '../components/Button';
 import { StatBlock } from '../components/StatBlock';
 import { SettingsRow } from '../components/SettingsRow';
 import { BackIcon, GearIcon, TshirtIcon } from '../components/icons';
+import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const ARCHETYPES = ['Minimal', 'Editorial', 'Earth tones'];
-const FAVORITE_COLORS = ['#F4ECDD', '#C8B89C', '#8B6F4E', '#1D1916', '#2E3B4E'];
+// Sourced from `theme/styleColors.ts` (single source of truth shared with SettingsStyleScreen).
+const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES.slice(0, 5);
 const FORMALITY_LEVELS = ['Casual', 'Smart casual', 'Business'];
 const CURRENT_FORMALITY = 'Smart casual';
 

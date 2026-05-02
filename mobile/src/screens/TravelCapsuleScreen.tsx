@@ -29,13 +29,32 @@ const TRIP_TYPES = ['Business', 'Leisure', 'Beach', 'City', 'Outdoor', 'Winter']
 
 type TripType = (typeof TRIP_TYPES)[number];
 
+// Strict YYYY-MM-DD parser. `Date.parse` interprets ISO date strings as UTC, but the user
+// types local-calendar dates — and Hermes returns NaN inconsistently for non-ISO forms
+// (e.g. "5/12/2026"). Parse via explicit components and treat both endpoints as the same
+// timezone, returning the night-count.
+//
+// Returns null on missing or malformed input; returns 0 for same-day (day trip).
+// Codex audit P1.1 + P1.2.
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseISODate(value: string): Date | null {
+  const match = ISO_DATE_RE.exec(value.trim());
+  if (!match) return null;
+  const [, y, m, d] = match;
+  const year = Number(y);
+  const month = Number(m);
+  const day = Number(d);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return new Date(year, month - 1, day);
+}
+
 function nightsBetween(from: string, to: string): number | null {
-  // Lightweight YYYY-MM-DD parser. Returns null on missing or unparseable input.
   if (!from || !to) return null;
-  const a = Date.parse(from);
-  const b = Date.parse(to);
-  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return null;
-  return Math.round((b - a) / 86_400_000);
+  const a = parseISODate(from);
+  const b = parseISODate(to);
+  if (!a || !b || b.getTime() < a.getTime()) return null;
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
 export function TravelCapsuleScreen() {
@@ -73,9 +92,10 @@ export function TravelCapsuleScreen() {
           </View>
 
           {/* ============ STEP INDICATOR ============ */}
+          {/* Wizard has 3 stops (this + must-haves + packing list). Codex audit P2.7. */}
           <View style={[s.stepChip, { backgroundColor: t.accentSoft }]}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: t.accent }}>
-              Step 1 of 4
+              Step 1 of 3
             </Text>
           </View>
 
@@ -115,8 +135,10 @@ export function TravelCapsuleScreen() {
                 <TextInput
                   value={fromDate}
                   onChangeText={setFromDate}
-                  placeholder="From"
+                  placeholder="From (YYYY-MM-DD)"
                   placeholderTextColor={t.fg3}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                   style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 13, padding: 0 }}
                 />
                 <CalendarIcon color={t.fg2} />
@@ -125,16 +147,20 @@ export function TravelCapsuleScreen() {
                 <TextInput
                   value={toDate}
                   onChangeText={setToDate}
-                  placeholder="To"
+                  placeholder="To (YYYY-MM-DD)"
                   placeholderTextColor={t.fg3}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                   style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 13, padding: 0 }}
                 />
                 <CalendarIcon color={t.fg2} />
               </View>
             </View>
+            {/* Day-trip (0 nights) gets distinct copy; otherwise show pluralised night count.
+                Codex audit P1.2. */}
             {nights != null ? (
               <Eyebrow style={{ color: t.accent, opacity: 1 }}>
-                {nights} {nights === 1 ? 'night' : 'nights'}
+                {nights === 0 ? 'Day trip' : nights === 1 ? '1 night' : `${nights} nights`}
               </Eyebrow>
             ) : null}
           </View>

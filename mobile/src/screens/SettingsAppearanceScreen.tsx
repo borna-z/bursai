@@ -55,7 +55,12 @@ export function SettingsAppearanceScreen() {
         {/* ============ THEME OPTIONS ============ */}
         <View style={{ gap: 10 }}>
           <Eyebrow>Theme</Eyebrow>
-          <View style={{ gap: 8 }}>
+          {/* radiogroup role lets VoiceOver/TalkBack announce position ("1 of 3").
+              Codex audit P2.5. */}
+          <View
+            style={{ gap: 8 }}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Theme">
             {OPTIONS.map((option) => {
               const isActive = mode === option.id;
               return (
