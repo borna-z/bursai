@@ -76,6 +76,12 @@ vi.mock('@/hooks/useOutfits', () => ({
   useMarkOutfitWorn: () => ({ mutateAsync: markWornMutateAsync, isPending: false }),
 }));
 
+// Wave 8.5 PR B (P86): stub the memory-write hook (avoids QueryClient).
+vi.mock('@/hooks/useFeedbackSignals', () => ({
+  useRecordMemoryEvent: () => ({ record: () => {}, mutation: { mutate: () => {} } }),
+  useFeedbackSignals: () => ({ record: () => {}, mutation: { mutate: () => {} } }),
+}));
+
 vi.mock('@/hooks/useSignedUrlCache', () => ({
   useCachedSignedUrl: () => ({ signedUrl: null, setRef: vi.fn() }),
 }));

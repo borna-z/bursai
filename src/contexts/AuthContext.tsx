@@ -17,7 +17,12 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Wave 8.5 PR B (P86) — exported so hooks like useRecordMemoryEvent can
+// useContext(AuthContext) directly without throwing when no provider is
+// in scope (matters for component-isolated tests that don't wrap with
+// AuthProvider but still render hooks calling useAuth).
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -238,4 +243,14 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+// Wave 8.5 PR B (P86) — non-throwing variant for hooks that may be
+// mounted inside isolated component tests that don't wrap with
+// AuthProvider. Returns null when no provider is in scope; callers
+// should treat null as "unauthenticated" and no-op.
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuthOrNull(): AuthContextType | null {
+  const context = useContext(AuthContext);
+  return context ?? null;
 }

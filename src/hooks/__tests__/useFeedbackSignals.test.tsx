@@ -23,9 +23,9 @@ vi.mock("@/lib/edgeFunctionClient", () => ({
   invokeEdgeFunction: invokeMock,
 }));
 
-const useAuthMock = vi.hoisted(() => vi.fn());
+const useAuthOrNullMock = vi.hoisted(() => vi.fn());
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: useAuthMock,
+  useAuthOrNull: useAuthOrNullMock,
 }));
 
 vi.mock("@/lib/memoryEventQueue", () => ({
@@ -54,7 +54,8 @@ beforeEach(() => {
     },
     error: null,
   });
-  useAuthMock.mockReturnValue({ user: { id: "u1" } });
+  useAuthOrNullMock.mockReset();
+  useAuthOrNullMock.mockReturnValue({ user: { id: "u1" } });
 });
 
 describe("useFeedbackSignals (alias for useRecordMemoryEvent)", () => {

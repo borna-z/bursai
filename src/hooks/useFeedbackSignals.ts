@@ -37,7 +37,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthOrNull } from "@/contexts/AuthContext";
 import { invokeEdgeFunction } from "@/lib/edgeFunctionClient";
 import { enqueueMemoryEvent } from "@/lib/memoryEventQueue";
 import { logger } from "@/lib/logger";
@@ -50,8 +50,12 @@ import {
 const FOUR_XX_PATTERN = /\b(400|401|402|403|404)\b/;
 
 export function useRecordMemoryEvent() {
-  const { user } = useAuth();
-  const userId = user?.id;
+  // useAuthOrNull returns null instead of throwing when no AuthProvider
+  // is in scope — keeps the hook safe to mount inside isolated component
+  // tests that don't wrap with AuthProvider (existing AIChat / MoodOutfit
+  // / OutfitGenerate tests don't).
+  const auth = useAuthOrNull();
+  const userId = auth?.user?.id;
 
   const mutation = useMutation({
     mutationFn: async (input: RecordMemoryEventInput) => {

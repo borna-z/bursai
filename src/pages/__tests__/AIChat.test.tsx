@@ -36,6 +36,16 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => useAuthMock(),
+  // Wave 8.5 PR B (P86): useRecordMemoryEvent uses useAuthOrNull —
+  // proxy to the same mock so signal-emit paths see the test user.
+  useAuthOrNull: () => useAuthMock(),
+}));
+
+// Wave 8.5 PR B (P86): mock memory-write hook so the page tests don't
+// need to provide a QueryClient just for the fire-and-forget signal call.
+vi.mock('@/hooks/useFeedbackSignals', () => ({
+  useRecordMemoryEvent: () => ({ record: () => {}, mutation: { mutate: () => {} } }),
+  useFeedbackSignals: () => ({ record: () => {}, mutation: { mutate: () => {} } }),
 }));
 
 vi.mock('@/contexts/LanguageContext', () => ({

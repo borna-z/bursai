@@ -9,9 +9,13 @@ vi.mock("@/lib/edgeFunctionClient", () => ({
   invokeEdgeFunction: invokeMock,
 }));
 
-const useAuthMock = vi.hoisted(() => vi.fn());
+// Wave 8.5 PR B (P86) — useRecordMemoryEvent calls useAuthOrNull (the
+// non-throwing variant) so it can be safely mounted inside isolated
+// component tests that lack an AuthProvider. For unit tests we mock the
+// helper directly.
+const useAuthOrNullMock = vi.hoisted(() => vi.fn());
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: useAuthMock,
+  useAuthOrNull: useAuthOrNullMock,
 }));
 
 const enqueueMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -34,7 +38,8 @@ beforeEach(() => {
   invokeMock.mockReset();
   enqueueMock.mockReset();
   enqueueMock.mockResolvedValue(undefined);
-  useAuthMock.mockReturnValue({ user: { id: "uA" } });
+  useAuthOrNullMock.mockReset();
+  useAuthOrNullMock.mockReturnValue({ user: { id: "uA" } });
 });
 
 describe("useRecordMemoryEvent", () => {
@@ -66,7 +71,14 @@ describe("useRecordMemoryEvent", () => {
   });
 
   it("no-ops when user is not authenticated", () => {
-    useAuthMock.mockReturnValue({ user: null });
+    useAuthOrNullMock.mockReturnValue({ user: null });
+    const { result } = renderHook(() => useRecordMemoryEvent(), { wrapper });
+    result.current.record({ signal_type: "save_outfit" });
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when no AuthProvider is in scope (useAuthOrNull returns null)", () => {
+    useAuthOrNullMock.mockReturnValue(null);
     const { result } = renderHook(() => useRecordMemoryEvent(), { wrapper });
     result.current.record({ signal_type: "save_outfit" });
     expect(invokeMock).not.toHaveBeenCalled();
