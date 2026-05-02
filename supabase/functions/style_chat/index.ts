@@ -1022,15 +1022,17 @@ serve(async (req) => {
     if (lastUserTurnText && lastUserTurnText.trim().length > 0) {
       const extractionPromise = (async () => {
         try {
+          // StyleChatActiveLookInput intentionally has no outfit_id field
+          // — chat-suggested looks are pre-save (the outfit row doesn't
+          // exist yet). The extraction module's ExtractionContext accepts
+          // outfit_id as optional; we just omit it here. Downstream
+          // ingestMemoryEvent handles missing outfit_id correctly.
           const events = extractMemoryEvents({
             userTurn: lastUserTurnText,
             locale,
             activeLook:
               explicitActiveLook && Array.isArray(explicitActiveLook.garment_ids)
-                ? {
-                    garment_ids: explicitActiveLook.garment_ids,
-                    outfit_id: explicitActiveLook.outfit_id ?? undefined,
-                  }
+                ? { garment_ids: explicitActiveLook.garment_ids }
                 : null,
             anchorGarmentId:
               (typeof explicitActiveLook?.anchor_garment_id === "string"
