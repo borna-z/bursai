@@ -33,6 +33,8 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.outfit_photo_feedback]
     verify_jwt = false
+  [functions.reset_style_memory]
+    verify_jwt = false
   [functions.restore_subscription]
     verify_jwt = false
   [functions.send_push_notification]

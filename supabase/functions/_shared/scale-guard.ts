@@ -85,6 +85,10 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   // every render). Onboarding multiplier (3x) applies — new users explore
   // their wardrobe heavily and we want every tap captured.
   memory_ingest:               { maxPerHour: 200, maxPerMinute: 30 },
+  // reset_style_memory (Wave 8.5 P90): destructive Style Memory wipe.
+  // Tight cap — destructive op, no legitimate reason to fire more than
+  // a few times per hour (the user already double-confirms via dialog).
+  reset_style_memory:          { maxPerHour: 5, maxPerMinute: 1 },
   // calendar: sync + event read calls to Google Calendar API
   calendar:                    { maxPerHour: 30, maxPerMinute: 10 },
   // google_calendar_auth: OAuth handshake — low-frequency by design

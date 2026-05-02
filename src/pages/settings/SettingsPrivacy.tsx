@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Download, Trash2, ChevronRight, ChevronDown, Loader2, Shield, Database, ToggleLeft, Scale, Mail, User, Image, Calendar, MessageSquare, Ruler, ExternalLink } from 'lucide-react';
+import { Download, Trash2, ChevronRight, ChevronDown, Loader2, Shield, Database, ToggleLeft, Scale, Mail, User, Image, Calendar, MessageSquare, Ruler, ExternalLink, Sparkles } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import {
@@ -36,12 +37,15 @@ interface ConsentPrefs {
 
 export default function SettingsPrivacy() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Wave 8.5 PR B (P90) — Reset Style Memory
+  const [isResettingMemory, setIsResettingMemory] = useState(false);
   const [openSection, setOpenSection] = useState<SectionId | null>(null);
 
   const preferences = asPreferences(profile?.preferences);
@@ -61,25 +65,123 @@ export default function SettingsPrivacy() {
   };
 
   const handleExportData = async () => {
+    // Wave 8.5 PR B (P90) — extended GDPR export bundle.
+    //
+    // Legacy version exported 3 tables; this covers the 14 user-authored /
+    // memory-relevant tables surfaced by the audit (§8b). Per-table
+    // section dropped via JSON.stringify without indentation (audit P0-1
+    // mitigation — large wardrobes can blow heap on indented stringify;
+    // dropping `, 2` halves the size).
     setIsExporting(true);
     try {
       const userId = user?.id ?? '';
-      const [garmentsRes, outfitsRes, profileRes] = await Promise.all([
+      if (!userId) {
+        toast.error(t('settings.export_error'));
+        return;
+      }
+      const [
+        garmentsRes,
+        outfitsRes,
+        profileRes,
+        summariesRes,
+        signalsRes,
+        pairsRes,
+        wearLogsRes,
+        chatMsgsRes,
+        outfitFeedbackRes,
+        outfitReactionsRes,
+        swapEventsRes,
+        plannedRes,
+        styleProfilesRes,
+        savesRes,
+      ] = await Promise.all([
         supabase.from('garments').select('*').eq('user_id', userId),
         supabase.from('outfits').select('*, outfit_items(*)').eq('user_id', userId),
         supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('user_style_summaries').select('*').eq('user_id', userId),
+        supabase.from('feedback_signals').select('*').eq('user_id', userId),
+        supabase.from('garment_pair_memory').select('*').eq('user_id', userId),
+        supabase.from('wear_logs').select('*').eq('user_id', userId),
+        supabase.from('chat_messages').select('*').eq('user_id', userId),
+        supabase.from('outfit_feedback').select('*').eq('user_id', userId),
+        supabase.from('outfit_reactions').select('*').eq('user_id', userId),
+        supabase.from('swap_events').select('*').eq('user_id', userId),
+        supabase.from('planned_outfits').select('*').eq('user_id', userId),
+        supabase.from('user_style_profiles').select('*').eq('user_id', userId),
+        supabase.from('inspiration_saves').select('*').eq('user_id', userId),
       ]);
-      const data = { profile: profileRes.data, garments: garmentsRes.data, outfits: outfitsRes.data, exportedAt: new Date().toISOString() };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+      const data = {
+        exportedAt: new Date().toISOString(),
+        version: 2,
+        profile: profileRes.data ?? null,
+        garments: garmentsRes.data ?? [],
+        outfits: outfitsRes.data ?? [],
+        // Memory tables (P0 per audit)
+        user_style_summaries: summariesRes.data ?? [],
+        feedback_signals: signalsRes.data ?? [],
+        garment_pair_memory: pairsRes.data ?? [],
+        wear_logs: wearLogsRes.data ?? [],
+        // P1 tables
+        chat_messages: chatMsgsRes.data ?? [],
+        outfit_feedback: outfitFeedbackRes.data ?? [],
+        outfit_reactions: outfitReactionsRes.data ?? [],
+        swap_events: swapEventsRes.data ?? [],
+        planned_outfits: plannedRes.data ?? [],
+        // P2 tables
+        user_style_profiles: styleProfilesRes.data ?? [],
+        inspiration_saves: savesRes.data ?? [],
+      };
+
+      // Drop JSON indentation — large wardrobes (audit P0-1) can OOM
+      // on a renderer with `JSON.stringify(data, null, 2)`. Compact form
+      // ~halves the size.
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `burs-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-      URL.revokeObjectURL(url);
+      // Defer revoke so iOS Safari WebView completes the download (audit P2-1).
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success(t('settings.export_success'));
-    } catch { toast.error(t('settings.export_error')); }
-    finally { setIsExporting(false); }
+    } catch (err) {
+      logger.error('Export failed:', err);
+      toast.error(t('settings.export_error'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Wave 8.5 PR B (P90) — Reset Style Memory handler.
+  // Calls the destructive `reset_style_memory` edge fn, then invalidates
+  // React Query keys for any cached memory views so the UI refreshes
+  // immediately. Toast on success/error; no navigation.
+  const handleResetStyleMemory = async () => {
+    if (isResettingMemory) return;
+    setIsResettingMemory(true);
+    try {
+      const { error } = await invokeEdgeFunction<{ ok: boolean }>(
+        'reset_style_memory',
+        { retries: 1, timeout: 15000 },
+      );
+      if (error) throw error;
+      // Bust any cached memory-derived UI surfaces.
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['user-style-summary', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['feedback-signals', user.id] });
+      }
+      toast.success(
+        t('settings.gdpr.reset_success') || 'Style memory cleared',
+      );
+    } catch (err) {
+      logger.error('reset_style_memory failed:', err);
+      toast.error(
+        t('settings.gdpr.reset_error') || 'Could not clear style memory. Please try again.',
+      );
+    } finally {
+      setIsResettingMemory(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -224,9 +326,39 @@ export default function SettingsPrivacy() {
               <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_privacy_policy')} onClick={() => { hapticLight(); navigate('/privacy'); }}>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
-              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_terms')} onClick={() => { hapticLight(); navigate('/terms'); }} last>
+              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_terms')} onClick={() => { hapticLight(); navigate('/terms'); }}>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
+              {/* Wave 8.5 PR B (P90) — Reset Style Memory */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button type="button" className="w-full text-left">
+                    <SettingsRow icon={<Sparkles />} label={t('settings.gdpr.reset_memory') || 'Reset style memory'} last>
+                      <ChevronRight className="w-4 h-4 text-accent" />
+                    </SettingsRow>
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('settings.gdpr.reset_memory_title') || 'Reset your style memory?'}</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
+                      <p>{t('settings.gdpr.reset_memory_warning') || 'This permanently clears everything BURS has learned about your taste — saves, ratings, swaps, rejections, and the patterns we built from them.'}</p>
+                      <p>{t('settings.gdpr.reset_memory_what_clears') || 'Cleared: feedback signals, pair memory, style summary.'}</p>
+                      <p>{t('settings.gdpr.reset_memory_what_preserves') || 'Preserved: your account, garments, outfits, planned outfits, and wear history.'}</p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => { hapticLight(); handleResetStyleMemory(); }}
+                      disabled={isResettingMemory}
+                    >
+                      {isResettingMemory && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {t('settings.gdpr.reset_memory_confirm') || 'Yes, reset'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CollapsibleContent>
         </Collapsible>
