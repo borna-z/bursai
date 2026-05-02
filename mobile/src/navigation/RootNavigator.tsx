@@ -8,6 +8,11 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+// Acquisition flow (PR feat/mobile-onboarding-auth-paywall)
+import { SplashScreen as SplashRouteScreen } from '../screens/SplashScreen';
+import { AuthScreen } from '../screens/AuthScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { PaywallScreen } from '../screens/PaywallScreen';
 // AddPiece flow + stylist screens (from origin/main, PR #706 — Wave 8.5 P82)
 import { AddPieceStep1 } from '../screens/AddPieceStep1';
 import { AddPieceStep2 } from '../screens/AddPieceStep2';
@@ -40,6 +45,12 @@ export type TabName = TabId;
 export type AddPiecePhoto = { id: number; hue: number };
 
 export type RootStackParamList = {
+  // Acquisition flow — Splash is the initial route, gates auth + onboarding.
+  Splash: undefined;
+  Auth: undefined;
+  Onboarding: undefined;
+  Paywall: undefined;
+
   MainTabs: { initialTab?: TabId } | undefined;
 
   // Add piece flow (3 steps) — photos thread through so each step renders the user's batch.
@@ -172,12 +183,37 @@ const Placeholders = {
 export function RootNavigator() {
   return (
     <Stack.Navigator
-      initialRouteName="MainTabs"
+      initialRouteName="Splash"
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
         contentStyle: { backgroundColor: 'transparent' },
       }}>
+      {/* Acquisition flow — Splash gates onto Auth/Onboarding/MainTabs.
+          Auth and Onboarding fade-in to feel less like a "page push" since
+          they're the user's first impression of the app. Paywall presents
+          modal-style (slide from bottom) — it can mount on top of any screen. */}
+      <Stack.Screen
+        name="Splash"
+        component={SplashRouteScreen}
+        options={{ animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ animation: 'fade', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
       {/* Add piece flow — real implementations (PR #706) */}
