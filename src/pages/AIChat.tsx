@@ -16,6 +16,7 @@ import { hapticLight } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 import { useStyleDNA } from '@/hooks/useStyleDNA';
 import { useCreateOutfit } from '@/hooks/useOutfits';
+import { useRecordMemoryEvent } from '@/hooks/useFeedbackSignals';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatWelcome } from '@/components/chat/ChatWelcome';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -482,6 +483,8 @@ export default function AIChat() {
   const navigate = useNavigate();
   const location = useLocation();
   const createOutfit = useCreateOutfit();
+  // Wave 8.5 PR B (P86) — wire save_outfit on chat-driven outfit save.
+  const { record: recordMemoryEvent } = useRecordMemoryEvent();
   const { data: garmentCount } = useGarmentCount();
   const { data: styleDNA } = useStyleDNA();
 
@@ -1134,7 +1137,11 @@ export default function AIChat() {
         const slot = garment ? inferOutfitSlotFromGarment(garment) : 'top';
         return { garment_id: id, slot };
       });
-      await createOutfit.mutateAsync({
+      // Wave 8.5 PR B (P86 audit P1 #2) — capture result.id so the
+      // save_outfit signal carries the canonical outfit_id (was using a
+      // content-hash key that pair-memory + summary builder can't link
+      // back to the outfit row).
+      const saved = await createOutfit.mutateAsync({
         outfit: {
           name: t('chat.outfit_from_stylist'),
           generated_at: new Date().toISOString(),
@@ -1143,6 +1150,15 @@ export default function AIChat() {
         items,
       });
       setSavedOutfitIds((prev) => new Set([...prev, garmentIds.slice().sort().join(',')]));
+      // Emit canonical save_outfit signal — server normalizes the legacy
+      // alias if missed; using the canonical name here keeps the system
+      // typed end-to-end.
+      recordMemoryEvent({
+        signal_type: 'save_outfit',
+        outfit_id: saved?.id,
+        garment_ids: garmentIds,
+        source: 'AIChat:handleSaveFromChat',
+      });
       hapticLight();
       toast.success(t('chat.saved'));
     } catch (err) {
@@ -1158,7 +1174,7 @@ export default function AIChat() {
       savingRef.current = false;
       setIsSavingOutfit(false);
     }
-  }, [user, garmentMap, createOutfit, t]);
+  }, [user, garmentMap, createOutfit, recordMemoryEvent, t]);
 
   const handleEnterRefine = useCallback((garmentIds: string[], explanation: string) => {
     refineMode.enterRefineMode(garmentIds, explanation);

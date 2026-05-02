@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { OutfitGenerationState } from '@/components/ui/OutfitGenerationState';
 import { useOutfitGenerator, type GeneratedOutfit } from '@/hooks/useOutfitGenerator';
+import { useRecordMemoryEvent } from '@/hooks/useFeedbackSignals';
 import { useGarmentsByIds } from '@/hooks/useGarmentsByIds';
 import { useFlatGarments, type Garment } from '@/hooks/useGarments';
 import { getPreferredGarmentImagePath } from '@/lib/garmentImage';
@@ -184,6 +185,8 @@ export default function OutfitGeneratePage() {
   const [excludeIds, setExcludeIds] = useState<string[]>([]);
   const updateOutfit = useUpdateOutfit();
   const markWorn = useMarkOutfitWorn();
+  // Wave 8.5 PR B (P86) — wire save_outfit on outfit save.
+  const { record: recordMemoryEvent } = useRecordMemoryEvent();
   const preferredGarmentIds = useMemo(
     () => resolveStyleFlowGarmentIds(location.search, location.state),
     [location.search, location.state],
@@ -340,6 +343,14 @@ export default function OutfitGeneratePage() {
     try {
       await updateOutfit.mutateAsync({ id: outfit.id, updates: { saved: true } });
       trackEvent('outfit_saved', { outfit_id: outfit.id, occasion: outfit.occasion });
+      // Wave 8.5 PR B (P86) — emit canonical save_outfit signal so the
+      // generated-outfit save updates pair memory + style summary.
+      recordMemoryEvent({
+        signal_type: 'save_outfit',
+        outfit_id: outfit.id,
+        garment_ids: outfit.garment_ids ?? outfit.garments?.map((g) => g.id),
+        source: 'OutfitGenerate',
+      });
       toast.success(t('outfit.saved') || 'Outfit saved');
     } catch {
       toast.error(t('outfit.save_error'));
