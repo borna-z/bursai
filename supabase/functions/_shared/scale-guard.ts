@@ -77,6 +77,14 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   // as sibling Stripe-API endpoints (restore_subscription, create_portal_session).
   // Onboarding tier multiplier (3x) is irrelevant — the trial start is one-shot.
   start_trial:                 { maxPerHour: 10, maxPerMinute: 2 },
+  // memory_ingest (Wave 8.5 P85): canonical entry point for every Style
+  // Memory write (save / wear / rate / skip / swap / reject / quick_reaction
+  // / never_suggest / like_pair / dislike_pair). High-frequency by design —
+  // active users tap save/wear/rate dozens of times per session — but bounded
+  // against client-side bug loops (eg, runaway useEffect firing recordSignal
+  // every render). Onboarding multiplier (3x) applies — new users explore
+  // their wardrobe heavily and we want every tap captured.
+  memory_ingest:               { maxPerHour: 200, maxPerMinute: 30 },
   // calendar: sync + event read calls to Google Calendar API
   calendar:                    { maxPerHour: 30, maxPerMinute: 10 },
   // google_calendar_auth: OAuth handshake — low-frequency by design

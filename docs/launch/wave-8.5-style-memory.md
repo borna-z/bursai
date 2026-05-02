@@ -66,7 +66,7 @@ The audit lives in the PR body as the "Implementation note" section. Subsequent 
 
 ---
 
-### P83 — Standardize signal taxonomy
+### P83 — Standardize signal taxonomy [DONE] (PR #709, 2026-05-01)
 
 **Problem**
 Existing memory/feedback signals have inconsistent names across writers and readers (`swap_choice` vs `swap_garment`, `planned_skip` vs `skip_outfit`, `wear_confirm` vs `wear_outfit`, etc.). Readers only see partial coverage of any given signal because each writer uses a different name.
@@ -121,7 +121,7 @@ Do NOT break existing stored values. Normalize at read/write boundaries (the hel
 
 ---
 
-### P84 — Persistent user_style_summaries table
+### P84 — Persistent user_style_summaries table [DONE] (PR #709, 2026-05-01)
 
 **Problem**
 There is no central persistent style summary. Each AI function re-derives a summary on the fly (when at all) — inconsistent, expensive, and doesn't capture cross-session signals.
@@ -184,7 +184,7 @@ Do NOT allow arbitrary frontend writes unless the current project pattern alread
 
 ---
 
-### P85 — Memory ingestion helper
+### P85 — Memory ingestion helper [DONE] (PR #709, 2026-05-01)
 
 **Problem**
 With canonical signals (P83) and a summary table (P84) in place, we need ONE function that all flows funnel through. Otherwise each writer re-implements normalization + pair-memory updates + summary refresh.
@@ -259,7 +259,7 @@ For each flow, add a unit test that asserts the memory write happens (mock the i
 
 ---
 
-### P87 — Deterministic user style summary builder
+### P87 — Deterministic user style summary builder [DONE] (PR #709, 2026-05-01)
 
 **Problem**
 We need a summary that's reproducible from data, not opaque AI inference. Gemini-based summaries drift between calls and aren't auditable. Deterministic = same inputs always produce the same summary. Do NOT use Gemini for summary unless already established and safe.
