@@ -21,6 +21,11 @@ import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedSt
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
+// Wave 8.5 PR B (P89) — canonical signal normalization + style summary loader + chat-driven preference extraction.
+import { normalizeStyleMemorySignal } from "../_shared/style-memory-signals.ts";
+import { loadOrBuildSummary, loadStandardSummaryInputs, type UserStyleSummaryRow } from "../_shared/summary-loader.ts";
+import { extractMemoryEvents } from "../_shared/style-chat-extraction.ts";
+import { ingestMemoryEvent } from "../_shared/style-memory-ingest.ts";
 import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
@@ -950,6 +955,20 @@ serve(async (req) => {
         : []),
     ]));
 
+    // Wave 8.5 PR B (P89) — extract latest user turn for the async
+    // preference-extraction dispatch fired further down. Pulled here so
+    // the value is in scope for both the extraction call and any prompt
+    // path that needs the current message.
+    const lastUserMessage = (Array.isArray(messages) ? messages : [])
+      .filter((m: { role?: string }) => m?.role === "user")
+      .slice(-1)[0];
+    const lastUserTurnText: string =
+      lastUserMessage && typeof lastUserMessage === "object"
+        ? typeof (lastUserMessage as { content?: unknown }).content === "string"
+          ? (lastUserMessage as { content: string }).content
+          : ""
+        : "";
+
     // Guard: trim excessively long conversations
     const MAX_MESSAGES = 30;
     const trimmedMessages = Array.isArray(messages) && messages.length > MAX_MESSAGES
@@ -976,6 +995,88 @@ serve(async (req) => {
     const subCheck = await enforceSubscription(serviceClient, user.id);
     if (!subCheck.allowed) {
       return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
+
+    // Wave 8.5 PR B (P89) — load persistent style summary.
+    //
+    // Lazy materialization on cache miss per D5. Failure returns null —
+    // chat falls back to existing prose extraction (the 27-key block at
+    // wardrobe-context.ts is preserved as defense-in-depth during the
+    // rollout window).
+    let styleSummary: UserStyleSummaryRow | null = null;
+    try {
+      styleSummary = await loadOrBuildSummary(serviceClient, user.id, () =>
+        loadStandardSummaryInputs(serviceClient, user.id),
+      );
+    } catch (err) {
+      log.warn("summary.load_failed", { requestId, userId: user.id, err: String(err) });
+    }
+
+    // Wave 8.5 PR B (P89) — async preference extraction dispatch.
+    //
+    // Fire-and-forget via EdgeRuntime.waitUntil. Runs the deterministic
+    // keyword/regex matcher on the user's latest turn AND submits any
+    // emitted events to the ingest_memory_event RPC via the shared helper.
+    // Never blocks the main response path; failures land in console.error
+    // for telemetry-driven tuning.
+    if (lastUserTurnText && lastUserTurnText.trim().length > 0) {
+      const extractionPromise = (async () => {
+        try {
+          const events = extractMemoryEvents({
+            userTurn: lastUserTurnText,
+            locale,
+            activeLook:
+              explicitActiveLook && Array.isArray(explicitActiveLook.garment_ids)
+                ? {
+                    garment_ids: explicitActiveLook.garment_ids,
+                    outfit_id: explicitActiveLook.outfit_id ?? undefined,
+                  }
+                : null,
+            anchorGarmentId:
+              (typeof explicitActiveLook?.anchor_garment_id === "string"
+                ? explicitActiveLook.anchor_garment_id
+                : null) ?? null,
+          });
+          for (const ev of events) {
+            const meta = ev.metadata ?? {};
+            const result = await ingestMemoryEvent(serviceClient, {
+              userId: user.id,
+              eventType: ev.signal_type,
+              outfitId: typeof meta.outfit_id === "string" ? meta.outfit_id : undefined,
+              garmentIds: Array.isArray(meta.garment_ids)
+                ? (meta.garment_ids as unknown[]).filter((x) => typeof x === "string") as string[]
+                : undefined,
+              value: typeof meta.value === "string" ? meta.value : undefined,
+              metadata: {
+                ...meta,
+                source: "style_chat_extraction",
+                pattern_id: ev.pattern_id,
+                confidence: ev.confidence,
+              },
+              source: "style_chat",
+            });
+            log.info("extraction.emit", {
+              requestId,
+              userId: user.id,
+              pattern_id: ev.pattern_id,
+              signal_type: ev.signal_type,
+              confidence: ev.confidence,
+              ok: result.ok,
+            });
+          }
+        } catch (err) {
+          log.warn("extraction.error", { requestId, userId: user.id, err: String(err) });
+        }
+      })();
+      // Prefer EdgeRuntime.waitUntil if the runtime supports it (Supabase
+      // Edge Functions). Otherwise fire-and-forget (Deno default).
+      // deno-lint-ignore no-explicit-any
+      const runtime = (globalThis as any).EdgeRuntime;
+      if (runtime && typeof runtime.waitUntil === "function") {
+        runtime.waitUntil(extractionPromise);
+      } else {
+        void extractionPromise;
+      }
     }
 
     // ── Fast path: skip expensive DB queries for trivial conversational turns ──
@@ -1201,9 +1302,24 @@ serve(async (req) => {
       : null;
     const dna = { archetype: wardrobeCtx.dominantArchetype, formalityCenter };
     const rawSignals = rejectionsCtx.raw;
+    // Wave 8.5 PR B (P89) — pre-implementation audit P1 fix.
+    //
+    // Legacy gate compared against literal 'reject' / 'wear' which are now
+    // canonicalized to 'reject_outfit' / 'wear_outfit'. Switch to a dual-
+    // spelling check via normalizeStyleMemorySignal so the gate doesn't
+    // silently drop the entire taste-memory block once writers fully
+    // migrate to canonical names.
+    const normalizedRejectCount = rawSignals.filter((s: any) => {
+      const c = normalizeStyleMemorySignal(s.signal_type);
+      return c === 'reject_outfit';
+    }).length;
+    const normalizedWearCount = rawSignals.filter((s: any) => {
+      const c = normalizeStyleMemorySignal(s.signal_type);
+      return c === 'wear_outfit';
+    }).length;
     const shouldIncludeTasteMemory =
-      (rawSignals.filter((s: any) => s.signal_type === 'reject').length >= 1) ||
-      (rawSignals.filter((s: any) => s.signal_type === 'wear').length >= 3) ||
+      normalizedRejectCount >= 1 ||
+      normalizedWearCount >= 3 ||
       !!(dna?.archetype || (dna as any)?.signatureColors?.length);
     const tasteMemoryBlock = shouldIncludeTasteMemory
       ? buildTasteMemoryBlock(rejectionsCtx.raw, wardrobeCtx.rankedGarments, dna)
@@ -1604,6 +1720,7 @@ ${recentOutfitsCtx.text}
 ${recentOutfitsCtx.recentGarmentSets && recentOutfitsCtx.recentGarmentSets.length > 0 ? `\nRECENT OUTFIT COMBINATIONS — DO NOT REPEAT THESE EXACT GARMENT COMBINATIONS:\n${recentOutfitsCtx.recentGarmentSets.slice(0, 5).map((ids: string[], i: number) => `Outfit ${i+1}: ${ids.join(", ")}`).join("\n")}\nEach new outfit MUST include at least 2 garments not in the previous suggestion.` : ""}
 ${rejectionsCtx.text}
 ${tasteMemoryBlock ? `\nTASTE MEMORY (learned from behavior — reference this naturally in replies):\n${tasteMemoryBlock}` : ""}
+${styleSummary?.summary_text ? `\nPERSISTENT TASTE MEMORY (deterministic summary — refresh if user expresses new preferences):\n${styleSummary.summary_text}\n${styleSummary.summary_json?.preferred_colors?.length ? `Preferred colors: ${styleSummary.summary_json.preferred_colors.map((c: { value: string }) => c.value).join(", ")}.` : ""}\n${styleSummary.summary_json?.avoided_colors?.length ? `Avoided colors: ${styleSummary.summary_json.avoided_colors.map((c: { value: string }) => c.value).join(", ")}.` : ""}\n${styleSummary.summary_json?.avoid_rules?.length ? `Avoid rules: ${styleSummary.summary_json.avoid_rules.map((r: { rule: string }) => r.rule).join("; ")}.` : ""}` : ""}
 ${pairMemoryText}
 ${calendarCtx}
 ${weatherCtx}

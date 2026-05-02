@@ -183,11 +183,24 @@ export async function getRecentOutfitsContext(supabase: ReturnType<typeof create
 }
 
 export async function getRejectionsContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ text: string; raw: RawSignal[] }> {
+  // Wave 8.5 PR B (P89) — pre-implementation audit P0 fix.
+  //
+  // Legacy filter only matched 4 names ('swap', 'reject', 'dislike',
+  // 'thumbs_down'). Once `memory_ingest` writes canonical names
+  // ('swap_garment', 'reject_outfit', 'quick_reaction', etc.), this query
+  // returned ZERO matching rows for active users — silent data loss in the
+  // chat prompt. Expanded list accepts BOTH legacy and canonical spellings
+  // so the rollout window doesn't drop signals.
   const { data: signals } = await supabase
     .from("feedback_signals")
     .select("signal_type, value, metadata, created_at")
     .eq("user_id", userId)
-    .in("signal_type", ["swap", "reject", "dislike", "thumbs_down"])
+    .in("signal_type", [
+      // legacy
+      "swap", "reject", "dislike", "thumbs_down",
+      // canonical
+      "swap_garment", "reject_outfit", "quick_reaction", "never_suggest_garment",
+    ])
     .order("created_at", { ascending: false })
     .limit(8);
   if (!signals?.length) return { text: "", raw: [] };
