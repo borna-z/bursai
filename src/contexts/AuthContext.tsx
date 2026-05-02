@@ -4,6 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { buildAppUrl } from '@/lib/appUrl';
 import { logger } from '@/lib/logger';
+import { drainMemoryEventQueue } from '@/lib/memoryEventQueue';
+import { invokeEdgeFunction } from '@/lib/edgeFunctionClient';
+import { buildMemoryIdempotencyKey } from '@/lib/memoryEvents';
 
 interface AuthContextType {
   user: User | null;
@@ -117,6 +120,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 triggeredTrialKeys.current.delete(triggerKey);
               });
           }
+
+          // Wave 8.5 P86 — drain offline memory event queue.
+          //
+          // Fire-and-forget; each entry calls memory_ingest individually
+          // with its own idempotency key (server-side request_idempotency
+          // dedups within the 5-minute TTL window). Other-user entries are
+          // skipped by the drainer; failed entries stay queued for the
+          // next drain.
+          //
+          // Runs AFTER the start_trial dispatch so the user's subscription
+          // gate has the best chance of being trialing before the drained
+          // memory_ingest invocations fire (avoids 402 lock-out on every
+          // queued entry for users who only just minted a trial).
+          void drainMemoryEventQueue(session.user.id, async (userId, input) => {
+            const idempotency_key = buildMemoryIdempotencyKey(userId, input);
+            const { error } = await invokeEdgeFunction('memory_ingest', {
+              body: { ...input, idempotency_key },
+              retries: 1,
+              timeout: 8000,
+            });
+            if (error) {
+              // Throw so the queue keeps the entry for the next drain.
+              throw error;
+            }
+          });
         }
 
         // Reset the dedup set on sign-out so a subsequent sign-in (including
