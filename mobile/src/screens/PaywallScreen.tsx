@@ -17,33 +17,23 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { CheckIcon, CloseIcon } from '../components/icons';
+import { t as tr } from '../lib/i18n';
+import { hapticLight, hapticSelection } from '../lib/haptics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Plan = 'monthly' | 'yearly';
 
-const FEATURES: ReadonlyArray<{ title: string; caption: string }> = [
-  {
-    title: 'Unlimited outfit generation',
-    caption: 'Every occasion, every mood, every day.',
-  },
-  {
-    title: 'AI style chat — always in context',
-    caption: 'Knows your wardrobe and your taste.',
-  },
-  {
-    title: 'Ghost mannequin studio rendering',
-    caption: 'Editorial-grade product photos in seconds.',
-  },
-  {
-    title: 'Travel capsule + wardrobe gaps',
-    caption: 'Pack for any trip; shop only what fills a gap.',
-  },
+const FEATURES: ReadonlyArray<{ titleKey: string; captionKey: string }> = [
+  { titleKey: 'paywall.feature.unlimited.title', captionKey: 'paywall.feature.unlimited.caption' },
+  { titleKey: 'paywall.feature.chat.title',      captionKey: 'paywall.feature.chat.caption' },
+  { titleKey: 'paywall.feature.studio.title',    captionKey: 'paywall.feature.studio.caption' },
+  { titleKey: 'paywall.feature.travel.title',    captionKey: 'paywall.feature.travel.caption' },
 ];
 
 const PRICING = {
-  monthly: { amount: 119, period: 'month' as const, billed: '119 SEK / month' },
-  yearly:  { amount: 899, period: 'year' as const,  billed: '899 SEK / year, billed annually' },
+  monthly: { amount: 119, periodKey: 'paywall.price.perMonth' as const, trialKey: 'paywall.trial.monthly' as const },
+  yearly:  { amount: 899, periodKey: 'paywall.price.perYear'  as const, trialKey: 'paywall.trial.yearly'  as const },
 };
 // Computed at module init so it stays in sync if pricing changes.
 // (119 * 12 - 899) / (119 * 12) = 0.3704 → 37%.
@@ -67,36 +57,41 @@ export function PaywallScreen() {
   // isn't trapped (P1-18 / P1-19 from review). App Store reviewers WILL test
   // this — silent dead-ends are rejection-worthy.
   const onClose = () => {
+    hapticLight();
     if (nav.canGoBack()) nav.goBack();
     else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   };
 
   const onSubscribe = () => {
+    hapticLight();
     // TODO(billing): wire Stripe checkout (web) or StoreKit (native iOS via
     // a Wave 9 StoreKit module). For now, close the modal optimistically.
-    onClose();
+    if (nav.canGoBack()) nav.goBack();
+    else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   };
 
   const onRestore = () => {
+    hapticLight();
     // TODO(billing): invoke restore_subscription edge function. Until that
     // lands, surface a confirm so App Store guideline 3.1.1 review doesn't
     // see a silent no-op (P1-17 from review).
     Alert.alert(
-      'Restore purchase',
-      'No previous subscription found. If you believe this is wrong, contact support.',
-      [{ text: 'OK' }],
+      tr('paywall.restore.alertTitle'),
+      tr('paywall.restore.alertBody'),
+      [{ text: tr('paywall.restore.alertOk') }],
     );
   };
 
   const openExternal = (url: string) => () => {
+    hapticLight();
     Linking.openURL(url).catch(() => {
       // Failed to open (no browser? offline?) — surface a graceful fallback
       // so the link button isn't a silent no-op.
-      Alert.alert('Could not open link', url);
+      Alert.alert(tr('paywall.linkError.title'), url);
     });
   };
 
-  const trialPriceLine = `3 days free, then ${PRICING[plan].billed}`;
+  const trialPriceLine = tr(PRICING[plan].trialKey);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'left', 'right']}>
@@ -105,7 +100,7 @@ export function PaywallScreen() {
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={tr('paywall.close')}
           hitSlop={8}
           style={({ pressed }) => ({
             width: 36,
@@ -127,15 +122,15 @@ export function PaywallScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}>
         <View style={{ gap: 8, marginTop: 8 }}>
-          <Eyebrow>Unlock BURS</Eyebrow>
-          <PageTitle>Your personal stylist, always with you</PageTitle>
+          <Eyebrow>{tr('paywall.eyebrow')}</Eyebrow>
+          <PageTitle>{tr('paywall.title')}</PageTitle>
         </View>
 
         {/* Features */}
         <View style={{ gap: 10, marginTop: 22 }}>
           {FEATURES.map((f) => (
             <View
-              key={f.title}
+              key={f.titleKey}
               style={{
                 flexDirection: 'row',
                 alignItems: 'flex-start',
@@ -160,10 +155,9 @@ export function PaywallScreen() {
                     fontFamily: fonts.uiSemi,
                     fontSize: 14,
                     color: t.fg,
-                    fontWeight: '600',
                     letterSpacing: -0.13,
                   }}>
-                  {f.title}
+                  {tr(f.titleKey)}
                 </Text>
                 <Text
                   style={{
@@ -173,7 +167,7 @@ export function PaywallScreen() {
                     color: t.fg2,
                     lineHeight: 16,
                   }}>
-                  {f.caption}
+                  {tr(f.captionKey)}
                 </Text>
               </View>
             </View>
@@ -191,17 +185,17 @@ export function PaywallScreen() {
             gap: 4,
           }}>
           <PlanPill
-            label="Monthly"
+            label={tr('paywall.plan.monthly')}
             active={plan === 'monthly'}
-            onPress={() => setPlan('monthly')}
-            sub="119 SEK"
+            onPress={() => { hapticSelection(); setPlan('monthly'); }}
+            sub={tr('paywall.price.monthly')}
           />
           <PlanPill
-            label="Yearly"
+            label={tr('paywall.plan.yearly')}
             active={plan === 'yearly'}
-            onPress={() => setPlan('yearly')}
-            sub="899 SEK"
-            savings={YEARLY_SAVINGS_PCT}
+            onPress={() => { hapticSelection(); setPlan('yearly'); }}
+            sub={tr('paywall.price.yearly')}
+            savingsLabel={tr('paywall.plan.savings', { pct: YEARLY_SAVINGS_PCT })}
           />
         </View>
 
@@ -227,7 +221,7 @@ export function PaywallScreen() {
               letterSpacing: 1.4,
               textTransform: 'uppercase',
             }}>
-            per {PRICING[plan].period}
+            {tr(PRICING[plan].periodKey)}
           </Text>
         </View>
       </ScrollView>
@@ -243,36 +237,36 @@ export function PaywallScreen() {
           borderTopWidth: 1,
           borderTopColor: t.border,
         }}>
-        <Button label="Start 3-day free trial" variant="accent" block onPress={onSubscribe} />
+        <Button label={tr('paywall.cta')} variant="accent" block onPress={onSubscribe} />
         <Caption style={{ textAlign: 'center', letterSpacing: 0 }}>{trialPriceLine}</Caption>
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, paddingVertical: 4 }}>
           <Pressable
             onPress={onRestore}
             accessibilityRole="link"
-            accessibilityLabel="Restore previous subscription"
+            accessibilityLabel={tr('paywall.restore.label')}
             hitSlop={6}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: t.fg2, letterSpacing: -0.1 }}>
-              Restore purchase
+              {tr('paywall.restore')}
             </Text>
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
             onPress={openExternal(TERMS_URL)}
             accessibilityRole="link"
-            accessibilityLabel="Open terms of service"
+            accessibilityLabel={tr('paywall.terms.label')}
             hitSlop={6}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: t.fg3, letterSpacing: -0.1 }}>
-              Terms
+              {tr('paywall.terms')}
             </Text>
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
             onPress={openExternal(PRIVACY_URL)}
             accessibilityRole="link"
-            accessibilityLabel="Open privacy policy"
+            accessibilityLabel={tr('paywall.privacy.label')}
             hitSlop={6}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: t.fg3, letterSpacing: -0.1 }}>
-              Privacy
+              {tr('paywall.privacy')}
             </Text>
           </Pressable>
         </View>
@@ -286,13 +280,13 @@ function PlanPill({
   active,
   onPress,
   sub,
-  savings,
+  savingsLabel,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   sub: string;
-  savings?: number;
+  savingsLabel?: string;
 }) {
   const t = useTokens();
   return (
@@ -319,11 +313,10 @@ function PlanPill({
             fontSize: 13.5,
             color: active ? t.fg : t.fg2,
             letterSpacing: -0.13,
-            fontWeight: '600',
           }}>
           {label}
         </Text>
-        {savings !== undefined && (
+        {savingsLabel && (
           <View
             style={{
               paddingHorizontal: 7,
@@ -340,9 +333,8 @@ function PlanPill({
                 color: t.accentFg,
                 letterSpacing: 0.8,
                 textTransform: 'uppercase',
-                fontWeight: '600',
               }}>
-              Save {savings}%
+              {savingsLabel}
             </Text>
           </View>
         )}

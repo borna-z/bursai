@@ -15,11 +15,13 @@ import { PageTitle } from '../../components/PageTitle';
 import { Caption } from '../../components/Caption';
 import { Button } from '../../components/Button';
 import { CheckIcon } from '../../components/icons';
+import { t as tr } from '../../lib/i18n';
+import { hapticLight, hapticSuccess } from '../../lib/haptics';
 
-const FEATURES = [
-  'Unlimited outfit generation',
-  'AI style chat — always in context',
-  'Ghost mannequin studio rendering',
+const FEATURE_KEYS = [
+  'achievement.feature.unlimited',
+  'achievement.feature.chat',
+  'achievement.feature.studio',
 ] as const;
 
 export function AchievementStep({
@@ -34,6 +36,10 @@ export function AchievementStep({
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Celebrate the moment with a single success haptic, synchronized with
+    // the scale-in. (No haptic on revisit — `useEffect` deps are empty so this
+    // only fires on first mount per render-key.)
+    hapticSuccess();
     Animated.parallel([
       Animated.spring(scale, {
         toValue: 1,
@@ -78,15 +84,15 @@ export function AchievementStep({
         </Animated.View>
 
         <Animated.View style={{ alignItems: 'center', gap: 8, opacity }}>
-          <Eyebrow>You're all set</Eyebrow>
-          <PageTitle>Your 3-day trial starts now</PageTitle>
-          <Caption style={{ textAlign: 'center' }}>Full access to every feature.</Caption>
+          <Eyebrow>{tr('achievement.eyebrow')}</Eyebrow>
+          <PageTitle>{tr('achievement.title')}</PageTitle>
+          <Caption style={{ textAlign: 'center' }}>{tr('achievement.body')}</Caption>
         </Animated.View>
 
         <Animated.View style={{ alignSelf: 'stretch', gap: 10, marginTop: 8, opacity }}>
-          {FEATURES.map((label) => (
+          {FEATURE_KEYS.map((key) => (
             <View
-              key={label}
+              key={key}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -116,9 +122,8 @@ export function AchievementStep({
                   fontSize: 13.5,
                   color: t.fg,
                   letterSpacing: -0.13,
-                  fontWeight: '600',
                 }}>
-                {label}
+                {tr(key)}
               </Text>
             </View>
           ))}
@@ -126,14 +131,19 @@ export function AchievementStep({
       </View>
 
       <View style={{ gap: 10 }}>
-        <Button label="Start styling" variant="accent" block onPress={onComplete} />
+        <Button
+          label={tr('achievement.cta')}
+          variant="accent"
+          block
+          onPress={() => { hapticLight(); onComplete(); }}
+        />
         {onRestore && (
           <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingVertical: 6 }}>
-            <Caption>Already subscribed?</Caption>
+            <Caption>{tr('achievement.restore.prompt')}</Caption>
             <Pressable
-              onPress={onRestore}
+              onPress={() => { hapticLight(); onRestore(); }}
               accessibilityRole="link"
-              accessibilityLabel="Restore previous subscription"
+              accessibilityLabel={tr('achievement.restore.label')}
               hitSlop={8}>
               <Text
                 style={{
@@ -141,9 +151,8 @@ export function AchievementStep({
                   fontSize: 12.5,
                   color: t.accent,
                   letterSpacing: -0.1,
-                  fontWeight: '600',
                 }}>
-                Restore
+                {tr('achievement.restore.link')}
               </Text>
             </Pressable>
           </View>

@@ -15,6 +15,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { BackHandler, Pressable, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,6 +24,8 @@ import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { BackIcon } from '../components/icons';
 import { FadeUp } from '../components/FadeUp';
+import { t as tr } from '../lib/i18n';
+import { hapticLight } from '../lib/haptics';
 
 import { LanguageStep, type LanguageCode } from './onboarding/LanguageStep';
 import { ValuePropositionStep } from './onboarding/ValuePropositionStep';
@@ -41,18 +44,80 @@ type OnboardingDraft = {
   studio?: Studio;
 };
 
+type PersistedState = {
+  step: number;
+  draft: OnboardingDraft;
+  // Bumped when the persisted shape changes; `loadDraft` discards mismatches.
+  v: 1;
+};
+
 const STEP_COUNT = 6;
 // Steps 2, 3, 4 (1-indexed) are skippable per spec — that's 0-indexed 1, 2, 3.
-const SKIPPABLE = new Set([1, 2, 3]);
+const SKIPPABLE = [1, 2, 3];
+
+// AsyncStorage key — namespaced so it can't collide with future onboarding
+// flavors. (P1-23.) Cleared once the user reaches MainTabs.
+const DRAFT_KEY = 'burs.onboarding.draft.v1';
+
+async function loadDraft(): Promise<PersistedState | null> {
+  try {
+    const raw = await AsyncStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    if (parsed.v !== 1 || typeof parsed.step !== 'number') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function saveDraft(state: PersistedState): Promise<void> {
+  try {
+    await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(state));
+  } catch {
+    // Best-effort: persistence failure isn't user-blocking.
+  }
+}
+
+async function clearDraft(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 export function OnboardingScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<OnboardingDraft>({});
 
+  // Hydrate persisted draft on first mount so a user who backgrounded the app
+  // mid-quiz lands back on the same step with their answers intact. (P1-23.)
+  useEffect(() => {
+    let cancelled = false;
+    loadDraft().then((persisted) => {
+      if (cancelled) return;
+      if (persisted) {
+        setStep(Math.min(STEP_COUNT - 1, Math.max(0, persisted.step)));
+        setDraft(persisted.draft ?? {});
+      }
+      setHydrated(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist on every step / draft change after hydration.
+  useEffect(() => {
+    if (!hydrated) return;
+    saveDraft({ v: 1, step, draft });
+  }, [hydrated, step, draft]);
+
   const finish = () => {
     // TODO(server-write): persist `draft` to Supabase before resetting.
+    void clearDraft();
     nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   };
 
@@ -62,15 +127,21 @@ export function OnboardingScreen() {
   };
 
   const back = () => {
-    if (step > 0) setStep(step - 1);
+    if (step > 0) {
+      hapticLight();
+      setStep(step - 1);
+    }
   };
 
   const skip = () => {
-    if (SKIPPABLE.has(step)) advance();
+    if (SKIPPABLE.includes(step)) {
+      hapticLight();
+      advance();
+    }
   };
 
   const showBack = step > 0;
-  const showSkip = SKIPPABLE.has(step);
+  const showSkip = SKIPPABLE.includes(step);
   const progress = (step + 1) / STEP_COUNT;
 
   // Android hardware back: walk back through the steps instead of exiting the
@@ -104,7 +175,7 @@ export function OnboardingScreen() {
             <Pressable
               onPress={back}
               accessibilityRole="button"
-              accessibilityLabel="Back"
+              accessibilityLabel={tr('onboarding.back')}
               hitSlop={8}
               style={({ pressed }) => ({
                 width: 36,
@@ -146,7 +217,7 @@ export function OnboardingScreen() {
             <Pressable
               onPress={skip}
               accessibilityRole="button"
-              accessibilityLabel="Skip"
+              accessibilityLabel={tr('onboarding.skip')}
               hitSlop={8}
               style={({ pressed }) => ({ paddingVertical: 6, opacity: pressed ? 0.6 : 1 })}>
               <Text
@@ -156,7 +227,7 @@ export function OnboardingScreen() {
                   color: t.fg2,
                   letterSpacing: -0.1,
                 }}>
-                Skip
+                {tr('onboarding.skip')}
               </Text>
             </Pressable>
           )}

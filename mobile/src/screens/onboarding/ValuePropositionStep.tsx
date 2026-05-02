@@ -27,10 +27,20 @@ import {
   SunIcon,
   TshirtIcon,
 } from '../../components/icons';
+import { t as tr } from '../../lib/i18n';
+import { hapticLight } from '../../lib/haptics';
 
 type SlideId = 'wardrobe' | 'styling' | 'stylist';
 
 const AUTO_ADVANCE_MS = 4000;
+
+// Decorative gradient palette for the wardrobe-grid + outfit-card illustrations.
+// Named so they don't read as "hardcoded color in a screen" — they're not
+// theme tokens, they're illustration palette seeds (the same way the
+// production wardrobe shows real garment thumbnails). Tuned to feel like
+// natural fabric tones across the cream/charcoal app palette.
+const WARDROBE_HUES = [10, 48, 86, 124, 162, 200, 238, 276, 314] as const;
+const STYLING_HUES = [180, 30, 200, 60] as const;
 
 export function ValuePropositionStep({ onComplete }: { onComplete: () => void }) {
   const t = useTokens();
@@ -40,6 +50,18 @@ export function ValuePropositionStep({ onComplete }: { onComplete: () => void })
   // Auto-advance disables itself the first time the user manually swipes — we
   // shouldn't be fighting a user who explicitly went back. (P1-1 / P1-2.)
   const userInteractedRef = useRef(false);
+
+  // Listen for rotation / split-screen width changes so the carousel stays in
+  // sync with the actual layout width. (P2-7.) The `onLayout` below also sets
+  // width, but `onLayout` doesn't always fire on iPad rotation if the wrapping
+  // View's bounds don't change in the right axis — Dimensions.change is the
+  // reliable signal.
+  useEffect(() => {
+    const sub = Dimensions.addEventListener('change', ({ window }) => {
+      setWidth(window.width);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (index >= 2) return;
@@ -80,9 +102,9 @@ export function ValuePropositionStep({ onComplete }: { onComplete: () => void })
           <View key={s.id} style={{ width, paddingHorizontal: 20 }}>
             <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: 8 }}>
               <View style={{ gap: 10, marginTop: 4 }}>
-                <Eyebrow>{s.eyebrow}</Eyebrow>
-                <PageTitle>{s.title}</PageTitle>
-                <Caption style={{ marginTop: 4, lineHeight: 19 }}>{s.body}</Caption>
+                <Eyebrow>{tr(s.eyebrowKey)}</Eyebrow>
+                <PageTitle>{tr(s.titleKey)}</PageTitle>
+                <Caption style={{ marginTop: 4, lineHeight: 19 }}>{tr(s.bodyKey)}</Caption>
               </View>
 
               <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 24 }}>
@@ -118,10 +140,11 @@ export function ValuePropositionStep({ onComplete }: { onComplete: () => void })
 
       <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
         <Button
-          label={index < 2 ? 'Continue' : "Let's begin"}
+          label={index < 2 ? tr('value.cta.continue') : tr('value.cta.begin')}
           variant="accent"
           block
           onPress={() => {
+            hapticLight();
             if (index < 2) {
               const next = index + 1;
               scrollRef.current?.scrollTo({ x: next * width, animated: true });
@@ -136,25 +159,12 @@ export function ValuePropositionStep({ onComplete }: { onComplete: () => void })
   );
 }
 
-const SLIDES: ReadonlyArray<{ id: SlideId; eyebrow: string; title: string; body: string }> = [
-  {
-    id: 'wardrobe',
-    eyebrow: 'Your wardrobe',
-    title: 'Know every piece you own',
-    body: 'Scan and catalog your entire wardrobe with AI tagging in minutes.',
-  },
-  {
-    id: 'styling',
-    eyebrow: 'Daily styling',
-    title: 'Get dressed with intention',
-    body: 'AI outfit suggestions tailored to your style, the weather, and your plans.',
-  },
-  {
-    id: 'stylist',
-    eyebrow: 'Your stylist',
-    title: 'Always in your pocket',
-    body: 'Chat with your AI stylist anytime — it knows your wardrobe and your taste.',
-  },
+// Slide content keyed off i18n. Eyebrow / title / body all flow through tr()
+// at render time so the LanguageStep selection actually changes copy here.
+const SLIDES: ReadonlyArray<{ id: SlideId; eyebrowKey: string; titleKey: string; bodyKey: string }> = [
+  { id: 'wardrobe', eyebrowKey: 'value.slide.wardrobe.eyebrow', titleKey: 'value.slide.wardrobe.title', bodyKey: 'value.slide.wardrobe.body' },
+  { id: 'styling',  eyebrowKey: 'value.slide.styling.eyebrow',  titleKey: 'value.slide.styling.title',  bodyKey: 'value.slide.styling.body' },
+  { id: 'stylist',  eyebrowKey: 'value.slide.stylist.eyebrow',  titleKey: 'value.slide.stylist.title',  bodyKey: 'value.slide.stylist.body' },
 ];
 
 // ─── Illustrations ───────────────────────────────────────────────────────────
@@ -173,8 +183,7 @@ function WardrobeIllustration() {
           flexWrap: 'wrap',
           gap: 8,
         }}>
-        {Array.from({ length: 9 }).map((_, i) => {
-          const hue = ((i * 38) % 360) + 10;
+        {WARDROBE_HUES.map((hue, i) => {
           return (
             <View
               key={i}
@@ -242,7 +251,7 @@ function StylingIllustration() {
               backgroundColor: t.bg2,
             }}>
             <SunIcon size={11} color={t.fg2} />
-            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 11, color: t.fg2 }}>14°</Text>
+            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 11, color: t.fg2 }}>{tr('value.styling.weatherChip')}</Text>
           </View>
           <View
             style={{
@@ -262,13 +271,13 @@ function StylingIllustration() {
                 color: t.fg2,
                 textTransform: 'uppercase',
               }}>
-              Coffee meeting
+              {tr('value.styling.occasionChip')}
             </Text>
           </View>
         </View>
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[180, 30, 200, 60].map((hue, i) => (
+          {STYLING_HUES.map((hue, i) => (
             <View
               key={i}
               style={{
@@ -332,7 +341,7 @@ function StylistIllustration() {
             lineHeight: 18,
             color: t.fg,
           }}>
-          For the brunch tomorrow — pair your cream blouse with the navy chinos and the leather loafers.
+          {tr('value.stylist.chatExample')}
         </Text>
       </View>
 
@@ -349,14 +358,14 @@ function StylistIllustration() {
           maxWidth: 200,
         }}>
         <Text style={{ fontFamily: fonts.uiMed, fontSize: 12.5, color: t.bg }}>
-          What about for dinner?
+          {tr('value.stylist.userExample')}
         </Text>
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: 0.7 }}>
         <TshirtIcon size={14} color={t.fg3} />
         <Text style={{ fontFamily: fonts.uiMed, fontSize: 11, color: t.fg3 }}>
-          Knows your 64 pieces
+          {tr('value.stylist.knowsCount')}
         </Text>
       </View>
     </View>

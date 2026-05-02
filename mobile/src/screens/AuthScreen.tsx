@@ -25,6 +25,8 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
+import { t as tr } from '../lib/i18n';
+import { hapticLight, hapticSelection } from '../lib/haptics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -80,6 +82,7 @@ export function AuthScreen() {
 
   const handleSubmit = () => {
     if (!canSubmit) return;
+    hapticLight();
     // TODO(auth): wire to Supabase. Until real auth lands, both stub paths
     // route through Onboarding — sign-in's "skip onboarding for returning
     // users" decision lives behind real session check (P0-4 from review).
@@ -87,6 +90,7 @@ export function AuthScreen() {
   };
 
   const handleGoogle = () => {
+    hapticLight();
     // TODO(auth): wire OAuth. Stub routes through onboarding — same reason
     // as `handleSubmit`.
     nav.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
@@ -114,23 +118,22 @@ export function AuthScreen() {
                 fontSize: 32,
                 color: t.fg,
                 letterSpacing: -0.4,
-                fontWeight: '500',
               }}
               accessibilityRole="header">
-              BURS
+              {tr('auth.wordmark')}
             </Text>
           </View>
 
           {/* Eyebrow */}
           <View style={{ alignItems: 'center', marginBottom: 18 }}>
-            <Eyebrow>{isSignUp ? 'Create your account' : 'Welcome back'}</Eyebrow>
+            <Eyebrow>{isSignUp ? tr('auth.signUp.eyebrow') : tr('auth.signIn.eyebrow')}</Eyebrow>
           </View>
 
           {/* Form fields */}
           <View style={{ gap: 12 }}>
             {isSignUp && (
               <Field
-                label="Full name"
+                label={tr('auth.field.name')}
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
@@ -142,7 +145,7 @@ export function AuthScreen() {
             )}
             <Field
               ref={emailRef}
-              label="Email"
+              label={tr('auth.field.email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -155,7 +158,7 @@ export function AuthScreen() {
             />
             <Field
               ref={passwordRef}
-              label="Password"
+              label={tr('auth.field.password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -171,9 +174,10 @@ export function AuthScreen() {
           {/* Forgot password — sign-in only */}
           {!isSignUp && (
             <Pressable
-              onPress={() => nav.navigate('ResetPassword')}
+              onPress={() => { hapticLight(); nav.navigate('ResetPassword'); }}
               style={{ alignSelf: 'flex-end', marginTop: 10, paddingVertical: 4 }}
-              accessibilityRole="link">
+              accessibilityRole="link"
+              hitSlop={6}>
               <Text
                 style={{
                   fontFamily: fonts.uiMed,
@@ -181,7 +185,7 @@ export function AuthScreen() {
                   color: t.fg2,
                   letterSpacing: -0.1,
                 }}>
-                Forgot password?
+                {tr('auth.forgotPassword')}
               </Text>
             </Pressable>
           )}
@@ -189,7 +193,7 @@ export function AuthScreen() {
           {/* Primary CTA */}
           <View style={{ marginTop: 18 }}>
             <Button
-              label={isSignUp ? 'Create account' : 'Sign in'}
+              label={isSignUp ? tr('auth.signUp.cta') : tr('auth.signIn.cta')}
               variant="accent"
               block
               onPress={handleSubmit}
@@ -201,7 +205,7 @@ export function AuthScreen() {
           {isSignUp && (
             <View style={{ marginTop: 12, alignItems: 'center' }}>
               <Caption style={{ textAlign: 'center', maxWidth: 280, letterSpacing: 0 }}>
-                By continuing you agree to our Terms
+                {tr('auth.signUp.terms')}
               </Caption>
             </View>
           )}
@@ -223,7 +227,7 @@ export function AuthScreen() {
                 letterSpacing: 0.4,
                 textTransform: 'uppercase',
               }}>
-              or
+              {tr('auth.divider.or')}
             </Text>
             <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
           </View>
@@ -232,7 +236,7 @@ export function AuthScreen() {
           <Pressable
             onPress={handleGoogle}
             accessibilityRole="button"
-            accessibilityLabel="Continue with Google"
+            accessibilityLabel={tr('auth.google')}
             style={({ pressed }) => ({
               height: 44,
               borderRadius: radii.pill,
@@ -243,7 +247,7 @@ export function AuthScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 10,
-              transform: pressed ? [{ scale: 0.97 }] : [],
+              transform: [{ scale: pressed ? 0.97 : 1 }],
             })}>
             <GoogleIcon size={18} />
             <Text
@@ -252,9 +256,8 @@ export function AuthScreen() {
                 fontSize: 13,
                 color: t.fg,
                 letterSpacing: -0.13,
-                fontWeight: '600',
               }}>
-              Continue with Google
+              {tr('auth.google')}
             </Text>
           </Pressable>
 
@@ -274,20 +277,20 @@ export function AuthScreen() {
                 color: t.fg2,
                 letterSpacing: -0.1,
               }}>
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+              {isSignUp ? tr('auth.toggle.haveAccount') : tr('auth.toggle.noAccount')}
             </Text>
             <Pressable
-              onPress={() => setMode(isSignUp ? 'signIn' : 'signUp')}
-              accessibilityRole="link">
+              onPress={() => { hapticSelection(); setMode(isSignUp ? 'signIn' : 'signUp'); }}
+              accessibilityRole="link"
+              hitSlop={6}>
               <Text
                 style={{
                   fontFamily: fonts.uiSemi,
                   fontSize: 12.5,
                   color: t.accent,
                   letterSpacing: -0.1,
-                  fontWeight: '600',
                 }}>
-                {isSignUp ? 'Sign in' : 'Sign up'}
+                {isSignUp ? tr('auth.toggle.toSignIn') : tr('auth.toggle.toSignUp')}
               </Text>
             </Pressable>
           </View>

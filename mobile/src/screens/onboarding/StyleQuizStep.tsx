@@ -5,13 +5,13 @@
 // State shape mirrors a flat-ish version of the V4 styleProfile schema in the web
 // app — keeping the field names aligned makes the future server-write trivial.
 
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutChangeEvent,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -27,6 +27,8 @@ import { PageTitle } from '../../components/PageTitle';
 import { Caption } from '../../components/Caption';
 import { Button } from '../../components/Button';
 import { CheckIcon, MinusIcon, PlusIcon, SparklesIcon } from '../../components/icons';
+import { t as tr } from '../../lib/i18n';
+import { hapticLight, hapticSelection } from '../../lib/haptics';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -84,6 +86,9 @@ export function StyleQuizStep({
   const [q, setQ] = useState(0);
   const [answers, setAnswers] = useState<StyleQuizAnswers>(DEFAULT_ANSWERS);
   const [genderTouched, setGenderTouched] = useState(false);
+  // Q5 needs an explicit-tap gate symmetric with Q1's `genderTouched` so a
+  // user can't accidentally Finish on the pre-selected default goal. (P1-5.)
+  const [goalTouched, setGoalTouched] = useState(false);
 
   // Animated transition between questions — opacity + small slide.
   const fade = useRef(new Animated.Value(1)).current;
@@ -115,30 +120,34 @@ export function StyleQuizStep({
   };
 
   const next = () => {
+    hapticLight();
     if (q < 4) animateTo(q + 1, 'fwd');
     else onComplete(answers);
   };
   const back = () => {
-    if (q > 0) animateTo(q - 1, 'back');
+    if (q > 0) {
+      hapticLight();
+      animateTo(q - 1, 'back');
+    }
   };
 
-  const canAdvance = (() => {
+  const canAdvance = useMemo(() => {
     switch (q) {
       case 0: return genderTouched && answers.heightCm >= HEIGHT_MIN && answers.heightCm <= HEIGHT_MAX;
       case 1: return Math.abs(sumLifestyle(answers.lifestyle) - 100) < 0.5;
       case 2: return answers.climates.length > 0 && answers.city.trim().length > 0;
       case 3: return answers.archetypes.length >= ARCHETYPE_MIN && answers.archetypes.length <= ARCHETYPE_MAX;
-      case 4: return true;
+      case 4: return goalTouched;
       default: return false;
     }
-  })();
+  }, [q, genderTouched, goalTouched, answers]);
 
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
-        <Eyebrow>Question {q + 1} of 5</Eyebrow>
+        <Eyebrow>{tr('quiz.questionCounter', { q: q + 1, total: 5 })}</Eyebrow>
       </View>
 
       <Animated.View
@@ -162,7 +171,13 @@ export function StyleQuizStep({
           {q === 1 && <Q2 answers={answers} setAnswers={setAnswers} />}
           {q === 2 && <Q3 answers={answers} setAnswers={setAnswers} />}
           {q === 3 && <Q4 answers={answers} setAnswers={setAnswers} />}
-          {q === 4 && <Q5 answers={answers} setAnswers={setAnswers} />}
+          {q === 4 && (
+            <Q5
+              answers={answers}
+              setAnswers={setAnswers}
+              onGoalPick={() => setGoalTouched(true)}
+            />
+          )}
         </ScrollView>
       </Animated.View>
 
@@ -174,16 +189,18 @@ export function StyleQuizStep({
           gap: 10,
           alignItems: 'center',
         }}>
-        <Button
-          label="Back"
-          variant="outline"
-          size="md"
-          onPress={back}
-          disabled={q === 0}
-        />
+        {/* Hide Back entirely at q=0 instead of showing a disabled control. (P2-22) */}
+        {q > 0 && (
+          <Button
+            label={tr('quiz.cta.back')}
+            variant="outline"
+            size="md"
+            onPress={back}
+          />
+        )}
         <View style={{ flex: 1 }}>
           <Button
-            label={q < 4 ? 'Next' : 'Finish'}
+            label={q < 4 ? tr('quiz.cta.next') : tr('quiz.cta.finish')}
             variant="accent"
             block
             onPress={next}
@@ -201,11 +218,11 @@ function sumLifestyle(l: LifestyleMix): number {
 
 // ─── Q1 — Gender + height ───────────────────────────────────────────────────
 
-const GENDERS: ReadonlyArray<{ id: Gender; label: string }> = [
-  { id: 'woman', label: 'Woman' },
-  { id: 'man', label: 'Man' },
-  { id: 'nonbinary', label: 'Non-binary' },
-  { id: 'undisclosed', label: 'Prefer not to say' },
+const GENDERS: ReadonlyArray<{ id: Gender; labelKey: string }> = [
+  { id: 'woman',       labelKey: 'quiz.q1.gender.woman' },
+  { id: 'man',         labelKey: 'quiz.q1.gender.man' },
+  { id: 'nonbinary',   labelKey: 'quiz.q1.gender.nonbinary' },
+  { id: 'undisclosed', labelKey: 'quiz.q1.gender.undisclosed' },
 ];
 
 function Q1({
@@ -227,12 +244,12 @@ function Q1({
   return (
     <View style={{ gap: 18 }}>
       <View style={{ gap: 8 }}>
-        <PageTitle>A bit about you</PageTitle>
-        <Caption>Helps us tailor fit and silhouette.</Caption>
+        <PageTitle>{tr('quiz.q1.title')}</PageTitle>
+        <Caption>{tr('quiz.q1.body')}</Caption>
       </View>
 
       <View style={{ gap: 10 }}>
-        <Eyebrow>Gender</Eyebrow>
+        <Eyebrow>{tr('quiz.q1.gender.label')}</Eyebrow>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {GENDERS.map((g) => {
             const active = answers.gender === g.id;
@@ -240,6 +257,7 @@ function Q1({
               <Pressable
                 key={g.id}
                 onPress={() => {
+                  hapticSelection();
                   setAnswers((a) => ({ ...a, gender: g.id }));
                   onGenderPick();
                 }}
@@ -264,10 +282,9 @@ function Q1({
                     fontSize: 13.5,
                     color: t.fg,
                     letterSpacing: -0.13,
-                    fontWeight: '600',
                     textAlign: 'center',
                   }}>
-                  {g.label}
+                  {tr(g.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -276,7 +293,7 @@ function Q1({
       </View>
 
       <View style={{ gap: 10 }}>
-        <Eyebrow>Height</Eyebrow>
+        <Eyebrow>{tr('quiz.q1.height.label')}</Eyebrow>
         <View
           style={{
             flexDirection: 'row',
@@ -290,9 +307,9 @@ function Q1({
             borderColor: t.border,
           }}>
           <Stepper
-            label="Decrease height"
+            label={tr('quiz.q1.height.decrease')}
             disabled={answers.heightCm <= HEIGHT_MIN}
-            onPress={() => adjust(-HEIGHT_STEP)}>
+            onPress={() => { hapticSelection(); adjust(-HEIGHT_STEP); }}>
             <MinusIcon size={18} color={t.fg} />
           </Stepper>
           <View style={{ alignItems: 'center' }}>
@@ -316,13 +333,13 @@ function Q1({
                 textTransform: 'uppercase',
                 marginTop: 2,
               }}>
-              cm
+              {tr('quiz.q1.height.cm')}
             </Text>
           </View>
           <Stepper
-            label="Increase height"
+            label={tr('quiz.q1.height.increase')}
             disabled={answers.heightCm >= HEIGHT_MAX}
-            onPress={() => adjust(HEIGHT_STEP)}>
+            onPress={() => { hapticSelection(); adjust(HEIGHT_STEP); }}>
             <PlusIcon size={18} color={t.fg} />
           </Stepper>
         </View>
@@ -368,12 +385,12 @@ function Stepper({
 // ─── Q2 — Lifestyle mix ──────────────────────────────────────────────────────
 
 const LIFESTYLE_KEYS = ['work', 'social', 'active', 'home', 'travel'] as const;
-const LIFESTYLE_LABELS: Record<keyof LifestyleMix, string> = {
-  work: 'Work',
-  social: 'Social',
-  active: 'Active',
-  home: 'Home',
-  travel: 'Travel',
+const LIFESTYLE_LABEL_KEYS: Record<keyof LifestyleMix, string> = {
+  work:   'quiz.q2.label.work',
+  social: 'quiz.q2.label.social',
+  active: 'quiz.q2.label.active',
+  home:   'quiz.q2.label.home',
+  travel: 'quiz.q2.label.travel',
 };
 
 function Q2({
@@ -390,15 +407,15 @@ function Q2({
   return (
     <View style={{ gap: 18 }}>
       <View style={{ gap: 8 }}>
-        <PageTitle>How is your week split?</PageTitle>
-        <Caption>Tap a bar anywhere to set its share. The rest re-balance to 100%.</Caption>
+        <PageTitle>{tr('quiz.q2.title')}</PageTitle>
+        <Caption>{tr('quiz.q2.body')}</Caption>
       </View>
 
       <View style={{ gap: 14 }}>
         {LIFESTYLE_KEYS.map((key) => (
           <LifestyleRow
             key={key}
-            label={LIFESTYLE_LABELS[key]}
+            label={tr(LIFESTYLE_LABEL_KEYS[key])}
             value={answers.lifestyle[key]}
             onChange={(v) =>
               setAnswers((a) => ({ ...a, lifestyle: rebalance(a.lifestyle, key, v) }))
@@ -415,7 +432,7 @@ function Q2({
           paddingHorizontal: 4,
           marginTop: 4,
         }}>
-        <Eyebrow>Total</Eyebrow>
+        <Eyebrow>{tr('quiz.q2.total')}</Eyebrow>
         <Text
           style={{
             fontFamily: fonts.displayMedium,
@@ -423,7 +440,7 @@ function Q2({
             fontSize: 22,
             color: totalOk ? t.accent : t.fg2,
             letterSpacing: -0.2,
-            fontWeight: '500',
+            fontVariant: ['tabular-nums'],
           }}>
           {Math.round(total)}%
         </Text>
@@ -472,11 +489,39 @@ function LifestyleRow({
   onChange: (v: number) => void;
 }) {
   const t = useTokens();
+  // Width as STATE (not ref) so a re-render fires once layout measures —
+  // pre-fix the slider was dead until first re-render. (P1-3 + P2-19.)
+  const [trackWidth, setTrackWidth] = useState(0);
+  // Latest values mirrored into refs so the PanResponder closure (created once)
+  // always sees fresh `trackWidth` + `onChange` without re-creating the handler.
   const widthRef = useRef(0);
+  const onChangeRef = useRef(onChange);
+  widthRef.current = trackWidth;
+  onChangeRef.current = onChange;
 
-  const handleLayout = (e: LayoutChangeEvent) => {
-    widthRef.current = e.nativeEvent.layout.width;
-  };
+  // Drag-to-set slider — proper PanResponder so the user can fine-tune by
+  // sliding instead of tapping pixel-precise positions. (P1-4.)
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (e) => {
+          const w = widthRef.current;
+          if (w <= 0) return;
+          const x = Math.max(0, Math.min(w, e.nativeEvent.locationX));
+          onChangeRef.current(Math.round((x / w) * 100));
+          hapticSelection();
+        },
+        onPanResponderMove: (e) => {
+          const w = widthRef.current;
+          if (w <= 0) return;
+          const x = Math.max(0, Math.min(w, e.nativeEvent.locationX));
+          onChangeRef.current(Math.round((x / w) * 100));
+        },
+      }),
+    [],
+  );
 
   return (
     <View style={{ gap: 6 }}>
@@ -486,7 +531,6 @@ function LifestyleRow({
             fontFamily: fonts.uiSemi,
             fontSize: 13,
             color: t.fg,
-            fontWeight: '600',
             letterSpacing: -0.1,
           }}>
           {label}
@@ -501,27 +545,23 @@ function LifestyleRow({
           {value}%
         </Text>
       </View>
-      <Pressable
-        onLayout={handleLayout}
+      <View
+        {...pan.panHandlers}
+        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+        accessible
         accessibilityRole="adjustable"
-        accessibilityLabel={`${label} percentage`}
+        accessibilityLabel={tr('quiz.q2.percentLabel', { label })}
         accessibilityValue={{ min: 0, max: 100, now: value }}
         accessibilityActions={[
-          { name: 'increment', label: 'Increase' },
-          { name: 'decrement', label: 'Decrease' },
+          { name: 'increment', label: tr('quiz.q2.action.increase') },
+          { name: 'decrement', label: tr('quiz.q2.action.decrease') },
         ]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === 'increment') onChange(Math.min(100, value + 5));
           if (e.nativeEvent.actionName === 'decrement') onChange(Math.max(0, value - 5));
         }}
-        onPressIn={(e) => {
-          const w = widthRef.current;
-          if (w <= 0) return;
-          const x = Math.max(0, Math.min(w, e.nativeEvent.locationX));
-          onChange(Math.round((x / w) * 100));
-        }}
         style={{
-          height: 28,
+          height: 32,
           justifyContent: 'center',
         }}>
         <View
@@ -540,19 +580,19 @@ function LifestyleRow({
             }}
           />
         </View>
-      </Pressable>
+      </View>
     </View>
   );
 }
 
 // ─── Q3 — Climate + city ─────────────────────────────────────────────────────
 
-const CLIMATES: ReadonlyArray<{ id: Climate; label: string }> = [
-  { id: 'hot', label: 'Hot' },
-  { id: 'warm', label: 'Warm' },
-  { id: 'mild', label: 'Mild' },
-  { id: 'cold', label: 'Cold' },
-  { id: 'variable', label: 'Variable' },
+const CLIMATES: ReadonlyArray<{ id: Climate; labelKey: string }> = [
+  { id: 'hot',      labelKey: 'quiz.q3.climate.hot' },
+  { id: 'warm',     labelKey: 'quiz.q3.climate.warm' },
+  { id: 'mild',     labelKey: 'quiz.q3.climate.mild' },
+  { id: 'cold',     labelKey: 'quiz.q3.climate.cold' },
+  { id: 'variable', labelKey: 'quiz.q3.climate.variable' },
 ];
 
 function Q3({
@@ -574,19 +614,19 @@ function Q3({
   return (
     <View style={{ gap: 18 }}>
       <View style={{ gap: 8 }}>
-        <PageTitle>Where do you dress?</PageTitle>
-        <Caption>Helps weight outerwear, fabrics, and weather-aware suggestions.</Caption>
+        <PageTitle>{tr('quiz.q3.title')}</PageTitle>
+        <Caption>{tr('quiz.q3.body')}</Caption>
       </View>
 
       <View style={{ gap: 10 }}>
-        <Eyebrow>Climate</Eyebrow>
+        <Eyebrow>{tr('quiz.q3.climate.label')}</Eyebrow>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {CLIMATES.map((c) => {
             const active = answers.climates.includes(c.id);
             return (
               <Pressable
                 key={c.id}
-                onPress={() => toggle(c.id)}
+                onPress={() => { hapticSelection(); toggle(c.id); }}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: active }}
                 style={({ pressed }) => ({
@@ -607,9 +647,8 @@ function Q3({
                     color: active ? t.bg : t.fg2,
                     letterSpacing: 1.5,
                     textTransform: 'uppercase',
-                    fontWeight: '600',
                   }}>
-                  {c.label}
+                  {tr(c.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -618,14 +657,18 @@ function Q3({
       </View>
 
       <View style={{ gap: 10 }}>
-        <Eyebrow>City</Eyebrow>
+        <Eyebrow>{tr('quiz.q3.city.label')}</Eyebrow>
         <TextInput
           value={answers.city}
           onChangeText={(v) => setAnswers((a) => ({ ...a, city: v }))}
-          placeholder="Stockholm"
+          placeholder={tr('quiz.q3.city.placeholder')}
           placeholderTextColor={t.fg3}
           autoCapitalize="words"
           autoCorrect={false}
+          autoComplete="postal-address-locality"
+          textContentType="addressCity"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           style={{
             height: 48,
             paddingHorizontal: 16,
@@ -646,19 +689,22 @@ function Q3({
 
 // ─── Q4 — Archetypes ─────────────────────────────────────────────────────────
 
-const ARCHETYPES: ReadonlyArray<{ id: Archetype; label: string }> = [
-  { id: 'minimal', label: 'Minimal' },
-  { id: 'classic', label: 'Classic' },
-  { id: 'romantic', label: 'Romantic' },
-  { id: 'street', label: 'Street' },
-  { id: 'bohemian', label: 'Bohemian' },
-  { id: 'preppy', label: 'Preppy' },
-  { id: 'elegant', label: 'Elegant' },
-  { id: 'edgy', label: 'Edgy' },
-  { id: 'coastal', label: 'Coastal' },
-  { id: 'sporty', label: 'Sporty' },
-  { id: 'avantgarde', label: 'Avant-garde' },
-  { id: 'workwear', label: 'Workwear' },
+// IDs match the web's V4 ARCHETYPE_OPTIONS (src/types/styleProfile.ts:70) so
+// the eventual server-write doesn't fail the CHECK constraint. Verified
+// 2026-05-02. (P2-9.)
+const ARCHETYPES: ReadonlyArray<{ id: Archetype; labelKey: string }> = [
+  { id: 'minimal',    labelKey: 'quiz.q4.archetype.minimal' },
+  { id: 'classic',    labelKey: 'quiz.q4.archetype.classic' },
+  { id: 'romantic',   labelKey: 'quiz.q4.archetype.romantic' },
+  { id: 'street',     labelKey: 'quiz.q4.archetype.street' },
+  { id: 'bohemian',   labelKey: 'quiz.q4.archetype.bohemian' },
+  { id: 'preppy',     labelKey: 'quiz.q4.archetype.preppy' },
+  { id: 'elegant',    labelKey: 'quiz.q4.archetype.elegant' },
+  { id: 'edgy',       labelKey: 'quiz.q4.archetype.edgy' },
+  { id: 'coastal',    labelKey: 'quiz.q4.archetype.coastal' },
+  { id: 'sporty',     labelKey: 'quiz.q4.archetype.sporty' },
+  { id: 'avantgarde', labelKey: 'quiz.q4.archetype.avantgarde' },
+  { id: 'workwear',   labelKey: 'quiz.q4.archetype.workwear' },
 ];
 
 function Q4({
@@ -672,7 +718,9 @@ function Q4({
   const count = answers.archetypes.length;
   const tooMany = count >= ARCHETYPE_MAX;
   const eyebrow =
-    count >= ARCHETYPE_MIN ? `${count} selected` : `Pick ${ARCHETYPE_MIN}–${ARCHETYPE_MAX}`;
+    count >= ARCHETYPE_MIN
+      ? tr('quiz.q4.eyebrow.count', { count })
+      : tr('quiz.q4.eyebrow.range', { min: ARCHETYPE_MIN, max: ARCHETYPE_MAX });
 
   const toggle = (id: Archetype) =>
     setAnswers((a) => {
@@ -685,7 +733,7 @@ function Q4({
   return (
     <View style={{ gap: 18 }}>
       <View style={{ gap: 8 }}>
-        <PageTitle>Pick your style words</PageTitle>
+        <PageTitle>{tr('quiz.q4.title')}</PageTitle>
         <Eyebrow style={{ color: count >= ARCHETYPE_MIN ? t.accent : t.fg2 }}>
           {eyebrow}
         </Eyebrow>
@@ -698,7 +746,7 @@ function Q4({
           return (
             <Pressable
               key={a.id}
-              onPress={() => toggle(a.id)}
+              onPress={() => { hapticSelection(); toggle(a.id); }}
               disabled={disabled}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: active, disabled }}
@@ -720,9 +768,8 @@ function Q4({
                   color: active ? t.accent : t.fg2,
                   letterSpacing: 1.4,
                   textTransform: 'uppercase',
-                  fontWeight: '600',
                 }}>
-                {a.label}
+                {tr(a.labelKey)}
               </Text>
             </Pressable>
           );
@@ -734,41 +781,27 @@ function Q4({
 
 // ─── Q5 — Goal ───────────────────────────────────────────────────────────────
 
-const GOALS: ReadonlyArray<{ id: Goal; label: string; caption: string }> = [
-  {
-    id: 'fasterDressing',
-    label: 'Get dressed faster',
-    caption: 'A clear pick every morning, no decision fatigue.',
-  },
-  {
-    id: 'discoverCombos',
-    label: 'Discover new combinations',
-    caption: 'Pairings you wouldn\'t have tried on your own.',
-  },
-  {
-    id: 'shopSmarter',
-    label: 'Shop smarter',
-    caption: 'Fill the real gaps in your wardrobe — not the imagined ones.',
-  },
-  {
-    id: 'capsuleWardrobe',
-    label: 'Build a capsule wardrobe',
-    caption: 'Fewer pieces, more outfits, on purpose.',
-  },
+const GOALS: ReadonlyArray<{ id: Goal; labelKey: string; captionKey: string }> = [
+  { id: 'fasterDressing',  labelKey: 'quiz.q5.goal.fasterDressing.label',  captionKey: 'quiz.q5.goal.fasterDressing.caption' },
+  { id: 'discoverCombos',  labelKey: 'quiz.q5.goal.discoverCombos.label',  captionKey: 'quiz.q5.goal.discoverCombos.caption' },
+  { id: 'shopSmarter',     labelKey: 'quiz.q5.goal.shopSmarter.label',     captionKey: 'quiz.q5.goal.shopSmarter.caption' },
+  { id: 'capsuleWardrobe', labelKey: 'quiz.q5.goal.capsuleWardrobe.label', captionKey: 'quiz.q5.goal.capsuleWardrobe.caption' },
 ];
 
 function Q5({
   answers,
   setAnswers,
+  onGoalPick,
 }: {
   answers: StyleQuizAnswers;
   setAnswers: React.Dispatch<React.SetStateAction<StyleQuizAnswers>>;
+  onGoalPick: () => void;
 }) {
   const t = useTokens();
   return (
     <View style={{ gap: 18 }}>
       <View style={{ gap: 8 }}>
-        <PageTitle>What should BURS do for you?</PageTitle>
+        <PageTitle>{tr('quiz.q5.title')}</PageTitle>
       </View>
       <View style={{ gap: 10 }}>
         {GOALS.map((g) => {
@@ -776,7 +809,11 @@ function Q5({
           return (
             <Pressable
               key={g.id}
-              onPress={() => setAnswers((a) => ({ ...a, goal: g.id }))}
+              onPress={() => {
+                hapticSelection();
+                setAnswers((a) => ({ ...a, goal: g.id }));
+                onGoalPick();
+              }}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
               style={({ pressed }) => ({
@@ -808,10 +845,9 @@ function Q5({
                     fontFamily: fonts.uiSemi,
                     fontSize: 14,
                     color: t.fg,
-                    fontWeight: '600',
                     letterSpacing: -0.13,
                   }}>
-                  {g.label}
+                  {tr(g.labelKey)}
                 </Text>
                 <Text
                   style={{
@@ -821,7 +857,7 @@ function Q5({
                     color: t.fg2,
                     lineHeight: 16,
                   }}>
-                  {g.caption}
+                  {tr(g.captionKey)}
                 </Text>
               </View>
               {active ? <CheckIcon size={18} color={t.accent} /> : null}

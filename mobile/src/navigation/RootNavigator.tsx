@@ -183,7 +183,10 @@ const Placeholders = {
 export function RootNavigator() {
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
+      // Splash is the production entry. In dev builds, drop straight to MainTabs
+      // so the engineer-loop doesn't sit through a 1.5s splash on every reload.
+      // (X-5 from review.) Override at runtime by pushing 'Splash' explicitly.
+      initialRouteName={__DEV__ ? 'MainTabs' : 'Splash'}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',

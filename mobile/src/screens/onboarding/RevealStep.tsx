@@ -2,7 +2,7 @@
 // 2s loading state, then a mock outfit card. Wraps up the flow.
 
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { AccessibilityInfo, Platform, Text, View } from 'react-native';
 
 import { useTokens } from '../../theme/ThemeProvider';
 import { fonts } from '../../theme/tokens';
@@ -13,37 +13,51 @@ import { Button } from '../../components/Button';
 import { Spinner } from '../../components/Spinner';
 import { FadeUp } from '../../components/FadeUp';
 import { OutfitCard } from '../../components/OutfitCard';
+import { t as tr } from '../../lib/i18n';
+import { hapticLight, hapticSuccess } from '../../lib/haptics';
 
 const REVEAL_DELAY_MS = 2000;
 
-const MOCK_OUTFIT = {
-  name: 'First impressions',
-  sub: 'Your first look',
-  // Hue values feed the OutfitCard's gradient placeholder tiles.
-  hues: [40, 28, 18],
-};
+// Hue values feed the OutfitCard's gradient placeholder tiles.
+const MOCK_OUTFIT_HUES = [40, 28, 18];
 
 export function RevealStep({ onComplete }: { onComplete: () => void }) {
   const t = useTokens();
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const id = setTimeout(() => setLoaded(true), REVEAL_DELAY_MS);
+    // Announce the loading state to assistive tech (P1-15). On Android
+    // accessibilityLiveRegion handles this declaratively (see the Spinner
+    // wrapper below); on iOS we have to push the announcement explicitly.
+    if (Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(tr('reveal.loading'));
+    }
+    const id = setTimeout(() => {
+      setLoaded(true);
+      hapticSuccess();
+      if (Platform.OS === 'ios') {
+        AccessibilityInfo.announceForAccessibility(tr('reveal.outfit.name'));
+      }
+    }, REVEAL_DELAY_MS);
     return () => clearTimeout(id);
   }, []);
 
   return (
     <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 12 }}>
       <View style={{ gap: 8, marginBottom: 18 }}>
-        <Eyebrow>Your first look</Eyebrow>
-        <PageTitle>Based on your style</PageTitle>
+        <Eyebrow>{tr('reveal.eyebrow')}</Eyebrow>
+        <PageTitle>{tr('reveal.title')}</PageTitle>
       </View>
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         {!loaded && (
-          <View style={{ alignItems: 'center', gap: 14 }}>
+          <View
+            style={{ alignItems: 'center', gap: 14 }}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={tr('reveal.loading')}
+            accessibilityRole="progressbar">
             <Spinner size={36} />
-            <Caption>Generating your first outfit…</Caption>
+            <Caption>{tr('reveal.loading')}</Caption>
           </View>
         )}
 
@@ -51,9 +65,9 @@ export function RevealStep({ onComplete }: { onComplete: () => void }) {
           <FadeUp style={{ alignSelf: 'stretch', alignItems: 'center', gap: 14 }}>
             <View style={{ alignSelf: 'stretch' }}>
               <OutfitCard
-                name={MOCK_OUTFIT.name}
-                sub={MOCK_OUTFIT.sub}
-                hues={MOCK_OUTFIT.hues}
+                name={tr('reveal.outfit.name')}
+                sub={tr('reveal.outfit.sub')}
+                hues={MOCK_OUTFIT_HUES}
               />
             </View>
             <Text
@@ -63,10 +77,9 @@ export function RevealStep({ onComplete }: { onComplete: () => void }) {
                 fontSize: 18,
                 color: t.fg2,
                 letterSpacing: -0.18,
-                fontWeight: '500',
                 textAlign: 'center',
               }}>
-              This is just the beginning.
+              {tr('reveal.tagline')}
             </Text>
           </FadeUp>
         )}
@@ -74,10 +87,10 @@ export function RevealStep({ onComplete }: { onComplete: () => void }) {
 
       <View>
         <Button
-          label="Go to my wardrobe"
+          label={tr('reveal.cta')}
           variant="accent"
           block
-          onPress={onComplete}
+          onPress={() => { hapticLight(); onComplete(); }}
           disabled={!loaded}
         />
       </View>

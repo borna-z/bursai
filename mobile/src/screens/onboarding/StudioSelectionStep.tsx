@@ -26,13 +26,15 @@ import { PageTitle } from '../../components/PageTitle';
 import { Caption } from '../../components/Caption';
 import { Button } from '../../components/Button';
 import { CheckIcon, HangerIcon, ImageIcon, SmileIcon } from '../../components/icons';
+import { t as tr } from '../../lib/i18n';
+import { hapticLight, hapticSelection } from '../../lib/haptics';
 
 export type Studio = 'ghost_mannequin' | 'flat_lay' | 'hanger';
 
 type Option = {
   id: Studio;
-  title: string;
-  caption: string;
+  titleKey: string;
+  captionKey: string;
   icon: (color: string) => React.ReactNode;
   recommended?: boolean;
 };
@@ -40,21 +42,21 @@ type Option = {
 const OPTIONS: ReadonlyArray<Option> = [
   {
     id: 'ghost_mannequin',
-    title: 'Ghost mannequin',
-    caption: 'Professional invisible body form.',
+    titleKey: 'studio.option.ghost.title',
+    captionKey: 'studio.option.ghost.caption',
     icon: (color) => <SmileIcon size={28} color={color} />,
     recommended: true,
   },
   {
     id: 'flat_lay',
-    title: 'Flat lay',
-    caption: 'Clean flat surface photography.',
+    titleKey: 'studio.option.flat.title',
+    captionKey: 'studio.option.flat.caption',
     icon: (color) => <ImageIcon size={28} color={color} />,
   },
   {
     id: 'hanger',
-    title: 'Hanger',
-    caption: 'Classic hanging display.',
+    titleKey: 'studio.option.hanger.title',
+    captionKey: 'studio.option.hanger.caption',
     icon: (color) => <HangerIcon size={28} color={color} />,
   },
 ];
@@ -72,9 +74,9 @@ export function StudioSelectionStep({
   return (
     <View style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 20, marginBottom: 18, gap: 8 }}>
-        <Eyebrow>Your studio</Eyebrow>
-        <PageTitle>Choose your presentation</PageTitle>
-        <Caption>How should BURS display your garments?</Caption>
+        <Eyebrow>{tr('studio.eyebrow')}</Eyebrow>
+        <PageTitle>{tr('studio.title')}</PageTitle>
+        <Caption>{tr('studio.body')}</Caption>
       </View>
 
       <ScrollView
@@ -86,7 +88,7 @@ export function StudioSelectionStep({
           return (
             <Pressable
               key={opt.id}
-              onPress={() => setSelected(opt.id)}
+              onPress={() => { hapticSelection(); setSelected(opt.id); }}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
               style={({ pressed }) => ({
@@ -145,9 +147,8 @@ export function StudioSelectionStep({
                         color: t.accentFg,
                         letterSpacing: 1.4,
                         textTransform: 'uppercase',
-                        fontWeight: '600',
                       }}>
-                      Recommended
+                      {tr('studio.recommended')}
                     </Text>
                   </View>
                 )}
@@ -177,11 +178,10 @@ export function StudioSelectionStep({
                     fontSize: 20,
                     color: t.fg,
                     letterSpacing: -0.2,
-                    fontWeight: '500',
                   }}>
-                  {opt.title}
+                  {tr(opt.titleKey)}
                 </Text>
-                <Caption>{opt.caption}</Caption>
+                <Caption>{tr(opt.captionKey)}</Caption>
               </View>
             </Pressable>
           );
@@ -189,7 +189,12 @@ export function StudioSelectionStep({
       </ScrollView>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-        <Button label="Continue" variant="accent" block onPress={() => onComplete(selected)} />
+        <Button
+          label={tr('studio.continue')}
+          variant="accent"
+          block
+          onPress={() => { hapticLight(); onComplete(selected); }}
+        />
       </View>
     </View>
   );

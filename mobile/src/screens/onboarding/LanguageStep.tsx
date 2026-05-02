@@ -12,6 +12,8 @@ import { Eyebrow } from '../../components/Eyebrow';
 import { PageTitle } from '../../components/PageTitle';
 import { Button } from '../../components/Button';
 import { CheckIcon } from '../../components/icons';
+import { setLocale, t as tr } from '../../lib/i18n';
+import { hapticLight, hapticSelection } from '../../lib/haptics';
 
 export type LanguageCode = 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
 
@@ -43,8 +45,8 @@ export function LanguageStep({
   return (
     <View style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 20, marginBottom: 18, gap: 8 }}>
-        <Eyebrow>Welcome to BURS</Eyebrow>
-        <PageTitle>Choose your language</PageTitle>
+        <Eyebrow>{tr('language.eyebrow')}</Eyebrow>
+        <PageTitle>{tr('language.title')}</PageTitle>
       </View>
 
       <ScrollView
@@ -56,7 +58,7 @@ export function LanguageStep({
           return (
             <Pressable
               key={lang.code}
-              onPress={() => setSelected(lang.code)}
+              onPress={() => { hapticSelection(); setSelected(lang.code); }}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
               accessibilityLabel={lang.name}
@@ -96,7 +98,20 @@ export function LanguageStep({
       </ScrollView>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-        <Button label="Continue" variant="accent" block onPress={() => onComplete(selected)} />
+        <Button
+          label={tr('language.continue')}
+          variant="accent"
+          block
+          onPress={() => {
+            hapticLight();
+            // Activate the selected locale immediately so the rest of onboarding
+            // renders in it. (i18n shim today returns English regardless of
+            // setLocale; once dictionaries land per locale this becomes a real
+            // language flip.)
+            setLocale(selected);
+            onComplete(selected);
+          }}
+        />
       </View>
     </View>
   );

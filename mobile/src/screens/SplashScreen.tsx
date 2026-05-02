@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -72,10 +73,9 @@ export function SplashScreen() {
             fontSize: 48,
             color: t.fg,
             letterSpacing: -0.6,
-            fontWeight: '500',
           }}
           accessibilityRole="header">
-          BURS
+          {tr('splash.wordmark')}
         </Text>
         <Text
           style={{
@@ -85,7 +85,7 @@ export function SplashScreen() {
             color: t.fg2,
             letterSpacing: 0.1,
           }}>
-          Your wardrobe. Understood.
+          {tr('splash.tagline')}
         </Text>
       </Animated.View>
     </SafeAreaView>
