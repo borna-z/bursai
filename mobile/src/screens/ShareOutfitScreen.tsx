@@ -19,7 +19,7 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, ImageIcon, ShareIcon, FileIcon } from '../components/icons';
+import { BackIcon, ShareIcon, FileIcon } from '../components/icons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -52,11 +52,6 @@ export function ShareOutfitScreen() {
   const onCopyLink = () => {
     hapticSuccess();
     Alert.alert('Copied', 'Link copied. (Clipboard wiring lands with the next deps update.)');
-  };
-
-  const onSaveImage = () => {
-    hapticLight();
-    Alert.alert('Coming soon', 'Save to camera roll requires a device build. Available next release.');
   };
 
   return (
@@ -148,13 +143,11 @@ export function ShareOutfitScreen() {
           Share your look to Instagram, stories, and more.
         </Text>
 
-        {/* Share options row */}
+        {/* Share options row — Save image is intentionally omitted until expo-media-library +
+            react-native-view-shot are installed (deferred per "no new deps without asking" rule).
+            Showing a "Coming soon" Alert on every tap trains users to ignore the row, so the
+            button is hidden until it works. */}
         <View style={s.optionsRow}>
-          <ShareOption
-            label="Save image"
-            onPress={onSaveImage}
-            icon={<ImageIcon color={t.fg} size={20} />}
-          />
           <ShareOption
             label="Share"
             onPress={onShare}

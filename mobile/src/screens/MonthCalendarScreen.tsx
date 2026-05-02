@@ -23,7 +23,23 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
+// Build the 7 weekday header narrows from the device locale rather than hardcoding English.
+// Anchor on a known Monday (2024-01-01 was a Monday) and ask Intl for the short weekday in
+// the user's locale, then uppercase to match the eyebrow style.
+function buildWeekdayHeaders(): string[] {
+  const out: string[] = [];
+  // 2024-01-01 = Monday (UTC-anchored to avoid DST drift on the synthetic Date).
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(Date.UTC(2024, 0, 1 + i));
+    out.push(
+      d
+        .toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' })
+        .slice(0, 3)
+        .toUpperCase(),
+    );
+  }
+  return out;
+}
 
 function localISODate(d: Date): string {
   const y = d.getFullYear();
@@ -100,6 +116,7 @@ export function MonthCalendarScreen() {
 
   const today = useMemo(() => startOfDay(new Date()), []);
   const planned = useMemo(() => buildMockPlanned(today), [today]);
+  const weekdays = useMemo(() => buildWeekdayHeaders(), []);
 
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -202,8 +219,8 @@ export function MonthCalendarScreen() {
 
         {/* Weekday header */}
         <View style={s.weekdayRow}>
-          {WEEKDAYS.map((wd) => (
-            <View key={wd} style={s.weekdayCell}>
+          {weekdays.map((wd, i) => (
+            <View key={`${wd}-${i}`} style={s.weekdayCell}>
               <Text
                 style={{
                   fontFamily: fonts.uiSemi,
@@ -232,7 +249,12 @@ export function MonthCalendarScreen() {
                   setSelectedDate(cell.date);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={cell.iso}
+                accessibilityLabel={cell.date.toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+                accessibilityState={{ selected: isSelected }}
                 style={({ pressed }) => [s.cell, { opacity: pressed ? 0.7 : 1 }]}>
                 <View
                   style={[

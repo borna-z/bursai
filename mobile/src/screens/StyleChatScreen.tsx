@@ -265,8 +265,11 @@ export function StyleChatScreen() {
             onPress={() => setShowHistory(false)}
             accessibilityLabel="Close history"
             style={[s.historyBackdrop, { backgroundColor: t.scrimBg }]}>
+            {/* Inner sheet — RN's responder system swallows taps that land on this view, so the
+                outer backdrop's onPress only fires for taps on the dimmed area, not on the sheet
+                itself. No `stopPropagation` is needed (and it doesn't exist on RN PressEvent). */}
             <Pressable
-              onPress={(e) => e.stopPropagation()}
+              onPress={() => {}}
               accessible={false}
               style={[
                 s.historySheet,

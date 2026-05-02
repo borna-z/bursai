@@ -41,14 +41,21 @@ export function SettingsScreen() {
   const nav = useNavigation<Nav>();
 
   const handleSignOut = () => {
+    // CRITICAL: never tell the user "signed out" until the supabase-auth bridge actually
+    // signs them out. A false success message is worse than the no-op it replaces — a user
+    // on a shared device might walk away believing the session was cleared. Surface the
+    // pending status instead so the action is honest.
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       // TODO: wire supabase.auth.signOut() once mobile auth bridge lands. Codex audit P3.8.
-      // Until that wiring lands, surface a confirmation so the user gets feedback.
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: () => Alert.alert('Signed out', 'You have been signed out.'),
+        onPress: () =>
+          Alert.alert(
+            'Sign-out coming soon',
+            'Mobile sign-out is not yet wired to your account. Use the web app to sign out for now.',
+          ),
       },
     ]);
   };

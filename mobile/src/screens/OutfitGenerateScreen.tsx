@@ -111,9 +111,11 @@ export function OutfitGenerateScreen() {
       useNativeDriver: false,
     });
     progress.start();
+    // 4 messages over a 2000ms phase → cycle every 500ms so the user sees all four before
+    // the result lands. (Code-reviewer P2 — original 800ms cadence stopped at message[2].)
     const interval = setInterval(() => {
       setMessageIdx((i) => (i + 1) % LOADING_MESSAGES.length);
-    }, 800);
+    }, 500);
     const timeout = setTimeout(() => {
       hapticSuccess();
       setPhase('result');

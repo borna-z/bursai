@@ -22,7 +22,6 @@ import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Button } from '../components/Button';
-import { IconBtn } from '../components/IconBtn';
 import { CloseIcon, RotateIcon, SunIcon, CameraIcon } from '../components/icons';
 import { hapticLight, hapticMedium } from '../lib/haptics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
