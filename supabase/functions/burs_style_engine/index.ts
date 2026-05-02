@@ -1108,8 +1108,8 @@ serve(async (req) => {
                 generatedAt: rawSig.created_at,
               });
             }
-          } else if (typeof (rawSig as { rating?: unknown }).rating === 'number') {
-            const numeric = (rawSig as { rating: number }).rating;
+          } else if (typeof (rawSig as unknown as { rating?: unknown }).rating === 'number') {
+            const numeric = (rawSig as unknown as { rating: number }).rating;
             if (Number.isFinite(numeric) && numeric >= 1 && numeric <= 5) {
               feedbackSignals.push({
                 garmentIds: affected,

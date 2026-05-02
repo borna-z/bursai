@@ -42,60 +42,78 @@
 -- Counter columns merge: SUM positive/negative across the duplicates so no
 -- learning is lost. Timestamps take the LATEST value for both
 -- last_positive_at / last_negative_at.
+--
+-- Wrapped in a DO block so the supabase CLI's migration applier (which
+-- routes some statements through prepared-statement protocol) doesn't
+-- choke on the WITH-CTE-UPDATE + row-tuple comparison patterns. PL/pgSQL
+-- inside DO is interpreted dynamically and bypasses the prepared-statement
+-- single-command limit. Initial multi-statement form failed with SQLSTATE
+-- 42601 ("cannot insert multiple commands into a prepared statement") on
+-- the smoke-local CI run for PR #712.
+DO $migration_step1$
+BEGIN
+  -- Merge counter values into the keeper row per (user, pair).
+  WITH ranked AS (
+    SELECT id,
+           user_id,
+           garment_a_id,
+           garment_b_id,
+           row_number() OVER (
+             PARTITION BY user_id, garment_a_id, garment_b_id
+             ORDER BY positive_count DESC, created_at ASC
+           ) AS rn
+    FROM   public.garment_pair_memory
+    WHERE  garment_a_id IS NOT NULL AND garment_b_id IS NOT NULL
+  ),
+  keepers AS (
+    SELECT id AS keeper_id, user_id, garment_a_id, garment_b_id
+    FROM   ranked WHERE rn = 1
+  ),
+  merged AS (
+    SELECT k.keeper_id,
+           SUM(g.positive_count) AS total_positive,
+           SUM(g.negative_count) AS total_negative,
+           MAX(g.last_positive_at) AS max_pos,
+           MAX(g.last_negative_at) AS max_neg
+    FROM   keepers k
+    JOIN   public.garment_pair_memory g
+      ON   g.user_id = k.user_id
+       AND g.garment_a_id = k.garment_a_id
+       AND g.garment_b_id = k.garment_b_id
+    GROUP BY k.keeper_id
+  )
+  UPDATE public.garment_pair_memory g
+  SET    positive_count   = m.total_positive,
+         negative_count   = m.total_negative,
+         last_positive_at = m.max_pos,
+         last_negative_at = m.max_neg,
+         updated_at       = now()
+  FROM   merged m
+  WHERE  g.id = m.keeper_id;
 
-WITH ranked AS (
-  SELECT id,
-         user_id,
-         garment_a_id,
-         garment_b_id,
-         positive_count,
-         negative_count,
-         last_positive_at,
-         last_negative_at,
-         created_at,
-         row_number() OVER (
-           PARTITION BY user_id, garment_a_id, garment_b_id
-           ORDER BY positive_count DESC, created_at ASC
-         ) AS rn
-  FROM   public.garment_pair_memory
-  WHERE  garment_a_id IS NOT NULL AND garment_b_id IS NOT NULL
-),
-keepers AS (
-  SELECT id AS keeper_id, user_id, garment_a_id, garment_b_id
-  FROM   ranked WHERE rn = 1
-),
-merged AS (
-  SELECT k.keeper_id,
-         SUM(g.positive_count) AS total_positive,
-         SUM(g.negative_count) AS total_negative,
-         MAX(g.last_positive_at) AS max_pos,
-         MAX(g.last_negative_at) AS max_neg
-  FROM   keepers k
-  JOIN   public.garment_pair_memory g
-    ON   g.user_id = k.user_id
-     AND g.garment_a_id = k.garment_a_id
-     AND g.garment_b_id = k.garment_b_id
-  GROUP BY k.keeper_id
-)
-UPDATE public.garment_pair_memory g
-SET    positive_count   = m.total_positive,
-       negative_count   = m.total_negative,
-       last_positive_at = m.max_pos,
-       last_negative_at = m.max_neg,
-       updated_at       = now()
-FROM   merged m
-WHERE  g.id = m.keeper_id;
-
-DELETE FROM public.garment_pair_memory g
-WHERE  g.garment_a_id IS NOT NULL
-  AND  g.garment_b_id IS NOT NULL
-  AND  EXISTS (
-    SELECT 1 FROM public.garment_pair_memory g2
-    WHERE  g2.user_id = g.user_id
-      AND  g2.garment_a_id = g.garment_a_id
-      AND  g2.garment_b_id = g.garment_b_id
-      AND  (g2.positive_count, g2.created_at) > (g.positive_count, g.created_at)
-  );
+  -- Delete duplicate rows, keeping the row with highest positive_count
+  -- (ties broken by oldest created_at). Explicit AND clauses instead of
+  -- the row-tuple comparison `(a, b) > (c, d)` which some prepared-stmt
+  -- clients can't parse reliably.
+  DELETE FROM public.garment_pair_memory g
+  WHERE  g.garment_a_id IS NOT NULL
+    AND  g.garment_b_id IS NOT NULL
+    AND  EXISTS (
+      SELECT 1 FROM public.garment_pair_memory g2
+      WHERE  g2.user_id = g.user_id
+        AND  g2.garment_a_id = g.garment_a_id
+        AND  g2.garment_b_id = g.garment_b_id
+        AND  g2.id <> g.id
+        AND  (
+          g2.positive_count > g.positive_count
+          OR (
+            g2.positive_count = g.positive_count
+            AND g2.created_at < g.created_at
+          )
+        )
+    );
+END
+$migration_step1$;
 
 -- Step 2: enforce uniqueness going forward. Partial index — null garment ids
 -- (legacy `garment_id_a` / `garment_id_b` rows from before PR A's column adds)
