@@ -14,7 +14,7 @@
 // profiles.preferences.styleProfile + advance_onboarding_step before navigating.
 
 import React, { useEffect, useState } from 'react';
-import { BackHandler, Pressable, Text, View } from 'react-native';
+import { Alert, BackHandler, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -92,7 +92,7 @@ async function clearDraft(): Promise<void> {
 export function OnboardingScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const { user, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<OnboardingDraft>({});
@@ -119,37 +119,115 @@ export function OnboardingScreen() {
   }, [hydrated, step, draft]);
 
   const finish = async () => {
-    // Persist onboarding completion + the draft answers to profiles.preferences.
-    // Best-effort: a server failure does NOT block the user from reaching MainTabs
-    // — the auto-create path in AuthContext seeds the row, and the user can always
-    // re-trigger this save from settings later. The server is the source of truth
-    // once it succeeds; we then refresh AuthContext's cached profile so isOnboarded
-    // flips immediately.
+    // Persist onboarding completion to BOTH the canonical column gate
+    // (`profiles.onboarding_step = 'completed'` via the
+    // `advance_onboarding_step` RPC — same path the web takes) and the
+    // legacy `preferences.onboarding.*` flag (deploy-window fallback +
+    // legacy consumers like web's useFirstRunCoach).
+    //
+    // Cross-app correctness: writing only the legacy flag would leave
+    // mobile-finished users bouncing through web's onboarding because
+    // `ProtectedRoute` reads the column. Mirror web's order: column write
+    // first, legacy preferences second. A column-write failure surfaces an
+    // alert the user can act on; the preferences merge is best-effort.
+    //
+    // Preferences write is read-modify-write so we don't clobber sibling
+    // keys (notifications, locale, etc.) that the web app may have stored
+    // — UPDATE on a JSONB column with a fresh object replaces the entire
+    // value, not merges.
+    let columnWriteFailed = false;
     if (user) {
       try {
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            preferences: {
-              onboarding: {
-                completed: true,
-                step: STEP_COUNT,
-                language: draft.language,
-                quiz: draft.quiz,
-                studio: draft.studio,
-              },
-            },
-          })
-          .eq('id', user.id);
-        if (error) {
-          console.warn('[OnboardingScreen] profile save failed (non-blocking):', error.message);
-        } else {
-          await refreshProfile();
+        const { error: rpcError } = await supabase.rpc('advance_onboarding_step', {
+          p_user_id: user.id,
+          p_to_step: 'completed',
+        });
+        if (rpcError) {
+          // Pre-Wave-7 deploy windows (RPC missing) surface as 42883/PGRST202
+          // and are tolerated by the web — fall through to the legacy write
+          // and let the preferences flag carry the gate. Any other error
+          // means the canonical column write didn't land; surface it so the
+          // user can retry instead of getting stuck in a redirect loop later.
+          const code = (rpcError as { code?: string }).code;
+          const isDeployWindow = code === '42883' || code === 'PGRST202';
+          if (!isDeployWindow) {
+            console.warn('[OnboardingScreen] advance_onboarding_step failed:', rpcError);
+            columnWriteFailed = true;
+          } else {
+            console.warn(
+              '[OnboardingScreen] advance_onboarding_step RPC missing (deploy window) — using legacy flag:',
+              rpcError,
+            );
+          }
         }
       } catch (err) {
-        console.warn('[OnboardingScreen] profile save threw (non-blocking):', err);
+        console.warn('[OnboardingScreen] advance_onboarding_step threw:', err);
+        columnWriteFailed = true;
       }
+
+      // Read-modify-write merge of preferences. Existing keys (web-side
+      // notifications, locale, anything we don't know about) are preserved.
+      const existingPrefs = (profile?.preferences ?? {}) as Record<string, unknown>;
+      const existingOnboarding = (existingPrefs.onboarding ?? {}) as Record<string, unknown>;
+      const mergedPrefs = {
+        ...existingPrefs,
+        onboarding: {
+          ...existingOnboarding,
+          completed: true,
+          step: STEP_COUNT,
+          language: draft.language,
+          quiz: draft.quiz,
+          studio: draft.studio,
+        },
+      };
+      try {
+        const { error: prefsError } = await supabase
+          .from('profiles')
+          .update({ preferences: mergedPrefs })
+          .eq('id', user.id);
+        if (prefsError) {
+          // Legacy flag is the secondary signal; column gate (above) is the
+          // canonical one. If the column write succeeded but this didn't,
+          // the next profile refetch resolves any inconsistency. Log only.
+          console.warn('[OnboardingScreen] preferences merge failed (non-blocking):', prefsError.message);
+        }
+      } catch (err) {
+        console.warn('[OnboardingScreen] preferences merge threw:', err);
+      }
+
+      // Refresh AuthContext's cached profile so `isOnboarded` flips
+      // immediately and the post-sign-in routing effect routes the user to
+      // MainTabs without an additional round-trip.
+      await refreshProfile();
     }
+
+    if (columnWriteFailed) {
+      // User-visible failure surface. Non-blocking — they can choose to
+      // continue (legacy flag carries them through this session, with a
+      // warning) or retry (rare; means a network hiccup at the very end).
+      Alert.alert(
+        'Save failed',
+        'We could not save your onboarding progress. You can continue and we will try again later, or retry now.',
+        [
+          {
+            text: 'Retry',
+            onPress: () => {
+              void finish();
+            },
+          },
+          {
+            text: 'Continue anyway',
+            style: 'cancel',
+            onPress: () => {
+              void clearDraft();
+              nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     void clearDraft();
     nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   };

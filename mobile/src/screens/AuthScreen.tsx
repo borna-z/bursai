@@ -6,7 +6,7 @@
 // auth-state listener in AuthContext + SplashScreen owns post-auth routing
 // (no manual nav.reset on success — listener decides Onboarding vs MainTabs).
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -79,7 +79,7 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
 export function AuthScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, isLoading, isOnboarded } = useAuth();
   const [mode, setMode] = useState<Mode>('signIn');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -94,6 +94,35 @@ export function AuthScreen() {
   const emailRef = useRef<TextInput | null>(null);
   const passwordRef = useRef<TextInput | null>(null);
 
+  // Guards setState calls in async finally blocks: AuthContext routes the user
+  // away as soon as SIGNED_IN fires, so the component can unmount before the
+  // signIn/signUp/OAuth promise resolves. Without this, RN logs a "state update
+  // on unmounted component" warning and the spinner state leaks.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Post-sign-in routing. SplashScreen owns the cold-start fork; once the user
+  // has reached AuthScreen, Splash is unmounted, so a successful sign-in needs
+  // a local effect to push them onward. Gates on isLoading=false so we wait
+  // for the profile fetch to settle before deciding Onboarding vs MainTabs —
+  // otherwise a brief profile=null window would route a returning user back
+  // to Onboarding. (Concurrency review I2.)
+  const navigatedRef = useRef(false);
+  useEffect(() => {
+    if (isLoading || !user || navigatedRef.current) return;
+    navigatedRef.current = true;
+    if (isOnboarded) {
+      nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    } else {
+      nav.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+    }
+  }, [isLoading, user, isOnboarded, nav]);
+
   const isSignUp = mode === 'signUp';
 
   const trimmedEmail = email.trim();
@@ -102,9 +131,14 @@ export function AuthScreen() {
   const nameValid = !isSignUp || name.trim().length > 0;
   const canSubmit = emailValid && passwordValid && nameValid && !submitting;
 
-  const showNameError = isSignUp && touched.name && name.trim().length === 0;
-  const showEmailError = touched.email && trimmedEmail.length > 0 && !emailValid;
-  const showPasswordError = touched.password && password.length > 0 && !passwordValid;
+  // Inline-error gates only depend on `touched` so an attempted submit (which
+  // sets every field touched) reveals "Enter a valid email" / "Password too
+  // short" even when the field is empty. Keeping the gate purely on touched
+  // means a fresh field never shows an error before the user interacts —
+  // empty + untouched stays quiet. (UX review #1.)
+  const showNameError = isSignUp && Boolean(touched.name) && name.trim().length === 0;
+  const showEmailError = Boolean(touched.email) && !emailValid;
+  const showPasswordError = Boolean(touched.password) && !passwordValid;
 
   const handleSubmit = async () => {
     setTouched({ name: true, email: true, password: true });
@@ -125,10 +159,11 @@ export function AuthScreen() {
           return;
         }
       }
-      // Success: AuthContext's onAuthStateChange listener fires SIGNED_IN,
-      // SplashScreen owns post-auth routing. We don't navigate from here.
+      // Success: the post-sign-in routing effect above (gated on user +
+      // !isLoading) reset-navigates to Onboarding or MainTabs as soon as
+      // AuthContext finishes loading the profile.
     } finally {
-      setSubmitting(false);
+      if (isMountedRef.current) setSubmitting(false);
     }
   };
 
@@ -147,9 +182,10 @@ export function AuthScreen() {
       if (error) {
         Alert.alert(tr('auth.google.errorTitle'), error.message);
       }
-      // Deep link callback handled by RootNavigator; auth listener routes.
+      // Deep link callback handled by RootNavigator; auth listener + the
+      // post-sign-in routing effect above complete the flow.
     } finally {
-      setSubmitting(false);
+      if (isMountedRef.current) setSubmitting(false);
     }
   };
 

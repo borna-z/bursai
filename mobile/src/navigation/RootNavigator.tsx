@@ -190,8 +190,33 @@ const Placeholders = {
 // Google OAuth completes by redirecting back to `burs://auth/callback?code=...`.
 // supabase-js exchanges the code for a session, which then triggers the auth
 // listener in AuthContext and SplashScreen-style routing into the app.
+//
+// Strict matching: only `burs://auth/callback` (any query/hash) triggers the
+// exchange. Substring matching on `auth/callback` would let a foreign deep
+// link like `burs://other/auth/callback/junk` reach `exchangeCodeForSession`,
+// which on its own is harmless (PKCE binds the code to the AsyncStorage-stored
+// `code_verifier`) but adds attack surface for no benefit. App Links / iOS
+// universal links remain a future hardening step — the current scheme-only
+// registration is not exclusive on either platform.
+function isOAuthCallbackUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'burs:') return false;
+    // RN's URL polyfill normalizes hostname/pathname differently for custom
+    // schemes — accept both `burs://auth/callback` (host=auth, path=/callback)
+    // and `burs:///auth/callback` (host='', path=/auth/callback) shapes.
+    const host = parsed.hostname;
+    const path = parsed.pathname;
+    if (host === 'auth' && (path === '/callback' || path === '/callback/')) return true;
+    if (host === '' && (path === '/auth/callback' || path === '/auth/callback/')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function handleOAuthDeepLink(url: string): Promise<void> {
-  if (!url.includes('auth/callback')) return;
+  if (!isOAuthCallbackUrl(url)) return;
   try {
     const { error } = await supabase.auth.exchangeCodeForSession(url);
     if (error) {

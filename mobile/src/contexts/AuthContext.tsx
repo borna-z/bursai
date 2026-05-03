@@ -8,6 +8,13 @@
 //
 // On SIGNED_IN: load (or auto-create) the profile row.
 // On SIGNED_OUT: clear user/session/profile.
+//
+// `isLoading` stays true until BOTH the session AND the profile-load attempt
+// have settled, so callers (SplashScreen, AuthScreen post-sign-in routing
+// effect) can distinguish "auth resolved + ready to route" from "auth resolved
+// but profile still in flight". Without this, `isOnboarded` would briefly
+// read `false` during the profile fetch and the user would be routed back to
+// Onboarding even when they're already done.
 
 import React, {
   createContext,
@@ -37,12 +44,20 @@ export type ProfilePreferences = {
   [key: string]: unknown;
 } | null;
 
+// Mirrors the canonical onboarding_step enum from the web — see
+// src/lib/advanceOnboardingStep.ts. We keep the column nullable here because
+// older users (pre-Wave-7 migration) may not have it populated; the column
+// is the canonical signal post-migration but the legacy
+// `preferences.onboarding.completed` flag remains the deploy-window fallback
+// (matches web's ProtectedRoute behavior).
 export type Profile = {
   id: string;
   display_name: string | null;
   preferences: ProfilePreferences;
   mannequin_presentation: string | null;
   created_at: string;
+  onboarding_step?: string | null;
+  onboarding_completed_at?: string | null;
 };
 
 type SignResult = { error: Error | null };
@@ -60,6 +75,9 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const PROFILE_COLUMNS =
+  'id, display_name, preferences, mannequin_presentation, created_at, onboarding_step, onboarding_completed_at';
 
 // Fresh-signup detection window — start_trial fires only when the user row
 // was created within this many ms of the SIGNED_IN event. Prevents trial
@@ -83,20 +101,22 @@ async function callStartTrial(accessToken: string): Promise<void> {
   }
 }
 
-async function loadOrCreateProfile(user: User): Promise<Profile | null> {
-  // maybeSingle so a missing row returns null instead of an error.
+async function selectProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, preferences, mannequin_presentation, created_at')
-    .eq('id', user.id)
+    .select(PROFILE_COLUMNS)
+    .eq('id', userId)
     .maybeSingle();
-
   if (error) {
     console.warn('[AuthContext] profile select failed:', error.message);
     return null;
   }
+  return (data as Profile | null) ?? null;
+}
 
-  if (data) return data as Profile;
+async function loadOrCreateProfile(user: User): Promise<Profile | null> {
+  const existing = await selectProfile(user.id);
+  if (existing) return existing;
 
   // No profile — auto-create with sensible defaults. Mirrors web's useProfile.
   const displayName =
@@ -112,16 +132,25 @@ async function loadOrCreateProfile(user: User): Promise<Profile | null> {
       preferences: { onboarding: { completed: false } },
       mannequin_presentation: 'mixed',
     })
-    .select('id, display_name, preferences, mannequin_presentation, created_at')
+    .select(PROFILE_COLUMNS)
     .single();
 
   if (insertError) {
+    const code = (insertError as { code?: string }).code;
     // FK violation = ghost session (user not in auth.users). Sign out so the
     // app stops looping on a phantom user. Mirrors web's useProfile.
-    if ((insertError as { code?: string }).code === '23503') {
+    if (code === '23503') {
       console.warn('[AuthContext] ghost session detected — signing out');
       await supabase.auth.signOut();
       return null;
+    }
+    // PK conflict = race with a sibling listener (e.g. SIGNED_IN +
+    // INITIAL_SESSION emitting concurrently, or a TOKEN_REFRESHED fan-out
+    // landing during cold-start). Re-select rather than treat as a hard
+    // failure — the winning insert produced a real row we just need to read.
+    if (code === '23505') {
+      console.warn('[AuthContext] profile insert raced — re-selecting winning row');
+      return await selectProfile(user.id);
     }
     console.warn('[AuthContext] profile auto-create failed:', insertError.message);
     return null;
@@ -137,17 +166,29 @@ function isFreshSignup(user: User | null | undefined, eventAtMs = Date.now()): b
   return eventAtMs - createdAtMs < FRESH_SIGNUP_WINDOW_MS;
 }
 
+function deriveIsOnboarded(profile: Profile | null): boolean {
+  if (!profile) return false;
+  // Column-based signal is canonical (web's ProtectedRoute). Legacy
+  // preferences flag is the deploy-window fallback for users whose row
+  // predates the Wave 7 migration.
+  if (profile.onboarding_step === 'completed') return true;
+  return Boolean(profile.preferences?.onboarding?.completed);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Tracks which (userId, accessToken) pairs we've already fired start_trial
-  // for in this app session. supabase-js may emit SIGNED_IN multiple times
-  // (token refresh, rehydrate). The full access_token (not a prefix) keys
-  // each unique JWT so a re-sign-in or token refresh re-fires; the edge
-  // function dedupes server-side anyway. Mirrors web pattern.
+  // Tracks which userIds we've already fired start_trial for in this app
+  // session. supabase-js may emit SIGNED_IN multiple times (token refresh,
+  // rehydrate). The edge function is idempotent server-side (DB pre-check +
+  // trial_pending metadata + Stripe-side keys), so this is purely a bandwidth
+  // optimisation. Keying on userId (rather than the full access_token) keeps
+  // the Set's cardinality bounded at 1 per app lifetime — full-token keys
+  // grow linearly with refresh count. The Set is also never serialised, so
+  // no token leak risk via Sentry / devtools.
   const triggeredTrialKeys = useRef<Set<string>>(new Set());
 
   // Latest user ref so refreshProfile can read the current user without
@@ -169,6 +210,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    // De-duplicates concurrent profile fetches from racing listeners
+    // (SIGNED_IN + getSession on cold start, TOKEN_REFRESHED while a previous
+    // load is in flight, etc.). When a fetch is already in flight, later
+    // events skip the call and rely on the first one's setProfile to land.
+    let profileFetchInFlight = false;
+
+    const settleProfile = (u: User) => {
+      if (profileFetchInFlight) {
+        // Already loading; the in-flight fetch will flip isLoading=false.
+        return;
+      }
+      profileFetchInFlight = true;
+      void loadOrCreateProfile(u)
+        .then((p) => {
+          if (cancelled) return;
+          setProfile(p);
+        })
+        .finally(() => {
+          profileFetchInFlight = false;
+          if (!cancelled) setIsLoading(false);
+        });
+    };
+
+    const maybeFireStartTrial = (u: User, accessToken: string) => {
+      if (!isFreshSignup(u)) return;
+      const key = u.id;
+      if (triggeredTrialKeys.current.has(key)) return;
+      triggeredTrialKeys.current.add(key);
+      void callStartTrial(accessToken);
+    };
 
     // 1. Subscribe FIRST so we don't miss the initial SIGNED_IN that getSession
     //    can racily emit alongside.
@@ -177,33 +248,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       const nextUser = nextSession?.user ?? null;
       setUser(nextUser);
-      setIsLoading(false);
 
-      if (event === 'SIGNED_IN' && nextUser && nextSession?.access_token) {
-        // Hydrate / auto-create profile.
-        void loadOrCreateProfile(nextUser).then((p) => {
-          if (!cancelled) setProfile(p);
-        });
-
-        // Fresh-signup trial mint — fire-and-forget.
-        if (isFreshSignup(nextUser)) {
-          const key = `${nextUser.id}:${nextSession.access_token}`;
-          if (!triggeredTrialKeys.current.has(key)) {
-            triggeredTrialKeys.current.add(key);
-            void callStartTrial(nextSession.access_token);
-          }
+      if (nextUser) {
+        // Keep isLoading true while profile resolves so consumers don't see
+        // a stale `isOnboarded=false` for the duration of the fetch.
+        setIsLoading(true);
+        settleProfile(nextUser);
+        if (event === 'SIGNED_IN' && nextSession?.access_token) {
+          maybeFireStartTrial(nextUser, nextSession.access_token);
         }
-      }
-
-      if (event === 'TOKEN_REFRESHED' && nextUser && !profile) {
-        // Recover profile if a token refresh happened without our cache yet.
-        void loadOrCreateProfile(nextUser).then((p) => {
-          if (!cancelled) setProfile(p);
-        });
+      } else {
+        setProfile(null);
+        setIsLoading(false);
       }
 
       if (event === 'SIGNED_OUT') {
-        setProfile(null);
         triggeredTrialKeys.current.clear();
       }
     });
@@ -217,24 +276,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const u = data.session?.user ?? null;
         setUser(u);
         if (u) {
-          void loadOrCreateProfile(u).then((p) => {
-            if (!cancelled) setProfile(p);
-          });
-          // Cold-start parity with the SIGNED_IN listener branch: if the
-          // rehydrated session belongs to a user created <60s ago, fire the
-          // trial mint. Covers the case where the user signed up on a
-          // previous launch that died before the auth listener could fire.
-          // The edge function is idempotent across DB pre-check + Stripe-side
-          // keys, so a duplicate fire here is a no-op on the server.
-          if (data.session?.access_token && isFreshSignup(u)) {
-            const key = `${u.id}:${data.session.access_token}`;
-            if (!triggeredTrialKeys.current.has(key)) {
-              triggeredTrialKeys.current.add(key);
-              void callStartTrial(data.session.access_token);
-            }
+          setIsLoading(true);
+          settleProfile(u);
+          if (data.session?.access_token) {
+            // Cold-start parity with the SIGNED_IN listener branch: a session
+            // rehydrated <60s after signup that died before the auth listener
+            // could fire still gets the trial mint. The edge function is
+            // server-idempotent so a duplicate fire here is a no-op.
+            maybeFireStartTrial(u, data.session.access_token);
           }
+        } else {
+          setIsLoading(false);
         }
-        setIsLoading(false);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -246,12 +299,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       subData.subscription.unsubscribe();
     };
-    // We intentionally do not depend on `profile` — re-subscribing on every
-    // profile change would tear down the auth listener. The TOKEN_REFRESHED
-    // branch reads `profile` via closure, so a stale-closure miss just means
-    // we don't re-hydrate on a refresh that happens with no profile cached
-    // yet — recoverable on the next event.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignResult> => {
@@ -293,7 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
-  const isOnboarded = Boolean(profile?.preferences?.onboarding?.completed);
+  const isOnboarded = deriveIsOnboarded(profile);
 
   const value = useMemo<AuthContextValue>(
     () => ({
