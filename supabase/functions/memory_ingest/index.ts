@@ -278,11 +278,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── 3. Validate event_type + normalize ─────────────────────────────
-    const rawEventType = body.event_type;
+    // ── 3. Validate signal_type + normalize ────────────────────────────
+    // Canonical body field is `signal_type` (matches RecordMemoryEventInput +
+    // feedback_signals.signal_type column). Older PR A drafts read
+    // `event_type` for parity with the RPC's p_event_type — accept that as a
+    // fallback for back-compat in case any caller still uses it. Surfaced
+    // as a CI smoke-test failure on commit 2e4288d4 (round 5+6 audit).
+    const rawEventType =
+      typeof body.signal_type === "string" && body.signal_type.length > 0
+        ? body.signal_type
+        : body.event_type;
     if (typeof rawEventType !== "string" || rawEventType.length === 0) {
       return new Response(
-        JSON.stringify({ error: "event_type required" }),
+        JSON.stringify({ error: "signal_type required" }),
         {
           status: 400,
           headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
