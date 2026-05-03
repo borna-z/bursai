@@ -1,12 +1,13 @@
 project_id = "khvkwojtlkcvxjxztduj"
 
-# Pin local Postgres version to match production (audit R6-P3, Wave 8.5 PR B
-# Round 6). Without this pin, the CLI defaults to its bundled PG version
-# (currently 15) while prod runs PG17 — `db push --dry-run` then surfaces
-# `+major_version = 17` as drift on every CI run. Migrations may parse fine
-# locally and fail in prod when language-version-sensitive features differ.
-[db]
-major_version = 17
+# NOTE (R6-P3 deferred): Audit Round 6 surfaced PG version drift between
+# local (CLI default ~15) and prod (PG17). Setting `[db] major_version = 17`
+# here is REJECTED by the pinned CLI v1.226.4 (smoke-local + drift-check CI
+# jobs use this version). The CLI was last pre-PG17 release; PG17 support
+# requires v2.x which adds breaking flag changes (e.g., `--yes` semantics).
+# Tracked as a separate follow-up: bump pinned CLI version + add the
+# `[db] major_version = 17` block in lockstep. This PR keeps the default
+# so CI stays green; no migration in this PR uses PG17-specific features.
 
 [functions]
   [functions.analyze_garment]
