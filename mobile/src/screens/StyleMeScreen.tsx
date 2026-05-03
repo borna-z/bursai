@@ -224,6 +224,20 @@ export function StyleMeScreen() {
           </View>
         ) : !result ? (
           <Button label="Generate outfit" onPress={onGenerate} block />
+        ) : itemCount === 0 ? (
+          // Engine returned a non-error response with no garments — wardrobe
+          // doesn't cover this occasion+formality combo. Surface a soft empty
+          // state instead of rendering a "0 PIECES" OutfitCard. Codex audit
+          // P2-1 (audit 3).
+          <View style={{ gap: 14 }}>
+            <View style={s.emptyResult}>
+              <Eyebrow>No matching pieces</Eyebrow>
+              <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 260 }}>
+                {result.description || 'Try a different occasion or formality — your wardrobe doesn’t yet cover this combo.'}
+              </Caption>
+            </View>
+            <Button label="Restyle" variant="outline" onPress={onRestyle} block />
+          </View>
         ) : (
           <View style={{ gap: 14 }}>
             <View>
@@ -242,7 +256,12 @@ export function StyleMeScreen() {
                     );
                   }
                 }}
-                onSave={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
+                onSave={() =>
+                  Alert.alert(
+                    'Saved as preview',
+                    'Persistent saving lands in a future update. For now this is a preview.',
+                  )
+                }
               />
               {result.description ? (
                 <Caption style={{ marginTop: 8, lineHeight: 18 }}>{result.description}</Caption>
@@ -285,6 +304,11 @@ const s = StyleSheet.create({
   },
   loadingWrap: {
     paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyResult: {
+    paddingVertical: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },

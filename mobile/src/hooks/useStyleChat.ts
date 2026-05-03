@@ -108,6 +108,34 @@ export function useStyleChat() {
       let deltaAccumulated = '';
       let receivedDeltas = false;
 
+      // rAF-coalesced flush — a 200-token reply arrives as ~200 micro-tasks
+      // resolving at sub-frame intervals; firing setMessages per chunk costs
+      // 200 renders. We accumulate the rolling content and let a single
+      // rAF tick land it on the next frame (~16ms cap, ~60 renders/sec
+      // worst case). flushPending() also runs synchronously on done/error
+      // so the bubble settles to its final state without a trailing frame
+      // gap. Codex audit P2-3 (audit 3).
+      let pendingFlush = false;
+      const flushBubble = () => {
+        if (controller.signal.aborted) return;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: deltaAccumulated } : m,
+          ),
+        );
+      };
+      const scheduleBubbleFlush = () => {
+        if (pendingFlush) return;
+        pendingFlush = true;
+        // RN polyfills requestAnimationFrame; the closure captures the
+        // assistantId/controller for this turn so a new turn's flush
+        // doesn't poison this one.
+        requestAnimationFrame(() => {
+          pendingFlush = false;
+          flushBubble();
+        });
+      };
+
       await fetchSSE(
         getEdgeFunctionUrl(supabaseUrl, 'style_chat'),
         { messages: messagesPayload, locale: 'en' },
@@ -121,13 +149,7 @@ export function useStyleChat() {
               // Plain-text fragment — append directly.
               receivedDeltas = true;
               deltaAccumulated += raw;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: deltaAccumulated }
-                    : m,
-                ),
-              );
+              scheduleBubbleFlush();
               return;
             }
 
@@ -141,22 +163,14 @@ export function useStyleChat() {
               if (!piece) return;
               receivedDeltas = true;
               deltaAccumulated += piece;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: deltaAccumulated } : m,
-                ),
-              );
+              scheduleBubbleFlush();
               return;
             }
 
             if (parsed && 'text' in parsed && typeof parsed.text === 'string') {
               receivedDeltas = true;
               deltaAccumulated += parsed.text;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: deltaAccumulated } : m,
-                ),
-              );
+              scheduleBubbleFlush();
             }
             // suggestions / metadata events: ignored — UI uses static chips
             // in W4. W4.5+ surface server-provided chips.

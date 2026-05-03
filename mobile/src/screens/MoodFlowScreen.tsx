@@ -167,6 +167,31 @@ export function MoodFlowScreen() {
             Pulling pieces that hold &ldquo;{MOOD_LABEL.toLowerCase()}&rdquo;
           </Text>
         </View>
+      ) : itemCount === 0 ? (
+        // Engine returned a non-error response with no garments. Surface a
+        // soft empty state instead of an OutfitCard with no pieces. Codex
+        // audit P2-1 (audit 3).
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 24, gap: 18 }}
+          showsVerticalScrollIndicator={false}>
+          <View style={{ alignItems: 'center', paddingVertical: 28, gap: 6 }}>
+            <Eyebrow>No matching pieces</Eyebrow>
+            <Text
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 13.5,
+                lineHeight: 20,
+                color: t.fg2,
+                textAlign: 'center',
+                letterSpacing: -0.13,
+                maxWidth: 260,
+              }}>
+              {result.description
+                || `Your wardrobe doesn’t yet hold pieces that read “${MOOD_LABEL.toLowerCase()}”. Try another mood or add more garments.`}
+            </Text>
+          </View>
+          <Button label="Restyle" variant="outline" onPress={restyle} block />
+        </ScrollView>
       ) : (
         // ============ RESULT STATE ============
         <ScrollView
@@ -199,7 +224,7 @@ export function MoodFlowScreen() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Chip label={MOOD_LABEL} active />
             <Chip label={TIME_LABEL} />
-            {itemCount > 0 ? <Chip label={`${itemCount} pieces`} /> : null}
+            <Chip label={`${itemCount} pieces`} />
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -226,7 +251,12 @@ export function MoodFlowScreen() {
           <Button
             label="Save look"
             variant="outline"
-            onPress={() => Alert.alert('Saved', 'Look saved to your outfits.')}
+            onPress={() =>
+              Alert.alert(
+                'Saved as preview',
+                'Persistent saving lands in a future update. For now this is a preview.',
+              )
+            }
             block
           />
         </ScrollView>

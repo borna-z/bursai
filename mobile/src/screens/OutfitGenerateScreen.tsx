@@ -252,6 +252,36 @@ export function OutfitGenerateScreen() {
             />
           </View>
         </View>
+      ) : itemCount === 0 ? (
+        // Engine returned a non-error response with no garments. Surface a
+        // soft empty state instead of rendering 4 empty placeholder tiles.
+        // Codex audit P2-1 (audit 3).
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            paddingBottom: insets.bottom + 32,
+            gap: 14,
+          }}
+          showsVerticalScrollIndicator={false}>
+          <View style={{ alignItems: 'center', paddingVertical: 32, gap: 6 }}>
+            <Eyebrow>No matching pieces</Eyebrow>
+            <Text
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 13.5,
+                lineHeight: 20,
+                color: t.fg2,
+                textAlign: 'center',
+                letterSpacing: -0.13,
+                maxWidth: 260,
+              }}>
+              {result.description
+                || 'Your wardrobe doesn’t yet cover this look. Add more garments or try a different anchor.'}
+            </Text>
+          </View>
+          <Button label="Try again" variant="outline" onPress={tryAgain} block />
+        </ScrollView>
       ) : (
         <ScrollView
           contentContainerStyle={{
@@ -286,7 +316,7 @@ export function OutfitGenerateScreen() {
                     bottom: 10,
                     left: 10,
                   }}>
-                  {result.items[i]?.slot.toUpperCase() ?? SLOT_LABELS[i]}
+                  {result.items[i]?.slot?.toUpperCase() ?? SLOT_LABELS[i]}
                 </Text>
               </View>
             ))}
@@ -331,7 +361,12 @@ export function OutfitGenerateScreen() {
           <Button
             label="Save outfit"
             variant="outline"
-            onPress={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
+            onPress={() =>
+              Alert.alert(
+                'Saved as preview',
+                'Persistent saving lands in a future update. For now this is a preview.',
+              )
+            }
             block
           />
           <Button label="Try again" variant="quiet" onPress={tryAgain} block />
