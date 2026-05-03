@@ -5,7 +5,7 @@
 // (TravelPackingList) via route params.
 
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -57,6 +57,33 @@ function nightsBetween(from: string, to: string): number | null {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
+function localISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function offsetISO(daysFromToday: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromToday);
+  return localISO(d);
+}
+
+const DATE_PRESETS: ReadonlyArray<{ label: string; daysFromToday: number }> = [
+  { label: 'Today',     daysFromToday: 0 },
+  { label: 'Tomorrow',  daysFromToday: 1 },
+  { label: '+3 days',   daysFromToday: 3 },
+  { label: '+1 week',   daysFromToday: 7 },
+  { label: '+2 weeks',  daysFromToday: 14 },
+];
+
+function shortDateLabel(iso: string): string {
+  const d = parseISODate(iso);
+  if (!d) return iso;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export function TravelCapsuleScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -71,6 +98,23 @@ export function TravelCapsuleScreen() {
 
   const toggleTripType = (type: TripType) =>
     setTripTypes((prev) => (prev.includes(type) ? prev.filter((x) => x !== type) : [...prev, type]));
+
+  // Preset-pill date chooser. Avoids dragging in @react-native-community/datetimepicker for this
+  // design pass while still feeling like a real picker. Real impl swaps to a calendar sheet.
+  const openDatePicker = React.useCallback((which: 'from' | 'to') => {
+    const buttons: Array<{ text: string; onPress?: () => void; style?: 'cancel' }> = DATE_PRESETS.map(
+      ({ label, daysFromToday }) => ({
+        text: label,
+        onPress: () => {
+          const iso = offsetISO(daysFromToday);
+          if (which === 'from') setFromDate(iso);
+          else setToDate(iso);
+        },
+      }),
+    );
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert(which === 'from' ? 'Start date' : 'End date', undefined, buttons);
+  }, []);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -131,30 +175,40 @@ export function TravelCapsuleScreen() {
           <View style={{ gap: 10 }}>
             <Eyebrow>Dates</Eyebrow>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={[s.dateInput, { backgroundColor: t.bg2, borderColor: t.border }]}>
-                <TextInput
-                  value={fromDate}
-                  onChangeText={setFromDate}
-                  placeholder="From (YYYY-MM-DD)"
-                  placeholderTextColor={t.fg3}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 13, padding: 0 }}
-                />
+              <Pressable
+                onPress={() => openDatePicker('from')}
+                accessibilityRole="button"
+                accessibilityLabel="Pick start date"
+                style={[s.dateInput, { backgroundColor: t.bg2, borderColor: t.border }]}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    color: fromDate ? t.fg : t.fg3,
+                    fontFamily: fonts.uiMed,
+                    fontSize: 13,
+                  }}>
+                  {fromDate ? shortDateLabel(fromDate) : 'From'}
+                </Text>
                 <CalendarIcon color={t.fg2} />
-              </View>
-              <View style={[s.dateInput, { backgroundColor: t.bg2, borderColor: t.border }]}>
-                <TextInput
-                  value={toDate}
-                  onChangeText={setToDate}
-                  placeholder="To (YYYY-MM-DD)"
-                  placeholderTextColor={t.fg3}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 13, padding: 0 }}
-                />
+              </Pressable>
+              <Pressable
+                onPress={() => openDatePicker('to')}
+                accessibilityRole="button"
+                accessibilityLabel="Pick end date"
+                style={[s.dateInput, { backgroundColor: t.bg2, borderColor: t.border }]}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    color: toDate ? t.fg : t.fg3,
+                    fontFamily: fonts.uiMed,
+                    fontSize: 13,
+                  }}>
+                  {toDate ? shortDateLabel(toDate) : 'To'}
+                </Text>
                 <CalendarIcon color={t.fg2} />
-              </View>
+              </Pressable>
             </View>
             {/* Day-trip (0 nights) gets distinct copy; otherwise show pluralised night count.
                 Codex audit P1.2. */}

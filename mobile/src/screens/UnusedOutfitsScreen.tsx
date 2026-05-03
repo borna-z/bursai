@@ -8,7 +8,7 @@
 // Source: design_handoff_burs_rn/source/audit-screens.jsx UnusedOutfitsScreen + the user brief.
 
 import React from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +23,7 @@ import { Chip } from '../components/Chip';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -54,6 +55,7 @@ export function UnusedOutfitsScreen() {
   const nav = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = React.useState<FilterKey>('all');
+  const { refreshing, onRefresh } = useMockRefresh();
 
   const visible = filter === 'all' ? ITEMS : ITEMS.filter((i) => i.cat === filter);
 
@@ -109,6 +111,9 @@ export function UnusedOutfitsScreen() {
         columnWrapperStyle={{ gap: 8, paddingHorizontal: 20 }}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: insets.bottom + 92, gap: 8 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         renderItem={({ item }) => (
           <View style={{ flex: 1 / 3 }}>
             <View

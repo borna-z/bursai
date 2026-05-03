@@ -8,7 +8,7 @@
 // `new Date()` at render so the screen stays accurate as days roll forward.
 
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,7 +20,10 @@ import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { WeekStrip, type WeekDay } from '../components/WeekStrip';
+import { PlanCardSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -38,7 +41,10 @@ function localISODate(d: Date): string {
 // Build the rolling 7-day window (today first). Dot pattern matches HomeScreen's MiniWeek
 // so the two views agree on which days are "planned" until the planned_outfits query lands.
 // `setDate(getDate() + i)` not ms-arithmetic so DST transitions don't skip a calendar day.
-function buildPlanWeek(today: Date): WeekDay[] {
+//
+// `selectedIndex` drives the `active` flag — when the user taps a different day in the strip,
+// the visual highlight + the panel's planned-outfit copy below both follow that selection.
+function buildPlanWeek(today: Date, selectedIndex: number): WeekDay[] {
   const dotPattern = [true, true, true, false, true, false, false];
   const out: WeekDay[] = [];
   for (let i = 0; i < 7; i++) {
@@ -47,7 +53,7 @@ function buildPlanWeek(today: Date): WeekDay[] {
     out.push({
       dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
       n: d.getDate(),
-      active: i === 0,
+      active: i === selectedIndex,
       planned: dotPattern[i],
       iso: localISODate(d),
     });
@@ -81,16 +87,53 @@ function buildComingUp(week: WeekDay[]): ReadonlyArray<{ when: string; label: st
     }));
 }
 
+// Lightweight panel content per day. Real impl pulls from planned_outfits keyed by ISO date.
+const PANEL_PRESETS: ReadonlyArray<{ kicker: string; title: string; body: string } | null> = [
+  { kicker: 'Brunch · Soft', title: 'Today is styled', body: 'Cream linen trouser, wool overshirt, and the suede loafers — calibrated for 14° and a long lunch.' },
+  { kicker: 'Coffee · Warm', title: 'Tomorrow morning', body: 'Sand canvas chore over the merino tee — sharp without overheating.' },
+  { kicker: 'Office · Tailored', title: 'Sharper Monday', body: 'Charcoal trouser, white oxford, navy blazer — boardroom-ready.' },
+  null,
+  { kicker: 'Dinner · Evening', title: 'Late table', body: 'Rust knit, dark denim, suede chelsea — easy hand, sharp line.' },
+  null,
+  null,
+];
+
 export function PlanScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
 
   const now = new Date();
   const headerEyebrow = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const week = buildPlanWeek(now);
+
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const week = buildPlanWeek(now, selectedIndex);
   const comingUp = buildComingUp(week);
+  const selectedPanel = PANEL_PRESETS[selectedIndex] ?? null;
+  const selectedDay = week[selectedIndex];
+
+  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(600);
 
   const goOutfit = () => nav.navigate('OutfitDetail');
+
+  if (error) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingTop: 8, paddingHorizontal: 20, paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }>
+          <View style={s.header}>
+            <View style={{ flex: 1 }}>
+              <Eyebrow style={{ marginBottom: 4 }}>{headerEyebrow}</Eyebrow>
+              <PageTitle>Your Week</PageTitle>
+            </View>
+          </View>
+          <ErrorState onRetry={retry} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -101,6 +144,9 @@ export function PlanScreen() {
           paddingBottom: 130,
           gap: 18,
         }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         showsVerticalScrollIndicator={false}>
 
         {/* ============ HEADER ============ */}
@@ -116,65 +162,102 @@ export function PlanScreen() {
         </View>
 
         {/* ============ WEEK STRIP ============ */}
-        <WeekStrip days={week} />
+        <WeekStrip
+          days={week}
+          onDayPress={(_day) => {
+            const idx = week.findIndex((d) => d.iso === _day.iso);
+            if (idx >= 0) setSelectedIndex(idx);
+          }}
+        />
 
         {/* ============ PLANNED PANEL ============ */}
-        <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            <EyebrowChip label="Planned · Today" />
-            <EyebrowChip label="Brunch · Soft" />
+        {loading ? (
+          <PlanCardSkeleton />
+        ) : selectedPanel ? (
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              <EyebrowChip
+                label={
+                  selectedIndex === 0
+                    ? 'Planned · Today'
+                    : `Planned · ${selectedDay?.dow ?? ''} ${selectedDay?.n ?? ''}`
+                }
+              />
+              <EyebrowChip label={selectedPanel.kicker} />
+            </View>
+
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 22,
+                lineHeight: 26,
+                fontWeight: '500',
+                color: t.fg,
+                letterSpacing: -0.22,
+              }}>
+              {selectedPanel.title}
+            </Text>
+
+            <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
+              {selectedPanel.body}
+            </Text>
+
+            <View style={s.outfitRow}>
+              {SLOTS.map((slot) => (
+                <OutfitThumb key={slot} label={slot} />
+              ))}
+            </View>
+
+            <Button label={selectedIndex === 0 ? 'Wear today' : 'View outfit'} onPress={goOutfit} block />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('OutfitGenerate')} />
+              <Button
+                label="Clear"
+                variant="outline"
+                size="sm"
+                block
+                style={{ flex: 1 }}
+                onPress={() =>
+                  Alert.alert(
+                    'Clear plans',
+                    'This will remove the planned outfit for this day.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Clear',
+                        style: 'destructive',
+                        onPress: () => Alert.alert('Cleared', 'Planned outfit cleared.'),
+                      },
+                    ],
+                  )
+                }
+              />
+              <Button label="+ Add" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('AddPieceStep1')} />
+            </View>
           </View>
-
-          <Text
-            style={{
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 22,
-              lineHeight: 26,
-              fontWeight: '500',
-              color: t.fg,
-              letterSpacing: -0.22,
-            }}>
-            Today is styled
-          </Text>
-
-          <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
-            Cream linen trouser, wool overshirt, and the suede loafers — calibrated for 14° and a long lunch.
-          </Text>
-
-          <View style={s.outfitRow}>
-            {SLOTS.map((slot) => (
-              <OutfitThumb key={slot} label={slot} />
-            ))}
+        ) : (
+          // Empty state — selected day has no planned outfit. Same vocabulary as MonthCalendar.
+          <View style={{ gap: 10 }}>
+            <EyebrowChip label={`${selectedDay?.dow ?? ''} ${selectedDay?.n ?? ''}`} />
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 22,
+                lineHeight: 26,
+                fontWeight: '500',
+                color: t.fg,
+                letterSpacing: -0.22,
+              }}>
+              Nothing planned
+            </Text>
+            <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
+              Generate an outfit or pick from your saved looks.
+            </Text>
+            <Button label="Generate outfit" onPress={() => nav.navigate('OutfitGenerate')} block />
           </View>
-
-          <Button label="Wear today" onPress={goOutfit} block />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('OutfitGenerate')} />
-            <Button
-              label="Clear"
-              variant="outline"
-              size="sm"
-              block
-              style={{ flex: 1 }}
-              onPress={() =>
-                Alert.alert(
-                  'Clear plans',
-                  'This will remove all planned outfits.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Clear',
-                      style: 'destructive',
-                      onPress: () => Alert.alert('Cleared', 'Planned outfits cleared.'),
-                    },
-                  ],
-                )
-              }
-            />
-            <Button label="+ Add" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('AddPieceStep1')} />
-          </View>
-        </View>
+        )}
 
         {/* ============ HR ============ */}
         <View style={{ height: 1, backgroundColor: t.border, opacity: 0.7 }} />

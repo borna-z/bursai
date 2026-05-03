@@ -6,7 +6,7 @@
 // footer button.
 
 import React from 'react';
-import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,6 +21,7 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { Card } from '../components/Card';
 import { BackIcon, CheckIcon, ShareIcon, PlusIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -85,6 +86,7 @@ export function TravelPackingListScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [packed, setPacked] = React.useState<Set<string>>(new Set());
+  const { refreshing, onRefresh } = useMockRefresh();
 
   // Codex audit P3.7 — share placeholder until react-native-share is wired in.
   // TODO: replace with native Share API or react-native-share once content schema lands.
@@ -323,6 +325,9 @@ export function TravelPackingListScreen() {
         stickySectionHeadersEnabled={false}
         contentContainerStyle={{ paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         style={{ flex: 1 }}
       />
 

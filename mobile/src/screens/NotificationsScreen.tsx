@@ -2,7 +2,7 @@
 // line. Mirrors design_handoff_burs_rn/source/extra-screens.jsx NotificationsScreen.
 
 import React from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,6 +24,7 @@ import {
   OutfitsIcon,
   type IconProps,
 } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -57,6 +58,7 @@ export function NotificationsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [items, setItems] = React.useState<Notification[]>(FIXTURES);
+  const { refreshing, onRefresh } = useMockRefresh();
 
   const hasUnread = items.some((n) => n.unread);
 
@@ -146,6 +148,9 @@ export function NotificationsScreen() {
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }
           showsVerticalScrollIndicator={false}>
           {header}
           <View style={s.emptyWrap}>
@@ -187,6 +192,9 @@ export function NotificationsScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
       />
     </SafeAreaView>
   );

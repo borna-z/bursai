@@ -7,7 +7,7 @@
 // virtualization gives stable scroll perf without a complex layout calc per row.
 
 import React from 'react';
-import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,7 +21,10 @@ import { IconBtn } from '../components/IconBtn';
 import { SearchBar } from '../components/SearchBar';
 import { SmartTile } from '../components/SmartTile';
 import { GarmentCard, type GarmentCardData } from '../components/GarmentCard';
+import { GarmentGridSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -92,6 +95,10 @@ export function WardrobeScreen() {
     [filters],
   );
   const activeFilterCount = filterActiveCount(filters);
+
+  // Mock loading + error state. The error path is reachable via a future query failure; for now
+  // it's exposed through the hook's `setError` for dev toggles.
+  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(800);
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route
@@ -183,6 +190,37 @@ export function WardrobeScreen() {
     </View>
   );
 
+  if (error) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }>
+          {header}
+          <ErrorState onRetry={retry} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }
+          showsVerticalScrollIndicator={false}>
+          {header}
+          <GarmentGridSkeleton />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
@@ -193,6 +231,9 @@ export function WardrobeScreen() {
         columnWrapperStyle={{ gap: 8, paddingHorizontal: 20 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 130, gap: 8 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         renderItem={({ item }) => (
           <View style={{ flex: 1 / 3 }}>
             <GarmentCard

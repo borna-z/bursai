@@ -8,7 +8,7 @@
 // Source: design_handoff_burs_rn/source/audit-screens.jsx UsedGarmentsScreen + the user brief.
 
 import React from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +21,9 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
+import { GarmentListSkeleton } from '../components/skeletons';
 import { BackIcon, ChevronIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -57,6 +59,7 @@ export function UsedGarmentsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [sort, setSort] = React.useState<SortKey>('most_worn');
+  const { refreshing, loading, onRefresh } = useMockRefresh(800);
 
   const items = React.useMemo(() => {
     const list = [...USED];
@@ -88,6 +91,22 @@ export function UsedGarmentsScreen() {
     </View>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }
+          showsVerticalScrollIndicator={false}>
+          {header}
+          <GarmentListSkeleton rows={5} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -110,6 +129,9 @@ export function UsedGarmentsScreen() {
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         ItemSeparatorComponent={() => <View style={[s.sep, { backgroundColor: t.border }]} />}
         renderItem={({ item }) => (
           <Pressable

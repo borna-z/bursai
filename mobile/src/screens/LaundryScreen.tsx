@@ -4,8 +4,8 @@
 // Mock data only. "Mark clean" removes the row locally; "Mark all clean" empties the list.
 // Real laundry-status persistence comes with a future schema change.
 
-import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,6 +18,8 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CheckIcon } from '../components/icons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
+import { GarmentListSkeleton } from '../components/skeletons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -43,6 +45,7 @@ export function LaundryScreen() {
   const nav = useNavigation<Nav>();
 
   const [items, setItems] = useState<LaundryItem[]>(MOCK_LAUNDRY);
+  const { refreshing, loading, onRefresh } = useMockRefresh(800);
 
   const markClean = (id: string) => {
     hapticSuccess();
@@ -82,7 +85,11 @@ export function LaundryScreen() {
         </View>
       </View>
 
-      {items.length === 0 ? (
+      {loading ? (
+        <View style={{ paddingTop: 8 }}>
+          <GarmentListSkeleton rows={5} />
+        </View>
+      ) : items.length === 0 ? (
         <View style={s.emptyShell}>
           <View style={[s.emptyCircle, { backgroundColor: t.accentSoft, borderColor: t.border }]}>
             <CheckIcon size={40} color={t.accent} />
@@ -110,6 +117,9 @@ export function LaundryScreen() {
               paddingTop: 8,
               paddingBottom: insets.bottom + 96,
             }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            }
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: t.border, opacity: 0.6 }} />
             )}

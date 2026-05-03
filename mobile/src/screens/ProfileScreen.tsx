@@ -2,7 +2,7 @@
 // Mirrors design_handoff_burs_rn/source/extra-screens.jsx ProfileScreen.
 
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +19,8 @@ import { Button } from '../components/Button';
 import { StatBlock } from '../components/StatBlock';
 import { SettingsRow } from '../components/SettingsRow';
 import { BackIcon, GearIcon, TshirtIcon } from '../components/icons';
+import { ProfileSkeleton } from '../components/skeletons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -33,11 +35,30 @@ const CURRENT_FORMALITY = 'Smart casual';
 export function ProfileScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { refreshing, loading, onRefresh } = useMockRefresh(600);
+
+  if (loading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 60 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }
+          showsVerticalScrollIndicator={false}>
+          <ProfileSkeleton />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, gap: 18 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>

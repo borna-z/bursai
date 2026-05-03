@@ -300,7 +300,19 @@ export function GarmentDetailScreen() {
             ariaLabel="More options"
             variant="ghost"
             onPress={() =>
-              Alert.alert('More', 'Garment actions coming soon.')
+              Alert.alert('Options', undefined, [
+                { text: 'Add to laundry', onPress: () => Alert.alert('Added', 'Moved to laundry.') },
+                {
+                  text: 'Delete garment',
+                  style: 'destructive',
+                  onPress: () =>
+                    Alert.alert('Delete', 'Delete this garment? This cannot be undone.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => nav.goBack() },
+                    ]),
+                },
+                { text: 'Cancel', style: 'cancel' },
+              ])
             }>
             <MoreIcon color={t.fg} />
           </IconBtn>
