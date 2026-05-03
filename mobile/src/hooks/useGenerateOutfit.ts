@@ -44,11 +44,21 @@ export type GenerateOutfitParams = {
   mood?: string;
 };
 
+// burs_style_engine returns items[] + explanation at the top level — there
+// is NO nested `outfit: {name, description}` key. Earlier versions of this
+// type advertised that field but it never fired. Codex audit P1-5.
+type EngineResponseItem = {
+  slot?: string;
+  garment_id?: string;
+  title?: string;
+};
+
 type EngineResponse = {
-  items?: { slot?: string; garment_id?: string }[];
+  items?: EngineResponseItem[];
   explanation?: string;
-  outfit?: { name?: string; description?: string };
-  outfits?: GeneratedOutfit[];
+  // Some engine modes (e.g. `mode: 'suggest'`) expose `outfits[]` already
+  // shaped to match the screen contract — defensive read.
+  outfits?: { items?: EngineResponseItem[]; outfit_name?: string; description?: string }[];
   error?: string;
 };
 
@@ -59,6 +69,16 @@ function defaultName(params: GenerateOutfitParams): string {
   if (params.occasion) return params.occasion;
   if (params.mood) return `${params.mood} look`;
   return 'Your look';
+}
+
+function adaptItems(items: EngineResponseItem[] | undefined): GeneratedOutfitItem[] {
+  return (items ?? [])
+    .filter((it) => typeof it.garment_id === 'string')
+    .map((it) => ({
+      garment_id: it.garment_id,
+      slot: typeof it.slot === 'string' && it.slot ? it.slot : 'top',
+      title: typeof it.title === 'string' ? it.title : '',
+    }));
 }
 
 export function useGenerateOutfit() {
@@ -79,7 +99,15 @@ export function useGenerateOutfit() {
       setResult(null);
 
       abortRef.current?.abort();
-      abortRef.current = new AbortController();
+      // Capture a local handle so finally/catch can read the right signal
+      // even if reset() nulls abortRef mid-flight (Codex audit P0-3).
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      // Trim whitespace from anchor garment id — a non-empty whitespace
+      // string would otherwise pass through and the engine's id-validation
+      // would treat it as a garbage id. Codex audit P1-6.
+      const anchorId = params.garmentId?.trim();
 
       try {
         const response = await fetch(
@@ -100,9 +128,9 @@ export function useGenerateOutfit() {
               // wires weather context via useWeather().
               weather: { precipitation: 'none', wind: 'none' },
               locale: 'en',
-              prefer_garment_ids: params.garmentId ? [params.garmentId] : [],
+              prefer_garment_ids: anchorId ? [anchorId] : [],
             }),
-            signal: abortRef.current.signal,
+            signal: controller.signal,
           },
         );
 
@@ -116,7 +144,6 @@ export function useGenerateOutfit() {
           } else {
             setError(errorMsg);
           }
-          setIsLoading(false);
           return;
         }
 
@@ -124,37 +151,28 @@ export function useGenerateOutfit() {
 
         if (data.error) {
           setError(data.error);
-          setIsLoading(false);
           return;
         }
 
-        // Engine returns items[] + explanation; we synthesize the
-        // screen-friendly outfit name from the user's selections.
-        if (data.outfit) {
+        // Suggest-mode `outfits[0]` arrives pre-shaped; defensively re-adapt
+        // items so a slot omission can't crash downstream `.toUpperCase()`.
+        // Codex audit P1-1 + P0-2 (audit 3).
+        if (data.outfits?.[0]?.items) {
+          const first = data.outfits[0];
           setResult({
-            outfit_name: data.outfit.name ?? defaultName(params),
-            description: data.outfit.description ?? data.explanation ?? '',
+            outfit_name: first.outfit_name ?? defaultName(params),
+            description: first.description ?? data.explanation ?? '',
             occasion: params.occasion,
             formality: params.formality,
-            items: (data.items ?? []).map((it) => ({
-              garment_id: it.garment_id,
-              slot: it.slot ?? 'top',
-              title: '',
-            })),
+            items: adaptItems(first.items),
           });
-        } else if (data.outfits && data.outfits[0]) {
-          setResult(data.outfits[0]);
         } else if (data.items?.length || data.explanation) {
           setResult({
             outfit_name: defaultName(params),
             description: data.explanation ?? '',
             occasion: params.occasion,
             formality: params.formality,
-            items: (data.items ?? []).map((it) => ({
-              garment_id: it.garment_id,
-              slot: it.slot ?? 'top',
-              title: '',
-            })),
+            items: adaptItems(data.items),
           });
         } else {
           setResult({
@@ -166,14 +184,15 @@ export function useGenerateOutfit() {
           });
         }
       } catch (err) {
-        if (abortRef.current?.signal.aborted) return;
+        if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : 'Generation failed');
       } finally {
         // Skip the trailing setState if the request was aborted (e.g. screen
         // unmount mid-flight) — the hook's reset()/cancel callers already
         // settled isLoading and we'd otherwise fire setState on a torn-down
-        // tree. setIsLoading(false) is otherwise idempotent.
-        if (!abortRef.current?.signal.aborted) {
+        // tree. The local `controller` reference survives `reset()` nulling
+        // abortRef. Codex audit P0-3 (audit 2).
+        if (!controller.signal.aborted) {
           setIsLoading(false);
         }
       }

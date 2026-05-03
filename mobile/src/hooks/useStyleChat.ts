@@ -73,35 +73,44 @@ export function useStyleChat() {
         isStreaming: true,
       };
 
+      // Build the messages payload from the PRIOR snapshot (before we append
+      // the new turn to state). messagesRef holds the last-rendered state so
+      // we get the correct prior history without race risk. Edge contract
+      // (supabase/functions/style_chat/index.ts:933-946) requires a `messages`
+      // array with role+content, latest user turn last; the body shape is
+      // strictly validated and rejects with HTTP 400 otherwise.
+      const priorHistory = messagesRef.current
+        .filter((m) => !m.isStreaming)
+        .slice(-9)
+        .map((m) => ({ role: m.role, content: m.content }));
+      const messagesPayload = [
+        ...priorHistory,
+        { role: 'user' as const, content: trimmed },
+      ];
+
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setIsStreaming(true);
       setError(null);
 
       abortRef.current?.abort();
-      abortRef.current = new AbortController();
+      // Capture a local handle so the SSE callbacks honor the right signal
+      // even if clearChat()/stopStreaming() null abortRef mid-flight.
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-      // Track text written by either the seed envelope (full text) or by
-      // streamed deltas. If we get the envelope first we seed the bubble; if
-      // deltas arrive we *replace* the bubble's content with the running
-      // delta accumulator so we don't double-render the same text.
-      let seeded = false;
+      // Streaming strategy: prefer streamed deltas (visible streaming feel).
+      // The envelope's full assistant_text comes first but is the SAME text
+      // the deltas reconstruct chunk-by-chunk — using both would either
+      // double-render or flash-then-collapse. We hold the envelope as a
+      // fallback in case zero deltas arrive (degraded path); deltas, when
+      // they land, overwrite the placeholder progressively.
+      let envelopeFallback = '';
       let deltaAccumulated = '';
-
-      // Send the message turn the user just typed (already in messagesRef but
-      // not yet flushed) — pull the prior turns from the ref to avoid stale
-      // closures.
-      const history = messagesRef.current
-        .slice(-10)
-        .filter((m) => m.role !== 'assistant' || !m.isStreaming)
-        .map((m) => ({ role: m.role, content: m.content }));
+      let receivedDeltas = false;
 
       await fetchSSE(
         getEdgeFunctionUrl(supabaseUrl, 'style_chat'),
-        {
-          message: trimmed,
-          history,
-          locale: 'en',
-        },
+        { messages: messagesPayload, locale: 'en' },
         session.access_token,
         {
           onData: (raw) => {
@@ -110,11 +119,12 @@ export function useStyleChat() {
               parsed = JSON.parse(raw) as StyleChatChunk;
             } catch {
               // Plain-text fragment — append directly.
+              receivedDeltas = true;
               deltaAccumulated += raw;
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
-                    ? { ...m, content: deltaAccumulated || m.content }
+                    ? { ...m, content: deltaAccumulated }
                     : m,
                 ),
               );
@@ -122,25 +132,15 @@ export function useStyleChat() {
             }
 
             if (parsed && 'type' in parsed && parsed.type === 'stylist_response') {
-              const seedText = parsed.payload?.assistant_text ?? '';
-              if (seedText && !seeded) {
-                seeded = true;
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: seedText } : m,
-                  ),
-                );
-              }
+              envelopeFallback = parsed.payload?.assistant_text ?? '';
               return;
             }
 
             if (parsed && 'choices' in parsed) {
               const piece = parsed.choices?.[0]?.delta?.content ?? '';
               if (!piece) return;
+              receivedDeltas = true;
               deltaAccumulated += piece;
-              // Once any delta arrives, switch the bubble to delta mode so we
-              // stop showing the seed-text envelope and start showing the
-              // progressively-streamed text instead.
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId ? { ...m, content: deltaAccumulated } : m,
@@ -150,6 +150,7 @@ export function useStyleChat() {
             }
 
             if (parsed && 'text' in parsed && typeof parsed.text === 'string') {
+              receivedDeltas = true;
               deltaAccumulated += parsed.text;
               setMessages((prev) =>
                 prev.map((m) =>
@@ -161,14 +162,23 @@ export function useStyleChat() {
             // in W4. W4.5+ surface server-provided chips.
           },
           onDone: () => {
+            if (controller.signal.aborted) return;
+            // Degraded path: server delivered the envelope but no deltas
+            // (e.g. tool-only response). Fall back to the envelope text so
+            // the bubble shows the assistant's reply rather than staying
+            // empty. Codex audit P1-3.
+            const finalContent = receivedDeltas ? deltaAccumulated : envelopeFallback;
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantId ? { ...m, isStreaming: false } : m,
+                m.id === assistantId
+                  ? { ...m, content: finalContent || m.content, isStreaming: false }
+                  : m,
               ),
             );
             setIsStreaming(false);
           },
           onError: (err) => {
+            if (controller.signal.aborted) return;
             setError(err.message);
             setIsStreaming(false);
             // Drop the empty assistant placeholder on failure; the user
@@ -176,7 +186,7 @@ export function useStyleChat() {
             setMessages((prev) => prev.filter((m) => m.id !== assistantId));
           },
         },
-        abortRef.current.signal,
+        controller.signal,
       );
     },
     // session.access_token is the only stable dep — messagesRef is read by

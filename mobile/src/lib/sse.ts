@@ -74,10 +74,13 @@ export async function fetchSSE(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
+      // Spec-correct CRLF + LF split — Deno's `streamBursAI` writes `\n\n`
+      // today, but a CRLF-emitting proxy in front of the function would
+      // otherwise strand `\r` into the line and break the [DONE] compare.
+      const lines = buffer.split(/\r?\n/);
       // Last element is the partial trailing line (or empty string after
-      // a `\n`). Hold it for the next chunk so we don't truncate a JSON
-      // payload mid-keystroke.
+      // a terminator). Hold it for the next chunk so we don't truncate a
+      // JSON payload mid-keystroke.
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
@@ -92,6 +95,19 @@ export async function fetchSSE(
         }
         if (data) callbacks.onData(data);
       }
+    }
+
+    // Drain any final unterminated `data: …` line. Today's edge functions
+    // always emit a trailing newline + `[DONE]`, but a connection cut
+    // mid-flush could otherwise silently lose the last payload.
+    const tail = buffer.trim();
+    if (tail.startsWith('data: ')) {
+      const data = tail.slice(6).trim();
+      if (data === '[DONE]') {
+        callbacks.onDone();
+        return;
+      }
+      if (data) callbacks.onData(data);
     }
 
     callbacks.onDone();

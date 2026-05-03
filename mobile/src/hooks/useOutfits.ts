@@ -186,12 +186,18 @@ export function useMarkOutfitWorn() {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment'] });
       // Style Memory signal — fire-and-forget. Failure must never block
-      // the wear flow (the primary DB write already succeeded).
+      // the wear flow (the primary DB write already succeeded). Scope is
+      // limited to wear + save in W4 — delete and rate intentionally do
+      // NOT ingest here (web's fireMemoryIngest does, but mobile defers
+      // those signals to a future wave when the rating UI lands the same
+      // event_type contract). Codex audit P2-4 (audit 3).
       if (session?.access_token) {
         void ingestMemoryEvent(session.access_token, {
           event_type: 'outfit_worn',
           outfit_id: outfitId,
-          garment_ids: garmentIds,
+          // Omit garment_ids when empty to avoid burning a 200/hr quota
+          // slot on a no-op signal. Codex audit P2-3 (audit 2).
+          ...(garmentIds.length > 0 ? { garment_ids: garmentIds } : {}),
           source: 'mobile/useMarkOutfitWorn',
         });
       }

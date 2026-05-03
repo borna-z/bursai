@@ -56,21 +56,17 @@ export function WardrobeGapsScreen() {
   const { gaps, isLoading, error, analyzed, analyze, reset } = useWardrobeGaps();
   const paywallShownRef = useRef(false);
 
-  // Auto-run analysis on first mount so the user sees data, not a CTA.
-  // Manual "Analyse now" remains for refresh.
+  // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
+  // is React-Query backed so a return visit reads from cache instead of
+  // burning the rate-limited endpoint (15/hr base). If the session hasn't
+  // rehydrated yet, retry once it does — analyze() short-circuits without
+  // a token, and the effect re-fires when accessToken flips truthy.
+  // Codex audit P0-1 (audit 2) + P1-4 (audit 2).
   useEffect(() => {
-    if (!analyzed && !isLoading && !error) {
-      void analyze();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Reset on unmount so a return visit re-fetches with the latest wardrobe.
-  useEffect(() => {
-    return () => {
-      reset();
-    };
-  }, [reset]);
+    if (analyzed || isLoading || error) return;
+    void analyze();
+  }, [analyzed, isLoading, error, analyze]);
+  // No unmount reset — the React Query cache is the cross-mount memory.
 
   useEffect(() => {
     if (error === 'subscription_required' && !paywallShownRef.current) {

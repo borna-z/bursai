@@ -53,8 +53,15 @@ export function OutfitGenerateScreen() {
   const spinAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // Spinner rotation — runs continuously while mounted.
+  // Loading-phase predicate — drives both whether to render the spinner
+  // and whether to keep its rotation animation running. Without this gate,
+  // the loop animation kept ticking after the screen flipped to error or
+  // result state. Codex audit P1-2 (audit 2).
+  const isInLoadingPhase = (isLoading || !result) && !error;
+
+  // Spinner rotation — only runs during the loading phase.
   useEffect(() => {
+    if (!isInLoadingPhase) return;
     const loop = Animated.loop(
       Animated.timing(spinAnim, {
         toValue: 1,
@@ -65,7 +72,7 @@ export function OutfitGenerateScreen() {
     );
     loop.start();
     return () => loop.stop();
-  }, [spinAnim]);
+  }, [isInLoadingPhase, spinAnim]);
 
   // Kick generation on mount + when the anchor garment changes.
   useEffect(() => {
@@ -133,7 +140,54 @@ export function OutfitGenerateScreen() {
     void generate({ garmentId: route.params?.garmentId });
   };
 
-  if (error && error !== 'subscription_required') {
+  if (error === 'subscription_required') {
+    // Paywall path — without an explicit branch the screen would sit
+    // forever on the spinner (isLoading=false, result=null). Codex audit
+    // P0-1 (audit 3).
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={s.header}>
+          <IconBtn ariaLabel="Close" onPress={() => { hapticLight(); nav.goBack(); }}>
+            <CloseIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow>Premium feature</Eyebrow>
+            <PageTitle style={{ marginTop: 4 }}>New look</PageTitle>
+          </View>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={s.loadingShell}>
+          <Text
+            style={{
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontSize: 18,
+              color: t.fg,
+              textAlign: 'center',
+              letterSpacing: -0.18,
+            }}>
+            Outfit generation is part of BURS Premium
+          </Text>
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: fonts.uiMed,
+              fontSize: 12,
+              color: t.fg2,
+              letterSpacing: -0.1,
+              textAlign: 'center',
+            }}>
+            Upgrade to keep generating looks.
+          </Text>
+          <View style={{ marginTop: 18 }}>
+            <Button label="Back" variant="outline" onPress={() => nav.goBack()} />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <View style={s.header}>

@@ -111,6 +111,14 @@ export function StyleChatScreen() {
   // mutating the underlying array via slice().reverse().
   const reversed = useMemo(() => messages.slice().reverse(), [messages]);
 
+  // Most recent user turn — used by the inline error banner's Retry pill so
+  // a transient failure doesn't force the user to retype. Codex audit P1-5
+  // (audit 3).
+  const lastUserMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'user') ?? null,
+    [messages],
+  );
+
   const handleSend = () => {
     if (!draft.trim() || isStreaming) return;
     void sendMessage(draft);
@@ -140,7 +148,7 @@ export function StyleChatScreen() {
     error && error !== 'subscription_required' ? error : null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
@@ -173,7 +181,7 @@ export function StyleChatScreen() {
           <View style={[s.memoryPanel, { borderBottomColor: t.border, backgroundColor: t.card }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Eyebrow>Style memory</Eyebrow>
-              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }} accessibilityLabel="Hide style memory">
+              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }} accessibilityRole="button" accessibilityLabel="Hide style memory">
                 <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Hide</Text>
               </Pressable>
             </View>
@@ -227,8 +235,26 @@ export function StyleChatScreen() {
 
         {/* ============ ERROR BANNER ============ */}
         {showInlineError ? (
-          <View style={[s.errorBanner, { borderBottomColor: t.border, backgroundColor: t.bg2 }]}>
-            <Caption style={{ color: t.fg2 }}>{showInlineError}</Caption>
+          <View
+            style={[
+              s.errorBanner,
+              { borderBottomColor: t.border, backgroundColor: t.bg2 },
+            ]}>
+            <Caption style={{ color: t.fg2, flex: 1 }}>{showInlineError}</Caption>
+            {lastUserMessage ? (
+              <Pressable
+                onPress={() => {
+                  if (isStreaming) return;
+                  void sendMessage(lastUserMessage.content);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry last message"
+                style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+                <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>
+                  Retry
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -294,7 +320,9 @@ export function StyleChatScreen() {
           <Pressable
             onPress={handleSend}
             disabled={!draft.trim() || isStreaming}
-            accessibilityLabel="Send"
+            accessibilityRole="button"
+            accessibilityLabel={isStreaming ? 'Sending' : 'Send'}
+            accessibilityState={{ disabled: !draft.trim() || isStreaming, busy: isStreaming }}
             style={({ pressed }) => [
               s.sendBtn,
               {
@@ -318,45 +346,55 @@ export function StyleChatScreen() {
 // Bubble has 18px radius with one corner squared to point toward the
 // speaker (4px radius on speaker-side). Streaming assistant bubbles with
 // no content yet show an animated three-dot indicator.
-function MessageItem({ msg }: { msg: ChatMessage }) {
-  const t = useTokens();
-  const isUser = msg.role === 'user';
-  const showTypingDots = msg.isStreaming && !msg.content;
+//
+// Memoized on (id, content, isStreaming) so the FlatList doesn't re-render
+// every visible message on every SSE delta — only the streaming bubble at
+// the bottom invalidates per chunk. Codex audit P2-2 (audit 3).
+const MessageItem = React.memo(
+  function MessageItem({ msg }: { msg: ChatMessage }) {
+    const t = useTokens();
+    const isUser = msg.role === 'user';
+    const showTypingDots = msg.isStreaming && !msg.content;
 
-  return (
-    <View
-      style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        maxWidth: '82%',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        backgroundColor: isUser ? t.fg : t.card,
-        borderRadius: 18,
-        borderBottomRightRadius: isUser ? 4 : 18,
-        borderBottomLeftRadius: isUser ? 18 : 4,
-        borderWidth: isUser ? 0 : 1,
-        borderColor: t.border,
-      }}>
-      {showTypingDots ? (
-        <TypingDots color={t.fg2} />
-      ) : (
-        <Text
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: 13.5,
-            lineHeight: 19,
-            color: isUser ? t.bg : t.fg,
-            letterSpacing: -0.13,
-          }}>
-          {msg.content}
-          {msg.isStreaming && msg.content ? (
-            <Text style={{ color: t.fg3 }}> ▋</Text>
-          ) : null}
-        </Text>
-      )}
-    </View>
-  );
-}
+    return (
+      <View
+        style={{
+          alignSelf: isUser ? 'flex-end' : 'flex-start',
+          maxWidth: '82%',
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          backgroundColor: isUser ? t.fg : t.card,
+          borderRadius: 18,
+          borderBottomRightRadius: isUser ? 4 : 18,
+          borderBottomLeftRadius: isUser ? 18 : 4,
+          borderWidth: isUser ? 0 : 1,
+          borderColor: t.border,
+        }}>
+        {showTypingDots ? (
+          <TypingDots color={t.fg2} />
+        ) : (
+          <Text
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13.5,
+              lineHeight: 19,
+              color: isUser ? t.bg : t.fg,
+              letterSpacing: -0.13,
+            }}>
+            {msg.content}
+            {msg.isStreaming && msg.content ? (
+              <Text style={{ color: t.fg3 }}> ▋</Text>
+            ) : null}
+          </Text>
+        )}
+      </View>
+    );
+  },
+  (a, b) =>
+    a.msg.id === b.msg.id
+    && a.msg.content === b.msg.content
+    && a.msg.isStreaming === b.msg.isStreaming,
+);
 
 // Three-dot typing indicator. Uses simple opacity cycling rather than a
 // full Animated.loop so the assistant bubble doesn't pay the cost of a
@@ -368,7 +406,11 @@ function TypingDots({ color }: { color: string }) {
     return () => clearInterval(id);
   }, []);
   return (
-    <View style={{ flexDirection: 'row', gap: 4, paddingVertical: 4 }}>
+    <View
+      accessibilityRole="text"
+      accessibilityLabel="Stylist is typing"
+      accessibilityLiveRegion="polite"
+      style={{ flexDirection: 'row', gap: 4, paddingVertical: 4 }}>
       {[0, 1, 2].map((i) => (
         <View
           key={i}
@@ -409,6 +451,9 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
   },
   errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,

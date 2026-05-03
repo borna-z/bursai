@@ -87,7 +87,10 @@ export function useMoodOutfit() {
       setResult(null);
 
       abortRef.current?.abort();
-      abortRef.current = new AbortController();
+      // Capture a local handle so onDone/onError honor the right signal
+      // even if reset() nulls abortRef mid-flight. Codex audit P0-3.
+      const controller = new AbortController();
+      abortRef.current = controller;
 
       // The edge function emits the full payload as a single JSON chunk.
       // We accept either: a parseable JSON chunk OR concatenated text we
@@ -97,6 +100,12 @@ export function useMoodOutfit() {
 
       await fetchSSE(
         getEdgeFunctionUrl(supabaseUrl, 'mood_outfit'),
+        // NOTE: `time_of_day` is passed for forward-compat — the current
+        // edge function destructures only { mood, weather, locale }
+        // (supabase/functions/mood_outfit/index.ts:192) and ignores the
+        // field. Mood Flow's "morning/day/evening" pill is decorative for
+        // now; W4.5+ may thread it into the weather context. Codex audit
+        // P1-4 (audit 1).
         { mood, time_of_day: timeOfDay, locale: 'en' },
         session.access_token,
         {
@@ -119,6 +128,7 @@ export function useMoodOutfit() {
             }
           },
           onDone: () => {
+            if (controller.signal.aborted) return;
             if (!captured && textBuffer) {
               try {
                 const parsed = JSON.parse(textBuffer) as EdgeMoodResponse;
@@ -140,11 +150,12 @@ export function useMoodOutfit() {
             setIsLoading(false);
           },
           onError: (err) => {
+            if (controller.signal.aborted) return;
             setError(err.message);
             setIsLoading(false);
           },
         },
-        abortRef.current.signal,
+        controller.signal,
       );
     },
     [session?.access_token],

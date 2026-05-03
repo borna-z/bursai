@@ -103,7 +103,37 @@ export function MoodFlowScreen() {
         </View>
       </View>
 
-      {error && error !== 'subscription_required' ? (
+      {error === 'subscription_required' ? (
+        // Paywall path — without an explicit branch the screen would sit
+        // forever on the spinner (isLoading=false, result=null). Codex
+        // audit P0-1 (audit 3).
+        <View style={s.loadingWrap}>
+          <Eyebrow>Premium feature</Eyebrow>
+          <Text
+            style={{
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontWeight: '500',
+              fontSize: 22,
+              color: t.fg,
+              letterSpacing: -0.22,
+              textAlign: 'center',
+            }}>
+            Mood Outfit is part of BURS Premium
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.uiMed,
+              fontSize: 12,
+              color: t.fg2,
+              letterSpacing: -0.1,
+              textAlign: 'center',
+            }}>
+            Upgrade to keep generating mood looks.
+          </Text>
+          <Button label="Back" variant="outline" onPress={() => nav.goBack()} />
+        </View>
+      ) : error ? (
         <ErrorState
           title="Couldn't build your mood outfit"
           body={error}
