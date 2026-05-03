@@ -10,7 +10,7 @@
 // "Restyle" resets to loading and re-flips, simulating a regen.
 
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -131,7 +131,12 @@ export function MoodFlowScreen() {
             <Button label="Wear this" onPress={() => nav.navigate('OutfitDetail')} block style={{ flex: 1 }} />
             <Button label="Restyle" variant="outline" onPress={restyle} />
           </View>
-          <Button label="Save look" variant="outline" onPress={() => {}} block />
+          <Button
+            label="Save look"
+            variant="outline"
+            onPress={() => Alert.alert('Saved', 'Look saved to your outfits.')}
+            block
+          />
         </ScrollView>
       )}
     </SafeAreaView>

@@ -9,7 +9,7 @@
 // view that renders an OutfitCard with the user's selections folded into the sub line.
 
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -149,7 +149,13 @@ export function StyleMeScreen() {
               14° clear · light breeze
             </Text>
           </View>
-          <Pressable onPress={() => {}} style={{ paddingHorizontal: 6, paddingVertical: 6 }}>
+          <Pressable
+            onPress={() =>
+              Alert.alert('Weather', 'Weather customisation coming soon.')
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Adjust weather context"
+            style={{ paddingHorizontal: 6, paddingVertical: 6 }}>
             <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>Adjust</Text>
           </Pressable>
         </View>
@@ -184,7 +190,7 @@ export function StyleMeScreen() {
                 sub={`${occ.sub.toUpperCase()} · 14° CLEAR`}
                 hues={[32, 38, 200, 28]}
                 onUse={() => nav.navigate('OutfitDetail')}
-                onSave={() => {}}
+                onSave={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
               />
             </View>
             <Button label="Restyle" variant="outline" onPress={restyle} block />

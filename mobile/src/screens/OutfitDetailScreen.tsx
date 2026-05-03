@@ -9,6 +9,7 @@
 
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -165,7 +166,12 @@ export function OutfitDetailScreen() {
               onPress={() => nav.navigate('ShareOutfit', undefined)}>
               <ShareIcon color={t.fg} />
             </IconBtn>
-            <IconBtn ariaLabel="More options" variant="ghost">
+            <IconBtn
+              ariaLabel="More options"
+              variant="ghost"
+              onPress={() =>
+                Alert.alert('More', 'Outfit actions coming soon.')
+              }>
               <MoreIcon color={t.fg} />
             </IconBtn>
           </View>
@@ -212,7 +218,7 @@ export function OutfitDetailScreen() {
               style={{ flex: 1 }}
               onPress={() => setWorn((v) => !v)}
             />
-            <Button label="Restyle" variant="outline" onPress={() => nav.navigate('StyleMe')} />
+            <Button label="Restyle" variant="outline" onPress={() => nav.navigate('OutfitGenerate')} />
             <Button
               label={saved ? 'Saved' : 'Save'}
               variant={saved ? 'accent' : 'outline'}

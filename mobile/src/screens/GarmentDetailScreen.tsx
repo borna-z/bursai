@@ -7,7 +7,7 @@
 // "Garment detail". Tabs are local UI state — there's no route param for which tab is active.
 
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -296,7 +296,12 @@ export function GarmentDetailScreen() {
             onPress={() => nav.navigate('EditGarment', id ? { id } : undefined)}>
             <EditIcon color={t.fg} />
           </IconBtn>
-          <IconBtn ariaLabel="More options" variant="ghost">
+          <IconBtn
+            ariaLabel="More options"
+            variant="ghost"
+            onPress={() =>
+              Alert.alert('More', 'Garment actions coming soon.')
+            }>
             <MoreIcon color={t.fg} />
           </IconBtn>
         </View>
@@ -476,11 +481,14 @@ export function GarmentDetailScreen() {
             paddingBottom: insets.bottom + 12,
           },
         ]}>
-        {/* `push` not `navigate` — same defect class as the outfits-tab card-tap above. If the
-            user reached this GarmentDetail via OutfitDetail, `navigate('OutfitDetail', …)` would
-            collapse onto that earlier instance and reuse its rating/notes/worn/saved state.
-            `push` always adds a fresh entry. Codex P1 round 9 (sibling fix). */}
-        <Button label="Wear today" block onPress={() => nav.push('OutfitDetail', undefined)} />
+        {/* "Wear today" jumps into the outfit-generator anchored on this garment, so the user
+            gets a fresh look built around the piece they're viewing. Threading garmentId means
+            OutfitGenerateScreen can use it as a constraint when the real backend lands. */}
+        <Button
+          label="Wear today"
+          block
+          onPress={() => nav.navigate('OutfitGenerate', id ? { garmentId: id } : undefined)}
+        />
       </View>
     </SafeAreaView>
   );

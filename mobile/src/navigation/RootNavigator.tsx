@@ -8,6 +8,11 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+// Acquisition flow (PR feat/mobile-onboarding-auth-paywall)
+import { SplashScreen as SplashRouteScreen } from '../screens/SplashScreen';
+import { AuthScreen } from '../screens/AuthScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { PaywallScreen } from '../screens/PaywallScreen';
 // AddPiece flow + stylist screens (from origin/main, PR #706 — Wave 8.5 P82)
 import { AddPieceStep1 } from '../screens/AddPieceStep1';
 import { AddPieceStep2 } from '../screens/AddPieceStep2';
@@ -26,6 +31,25 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { FiltersScreen } from '../screens/FiltersScreen';
 import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
 import { UnusedOutfitsScreen } from '../screens/UnusedOutfitsScreen';
+// Travel + Settings + Profile + Notifications + ResetPassword (this PR)
+import { TravelCapsuleScreen } from '../screens/TravelCapsuleScreen';
+import { TravelMustHavesScreen } from '../screens/TravelMustHavesScreen';
+import { TravelPackingListScreen } from '../screens/TravelPackingListScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
+import { SettingsStyleScreen } from '../screens/SettingsStyleScreen';
+import { SettingsNotificationsScreen } from '../screens/SettingsNotificationsScreen';
+import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
+import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
+// Missing-screens cleanup PR (feat/mobile-cleanup-missing-screens)
+import { MonthCalendarScreen } from '../screens/MonthCalendarScreen';
+import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
+import { LaundryScreen } from '../screens/LaundryScreen';
+import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
+import { LiveScanScreen } from '../screens/LiveScanScreen';
 import type { TabId } from '../components/BottomNav';
 
 export type TabName = TabId;
@@ -40,6 +64,12 @@ export type TabName = TabId;
 export type AddPiecePhoto = { id: number; hue: number };
 
 export type RootStackParamList = {
+  // Acquisition flow — Splash is the initial route, gates auth + onboarding.
+  Splash: undefined;
+  Auth: undefined;
+  Onboarding: undefined;
+  Paywall: undefined;
+
   MainTabs: { initialTab?: TabId } | undefined;
 
   // Add piece flow (3 steps) — photos thread through so each step renders the user's batch.
@@ -55,6 +85,13 @@ export type RootStackParamList = {
   GarmentDetail: { id?: string } | undefined;
   ShareOutfit: { id?: string } | undefined;
   PublicProfile: { handle?: string } | undefined;
+  // Outfit-generation flow (loading → result). garmentId optional for "Wear today"
+  // / "Restyle from this piece" entry points that anchor on a specific item.
+  OutfitGenerate: { garmentId?: string } | undefined;
+
+  // Calendar + laundry (cleanup PR)
+  MonthCalendar: undefined;
+  Laundry: undefined;
 
   // Stylist / mood / occasion
   StyleChat: undefined;
@@ -131,36 +168,15 @@ const placeholder = (eyebrow: string, title: string, body?: string) => {
 };
 
 const Placeholders = {
-  // Add piece flow — only LiveScan is still a placeholder; Step1/Step2/Step3 are real (PR #706).
-  LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
-
+  // (LiveScan + ShareOutfit are real now — see Stack.Screen list below.)
   // Outfit / garment / sharing — Outfits, OutfitDetail, EditGarment, GarmentDetail are now
-  // real screens (PR #707). ShareOutfit + PublicProfile remain placeholders.
-  ShareOutfit: placeholder('Share', 'Share outfit'),
+  // real screens (PR #707). PublicProfile remains a placeholder.
   PublicProfile: placeholder('Public', 'Profile'),
 
   // (StyleChat / StyleMe / MoodOutfit / MoodFlow now have real impls — see Stack.Screen list below.)
 
-  // Travel capsule
-  TravelCapsule: placeholder('Trip', 'Travel capsule'),
-  TravelMustHaves: placeholder('Step 5 of 6', 'Pick must-haves'),
-  TravelPackingList: placeholder('Step 6 of 6', 'Packing list'),
+  // (Travel / Settings / Profile / Notifications / ResetPassword are real now — see Stack.Screen list.)
 
-  // Discover / lists — all three are real screens now (PR #707).
-  // (no placeholders remaining in this group)
-
-  // Settings
-  Settings: placeholder('Settings', 'Preferences'),
-  SettingsAppearance: placeholder('Appearance', 'Theme & motion'),
-  SettingsStyle: placeholder('Style', 'Your preferences'),
-  SettingsNotifications: placeholder('Notifications', 'Reminders'),
-  SettingsAccount: placeholder('Account', 'Sign-in & billing'),
-  SettingsPrivacy: placeholder('Privacy', 'Data & sharing'),
-
-  // Profile / account / extras
-  Profile: placeholder('You', 'Profile'),
-  Notifications: placeholder('Inbox', 'Notifications'),
-  ResetPassword: placeholder('Account', 'Reset password'),
   BillingSuccess: placeholder('Welcome', 'Premium activated'),
   BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
   NotFound: placeholder('Off the rail', '404'),
@@ -172,28 +188,61 @@ const Placeholders = {
 export function RootNavigator() {
   return (
     <Stack.Navigator
-      initialRouteName="MainTabs"
+      // Splash is the production entry. In dev builds, drop straight to MainTabs
+      // so the engineer-loop doesn't sit through a 1.5s splash on every reload.
+      // (X-5 from review.) Override at runtime by pushing 'Splash' explicitly.
+      initialRouteName={__DEV__ ? 'MainTabs' : 'Splash'}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
         contentStyle: { backgroundColor: 'transparent' },
       }}>
+      {/* Acquisition flow — Splash gates onto Auth/Onboarding/MainTabs.
+          Auth and Onboarding fade-in to feel less like a "page push" since
+          they're the user's first impression of the app. Paywall presents
+          modal-style (slide from bottom) — it can mount on top of any screen. */}
+      <Stack.Screen
+        name="Splash"
+        component={SplashRouteScreen}
+        options={{ animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ animation: 'fade', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
       {/* Add piece flow — real implementations (PR #706) */}
       <Stack.Screen name="AddPieceStep1" component={AddPieceStep1} />
       <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
-      <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
+      <Stack.Screen name="LiveScan" component={LiveScanScreen} />
 
-      {/* Outfit / garment / sharing — Outfits / OutfitDetail / EditGarment / GarmentDetail
-          are real screens (PR #707); ShareOutfit + PublicProfile remain placeholders. */}
+      {/* Outfit / garment / sharing — Outfits / OutfitDetail / EditGarment / GarmentDetail /
+          ShareOutfit are real screens; PublicProfile remains a placeholder. */}
       <Stack.Screen name="Outfits" component={OutfitsScreen} />
       <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
       <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
       <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
-      <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
+      <Stack.Screen name="ShareOutfit" component={ShareOutfitScreen} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
+      <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
+
+      {/* Calendar + laundry (cleanup PR) */}
+      <Stack.Screen name="MonthCalendar" component={MonthCalendarScreen} />
+      <Stack.Screen name="Laundry" component={LaundryScreen} />
 
       {/* Stylist / mood / occasion — real implementations (PR #706) */}
       <Stack.Screen name="StyleChat" component={StyleChatScreen} />
@@ -201,28 +250,28 @@ export function RootNavigator() {
       <Stack.Screen name="MoodOutfit" component={MoodOutfitScreen} />
       <Stack.Screen name="MoodFlow" component={MoodFlowScreen} />
 
-      {/* Travel capsule */}
-      <Stack.Screen name="TravelCapsule" component={Placeholders.TravelCapsule} />
-      <Stack.Screen name="TravelMustHaves" component={Placeholders.TravelMustHaves} />
-      <Stack.Screen name="TravelPackingList" component={Placeholders.TravelPackingList} />
+      {/* Travel capsule — real implementations (this PR) */}
+      <Stack.Screen name="TravelCapsule" component={TravelCapsuleScreen} />
+      <Stack.Screen name="TravelMustHaves" component={TravelMustHavesScreen} />
+      <Stack.Screen name="TravelPackingList" component={TravelPackingListScreen} />
 
       {/* Discover / lists — all three real (PR #707) */}
       <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
       <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
       <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
 
-      {/* Settings */}
-      <Stack.Screen name="Settings" component={Placeholders.Settings} />
-      <Stack.Screen name="SettingsAppearance" component={Placeholders.SettingsAppearance} />
-      <Stack.Screen name="SettingsStyle" component={Placeholders.SettingsStyle} />
-      <Stack.Screen name="SettingsNotifications" component={Placeholders.SettingsNotifications} />
-      <Stack.Screen name="SettingsAccount" component={Placeholders.SettingsAccount} />
-      <Stack.Screen name="SettingsPrivacy" component={Placeholders.SettingsPrivacy} />
+      {/* Settings — real implementations (this PR) */}
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
+      <Stack.Screen name="SettingsStyle" component={SettingsStyleScreen} />
+      <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsScreen} />
+      <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
+      <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
 
-      {/* Profile / account / extras */}
-      <Stack.Screen name="Profile" component={Placeholders.Profile} />
-      <Stack.Screen name="Notifications" component={Placeholders.Notifications} />
-      <Stack.Screen name="ResetPassword" component={Placeholders.ResetPassword} />
+      {/* Profile / account / extras — Profile + Notifications + ResetPassword real (this PR) */}
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="BillingSuccess" component={Placeholders.BillingSuccess} />
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />
       <Stack.Screen name="NotFound" component={Placeholders.NotFound} />

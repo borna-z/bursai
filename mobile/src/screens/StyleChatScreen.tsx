@@ -18,6 +18,7 @@
 
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -37,9 +38,10 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
+import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { OutfitCard } from '../components/OutfitCard';
-import { BackIcon, ChevronIcon } from '../components/icons';
+import { BackIcon, ChevronIcon, CloseIcon } from '../components/icons';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -72,11 +74,23 @@ const MEMORY_FACTS = [
   'Avoids loud prints',
 ];
 
+// Mock past chat sessions surfaced when the History button is tapped. Real impl will
+// hydrate from the chat_messages table, grouped by session.
+type ChatSession = { id: string; date: string; firstMessage: string };
+
+const PAST_SESSIONS: ChatSession[] = [
+  { id: 's1', date: 'Yesterday',     firstMessage: 'What goes with my linen trousers for a coffee meeting?' },
+  { id: 's2', date: 'Wed · Apr 24',  firstMessage: 'Help me pick a blazer for the dinner on Friday' },
+  { id: 's3', date: 'Mon · Apr 22',  firstMessage: 'Too warm for the wool overshirt — alternatives?' },
+  { id: 's4', date: 'Sat · Apr 20',  firstMessage: 'Outfit for a creative-studio meeting' },
+];
+
 export function StyleChatScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [draft, setDraft] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
 
   const data = useMemo(() => MESSAGES, []);
 
@@ -105,7 +119,7 @@ export function StyleChatScreen() {
               Style Chat
             </Text>
           </View>
-          <IconBtn variant="ghost" onPress={() => {}} ariaLabel="History">
+          <IconBtn variant="ghost" onPress={() => setShowHistory((v) => !v)} ariaLabel="History">
             {/* Hamburger glyph mirrors styleChatV2 history button */}
             <View style={{ width: 18, height: 12, justifyContent: 'space-between' }}>
               {[0, 1, 2].map((i) => (
@@ -143,7 +157,11 @@ export function StyleChatScreen() {
                 </View>
               ))}
               <Pressable
-                onPress={() => {}}
+                onPress={() =>
+                  Alert.alert('Coming soon', 'Style memory editing coming soon.')
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Edit style memory"
                 style={{
                   paddingHorizontal: 10,
                   paddingVertical: 6,
@@ -240,6 +258,70 @@ export function StyleChatScreen() {
             <ChevronIcon color={draft.trim() ? t.accentFg : t.fg3} />
           </Pressable>
         </View>
+
+        {/* ============ HISTORY OVERLAY (toggled by header History button) ============ */}
+        {showHistory ? (
+          <Pressable
+            onPress={() => setShowHistory(false)}
+            accessibilityLabel="Close history"
+            style={[s.historyBackdrop, { backgroundColor: t.scrimBg }]}>
+            {/* Inner sheet — RN's responder system swallows taps that land on this view, so the
+                outer backdrop's onPress only fires for taps on the dimmed area, not on the sheet
+                itself. No `stopPropagation` is needed (and it doesn't exist on RN PressEvent). */}
+            <Pressable
+              onPress={() => {}}
+              accessible={false}
+              style={[
+                s.historySheet,
+                { backgroundColor: t.bg, borderColor: t.border, shadowColor: t.shadow.color },
+              ]}>
+              <View style={s.historyHeader}>
+                <View style={{ flex: 1 }}>
+                  <Eyebrow>Past chats</Eyebrow>
+                  <Text
+                    style={{
+                      fontFamily: fonts.displayMedium,
+                      fontStyle: 'italic',
+                      fontSize: 20,
+                      color: t.fg,
+                      marginTop: 2,
+                    }}>
+                    History
+                  </Text>
+                </View>
+                <IconBtn ariaLabel="Close" onPress={() => setShowHistory(false)}>
+                  <CloseIcon color={t.fg} />
+                </IconBtn>
+              </View>
+              <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
+                {PAST_SESSIONS.map((sess) => (
+                  <Pressable
+                    key={sess.id}
+                    onPress={() => setShowHistory(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open chat from ${sess.date}`}
+                    style={({ pressed }) => [
+                      s.historyRow,
+                      { borderBottomColor: t.border, opacity: pressed ? 0.7 : 1 },
+                    ]}>
+                    <Eyebrow>{sess.date}</Eyebrow>
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        marginTop: 4,
+                        fontFamily: fonts.uiSemi,
+                        fontSize: 13.5,
+                        color: t.fg,
+                        letterSpacing: -0.13,
+                      }}>
+                      {sess.firstMessage}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -249,12 +331,31 @@ export function StyleChatScreen() {
 // radius with one corner squared to point toward the speaker (4px radius on speaker-side).
 function MessageItem({ msg }: { msg: Message }) {
   const t = useTokens();
+  const nav = useNavigation<Nav>();
 
   if (msg.kind === 'outfit') {
-    // AI outfit attachment — left-aligned, ~78% width like the prototype.
+    // AI outfit attachment — left-aligned, ~78% width like the prototype. Wear/Save row
+    // sits under the card so the user can act on the suggestion without leaving chat.
     return (
-      <View style={{ alignSelf: 'flex-start', width: '78%', marginVertical: 4 }}>
+      <View style={{ alignSelf: 'flex-start', width: '78%', marginVertical: 4, gap: 6 }}>
         <OutfitCard name={msg.name} sub={msg.sub} hues={msg.hues} />
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <Button
+            label="Wear this"
+            size="sm"
+            onPress={() => nav.navigate('OutfitDetail')}
+            style={{ flex: 1 }}
+            block
+          />
+          <Button
+            label="Save"
+            size="sm"
+            variant="outline"
+            onPress={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
+            style={{ flex: 1 }}
+            block
+          />
+        </View>
       </View>
     );
   }
@@ -336,5 +437,31 @@ const s = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  historyBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+  },
+  historySheet: {
+    maxHeight: '70%',
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 24,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 12,
+  },
+  historyRow: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
 });
