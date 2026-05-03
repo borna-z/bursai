@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -46,7 +47,16 @@ export default function SettingsPrivacy() {
   const [isDeleting, setIsDeleting] = useState(false);
   // Wave 8.5 PR B (P90) — Reset Style Memory
   const [isResettingMemory, setIsResettingMemory] = useState(false);
+  // Audit R5-F5: typed-confirmation gate. The user must type "RESET"
+  // (case-insensitive, trimmed) before the destructive button enables.
+  // Prevents accidental taps + clickjacking + browser-extension-driven
+  // single-click wipes. Cleared on dialog close so the gate re-arms next time.
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [openSection, setOpenSection] = useState<SectionId | null>(null);
+  const RESET_CONFIRMATION_PHRASE = 'RESET';
+  const isResetConfirmed =
+    resetConfirmText.trim().toUpperCase() === RESET_CONFIRMATION_PHRASE;
 
   const preferences = asPreferences(profile?.preferences);
   const consent = (preferences.consent as ConsentPrefs) || { analytics: true, ai_conversations: true, body_data: true };
@@ -373,7 +383,17 @@ export default function SettingsPrivacy() {
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
               {/* Wave 8.5 PR B (P90) — Reset Style Memory */}
-              <AlertDialog>
+              {/* Audit R5-F5: typed-confirmation gate to prevent accidental
+                  taps + clickjacking. User must type "RESET" before the
+                  destructive button enables. Confirmation text clears on
+                  dialog close so the gate re-arms next time. */}
+              <AlertDialog
+                open={resetDialogOpen}
+                onOpenChange={(open) => {
+                  setResetDialogOpen(open);
+                  if (!open) setResetConfirmText('');
+                }}
+              >
                 <AlertDialogTrigger asChild>
                   <button type="button" className="w-full text-left">
                     <SettingsRow icon={<Sparkles />} label={t('settings.gdpr.reset_memory') || 'Reset style memory'} last>
@@ -390,11 +410,30 @@ export default function SettingsPrivacy() {
                       <p>{t('settings.gdpr.reset_memory_what_preserves') || 'Preserved: your account, garments, outfits, planned outfits, and wear history.'}</p>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
+                  <div className="space-y-2 py-2">
+                    <label htmlFor="reset-confirm-input" className="text-sm font-medium block">
+                      {t('settings.gdpr.reset_memory_type_confirm') || `Type ${RESET_CONFIRMATION_PHRASE} to confirm:`}
+                    </label>
+                    <Input
+                      id="reset-confirm-input"
+                      data-testid="reset-confirm-input"
+                      value={resetConfirmText}
+                      onChange={(e) => setResetConfirmText(e.target.value)}
+                      placeholder={RESET_CONFIRMATION_PHRASE}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      disabled={isResettingMemory}
+                    />
+                  </div>
                   <AlertDialogFooter>
                     <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                     <AlertDialogAction
+                      data-testid="reset-confirm-action"
                       onClick={() => { hapticLight(); handleResetStyleMemory(); }}
-                      disabled={isResettingMemory}
+                      disabled={isResettingMemory || !isResetConfirmed}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-destructive/40"
                     >
                       {isResettingMemory && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                       {t('settings.gdpr.reset_memory_confirm') || 'Yes, reset'}

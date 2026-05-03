@@ -5,9 +5,19 @@ import type { ReactNode } from "react";
 import { useRecordMemoryEvent } from "../useFeedbackSignals";
 
 const invokeMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/edgeFunctionClient", () => ({
-  invokeEdgeFunction: invokeMock,
-}));
+// We import the REAL getHttpStatus from edgeFunctionClient — it correctly
+// extracts status from supabase-js FunctionsHttpError shape (`context.status`)
+// vs string-shaped errors. Without this, the hook can't distinguish the two
+// and 4xx detection regresses to message-regex only.
+vi.mock("@/lib/edgeFunctionClient", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/edgeFunctionClient")>(
+    "@/lib/edgeFunctionClient",
+  );
+  return {
+    ...actual,
+    invokeEdgeFunction: invokeMock,
+  };
+});
 
 // Wave 8.5 PR B (P86) — useRecordMemoryEvent calls useAuthOrNull (the
 // non-throwing variant) so it can be safely mounted inside isolated
@@ -121,11 +131,53 @@ describe("useRecordMemoryEvent", () => {
     );
   });
 
-  it("does NOT enqueue on 4xx-class errors (client mistake — retry futile)", async () => {
+  it("does NOT enqueue on 4xx-class errors (string-fallback path)", async () => {
     invokeMock.mockResolvedValue({
       data: null,
       error: new Error("400 invalid signal_type"),
     });
+    const { result } = renderHook(() => useRecordMemoryEvent(), { wrapper });
+    result.current.record({ signal_type: "save_outfit", outfit_id: "oA" });
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 10));
+    expect(enqueueMock).not.toHaveBeenCalled();
+  });
+
+  // Audit R5-F1 + R5-F8: canonical supabase-js FunctionsHttpError shape
+  // carries the status on `error.context.status`, not in `error.message`.
+  // The original implementation regex-matched err.message only, so 402
+  // subscription_required (the production-typical 4xx) silently enqueued
+  // forever. These tests lock in the new `getHttpStatus()`-first detection.
+  it("does NOT enqueue on 402 with FunctionsHttpError shape (context.status)", async () => {
+    const httpError = Object.assign(
+      new Error("Edge Function returned a non-2xx status code"),
+      { context: { status: 402 } },
+    );
+    invokeMock.mockResolvedValue({ data: null, error: httpError });
+    const { result } = renderHook(() => useRecordMemoryEvent(), { wrapper });
+    result.current.record({ signal_type: "save_outfit", outfit_id: "oA" });
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 10));
+    expect(enqueueMock).not.toHaveBeenCalled();
+  });
+
+  it("DOES enqueue on 500 with FunctionsHttpError shape (context.status)", async () => {
+    const httpError = Object.assign(
+      new Error("Edge Function returned a non-2xx status code"),
+      { context: { status: 500 } },
+    );
+    invokeMock.mockResolvedValue({ data: null, error: httpError });
+    const { result } = renderHook(() => useRecordMemoryEvent(), { wrapper });
+    result.current.record({ signal_type: "save_outfit", outfit_id: "oA" });
+    await waitFor(() => expect(enqueueMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("does NOT enqueue on 429 (rate-limit — retry futile)", async () => {
+    const httpError = Object.assign(
+      new Error("Edge Function returned a non-2xx status code"),
+      { context: { status: 429 } },
+    );
+    invokeMock.mockResolvedValue({ data: null, error: httpError });
     const { result } = renderHook(() => useRecordMemoryEvent(), { wrapper });
     result.current.record({ signal_type: "save_outfit", outfit_id: "oA" });
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());

@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: "Method not allowed" }),
       {
         status: 405,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
       },
     );
   }
@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Missing authorization header" }),
         {
           status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Unauthorized" }),
         {
           status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: "invalid body" }),
           {
             status: 400,
-            headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+            headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
           },
         );
       }
@@ -273,7 +273,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "invalid body" }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "event_type required" }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "outfit_id must be a string" }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "outfit_id must be a UUID" }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -348,7 +348,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -366,7 +366,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -377,7 +377,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "rating must be a finite number" }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -396,7 +396,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -414,7 +414,7 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: "metadata must be an object" }),
           {
             status: 400,
-            headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+            headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
           },
         );
       }
@@ -531,17 +531,67 @@ Deno.serve(async (req) => {
     );
 
     if (rpcError) {
+      // Round 6 R6-1: ownership-validation failures inside the RPC raise
+      // SQLSTATE 42501 (insufficient_privilege). Translate to HTTP 403 so
+      // the client can see "this is your fault, don't retry" rather than
+      // the generic 500 that would otherwise enqueue forever in the
+      // offline queue. Also covers cross-user write blocked + unauthorized
+      // caller paths from the existing PR A authorization check.
+      const pgCode = (rpcError as { code?: string }).code ?? "";
+      const errMsg = rpcError.message ?? "";
+      const isOwnership =
+        pgCode === "42501" ||
+        /not owned by user|cross-user write blocked|unauthorized caller/i.test(errMsg);
+      const isValidation =
+        pgCode === "22023" ||
+        /event_type.*(?:is required|is not canonical)/i.test(errMsg);
+
       console.error("[memory_ingest] ingest_memory_event RPC error:", {
         userId,
         event_type: canonical,
-        message: rpcError.message,
+        code: pgCode,
+        message: errMsg,
       });
+
+      if (isOwnership) {
+        // Don't tip the overload guard — this is a client bug, not a
+        // transport-level storm.
+        return new Response(
+          JSON.stringify({ error: "ownership_denied" }),
+          {
+            status: 403,
+            headers: {
+              ...CORS_HEADERS,
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
+      if (isValidation) {
+        return new Response(
+          JSON.stringify({ error: "invalid_event" }),
+          {
+            status: 400,
+            headers: {
+              ...CORS_HEADERS,
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
+
       recordError("memory_ingest");
       return new Response(
         JSON.stringify({ error: "rpc_failed" }),
         {
           status: 500,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+          },
         },
       );
     }
@@ -570,7 +620,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "rpc_failed" }),
         {
           status: 500,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
         },
       );
     }
@@ -604,7 +654,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
       },
     );
     // Store the cached result against the SAME synthetic key the check
@@ -636,7 +686,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
       },
     );
   }

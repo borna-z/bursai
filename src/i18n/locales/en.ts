@@ -3580,6 +3580,7 @@ const en: Record<string, string> = {
   'settings.gdpr.reset_memory_what_preserves':
     'Preserved: your account, garments, outfits, planned outfits, and wear history.',
   'settings.gdpr.reset_memory_confirm': 'Yes, reset',
+  'settings.gdpr.reset_memory_type_confirm': 'Type RESET to confirm:',
   'settings.gdpr.reset_success': 'Style memory cleared',
   'settings.gdpr.reset_error': 'Could not clear style memory. Please try again.',
 };

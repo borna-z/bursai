@@ -38,7 +38,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { useAuthOrNull } from "@/contexts/AuthContext";
-import { invokeEdgeFunction } from "@/lib/edgeFunctionClient";
+import { invokeEdgeFunction, getHttpStatus } from "@/lib/edgeFunctionClient";
 import { enqueueMemoryEvent } from "@/lib/memoryEventQueue";
 import { logger } from "@/lib/logger";
 import {
@@ -47,7 +47,24 @@ import {
   type RecordMemoryEventInput,
 } from "@/lib/memoryEvents";
 
-const FOUR_XX_PATTERN = /\b(400|401|402|403|404)\b/;
+// String-fallback when the error isn't a supabase-js FunctionsHttpError.
+// Used only after `getHttpStatus(err)` returns null (network errors,
+// EdgeFunctionTimeoutError, EdgeFunctionRateLimitError thrown from
+// edgeFunctionClient with no `context` field). Audit R5-F1 + R5-F8.
+const FOUR_XX_FALLBACK_PATTERN = /\b(400|401|402|403|404|413|429)\b/;
+
+function isFourXxClass(err: unknown): boolean {
+  // 1. Canonical path — supabase-js FunctionsHttpError stores status on
+  //    error.context.status. Always trust this when present.
+  const status = getHttpStatus(err);
+  if (status != null) {
+    return status >= 400 && status < 500;
+  }
+  // 2. Fallback — string match on err.message for transport-shaped errors
+  //    (e.g., EdgeFunctionRateLimitError carries "Rate limit exceeded for X").
+  const msg = err instanceof Error ? err.message : String(err);
+  return FOUR_XX_FALLBACK_PATTERN.test(msg);
+}
 
 export function useRecordMemoryEvent() {
   // useAuthOrNull returns null instead of throwing when no AuthProvider
@@ -82,17 +99,25 @@ export function useRecordMemoryEvent() {
       return data;
     },
     onError: (err, input) => {
-      const msg = err instanceof Error ? err.message : String(err);
       // 4xx-class — client mistake (validation failure, locked subscription,
-      // 401 stale-JWT after retry). Retrying via the offline queue won't
-      // help; drop with a logged warning.
-      if (FOUR_XX_PATTERN.test(msg)) {
-        logger.warn("memory_ingest 4xx (not enqueueing):", msg);
+      // 401 stale-JWT after retry, 413 oversized body, 429 rate-limit).
+      // Retrying via the offline queue won't help; drop with a logged
+      // warning. `isFourXxClass` checks supabase-js FunctionsHttpError's
+      // `context.status` field FIRST (canonical), then falls back to
+      // string-matching err.message for transport-shaped errors.
+      if (isFourXxClass(err)) {
+        const status = getHttpStatus(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          "memory_ingest 4xx (not enqueueing):",
+          status != null ? `status=${status}` : msg,
+        );
         return;
       }
       // 5xx / transport / unclassified — enqueue for next-session drain.
       if (!userId) return;
       void enqueueMemoryEvent(userId, input);
+      const msg = err instanceof Error ? err.message : String(err);
       logger.warn("memory_ingest enqueued for retry:", msg);
     },
   });

@@ -3183,6 +3183,7 @@ const sv: Record<string, string> = {
   'settings.gdpr.reset_memory_what_preserves':
     'Bevaras: ditt konto, plagg, outfits, planerade outfits och bärhistorik.',
   'settings.gdpr.reset_memory_confirm': 'Ja, återställ',
+  'settings.gdpr.reset_memory_type_confirm': 'Skriv RESET för att bekräfta:',
   'settings.gdpr.reset_success': 'Stilminne rensat',
   'settings.gdpr.reset_error': 'Kunde inte rensa stilminne. Försök igen.',
 };

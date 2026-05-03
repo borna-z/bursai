@@ -50,9 +50,16 @@ const FN_NAME = "reset_style_memory";
 
 // deno-lint-ignore no-explicit-any
 function jsonResponse(body: unknown, status: number): Response {
+  // Audit R6-P11: every PR B endpoint sets `Cache-Control: no-store` so
+  // that intermediary CDNs / proxies cannot cache idempotency-replay
+  // bodies and serve them across users via key collision.
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, "content-type": "application/json" },
+    headers: {
+      ...CORS_HEADERS,
+      "content-type": "application/json",
+      "cache-control": "no-store",
+    },
   });
 }
 
@@ -65,7 +72,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  if (!checkOverload(FN_NAME)) {
+  // checkOverload returns TRUE when overloaded (matches sibling functions:
+  // grant_trial_gift, start_trial, delete_user_account, memory_ingest).
+  if (checkOverload(FN_NAME)) {
     return overloadResponse(CORS_HEADERS);
   }
 

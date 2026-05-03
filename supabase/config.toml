@@ -1,5 +1,13 @@
 project_id = "khvkwojtlkcvxjxztduj"
 
+# Pin local Postgres version to match production (audit R6-P3, Wave 8.5 PR B
+# Round 6). Without this pin, the CLI defaults to its bundled PG version
+# (currently 15) while prod runs PG17 — `db push --dry-run` then surfaces
+# `+major_version = 17` as drift on every CI run. Migrations may parse fine
+# locally and fail in prod when language-version-sensitive features differ.
+[db]
+major_version = 17
+
 [functions]
   [functions.analyze_garment]
     verify_jwt = false

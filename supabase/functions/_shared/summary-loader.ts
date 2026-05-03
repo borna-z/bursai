@@ -28,6 +28,7 @@ import {
   type StyleSummaryInputs,
   type StyleSummaryOutput,
 } from "./style-summary-builder.ts";
+import { captureWarning } from "./observability.ts";
 
 /**
  * Persisted shape — mirrors `user_style_summaries` row + the PR A migration
@@ -85,12 +86,24 @@ export async function loadOrBuildSummary(
         user_id: userId,
         error: typeof error === "object" ? JSON.stringify(error) : String(error),
       });
+      // Audit R6-P5: emit Sentry warning so cache-select failures are
+      // queryable from ops dashboards. Without this, transient PG hiccups
+      // cause silent cache misses → unnecessary rebuilds → DB load spikes.
+      captureWarning("summary_loader_cache_select_failed", {
+        user_id: userId,
+        error_kind: "query_returned_error",
+      });
       // Fall through to build; non-fatal.
     } else if (data) {
       existing = data as UserStyleSummaryRow;
     }
   } catch (err) {
     console.error("[summary-loader] cache select threw", err);
+    captureWarning("summary_loader_cache_select_failed", {
+      user_id: userId,
+      error_kind: "threw",
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Step 2: freshness check.
@@ -117,6 +130,18 @@ export async function loadOrBuildSummary(
         confidence: built.confidence,
       }),
     );
+
+    // Audit R6-P5: emit cache-miss telemetry so ops can monitor rebuild
+    // rate. A spike in this counter means dirty_at is being aggressively
+    // flipped (every memory_ingest debounces to "stale") OR the staleness
+    // threshold is too short — both are SLI/SLO observability targets.
+    captureWarning("summary_loader_cache_miss", {
+      user_id: userId,
+      duration_ms,
+      was_stale: existing != null,
+      signal_count: inputs.feedbackSignals.length,
+      garment_count: inputs.garments.length,
+    });
 
     const row: UserStyleSummaryRow = {
       user_id: userId,
@@ -146,13 +171,26 @@ export async function loadOrBuildSummary(
             ? JSON.stringify(persistError)
             : String(persistError),
         );
+        captureWarning("summary_loader_persist_failed", {
+          user_id: userId,
+          error_kind: "query_returned_error",
+        });
       }
     } catch (persistErr) {
       console.error("[summary-loader] persist threw", persistErr);
+      captureWarning("summary_loader_persist_failed", {
+        user_id: userId,
+        error_kind: "threw",
+        message: persistErr instanceof Error ? persistErr.message : String(persistErr),
+      });
     }
     return row;
   } catch (buildErr) {
     console.error("[summary-loader] build failed", buildErr);
+    captureWarning("summary_loader_build_failed", {
+      user_id: userId,
+      message: buildErr instanceof Error ? buildErr.message : String(buildErr),
+    });
     // If we have a stale row, return it as a safer fallback than null —
     // partial memory is better than no memory.
     return existing ?? null;
