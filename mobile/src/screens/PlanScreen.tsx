@@ -115,6 +115,16 @@ export function PlanScreen() {
   const markWorn = useMarkOutfitWorn();
   const deletePlanned = useDeletePlannedOutfit();
 
+  // "Worn today" gate for the today-only Wear button. Mirrors OutfitDetail.
+  // Without this the button stays primary-coloured + enabled even after a
+  // successful mark-worn, inviting an extra mutation chain on re-tap. Audit J.
+  const wornToday = React.useMemo(() => {
+    if (selectedIndex !== 0 || !selectedOutfit?.worn_at) return false;
+    const wornDate = new Date(selectedOutfit.worn_at);
+    if (Number.isNaN(wornDate.getTime())) return false;
+    return localISODate(wornDate) === localISODate(now);
+  }, [selectedIndex, selectedOutfit?.worn_at, now]);
+
   const loading = weekPlansQ.isLoading;
   const refreshing = weekPlansQ.isRefetching;
   const error = weekPlansQ.isError;
@@ -129,14 +139,20 @@ export function PlanScreen() {
 
   const handleWearToday = React.useCallback(() => {
     if (!selectedOutfit) return;
-    markWorn.mutate(selectedOutfit.id, {
-      onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
-      onError: (err: unknown) =>
-        Alert.alert(
-          'Could not mark worn',
-          err instanceof Error ? err.message : 'Please try again.',
-        ),
-    });
+    const garmentIds = (selectedOutfit.outfit_items ?? [])
+      .map((item) => item.garment?.id)
+      .filter((id): id is string => Boolean(id));
+    markWorn.mutate(
+      { outfitId: selectedOutfit.id, garmentIds },
+      {
+        onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not mark worn',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
   }, [markWorn, selectedOutfit]);
 
   const handleClear = React.useCallback(() => {
@@ -262,10 +278,17 @@ export function PlanScreen() {
             <PlanThumbRow outfit={selectedOutfit} />
 
             <Button
-              label={selectedIndex === 0 ? 'Wear today' : 'View outfit'}
+              label={
+                selectedIndex === 0
+                  ? wornToday
+                    ? 'Worn today'
+                    : 'Wear today'
+                  : 'View outfit'
+              }
+              variant={selectedIndex === 0 && wornToday ? 'accent' : 'primary'}
               onPress={selectedIndex === 0 ? handleWearToday : goOutfit}
               block
-              disabled={selectedIndex === 0 && markWorn.isPending}
+              disabled={selectedIndex === 0 && (wornToday || markWorn.isPending)}
             />
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('OutfitGenerate')} />

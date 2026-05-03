@@ -110,6 +110,17 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
 
   const markWorn = useMarkOutfitWorn();
 
+  // Mirror OutfitDetail's logic: "worn today" is true iff outfit.worn_at is a
+  // valid timestamp that falls on today (local date). The previous proxy of
+  // `todayPlan.status === 'worn'` never flipped because the mark-worn mutation
+  // doesn't touch planned_outfits.status. Audit J on PR #718.
+  const wornToday = React.useMemo(() => {
+    if (!todayOutfit?.worn_at) return false;
+    const wornDate = new Date(todayOutfit.worn_at);
+    if (Number.isNaN(wornDate.getTime())) return false;
+    return localISODate(wornDate) === localISODate(now);
+  }, [todayOutfit?.worn_at, now]);
+
   const garmentTotal = garmentsQ.data?.length ?? 0;
   const wardrobeUsedPct = React.useMemo(() => {
     if (!garmentsQ.data || garmentsQ.data.length === 0) return 0;
@@ -122,26 +133,43 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     return Math.round((worn / garmentsQ.data.length) * 100);
   }, [garmentsQ.data]);
 
-  const loading = todayPlanQ.isLoading || weekPlansQ.isLoading || garmentsQ.isLoading;
-  const refreshing =
-    todayPlanQ.isRefetching || weekPlansQ.isRefetching || garmentsQ.isRefetching;
+  // Per-section loading flags so a fast hero can populate while the slowest
+  // query finishes — the previous OR-of-three made the screen wait for the
+  // slowest of {today plan, week plans, garments} before anything appeared.
+  // Audit H on PR #718.
+  const heroLoading = todayPlanQ.isLoading;
+  const statsLoading = garmentsQ.isLoading;
 
+  // Pull-to-refresh uses a single state flag driven by Promise.all so the
+  // spinner stays up until ALL refetches settle. The previous OR-of-three
+  // refetching flags would clear the spinner the moment the first query
+  // resolved, even with two more in flight. Audit I on PR #718.
+  const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = React.useCallback(() => {
-    void todayPlanQ.refetch();
-    void weekPlansQ.refetch();
-    void garmentsQ.refetch();
+    setRefreshing(true);
+    void Promise.all([
+      todayPlanQ.refetch(),
+      weekPlansQ.refetch(),
+      garmentsQ.refetch(),
+    ]).finally(() => setRefreshing(false));
   }, [todayPlanQ, weekPlansQ, garmentsQ]);
 
   const handleWearToday = React.useCallback(() => {
     if (!todayOutfit) return;
-    markWorn.mutate(todayOutfit.id, {
-      onSuccess: () => Alert.alert('Marked worn', 'Today\'s look saved to your wear log.'),
-      onError: (err: unknown) =>
-        Alert.alert(
-          'Could not mark worn',
-          err instanceof Error ? err.message : 'Please try again.',
-        ),
-    });
+    const garmentIds = (todayOutfit.outfit_items ?? [])
+      .map((item) => item.garment?.id)
+      .filter((id): id is string => Boolean(id));
+    markWorn.mutate(
+      { outfitId: todayOutfit.id, garmentIds },
+      {
+        onSuccess: () => Alert.alert('Marked worn', 'Today\'s look saved to your wear log.'),
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not mark worn',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
   }, [todayOutfit, markWorn]);
 
   const goOutfitDetail = React.useCallback(() => {
@@ -194,7 +222,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
 
         {/* ============ TODAY'S LOOK HERO ============ */}
         <Card hero padding={18}>
-          {loading ? (
+          {heroLoading ? (
             <PlanCardSkeleton />
           ) : todayOutfit ? (
             <>
@@ -222,11 +250,11 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
               )}
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Button
-                  label={todayPlan?.status === 'worn' ? 'Worn today' : 'Wear this'}
+                  label={wornToday ? 'Worn today' : 'Wear this'}
                   onPress={handleWearToday}
                   block
                   style={{ flex: 1 }}
-                  disabled={markWorn.isPending}
+                  disabled={wornToday || markWorn.isPending}
                 />
                 <Button label="Restyle" variant="outline" onPress={push('OutfitGenerate')} />
                 <Button label="View" variant="quiet" onPress={goOutfitDetail} />
@@ -298,7 +326,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
               onPress={handleWearToday}
               block
               style={{ flex: 1 }}
-              disabled={!todayOutfit || markWorn.isPending}
+              disabled={!todayOutfit || wornToday || markWorn.isPending}
             />
             <Button label="Restyle" variant="outline" size="sm" onPress={push('StyleMe')} />
             <Button label="+ Add" variant="outline" size="sm" onPress={push('AddPieceStep1')} />
@@ -337,7 +365,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
               <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>Insights →</Text>
             </Pressable>
           </View>
-          {loading ? (
+          {statsLoading ? (
             <StatRowSkeleton count={2} />
           ) : (
             <View style={{ flexDirection: 'row', gap: 8 }}>

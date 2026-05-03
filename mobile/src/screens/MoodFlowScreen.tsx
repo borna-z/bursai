@@ -128,7 +128,20 @@ export function MoodFlowScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label="Wear this" onPress={() => nav.navigate('OutfitDetail')} block style={{ flex: 1 }} />
+            <Button
+              label="Wear this"
+              // Mock mood-flow outfit — no real id to route to. Same rationale
+              // as StyleMeScreen / OutfitGenerateScreen: routing to OutfitDetail
+              // without an id dead-ends on "Outfit not found" since W3.
+              onPress={() =>
+                Alert.alert(
+                  'Generating your look',
+                  'Real outfit generation lands in a future update — for now this is a preview.',
+                )
+              }
+              block
+              style={{ flex: 1 }}
+            />
             <Button label="Restyle" variant="outline" onPress={restyle} />
           </View>
           <Button

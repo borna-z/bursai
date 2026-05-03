@@ -67,6 +67,18 @@ export function OutfitDetailScreen() {
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
 
+  // Hydrate `rating` from the loaded outfit so a returning user sees their
+  // prior rating instead of an empty 5-star row that one careless tap could
+  // overwrite (audit K on PR #718). Only seed once per outfit id — local
+  // edits via `handleRate` win after that.
+  const hydratedRatingForId = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!outfit?.id) return;
+    if (hydratedRatingForId.current === outfit.id) return;
+    hydratedRatingForId.current = outfit.id;
+    setRating(typeof outfit.rating === 'number' ? outfit.rating : 0);
+  }, [outfit?.id, outfit?.rating]);
+
   const wornToday = React.useMemo(() => {
     if (!outfit?.worn_at) return false;
     const wornDate = new Date(outfit.worn_at);
@@ -78,14 +90,20 @@ export function OutfitDetailScreen() {
 
   const handleWear = React.useCallback(() => {
     if (!outfit) return;
-    markWorn.mutate(outfit.id, {
-      onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
-      onError: (err: unknown) =>
-        Alert.alert(
-          'Could not mark worn',
-          err instanceof Error ? err.message : 'Please try again.',
-        ),
-    });
+    const garmentIds = (outfit.outfit_items ?? [])
+      .map((item) => item.garment?.id)
+      .filter((id): id is string => Boolean(id));
+    markWorn.mutate(
+      { outfitId: outfit.id, garmentIds },
+      {
+        onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not mark worn',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
   }, [outfit, markWorn]);
 
   const handleSaveToggle = React.useCallback(() => {
@@ -203,7 +221,10 @@ export function OutfitDetailScreen() {
 
   const name = outfitDisplayName(outfit);
   const kicker = wornToday ? 'Worn today' : isSaved ? 'Saved look' : 'Outfit';
-  const wearCount = outfit.worn_at ? 1 : 0;
+  // Schema has no per-outfit wear-count column. Until wear_logs aggregation
+  // lands, render a binary "Worn"/"Never worn" instead of the misleading
+  // "1 wear" that never increments past 1. Audit G on PR #718.
+  const everWorn = Boolean(outfit.worn_at);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -268,7 +289,7 @@ export function OutfitDetailScreen() {
             {outfit.occasion ? <MetaChip label={outfit.occasion} /> : null}
             {outfit.style_vibe ? <MetaChip label={outfit.style_vibe} /> : null}
             {outfit.confidence_level ? <MetaChip label={outfit.confidence_level} /> : null}
-            <MetaChip label={wearCount === 0 ? 'Never worn' : `${wearCount} wear${wearCount === 1 ? '' : 's'}`} />
+            <MetaChip label={everWorn ? 'Worn' : 'Never worn'} />
           </View>
 
           {outfit.explanation ? (
@@ -279,12 +300,15 @@ export function OutfitDetailScreen() {
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button
+              // Disable when already worn today so a stray re-tap doesn't
+              // re-fire the mutation chain (extra wear_log row, extra
+              // wear_count bump on every garment). Audit J on PR #718.
               label={wornToday ? 'Worn today' : 'Wear today'}
               variant={wornToday ? 'accent' : 'primary'}
               block
               style={{ flex: 1 }}
               onPress={handleWear}
-              disabled={markWorn.isPending}
+              disabled={wornToday || markWorn.isPending}
             />
             <Button label="Restyle" variant="outline" onPress={() => nav.navigate('OutfitGenerate')} />
             <Button
@@ -450,8 +474,14 @@ function PieceCard({
   React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
   const showImage = signedUrl && !broken;
   const hue = garment?.id ? outfitGradientHue(garment.id) : outfitGradientHue(item.id);
-  const title = (garment?.title ?? item.slot ?? 'Garment').toString();
-  const sub = [garment?.category, garment?.material].filter(Boolean).join(' · ').toUpperCase();
+  // Surface "Removed" rather than masquerading the missing garment as a real
+  // piece named "Garment" — the card visually looks tappable but the press is
+  // disabled, which without this label is just confusing. Audit Q on PR #718.
+  const isOrphan = !garment?.id;
+  const title = isOrphan ? 'Removed piece' : (garment?.title ?? item.slot ?? 'Garment').toString();
+  const sub = isOrphan
+    ? (item.slot ?? '').toString().toUpperCase()
+    : [garment?.category, garment?.material].filter(Boolean).join(' · ').toUpperCase();
 
   return (
     <Pressable

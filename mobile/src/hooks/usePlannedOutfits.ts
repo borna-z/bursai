@@ -97,9 +97,16 @@ export function useTodayPlannedOutfit() {
 }
 
 /**
- * Upsert pattern: delete any existing rows for this (user, date) and insert
- * the new one. There's no DB-level unique constraint we can leverage with
- * Supabase's `.upsert(..., { onConflict })`, so we simulate it here.
+ * Upsert pattern: insert the NEW row first, then sweep any older sibling
+ * rows for the same (user, date). There's no DB-level unique constraint to
+ * leverage via Supabase's `.upsert(..., { onConflict })`, so we simulate
+ * one — but INSERT-FIRST. Earlier delete-then-insert lost the user's plan
+ * if the network dropped between the two calls (audit E on PR #718).
+ * INSERT-FIRST trades a transient "two plans for one day" window (worst
+ * case: sweep failed) for never-empty-after-failure semantics.
+ *
+ * Concurrent upserts converge to "all racers' rows persist briefly, then
+ * each sweep clears the others' rows" — last-writer-wins by row id.
  */
 export function useUpsertPlannedOutfit() {
   const queryClient = useQueryClient();
@@ -109,22 +116,34 @@ export function useUpsertPlannedOutfit() {
     mutationFn: async ({ date, outfitId }: { date: string; outfitId: string }) => {
       if (!user) throw new Error('Not authenticated');
 
-      const { error: deleteError } = await supabase
-        .from('planned_outfits')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('date', date);
-      if (deleteError) throw deleteError;
-
-      const { error: insertError } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from('planned_outfits')
         .insert({
           user_id: user.id,
           date,
           outfit_id: outfitId,
           status: 'planned',
-        });
+        })
+        .select('id')
+        .single();
       if (insertError) throw insertError;
+
+      // Sweep older sibling rows for the same (user, date). Don't throw on
+      // failure — the user's intended row is already persisted; surface the
+      // "two plans for one day" via the next refetch instead of failing the
+      // whole mutation. Strictly better than the previous failure mode.
+      const { error: sweepError } = await supabase
+        .from('planned_outfits')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('date', date)
+        .neq('id', inserted.id);
+      if (sweepError) {
+        console.warn(
+          '[usePlannedOutfits] sibling sweep failed (plan persisted, refetch will reconcile):',
+          sweepError.message,
+        );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });

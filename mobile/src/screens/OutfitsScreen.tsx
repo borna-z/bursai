@@ -32,19 +32,17 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-type FilterKey = 'all' | 'recent' | 'with_notes';
+// `with_notes` removed from the chip set: it was reading `outfits.feedback`
+// (an AI-generated insights array, not user notes), so the filter never
+// matched what the chip label promised. The user-notes surface lives in
+// `outfit_feedback.commentary` — wiring that up is a future-wave task.
+// Audit M on PR #718.
+type FilterKey = 'all' | 'recent';
 type ViewMode = 'grid' | 'list';
 
 // "Recent" cutoff: outfits worn in the last 14 days. Tunable.
 const RECENT_DAYS = 14;
 const RECENT_CUTOFF_MS = RECENT_DAYS * 24 * 60 * 60 * 1000;
-
-function wearCountFromOutfit(o: OutfitWithItems): number {
-  // The schema has no per-outfit wear_count; the closest signal we have right now
-  // is `worn_at` (yes/no the outfit was ever worn). When wear_logs aggregation lands
-  // (W-future), this becomes a real count via a join. For now: 1 if worn, else 0.
-  return o.worn_at ? 1 : 0;
-}
 
 function lastWornAgeMs(o: OutfitWithItems): number | null {
   if (!o.worn_at) return null;
@@ -77,9 +75,6 @@ export function OutfitsScreen() {
         return age != null && age <= RECENT_CUTOFF_MS;
       });
     }
-    if (filter === 'with_notes') {
-      return outfits.filter((o) => Array.isArray(o.feedback) && o.feedback.length > 0);
-    }
     return outfits;
   }, [filter, outfits]);
 
@@ -103,7 +98,6 @@ export function OutfitsScreen() {
       <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
         <Chip label="All" active={filter === 'all'} onPress={() => setFilter('all')} />
         <Chip label="Recent" active={filter === 'recent'} onPress={() => setFilter('recent')} />
-        <Chip label="With notes" active={filter === 'with_notes'} onPress={() => setFilter('with_notes')} />
       </View>
     </View>
   );
@@ -151,16 +145,10 @@ export function OutfitsScreen() {
     // genuine zero-data case (filter==='all'); filter-specific misses get their own quiet
     // copy + a "Show all" reset CTA so the user understands the filter is the cause.
     const isFiltered = filter !== 'all';
-    const title = !isFiltered
-      ? 'No outfits yet'
-      : filter === 'recent'
-        ? 'Nothing worn lately'
-        : 'No outfits with notes';
+    const title = !isFiltered ? 'No outfits yet' : 'Nothing worn lately';
     const body = !isFiltered
       ? 'Generate your first look from your wardrobe.'
-      : filter === 'recent'
-        ? `Nothing logged in the last ${RECENT_DAYS} days. Try wearing one of your saved looks.`
-        : 'You haven\'t added feedback notes to any outfit yet.';
+      : `Nothing logged in the last ${RECENT_DAYS} days. Try wearing one of your saved looks.`;
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         {header}
@@ -222,7 +210,11 @@ function OutfitListCard({ outfit, onPress }: { outfit: OutfitWithItems; onPress:
   const items = (outfit.outfit_items ?? []).slice(0, 4);
   const fillerCount = Math.max(0, 4 - items.length);
   const fallbackHue = outfitGradientHue(outfit.id);
-  const wearCount = wearCountFromOutfit(outfit);
+  // Schema has no per-outfit wear-count column. The closest signal we have is
+  // `worn_at` (last wear timestamp). Showing "1 wear" after 50 actual wears is
+  // misleading, so collapse to a binary "Worn"/"Never worn" until wear_logs
+  // aggregation lands. Audit G on PR #718.
+  const everWorn = Boolean(outfit.worn_at);
   const occasion = outfit.occasion?.trim() ?? '';
   const vibe = outfit.style_vibe?.trim() ?? '';
   const name = outfitDisplayName(outfit);
@@ -283,7 +275,7 @@ function OutfitListCard({ outfit, onPress }: { outfit: OutfitWithItems; onPress:
             letterSpacing: 1.4,
             textTransform: 'uppercase',
           }}>
-          {wearCount === 0 ? 'Never worn' : `${wearCount} wear${wearCount === 1 ? '' : 's'}`}
+          {everWorn ? 'Worn' : 'Never worn'}
         </Text>
       </View>
     </Pressable>
