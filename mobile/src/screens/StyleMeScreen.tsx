@@ -189,7 +189,18 @@ export function StyleMeScreen() {
                 name={`${occ.label} · ${formality.toLowerCase()}`}
                 sub={`${occ.sub.toUpperCase()} · 14° CLEAR`}
                 hues={[32, 38, 200, 28]}
-                onUse={() => nav.navigate('OutfitDetail')}
+                onUse={() =>
+                  // The styled-for-you card is a mock preview — there is no
+                  // persisted outfit row to navigate to yet (real outfits land
+                  // when burs_style_engine wiring ships in a later wave).
+                  // Routing to OutfitDetail without an id would dead-end on the
+                  // "Outfit not found" empty state W3 introduced; surface a
+                  // user-facing notice instead. Mirrors OutfitGenerateScreen.
+                  Alert.alert(
+                    'Generating your look',
+                    'Real outfit generation lands in a future update — for now this is a preview.',
+                  )
+                }
                 onSave={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
               />
             </View>

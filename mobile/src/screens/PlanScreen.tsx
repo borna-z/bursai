@@ -8,7 +8,8 @@
 // `new Date()` at render so the screen stays accurate as days roll forward.
 
 import React from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,97 +24,162 @@ import { WeekStrip, type WeekDay } from '../components/WeekStrip';
 import { PlanCardSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/usePlannedOutfits';
+import { useMarkOutfitWorn } from '../hooks/useOutfits';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import type { OutfitItemWithGarment, OutfitWithItems, PlannedOutfitWithOutfit } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-// Local-date YYYY-MM-DD. `Date.prototype.toISOString()` converts to UTC first, so a local
-// midnight in e.g. CET (UTC+1) returns yesterday's date — wrong for hydrating queries against
-// the day the user actually sees. Codex P2 on PR #701.
-function localISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// Build the rolling 7-day window (today first). Dot pattern matches HomeScreen's MiniWeek
-// so the two views agree on which days are "planned" until the planned_outfits query lands.
-// `setDate(getDate() + i)` not ms-arithmetic so DST transitions don't skip a calendar day.
+// Build the rolling 7-day window (today first), pulling the gold-dot flag from the live
+// `planned_outfits` set. `setDate(getDate() + i)` not ms-arithmetic so DST transitions
+// don't skip a calendar day.
 //
-// `selectedIndex` drives the `active` flag — when the user taps a different day in the strip,
-// the visual highlight + the panel's planned-outfit copy below both follow that selection.
-function buildPlanWeek(today: Date, selectedIndex: number): WeekDay[] {
-  const dotPattern = [true, true, true, false, true, false, false];
+// `selectedIndex` drives the `active` flag — when the user taps a different day in the
+// strip, the visual highlight + the panel's planned-outfit copy below follow that selection.
+function buildPlanWeek(today: Date, selectedIndex: number, plannedDates: Set<string>): WeekDay[] {
   const out: WeekDay[] = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
+    const iso = localISODate(d);
     out.push({
       dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
       n: d.getDate(),
       active: i === selectedIndex,
-      planned: dotPattern[i],
-      iso: localISODate(d),
+      planned: plannedDates.has(iso),
+      iso,
     });
   }
   return out;
 }
 
-const SLOTS: ReadonlyArray<string> = ['OUTER', 'TOP', 'BOTTOM', 'SHOES'];
-
-// Placeholder labels paired by index with future planned days. Real labels come from
-// `planned_outfits` once the query is wired; until then we cycle through these so the UI
-// has copy without inventing a calendar.
-const UPCOMING_LABELS: ReadonlyArray<string> = [
-  'Office · tailored',
-  'Dinner · evening',
-  'Studio · creative',
-  'Brunch · soft',
-];
-
-// Derive "Coming up" rows from the same week we just rendered — keeps the gold dots in
-// the WeekStrip and the upcoming list strictly in lockstep, and the labels can never go
-// stale (e.g. "MON 28" on April 29 would already be in the past). Codex P2 on PR #701.
-function buildComingUp(week: WeekDay[]): ReadonlyArray<{ when: string; label: string; iso?: string }> {
+// Two upcoming planned days excluding the active selection. Pulls real outfit names so
+// the row never goes stale.
+function buildComingUp(
+  week: WeekDay[],
+  byDate: Map<string, PlannedOutfitWithOutfit>,
+): ReadonlyArray<{ when: string; label: string; iso: string; outfitId?: string }> {
   return week
     .filter((d) => !d.active && d.planned)
     .slice(0, 2)
-    .map((d, i) => ({
-      when: `${d.dow} ${d.n}`,
-      label: UPCOMING_LABELS[i % UPCOMING_LABELS.length],
-      iso: d.iso,
-    }));
+    .map((d) => {
+      const plan = d.iso ? byDate.get(d.iso) : undefined;
+      return {
+        when: `${d.dow} ${d.n}`,
+        label: outfitDisplayName(plan?.outfit, 'Planned outfit'),
+        iso: d.iso ?? '',
+        outfitId: plan?.outfit?.id,
+      };
+    });
 }
-
-// Lightweight panel content per day. Real impl pulls from planned_outfits keyed by ISO date.
-const PANEL_PRESETS: ReadonlyArray<{ kicker: string; title: string; body: string } | null> = [
-  { kicker: 'Brunch · Soft', title: 'Today is styled', body: 'Cream linen trouser, wool overshirt, and the suede loafers — calibrated for 14° and a long lunch.' },
-  { kicker: 'Coffee · Warm', title: 'Tomorrow morning', body: 'Sand canvas chore over the merino tee — sharp without overheating.' },
-  { kicker: 'Office · Tailored', title: 'Sharper Monday', body: 'Charcoal trouser, white oxford, navy blazer — boardroom-ready.' },
-  null,
-  { kicker: 'Dinner · Evening', title: 'Late table', body: 'Rust knit, dark denim, suede chelsea — easy hand, sharp line.' },
-  null,
-  null,
-];
 
 export function PlanScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
 
-  const now = new Date();
+  const now = React.useMemo(() => new Date(), []);
   const headerEyebrow = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const week = buildPlanWeek(now, selectedIndex);
-  const comingUp = buildComingUp(week);
-  const selectedPanel = PANEL_PRESETS[selectedIndex] ?? null;
+
+  const weekStart = React.useMemo(() => localISODate(now), [now]);
+  const weekEnd = React.useMemo(
+    () => localISODate(new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000)),
+    [now],
+  );
+  const weekPlansQ = usePlannedOutfitsForRange(weekStart, weekEnd);
+
+  const byDate = React.useMemo(() => {
+    const m = new Map<string, PlannedOutfitWithOutfit>();
+    for (const p of weekPlansQ.data ?? []) {
+      // Last write wins — usePlannedOutfitsForRange sorts ascending so the
+      // most recently created plan for a duplicated date overwrites.
+      m.set(p.date, p);
+    }
+    return m;
+  }, [weekPlansQ.data]);
+
+  const plannedDates = React.useMemo(() => new Set(byDate.keys()), [byDate]);
+  const week = React.useMemo(
+    () => buildPlanWeek(now, selectedIndex, plannedDates),
+    [now, selectedIndex, plannedDates],
+  );
+  const comingUp = React.useMemo(() => buildComingUp(week, byDate), [week, byDate]);
   const selectedDay = week[selectedIndex];
+  const selectedPlan = selectedDay?.iso ? byDate.get(selectedDay.iso) ?? null : null;
+  const selectedOutfit = selectedPlan?.outfit ?? null;
 
-  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(600);
+  const markWorn = useMarkOutfitWorn();
+  const deletePlanned = useDeletePlannedOutfit();
 
-  const goOutfit = () => nav.navigate('OutfitDetail');
+  // "Worn today" gate for the today-only Wear button. Mirrors OutfitDetail.
+  // Without this the button stays primary-coloured + enabled even after a
+  // successful mark-worn, inviting an extra mutation chain on re-tap. Audit J.
+  const wornToday = React.useMemo(() => {
+    if (selectedIndex !== 0 || !selectedOutfit?.worn_at) return false;
+    const wornDate = new Date(selectedOutfit.worn_at);
+    if (Number.isNaN(wornDate.getTime())) return false;
+    return localISODate(wornDate) === localISODate(now);
+  }, [selectedIndex, selectedOutfit?.worn_at, now]);
+
+  const loading = weekPlansQ.isLoading;
+  const refreshing = weekPlansQ.isRefetching;
+  const error = weekPlansQ.isError;
+  const onRefresh = React.useCallback(() => {
+    void weekPlansQ.refetch();
+  }, [weekPlansQ]);
+  const retry = onRefresh;
+
+  const goOutfit = React.useCallback(() => {
+    if (selectedOutfit) nav.navigate('OutfitDetail', { id: selectedOutfit.id });
+  }, [nav, selectedOutfit]);
+
+  const handleWearToday = React.useCallback(() => {
+    if (!selectedOutfit) return;
+    const garmentIds = (selectedOutfit.outfit_items ?? [])
+      .map((item) => item.garment?.id)
+      .filter((id): id is string => Boolean(id));
+    markWorn.mutate(
+      { outfitId: selectedOutfit.id, garmentIds },
+      {
+        onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not mark worn',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
+  }, [markWorn, selectedOutfit]);
+
+  const handleClear = React.useCallback(() => {
+    const iso = selectedDay?.iso;
+    if (!iso) return;
+    Alert.alert(
+      'Clear plans',
+      'This will remove the planned outfit for this day.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            deletePlanned.mutate(iso, {
+              onSuccess: () => Alert.alert('Cleared', 'Planned outfit cleared.'),
+              onError: (err: unknown) =>
+                Alert.alert(
+                  'Could not clear',
+                  err instanceof Error ? err.message : 'Please try again.',
+                ),
+            });
+          },
+        },
+      ],
+    );
+  }, [deletePlanned, selectedDay?.iso]);
 
   if (error) {
     return (
@@ -173,7 +239,7 @@ export function PlanScreen() {
         {/* ============ PLANNED PANEL ============ */}
         {loading ? (
           <PlanCardSkeleton />
-        ) : selectedPanel ? (
+        ) : selectedOutfit ? (
           <View style={{ gap: 10 }}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               <EyebrowChip
@@ -183,7 +249,9 @@ export function PlanScreen() {
                     : `Planned · ${selectedDay?.dow ?? ''} ${selectedDay?.n ?? ''}`
                 }
               />
-              <EyebrowChip label={selectedPanel.kicker} />
+              {selectedOutfit.occasion ? (
+                <EyebrowChip label={selectedOutfit.occasion} />
+              ) : null}
             </View>
 
             <Text
@@ -196,20 +264,32 @@ export function PlanScreen() {
                 color: t.fg,
                 letterSpacing: -0.22,
               }}>
-              {selectedPanel.title}
+              {outfitDisplayName(selectedOutfit)}
             </Text>
 
-            <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
-              {selectedPanel.body}
-            </Text>
+            {selectedOutfit.explanation ? (
+              <Text
+                style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}
+                numberOfLines={3}>
+                {selectedOutfit.explanation}
+              </Text>
+            ) : null}
 
-            <View style={s.outfitRow}>
-              {SLOTS.map((slot) => (
-                <OutfitThumb key={slot} label={slot} />
-              ))}
-            </View>
+            <PlanThumbRow outfit={selectedOutfit} />
 
-            <Button label={selectedIndex === 0 ? 'Wear today' : 'View outfit'} onPress={goOutfit} block />
+            <Button
+              label={
+                selectedIndex === 0
+                  ? wornToday
+                    ? 'Worn today'
+                    : 'Wear today'
+                  : 'View outfit'
+              }
+              variant={selectedIndex === 0 && wornToday ? 'accent' : 'primary'}
+              onPress={selectedIndex === 0 ? handleWearToday : goOutfit}
+              block
+              disabled={selectedIndex === 0 && (wornToday || markWorn.isPending)}
+            />
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('OutfitGenerate')} />
               <Button
@@ -218,20 +298,8 @@ export function PlanScreen() {
                 size="sm"
                 block
                 style={{ flex: 1 }}
-                onPress={() =>
-                  Alert.alert(
-                    'Clear plans',
-                    'This will remove the planned outfit for this day.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Clear',
-                        style: 'destructive',
-                        onPress: () => Alert.alert('Cleared', 'Planned outfit cleared.'),
-                      },
-                    ],
-                  )
-                }
+                onPress={handleClear}
+                disabled={deletePlanned.isPending}
               />
               <Button label="+ Add" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('AddPieceStep1')} />
             </View>
@@ -268,8 +336,10 @@ export function PlanScreen() {
           <View>
             {comingUp.map((item, i) => (
               <Pressable
-                key={item.iso ?? `${item.when}-${i}`}
-                onPress={goOutfit}
+                key={item.iso || `${item.when}-${i}`}
+                onPress={() => {
+                  if (item.outfitId) nav.navigate('OutfitDetail', { id: item.outfitId });
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.when} ${item.label}`}
                 style={({ pressed }) => [
@@ -347,8 +417,39 @@ function EyebrowChip({ label }: { label: string }) {
   );
 }
 
-function OutfitThumb({ label }: { label: string }) {
+function PlanThumbRow({ outfit }: { outfit: OutfitWithItems }) {
+  const items = (outfit.outfit_items ?? []).slice(0, 4);
+  const fillerCount = Math.max(0, 4 - items.length);
+  const fallbackHue = outfitGradientHue(outfit.id);
+  return (
+    <View style={s.outfitRow}>
+      {items.map((item) => (
+        <PlanOutfitThumb key={item.id} item={item} fallbackHue={fallbackHue} />
+      ))}
+      {Array.from({ length: fillerCount }).map((_, i) => (
+        <PlanOutfitThumb key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
+      ))}
+    </View>
+  );
+}
+
+function PlanOutfitThumb({
+  item,
+  fallbackHue,
+}: {
+  item: OutfitItemWithGarment | null;
+  fallbackHue: number;
+}) {
   const t = useTokens();
+  const garment = item?.garment ?? null;
+  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { data: signedUrl } = useSignedUrl(imagePath);
+  const [broken, setBroken] = React.useState(false);
+  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
+  const showImage = signedUrl && !broken;
+  const label = (item?.slot ?? garment?.category ?? '').toString().toUpperCase();
+  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
+
   return (
     <View
       style={{
@@ -358,21 +459,38 @@ function OutfitThumb({ label }: { label: string }) {
         borderWidth: 1,
         borderColor: t.border,
         backgroundColor: t.bg2,
-        alignItems: 'center',
-        justifyContent: 'center',
         overflow: 'hidden',
       }}>
-      <Text
-        style={{
-          fontFamily: fonts.uiSemi,
-          fontSize: 9,
-          letterSpacing: 1.1,
-          color: t.fg2,
-          opacity: 0.55,
-          textTransform: 'uppercase',
-        }}>
-        {label}
-      </Text>
+      <LinearGradient
+        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      {showImage ? (
+        <Image
+          source={{ uri: signedUrl }}
+          onError={() => setBroken(true)}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      ) : null}
+      {label && !showImage ? (
+        <Text
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            left: 8,
+            fontFamily: fonts.uiSemi,
+            fontSize: 9,
+            letterSpacing: 1.1,
+            color: '#fff',
+            opacity: 0.85,
+            textTransform: 'uppercase',
+          }}>
+          {label}
+        </Text>
+      ) : null}
     </View>
   );
 }

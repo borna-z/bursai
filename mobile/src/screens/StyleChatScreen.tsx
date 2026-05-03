@@ -391,7 +391,15 @@ function MessageItem({ msg }: { msg: Message }) {
           <Button
             label="Wear this"
             size="sm"
-            onPress={() => nav.navigate('OutfitDetail')}
+            // Mock chat outfit — no real id to route to. Same rationale as
+            // StyleMeScreen / OutfitGenerateScreen: routing to OutfitDetail
+            // without an id hits the "Outfit not found" empty state W3 added.
+            onPress={() =>
+              Alert.alert(
+                'Generating your look',
+                'Real outfit generation lands in a future update — for now this is a preview.',
+              )
+            }
             style={{ flex: 1 }}
             block
           />

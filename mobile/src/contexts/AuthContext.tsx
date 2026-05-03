@@ -27,6 +27,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase, supabaseUrl } from '../lib/supabase';
 
@@ -176,6 +177,13 @@ function deriveIsOnboarded(profile: Profile | null): boolean {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Pulled from the surrounding QueryClientProvider — used to clear the
+  // entire query cache on sign-out so user A's `['outfits', userA, ...]` /
+  // `['garments', userA, ...]` / `['planned_outfits', userA, ...]` entries
+  // don't sit in memory while user B signs in on the same device.
+  // Audit D on PR #718.
+  const queryClient = useQueryClient();
+
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -264,6 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (event === 'SIGNED_OUT') {
         triggeredTrialKeys.current.clear();
+        // Drop every cached query so user A's data doesn't surface during
+        // user B's session on the same device. Active queries (none expected
+        // mid-sign-out, but defensive) are removed too — `clear()` is the
+        // hammer; we trade a refetch on next sign-in for guaranteed isolation.
+        queryClient.clear();
       }
     });
 
@@ -338,7 +351,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
-  }, []);
+    // Drop the query cache eagerly too — listeners can race with the
+    // post-await navigation, and the SIGNED_OUT branch above also clears,
+    // so this is a "last to win" no-op in the happy path. Audit D.
+    queryClient.clear();
+  }, [queryClient]);
 
   const isOnboarded = deriveIsOnboarded(profile);
 

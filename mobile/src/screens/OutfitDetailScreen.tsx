@@ -9,7 +9,9 @@
 
 import React from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,108 +33,209 @@ import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, MoreIcon, ShareIcon, StarIcon } from '../components/icons';
+import {
+  useOutfit,
+  useMarkOutfitWorn,
+  useSaveOutfit,
+  useDeleteOutfit,
+  useRateOutfit,
+  useOutfitFeedback,
+  useSaveOutfitNote,
+} from '../hooks/useOutfits';
+import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'OutfitDetail'>;
-
-type OutfitFixture = {
-  name: string;
-  kicker: string;
-  occasion: string;
-  formality: string;
-  wearCount: number;
-  hues: [number, number, number, number];
-  pieces: { id: string; name: string; sub: string; hue: number }[];
-};
-
-// Outfit fixtures keyed by the `id` that `OutfitsScreen.OUTFITS` emits, plus a default for
-// callers that navigate without an id (HomeScreen Today's Look). Each piece references a
-// canonical wardrobe id (`g1`–`g9`) so tapping a piece routes to the correct GarmentDetail
-// fixture — Codex P1 round 4: previously pieces used opaque `p1`–`p24` ids that had no
-// matching record in GarmentDetailScreen.GARMENTS, sending every tap to the unknown-id
-// placeholder. Names + subs match WardrobeScreen.GARMENTS verbatim so cross-screen previews
-// stay consistent.
-const OUTFITS: Record<string, OutfitFixture> = {
-  o1: {
-    name: 'Studio brunch', kicker: "Today's look", occasion: 'Brunch', formality: 'Smart casual', wearCount: 12,
-    hues: [32, 38, 200, 28],
-    pieces: [
-      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
-      { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',   hue: 32 },
-      { id: 'g3', name: 'Linen trouser',  sub: 'Bottoms · Linen', hue: 38 },
-      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
-    ],
-  },
-  o2: {
-    name: 'Sunday casual', kicker: 'Saved look', occasion: 'Casual', formality: 'Casual', wearCount: 8,
-    hues: [200, 220, 28, 45],
-    pieces: [
-      { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',   hue: 32 },
-      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
-      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
-    ],
-  },
-  o3: {
-    name: 'Boardroom', kicker: 'Saved look', occasion: 'Office', formality: 'Business', wearCount: 4,
-    hues: [215, 28, 200, 18],
-    pieces: [
-      { id: 'g2', name: 'Navy blazer',    sub: 'Outer · Wool',    hue: 215 },
-      { id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton',   hue: 200 },
-      { id: 'g3', name: 'Linen trouser',  sub: 'Bottoms · Linen', hue: 38 },
-      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
-    ],
-  },
-  o4: {
-    name: 'Gallery night', kicker: 'Saved look', occasion: 'Evening', formality: 'Smart', wearCount: 6,
-    hues: [18, 220, 18, 215],
-    pieces: [
-      { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere', hue: 18 },
-      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
-      { id: 'g9', name: 'Suede boot',     sub: 'Shoes · Suede',   hue: 18 },
-      { id: 'g2', name: 'Navy blazer',    sub: 'Outer · Wool',    hue: 215 },
-    ],
-  },
-  o5: {
-    name: 'Weekend run', kicker: 'Saved look', occasion: 'Active', formality: 'Casual', wearCount: 0,
-    hues: [32, 220, 28, 32],
-    pieces: [
-      { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',   hue: 32 },
-      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
-      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
-      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
-    ],
-  },
-  o6: {
-    name: 'Date — soft', kicker: 'Saved look', occasion: 'Date', formality: 'Smart', wearCount: 2,
-    hues: [18, 220, 28, 32],
-    pieces: [
-      { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere', hue: 18 },
-      { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim', hue: 220 },
-      { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',   hue: 28 },
-      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
-    ],
-  },
-};
-const DEFAULT_OUTFIT_ID = 'o1';
 
 export function OutfitDetailScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
   const id = route.params?.id;
-  // Look up by route id; fall back to default fixture so callers that navigate without an id
-  // (e.g. HomeScreen "Today's Look" tile) still get a stable demo. When the backend hook lands
-  // this becomes `const { data: outfit } = useOutfit(id ?? defaultId);`.
-  const outfit = (id && OUTFITS[id]) || OUTFITS[DEFAULT_OUTFIT_ID]!;
+
+  const outfitQ = useOutfit(id);
+  const outfit = outfitQ.data ?? null;
+
+  const markWorn = useMarkOutfitWorn();
+  const saveOutfit = useSaveOutfit();
+  const deleteOutfit = useDeleteOutfit();
+  const rateOutfit = useRateOutfit();
+  const upsertPlanned = useUpsertPlannedOutfit();
+  const feedbackQ = useOutfitFeedback(outfit?.id);
+  const saveNote = useSaveOutfitNote();
 
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
-  const [saved, setSaved] = React.useState(false);
-  // "Wear today" toggle. Mirrors the `saved` toggle shape (outline → accent + label flip) so
-  // visual press feedback maps to a real state change. When the wear-log mutation lands this
-  // becomes a `useLogWear()` mutation hook with an optimistic `worn` flag. Codex P2 round 8.
-  const [worn, setWorn] = React.useState(false);
+
+  // Hydrate rating + notes from outfit + outfit_feedback so a returning user
+  // sees their prior values instead of an empty 5-star row + empty note that
+  // a careless tap or save would overwrite. Audit K (rating) and L (notes).
+  // Only seed once per outfit id — local edits win after the initial seed.
+  const hydratedForId = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!outfit?.id || feedbackQ.isLoading) return;
+    if (hydratedForId.current === outfit.id) return;
+    hydratedForId.current = outfit.id;
+    const seedRating =
+      feedbackQ.data?.rating ??
+      (typeof outfit.rating === 'number' ? outfit.rating : 0);
+    setRating(seedRating ?? 0);
+    setNotes(feedbackQ.data?.commentary ?? '');
+  }, [outfit?.id, outfit?.rating, feedbackQ.data, feedbackQ.isLoading]);
+
+  const persistedNote = feedbackQ.data?.commentary ?? '';
+  const notesDirty = notes.trim() !== persistedNote.trim();
+
+  const wornToday = React.useMemo(() => {
+    if (!outfit?.worn_at) return false;
+    const wornDate = new Date(outfit.worn_at);
+    if (Number.isNaN(wornDate.getTime())) return false;
+    return localISODate(wornDate) === localISODate(new Date());
+  }, [outfit?.worn_at]);
+
+  const isSaved = Boolean(outfit?.saved);
+
+  const handleWear = React.useCallback(() => {
+    if (!outfit) return;
+    const garmentIds = (outfit.outfit_items ?? [])
+      .map((item) => item.garment?.id)
+      .filter((id): id is string => Boolean(id));
+    markWorn.mutate(
+      { outfitId: outfit.id, garmentIds },
+      {
+        onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not mark worn',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
+  }, [outfit, markWorn]);
+
+  const handleSaveToggle = React.useCallback(() => {
+    if (!outfit || isSaved || saveOutfit.isPending) return;
+    saveOutfit.mutate(outfit.id, {
+      onError: (err: unknown) =>
+        Alert.alert(
+          'Could not save',
+          err instanceof Error ? err.message : 'Please try again.',
+        ),
+    });
+  }, [outfit, isSaved, saveOutfit]);
+
+  const handleAddToPlan = React.useCallback(() => {
+    if (!outfit) return;
+    upsertPlanned.mutate(
+      { date: localISODate(new Date()), outfitId: outfit.id },
+      {
+        onSuccess: () => Alert.alert('Added', 'Outfit added to today\'s plan.'),
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not add to plan',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
+  }, [outfit, upsertPlanned]);
+
+  const handleDelete = React.useCallback(() => {
+    if (!outfit) return;
+    Alert.alert('Delete', 'Delete this outfit? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteOutfit.mutate(outfit.id, {
+            onSuccess: () => nav.goBack(),
+            onError: (err: unknown) =>
+              Alert.alert(
+                'Could not delete',
+                err instanceof Error ? err.message : 'Please try again.',
+              ),
+          });
+        },
+      },
+    ]);
+  }, [outfit, deleteOutfit, nav]);
+
+  const handleRate = React.useCallback(
+    (n: number) => {
+      const next = n === rating ? 0 : n;
+      setRating(next);
+      if (!outfit) return;
+      rateOutfit.mutate({ outfitId: outfit.id, rating: next });
+    },
+    [outfit, rating, rateOutfit],
+  );
+
+  if (outfitQ.isLoading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={[s.headerRow, { borderBottomColor: t.border }]}>
+          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1 }} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!outfit) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={[s.headerRow, { borderBottomColor: t.border }]}>
+          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow>Outfit</Eyebrow>
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 10 }}>
+          <Text
+            style={{
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontSize: 22,
+              color: t.fg,
+              textAlign: 'center',
+              letterSpacing: -0.22,
+            }}>
+            Outfit not found
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13,
+              color: t.fg2,
+              textAlign: 'center',
+              lineHeight: 19,
+            }}>
+            This look may have been removed. Go back and pick another.
+          </Text>
+          <Button label="Back" variant="outline" onPress={() => nav.goBack()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const name = outfitDisplayName(outfit);
+  const kicker = wornToday ? 'Worn today' : isSaved ? 'Saved look' : 'Outfit';
+  // Schema has no per-outfit wear-count column. Until wear_logs aggregation
+  // lands, render a binary "Worn"/"Never worn" instead of the misleading
+  // "1 wear" that never increments past 1. Audit G on PR #718.
+  const everWorn = Boolean(outfit.worn_at);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -156,14 +259,14 @@ export function OutfitDetailScreen() {
                 color: t.fg,
                 letterSpacing: -0.18,
               }}>
-              {outfit.name}
+              {name}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <IconBtn
               ariaLabel="Share outfit"
               variant="ghost"
-              onPress={() => nav.navigate('ShareOutfit', undefined)}>
+              onPress={() => nav.navigate('ShareOutfit', { id: outfit.id })}>
               <ShareIcon color={t.fg} />
             </IconBtn>
             <IconBtn
@@ -171,17 +274,9 @@ export function OutfitDetailScreen() {
               variant="ghost"
               onPress={() =>
                 Alert.alert('Options', undefined, [
-                  { text: 'Add to plan', onPress: () => Alert.alert('Added', 'Outfit added to your plan.') },
-                  { text: 'Share outfit', onPress: () => nav.navigate('ShareOutfit', undefined) },
-                  {
-                    text: 'Delete outfit',
-                    style: 'destructive',
-                    onPress: () =>
-                      Alert.alert('Delete', 'Delete this outfit? This cannot be undone.', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Delete', style: 'destructive', onPress: () => nav.goBack() },
-                      ]),
-                  },
+                  { text: 'Add to plan', onPress: handleAddToPlan },
+                  { text: 'Share outfit', onPress: () => nav.navigate('ShareOutfit', { id: outfit.id }) },
+                  { text: 'Delete outfit', style: 'destructive', onPress: handleDelete },
                   { text: 'Cancel', style: 'cancel' },
                 ])
               }>
@@ -195,47 +290,43 @@ export function OutfitDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
           <View>
-            <Eyebrow style={{ marginBottom: 4 }}>{outfit.kicker}</Eyebrow>
-            <PageTitle>{outfit.name}</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{kicker}</Eyebrow>
+            <PageTitle>{name}</PageTitle>
           </View>
 
-          <View style={s.thumbGrid}>
-            {outfit.hues.map((h, i) => (
-              <View key={i} style={[s.thumbCell, { borderColor: t.border }]}>
-                <LinearGradient
-                  colors={[`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ flex: 1 }}
-                />
-                <View style={[s.thumbLabel, { backgroundColor: t.card, borderColor: t.border }]}>
-                  <Text style={[s.thumbLabelText, { color: t.fg2 }]}>
-                    {outfit.pieces[i]?.sub.split(' · ')[0]?.toUpperCase() ?? ''}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+          <DetailThumbGrid outfit={outfit} />
 
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-            <MetaChip label={outfit.occasion} />
-            <MetaChip label={outfit.formality} />
-            <MetaChip label={`${outfit.wearCount} wears`} />
+            {outfit.occasion ? <MetaChip label={outfit.occasion} /> : null}
+            {outfit.style_vibe ? <MetaChip label={outfit.style_vibe} /> : null}
+            {outfit.confidence_level ? <MetaChip label={outfit.confidence_level} /> : null}
+            <MetaChip label={everWorn ? 'Worn' : 'Never worn'} />
           </View>
+
+          {outfit.explanation ? (
+            <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
+              {outfit.explanation}
+            </Text>
+          ) : null}
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button
-              label={worn ? 'Worn today' : 'Wear today'}
-              variant={worn ? 'accent' : 'primary'}
+              // Disable when already worn today so a stray re-tap doesn't
+              // re-fire the mutation chain (extra wear_log row, extra
+              // wear_count bump on every garment). Audit J on PR #718.
+              label={wornToday ? 'Worn today' : 'Wear today'}
+              variant={wornToday ? 'accent' : 'primary'}
               block
               style={{ flex: 1 }}
-              onPress={() => setWorn((v) => !v)}
+              onPress={handleWear}
+              disabled={wornToday || markWorn.isPending}
             />
             <Button label="Restyle" variant="outline" onPress={() => nav.navigate('OutfitGenerate')} />
             <Button
-              label={saved ? 'Saved' : 'Save'}
-              variant={saved ? 'accent' : 'outline'}
-              onPress={() => setSaved((v) => !v)}
+              label={isSaved ? 'Saved' : 'Save'}
+              variant={isSaved ? 'accent' : 'outline'}
+              onPress={handleSaveToggle}
+              disabled={isSaved || saveOutfit.isPending}
             />
           </View>
 
@@ -247,7 +338,7 @@ export function OutfitDetailScreen() {
                   key={n}
                   accessibilityRole="button"
                   accessibilityLabel={`Rate ${n} of 5`}
-                  onPress={() => setRating(n === rating ? 0 : n)}
+                  onPress={() => handleRate(n)}
                   hitSlop={6}>
                   <StarIcon size={28} color={n <= rating ? t.accent : t.fg3} active={n <= rating} />
                 </Pressable>
@@ -268,72 +359,65 @@ export function OutfitDetailScreen() {
                 },
               ]}
             />
+            {/* Save button surfaces only when the textarea diverges from what
+                we last loaded. Without it the typed note was never persisted
+                — audit L on PR #718. Cancel reverts to the persisted text
+                so a half-typed change can be discarded explicitly. */}
+            {notesDirty ? (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <Button
+                  label={saveNote.isPending ? 'Saving…' : 'Save note'}
+                  size="sm"
+                  onPress={() => {
+                    if (!outfit) return;
+                    saveNote.mutate(
+                      { outfitId: outfit.id, note: notes },
+                      {
+                        onError: (err: unknown) =>
+                          Alert.alert(
+                            'Could not save note',
+                            err instanceof Error ? err.message : 'Please try again.',
+                          ),
+                      },
+                    );
+                  }}
+                  disabled={saveNote.isPending}
+                />
+                <Button
+                  label="Cancel"
+                  size="sm"
+                  variant="outline"
+                  onPress={() => setNotes(persistedNote)}
+                  disabled={saveNote.isPending}
+                />
+              </View>
+            ) : null}
           </View>
 
           <View>
             <View style={s.sectionHead}>
               <Eyebrow>Garments in this outfit</Eyebrow>
               <Text style={{ color: t.fg2, fontFamily: fonts.uiMed, fontSize: 11 }}>
-                {outfit.pieces.length}
+                {outfit.outfit_items?.length ?? 0}
               </Text>
             </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
-              {outfit.pieces.map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${p.name}, ${p.sub}`}
+              {(outfit.outfit_items ?? []).map((item) => (
+                <PieceCard
+                  key={item.id}
+                  item={item}
                   // `push` not `navigate` — drill-down across detail routes. In a flow like
                   // GarmentDetail → OutfitDetail → tap piece, `navigate('GarmentDetail', …)`
                   // would collapse onto the existing GarmentDetail entry earlier in the stack,
-                  // mutating its params (so the previously-viewed garment's rating/scroll/tab
-                  // state would now belong to a different garment) and shortening the back
-                  // stack. `push` always adds a fresh entry. Codex P1 round 9, mirrors round 7
-                  // similar-items fix.
-                  onPress={() => nav.push('GarmentDetail', { id: p.id })}
-                  style={({ pressed }) => [
-                    s.pieceCard,
-                    {
-                      backgroundColor: t.card,
-                      borderColor: t.border,
-                      transform: pressed ? [{ scale: 0.97 }] : [],
-                    },
-                  ]}>
-                  <LinearGradient
-                    colors={[`hsl(${p.hue}, 38%, 78%)`, `hsl(${(p.hue + 30) % 360}, 30%, 62%)`]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={s.pieceCardThumb}
-                  />
-                  <View style={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 }}>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontFamily: fonts.uiSemi,
-                        fontSize: 12.5,
-                        fontWeight: '600',
-                        color: t.fg,
-                        letterSpacing: -0.13,
-                      }}>
-                      {p.name}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontFamily: fonts.uiSemi,
-                        fontSize: 9.5,
-                        color: t.fg2,
-                        letterSpacing: 1.4,
-                        textTransform: 'uppercase',
-                        marginTop: 2,
-                      }}>
-                      {p.sub}
-                    </Text>
-                  </View>
-                </Pressable>
+                  // mutating its params and shortening the back stack. `push` always adds a
+                  // fresh entry.
+                  onPress={() => {
+                    if (item.garment?.id) nav.push('GarmentDetail', { id: item.garment.id });
+                  }}
+                />
               ))}
             </ScrollView>
           </View>
@@ -358,6 +442,150 @@ function MetaChip({ label }: { label: string }) {
         {label}
       </Text>
     </View>
+  );
+}
+
+function DetailThumbGrid({ outfit }: { outfit: OutfitWithItems }) {
+  const items = (outfit.outfit_items ?? []).slice(0, 4);
+  const fillerCount = Math.max(0, 4 - items.length);
+  const fallbackHue = outfitGradientHue(outfit.id);
+  return (
+    <View style={s.thumbGrid}>
+      {items.map((item) => (
+        <DetailThumbCell key={item.id} item={item} fallbackHue={fallbackHue} />
+      ))}
+      {Array.from({ length: fillerCount }).map((_, i) => (
+        <DetailThumbCell key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
+      ))}
+    </View>
+  );
+}
+
+function DetailThumbCell({
+  item,
+  fallbackHue,
+}: {
+  item: OutfitItemWithGarment | null;
+  fallbackHue: number;
+}) {
+  const t = useTokens();
+  const garment = item?.garment ?? null;
+  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { data: signedUrl } = useSignedUrl(imagePath);
+  const [broken, setBroken] = React.useState(false);
+  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
+  const showImage = signedUrl && !broken;
+  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
+  const label = (item?.slot ?? garment?.category ?? '').toString().toUpperCase();
+
+  return (
+    <View style={[s.thumbCell, { borderColor: t.border }]}>
+      <LinearGradient
+        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      {showImage ? (
+        <Image
+          source={{ uri: signedUrl }}
+          onError={() => setBroken(true)}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      ) : null}
+      {label ? (
+        <View style={[s.thumbLabel, { backgroundColor: t.card, borderColor: t.border }]}>
+          <Text style={[s.thumbLabelText, { color: t.fg2 }]}>{label}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function PieceCard({
+  item,
+  onPress,
+}: {
+  item: OutfitItemWithGarment;
+  onPress: () => void;
+}) {
+  const t = useTokens();
+  const garment = item.garment;
+  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { data: signedUrl } = useSignedUrl(imagePath);
+  const [broken, setBroken] = React.useState(false);
+  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
+  const showImage = signedUrl && !broken;
+  const hue = garment?.id ? outfitGradientHue(garment.id) : outfitGradientHue(item.id);
+  // Surface "Removed" rather than masquerading the missing garment as a real
+  // piece named "Garment" — the card visually looks tappable but the press is
+  // disabled, which without this label is just confusing. Audit Q on PR #718.
+  const isOrphan = !garment?.id;
+  const title = isOrphan ? 'Removed piece' : (garment?.title ?? item.slot ?? 'Garment').toString();
+  const sub = isOrphan
+    ? (item.slot ?? '').toString().toUpperCase()
+    : [garment?.category, garment?.material].filter(Boolean).join(' · ').toUpperCase();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}${sub ? `, ${sub}` : ''}`}
+      onPress={onPress}
+      disabled={!garment?.id}
+      style={({ pressed }) => [
+        s.pieceCard,
+        {
+          backgroundColor: t.card,
+          borderColor: t.border,
+          transform: pressed ? [{ scale: 0.97 }] : [],
+          opacity: garment?.id ? 1 : 0.6,
+        },
+      ]}>
+      <View style={[s.pieceCardThumb, { overflow: 'hidden' }]}>
+        <LinearGradient
+          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        {showImage ? (
+          <Image
+            source={{ uri: signedUrl }}
+            onError={() => setBroken(true)}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        ) : null}
+      </View>
+      <View style={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: fonts.uiSemi,
+            fontSize: 12.5,
+            fontWeight: '600',
+            color: t.fg,
+            letterSpacing: -0.13,
+          }}>
+          {title}
+        </Text>
+        {sub ? (
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 9.5,
+              color: t.fg2,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+              marginTop: 2,
+            }}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }
 

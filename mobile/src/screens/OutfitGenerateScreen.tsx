@@ -247,7 +247,17 @@ export function OutfitGenerateScreen() {
           {/* Actions */}
           <Button
             label="Wear today"
-            onPress={() => { hapticLight(); nav.navigate('OutfitDetail'); }}
+            onPress={() => {
+              hapticLight();
+              // The generated outfit isn't yet persisted to Supabase — that requires
+              // burs_style_engine wiring (Wave 4 scope). Until then, we surface a
+              // user-facing notice so "Wear today" doesn't dead-end on the
+              // OutfitDetail "Outfit not found" empty state.
+              Alert.alert(
+                'Generating your look',
+                'Real outfit generation lands in a future update — for now this is a preview.',
+              );
+            }}
             block
             style={{ marginTop: 8 }}
           />
