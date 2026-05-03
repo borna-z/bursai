@@ -29,6 +29,7 @@ import {
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { themes } from './src/theme/tokens';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { AuthProvider } from './src/contexts/AuthContext';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this synchronously
 // at module load — before the first React render — is what the expo-splash-screen docs
@@ -97,9 +98,11 @@ function ThemedShell() {
   return (
     <>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
-      <NavigationContainer theme={navTheme}>
-        <RootNavigator />
-      </NavigationContainer>
+      <AuthProvider>
+        <NavigationContainer theme={navTheme}>
+          <RootNavigator />
+        </NavigationContainer>
+      </AuthProvider>
     </>
   );
 }

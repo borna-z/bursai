@@ -1,12 +1,15 @@
 // AuthScreen — sign-in / sign-up toggle. Single screen, two modes.
 // KeyboardAvoidingView wraps the form so the keyboard doesn't obscure inputs on iOS.
 //
-// No real auth wired yet — the CTA stubs are TODOs. Once Supabase auth lands,
-// replace `handleSubmit` with `supabase.auth.signInWithPassword` / `signUp` and
-// `handleGoogle` with the OAuth flow.
+// Wave 1 (feat/mobile-w1-auth): wired to real Supabase auth via useAuth().
+// Sign-in / sign-up / Google OAuth all dispatch through AuthContext; the
+// auth-state listener in AuthContext + SplashScreen owns post-auth routing
+// (no manual nav.reset on success — listener decides Onboarding vs MainTabs).
 
 import React, { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -27,6 +30,8 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSelection } from '../lib/haptics';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -41,6 +46,12 @@ const GOOGLE_BRAND = {
   yellow: '#FBBC05',
   green: '#34A853',
 } as const;
+
+// Lightweight email shape check — Supabase will return a definitive error on
+// truly malformed addresses; this is just to gate the submit button + the
+// inline error message before the network round-trip.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD = 6;
 
 function GoogleIcon({ size = 18 }: { size?: number }) {
   return (
@@ -68,33 +79,81 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
 export function AuthScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<Mode>('signIn');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // "Touched" semantics: only show inline errors after the user has either
+  // blurred a field or attempted submit. Keeps the empty form quiet on entry.
+  const [touched, setTouched] = useState<{ name?: boolean; email?: boolean; password?: boolean }>({});
 
   // Ref chain for keyboard "Next" focus advancement (P1-9).
   const emailRef = useRef<TextInput | null>(null);
   const passwordRef = useRef<TextInput | null>(null);
 
   const isSignUp = mode === 'signUp';
-  const canSubmit = email.trim().length > 0 && password.length >= 6 && (!isSignUp || name.trim().length > 0);
 
-  const handleSubmit = () => {
+  const trimmedEmail = email.trim();
+  const emailValid = EMAIL_RE.test(trimmedEmail);
+  const passwordValid = password.length >= MIN_PASSWORD;
+  const nameValid = !isSignUp || name.trim().length > 0;
+  const canSubmit = emailValid && passwordValid && nameValid && !submitting;
+
+  const showNameError = isSignUp && touched.name && name.trim().length === 0;
+  const showEmailError = touched.email && trimmedEmail.length > 0 && !emailValid;
+  const showPasswordError = touched.password && password.length > 0 && !passwordValid;
+
+  const handleSubmit = async () => {
+    setTouched({ name: true, email: true, password: true });
     if (!canSubmit) return;
     hapticLight();
-    // TODO(auth): wire to Supabase. Until real auth lands, both stub paths
-    // route through Onboarding — sign-in's "skip onboarding for returning
-    // users" decision lives behind real session check (P0-4 from review).
-    nav.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+    setSubmitting(true);
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(trimmedEmail, password, name);
+        if (error) {
+          Alert.alert(tr('auth.signUp.errorTitle'), error.message);
+          return;
+        }
+      } else {
+        const { error } = await signIn(trimmedEmail, password);
+        if (error) {
+          Alert.alert(tr('auth.signIn.errorTitle'), error.message);
+          return;
+        }
+      }
+      // Success: AuthContext's onAuthStateChange listener fires SIGNED_IN,
+      // SplashScreen owns post-auth routing. We don't navigate from here.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleGoogle = () => {
+  const handleGoogle = async () => {
+    if (submitting) return;
     hapticLight();
-    // TODO(auth): wire OAuth. Stub routes through onboarding — same reason
-    // as `handleSubmit`.
-    nav.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'burs://auth/callback',
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        Alert.alert(tr('auth.google.errorTitle'), error.message);
+      }
+      // Deep link callback handled by RootNavigator; auth listener routes.
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const inputsDisabled = submitting;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'left', 'right']}>
@@ -132,50 +191,66 @@ export function AuthScreen() {
           {/* Form fields */}
           <View style={{ gap: 12 }}>
             {isSignUp && (
-              <Field
-                label={tr('auth.field.name')}
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-                autoComplete="name"
-                textContentType="name"
-                returnKeyType="next"
-                onSubmitEditing={() => emailRef.current?.focus()}
-              />
+              <View>
+                <Field
+                  label={tr('auth.field.name')}
+                  value={name}
+                  onChangeText={setName}
+                  onBlur={() => setTouched((s) => ({ ...s, name: true }))}
+                  editable={!inputsDisabled}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  textContentType="name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
+                />
+                {showNameError ? <FieldError>{tr('auth.error.nameRequired')}</FieldError> : null}
+              </View>
             )}
-            <Field
-              ref={emailRef}
-              label={tr('auth.field.email')}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-            <Field
-              ref={passwordRef}
-              label={tr('auth.field.password')}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete={isSignUp ? 'new-password' : 'password'}
-              textContentType={isSignUp ? 'newPassword' : 'password'}
-              returnKeyType="go"
-              onSubmitEditing={handleSubmit}
-            />
+            <View>
+              <Field
+                ref={emailRef}
+                label={tr('auth.field.email')}
+                value={email}
+                onChangeText={setEmail}
+                onBlur={() => setTouched((s) => ({ ...s, email: true }))}
+                editable={!inputsDisabled}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+              />
+              {showEmailError ? <FieldError>{tr('auth.error.emailInvalid')}</FieldError> : null}
+            </View>
+            <View>
+              <Field
+                ref={passwordRef}
+                label={tr('auth.field.password')}
+                value={password}
+                onChangeText={setPassword}
+                onBlur={() => setTouched((s) => ({ ...s, password: true }))}
+                editable={!inputsDisabled}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete={isSignUp ? 'new-password' : 'password'}
+                textContentType={isSignUp ? 'newPassword' : 'password'}
+                returnKeyType="go"
+                onSubmitEditing={handleSubmit}
+              />
+              {showPasswordError ? <FieldError>{tr('auth.error.passwordShort')}</FieldError> : null}
+            </View>
           </View>
 
           {/* Forgot password — sign-in only */}
           {!isSignUp && (
             <Pressable
               onPress={() => { hapticLight(); nav.navigate('ResetPassword'); }}
-              style={{ alignSelf: 'flex-end', marginTop: 10, paddingVertical: 4 }}
+              disabled={inputsDisabled}
+              style={{ alignSelf: 'flex-end', marginTop: 10, paddingVertical: 4, opacity: inputsDisabled ? 0.5 : 1 }}
               accessibilityRole="link"
               hitSlop={6}>
               <Text
@@ -198,6 +273,9 @@ export function AuthScreen() {
               block
               onPress={handleSubmit}
               disabled={!canSubmit}
+              leadingIcon={
+                submitting ? <ActivityIndicator size="small" color={t.accentFg} /> : undefined
+              }
             />
           </View>
 
@@ -235,6 +313,7 @@ export function AuthScreen() {
           {/* Google */}
           <Pressable
             onPress={handleGoogle}
+            disabled={inputsDisabled}
             accessibilityRole="button"
             accessibilityLabel={tr('auth.google')}
             style={({ pressed }) => ({
@@ -247,6 +326,7 @@ export function AuthScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 10,
+              opacity: inputsDisabled ? 0.5 : 1,
               transform: [{ scale: pressed ? 0.97 : 1 }],
             })}>
             <GoogleIcon size={18} />
@@ -280,7 +360,13 @@ export function AuthScreen() {
               {isSignUp ? tr('auth.toggle.haveAccount') : tr('auth.toggle.noAccount')}
             </Text>
             <Pressable
-              onPress={() => { hapticSelection(); setMode(isSignUp ? 'signIn' : 'signUp'); }}
+              onPress={() => {
+                if (submitting) return;
+                hapticSelection();
+                setMode(isSignUp ? 'signIn' : 'signUp');
+                setTouched({});
+              }}
+              disabled={submitting}
               accessibilityRole="link"
               hitSlop={6}>
               <Text
@@ -289,6 +375,7 @@ export function AuthScreen() {
                   fontSize: 12.5,
                   color: t.accent,
                   letterSpacing: -0.1,
+                  opacity: submitting ? 0.5 : 1,
                 }}>
                 {isSignUp ? tr('auth.toggle.toSignIn') : tr('auth.toggle.toSignUp')}
               </Text>
@@ -326,9 +413,27 @@ const Field = React.forwardRef<TextInput, FieldProps>(({ label, ...rest }, ref) 
           fontSize: 14.5,
           color: t.fg,
           letterSpacing: -0.15,
+          opacity: rest.editable === false ? 0.6 : 1,
         }}
       />
     </View>
   );
 });
 Field.displayName = 'Field';
+
+function FieldError({ children }: { children: React.ReactNode }) {
+  const t = useTokens();
+  return (
+    <Text
+      style={{
+        marginTop: 6,
+        marginLeft: 4,
+        fontFamily: fonts.uiMed,
+        fontSize: 12,
+        color: t.destructive,
+        letterSpacing: -0.1,
+      }}>
+      {children}
+    </Text>
+  );
+}

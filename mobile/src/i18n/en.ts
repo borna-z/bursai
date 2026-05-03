@@ -24,6 +24,12 @@ export const en: Record<string, string> = {
   'auth.toggle.noAccount': "Don't have an account?",
   'auth.toggle.toSignIn': 'Sign in',
   'auth.toggle.toSignUp': 'Sign up',
+  'auth.signIn.errorTitle': 'Sign in failed',
+  'auth.signUp.errorTitle': 'Sign up failed',
+  'auth.google.errorTitle': 'Google sign in failed',
+  'auth.error.nameRequired': 'Please enter your name.',
+  'auth.error.emailInvalid': 'Enter a valid email address.',
+  'auth.error.passwordShort': 'Password must be at least 6 characters.',
 
   // ─── Onboarding shell ───────────────────────────────────────────────────
   'onboarding.back': 'Back',

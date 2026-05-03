@@ -16,6 +16,7 @@ import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon } from '../components/icons';
+import { useAuth } from '../hooks/useAuth';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -23,6 +24,11 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function SettingsAccountScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { user, profile } = useAuth();
+
+  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
+  const email = user?.email ?? '';
+  const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -49,7 +55,7 @@ export function SettingsAccountScreen() {
                 { backgroundColor: t.accent },
               ]}>
               <Text style={{ color: t.accentFg, fontFamily: fonts.uiSemi, fontSize: 26, fontWeight: '600' }}>
-                B
+                {initial}
               </Text>
             </View>
             <View style={{ flex: 1, gap: 2 }}>
@@ -62,9 +68,9 @@ export function SettingsAccountScreen() {
                   color: t.fg,
                   letterSpacing: -0.18,
                 }}>
-                Borna Krneta
+                {displayName}
               </Text>
-              <Caption>borna@example.com</Caption>
+              <Caption>{email}</Caption>
               <Pressable
                 accessibilityRole="link"
                 onPress={() =>
@@ -92,7 +98,7 @@ export function SettingsAccountScreen() {
           <Card padding={4}>
             <SettingsRow
               title="Full name"
-              value="Borna Krneta"
+              value={displayName}
               onPress={() =>
                 Alert.alert('Full name', 'Edit your name in Profile.')
               }
@@ -100,7 +106,7 @@ export function SettingsAccountScreen() {
             <SettingsRow
               icon={<MailIcon size={18} color={t.accent} />}
               title="Email"
-              value="borna@example.com"
+              value={email || '—'}
               onPress={() =>
                 Alert.alert('Email', 'Contact support to change your email.')
               }

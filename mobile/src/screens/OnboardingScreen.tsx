@@ -26,6 +26,8 @@ import { BackIcon } from '../components/icons';
 import { FadeUp } from '../components/FadeUp';
 import { t as tr } from '../lib/i18n';
 import { hapticLight } from '../lib/haptics';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 import { LanguageStep, type LanguageCode } from './onboarding/LanguageStep';
 import { ValuePropositionStep } from './onboarding/ValuePropositionStep';
@@ -90,6 +92,7 @@ async function clearDraft(): Promise<void> {
 export function OnboardingScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { user, refreshProfile } = useAuth();
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<OnboardingDraft>({});
@@ -115,8 +118,38 @@ export function OnboardingScreen() {
     saveDraft({ v: 1, step, draft });
   }, [hydrated, step, draft]);
 
-  const finish = () => {
-    // TODO(server-write): persist `draft` to Supabase before resetting.
+  const finish = async () => {
+    // Persist onboarding completion + the draft answers to profiles.preferences.
+    // Best-effort: a server failure does NOT block the user from reaching MainTabs
+    // — the auto-create path in AuthContext seeds the row, and the user can always
+    // re-trigger this save from settings later. The server is the source of truth
+    // once it succeeds; we then refresh AuthContext's cached profile so isOnboarded
+    // flips immediately.
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            preferences: {
+              onboarding: {
+                completed: true,
+                step: STEP_COUNT,
+                language: draft.language,
+                quiz: draft.quiz,
+                studio: draft.studio,
+              },
+            },
+          })
+          .eq('id', user.id);
+        if (error) {
+          console.warn('[OnboardingScreen] profile save failed (non-blocking):', error.message);
+        } else {
+          await refreshProfile();
+        }
+      } catch (err) {
+        console.warn('[OnboardingScreen] profile save threw (non-blocking):', err);
+      }
+    }
     void clearDraft();
     nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   };
