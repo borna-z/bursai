@@ -1,0 +1,372 @@
+// Garment data hooks for mobile. React Query–backed; mirrors the relevant
+// shape of the web's `src/hooks/useGarments.ts` but slimmed down — no offline
+// queue, no haptics dependency, no atomic-delete RPC (mobile uses a simple
+// soft-friendly DELETE for now; the web's RPC handles render-credit refunds
+// which mobile won't trigger until Wave 9+ render is wired).
+//
+// All queries scope by `user_id` AND let RLS enforce the same constraint
+// server-side — defense in depth. Without an authenticated user the queries
+// stay disabled, returning empty arrays.
+//
+// Pagination uses Supabase `.range()` with PAGE_SIZE=30. Smart filters
+// (rarely_worn / most_worn) own their sort order; otherwise sortBy applies
+// (default created_at desc).
+
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+  type UseMutationResult,
+} from '@tanstack/react-query';
+import { useMemo } from 'react';
+
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import type { Garment, GarmentFilters, GarmentUpdate } from '../types/garment';
+
+const PAGE_SIZE = 30;
+const RARELY_WORN_CUTOFF_MS = 30 * 24 * 60 * 60 * 1000;
+
+// PostgREST treats `%` and `_` as ilike wildcards; an unsanitized search term
+// containing those characters lets a user accidentally match anything. The
+// backslash escapes them; `\\` is also escaped so a typed backslash doesn't
+// leak into the pattern. Commas/parens cannot break out of an ilike value
+// (verified by the audit) — only `%/_` need escaping.
+function sanitizeIlikeTerm(value: string): string {
+  return value.trim().replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
+}
+
+type GarmentPage = { items: Garment[]; nextPage: number | undefined };
+
+export function useGarments(filters?: GarmentFilters) {
+  const { user } = useAuth();
+
+  return useInfiniteQuery<GarmentPage, Error, InfiniteData<GarmentPage>, readonly unknown[], number>({
+    queryKey: ['garments', user?.id, filters],
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!user) return { items: [], nextPage: undefined };
+
+      let query = supabase.from('garments').select('*').eq('user_id', user.id);
+
+      // Smart filter sort wins — they encode the intent (most-worn,
+      // rarely-worn) better than a raw column choice.
+      if (filters?.smartFilter === 'most_worn') {
+        query = query.gt('wear_count', 0).order('wear_count', { ascending: false });
+      } else if (filters?.smartFilter === 'rarely_worn') {
+        const cutoff = new Date(Date.now() - RARELY_WORN_CUTOFF_MS).toISOString();
+        query = query
+          .or(`last_worn_at.is.null,last_worn_at.lt.${cutoff}`)
+          .order('wear_count', { ascending: true, nullsFirst: true });
+      } else if (filters?.smartFilter === 'new') {
+        query = query.order('created_at', { ascending: false, nullsFirst: false });
+      } else {
+        const sortBy = filters?.sortBy ?? 'created_at';
+        query = query.order(sortBy, { ascending: false, nullsFirst: false });
+      }
+
+      if (filters?.category) query = query.eq('category', filters.category);
+      if (filters?.color) query = query.eq('color_primary', filters.color);
+      if (filters?.season) query = query.contains('season_tags', [filters.season]);
+      if (filters?.inLaundry !== undefined) query = query.eq('in_laundry', filters.inLaundry);
+      if (filters?.search?.trim()) {
+        const term = sanitizeIlikeTerm(filters.search);
+        query = query.ilike('title', `%${term}%`);
+      }
+
+      const from = pageParam * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      query = query.range(from, to);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const items = (data ?? []) as Garment[];
+      return {
+        items,
+        nextPage: items.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (last) => last.nextPage,
+    initialPageParam: 0,
+    enabled: !!user,
+    // Evict abandoned queries (e.g. mid-typing search results that the user
+    // moved past) after 30s. Keeps memory bounded without breaking the
+    // "type-and-pause" caching that React Query gives for free.
+    gcTime: 30_000,
+  });
+}
+
+/**
+ * Flattens InfiniteData pages into a plain Garment[]. Memoised on the page
+ * fingerprint (length + first/last item id) so the array reference is stable
+ * across refetches that produce identical contents — without this, every
+ * mutation that triggers `invalidateQueries(['garments'])` would re-flatMap
+ * to a fresh array and force the consuming FlatList to remount every cell.
+ */
+type FlatGarments = Omit<UseInfiniteQueryResult<InfiniteData<GarmentPage>, Error>, 'data'> & {
+  data: Garment[];
+};
+
+export function useFlatGarments(filters?: GarmentFilters): FlatGarments {
+  const query = useGarments(filters);
+  const pages = query.data?.pages;
+  const fingerprint = useMemo(() => {
+    if (!pages) return '';
+    // The pages array AND the items inside it are both important — but
+    // re-checking every item id is wasteful. Length + first/last item id
+    // catches insert/delete/reorder; in-place mutations come through
+    // `setQueryData` which already updates the row reference. False
+    // negatives only matter if a cell shows stale derived UI; refetch on
+    // focus closes the gap.
+    const sigParts: string[] = [];
+    for (const p of pages) {
+      const last = p.items[p.items.length - 1];
+      const first = p.items[0];
+      sigParts.push(`${p.items.length}:${first?.id ?? ''}:${last?.id ?? ''}:${last?.updated_at ?? ''}`);
+    }
+    return sigParts.join('|');
+  }, [pages]);
+
+  const data = useMemo(
+    () => pages?.flatMap((p) => p.items) ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fingerprint],
+  );
+
+  return { ...query, data };
+}
+
+export function useGarment(id: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    // Scope by user.id so a sign-out + sign-in as a different user never
+    // serves user A's cached garment row to user B. Without the user.id
+    // segment, the (id, _) cache key would collide across accounts on the
+    // same device.
+    queryKey: ['garment', user?.id, id],
+    queryFn: async () => {
+      if (!id || !user) return null;
+      const { data, error } = await supabase
+        .from('garments')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Garment | null) ?? null;
+    },
+    enabled: !!id && !!user,
+  });
+}
+
+// Patch a garment row inside every cached `useGarments` page that contains it.
+// Used by optimistic mutations (markWorn / markLaundry / update) so list
+// surfaces (Wardrobe / Laundry / Used / Unused) reflect the change before the
+// server round-trip lands. The single-garment cache is also patched.
+function patchGarmentInCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  userId: string | undefined,
+  garmentId: string,
+  patch: Partial<Garment>,
+) {
+  // 1. Single-garment cache.
+  queryClient.setQueryData(['garment', userId, garmentId], (prev: Garment | null | undefined) =>
+    prev ? { ...prev, ...patch } : prev,
+  );
+  // 2. Every list page across every garments query (filters / smart filters /
+  //    laundry / search). React Query's setQueriesData walks the cache by
+  //    key prefix and applies the updater to each match.
+  queryClient.setQueriesData<InfiniteData<GarmentPage> | undefined>(
+    { queryKey: ['garments', userId] },
+    (prev) => {
+      if (!prev) return prev;
+      let mutated = false;
+      const nextPages = prev.pages.map((page) => {
+        let pageChanged = false;
+        const items = page.items.map((g) => {
+          if (g.id !== garmentId) return g;
+          pageChanged = true;
+          mutated = true;
+          return { ...g, ...patch };
+        });
+        return pageChanged ? { ...page, items } : page;
+      });
+      return mutated ? { ...prev, pages: nextPages } : prev;
+    },
+  );
+}
+
+type UpdateContext = { previousSnapshot: Garment | null | undefined };
+
+export function useUpdateGarment() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation<Garment, Error, { id: string; updates: GarmentUpdate }, UpdateContext>({
+    mutationFn: async ({ id, updates }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { data, error } = await supabase
+        .from('garments')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as Garment;
+    },
+    onMutate: async ({ id, updates }) => {
+      // Optimistic — patch every cached row + the single garment, snapshot
+      // the prior state so onError can roll back.
+      await queryClient.cancelQueries({ queryKey: ['garment', user?.id, id] });
+      const previousSnapshot = queryClient.getQueryData<Garment | null>(
+        ['garment', user?.id, id],
+      );
+      patchGarmentInCaches(queryClient, user?.id, id, updates as Partial<Garment>);
+      return { previousSnapshot };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.previousSnapshot !== undefined) {
+        queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
+      }
+      // Lists will resync from the invalidate-and-refetch on settle.
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['garment', user?.id, data.id], data);
+    },
+  });
+}
+
+export function useDeleteGarment() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('garments')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.removeQueries({ queryKey: ['garment', user?.id, id] });
+    },
+  });
+}
+
+type MarkLaundryArgs = { id: string; inLaundry: boolean };
+
+export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs, UpdateContext> {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation<void, Error, MarkLaundryArgs, UpdateContext>({
+    mutationFn: async ({ id, inLaundry }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('garments')
+        .update({ in_laundry: inLaundry })
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, inLaundry }) => {
+      await queryClient.cancelQueries({ queryKey: ['garment', user?.id, id] });
+      const previousSnapshot = queryClient.getQueryData<Garment | null>(
+        ['garment', user?.id, id],
+      );
+      patchGarmentInCaches(queryClient, user?.id, id, { in_laundry: inLaundry });
+      return { previousSnapshot };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.previousSnapshot !== undefined) {
+        queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
+      }
+    },
+    onSettled: (_data, _err, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+    },
+  });
+}
+
+/**
+ * Increments wear_count and stamps last_worn_at = now. Mirrors the web's
+ * `useMarkGarmentWorn` minus the wear_logs insert (which is a wave-9 concern).
+ *
+ * Read-modify-write — concurrent wears are last-write-wins and would lose an
+ * increment. Acceptable trade-off for v1; a Postgres `increment_wear_count`
+ * RPC is the long-term fix (logged in Findings).
+ */
+export function useMarkWorn() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation<Garment, Error, string, UpdateContext>({
+    mutationFn: async (id) => {
+      if (!user) throw new Error('Not authenticated');
+      const { data: existing, error: readError } = await supabase
+        .from('garments')
+        .select('wear_count')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (readError) throw readError;
+      const next = (existing?.wear_count ?? 0) + 1;
+      const { data, error } = await supabase
+        .from('garments')
+        .update({
+          wear_count: next,
+          last_worn_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as Garment;
+    },
+    onMutate: async (id) => {
+      // Optimistic +1 to wear_count and last_worn_at = now. The detail
+      // screen + every list page sees the bump immediately; the server
+      // confirms it on settle.
+      await queryClient.cancelQueries({ queryKey: ['garment', user?.id, id] });
+      const previousSnapshot = queryClient.getQueryData<Garment | null>(
+        ['garment', user?.id, id],
+      );
+      const optimistic = previousSnapshot
+        ? {
+            wear_count: (previousSnapshot.wear_count ?? 0) + 1,
+            last_worn_at: new Date().toISOString(),
+          }
+        : null;
+      if (optimistic) {
+        patchGarmentInCaches(queryClient, user?.id, id, optimistic);
+      }
+      return { previousSnapshot };
+    },
+    onError: (_err, id, context) => {
+      if (context?.previousSnapshot !== undefined) {
+        queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
+      }
+    },
+    onSettled: (_data, _err, id) => {
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['garment', user?.id, data.id], data);
+    },
+  });
+}

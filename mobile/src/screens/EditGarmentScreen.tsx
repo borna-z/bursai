@@ -3,14 +3,17 @@
 // Body: photo with "Change photo" pill overlay, then four Cards — Details / Style / Usage / Status —
 // each holding a stack of fields, chip groups, color swatch row, stepper, etc. Bottom: red Delete row.
 //
+// W2 wires real Supabase data: useGarment pre-fills the form, useUpdateGarment saves, useDeleteGarment
+// removes. The "Change photo" pill is a placeholder pending Wave 9 image-pick + upload.
+//
 // KeyboardAvoidingView wraps the whole scroll body so text inputs (Title, Subcategory, Price)
 // don't get clipped on iOS. ScrollView, not FlatList — fields are heterogenous and short.
-//
-// Source of truth: design_handoff_burs_rn/source/audit-screens.jsx EditGarmentScreen + the user
-// brief for this PR (which is the canonical spec — handoff is shorter).
 
 import React from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -30,42 +33,27 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Chip } from '../components/Chip';
 import { TogglePill } from '../components/TogglePill';
+import { ErrorState } from '../components/ErrorState';
 import { MinusIcon, PlusIcon } from '../components/icons';
+import { useDeleteGarment, useGarment, useUpdateGarment } from '../hooks/useGarments';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import type { GarmentUpdate } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'EditGarment'>;
 
-// Tiny seed map of known garment ids → form defaults. Lets EditGarment open with the right
-// title / category / wear count / material when launched from GarmentDetail's edit affordance,
-// and falls back to a generic placeholder for any other id. Codex P1 round 3 #1: route param `id`
-// is now received. Codex P2 round 5: `materials` was previously hardcoded `['Wool']` for every
-// id (so g1 "Cream tee" rendered with material "Wool" — wrong). Each entry now seeds material
-// from the canonical garment record. When the backend hook lands this becomes `useGarment(id)`
-// and seeds every form field from the real row.
-type SeedEntry = {
-  title: string;
-  category: string;
-  subcategory: string;
-  wearCount: number;
-  colorId: string;
-  materials: string[];
-};
-const SEED_BY_ID: Record<string, SeedEntry> = {
-  g1: { title: 'Cream tee',      category: 'Top',    subcategory: 'Tee',       wearCount: 31, colorId: 'cream', materials: ['Cotton'] },
-  g2: { title: 'Navy blazer',    category: 'Outer',  subcategory: 'Blazer',    wearCount: 3,  colorId: 'navy',  materials: ['Wool'] },
-  g3: { title: 'Linen trouser',  category: 'Bottom', subcategory: 'Trouser',   wearCount: 14, colorId: 'cream', materials: ['Linen'] },
-  g4: { title: 'Leather loafer', category: 'Shoes',  subcategory: 'Loafer',    wearCount: 5,  colorId: 'beige', materials: ['Leather'] },
-  g5: { title: 'Wool overshirt', category: 'Outer',  subcategory: 'Overshirt', wearCount: 23, colorId: 'beige', materials: ['Wool'] },
-  g6: { title: 'Striped oxford', category: 'Top',    subcategory: 'Shirt',     wearCount: 9,  colorId: 'white', materials: ['Cotton'] },
-  g7: { title: 'Black denim',    category: 'Bottom', subcategory: 'Jean',      wearCount: 11, colorId: 'black', materials: ['Denim'] },
-  g8: { title: 'Cashmere knit',  category: 'Top',    subcategory: 'Knit',      wearCount: 7,  colorId: 'rust',  materials: ['Cashmere'] },
-  g9: { title: 'Suede boot',     category: 'Shoes',  subcategory: 'Chelsea',   wearCount: 4,  colorId: 'brown', materials: ['Leather'] },
-};
+// Hue from id, same recipe as GarmentCard / GarmentDetail. Used for the photo
+// gradient placeholder when no rendered/original image is available.
+function hueFromId(id: string): number {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
 
-// 30 named colors with hex/hsl values. Keeping these as a data constant (not tokens) — the
-// "no hardcoded hex" rule has a carve-out for data/color constants. Same convention as the
-// design's Insights palette.
+// 30 named colors with hex values. Same swatch palette the legacy form used —
+// keeping it as a data constant satisfies the "no hardcoded hex outside data
+// constants" rule. The `id` is what we persist into `color_primary`.
 const COLOR_SWATCHES: { id: string; label: string; color: string }[] = [
   { id: 'cream',     label: 'Cream',     color: '#F5EBD8' },
   { id: 'beige',     label: 'Beige',     color: '#D9C9A6' },
@@ -104,41 +92,180 @@ const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Cashmere', 'Silk', 'Leather', 'De
 const FITS = ['Slim', 'Regular', 'Loose', 'Oversized'];
 const PATTERNS = ['Solid', 'Striped', 'Checked', 'Floral', 'Other'];
 const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
-const FORMALITIES = ['Casual', 'Smart', 'Business', 'Formal'];
 
 export function EditGarmentScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
   const editingId = route.params?.id;
-  // Seed the form fields from the matching SEED_BY_ID entry when the route id is known; fall
-  // back to the wool-overshirt default for unknown / missing ids so the form is still demoable
-  // without a backend. Codex P1 round 3 #1: route param is now read instead of dropped.
-  // Use an explicit ternary (not `editingId && SEED_BY_ID[editingId]`) so TypeScript narrows
-  // the seed type cleanly — `&&` would let an empty-string id propagate as `""` into the union.
-  const seed = (editingId ? SEED_BY_ID[editingId] : undefined) ?? SEED_BY_ID.g5!;
 
-  const [title, setTitle] = React.useState(seed.title);
-  const [category, setCategory] = React.useState(seed.category);
-  const [subcategory, setSubcategory] = React.useState(seed.subcategory);
-  const [primaryColor, setPrimaryColor] = React.useState(seed.colorId);
-  const [materials, setMaterials] = React.useState<string[]>(seed.materials);
-  const [fit, setFit] = React.useState('Regular');
-  const [pattern, setPattern] = React.useState('Solid');
-  const [seasons, setSeasons] = React.useState<string[]>(['Spring', 'Autumn']);
-  const [formalities, setFormalities] = React.useState<string[]>(['Smart']);
-  const [wearCount, setWearCount] = React.useState(seed.wearCount);
-  const [price, setPrice] = React.useState('189');
+  const { data: garment, isLoading, isError, refetch } = useGarment(editingId);
+  const updateGarment = useUpdateGarment();
+  const deleteGarment = useDeleteGarment();
+
+  // Photo preview — uses the same rendered/original priority as GarmentCard
+  // and GarmentDetail so the user sees the same hero across surfaces.
+  const photoPath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { data: photoUrl } = useSignedUrl(photoPath);
+
+  // Form state — initialised once garment loads. We avoid mirroring the
+  // garment columns into state until the row is actually fetched, so a stale
+  // prefill never overwrites a freshly-loaded value when the user navigates
+  // back-and-forth between two garments quickly.
+  const [hydrated, setHydrated] = React.useState(false);
+  const [title, setTitle] = React.useState('');
+  const [category, setCategory] = React.useState('');
+  const [subcategory, setSubcategory] = React.useState('');
+  const [primaryColor, setPrimaryColor] = React.useState<string>('');
+  const [material, setMaterial] = React.useState<string>('');
+  const [fit, setFit] = React.useState<string>('');
+  const [pattern, setPattern] = React.useState<string>('');
+  const [seasons, setSeasons] = React.useState<string[]>([]);
+  const [wearCount, setWearCount] = React.useState(0);
+  const [price, setPrice] = React.useState('');
   const [inLaundry, setInLaundry] = React.useState(false);
-  const [archive, setArchive] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+
+  // Pre-fill from the loaded garment ONCE per garment.id. We key the
+  // hydration on garment.id so navigating to a different garment re-fills.
+  const lastHydratedIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!garment) return;
+    if (lastHydratedIdRef.current === garment.id) return;
+    lastHydratedIdRef.current = garment.id;
+    setTitle(garment.title ?? '');
+    setCategory(garment.category ?? '');
+    setSubcategory(garment.subcategory ?? '');
+    setPrimaryColor(garment.color_primary ?? '');
+    setMaterial(garment.material ?? '');
+    setFit(garment.fit ?? '');
+    setPattern(garment.pattern ?? '');
+    setSeasons(garment.season_tags ?? []);
+    setWearCount(garment.wear_count ?? 0);
+    setPrice(garment.purchase_price != null ? String(garment.purchase_price) : '');
+    setInLaundry(Boolean(garment.in_laundry));
+    setHydrated(true);
+  }, [garment]);
 
   const togglePick = <T,>(val: T, list: T[], setList: (xs: T[]) => void) =>
     setList(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
 
-  // Save is enabled only when the user has provided a non-empty title and picked a category.
-  // Mirrors the spec for this design pass — once the form is wired to a mutation, this gate
-  // becomes the trailing validation in the submit handler.
   const isValid = title.trim().length > 0 && category.length > 0;
+
+  const handleSave = async () => {
+    if (!garment || !isValid) return;
+    setSubmitting(true);
+    try {
+      const trimmedPrice = price.trim();
+      const parsedPrice = trimmedPrice.length > 0 ? Number(trimmedPrice) : null;
+      // Reject NaN — typing "abc" into the price field shouldn't write null
+      // to the column without telling the user. Also reject negatives — the
+      // column is non-negative semantically and the form has no minus key,
+      // but a paste from elsewhere can still land. (European decimal commas
+      // like "12,50" parse to NaN here; users get the same alert as "abc"
+      // and can re-type with a period — TODO: locale-aware parser.)
+      if (parsedPrice != null && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
+        Alert.alert('Invalid price', 'Price must be a non-negative number.');
+        return;
+      }
+
+      const updates: GarmentUpdate = {
+        title: title.trim(),
+        category,
+        subcategory: subcategory.trim() || null,
+        color_primary: primaryColor || null,
+        material: material || null,
+        fit: fit || null,
+        pattern: pattern || null,
+        season_tags: seasons,
+        wear_count: wearCount,
+        purchase_price: parsedPrice,
+        in_laundry: inLaundry,
+      };
+
+      await updateGarment.mutateAsync({ id: garment.id, updates });
+      nav.goBack();
+    } catch (err) {
+      Alert.alert(
+        'Save failed',
+        err instanceof Error ? err.message : 'Could not save changes. Try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!garment) return;
+    Alert.alert(
+      'Delete piece',
+      'Permanently remove this garment? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteGarment.mutateAsync(garment.id);
+              // After a delete, both the EditGarment and the upstream
+              // GarmentDetail point at a now-missing row. Pop back to the
+              // first screen on the stack so we never leave the user on a
+              // 404 detail page. `popToTop` is a no-op when EditGarment is
+              // already the only stack entry (which the React Navigation
+              // docs guarantee), so this also covers deep-link entry. The
+              // earlier double-`goBack` could overshoot when the back stack
+              // had unexpected depth (e.g. opened from Search). Audit UX#5.
+              const stackNav = nav.getParent?.() ?? nav;
+              if (
+                'popToTop' in stackNav &&
+                typeof (stackNav as { popToTop?: () => void }).popToTop === 'function'
+              ) {
+                (stackNav as { popToTop: () => void }).popToTop();
+              } else if (nav.canGoBack()) {
+                nav.goBack();
+              }
+            } catch (err) {
+              Alert.alert(
+                'Delete failed',
+                err instanceof Error ? err.message : 'Try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={[s.headerRow, { borderBottomColor: t.border }]}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow>Loading…</Eyebrow>
+          </View>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="small" color={t.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isError || !garment) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ErrorState
+          title="Garment not found"
+          body="We couldn't load this piece. Pull down to try again."
+          onRetry={() => void refetch()}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const hue = hueFromId(garment.id);
+  const saveDisabled = !isValid || submitting || !hydrated;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -151,14 +278,7 @@ export function EditGarmentScreen() {
             accessibilityRole="button"
             accessibilityLabel="Cancel"
             hitSlop={8}>
-            <Text
-              style={{
-                fontFamily: fonts.uiMed,
-                fontSize: 13,
-                color: t.fg2,
-              }}>
-              Cancel
-            </Text>
+            <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>Cancel</Text>
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Eyebrow>Edit</Eyebrow>
@@ -176,23 +296,15 @@ export function EditGarmentScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => {
-              if (!isValid) return;
-              nav.goBack();
-            }}
-            disabled={!isValid}
+            onPress={handleSave}
+            disabled={saveDisabled}
             accessibilityLabel="Save"
             accessibilityRole="button"
-            accessibilityState={{ disabled: !isValid }}
+            accessibilityState={{ disabled: saveDisabled, busy: submitting }}
             hitSlop={8}
-            style={{ opacity: isValid ? 1 : 0.5 }}>
-            <Text
-              style={{
-                fontFamily: fonts.uiSemi,
-                fontSize: 13,
-                color: t.accent,
-                fontWeight: '600',
-              }}>
+            style={{ opacity: saveDisabled ? 0.5 : 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {submitting ? <ActivityIndicator size="small" color={t.accent} /> : null}
+            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: t.accent, fontWeight: '600' }}>
               Save
             </Text>
           </Pressable>
@@ -202,18 +314,21 @@ export function EditGarmentScreen() {
           contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 18 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-
           {/* Photo + Change photo overlay */}
           <View style={[s.photoWrap, { borderColor: t.border }]}>
             <LinearGradient
-              colors={['hsl(32, 38%, 78%)', 'hsl(62, 30%, 62%)']}
+              colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ flex: 1 }}
+              style={StyleSheet.absoluteFill}
             />
+            {photoUrl ? (
+              <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : null}
             <Pressable
               accessibilityLabel="Change photo"
               accessibilityRole="button"
+              onPress={() => Alert.alert('Coming soon', 'Photo replacement lands in a future release.')}
               style={({ pressed }) => [
                 s.photoChange,
                 {
@@ -222,19 +337,13 @@ export function EditGarmentScreen() {
                   opacity: pressed ? 0.85 : 1,
                 },
               ]}>
-              <Text
-                style={{
-                  fontFamily: fonts.uiSemi,
-                  fontSize: 12,
-                  color: t.fg,
-                  letterSpacing: -0.1,
-                }}>
+              <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12, color: t.fg, letterSpacing: -0.1 }}>
                 Change photo
               </Text>
             </Pressable>
           </View>
 
-          {/* Section: Details */}
+          {/* Details */}
           <FormCard title="Details">
             <FieldLabel label="Title" />
             <TextInput
@@ -256,7 +365,7 @@ export function EditGarmentScreen() {
             />
           </FormCard>
 
-          {/* Section: Style */}
+          {/* Style */}
           <FormCard title="Style">
             <FieldLabel label="Primary color" />
             <ScrollView
@@ -286,33 +395,22 @@ export function EditGarmentScreen() {
             </ScrollView>
 
             <FieldLabel label="Material" topGap />
-            <ChipRow
-              values={MATERIALS}
-              active={materials}
-              onTap={(v) => togglePick(v, materials, setMaterials)}
-            />
+            <ChipRow values={MATERIALS} active={material ? [material] : []} onTap={(v) => setMaterial(material === v ? '' : v)} />
 
             <FieldLabel label="Fit" topGap />
-            <ChipRow values={FITS} active={[fit]} onTap={(v) => setFit(v)} />
+            <ChipRow values={FITS} active={fit ? [fit] : []} onTap={(v) => setFit(fit === v ? '' : v)} />
 
             <FieldLabel label="Pattern" topGap />
-            <ChipRow values={PATTERNS} active={[pattern]} onTap={(v) => setPattern(v)} />
+            <ChipRow values={PATTERNS} active={pattern ? [pattern] : []} onTap={(v) => setPattern(pattern === v ? '' : v)} />
           </FormCard>
 
-          {/* Section: Usage */}
+          {/* Usage */}
           <FormCard title="Usage">
             <FieldLabel label="Seasons" />
             <ChipRow
               values={SEASONS}
               active={seasons}
               onTap={(v) => togglePick(v, seasons, setSeasons)}
-            />
-
-            <FieldLabel label="Formality" topGap />
-            <ChipRow
-              values={FORMALITIES}
-              active={formalities}
-              onTap={(v) => togglePick(v, formalities, setFormalities)}
             />
 
             <FieldLabel label="Wear count" topGap />
@@ -323,11 +421,7 @@ export function EditGarmentScreen() {
                 onPress={() => setWearCount((n) => Math.max(0, n - 1))}
                 style={({ pressed }) => [
                   s.stepperBtn,
-                  {
-                    backgroundColor: t.card,
-                    borderColor: t.border,
-                    opacity: pressed ? 0.7 : 1,
-                  },
+                  { backgroundColor: t.card, borderColor: t.border, opacity: pressed ? 0.7 : 1 },
                 ]}>
                 <MinusIcon color={t.fg} />
               </Pressable>
@@ -350,11 +444,7 @@ export function EditGarmentScreen() {
                 onPress={() => setWearCount((n) => n + 1)}
                 style={({ pressed }) => [
                   s.stepperBtn,
-                  {
-                    backgroundColor: t.card,
-                    borderColor: t.border,
-                    opacity: pressed ? 0.7 : 1,
-                  },
+                  { backgroundColor: t.card, borderColor: t.border, opacity: pressed ? 0.7 : 1 },
                 ]}>
                 <PlusIcon color={t.fg} />
               </Pressable>
@@ -372,7 +462,7 @@ export function EditGarmentScreen() {
             />
           </FormCard>
 
-          {/* Section: Status */}
+          {/* Status */}
           <FormCard title="Status">
             <View style={s.statusRow}>
               <Text
@@ -391,30 +481,14 @@ export function EditGarmentScreen() {
                 onToggle={setInLaundry}
               />
             </View>
-            <View style={[s.divider, { backgroundColor: t.border }]} />
-            <View style={s.statusRow}>
-              <Text
-                style={{
-                  fontFamily: fonts.uiSemi,
-                  fontSize: 13.5,
-                  color: t.fg,
-                  flex: 1,
-                  letterSpacing: -0.13,
-                }}>
-                Archive
-              </Text>
-              <TogglePill
-                label={archive ? 'On' : 'Off'}
-                active={archive}
-                onToggle={setArchive}
-              />
-            </View>
           </FormCard>
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Delete piece"
-            style={{ alignSelf: 'center', paddingVertical: 14 }}>
+            onPress={handleDelete}
+            disabled={deleteGarment.isPending}
+            style={{ alignSelf: 'center', paddingVertical: 14, opacity: deleteGarment.isPending ? 0.5 : 1 }}>
             <Text
               style={{
                 fontFamily: fonts.uiSemi,
@@ -422,7 +496,7 @@ export function EditGarmentScreen() {
                 color: t.destructive,
                 letterSpacing: -0.1,
               }}>
-              Delete piece
+              {deleteGarment.isPending ? 'Deleting…' : 'Delete piece'}
             </Text>
           </Pressable>
         </ScrollView>
@@ -475,12 +549,7 @@ function ChipRow({
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
       {values.map((v) => (
-        <Chip
-          key={v}
-          label={v}
-          active={active.includes(v)}
-          onPress={() => onTap(v)}
-        />
+        <Chip key={v} label={v} active={active.includes(v)} onPress={() => onTap(v)} />
       ))}
     </View>
   );
@@ -561,9 +630,5 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingVertical: 6,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 4,
   },
 });

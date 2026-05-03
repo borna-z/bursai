@@ -3,11 +3,13 @@
 // (aspect 0.78, radius 18) with Studio badge top-left + wear count badge top-right · 3-tab strip
 // (Info / Outfits / Similar) · tab body · sticky "Wear today" CTA at the bottom safe area.
 //
-// Source: design_handoff_burs_rn/source/extra-screens.jsx GarmentDetailScreen + handoff README
-// "Garment detail". Tabs are local UI state — there's no route param for which tab is active.
+// W2 wires real Supabase data via useGarment + useSignedUrl + useMarkWorn / useMarkLaundry /
+// useDeleteGarment mutations. The Outfits and Similar tabs intentionally render empty
+// placeholders pending Wave 9 hooks — fixture data was removed per the "no mock garment data
+// in wired screens" rule.
 
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -21,232 +23,69 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { ListRow } from '../components/ListRow';
-import { GarmentCard, type GarmentCardData } from '../components/GarmentCard';
+import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
+import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import { hapticLight, hapticSuccess } from '../lib/haptics';
+import type { Garment } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'GarmentDetail'>;
+type Tab = 'info' | 'outfits' | 'similar';
 
-type GarmentFixture = {
-  name: string;
-  category: string;
-  subcategory: string;
-  hue: number;
-  wearCount: number;
-  fields: { label: string; value: string }[];
-  tags: string[];
-  outfits: GarmentCardData[];
-  similar: GarmentCardData[];
-};
-
-// Keyed by the same `id` that Wardrobe / Search / Used / Unused / OutfitDetail emit. When the
-// backend hook lands this gets replaced by `useGarment(id)` — the rest of the screen reads from
-// `garment` either way. Codex P1 round 2: previously the screen ignored the route `id` and
-// always rendered the wool overshirt regardless of which card was tapped.
-const GARMENTS: Record<string, GarmentFixture> = {
-  g1: {
-    name: 'Cream tee', category: 'Tops', subcategory: 'Tee', hue: 32, wearCount: 31,
-    fields: [
-      { label: 'Category', value: 'Tops · Tee' },
-      { label: 'Color', value: 'Cream' },
-      { label: 'Material', value: 'Cotton' },
-      { label: 'Fit', value: 'Regular' },
-      { label: 'Season', value: 'Spring · Summer' },
-      { label: 'Brand', value: 'Sunspel' },
-      { label: 'Price', value: '€55' },
-      { label: 'Cost per wear', value: '€1.77' },
-      { label: 'Last worn', value: '2 days ago' },
-    ],
-    tags: ['Cream', 'Cotton', 'Light-weight', 'Daily', 'SS', 'Quiet luxe'],
-    outfits: [{ id: 'o2', name: 'Sunday casual', sub: '3 pieces', hue: 200 }],
-    similar: [
-      { id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton',   hue: 200 },
-      { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere', hue: 18 },
-    ],
-  },
-  g2: {
-    name: 'Navy blazer', category: 'Outerwear', subcategory: 'Blazer', hue: 215, wearCount: 3,
-    fields: [
-      { label: 'Category', value: 'Outerwear · Blazer' },
-      { label: 'Color', value: 'Navy' },
-      { label: 'Material', value: 'Wool' },
-      { label: 'Fit', value: 'Tailored' },
-      { label: 'Season', value: 'Autumn · Winter' },
-      { label: 'Brand', value: 'Drake\'s' },
-      { label: 'Price', value: '€680' },
-      { label: 'Cost per wear', value: '€226' },
-      { label: 'Last worn', value: '45 days ago' },
-    ],
-    tags: ['Navy', 'Wool', 'Tailored', 'Office', 'FW', 'Heritage'],
-    outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 215 }],
-    similar: [
-      { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',    hue: 32 },
-    ],
-  },
-  g3: {
-    name: 'Linen trouser', category: 'Bottoms', subcategory: 'Trouser', hue: 38, wearCount: 14,
-    fields: [
-      { label: 'Category', value: 'Bottoms · Trouser' },
-      { label: 'Color', value: 'Cream' },
-      { label: 'Material', value: 'Linen' },
-      { label: 'Fit', value: 'Regular' },
-      { label: 'Season', value: 'Spring · Summer' },
-      { label: 'Brand', value: 'Folk' },
-      { label: 'Price', value: '€140' },
-      { label: 'Cost per wear', value: '€10' },
-      { label: 'Last worn', value: '4 days ago' },
-    ],
-    tags: ['Cream', 'Linen', 'Mid-weight', 'Daily', 'SS', 'Quiet luxe'],
-    outfits: [{ id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 }],
-    similar: [
-      { id: 'g7', name: 'Black denim', sub: 'Bottoms · Denim', hue: 220 },
-    ],
-  },
-  g4: {
-    name: 'Leather loafer', category: 'Shoes', subcategory: 'Loafer', hue: 28, wearCount: 5,
-    fields: [
-      { label: 'Category', value: 'Shoes · Loafer' },
-      { label: 'Color', value: 'Bone' },
-      { label: 'Material', value: 'Leather' },
-      { label: 'Fit', value: 'Regular' },
-      { label: 'Season', value: 'Spring · Autumn' },
-      { label: 'Brand', value: 'Crockett & Jones' },
-      { label: 'Price', value: '€420' },
-      { label: 'Cost per wear', value: '€84' },
-      { label: 'Last worn', value: '3 days ago' },
-    ],
-    tags: ['Bone', 'Leather', 'Refined', '3-season', 'Quiet luxe'],
-    outfits: [{ id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 }],
-    similar: [{ id: 'g9', name: 'Suede boot', sub: 'Shoes · Suede', hue: 18 }],
-  },
-  g5: {
-    name: 'Wool overshirt', category: 'Outerwear', subcategory: 'Overshirt', hue: 32, wearCount: 23,
-    fields: [
-      { label: 'Category', value: 'Outerwear · Overshirt' },
-      { label: 'Color', value: 'Beige' },
-      { label: 'Material', value: 'Wool blend' },
-      { label: 'Fit', value: 'Regular' },
-      { label: 'Season', value: 'Spring · Autumn' },
-      { label: 'Brand', value: 'Folk' },
-      { label: 'Price', value: '€189' },
-      { label: 'Cost per wear', value: '€8.20' },
-      { label: 'Last worn', value: '18 days ago' },
-    ],
-    tags: ['Beige', 'Wool', 'Mid-weight', 'Workwear', '3-season', 'Quiet luxe'],
-    outfits: [
-      { id: 'o1', name: 'Studio brunch', sub: '4 pieces', hue: 32 },
-      { id: 'o3', name: 'Boardroom',     sub: '4 pieces', hue: 215 },
-    ],
-    similar: [
-      { id: 'g2', name: 'Navy blazer',   sub: 'Outer · Wool',    hue: 215 },
-      { id: 'g8', name: 'Cashmere knit', sub: 'Tops · Cashmere', hue: 18 },
-    ],
-  },
-  g6: {
-    name: 'Striped oxford', category: 'Tops', subcategory: 'Shirt', hue: 200, wearCount: 9,
-    fields: [
-      { label: 'Category', value: 'Tops · Shirt' },
-      { label: 'Color', value: 'White / Blue' },
-      { label: 'Material', value: 'Cotton poplin' },
-      { label: 'Fit', value: 'Regular' },
-      { label: 'Season', value: 'Spring · Summer · Autumn' },
-      { label: 'Brand', value: 'Drake\'s' },
-      { label: 'Price', value: '€220' },
-      { label: 'Cost per wear', value: '€24.40' },
-      { label: 'Last worn', value: '1 day ago' },
-    ],
-    tags: ['Striped', 'Cotton', 'Mid-weight', 'Office', '3-season', 'Heritage'],
-    outfits: [{ id: 'o3', name: 'Boardroom', sub: '5 pieces', hue: 220 }],
-    similar: [{ id: 'g1', name: 'Cream tee', sub: 'Tops · Cotton', hue: 32 }],
-  },
-  g7: {
-    name: 'Black denim', category: 'Bottoms', subcategory: 'Jean', hue: 220, wearCount: 11,
-    fields: [
-      { label: 'Category', value: 'Bottoms · Jean' },
-      { label: 'Color', value: 'Black' },
-      { label: 'Material', value: 'Denim' },
-      { label: 'Fit', value: 'Slim' },
-      { label: 'Season', value: 'Autumn · Winter' },
-      { label: 'Brand', value: 'A.P.C.' },
-      { label: 'Price', value: '€220' },
-      { label: 'Cost per wear', value: '€20' },
-      { label: 'Last worn', value: '9 days ago' },
-    ],
-    tags: ['Black', 'Denim', 'Slim', 'Daily', 'FW', 'Workwear'],
-    outfits: [{ id: 'o2', name: 'Sunday casual', sub: '3 pieces', hue: 200 }],
-    similar: [{ id: 'g3', name: 'Linen trouser', sub: 'Bottoms · Linen', hue: 38 }],
-  },
-  g8: {
-    name: 'Cashmere knit', category: 'Tops', subcategory: 'Knit', hue: 18, wearCount: 7,
-    fields: [
-      { label: 'Category', value: 'Tops · Knit' },
-      { label: 'Color', value: 'Rust' },
-      { label: 'Material', value: 'Cashmere' },
-      { label: 'Fit', value: 'Relaxed' },
-      { label: 'Season', value: 'Autumn · Winter' },
-      { label: 'Brand', value: 'Folk' },
-      { label: 'Price', value: '€340' },
-      { label: 'Cost per wear', value: '€48.50' },
-      { label: 'Last worn', value: '21 days ago' },
-    ],
-    tags: ['Rust', 'Cashmere', 'Soft', 'FW', 'Quiet luxe'],
-    outfits: [{ id: 'o4', name: 'Gallery night', sub: '4 pieces', hue: 280 }],
-    similar: [{ id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton', hue: 200 }],
-  },
-  g9: {
-    name: 'Suede boot', category: 'Shoes', subcategory: 'Chelsea', hue: 18, wearCount: 4,
-    fields: [
-      { label: 'Category', value: 'Shoes · Chelsea' },
-      { label: 'Color', value: 'Brown' },
-      { label: 'Material', value: 'Suede' },
-      { label: 'Fit', value: 'Regular' },
-      { label: 'Season', value: 'Autumn · Winter' },
-      { label: 'Brand', value: 'Grenson' },
-      { label: 'Price', value: '€395' },
-      { label: 'Cost per wear', value: '€98.75' },
-      { label: 'Last worn', value: '12 days ago' },
-    ],
-    tags: ['Brown', 'Suede', 'Refined', 'FW', 'Quiet luxe'],
-    outfits: [{ id: 'o4', name: 'Gallery night', sub: '4 pieces', hue: 280 }],
-    similar: [{ id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede', hue: 28 }],
-  },
-};
-
-// Stable hue derived from id hash — same id always maps to the same colour, different ids are
-// reliably distinct. djb2-ish 32-bit accumulator. Used by the unknown-id fallback so users can
-// see at a glance that distinct routes are landing on distinct (placeholder) detail pages,
-// rather than all collapsing onto the same wool-overshirt fixture (Codex P1 round 3 #2).
-function hashToHue(id: string): number {
+// djb2-ish — same as GarmentCard's fallback so an unloaded photo and the
+// hero gradient share a colour family.
+function hueFromId(id: string): number {
   let h = 5381;
   for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
   return h % 360;
 }
 
-// Render a labeled placeholder when the route id isn't in `GARMENTS`. Honest about being a
-// placeholder, unique per id (via the hash above), so users don't think they're seeing the
-// wrong garment's data. Replaced when the real `useGarment(id)` query lands — at which point
-// it can render a true 404 / not-found state instead.
-function makeUnknownGarment(id: string): GarmentFixture {
-  return {
-    name: `Item · ${id}`,
-    category: 'Wardrobe',
-    subcategory: 'Demo placeholder',
-    hue: hashToHue(id),
-    wearCount: 0,
-    fields: [
-      { label: 'ID', value: id },
-      { label: 'Status', value: 'Demo placeholder' },
-      { label: 'Note', value: 'Real data lands once the backend hook ships' },
-    ],
-    tags: ['Demo'],
-    outfits: [],
-    similar: [],
-  };
+function formatLastWorn(iso: string | null | undefined): string {
+  if (!iso) return 'Never';
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return '—';
+  const days = Math.floor((Date.now() - ms) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days} days ago`;
+  // Beyond a month, show the date in the user's locale.
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
-const DEFAULT_GARMENT_ID = 'g5';
 
-type Tab = 'info' | 'outfits' | 'similar';
+function formatPrice(value: number | null | undefined, currency: string | null | undefined): string | null {
+  if (value == null) return null;
+  const code = currency ?? 'EUR';
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(value);
+  } catch {
+    return `${value} ${code}`;
+  }
+}
+
+function buildInfoFields(garment: Garment): { label: string; value: string }[] {
+  const fields: { label: string; value: string }[] = [];
+  const cat = [garment.category, garment.subcategory].filter(Boolean).join(' · ');
+  if (cat) fields.push({ label: 'Category', value: cat });
+  if (garment.color_primary) fields.push({ label: 'Color', value: garment.color_primary });
+  if (garment.material) fields.push({ label: 'Material', value: garment.material });
+  if (garment.fit) fields.push({ label: 'Fit', value: garment.fit });
+  if (garment.pattern) fields.push({ label: 'Pattern', value: garment.pattern });
+  const seasons = (garment.season_tags ?? []).filter(Boolean);
+  if (seasons.length) fields.push({ label: 'Season', value: seasons.join(' · ') });
+  fields.push({ label: 'Wear count', value: String(garment.wear_count ?? 0) });
+  fields.push({ label: 'Last worn', value: formatLastWorn(garment.last_worn_at) });
+  const price = formatPrice(garment.purchase_price, garment.purchase_currency);
+  if (price) fields.push({ label: 'Price', value: price });
+  if (garment.purchase_price && (garment.wear_count ?? 0) > 0) {
+    const cpw = garment.purchase_price / (garment.wear_count ?? 1);
+    const cpwFmt = formatPrice(cpw, garment.purchase_currency);
+    if (cpwFmt) fields.push({ label: 'Cost per wear', value: cpwFmt });
+  }
+  return fields;
+}
 
 export function GarmentDetailScreen() {
   const t = useTokens();
@@ -254,18 +93,126 @@ export function GarmentDetailScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<Route>();
   const id = route.params?.id;
-  // Three-way resolution:
-  //   1. id present + matches a fixture → render that fixture (the demoable wardrobe set g1–g9)
-  //   2. id present + not in fixture map → synthesize a labeled placeholder via hash-to-hue,
-  //      so users see a distinct (placeholder) detail per id rather than every unmapped id
-  //      collapsing onto wool-overshirt. Real backend hook replaces this with a 404 state.
-  //   3. id absent (e.g. HomeScreen Today's Look) → fall back to the canonical default fixture.
-  // Codex P1 round 3 #2: silent fallback to default for unknown ids was misleading.
-  const garment = id
-    ? (GARMENTS[id] ?? makeUnknownGarment(id))
-    : GARMENTS[DEFAULT_GARMENT_ID]!;
+
+  const { data: garment, isLoading, isError, refetch } = useGarment(id);
+  const heroPath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { data: heroUrl } = useSignedUrl(heroPath);
+
+  const markWorn = useMarkWorn();
+  const markLaundry = useMarkLaundry();
+  const deleteGarment = useDeleteGarment();
 
   const [tab, setTab] = React.useState<Tab>('info');
+
+  const handleWearToday = () => {
+    if (!id) return;
+    hapticSuccess();
+    markWorn.mutate(id, {
+      onError: (err) => {
+        Alert.alert('Could not log wear', err instanceof Error ? err.message : 'Try again.');
+      },
+    });
+  };
+
+  const handleAddToLaundry = () => {
+    if (!id) return;
+    // Haptic confirmation — without this the action is silent: the More menu
+    // closes, the badge ticks on, but the screen looks identical for the
+    // 200-500ms invalidate-and-refetch window. The audit (UX#6) flagged this
+    // as a tap-to-feedback gap.
+    hapticLight();
+    markLaundry.mutate(
+      { id, inLaundry: true },
+      {
+        onError: (err) => {
+          Alert.alert('Could not move', err instanceof Error ? err.message : 'Try again.');
+        },
+      },
+    );
+  };
+
+  const handleRemoveFromLaundry = () => {
+    if (!id) return;
+    hapticLight();
+    markLaundry.mutate({ id, inLaundry: false });
+  };
+
+  const handleDelete = () => {
+    if (!id) return;
+    Alert.alert('Delete', 'Delete this garment? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteGarment.mutate(id, {
+            onSuccess: () => nav.goBack(),
+            onError: (err) =>
+              Alert.alert('Delete failed', err instanceof Error ? err.message : 'Try again.'),
+          });
+        },
+      },
+    ]);
+  };
+
+  const onMoreOptions = () => {
+    if (!garment) return;
+    const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [];
+    if (garment.in_laundry) {
+      buttons.push({ text: 'Mark clean', onPress: handleRemoveFromLaundry });
+    } else {
+      buttons.push({ text: 'Add to laundry', onPress: handleAddToLaundry });
+    }
+    buttons.push({ text: 'Delete garment', style: 'destructive', onPress: handleDelete });
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert('Options', undefined, buttons);
+  };
+
+  // Loading: show a quiet header skeleton + spinner block. Detail-screen
+  // skeletons aren't part of the existing skeleton kit, so use the spinner
+  // for now — adding a dedicated skeleton is scope creep for W2.
+  if (isLoading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={[s.headerRow, { borderBottomColor: t.border }]}>
+          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow>Loading…</Eyebrow>
+          </View>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="small" color={t.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isError || !garment) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={[s.headerRow, { borderBottomColor: t.border }]}>
+          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow>Not found</Eyebrow>
+          </View>
+          <View style={{ width: 36 }} />
+        </View>
+        <ErrorState
+          title={garment === null ? 'Garment not found' : undefined}
+          body={garment === null ? "We couldn't find this piece in your wardrobe." : undefined}
+          onRetry={() => void refetch()}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const fields = buildInfoFields(garment);
+  const hue = hueFromId(garment.id);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -274,7 +221,7 @@ export function GarmentDetailScreen() {
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Eyebrow>{garment.category}</Eyebrow>
+          <Eyebrow>{garment.category ?? 'Wardrobe'}</Eyebrow>
           <Text
             numberOfLines={1}
             style={{
@@ -286,34 +233,17 @@ export function GarmentDetailScreen() {
               color: t.fg,
               letterSpacing: -0.18,
             }}>
-            {garment.name}
+            {garment.title}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           <IconBtn
             ariaLabel="Edit piece"
             variant="ghost"
-            onPress={() => nav.navigate('EditGarment', id ? { id } : undefined)}>
+            onPress={() => nav.navigate('EditGarment', { id: garment.id })}>
             <EditIcon color={t.fg} />
           </IconBtn>
-          <IconBtn
-            ariaLabel="More options"
-            variant="ghost"
-            onPress={() =>
-              Alert.alert('Options', undefined, [
-                { text: 'Add to laundry', onPress: () => Alert.alert('Added', 'Moved to laundry.') },
-                {
-                  text: 'Delete garment',
-                  style: 'destructive',
-                  onPress: () =>
-                    Alert.alert('Delete', 'Delete this garment? This cannot be undone.', [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => nav.goBack() },
-                    ]),
-                },
-                { text: 'Cancel', style: 'cancel' },
-              ])
-            }>
+          <IconBtn ariaLabel="More options" variant="ghost" onPress={onMoreOptions}>
             <MoreIcon color={t.fg} />
           </IconBtn>
         </View>
@@ -328,15 +258,21 @@ export function GarmentDetailScreen() {
         }}
         showsVerticalScrollIndicator={false}>
         <View style={[s.hero, { borderColor: t.border }]}>
+          {/* Gradient placeholder behind the image — visible until the signed
+              URL resolves AND when the image fails to load. */}
           <LinearGradient
-            colors={[
-              `hsl(${garment.hue}, 38%, 78%)`,
-              `hsl(${(garment.hue + 30) % 360}, 30%, 62%)`,
-            ]}
+            colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ flex: 1 }}
+            style={StyleSheet.absoluteFill}
           />
+          {heroUrl ? (
+            <Image
+              source={{ uri: heroUrl }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : null}
           <View style={[s.heroBadge, { backgroundColor: t.accentSoft }]}>
             <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio</Text>
           </View>
@@ -349,7 +285,7 @@ export function GarmentDetailScreen() {
                 color: t.fg,
                 letterSpacing: -0.14,
               }}>
-              {garment.wearCount}
+              {garment.wear_count ?? 0}
             </Text>
             <Text
               style={{
@@ -366,21 +302,19 @@ export function GarmentDetailScreen() {
         </View>
 
         <View style={[s.tabStrip, { borderColor: t.border, backgroundColor: t.card }]}>
-          {(['info', 'outfits', 'similar'] as Tab[]).map((id) => {
-            const active = tab === id;
-            const label = id === 'info' ? 'Info' : id === 'outfits' ? 'Outfits' : 'Similar';
+          {(['info', 'outfits', 'similar'] as Tab[]).map((tabId) => {
+            const active = tab === tabId;
+            const label = tabId === 'info' ? 'Info' : tabId === 'outfits' ? 'Outfits' : 'Similar';
             return (
               <Pressable
-                key={id}
+                key={tabId}
                 accessibilityRole="tab"
                 accessibilityLabel={label}
                 accessibilityState={{ selected: active }}
-                onPress={() => setTab(id)}
+                onPress={() => setTab(tabId)}
                 style={[
                   s.tabBtn,
-                  {
-                    backgroundColor: active ? t.fg : 'transparent',
-                  },
+                  { backgroundColor: active ? t.fg : 'transparent' },
                 ]}>
                 <Text
                   style={{
@@ -399,12 +333,12 @@ export function GarmentDetailScreen() {
         {tab === 'info' ? (
           <View style={{ gap: 12 }}>
             <View style={[s.fieldGroup, { backgroundColor: t.card, borderColor: t.border }]}>
-              {garment.fields.map((f, i) => (
+              {fields.map((f, i) => (
                 <ListRow
                   key={f.label}
                   title={f.label}
                   hideChevron
-                  last={i === garment.fields.length - 1}
+                  last={i === fields.length - 1}
                   right={
                     <Text
                       style={{
@@ -420,67 +354,29 @@ export function GarmentDetailScreen() {
                 />
               ))}
             </View>
-            <View>
-              <Eyebrow style={{ marginBottom: 8 }}>Tags</Eyebrow>
-              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                {garment.tags.map((tag) => (
-                  <View
-                    key={tag}
-                    style={[s.tagChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
-                    <Text style={[s.tagChipText, { color: t.fg2 }]}>{tag}</Text>
-                  </View>
-                ))}
+            {garment.occasion_tags && garment.occasion_tags.length > 0 ? (
+              <View>
+                <Eyebrow style={{ marginBottom: 8 }}>Tags</Eyebrow>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                  {garment.occasion_tags.map((tag) => (
+                    <View
+                      key={tag}
+                      style={[s.tagChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
+                      <Text style={[s.tagChipText, { color: t.fg2 }]}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
+            ) : null}
           </View>
         ) : null}
 
         {tab === 'outfits' ? (
-          garment.outfits.length === 0 ? (
-            <EmptyTab title="Not in any outfit yet" body="Build a look featuring this piece." />
-          ) : (
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {garment.outfits.map((g) => (
-                <View key={g.id} style={{ width: '48%', flexGrow: 1 }}>
-                  <GarmentCard
-                    garment={g}
-                    // `push` not `navigate` — drill-down across detail routes. In a flow like
-                    // OutfitDetail → GarmentDetail → tap outfit-card (or Outfits-tab → tap),
-                    // `navigate('OutfitDetail', …)` would focus the OutfitDetail instance
-                    // already earlier in the stack and reuse its local state (rating / notes /
-                    // worn / saved toggles), producing per-outfit state bleed and a wrong
-                    // back-stack. `push` always adds a fresh entry. Codex P1 round 9, mirrors
-                    // the round-7 similar-items fix.
-                    onPress={() => nav.push('OutfitDetail', { id: g.id })}
-                  />
-                </View>
-              ))}
-            </View>
-          )
+          <EmptyTab title="Not in any outfit yet" body="Build a look featuring this piece." />
         ) : null}
 
         {tab === 'similar' ? (
-          garment.similar.length === 0 ? (
-            <EmptyTab title="No similar pieces" body="We didn't find anything matching this style yet." />
-          ) : (
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {garment.similar.map((g) => (
-                <View key={g.id} style={{ width: '48%', flexGrow: 1 }}>
-                  <GarmentCard
-                    garment={g}
-                    // `push`, not `navigate` — same-route drill-down. `navigate` would reuse the
-                    // current GarmentDetail entry (React Navigation collapses same-route + same-key
-                    // calls), so tapping a similar piece would mutate the current screen instead of
-                    // adding a stack entry. Back would then exit the detail flow entirely instead of
-                    // returning to the prior garment, and local UI state (selected tab + scroll
-                    // position + collapsible state) would bleed across garments. `push` always adds
-                    // a fresh entry. Codex P2 round 7.
-                    onPress={() => nav.push('GarmentDetail', { id: g.id })}
-                  />
-                </View>
-              ))}
-            </View>
-          )
+          <EmptyTab title="No similar pieces" body="Similar-piece suggestions land in a future release." />
         ) : null}
       </ScrollView>
 
@@ -493,13 +389,11 @@ export function GarmentDetailScreen() {
             paddingBottom: insets.bottom + 12,
           },
         ]}>
-        {/* "Wear today" jumps into the outfit-generator anchored on this garment, so the user
-            gets a fresh look built around the piece they're viewing. Threading garmentId means
-            OutfitGenerateScreen can use it as a constraint when the real backend lands. */}
         <Button
-          label="Wear today"
+          label={markWorn.isPending ? 'Logging…' : 'Wear today'}
           block
-          onPress={() => nav.navigate('OutfitGenerate', id ? { garmentId: id } : undefined)}
+          disabled={markWorn.isPending}
+          onPress={handleWearToday}
         />
       </View>
     </SafeAreaView>

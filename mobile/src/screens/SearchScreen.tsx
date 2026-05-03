@@ -1,12 +1,16 @@
 // Search — full-screen modal-style search experience pushed from Wardrobe's pill.
 // Auto-focused TextInput with back + clear at the top. Below: filter chips (category-scoped).
-// When the query is empty: Recent searches block. With query (3+ chars): 3-col results grid
+// When the query is empty: Recent searches block. With query (2+ chars): 3-col results grid
 // using GarmentCard. Empty results: italic "Nothing found" + caption.
+//
+// W2 wires real Supabase data via useFlatGarments({search}) with a 300ms debounce.
+// Recent searches persist across app launches in AsyncStorage.
 //
 // KeyboardAvoidingView wraps the body so results scroll above the keyboard on iOS.
 
 import React from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +21,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,8 +31,11 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
-import { GarmentCard, type GarmentCardData } from '../components/GarmentCard';
+import { GarmentCard } from '../components/GarmentCard';
+import { ErrorState } from '../components/ErrorState';
 import { BackIcon, CloseIcon, SearchIcon } from '../components/icons';
+import { useFlatGarments } from '../hooks/useGarments';
+import type { GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -42,46 +50,113 @@ const CAT_LABELS: { id: FilterCat; label: string }[] = [
   { id: 'dress',   label: 'Dress' },
 ];
 
-const ALL_GARMENTS: (GarmentCardData & { cat: FilterCat })[] = [
-  { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',     hue: 32,  cat: 'tops' },
-  { id: 'g2', name: 'Navy blazer',    sub: 'Outer · Wool',      hue: 215, cat: 'outer' },
-  { id: 'g3', name: 'Linen trouser',  sub: 'Bottoms · Linen',   hue: 38,  cat: 'bottoms' },
-  { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',     hue: 28,  cat: 'shoes' },
-  { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',      hue: 32,  cat: 'outer' },
-  { id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton',     hue: 200, cat: 'tops' },
-  { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim',   hue: 220, cat: 'bottoms' },
-  { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere',   hue: 18,  cat: 'tops' },
-  { id: 'g9', name: 'Suede boot',     sub: 'Shoes · Suede',     hue: 18,  cat: 'shoes' },
-];
+// Map our filter pill ids to the canonical category enums in `garments.category`.
+// The column historically stores short-form values authored by AI enrichment
+// ("Top", "Bottom", "Outer"). This map is the single source of truth for that
+// translation in the search screen.
+const FILTER_TO_CATEGORY: Record<Exclude<FilterCat, 'all'>, string> = {
+  tops: 'Top',
+  bottoms: 'Bottom',
+  shoes: 'Shoes',
+  outer: 'Outer',
+  dress: 'Dress',
+};
 
-const RECENT_FIXTURE = ['linen trouser', 'beige knit', 'sneakers', 'wool overshirt'];
+const RECENTS_KEY = 'burs:recent_searches';
+const MAX_RECENTS = 5;
+const DEBOUNCE_MS = 300;
+const MIN_QUERY_LEN = 2;
+
+async function loadRecents(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === 'string').slice(0, MAX_RECENTS);
+  } catch {
+    return [];
+  }
+}
+
+async function saveRecents(values: string[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(values.slice(0, MAX_RECENTS)));
+  } catch {
+    // best-effort
+  }
+}
 
 export function SearchScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [query, setQuery] = React.useState('');
+  const [debouncedQuery, setDebouncedQuery] = React.useState('');
   const [filter, setFilter] = React.useState<FilterCat>('all');
-  const [recent, setRecent] = React.useState<string[]>(RECENT_FIXTURE);
+  const [recent, setRecent] = React.useState<string[]>([]);
 
-  const trimmed = query.trim();
-  // Require 3+ chars before switching out of the recent-searches state. Earlier impl flipped on
-  // the first character, flooding users with broad matches mid-typing. Codex P2 round 4 (cross-PR).
-  const MIN_QUERY_LEN = 3;
+  // Hydrate recents on mount.
+  React.useEffect(() => {
+    void loadRecents().then(setRecent);
+  }, []);
+
+  // 300ms debounce so we don't hammer Supabase on every keystroke. Clean
+  // up on unmount — RN dev would otherwise log a setState-on-unmount warning
+  // if the user taps a result and the screen pops mid-debounce.
+  React.useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query.trim()), DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  const trimmed = debouncedQuery;
   const showResults = trimmed.length >= MIN_QUERY_LEN;
+  // The user has typed enough to search but the debounce hasn't elapsed yet,
+  // OR the debounced value has elapsed but is still mid-flight. In both
+  // states we hide the recent-searches block and show a spinner so the
+  // "I'm waiting" feedback is instant rather than gated on the 300 ms timer
+  // + RTT (audit UX#7).
+  const trimmedTyped = query.trim();
+  const isPendingSearch = trimmedTyped.length >= MIN_QUERY_LEN && trimmedTyped !== trimmed;
 
-  const results = React.useMemo(() => {
-    if (!showResults) return [];
-    const q = trimmed.toLowerCase();
-    return ALL_GARMENTS.filter((g) => {
-      if (filter !== 'all' && g.cat !== filter) return false;
-      return g.name.toLowerCase().includes(q) || g.sub.toLowerCase().includes(q);
-    });
-  }, [trimmed, filter, showResults]);
+  const queryFilters: GarmentFilters | undefined = showResults
+    ? {
+        search: trimmed,
+        ...(filter !== 'all' ? { category: FILTER_TO_CATEGORY[filter] } : {}),
+      }
+    : undefined;
 
-  const submitQuery = (q: string) => {
-    const next = q.trim();
-    if (!next) return;
-    setRecent((prev) => [next, ...prev.filter((p) => p !== next)].slice(0, 6));
+  const {
+    data: results,
+    isLoading,
+    isError,
+    refetch,
+  } = useFlatGarments(queryFilters);
+
+  // Disable the query when no search is active so we don't fire an
+  // unnecessary "all garments" request as soon as the screen mounts. The
+  // hook does early-out on enabled=!!user, but we'd still pay one round-trip
+  // before the user types anything.
+  // `isPendingSearch` covers the debounce window before the request fires —
+  // showing the spinner during that window means typing → spinner is
+  // immediate (no 300ms feedback gap).
+  const showLoading = isPendingSearch || (showResults && isLoading);
+  const showError = showResults && isError;
+  const visibleResults = showResults && !isPendingSearch ? results : [];
+
+  const submitQuery = React.useCallback(
+    (q: string) => {
+      const next = q.trim();
+      if (!next) return;
+      const updated = [next, ...recent.filter((p) => p !== next)].slice(0, MAX_RECENTS);
+      setRecent(updated);
+      void saveRecents(updated);
+    },
+    [recent],
+  );
+
+  const clearRecents = () => {
+    setRecent([]);
+    void saveRecents([]);
   };
 
   return (
@@ -142,7 +217,7 @@ export function SearchScreen() {
           ))}
         </ScrollView>
 
-        {!showResults && recent.length > 0 ? (
+        {!showResults && !isPendingSearch && recent.length > 0 ? (
           <ScrollView
             contentContainerStyle={{ padding: 20, gap: 18 }}
             showsVerticalScrollIndicator={false}
@@ -153,7 +228,7 @@ export function SearchScreen() {
                 <Pressable
                   accessibilityLabel="Clear recent searches"
                   accessibilityRole="button"
-                  onPress={() => setRecent([])}
+                  onPress={clearRecents}
                   hitSlop={6}>
                   <Text
                     style={{
@@ -198,18 +273,36 @@ export function SearchScreen() {
           </ScrollView>
         ) : null}
 
-        {showResults ? (
+        {!showResults && !isPendingSearch && recent.length === 0 ? (
+          <View style={s.emptyHint}>
+            <Caption style={{ textAlign: 'center', maxWidth: 240 }}>
+              Type at least {MIN_QUERY_LEN} characters to search your wardrobe.
+            </Caption>
+          </View>
+        ) : null}
+
+        {showLoading ? (
+          <View style={s.loadingShell}>
+            <ActivityIndicator size="small" color={t.accent} />
+          </View>
+        ) : null}
+
+        {showError ? (
+          <ErrorState onRetry={() => void refetch()} />
+        ) : null}
+
+        {showResults && !showLoading && !showError ? (
           <FlatList
-            data={results}
-            keyExtractor={(g) => g.id ?? g.name}
+            data={visibleResults}
+            keyExtractor={(g) => g.id}
             numColumns={3}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
               <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 }}>
                 <Eyebrow>
-                  {results.length === 0
+                  {visibleResults.length === 0
                     ? 'No matches'
-                    : `${results.length} ${results.length === 1 ? 'result' : 'results'}`}
+                    : `${visibleResults.length} ${visibleResults.length === 1 ? 'result' : 'results'}`}
                 </Eyebrow>
               </View>
             }
@@ -237,7 +330,17 @@ export function SearchScreen() {
             renderItem={({ item }) => (
               <View style={{ flex: 1 / 3 }}>
                 <GarmentCard
-                  garment={item}
+                  garment={{
+                    id: item.id,
+                    title: item.title,
+                    category: item.category,
+                    color_primary: item.color_primary,
+                    wear_count: item.wear_count,
+                    in_laundry: item.in_laundry,
+                    rendered_image_path: item.rendered_image_path,
+                    original_image_path: item.original_image_path,
+                    created_at: item.created_at,
+                  }}
                   onPress={() => {
                     submitQuery(query);
                     nav.navigate('GarmentDetail', { id: item.id });
@@ -292,6 +395,15 @@ const s = StyleSheet.create({
   empty: {
     paddingTop: 60,
     paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  emptyHint: {
+    paddingTop: 60,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  loadingShell: {
+    paddingTop: 40,
     alignItems: 'center',
   },
 });

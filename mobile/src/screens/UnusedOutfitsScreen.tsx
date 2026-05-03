@@ -1,63 +1,75 @@
-// Unused outfits — garments not worn this season. Reachable from the Wardrobe "Unworn this season"
-// smart tile (already wired). Same vocabulary as UsedGarments: header (eyebrow + italic title),
-// caption row, filter chips, then a 3-col GarmentCard grid with an "Unworn" overlay badge.
+// Unused garments — pieces not worn in the last 30 days (or never worn).
+// Reachable from the Wardrobe "Unworn this season" smart tile.
 //
-// Sticky bottom: full-width "Generate outfit from unused" CTA → routes to StyleMe so the user can
-// quickly build a look around them.
-//
-// Source: design_handoff_burs_rn/source/audit-screens.jsx UnusedOutfitsScreen + the user brief.
+// W2 wires real Supabase data via useFlatGarments({smartFilter:'rarely_worn'}). The category
+// filter chips run client-side over the loaded page set — same trade-off as UsedGarments.
+// Sticky bottom CTA generates an outfit anchored on the unused pieces (Wave 9 will pass the
+// selected garment through to OutfitGenerate).
 
 import React from 'react';
-import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
+import { GarmentCard } from '../components/GarmentCard';
+import { GarmentGridSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { useFlatGarments } from '../hooks/useGarments';
+import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+// Hoisted to module scope so React Query's queryKey identity stays stable
+// across re-renders.
+const UNUSED_FILTERS: GarmentFilters = { smartFilter: 'rarely_worn' };
+
 type FilterKey = 'all' | 'tops' | 'bottoms' | 'shoes' | 'outer' | 'accessory';
 
-type UnusedItem = {
-  id: string;
-  name: string;
-  category: string;
-  hue: number;
-  cat: FilterKey;
+const FILTER_TO_CATEGORIES: Record<Exclude<FilterKey, 'all'>, string[]> = {
+  tops: ['Top', 'Tops'],
+  bottoms: ['Bottom', 'Bottoms'],
+  shoes: ['Shoes', 'Shoe'],
+  outer: ['Outer', 'Outerwear'],
+  accessory: ['Accessory', 'Accessories'],
 };
 
-const ITEMS: UnusedItem[] = [
-  { id: 'u1',  name: 'Beach linen shirt', category: 'Tops · Linen',     hue: 200, cat: 'tops' },
-  { id: 'u2',  name: 'Striped polo',      category: 'Tops · Cotton',    hue: 215, cat: 'tops' },
-  { id: 'u3',  name: 'Wool trouser',      category: 'Bottoms · Wool',   hue: 28,  cat: 'bottoms' },
-  { id: 'u4',  name: 'Linen short',       category: 'Bottoms · Linen',  hue: 38,  cat: 'bottoms' },
-  { id: 'u5',  name: 'Suede chelsea',     category: 'Shoes · Suede',    hue: 18,  cat: 'shoes' },
-  { id: 'u6',  name: 'Espadrille',        category: 'Shoes · Canvas',   hue: 32,  cat: 'shoes' },
-  { id: 'u7',  name: 'Leather belt',      category: 'Accessory',        hue: 45,  cat: 'accessory' },
-  { id: 'u8',  name: 'Linen blazer',      category: 'Outer · Linen',    hue: 32,  cat: 'outer' },
-  { id: 'u9',  name: 'Denim jacket',      category: 'Outer · Denim',    hue: 220, cat: 'outer' },
-];
+function matchesFilter(g: Garment, key: FilterKey): boolean {
+  if (key === 'all') return true;
+  const allowed = FILTER_TO_CATEGORIES[key].map((c) => c.toLowerCase());
+  const cat = (g.category ?? '').trim().toLowerCase();
+  return allowed.includes(cat);
+}
 
 export function UnusedOutfitsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = React.useState<FilterKey>('all');
-  const { refreshing, onRefresh } = useMockRefresh();
 
-  const visible = filter === 'all' ? ITEMS : ITEMS.filter((i) => i.cat === filter);
+  const {
+    data: items,
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+  } = useFlatGarments(UNUSED_FILTERS);
+
+  const onRefresh = React.useCallback(() => void refetch(), [refetch]);
+
+  const visible = React.useMemo(
+    () => items.filter((g) => matchesFilter(g, filter)),
+    [items, filter],
+  );
 
   const header = (
     <View>
@@ -71,7 +83,7 @@ export function UnusedOutfitsScreen() {
         </View>
       </View>
       <Caption style={{ paddingHorizontal: 20, paddingTop: 4, lineHeight: 18 }}>
-        Garments you haven't worn this season — reshuffle a look around one of them.
+        Garments you haven't worn in the last 30 days — reshuffle a look around one of them.
       </Caption>
       <ScrollView
         horizontal
@@ -86,6 +98,30 @@ export function UnusedOutfitsScreen() {
       </ScrollView>
     </View>
   );
+
+  if (isError) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        {header}
+        <ErrorState onRetry={() => void refetch()} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: insets.bottom + 92 }}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }>
+          {header}
+          <GarmentGridSkeleton />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (visible.length === 0) {
     return (
@@ -112,67 +148,27 @@ export function UnusedOutfitsScreen() {
         contentContainerStyle={{ paddingTop: 4, paddingBottom: insets.bottom + 92, gap: 8 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
         renderItem={({ item }) => (
           <View style={{ flex: 1 / 3 }}>
-            <View
-              style={[
-                s.card,
-                {
-                  backgroundColor: t.bg2,
-                  borderColor: t.border,
-                },
-              ]}
-              accessible
-              accessibilityLabel={`${item.name}, unworn`}>
-              <LinearGradient
-                colors={[`hsl(${item.hue}, 38%, 78%)`, `hsl(${(item.hue + 30) % 360}, 30%, 62%)`]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.cardThumb}
-              />
-              <View style={[s.unwornBadge, { backgroundColor: t.accentSoft }]}>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 9,
-                    color: t.accent,
-                    letterSpacing: 1.4,
-                    textTransform: 'uppercase',
-                  }}>
-                  Unworn
-                </Text>
-              </View>
-              <View style={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, gap: 2 }}>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 12.5,
-                    fontWeight: '600',
-                    color: t.fg,
-                    letterSpacing: -0.13,
-                  }}>
-                  {item.name}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 10,
-                    color: t.fg2,
-                    letterSpacing: 1.4,
-                    textTransform: 'uppercase',
-                  }}>
-                  {item.category}
-                </Text>
-              </View>
-            </View>
+            <GarmentCard
+              garment={{
+                id: item.id,
+                title: item.title,
+                category: item.category,
+                color_primary: item.color_primary,
+                wear_count: item.wear_count,
+                in_laundry: item.in_laundry,
+                rendered_image_path: item.rendered_image_path,
+                original_image_path: item.original_image_path,
+                created_at: item.created_at,
+              }}
+              onPress={() => nav.navigate('GarmentDetail', { id: item.id })}
+            />
           </View>
         )}
       />
-
       <View
         style={[
           s.stickyBar,
@@ -199,24 +195,6 @@ const s = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 12,
     paddingTop: 6,
-  },
-  card: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  cardThumb: {
-    aspectRatio: 1,
-    width: '100%',
-  },
-  unwornBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: radii.pill,
   },
   stickyBar: {
     position: 'absolute',

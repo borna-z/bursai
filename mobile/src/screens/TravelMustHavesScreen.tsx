@@ -30,22 +30,27 @@ type GarmentFixture = GarmentCardData & {
   category: 'Tops' | 'Bottoms' | 'Shoes' | 'Outer' | 'Dress';
 };
 
+// Mock fixtures — TravelMustHaves runs entirely off these for now since the
+// TravelCapsule wizard isn't backend-wired yet. Keeping the data here means we
+// can still demo the flow before Wave 9. Fields use the post-W2 GarmentCardData
+// shape (title / category) — when this screen migrates to a real query the
+// fixture list goes away and `useFlatGarments({ inLaundry: false })` replaces it.
 const GARMENT_FIXTURES: GarmentFixture[] = [
-  { id: 'g1', name: 'Wool overshirt', sub: 'Outer · Beige', hue: 32, category: 'Outer' },
-  { id: 'g2', name: 'Sand chore', sub: 'Outer · Sand', hue: 45, category: 'Outer' },
-  { id: 'g3', name: 'Cream tee', sub: 'Top · Cream', hue: 32, category: 'Tops' },
-  { id: 'g4', name: 'Linen henley', sub: 'Top · Off-white', hue: 38, category: 'Tops' },
-  { id: 'g5', name: 'Black tee', sub: 'Top · Black', hue: 28, category: 'Tops' },
-  { id: 'g6', name: 'Striped knit', sub: 'Top · Navy', hue: 200, category: 'Tops' },
-  { id: 'g7', name: 'Oxford shirt', sub: 'Top · Blue', hue: 220, category: 'Tops' },
-  { id: 'g8', name: 'Linen trouser', sub: 'Bottom · Cream', hue: 38, category: 'Bottoms' },
-  { id: 'g9', name: 'Black denim', sub: 'Bottom · Black', hue: 28, category: 'Bottoms' },
-  { id: 'g10', name: 'Wool trouser', sub: 'Bottom · Charcoal', hue: 220, category: 'Bottoms' },
-  { id: 'g11', name: 'Walk shorts', sub: 'Bottom · Khaki', hue: 32, category: 'Bottoms' },
-  { id: 'g12', name: 'Bone sneaker', sub: 'Shoe · Bone', hue: 32, category: 'Shoes' },
-  { id: 'g13', name: 'Chocolate loafer', sub: 'Shoe · Brown', hue: 18, category: 'Shoes' },
-  { id: 'g14', name: 'Leather sandal', sub: 'Shoe · Tan', hue: 38, category: 'Shoes' },
-  { id: 'g15', name: 'Cream slip dress', sub: 'Dress · Cream', hue: 38, category: 'Dress' },
+  { id: 'g1',  title: 'Wool overshirt',   category: 'Outer',   hue: 32 },
+  { id: 'g2',  title: 'Sand chore',       category: 'Outer',   hue: 45 },
+  { id: 'g3',  title: 'Cream tee',        category: 'Tops',    hue: 32 },
+  { id: 'g4',  title: 'Linen henley',     category: 'Tops',    hue: 38 },
+  { id: 'g5',  title: 'Black tee',        category: 'Tops',    hue: 28 },
+  { id: 'g6',  title: 'Striped knit',     category: 'Tops',    hue: 200 },
+  { id: 'g7',  title: 'Oxford shirt',     category: 'Tops',    hue: 220 },
+  { id: 'g8',  title: 'Linen trouser',    category: 'Bottoms', hue: 38 },
+  { id: 'g9',  title: 'Black denim',      category: 'Bottoms', hue: 28 },
+  { id: 'g10', title: 'Wool trouser',     category: 'Bottoms', hue: 220 },
+  { id: 'g11', title: 'Walk shorts',      category: 'Bottoms', hue: 32 },
+  { id: 'g12', title: 'Bone sneaker',     category: 'Shoes',   hue: 32 },
+  { id: 'g13', title: 'Chocolate loafer', category: 'Shoes',   hue: 18 },
+  { id: 'g14', title: 'Leather sandal',   category: 'Shoes',   hue: 38 },
+  { id: 'g15', title: 'Cream slip dress', category: 'Dress',   hue: 38 },
 ];
 
 const FILTERS = ['All', 'Tops', 'Bottoms', 'Shoes', 'Outer', 'Dress'] as const;
@@ -101,7 +106,7 @@ export function TravelMustHavesScreen() {
         onPress={() => toggle(item.id)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: isSelected }}
-        accessibilityLabel={item.name}
+        accessibilityLabel={item.title}
         style={({ pressed }) => [
           {
             flex: 1,

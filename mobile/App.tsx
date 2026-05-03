@@ -26,10 +26,13 @@ import {
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
 
+import { QueryClientProvider } from '@tanstack/react-query';
+
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { themes } from './src/theme/tokens';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { queryClient } from './src/lib/queryClient';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this synchronously
 // at module load — before the first React render — is what the expo-splash-screen docs
@@ -98,11 +101,16 @@ function ThemedShell() {
   return (
     <>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
-      <AuthProvider>
-        <NavigationContainer theme={navTheme}>
-          <RootNavigator />
-        </NavigationContainer>
-      </AuthProvider>
+      {/* QueryClient must wrap AuthProvider — AuthProvider calls
+          useQueryClient indirectly when start_trial / profile mutations
+          fan out, and the data hooks below need the same client. */}
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <NavigationContainer theme={navTheme}>
+            <RootNavigator />
+          </NavigationContainer>
+        </AuthProvider>
+      </QueryClientProvider>
     </>
   );
 }
