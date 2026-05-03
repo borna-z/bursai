@@ -1,0 +1,162 @@
+// useMoodOutfit — drives MoodFlowScreen via the streaming `mood_outfit`
+// edge function.
+//
+// The function emits a single SSE chunk that's the entire result object,
+// followed by `data: [DONE]`. Verified shape (supabase/functions/mood_outfit
+// /index.ts ~line 341 + return at 380):
+//
+//   { items: { slot, garment_id }[], explanation: string,
+//     mood_match_score: number, limitation_note: string | null }
+//
+// or, on insufficient wardrobe:
+//
+//   { error: string, missing_slots: string[] }
+//
+// We adapt that into the screen-friendly `MoodOutfitResult` (outfit_name +
+// description + items[]). Names aren't part of the response — the screen
+// folds the user's mood/time selections into a generated label, which is
+// what MoodFlowScreen already does for its mock copy.
+//
+// Subscription-locked → onError fires with sentinel 'subscription_required'.
+
+import { useCallback, useRef, useState } from 'react';
+
+import { useAuth } from '../contexts/AuthContext';
+import { supabaseUrl } from '../lib/supabase';
+import { fetchSSE, getEdgeFunctionUrl } from '../lib/sse';
+
+export type MoodOutfitItem = {
+  garment_id?: string;
+  slot: string;
+  title: string;
+  color?: string;
+};
+
+export type MoodOutfitResult = {
+  outfit_id?: string;
+  outfit_name: string;
+  description: string;
+  limitation_note?: string | null;
+  items: MoodOutfitItem[];
+};
+
+type EdgeMoodResponse = {
+  items?: { slot?: string; garment_id?: string }[];
+  explanation?: string;
+  mood_match_score?: number;
+  limitation_note?: string | null;
+  error?: string;
+};
+
+function adaptResponse(
+  edge: EdgeMoodResponse,
+  mood: string,
+  timeOfDay: string,
+): MoodOutfitResult {
+  const items: MoodOutfitItem[] = (edge.items ?? [])
+    .filter((it) => typeof it.garment_id === 'string')
+    .map((it) => ({
+      garment_id: it.garment_id,
+      slot: it.slot ?? 'top',
+      // Real titles require a follow-up garments query (Wave 9 photo wiring
+      // does this). For W4 the screen renders gradient placeholders keyed
+      // off slot, so an empty title is fine.
+      title: '',
+    }));
+
+  return {
+    outfit_name: `${mood} · ${timeOfDay.toLowerCase()}`,
+    description: edge.explanation?.trim() ?? '',
+    limitation_note: edge.limitation_note ?? null,
+    items,
+  };
+}
+
+export function useMoodOutfit() {
+  const { session } = useAuth();
+  const [result, setResult] = useState<MoodOutfitResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const generate = useCallback(
+    async (mood: string, timeOfDay: string) => {
+      if (!session?.access_token) return;
+      setIsLoading(true);
+      setError(null);
+      setResult(null);
+
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+
+      // The edge function emits the full payload as a single JSON chunk.
+      // We accept either: a parseable JSON chunk OR concatenated text we
+      // try to JSON.parse on done.
+      let captured: EdgeMoodResponse | null = null;
+      let textBuffer = '';
+
+      await fetchSSE(
+        getEdgeFunctionUrl(supabaseUrl, 'mood_outfit'),
+        { mood, time_of_day: timeOfDay, locale: 'en' },
+        session.access_token,
+        {
+          onData: (raw) => {
+            try {
+              const parsed = JSON.parse(raw) as EdgeMoodResponse;
+              if (parsed && typeof parsed === 'object') {
+                if (parsed.error) {
+                  setError(parsed.error);
+                  return;
+                }
+                if (parsed.items) {
+                  captured = parsed;
+                  setResult(adaptResponse(parsed, mood, timeOfDay));
+                }
+              }
+            } catch {
+              // Plain-text fragment — buffer for end-of-stream parse.
+              textBuffer += raw;
+            }
+          },
+          onDone: () => {
+            if (!captured && textBuffer) {
+              try {
+                const parsed = JSON.parse(textBuffer) as EdgeMoodResponse;
+                if (parsed.error) {
+                  setError(parsed.error);
+                } else if (parsed.items) {
+                  setResult(adaptResponse(parsed, mood, timeOfDay));
+                }
+              } catch {
+                // Couldn't parse — fall back to a description-only result so
+                // the screen has something to render.
+                setResult({
+                  outfit_name: `${mood} · ${timeOfDay.toLowerCase()}`,
+                  description: textBuffer.trim(),
+                  items: [],
+                });
+              }
+            }
+            setIsLoading(false);
+          },
+          onError: (err) => {
+            setError(err.message);
+            setIsLoading(false);
+          },
+        },
+        abortRef.current.signal,
+      );
+    },
+    [session?.access_token],
+  );
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setResult(null);
+    setIsLoading(false);
+    setError(null);
+  }, []);
+
+  return { result, isLoading, error, generate, reset };
+}
