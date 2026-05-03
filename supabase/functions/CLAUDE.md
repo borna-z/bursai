@@ -217,35 +217,9 @@ const jobId = await submitJob(supabase, {
 - `process_job_queue` — async worker with stuck job recovery. Handles image_processing (PhotoRoom), garment_enrichment (deep AI analysis), batch_analysis
 - `prefetch_suggestions` — batch daily suggestions. Bounded concurrency (3 parallel), 100 user batch, 50s time budget
 - `cleanup_ai_cache` — deletes expired entries + never-reused entries older than 24h
-- `style_chat` — largest function (~2300 LOC, rebuilt from main + CONVERSATIONAL mode). Supports 4 modes: OUTFIT_GENERATION, FOLLOW_UP, KNOWLEDGE, CONVERSATIONAL. CONVERSATIONAL detects greetings/short replies and fashion knowledge questions — uses trivial complexity (180 max_tokens), skips outfit card generation. Shared modules: style-chat-normalizer.ts, complete-outfit-ids.ts, outfit-validation.ts, outfit-rules.ts
-- `burs_style_engine` — split in Session A from 5,067→~1,553 lines. Scoring and combination logic extracted to `_shared/outfit-scoring.ts` and `_shared/outfit-combination.ts`
+- `style_chat` — largest function (~2300 LOC). 4 modes: OUTFIT_GENERATION, FOLLOW_UP, KNOWLEDGE, CONVERSATIONAL. CONVERSATIONAL detects greetings + fashion knowledge questions, uses trivial complexity (180 max_tokens), skips outfit card generation. Shared: style-chat-normalizer.ts, complete-outfit-ids.ts, outfit-validation.ts, outfit-rules.ts
+- `burs_style_engine` — scoring + combination logic extracted to `_shared/outfit-scoring.ts` + `_shared/outfit-combination.ts`
 
-## Scale Architecture Summary
+## Scale flow
 
-```
-User Request
-    │
-    ▼
-┌─────────────────────────────────────────┐
-│ edgeFunctionClient.ts (client-side)     │
-│ Circuit breaker → Backoff+jitter →      │
-│ Non-retryable classification            │
-└────────────────┬────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────┐
-│ Edge Function                           │
-│ 1. checkOverload() → 503 if tripped     │
-│ 2. getUser() → auth                     │
-│ 3. enforceRateLimit() → 429 if exceeded │
-│    (resolves subscription tier,         │
-│     free=0.5x / premium=2.0x)          │
-│ 4. callBursAI() → check cache →        │
-│    call Gemini → cache response →       │
-│    log telemetry (tokens, cost)         │
-└─────────────────────────────────────────┘
-```
-
-## Known Bug in This Directory
-
-**AI Stylist Truncation** — `style_chat/index.ts` has two-stage truncation: (1) ~line 1587: if `finish_reason === "length"`, cleans up partial sentence by finding last punctuation mark past 60% of text; (2) ~line 1619: non-outfit replies over 1400 chars are capped at 9 sentences, with ` …` appended if token-truncated. Previously was 6 sentences / 900 chars — already fixed but verify the limits are adequate for production responses.
+`edgeFunctionClient.ts` (client) — circuit breaker (5 fails → 30s cooldown) + backoff w/ jitter + non-retryable classification (429/401/402/403/400) → edge function: `checkOverload()` → 503; `getUser()`; `enforceRateLimit()` → 429 (subscription tier resolved: free 0.5x / premium 2.0x); `callBursAI()` → cache check → Gemini → store cache → fire-and-forget telemetry (tokens, cost).

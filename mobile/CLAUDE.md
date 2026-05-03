@@ -47,52 +47,9 @@ Expo inlines `EXPO_PUBLIC_*` at build time — same role as web's `VITE_*`.
 - **Token discipline.** Every colour, radius, spacing comes from `src/theme/tokens.ts`. Never hardcode `#FBF7EF` etc. inside a screen — use `t.card`.
 - **Append-only** for any future i18n locale files (`src/i18n/locales/*.ts`) — same convention as web.
 
-## Project structure
+## Project layout (read by `ls` — see `RootNavigator.tsx` for route map)
 
-```
-mobile/
-  App.tsx                          ← root: SafeArea → Theme → Navigation
-  src/
-    theme/
-      tokens.ts                    ← light + dark + radii + spacing + text scale
-      ThemeProvider.tsx            ← context, useTheme(), useTokens()
-    lib/
-      supabase.ts                  ← Supabase RN client (AsyncStorage, polyfill)
-    components/                    ← reusable UI primitives (see Component inventory)
-    screens/                       ← one file per route, plus PlaceholderScreen
-    navigation/
-      RootNavigator.tsx            ← native-stack, MainTabs initial
-```
-
-## Build order — what's done, what's next
-
-The handoff lists ~30 screens and 22 components. Build in this order. Do NOT skip ahead:
-
-### Done
-- [x] `tokens.ts` + `ThemeProvider`
-- [x] `supabase.ts` (RN client)
-- [x] Components: `Eyebrow`, `PageTitle`, `Caption`, `Button`, `IconBtn`, `Chip`, `Card`, `StatBlock`, `icons` (SVG set), `Skeleton`, `Spinner`, `FadeUp`, `BottomNav`
-- [x] `RootNavigator` (every route registered with `PlaceholderScreen` for unbuilt ones)
-- [x] `MainTabsScreen` (custom 4-tab container, FAB pushes onto root stack)
-- [x] `HomeScreen` (real implementation)
-- [x] `WardrobeScreen` / `PlanScreen` / `InsightsScreen` (placeholder stubs — real impls next PR)
-
-### Next (in priority order)
-
-1. **WardrobeScreen** — wire to existing garment card; add tabs/search/filter/grid.
-2. **PlanScreen** — week strip, planned-outfit panel, upcoming list.
-3. **InsightsScreen** — real Gauge + PaletteBar + wear-frequency bars + most-worn list.
-4. **Add piece flow** (3 steps) — Step1/Step2/Step3.
-5. **MoodOutfit** + **MoodFlow** — 12 SVG glyphs + 3-step flow.
-6. **StyleMe** — occasion chips + outfit cards.
-7. **StyleChat** — bubbles + composer + suggestion chips.
-8. **TravelCapsule** wizard (6 steps).
-9. Settings sub-pages (Appearance / Style / Notifications / Account / Privacy).
-10. Auxiliary: ResetPassword / 404 / Share / PublicProfile / Billing.
-
-### Components still pending
-
-`Gauge`, `PaletteBar`, `OutfitCard`, `MoodCard`, `SourcePill`, `PhotoTile`, `WeekStrip`, `ListRow`, `SettingsRow`, `TogglePill`. Build the one each new screen needs, not all at once.
+`App.tsx` → SafeArea → Theme → Navigation. Source under `src/`: `theme/` (tokens + ThemeProvider), `lib/supabase.ts` (RN client w/ AsyncStorage), `components/` (UI primitives), `screens/` (one file per route + PlaceholderScreen), `navigation/RootNavigator.tsx` (native-stack, MainTabs initial). Build status (done vs pending screens/components) lives in PR descriptions + `git log`, not here — drifts too fast in this file.
 
 ## Fonts
 
