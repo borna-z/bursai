@@ -1,0 +1,369 @@
+// AuthContext — single source of truth for auth + profile state on mobile.
+//
+// Modeled on src/contexts/AuthContext.tsx (web) but slimmed for RN:
+//   • No React Query — exposes profile directly so screens read via useAuth().
+//   • Session is persisted automatically (supabase.ts wires AsyncStorage).
+//   • start_trial fires once per fresh signup (gated on user.created_at < 60s)
+//     via plain fetch — no edgeFunctionClient port yet.
+//
+// On SIGNED_IN: load (or auto-create) the profile row.
+// On SIGNED_OUT: clear user/session/profile.
+//
+// `isLoading` stays true until BOTH the session AND the profile-load attempt
+// have settled, so callers (SplashScreen, AuthScreen post-sign-in routing
+// effect) can distinguish "auth resolved + ready to route" from "auth resolved
+// but profile still in flight". Without this, `isOnboarded` would briefly
+// read `false` during the profile fetch and the user would be routed back to
+// Onboarding even when they're already done.
+
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+
+import { supabase, supabaseUrl } from '../lib/supabase';
+
+export type OnboardingPrefs = {
+  completed?: boolean;
+  step?: number;
+  language?: string;
+  // Open shape — quiz / studio answers persisted in OnboardingScreen are
+  // free-form payloads we don't want to type rigidly here.
+  [key: string]: unknown;
+};
+
+export type ProfilePreferences = {
+  onboarding?: OnboardingPrefs;
+  [key: string]: unknown;
+} | null;
+
+// Mirrors the canonical onboarding_step enum from the web — see
+// src/lib/advanceOnboardingStep.ts. We keep the column nullable here because
+// older users (pre-Wave-7 migration) may not have it populated; the column
+// is the canonical signal post-migration but the legacy
+// `preferences.onboarding.completed` flag remains the deploy-window fallback
+// (matches web's ProtectedRoute behavior).
+export type Profile = {
+  id: string;
+  display_name: string | null;
+  preferences: ProfilePreferences;
+  mannequin_presentation: string | null;
+  created_at: string;
+  onboarding_step?: string | null;
+  onboarding_completed_at?: string | null;
+};
+
+type SignResult = { error: Error | null };
+
+type AuthContextValue = {
+  user: User | null;
+  session: Session | null;
+  profile: Profile | null;
+  isLoading: boolean;
+  isOnboarded: boolean;
+  signIn: (email: string, password: string) => Promise<SignResult>;
+  signUp: (email: string, password: string, displayName: string) => Promise<SignResult>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const PROFILE_COLUMNS =
+  'id, display_name, preferences, mannequin_presentation, created_at, onboarding_step, onboarding_completed_at';
+
+// Fresh-signup detection window — start_trial fires only when the user row
+// was created within this many ms of the SIGNED_IN event. Prevents trial
+// re-fires on every returning login or token refresh. The edge function is
+// idempotent (DB pre-check + Stripe-side keys + DB-backed request_idempotency)
+// so this is a bandwidth optimisation, not a correctness gate.
+const FRESH_SIGNUP_WINDOW_MS = 60_000;
+
+async function callStartTrial(accessToken: string): Promise<void> {
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/start_trial`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+  } catch {
+    // Fire-and-forget — trial failure must never block the auth flow.
+  }
+}
+
+async function selectProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(PROFILE_COLUMNS)
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    console.warn('[AuthContext] profile select failed:', error.message);
+    return null;
+  }
+  return (data as Profile | null) ?? null;
+}
+
+async function loadOrCreateProfile(user: User): Promise<Profile | null> {
+  const existing = await selectProfile(user.id);
+  if (existing) return existing;
+
+  // No profile — auto-create with sensible defaults. Mirrors web's useProfile.
+  const displayName =
+    (user.user_metadata?.display_name as string | undefined) ??
+    user.email?.split('@')[0] ??
+    'User';
+
+  const { data: created, error: insertError } = await supabase
+    .from('profiles')
+    .insert({
+      id: user.id,
+      display_name: displayName,
+      preferences: { onboarding: { completed: false } },
+      mannequin_presentation: 'mixed',
+    })
+    .select(PROFILE_COLUMNS)
+    .single();
+
+  if (insertError) {
+    const code = (insertError as { code?: string }).code;
+    // FK violation = ghost session (user not in auth.users). Sign out so the
+    // app stops looping on a phantom user. Mirrors web's useProfile.
+    if (code === '23503') {
+      console.warn('[AuthContext] ghost session detected — signing out');
+      await supabase.auth.signOut();
+      return null;
+    }
+    // PK conflict = race with a sibling listener (e.g. SIGNED_IN +
+    // INITIAL_SESSION emitting concurrently, or a TOKEN_REFRESHED fan-out
+    // landing during cold-start). Re-select rather than treat as a hard
+    // failure — the winning insert produced a real row we just need to read.
+    if (code === '23505') {
+      console.warn('[AuthContext] profile insert raced — re-selecting winning row');
+      return await selectProfile(user.id);
+    }
+    console.warn('[AuthContext] profile auto-create failed:', insertError.message);
+    return null;
+  }
+
+  return created as Profile;
+}
+
+function isFreshSignup(user: User | null | undefined, eventAtMs = Date.now()): boolean {
+  if (!user?.created_at) return false;
+  const createdAtMs = new Date(user.created_at).getTime();
+  if (Number.isNaN(createdAtMs)) return false;
+  return eventAtMs - createdAtMs < FRESH_SIGNUP_WINDOW_MS;
+}
+
+function deriveIsOnboarded(profile: Profile | null): boolean {
+  if (!profile) return false;
+  // Column-based signal is canonical (web's ProtectedRoute). Legacy
+  // preferences flag is the deploy-window fallback for users whose row
+  // predates the Wave 7 migration.
+  if (profile.onboarding_step === 'completed') return true;
+  return Boolean(profile.preferences?.onboarding?.completed);
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Tracks which userIds we've already fired start_trial for in this app
+  // session. supabase-js may emit SIGNED_IN multiple times (token refresh,
+  // rehydrate). The edge function is idempotent server-side (DB pre-check +
+  // trial_pending metadata + Stripe-side keys), so this is purely a bandwidth
+  // optimisation. Keying on userId (rather than the full access_token) keeps
+  // the Set's cardinality bounded at 1 per app lifetime — full-token keys
+  // grow linearly with refresh count. The Set is also never serialised, so
+  // no token leak risk via Sentry / devtools.
+  const triggeredTrialKeys = useRef<Set<string>>(new Set());
+
+  // Latest user ref so refreshProfile can read the current user without
+  // re-binding identity every render.
+  const userRef = useRef<User | null>(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const refreshProfile = useCallback(async () => {
+    const u = userRef.current;
+    if (!u) {
+      setProfile(null);
+      return;
+    }
+    const next = await loadOrCreateProfile(u);
+    setProfile(next);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    // De-duplicates concurrent profile fetches from racing listeners
+    // (SIGNED_IN + getSession on cold start, TOKEN_REFRESHED while a previous
+    // load is in flight, etc.). When a fetch is already in flight, later
+    // events skip the call and rely on the first one's setProfile to land.
+    let profileFetchInFlight = false;
+
+    const settleProfile = (u: User) => {
+      if (profileFetchInFlight) {
+        // Already loading; the in-flight fetch will flip isLoading=false.
+        return;
+      }
+      profileFetchInFlight = true;
+      void loadOrCreateProfile(u)
+        .then((p) => {
+          if (cancelled) return;
+          setProfile(p);
+        })
+        .finally(() => {
+          profileFetchInFlight = false;
+          if (!cancelled) setIsLoading(false);
+        });
+    };
+
+    const maybeFireStartTrial = (u: User, accessToken: string) => {
+      if (!isFreshSignup(u)) return;
+      const key = u.id;
+      if (triggeredTrialKeys.current.has(key)) return;
+      triggeredTrialKeys.current.add(key);
+      void callStartTrial(accessToken);
+    };
+
+    // 1. Subscribe FIRST so we don't miss the initial SIGNED_IN that getSession
+    //    can racily emit alongside.
+    const { data: subData } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (cancelled) return;
+      setSession(nextSession);
+      const nextUser = nextSession?.user ?? null;
+      setUser(nextUser);
+
+      if (nextUser) {
+        // Keep isLoading true while profile resolves so consumers don't see
+        // a stale `isOnboarded=false` for the duration of the fetch.
+        setIsLoading(true);
+        settleProfile(nextUser);
+        if (event === 'SIGNED_IN' && nextSession?.access_token) {
+          maybeFireStartTrial(nextUser, nextSession.access_token);
+        }
+      } else {
+        setProfile(null);
+        setIsLoading(false);
+      }
+
+      if (event === 'SIGNED_OUT') {
+        triggeredTrialKeys.current.clear();
+      }
+    });
+
+    // 2. Then check for an existing session (rehydrated from AsyncStorage).
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSession(data.session);
+        const u = data.session?.user ?? null;
+        setUser(u);
+        if (u) {
+          setIsLoading(true);
+          settleProfile(u);
+          if (data.session?.access_token) {
+            // Cold-start parity with the SIGNED_IN listener branch: a session
+            // rehydrated <60s after signup that died before the auth listener
+            // could fire still gets the trial mint. The edge function is
+            // server-idempotent so a duplicate fire here is a no-op.
+            maybeFireStartTrial(u, data.session.access_token);
+          }
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn('[AuthContext] getSession failed:', err);
+        setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      subData.subscription.unsubscribe();
+    };
+  }, []);
+
+  const signIn = useCallback(async (email: string, password: string): Promise<SignResult> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    return { error: error as Error | null };
+  }, []);
+
+  const signUp = useCallback(
+    async (email: string, password: string, displayName: string): Promise<SignResult> => {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            display_name: displayName.trim(),
+            // Marker the start_trial edge function reads to gate first-trial
+            // eligibility (see supabase/functions/start_trial/index.ts).
+            trial_pending: true,
+          },
+        },
+      });
+      return { error: error as Error | null };
+    },
+    [],
+  );
+
+  const signOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.warn('[AuthContext] signOut server error (clearing local):', error.message);
+    }
+    // Always clear local state — the auth listener will also fire SIGNED_OUT,
+    // but clearing here makes the post-await navigation deterministic.
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+  }, []);
+
+  const isOnboarded = deriveIsOnboarded(profile);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      session,
+      profile,
+      isLoading,
+      isOnboarded,
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+    }),
+    [user, session, profile, isLoading, isOnboarded, signIn, signUp, signOut, refreshProfile],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return ctx;
+}

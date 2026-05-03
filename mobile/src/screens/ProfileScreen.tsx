@@ -21,6 +21,7 @@ import { SettingsRow } from '../components/SettingsRow';
 import { BackIcon, GearIcon, TshirtIcon } from '../components/icons';
 import { ProfileSkeleton } from '../components/skeletons';
 import { useMockRefresh } from '../hooks/useMockRefresh';
+import { useAuth } from '../hooks/useAuth';
 import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -35,7 +36,18 @@ const CURRENT_FORMALITY = 'Smart casual';
 export function ProfileScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { user, profile } = useAuth();
   const { refreshing, loading, onRefresh } = useMockRefresh(600);
+
+  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
+  const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
+  const email = user?.email ?? '';
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString(undefined, {
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
 
   if (loading) {
     return (
@@ -67,7 +79,7 @@ export function ProfileScreen() {
           </IconBtn>
           <View style={{ flex: 1 }}>
             <Eyebrow style={{ marginBottom: 4 }}>Your profile</Eyebrow>
-            <PageTitle>Borna Krneta</PageTitle>
+            <PageTitle>{displayName}</PageTitle>
           </View>
           <Button label="Edit" variant="outline" size="sm" onPress={() => nav.navigate('SettingsAccount')} />
         </View>
@@ -80,7 +92,7 @@ export function ProfileScreen() {
               { backgroundColor: t.accent },
             ]}>
             <Text style={{ color: t.accentFg, fontFamily: fonts.uiSemi, fontSize: 32, fontWeight: '600' }}>
-              B
+              {initial}
             </Text>
           </View>
           <Text
@@ -91,9 +103,11 @@ export function ProfileScreen() {
               fontWeight: '600',
               letterSpacing: -0.15,
             }}>
-            Borna Krneta
+            {displayName}
           </Text>
-          <Caption>borna@example.com · Member since 2024</Caption>
+          <Caption>
+            {[email, memberSince ? `Member since ${memberSince}` : null].filter(Boolean).join(' · ')}
+          </Caption>
         </View>
 
         {/* ============ STYLE SUMMARY ============ */}

@@ -4,8 +4,10 @@
 //
 // Build order tracked in mobile/CLAUDE.md.
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Linking } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { supabase } from '../lib/supabase';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 // Acquisition flow (PR feat/mobile-onboarding-auth-paywall)
@@ -185,7 +187,63 @@ const Placeholders = {
   // (no placeholders remaining in this group)
 } as const;
 
+// Google OAuth completes by redirecting back to `burs://auth/callback?code=...`.
+// supabase-js exchanges the code for a session, which then triggers the auth
+// listener in AuthContext and SplashScreen-style routing into the app.
+//
+// Strict matching: only `burs://auth/callback` (any query/hash) triggers the
+// exchange. Substring matching on `auth/callback` would let a foreign deep
+// link like `burs://other/auth/callback/junk` reach `exchangeCodeForSession`,
+// which on its own is harmless (PKCE binds the code to the AsyncStorage-stored
+// `code_verifier`) but adds attack surface for no benefit. App Links / iOS
+// universal links remain a future hardening step — the current scheme-only
+// registration is not exclusive on either platform.
+function isOAuthCallbackUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'burs:') return false;
+    // RN's URL polyfill normalizes hostname/pathname differently for custom
+    // schemes — accept both `burs://auth/callback` (host=auth, path=/callback)
+    // and `burs:///auth/callback` (host='', path=/auth/callback) shapes.
+    const host = parsed.hostname;
+    const path = parsed.pathname;
+    if (host === 'auth' && (path === '/callback' || path === '/callback/')) return true;
+    if (host === '' && (path === '/auth/callback' || path === '/auth/callback/')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function handleOAuthDeepLink(url: string): Promise<void> {
+  if (!isOAuthCallbackUrl(url)) return;
+  try {
+    const { error } = await supabase.auth.exchangeCodeForSession(url);
+    if (error) {
+      console.warn('[RootNavigator] OAuth callback exchange failed:', error.message);
+    }
+  } catch (err) {
+    console.warn('[RootNavigator] OAuth callback threw:', err);
+  }
+}
+
 export function RootNavigator() {
+  useEffect(() => {
+    let cancelled = false;
+    const onUrl = ({ url }: { url: string }) => {
+      if (!cancelled) void handleOAuthDeepLink(url);
+    };
+    const subscription = Linking.addEventListener('url', onUrl);
+    // Cold-start: app opened FROM a deep link — pull the URL ourselves.
+    void Linking.getInitialURL().then((url) => {
+      if (!cancelled && url) void handleOAuthDeepLink(url);
+    });
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, []);
+
   return (
     <Stack.Navigator
       // Splash is the production entry. In dev builds, drop straight to MainTabs
