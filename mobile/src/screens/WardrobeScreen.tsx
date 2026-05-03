@@ -3,106 +3,129 @@
 // smart-access tiles (2x2 then 1x2) · "All garments" eyebrow · 3-col garment FlatList.
 // BottomNav lives in MainTabsScreen, not here — every tab screen uses that container's pill.
 //
+// W2 wires real Supabase data via useFlatGarments + paginate-on-end + invalidate-on-mutation.
 // FlatList over ScrollView+map: garment counts will run into the hundreds; numColumns=3 +
 // virtualization gives stable scroll perf without a complex layout calc per row.
 
 import React from 'react';
-import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
+import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
+import { Button } from '../components/Button';
 import { SearchBar } from '../components/SearchBar';
 import { SmartTile } from '../components/SmartTile';
-import { GarmentCard, type GarmentCardData } from '../components/GarmentCard';
+import { GarmentCard } from '../components/GarmentCard';
 import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { useFlatGarments } from '../hooks/useGarments';
+import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-// Placeholder garment fixtures. Same set + hues as the handoff prototype so the visual
-// rhythm matches one-for-one. Real data lands when wardrobe queries are wired.
-const GARMENTS: GarmentCardData[] = [
-  { id: 'g1', name: 'Cream tee',      sub: 'Tops · Cotton',     hue: 32 },
-  { id: 'g2', name: 'Navy blazer',    sub: 'Outer · Wool',      hue: 215 },
-  { id: 'g3', name: 'Linen trouser',  sub: 'Bottoms · Linen',   hue: 38 },
-  { id: 'g4', name: 'Leather loafer', sub: 'Shoes · Suede',     hue: 28 },
-  { id: 'g5', name: 'Wool overshirt', sub: 'Outer · Wool',      hue: 32 },
-  { id: 'g6', name: 'Striped oxford', sub: 'Tops · Cotton',     hue: 200 },
-  { id: 'g7', name: 'Black denim',    sub: 'Bottoms · Denim',   hue: 220 },
-  { id: 'g8', name: 'Cashmere knit',  sub: 'Tops · Cashmere',   hue: 18 },
-  { id: 'g9', name: 'Suede boot',     sub: 'Shoes · Suede',     hue: 18 },
-];
-
 type TabKey = 'garments' | 'outfits' | 'laundry';
 
-// Map FiltersScreen's `Outerwear` label to the abbreviated `Outer` token used inside this
-// fixture's `sub` field ("Outer · Wool"). The wardrobe data uses short category names; the
-// filter sheet shows the full name. Without this alias, ticking "Outerwear" would filter to
-// zero matches even though Outer items exist. Real-data version of this is server-side or a
-// canonical category enum shared across both surfaces.
+// Map FiltersScreen's free-text labels to canonical category enums in the
+// `garments.category` column. The wardrobe filter sheet exposes friendly
+// labels ("Outerwear", "Tops") but the column stores short-form values
+// historically authored by the AI enrichment pipeline ("Outer", "Top"). We
+// lower-case both sides at compare time and accept either label/canonical
+// shape so a future migration to enum-only doesn't break the UX immediately.
 const CATEGORY_ALIAS: Record<string, string[]> = {
   Outerwear: ['Outer'],
+  Tops: ['Top'],
+  Bottoms: ['Bottom'],
 };
 
-const matchesFilters = (garment: GarmentCardData, f: WardrobeFilters): boolean => {
-  const [catRaw, matRaw] = garment.sub.split(' · ');
-  const cat = (catRaw ?? '').trim();
-  const mat = (matRaw ?? '').trim();
+function matchesClientFilters(garment: Garment, f: WardrobeFilters): boolean {
   if (f.categories.length > 0) {
-    const expandedCats = f.categories.flatMap((c) => [c, ...(CATEGORY_ALIAS[c] ?? [])]);
-    if (!expandedCats.some((c) => c.toLowerCase() === cat.toLowerCase())) return false;
+    const cat = (garment.category ?? '').trim().toLowerCase();
+    const expanded = f.categories.flatMap((c) => [c, ...(CATEGORY_ALIAS[c] ?? [])]);
+    if (!expanded.some((c) => c.toLowerCase() === cat)) return false;
+  }
+  if (f.colors.length > 0) {
+    const color = (garment.color_primary ?? '').trim().toLowerCase();
+    if (!f.colors.some((c) => c.toLowerCase() === color)) return false;
   }
   if (f.materials.length > 0) {
-    if (!f.materials.some((m) => m.toLowerCase() === mat.toLowerCase())) return false;
+    const mat = (garment.material ?? '').trim().toLowerCase();
+    if (!f.materials.some((m) => m.toLowerCase() === mat)) return false;
   }
-  // Color/Fit/Season aren't on the fixture shape yet — the future garment row carries them.
-  // Until then, those filters are accepted but no-op against the demo data.
+  if (f.fits.length > 0) {
+    const fit = (garment.fit ?? '').trim().toLowerCase();
+    if (!f.fits.some((x) => x.toLowerCase() === fit)) return false;
+  }
+  if (f.seasons.length > 0) {
+    const tags = (garment.season_tags ?? []).map((s) => s.toLowerCase());
+    if (!f.seasons.some((x) => tags.includes(x.toLowerCase()))) return false;
+  }
   return true;
-};
+}
 
-const filterActiveCount = (f: WardrobeFilters | null): number =>
-  f
-    ? f.categories.length +
-      f.colors.length +
-      f.materials.length +
-      f.fits.length +
-      f.seasons.length
-    : 0;
+function filterActiveCount(f: WardrobeFilters | null): number {
+  if (!f) return 0;
+  return f.categories.length + f.colors.length + f.materials.length + f.fits.length + f.seasons.length;
+}
 
 export function WardrobeScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('garments');
   // Filter state lives at the WardrobeScreen scope. FiltersScreen receives the current filters
-  // as `initial` (so re-opening preserves picks) and writes back via `onApply`. Without this
-  // wiring the Apply button was a silent no-op — Codex P2 round 10. When the wardrobe-query
-  // hook lands, this state becomes the input shape for that hook (or a contextual filter
-  // store). `null` distinguishes "user has never opened Filters" from "filters are empty".
+  // as `initial` (so re-opening preserves picks) and writes back via `onApply`.
   const [filters, setFilters] = React.useState<WardrobeFilters | null>(null);
 
+  // Server query — non-laundry, default sort.
+  const queryFilters: GarmentFilters = { inLaundry: false };
+  const {
+    data: garments,
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFlatGarments(queryFilters);
+
   const visibleGarments = React.useMemo(
-    () => (filters ? GARMENTS.filter((g) => matchesFilters(g, filters)) : GARMENTS),
-    [filters],
+    () => (filters ? garments.filter((g) => matchesClientFilters(g, filters)) : garments),
+    [garments, filters],
   );
   const activeFilterCount = filterActiveCount(filters);
 
-  // Mock loading + error state. The error path is reachable via a future query failure; for now
-  // it's exposed through the hook's `setError` for dev toggles.
-  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(800);
+  const onRefresh = React.useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  // Smart-tile counts. These read from the loaded pages — accurate for any
+  // user with ≤PAGE_SIZE items, an optimistic lower bound for larger
+  // wardrobes (a future Wave 9 query exposes server-side counts via
+  // useSmartFilterCounts; pulling that into mobile is scope creep here).
+  const totalCount = garments.length;
+  const mostWornCount = garments.filter((g) => (g.wear_count ?? 0) > 3).length;
+  const unwornCount = garments.filter((g) => !g.last_worn_at).length;
+  const inLaundryCount = garments.filter((g) => g.in_laundry).length;
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
-  // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route
-  // (cleanup PR), so tapping the chip pushes onto the parent stack.
+  // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route.
   const onTab = (key: TabKey) => () => {
     if (key === 'outfits') {
       nav.navigate('Outfits');
@@ -128,8 +151,8 @@ export function WardrobeScreen() {
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 4 }}>
             {activeFilterCount > 0
-              ? `Filtered · ${visibleGarments.length} of ${GARMENTS.length}`
-              : `Inventory · ${GARMENTS.length}`}
+              ? `Filtered · ${visibleGarments.length} of ${totalCount}`
+              : `Inventory · ${totalCount}`}
           </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
         </View>
@@ -149,7 +172,7 @@ export function WardrobeScreen() {
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <SearchBar
-          placeholder={`Search ${GARMENTS.length} garments…`}
+          placeholder={`Search ${totalCount} garments…`}
           onPress={() => nav.navigate('Search')}
         />
         <IconBtn
@@ -166,21 +189,21 @@ export function WardrobeScreen() {
       </View>
 
       <View style={s.tileRow}>
-        <SmartTile num="12" label="Recently added" onPress={() => nav.navigate('Search')} />
-        <SmartTile num="38" label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
+        <SmartTile num={String(totalCount)} label="Recently added" onPress={() => nav.navigate('Search')} />
+        <SmartTile num={String(mostWornCount)} label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
       </View>
       <View style={s.tileRow}>
-        <SmartTile num="7" label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
-        <SmartTile num="4" label="In laundry" onPress={() => nav.navigate('Laundry')} />
+        <SmartTile num={String(unwornCount)} label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
+        <SmartTile num={String(inLaundryCount)} label="In laundry" onPress={() => nav.navigate('Laundry')} />
       </View>
 
       <View style={s.tileRow}>
         <SmartTile
-          num="4"
+          num="—"
           label="Wishlist"
           onPress={() => Alert.alert('Coming soon', 'Wishlist feature coming soon.')}
         />
-        <SmartTile num="5" label="Gaps" onPress={() => nav.navigate('WardrobeGaps')} />
+        <SmartTile num="—" label="Gaps" onPress={() => nav.navigate('WardrobeGaps')} />
       </View>
 
       <View style={s.sectionHead}>
@@ -190,28 +213,28 @@ export function WardrobeScreen() {
     </View>
   );
 
-  if (error) {
+  if (isError) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
           }>
           {header}
-          <ErrorState onRetry={retry} />
+          <ErrorState onRetry={() => void refetch()} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 130 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
           }
           showsVerticalScrollIndicator={false}>
           {header}
@@ -221,23 +244,72 @@ export function WardrobeScreen() {
     );
   }
 
+  // Empty wardrobe — no items at all (not the "filters narrow it to zero"
+  // case; that one keeps the filter chips visible and just renders nothing).
+  if (totalCount === 0) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }
+          showsVerticalScrollIndicator={false}>
+          {header}
+          <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 32, gap: 14 }}>
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 26,
+                fontWeight: '500',
+                color: t.fg,
+                letterSpacing: -0.26,
+                textAlign: 'center',
+              }}>
+              Your wardrobe is empty
+            </Text>
+            <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
+              Add your first piece to get started.
+            </Caption>
+            <Button label="Add piece" onPress={() => nav.navigate('AddPieceStep1')} />
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
         data={visibleGarments}
-        keyExtractor={(g) => g.id ?? g.name}
+        keyExtractor={(g) => g.id}
         numColumns={3}
         ListHeaderComponent={header}
         columnWrapperStyle={{ gap: 8, paddingHorizontal: 20 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 130, gap: 8 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+        }}
+        onEndReachedThreshold={0.4}
         renderItem={({ item }) => (
           <View style={{ flex: 1 / 3 }}>
             <GarmentCard
-              garment={item}
+              garment={{
+                id: item.id,
+                title: item.title,
+                category: item.category,
+                color_primary: item.color_primary,
+                wear_count: item.wear_count,
+                in_laundry: item.in_laundry,
+                rendered_image_path: item.rendered_image_path,
+                original_image_path: item.original_image_path,
+                created_at: item.created_at,
+              }}
               onPress={() => nav.navigate('GarmentDetail', { id: item.id })}
             />
           </View>

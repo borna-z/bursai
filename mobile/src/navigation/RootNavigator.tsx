@@ -80,11 +80,14 @@ export type RootStackParamList = {
   AddPieceStep3: { photos?: AddPiecePhoto[] } | undefined;
   LiveScan: undefined;
 
-  // Outfit / garment / sharing
+  // Outfit / garment / sharing — GarmentDetail and EditGarment now require a real
+  // garment id (Wave W2 wires them to useGarment / useUpdateGarment / useDeleteGarment;
+  // there's no fallback fixture path anymore, so id-less navigation would 404).
+  // OutfitDetail / ShareOutfit stay optional pending Wave W3's outfits hook.
   Outfits: undefined;
   OutfitDetail: { id?: string } | undefined;
-  EditGarment: { id?: string } | undefined;
-  GarmentDetail: { id?: string } | undefined;
+  EditGarment: { id: string };
+  GarmentDetail: { id: string };
   ShareOutfit: { id?: string } | undefined;
   PublicProfile: { handle?: string } | undefined;
   // Outfit-generation flow (loading → result). garmentId optional for "Wear today"

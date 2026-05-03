@@ -1,14 +1,13 @@
-// Used garments — list of every garment with wear count > 0, sorted descending.
-// Reachable from the Wardrobe "Most worn" smart tile (already wired) and from the future Insights
-// "Most worn → See all" link.
+// Used garments — list of every garment with wear_count > 0, sorted by wear_count desc.
+// Reachable from the Wardrobe "Most worn" smart tile and the future Insights link.
 //
-// Header (eyebrow + italic title), sort chips, FlatList of rows. Each row: 52x68 gradient thumb
-// + name + category caption + wear count badge in accent colour + chevron. FlatList covers >10 rows.
-//
-// Source: design_handoff_burs_rn/source/audit-screens.jsx UsedGarmentsScreen + the user brief.
+// W2 wires real Supabase data via useFlatGarments({smartFilter:'most_worn'}). Sort chips
+// switch between most-worn / recently-worn / by-category — they all stay client-side over
+// the loaded page set; a future Wave 9 server-sort hook can replace this when the wardrobe
+// outgrows a single page.
 
 import React from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -22,52 +21,120 @@ import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { GarmentListSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
 import { BackIcon, ChevronIcon } from '../components/icons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { useFlatGarments } from '../hooks/useGarments';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import type { Garment } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type SortKey = 'most_worn' | 'recent_worn' | 'category';
 
-type Used = {
-  id: string;
-  name: string;
-  category: string;
-  wearCount: number;
-  hue: number;
-  /** Days since last worn — used for the recent_worn sort path. */
-  lastWornDays: number;
-};
+function hueFromId(id: string): number {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
 
-// Canonical wardrobe ids — must stay aligned with WardrobeScreen.GARMENTS, SearchScreen.ALL_GARMENTS,
-// GarmentDetailScreen.GARMENTS, and EditGarmentScreen.SEED_BY_ID. Any rewrite here ripples to
-// those four files. Codex P1 round 4: prior version had divergent labels (g6 → "Linen tee" vs
-// canonical "Striped oxford") and stray g10–g12 ids that had no detail fixture.
-const USED: Used[] = [
-  { id: 'g1', name: 'Cream tee',      category: 'Tops · Cotton',   wearCount: 31, lastWornDays: 2,  hue: 32 },
-  { id: 'g5', name: 'Wool overshirt', category: 'Outer · Wool',    wearCount: 23, lastWornDays: 18, hue: 32 },
-  { id: 'g3', name: 'Linen trouser',  category: 'Bottoms · Linen', wearCount: 14, lastWornDays: 4,  hue: 38 },
-  { id: 'g7', name: 'Black denim',    category: 'Bottoms · Denim', wearCount: 11, lastWornDays: 9,  hue: 220 },
-  { id: 'g6', name: 'Striped oxford', category: 'Tops · Cotton',   wearCount: 9,  lastWornDays: 1,  hue: 200 },
-  { id: 'g8', name: 'Cashmere knit',  category: 'Tops · Cashmere', wearCount: 7,  lastWornDays: 21, hue: 18 },
-  { id: 'g4', name: 'Leather loafer', category: 'Shoes · Suede',   wearCount: 5,  lastWornDays: 3,  hue: 28 },
-  { id: 'g9', name: 'Suede boot',     category: 'Shoes · Suede',   wearCount: 4,  lastWornDays: 12, hue: 18 },
-  { id: 'g2', name: 'Navy blazer',    category: 'Outer · Wool',    wearCount: 3,  lastWornDays: 45, hue: 215 },
-];
+function lastWornEpoch(g: Garment): number {
+  if (!g.last_worn_at) return 0;
+  const ms = new Date(g.last_worn_at).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+function UsedRow({ item, onPress }: { item: Garment; onPress: () => void }) {
+  const t = useTokens();
+  const path = item.rendered_image_path ?? item.original_image_path ?? null;
+  const { data: url } = useSignedUrl(path);
+  const hue = hueFromId(item.id);
+  const subtitle = [item.category, item.material].filter(Boolean).join(' · ');
+  const wearCount = item.wear_count ?? 0;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${item.title}, ${wearCount} wears`}
+      onPress={onPress}
+      style={({ pressed }) => [s.rowWrap, { opacity: pressed ? 0.7 : 1 }]}>
+      <View style={s.rowInner}>
+        <View style={[s.thumb, { overflow: 'hidden' }]}>
+          <LinearGradient
+            colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {url ? <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+        </View>
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 14,
+              fontWeight: '600',
+              color: t.fg,
+              letterSpacing: -0.14,
+            }}>
+            {item.title}
+          </Text>
+          {subtitle ? <Caption>{subtitle}</Caption> : null}
+        </View>
+        <View style={[s.wearBadge, { backgroundColor: t.accentSoft }]}>
+          <Text
+            style={{
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontSize: 16,
+              fontWeight: '500',
+              color: t.accent,
+              letterSpacing: -0.16,
+            }}>
+            {wearCount}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 9,
+              color: t.accent,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
+              marginTop: 1,
+            }}>
+            Wears
+          </Text>
+        </View>
+        <View style={{ paddingLeft: 4 }}>
+          <ChevronIcon color={t.fg3} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 export function UsedGarmentsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [sort, setSort] = React.useState<SortKey>('most_worn');
-  const { refreshing, loading, onRefresh } = useMockRefresh(800);
 
-  const items = React.useMemo(() => {
-    const list = [...USED];
-    if (sort === 'most_worn')   return list.sort((a, b) => b.wearCount - a.wearCount);
-    if (sort === 'recent_worn') return list.sort((a, b) => a.lastWornDays - b.lastWornDays);
-    if (sort === 'category')    return list.sort((a, b) => a.category.localeCompare(b.category));
+  const {
+    data: items,
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+  } = useFlatGarments({ smartFilter: 'most_worn', sortBy: 'wear_count' });
+
+  const onRefresh = React.useCallback(() => void refetch(), [refetch]);
+
+  const sorted = React.useMemo(() => {
+    const list = [...items];
+    if (sort === 'most_worn') return list.sort((a, b) => (b.wear_count ?? 0) - (a.wear_count ?? 0));
+    if (sort === 'recent_worn') return list.sort((a, b) => lastWornEpoch(b) - lastWornEpoch(a));
+    if (sort === 'category') return list.sort((a, b) => (a.category ?? '').localeCompare(b.category ?? ''));
     return list;
-  }, [sort]);
+  }, [items, sort]);
 
   const header = (
     <View>
@@ -91,13 +158,22 @@ export function UsedGarmentsScreen() {
     </View>
   );
 
-  if (loading) {
+  if (isError) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        {header}
+        <ErrorState onRetry={() => void refetch()} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isLoading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 130 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
           }
           showsVerticalScrollIndicator={false}>
           {header}
@@ -107,7 +183,7 @@ export function UsedGarmentsScreen() {
     );
   }
 
-  if (items.length === 0) {
+  if (sorted.length === 0) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         {header}
@@ -124,71 +200,17 @@ export function UsedGarmentsScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
-        data={items}
+        data={sorted}
         keyExtractor={(g) => g.id}
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
         ItemSeparatorComponent={() => <View style={[s.sep, { backgroundColor: t.border }]} />}
         renderItem={({ item }) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${item.name}, ${item.wearCount} wears`}
-            onPress={() => nav.navigate('GarmentDetail', { id: item.id })}
-            style={({ pressed }) => [s.rowWrap, { opacity: pressed ? 0.7 : 1 }]}>
-            <View style={s.rowInner}>
-              <LinearGradient
-                colors={[`hsl(${item.hue}, 38%, 78%)`, `hsl(${(item.hue + 30) % 360}, 30%, 62%)`]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.thumb}
-              />
-              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 14,
-                    fontWeight: '600',
-                    color: t.fg,
-                    letterSpacing: -0.14,
-                  }}>
-                  {item.name}
-                </Text>
-                <Caption>{item.category}</Caption>
-              </View>
-              <View style={[s.wearBadge, { backgroundColor: t.accentSoft }]}>
-                <Text
-                  style={{
-                    fontFamily: fonts.displayMedium,
-                    fontStyle: 'italic',
-                    fontSize: 16,
-                    fontWeight: '500',
-                    color: t.accent,
-                    letterSpacing: -0.16,
-                  }}>
-                  {item.wearCount}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 9,
-                    color: t.accent,
-                    letterSpacing: 1.2,
-                    textTransform: 'uppercase',
-                    marginTop: 1,
-                  }}>
-                  Wears
-                </Text>
-              </View>
-              <View style={{ paddingLeft: 4 }}>
-                <ChevronIcon color={t.fg3} />
-              </View>
-            </View>
-          </Pressable>
+          <UsedRow item={item} onPress={() => nav.navigate('GarmentDetail', { id: item.id })} />
         )}
       />
     </SafeAreaView>
