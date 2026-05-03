@@ -21,7 +21,7 @@ import { IconBtn } from '../components/IconBtn';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
 import { usePlannedOutfitsForRange } from '../hooks/usePlannedOutfits';
-import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { PlannedOutfitWithOutfit } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -43,13 +43,6 @@ function buildWeekdayHeaders(): string[] {
     );
   }
   return out;
-}
-
-function localISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
 
 function startOfDay(d: Date): Date {

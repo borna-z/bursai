@@ -270,6 +270,66 @@ export function useRateOutfit() {
     onSuccess: (_data, { outfitId }) => {
       queryClient.invalidateQueries({ queryKey: ['outfit', user?.id, outfitId] });
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
+    },
+  });
+}
+
+/**
+ * Read the user's existing feedback row (rating + commentary) for an outfit.
+ * Returns null when the user hasn't rated/noted the outfit yet. Used by
+ * OutfitDetailScreen to hydrate the notes TextInput so a returning user sees
+ * their prior note instead of an empty box (audit L on PR #718).
+ */
+export function useOutfitFeedback(outfitId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['outfit_feedback', user?.id, outfitId],
+    queryFn: async () => {
+      if (!user || !outfitId) return null;
+      const { data, error } = await supabase
+        .from('outfit_feedback')
+        .select('rating, commentary')
+        .eq('user_id', user.id)
+        .eq('outfit_id', outfitId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { rating: number | null; commentary: string | null } | null) ?? null;
+    },
+    enabled: !!user && !!outfitId,
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Save the user's free-text note for an outfit. Upserts into
+ * `outfit_feedback.commentary` on (user_id, outfit_id), preserving any
+ * existing rating in the same row. Empty / whitespace-only input clears the
+ * column to NULL so a deliberate erase actually drops the prior text.
+ */
+export function useSaveOutfitNote() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ outfitId, note }: { outfitId: string; note: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      const trimmed = note.trim();
+      const { error } = await supabase
+        .from('outfit_feedback')
+        .upsert(
+          {
+            user_id: user.id,
+            outfit_id: outfitId,
+            commentary: trimmed.length === 0 ? null : trimmed,
+          },
+          { onConflict: 'user_id,outfit_id' },
+        );
+      if (error) throw error;
+    },
+    onSuccess: (_data, { outfitId }) => {
+      queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
     },
   });
 }

@@ -92,10 +92,13 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
     getNextPageParam: (last) => last.nextPage,
     initialPageParam: 0,
     enabled: !!user && enabled,
-    // Evict abandoned queries (e.g. mid-typing search results that the user
-    // moved past) after 30s. Keeps memory bounded without breaking the
-    // "type-and-pause" caching that React Query gives for free.
-    gcTime: 30_000,
+    // 30s gcTime keeps mid-typing search results from accumulating in memory,
+    // but applying that to non-search browsing was wrong: Wardrobe → push
+    // GarmentDetail → goBack with reading-time > 30s caused the infinite
+    // query to evict and reload from page 0, dropping any pages 2+ the user
+    // had paginated to. Audit R on PR #718. Non-search queries get the
+    // default 5min so a normal navigation round-trip preserves pagination.
+    gcTime: filters?.search?.trim() ? 30_000 : 5 * 60_000,
   });
 }
 

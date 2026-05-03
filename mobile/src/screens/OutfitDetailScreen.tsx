@@ -39,6 +39,8 @@ import {
   useSaveOutfit,
   useDeleteOutfit,
   useRateOutfit,
+  useOutfitFeedback,
+  useSaveOutfitNote,
 } from '../hooks/useOutfits';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
@@ -63,21 +65,30 @@ export function OutfitDetailScreen() {
   const deleteOutfit = useDeleteOutfit();
   const rateOutfit = useRateOutfit();
   const upsertPlanned = useUpsertPlannedOutfit();
+  const feedbackQ = useOutfitFeedback(outfit?.id);
+  const saveNote = useSaveOutfitNote();
 
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
 
-  // Hydrate `rating` from the loaded outfit so a returning user sees their
-  // prior rating instead of an empty 5-star row that one careless tap could
-  // overwrite (audit K on PR #718). Only seed once per outfit id — local
-  // edits via `handleRate` win after that.
-  const hydratedRatingForId = React.useRef<string | null>(null);
+  // Hydrate rating + notes from outfit + outfit_feedback so a returning user
+  // sees their prior values instead of an empty 5-star row + empty note that
+  // a careless tap or save would overwrite. Audit K (rating) and L (notes).
+  // Only seed once per outfit id — local edits win after the initial seed.
+  const hydratedForId = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (!outfit?.id) return;
-    if (hydratedRatingForId.current === outfit.id) return;
-    hydratedRatingForId.current = outfit.id;
-    setRating(typeof outfit.rating === 'number' ? outfit.rating : 0);
-  }, [outfit?.id, outfit?.rating]);
+    if (!outfit?.id || feedbackQ.isLoading) return;
+    if (hydratedForId.current === outfit.id) return;
+    hydratedForId.current = outfit.id;
+    const seedRating =
+      feedbackQ.data?.rating ??
+      (typeof outfit.rating === 'number' ? outfit.rating : 0);
+    setRating(seedRating ?? 0);
+    setNotes(feedbackQ.data?.commentary ?? '');
+  }, [outfit?.id, outfit?.rating, feedbackQ.data, feedbackQ.isLoading]);
+
+  const persistedNote = feedbackQ.data?.commentary ?? '';
+  const notesDirty = notes.trim() !== persistedNote.trim();
 
   const wornToday = React.useMemo(() => {
     if (!outfit?.worn_at) return false;
@@ -348,6 +359,39 @@ export function OutfitDetailScreen() {
                 },
               ]}
             />
+            {/* Save button surfaces only when the textarea diverges from what
+                we last loaded. Without it the typed note was never persisted
+                — audit L on PR #718. Cancel reverts to the persisted text
+                so a half-typed change can be discarded explicitly. */}
+            {notesDirty ? (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <Button
+                  label={saveNote.isPending ? 'Saving…' : 'Save note'}
+                  size="sm"
+                  onPress={() => {
+                    if (!outfit) return;
+                    saveNote.mutate(
+                      { outfitId: outfit.id, note: notes },
+                      {
+                        onError: (err: unknown) =>
+                          Alert.alert(
+                            'Could not save note',
+                            err instanceof Error ? err.message : 'Please try again.',
+                          ),
+                      },
+                    );
+                  }}
+                  disabled={saveNote.isPending}
+                />
+                <Button
+                  label="Cancel"
+                  size="sm"
+                  variant="outline"
+                  onPress={() => setNotes(persistedNote)}
+                  disabled={saveNote.isPending}
+                />
+              </View>
+            ) : null}
           </View>
 
           <View>
