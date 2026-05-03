@@ -41,7 +41,7 @@ function sanitizeIlikeTerm(value: string): string {
 
 type GarmentPage = { items: Garment[]; nextPage: number | undefined };
 
-export function useGarments(filters?: GarmentFilters) {
+export function useGarments(filters?: GarmentFilters, enabled = true) {
   const { user } = useAuth();
 
   return useInfiniteQuery<GarmentPage, Error, InfiniteData<GarmentPage>, readonly unknown[], number>({
@@ -91,7 +91,7 @@ export function useGarments(filters?: GarmentFilters) {
     },
     getNextPageParam: (last) => last.nextPage,
     initialPageParam: 0,
-    enabled: !!user,
+    enabled: !!user && enabled,
     // Evict abandoned queries (e.g. mid-typing search results that the user
     // moved past) after 30s. Keeps memory bounded without breaking the
     // "type-and-pause" caching that React Query gives for free.
@@ -100,41 +100,25 @@ export function useGarments(filters?: GarmentFilters) {
 }
 
 /**
- * Flattens InfiniteData pages into a plain Garment[]. Memoised on the page
- * fingerprint (length + first/last item id) so the array reference is stable
- * across refetches that produce identical contents — without this, every
- * mutation that triggers `invalidateQueries(['garments'])` would re-flatMap
- * to a fresh array and force the consuming FlatList to remount every cell.
+ * Flattens InfiniteData pages into a plain Garment[]. Memo keyed on the
+ * `pages` reference itself: React Query's `setQueriesData` updater returns a
+ * new pages array (and new page objects) every time it touches a row, so
+ * relying on the array reference is correct AND covers in-page mutations
+ * (e.g. `markWorn` updating an item in the middle of page 0). An earlier
+ * version keyed on a length-+-edge-ids fingerprint as a refresh-thrash
+ * optimisation, but that turned out to be unsafe — middle-of-page mutations
+ * left the fingerprint identical so consumers (Wardrobe / Laundry / Search /
+ * Used / Unused) saw a stale flattened array. Codex P1 round 1 on PR #718.
  */
 type FlatGarments = Omit<UseInfiniteQueryResult<InfiniteData<GarmentPage>, Error>, 'data'> & {
   data: Garment[];
 };
 
-export function useFlatGarments(filters?: GarmentFilters): FlatGarments {
-  const query = useGarments(filters);
+export function useFlatGarments(filters?: GarmentFilters, enabled = true): FlatGarments {
+  const query = useGarments(filters, enabled);
   const pages = query.data?.pages;
-  const fingerprint = useMemo(() => {
-    if (!pages) return '';
-    // The pages array AND the items inside it are both important — but
-    // re-checking every item id is wasteful. Length + first/last item id
-    // catches insert/delete/reorder; in-place mutations come through
-    // `setQueryData` which already updates the row reference. False
-    // negatives only matter if a cell shows stale derived UI; refetch on
-    // focus closes the gap.
-    const sigParts: string[] = [];
-    for (const p of pages) {
-      const last = p.items[p.items.length - 1];
-      const first = p.items[0];
-      sigParts.push(`${p.items.length}:${first?.id ?? ''}:${last?.id ?? ''}:${last?.updated_at ?? ''}`);
-    }
-    return sigParts.join('|');
-  }, [pages]);
 
-  const data = useMemo(
-    () => pages?.flatMap((p) => p.items) ?? [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fingerprint],
-  );
+  const data = useMemo(() => pages?.flatMap((p) => p.items) ?? [], [pages]);
 
   return { ...query, data };
 }

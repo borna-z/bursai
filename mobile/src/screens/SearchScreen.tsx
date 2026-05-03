@@ -125,12 +125,19 @@ export function SearchScreen() {
       }
     : undefined;
 
+  // Gate the hook with `showResults` so opening Search doesn't silently fire
+  // an unfiltered "all garments" round-trip before the user types anything.
+  // The auth-only guard inside useGarments still issued a request for the
+  // first page on every mount. Codex P2 on PR #718.
   const {
     data: results,
     isLoading,
     isError,
     refetch,
-  } = useFlatGarments(queryFilters);
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFlatGarments(queryFilters, showResults);
 
   // Disable the query when no search is active so we don't fire an
   // unnecessary "all garments" request as soon as the screen mounts. The
@@ -297,12 +304,26 @@ export function SearchScreen() {
             keyExtractor={(g) => g.id}
             numColumns={3}
             keyboardShouldPersistTaps="handled"
+            // Drive pagination from the underlying infinite query — without
+            // this, results > PAGE_SIZE (30) were silently truncated to page 1.
+            // Codex P2 on PR #718.
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+            }}
+            onEndReachedThreshold={0.4}
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={t.accent} />
+                </View>
+              ) : null
+            }
             ListHeaderComponent={
               <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 }}>
                 <Eyebrow>
                   {visibleResults.length === 0
                     ? 'No matches'
-                    : `${visibleResults.length} ${visibleResults.length === 1 ? 'result' : 'results'}`}
+                    : `${visibleResults.length}${hasNextPage ? '+' : ''} ${visibleResults.length === 1 ? 'result' : 'results'}`}
                 </Eyebrow>
               </View>
             }
