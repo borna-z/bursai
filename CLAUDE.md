@@ -21,9 +21,9 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ### Launch Plan — Current Wave
 
-**CURRENT PROMPT:** Wave 8.5 P86 — Pair memory auto-write across all flows (PR A foundation shipped as PR #709 covering P83+P84+P85+P87; PR B remaining: P86+P88+P89+P90+P91+P92)
-**CURRENT WAVE FILE:** `docs/launch/wave-8.5-style-memory.md`
-**LAST UPDATED:** 2026-05-01
+**CURRENT PROMPT:** Wave 9 P59 — Capacitor migration (Wave 8.5 PR B shipped as PR #712 covering P86 minimum-viable + P88 + P89 + P90 with audit-driven scope expansions; deferred P86 sub-surfaces + P91 detailed tests + P92 verification noted in Findings Log)
+**CURRENT WAVE FILE:** `docs/launch/wave-9-capacitor.md`
+**LAST UPDATED:** 2026-05-03
 **LAST CLEANUP:** 2026-04-28 (Wave 4.9 hygiene PR #697 — flipped 3 stuck Findings Log rows whose underlying fixes shipped via PRs #641 / #669 / #670 but whose Action column was never backfilled; tracker now reflects the actual closure state)
 **TOTAL SCOPE:** ~95 prompts across 14 waves (P0a–P92, plus W4.9 + W7.9 closing sub-wave clusters)
 
@@ -54,8 +54,8 @@ Standing rules common to every wave: `docs/launch/standing-rules.md`.
 | 6 | `docs/launch/wave-6-localization.md` | ✅ DONE |
 | 7 | `docs/launch/wave-7-onboarding.md` | ✅ DONE (Wave 7.9 follow-up cleanup PENDING — staged on branch `wave-7-9-followup`, not yet merged) |
 | 8 | `docs/launch/wave-8-subscriptions.md` | ✅ DONE (functional scope; Wave 8.9 closure deferred per user direction 2026-04-29 — 3 open Findings rows carry `Scheduled: post-launch` annotations) |
-| 8.5 | `docs/launch/wave-8.5-style-memory.md` | 🔄 CURRENT |
-| 9 | `docs/launch/wave-9-capacitor.md` | 🔜 TODO |
+| 8.5 | `docs/launch/wave-8.5-style-memory.md` | ✅ DONE (PR A #709 + PR B #712; deferred P86 sub-surfaces (UnusedOutfits, AISuggestions, useTravelCapsule, useWeekGenerator, OutfitSuggestionCard swap, Plan-skip UI, GarmentDetail Never-suggest UI, QuickReactionRow + 4 placements) + P91 detailed test matrix + P92 verification noted in Findings Log; functional scope CLOSED) |
+| 9 | `docs/launch/wave-9-capacitor.md` | 🔄 CURRENT |
 | 10 | `docs/launch/wave-10-app-store.md` | 🔜 TODO (also contains Wave 10.5 — Vertex AI / Gemini 3 migration) |
 | 11 | `docs/launch/wave-11-launch.md` | 🔜 TODO |
 

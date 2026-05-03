@@ -225,7 +225,7 @@ Behavior:
 
 ---
 
-### P86 — Pair memory auto-write across all flows
+### P86 — Pair memory auto-write across all flows [DONE-partial] (PR #712, 2026-05-02 — top 3 high-volume save surfaces wired; deferred sub-surfaces tracked in CLAUDE.md Findings Log)
 
 **Problem**
 Per the P82 audit, several user flows do not reliably update memory. Frontend-only state changes get lost on reload; backend updates miss when feedback only flows through frontend.
@@ -307,7 +307,7 @@ Output `summary_text` is compact and safe to inject into AI prompts (≤500 char
 
 ---
 
-### P88 — burs_style_engine reads user_style_summaries
+### P88 — burs_style_engine reads user_style_summaries [DONE] (PR #712, 2026-05-02)
 
 **Problem**
 The outfit-generation engine doesn't currently use a persistent summary. It re-derives style context per request. This is expensive and inconsistent across calls.
@@ -342,7 +342,7 @@ Do not blindly obey low-confidence memories. Cache the summary read per-request 
 
 ---
 
-### P89 — style_chat reads the same summary
+### P89 — style_chat reads the same summary [DONE] (PR #712, 2026-05-02)
 
 **Problem**
 The stylist chat doesn't share the same memory surface as outfit generation. User preferences expressed in chat ("never suggest this") don't reach outfit generation; preferences inferred from outfit generation don't surface in chat advice.
@@ -372,7 +372,7 @@ Update `supabase/functions/style_chat/index.ts` so the stylist chat:
 
 ---
 
-### P90 — Privacy / export / reset for memory
+### P90 — Privacy / export / reset for memory [DONE] (PR #712, 2026-05-02)
 
 **Problem**
 Existing privacy export + delete flows predate `user_style_summaries` and don't include the new memory surface. Users can't see what BURS knows about them, and deleting an account leaves orphan memory rows.
@@ -418,7 +418,7 @@ Reset does NOT delete (unless existing UX explicitly says it will):
 
 ---
 
-### P91 — Memory bridge tests
+### P91 — Memory bridge tests [DONE-partial] (PR #712, 2026-05-02 — extraction matrix + foundation tests + 11 hook tests + audit-driven test fixtures shipped; full N=3 + race + cross-user 403 + delete-cascade integration matrix deferred to follow-up PR)
 
 **Problem**
 The bridge has many moving parts. Without tests, regressions creep in silently.
@@ -466,7 +466,7 @@ Add or update tests for:
 
 ---
 
-### P92 — Wave 8.5 acceptance close-out
+### P92 — Wave 8.5 acceptance close-out [DONE-partial] (PR #712, 2026-05-02 — pipeline gate (tsc 0/eslint 0/build 16.31s/vitest 1676/1676) + tracker updates + this PR body include the 7-section summary; full 13-bullet checklist verification deferred to follow-up since several deferred sub-surfaces remain)
 
 **Problem**
 Wave-close validation per the spec. The 11-step plan needs a final pass that verifies everything ships together correctly.

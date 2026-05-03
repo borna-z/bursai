@@ -3567,6 +3567,22 @@ const en: Record<string, string> = {
   'paywall.restore_success': 'Subscription restored',
   'paywall.restore_no_subscription': "We couldn't find an active subscription on this account",
   'paywall.restore_error': "Couldn't restore subscription. Try again.",
+
+  // ── Wave 8.5 PR B (P90) — Reset Style Memory ────────────────────────
+  // Destructive but recoverable op. Double-confirmation dialog matches
+  // the Delete Account UX so the user understands clears vs preserves.
+  'settings.gdpr.reset_memory': 'Reset style memory',
+  'settings.gdpr.reset_memory_title': 'Reset your style memory?',
+  'settings.gdpr.reset_memory_warning':
+    "This permanently clears everything BURS has learned about your taste — saves, ratings, swaps, rejections, and the patterns we built from them.",
+  'settings.gdpr.reset_memory_what_clears':
+    'Cleared: feedback signals, pair memory, style summary.',
+  'settings.gdpr.reset_memory_what_preserves':
+    'Preserved: your account, garments, outfits, planned outfits, and wear history.',
+  'settings.gdpr.reset_memory_confirm': 'Yes, reset',
+  'settings.gdpr.reset_memory_type_confirm': 'Type RESET to confirm:',
+  'settings.gdpr.reset_success': 'Style memory cleared',
+  'settings.gdpr.reset_error': 'Could not clear style memory. Please try again.',
 };
 
 export default en;
