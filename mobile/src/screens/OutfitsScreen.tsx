@@ -7,7 +7,7 @@
 // once a backend hook lands. The fixed fixture below visually rhymes with the handoff prototype.
 
 import React from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -24,60 +24,64 @@ import { Button } from '../components/Button';
 import { OutfitGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, GridIcon, ListIcon } from '../components/icons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { useOutfits } from '../hooks/useOutfits';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-type OutfitFixture = {
-  id: string;
-  name: string;
-  occasion: string;
-  formality: string;
-  wearCount: number;
-  /** Days since last worn — drives the "Recent" filter. `null` for never-worn outfits. */
-  lastWornDays: number | null;
-  /** Whether the user has saved a feedback note on this outfit. Drives "With notes" filter. */
-  hasNotes: boolean;
-  /** Four hues for the 2x2 garment thumb grid. */
-  hues: [number, number, number, number];
-};
-
-const OUTFITS: OutfitFixture[] = [
-  { id: 'o1', name: 'Studio brunch',  occasion: 'Brunch',  formality: 'Smart casual', wearCount: 12, lastWornDays: 1,    hasNotes: true,  hues: [32, 38, 200, 28] },
-  { id: 'o2', name: 'Sunday casual',  occasion: 'Casual',  formality: 'Casual',       wearCount: 8,  lastWornDays: 4,    hasNotes: false, hues: [200, 220, 28, 45] },
-  { id: 'o3', name: 'Boardroom',      occasion: 'Office',  formality: 'Business',     wearCount: 4,  lastWornDays: 21,   hasNotes: true,  hues: [220, 28, 200, 18] },
-  { id: 'o4', name: 'Gallery night',  occasion: 'Evening', formality: 'Smart',        wearCount: 6,  lastWornDays: 6,    hasNotes: false, hues: [280, 28, 18, 200] },
-  { id: 'o5', name: 'Weekend run',    occasion: 'Active',  formality: 'Casual',       wearCount: 0,  lastWornDays: null, hasNotes: false, hues: [120, 200, 32, 45] },
-  { id: 'o6', name: 'Date — soft',    occasion: 'Date',    formality: 'Smart',        wearCount: 2,  lastWornDays: 30,   hasNotes: true,  hues: [350, 32, 28, 18] },
-];
 
 type FilterKey = 'all' | 'recent' | 'with_notes';
 type ViewMode = 'grid' | 'list';
 
 // "Recent" cutoff: outfits worn in the last 14 days. Tunable.
 const RECENT_DAYS = 14;
+const RECENT_CUTOFF_MS = RECENT_DAYS * 24 * 60 * 60 * 1000;
+
+function wearCountFromOutfit(o: OutfitWithItems): number {
+  // The schema has no per-outfit wear_count; the closest signal we have right now
+  // is `worn_at` (yes/no the outfit was ever worn). When wear_logs aggregation lands
+  // (W-future), this becomes a real count via a join. For now: 1 if worn, else 0.
+  return o.worn_at ? 1 : 0;
+}
+
+function lastWornAgeMs(o: OutfitWithItems): number | null {
+  if (!o.worn_at) return null;
+  const ts = new Date(o.worn_at).getTime();
+  if (!Number.isFinite(ts)) return null;
+  return Date.now() - ts;
+}
 
 export function OutfitsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [filter, setFilter] = React.useState<FilterKey>('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid');
-  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(800);
 
-  // Apply the active filter chip. Codex P2 round 5: previously `visible` was constant, so the
-  // filter chips were no-ops — they're now wired to drive the list (and the empty state).
-  // When the outfits hook lands this becomes a server-side `?filter=` arg or a `useMemo` over
-  // the hook's return value; the UI contract above stays identical.
-  const visible = React.useMemo(() => {
+  const outfitsQ = useOutfits(true);
+  const outfits = outfitsQ.data ?? [];
+  const loading = outfitsQ.isLoading;
+  const refreshing = outfitsQ.isRefetching;
+  const error = outfitsQ.isError;
+  const onRefresh = React.useCallback(() => {
+    void outfitsQ.refetch();
+  }, [outfitsQ]);
+  const retry = onRefresh;
+
+  // Apply the active filter chip on the live outfit list.
+  const visible = React.useMemo<OutfitWithItems[]>(() => {
     if (filter === 'recent') {
-      return OUTFITS.filter((o) => o.lastWornDays != null && o.lastWornDays <= RECENT_DAYS);
+      return outfits.filter((o) => {
+        const age = lastWornAgeMs(o);
+        return age != null && age <= RECENT_CUTOFF_MS;
+      });
     }
     if (filter === 'with_notes') {
-      return OUTFITS.filter((o) => o.hasNotes);
+      return outfits.filter((o) => Array.isArray(o.feedback) && o.feedback.length > 0);
     }
-    return OUTFITS;
-  }, [filter]);
+    return outfits;
+  }, [filter, outfits]);
 
   const header = (
     <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
@@ -104,63 +108,11 @@ export function OutfitsScreen() {
     </View>
   );
 
-  const renderCard = ({ item }: { item: OutfitFixture }) => (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${item.name}, ${item.occasion}`}
+  const renderCard = ({ item }: { item: OutfitWithItems }) => (
+    <OutfitListCard
+      outfit={item}
       onPress={() => nav.navigate('OutfitDetail', { id: item.id })}
-      style={({ pressed }) => [
-        s.card,
-        {
-          backgroundColor: t.card,
-          borderColor: t.border,
-          transform: pressed ? [{ scale: 0.97 }] : [],
-        },
-      ]}>
-      <View style={s.cardThumbWrap}>
-        {item.hues.map((h, i) => (
-          <LinearGradient
-            key={i}
-            colors={[`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={s.cardThumbCell}
-          />
-        ))}
-      </View>
-      <View style={{ padding: 12, gap: 8 }}>
-        <Text
-          style={{
-            fontFamily: fonts.displayMedium,
-            fontStyle: 'italic',
-            fontSize: 16,
-            fontWeight: '500',
-            color: t.fg,
-            letterSpacing: -0.16,
-          }}
-          numberOfLines={1}>
-          {item.name}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
-          <View style={[s.metaChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
-            <Text style={[s.metaChipText, { color: t.fg2 }]}>{item.occasion}</Text>
-          </View>
-          <View style={[s.metaChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
-            <Text style={[s.metaChipText, { color: t.fg2 }]}>{item.formality}</Text>
-          </View>
-        </View>
-        <Text
-          style={{
-            fontFamily: fonts.uiSemi,
-            fontSize: 10,
-            color: t.fg3,
-            letterSpacing: 1.4,
-            textTransform: 'uppercase',
-          }}>
-          {item.wearCount === 0 ? 'Never worn' : `${item.wearCount} wears`}
-        </Text>
-      </View>
-    </Pressable>
+    />
   );
 
   if (error) {
@@ -262,6 +214,114 @@ export function OutfitsScreen() {
         renderItem={renderCard}
       />
     </SafeAreaView>
+  );
+}
+
+function OutfitListCard({ outfit, onPress }: { outfit: OutfitWithItems; onPress: () => void }) {
+  const t = useTokens();
+  const items = (outfit.outfit_items ?? []).slice(0, 4);
+  const fillerCount = Math.max(0, 4 - items.length);
+  const fallbackHue = outfitGradientHue(outfit.id);
+  const wearCount = wearCountFromOutfit(outfit);
+  const occasion = outfit.occasion?.trim() ?? '';
+  const vibe = outfit.style_vibe?.trim() ?? '';
+  const name = outfitDisplayName(outfit);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${name}${occasion ? `, ${occasion}` : ''}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        s.card,
+        {
+          backgroundColor: t.card,
+          borderColor: t.border,
+          transform: pressed ? [{ scale: 0.97 }] : [],
+        },
+      ]}>
+      <View style={s.cardThumbWrap}>
+        {items.map((item) => (
+          <CardThumb key={item.id} item={item} fallbackHue={fallbackHue} />
+        ))}
+        {Array.from({ length: fillerCount }).map((_, i) => (
+          <CardThumb key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
+        ))}
+      </View>
+      <View style={{ padding: 12, gap: 8 }}>
+        <Text
+          style={{
+            fontFamily: fonts.displayMedium,
+            fontStyle: 'italic',
+            fontSize: 16,
+            fontWeight: '500',
+            color: t.fg,
+            letterSpacing: -0.16,
+          }}
+          numberOfLines={1}>
+          {name}
+        </Text>
+        {(occasion || vibe) ? (
+          <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+            {occasion ? (
+              <View style={[s.metaChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
+                <Text style={[s.metaChipText, { color: t.fg2 }]}>{occasion}</Text>
+              </View>
+            ) : null}
+            {vibe ? (
+              <View style={[s.metaChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
+                <Text style={[s.metaChipText, { color: t.fg2 }]}>{vibe}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+        <Text
+          style={{
+            fontFamily: fonts.uiSemi,
+            fontSize: 10,
+            color: t.fg3,
+            letterSpacing: 1.4,
+            textTransform: 'uppercase',
+          }}>
+          {wearCount === 0 ? 'Never worn' : `${wearCount} wear${wearCount === 1 ? '' : 's'}`}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function CardThumb({
+  item,
+  fallbackHue,
+}: {
+  item: OutfitItemWithGarment | null;
+  fallbackHue: number;
+}) {
+  const garment = item?.garment ?? null;
+  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { data: signedUrl } = useSignedUrl(imagePath);
+  const [broken, setBroken] = React.useState(false);
+  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
+  const showImage = signedUrl && !broken;
+  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
+
+  return (
+    <View style={[s.cardThumbCell, { overflow: 'hidden' }]}>
+      <LinearGradient
+        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      {showImage ? (
+        <Image
+          source={{ uri: signedUrl }}
+          onError={() => setBroken(true)}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      ) : null}
+    </View>
   );
 }
 

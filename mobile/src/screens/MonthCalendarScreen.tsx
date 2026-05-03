@@ -6,7 +6,8 @@
 // query lands in a future PR.
 
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +20,9 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
+import { usePlannedOutfitsForRange } from '../hooks/usePlannedOutfits';
+import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import type { PlannedOutfitWithOutfit } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -89,33 +93,12 @@ function buildMonthGrid(year: number, month: number, today: Date): Cell[] {
   return cells;
 }
 
-// Mock planned outfits — keyed by ISO date. Generated relative to today so the dots aren't
-// stuck in the past.
-function buildMockPlanned(today: Date): Record<string, { hue: number; name: string }> {
-  const out: Record<string, { hue: number; name: string }> = {};
-  const offsets: Array<{ delta: number; hue: number; name: string }> = [
-    { delta: 0,  hue: 32,  name: 'Today is styled' },
-    { delta: 1,  hue: 200, name: 'Morning coffee' },
-    { delta: 2,  hue: 18,  name: 'Office tailored' },
-    { delta: 5,  hue: 45,  name: 'Friday softness' },
-    { delta: 8,  hue: 220, name: 'Brunch · soft' },
-    { delta: -3, hue: 0,   name: 'Studio · creative' },
-  ];
-  for (const o of offsets) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + o.delta);
-    out[localISODate(d)] = { hue: o.hue, name: o.name };
-  }
-  return out;
-}
-
 export function MonthCalendarScreen() {
   const t = useTokens();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
 
   const today = useMemo(() => startOfDay(new Date()), []);
-  const planned = useMemo(() => buildMockPlanned(today), [today]);
   const weekdays = useMemo(() => buildWeekdayHeaders(), []);
 
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -123,6 +106,22 @@ export function MonthCalendarScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(today);
 
   const grid = useMemo(() => buildMonthGrid(currentYear, currentMonth, today), [currentYear, currentMonth, today]);
+
+  // Range covers the visible 6×7 grid — first cell to last cell — so dots show on the
+  // overflow days (last week of previous month / first week of next month) too.
+  const monthStartIso = grid[0]?.iso ?? localISODate(new Date(currentYear, currentMonth, 1));
+  const monthEndIso = grid[grid.length - 1]?.iso ?? localISODate(new Date(currentYear, currentMonth + 1, 0));
+  const monthPlansQ = usePlannedOutfitsForRange(monthStartIso, monthEndIso);
+
+  const planned = useMemo(() => {
+    const map: Record<string, PlannedOutfitWithOutfit> = {};
+    for (const p of monthPlansQ.data ?? []) {
+      // Last write wins on duplicate dates — sort order is ascending by date so the
+      // most-recently-inserted row for a given duplicated date overwrites.
+      map[p.date] = p;
+    }
+    return map;
+  }, [monthPlansQ.data]);
 
   const headerEyebrow = new Date(currentYear, currentMonth, 1)
     .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -296,20 +295,7 @@ export function MonthCalendarScreen() {
           <Eyebrow>{selectedEyebrow}</Eyebrow>
           {selectedPlanned ? (
             <>
-              <View style={s.thumbRow}>
-                {[0, 1, 2, 3].map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      s.thumb,
-                      {
-                        backgroundColor: `hsl(${(selectedPlanned.hue + i * 15) % 360}, 22%, 78%)`,
-                        borderColor: t.border,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
+              <PlannedThumbRow plan={selectedPlanned} />
               <Text
                 style={{
                   fontFamily: fonts.displayMedium,
@@ -318,14 +304,20 @@ export function MonthCalendarScreen() {
                   color: t.fg,
                   letterSpacing: -0.22,
                 }}>
-                {selectedPlanned.name}
+                {outfitDisplayName(selectedPlanned.outfit, 'Planned outfit')}
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Button
                   label="View outfit"
-                  onPress={() => { hapticLight(); nav.navigate('OutfitDetail'); }}
+                  onPress={() => {
+                    hapticLight();
+                    if (selectedPlanned.outfit?.id) {
+                      nav.navigate('OutfitDetail', { id: selectedPlanned.outfit.id });
+                    }
+                  }}
                   block
                   style={{ flex: 1 }}
+                  disabled={!selectedPlanned.outfit?.id}
                 />
                 <Button
                   label="Change"
@@ -357,19 +349,47 @@ export function MonthCalendarScreen() {
                 onPress={() => { hapticLight(); nav.navigate('OutfitGenerate'); }}
                 block
               />
-              <Button
-                label="Plan manually"
-                variant="outline"
-                onPress={() =>
-                  Alert.alert('Coming soon', 'Manual outfit planning coming soon.')
-                }
-                block
-              />
             </>
           )}
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// Renders 4 thumb cells from a planned outfit's outfit_items. Each tile gets the
+// garment's stable hue (via outfitGradientHue on the garment id) when available so
+// the colour family stays consistent with the actual outfit, not a per-row reroll.
+function PlannedThumbRow({ plan }: { plan: PlannedOutfitWithOutfit }) {
+  const items = (plan.outfit?.outfit_items ?? []).slice(0, 4);
+  const fillerCount = Math.max(0, 4 - items.length);
+  const baseHue = plan.outfit ? outfitGradientHue(plan.outfit.id) : outfitGradientHue(plan.id);
+  const t = useTokens();
+
+  const tileFor = (key: string, garmentId?: string | null) => {
+    const hue = garmentId ? outfitGradientHue(garmentId) : baseHue;
+    return (
+      <View
+        key={key}
+        style={[
+          s.thumb,
+          { borderColor: t.border, overflow: 'hidden', backgroundColor: t.bg2 },
+        ]}>
+        <LinearGradient
+          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+      </View>
+    );
+  };
+
+  return (
+    <View style={s.thumbRow}>
+      {items.map((item) => tileFor(item.id, item.garment?.id ?? null))}
+      {Array.from({ length: fillerCount }).map((_, i) => tileFor(`filler-${i}`))}
+    </View>
   );
 }
 
