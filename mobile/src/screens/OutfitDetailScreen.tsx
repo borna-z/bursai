@@ -170,7 +170,20 @@ export function OutfitDetailScreen() {
               ariaLabel="More options"
               variant="ghost"
               onPress={() =>
-                Alert.alert('More', 'Outfit actions coming soon.')
+                Alert.alert('Options', undefined, [
+                  { text: 'Add to plan', onPress: () => Alert.alert('Added', 'Outfit added to your plan.') },
+                  { text: 'Share outfit', onPress: () => nav.navigate('ShareOutfit', undefined) },
+                  {
+                    text: 'Delete outfit',
+                    style: 'destructive',
+                    onPress: () =>
+                      Alert.alert('Delete', 'Delete this outfit? This cannot be undone.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => nav.goBack() },
+                      ]),
+                  },
+                  { text: 'Cancel', style: 'cancel' },
+                ])
               }>
               <MoreIcon color={t.fg} />
             </IconBtn>

@@ -8,7 +8,7 @@
 // Source: design_handoff_burs_rn/source/extra-screens.jsx WardrobeGapsScreen + handoff README §10.
 
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +30,8 @@ import {
   SunIcon,
   TshirtIcon,
 } from '../components/icons';
+import { ErrorState } from '../components/ErrorState';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -56,6 +58,7 @@ export function WardrobeGapsScreen() {
   const nav = useNavigation<Nav>();
   const [analyzing, setAnalyzing] = React.useState(false);
   const [analyzed, setAnalyzed] = React.useState(true);
+  const { refreshing, error, onRefresh, setError } = useMockRefresh(800);
   // Track the in-flight mock-analysis timer so we can cancel it on unmount. Without this, an
   // unmount-during-analysis fires setAnalyzing/setAnalyzed on a torn-down component (RN logs a
   // "state update on unmounted component" warning). Codex P3 round 6. When the real
@@ -114,8 +117,22 @@ export function WardrobeGapsScreen() {
 
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 80, gap: 18 }}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }>
 
+        {error ? (
+          <ErrorState
+            onRetry={() => {
+              setError(false);
+              runAnalysis();
+            }}
+          />
+        ) : null}
+
+        {!error ? (
+        <>
         <Card hero padding={20}>
           <Eyebrow style={{ marginBottom: 6 }}>Your wardrobe needs</Eyebrow>
           <Text
@@ -183,6 +200,8 @@ export function WardrobeGapsScreen() {
               );
             })}
           </View>
+        ) : null}
+        </>
         ) : null}
       </ScrollView>
     </SafeAreaView>

@@ -7,7 +7,7 @@
 // once a backend hook lands. The fixed fixture below visually rhymes with the handoff prototype.
 
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +21,10 @@ import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { Button } from '../components/Button';
+import { OutfitGridSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
 import { BackIcon, GridIcon, ListIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -60,6 +63,7 @@ export function OutfitsScreen() {
   const nav = useNavigation<Nav>();
   const [filter, setFilter] = React.useState<FilterKey>('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid');
+  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(800);
 
   // Apply the active filter chip. Codex P2 round 5: previously `visible` was constant, so the
   // filter chips were no-ops — they're now wired to drive the list (and the empty state).
@@ -159,6 +163,37 @@ export function OutfitsScreen() {
     </Pressable>
   );
 
+  if (error) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }>
+          {header}
+          <ErrorState onRetry={retry} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }
+          showsVerticalScrollIndicator={false}>
+          {header}
+          <OutfitGridSkeleton />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (visible.length === 0) {
     // Filter-aware empty state. The "No outfits yet" / "Style me" copy is reserved for the
     // genuine zero-data case (filter==='all'); filter-specific misses get their own quiet
@@ -221,6 +256,9 @@ export function OutfitsScreen() {
           paddingHorizontal: viewMode === 'list' ? 20 : 0,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         renderItem={renderCard}
       />
     </SafeAreaView>

@@ -135,6 +135,11 @@ export function EditGarmentScreen() {
   const togglePick = <T,>(val: T, list: T[], setList: (xs: T[]) => void) =>
     setList(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
 
+  // Save is enabled only when the user has provided a non-empty title and picked a category.
+  // Mirrors the spec for this design pass — once the form is wired to a mutation, this gate
+  // becomes the trailing validation in the submit handler.
+  const isValid = title.trim().length > 0 && category.length > 0;
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <KeyboardAvoidingView
@@ -171,10 +176,16 @@ export function EditGarmentScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => nav.goBack()}
+            onPress={() => {
+              if (!isValid) return;
+              nav.goBack();
+            }}
+            disabled={!isValid}
             accessibilityLabel="Save"
             accessibilityRole="button"
-            hitSlop={8}>
+            accessibilityState={{ disabled: !isValid }}
+            hitSlop={8}
+            style={{ opacity: isValid ? 1 : 0.5 }}>
             <Text
               style={{
                 fontFamily: fonts.uiSemi,

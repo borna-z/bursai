@@ -61,7 +61,7 @@ export type TabName = TabId;
  *
  * Plain serializable data so React Navigation can persist it through state restoration.
  */
-export type AddPiecePhoto = { id: number; hue: number };
+export type AddPiecePhoto = { id: number; hue: number; uri?: string };
 
 export type RootStackParamList = {
   // Acquisition flow — Splash is the initial route, gates auth + onboarding.

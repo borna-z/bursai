@@ -8,7 +8,7 @@
 // Codex P2 #4 on PR #699 — the original prototype hardcoded "Sat · Apr 26 / SAT 26 → FRI 2".
 
 import React from 'react';
-import { Alert, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -20,10 +20,12 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { PlanCardSkeleton, StatRowSkeleton } from '../components/skeletons';
 import {
   ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
   SunIcon, ChevronIcon, SparklesIcon, type IconProps,
 } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
 
 type HomeNav = NativeStackNavigationProp<RootStackParamList>;
@@ -81,6 +83,10 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   const greeting = greetingFor(now);
   const week = buildMiniWeek(now);
 
+  // Mock-data loading state — resolves after 600ms so the user sees skeleton placeholders before
+  // the populated layout fades in. Real impl swaps this for the home-screen aggregate query.
+  const { refreshing, loading, onRefresh } = useMockRefresh(600);
+
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView
@@ -90,6 +96,14 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
           paddingBottom: 130,
           gap: 18,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={t.accent}
+            colors={[t.accent]}
+          />
+        }
         showsVerticalScrollIndicator={false}>
 
         {/* ============ HEADER ============ */}
@@ -118,36 +132,42 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
 
         {/* ============ TODAY'S LOOK HERO ============ */}
         <Card hero padding={18}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <View>
-              <Eyebrow style={{ marginBottom: 3 }}>Today's Look</Eyebrow>
-              <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontSize: 22, lineHeight: 24, fontWeight: '500', color: t.fg, letterSpacing: -0.22 }}>
-                Studio brunch
+          {loading ? (
+            <PlanCardSkeleton />
+          ) : (
+            <>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <View>
+                  <Eyebrow style={{ marginBottom: 3 }}>Today's Look</Eyebrow>
+                  <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontSize: 22, lineHeight: 24, fontWeight: '500', color: t.fg, letterSpacing: -0.22 }}>
+                    Studio brunch
+                  </Text>
+                </View>
+                <Pressable onPress={push('OutfitDetail')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>View</Text>
+                  <ChevronIcon color={t.accent} />
+                </Pressable>
+              </View>
+              <View style={s.outfitRow}>
+                <OutfitThumb label="OUTER" />
+                <OutfitThumb label="TOP" />
+                <OutfitThumb label="BOTTOM" />
+                <OutfitThumb label="SHOES" />
+              </View>
+              <Text style={{ fontSize: 12.5, color: t.fg2, marginVertical: 14, lineHeight: 18, fontFamily: fonts.ui }}>
+                14° clear — pair the wool overshirt with cream linen for the gallery opening at 11.
               </Text>
-            </View>
-            <Pressable onPress={push('OutfitDetail')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>View</Text>
-              <ChevronIcon color={t.accent} />
-            </Pressable>
-          </View>
-          <View style={s.outfitRow}>
-            <OutfitThumb label="OUTER" />
-            <OutfitThumb label="TOP" />
-            <OutfitThumb label="BOTTOM" />
-            <OutfitThumb label="SHOES" />
-          </View>
-          <Text style={{ fontSize: 12.5, color: t.fg2, marginVertical: 14, lineHeight: 18, fontFamily: fonts.ui }}>
-            14° clear — pair the wool overshirt with cream linen for the gallery opening at 11.
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label="Wear this" onPress={push('OutfitDetail')} block style={{ flex: 1 }} />
-            <Button label="Restyle" variant="outline" onPress={push('OutfitGenerate')} />
-            <Button
-              label="Save"
-              variant="quiet"
-              onPress={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
-            />
-          </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button label="Wear this" onPress={push('OutfitDetail')} block style={{ flex: 1 }} />
+                <Button label="Restyle" variant="outline" onPress={push('OutfitGenerate')} />
+                <Button
+                  label="Save"
+                  variant="quiet"
+                  onPress={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
+                />
+              </View>
+            </>
+          )}
         </Card>
 
         {/* ============ YOUR STYLIST GRID ============ */}
@@ -217,10 +237,14 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
               <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>Insights →</Text>
             </Pressable>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <RhythmStat num="23" label="Outfits worn" onPress={() => goTab('insights')} />
-            <RhythmStat num="68%" label="Wardrobe used" onPress={() => goTab('insights')} />
-          </View>
+          {loading ? (
+            <StatRowSkeleton count={2} />
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <RhythmStat num="23" label="Outfits worn" onPress={() => goTab('insights')} />
+              <RhythmStat num="68%" label="Wardrobe used" onPress={() => goTab('insights')} />
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>

@@ -12,7 +12,7 @@
 // without a double-pad.
 
 import React from 'react';
-import { ScrollView, Text, useWindowDimensions, View, StyleSheet } from 'react-native';
+import { RefreshControl, ScrollView, Text, useWindowDimensions, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -25,6 +25,9 @@ import { StatBlock } from '../components/StatBlock';
 import { Gauge } from '../components/Gauge';
 import { PaletteBar, type PaletteEntry } from '../components/PaletteBar';
 import { BarViz } from '../components/BarViz';
+import { Skeleton, StatRowSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 
 // "Last 30 days" — header eyebrow. Constant string today, but kept in this module so
 // the call site reads as data, not a literal. Future: derive from a date range setting.
@@ -78,12 +81,32 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const rangeStart = formatRangeDate(now, 29); // 30 days inclusive of today
   const rangeEnd   = formatRangeDate(now, 0);
 
+  const { refreshing, loading, error, onRefresh, retry } = useMockRefresh(1000);
+
   // Three-column gauge row math: card_width = (screenWidth - 40 horizontal padding - 16 inter-card gap) / 3.
   // Each Gauge needs SVG 78 + horizontal padding 24 ≈ 102px to render without clipping.
   // Solving 102 ≤ (W - 56) / 3 gives W ≥ 362, so phones at 320 (SE) and 360 (common Android)
   // overflow. Below ≈380 we drop to a 2+1 stack: the third gauge spans the full row.
   // Codex P2 on PR #702.
   const compactGauges = screenWidth < 380;
+
+  if (error) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingTop: 8, paddingHorizontal: 20, paddingBottom: 130 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          }>
+          <View style={s.header}>
+            <Eyebrow style={{ marginBottom: 4 }}>{headerEyebrow}</Eyebrow>
+            <PageTitle>Insights</PageTitle>
+          </View>
+          <ErrorState onRetry={retry} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
@@ -94,6 +117,9 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
           paddingBottom: 130,
           gap: 18,
         }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+        }
         showsVerticalScrollIndicator={false}>
 
         {/* ============ HEADER ============ */}
@@ -103,32 +129,49 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
         </View>
 
         {/* ============ STATS — 2 col ============ */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <StatBlock num={23}    label="Outfits worn"   style={{ flex: 1 }} />
-          <StatBlock num="68%"   label="Wardrobe used"  style={{ flex: 1 }} />
-        </View>
+        {loading ? (
+          <StatRowSkeleton count={2} />
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <StatBlock num={23}    label="Outfits worn"   style={{ flex: 1 }} />
+            <StatBlock num="68%"   label="Wardrobe used"  style={{ flex: 1 }} />
+          </View>
+        )}
 
         {/* ============ GAUGES — 3 col on ≥380dp, 2+1 stack on narrower phones ============ */}
         {/* `visible={active}` re-runs the ring animation each time the tab becomes active.
             Without this, the mount-time animation runs once while Insights is hidden behind
             the default Today tab — by the time the user lands here, the rings are already
             at their target offset. */}
-        <View
-          style={{
-            flexDirection: 'row',
-            gap: 8,
-            flexWrap: compactGauges ? 'wrap' : 'nowrap',
-          }}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Gauge value={82} max={100} unit="%" label="Cost / wear efficiency" delta="18%"           deltaDir="up"   visible={active} />
+        {loading ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 8,
+              flexWrap: compactGauges ? 'wrap' : 'nowrap',
+            }}>
+            <Skeleton radius={14} height={140} style={{ flex: 1 }} />
+            <Skeleton radius={14} height={140} style={{ flex: 1 }} />
+            <Skeleton radius={14} height={140} style={compactGauges ? { width: '100%' } : { flex: 1 }} />
           </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Gauge value={47} max={100} unit="%" label="Outfit variety"          delta="6 new combos" deltaDir="up"   visible={active} />
+        ) : (
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 8,
+              flexWrap: compactGauges ? 'wrap' : 'nowrap',
+            }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Gauge value={82} max={100} unit="%" label="Cost / wear efficiency" delta="18%"           deltaDir="up"   visible={active} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Gauge value={47} max={100} unit="%" label="Outfit variety"          delta="6 new combos" deltaDir="up"   visible={active} />
+            </View>
+            <View style={compactGauges ? { width: '100%' } : { flex: 1, minWidth: 0 }}>
+              <Gauge value={91} max={100} unit="%" label="Care & laundry on time"  delta="2 overdue"    deltaDir="down" visible={active} />
+            </View>
           </View>
-          <View style={compactGauges ? { width: '100%' } : { flex: 1, minWidth: 0 }}>
-            <Gauge value={91} max={100} unit="%" label="Care & laundry on time"  delta="2 overdue"    deltaDir="down" visible={active} />
-          </View>
-        </View>
+        )}
 
         {/* ============ PALETTE CARD ============ */}
         <Card>

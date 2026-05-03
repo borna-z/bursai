@@ -10,9 +10,10 @@
 // gallery hooks land in a follow-up PR (out of scope for design pass).
 
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -59,6 +60,35 @@ export function AddPieceStep1() {
     ]);
   };
   const removePhoto = (id: number) => setPhotos((prev) => prev.filter((p) => p.id !== id));
+
+  // Gallery picker — uses expo-image-picker (already installed). On RN we don't have a real
+  // surface to render the picked URIs as gradient placeholders, so we synthesise a hue per
+  // asset and stash the URI for future use. The MAX cap clips after merge so a 50+ batch import
+  // doesn't exceed the staging limit.
+  const pickFromGallery = React.useCallback(async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Grant photo access to import from your gallery.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        // SDK 51+ accepts a string array; the legacy MediaTypeOptions enum is deprecated.
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+      if (result.canceled) return;
+      const newPhotos: Photo[] = result.assets.map((a, i) => ({
+        id: Date.now() + i,
+        hue: Math.floor(Math.random() * 360),
+        uri: a.uri,
+      }));
+      setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX));
+    } catch (err) {
+      Alert.alert('Gallery unavailable', 'Could not open the photo library.');
+    }
+  }, []);
   const ready = photos.length;
   const pct = (photos.length / MAX) * 100;
 
@@ -133,7 +163,7 @@ export function AddPieceStep1() {
               label="Gallery"
               sub="Pick photos"
               icon={<ImageIcon color={t.accent} />}
-              onPress={addPhoto}
+              onPress={pickFromGallery}
             />
           </View>
         </View>

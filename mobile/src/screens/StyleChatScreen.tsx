@@ -41,7 +41,10 @@ import { Chip } from '../components/Chip';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { OutfitCard } from '../components/OutfitCard';
+import { ChatBubbleSkeleton } from '../components/skeletons';
+import { ErrorState } from '../components/ErrorState';
 import { BackIcon, ChevronIcon, CloseIcon } from '../components/icons';
+import { useMockRefresh } from '../hooks/useMockRefresh';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -91,15 +94,48 @@ export function StyleChatScreen() {
   const [draft, setDraft] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const { loading, error, retry } = useMockRefresh(500);
+
+  // Track the suggestion-chip auto-send timer so we can cancel it on unmount. Without this an
+  // unmount-during-150ms would call sendText on a torn-down component.
+  const sendTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (sendTimerRef.current) {
+        clearTimeout(sendTimerRef.current);
+        sendTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const data = useMemo(() => MESSAGES, []);
 
-  const send = () => {
-    if (!draft.trim()) return;
+  // Send-by-text helper — used both by the composer's send button and the suggestion chips.
+  // Spec: tapping a chip pre-fills the composer AND auto-sends after a brief delay so the user
+  // sees the chip's text land in the input before the AI turn streams in.
+  const sendText = React.useCallback((text: string) => {
+    if (!text.trim()) return;
     // Real impl: append a user message + kick off AI request. For the design pass we just
     // clear the input — the static MESSAGES list represents the visual end-state.
     setDraft('');
-  };
+  }, []);
+
+  const send = () => sendText(draft);
+
+  const handleSuggestion = React.useCallback(
+    (text: string) => {
+      setDraft(text);
+      if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
+      // Brief delay so the user perceives the chip → composer → send sequence rather than a
+      // single instantaneous jump.
+      sendTimerRef.current = setTimeout(() => {
+        sendTimerRef.current = null;
+        sendText(text);
+      }, 150);
+    },
+    [sendText],
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
@@ -190,23 +226,36 @@ export function StyleChatScreen() {
         )}
 
         {/* ============ MESSAGE LIST (FlatList inverted) ============ */}
-        <FlatList
-          data={data}
-          keyExtractor={(m) => m.id}
-          inverted
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 }}
-          renderItem={({ item }) => <MessageItem msg={item} />}
-          ListFooterComponent={
-            <Caption style={{ textAlign: 'center', paddingVertical: 6 }}>
-              {/* Footer in inverted list = top of the screen — i.e. start-of-conversation timestamp.
-                  Extract to a local const so TS can narrow the kind === 'text' branch and expose .time. */}
-              {(() => {
-                const first = data[data.length - 1];
-                return first && first.kind === 'text' ? first.time : null;
-              })()}
-            </Caption>
-          }
-        />
+        {error ? (
+          <ErrorState
+            title="Stylist unavailable"
+            body="Pull down to try again."
+            onRetry={retry}
+            style={{ flex: 1 }}
+          />
+        ) : loading ? (
+          <View style={{ flex: 1 }}>
+            <ChatBubbleSkeleton />
+          </View>
+        ) : (
+          <FlatList
+            data={data}
+            keyExtractor={(m) => m.id}
+            inverted
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 }}
+            renderItem={({ item }) => <MessageItem msg={item} />}
+            ListFooterComponent={
+              <Caption style={{ textAlign: 'center', paddingVertical: 6 }}>
+                {/* Footer in inverted list = top of the screen — i.e. start-of-conversation timestamp.
+                    Extract to a local const so TS can narrow the kind === 'text' branch and expose .time. */}
+                {(() => {
+                  const first = data[data.length - 1];
+                  return first && first.kind === 'text' ? first.time : null;
+                })()}
+              </Caption>
+            }
+          />
+        )}
 
         {/* ============ SUGGESTION CHIPS ============ */}
         <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
@@ -215,7 +264,7 @@ export function StyleChatScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
             {SUGGESTIONS.map((sug) => (
-              <Chip key={sug} label={sug} onPress={() => setDraft(sug)} />
+              <Chip key={sug} label={sug} onPress={() => handleSuggestion(sug)} />
             ))}
           </ScrollView>
         </View>
@@ -265,12 +314,11 @@ export function StyleChatScreen() {
             onPress={() => setShowHistory(false)}
             accessibilityLabel="Close history"
             style={[s.historyBackdrop, { backgroundColor: t.scrimBg }]}>
-            {/* Inner sheet — RN's responder system swallows taps that land on this view, so the
-                outer backdrop's onPress only fires for taps on the dimmed area, not on the sheet
-                itself. No `stopPropagation` is needed (and it doesn't exist on RN PressEvent). */}
-            <Pressable
-              onPress={() => {}}
-              accessible={false}
+            {/* Inner sheet — claims the responder via onStartShouldSetResponder so taps inside
+                the sheet do not propagate to the backdrop's onPress. Using a View instead of a
+                no-op Pressable keeps screens free of empty () => {} handlers. */}
+            <View
+              onStartShouldSetResponder={() => true}
               style={[
                 s.historySheet,
                 { backgroundColor: t.bg, borderColor: t.border, shadowColor: t.shadow.color },
@@ -319,7 +367,7 @@ export function StyleChatScreen() {
                   </Pressable>
                 ))}
               </ScrollView>
-            </Pressable>
+            </View>
           </Pressable>
         ) : null}
       </KeyboardAvoidingView>
