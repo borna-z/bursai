@@ -44,9 +44,9 @@ export function useSignedUrl(path: string | null | undefined) {
  */
 export function useSignedUrls(paths: (string | null | undefined)[]) {
   // Stable cache key so identical path lists hit the same query entry across
-  // re-renders. Sorted to be order-insensitive.
+  // re-renders. De-duped + sorted so order/duplicates don't fragment the cache.
   const validPaths = paths.filter((p): p is string => Boolean(p));
-  const sorted = [...validPaths].sort();
+  const sorted = Array.from(new Set(validPaths)).sort();
 
   return useQuery({
     queryKey: ['signed-urls', sorted],

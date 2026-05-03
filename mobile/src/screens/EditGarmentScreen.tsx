@@ -208,12 +208,23 @@ export function EditGarmentScreen() {
           onPress: async () => {
             try {
               await deleteGarment.mutateAsync(garment.id);
-              // After a delete the EditGarment back-target no longer exists,
-              // so pop two screens (out of edit AND out of detail). Falls
-              // back to the simple goBack if there's only one entry on the
-              // stack.
-              if (nav.canGoBack()) nav.goBack();
-              if (nav.canGoBack()) nav.goBack();
+              // After a delete, both the EditGarment and the upstream
+              // GarmentDetail point at a now-missing row. Pop back to the
+              // first screen on the stack so we never leave the user on a
+              // 404 detail page. `popToTop` is a no-op when EditGarment is
+              // already the only stack entry (which the React Navigation
+              // docs guarantee), so this also covers deep-link entry. The
+              // earlier double-`goBack` could overshoot when the back stack
+              // had unexpected depth (e.g. opened from Search). Audit UX#5.
+              const stackNav = nav.getParent?.() ?? nav;
+              if (
+                'popToTop' in stackNav &&
+                typeof (stackNav as { popToTop?: () => void }).popToTop === 'function'
+              ) {
+                (stackNav as { popToTop: () => void }).popToTop();
+              } else if (nav.canGoBack()) {
+                nav.goBack();
+              }
             } catch (err) {
               Alert.alert(
                 'Delete failed',

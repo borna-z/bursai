@@ -42,6 +42,13 @@ import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavi
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type TabKey = 'garments' | 'outfits' | 'laundry';
 
+// Hoisted to module scope so the queryKey for `useFlatGarments` is stable
+// across re-renders. An inline object would make React Query treat each
+// render as a fresh query (deep-equal still hits the same cache entry but
+// pays the comparison cost on every parent re-render — and FlatList parents
+// re-render constantly).
+const WARDROBE_FILTERS: GarmentFilters = { inLaundry: false };
+
 // Map FiltersScreen's free-text labels to canonical category enums in the
 // `garments.category` column. The wardrobe filter sheet exposes friendly
 // labels ("Outerwear", "Tops") but the column stores short-form values
@@ -92,8 +99,8 @@ export function WardrobeScreen() {
   // as `initial` (so re-opening preserves picks) and writes back via `onApply`.
   const [filters, setFilters] = React.useState<WardrobeFilters | null>(null);
 
-  // Server query — non-laundry, default sort.
-  const queryFilters: GarmentFilters = { inLaundry: false };
+  // Server query — non-laundry, default sort. Filter constant is module-level
+  // so the queryKey identity stays stable across re-renders.
   const {
     data: garments,
     isLoading,
@@ -103,7 +110,7 @@ export function WardrobeScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useFlatGarments(queryFilters);
+  } = useFlatGarments(WARDROBE_FILTERS);
 
   const visibleGarments = React.useMemo(
     () => (filters ? garments.filter((g) => matchesClientFilters(g, filters)) : garments),
@@ -115,14 +122,18 @@ export function WardrobeScreen() {
     void refetch();
   }, [refetch]);
 
-  // Smart-tile counts. These read from the loaded pages — accurate for any
-  // user with ≤PAGE_SIZE items, an optimistic lower bound for larger
-  // wardrobes (a future Wave 9 query exposes server-side counts via
-  // useSmartFilterCounts; pulling that into mobile is scope creep here).
+  // Smart-tile counts. These read from the loaded pages, so they're only
+  // authoritative when the entire wardrobe fits in page 1 (`!hasNextPage`).
+  // For larger wardrobes we render "—" instead of a misleading lower bound
+  // — the audit flagged "In laundry: 1" rendering when the user actually
+  // has 4+ as actively misleading. A real server-side counts hook
+  // (parallel HEAD count queries) lands in W9.
   const totalCount = garments.length;
+  const countsAuthoritative = !hasNextPage;
   const mostWornCount = garments.filter((g) => (g.wear_count ?? 0) > 3).length;
   const unwornCount = garments.filter((g) => !g.last_worn_at).length;
-  const inLaundryCount = garments.filter((g) => g.in_laundry).length;
+  // In-laundry count intentionally not derived here — see the tile below.
+  const fmtCount = (n: number) => (countsAuthoritative ? String(n) : '—');
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route.
@@ -189,12 +200,17 @@ export function WardrobeScreen() {
       </View>
 
       <View style={s.tileRow}>
-        <SmartTile num={String(totalCount)} label="Recently added" onPress={() => nav.navigate('Search')} />
-        <SmartTile num={String(mostWornCount)} label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
+        <SmartTile num={fmtCount(totalCount)} label="Recently added" onPress={() => nav.navigate('Search')} />
+        <SmartTile num={fmtCount(mostWornCount)} label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
       </View>
       <View style={s.tileRow}>
-        <SmartTile num={String(unwornCount)} label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
-        <SmartTile num={String(inLaundryCount)} label="In laundry" onPress={() => nav.navigate('Laundry')} />
+        <SmartTile num={fmtCount(unwornCount)} label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
+        {/* In-laundry count can't be derived from the wardrobe page set
+            (which is filtered to inLaundry=false), so the tile is purely
+            navigational — tap to jump to LaundryScreen which has the real
+            number. Showing "—" is more honest than rendering "0" when the
+            user might have 5 items in the wash. */}
+        <SmartTile num="—" label="In laundry" onPress={() => nav.navigate('Laundry')} />
       </View>
 
       <View style={s.tileRow}>
@@ -279,6 +295,11 @@ export function WardrobeScreen() {
     );
   }
 
+  // Filtered to zero — when filters narrow `visibleGarments` to nothing but the
+  // wardrobe itself isn't empty. Distinct from the new-user empty state above:
+  // here we show what to do (clear filters), not a "get started" CTA.
+  const filteredEmpty = totalCount > 0 && visibleGarments.length === 0 && activeFilterCount > 0;
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
@@ -296,6 +317,28 @@ export function WardrobeScreen() {
           if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
         }}
         onEndReachedThreshold={0.4}
+        ListEmptyComponent={
+          filteredEmpty ? (
+            <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 32, gap: 14 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.displayMedium,
+                  fontStyle: 'italic',
+                  fontSize: 22,
+                  fontWeight: '500',
+                  color: t.fg,
+                  letterSpacing: -0.22,
+                  textAlign: 'center',
+                }}>
+                No matches for these filters
+              </Text>
+              <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
+                Try a different combination, or clear filters to see your full wardrobe.
+              </Caption>
+              <Button label="Clear filters" variant="outline" onPress={() => setFilters(null)} />
+            </View>
+          ) : null
+        }
         renderItem={({ item }) => (
           <View style={{ flex: 1 / 3 }}>
             <GarmentCard

@@ -27,6 +27,7 @@ import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { hapticLight, hapticSuccess } from '../lib/haptics';
 import type { Garment } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -105,6 +106,7 @@ export function GarmentDetailScreen() {
 
   const handleWearToday = () => {
     if (!id) return;
+    hapticSuccess();
     markWorn.mutate(id, {
       onError: (err) => {
         Alert.alert('Could not log wear', err instanceof Error ? err.message : 'Try again.');
@@ -114,6 +116,11 @@ export function GarmentDetailScreen() {
 
   const handleAddToLaundry = () => {
     if (!id) return;
+    // Haptic confirmation — without this the action is silent: the More menu
+    // closes, the badge ticks on, but the screen looks identical for the
+    // 200-500ms invalidate-and-refetch window. The audit (UX#6) flagged this
+    // as a tap-to-feedback gap.
+    hapticLight();
     markLaundry.mutate(
       { id, inLaundry: true },
       {
@@ -126,6 +133,7 @@ export function GarmentDetailScreen() {
 
   const handleRemoveFromLaundry = () => {
     if (!id) return;
+    hapticLight();
     markLaundry.mutate({ id, inLaundry: false });
   };
 

@@ -110,6 +110,13 @@ export function SearchScreen() {
 
   const trimmed = debouncedQuery;
   const showResults = trimmed.length >= MIN_QUERY_LEN;
+  // The user has typed enough to search but the debounce hasn't elapsed yet,
+  // OR the debounced value has elapsed but is still mid-flight. In both
+  // states we hide the recent-searches block and show a spinner so the
+  // "I'm waiting" feedback is instant rather than gated on the 300 ms timer
+  // + RTT (audit UX#7).
+  const trimmedTyped = query.trim();
+  const isPendingSearch = trimmedTyped.length >= MIN_QUERY_LEN && trimmedTyped !== trimmed;
 
   const queryFilters: GarmentFilters | undefined = showResults
     ? {
@@ -129,9 +136,12 @@ export function SearchScreen() {
   // unnecessary "all garments" request as soon as the screen mounts. The
   // hook does early-out on enabled=!!user, but we'd still pay one round-trip
   // before the user types anything.
-  const showLoading = showResults && isLoading;
+  // `isPendingSearch` covers the debounce window before the request fires —
+  // showing the spinner during that window means typing → spinner is
+  // immediate (no 300ms feedback gap).
+  const showLoading = isPendingSearch || (showResults && isLoading);
   const showError = showResults && isError;
-  const visibleResults = showResults ? results : [];
+  const visibleResults = showResults && !isPendingSearch ? results : [];
 
   const submitQuery = React.useCallback(
     (q: string) => {
@@ -207,7 +217,7 @@ export function SearchScreen() {
           ))}
         </ScrollView>
 
-        {!showResults && recent.length > 0 ? (
+        {!showResults && !isPendingSearch && recent.length > 0 ? (
           <ScrollView
             contentContainerStyle={{ padding: 20, gap: 18 }}
             showsVerticalScrollIndicator={false}
@@ -263,7 +273,7 @@ export function SearchScreen() {
           </ScrollView>
         ) : null}
 
-        {!showResults && recent.length === 0 ? (
+        {!showResults && !isPendingSearch && recent.length === 0 ? (
           <View style={s.emptyHint}>
             <Caption style={{ textAlign: 'center', maxWidth: 240 }}>
               Type at least {MIN_QUERY_LEN} characters to search your wardrobe.

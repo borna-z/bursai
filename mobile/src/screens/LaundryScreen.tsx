@@ -24,10 +24,15 @@ import { GarmentListSkeleton } from '../components/skeletons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { useFlatGarments, useMarkLaundry } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
-import type { Garment } from '../types/garment';
+import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+// Module-scope filter constant — keeps the queryKey identity stable across
+// re-renders so React Query doesn't deep-equal-compare the filter on every
+// FlatList scroll event.
+const LAUNDRY_FILTERS: GarmentFilters = { inLaundry: true };
 
 function hueFromId(id: string): number {
   let h = 5381;
@@ -108,7 +113,7 @@ export function LaundryScreen() {
     isError,
     isRefetching,
     refetch,
-  } = useFlatGarments({ inLaundry: true });
+  } = useFlatGarments(LAUNDRY_FILTERS);
   const markLaundry = useMarkLaundry();
 
   // Track per-id pending state so the disabled "Mark clean" button only
@@ -157,24 +162,39 @@ export function LaundryScreen() {
           // double-tap on "Mark all clean" before invalidation lands fires 2N
           // mutations.
           const ids = items.map((g) => g.id);
+          const total = ids.length;
           setPendingIds((prev) => {
             const next = new Set(prev);
             for (const id of ids) next.add(id);
             return next;
           });
+
+          // Count remaining + failures so we can surface a single summary
+          // Alert at the end. Without this, partial failures (3 of 10 rows
+          // hit a 5xx) were invisible to the user — they'd see 7 disappear
+          // and 3 remain with no explanation. (Audit UX#3.)
+          let remaining = total;
+          let failures = 0;
           for (const id of ids) {
-            // Each mutation is independent so a per-row failure won't block
-            // the rest. The list invalidation will re-render whatever did
-            // succeed; failures clear themselves below via onSettled.
             markLaundry.mutate(
               { id, inLaundry: false },
               {
+                onError: () => {
+                  failures += 1;
+                },
                 onSettled: () => {
                   setPendingIds((prev) => {
                     const next = new Set(prev);
                     next.delete(id);
                     return next;
                   });
+                  remaining -= 1;
+                  if (remaining === 0 && failures > 0) {
+                    Alert.alert(
+                      'Some items failed',
+                      `${failures} of ${total} couldn't be marked clean. Pull down to refresh and try the failed rows again.`,
+                    );
+                  }
                 },
               },
             );

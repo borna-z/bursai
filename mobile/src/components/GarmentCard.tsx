@@ -83,6 +83,18 @@ export function GarmentCard({
   // pre-render window.
   const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
   const { data: signedUrl } = useSignedUrl(imagePath);
+  // Track image-load failure separately from URL absence: a signed URL can
+  // resolve fine but the underlying object can be 404 (deleted from storage)
+  // or the JWT can have expired before render. Without the onError flip, the
+  // <Image> stays mounted-but-invisible over the gradient — looks like a
+  // photo "loaded" but rendered transparent. Resetting on path change is
+  // essential or scrolling a recycled FlatList cell would inherit the
+  // failure state from a previous garment.
+  const [imageBroken, setImageBroken] = React.useState(false);
+  React.useEffect(() => {
+    setImageBroken(false);
+  }, [imagePath, signedUrl]);
+  const showImage = signedUrl && !imageBroken;
 
   const baseHue = garment.hue ?? hueFromId(garment.id);
   const hueA = baseHue;
@@ -121,18 +133,17 @@ export function GarmentCard({
           end={{ x: 1, y: 1 }}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         />
-        {signedUrl ? (
+        {showImage ? (
           <Image
             source={{ uri: signedUrl }}
-            // Image sits on top of the gradient — when the URL fails, the
-            // gradient remains visible under it (RN's <Image> renders nothing
-            // when the source can't load, so the bg shows through).
+            // Image sits on top of the gradient. onError flips imageBroken,
+            // which short-circuits the next render to gradient-only — so a
+            // 404 on a stale signed URL doesn't leave an invisible <Image>
+            // on top of the gradient (RN composites both even when the
+            // source fails to load).
+            onError={() => setImageBroken(true)}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
-            // Hide the gradient once the image has actually painted. We keep
-            // the gradient as the loading state and as the failure state.
-            // (No native onLoad-end gate needed — RN composites the image
-            // over the gradient without flicker.)
           />
         ) : null}
 

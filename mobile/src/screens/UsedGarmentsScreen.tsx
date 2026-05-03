@@ -18,29 +18,25 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
-import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { GarmentListSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
-import type { Garment } from '../types/garment';
+import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type SortKey = 'most_worn' | 'recent_worn' | 'category';
+
+// Hoisted to module scope so the queryKey for `useFlatGarments` stays
+// referentially stable across re-renders.
+const USED_FILTERS: GarmentFilters = { smartFilter: 'most_worn', sortBy: 'wear_count' };
 
 function hueFromId(id: string): number {
   let h = 5381;
   for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
   return h % 360;
-}
-
-function lastWornEpoch(g: Garment): number {
-  if (!g.last_worn_at) return 0;
-  const ms = new Date(g.last_worn_at).getTime();
-  return Number.isNaN(ms) ? 0 : ms;
 }
 
 function UsedRow({ item, onPress }: { item: Garment; onPress: () => void }) {
@@ -116,7 +112,6 @@ function UsedRow({ item, onPress }: { item: Garment; onPress: () => void }) {
 export function UsedGarmentsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const [sort, setSort] = React.useState<SortKey>('most_worn');
 
   const {
     data: items,
@@ -124,17 +119,17 @@ export function UsedGarmentsScreen() {
     isError,
     isRefetching,
     refetch,
-  } = useFlatGarments({ smartFilter: 'most_worn', sortBy: 'wear_count' });
+  } = useFlatGarments(USED_FILTERS);
 
   const onRefresh = React.useCallback(() => void refetch(), [refetch]);
 
-  const sorted = React.useMemo(() => {
-    const list = [...items];
-    if (sort === 'most_worn') return list.sort((a, b) => (b.wear_count ?? 0) - (a.wear_count ?? 0));
-    if (sort === 'recent_worn') return list.sort((a, b) => lastWornEpoch(b) - lastWornEpoch(a));
-    if (sort === 'category') return list.sort((a, b) => (a.category ?? '').localeCompare(b.category ?? ''));
-    return list;
-  }, [items, sort]);
+  // Server returns rows already sorted wear_count desc. Earlier revisions of
+  // this screen offered "Recently worn" + "By category" client-side sort
+  // chips, but those mis-sorted across paginated subsets (page 2 only
+  // contains the wear-count-paginated next 30 — so re-sorting by recency
+  // produced a misleading top-30) — audit findings UX#2. The chips are gone
+  // until a server-side sort hook lands; the screen's intent ("Most worn")
+  // matches the server order honestly.
 
   const header = (
     <View>
@@ -147,14 +142,6 @@ export function UsedGarmentsScreen() {
           <PageTitle>Used pieces</PageTitle>
         </View>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 6, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 }}>
-        <Chip label="Most worn"     active={sort === 'most_worn'}   onPress={() => setSort('most_worn')} />
-        <Chip label="Recently worn" active={sort === 'recent_worn'} onPress={() => setSort('recent_worn')} />
-        <Chip label="By category"   active={sort === 'category'}    onPress={() => setSort('category')} />
-      </ScrollView>
     </View>
   );
 
@@ -183,7 +170,7 @@ export function UsedGarmentsScreen() {
     );
   }
 
-  if (sorted.length === 0) {
+  if (items.length === 0) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         {header}
@@ -200,7 +187,7 @@ export function UsedGarmentsScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
-        data={sorted}
+        data={items}
         keyExtractor={(g) => g.id}
         ListHeaderComponent={header}
         contentContainerStyle={{ paddingBottom: 130 }}

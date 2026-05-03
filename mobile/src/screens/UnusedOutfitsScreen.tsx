@@ -24,10 +24,14 @@ import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
-import type { Garment } from '../types/garment';
+import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+// Hoisted to module scope so React Query's queryKey identity stays stable
+// across re-renders.
+const UNUSED_FILTERS: GarmentFilters = { smartFilter: 'rarely_worn' };
 
 type FilterKey = 'all' | 'tops' | 'bottoms' | 'shoes' | 'outer' | 'accessory';
 
@@ -58,7 +62,7 @@ export function UnusedOutfitsScreen() {
     isError,
     isRefetching,
     refetch,
-  } = useFlatGarments({ smartFilter: 'rarely_worn' });
+  } = useFlatGarments(UNUSED_FILTERS);
 
   const onRefresh = React.useCallback(() => void refetch(), [refetch]);
 
