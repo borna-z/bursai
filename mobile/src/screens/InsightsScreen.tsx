@@ -47,7 +47,7 @@ import {
   useInsightsDashboard,
   type InsightsMostWorn,
 } from '../hooks/useInsightsDashboard';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useSignedUrls } from '../hooks/useSignedUrl';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -69,15 +69,16 @@ function formatRangeDate(today: Date, daysAgo: number): string {
 
 function MostWornRow({
   item,
+  imageUrl,
   onPress,
   showSeparator,
 }: {
   item: InsightsMostWorn;
+  imageUrl: string | null;
   onPress: () => void;
   showSeparator: boolean;
 }) {
   const t = useTokens();
-  const { data: imageUrl } = useSignedUrl(item.imagePath);
 
   return (
     <Pressable
@@ -162,14 +163,44 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const { width: screenWidth } = useWindowDimensions();
   const now = new Date();
   const headerEyebrow = buildHeaderEyebrow();
-  const rangeStart = formatRangeDate(now, 29); // 30 days inclusive of today
+  // Wear-frequency card spans the last 7 days (matches what `BarViz` renders),
+  // so the bracketing labels also show that window — not the full 30d eyebrow.
+  const rangeStart = formatRangeDate(now, 6);
   const rangeEnd = formatRangeDate(now, 0);
 
   const { data, isLoading, isError, refetch, isRefetching } = useInsightsDashboard();
 
+  // Batch the most-worn signed URLs into a single Storage round-trip instead
+  // of N parallel lookups. Empty list when data hasn't landed yet — the hook
+  // returns a path → url map keyed on the requested paths.
+  const mostWornPaths = React.useMemo(
+    () => (data?.mostWorn ?? []).map((m) => m.imagePath).filter((p): p is string => Boolean(p)),
+    [data?.mostWorn],
+  );
+  const { data: mostWornUrls } = useSignedUrls(mostWornPaths);
+
   const onRefresh = React.useCallback(() => {
     void refetch();
   }, [refetch]);
+
+  // Currency formatter for the cost-per-wear quote. Falls back to the device
+  // locale's default currency code when no garment carries a recorded one,
+  // and to plain decimal formatting if the device doesn't recognise the code.
+  const formatMoney = React.useCallback(
+    (value: number, currency: string | null): string => {
+      const code = currency ?? 'USD';
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: code,
+          maximumFractionDigits: 2,
+        }).format(value);
+      } catch {
+        return value.toFixed(2);
+      }
+    },
+    [],
+  );
 
   // Three-column gauge row math: card_width = (screenWidth - 40 horizontal padding - 16 inter-card gap) / 3.
   // Each Gauge needs SVG 78 + horizontal padding 24 ≈ 102px to render without clipping.
@@ -365,7 +396,7 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
         <Card>
           <View style={[s.sectionHead, { marginBottom: 12 }]}>
             <Eyebrow>Your palette</Eyebrow>
-            <Caption>Share of wardrobe</Caption>
+            <Caption>Share by colour</Caption>
           </View>
           <PaletteBar entries={data.palette} />
         </Card>
@@ -396,6 +427,7 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
                 <MostWornRow
                   key={item.garmentId}
                   item={item}
+                  imageUrl={(item.imagePath && mostWornUrls?.[item.imagePath]) || null}
                   showSeparator={i < data.mostWorn.length - 1}
                   onPress={() => nav.navigate('GarmentDetail', { id: item.garmentId })}
                 />
@@ -420,7 +452,7 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
               }}>
               Average cost-per-wear is{' '}
               <Text style={{ color: t.accent }}>
-                {data.avgCostPerWear.toFixed(2)}
+                {formatMoney(data.avgCostPerWear, data.avgCostPerWearCurrency)}
               </Text>{' '}
               across your priced pieces.
             </Text>

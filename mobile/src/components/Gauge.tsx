@@ -177,7 +177,15 @@ export function Gauge({
             fontFamily: fonts.uiSemi,
             fontSize: 10,
             fontWeight: '600',
-            color: deltaDir === 'up' ? t.accent : t.fg3,
+            // Neutral takes `fg2` (slightly stronger than fg3) so it reads as
+            // "informational, not trending down" — a metric without direction
+            // shouldn't visually alias with the down state.
+            color:
+              deltaDir === 'up'
+                ? t.accent
+                : deltaDir === 'neutral'
+                  ? t.fg2
+                  : t.fg3,
             letterSpacing: 0.2,
           }}>
           {deltaDir === 'up' ? '↑ ' : deltaDir === 'down' ? '↓ ' : ''}

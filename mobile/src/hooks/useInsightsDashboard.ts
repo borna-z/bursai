@@ -55,6 +55,13 @@ export interface InsightsData {
   mostWorn: InsightsMostWorn[];
   weeklyBars: InsightsBarDay[];
   avgCostPerWear: number | null;
+  /**
+   * ISO 4217 code for the currency the average cost-per-wear is expressed in,
+   * derived from the most common `purchase_currency` across priced garments.
+   * `null` when no priced garment has a recorded currency — the screen falls
+   * back to a locale-default in that case.
+   */
+  avgCostPerWearCurrency: string | null;
 }
 
 const WEEKLY_BAR_DAYS = 7;
@@ -83,27 +90,34 @@ type GarmentRow = Pick<
   | 'rendered_image_path'
   | 'original_image_path'
   | 'purchase_price'
+  | 'purchase_currency'
   | 'in_laundry'
 >;
 
-type WearLogRow = { worn_at: string | null };
+type WearLogRow = { garment_id: string | null; worn_at: string | null };
 
 async function computeFromRawData(userId: string): Promise<InsightsData> {
-  const since30 = new Date(Date.now() - 30 * MS_PER_DAY).toISOString();
+  // 30d window anchored at local midnight rather than `Date.now() - 30d` so a
+  // log near midnight can't drop on the wrong side of a UTC boundary. The
+  // start of the window is the calendar day that's 29 days before today, so
+  // it's inclusive of the current day → 30 calendar days total.
+  const localMidnightToday = startOfDay(new Date());
+  const windowStart = new Date(localMidnightToday);
+  windowStart.setDate(windowStart.getDate() - 29);
+  const since30Iso = windowStart.toISOString();
 
   const [garmentsRes, wearLogsRes] = await Promise.all([
     supabase
       .from('garments')
       .select(
-        'id, title, category, color_primary, wear_count, last_worn_at, rendered_image_path, original_image_path, purchase_price, in_laundry',
+        'id, title, category, color_primary, wear_count, last_worn_at, rendered_image_path, original_image_path, purchase_price, purchase_currency, in_laundry',
       )
-      .eq('user_id', userId)
-      .order('wear_count', { ascending: false, nullsFirst: false }),
+      .eq('user_id', userId),
     supabase
       .from('wear_logs')
-      .select('worn_at')
+      .select('garment_id, worn_at')
       .eq('user_id', userId)
-      .gte('worn_at', since30)
+      .gte('worn_at', since30Iso)
       .order('worn_at', { ascending: true }),
   ]);
 
@@ -114,20 +128,44 @@ async function computeFromRawData(userId: string): Promise<InsightsData> {
   const wearLogs = (wearLogsRes.data ?? []) as WearLogRow[];
 
   const totalGarments = garments.length;
-  const wornGarments = garments.filter((g) => (g.wear_count ?? 0) > 0);
+
+  // 30-day wear count per garment. The screen eyebrow says "Last 30 days" so
+  // every downstream metric — usage %, variety gauge, most-worn badges —
+  // anchors on this window, not all-time `garments.wear_count`. (All-time count
+  // would silently include garments worn once 5 years ago, which would lie.)
+  const wearCount30: Record<string, number> = {};
+  for (const log of wearLogs) {
+    if (!log.garment_id) continue;
+    wearCount30[log.garment_id] = (wearCount30[log.garment_id] ?? 0) + 1;
+  }
+  const distinctUsedIds = new Set(Object.keys(wearCount30));
+  const wornGarmentsCount = distinctUsedIds.size;
   const wardrobeUsagePct =
-    totalGarments > 0 ? Math.round((wornGarments.length / totalGarments) * 100) : 0;
+    totalGarments > 0 ? Math.round((wornGarmentsCount / totalGarments) * 100) : 0;
   const totalWears = wearLogs.length;
 
-  // Most worn — top 5 with at least one wear. Garments are pre-sorted by
-  // wear_count desc from the SQL query so a slice is enough.
-  const mostWorn: InsightsMostWorn[] = wornGarments.slice(0, 5).map((g) => ({
-    garmentId: g.id,
-    title: g.title ?? 'Untitled',
-    category: g.category,
-    wearCount: g.wear_count ?? 0,
-    imagePath: g.rendered_image_path ?? g.original_image_path ?? null,
-  }));
+  // Most worn — top 5 by 30d wear count. Tie-break by `last_worn_at` desc so
+  // the order is stable across renders for ties.
+  const mostWorn: InsightsMostWorn[] = garments
+    .filter((g) => distinctUsedIds.has(g.id))
+    .map((g) => ({
+      garment: g,
+      count: wearCount30[g.id] ?? 0,
+    }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      const aT = a.garment.last_worn_at ? Date.parse(a.garment.last_worn_at) : 0;
+      const bT = b.garment.last_worn_at ? Date.parse(b.garment.last_worn_at) : 0;
+      return bT - aT;
+    })
+    .slice(0, 5)
+    .map(({ garment: g, count }) => ({
+      garmentId: g.id,
+      title: g.title ?? 'Untitled',
+      category: g.category,
+      wearCount: count,
+      imagePath: g.rendered_image_path ?? g.original_image_path ?? null,
+    }));
 
   // Palette — bucket by color_primary, top 6 by share. Garments without a
   // recognised color name (free-form entries, future locales, missing values)
@@ -171,45 +209,60 @@ async function computeFromRawData(userId: string): Promise<InsightsData> {
   const weeklyBars = buildWeeklyBars(wearLogs);
 
   // Cost per wear — averaged across priced garments that have at least one wear.
+  // Intentionally anchored on ALL-TIME `wear_count`, not the 30d window: a
+  // CPW of "$5 over 50 wears" is more honest than "$50 over 5 wears in the
+  // last month" for a piece bought years ago. The "Last 30 days" eyebrow only
+  // governs the gauges + bars + most-worn list above; the Quiet-Win quote is
+  // an intentionally long-tail metric.
   // Garments without a price or wear count are excluded; if nothing qualifies,
   // surface null so the screen can hide the metric rather than show "0.00".
   // PostgREST occasionally surfaces `numeric` columns as strings depending on
   // generated-type alignment, so we coerce defensively before filtering.
-  const pricedPairs: { price: number; wears: number }[] = [];
+  const pricedPairs: { price: number; wears: number; currency: string | null }[] = [];
+  const currencyCounts: Record<string, number> = {};
   for (const g of garments) {
     const price = Number(g.purchase_price);
     const wears = g.wear_count ?? 0;
     if (Number.isFinite(price) && price > 0 && wears > 0) {
-      pricedPairs.push({ price, wears });
+      const currency = g.purchase_currency?.trim().toUpperCase() || null;
+      pricedPairs.push({ price, wears, currency });
+      if (currency) currencyCounts[currency] = (currencyCounts[currency] ?? 0) + 1;
     }
   }
   const avgCostPerWear =
     pricedPairs.length > 0
       ? pricedPairs.reduce((sum, p) => sum + p.price / p.wears, 0) / pricedPairs.length
       : null;
+  // Pick the modal currency across priced pieces. If a wardrobe mixes
+  // currencies the average above is an apples-to-oranges blend; this is
+  // documented as a known v1 limitation in the gauge label and Findings Log.
+  const avgCostPerWearCurrency =
+    Object.entries(currencyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-  // Gauge derivations — variety is "% of wardrobe touched in 30d", care is
-  // "% of wardrobe NOT in laundry right now". Cost-efficiency reuses the
-  // wardrobe usage rate as a proxy until a dedicated CPW gauge ships.
+  // Gauge derivations — utilisation = "% of wardrobe touched in last 30d",
+  // rotation depth = distinct 30d-worn pieces (raw count up to 100 ceiling),
+  // care = "% of wardrobe NOT in laundry right now". The first gauge was
+  // labelled "Cost / wear efficiency" but the underlying number is just the
+  // utilisation rate — a dedicated CPW score is logged for a future wave.
   const inLaundry = garments.filter((g) => g.in_laundry === true).length;
   const careScore =
     totalGarments > 0 ? Math.round(((totalGarments - inLaundry) / totalGarments) * 100) : 100;
   const gauges: InsightsGauge[] = [
     {
-      label: 'Cost / wear efficiency',
+      label: 'Wardrobe utilisation',
       value: wardrobeUsagePct,
       max: 100,
       unit: '%',
-      delta: `${wornGarments.length} of ${totalGarments} worn`,
+      delta: `${wornGarmentsCount} of ${totalGarments} worn`,
       deltaDir: wardrobeUsagePct >= 50 ? 'up' : 'down',
     },
     {
-      label: 'Outfit variety',
-      value: Math.min(wornGarments.length, 100),
+      label: 'Pieces in rotation',
+      value: Math.min(wornGarmentsCount, 100),
       max: 100,
       unit: '',
-      delta: `${wornGarments.length} pieces in rotation`,
-      deltaDir: wornGarments.length >= 10 ? 'up' : 'neutral',
+      delta: `${wornGarmentsCount} active piece${wornGarmentsCount === 1 ? '' : 's'}`,
+      deltaDir: wornGarmentsCount >= 10 ? 'up' : 'neutral',
     },
     {
       label: 'Care & laundry on time',
@@ -230,6 +283,7 @@ async function computeFromRawData(userId: string): Promise<InsightsData> {
     mostWorn,
     weeklyBars,
     avgCostPerWear,
+    avgCostPerWearCurrency,
   };
 }
 
@@ -244,6 +298,7 @@ function buildWeeklyBars(wearLogs: WearLogRow[]): InsightsBarDay[] {
     labels[i] = d.toLocaleDateString(undefined, { weekday: 'short' });
   }
 
+  let totalWearsInWindow = 0;
   for (const log of wearLogs) {
     if (!log.worn_at) continue;
     const wornDay = startOfDay(new Date(log.worn_at));
@@ -251,7 +306,12 @@ function buildWeeklyBars(wearLogs: WearLogRow[]): InsightsBarDay[] {
     if (diffDays < 0 || diffDays >= WEEKLY_BAR_DAYS) continue;
     const idx = WEEKLY_BAR_DAYS - 1 - diffDays;
     counts[idx] += 1;
+    totalWearsInWindow += 1;
   }
+
+  // Surface an empty array when the week has zero wears so the screen can show
+  // a "no wears logged" caption instead of a row of identical 2px stubs.
+  if (totalWearsInWindow === 0) return [];
 
   const max = Math.max(1, ...counts);
   return counts.map((value, i) => ({ label: labels[i], value, max }));
