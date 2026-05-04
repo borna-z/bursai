@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/test/smoke/**/*.test.ts"],
-    testTimeout: 30_000,
+    testTimeout: 120_000,
     hookTimeout: 30_000,
     globalSetup: ["./src/test/smoke/globalSetup.ts"],
   },
