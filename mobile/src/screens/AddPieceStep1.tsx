@@ -1,16 +1,19 @@
 // Add piece — Step 1 of 3 (multi-photo staging).
-// Pixel-faithful port of design_handoff_burs_rn/source/screens.jsx AddGarmentStep1.
+// Pixel-faithful port of design_handoff_burs_rn/source/screens.jsx AddGarmentStep1,
+// W5-wired to real camera + gallery sources.
 //
 // Layout: top header (back · eyebrow + title · Cancel) → live-scan hero card →
-// 2-col source row (Camera / Gallery) → counter + progress → 3-col photo grid with
-// dashed Add tile → sticky bottom CTA "Analyze all".
+// 2-col source row (Camera / Gallery) → counter + progress → 3-col photo grid →
+// sticky bottom CTA "Analyze".
 //
-// State is local: a `photos` array of `{ id, hue }` placeholders, capped at 50.
-// Adding generates a random hue gradient seed; remove drops the entry. Real camera /
-// gallery hooks land in a follow-up PR (out of scope for design pass).
+// State: a `photos` array of `{ id, hue, uri }` — capped at MAX. The Camera tile
+// jumps into LiveScan (camera capture lives there). The Gallery tile uses
+// expo-image-picker (multi-select). Each picked URI is a local file:// path that
+// Step 2 uploads + analyzes. Hue is generated for the placeholder gradient that
+// shows behind the real image (and remains the fallback if a thumb fails to load).
 
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,14 +28,15 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CameraIcon, ImageIcon } from '../components/icons';
+import { hapticLight } from '../lib/haptics';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const MAX = 50;
 
-// Same recipe as AddPiece prototype + OutfitCard hue gradients — keeps the visual rhythm
-// consistent across screens that show staged garment placeholders.
+// Same recipe as OutfitCard hue gradients — keeps the visual rhythm consistent across
+// screens that show staged garment placeholders.
 function hueGrad(h: number): [string, string] {
   return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
 }
@@ -42,30 +46,14 @@ type Photo = AddPiecePhoto;
 export function AddPieceStep1() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  // Seed with five mock thumbs so the grid is non-empty on first render — matches the
-  // prototype which assumes "we got here from camera/gallery, you've staged a few already".
-  const [photos, setPhotos] = useState<Photo[]>([
-    { id: 1, hue: 32 },
-    { id: 2, hue: 28 },
-    { id: 3, hue: 200 },
-    { id: 4, hue: 18 },
-    { id: 5, hue: 45 },
-  ]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  // Monotonic counter so two photos added in the same millisecond don't collide on `id`
+  // (Date.now() + index would dupe across batches added in rapid succession). Audit
+  // round 2, finding B7.
+  const photoIdRef = useRef(1);
 
-  const addPhoto = () => {
-    if (photos.length >= MAX) return;
-    setPhotos((prev) => [
-      ...prev,
-      { id: Date.now() + Math.floor(Math.random() * 1000), hue: Math.floor(Math.random() * 360) },
-    ]);
-  };
-  const removePhoto = (id: number) => setPhotos((prev) => prev.filter((p) => p.id !== id));
-
-  // Gallery picker — uses expo-image-picker (already installed). On RN we don't have a real
-  // surface to render the picked URIs as gradient placeholders, so we synthesise a hue per
-  // asset and stash the URI for future use. The MAX cap clips after merge so a 50+ batch import
-  // doesn't exceed the staging limit.
-  const pickFromGallery = React.useCallback(async () => {
+  // Gallery picker — multi-select, capped at MAX after merge.
+  const pickFromGallery = useCallback(async () => {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
@@ -79,16 +67,45 @@ export function AddPieceStep1() {
         quality: 0.8,
       });
       if (result.canceled) return;
-      const newPhotos: Photo[] = result.assets.map((a, i) => ({
-        id: Date.now() + i,
+      const newPhotos: Photo[] = result.assets.map((a) => ({
+        id: photoIdRef.current++,
         hue: Math.floor(Math.random() * 360),
         uri: a.uri,
       }));
       setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX));
-    } catch (err) {
+    } catch {
       Alert.alert('Gallery unavailable', 'Could not open the photo library.');
     }
   }, []);
+
+  // Camera tile → LiveScan handles permission + capture, then deep-links into Step 2 itself.
+  // No need to add anything to the staged grid here — LiveScan owns the single-piece path.
+  const openLiveScan = useCallback(() => {
+    hapticLight();
+    nav.navigate('LiveScan');
+  }, [nav]);
+
+  const removePhoto = (id: number) => {
+    hapticLight();
+    setPhotos((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Continue → upload + analyze the FIRST photo. Multi-photo batch processing is W9 work
+  // (track in Findings as "Wave 9 — multi-photo Add flow"); this PR ships single-photo
+  // end-to-end so the AI + render pipelines can land cleanly first. allUris is threaded
+  // through anyway so the Step 2 → 3 → re-enter Step 2 loop can wire up later without
+  // another nav-types change.
+  const onContinue = () => {
+    const first = photos[0];
+    if (!first) return;
+    hapticLight();
+    nav.navigate('AddPieceStep2', {
+      photoUri: first.uri,
+      allUris: photos.map((p) => p.uri),
+      source: 'add_photo',
+    });
+  };
+
   const ready = photos.length;
   const pct = (photos.length / MAX) * 100;
 
@@ -113,7 +130,7 @@ export function AddPieceStep1() {
         showsVerticalScrollIndicator={false}>
         {/* ============ LIVE SCAN HERO ============ */}
         <Pressable
-          onPress={() => nav.navigate('LiveScan')}
+          onPress={openLiveScan}
           accessibilityRole="button"
           style={({ pressed }) => [
             s.heroCard,
@@ -157,7 +174,7 @@ export function AddPieceStep1() {
               label="Camera"
               sub="Shoot now"
               icon={<CameraIcon color={t.accent} />}
-              onPress={addPhoto}
+              onPress={openLiveScan}
             />
             <SourcePill
               label="Gallery"
@@ -188,11 +205,18 @@ export function AddPieceStep1() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {photos.map((p, i) => (
             <View key={p.id} style={s.photoTile}>
+              {/* Hue gradient sits behind the real image so the tile has a visible
+                  surface while the file:// URI loads (and as a fallback if it fails). */}
               <LinearGradient
                 colors={hueGrad(p.hue)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFillObject}
+              />
+              <Image
+                source={{ uri: p.uri }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
               />
               <View
                 style={{
@@ -221,7 +245,7 @@ export function AddPieceStep1() {
           ))}
           {photos.length < MAX ? (
             <Pressable
-              onPress={addPhoto}
+              onPress={pickFromGallery}
               accessibilityLabel="Add photo"
               style={({ pressed }) => [
                 s.photoTile,
@@ -257,12 +281,9 @@ export function AddPieceStep1() {
             We&rsquo;ll tag each one automatically
           </Text>
         </View>
-        {/* Pass the staged photos forward so Step 2 + Step 3 reflect the user's real batch.
-            Codex P2 on PR #706 — earlier impl dropped photos here, leaving downstream
-            screens stuck on fixed 5-item mocks regardless of count. */}
         <Button
-          label={`Analyze ${ready > 1 ? 'all' : 'piece'}`}
-          onPress={() => nav.navigate('AddPieceStep2', { photos })}
+          label={ready > 1 ? 'Analyze first' : 'Analyze piece'}
+          onPress={onContinue}
           disabled={ready === 0}
         />
       </View>

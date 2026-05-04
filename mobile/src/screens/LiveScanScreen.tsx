@@ -5,21 +5,22 @@
 // reads as a "system camera" mode; switching to light bg when OS is light would feel wrong.
 // Documented exemption to the token rule (only this screen + the always-light ShareOutfit card).
 //
-// expo-camera (v17) is wired via useCameraPermissions + CameraView. In Expo Go the native
-// module isn't fully available — we fall back to the dark placeholder rect with a copy line
-// telling the user a device build is required. In a dev build the live preview renders.
-//
-// Capture is simulated (button press toggles `captured` + records a hue) — writing a real
-// photo to disk requires media-library access, deferred to a follow-up dep update.
+// W5 wiring:
+//   • Real CameraView capture via takePictureAsync — no more simulated hue placeholder.
+//   • "Use this photo" deep-links into AddPieceStep2 with the captured local URI; Step 2
+//     handles the upload + analyze hand-off.
+//   • Expo Go fallback: native camera isn't fully available there, so the placeholder
+//     stays AND we add a "Pick from gallery" escape hatch using expo-image-picker so the
+//     LiveScan entry point isn't a dead-end during dev.
 
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 
-import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Button } from '../components/Button';
 import { CloseIcon, RotateIcon, SunIcon, CameraIcon } from '../components/icons';
@@ -35,30 +36,54 @@ const VF_FG2 = 'rgba(255,255,255,0.65)';
 const VF_BORDER = 'rgba(255,255,255,0.12)';
 
 export function LiveScanScreen() {
-  const t = useTokens();
   const nav = useNavigation<Nav>();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState(false);
-  const [captured, setCaptured] = useState(false);
-  const [lastHue, setLastHue] = useState<number | null>(null);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const cameraRef = useRef<CameraView | null>(null);
 
-  const handleCapture = () => {
+  // Auto-request permission once on first mount when the user hasn't been asked yet.
+  // If they've already denied with `canAskAgain === false`, the placeholder UI offers
+  // a Settings link instead.
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      void requestPermission();
+    }
+  }, [permission, requestPermission]);
+
+  const handleCapture = async () => {
+    if (!cameraRef.current) return;
     hapticMedium();
-    // Simulated capture — pick a hue so the post-capture preview has something to show.
-    setLastHue(Math.floor(Math.random() * 360));
-    setCaptured(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.85,
+        skipProcessing: false,
+      });
+      if (photo?.uri) {
+        setCapturedUri(photo.uri);
+      } else {
+        Alert.alert('Capture failed', 'Try again.');
+      }
+    } catch {
+      Alert.alert('Capture failed', 'Try again.');
+    }
   };
 
   const handleRetake = () => {
     hapticLight();
-    setCaptured(false);
+    setCapturedUri(null);
   };
 
   const handleUsePhoto = () => {
+    if (!capturedUri) return;
     hapticLight();
-    nav.navigate('AddPieceStep2');
+    nav.navigate('AddPieceStep2', {
+      photoUri: capturedUri,
+      allUris: [capturedUri],
+      source: 'live_scan',
+    });
   };
 
   const handleSwitchCamera = () => {
@@ -69,6 +94,33 @@ export function LiveScanScreen() {
   const handleToggleFlash = () => {
     hapticLight();
     setFlash((f) => !f);
+  };
+
+  // Expo Go / permission-denied fallback — opens the gallery so the entry point still
+  // produces a result. Same flow as Step 1's Gallery tile but contained here so the
+  // user doesn't have to back out and restart.
+  const handleGalleryFallback = async () => {
+    hapticLight();
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Grant photo access to import from your gallery.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const uri = result.assets[0].uri;
+      // Gallery escape from LiveScan still tags as 'live_scan' since the user came in via
+      // the LiveScan entry — the render queue's `source` is for entry-point provenance,
+      // not the underlying capture mechanism.
+      nav.navigate('AddPieceStep2', { photoUri: uri, allUris: [uri], source: 'live_scan' });
+    } catch {
+      Alert.alert('Gallery unavailable', 'Could not open the photo library.');
+    }
   };
 
   const cameraReady = Boolean(permission?.granted);
@@ -122,6 +174,7 @@ export function LiveScanScreen() {
       <View style={s.viewfinder}>
         {cameraReady ? (
           <CameraView
+            ref={cameraRef}
             style={StyleSheet.absoluteFill}
             facing={facing}
             flash={flash ? 'on' : 'off'}
@@ -144,21 +197,43 @@ export function LiveScanScreen() {
               </Text>
               {permission && !permission.granted && permission.canAskAgain ? (
                 <Pressable
-                  onPress={() => { hapticLight(); requestPermission(); }}
+                  onPress={() => { hapticLight(); void requestPermission(); }}
                   style={({ pressed }) => [
                     s.permBtn,
                     { borderColor: VF_BORDER, opacity: pressed ? 0.7 : 1 },
                   ]}>
-                  <Text
-                    style={{
-                      fontFamily: fonts.uiSemi,
-                      fontSize: 12.5,
-                      color: VF_FG,
-                    }}>
+                  <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: VF_FG }}>
                     Allow camera
                   </Text>
                 </Pressable>
               ) : null}
+              {/* Hard-deny path — `requestPermission` would silently no-op, so the only way
+                  to recover is to flip the switch in system Settings. Linking.openSettings()
+                  is the cross-platform deep link Expo + RN both expose. Audit round 2 (C). */}
+              {permission && !permission.granted && !permission.canAskAgain ? (
+                <Pressable
+                  onPress={() => { hapticLight(); void Linking.openSettings(); }}
+                  style={({ pressed }) => [
+                    s.permBtn,
+                    { borderColor: VF_BORDER, opacity: pressed ? 0.7 : 1 },
+                  ]}>
+                  <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: VF_FG }}>
+                    Open Settings
+                  </Text>
+                </Pressable>
+              ) : null}
+              {/* Gallery escape hatch so LiveScan isn't a dead-end in Expo Go or after a
+                  hard-deny. Same destination as the camera path (Step 2 with a single URI). */}
+              <Pressable
+                onPress={handleGalleryFallback}
+                style={({ pressed }) => [
+                  s.permBtn,
+                  { borderColor: VF_BORDER, opacity: pressed ? 0.7 : 1, marginTop: 10 },
+                ]}>
+                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: VF_FG }}>
+                  Pick from gallery
+                </Text>
+              </Pressable>
             </View>
           </View>
         )}
@@ -184,19 +259,16 @@ export function LiveScanScreen() {
           </Text>
         </View>
 
-        {/* Post-capture overlay */}
-        {captured ? (
+        {/* Post-capture overlay — shows the actual captured photo, not a hue placeholder */}
+        {capturedUri ? (
           <View style={s.postCaptureOverlay}>
-            <View
-              style={[
-                s.postCapturePreview,
-                {
-                  backgroundColor:
-                    lastHue !== null ? `hsl(${lastHue}, 22%, 78%)` : '#3A3833',
-                  borderColor: VF_BORDER,
-                },
-              ]}
-            />
+            <View style={[s.postCapturePreview, { borderColor: VF_BORDER }]}>
+              <Image
+                source={{ uri: capturedUri }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+            </View>
             <View style={s.postCaptureActions}>
               <Button label="Use this photo" onPress={handleUsePhoto} block />
               <Pressable
@@ -207,12 +279,7 @@ export function LiveScanScreen() {
                   s.retakeBtn,
                   { borderColor: VF_BORDER, opacity: pressed ? 0.7 : 1 },
                 ]}>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 13,
-                    color: VF_FG,
-                  }}>
+                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: VF_FG }}>
                   Retake
                 </Text>
               </Pressable>
@@ -221,20 +288,12 @@ export function LiveScanScreen() {
         ) : null}
       </View>
 
-      {/* Bottom controls — hide when post-capture overlay is up */}
-      {!captured ? (
+      {/* Bottom controls — hide when post-capture overlay is up or when we're showing
+          the placeholder fallback (no shutter to fire if the camera isn't mounted) */}
+      {!capturedUri && cameraReady ? (
         <View style={s.bottomBar}>
-          {/* Last photo thumbnail */}
-          <View
-            style={[
-              s.lastThumb,
-              {
-                backgroundColor:
-                  lastHue !== null ? `hsl(${lastHue}, 22%, 78%)` : 'transparent',
-                borderColor: VF_BORDER,
-              },
-            ]}
-          />
+          {/* Last photo placeholder — empty in W5; can be wired to a recents reel later */}
+          <View style={[s.lastThumb, { backgroundColor: 'transparent', borderColor: VF_BORDER }]} />
           {/* Shutter */}
           <Pressable
             onPress={handleCapture}
@@ -337,6 +396,7 @@ const s = StyleSheet.create({
     flex: 1,
     borderRadius: radii.lg,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   postCaptureActions: {
     marginTop: 20,
