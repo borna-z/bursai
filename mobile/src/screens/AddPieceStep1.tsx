@@ -12,7 +12,7 @@
 // Step 2 uploads + analyzes. Hue is generated for the placeholder gradient that
 // shows behind the real image (and remains the fallback if a thumb fails to load).
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,6 +28,7 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CameraIcon, ImageIcon } from '../components/icons';
+import { hapticLight } from '../lib/haptics';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -46,6 +47,10 @@ export function AddPieceStep1() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [photos, setPhotos] = useState<Photo[]>([]);
+  // Monotonic counter so two photos added in the same millisecond don't collide on `id`
+  // (Date.now() + index would dupe across batches added in rapid succession). Audit
+  // round 2, finding B7.
+  const photoIdRef = useRef(1);
 
   // Gallery picker — multi-select, capped at MAX after merge.
   const pickFromGallery = useCallback(async () => {
@@ -62,8 +67,8 @@ export function AddPieceStep1() {
         quality: 0.8,
       });
       if (result.canceled) return;
-      const newPhotos: Photo[] = result.assets.map((a, i) => ({
-        id: Date.now() + i,
+      const newPhotos: Photo[] = result.assets.map((a) => ({
+        id: photoIdRef.current++,
         hue: Math.floor(Math.random() * 360),
         uri: a.uri,
       }));
@@ -76,10 +81,14 @@ export function AddPieceStep1() {
   // Camera tile → LiveScan handles permission + capture, then deep-links into Step 2 itself.
   // No need to add anything to the staged grid here — LiveScan owns the single-piece path.
   const openLiveScan = useCallback(() => {
+    hapticLight();
     nav.navigate('LiveScan');
   }, [nav]);
 
-  const removePhoto = (id: number) => setPhotos((prev) => prev.filter((p) => p.id !== id));
+  const removePhoto = (id: number) => {
+    hapticLight();
+    setPhotos((prev) => prev.filter((p) => p.id !== id));
+  };
 
   // Continue → upload + analyze the FIRST photo. Multi-photo batch processing is W9 work
   // (track in Findings as "Wave 9 — multi-photo Add flow"); this PR ships single-photo
@@ -89,6 +98,7 @@ export function AddPieceStep1() {
   const onContinue = () => {
     const first = photos[0];
     if (!first) return;
+    hapticLight();
     nav.navigate('AddPieceStep2', {
       photoUri: first.uri,
       allUris: photos.map((p) => p.uri),

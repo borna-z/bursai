@@ -14,7 +14,7 @@
 //     LiveScan entry point isn't a dead-end during dev.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -204,6 +204,21 @@ export function LiveScanScreen() {
                   ]}>
                   <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: VF_FG }}>
                     Allow camera
+                  </Text>
+                </Pressable>
+              ) : null}
+              {/* Hard-deny path — `requestPermission` would silently no-op, so the only way
+                  to recover is to flip the switch in system Settings. Linking.openSettings()
+                  is the cross-platform deep link Expo + RN both expose. Audit round 2 (C). */}
+              {permission && !permission.granted && !permission.canAskAgain ? (
+                <Pressable
+                  onPress={() => { hapticLight(); void Linking.openSettings(); }}
+                  style={({ pressed }) => [
+                    s.permBtn,
+                    { borderColor: VF_BORDER, opacity: pressed ? 0.7 : 1 },
+                  ]}>
+                  <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: VF_FG }}>
+                    Open Settings
                   </Text>
                 </Pressable>
               ) : null}

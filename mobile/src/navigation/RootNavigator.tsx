@@ -86,7 +86,6 @@ export type AnalysisResultParam = {
   fit: string | null;
   pattern: string | null;
   season_tags: string[];
-  occasion_tags: string[];
   formality: number | null;
   description: string | null;
   confidence: number;

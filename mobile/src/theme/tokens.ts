@@ -29,6 +29,12 @@ export type ThemeTokens = {
    */
   destructive: string;
   /**
+   * Translucent companion to `destructive` — for soft warning surfaces (e.g. the AI-confidence
+   * "Review carefully" badge in AddPieceStep3) that need a destructive-tinted backing without
+   * shouting at the user. Mirrors the accent → accentSoft relationship.
+   */
+  destructiveSoft: string;
+  /**
    * Theme-INVARIANT pair for badges/labels that overlay a photo or arbitrary user content
    * (e.g. the "01" piece-number badge in AddPiece, remove × buttons on photo tiles).
    * `scrimBg` is a translucent dark backing so text stays legible against any image content;
@@ -56,6 +62,7 @@ export const light: ThemeTokens = {
   accentFg: '#FFFFFF',
   accentSoft: 'rgba(173,129,55,0.12)',
   destructive: '#C25B45', // warm terracotta; AA-contrast on light bg
+  destructiveSoft: 'rgba(194,91,69,0.12)', // tinted destructive — same recipe as accentSoft
   scrimBg:  'rgba(0,0,0,0.55)',
   scrimFg:  '#FFFFFF',
   shadowSm: { color: '#1C1917', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.04 },
@@ -77,6 +84,7 @@ export const dark: ThemeTokens = {
   accentFg: '#17140F',
   accentSoft: 'rgba(205,165,108,0.14)',
   destructive: '#E27865', // lighter shifted hue; readable on charcoal bg
+  destructiveSoft: 'rgba(226,120,101,0.14)', // tinted destructive on charcoal — same recipe as accentSoft
   // Same scrim values as light — these are theme-invariant by design (see ThemeTokens type).
   scrimBg:  'rgba(0,0,0,0.55)',
   scrimFg:  '#FFFFFF',

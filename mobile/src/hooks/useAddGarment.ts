@@ -108,7 +108,9 @@ export function useAddGarment() {
         fit: params.analysis.fit,
         pattern: params.analysis.pattern,
         season_tags: params.analysis.season_tags,
-        occasion_tags: params.analysis.occasion_tags,
+        // occasion_tags intentionally omitted — analyze_garment in `fast`/`full` mode
+        // does NOT return occasion data (only `enrich` mode prompts for it). Inserting
+        // the empty array would override any later enrichment write. Audit round 2.
         formality: params.analysis.formality,
         original_image_path: params.storagePath,
         wear_count: 0,

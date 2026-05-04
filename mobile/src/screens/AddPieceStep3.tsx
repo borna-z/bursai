@@ -38,6 +38,7 @@ import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
 import { useAddGarment } from '../hooks/useAddGarment';
+import { hapticLight, hapticSuccess } from '../lib/haptics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -84,7 +85,26 @@ export function AddPieceStep3() {
   const confidenceHigh = analysis.confidence >= 0.7;
   const seasonsLower = analysis.season_tags.map((s) => s.toLowerCase());
 
+  // Map raw exception text to user-facing copy. PostgREST and supabase-js bubble up
+  // wire-format messages ("duplicate key value violates unique constraint",
+  // "FetchError: Network request failed", etc.) that are noise to the end user.
+  const friendlySaveError = (err: unknown): string => {
+    if (!(err instanceof Error)) return 'Could not save. Please try again.';
+    const m = err.message.toLowerCase();
+    if (m.includes('network') || m.includes('fetch')) {
+      return 'No internet connection. Try again when you reconnect.';
+    }
+    if (m.includes('duplicate')) {
+      return 'Looks like this piece is already in your wardrobe.';
+    }
+    if (m.includes('not authenticated')) {
+      return 'Please sign in again before saving.';
+    }
+    return 'Could not save. Please try again.';
+  };
+
   const handleSave = async () => {
+    hapticLight();
     try {
       const garment = await addGarment.mutateAsync({
         storagePath,
@@ -93,6 +113,7 @@ export function AddPieceStep3() {
         title: titleOverride.trim() || analysis.title,
         category: analysis.category,
       });
+      hapticSuccess();
       // index: 1 makes GarmentDetail the active screen, with MainTabs in the back stack
       // so the swipe-back gesture lands on the home tab. (index: 0 with two routes would
       // surface MainTabs and stash GarmentDetail under it — wrong UX.)
@@ -104,9 +125,18 @@ export function AddPieceStep3() {
         ],
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Save failed';
-      Alert.alert('Save failed', msg);
+      Alert.alert('Save failed', friendlySaveError(err));
     }
+  };
+
+  // "Re-scan" pops back to Step 1 instead of nav.goBack() to Step 2 — Step 2 keeps its
+  // post-success state in the back stack (idle render with no in-flight work), so a
+  // straight goBack would land the user on a "loading…" screen that never resolves.
+  // Round 2 audit (P/O finding) — using nav.navigate to an existing route pops the stack
+  // back to it, dropping Step 2 + Step 3 cleanly.
+  const handleRescan = () => {
+    hapticLight();
+    nav.navigate('AddPieceStep1');
   };
 
   return (
@@ -121,7 +151,9 @@ export function AddPieceStep3() {
           <PageTitle size={26}>Confirm</PageTitle>
         </View>
         <Pressable
-          onPress={() => nav.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Re-scan a different photo"
+          onPress={handleRescan}
           style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
           <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.accent, fontWeight: '500' }}>
             Re-scan
@@ -159,18 +191,23 @@ export function AddPieceStep3() {
               }}>
               {analysis.title || 'Untitled'}
             </Text>
-            {/* Confidence badge — green for high-trust auto-fill, amber for "review carefully" */}
+            {/* Confidence badge — accent gold for high-trust auto-fill, soft destructive
+                terracotta for "review carefully". Honours the single-accent token rule
+                (mobile/CLAUDE.md): no new brand colours, just accent + destructive
+                already in tokens.ts. Audit round 2 — replaces hardcoded rgba(). */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
               <View
+                accessible
+                accessibilityLabel={
+                  confidenceHigh
+                    ? 'AI confidence high — auto-detected fields look correct'
+                    : 'AI confidence low — please review the auto-detected fields'
+                }
                 style={[
                   s.confidenceBadge,
                   {
-                    backgroundColor: confidenceHigh
-                      ? 'rgba(60, 130, 80, 0.12)'
-                      : 'rgba(180, 110, 40, 0.14)',
-                    borderColor: confidenceHigh
-                      ? 'rgba(60, 130, 80, 0.45)'
-                      : 'rgba(180, 110, 40, 0.5)',
+                    backgroundColor: confidenceHigh ? t.accentSoft : t.destructiveSoft,
+                    borderColor: confidenceHigh ? t.accent : t.destructive,
                   },
                 ]}>
                 <Text
@@ -179,7 +216,7 @@ export function AddPieceStep3() {
                     fontSize: 10,
                     letterSpacing: 1.2,
                     textTransform: 'uppercase',
-                    color: confidenceHigh ? 'rgb(50, 110, 70)' : 'rgb(160, 95, 30)',
+                    color: confidenceHigh ? t.accent : t.destructive,
                   }}>
                   {confidenceHigh ? 'Looks good' : 'Review carefully'}
                 </Text>
@@ -285,6 +322,8 @@ export function AddPieceStep3() {
           label={addGarment.isPending ? 'Saving…' : 'Save'}
           onPress={handleSave}
           disabled={addGarment.isPending}
+          accessibilityLabel={addGarment.isPending ? 'Saving garment' : 'Save garment'}
+          accessibilityState={{ busy: addGarment.isPending, disabled: addGarment.isPending }}
         />
       </View>
     </SafeAreaView>

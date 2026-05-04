@@ -54,3 +54,21 @@ export async function resizeAndUpload(uri: string, userId: string): Promise<Uplo
 
   return { storagePath };
 }
+
+/**
+ * Best-effort cleanup of an upload that no garment row references — typically because
+ * the analyze_garment call after a successful upload failed, or because the user backed
+ * out / Skip'd before the garment was saved. RLS on the bucket means a user can only
+ * remove objects under their own `${userId}/` prefix, so this is safe to call without
+ * an extra ownership check. Errors are swallowed: a leaked object is not a regression
+ * worth blocking the user on.
+ */
+export async function deleteUpload(storagePath: string): Promise<void> {
+  if (!storagePath) return;
+  try {
+    await supabase.storage.from(BUCKET).remove([storagePath]);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[imageUpload] orphan cleanup failed:', err);
+  }
+}
