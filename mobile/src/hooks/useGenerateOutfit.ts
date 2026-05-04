@@ -18,6 +18,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabaseUrl } from '../lib/supabase';
 import { getEdgeFunctionUrl } from '../lib/sse';
+import { Sentry } from '../lib/sentry';
 
 export type GeneratedOutfitItem = {
   garment_id?: string;
@@ -185,7 +186,15 @@ export function useGenerateOutfit() {
         }
       } catch (err) {
         if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : 'Generation failed');
+        const message = err instanceof Error ? err.message : 'Generation failed';
+        // Skip the expected paywall sentinel — those are gating, not failures.
+        if (message !== 'subscription_required') {
+          Sentry.withScope((s) => {
+            s.setTag('mutation', 'useGenerateOutfit');
+            Sentry.captureException(err);
+          });
+        }
+        setError(message);
       } finally {
         // Skip the trailing setState if the request was aborted (e.g. screen
         // unmount mid-flight) — the hook's reset()/cancel callers already

@@ -22,6 +22,7 @@ import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
+import { captureMutationError } from '../lib/sentry';
 import { supabaseUrl } from '../lib/supabase';
 import { getEdgeFunctionUrl } from '../lib/sse';
 
@@ -146,6 +147,7 @@ export function useWardrobeGaps() {
       // memory instead of triggering another (rate-limited) call.
       queryClient.setQueryData(['wardrobe_gaps', user?.id], data);
     },
+    onError: captureMutationError('useWardrobeGaps'),
   });
 
   const analyze = useCallback(async () => {

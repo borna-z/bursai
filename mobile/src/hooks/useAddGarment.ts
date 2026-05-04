@@ -25,6 +25,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { captureMutationError } from '../lib/sentry';
 import type { GarmentInsert } from '../types/garment';
 import type { AnalysisResult } from './useAnalyzeGarment';
 
@@ -145,5 +146,6 @@ export function useAddGarment() {
       // so the new piece is reflected next time the user opens the tab.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
+    onError: captureMutationError('useAddGarment'),
   });
 }

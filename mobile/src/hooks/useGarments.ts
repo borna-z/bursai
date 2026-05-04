@@ -25,6 +25,7 @@ import { useMemo } from 'react';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { captureMutationError } from '../lib/sentry';
 import type { Garment, GarmentFilters, GarmentUpdate } from '../types/garment';
 
 const PAGE_SIZE = 30;
@@ -216,7 +217,8 @@ export function useUpdateGarment() {
       patchGarmentInCaches(queryClient, user?.id, id, updates as Partial<Garment>);
       return { previousSnapshot };
     },
-    onError: (_err, { id }, context) => {
+    onError: (err, { id }, context) => {
+      captureMutationError('useUpdateGarment')(err);
       if (context?.previousSnapshot !== undefined) {
         queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
       }
@@ -251,6 +253,7 @@ export function useDeleteGarment() {
       queryClient.removeQueries({ queryKey: ['garment', user?.id, id] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
+    onError: captureMutationError('useDeleteGarment'),
   });
 }
 
@@ -278,7 +281,8 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
       patchGarmentInCaches(queryClient, user?.id, id, { in_laundry: inLaundry });
       return { previousSnapshot };
     },
-    onError: (_err, { id }, context) => {
+    onError: (err, { id }, context) => {
+      captureMutationError('useMarkLaundry')(err);
       if (context?.previousSnapshot !== undefined) {
         queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
       }
@@ -349,7 +353,8 @@ export function useMarkWorn() {
       }
       return { previousSnapshot };
     },
-    onError: (_err, id, context) => {
+    onError: (err, id, context) => {
+      captureMutationError('useMarkWorn')(err);
       if (context?.previousSnapshot !== undefined) {
         queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
       }

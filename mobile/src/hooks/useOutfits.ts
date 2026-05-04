@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ingestMemoryEvent } from '../lib/memoryIngest';
+import { captureMutationError } from '../lib/sentry';
 import type { OutfitWithItems } from '../types/outfit';
 
 const OUTFIT_WITH_ITEMS_SELECT = `
@@ -206,6 +207,7 @@ export function useMarkOutfitWorn() {
         });
       }
     },
+    onError: captureMutationError('useMarkOutfitWorn'),
   });
 }
 
@@ -236,6 +238,7 @@ export function useSaveOutfit() {
         });
       }
     },
+    onError: captureMutationError('useSaveOutfit'),
   });
 }
 
@@ -259,6 +262,7 @@ export function useDeleteOutfit() {
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
     },
+    onError: captureMutationError('useDeleteOutfit'),
   });
 }
 
@@ -302,6 +306,7 @@ export function useRateOutfit() {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
     },
+    onError: captureMutationError('useRateOutfit'),
   });
 }
 
@@ -361,5 +366,6 @@ export function useSaveOutfitNote() {
     onSuccess: (_data, { outfitId }) => {
       queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
     },
+    onError: captureMutationError('useSaveOutfitNote'),
   });
 }

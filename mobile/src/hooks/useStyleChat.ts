@@ -23,6 +23,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabaseUrl } from '../lib/supabase';
 import { fetchSSE, getEdgeFunctionUrl } from '../lib/sse';
+import { Sentry } from '../lib/sentry';
 
 export type ChatMessage = {
   id: string;
@@ -193,6 +194,14 @@ export function useStyleChat() {
           },
           onError: (err) => {
             if (controller.signal.aborted) return;
+            // Don't burn Sentry quota on the expected paywall sentinel —
+            // those are subscription gating, not real failures.
+            if (err.message !== 'subscription_required') {
+              Sentry.withScope((s) => {
+                s.setTag('mutation', 'useStyleChat');
+                Sentry.captureException(err);
+              });
+            }
             setError(err.message);
             setIsStreaming(false);
             // Drop the empty assistant placeholder on failure; the user

@@ -23,8 +23,8 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 **MOBILE LAUNCH IS NOW THE ACTIVE PATH (2026-05-04).** The `mobile/` React Native + Expo app replaces the Capacitor wrapper plan. Mobile launch waves are tracked in `docs/launch/mobile-launch-overview.md` — that is the single source of truth for all current launch work.
 
-**CURRENT WAVE:** Mobile Launch M0 — Sentry foundations + onError sweep
-**CURRENT WAVE FILE:** `docs/launch/mobile-w0-sentry.md` (the master `docs/launch/mobile-launch-overview.md` lists all waves)
+**CURRENT WAVE:** Mobile Launch M1 — Destructive mutations: account deletion + reset style memory
+**CURRENT WAVE FILE:** `docs/launch/mobile-w1-destructive-mutations.md` (the master `docs/launch/mobile-launch-overview.md` lists all waves)
 **LAST UPDATED:** 2026-05-04
 **LAST CLEANUP:** 2026-04-28 (Wave 4.9 hygiene PR #697)
 **MOBILE LAUNCH SCOPE:** 14 waves M0–M14 shipping by 2026-05-31. M6/M13/M14 blocked on Apple Developer + RevenueCat dashboard (external setup); M0–M5/M7–M12 are fully unblocked for code work.
