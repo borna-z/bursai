@@ -208,6 +208,19 @@ jobs:
             sleep 1
           done
 
+      - name: Wait for functions to be ready
+        run: |
+          for i in {1..30}; do
+            res=$(curl -s -o /dev/null -w "%{http_code}" \
+              "http://localhost:54321/functions/v1/health" || true)
+            if [ "$res" = "200" ]; then
+              echo "Functions ready"
+              break
+            fi
+            echo "Waiting for functions... attempt $i"
+            sleep 2
+          done
+
       - name: Run smoke tests against local Supabase
         env:
           RUN_SMOKE: "1"
