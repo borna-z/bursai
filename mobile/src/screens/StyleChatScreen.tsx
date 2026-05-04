@@ -1,23 +1,26 @@
 // Style Chat — AI stylist conversation surface.
-// Pixel-faithful port of design_handoff_burs_rn/source/extra-screens.jsx StyleChatScreen
-// + audit-screens.jsx StyleChatV2Screen (memory panel + history affordance).
+// W4: wired to the real `style_chat` edge function via useStyleChat (SSE
+// streaming). The screen hydrates from a fresh empty conversation each
+// mount; persistent chat sessions land in a future wave.
 //
-// Layout: top header (back · "AI" + "Style Chat" · history button) → memory panel
-// (collapsible chip row showing remembered facts + Edit) → message list (FlatList,
-// inverted, keeps newest at the bottom and scrolls correctly with the keyboard) →
-// suggestion chip row → composer (pill input + accent send button).
+// Layout: top header (back · "AI" + "Style Chat" · clear button) →
+// memory panel (collapsible chip row showing remembered facts + Edit) →
+// message list (FlatList, inverted, keeps newest at the bottom and scrolls
+// correctly with the keyboard) → suggestion chip row → composer.
 //
 // Why inverted FlatList:
-//   - RN's keyboard handling is much smoother when the list grows from the bottom up.
-//     Inverting flips the data order so item 0 is the newest message at the bottom.
-//   - We render the data array in reverse-chronological order so the newest sits at
-//     index 0 of the inverted list.
-// KeyboardAvoidingView wraps the screen so the composer + last messages stay visible
-// when the keyboard rises. iOS uses `padding`, Android uses `height` per the standard
-// RN guidance — Android's `padding` mode tends to cut off content above the keyboard.
+//   - RN's keyboard handling is much smoother when the list grows from the
+//     bottom up. Inverting flips the data order so item 0 is the newest
+//     message at the bottom.
+//   - We render the messages array in REVERSE chronological order (newest
+//     first) so the inverted list visually places the newest at the bottom.
+// KeyboardAvoidingView wraps the screen so the composer + last messages stay
+// visible when the keyboard rises. iOS uses `padding`, Android uses `height`
+// per the standard RN guidance.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   KeyboardAvoidingView,
@@ -38,31 +41,12 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
-import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { OutfitCard } from '../components/OutfitCard';
-import { ChatBubbleSkeleton } from '../components/skeletons';
-import { ErrorState } from '../components/ErrorState';
-import { BackIcon, ChevronIcon, CloseIcon } from '../components/icons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { BackIcon, ChevronIcon } from '../components/icons';
+import { useStyleChat, type ChatMessage } from '../hooks/useStyleChat';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-type Message =
-  | { id: string; role: 'user' | 'ai'; kind: 'text';   text: string;  time?: string }
-  | { id: string; role: 'ai';          kind: 'outfit'; name: string;  sub: string;   hues: number[] };
-
-// Mock conversation — newest first because the FlatList is inverted. Real impl will hydrate
-// from a Supabase chat-messages query and prepend new turns as they stream in.
-const MESSAGES: Message[] = [
-  { id: 'm6', role: 'ai',   kind: 'outfit', name: 'Coffee · with chore', sub: '5 PIECES · LAYERED', hues: [45, 32, 38, 28] },
-  { id: 'm5', role: 'ai',   kind: 'text',   text: 'Sand canvas chore over the cardigan. Keeps you sharp without overheating.' },
-  { id: 'm4', role: 'user', kind: 'text',   text: 'Add a jacket?' },
-  { id: 'm3', role: 'ai',   kind: 'outfit', name: 'Coffee · soft tailored', sub: '4 PIECES · 14° CLOUDY', hues: [32, 38, 200, 28] },
-  { id: 'm2', role: 'ai',   kind: 'text',   text: 'Cream wool tee, navy cardigan if it stays under 16°. Lean to your bone sneakers — bone tones the linen up.' },
-  { id: 'm1', role: 'user', kind: 'text',   text: 'What goes with my linen trousers for a coffee meeting?', time: 'Today, 09:14' },
-];
 
 const SUGGESTIONS = [
   'What to wear today?',
@@ -77,29 +61,43 @@ const MEMORY_FACTS = [
   'Avoids loud prints',
 ];
 
-// Mock past chat sessions surfaced when the History button is tapped. Real impl will
-// hydrate from the chat_messages table, grouped by session.
-type ChatSession = { id: string; date: string; firstMessage: string };
-
-const PAST_SESSIONS: ChatSession[] = [
-  { id: 's1', date: 'Yesterday',     firstMessage: 'What goes with my linen trousers for a coffee meeting?' },
-  { id: 's2', date: 'Wed · Apr 24',  firstMessage: 'Help me pick a blazer for the dinner on Friday' },
-  { id: 's3', date: 'Mon · Apr 22',  firstMessage: 'Too warm for the wool overshirt — alternatives?' },
-  { id: 's4', date: 'Sat · Apr 20',  firstMessage: 'Outfit for a creative-studio meeting' },
-];
-
 export function StyleChatScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [draft, setDraft] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
-  const { loading, error, retry } = useMockRefresh(500);
+  const { messages, isStreaming, error, sendMessage, clearChat, stopStreaming } =
+    useStyleChat();
 
-  // Track the suggestion-chip auto-send timer so we can cancel it on unmount. Without this an
-  // unmount-during-150ms would call sendText on a torn-down component.
-  const sendTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  React.useEffect(
+  // Subscription-locked → surface the paywall via Alert. Tracking the
+  // shown-once flag prevents re-firing on every render while the error
+  // sentinel persists.
+  const paywallShownRef = useRef(false);
+  useEffect(() => {
+    if (error === 'subscription_required' && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      Alert.alert(
+        'Premium feature',
+        'Style Chat is part of BURS Premium. Upgrade to keep talking with your stylist.',
+        [{ text: 'OK', style: 'default' }],
+      );
+    }
+    if (error !== 'subscription_required') {
+      paywallShownRef.current = false;
+    }
+  }, [error]);
+
+  // Cancel any in-flight stream when the user navigates away — prevents
+  // setState on unmounted component.
+  useEffect(() => {
+    return () => {
+      stopStreaming();
+    };
+  }, [stopStreaming]);
+
+  // Track the suggestion-chip auto-send timer so we can cancel it on unmount.
+  const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
     () => () => {
       if (sendTimerRef.current) {
         clearTimeout(sendTimerRef.current);
@@ -109,36 +107,48 @@ export function StyleChatScreen() {
     [],
   );
 
-  const data = useMemo(() => MESSAGES, []);
+  // Inverted FlatList expects newest-first ordering. Reversing without
+  // mutating the underlying array via slice().reverse().
+  const reversed = useMemo(() => messages.slice().reverse(), [messages]);
 
-  // Send-by-text helper — used both by the composer's send button and the suggestion chips.
-  // Spec: tapping a chip pre-fills the composer AND auto-sends after a brief delay so the user
-  // sees the chip's text land in the input before the AI turn streams in.
-  const sendText = React.useCallback((text: string) => {
-    if (!text.trim()) return;
-    // Real impl: append a user message + kick off AI request. For the design pass we just
-    // clear the input — the static MESSAGES list represents the visual end-state.
+  // Most recent user turn — used by the inline error banner's Retry pill so
+  // a transient failure doesn't force the user to retype. Codex audit P1-5
+  // (audit 3).
+  const lastUserMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'user') ?? null,
+    [messages],
+  );
+
+  const handleSend = () => {
+    if (!draft.trim() || isStreaming) return;
+    void sendMessage(draft);
     setDraft('');
-  }, []);
-
-  const send = () => sendText(draft);
+  };
 
   const handleSuggestion = React.useCallback(
     (text: string) => {
+      if (isStreaming) return;
       setDraft(text);
       if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
-      // Brief delay so the user perceives the chip → composer → send sequence rather than a
-      // single instantaneous jump.
       sendTimerRef.current = setTimeout(() => {
         sendTimerRef.current = null;
-        sendText(text);
+        void sendMessage(text);
+        setDraft('');
       }, 150);
     },
-    [sendText],
+    [sendMessage, isStreaming],
   );
 
+  const handleClear = () => {
+    clearChat();
+    setDraft('');
+  };
+
+  const showInlineError =
+    error && error !== 'subscription_required' ? error : null;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
@@ -155,8 +165,9 @@ export function StyleChatScreen() {
               Style Chat
             </Text>
           </View>
-          <IconBtn variant="ghost" onPress={() => setShowHistory((v) => !v)} ariaLabel="History">
-            {/* Hamburger glyph mirrors styleChatV2 history button */}
+          <IconBtn variant="ghost" onPress={handleClear} ariaLabel="New chat">
+            {/* Hamburger glyph repurposed as "new chat" — clears the active
+                conversation. Persistent history lives in a future wave. */}
             <View style={{ width: 18, height: 12, justifyContent: 'space-between' }}>
               {[0, 1, 2].map((i) => (
                 <View key={i} style={{ height: 1.6, backgroundColor: t.fg, borderRadius: 1 }} />
@@ -166,14 +177,11 @@ export function StyleChatScreen() {
         </View>
 
         {/* ============ MEMORY PANEL ============ */}
-        {/* Collapsible — when expanded, shows fact chips + Edit + Hide. When collapsed,
-            renders a thin "Show" pill row so the user can reopen without leaving the screen.
-            Codex P3 on PR #706 — earlier impl had no path back from collapsed. */}
         {memoryOpen ? (
           <View style={[s.memoryPanel, { borderBottomColor: t.border, backgroundColor: t.card }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Eyebrow>Style memory</Eyebrow>
-              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }} accessibilityLabel="Hide style memory">
+              <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }} accessibilityRole="button" accessibilityLabel="Hide style memory">
                 <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Hide</Text>
               </Pressable>
             </View>
@@ -225,35 +233,46 @@ export function StyleChatScreen() {
           </Pressable>
         )}
 
+        {/* ============ ERROR BANNER ============ */}
+        {showInlineError ? (
+          <View
+            style={[
+              s.errorBanner,
+              { borderBottomColor: t.border, backgroundColor: t.bg2 },
+            ]}>
+            <Caption style={{ color: t.fg2, flex: 1 }}>{showInlineError}</Caption>
+            {lastUserMessage ? (
+              <Pressable
+                onPress={() => {
+                  if (isStreaming) return;
+                  void sendMessage(lastUserMessage.content);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry last message"
+                style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+                <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>
+                  Retry
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* ============ MESSAGE LIST (FlatList inverted) ============ */}
-        {error ? (
-          <ErrorState
-            title="Stylist unavailable"
-            body="Pull down to try again."
-            onRetry={retry}
-            style={{ flex: 1 }}
-          />
-        ) : loading ? (
-          <View style={{ flex: 1 }}>
-            <ChatBubbleSkeleton />
+        {messages.length === 0 ? (
+          <View style={s.emptyShell}>
+            <Eyebrow>Start a conversation</Eyebrow>
+            <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
+              Ask your stylist anything — outfit picks, packing lists, what fits the weather.
+            </Caption>
           </View>
         ) : (
           <FlatList
-            data={data}
+            data={reversed}
             keyExtractor={(m) => m.id}
             inverted
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 }}
             renderItem={({ item }) => <MessageItem msg={item} />}
-            ListFooterComponent={
-              <Caption style={{ textAlign: 'center', paddingVertical: 6 }}>
-                {/* Footer in inverted list = top of the screen — i.e. start-of-conversation timestamp.
-                    Extract to a local const so TS can narrow the kind === 'text' branch and expose .time. */}
-                {(() => {
-                  const first = data[data.length - 1];
-                  return first && first.kind === 'text' ? first.time : null;
-                })()}
-              </Caption>
-            }
           />
         )}
 
@@ -264,7 +283,11 @@ export function StyleChatScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
             {SUGGESTIONS.map((sug) => (
-              <Chip key={sug} label={sug} onPress={() => handleSuggestion(sug)} />
+              <Chip
+                key={sug}
+                label={sug}
+                onPress={() => handleSuggestion(sug)}
+              />
             ))}
           </ScrollView>
         </View>
@@ -281,6 +304,7 @@ export function StyleChatScreen() {
               onChangeText={setDraft}
               placeholder="Ask your stylist…"
               placeholderTextColor={t.fg3}
+              editable={!isStreaming}
               multiline
               style={{
                 flex: 1,
@@ -294,153 +318,111 @@ export function StyleChatScreen() {
             />
           </View>
           <Pressable
-            onPress={send}
-            disabled={!draft.trim()}
-            accessibilityLabel="Send"
+            onPress={handleSend}
+            disabled={!draft.trim() || isStreaming}
+            accessibilityRole="button"
+            accessibilityLabel={isStreaming ? 'Sending' : 'Send'}
+            accessibilityState={{ disabled: !draft.trim() || isStreaming, busy: isStreaming }}
             style={({ pressed }) => [
               s.sendBtn,
               {
-                backgroundColor: draft.trim() ? t.accent : t.bg2,
+                backgroundColor: draft.trim() && !isStreaming ? t.accent : t.bg2,
                 opacity: pressed ? 0.85 : 1,
               },
             ]}>
-            <ChevronIcon color={draft.trim() ? t.accentFg : t.fg3} />
+            {isStreaming ? (
+              <ActivityIndicator size="small" color={t.accentFg} />
+            ) : (
+              <ChevronIcon color={draft.trim() ? t.accentFg : t.fg3} />
+            )}
           </Pressable>
         </View>
-
-        {/* ============ HISTORY OVERLAY (toggled by header History button) ============ */}
-        {showHistory ? (
-          <Pressable
-            onPress={() => setShowHistory(false)}
-            accessibilityLabel="Close history"
-            style={[s.historyBackdrop, { backgroundColor: t.scrimBg }]}>
-            {/* Inner sheet — claims the responder via onStartShouldSetResponder so taps inside
-                the sheet do not propagate to the backdrop's onPress. Using a View instead of a
-                no-op Pressable keeps screens free of empty () => {} handlers. */}
-            <View
-              onStartShouldSetResponder={() => true}
-              style={[
-                s.historySheet,
-                { backgroundColor: t.bg, borderColor: t.border, shadowColor: t.shadow.color },
-              ]}>
-              <View style={s.historyHeader}>
-                <View style={{ flex: 1 }}>
-                  <Eyebrow>Past chats</Eyebrow>
-                  <Text
-                    style={{
-                      fontFamily: fonts.displayMedium,
-                      fontStyle: 'italic',
-                      fontSize: 20,
-                      color: t.fg,
-                      marginTop: 2,
-                    }}>
-                    History
-                  </Text>
-                </View>
-                <IconBtn ariaLabel="Close" onPress={() => setShowHistory(false)}>
-                  <CloseIcon color={t.fg} />
-                </IconBtn>
-              </View>
-              <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
-                {PAST_SESSIONS.map((sess) => (
-                  <Pressable
-                    key={sess.id}
-                    onPress={() => setShowHistory(false)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open chat from ${sess.date}`}
-                    style={({ pressed }) => [
-                      s.historyRow,
-                      { borderBottomColor: t.border, opacity: pressed ? 0.7 : 1 },
-                    ]}>
-                    <Eyebrow>{sess.date}</Eyebrow>
-                    <Text
-                      numberOfLines={2}
-                      style={{
-                        marginTop: 4,
-                        fontFamily: fonts.uiSemi,
-                        fontSize: 13.5,
-                        color: t.fg,
-                        letterSpacing: -0.13,
-                      }}>
-                      {sess.firstMessage}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          </Pressable>
-        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// Message bubble — inline so styling stays close to the parent context. Bubble has 18px
-// radius with one corner squared to point toward the speaker (4px radius on speaker-side).
-function MessageItem({ msg }: { msg: Message }) {
-  const t = useTokens();
-  const nav = useNavigation<Nav>();
+// Message bubble — inline so styling stays close to the parent context.
+// Bubble has 18px radius with one corner squared to point toward the
+// speaker (4px radius on speaker-side). Streaming assistant bubbles with
+// no content yet show an animated three-dot indicator.
+//
+// Memoized on (id, content, isStreaming) so the FlatList doesn't re-render
+// every visible message on every SSE delta — only the streaming bubble at
+// the bottom invalidates per chunk. Codex audit P2-2 (audit 3).
+const MessageItem = React.memo(
+  function MessageItem({ msg }: { msg: ChatMessage }) {
+    const t = useTokens();
+    const isUser = msg.role === 'user';
+    const showTypingDots = msg.isStreaming && !msg.content;
 
-  if (msg.kind === 'outfit') {
-    // AI outfit attachment — left-aligned, ~78% width like the prototype. Wear/Save row
-    // sits under the card so the user can act on the suggestion without leaving chat.
     return (
-      <View style={{ alignSelf: 'flex-start', width: '78%', marginVertical: 4, gap: 6 }}>
-        <OutfitCard name={msg.name} sub={msg.sub} hues={msg.hues} />
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <Button
-            label="Wear this"
-            size="sm"
-            // Mock chat outfit — no real id to route to. Same rationale as
-            // StyleMeScreen / OutfitGenerateScreen: routing to OutfitDetail
-            // without an id hits the "Outfit not found" empty state W3 added.
-            onPress={() =>
-              Alert.alert(
-                'Generating your look',
-                'Real outfit generation lands in a future update — for now this is a preview.',
-              )
-            }
-            style={{ flex: 1 }}
-            block
-          />
-          <Button
-            label="Save"
-            size="sm"
-            variant="outline"
-            onPress={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
-            style={{ flex: 1 }}
-            block
-          />
-        </View>
+      <View
+        style={{
+          alignSelf: isUser ? 'flex-end' : 'flex-start',
+          maxWidth: '82%',
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          backgroundColor: isUser ? t.fg : t.card,
+          borderRadius: 18,
+          borderBottomRightRadius: isUser ? 4 : 18,
+          borderBottomLeftRadius: isUser ? 18 : 4,
+          borderWidth: isUser ? 0 : 1,
+          borderColor: t.border,
+        }}>
+        {showTypingDots ? (
+          <TypingDots color={t.fg2} />
+        ) : (
+          <Text
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13.5,
+              lineHeight: 19,
+              color: isUser ? t.bg : t.fg,
+              letterSpacing: -0.13,
+            }}>
+            {msg.content}
+            {msg.isStreaming && msg.content ? (
+              <Text style={{ color: t.fg3 }}> ▋</Text>
+            ) : null}
+          </Text>
+        )}
       </View>
     );
-  }
+  },
+  (a, b) =>
+    a.msg.id === b.msg.id
+    && a.msg.content === b.msg.content
+    && a.msg.isStreaming === b.msg.isStreaming,
+);
 
-  const isUser = msg.role === 'user';
+// Three-dot typing indicator. Uses simple opacity cycling rather than a
+// full Animated.loop so the assistant bubble doesn't pay the cost of a
+// running spring during a normal text response.
+function TypingDots({ color }: { color: string }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => (t + 1) % 3), 350);
+    return () => clearInterval(id);
+  }, []);
   return (
     <View
-      style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        maxWidth: '82%',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        backgroundColor: isUser ? t.fg : t.card,
-        borderRadius: 18,
-        borderBottomRightRadius: isUser ? 4 : 18,
-        borderBottomLeftRadius: isUser ? 18 : 4,
-        borderWidth: isUser ? 0 : 1,
-        borderColor: t.border,
-      }}>
-      <Text
-        style={{
-          fontFamily: fonts.ui,
-          fontSize: 13.5,
-          lineHeight: 19,
-          color: isUser ? t.bg : t.fg,
-          letterSpacing: -0.13,
-        }}>
-        {msg.text}
-      </Text>
+      accessibilityRole="text"
+      accessibilityLabel="Stylist is typing"
+      accessibilityLiveRegion="polite"
+      style={{ flexDirection: 'row', gap: 4, paddingVertical: 4 }}>
+      {[0, 1, 2].map((i) => (
+        <View
+          key={i}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: color,
+            opacity: tick === i ? 0.95 : 0.35,
+          }}
+        />
+      ))}
     </View>
   );
 }
@@ -468,6 +450,21 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  emptyShell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 6,
+  },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -493,31 +490,5 @@ const s = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  historyBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
-  },
-  historySheet: {
-    maxHeight: '70%',
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    borderWidth: 1,
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 24,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingBottom: 12,
-  },
-  historyRow: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
   },
 });

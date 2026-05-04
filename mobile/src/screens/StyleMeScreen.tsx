@@ -1,14 +1,10 @@
 // Style Me — occasion-based outfit creator.
-// Pixel-faithful port of design_handoff_burs_rn/source/extra-screens.jsx StyleMeScreen.
-//
-// Layout: top header (back · "Occasion" + "Style Me") → 2-col occasion grid (icon tiles) →
-// weather context pill row → formality chip row (Casual → Smart Casual → Business → Formal) →
-// "Generate outfit" CTA → optional result OutfitCard with action buttons.
-//
-// Behaviour: tapping an occasion sets local state; tapping Generate flips into a results
-// view that renders an OutfitCard with the user's selections folded into the sub line.
+// W4: wired to the real `burs_style_engine` edge function via
+// useGenerateOutfit. The grid + formality chips remain user inputs;
+// "Generate outfit" passes the selections through to the hook and renders
+// the returned outfit inline.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +19,8 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { OutfitCard } from '../components/OutfitCard';
+import { Spinner } from '../components/Spinner';
+import { ErrorState } from '../components/ErrorState';
 import {
   BackIcon,
   SunIcon,
@@ -32,6 +30,7 @@ import {
   SparklesIcon,
   type IconProps,
 } from '../components/icons';
+import { useGenerateOutfit } from '../hooks/useGenerateOutfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -43,9 +42,6 @@ type Occasion = {
   Icon: React.ComponentType<IconProps>;
 };
 
-// 8 occasions, mapped to icons we already have. Where there's no perfect match the
-// closest editorial glyph wins; the design's exact glyph set lives in
-// extra-screens.jsx but the user's icon inventory only ships a subset to mobile.
 const OCCASIONS: Occasion[] = [
   { id: 'work',     label: 'Work',     sub: 'Office, meetings',  Icon: TshirtIcon  },
   { id: 'dinner',   label: 'Dinner',   sub: 'Refined evenings',  Icon: SparklesIcon },
@@ -60,17 +56,51 @@ const OCCASIONS: Occasion[] = [
 const FORMALITY = ['Casual', 'Smart casual', 'Business', 'Formal'] as const;
 type Formality = typeof FORMALITY[number];
 
+const PLACEHOLDER_HUES = [32, 38, 200, 28];
+
 export function StyleMeScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [occId, setOccId] = useState<string>('work');
   const [formality, setFormality] = useState<Formality>('Smart casual');
-  const [generated, setGenerated] = useState(false);
+
+  const { result, isLoading, error, generate, reset } = useGenerateOutfit();
+  const paywallShownRef = useRef(false);
 
   const occ = OCCASIONS.find((o) => o.id === occId) ?? OCCASIONS[0];
 
-  const generate = () => setGenerated(true);
-  const restyle = () => setGenerated(false);
+  useEffect(() => {
+    return () => {
+      reset();
+    };
+  }, [reset]);
+
+  useEffect(() => {
+    if (error === 'subscription_required' && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      Alert.alert(
+        'Premium feature',
+        'Outfit generation is part of BURS Premium. Upgrade to keep generating looks.',
+        [{ text: 'OK' }],
+      );
+    }
+    if (error !== 'subscription_required') {
+      paywallShownRef.current = false;
+    }
+  }, [error]);
+
+  const onGenerate = () => {
+    void generate({ occasion: occ.label, formality });
+  };
+
+  const onRestyle = () => {
+    reset();
+  };
+
+  const itemCount = result?.items.length ?? 0;
+  const subLine = result
+    ? `${occ.sub.toUpperCase()} · ${itemCount} PIECE${itemCount === 1 ? '' : 'S'}`
+    : '';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
@@ -179,32 +209,65 @@ export function StyleMeScreen() {
         </View>
 
         {/* ============ GENERATE / RESULT ============ */}
-        {!generated ? (
-          <Button label="Generate outfit" onPress={generate} block />
+        {error && error !== 'subscription_required' ? (
+          <ErrorState
+            title="Couldn't generate"
+            body={error}
+            onRetry={onGenerate}
+          />
+        ) : isLoading ? (
+          <View style={s.loadingWrap}>
+            <Spinner size={36} />
+            <Caption style={{ marginTop: 14, textAlign: 'center' }}>
+              Building your look…
+            </Caption>
+          </View>
+        ) : !result ? (
+          <Button label="Generate outfit" onPress={onGenerate} block />
+        ) : itemCount === 0 ? (
+          // Engine returned a non-error response with no garments — wardrobe
+          // doesn't cover this occasion+formality combo. Surface a soft empty
+          // state instead of rendering a "0 PIECES" OutfitCard. Codex audit
+          // P2-1 (audit 3).
+          <View style={{ gap: 14 }}>
+            <View style={s.emptyResult}>
+              <Eyebrow>No matching pieces</Eyebrow>
+              <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 260 }}>
+                {result.description || 'Try a different occasion or formality — your wardrobe doesn’t yet cover this combo.'}
+              </Caption>
+            </View>
+            <Button label="Restyle" variant="outline" onPress={onRestyle} block />
+          </View>
         ) : (
           <View style={{ gap: 14 }}>
             <View>
               <Eyebrow style={{ marginBottom: 8 }}>Styled for you</Eyebrow>
               <OutfitCard
-                name={`${occ.label} · ${formality.toLowerCase()}`}
-                sub={`${occ.sub.toUpperCase()} · 14° CLEAR`}
-                hues={[32, 38, 200, 28]}
-                onUse={() =>
-                  // The styled-for-you card is a mock preview — there is no
-                  // persisted outfit row to navigate to yet (real outfits land
-                  // when burs_style_engine wiring ships in a later wave).
-                  // Routing to OutfitDetail without an id would dead-end on the
-                  // "Outfit not found" empty state W3 introduced; surface a
-                  // user-facing notice instead. Mirrors OutfitGenerateScreen.
+                name={result.outfit_name}
+                sub={subLine}
+                hues={PLACEHOLDER_HUES}
+                onUse={() => {
+                  if (result.outfit_id) {
+                    nav.navigate('OutfitDetail', { id: result.outfit_id });
+                  } else {
+                    Alert.alert(
+                      'Saved as preview',
+                      'Persistent saving lands in a future update. For now this is a preview.',
+                    );
+                  }
+                }}
+                onSave={() =>
                   Alert.alert(
-                    'Generating your look',
-                    'Real outfit generation lands in a future update — for now this is a preview.',
+                    'Saved as preview',
+                    'Persistent saving lands in a future update. For now this is a preview.',
                   )
                 }
-                onSave={() => Alert.alert('Saved', 'Outfit saved to your collection.')}
               />
+              {result.description ? (
+                <Caption style={{ marginTop: 8, lineHeight: 18 }}>{result.description}</Caption>
+              ) : null}
             </View>
-            <Button label="Restyle" variant="outline" onPress={restyle} block />
+            <Button label="Restyle" variant="outline" onPress={onRestyle} block />
           </View>
         )}
       </ScrollView>
@@ -238,5 +301,15 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: radii.lg,
     borderWidth: 1,
+  },
+  loadingWrap: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyResult: {
+    paddingVertical: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

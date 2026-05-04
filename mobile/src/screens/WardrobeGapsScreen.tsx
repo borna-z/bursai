@@ -1,14 +1,12 @@
 // Wardrobe gaps — opened from HomeScreen Discover hub or Wardrobe smart tile.
-// Top: hero card describing the analysis (eyebrow / italic gap count + caption / Analyse CTA).
-// Body: list of detected gaps as ListRow — left: category icon tile + name + reason caption,
-// right: priority badge (High / Med / Low). Rows are non-pressable for now (no shop-the-gap
-// destination yet), so ListRow correctly hides the default chevron.
-// Loading state shows a spinner while analysing; empty state confirms wardrobe is complete.
-//
-// Source: design_handoff_burs_rn/source/extra-screens.jsx WardrobeGapsScreen + handoff README §10.
+// W4: wired to the real `wardrobe_gap_analysis` edge function via
+// useWardrobeGaps. The hero still shows a static count copy until analysis
+// resolves; the gap list, loading, empty and error states all feed off the
+// hook.
 
-import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,70 +29,66 @@ import {
   TshirtIcon,
 } from '../components/icons';
 import { ErrorState } from '../components/ErrorState';
-import { useMockRefresh } from '../hooks/useMockRefresh';
+import { useWardrobeGaps, type WardrobeGap } from '../hooks/useWardrobeGaps';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Priority = 'High' | 'Med' | 'Low';
+type DisplayPriority = 'High' | 'Med' | 'Low';
+type IconKey = 'tshirt' | 'hanger' | 'suitcase' | 'sun';
 
-type Gap = {
-  id: string;
-  name: string;
-  why: string;
-  priority: Priority;
-  icon: 'tshirt' | 'hanger' | 'suitcase' | 'sun';
-};
+function categoryToIcon(category: string): IconKey {
+  const c = category.toLowerCase();
+  if (c.includes('shoe')) return 'sun';
+  if (c.includes('outer')) return 'suitcase';
+  if (c.includes('accessor') || c.includes('belt') || c.includes('bag')) return 'hanger';
+  return 'tshirt';
+}
 
-const GAPS: Gap[] = [
-  { id: 'g1', name: 'Light raincoat',     why: 'Missed 4 forecasted rainy days', priority: 'High', icon: 'sun' },
-  { id: 'g2', name: 'White button-up',    why: 'Most-worn category at 78%',      priority: 'High', icon: 'tshirt' },
-  { id: 'g3', name: 'Brown leather belt', why: 'Pulls 6 outfits together',       priority: 'Med',  icon: 'hanger' },
-  { id: 'g4', name: 'Wool socks',         why: 'Only 2 pairs in rotation',       priority: 'Med',  icon: 'tshirt' },
-  { id: 'g5', name: 'Cap or hat',         why: 'Sun protection gap on weekends', priority: 'Low',  icon: 'suitcase' },
-];
+function priorityLabel(p: WardrobeGap['priority']): DisplayPriority {
+  if (p === 'high') return 'High';
+  if (p === 'medium') return 'Med';
+  return 'Low';
+}
 
 export function WardrobeGapsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const [analyzing, setAnalyzing] = React.useState(false);
-  const [analyzed, setAnalyzed] = React.useState(true);
-  const { refreshing, error, onRefresh, setError } = useMockRefresh(800);
-  // Track the in-flight mock-analysis timer so we can cancel it on unmount. Without this, an
-  // unmount-during-analysis fires setAnalyzing/setAnalyzed on a torn-down component (RN logs a
-  // "state update on unmounted component" warning). Codex P3 round 6. When the real
-  // gap-analysis hook lands this becomes an AbortController on the fetch.
-  const analysisTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { gaps, isLoading, error, analyzed, analyze, reset } = useWardrobeGaps();
+  const paywallShownRef = useRef(false);
 
-  React.useEffect(() => {
-    return () => {
-      if (analysisTimerRef.current != null) {
-        clearTimeout(analysisTimerRef.current);
-        analysisTimerRef.current = null;
-      }
-    };
-  }, []);
+  // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
+  // is React-Query backed so a return visit reads from cache instead of
+  // burning the rate-limited endpoint (15/hr base). If the session hasn't
+  // rehydrated yet, retry once it does — analyze() short-circuits without
+  // a token, and the effect re-fires when accessToken flips truthy.
+  // Codex audit P0-1 (audit 2) + P1-4 (audit 2).
+  useEffect(() => {
+    if (analyzed || isLoading || error) return;
+    void analyze();
+  }, [analyzed, isLoading, error, analyze]);
+  // No unmount reset — the React Query cache is the cross-mount memory.
 
-  const runAnalysis = () => {
-    if (analysisTimerRef.current != null) {
-      clearTimeout(analysisTimerRef.current);
+  useEffect(() => {
+    if (error === 'subscription_required' && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      Alert.alert(
+        'Premium feature',
+        'Wardrobe Gap analysis is part of BURS Premium. Upgrade to unlock recommendations.',
+        [{ text: 'OK' }],
+      );
     }
-    setAnalyzing(true);
-    setAnalyzed(false);
-    // Mock analysis. Once the gap-analysis hook lands, replace with the real fetch.
-    analysisTimerRef.current = setTimeout(() => {
-      analysisTimerRef.current = null;
-      setAnalyzing(false);
-      setAnalyzed(true);
-    }, 900);
-  };
+    if (error !== 'subscription_required') {
+      paywallShownRef.current = false;
+    }
+  }, [error]);
 
-  const priorityPalette = (p: Priority): { bg: string; fg: string } => {
+  const priorityPalette = (p: DisplayPriority): { bg: string; fg: string } => {
     if (p === 'High') return { bg: t.accentSoft, fg: t.accent };
     if (p === 'Med') return { bg: t.bg2, fg: t.fg2 };
     return { bg: t.bg2, fg: t.fg3 };
   };
 
-  const iconFor = (key: Gap['icon']) => {
+  const iconFor = (key: IconKey) => {
     switch (key) {
       case 'tshirt':   return <TshirtIcon color={t.accent} size={20} />;
       case 'hanger':   return <HangerIcon color={t.accent} size={20} />;
@@ -102,6 +96,21 @@ export function WardrobeGapsScreen() {
       case 'sun':      return <SunIcon color={t.accent} size={20} />;
     }
   };
+
+  const gapDisplays = useMemo(
+    () =>
+      gaps.map((g, i) => ({
+        id: `${g.category}-${i}`,
+        name: g.item_name,
+        why: g.reason,
+        priority: priorityLabel(g.priority),
+        icon: categoryToIcon(g.category),
+        price: g.estimated_price,
+      })),
+    [gaps],
+  );
+
+  const heroCount = analyzed ? gapDisplays.length : '—';
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -117,92 +126,86 @@ export function WardrobeGapsScreen() {
 
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 80, gap: 18 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
-        }>
+        showsVerticalScrollIndicator={false}>
 
-        {error ? (
-          <ErrorState
-            onRetry={() => {
-              setError(false);
-              runAnalysis();
-            }}
-          />
-        ) : null}
+        {error && error !== 'subscription_required' ? (
+          <ErrorState onRetry={() => analyze()} body={error} />
+        ) : (
+          <>
+            <Card hero padding={20}>
+              <Eyebrow style={{ marginBottom: 6 }}>Your wardrobe needs</Eyebrow>
+              <Text
+                style={{
+                  fontFamily: fonts.displayMedium,
+                  fontStyle: 'italic',
+                  fontSize: 30,
+                  lineHeight: 32,
+                  fontWeight: '500',
+                  color: t.fg,
+                  letterSpacing: -0.3,
+                }}>
+                <Text style={{ color: t.accent }}>{heroCount}</Text> key piece
+                {gapDisplays.length === 1 ? '' : 's'}
+              </Text>
+              <Caption style={{ marginTop: 8, marginBottom: 14, lineHeight: 18 }}>
+                Identified from your last 90 days of wear, weather, and missed-occasion patterns.
+              </Caption>
+              <Button
+                label={isLoading ? 'Analysing…' : 'Analyse now'}
+                disabled={isLoading}
+                onPress={() => {
+                  reset();
+                  void analyze();
+                }}
+              />
+            </Card>
 
-        {!error ? (
-        <>
-        <Card hero padding={20}>
-          <Eyebrow style={{ marginBottom: 6 }}>Your wardrobe needs</Eyebrow>
-          <Text
-            style={{
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 30,
-              lineHeight: 32,
-              fontWeight: '500',
-              color: t.fg,
-              letterSpacing: -0.3,
-            }}>
-            <Text style={{ color: t.accent }}>{GAPS.length}</Text> key pieces
-          </Text>
-          <Caption style={{ marginTop: 8, marginBottom: 14, lineHeight: 18 }}>
-            Identified from your last 90 days of wear, weather, and missed-occasion patterns.
-          </Caption>
-          <Button
-            label={analyzing ? 'Analysing…' : 'Analyse now'}
-            disabled={analyzing}
-            onPress={runAnalysis}
-          />
-        </Card>
+            {isLoading ? (
+              <View style={s.stateWrap}>
+                <Spinner size={32} />
+                <Caption style={{ marginTop: 14, textAlign: 'center' }}>
+                  Reading your patterns…
+                </Caption>
+              </View>
+            ) : null}
 
-        {analyzing ? (
-          <View style={s.stateWrap}>
-            <Spinner size={32} />
-            <Caption style={{ marginTop: 14, textAlign: 'center' }}>
-              Reading your patterns…
-            </Caption>
-          </View>
-        ) : null}
+            {!isLoading && analyzed && gapDisplays.length === 0 ? (
+              <View style={s.stateWrap}>
+                <PageTitle size={22}>No gaps found</PageTitle>
+                <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
+                  Your wardrobe is well-balanced for the next 90 days.
+                </Caption>
+              </View>
+            ) : null}
 
-        {!analyzing && analyzed && GAPS.length === 0 ? (
-          <View style={s.stateWrap}>
-            <PageTitle size={22}>No gaps found</PageTitle>
-            <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
-              Your wardrobe is well-balanced for the next 90 days.
-            </Caption>
-          </View>
-        ) : null}
-
-        {!analyzing && analyzed && GAPS.length > 0 ? (
-          <View style={[s.gapList, { backgroundColor: t.card, borderColor: t.border }]}>
-            {GAPS.map((g, i) => {
-              const palette = priorityPalette(g.priority);
-              return (
-                <ListRow
-                  key={g.id}
-                  title={g.name}
-                  subtitle={g.why}
-                  last={i === GAPS.length - 1}
-                  left={
-                    <View style={[s.gapIcon, { backgroundColor: t.accentSoft }]}>
-                      {iconFor(g.icon)}
-                    </View>
-                  }
-                  right={
-                    <View style={[s.priBadge, { backgroundColor: palette.bg }]}>
-                      <Text style={[s.priBadgeText, { color: palette.fg }]}>{g.priority}</Text>
-                    </View>
-                  }
-                  style={{ paddingHorizontal: 14 }}
-                />
-              );
-            })}
-          </View>
-        ) : null}
-        </>
-        ) : null}
+            {!isLoading && analyzed && gapDisplays.length > 0 ? (
+              <View style={[s.gapList, { backgroundColor: t.card, borderColor: t.border }]}>
+                {gapDisplays.map((g, i) => {
+                  const palette = priorityPalette(g.priority);
+                  return (
+                    <ListRow
+                      key={g.id}
+                      title={g.name}
+                      subtitle={g.why}
+                      last={i === gapDisplays.length - 1}
+                      left={
+                        <View style={[s.gapIcon, { backgroundColor: t.accentSoft }]}>
+                          {iconFor(g.icon)}
+                        </View>
+                      }
+                      right={
+                        <View style={[s.priBadge, { backgroundColor: palette.bg }]}>
+                          <Text style={[s.priBadgeText, { color: palette.fg }]}>{g.priority}</Text>
+                        </View>
+                      }
+                      style={{ paddingHorizontal: 14 }}
+                    />
+                  );
+                })}
+              </View>
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
