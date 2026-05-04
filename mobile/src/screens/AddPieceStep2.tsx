@@ -1,96 +1,131 @@
-// Add piece — Step 2 of 3 (analyzing batch).
-// Pixel-faithful port of design_handoff_burs_rn/source/screens.jsx AddGarmentStep2.
+// Add piece — Step 2 of 3 (uploading + AI analyzing).
 //
-// Layout: top header (close · "Step 2 of 3" + "Analyzing" · Skip) → big italic counter
-// (3 / 5 with gold/fg3 split) → progress bar → per-item list with status indicator →
-// sticky CTA "Review & confirm".
+// Wiring (W5):
+//   1. Resize + upload `route.params.photoUri` to Supabase storage (garments bucket).
+//   2. Call analyze_garment edge function with the resulting storagePath.
+//   3. On success, auto-navigate to Step 3 with { storagePath, photoUri, analysis }.
+//   4. On failure, show ErrorState with a Retry button (re-runs upload + analyze).
 //
-// Mock progression: items array carries hue + state ('done' | 'now' | 'wait'). In a future
-// PR this hooks into the real analyzer pipeline; for now it's a static snapshot showing
-// what the screen looks like mid-batch.
+// UX: deliberately no photo preview in the loading state — the user just took/picked
+// the photo seconds ago, they don't need a re-confirmation. Cycling copy ("Uploading
+// photo…", "Reading fabric…", "Identifying category…", "Building your garment…") gives
+// a sense of motion and tells them what the AI is doing under the hood.
+//
+// Multi-photo: `allUris` is threaded through but only the first photo is processed in
+// this PR. Wave 9 wires the "process next on save" loop. (See W5 Findings entry.)
+//
+// Skip: temporary escape hatch for users who hit a stuck flow — bounces back to Tabs
+// instead of trying to skip with no analysis (which would 404 Step 3's params).
 
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
-import { Button } from '../components/Button';
+import { ErrorState } from '../components/ErrorState';
 import { IconBtn } from '../components/IconBtn';
 import { CloseIcon } from '../components/icons';
-import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
+import { useAuth } from '../contexts/AuthContext';
+import { useAnalyzeGarment } from '../hooks/useAnalyzeGarment';
+import { resizeAndUpload } from '../lib/imageUpload';
+import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'AddPieceStep2'>;
 
-type ItemState = 'done' | 'now' | 'wait';
-type Item = { n: number; label: string; state: ItemState; hue: number };
-
-// Demo labels cycled by photo index — used for the "done" rows so they read like real
-// AI-detected garment titles. The "now" / "wait" rows use generic copy.
-const DEMO_LABELS = [
-  'Cream wool overshirt',
-  'Charcoal trouser',
-  'White oxford',
-  'Rust crewneck',
-  'Camel loafers',
-  'Linen tee',
-  'Wool cardigan',
-  'Bone sneaker',
-  'Cotton chore',
-  'Silk scarf',
+// Cycled every PHASE_INTERVAL_MS so the user sees apparent progress while the AI thinks.
+const PHASE_COPY = [
+  'Uploading photo…',
+  'Reading fabric…',
+  'Identifying category…',
+  'Building your garment…',
 ];
-
-// Fallback batch when the screen is opened directly (deep-link, future tests). Real entry
-// from Step 1 always passes `route.params.photos`.
-const DEFAULT_PHOTOS: AddPiecePhoto[] = [
-  { id: 1, hue: 32 }, { id: 2, hue: 28 }, { id: 3, hue: 200 },
-  { id: 4, hue: 18 }, { id: 5, hue: 45 },
-];
-
-function hueGrad(h: number): [string, string] {
-  return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
-}
-
-// Mid-batch snapshot: ~60% of items done, the next one "now", rest "wait". Always leave at
-// least one non-done row when more than one photo is staged so the screen visibly shows
-// progress; for a single photo, mark it as "now".
-function buildItems(photos: AddPiecePhoto[]): Item[] {
-  const total = photos.length;
-  if (total === 0) return [];
-  const done = total === 1 ? 0 : Math.max(1, Math.min(total - 1, Math.floor(total * 0.6)));
-  return photos.map((p, i) => {
-    let state: ItemState;
-    let label: string;
-    if (i < done) {
-      state = 'done';
-      label = DEMO_LABELS[i % DEMO_LABELS.length];
-    } else if (i === done) {
-      state = 'now';
-      label = 'Reading colors…';
-    } else {
-      state = 'wait';
-      label = 'Queued';
-    }
-    return { n: i + 1, label, state, hue: p.hue };
-  });
-}
+const PHASE_INTERVAL_MS = 1500;
 
 export function AddPieceStep2() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const photos = route.params?.photos ?? DEFAULT_PHOTOS;
-  const items = useMemo(() => buildItems(photos), [photos]);
-  const total = items.length;
-  const done = items.filter((it) => it.state === 'done').length;
-  const pct = total > 0 ? (done / total) * 100 : 0;
+  const { user } = useAuth();
+  const { analyze } = useAnalyzeGarment();
+
+  const photoUri = route.params?.photoUri;
+  const allUris = route.params?.allUris ?? (photoUri ? [photoUri] : []);
+  // Default to 'add_photo' for direct/deep-linked entries — Step 1 always supplies one.
+  const source = route.params?.source ?? 'add_photo';
+
+  const [phase, setPhase] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Guards against StrictMode / re-render double-runs of the upload effect — without
+  // this the same photo would upload twice on first mount, charging the user double
+  // for the analyze call. Mirrors the activeGenerationRef pattern in web's useAddGarment.
+  const inFlightRef = useRef(false);
+  const storagePathRef = useRef<string | null>(null);
+
+  const runUploadAndAnalyze = useCallback(async () => {
+    if (!photoUri) {
+      setErrorMsg('No photo to analyze');
+      return;
+    }
+    if (!user) {
+      setErrorMsg('Not signed in');
+      return;
+    }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setErrorMsg(null);
+    setPhase(0);
+
+    try {
+      const { storagePath } = await resizeAndUpload(photoUri, user.id);
+      storagePathRef.current = storagePath;
+      const analysis = await analyze(storagePath);
+      if (!analysis) {
+        // useAnalyzeGarment already surfaced the error message internally; mirror it
+        // here so the ErrorState has copy to show without a stale "still uploading" hint.
+        setErrorMsg('Could not analyze photo');
+        return;
+      }
+      // Auto-nav to Step 3 with everything Step 3 needs to render the review form.
+      nav.navigate('AddPieceStep3', {
+        storagePath,
+        photoUri,
+        analysis,
+        source,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      setErrorMsg(msg);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [photoUri, user, analyze, nav, source]);
+
+  // Kick off the upload + analyze on mount. Ignored on subsequent renders by inFlightRef.
+  useEffect(() => {
+    void runUploadAndAnalyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cycle the phase copy every PHASE_INTERVAL_MS while loading. Stops once errorMsg
+  // is set so the ErrorState body isn't fighting a still-mounted timer.
+  useEffect(() => {
+    if (errorMsg) return;
+    const id = setInterval(() => {
+      setPhase((p) => Math.min(p + 1, PHASE_COPY.length - 1));
+    }, PHASE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [errorMsg]);
+
+  const isError = !!errorMsg;
+  const totalCount = allUris.length;
+  const currentIndex = 1; // Single-photo for W5; future multi-photo loop bumps this.
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
@@ -104,90 +139,51 @@ export function AddPieceStep2() {
           <PageTitle size={26}>Analyzing</PageTitle>
         </View>
         <Pressable
-          onPress={() => nav.navigate('AddPieceStep3', { photos })}
+          onPress={() => nav.navigate('MainTabs')}
           style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
           <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2, fontWeight: '500' }}>Skip</Text>
         </Pressable>
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 24, gap: 18 }}
-        showsVerticalScrollIndicator={false}>
+      {isError ? (
+        <ErrorState
+          title="Couldn't analyze your photo"
+          body={errorMsg ?? 'Try again or pick a different photo.'}
+          onRetry={() => void runUploadAndAnalyze()}
+        />
+      ) : (
+        <View style={s.loadingWrap}>
+          {/* Multi-photo progress hint — singular when allUris.length === 1 so the copy
+              doesn't read awkwardly for the common single-piece flow. */}
+          {totalCount > 1 ? (
+            <Eyebrow style={{ marginBottom: 12 }}>
+              Photo {currentIndex} of {totalCount}
+            </Eyebrow>
+          ) : (
+            <Eyebrow style={{ marginBottom: 12 }}>Working on it</Eyebrow>
+          )}
 
-        {/* ============ BIG ITALIC COUNTER ============ */}
-        <View style={{ alignItems: 'center', gap: 6 }}>
-          <Eyebrow>Reading the batch</Eyebrow>
-          <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontWeight: '500', fontSize: 32, lineHeight: 34, letterSpacing: -0.32 }}>
-            <Text style={{ color: t.accent }}>{done}</Text>
-            <Text style={{ color: t.fg3 }}> / {total}</Text>
+          <ActivityIndicator size="large" color={t.accent} />
+
+          <Text
+            style={{
+              marginTop: 24,
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontSize: 24,
+              fontWeight: '500',
+              color: t.fg,
+              letterSpacing: -0.24,
+              textAlign: 'center',
+            }}>
+            {PHASE_COPY[phase]}
           </Text>
-          <Caption>pieces tagged</Caption>
-        </View>
 
-        {/* ============ PROGRESS BAR ============ */}
-        <View style={{ height: 4, borderRadius: 2, backgroundColor: t.bg2, overflow: 'hidden' }}>
-          <View style={{ width: `${pct}%`, height: '100%', backgroundColor: t.accent }} />
+          <Caption style={{ textAlign: 'center', marginTop: 8, maxWidth: 280 }}>
+            We&rsquo;ll have your garment ready in a moment.
+          </Caption>
         </View>
-
-        {/* ============ PER-ITEM LIST ============ */}
-        <View style={{ gap: 8 }}>
-          {items.map((it) => {
-            const isWait = it.state === 'wait';
-            const isNow  = it.state === 'now';
-            const isDone = it.state === 'done';
-            return (
-              <View
-                key={it.n}
-                style={[
-                  s.row,
-                  {
-                    borderColor: t.border,
-                    // The prototype distinguishes "now" (active card surface) from "wait/done"
-                    // (subtler bg-2). Done rows fade to bg2 because the work is settled.
-                    backgroundColor: isNow ? t.card : t.bg2,
-                    opacity: isWait ? 0.55 : 1,
-                  },
-                ]}>
-                <LinearGradient
-                  colors={hueGrad(it.hue)}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={s.rowThumb}
-                />
-                <View style={{ flex: 1 }}>
-                  <Eyebrow style={{ marginBottom: 2 }}>Piece {String(it.n).padStart(2, '0')}</Eyebrow>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontFamily: fonts.uiSemi,
-                      fontSize: 13,
-                      fontWeight: '600',
-                      color: t.fg,
-                      letterSpacing: -0.13,
-                    }}>
-                    {it.label}
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiBold,
-                    fontSize: 14,
-                    color: isDone ? t.accent : t.fg3,
-                    minWidth: 16,
-                    textAlign: 'center',
-                  }}>
-                  {isDone ? '✓' : isNow ? '···' : '—'}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </ScrollView>
-
-      {/* ============ STICKY CTA ============ */}
-      <View style={[s.stickyBar, { borderTopColor: t.border, backgroundColor: t.bg }]}>
-        <Button label="Review & confirm" onPress={() => nav.navigate('AddPieceStep3', { photos })} block />
-      </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -201,25 +197,10 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
-  row: {
-    flexDirection: 'row',
+  loadingWrap: {
+    flex: 1,
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-  },
-  rowThumb: {
-    width: 40,
-    height: 52,
-    borderRadius: radii.sm,
-    flexShrink: 0,
-  },
-  stickyBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 14,
-    borderTopWidth: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
 });

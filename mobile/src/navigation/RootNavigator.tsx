@@ -61,9 +61,38 @@ export type TabName = TabId;
  * via route params so the user's actual count + hue selections drive the downstream rows
  * (Codex P2 on PR #706 — earlier impl rendered fixed 5-item mocks regardless of choices).
  *
+ * `uri` is required once W5 wires real upload — Step 1 only stages photos that have a
+ * camera/gallery URI, so the placeholder hue path is gone. `hue` is retained so the
+ * piece-selector strip in Step 3 has a stable fallback colour while the real image loads.
+ *
  * Plain serializable data so React Navigation can persist it through state restoration.
  */
-export type AddPiecePhoto = { id: number; hue: number; uri?: string };
+export type AddPiecePhoto = { id: number; hue: number; uri: string };
+
+/**
+ * Inline copy of useAnalyzeGarment.AnalysisResult so RootNavigator stays at the bottom of
+ * the import graph (the analyze hook imports AuthContext + supabase client; routing types
+ * importing those would broaden the navigator's dep surface for no benefit). The two
+ * declarations are intentionally identical — a future audit can collapse them with a
+ * shared `types/analysis.ts` if drift becomes a real concern.
+ */
+export type AnalysisResultParam = {
+  title: string;
+  category: string;
+  subcategory: string | null;
+  color_primary: string | null;
+  color_secondary: string | null;
+  material: string | null;
+  fit: string | null;
+  pattern: string | null;
+  season_tags: string[];
+  occasion_tags: string[];
+  formality: number | null;
+  description: string | null;
+  confidence: number;
+  ai_provider?: string | null;
+  ai_raw?: Record<string, unknown> | null;
+};
 
 export type RootStackParamList = {
   // Acquisition flow — Splash is the initial route, gates auth + onboarding.
@@ -74,10 +103,23 @@ export type RootStackParamList = {
 
   MainTabs: { initialTab?: TabId } | undefined;
 
-  // Add piece flow (3 steps) — photos thread through so each step renders the user's batch.
+  // Add piece flow — Step 1 stages photos, Step 2 uploads + analyzes, Step 3 reviews +
+  // saves. Photo URIs thread forward; storagePath + analysis come back from Step 2 →
+  // Step 3 once the upload + AI round-trip lands. `source` is plumbed end-to-end so the
+  // render-queue job is tagged with where the user actually came in (gallery/camera-tile
+  // → 'add_photo'; LiveScan → 'live_scan'). Default at Step 2 boundary is 'add_photo'.
   AddPieceStep1: undefined;
-  AddPieceStep2: { photos?: AddPiecePhoto[] } | undefined;
-  AddPieceStep3: { photos?: AddPiecePhoto[] } | undefined;
+  AddPieceStep2: {
+    photoUri: string;
+    allUris: string[];
+    source?: 'add_photo' | 'live_scan';
+  } | undefined;
+  AddPieceStep3: {
+    storagePath: string;
+    photoUri: string;
+    analysis: AnalysisResultParam;
+    source: 'add_photo' | 'live_scan';
+  };
   LiveScan: undefined;
 
   // Outfit / garment / sharing — GarmentDetail and EditGarment now require a real

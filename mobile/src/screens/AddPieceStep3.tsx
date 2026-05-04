@@ -1,18 +1,31 @@
-// Add piece — Step 3 of 3 (confirm batch).
-// Pixel-faithful port of design_handoff_burs_rn/source/screens.jsx AddGarmentStep3.
+// Add piece — Step 3 of 3 (review + save).
 //
-// Layout: top header (back · "Step 3 of 3" + "Confirm batch" · Re-scan) → horizontal
-// piece-selector strip (2px gold border on active) → hero block (100×130 thumb + detected
-// chips + italic title) → 5 form-field rows (label/value) → 4 season chips → sticky save.
+// Wiring (W5): receives { storagePath, photoUri, analysis } from Step 2 and lets the
+// user review the AI-detected fields before saving.
+//   • Hero shows the local photoUri (no signed-URL round-trip — the file is right there).
+//   • Title is editable via TextInput; everything else is read-only display in W5
+//     (category / color / material pickers land in Wave 9 with the bulk-edit UX).
+//   • Confidence badge (green ≥0.7, amber otherwise) tells the user whether to scrutinise.
+//   • Save → useAddGarment.mutateAsync → nav.reset to GarmentDetail. The reset uses
+//     index: 1 so GarmentDetail is the active screen with MainTabs in the back stack —
+//     swiping back from the new garment lands on the home tab, matching the web's
+//     "you came from the FAB, here's your new piece" flow.
 //
-// State: `active` is the index of the currently-selected piece. The piece array carries
-// hue + title + category + color + material + fit + seasons. Real edit handlers wire up
-// in a later PR — this PR shows the shell + visual fidelity.
+// Multi-photo (W9 follow-up): the piece-selector strip is gone in W5. When multi-photo
+// lands, the strip returns and Save loops back to Step 2 with the next photo.
 
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -24,74 +37,76 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
-import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
+import { useAddGarment } from '../hooks/useAddGarment';
+import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'AddPieceStep3'>;
 
-type PieceMeta = {
-  title: string;
-  cat: string;
-  color: string;
-  material: string;
-  fit: string;
-  seasons: string[];
+const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+const SEASON_LABELS: Record<string, string> = {
+  spring: 'Spring',
+  summer: 'Summer',
+  autumn: 'Autumn',
+  winter: 'Winter',
 };
-type Piece = PieceMeta & { hue: number };
 
-// Demo metadata cycled by photo index. The user's actual photos drive `hue` + count;
-// the AI-detected fields are placeholders until the analyzer pipeline wires up.
-const DEMO_META: PieceMeta[] = [
-  { title: 'Cream wool overshirt', cat: 'Outerwear · Overshirt', color: 'Cream',    material: 'Wool blend',    fit: 'Regular',  seasons: ['Spring', 'Autumn'] },
-  { title: 'Charcoal trouser',     cat: 'Bottoms · Trouser',    color: 'Charcoal', material: 'Wool',          fit: 'Tailored', seasons: ['Autumn', 'Winter'] },
-  { title: 'White oxford shirt',   cat: 'Tops · Shirt',         color: 'White',    material: 'Cotton poplin', fit: 'Regular',  seasons: ['Spring', 'Summer', 'Autumn'] },
-  { title: 'Rust crewneck',        cat: 'Tops · Knit',          color: 'Rust',     material: 'Merino wool',   fit: 'Relaxed',  seasons: ['Autumn', 'Winter'] },
-  { title: 'Camel loafers',        cat: 'Shoes · Loafer',       color: 'Camel',    material: 'Suede',         fit: '—',        seasons: ['Spring', 'Autumn'] },
-  { title: 'Linen tee',            cat: 'Tops · Tee',           color: 'Sand',     material: 'Linen',         fit: 'Relaxed',  seasons: ['Spring', 'Summer'] },
-  { title: 'Wool cardigan',        cat: 'Outerwear · Knit',     color: 'Navy',     material: 'Lambswool',     fit: 'Regular',  seasons: ['Autumn', 'Winter'] },
-  { title: 'Bone sneaker',         cat: 'Shoes · Sneaker',      color: 'Bone',     material: 'Leather',       fit: '—',        seasons: ['Spring', 'Summer', 'Autumn'] },
-  { title: 'Cotton chore',         cat: 'Outerwear · Chore',    color: 'Sand',     material: 'Cotton canvas', fit: 'Regular',  seasons: ['Spring', 'Autumn'] },
-  { title: 'Silk scarf',           cat: 'Accessory · Scarf',    color: 'Olive',    material: 'Silk',          fit: '—',        seasons: ['Spring', 'Autumn', 'Winter'] },
-];
-
-const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
-
-// Fallback batch when the screen is opened directly (deep-link, future tests). Real entry
-// from Step 2 always passes `route.params.photos`.
-const DEFAULT_PHOTOS: AddPiecePhoto[] = [
-  { id: 1, hue: 32 }, { id: 2, hue: 28 }, { id: 3, hue: 200 },
-  { id: 4, hue: 18 }, { id: 5, hue: 45 },
-];
-
-function hueGrad(h: number): [string, string] {
-  return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
-}
-
-// Zip user photos with cycled demo metadata. User's actual hues drive the gradient thumbs;
-// metadata cycles through the DEMO_META list to give each piece a different identity.
-function buildPieces(photos: AddPiecePhoto[]): Piece[] {
-  return photos.map((p, i) => ({ hue: p.hue, ...DEMO_META[i % DEMO_META.length] }));
+// Capitalise first character. The analyzer emits lowercase tokens for category /
+// color / material; the display rows want title-case so they read like editorial
+// copy rather than raw enum values.
+function titleCase(value: string | null | undefined): string {
+  if (!value) return '—';
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export function AddPieceStep3() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
-  // Treat both `undefined` params AND an explicitly-empty array as "use the demo batch" —
-  // an empty pieces list would crash the hero / form / save-bar at p.title etc.
-  const passed = route.params?.photos;
-  const photos = passed && passed.length > 0 ? passed : DEFAULT_PHOTOS;
-  const pieces = useMemo(() => buildPieces(photos), [photos]);
-  const [active, setActive] = useState(0);
-  // Clamp active index in case the user came from a Step 2 with a different batch and we
-  // re-rendered with a smaller pieces array — index 0 is always safe when pieces > 0.
-  const safeActive = pieces.length === 0 ? 0 : Math.min(active, pieces.length - 1);
-  const p = pieces[safeActive];
+  const params = route.params;
+  const addGarment = useAddGarment();
+  const [titleOverride, setTitleOverride] = useState<string>(params?.analysis.title ?? '');
 
-  // Save → reset to MainTabs (Today). The flow is "you opened the FAB, finished adding pieces,
-  // now you're back at the home tab" — match the prototype's `nav.replace('home')`.
-  const onSaveAll = () => {
-    nav.reset({ index: 0, routes: [{ name: 'MainTabs', params: { initialTab: 'today' } }] });
+  // Defensive guard — without route params the screen has nothing to render. Bounce
+  // the user back to Step 1 instead of crashing on `params.analysis.title`.
+  if (!params) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+        <View style={s.fallback}>
+          <Text style={{ fontFamily: fonts.ui, color: t.fg }}>Missing analysis data.</Text>
+          <Button label="Start over" onPress={() => nav.navigate('AddPieceStep1')} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const { storagePath, photoUri, analysis, source } = params;
+  const confidenceHigh = analysis.confidence >= 0.7;
+  const seasonsLower = analysis.season_tags.map((s) => s.toLowerCase());
+
+  const handleSave = async () => {
+    try {
+      const garment = await addGarment.mutateAsync({
+        storagePath,
+        analysis,
+        source,
+        title: titleOverride.trim() || analysis.title,
+        category: analysis.category,
+      });
+      // index: 1 makes GarmentDetail the active screen, with MainTabs in the back stack
+      // so the swipe-back gesture lands on the home tab. (index: 0 with two routes would
+      // surface MainTabs and stash GarmentDetail under it — wrong UX.)
+      nav.reset({
+        index: 1,
+        routes: [
+          { name: 'MainTabs' },
+          { name: 'GarmentDetail', params: { id: garment.id } },
+        ],
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Save failed';
+      Alert.alert('Save failed', msg);
+    }
   };
 
   return (
@@ -103,61 +118,16 @@ export function AddPieceStep3() {
         </IconBtn>
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 2 }}>Step 3 of 3</Eyebrow>
-          <PageTitle size={26}>Confirm batch</PageTitle>
+          <PageTitle size={26}>Confirm</PageTitle>
         </View>
         <Pressable
           onPress={() => nav.goBack()}
           style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
-          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.accent, fontWeight: '500' }}>Re-scan</Text>
+          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.accent, fontWeight: '500' }}>
+            Re-scan
+          </Text>
         </Pressable>
       </View>
-
-      {/* ============ PIECE SELECTOR STRIP ============ */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 10, gap: 6 }}
-        style={{ borderBottomWidth: 1, borderBottomColor: t.border, flexGrow: 0 }}>
-        {pieces.map((pp, i) => {
-          const isActive = i === safeActive;
-          return (
-            <Pressable
-              key={i}
-              onPress={() => setActive(i)}
-              accessibilityLabel={`Piece ${i + 1}`}
-              style={{
-                width: 44,
-                height: 56,
-                borderRadius: radii.md,
-                borderWidth: isActive ? 2 : 1,
-                borderColor: isActive ? t.accent : t.border,
-                overflow: 'hidden',
-                position: 'relative',
-              }}>
-              <LinearGradient
-                colors={hueGrad(pp.hue)}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 3,
-                  left: 4,
-                  paddingHorizontal: 5,
-                  paddingVertical: 1,
-                  borderRadius: radii.pill,
-                  backgroundColor: t.scrimBg,
-                }}>
-                <Text style={{ fontFamily: fonts.uiBold, fontSize: 9, color: t.scrimFg, letterSpacing: 0.2 }}>
-                  {String(i + 1).padStart(2, '0')}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
 
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 24, gap: 14 }}
@@ -165,49 +135,103 @@ export function AddPieceStep3() {
         {/* ============ HERO ============ */}
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
           <View
-            style={{
-              width: 100,
-              height: 130,
-              borderRadius: radii.lg,
-              borderWidth: 1,
-              borderColor: t.border,
-              overflow: 'hidden',
-            }}>
-            <LinearGradient
-              colors={hueGrad(p.hue)}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            style={[
+              s.heroImage,
+              { borderColor: t.border, backgroundColor: t.bg2 },
+            ]}>
+            <Image
+              source={{ uri: photoUri }}
               style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
             />
           </View>
           <View style={{ flex: 1, paddingTop: 4 }}>
             <Eyebrow style={{ marginBottom: 4 }}>Detected</Eyebrow>
-            <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontWeight: '500', fontSize: 22, lineHeight: 26, letterSpacing: -0.22, color: t.fg }}>
-              {p.title}
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontWeight: '500',
+                fontSize: 22,
+                lineHeight: 26,
+                letterSpacing: -0.22,
+                color: t.fg,
+              }}>
+              {analysis.title || 'Untitled'}
             </Text>
+            {/* Confidence badge — green for high-trust auto-fill, amber for "review carefully" */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
-              <Chip label={p.cat.split(' · ')[0]} />
-              <Chip label={p.color} />
-              <Chip label={p.material.split(' ')[0]} />
+              <View
+                style={[
+                  s.confidenceBadge,
+                  {
+                    backgroundColor: confidenceHigh
+                      ? 'rgba(60, 130, 80, 0.12)'
+                      : 'rgba(180, 110, 40, 0.14)',
+                    borderColor: confidenceHigh
+                      ? 'rgba(60, 130, 80, 0.45)'
+                      : 'rgba(180, 110, 40, 0.5)',
+                  },
+                ]}>
+                <Text
+                  style={{
+                    fontFamily: fonts.uiSemi,
+                    fontSize: 10,
+                    letterSpacing: 1.2,
+                    textTransform: 'uppercase',
+                    color: confidenceHigh ? 'rgb(50, 110, 70)' : 'rgb(160, 95, 30)',
+                  }}>
+                  {confidenceHigh ? 'Looks good' : 'Review carefully'}
+                </Text>
+              </View>
+              <Chip label={titleCase(analysis.category)} />
+              {analysis.color_primary ? <Chip label={titleCase(analysis.color_primary)} /> : null}
             </View>
           </View>
         </View>
 
-        {/* ============ FORM FIELDS ============ */}
+        {/* ============ TITLE INPUT ============ */}
+        <View style={{ gap: 6 }}>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 10,
+              letterSpacing: 1.4,
+              color: t.fg2,
+              textTransform: 'uppercase',
+            }}>
+            Title
+          </Text>
+          <TextInput
+            value={titleOverride}
+            onChangeText={setTitleOverride}
+            placeholder={analysis.title || 'Name this piece'}
+            placeholderTextColor={t.fg3}
+            style={[
+              s.titleInput,
+              { borderColor: t.border, backgroundColor: t.card, color: t.fg },
+            ]}
+            maxLength={60}
+            returnKeyType="done"
+          />
+        </View>
+
+        {/* ============ READ-ONLY DETAIL ROWS ============ */}
         <View style={{ gap: 8 }}>
-          {[
-            ['Title', p.title],
-            ['Category', p.cat],
-            ['Primary color', p.color],
-            ['Material', p.material],
-            ['Fit', p.fit],
-          ].map(([label, value]) => (
+          {/* Display-only in W5; editing each field needs picker UIs that land in Wave 9. */}
+          {(
+            [
+              ['Category', titleCase(analysis.category)],
+              ['Subcategory', titleCase(analysis.subcategory)],
+              ['Primary color', titleCase(analysis.color_primary)],
+              ['Material', titleCase(analysis.material)],
+              ['Pattern', titleCase(analysis.pattern)],
+              ['Fit', titleCase(analysis.fit)],
+            ] as Array<[string, string]>
+          ).map(([label, value]) => (
             <View
               key={label}
-              style={[
-                s.fieldRow,
-                { borderColor: t.border, backgroundColor: t.card },
-              ]}>
+              style={[s.fieldRow, { borderColor: t.border, backgroundColor: t.card }]}>
               <Text
                 style={{
                   fontFamily: fonts.uiSemi,
@@ -239,7 +263,11 @@ export function AddPieceStep3() {
           <Eyebrow style={{ marginBottom: 8 }}>Seasons</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {SEASONS.map((season) => (
-              <Chip key={season} label={season} active={p.seasons.includes(season)} />
+              <Chip
+                key={season}
+                label={SEASON_LABELS[season]}
+                active={seasonsLower.includes(season)}
+              />
             ))}
           </View>
         </View>
@@ -248,12 +276,16 @@ export function AddPieceStep3() {
       {/* ============ STICKY SAVE BAR ============ */}
       <View style={[s.stickyBar, { borderTopColor: t.border, backgroundColor: t.bg }]}>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>{pieces.length} pieces</Eyebrow>
+          <Eyebrow style={{ marginBottom: 2 }}>Almost there</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
-            Edit any before saving
+            We&rsquo;ll keep refining in the background
           </Text>
         </View>
-        <Button label="Save all" onPress={onSaveAll} />
+        <Button
+          label={addGarment.isPending ? 'Saving…' : 'Save'}
+          onPress={handleSave}
+          disabled={addGarment.isPending}
+        />
       </View>
     </SafeAreaView>
   );
@@ -267,6 +299,27 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
+  },
+  heroImage: {
+    width: 100,
+    height: 130,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  confidenceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  titleInput: {
+    height: 44,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontFamily: fonts.uiMed,
+    fontSize: 14,
   },
   fieldRow: {
     flexDirection: 'row',
@@ -286,5 +339,12 @@ const s = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 14,
     borderTopWidth: 1,
+  },
+  fallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 24,
   },
 });
