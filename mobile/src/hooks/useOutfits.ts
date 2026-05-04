@@ -185,6 +185,10 @@ export function useMarkOutfitWorn() {
       // most-worn surfaces reflect the bumped wear_count immediately.
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment'] });
+      // Insights derives wear-frequency bars, most-worn list, and utilisation
+      // from this very wear_logs insert — refresh so the gauges and chart
+      // update immediately instead of waiting for staleTime.
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
       // Style Memory signal — fire-and-forget. Failure must never block
       // the wear flow (the primary DB write already succeeded). Scope is
       // limited to wear + save in W4 — delete and rate intentionally do

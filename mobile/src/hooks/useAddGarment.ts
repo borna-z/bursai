@@ -141,6 +141,9 @@ export function useAddGarment() {
       // Invalidate every cached garments list (filters / smart filters /
       // search variants) so the new row shows up everywhere immediately.
       queryClient.invalidateQueries({ queryKey: ['garments'] });
+      // Insights derives totals + palette + utilisation from garments — refresh
+      // so the new piece is reflected next time the user opens the tab.
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
   });
 }

@@ -224,6 +224,7 @@ export function useUpdateGarment() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['garment', user?.id, data.id], data);
@@ -248,6 +249,7 @@ export function useDeleteGarment() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.removeQueries({ queryKey: ['garment', user?.id, id] });
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
   });
 }
@@ -284,6 +286,10 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
     onSettled: (_data, _err, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      // Insights derives every metric from garments + wear_logs — refetch so
+      // the gauges, palette, weekly bars, and most-worn list don't lie for up
+      // to staleTime (5min) after a wear / laundry / update.
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
   });
 }
@@ -351,6 +357,10 @@ export function useMarkWorn() {
     onSettled: (_data, _err, id) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      // Insights derives every metric from garments + wear_logs — refetch so
+      // the gauges, palette, weekly bars, and most-worn list don't lie for up
+      // to staleTime (5min) after a wear / laundry / update.
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['garment', user?.id, data.id], data);

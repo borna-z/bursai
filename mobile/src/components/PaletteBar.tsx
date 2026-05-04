@@ -4,16 +4,31 @@
 // Each segment's hex is data, not a token — these are the user's actual wardrobe colors,
 // so they bypass the "tokens only" rule by necessity. The bar's container, separators, swatch
 // borders, and text colors all come from `useTokens()`.
+//
+// W6: switched from the design-handoff `{ name, hex, pct }` shape to the
+// hook-native `InsightsPaletteEntry` (`{ color, label, percent }`). Empty
+// arrays render an inline caption instead of a zero-segment bar.
 
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
+import { Caption } from './Caption';
+import type { InsightsPaletteEntry } from '../hooks/useInsightsDashboard';
 
-export type PaletteEntry = { name: string; hex: string; pct: number };
+export type PaletteEntry = InsightsPaletteEntry;
 
-export function PaletteBar({ data }: { data: PaletteEntry[] }) {
+export function PaletteBar({ entries }: { entries: InsightsPaletteEntry[] }) {
   const t = useTokens();
+
+  if (!entries || entries.length === 0) {
+    return (
+      <Caption style={{ paddingVertical: 8 }}>
+        Wear more garments to build your color profile.
+      </Caption>
+    );
+  }
+
   return (
     <View style={{ flexDirection: 'column', gap: 10 }}>
       {/* Segmented horizontal bar */}
@@ -26,15 +41,14 @@ export function PaletteBar({ data }: { data: PaletteEntry[] }) {
           borderWidth: 1,
           borderColor: t.border,
         }}>
-        {data.map((c, i) => (
+        {entries.map((c, i) => (
           <View
-            key={`${c.name}-${i}`}
+            key={`${c.label}-${i}`}
             style={{
-              flex: c.pct,
+              flex: c.percent,
               height: '100%',
-              backgroundColor: c.hex,
-              borderRightWidth: i < data.length - 1 ? 1 : 0,
-              // Subtle separator that adapts to background — uses border so it works across both themes.
+              backgroundColor: c.color,
+              borderRightWidth: i < entries.length - 1 ? 1 : 0,
               borderRightColor: t.border,
             }}
           />
@@ -43,9 +57,9 @@ export function PaletteBar({ data }: { data: PaletteEntry[] }) {
 
       {/* 2-col legend grid */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {data.map((c, i) => (
+        {entries.map((c, i) => (
           <View
-            key={`legend-${c.name}-${i}`}
+            key={`legend-${c.label}-${i}`}
             style={{
               width: '50%',
               flexDirection: 'row',
@@ -59,7 +73,7 @@ export function PaletteBar({ data }: { data: PaletteEntry[] }) {
                 width: 12,
                 height: 12,
                 borderRadius: 4,
-                backgroundColor: c.hex,
+                backgroundColor: c.color,
                 borderWidth: 1,
                 borderColor: t.border,
               }}
@@ -73,7 +87,7 @@ export function PaletteBar({ data }: { data: PaletteEntry[] }) {
                 color: t.fg,
                 letterSpacing: -0.11,
               }}>
-              {c.name}
+              {c.label}
             </Text>
             <Text
               style={{
@@ -82,7 +96,7 @@ export function PaletteBar({ data }: { data: PaletteEntry[] }) {
                 color: t.fg2,
                 fontVariant: ['tabular-nums'],
               }}>
-              {c.pct}%
+              {c.percent}%
             </Text>
           </View>
         ))}
