@@ -33,7 +33,14 @@
     },
     "plugins": [
       "expo-font",
-      "expo-localization"
+      "expo-localization",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "burs",
+          "project": "burs-mobile"
+        }
+      ]
     ],
     "extra": {
       "eas": {

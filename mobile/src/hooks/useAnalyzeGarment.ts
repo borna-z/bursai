@@ -23,6 +23,7 @@ import { useCallback, useState } from 'react';
 
 import { supabaseUrl } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { Sentry } from '../lib/sentry';
 
 export interface AnalysisResult {
   title: string;
@@ -124,6 +125,13 @@ export function useAnalyzeGarment() {
         return normalized;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Analysis failed';
+        // Skip the expected paywall sentinel — those are gating, not failures.
+        if (msg !== 'subscription_required') {
+          Sentry.withScope((s) => {
+            s.setTag('mutation', 'useAnalyzeGarment');
+            Sentry.captureException(err);
+          });
+        }
         setError(msg);
         return null;
       } finally {

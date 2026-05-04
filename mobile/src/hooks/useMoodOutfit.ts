@@ -24,6 +24,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabaseUrl } from '../lib/supabase';
 import { fetchSSE, getEdgeFunctionUrl } from '../lib/sse';
+import { Sentry } from '../lib/sentry';
 
 export type MoodOutfitItem = {
   garment_id?: string;
@@ -151,6 +152,13 @@ export function useMoodOutfit() {
           },
           onError: (err) => {
             if (controller.signal.aborted) return;
+            // Skip the expected paywall sentinel — those are gating, not failures.
+            if (err.message !== 'subscription_required') {
+              Sentry.withScope((s) => {
+                s.setTag('mutation', 'useMoodOutfit');
+                Sentry.captureException(err);
+              });
+            }
             setError(err.message);
             setIsLoading(false);
           },
