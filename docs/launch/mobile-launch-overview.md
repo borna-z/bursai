@@ -14,9 +14,9 @@
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M0 — Sentry + onError sweep |
-| **CURRENT WAVE FILE** | `docs/launch/mobile-w0-sentry.md` |
-| **STATUS** | 🔄 TODO |
+| **CURRENT WAVE** | M1 — Destructive mutations: account deletion + reset style memory |
+| **CURRENT WAVE FILE** | `docs/launch/mobile-w1-destructive-mutations.md` |
+| **STATUS** | 🔜 TODO |
 | **LAST UPDATED** | 2026-05-04 |
 
 ---
@@ -25,7 +25,7 @@
 
 | Wave | File | Status | Complexity | Blocker |
 |------|------|--------|-----------|---------|
-| M0 | [Sentry + onError sweep](mobile-w0-sentry.md) | 🔄 TODO | S | — |
+| M0 | [Sentry + onError sweep](mobile-w0-sentry.md) | ✅ DONE (PR #724, 2026-05-04) | S | — |
 | M1 | [Destructive mutations: account deletion + reset style memory](mobile-w1-destructive-mutations.md) | 🔜 TODO | M | — |
 | M2 | [Privacy/Terms + password reset + deep links](mobile-w2-privacy-password.md) | 🔜 TODO | M | — |
 | M3 | [Travel capsule end-to-end](mobile-w3-travel-capsule.md) | 🔜 TODO | L | — |

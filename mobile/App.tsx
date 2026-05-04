@@ -8,6 +8,12 @@
 // serif/sans on font names it doesn't recognize, so blocking until load is what makes the
 // design's italic Playfair actually render.
 
+// Sentry must initialize before any other module that might throw — so it captures
+// import-time errors and any early useEffect failures. Calling initSentry() at the
+// top of the file (rather than inside App()) gives us coverage from module load.
+import { initSentry, Sentry } from './src/lib/sentry';
+initSentry();
+
 import React, { useCallback, useEffect } from 'react';
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -41,7 +47,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // No-op: this can race on hot-reload (already hidden) — safe to swallow.
 });
 
-export default function App() {
+function App() {
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_400Regular_Italic,
     PlayfairDisplay_500Medium_Italic,
@@ -80,6 +86,10 @@ export default function App() {
     </View>
   );
 }
+
+// Wrap App so Sentry's ErrorBoundary catches uncaught render errors and
+// captures crash-reporting context. No-op when Sentry is uninitialized.
+export default Sentry.wrap(App);
 
 function ThemedShell() {
   const { resolved } = useTheme();

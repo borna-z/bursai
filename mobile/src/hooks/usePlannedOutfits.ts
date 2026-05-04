@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { captureMutationError } from '../lib/sentry';
 import { localISODate } from '../lib/outfitDisplay';
 import type { PlannedOutfitWithOutfit } from '../types/outfit';
 
@@ -149,6 +150,7 @@ export function useUpsertPlannedOutfit() {
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
     },
+    onError: captureMutationError('useUpsertPlannedOutfit'),
   });
 }
 
@@ -170,5 +172,6 @@ export function useDeletePlannedOutfit() {
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
     },
+    onError: captureMutationError('useDeletePlannedOutfit'),
   });
 }
