@@ -1,56 +1,86 @@
 // Horizontal row of vertical bars — wear-frequency style chart.
 // Mirrors design_handoff_burs_rn/source/screens.jsx `.bar-viz` + `.bar` / `.bar.hi`.
 //
-// Container: 80px tall, bars bottom-aligned, gap 6px between bars.
-// Each value is treated as an ABSOLUTE 0–100 percentage (clamped) — matches the
-// prototype's `style={{ height: \`${h}%\` }}` direct passthrough. Earlier this file
-// renormalized by dataset max, which inflated every chart whose max < 100 (e.g.
-// 65 rendering as ~72% when max=90 — Codex P1 on PR #702).
-// Bars whose value exceeds `threshold` (default 65) get the solid accent;
-// the rest get accentSoft.
+// W6: switched from `values: number[]` (absolute 0–100) to `bars: InsightsBarDay[]`
+// — `{ label, value, max }` from useInsightsDashboard. Bars scale to the
+// dataset's `max`, so a sparse week still produces full-height peaks instead
+// of pinning to a hardcoded 100. A min-height of 2px guarantees an empty bar
+// is still visible (otherwise `value=0` would render nothing and the row
+// would silently collapse).
 //
-// Rounded top corners only — `borderRadius: '6px 6px 2px 2px'` in the CSS — RN supports this via
-// the per-corner radius props.
+// Container: 80px tall, bars bottom-aligned, gap 6px between bars. Bars whose
+// share exceeds `threshold` (default 0.65 of max) get the solid accent; the
+// rest get accentSoft. Optional weekday labels render below each bar.
 
 import React from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useTokens } from '../theme/ThemeProvider';
+import { fonts } from '../theme/tokens';
+import type { InsightsBarDay } from '../hooks/useInsightsDashboard';
 
 export function BarViz({
-  values,
-  threshold = 65,
+  bars,
+  threshold = 0.65,
+  showLabels = true,
 }: {
-  values: number[];
+  bars: InsightsBarDay[];
   threshold?: number;
+  showLabels?: boolean;
 }) {
   const t = useTokens();
 
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 6,
-        height: 80,
-      }}>
-      {values.map((v, i) => {
-        const heightPct = Math.max(0, Math.min(100, v));
-        const hi = v > threshold;
-        return (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              height: `${heightPct}%`,
-              backgroundColor: hi ? t.accent : t.accentSoft,
-              borderTopLeftRadius: 6,
-              borderTopRightRadius: 6,
-              borderBottomLeftRadius: 2,
-              borderBottomRightRadius: 2,
-            }}
-          />
-        );
-      })}
+    <View style={{ gap: 6 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          gap: 6,
+          height: 80,
+        }}>
+        {bars.map((b, i) => {
+          const safeMax = Math.max(1, b.max);
+          const ratio = Math.max(0, Math.min(1, b.value / safeMax));
+          // 2px floor so an empty bar stays visible — otherwise the row
+          // silently collapses to nothing on a slow week.
+          const heightPct = Math.max(2 / 80, ratio); // 2px / 80px container
+          const hi = ratio >= threshold;
+          return (
+            <View
+              key={`${b.label}-${i}`}
+              style={{
+                flex: 1,
+                height: `${heightPct * 100}%`,
+                backgroundColor: hi ? t.accent : t.accentSoft,
+                borderTopLeftRadius: 6,
+                borderTopRightRadius: 6,
+                borderBottomLeftRadius: 2,
+                borderBottomRightRadius: 2,
+              }}
+            />
+          );
+        })}
+      </View>
+      {showLabels ? (
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {bars.map((b, i) => (
+            <Text
+              key={`label-${b.label}-${i}`}
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                fontFamily: fonts.uiMed,
+                fontSize: 10,
+                color: t.fg3,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+              }}>
+              {b.label}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

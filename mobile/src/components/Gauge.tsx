@@ -22,7 +22,12 @@ export type GaugeProps = {
   unit?: string;
   label: string;
   delta?: string;
-  deltaDir?: 'up' | 'down';
+  /**
+   * `'up'` shows the accent ↑, `'down'` shows the muted ↓, `'neutral'` renders
+   * the delta text without an arrow (used for "in-rotation count" style metrics
+   * where direction has no meaning until there's a prior point to compare to).
+   */
+  deltaDir?: 'up' | 'down' | 'neutral';
   /**
    * Controls whether the gauge is currently shown. When this flips from false → true,
    * the ring resets to "empty" and re-animates to its target offset. Required because
@@ -172,10 +177,11 @@ export function Gauge({
             fontFamily: fonts.uiSemi,
             fontSize: 10,
             fontWeight: '600',
-            color: deltaDir === 'down' ? t.fg3 : t.accent,
+            color: deltaDir === 'up' ? t.accent : t.fg3,
             letterSpacing: 0.2,
           }}>
-          {deltaDir === 'up' ? '↑' : '↓'} {delta}
+          {deltaDir === 'up' ? '↑ ' : deltaDir === 'down' ? '↓ ' : ''}
+          {delta}
         </Text>
       ) : null}
     </View>
