@@ -21,21 +21,26 @@ Do not proceed until you are in bursai-working with a clean git status.
 
 ### Launch Plan — Current Wave
 
-**CURRENT PROMPT:** Wave 9 P59 — Capacitor migration (Wave 8.5 PR B shipped as PR #712 covering P86 minimum-viable + P88 + P89 + P90 with audit-driven scope expansions; deferred P86 sub-surfaces + P91 detailed tests + P92 verification noted in Findings Log)
-**CURRENT WAVE FILE:** `docs/launch/wave-9-capacitor.md`
-**LAST UPDATED:** 2026-05-03
-**LAST CLEANUP:** 2026-04-28 (Wave 4.9 hygiene PR #697 — flipped 3 stuck Findings Log rows whose underlying fixes shipped via PRs #641 / #669 / #670 but whose Action column was never backfilled; tracker now reflects the actual closure state)
-**TOTAL SCOPE:** ~95 prompts across 14 waves (P0a–P92, plus W4.9 + W7.9 closing sub-wave clusters)
+**MOBILE LAUNCH IS NOW THE ACTIVE PATH (2026-05-04).** The `mobile/` React Native + Expo app replaces the Capacitor wrapper plan. Mobile launch waves are tracked in `docs/launch/mobile-launch-overview.md` — that is the single source of truth for all current launch work.
+
+**CURRENT WAVE:** Mobile Launch M0 — Sentry foundations + onError sweep
+**CURRENT WAVE FILE:** `docs/launch/mobile-w0-sentry.md` (the master `docs/launch/mobile-launch-overview.md` lists all waves)
+**LAST UPDATED:** 2026-05-04
+**LAST CLEANUP:** 2026-04-28 (Wave 4.9 hygiene PR #697)
+**MOBILE LAUNCH SCOPE:** 14 waves M0–M14 shipping by 2026-05-31. M6/M13/M14 blocked on Apple Developer + RevenueCat dashboard (external setup); M0–M5/M7–M12 are fully unblocked for code work.
+**WEB SCOPE STATUS:** Waves 0–8.5 done. Wave 9 (Capacitor) **dropped — superseded by Mobile Launch**. Wave 10 (App Store) and Wave 11 (Launch) are folded into the Mobile Launch path (M14).
 
 ### How to Resume
 
 When the user says "continue the launch plan" (or equivalent like "next prompt", "continue", "keep going"):
-1. Read `CURRENT PROMPT` above.
-2. Open `CURRENT WAVE FILE` — that file has the full spec (problem, fix, files, acceptance, deploy) for THIS wave only.
-3. Do NOT open any other wave file unless the spec explicitly references it. The Wave Index below is a status table, not a reading list.
-4. Load only the files named in the prompt's `Files` section (respect Token Conservation rules).
-5. Follow the Fix Protocol (section below).
-6. Update `CURRENT PROMPT` and `CURRENT WAVE FILE` when the wave completes — the tracker update lives INSIDE the fix PR (see "Launch Plan Update" below).
+1. Read `CURRENT WAVE` above.
+2. Open `docs/launch/mobile-launch-overview.md` — confirm CURRENT WAVE pointer there matches.
+3. Open the wave file referenced — it has full spec (files, code skeletons, acceptance, PR template) for THIS wave only.
+4. Do NOT open sibling wave files. The wave file is self-contained.
+5. Read `mobile/CLAUDE.md` if working in `mobile/` — it has the per-PR workflow.
+6. Load only files named in the wave's "Files touched" section.
+7. Follow the wave's gates → code-reviewer → push → PR.
+8. Update `CURRENT WAVE` pointer in `mobile-launch-overview.md` when the wave completes — the tracker update lives INSIDE the fix PR.
 
 Standing rules common to every wave: `docs/launch/standing-rules.md`.
 
@@ -55,9 +60,10 @@ Standing rules common to every wave: `docs/launch/standing-rules.md`.
 | 7 | `docs/launch/wave-7-onboarding.md` | ✅ DONE (Wave 7.9 follow-up cleanup PENDING — staged on branch `wave-7-9-followup`, not yet merged) |
 | 8 | `docs/launch/wave-8-subscriptions.md` | ✅ DONE (functional scope; Wave 8.9 closure deferred per user direction 2026-04-29 — 3 open Findings rows carry `Scheduled: post-launch` annotations) |
 | 8.5 | `docs/launch/wave-8.5-style-memory.md` | ✅ DONE (PR A #709 + PR B #712; deferred P86 sub-surfaces (UnusedOutfits, AISuggestions, useTravelCapsule, useWeekGenerator, OutfitSuggestionCard swap, Plan-skip UI, GarmentDetail Never-suggest UI, QuickReactionRow + 4 placements) + P91 detailed test matrix + P92 verification noted in Findings Log; functional scope CLOSED) |
-| 9 | `docs/launch/wave-9-capacitor.md` | 🔄 CURRENT |
-| 10 | `docs/launch/wave-10-app-store.md` | 🔜 TODO (also contains Wave 10.5 — Vertex AI / Gemini 3 migration) |
-| 11 | `docs/launch/wave-11-launch.md` | 🔜 TODO |
+| 9 | `docs/launch/wave-9-capacitor.md` | ❌ DROPPED — superseded by Mobile Launch (2026-05-04) |
+| 10 | `docs/launch/wave-10-app-store.md` | 🔁 FOLDED into Mobile Launch M14 |
+| 11 | `docs/launch/wave-11-launch.md` | 🔁 FOLDED into Mobile Launch M14 |
+| **Mobile Launch** | **`docs/launch/mobile-launch-overview.md`** | 🔄 **CURRENT (M0–M14)** |
 
 ### Status Legend
 - `[TODO]` — not started
