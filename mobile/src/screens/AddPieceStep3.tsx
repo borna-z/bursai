@@ -127,6 +127,14 @@ export function AddPieceStep3() {
   useEffect(() => {
     const uploadId = params?.uploadId;
     return () => {
+      // Codex round 7 P1: skip cleanup while a save is in flight. handleSave
+      // resolves storagePath, then awaits mutateAsync — if the user backs out
+      // mid-mutation, deleting here would yank the file out from under a
+      // succeeding insert. The save's finally clears savingRef but by then the
+      // unmount cleanup already ran. Tradeoff: if the save fails after unmount,
+      // the storage object leaks (no cleanup will run). Acceptable v1 — failure
+      // rate post-PR-1 should be low and orphan storage isn't user-visible.
+      if (savingRef.current) return;
       if (savedRef.current) return;
       // Prefer the cached promise; fall back to taking from the registry if
       // nobody read it yet (early-exit path). takePendingUpload is idempotent —

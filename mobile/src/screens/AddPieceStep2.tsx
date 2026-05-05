@@ -91,12 +91,14 @@ export function AddPieceStep2() {
   // when the upload eventually resolves on a back-button-mid-flight session.
   const uploadIdRef = useRef<string | null>(null);
   const uploadStorageRef = useRef<string | null>(null);
-  // Distinguishes "uploadIdRef cleared by ownership-transfer to Step 3" from
-  // "uploadIdRef cleared by unmount cleanup". Without this, an upload that resolves
-  // after Step 2 unmounts but before Step 3 consumes the path can't tell whether
-  // to orphan-delete or stay quiet. Set to true exactly once when nav.navigate
-  // hands the uploadId to Step 3.
-  const ownerTransferredRef = useRef(false);
+  // Tracks WHICH uploadId (if any) was transferred to Step 3. Codex round 7 P2:
+  // the prior boolean ownerTransferredRef conflated "any attempt was transferred"
+  // with "this specific attempt was transferred". After a Retry-then-success
+  // sequence, an older attempt resolving later would see the boolean as `true`
+  // (because the NEW attempt transferred) and skip its self-cleanup, leaking the
+  // old storage object. Storing the id lets every .then closure compare against
+  // its own captured uploadId.
+  const transferredUploadIdRef = useRef<string | null>(null);
   // Component-mount guard — set false on unmount so post-unmount setState / navigate
   // calls become no-ops. Without this guard a back-button mid-analyze would teleport
   // the user into Step 3 of an aborted flow.
@@ -130,7 +132,7 @@ export function AddPieceStep2() {
     const previousStorage = uploadStorageRef.current;
     uploadIdRef.current = null;
     uploadStorageRef.current = null;
-    ownerTransferredRef.current = false;
+    transferredUploadIdRef.current = null;
     if (previousUploadId) dropPendingUpload(previousUploadId);
     if (previousStorage) void deleteUpload(previousStorage);
 
@@ -154,26 +156,24 @@ export function AddPieceStep2() {
       //      from the .then — the cleanup snapshot can't catch a path that wasn't
       //      yet set when it ran. Reviewer-flagged leak.
       //
-      // Codex round 6 P2: gate every shared-state mutation on this upload still
-      // being the active one. Without this, a Retry-after-failure scenario can
-      // have the OLD upload's .then resolve LATER and overwrite uploadStorageRef
-      // with a stale path; the unmount cleanup then deletes the wrong file (or
-      // the new path leaks because uploadStorageRef no longer points at it).
-      // Comparing against `uploadId` captured in this closure isolates the two
-      // attempts. If we're stale, eagerly delete our own storage object — no
-      // shared ref will track it, and the new attempt has its own bookkeeping.
+      // Codex round 7 P2: per-uploadId active/transferred check. An attempt is
+      // "live" if uploadIdRef still points at it (active in Step 2) OR
+      // transferredUploadIdRef holds it (handed to Step 3). Anything else is a
+      // stale completion from a prior retry — self-delete and skip shared-state
+      // mutation so the new attempt's bookkeeping isn't clobbered.
       const wrapped = uploadPromise.then((res) => {
-        const isStale = uploadIdRef.current !== uploadId && !ownerTransferredRef.current;
-        if (isStale) {
+        const isActive = uploadIdRef.current === uploadId;
+        const isTransferred = transferredUploadIdRef.current === uploadId;
+        if (!isActive && !isTransferred) {
           void deleteUpload(res.storagePath);
           return res;
         }
         uploadStorageRef.current = res.storagePath;
-        // If the component already unmounted AND ownership wasn't transferred to
-        // Step 3 (uploadIdRef cleared by handover, not unmount), the storage object
-        // is orphaned — delete eagerly. Distinguishing the two clears requires the
-        // separate ownerTransferredRef below.
-        if (!mountedRef.current && !ownerTransferredRef.current) {
+        // If the component already unmounted AND THIS attempt wasn't transferred
+        // to Step 3, the storage object is orphaned — delete eagerly. The
+        // per-uploadId check ensures a transferred attempt isn't deleted (Step 3
+        // still owns the file).
+        if (!mountedRef.current && !isTransferred) {
           void deleteUpload(res.storagePath);
         }
         return res;
@@ -228,10 +228,10 @@ export function AddPieceStep2() {
 
       // Hand the upload promise off to Step 3. Storage path is null until upload
       // completes — Step 3's Save handler will await pendingUpload[uploadId] if
-      // needed. Mark ownership-transferred BEFORE clearing the ref so the .then
-      // wrapper doesn't mistakenly orphan-delete a path Step 3 still owns.
+      // needed. Record the transferred uploadId BEFORE clearing the active ref
+      // so the .then closure can compare against its own captured uploadId.
       const uploadIdForStep3 = uploadIdRef.current;
-      ownerTransferredRef.current = true;
+      if (uploadIdForStep3) transferredUploadIdRef.current = uploadIdForStep3;
       uploadIdRef.current = null;
       nav.navigate('AddPieceStep3', {
         storagePath: null,
@@ -259,7 +259,7 @@ export function AddPieceStep2() {
       mountedRef.current = false;
       const orphanId = uploadIdRef.current;
       const orphanStorage = uploadStorageRef.current;
-      const transferred = ownerTransferredRef.current;
+      const wasTransferred = transferredUploadIdRef.current !== null;
       uploadIdRef.current = null;
       uploadStorageRef.current = null;
       if (orphanId) dropPendingUpload(orphanId);
@@ -268,8 +268,12 @@ export function AddPieceStep2() {
       // referenced by a saved garment row; deleting it here would break the
       // garment image. The .then wrapper inside runAnalyzeAndUpload covers the
       // race where the upload resolves AFTER unmount on a non-transfer flow.
-      // Codex round 4 P1 on PR #725.
-      if (!transferred && orphanStorage) void deleteUpload(orphanStorage);
+      // Codex round 4 P1 on PR #725; round 7 P2 switched the gate to per-uploadId
+      // tracking, but uploadStorageRef is only ever written by an active or
+      // transferred attempt (stale ones self-delete in the .then before touching
+      // the shared ref), so the boolean transferred-or-not check on the ref's
+      // owner is sufficient here.
+      if (!wasTransferred && orphanStorage) void deleteUpload(orphanStorage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
