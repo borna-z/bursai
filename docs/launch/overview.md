@@ -241,6 +241,21 @@ M<N> — <title> (`docs/launch/waves/m<N>-<slug>.md`)
 
 ---
 
+## Post-launch cleanup (follows M44 — separate PR, not a wave)
+
+Once the App Store + Play Store reviews land and the mobile launch is live, a single follow-up PR deletes the web `src/` tree and decommissions Stripe entirely. Stripe migration is a non-issue because there are no real users yet — only test accounts — so the cutover is a hard delete with no grandfathering.
+
+That cleanup PR's scope:
+
+- Delete `src/` (every Stripe call site goes with it: `create_checkout_session`, `create_portal_session`, `restore_subscription` web, `PaywallModal`, web `useSubscription` legacy paths).
+- Delete Stripe edge functions: `create_checkout_session`, `create_portal_session`, `restore_subscription`, `stripe_webhook`.
+- Migration: drop `profiles.stripe_customer_id`, drop the `stripe_events` table, drop Stripe-only columns from `subscriptions` (RevenueCat now writes the same table via M31's webhook).
+- Supabase secrets: remove `STRIPE_*` env vars (`STRIPE_MODE`, `STRIPE_SECRET_KEY_*`, `STRIPE_WEBHOOK_SECRET_*`, `STRIPE_PRICE_ID_*`).
+- Stripe Dashboard: archive products + webhooks (user step).
+- Vercel project: deprovision the web app.
+
+`enforceSubscription` keeps working unchanged — once Stripe writers are gone, `subscriptions` is purely RevenueCat-fed, and the gate semantics don't change.
+
 ## Logs (append-only)
 
 - [`completion-log.md`](completion-log.md) — one row per merged PR. `M<N>` prefix on the Prompt column for filterability.
