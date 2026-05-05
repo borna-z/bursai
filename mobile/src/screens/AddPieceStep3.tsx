@@ -193,16 +193,42 @@ export function AddPieceStep3() {
   // so they're declared above the no-params early return. The query is
   // disabled when category is missing — a missing-params render passes a
   // null input and the hook short-circuits via its `enabled` gate.
+  //
+  // resolvedStoragePath: starts as the direct path (Step 2's base64-fallback)
+  // or null. The effect below awaits the parallel-upload promise and flips it
+  // to the real storage path once available, which re-fires the duplicate
+  // query with image_path so visual matches surface even when attribute
+  // scoring alone wouldn't reach the 0.85 modal threshold. Codex P2 round 2.
+  const [resolvedStoragePath, setResolvedStoragePath] = useState<string | null>(
+    () => params?.storagePath ?? null,
+  );
+  useEffect(() => {
+    if (params?.storagePath || !params?.uploadId) return;
+    if (!uploadPromiseRef.current) {
+      const promise = takePendingUpload(params.uploadId);
+      if (!promise) return;
+      uploadPromiseRef.current = promise;
+    }
+    let cancelled = false;
+    uploadPromiseRef.current
+      .then((res) => {
+        if (cancelled) return;
+        setResolvedStoragePath(res.storagePath);
+      })
+      // A rejected upload just leaves the duplicate query attribute-only —
+      // matching handleSave's failure path. Save itself surfaces the error
+      // via friendlySaveError; duplicate detection has no UX to surface here.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [params?.uploadId, params?.storagePath]);
+
   const duplicateInput = useMemo(
     () =>
       params?.analysis
         ? {
-            // image_path is optional: when storagePath is null (Step 2's
-            // parallel-upload base64 path is still mid-flight), the edge
-            // function falls back to attribute-only scoring. We don't await
-            // the upload before checking — the user is reviewing fields
-            // anyway, and a weaker signal beats no signal at all.
-            image_path: params.storagePath ?? null,
+            image_path: resolvedStoragePath,
             category: params.analysis.category ?? null,
             color_primary: params.analysis.color_primary ?? null,
             title: titleOverride.trim() || params.analysis.title,
@@ -211,7 +237,7 @@ export function AddPieceStep3() {
           }
         : null,
     [
-      params?.storagePath,
+      resolvedStoragePath,
       params?.analysis,
       titleOverride,
     ],
@@ -258,7 +284,19 @@ export function AddPieceStep3() {
     if (!duplicateMatch) return;
     hapticLight();
     dismissDuplicate(true);
-    nav.navigate('GarmentDetail', { id: duplicateMatch.garment_id });
+    // Codex P2 round 2: nav.navigate() pushes GarmentDetail on top while
+    // Step 3 stays mounted — the unmount-cleanup effect never runs and the
+    // newly-uploaded JPEG sits orphaned in storage until the user happens to
+    // pop back. Treat "View existing" as abandoning this new garment: reset
+    // the stack the same way handleSave does, so Step 3 unmounts and its
+    // cleanup runCleanup fires (savedRef stays false → orphan delete runs).
+    nav.reset({
+      index: 1,
+      routes: [
+        { name: 'MainTabs' },
+        { name: 'GarmentDetail', params: { id: duplicateMatch.garment_id } },
+      ],
+    });
   };
 
   const onAddAnyway = () => {
