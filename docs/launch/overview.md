@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M4 — Duplicate detection |
-| **CURRENT WAVE FILE** | [`waves/m4-duplicate-detection.md`](waves/m4-duplicate-detection.md) |
+| **CURRENT WAVE** | M5 — Offline queue |
+| **CURRENT WAVE FILE** | [`waves/m5-offline-queue.md`](waves/m5-offline-queue.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -81,7 +81,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | M1 | [Render polling](waves/m1-render-polling.md) | DONE (PR #728) | V0 |
 | M2 | [Signed-URL cache](waves/m2-signed-url-cache.md) | DONE (PR #729) | V0 |
 | M3 | [useGarmentCount](waves/m3-garment-count.md) | DONE (PR #730) | V0 |
-| M4 | [Duplicate detection](waves/m4-duplicate-detection.md) | TODO | V0 |
+| M4 | [Duplicate detection](waves/m4-duplicate-detection.md) | DONE (PR #731) | V0 |
 | M5 | [Offline queue](waves/m5-offline-queue.md) | TODO | V0 |
 | M6 | [Multi-garment LiveScan continuous-scan](waves/m6-livescan-continuous.md) | TODO | V0, M1 |
 | M7 | [Batch add flow](waves/m7-batch-add.md) | TODO | V0, M4, M5 |

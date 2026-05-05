@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Wire `detect_duplicate_garment` so Step 3 of AddPiece warns when the new garment is likely already in the wardrobe. |
-| Status | TODO |
+| Status | DONE (PR #731) |
 | Branch | `mobile-m4-duplicate-detection` |
 | PR count | 1 |
 | Depends on | V0 |
