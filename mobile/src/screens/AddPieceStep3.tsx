@@ -498,7 +498,7 @@ export function AddPieceStep3() {
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 2 }}>Almost there</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
-            We&rsquo;ll keep refining in the background
+            We'll keep refining in the background
           </Text>
         </View>
         <Button

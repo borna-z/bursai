@@ -99,7 +99,7 @@ export function ResetPasswordScreen() {
             <View style={{ gap: 18 }}>
               <View style={{ gap: 6 }}>
                 <Eyebrow>Forgot your password?</Eyebrow>
-                <Caption>Enter your email and we&rsquo;ll send a reset link.</Caption>
+                <Caption>Enter your email and we'll send a reset link.</Caption>
               </View>
 
               <View style={[s.input, { backgroundColor: t.bg2, borderColor: t.border }]}>

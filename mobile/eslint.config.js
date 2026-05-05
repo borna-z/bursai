@@ -43,6 +43,11 @@ module.exports = [
       // Pragmatic disables — RN ecosystem noise.
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+      // React Native <Text> does NOT decode HTML entities, so escaping
+      // apostrophes/quotes as &rsquo; / &ldquo; would render the entity
+      // literally on-screen. The rule is a DOM-only lint and is unsafe
+      // here; disable it for the whole RN tree.
+      'react/no-unescaped-entities': 'off',
     },
   },
   {

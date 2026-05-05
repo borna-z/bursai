@@ -150,7 +150,7 @@ export function AddPieceStep1() {
               Live scan
             </Text>
             <Text style={{ fontFamily: fonts.ui, fontSize: 12, color: t.fg2, lineHeight: 17 }}>
-              Place the garment on a flat surface — we&rsquo;ll auto-crop and tag.
+              Place the garment on a flat surface — we'll auto-crop and tag.
             </Text>
           </View>
           <View
@@ -278,7 +278,7 @@ export function AddPieceStep1() {
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 2 }}>{ready} ready</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
-            We&rsquo;ll tag each one automatically
+            We'll tag each one automatically
           </Text>
         </View>
         <Button

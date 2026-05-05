@@ -120,7 +120,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
         <Card hero padding={18}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <View>
-              <Eyebrow style={{ marginBottom: 3 }}>Today&rsquo;s Look</Eyebrow>
+              <Eyebrow style={{ marginBottom: 3 }}>Today's Look</Eyebrow>
               <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontSize: 22, lineHeight: 24, fontWeight: '500', color: t.fg, letterSpacing: -0.22 }}>
                 Studio brunch
               </Text>

@@ -177,7 +177,7 @@ export function UsedGarmentsScreen() {
         <View style={s.emptyWrap}>
           <PageTitle size={22}>No worn garments yet</PageTitle>
           <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
-            Once you start logging wears they&rsquo;ll show up here.
+            Once you start logging wears they'll show up here.
           </Caption>
         </View>
       </SafeAreaView>
