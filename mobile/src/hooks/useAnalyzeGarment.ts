@@ -209,8 +209,36 @@ export async function triggerGarmentEnrichment(
   garmentId: string,
   accessToken: string,
 ): Promise<void> {
+  // Best-effort terminal write — if a transient supabase outage dropped the AI
+  // call, this status flip also has a chance of failing. We capture the result
+  // so callers (the outer catch + every status branch below) can log when even
+  // the recovery write didn't land. Returning the error lets the caller decide
+  // whether to surface to Sentry separately or roll up.
+  const writeStatus = async (
+    status: 'processing' | 'completed' | 'failed',
+  ): Promise<{ ok: boolean; reason?: string }> => {
+    const { error } = await supabase
+      .from('garments')
+      .update({ enrichment_status: status })
+      .eq('id', garmentId);
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[triggerGarmentEnrichment] status='${status}' write failed for ${garmentId}: ${error.message}`,
+      );
+      return { ok: false, reason: error.message };
+    }
+    return { ok: true };
+  };
+
   try {
-    await supabase.from('garments').update({ enrichment_status: 'processing' }).eq('id', garmentId);
+    // Codex round 3 P2: don't blindly assume the 'processing' flip landed. If
+    // RLS or a transient PostgREST failure rejects this write, abort early —
+    // attempting an enrichment we can't reliably mark `failed` is worse than
+    // not running it at all (the cron worker will pick the row up via its own
+    // pending-status sweep).
+    const procWrite = await writeStatus('processing');
+    if (!procWrite.ok) return;
 
     const response = await fetch(`${supabaseUrl}/functions/v1/analyze_garment`, {
       method: 'POST',
@@ -222,26 +250,41 @@ export async function triggerGarmentEnrichment(
     });
 
     if (!response.ok) {
-      await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
+      await writeStatus('failed');
       return;
     }
 
     const data = (await response.json()) as { enrichment?: Record<string, unknown> | null };
     const e = data.enrichment;
     if (!e || typeof e !== 'object') {
-      await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
+      await writeStatus('failed');
       return;
     }
 
     // Merge the enrichment payload into ai_raw so downstream consumers (web's
     // garmentIntelligence.ts:418-420 reads ai_raw.enrichment.refined_title etc.)
     // see the same shape as web-saved garments.
-    const { data: existing } = await supabase
+    //
+    // Codex round 3 P1: NEVER fall through to `{}` on a select error or a
+    // missing row. The insert path just wrote `system_signals` into ai_raw;
+    // overwriting that with `{ enrichment: e }` would silently drop the
+    // analysis_confidence / needs_review / source signals downstream consumers
+    // depend on. If the read fails, mark enrichment failed and return — the
+    // cron worker can retry the enrichment from a clean state later.
+    const { data: existing, error: fetchErr } = await supabase
       .from('garments')
       .select('ai_raw')
       .eq('id', garmentId)
       .single();
-    const currentRaw = (existing?.ai_raw as Record<string, unknown> | null) ?? {};
+    if (fetchErr || !existing) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[triggerGarmentEnrichment] ai_raw read failed for ${garmentId}: ${fetchErr?.message ?? 'no row'}`,
+      );
+      await writeStatus('failed');
+      return;
+    }
+    const currentRaw = (existing.ai_raw as Record<string, unknown> | null) ?? {};
     const mergedRaw = { ...currentRaw, enrichment: e };
 
     const updates: Record<string, unknown> = {
@@ -275,19 +318,32 @@ export async function triggerGarmentEnrichment(
       updates.versatility_score = Math.max(1, Math.min(10, Math.round(e.versatility_score)));
     }
 
-    await supabase.from('garments').update(updates).eq('id', garmentId);
+    // Codex round 3 P2: capture the final-write error. Without this, an RLS
+    // or transient PostgREST failure here would leave enrichment_status at
+    // 'processing' forever — caller assumes success, the row stays half-baked.
+    // On error: roll the status to 'failed' so cron retry kicks in and Sentry
+    // gets a signal we can monitor post-launch.
+    const { error: updateErr } = await supabase.from('garments').update(updates).eq('id', garmentId);
+    if (updateErr) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[triggerGarmentEnrichment] enrichment update failed for ${garmentId}: ${updateErr.message}`,
+      );
+      Sentry.withScope((s) => {
+        s.setTag('mutation', 'triggerGarmentEnrichment');
+        s.setExtra('garmentId', garmentId);
+        s.setExtra('phase', 'enrichment_update');
+        Sentry.captureException(new Error(updateErr.message));
+      });
+      await writeStatus('failed');
+    }
   } catch (err) {
     Sentry.withScope((s) => {
       s.setTag('mutation', 'triggerGarmentEnrichment');
       s.setExtra('garmentId', garmentId);
       Sentry.captureException(err);
     });
-    // Best-effort terminal write — if the network just dropped this also fails,
-    // but the worst case is the row stays at 'processing' until the next save.
-    try {
-      await supabase.from('garments').update({ enrichment_status: 'failed' }).eq('id', garmentId);
-    } catch {
-      /* swallow — already logged */
-    }
+    // writeStatus already logs on its own failure — no extra wrapping needed.
+    await writeStatus('failed');
   }
 }
