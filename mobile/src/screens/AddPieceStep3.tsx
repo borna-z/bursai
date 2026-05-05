@@ -14,7 +14,7 @@
 // Multi-photo (W9 follow-up): the piece-selector strip is gone in W5. When multi-photo
 // lands, the strip returns and Save loops back to Step 2 with the next photo.
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -40,7 +40,12 @@ import { BackIcon } from '../components/icons';
 import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
 import { useAddGarment } from '../hooks/useAddGarment';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
-import { takePendingUpload, type PendingUploadPromise } from '../lib/pendingUpload';
+import { deleteUpload } from '../lib/imageUpload';
+import {
+  dropPendingUpload,
+  takePendingUpload,
+  type PendingUploadPromise,
+} from '../lib/pendingUpload';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -89,6 +94,11 @@ export function AddPieceStep3() {
   // the entry from the module on first read; we cache it here in case the user
   // taps Cancel and then opens the sheet again.
   const uploadPromiseRef = useRef<PendingUploadPromise | null>(null);
+  // Tracks whether a save successfully landed. Used by the unmount cleanup to
+  // distinguish "user backed out / re-scanned" (delete the orphan) from "save
+  // succeeded → nav.reset → unmount" (don't touch — the saved garment row owns
+  // the storage object now). Codex round 5 P2 on PR #725.
+  const savedRef = useRef(false);
 
   // Resolve the deferred storagePath if Step 2 navigated us here before the
   // upload landed. Idempotent — repeat calls return the cached promise.
@@ -99,6 +109,34 @@ export function AddPieceStep3() {
     if (promise) uploadPromiseRef.current = promise;
     return uploadPromiseRef.current;
   };
+
+  // Unmount cleanup: drop any pending-upload entry the user never consumed and
+  // best-effort delete the storage object if it had already landed. Without this
+  // a back-out / re-scan / nav.reset-without-save would leave the entry in the
+  // module map for the app's lifetime AND leak a JPEG in the user's bucket.
+  // savedRef gates the storage delete — on the happy save path, nav.reset
+  // unmounts Step 3 too, but we MUST NOT delete the file the saved garment row
+  // now references.
+  useEffect(() => {
+    const uploadId = params?.uploadId;
+    return () => {
+      if (savedRef.current) return;
+      if (uploadId) dropPendingUpload(uploadId);
+      // If the upload landed before the user bailed, our cached promise has
+      // resolved — read the storagePath out and delete it. We do this via .then
+      // (not awaiting in the cleanup, which can't be async) so a still-in-flight
+      // upload that lands AFTER unmount also gets cleaned. Errors are swallowed
+      // by deleteUpload so there's nothing to surface.
+      const promise = uploadPromiseRef.current;
+      if (promise) {
+        promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
+      }
+    };
+    // params?.uploadId is stable for the lifetime of this screen instance —
+    // React Navigation creates a new instance on re-entry, so capturing once on
+    // mount is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Defensive guard — without route params the screen has nothing to render. Bounce
   // the user back to Step 1 instead of crashing on `params.analysis.title`.
@@ -169,6 +207,11 @@ export function AddPieceStep3() {
         category: analysis.category,
       });
       hapticSuccess();
+      // Mark saved BEFORE nav.reset — once the navigator unmounts this screen,
+      // the cleanup effect runs synchronously and reads savedRef. Setting it true
+      // first prevents the cleanup from deleting the storage object the saved
+      // garment row now references.
+      savedRef.current = true;
       // index: 1 makes GarmentDetail the active screen, with MainTabs in the back stack
       // so the swipe-back gesture lands on the home tab. (index: 0 with two routes would
       // surface MainTabs and stash GarmentDetail under it — wrong UX.)
