@@ -80,7 +80,7 @@ export function OutfitGeneratePicker({
 }: OutfitGeneratePickerProps) {
   const { t } = useLanguage();
   const prefersReduced = useReducedMotion();
-  const { isPremium, remainingOutfits } = useSubscription();
+  const { isPremium, remainingOutfits, paywallReason } = useSubscription();
   const coach = useFirstRunCoach();
   const navigate = useNavigate();
 
@@ -329,7 +329,7 @@ export function OutfitGeneratePicker({
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => onShowPaywall(false)}
-        reason="outfits"
+        reason={paywallReason}
       />
     </>
   );

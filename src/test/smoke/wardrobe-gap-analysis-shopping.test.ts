@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   createAdminClient,
-  createTestUser,
+  createTrialingTestUser,
   deleteTestUser,
   getAuthedClient,
   shouldRunAiSmoke,
@@ -46,7 +46,7 @@ describe.skipIf(!shouldRunAiSmoke)("smoke: wardrobe gap analysis (wardrobe_gap_a
   }
 
   it("with shopping intent returns both gaps and shopping_recommendations", async () => {
-    const user = await createTestUser(admin);
+    const user = await createTrialingTestUser(admin);
     createdUserId = user.id;
 
     const client = await getAuthedClient(user.email, user.password);
@@ -78,7 +78,7 @@ describe.skipIf(!shouldRunAiSmoke)("smoke: wardrobe gap analysis (wardrobe_gap_a
   });
 
   it("without intent returns gaps only (backward-compatible)", async () => {
-    const user = await createTestUser(admin);
+    const user = await createTrialingTestUser(admin);
     createdUserId = user.id;
 
     const client = await getAuthedClient(user.email, user.password);

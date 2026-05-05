@@ -23,6 +23,8 @@ import {
   rateLimitResponse,
   checkOverload,
   overloadResponse,
+  enforceSubscription,
+  subscriptionLockedResponse,
 } from "../_shared/scale-guard.ts";
 
 const RETRIEVAL_LIMIT = 40;
@@ -215,6 +217,12 @@ serve(async (req) => {
     const user = { id: userData.user.id };
 
     await enforceRateLimit(serviceClient, user.id, "clone_outfit_dna");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const { outfit_id, locale = "en" } = await req.json();
     if (!outfit_id) throw new Error("Missing outfit_id");

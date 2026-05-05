@@ -20,11 +20,16 @@ import {
   buildWardrobeCommandTopState,
 } from '@/components/wardrobe/wardrobeViewModels';
 import { useWardrobeView } from '@/hooks/useWardrobeView';
+import { useSubscription } from '@/hooks/useSubscription';
 
 export default function WardrobePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useLanguage();
+  // Codex P3 round 3 on PR #700 — surface paywall via subscription-state-derived
+  // reason (subscription_required / trial_expired) instead of legacy 'garments'
+  // copy that mentioned the dead free tier.
+  const { paywallReason } = useSubscription();
 
   const {
     activeTab,
@@ -230,7 +235,7 @@ export default function WardrobePage() {
         categories={categories}
       />
 
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="garments" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason={paywallReason} />
     </AppLayout>
   );
 }

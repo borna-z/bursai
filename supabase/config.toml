@@ -1,5 +1,14 @@
 project_id = "khvkwojtlkcvxjxztduj"
 
+# NOTE (R6-P3 deferred): Audit Round 6 surfaced PG version drift between
+# local (CLI default ~15) and prod (PG17). Setting `[db] major_version = 17`
+# here is REJECTED by the pinned CLI v1.226.4 (smoke-local + drift-check CI
+# jobs use this version). The CLI was last pre-PG17 release; PG17 support
+# requires v2.x which adds breaking flag changes (e.g., `--yes` semantics).
+# Tracked as a separate follow-up: bump pinned CLI version + add the
+# `[db] major_version = 17` block in lockstep. This PR keeps the default
+# so CI stays green; no migration in this PR uses PG17-specific features.
+
 [functions]
   [functions.analyze_garment]
     verify_jwt = false
@@ -27,15 +36,21 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.import_garments_from_links]
     verify_jwt = false
+  [functions.memory_ingest]
+    verify_jwt = false
   [functions.mood_outfit]
     verify_jwt = false
   [functions.outfit_photo_feedback]
+    verify_jwt = false
+  [functions.reset_style_memory]
     verify_jwt = false
   [functions.restore_subscription]
     verify_jwt = false
   [functions.send_push_notification]
     verify_jwt = false
   [functions.shopping_chat]
+    verify_jwt = false
+  [functions.start_trial]
     verify_jwt = false
   [functions.stripe_webhook]
     verify_jwt = false

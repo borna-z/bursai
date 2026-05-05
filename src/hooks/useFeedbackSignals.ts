@@ -1,73 +1,167 @@
-import { useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { useCallback } from 'react';
-import { toast } from 'sonner';
-import { logger } from '@/lib/logger';
+/**
+ * Wave 8.5 PR B (P86) — canonical Style Memory write hook.
+ *
+ * Replaces the legacy fire-and-forget direct-INSERT pattern with a typed
+ * React Query mutation around `invokeEdgeFunction('memory_ingest', ...)`.
+ * The edge function (P85, shipped in PR A #709) normalizes signal names,
+ * dedupes via DB-backed idempotency, gates on rate-limit + subscription,
+ * and atomically writes feedback_signals + garment_pair_memory + summary
+ * dirty-mark inside one transaction.
+ *
+ * Key design decisions (driven by Wave 8.5 PR B pre-implementation audit):
+ *
+ * - Stable `record` callback identity: depends on `user?.id` only — NOT
+ *   `user` (object identity flips on every auth refresh) and NOT
+ *   `mutation.mutate` (TanStack v5 returns a stable reference, but adding
+ *   it to deps invites future drift). Audit P86 P0-1.
+ *
+ * - `metadata: Record<string, unknown>` end-to-end. The legacy hook cast
+ *   to `Record<string, string>` which Postgres tolerated but corrupted
+ *   typed downstream readers (numeric `garment_count`, etc.). Audit P86 P0-2.
+ *
+ * - quick_reaction value guard: when `signal_type === 'quick_reaction'`
+ *   and `value` is missing/empty, the hook logs + drops the call WITHOUT
+ *   invoking memory_ingest. The `ingest_memory_event` RPC derives
+ *   pair_delta from value; missing value silently collapses to zero
+ *   delta and the signal fails to update memory. Audit PR A P0-1.
+ *
+ * - 4xx-class errors are NOT enqueued for retry (client mistake — retry
+ *   futile). 5xx / transport / unclassified errors enqueue to the
+ *   localStorage queue; AuthContext drains on next SIGNED_IN.
+ *
+ * Backwards compatibility: the legacy `useFeedbackSignals()` API is
+ * preserved as an alias for file-by-file migration. Once every caller is
+ * migrated this PR completes that work — the alias can be removed in a
+ * follow-up.
+ */
 
-export type SignalType =
-  | 'save'
-  | 'unsave'
-  | 'ignore'
-  | 'wear_confirm'
-  | 'swap_choice'
-  | 'quick_reaction'
-  | 'rating'
-  | 'garment_edit'
-  | 'planned_follow_through'
-  | 'planned_skip';
+import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useAuthOrNull } from "@/contexts/AuthContext";
+import { invokeEdgeFunction, getHttpStatus } from "@/lib/edgeFunctionClient";
+import { enqueueMemoryEvent } from "@/lib/memoryEventQueue";
+import { logger } from "@/lib/logger";
+import {
+  buildMemoryIdempotencyKey,
+  isQuickReactionMissingValue,
+  type RecordMemoryEventInput,
+} from "@/lib/memoryEvents";
 
-interface SignalInput {
-  signal_type: SignalType;
-  outfit_id?: string;
-  garment_id?: string;
-  value?: string;
-  metadata?: Record<string, unknown>;
+// String-fallback when the error isn't a supabase-js FunctionsHttpError.
+// Used only after `getHttpStatus(err)` returns null (network errors,
+// EdgeFunctionTimeoutError, EdgeFunctionRateLimitError thrown from
+// edgeFunctionClient with no `context` field). Audit R5-F1 + R5-F8.
+const FOUR_XX_FALLBACK_PATTERN = /\b(400|401|402|403|404|413|429)\b/;
+
+function isFourXxClass(err: unknown): boolean {
+  // 1. Canonical path — supabase-js FunctionsHttpError stores status on
+  //    error.context.status. Always trust this when present.
+  const status = getHttpStatus(err);
+  if (status != null) {
+    return status >= 400 && status < 500;
+  }
+  // 2. Fallback — string match on err.message for transport-shaped errors
+  //    (e.g., EdgeFunctionRateLimitError carries "Rate limit exceeded for X").
+  const msg = err instanceof Error ? err.message : String(err);
+  return FOUR_XX_FALLBACK_PATTERN.test(msg);
 }
 
-/**
- * Fire-and-forget feedback signal recorder.
- * Captures implicit user behavior for style engine learning.
- */
-export function useFeedbackSignals() {
-  const { user } = useAuth();
-  const { t } = useLanguage();
+export function useRecordMemoryEvent() {
+  // useAuthOrNull returns null instead of throwing when no AuthProvider
+  // is in scope — keeps the hook safe to mount inside isolated component
+  // tests that don't wrap with AuthProvider (existing AIChat / MoodOutfit
+  // / OutfitGenerate tests don't).
+  const auth = useAuthOrNull();
+  const userId = auth?.user?.id;
 
   const mutation = useMutation({
-    mutationFn: async (input: SignalInput) => {
-      if (!user) return;
-      const { error } = await supabase
-        .from('feedback_signals')
-        .insert([{
-          user_id: user.id,
-          signal_type: input.signal_type,
-          outfit_id: input.outfit_id || null,
-          garment_id: input.garment_id || null,
-          value: input.value || null,
-          metadata: (input.metadata || {}) as Record<string, string>,
-        }]);
-      if (error) logger.warn('Feedback signal failed:', error.message);
-    },
-    onSuccess: (_data, input) => {
-      if (input.signal_type === 'wear_confirm') {
-        toast(t('feedback.wear_noted'), { duration: 2000 });
-      } else if (input.signal_type === 'swap_choice') {
-        toast(t('feedback.swap_saved'), { duration: 2000 });
+    mutationFn: async (input: RecordMemoryEventInput) => {
+      if (!userId) throw new Error("not_authenticated");
+
+      // Pre-flight: drop quick_reaction events with no value to avoid the
+      // silent pair-memory bypass (RPC pair_delta derivation depends on
+      // polarity).
+      if (isQuickReactionMissingValue(input)) {
+        logger.warn(
+          "useRecordMemoryEvent: dropped quick_reaction without value",
+          { signal_type: input.signal_type, source: input.source },
+        );
+        return null;
       }
+
+      const idempotency_key = buildMemoryIdempotencyKey(userId, input);
+      const { data, error } = await invokeEdgeFunction("memory_ingest", {
+        body: { ...input, idempotency_key },
+        retries: 3,
+        timeout: 8000,
+      });
+      if (error) throw error;
+      return data;
     },
-    // Silent — never block UI
-    onError: () => {},
+    onError: (err, input) => {
+      // 4xx-class — client mistake (validation failure, locked subscription,
+      // 401 stale-JWT after retry, 413 oversized body, 429 rate-limit).
+      // Retrying via the offline queue won't help; drop with a logged
+      // warning. `isFourXxClass` checks supabase-js FunctionsHttpError's
+      // `context.status` field FIRST (canonical), then falls back to
+      // string-matching err.message for transport-shaped errors.
+      if (isFourXxClass(err)) {
+        const status = getHttpStatus(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          "memory_ingest 4xx (not enqueueing):",
+          status != null ? `status=${status}` : msg,
+        );
+        return;
+      }
+      // 5xx / transport / unclassified — enqueue for next-session drain.
+      if (!userId) return;
+      void enqueueMemoryEvent(userId, input);
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn("memory_ingest enqueued for retry:", msg);
+    },
   });
 
+  // Stable callback identity: depend ONLY on userId. mutate is stable per
+  // TanStack v5 contract; we don't list it to avoid future-proofing risk.
   const record = useCallback(
-    (input: SignalInput) => {
-      if (!user) return;
+    (input: RecordMemoryEventInput) => {
+      if (!userId) return;
       mutation.mutate(input);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, mutation.mutate]
+    [userId],
   );
 
-  return { record };
+  return { record, mutation };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Backwards-compatible alias for in-flight callers.
+// New code should use `useRecordMemoryEvent` directly.
+//
+// `SignalType` accepts both canonical and legacy names; the edge fn
+// normalizes via the P83 helper. Legacy name → canonical mappings are
+// the source of truth at `supabase/functions/_shared/style-memory-signals.ts`.
+// ─────────────────────────────────────────────────────────────────
+
+export type SignalType =
+  | "save_outfit"
+  | "unsave_outfit"
+  | "rate_outfit"
+  | "wear_outfit"
+  | "skip_outfit"
+  | "reject_outfit"
+  | "swap_garment"
+  | "quick_reaction"
+  | "never_suggest_garment"
+  | "like_pair"
+  | "dislike_pair"
+  | "save"
+  | "unsave"
+  | "wear_confirm"
+  | "swap_choice"
+  | "rating"
+  | "ignore";
+
+export const useFeedbackSignals = useRecordMemoryEvent;

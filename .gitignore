@@ -36,6 +36,7 @@ supabase/.temp/
 .superpowers/
 docs/superpowers/
 .claude/scheduled_tasks.lock
+.claude/worktrees/
 deno.lock
 
 # React Native mobile app (mobile/ has its own .gitignore for build artifacts;

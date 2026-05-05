@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Download, Trash2, ChevronRight, ChevronDown, Loader2, Shield, Database, ToggleLeft, Scale, Mail, User, Image, Calendar, MessageSquare, Ruler, ExternalLink } from 'lucide-react';
+import { Download, Trash2, ChevronRight, ChevronDown, Loader2, Shield, Database, ToggleLeft, Scale, Mail, User, Image, Calendar, MessageSquare, Ruler, ExternalLink, Sparkles } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { hapticLight } from '@/lib/haptics';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -36,13 +38,25 @@ interface ConsentPrefs {
 
 export default function SettingsPrivacy() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Wave 8.5 PR B (P90) — Reset Style Memory
+  const [isResettingMemory, setIsResettingMemory] = useState(false);
+  // Audit R5-F5: typed-confirmation gate. The user must type "RESET"
+  // (case-insensitive, trimmed) before the destructive button enables.
+  // Prevents accidental taps + clickjacking + browser-extension-driven
+  // single-click wipes. Cleared on dialog close so the gate re-arms next time.
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [openSection, setOpenSection] = useState<SectionId | null>(null);
+  const RESET_CONFIRMATION_PHRASE = 'RESET';
+  const isResetConfirmed =
+    resetConfirmText.trim().toUpperCase() === RESET_CONFIRMATION_PHRASE;
 
   const preferences = asPreferences(profile?.preferences);
   const consent = (preferences.consent as ConsentPrefs) || { analytics: true, ai_conversations: true, body_data: true };
@@ -61,25 +75,166 @@ export default function SettingsPrivacy() {
   };
 
   const handleExportData = async () => {
+    // Wave 8.5 PR B (P90) — extended GDPR export bundle.
+    //
+    // Legacy version exported 3 tables; this covers the 14 user-authored /
+    // memory-relevant tables surfaced by the audit (§8b). Per-table
+    // section dropped via JSON.stringify without indentation (audit P0-1
+    // mitigation — large wardrobes can blow heap on indented stringify;
+    // dropping `, 2` halves the size).
     setIsExporting(true);
     try {
       const userId = user?.id ?? '';
-      const [garmentsRes, outfitsRes, profileRes] = await Promise.all([
+      if (!userId) {
+        toast.error(t('settings.export_error'));
+        return;
+      }
+      const [
+        garmentsRes,
+        outfitsRes,
+        profileRes,
+        summariesRes,
+        signalsRes,
+        pairsRes,
+        wearLogsRes,
+        chatMsgsRes,
+        outfitFeedbackRes,
+        outfitReactionsRes,
+        swapEventsRes,
+        plannedRes,
+        styleProfilesRes,
+        savesRes,
+      ] = await Promise.all([
         supabase.from('garments').select('*').eq('user_id', userId),
         supabase.from('outfits').select('*, outfit_items(*)').eq('user_id', userId),
         supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('user_style_summaries').select('*').eq('user_id', userId),
+        supabase.from('feedback_signals').select('*').eq('user_id', userId),
+        supabase.from('garment_pair_memory').select('*').eq('user_id', userId),
+        supabase.from('wear_logs').select('*').eq('user_id', userId),
+        supabase.from('chat_messages').select('*').eq('user_id', userId),
+        supabase.from('outfit_feedback').select('*').eq('user_id', userId),
+        supabase.from('outfit_reactions').select('*').eq('user_id', userId),
+        supabase.from('swap_events').select('*').eq('user_id', userId),
+        supabase.from('planned_outfits').select('*').eq('user_id', userId),
+        supabase.from('user_style_profiles').select('*').eq('user_id', userId),
+        supabase.from('inspiration_saves').select('*').eq('user_id', userId),
       ]);
-      const data = { profile: profileRes.data, garments: garmentsRes.data, outfits: outfitsRes.data, exportedAt: new Date().toISOString() };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+      // Self-audit P2: surface partial-failure to the user. Previously the
+      // toast.success fired even when several SELECTs returned errors, so a
+      // user could believe their export was complete when half the tables
+      // were `[]`. Track which tables errored so we can warn instead.
+      const tableResults: Array<{ name: string; error: unknown }> = [
+        { name: 'profile', error: profileRes.error },
+        { name: 'garments', error: garmentsRes.error },
+        { name: 'outfits', error: outfitsRes.error },
+        { name: 'user_style_summaries', error: summariesRes.error },
+        { name: 'feedback_signals', error: signalsRes.error },
+        { name: 'garment_pair_memory', error: pairsRes.error },
+        { name: 'wear_logs', error: wearLogsRes.error },
+        { name: 'chat_messages', error: chatMsgsRes.error },
+        { name: 'outfit_feedback', error: outfitFeedbackRes.error },
+        { name: 'outfit_reactions', error: outfitReactionsRes.error },
+        { name: 'swap_events', error: swapEventsRes.error },
+        { name: 'planned_outfits', error: plannedRes.error },
+        { name: 'user_style_profiles', error: styleProfilesRes.error },
+        { name: 'inspiration_saves', error: savesRes.error },
+      ];
+      const failedTables = tableResults.filter((r) => r.error != null);
+      if (failedTables.length > 0) {
+        logger.warn(
+          'Export partial errors:',
+          failedTables.map((r) => r.name),
+        );
+      }
+
+      const data = {
+        exportedAt: new Date().toISOString(),
+        version: 2,
+        // Wave 8.5 PR B (P90): structured partial-failure marker — when
+        // present, the export is incomplete. Downstream tooling that
+        // consumes the JSON can detect missing tables explicitly instead
+        // of treating empty arrays as "user has zero rows in this table".
+        partial: failedTables.length > 0
+          ? failedTables.map((r) => r.name)
+          : undefined,
+        profile: profileRes.data ?? null,
+        garments: garmentsRes.data ?? [],
+        outfits: outfitsRes.data ?? [],
+        // Memory tables (P0 per audit)
+        user_style_summaries: summariesRes.data ?? [],
+        feedback_signals: signalsRes.data ?? [],
+        garment_pair_memory: pairsRes.data ?? [],
+        wear_logs: wearLogsRes.data ?? [],
+        // P1 tables
+        chat_messages: chatMsgsRes.data ?? [],
+        outfit_feedback: outfitFeedbackRes.data ?? [],
+        outfit_reactions: outfitReactionsRes.data ?? [],
+        swap_events: swapEventsRes.data ?? [],
+        planned_outfits: plannedRes.data ?? [],
+        // P2 tables
+        user_style_profiles: styleProfilesRes.data ?? [],
+        inspiration_saves: savesRes.data ?? [],
+      };
+
+      // Drop JSON indentation — large wardrobes (audit P0-1) can OOM
+      // on a renderer with `JSON.stringify(data, null, 2)`. Compact form
+      // ~halves the size.
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `burs-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-      URL.revokeObjectURL(url);
-      toast.success(t('settings.export_success'));
-    } catch { toast.error(t('settings.export_error')); }
-    finally { setIsExporting(false); }
+      // Defer revoke so iOS Safari WebView completes the download (audit P2-1).
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (failedTables.length > 0) {
+        // Partial export — user got SOME data but several tables failed.
+        // Surface this so they don't believe the JSON is authoritative.
+        toast.warning(
+          `${t('settings.export_success')} (${failedTables.length} ${failedTables.length === 1 ? 'table' : 'tables'} partial)`,
+        );
+      } else {
+        toast.success(t('settings.export_success'));
+      }
+    } catch (err) {
+      logger.error('Export failed:', err);
+      toast.error(t('settings.export_error'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Wave 8.5 PR B (P90) — Reset Style Memory handler.
+  // Calls the destructive `reset_style_memory` edge fn, then invalidates
+  // React Query keys for any cached memory views so the UI refreshes
+  // immediately. Toast on success/error; no navigation.
+  const handleResetStyleMemory = async () => {
+    if (isResettingMemory) return;
+    setIsResettingMemory(true);
+    try {
+      const { error } = await invokeEdgeFunction<{ ok: boolean }>(
+        'reset_style_memory',
+        { retries: 1, timeout: 15000 },
+      );
+      if (error) throw error;
+      // Bust any cached memory-derived UI surfaces.
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['user-style-summary', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['feedback-signals', user.id] });
+      }
+      toast.success(
+        t('settings.gdpr.reset_success') || 'Style memory cleared',
+      );
+    } catch (err) {
+      logger.error('reset_style_memory failed:', err);
+      toast.error(
+        t('settings.gdpr.reset_error') || 'Could not clear style memory. Please try again.',
+      );
+    } finally {
+      setIsResettingMemory(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -224,9 +379,68 @@ export default function SettingsPrivacy() {
               <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_privacy_policy')} onClick={() => { hapticLight(); navigate('/privacy'); }}>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
-              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_terms')} onClick={() => { hapticLight(); navigate('/terms'); }} last>
+              <SettingsRow icon={<ExternalLink />} label={t('settings.gdpr.rights_terms')} onClick={() => { hapticLight(); navigate('/terms'); }}>
                 <ChevronRight className="w-4 h-4 text-accent" />
               </SettingsRow>
+              {/* Wave 8.5 PR B (P90) — Reset Style Memory */}
+              {/* Audit R5-F5: typed-confirmation gate to prevent accidental
+                  taps + clickjacking. User must type "RESET" before the
+                  destructive button enables. Confirmation text clears on
+                  dialog close so the gate re-arms next time. */}
+              <AlertDialog
+                open={resetDialogOpen}
+                onOpenChange={(open) => {
+                  setResetDialogOpen(open);
+                  if (!open) setResetConfirmText('');
+                }}
+              >
+                <AlertDialogTrigger asChild>
+                  <button type="button" className="w-full text-left">
+                    <SettingsRow icon={<Sparkles />} label={t('settings.gdpr.reset_memory') || 'Reset style memory'} last>
+                      <ChevronRight className="w-4 h-4 text-accent" />
+                    </SettingsRow>
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('settings.gdpr.reset_memory_title') || 'Reset your style memory?'}</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
+                      <p>{t('settings.gdpr.reset_memory_warning') || 'This permanently clears everything BURS has learned about your taste — saves, ratings, swaps, rejections, and the patterns we built from them.'}</p>
+                      <p>{t('settings.gdpr.reset_memory_what_clears') || 'Cleared: feedback signals, pair memory, style summary.'}</p>
+                      <p>{t('settings.gdpr.reset_memory_what_preserves') || 'Preserved: your account, garments, outfits, planned outfits, and wear history.'}</p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-2 py-2">
+                    <label htmlFor="reset-confirm-input" className="text-sm font-medium block">
+                      {t('settings.gdpr.reset_memory_type_confirm') || `Type ${RESET_CONFIRMATION_PHRASE} to confirm:`}
+                    </label>
+                    <Input
+                      id="reset-confirm-input"
+                      data-testid="reset-confirm-input"
+                      value={resetConfirmText}
+                      onChange={(e) => setResetConfirmText(e.target.value)}
+                      placeholder={RESET_CONFIRMATION_PHRASE}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      disabled={isResettingMemory}
+                    />
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      data-testid="reset-confirm-action"
+                      onClick={() => { hapticLight(); handleResetStyleMemory(); }}
+                      disabled={isResettingMemory || !isResetConfirmed}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-destructive/40"
+                    >
+                      {isResettingMemory && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {t('settings.gdpr.reset_memory_confirm') || 'Yes, reset'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CollapsibleContent>
         </Collapsible>

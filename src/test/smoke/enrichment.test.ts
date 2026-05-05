@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   createAdminClient,
-  createTestUser,
+  createTrialingTestUser,
   deleteTestUser,
   getAuthedClient,
   shouldRunAiSmoke,
@@ -30,7 +30,7 @@ describe.skipIf(!shouldRunAiSmoke)("smoke: enrichment (analyze_garment)", () => 
   });
 
   it("invokes analyze_garment in enrich mode and receives a structured enrichment payload", async () => {
-    const user = await createTestUser(admin);
+    const user = await createTrialingTestUser(admin);
     createdUserId = user.id;
 
     const client = await getAuthedClient(user.email, user.password);

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock supabase — declare mocks before vi.mock so hoisting works
 vi.mock('@/integrations/supabase/client', () => {
@@ -31,9 +32,20 @@ const mockSignOut = supabase.auth.signOut as ReturnType<typeof vi.fn>;
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <AuthProvider>{children}</AuthProvider>
-);
+// Wave 8 P52 — AuthProvider now uses useQueryClient (to invalidate the
+// subscription cache after start_trial succeeds), so the test wrapper
+// must include a QueryClientProvider.
+const makeWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
+};
+const wrapper = makeWrapper();
 
 describe('AuthContext', () => {
   beforeEach(() => {
@@ -136,7 +148,9 @@ describe('AuthContext', () => {
         email: 'test@test.com',
         password: 'pass123',
         options: expect.objectContaining({
-          data: { display_name: 'Test User' },
+          // Wave 8 P52 — display_name preserved + trial_pending: true
+          // signal added for the start_trial auto-mint flow.
+          data: { display_name: 'Test User', trial_pending: true },
         }),
       })
     );
@@ -176,7 +190,10 @@ describe('AuthContext', () => {
     expect(mockSignUp).toHaveBeenCalledWith(
       expect.objectContaining({
         options: expect.objectContaining({
-          data: undefined,
+          // Wave 8 P52 — even without a display name, trial_pending: true
+          // is set so the start_trial auto-mint flow knows this is a fresh
+          // signup.
+          data: { trial_pending: true },
         }),
       })
     );

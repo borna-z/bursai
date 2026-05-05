@@ -3153,6 +3153,39 @@ const sv: Record<string, string> = {
   // ── Wave 7.9 — Onboarding progress + quiz progress i18n (P1 #4) ───
   'onboarding.progress_label': 'Steg {n} av {total}',
   'styleQuizV4.progress_label': 'Fråga {n} av {total}',
+
+  // ── Wave 8 P53 — Paywall-anledningar för nya låsta tillståndsmaskinen ───
+  'paywall.subscription_required.title': 'Prenumerera för att fortsätta styla',
+  'paywall.subscription_required.body': 'BURS är en prenumerationstjänst. Starta din gratis provperiod för att låsa upp obegränsade outfits, smartare AI och hela din garderob.',
+  'paywall.trial_expired.title': 'Din provperiod har upphört',
+  'paywall.trial_expired.body': 'Prenumerera för att fortsätta använda din garderob, skapa outfits och få personlig styling.',
+  // Codex P2 round 2 on PR #700 — ProfileCard badge was hardcoded English.
+  'profile.subscription_status.premium': 'Premium',
+  'profile.subscription_status.trialing': 'Provperiod',
+  'profile.subscription_status.locked': 'Prenumerera',
+
+  // ── Wave 8 P55 — Återställ köp (App Store-riktlinje 3.1.1) ───────────
+  // Knappen måste alltid synas på varje paywall-yta även innan användaren
+  // har loggat in på Stripe — Apple-granskare testar återställningsflödet
+  // genom att först logga in på en ny enhet och trycka på Återställ.
+  'paywall.restore_purchase': 'Återställ köp',
+  'paywall.restore_success': 'Prenumeration återställd',
+  'paywall.restore_no_subscription': 'Vi hittade ingen aktiv prenumeration på det här kontot',
+  'paywall.restore_error': 'Kunde inte återställa prenumeration. Försök igen.',
+
+  // ── Wave 8.5 PR B (P90) — Återställ stilminne ──────────────────────
+  'settings.gdpr.reset_memory': 'Återställ stilminne',
+  'settings.gdpr.reset_memory_title': 'Återställa ditt stilminne?',
+  'settings.gdpr.reset_memory_warning':
+    'Detta rensar permanent allt BURS lärt sig om din smak — sparade outfits, betyg, byten, avslag och mönstren vi byggt från dem.',
+  'settings.gdpr.reset_memory_what_clears':
+    'Rensas: feedback-signaler, parminne, stilsammanfattning.',
+  'settings.gdpr.reset_memory_what_preserves':
+    'Bevaras: ditt konto, plagg, outfits, planerade outfits och bärhistorik.',
+  'settings.gdpr.reset_memory_confirm': 'Ja, återställ',
+  'settings.gdpr.reset_memory_type_confirm': 'Skriv RESET för att bekräfta:',
+  'settings.gdpr.reset_success': 'Stilminne rensat',
+  'settings.gdpr.reset_error': 'Kunde inte rensa stilminne. Försök igen.',
 };
 
 export default sv;

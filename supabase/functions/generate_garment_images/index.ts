@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -31,6 +31,12 @@ serve(async (req) => {
 
     // Rate limit — image generation is very expensive
     await enforceRateLimit(supabase, user.id, "generate_garment_images");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(supabase, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const { garment_ids } = await req.json();
     if (!Array.isArray(garment_ids) || garment_ids.length === 0) {

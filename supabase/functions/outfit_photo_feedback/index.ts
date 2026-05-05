@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,6 +29,12 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     await enforceRateLimit(supabase, user.id, "outfit_photo_feedback");
+
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(supabase, user.id);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
 
     const { outfit_id, selfie_path } = await req.json();
     if (!outfit_id || !selfie_path) throw new Error("Missing outfit_id or selfie_path");

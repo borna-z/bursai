@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useOutfit } from '@/hooks/useOutfits';
+import { useRecordMemoryEvent } from '@/hooks/useFeedbackSignals';
 import { useWeather } from '@/hooks/useWeather';
 import { createSupabaseRestHeaders, getSupabaseFunctionUrl, supabase } from '@/integrations/supabase/client';
 import { buildStyleFlowSearch } from '@/lib/styleFlowState';
@@ -132,11 +133,13 @@ async function readMoodOutfitSse(
 
 export default function MoodOutfitPage() {
   const { t, locale } = useLanguage();
-  const { isPremium } = useSubscription();
+  const { isPremium, paywallReason } = useSubscription();
   const { user } = useAuth();
   const { weather } = useWeather();
   const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
+  // Wave 8.5 PR B (P86) — wire save_outfit on mood-driven save.
+  const { record: recordMemoryEvent } = useRecordMemoryEvent();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -195,6 +198,16 @@ export default function MoodOutfitPage() {
       trackEvent('outfit_generated', { occasion: `mood:${mood}`, mode: 'mood' });
       trackEvent('outfit_saved', { outfit_id: outfit.id, occasion: `mood:${mood}` });
 
+      // Wave 8.5 PR B (P86) — emit canonical save_outfit signal so the
+      // mood-driven auto-save updates pair memory + style summary.
+      recordMemoryEvent({
+        signal_type: 'save_outfit',
+        outfit_id: outfit.id,
+        garment_ids: data.items.map((it: { garment_id: string }) => it.garment_id),
+        source: 'MoodOutfit:autosave',
+        metadata: { mood },
+      });
+
       setGeneratedOutfit({
         id: outfit.id,
         explanation: data.explanation || null,
@@ -202,7 +215,20 @@ export default function MoodOutfitPage() {
         garmentIds: data.items.map((item) => item.garment_id),
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
+      // Codex P2 round 4 on PR #700 — when the backend P54 gate denies
+      // (HTTP 402 OR in-stream `responseToPayload(subscriptionLockedResponse)`
+      // payload), the throw-with-error-message above carries 'subscription_required'.
+      // Without this branch users hit the gate (e.g., trial just expired
+      // between page load and API call, or webhook lag) would only see a
+      // generic toast — paywall flow never fires. Map the error to the
+      // paywall trigger so backend lockout consistently produces the
+      // upgrade UX. Other errors keep their existing toast surface.
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg === 'subscription_required') {
+        setShowPaywall(true);
+      } else {
+        toast.error(error instanceof Error ? error.message : t('common.something_wrong'));
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -408,7 +434,7 @@ export default function MoodOutfitPage() {
         )}
       </AnimatedPage>
 
-      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason="outfits" />
+      <PaywallModal isOpen={showPaywall} onClose={() => setShowPaywall(false)} reason={paywallReason} />
     </AppLayout>
   );
 }

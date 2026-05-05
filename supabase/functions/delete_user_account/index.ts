@@ -73,10 +73,18 @@ Deno.serve(async (req) => {
 
     console.log(`Starting account deletion for user: ${userId}`);
 
-    // 1. Get all garment image paths for this user to delete from storage
+    // 1. Get all garment image paths for this user to delete from storage.
+    // Wave 8.5 PR B (P90 audit fix): the legacy version only collected
+    // `image_path`. The garments schema also has `secondary_image_path`
+    // (P27a/PR #666), `original_image_path`, `rendered_image_path`, and
+    // `processed_image_path` — orphaning these on delete leaves user
+    // images in the bucket forever (no GC cron exists). GDPR completeness
+    // requires deleting every storage object owned by the user.
     const { data: garments, error: garmentsError } = await adminClient
       .from("garments")
-      .select("id, image_path")
+      .select(
+        "id, image_path, secondary_image_path, original_image_path, rendered_image_path, processed_image_path",
+      )
       .eq("user_id", userId);
 
     if (garmentsError) {
@@ -84,9 +92,17 @@ Deno.serve(async (req) => {
       throw garmentsError;
     }
 
-    // 2. Delete images from storage bucket
+    // 2. Delete images from storage bucket — collect ALL 5 path columns.
     if (garments && garments.length > 0) {
-      const imagePaths = garments.map((g) => g.image_path).filter(Boolean);
+      const imagePaths = garments.flatMap((g) =>
+        [
+          g.image_path,
+          g.secondary_image_path,
+          g.original_image_path,
+          g.rendered_image_path,
+          g.processed_image_path,
+        ].filter((p): p is string => typeof p === "string" && p.length > 0),
+      );
       if (imagePaths.length > 0) {
         const { error: storageError } = await adminClient.storage
           .from("garments")
@@ -198,6 +214,16 @@ Deno.serve(async (req) => {
     await adminClient.from("garment_pair_memory").delete().eq("user_id", userId);
     await adminClient.from("analytics_events").delete().eq("user_id", userId);
     await adminClient.from("ai_rate_limits").delete().eq("user_id", userId);
+    // Wave 8.5 PR B (P90) — Style Memory tables.
+    // user_style_summaries is the new canonical memory surface (P84). The
+    // remaining 4 are P1/P2 parity adds — they FK-CASCADE on the auth
+    // delete already, but explicit deletes match the existing audit pattern
+    // and make the cascade trivially auditable from the function body.
+    await adminClient.from("user_style_summaries").delete().eq("user_id", userId);
+    await adminClient.from("swap_events").delete().eq("user_id", userId);
+    await adminClient.from("user_style_profiles").delete().eq("user_id", userId);
+    await adminClient.from("outfit_reactions").delete().eq("user_id", userId);
+    await adminClient.from("inspiration_saves").delete().eq("user_id", userId);
 
     // Feedback / social
     await adminClient.from("outfit_feedback").delete().eq("user_id", userId);

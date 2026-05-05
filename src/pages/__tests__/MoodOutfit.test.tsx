@@ -24,6 +24,14 @@ vi.mock('@/contexts/LanguageContext', () => ({
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => useAuthMock(),
+  // Wave 8.5 PR B (P86): useRecordMemoryEvent uses useAuthOrNull.
+  useAuthOrNull: () => useAuthMock(),
+}));
+
+// Wave 8.5 PR B (P86): stub the memory-write hook (avoids QueryClient).
+vi.mock('@/hooks/useFeedbackSignals', () => ({
+  useRecordMemoryEvent: () => ({ record: () => {}, mutation: { mutate: () => {} } }),
+  useFeedbackSignals: () => ({ record: () => {}, mutation: { mutate: () => {} } }),
 }));
 
 vi.mock('@/hooks/useSubscription', () => ({

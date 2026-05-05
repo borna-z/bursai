@@ -1,0 +1,152 @@
+// Settings · Style profile — summary of current Style DNA + edit/reset actions.
+// Mirrors design_handoff_burs_rn/source/audit-screens.jsx SettingsStyleScreen.
+
+import React from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { useTokens } from '../theme/ThemeProvider';
+import { fonts } from '../theme/tokens';
+import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
+import { Eyebrow } from '../components/Eyebrow';
+import { PageTitle } from '../components/PageTitle';
+import { Card } from '../components/Card';
+import { Chip } from '../components/Chip';
+import { IconBtn } from '../components/IconBtn';
+import { SettingsRow } from '../components/SettingsRow';
+import { BackIcon, SparklesIcon, PaletteIcon, TshirtIcon, RotateIcon } from '../components/icons';
+import type { RootStackParamList } from '../navigation/RootNavigator';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const ARCHETYPES = ['Minimal', 'Editorial', 'Earth tones'] as const;
+const FORMALITY_LEVELS = ['Loungewear', 'Casual', 'Smart casual', 'Business', 'Formal'] as const;
+const CURRENT_FORMALITY = 'Smart casual';
+
+// Sourced from `theme/styleColors.ts` (single source of truth shared with ProfileScreen).
+const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES;
+
+export function SettingsStyleScreen() {
+  const t = useTokens();
+  const nav = useNavigation<Nav>();
+
+  return (
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, gap: 18 }}
+        showsVerticalScrollIndicator={false}>
+        {/* ============ HEADER ============ */}
+        <View style={s.headerRow}>
+          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1 }}>
+            <Eyebrow style={{ marginBottom: 4 }}>Settings</Eyebrow>
+            <PageTitle>Style profile</PageTitle>
+          </View>
+        </View>
+
+        {/* ============ STYLE SUMMARY CARD ============ */}
+        <Card hero padding={18}>
+          <Eyebrow style={{ marginBottom: 8 }}>Your style DNA</Eyebrow>
+          <Text
+            style={{
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontSize: 22,
+              fontWeight: '500',
+              color: t.fg,
+              letterSpacing: -0.22,
+              marginBottom: 14,
+            }}>
+            Quiet luxe
+          </Text>
+
+          <Eyebrow style={{ marginBottom: 8 }}>Archetypes</Eyebrow>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+            {ARCHETYPES.map((a) => (
+              <Chip key={a} label={a} active />
+            ))}
+          </View>
+
+          <Eyebrow style={{ marginBottom: 8 }}>Favorite colors</Eyebrow>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+            {FAVORITE_COLORS.map((color) => (
+              <View
+                key={color}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: color,
+                  borderWidth: 1,
+                  borderColor: t.border,
+                }}
+              />
+            ))}
+          </View>
+
+          <Eyebrow style={{ marginBottom: 8 }}>Formality</Eyebrow>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+            {FORMALITY_LEVELS.map((level) => (
+              <Chip key={level} label={level} active={level === CURRENT_FORMALITY} />
+            ))}
+          </View>
+        </Card>
+
+        {/* ============ ACTIONS ============ */}
+        <Card padding={4}>
+          <SettingsRow
+            icon={<SparklesIcon size={16} color={t.accent} />}
+            title="Retake style quiz"
+            caption="Refresh your DNA from scratch"
+            onPress={() => nav.navigate('Onboarding')}
+          />
+          <SettingsRow
+            icon={<TshirtIcon size={18} color={t.accent} />}
+            title="Edit style words"
+            caption={ARCHETYPES.join(' · ')}
+            onPress={() =>
+              Alert.alert('Coming soon', 'Style word editing coming soon.')
+            }
+          />
+          <SettingsRow
+            icon={<PaletteIcon size={18} color={t.accent} />}
+            title="Edit color preferences"
+            caption="6 favorites"
+            onPress={() =>
+              Alert.alert('Coming soon', 'Color preference editing coming soon.')
+            }
+          />
+          <SettingsRow
+            icon={<RotateIcon size={16} color={t.destructive} />}
+            title="Reset style memory"
+            caption="Forget what BURS has learned"
+            destructive
+            last
+            onPress={() =>
+              Alert.alert(
+                'Reset style memory',
+                "BURS will forget every learned preference. Your wardrobe and outfits stay.",
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
+                  },
+                ],
+              )
+            }
+          />
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingTop: 8 },
+});

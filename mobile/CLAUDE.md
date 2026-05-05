@@ -1,138 +1,138 @@
-# mobile/ — BURS React Native app
+# Mobile — RN app context
 
-This file provides guidance to Claude Code (claude.ai/code) when working inside `mobile/`.
-Standing rules. Read once per session before touching code.
+Patterns and conventions for `mobile/`. Read once per session.
 
-## Project identity
+## Stack
 
 | Field | Value |
-|-------|-------|
-| Project | `burs-mobile` (React Native via Expo SDK 54) |
-| Location | `mobile/` inside the `bursai` monorepo |
-| Backend | Supabase project ref `khvkwojtlkcvxjxztduj` (shared with web app) |
-| Design handoff | `design_handoff_burs_rn/` (repo root — README, tokens, source/) |
-| Distribution | Expo EAS Build → App Store + Play Store |
-| Branch for ongoing work | `feat/mobile-rn-app` |
+|---|---|
+| Runtime | Expo SDK 54, React Native |
+| Branch | `feat/mobile-rn-app` (all PRs target this; never `main`) |
+| Backend | Supabase project ref `khvkwojtlkcvxjxztduj` (shared with web) |
+| State | TanStack React Query for server state; component-local `useState` for UI state |
+| Navigation | React Navigation v7 native-stack; custom 4-tab `MainTabsScreen` |
+| Theme | `src/theme/tokens.ts` + `useTokens()` from `src/theme/ThemeProvider.tsx` |
+| Telemetry | `@sentry/react-native` (pinned 6.x; M0) |
 
 ## Build & run
 
 ```bash
-# inside mobile/
-npm run ios        # open in iOS Simulator (requires Xcode)
-npm run android    # open in Android emulator (requires Android Studio)
-npm run web        # browser preview
-npm start          # Expo dev server — pick target via QR / menu
+cd mobile
+npm run ios        # iOS Simulator (Xcode required)
+npm run android    # Android emulator
+npm start          # Expo dev server
 ```
 
-### Required env (mobile/.env — never committed; copy from `.env.example`)
-
+Required env (`mobile/.env`, never committed):
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://khvkwojtlkcvxjxztduj.supabase.co
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<anon-key-from-web-.env>
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<anon-key>
+EXPO_PUBLIC_SENTRY_DSN=<dsn>            # optional in dev, required in EAS builds
 ```
 
-Expo inlines `EXPO_PUBLIC_*` at build time — same role as web's `VITE_*`.
+## Patterns
 
-## Standing rules — never break these
+### Mutation hook shape
 
-- **Never touch `supabase/` or `src/`.** Those are the web app + edge functions; mobile is read-only against the Supabase project. Edge functions are deployed once and consumed by both apps.
-- **Never add new edge functions** unless the user explicitly says so. Mobile-specific server work goes through the existing Wave plan in root `CLAUDE.md`.
-- **Never push directly to `main`.** All changes via PR on `feat/mobile-rn-app` (or feature branches off it).
-- **Single accent colour** — only the warm gold (`accent` token). No new brand colours. Borders + neutrals do everything else.
-- **No emojis anywhere** in the UI. All glyphs are SVG via `react-native-svg`.
-- **Italic Playfair** is reserved for: page titles, large numerals, eyebrows on a few signature spots, statement copy. Don't overuse.
-- **Eyebrow micro-labels** above almost every section title — uppercase 10px / 0.18em / `fg2`.
-- **Garment card stays as-is** — when wired up, reuse whatever card pattern the user already has in their existing app, don't redesign.
-- **Light + dark both implemented from day one.** Both must work — `useTheme()` from `src/theme/ThemeProvider.tsx` is the only source of truth.
-- **Token discipline.** Every colour, radius, spacing comes from `src/theme/tokens.ts`. Never hardcode `#FBF7EF` etc. inside a screen — use `t.card`.
-- **Append-only** for any future i18n locale files (`src/i18n/locales/*.ts`) — same convention as web.
+Every mutation hook mirrors `mobile/src/hooks/useAddGarment.ts`:
 
-## Project structure
+```ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase, supabaseUrl } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { captureMutationError } from '../lib/sentry';
 
-```
-mobile/
-  App.tsx                          ← root: SafeArea → Theme → Navigation
-  src/
-    theme/
-      tokens.ts                    ← light + dark + radii + spacing + text scale
-      ThemeProvider.tsx            ← context, useTheme(), useTokens()
-    lib/
-      supabase.ts                  ← Supabase RN client (AsyncStorage, polyfill)
-    components/                    ← reusable UI primitives (see Component inventory)
-    screens/                       ← one file per route, plus PlaceholderScreen
-    navigation/
-      RootNavigator.tsx            ← native-stack, MainTabs initial
+export function useThing() {
+  const queryClient = useQueryClient();
+  const { user, session } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input) => {
+      if (!user) throw new Error('Not authenticated');
+      // supabase.from('table')... OR fetch via callEdgeFunction (M9+)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['x'] }),
+    onError: captureMutationError('useThing'),
+  });
+}
 ```
 
-## Build order — what's done, what's next
+For queries: `useQuery({ queryKey: ['x', user?.id], enabled: !!user, queryFn: ... })`.
 
-The handoff lists ~30 screens and 22 components. Build in this order. Do NOT skip ahead:
+### Edge function call pattern
 
-### Done
-- [x] `tokens.ts` + `ThemeProvider`
-- [x] `supabase.ts` (RN client)
-- [x] Components: `Eyebrow`, `PageTitle`, `Caption`, `Button`, `IconBtn`, `Chip`, `Card`, `StatBlock`, `icons` (SVG set), `Skeleton`, `Spinner`, `FadeUp`, `BottomNav`
-- [x] `RootNavigator` (every route registered with `PlaceholderScreen` for unbuilt ones)
-- [x] `MainTabsScreen` (custom 4-tab container, FAB pushes onto root stack)
-- [x] `HomeScreen` (real implementation)
-- [x] `WardrobeScreen` / `PlanScreen` / `InsightsScreen` (placeholder stubs — real impls next PR)
+Pre-M9 (raw fetch):
+```ts
+const res = await fetch(`${supabaseUrl}/functions/v1/<name>`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+  },
+  body: JSON.stringify(payload),
+});
+```
 
-### Next (in priority order)
+Post-M9: import `callEdgeFunction` from `../lib/edgeFunctionClient` — handles auth, retry, classification, AbortSignal, 402 paywall surfacing. Use it everywhere except SSE streams (which read the raw `Response`).
 
-1. **WardrobeScreen** — wire to existing garment card; add tabs/search/filter/grid.
-2. **PlanScreen** — week strip, planned-outfit panel, upcoming list.
-3. **InsightsScreen** — real Gauge + PaletteBar + wear-frequency bars + most-worn list.
-4. **Add piece flow** (3 steps) — Step1/Step2/Step3.
-5. **MoodOutfit** + **MoodFlow** — 12 SVG glyphs + 3-step flow.
-6. **StyleMe** — occasion chips + outfit cards.
-7. **StyleChat** — bubbles + composer + suggestion chips.
-8. **TravelCapsule** wizard (6 steps).
-9. Settings sub-pages (Appearance / Style / Notifications / Account / Privacy).
-10. Auxiliary: ResetPassword / 404 / Share / PublicProfile / Billing.
+### Tokens
 
-### Components still pending
+Always go through `useTokens()`. Never hardcode hex (`#FBF7EF`) inside a screen — call `t.card`. The accent is warm gold; no other brand colors. Borders + neutrals do everything else.
 
-`Gauge`, `PaletteBar`, `OutfitCard`, `MoodCard`, `SourcePill`, `PhotoTile`, `WeekStrip`, `ListRow`, `SettingsRow`, `TogglePill`. Build the one each new screen needs, not all at once.
+### Italic Playfair
 
-## Fonts
+Reserved for: page titles, large numerals, eyebrows on signature spots, statement copy. Not body.
 
-Tokens reference `PlayfairDisplay-Italic`, `PlayfairDisplay-MediumItalic`, `DMSans-Regular/Medium/SemiBold/Bold`.
-The .ttf files aren't in `assets/fonts/` yet — RN falls back to system serif/sans until they're added.
+### Eyebrows
 
-To enable real fonts:
-1. Drop `.ttf` files in `assets/fonts/`.
-2. Wrap `App` in `useFonts({...})` from `expo-font`, return `null` until loaded.
-3. Family names in `tokens.ts` already match the expected names — no token edits needed.
+Uppercase 10 px, 0.18em tracking, `fg2`. Above almost every section title.
 
-## Navigation contract
+### Bottom sheets / modals
 
-- `MainTabs` is the initial route — a custom container (NOT `@react-navigation/bottom-tabs`).
-- `goTab: (id: TabId) => void` is passed from `MainTabsScreen` to its child tab screens.
-- All non-tab routes are pushed onto the parent native-stack via `useNavigation().navigate('RouteName')`.
-- The (+) FAB pushes `AddPieceStep1` onto the root stack — it's NOT a tab.
-- Type the `useNavigation` hook with `NativeStackNavigationProp<RootStackParamList>` — every route is in the param list (see `RootNavigator.tsx`).
+React Native `Modal` + `Animated`, OR `@gorhom/bottom-sheet` if already in deps for that feature. Stay consistent within a single feature surface.
 
-## Verification — after every screen / component change
+### Append-only locales
+
+`mobile/src/i18n/locales/*.ts` — never reorganize existing keys. New strings append; agents trust prior keys exist.
+
+## Things to know
+
+- **Avatar feature deprecated 2026-04-21.** `avatars` bucket dropped. Don't wire avatar UI without checking with the user first.
+- **Sentry pinned at `@sentry/react-native@6.x`.** `package.json` `expo.install.exclude` prevents expo-doctor from auto-bumping. Don't bump pre-launch.
+- **Studio render flow.** `enqueue_render_job` is fire-and-forget; UI polls `render_jobs` via `useRenderJobStatus` (M1) and swaps in `rendered_image_path` on success.
+- **LiveScan continuous-scan (M6) uses `react-native-vision-camera`** — Vision Camera doesn't run in Expo Go. Test on EAS dev build.
+- **Web type imports allowed.** `import type { Database } from '../../../src/integrations/supabase/types'` is fine — type-only imports strip at build time. Runtime imports of web code are forbidden.
+- **No new design primitives without checking.** Reuse `Eyebrow`, `PageTitle`, `Caption`, `Button`, `IconBtn`, `Chip`, `Card`, `SettingsRow`, `ListRow`, `BottomNav`, `OutfitCard`, `GarmentCard`.
+
+## Per-wave gates (V0 CI runs them)
 
 ```bash
-npx tsc --noEmit          # 0 errors
+cd mobile && npx tsc --noEmit          # 0 errors
+cd mobile && npx eslint src --ext .ts,.tsx --max-warnings 0
+cd mobile && npx expo-doctor           # passes
+cd mobile && npx expo export -p ios -o /tmp/expo-export    # bundle size assertion
 ```
 
-Smoke-test in a simulator before opening a PR. There's no Vitest in `mobile/` yet — add `jest-expo` when component tests are needed.
+For migrations: `npx supabase migration list --linked` clean + `npx supabase db push --linked --dry-run --yes`.
+For edge function changes: `deno check supabase/functions/<name>/index.ts`.
 
-## Commit style
+## Code-reviewer subagent brief (verbatim — paste before push)
 
-Branch off `feat/mobile-rn-app`. Commits:
-`feat(mobile): [ScreenName] — pixel-faithful RN implementation`
-`feat(mobile): [Component] component`
-`fix(mobile): [terse description]`
+> Review this diff against `feat/mobile-rn-app`. Check: (1) does it satisfy the wave's acceptance criteria as written in `docs/launch/waves/m<N>-<slug>.md`? (2) are any callers of changed symbols broken? (3) does new code follow the `useAddGarment.ts` hook pattern (`useAuth` + `supabase` from `../lib/supabase` + `captureMutationError` on mutations + `callEdgeFunction` on edge calls when M9 has shipped)? (4) any drift from the wave file's skeletons or scope creep? (5) for screens, does it use existing primitives (`Eyebrow`, `PageTitle`, `Caption`, `Button`, `Chip`, `Card`) and `useTokens()` (no hardcoded hex)? (6) for migrations: timestamp matches the MCP-applied one; idempotent guards present where needed. Report under 200 words. Flag P0 (blocks merge) vs P1 (fix in this PR) vs P2 (track in findings-log).
 
-Open a PR per logical chunk (a screen + the components it needs).
+If the reviewer flags a regression: fix → re-run gates → re-review.
 
-## Anti-patterns to avoid
+## Anti-patterns
 
-- Don't introduce a state library (Zustand/Jotai/etc.) without asking. React Query handles server state; component-local `useState` handles UI state.
-- Don't import directly from `tokens.ts` inside a component file — go through `useTokens()` so theme changes propagate.
-- Don't use `display: 'none'` for animations — use `Animated.Value` (already wired in `FadeUp` / `Spinner`).
-- Don't reach into `../src` (the web app) — different platform, different bundler.
-- Don't reimplement the web's `useGarments` / `useProfile` etc. by hand — port them once needed, but talk to the user before doing so to keep auth / cache layers consistent.
+- New state libraries (Zustand/Jotai/etc.) without asking
+- Direct imports from `tokens.ts` inside a component (use `useTokens()`)
+- `display: 'none'` for animations (use `Animated.Value`)
+- Reaching into `../src` runtime code (type imports OK)
+- Hand-reimplementing `useGarments` / `useProfile` / etc. — port the web hook, don't reinvent
+
+## Pointers
+
+- Wave plan: `docs/launch/overview.md`
+- Wave files: `docs/launch/waves/`
+- Code reference for hook pattern: `mobile/src/hooks/useAddGarment.ts`
+- Theme tokens: `mobile/src/theme/tokens.ts`

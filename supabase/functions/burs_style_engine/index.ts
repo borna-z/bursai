@@ -3,9 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, estimateMaxTokens } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
-import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse } from "../_shared/scale-guard.ts";
+import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { collectOccasionSignals, hasOccasionSignal, normalizeSignalText } from "../_shared/style-signals.ts";
 import { logger } from "../_shared/logger.ts";
+// Wave 8.5 PR B (P88) — canonical signal normalization + style summary loader.
+import { normalizeStyleMemorySignal } from "../_shared/style-memory-signals.ts";
+import { loadOrBuildSummary, loadStandardSummaryInputs, type UserStyleSummaryRow } from "../_shared/summary-loader.ts";
 
 import {
   // types
@@ -785,6 +788,12 @@ serve(async (req) => {
     }
     await enforceRateLimit(serviceClient, userId, "burs_style_engine");
 
+    // Wave 8 P54 — paywall gate.
+    const subCheck = await enforceSubscription(serviceClient, userId);
+    if (!subCheck.allowed) {
+      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+    }
+
     const dayContext: DayContextInput | null = body.day_context && typeof body.day_context === "object"
       ? body.day_context as DayContextInput
       : null;
@@ -907,7 +916,9 @@ serve(async (req) => {
     ]);
 
     if (garmentsRawRes.error) throw garmentsRawRes.error;
-    const garments = (garmentsRawRes.data || []).map(hydrateEnrichment) as GarmentRow[];
+    // `garments` is reassigned later to drop never_suggest_garment hard-skips.
+    // Wave 8.5 P88 — see hardSkipGarmentIds filter further down.
+    let garments = (garmentsRawRes.data || []).map(hydrateEnrichment) as GarmentRow[];
     const activeLookSlotMap = buildActiveLookSlotMap(garments, activeLookGarmentIds);
 
     if (garments.length < 3) {
@@ -950,66 +961,175 @@ serve(async (req) => {
         });
       }
     }
-    // Integrate implicit feedback signals (Task 15) into penalties
+    // ──────────────────────────────────────────────────────────────────
+    // Wave 8.5 PR B (P88) — implicit feedback signal integration.
+    //
+    // Three audit-driven changes vs the legacy block:
+    //
+    //   1. Canonical normalization. Signals are normalized through
+    //      `normalizeStyleMemorySignal` so legacy names ('save', 'swap',
+    //      'reject', 'dislike', 'thumbs_down', 'ignore', 'wear_confirm',
+    //      etc.) and canonical names emit identical scoring contributions
+    //      during the rollout window. Audit P88 P1 #3.
+    //
+    //   2. D1 disambiguation. `reject_outfit` is OUTFIT-LEVEL — penalize
+    //      every garment in that outfit (mild negative). Garment-level
+    //      hard rejection now lives ONLY in `never_suggest_garment`,
+    //      which is applied as a hard-skip filter on the candidate pool
+    //      before scoring (see further down).
+    //
+    //   3. N+1 fix. Build the outfit_id → Set<garment_id> map ONCE before
+    //      iterating signals, instead of an inner-loop scan per signal.
+    //      Audit P88 P1 #1.
+    //
+    // ──────────────────────────────────────────────────────────────────
+
+    // Step 2.x precompute: outfit_id → Set<garment_id>. The same map is
+    // also re-used by the re-scoring pass below, replacing the duplicate
+    // build at lines 1080-1084 of the legacy code.
+    const outfitItemsByOutfitId = new Map<string, Set<string>>();
+    for (const item of recentOutfitsRes.data || []) {
+      let bucket = outfitItemsByOutfitId.get(item.outfit_id);
+      if (!bucket) {
+        bucket = new Set<string>();
+        outfitItemsByOutfitId.set(item.outfit_id, bucket);
+      }
+      bucket.add(item.garment_id);
+    }
+
     const implicitSignals = (feedbackSignalsRes.data || []) as {
       signal_type: string; outfit_id: string | null; garment_id: string | null;
       value: string | null; metadata: Record<string, any> | null; created_at: string;
     }[];
-    for (const sig of implicitSignals) {
-      if (sig.signal_type === 'quick_reaction' && sig.outfit_id && sig.value) {
-        // Quick reactions map to feedback tags — find garments for that outfit
-        const outfitGarments = new Set<string>();
-        for (const item of recentOutfitsRes.data || []) {
-          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
-        }
-        if (outfitGarments.size > 0) {
+
+    // Garments to hard-skip from candidate scoring. Populated below from
+    // canonical `never_suggest_garment` signals; filter applied to
+    // `garments` after this loop.
+    const hardSkipGarmentIds = new Set<string>();
+
+    for (const rawSig of implicitSignals) {
+      const canonical = normalizeStyleMemorySignal(rawSig.signal_type);
+      if (!canonical) continue; // unknown / dead enum — skip
+
+      if (canonical === 'never_suggest_garment' && rawSig.garment_id) {
+        // Garment-level hard skip — drops the garment from candidate pool
+        // entirely. No scoring contribution; the absence is the signal.
+        hardSkipGarmentIds.add(rawSig.garment_id);
+        continue;
+      }
+
+      // Resolve the affected garment set. Outfit-level signals expand to
+      // the outfit's garments (via the precomputed map); garment-level
+      // signals use the single `garment_id`.
+      let affected: Set<string> | null = null;
+      if (rawSig.outfit_id) {
+        affected = outfitItemsByOutfitId.get(rawSig.outfit_id) ?? null;
+      } else if (rawSig.garment_id) {
+        affected = new Set([rawSig.garment_id]);
+      }
+      if (!affected || affected.size === 0) continue;
+
+      switch (canonical) {
+        case 'quick_reaction': {
+          if (!rawSig.value) break; // value required for polarity
           feedbackSignals.push({
-            garmentIds: outfitGarments,
+            garmentIds: affected,
             rating: null,
-            feedback: [sig.value],
+            feedback: [rawSig.value],
             weather: null,
-            generatedAt: sig.created_at,
+            generatedAt: rawSig.created_at,
           });
+          break;
         }
-      } else if (sig.signal_type === 'save' && sig.outfit_id) {
-        // IB-5b: Save = mild positive (1x weight, rating 3.5 vs wore=5)
-        const outfitGarments = new Set<string>();
-        for (const item of recentOutfitsRes.data || []) {
-          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
-        }
-        if (outfitGarments.size > 0) {
+        case 'save_outfit': {
+          // IB-5b: Save = mild positive (1x weight, 3.5 rating vs wore=5).
           feedbackSignals.push({
-            garmentIds: outfitGarments,
-            rating: 3.5, // save = 1x weight (mild positive)
+            garmentIds: affected,
+            rating: 3.5,
             feedback: null,
             weather: null,
-            generatedAt: sig.created_at,
+            generatedAt: rawSig.created_at,
           });
+          break;
         }
-      } else if ((sig.signal_type === 'swap' || sig.signal_type === 'reject' || sig.signal_type === 'dislike' || sig.signal_type === 'thumbs_down') && sig.garment_id) {
-        // IB-5a: Direct garment rejection — penalize the specific garment
-        feedbackSignals.push({
-          garmentIds: new Set([sig.garment_id]),
-          rating: 1, // strong negative
-          feedback: sig.value ? [sig.value] : null,
-          weather: null,
-          generatedAt: sig.created_at,
-        });
-      } else if (sig.signal_type === 'ignore' && sig.outfit_id) {
-        // IB-5a: Ignored outfit suggestion — mild negative for all garments
-        const outfitGarments = new Set<string>();
-        for (const item of recentOutfitsRes.data || []) {
-          if (item.outfit_id === sig.outfit_id) outfitGarments.add(item.garment_id);
-        }
-        if (outfitGarments.size > 0) {
+        case 'reject_outfit': {
+          // D1: outfit-level rejection — soft penalty across every garment
+          // in the outfit. Single-garment garment_id-only rejections are
+          // intentionally dropped (those should be `never_suggest_garment`).
           feedbackSignals.push({
-            garmentIds: outfitGarments,
-            rating: 2.5, // mild negative
+            garmentIds: affected,
+            rating: 2.5, // mild-to-moderate negative — affects combo score
+            feedback: rawSig.value ? [rawSig.value] : null,
+            weather: null,
+            generatedAt: rawSig.created_at,
+          });
+          break;
+        }
+        case 'swap_garment': {
+          // The swapped-OUT garment is a mild negative; penalize the
+          // garment(s) in `removed_garment_ids` if metadata carries them,
+          // else fall back to the legacy `garment_id` field.
+          const removed = Array.isArray((rawSig.metadata as any)?.removed_garment_ids)
+            ? ((rawSig.metadata as any).removed_garment_ids as unknown[]).filter((x) => typeof x === 'string') as string[]
+            : rawSig.garment_id
+              ? [rawSig.garment_id]
+              : [];
+          if (removed.length > 0) {
+            feedbackSignals.push({
+              garmentIds: new Set(removed),
+              rating: 2.5,
+              feedback: null,
+              weather: null,
+              generatedAt: rawSig.created_at,
+            });
+          }
+          break;
+        }
+        case 'skip_outfit': {
+          // IB-5a: Ignored / skipped — mild negative for all garments.
+          feedbackSignals.push({
+            garmentIds: affected,
+            rating: 2.5,
             feedback: null,
             weather: null,
-            generatedAt: sig.created_at,
+            generatedAt: rawSig.created_at,
           });
+          break;
         }
+        case 'rate_outfit': {
+          if (typeof rawSig.value === 'string') {
+            const numeric = Number.parseInt(rawSig.value, 10);
+            if (Number.isFinite(numeric) && numeric >= 1 && numeric <= 5) {
+              feedbackSignals.push({
+                garmentIds: affected,
+                rating: numeric,
+                feedback: null,
+                weather: null,
+                generatedAt: rawSig.created_at,
+              });
+            }
+          } else if (typeof (rawSig as unknown as { rating?: unknown }).rating === 'number') {
+            const numeric = (rawSig as unknown as { rating: number }).rating;
+            if (Number.isFinite(numeric) && numeric >= 1 && numeric <= 5) {
+              feedbackSignals.push({
+                garmentIds: affected,
+                rating: numeric,
+                feedback: null,
+                weather: null,
+                generatedAt: rawSig.created_at,
+              });
+            }
+          }
+          break;
+        }
+        case 'wear_outfit': {
+          // wear_logs already inject these as rating=5 below; skip the
+          // signal-channel duplicate to avoid double-counting.
+          break;
+        }
+        // unsave_outfit, like_pair, dislike_pair: covered by pair_memory.
+        default:
+          break;
       }
     }
 
@@ -1029,11 +1149,9 @@ serve(async (req) => {
     const plannedNotWorn = (plannedNotWornRes.data || []) as { outfit_id: string | null; date: string }[];
     for (const planned of plannedNotWorn) {
       if (!planned.outfit_id) continue;
-      // Check if this outfit was actually worn
-      const outfitGarments = new Set<string>();
-      for (const item of recentOutfitsRes.data || []) {
-        if (item.outfit_id === planned.outfit_id) outfitGarments.add(item.garment_id);
-      }
+      // Wave 8.5 P88 audit fix: reuse the precomputed outfitItemsByOutfitId
+      // map instead of an inner-loop scan (was N+1 — see legacy block).
+      const outfitGarments = outfitItemsByOutfitId.get(planned.outfit_id) ?? new Set<string>();
       if (outfitGarments.size > 0) {
         feedbackSignals.push({
           garmentIds: outfitGarments,
@@ -1042,6 +1160,49 @@ serve(async (req) => {
           weather: null,
           generatedAt: planned.date,
         });
+      }
+    }
+
+    // Wave 8.5 PR B (P88) — load persistent style summary + hard-skip filter.
+    //
+    // The summary is loaded lazily via `loadOrBuildSummary`: cache hit on a
+    // fresh row, or deterministic build on miss/stale. Build cost is logged
+    // for observability (see `[summary-loader] lazy_build` in Supabase logs).
+    // Failure returns `null` — engine falls back to non-summary scoring,
+    // which is correct (hard rules still apply).
+    //
+    // Hard-skip: `summary.summary_json.never_suggest_garments` carries the
+    // canonical garment-level exclusion list. Combined with this request's
+    // `hardSkipGarmentIds` (from raw signals processed above), we drop the
+    // candidates from `garments` BEFORE scoring. The set keys are garment
+    // ids, so the filter is O(N).
+    let summary: UserStyleSummaryRow | null = null;
+    try {
+      summary = await loadOrBuildSummary(serviceSupabase, userId, () =>
+        loadStandardSummaryInputs(serviceSupabase, userId),
+      );
+      if (summary?.summary_json?.never_suggest_garments) {
+        for (const id of summary.summary_json.never_suggest_garments) {
+          if (typeof id === 'string') hardSkipGarmentIds.add(id);
+        }
+      }
+    } catch (err) {
+      console.error('[burs_style_engine] summary load failed', err);
+    }
+
+    if (hardSkipGarmentIds.size > 0) {
+      const beforeCount = garments.length;
+      garments = garments.filter((g) => !hardSkipGarmentIds.has(g.id));
+      const droppedCount = beforeCount - garments.length;
+      if (droppedCount > 0) {
+        console.log(
+          '[burs_style_engine] hard_skip_applied',
+          JSON.stringify({
+            user_id: userId,
+            dropped: droppedCount,
+            remaining: garments.length,
+          }),
+        );
       }
     }
 
@@ -1068,17 +1229,12 @@ serve(async (req) => {
     // IB-5c: Personal uniform detection
     const personalUniform = wearLogs.length >= 15 ? buildPersonalUniform(wearLogs, garments) : null;
 
-    // Build recent outfit sets for anti-repetition
+    // Build recent outfit sets for anti-repetition.
+    // Wave 8.5 P88 audit fix: reuse the precomputed outfitItemsByOutfitId
+    // map (was duplicated work — see legacy block above).
     const recentOutfitSets: Set<string>[] = [];
-    if (recentOutfitsRes.data?.length) {
-      const outfitMap = new Map<string, Set<string>>();
-      for (const item of recentOutfitsRes.data) {
-        if (!outfitMap.has(item.outfit_id)) outfitMap.set(item.outfit_id, new Set());
-        outfitMap.get(item.outfit_id)!.add(item.garment_id);
-      }
-      for (const [, ids] of Array.from(outfitMap.entries()).slice(0, 10)) {
-        recentOutfitSets.push(ids);
-      }
+    for (const [, ids] of Array.from(outfitItemsByOutfitId.entries()).slice(0, 10)) {
+      recentOutfitSets.push(ids);
     }
 
     // ── SWAP MODE ──
