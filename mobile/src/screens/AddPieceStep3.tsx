@@ -71,6 +71,19 @@ function titleCase(value: string | null | undefined): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+// Tiny debounce hook — used to throttle the title input feeding the
+// duplicate-detection query so per-keystroke edits don't burn the
+// detect_duplicate_garment 8/min rate limit. Inlined here because it's the
+// only consumer; a shared util would be premature.
+function useDebouncedTitle(value: string, ms: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
+}
+
 export function AddPieceStep3() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -224,6 +237,18 @@ export function AddPieceStep3() {
     };
   }, [params?.uploadId, params?.storagePath]);
 
+  // Codex P2 round 3: every keystroke on the title used to refire the
+  // duplicate query — `detect_duplicate_garment` is rate-limited at 8/min,
+  // so a 9-char edit could burn the budget and suppress the actual warning
+  // with a 429 by the time the visual check is ready. Debounce the
+  // title-derived input by 600ms so the user is mid-pause before we re-ask.
+  // The trim() lives inside the debounce target so a "  Blue Tee   " edit
+  // doesn't beat the debounce by churning whitespace.
+  const debouncedDuplicateTitle = useDebouncedTitle(
+    titleOverride.trim() || (params?.analysis.title ?? ''),
+    600,
+  );
+
   const duplicateInput = useMemo(
     () =>
       params?.analysis
@@ -231,7 +256,7 @@ export function AddPieceStep3() {
             image_path: resolvedStoragePath,
             category: params.analysis.category ?? null,
             color_primary: params.analysis.color_primary ?? null,
-            title: titleOverride.trim() || params.analysis.title,
+            title: debouncedDuplicateTitle || params.analysis.title,
             subcategory: params.analysis.subcategory ?? null,
             material: params.analysis.material ?? null,
           }
@@ -239,7 +264,7 @@ export function AddPieceStep3() {
     [
       resolvedStoragePath,
       params?.analysis,
-      titleOverride,
+      debouncedDuplicateTitle,
     ],
   );
   const duplicateQuery = useDetectDuplicate(duplicateInput);
