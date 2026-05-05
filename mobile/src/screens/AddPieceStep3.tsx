@@ -14,10 +14,11 @@
 // Multi-photo (W9 follow-up): the piece-selector strip is gone in W5. When multi-photo
 // lands, the strip returns and Save loops back to Step 2 with the next photo.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,12 +34,15 @@ import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
+import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
 import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
 import { useAddGarment } from '../hooks/useAddGarment';
+import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
+import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { deleteUpload } from '../lib/imageUpload';
 import {
@@ -185,6 +189,47 @@ export function AddPieceStep3() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // M4 — duplicate detection. Hooks must run unconditionally (rules-of-hooks),
+  // so they're declared above the no-params early return. The query is
+  // disabled when category is missing — a missing-params render passes a
+  // null input and the hook short-circuits via its `enabled` gate.
+  const duplicateInput = useMemo(
+    () =>
+      params?.analysis
+        ? {
+            // image_path is optional: when storagePath is null (Step 2's
+            // parallel-upload base64 path is still mid-flight), the edge
+            // function falls back to attribute-only scoring. We don't await
+            // the upload before checking — the user is reviewing fields
+            // anyway, and a weaker signal beats no signal at all.
+            image_path: params.storagePath ?? null,
+            category: params.analysis.category ?? null,
+            color_primary: params.analysis.color_primary ?? null,
+            title: titleOverride.trim() || params.analysis.title,
+            subcategory: params.analysis.subcategory ?? null,
+            material: params.analysis.material ?? null,
+          }
+        : null,
+    [
+      params?.storagePath,
+      params?.analysis,
+      titleOverride,
+    ],
+  );
+  const duplicateQuery = useDetectDuplicate(duplicateInput);
+  const duplicateMatch = topDuplicate(duplicateQuery.data);
+
+  // Surface the modal once per match: track which garment_id we've already
+  // shown a prompt for so editing the title (which fires a fresh query) doesn't
+  // re-pop the modal after the user already chose "Add anyway".
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const duplicateAcknowledgedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!duplicateMatch) return;
+    if (duplicateAcknowledgedRef.current === duplicateMatch.garment_id) return;
+    setDuplicateModalOpen(true);
+  }, [duplicateMatch]);
+
   // Defensive guard — without route params the screen has nothing to render. Bounce
   // the user back to Step 1 instead of crashing on `params.analysis.title`.
   if (!params) {
@@ -201,6 +246,25 @@ export function AddPieceStep3() {
   const { storagePath, photoUri, analysis, source } = params;
   const confidenceHigh = analysis.confidence >= 0.7;
   const seasonsLower = analysis.season_tags.map((s) => s.toLowerCase());
+
+  const dismissDuplicate = (acknowledge: boolean) => {
+    if (acknowledge && duplicateMatch) {
+      duplicateAcknowledgedRef.current = duplicateMatch.garment_id;
+    }
+    setDuplicateModalOpen(false);
+  };
+
+  const onViewExistingDuplicate = () => {
+    if (!duplicateMatch) return;
+    hapticLight();
+    dismissDuplicate(true);
+    nav.navigate('GarmentDetail', { id: duplicateMatch.garment_id });
+  };
+
+  const onAddAnyway = () => {
+    hapticLight();
+    dismissDuplicate(true);
+  };
 
   // Map raw exception text to user-facing copy. PostgREST and supabase-js bubble up
   // wire-format messages ("duplicate key value violates unique constraint",
@@ -517,6 +581,41 @@ export function AddPieceStep3() {
         onSelectStudio={() => void handleSave(true)}
         onSelectOriginal={() => void handleSave(false)}
       />
+
+      <Modal
+        visible={duplicateModalOpen && !!duplicateMatch}
+        transparent
+        animationType="fade"
+        onRequestClose={() => dismissDuplicate(false)}>
+        <View style={[s.modalScrim, { backgroundColor: t.scrimBg }]}>
+          <View
+            style={[
+              s.modalCard,
+              { backgroundColor: t.card, borderColor: t.border },
+            ]}>
+            <Eyebrow style={{ marginBottom: 6 }}>Duplicate?</Eyebrow>
+            <PageTitle size={22}>{tr('addpiece.duplicate.title')}</PageTitle>
+            <Caption style={{ marginTop: 8, lineHeight: 19 }}>
+              {duplicateMatch?.title
+                ? tr('addpiece.duplicate.body', { title: duplicateMatch.title })
+                : tr('addpiece.duplicate.bodyNoTitle')}
+            </Caption>
+            <View style={{ marginTop: 18, gap: 8 }}>
+              <Button
+                label={tr('addpiece.duplicate.viewExisting')}
+                onPress={onViewExistingDuplicate}
+                accessibilityLabel={tr('addpiece.duplicate.viewExisting')}
+              />
+              <Button
+                label={tr('addpiece.duplicate.addAnyway')}
+                variant="quiet"
+                onPress={onAddAnyway}
+                accessibilityLabel={tr('addpiece.duplicate.addAnyway')}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -576,5 +675,18 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     padding: 24,
+  },
+  modalScrim: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    padding: 22,
   },
 });

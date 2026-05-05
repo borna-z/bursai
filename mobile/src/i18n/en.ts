@@ -191,4 +191,12 @@ export const en: Record<string, string> = {
   'paywall.privacy': 'Privacy',
   'paywall.privacy.label': 'Open privacy policy',
   'paywall.linkError.title': 'Could not open link',
+
+  // M4 — duplicate detection. en-only for now; sv (and the other 8 locales)
+  // land with M33 i18n.
+  'addpiece.duplicate.title': 'Already in your wardrobe?',
+  'addpiece.duplicate.body': 'This looks a lot like {title} — you may already own it.',
+  'addpiece.duplicate.bodyNoTitle': 'This looks a lot like a piece you already own.',
+  'addpiece.duplicate.viewExisting': 'View existing',
+  'addpiece.duplicate.addAnyway': 'Add anyway',
 };
