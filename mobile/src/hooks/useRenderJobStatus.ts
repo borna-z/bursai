@@ -51,6 +51,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { bustSignedUrlCache } from './useSignedUrl';
 
 export type RenderJobTerminalStatus = 'succeeded' | 'failed';
 export type RenderJobStatus = 'pending' | 'in_progress' | RenderJobTerminalStatus;
@@ -198,11 +199,23 @@ export function useRenderJobStatus(
     if (lastTerminalRef.current === status) return;
     lastTerminalRef.current = status;
 
+    // Drop the signed-URL cache entry for the worker's `result_path` before
+    // refetching the garment row. `render_garment_image` upserts the rendered
+    // image at a stable path (`${user_id}/${garment.id}/rendered.ext`); the
+    // M2 module-scope cache is keyed on path alone, so without this bust the
+    // next `useSignedUrl` read would hand `<Image>` the prior signed URL and
+    // RN's native image cache could keep serving the old bytes after a
+    // regenerated render. (Codex P2 round 1 on PR #729.)
+    const resultPath = query.data?.resultPath ?? null;
+    if (resultPath) {
+      bustSignedUrlCache(qc, resultPath);
+    }
+
     qc.invalidateQueries({ queryKey: ['garments'] });
     if (garmentId) {
       qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
     }
-  }, [query.data?.status, qc, user?.id, garmentId]);
+  }, [query.data?.status, query.data?.resultPath, qc, user?.id, garmentId]);
 
   // Reset the terminal + empty-poll latches whenever we switch garments so a
   // subsequent success / no-row on a different garmentId still triggers the

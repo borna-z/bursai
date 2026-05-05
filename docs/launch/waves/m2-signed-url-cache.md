@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Replace `useSignedUrl` with a TTL-aware in-memory cache so list scrolling and re-renders don't burn signed-URL requests. |
-| Status | TODO |
+| Status | DONE (PR #729) |
 | Branch | `mobile-m2-signed-url-cache` |
 | PR count | 1 |
 | Depends on | V0 |

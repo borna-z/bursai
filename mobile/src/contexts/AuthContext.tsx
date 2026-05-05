@@ -30,6 +30,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase, supabaseUrl } from '../lib/supabase';
+import { clearSignedUrlCache } from '../hooks/useSignedUrl';
 
 export type OnboardingPrefs = {
   completed?: boolean;
@@ -277,6 +278,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // mid-sign-out, but defensive) are removed too — `clear()` is the
         // hammer; we trade a refetch on next sign-in for guaranteed isolation.
         queryClient.clear();
+        // Drop the module-scope signed-URL cache (`useSignedUrl.ts`). The
+        // React Query clear above only invalidates per-queryKey results;
+        // the underlying `${bucket}:${path}` Map survives independently and
+        // would leak user A's signed URLs (each embeds a JWT in the query
+        // string) into user B's renders. Audit-equivalent to the
+        // `queryClient.clear()` rationale on PR #718. Wave M2.
+        clearSignedUrlCache();
       }
     });
 
@@ -358,6 +366,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // post-await navigation, and the SIGNED_OUT branch above also clears,
     // so this is a "last to win" no-op in the happy path. Audit D.
     queryClient.clear();
+    // Same eager-clear rationale for the signed-URL Map: the SIGNED_OUT
+    // listener clears it too, but listener ordering vs. post-await nav is
+    // racy and the worst case is we render user A's gradient placeholder
+    // for one frame instead of leaking their signed URL into user B's session.
+    clearSignedUrlCache();
   }, [queryClient]);
 
   const isOnboarded = deriveIsOnboarded(profile);
