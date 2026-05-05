@@ -228,14 +228,17 @@ export function AddPieceStep2() {
 
       // Hand the upload promise off to Step 3. Storage path is null until upload
       // completes — Step 3's Save handler will await pendingUpload[uploadId] if
-      // needed. Record the transferred uploadId BEFORE clearing the active ref
-      // so the .then closure can compare against its own captured uploadId.
-      const uploadIdForStep3 = uploadIdRef.current;
-      if (uploadIdForStep3) transferredUploadIdRef.current = uploadIdForStep3;
+      // needed. Use the function-local `uploadId` (not uploadIdRef.current):
+      // handleSkip can null the ref synchronously while the unmount that would
+      // normally fire `mountedRef.current = false` has not yet landed, so the
+      // post-await guard above doesn't catch that race. Reading the ref here
+      // would then pass uploadId: undefined to Step 3 and the Save handler
+      // would throw "Upload was lost". Codex round 9 P2 on PR #725.
+      transferredUploadIdRef.current = uploadId;
       uploadIdRef.current = null;
       nav.navigate('AddPieceStep3', {
         storagePath: null,
-        uploadId: uploadIdForStep3 ?? undefined,
+        uploadId,
         photoUri,
         analysis,
         source,
