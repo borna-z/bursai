@@ -29,16 +29,38 @@ export interface UploadResult {
   storagePath: string;
 }
 
-export async function resizeAndUpload(uri: string, userId: string): Promise<UploadResult> {
-  const resized = await ImageManipulator.manipulateAsync(
+/**
+ * Resize a source URI to the canonical analyze/render input format. Returns the
+ * raw ImageManipulator output so callers that need both the resized URI AND a
+ * base64 payload (parallel-flow Step 2) can grab them in one shot rather than
+ * paying for two manipulateAsync passes. Pass `wantBase64: true` to also get
+ * `result.base64` populated — the manipulator itself reads the bytes once.
+ */
+export async function resizeForGarment(
+  uri: string,
+  options: { wantBase64?: boolean } = {},
+): Promise<ImageManipulator.ImageResult> {
+  return ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: MAX_DIMENSION } }],
     {
       compress: JPEG_QUALITY,
       format: ImageManipulator.SaveFormat.JPEG,
+      base64: options.wantBase64 === true,
     },
   );
+}
 
+/**
+ * Uploads an already-resized ImageManipulator result. Split out from `resizeAndUpload`
+ * so the parallel-analyze flow can reuse the same resized output for both the base64
+ * analyze call and the storage upload (single resize, two consumers). Path scheme matches
+ * `resizeAndUpload` so storage URLs are interchangeable across both call sites.
+ */
+export async function uploadManipulatedImage(
+  resized: ImageManipulator.ImageResult,
+  userId: string,
+): Promise<UploadResult> {
   const bytes = await new FsFile(resized.uri).bytes();
 
   const timestamp = Date.now();
@@ -53,6 +75,11 @@ export async function resizeAndUpload(uri: string, userId: string): Promise<Uplo
   if (error) throw error;
 
   return { storagePath };
+}
+
+export async function resizeAndUpload(uri: string, userId: string): Promise<UploadResult> {
+  const resized = await resizeForGarment(uri);
+  return uploadManipulatedImage(resized, userId);
 }
 
 /**

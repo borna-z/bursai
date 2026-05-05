@@ -1,24 +1,30 @@
-// Add piece — Step 2 of 3 (uploading + AI analyzing).
+// Add piece — Step 2 of 3 (parallel analyze + upload).
 //
-// Wiring (W5):
-//   1. Resize + upload `route.params.photoUri` to Supabase storage (garments bucket).
-//   2. Call analyze_garment edge function with the resulting storagePath.
-//   3. On success, auto-navigate to Step 3 with { storagePath, photoUri, analysis }.
-//   4. On failure, show ErrorState with a Retry button (re-runs upload + analyze).
+// PR 1 changes the wiring from serial to parallel:
+//   1. ImageManipulator resizes the photo once, asking for both the resized
+//      file URI AND the base64 payload in a single pass.
+//   2. analyze({ base64 }) fires immediately — Gemini sees the image without
+//      waiting for the supabase storage upload to land.
+//   3. uploadManipulatedImage(...) starts in parallel; its promise is parked in
+//      the pendingUpload module under a uploadId.
+//   4. Once analyze settles, we navigate to Step 3 carrying { uploadId,
+//      storagePath: null, analysis }. Step 3's Save handler awaits the parked
+//      promise if storagePath is still null at save time.
 //
-// UX: deliberately no photo preview in the loading state — the user just took/picked
-// the photo seconds ago, they don't need a re-confirmation. Cycling copy gives a sense
-// of motion and tells them what the AI is doing under the hood. After ~12s the cycler
-// flips to a "still working" line so the screen doesn't look frozen on a slow analyze.
+// The serial path used to take ~5s on a 3MB photo over throttled 4G (resize
+// 400ms + read bytes 200ms + upload 1.8s + analyze 2.5s ≈ 4.9s). Parallel cuts
+// that to ~max(upload, analyze) = ~2.5s for the user-visible "until form
+// renders" wait — the upload finishes in the background while they review fields.
 //
-// Cancellation: mountedRef prevents navigate-after-unmount and stale setState writes
-// when the user backs out / Skips while upload + analyze is in flight. The orphan
-// upload is deleted on retry-after-failure and on Skip-after-upload so dead JPEGs
-// don't accumulate in the user's bucket folder.
+// Cancellation: mountedRef prevents navigate-after-unmount and stale setState
+// writes when the user backs out / Skips while analyze is in flight. The
+// in-flight upload promise is dropped from the pendingUpload module on unmount;
+// if the upload eventually succeeds, its row in storage is orphaned (cleaned up
+// best-effort via deleteUpload when we resolve the promise on a backed-out
+// session).
 //
-// Multi-photo: `allUris` is threaded through but only the first photo is processed in
-// this PR. A small inline note tells the user the rest will not be analyzed in W5.
-// Wave 9 wires the "process next on save" loop.
+// Multi-photo: `allUris` is threaded through but only the first photo is
+// processed in this PR. PR 5 wires the batch flow.
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -36,7 +42,16 @@ import { IconBtn } from '../components/IconBtn';
 import { CloseIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyzeGarment } from '../hooks/useAnalyzeGarment';
-import { resizeAndUpload, deleteUpload } from '../lib/imageUpload';
+import {
+  resizeForGarment,
+  uploadManipulatedImage,
+  deleteUpload,
+} from '../lib/imageUpload';
+import {
+  dropPendingUpload,
+  makeUploadId,
+  setPendingUpload,
+} from '../lib/pendingUpload';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -45,10 +60,10 @@ type Route = RouteProp<RootStackParamList, 'AddPieceStep2'>;
 // Cycled every PHASE_INTERVAL_MS so the user sees apparent progress while the AI thinks.
 // The trailing "Still working" line keeps cycling so a slow analyze doesn't look hung.
 const PHASE_COPY = [
-  'Uploading photo…',
   'Reading fabric…',
+  'Detecting colors…',
   'Identifying category…',
-  'Building your garment…',
+  'Almost there…',
   'Still working — almost there…',
 ];
 const PHASE_INTERVAL_MS = 1500;
@@ -71,17 +86,25 @@ export function AddPieceStep2() {
   // this the same photo would upload twice on first mount, charging the user double
   // for the analyze call. Mirrors the activeGenerationRef pattern in web's useAddGarment.
   const inFlightRef = useRef(false);
-  // Tracks the most recent uploaded storage path so retry / Skip can clean it up
-  // before re-uploading or bouncing the user out. Without this, a failed analyze
-  // followed by a retry would leak the old upload object in the user's bucket.
-  const storagePathRef = useRef<string | null>(null);
+  // Tracks the most recent uploadId so the unmount cleanup can both drop the
+  // pendingUpload registration AND best-effort delete the orphaned storage object
+  // when the upload eventually resolves on a back-button-mid-flight session.
+  const uploadIdRef = useRef<string | null>(null);
+  const uploadStorageRef = useRef<string | null>(null);
+  // Tracks WHICH uploadId (if any) was transferred to Step 3. Codex round 7 P2:
+  // the prior boolean ownerTransferredRef conflated "any attempt was transferred"
+  // with "this specific attempt was transferred". After a Retry-then-success
+  // sequence, an older attempt resolving later would see the boolean as `true`
+  // (because the NEW attempt transferred) and skip its self-cleanup, leaking the
+  // old storage object. Storing the id lets every .then closure compare against
+  // its own captured uploadId.
+  const transferredUploadIdRef = useRef<string | null>(null);
   // Component-mount guard — set false on unmount so post-unmount setState / navigate
-  // calls become no-ops. The runUploadAndAnalyze closure stays alive after unmount
-  // (the fetch keeps running in RN), so without this guard a back-button mid-upload
-  // would teleport the user into Step 3 of an aborted flow.
+  // calls become no-ops. Without this guard a back-button mid-analyze would teleport
+  // the user into Step 3 of an aborted flow.
   const mountedRef = useRef(true);
 
-  const runUploadAndAnalyze = useCallback(async () => {
+  const runAnalyzeAndUpload = useCallback(async () => {
     if (!photoUri) {
       if (mountedRef.current) setErrorMsg('No photo to analyze');
       return;
@@ -97,41 +120,125 @@ export function AddPieceStep2() {
       setPhase(0);
     }
 
-    // Clean up any prior upload that didn't end in a saved garment — applies on retry.
-    const previousPath = storagePathRef.current;
-    storagePathRef.current = null;
-    if (previousPath) {
-      void deleteUpload(previousPath);
-    }
+    // Clean up any prior upload registration that didn't end in a saved garment
+    // — applies on retry. Two layers:
+    //   1. dropPendingUpload removes the still-in-flight registration from the
+    //      module map so a stale promise can't be consumed by Step 3.
+    //   2. If a prior attempt already finished its upload (analyze failed AFTER
+    //      upload landed), `previousStorage` holds the storage path. Best-effort
+    //      delete it before re-uploading so retries don't accumulate orphans in
+    //      the user's bucket. Codex P2 on PR #725.
+    const previousUploadId = uploadIdRef.current;
+    const previousStorage = uploadStorageRef.current;
+    uploadIdRef.current = null;
+    uploadStorageRef.current = null;
+    transferredUploadIdRef.current = null;
+    if (previousUploadId) dropPendingUpload(previousUploadId);
+    if (previousStorage) void deleteUpload(previousStorage);
 
     try {
-      const { storagePath } = await resizeAndUpload(photoUri, user.id);
-      if (!mountedRef.current) {
-        // User left mid-upload — drop the orphan and bail before analyze.
-        void deleteUpload(storagePath);
+      // Single resize, two consumers — base64 for analyze, file bytes for upload.
+      const resized = await resizeForGarment(photoUri, { wantBase64: true });
+      if (!mountedRef.current) return;
+
+      // Kick the upload off in parallel. The promise is parked in the pendingUpload
+      // module under uploadId; Step 3 reads it on Save. We hold a local reference
+      // so unmount cleanup can best-effort delete the resulting storage object if
+      // the user backed out before the upload landed.
+      const uploadId = makeUploadId();
+      uploadIdRef.current = uploadId;
+      const uploadPromise = uploadManipulatedImage(resized, user.id);
+      // Wrap with two side-effects:
+      //   1. Capture storagePath so unmount-cleanup can orphan-delete if the user
+      //      backed out before resolution AND ownership wasn't transferred to Step 3.
+      //   2. If we resolved after the component already tore down (race window
+      //      between upload latency and back-button), fire orphan deletion directly
+      //      from the .then — the cleanup snapshot can't catch a path that wasn't
+      //      yet set when it ran. Reviewer-flagged leak.
+      //
+      // Codex round 7 P2: per-uploadId active/transferred check. An attempt is
+      // "live" if uploadIdRef still points at it (active in Step 2) OR
+      // transferredUploadIdRef holds it (handed to Step 3). Anything else is a
+      // stale completion from a prior retry — self-delete and skip shared-state
+      // mutation so the new attempt's bookkeeping isn't clobbered.
+      const wrapped = uploadPromise.then((res) => {
+        const isActive = uploadIdRef.current === uploadId;
+        const isTransferred = transferredUploadIdRef.current === uploadId;
+        if (!isActive && !isTransferred) {
+          void deleteUpload(res.storagePath);
+          return res;
+        }
+        uploadStorageRef.current = res.storagePath;
+        // If the component already unmounted AND THIS attempt wasn't transferred
+        // to Step 3, the storage object is orphaned — delete eagerly. The
+        // per-uploadId check ensures a transferred attempt isn't deleted (Step 3
+        // still owns the file).
+        if (!mountedRef.current && !isTransferred) {
+          void deleteUpload(res.storagePath);
+        }
+        return res;
+      });
+      setPendingUpload(uploadId, wrapped);
+      // Surface the upload error in dev — the user-facing flow falls through to
+      // Step 3's Save handler, which surfaces a friendlier message if the await
+      // there ends up rejecting.
+      wrapped.catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[AddPieceStep2] upload failed:', err);
+      });
+
+      // Fire analyze with the base64 payload. Strip-and-prefix — ImageManipulator
+      // returns just the raw base64 string, but the edge function's image_url
+      // contract takes a data URL. Web sends the FileReader.readAsDataURL output
+      // directly so it includes the prefix; we replicate that for parity.
+      const base64 = resized.base64
+        ? `data:image/jpeg;base64,${resized.base64}`
+        : null;
+      if (!base64) {
+        // ImageManipulator promised a base64 — if it's missing, fall back to the
+        // post-upload storagePath path. Costs ~1-2s but keeps the screen unstuck.
+        const upRes = await uploadPromise;
+        if (!mountedRef.current) return;
+        const fallbackAnalysis = await analyze({ storagePath: upRes.storagePath });
+        if (!mountedRef.current) return;
+        if (!fallbackAnalysis) {
+          setErrorMsg('Could not analyze photo');
+          return;
+        }
+        // Storage is already on disk; pass the path directly so Step 3 doesn't have
+        // to await the pendingUpload promise.
+        dropPendingUpload(uploadId);
+        uploadIdRef.current = null;
+        uploadStorageRef.current = null;
+        nav.navigate('AddPieceStep3', {
+          storagePath: upRes.storagePath,
+          photoUri,
+          analysis: fallbackAnalysis,
+          source,
+        });
         return;
       }
-      storagePathRef.current = storagePath;
-      const analysis = await analyze(storagePath);
-      if (!mountedRef.current) {
-        // User left mid-analyze — orphan cleanup; the cron-cleaned-on-next-save
-        // policy doesn't exist yet, so we delete eagerly.
-        void deleteUpload(storagePath);
-        storagePathRef.current = null;
-        return;
-      }
+
+      const analysis = await analyze({ base64 });
+      if (!mountedRef.current) return;
       if (!analysis) {
-        // useAnalyzeGarment already surfaced the error message internally; mirror it
-        // here so the ErrorState has copy to show without a stale "still uploading" hint.
         setErrorMsg('Could not analyze photo');
         return;
       }
-      // Storage path now belongs to the (about-to-be-saved) garment row — clear the ref
-      // so the unmount/Skip cleanup doesn't try to delete a path that's now referenced.
-      storagePathRef.current = null;
-      // Auto-nav to Step 3 with everything Step 3 needs to render the review form.
+
+      // Hand the upload promise off to Step 3. Storage path is null until upload
+      // completes — Step 3's Save handler will await pendingUpload[uploadId] if
+      // needed. Use the function-local `uploadId` (not uploadIdRef.current):
+      // handleSkip can null the ref synchronously while the unmount that would
+      // normally fire `mountedRef.current = false` has not yet landed, so the
+      // post-await guard above doesn't catch that race. Reading the ref here
+      // would then pass uploadId: undefined to Step 3 and the Save handler
+      // would throw "Upload was lost". Codex round 9 P2 on PR #725.
+      transferredUploadIdRef.current = uploadId;
+      uploadIdRef.current = null;
       nav.navigate('AddPieceStep3', {
-        storagePath,
+        storagePath: null,
+        uploadId,
         photoUri,
         analysis,
         source,
@@ -145,27 +252,37 @@ export function AddPieceStep2() {
     }
   }, [photoUri, user, analyze, nav, source]);
 
-  // Kick off the upload + analyze on mount. Ignored on subsequent renders by inFlightRef.
-  // Cleanup: mark unmounted (cancellation guard for in-flight async) AND drop any
-  // orphaned upload that didn't get attached to a saved garment.
+  // Kick off the parallel analyze + upload on mount. Subsequent renders are gated
+  // by inFlightRef. Cleanup: mark unmounted (cancellation guard for in-flight
+  // async) AND drop any orphaned upload registration that never reached Step 3.
   useEffect(() => {
     mountedRef.current = true;
-    void runUploadAndAnalyze();
+    void runAnalyzeAndUpload();
     return () => {
       mountedRef.current = false;
-      const orphan = storagePathRef.current;
-      storagePathRef.current = null;
-      if (orphan) {
-        void deleteUpload(orphan);
-      }
+      const orphanId = uploadIdRef.current;
+      const orphanStorage = uploadStorageRef.current;
+      const wasTransferred = transferredUploadIdRef.current !== null;
+      uploadIdRef.current = null;
+      uploadStorageRef.current = null;
+      if (orphanId) dropPendingUpload(orphanId);
+      // Only orphan-delete when ownership was NOT handed to Step 3. On the happy
+      // path (Step 2 → Step 3 → Save → nav.reset), the storage path is now
+      // referenced by a saved garment row; deleting it here would break the
+      // garment image. The .then wrapper inside runAnalyzeAndUpload covers the
+      // race where the upload resolves AFTER unmount on a non-transfer flow.
+      // Codex round 4 P1 on PR #725; round 7 P2 switched the gate to per-uploadId
+      // tracking, but uploadStorageRef is only ever written by an active or
+      // transferred attempt (stale ones self-delete in the .then before touching
+      // the shared ref), so the boolean transferred-or-not check on the ref's
+      // owner is sufficient here.
+      if (!wasTransferred && orphanStorage) void deleteUpload(orphanStorage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cycle the phase copy every PHASE_INTERVAL_MS while loading. Stops once errorMsg
-  // is set so the ErrorState body isn't fighting a still-mounted timer. The clamp
-  // pins the "Still working" line as the final state so a slow analyze doesn't look
-  // frozen on the previous "Building your garment…" string.
+  // is set so the ErrorState body isn't fighting a still-mounted timer.
   useEffect(() => {
     if (errorMsg) return;
     const id = setInterval(() => {
@@ -176,17 +293,17 @@ export function AddPieceStep2() {
 
   const isError = !!errorMsg;
   const totalCount = allUris.length;
-  const currentIndex = 1; // Single-photo for W5; future multi-photo loop bumps this.
+  const currentIndex = 1; // Single-photo for now; PR 5 wires the batch loop.
   const hasExtras = totalCount > 1;
 
-  // Skip / Close — clean up the orphan upload (if any) before bouncing out so the
-  // user's bucket doesn't accumulate dead JPEGs from abandoned flows.
+  // Skip / Close — drop the upload registration before bouncing out. The in-flight
+  // upload may still resolve in the background; the unmount cleanup handles
+  // deletion if the storagePath becomes available before the component fully tears
+  // down.
   const handleSkip = () => {
-    const orphan = storagePathRef.current;
-    storagePathRef.current = null;
-    if (orphan) {
-      void deleteUpload(orphan);
-    }
+    const orphanId = uploadIdRef.current;
+    uploadIdRef.current = null;
+    if (orphanId) dropPendingUpload(orphanId);
     nav.navigate('MainTabs');
   };
 
@@ -214,7 +331,7 @@ export function AddPieceStep2() {
         <ErrorState
           title="Couldn't analyze your photo"
           body={errorMsg ?? 'Try again or pick a different photo.'}
-          onRetry={() => void runUploadAndAnalyze()}
+          onRetry={() => void runAnalyzeAndUpload()}
         />
       ) : (
         <View style={s.loadingWrap}>

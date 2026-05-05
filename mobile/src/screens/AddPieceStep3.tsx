@@ -14,7 +14,7 @@
 // Multi-photo (W9 follow-up): the piece-selector strip is gone in W5. When multi-photo
 // lands, the strip returns and Save loops back to Step 2 with the next photo.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -37,8 +37,15 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
+import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
 import { useAddGarment } from '../hooks/useAddGarment';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
+import { deleteUpload } from '../lib/imageUpload';
+import {
+  dropPendingUpload,
+  takePendingUpload,
+  type PendingUploadPromise,
+} from '../lib/pendingUpload';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -67,6 +74,116 @@ export function AddPieceStep3() {
   const params = route.params;
   const addGarment = useAddGarment();
   const [titleOverride, setTitleOverride] = useState<string>(params?.analysis.title ?? '');
+  const [choiceOpen, setChoiceOpen] = useState(false);
+  // In-flight guard for the entire save flow — covers the pre-mutation upload
+  // await window where `addGarment.isPending` is still false. Without this, a
+  // user could reopen the sheet and tap again while the first call is still
+  // waiting on the upload promise; both paths would then execute mutateAsync
+  // in parallel (TanStack Query has no default same-mutation serialization)
+  // and create duplicate garment rows + duplicate render/enrichment side
+  // effects. Codex P1 on PR #725.
+  //
+  // Ref + state pair: the ref is the source of truth for reentrancy (state
+  // setters are async, so two double-taps fired in the same tick both see the
+  // stale `isSaving === false` snapshot). The state mirrors the ref so the
+  // sheet + Save button can disable themselves on rerender.
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  // Pending-upload promise pulled out of the global registry on first read so the
+  // sheet's two paths (Studio / Original) share a single resolution. `take` deletes
+  // the entry from the module on first read; we cache it here in case the user
+  // taps Cancel and then opens the sheet again.
+  const uploadPromiseRef = useRef<PendingUploadPromise | null>(null);
+  // Tracks whether a save successfully landed. Used by the unmount cleanup to
+  // distinguish "user backed out / re-scanned" (delete the orphan) from "save
+  // succeeded → nav.reset → unmount" (don't touch — the saved garment row owns
+  // the storage object now). Codex round 5 P2 on PR #725.
+  const savedRef = useRef(false);
+  // Deferred cleanup callback. Set by the unmount handler IF the user navigates
+  // away while a save is in flight. handleSave's finally invokes it after
+  // savingRef has been cleared and savedRef reflects the outcome — runCleanup
+  // is internally guarded by savedRef, so a successful save no-ops it; a
+  // failed save runs the orphan-delete path. Codex round 10 P2 on PR #725.
+  const pendingCleanupRef = useRef<(() => void) | null>(null);
+
+  // Resolve the deferred storagePath if Step 2 navigated us here before the
+  // upload landed. Idempotent — repeat calls return the cached promise.
+  const getUploadPromise = (): PendingUploadPromise | null => {
+    if (uploadPromiseRef.current) return uploadPromiseRef.current;
+    if (!params?.uploadId) return null;
+    const promise = takePendingUpload(params.uploadId);
+    if (promise) uploadPromiseRef.current = promise;
+    return uploadPromiseRef.current;
+  };
+
+  // Unmount cleanup: drop any pending-upload entry the user never consumed and
+  // best-effort delete the storage object if it had already landed. Without this
+  // a back-out / re-scan / nav.reset-without-save would leave the entry in the
+  // module map for the app's lifetime AND leak a JPEG in the user's bucket.
+  // savedRef gates the storage delete — on the happy save path, nav.reset
+  // unmounts Step 3 too, but we MUST NOT delete the file the saved garment row
+  // now references.
+  //
+  // Codex round 6 P1: if the user backs out before getUploadPromise() ever ran
+  // (e.g. immediately taps Re-scan on entering Step 3), uploadPromiseRef is
+  // still null — `dropPendingUpload` would just remove the Map entry without
+  // ever attaching a delete handler, so the in-flight upload would land and
+  // its storage object would leak. We need to TAKE the promise (not just drop)
+  // so we can chain .then(deleteUpload) before letting the cleanup return.
+  useEffect(() => {
+    const uploadId = params?.uploadId;
+    // Capture the direct storagePath at mount — Step 2's base64-fallback path
+    // navigates with `storagePath` populated and no `uploadId` (line 213-219 of
+    // AddPieceStep2.tsx). On that flow neither the pendingUpload registry nor
+    // the cached promise references the file, so a back-out without save would
+    // leak the JPEG forever. Codex round 8 P2 on PR #725.
+    const directStoragePath = params?.storagePath ?? null;
+    return () => {
+      // Build the orphan-delete work as a closure so we can either run it now
+      // (no save in flight) or defer it until the save settles. The closure
+      // re-checks savedRef at invocation time so a successful save no-ops it.
+      const runCleanup = () => {
+        if (savedRef.current) return;
+        // Prefer the cached promise; fall back to taking from the registry if
+        // nobody read it yet (early-exit path). takePendingUpload is idempotent
+        // — a no-op if Step 2 already cleared the entry on its own unmount path
+        // (shouldn't happen since Step 2 only clears on non-transfer flows).
+        let promise = uploadPromiseRef.current;
+        if (!promise && uploadId) {
+          promise = takePendingUpload(uploadId) ?? null;
+        } else if (uploadId) {
+          // We did consume earlier — make sure the registry entry isn't stranded
+          // (takePendingUpload already deletes on consumption, but a defensive
+          // drop here protects against future wiring changes in the registry).
+          dropPendingUpload(uploadId);
+        }
+        if (promise) {
+          promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
+        } else if (directStoragePath) {
+          // Direct-path arrival (base64-fallback in Step 2): the file is already
+          // in storage and there's no promise to await. Delete it eagerly.
+          void deleteUpload(directStoragePath);
+        }
+      };
+      // Codex round 10 P2 on PR #725: if a save is in flight when the user
+      // navigates away (back / re-scan), defer cleanup to handleSave's finally
+      // instead of running it now. Round 7's eager early-return left the file
+      // orphaned forever when the save subsequently failed; round 10 splits
+      // the two phases so:
+      //   - mid-save unmount + save success → savedRef=true, deferred no-ops
+      //   - mid-save unmount + save failure → finally runs deferred runCleanup
+      //   - no save in flight → run cleanup immediately (back-out / re-scan)
+      if (savingRef.current) {
+        pendingCleanupRef.current = runCleanup;
+        return;
+      }
+      runCleanup();
+    };
+    // params?.uploadId / storagePath are stable for the lifetime of this screen
+    // instance — React Navigation creates a new instance on re-entry, so
+    // capturing once on mount is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Defensive guard — without route params the screen has nothing to render. Bounce
   // the user back to Step 1 instead of crashing on `params.analysis.title`.
@@ -100,20 +217,63 @@ export function AddPieceStep3() {
     if (m.includes('not authenticated')) {
       return 'Please sign in again before saving.';
     }
+    if (m.includes('upload was lost') || m.includes('re-add')) {
+      return 'The upload didn’t finish. Tap Re-scan to try again.';
+    }
     return 'Could not save. Please try again.';
   };
 
-  const handleSave = async () => {
+  const handleSave = async (enableStudioQuality: boolean) => {
+    // Reentrancy guard — if a prior tap is still resolving the upload await OR
+    // running mutateAsync, drop this call. Ref check (not state) because two
+    // taps in the same tick both see the same stale isSaving snapshot before
+    // React rerenders.
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setIsSaving(true);
     hapticLight();
+    setChoiceOpen(false);
     try {
+      // Resolve the storagePath. If Step 2 already finished its upload, the param
+      // is populated and we save immediately. If not, await the in-flight upload
+      // before calling useAddGarment — analyze had a head start, so the wait is
+      // typically <500ms by the time the user has reviewed the form.
+      let resolvedPath = storagePath;
+      if (!resolvedPath) {
+        const promise = getUploadPromise();
+        if (!promise) {
+          throw new Error('Upload was lost — please re-add this piece.');
+        }
+        try {
+          const upRes = await promise;
+          resolvedPath = upRes.storagePath;
+        } catch (uploadErr) {
+          // Codex round 11 P2 on PR #725: a failed upload poisons
+          // uploadPromiseRef — a subsequent Save tap would re-await the same
+          // rejected promise and fail identically. Clear the cached promise so
+          // the next Save attempt's getUploadPromise() returns null and we
+          // surface "Upload was lost" (which friendlySaveError now maps to a
+          // re-scan prompt). The registry entry was already consumed by
+          // takePendingUpload on the first read, so no extra cleanup needed.
+          uploadPromiseRef.current = null;
+          throw uploadErr;
+        }
+      }
+
       const garment = await addGarment.mutateAsync({
-        storagePath,
+        storagePath: resolvedPath,
         analysis,
         source,
+        enableStudioQuality,
         title: titleOverride.trim() || analysis.title,
         category: analysis.category,
       });
       hapticSuccess();
+      // Mark saved BEFORE nav.reset — once the navigator unmounts this screen,
+      // the cleanup effect runs synchronously and reads savedRef. Setting it true
+      // first prevents the cleanup from deleting the storage object the saved
+      // garment row now references.
+      savedRef.current = true;
       // index: 1 makes GarmentDetail the active screen, with MainTabs in the back stack
       // so the swipe-back gesture lands on the home tab. (index: 0 with two routes would
       // surface MainTabs and stash GarmentDetail under it — wrong UX.)
@@ -126,8 +286,31 @@ export function AddPieceStep3() {
       });
     } catch (err) {
       Alert.alert('Save failed', friendlySaveError(err));
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+      // Codex round 10 P2: if the user unmounted Step 3 while this save was in
+      // flight, the cleanup effect parked a closure here instead of running
+      // it. Invoke it now — runCleanup is internally guarded by savedRef, so
+      // a successful save no-ops, and a failed save runs the orphan delete.
+      const deferred = pendingCleanupRef.current;
+      if (deferred) {
+        pendingCleanupRef.current = null;
+        deferred();
+      }
     }
   };
+
+  const openChoiceSheet = () => {
+    if (isSaving) return;
+    hapticLight();
+    setChoiceOpen(true);
+  };
+
+  // Either flag covers a different phase: isSaving spans the upload-await window;
+  // addGarment.isPending spans the mutateAsync round-trip. Both must keep the UI
+  // disabled to fully cover the race surface.
+  const saveBusy = isSaving || addGarment.isPending;
 
   // "Re-scan" pops back to Step 1 instead of nav.goBack() to Step 2 — Step 2 keeps its
   // post-success state in the back stack (idle render with no in-flight work), so a
@@ -319,13 +502,21 @@ export function AddPieceStep3() {
           </Text>
         </View>
         <Button
-          label={addGarment.isPending ? 'Saving…' : 'Save'}
-          onPress={handleSave}
-          disabled={addGarment.isPending}
-          accessibilityLabel={addGarment.isPending ? 'Saving garment' : 'Save garment'}
-          accessibilityState={{ busy: addGarment.isPending, disabled: addGarment.isPending }}
+          label={saveBusy ? 'Saving…' : 'Save'}
+          onPress={openChoiceSheet}
+          disabled={saveBusy}
+          accessibilityLabel={saveBusy ? 'Saving garment' : 'Save garment'}
+          accessibilityState={{ busy: saveBusy, disabled: saveBusy }}
         />
       </View>
+
+      <GarmentSaveChoiceSheet
+        open={choiceOpen}
+        isSaving={saveBusy}
+        onClose={() => setChoiceOpen(false)}
+        onSelectStudio={() => void handleSave(true)}
+        onSelectOriginal={() => void handleSave(false)}
+      />
     </SafeAreaView>
   );
 }

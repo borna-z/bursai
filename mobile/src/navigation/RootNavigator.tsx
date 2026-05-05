@@ -91,6 +91,24 @@ export type AnalysisResultParam = {
   confidence: number;
   ai_provider?: string | null;
   ai_raw?: Record<string, unknown> | null;
+  // Forwarded for PR 3's MultiGarmentReviewSheet — included on the param shape
+  // now so the route signature is stable across the PR sequence (no breaking
+  // change at PR 3 boundary). Both fields are optional; analyze in `fast` mode
+  // generally returns a single garment with the flag false.
+  image_contains_multiple_garments?: boolean;
+  detected_garments?: Array<{
+    title: string;
+    category: string;
+    subcategory?: string | null;
+    color_primary: string;
+    color_secondary?: string | null;
+    pattern?: string | null;
+    material?: string | null;
+    fit?: string | null;
+    season_tags?: string[] | null;
+    formality?: number | null;
+    confidence?: number | null;
+  }>;
 };
 
 export type RootStackParamList = {
@@ -113,8 +131,15 @@ export type RootStackParamList = {
     allUris: string[];
     source?: 'add_photo' | 'live_scan';
   } | undefined;
+  // `storagePath` is nullable so Step 2 can forward the user to Step 3 before the
+  // background upload settles (parallel analyze + upload). When null, Step 3 awaits
+  // the in-flight upload via `uploadId` against the pendingUpload module before
+  // calling useAddGarment. Old callers that already have a finished upload (e.g.
+  // a PR-3 duplicate-detection redirect) can still pass a populated storagePath
+  // and omit uploadId.
   AddPieceStep3: {
-    storagePath: string;
+    storagePath: string | null;
+    uploadId?: string;
     photoUri: string;
     analysis: AnalysisResultParam;
     source: 'add_photo' | 'live_scan';
