@@ -121,7 +121,15 @@ export function WardrobeGapsScreen() {
     [gaps],
   );
 
-  const heroCount = analyzed ? gapDisplays.length : '—';
+  // Codex P2: cached gaps must hide when the wardrobe drops below the
+  // threshold. The React Query cache persists across mounts, so a delete that
+  // takes the user under 5 garments would otherwise leave the stale gap list
+  // rendered while the caption tells them to add more pieces — contradictory
+  // UX. Gating the display (not the cache) keeps the count cheap to recover
+  // if the user adds garments back.
+  const showCachedAnalysis = hasEnoughGarments && analyzed;
+  const heroCount = showCachedAnalysis ? gapDisplays.length : '—';
+  const heroPiecesPluralized = showCachedAnalysis && gapDisplays.length === 1 ? '' : 's';
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -156,7 +164,7 @@ export function WardrobeGapsScreen() {
                   letterSpacing: -0.3,
                 }}>
                 <Text style={{ color: t.accent }}>{heroCount}</Text> key piece
-                {gapDisplays.length === 1 ? '' : 's'}
+                {heroPiecesPluralized}
               </Text>
               <Caption style={{ marginTop: 8, marginBottom: 14, lineHeight: 18 }}>
                 {hasEnoughGarments
@@ -182,7 +190,7 @@ export function WardrobeGapsScreen() {
               </View>
             ) : null}
 
-            {!isLoading && analyzed && gapDisplays.length === 0 ? (
+            {!isLoading && showCachedAnalysis && gapDisplays.length === 0 ? (
               <View style={s.stateWrap}>
                 <PageTitle size={22}>No gaps found</PageTitle>
                 <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
@@ -191,7 +199,7 @@ export function WardrobeGapsScreen() {
               </View>
             ) : null}
 
-            {!isLoading && analyzed && gapDisplays.length > 0 ? (
+            {!isLoading && showCachedAnalysis && gapDisplays.length > 0 ? (
               <View style={[s.gapList, { backgroundColor: t.card, borderColor: t.border }]}>
                 {gapDisplays.map((g, i) => {
                   const palette = priorityPalette(g.priority);
