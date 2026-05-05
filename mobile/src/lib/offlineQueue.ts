@@ -61,6 +61,13 @@ const handlers = new Map<string, Handler>();
 let queue: QueueItem[] = [];
 let hydrated = false;
 let hydrating: Promise<void> | null = null;
+// Single-flight replay guard. Concurrent callers (the mount kick and a
+// NetInfo connectivity-restored callback firing back-to-back) used to
+// snapshot the same queue and double-process every item — duplicate
+// garment rows + duplicate render-job enqueues. While a replay is in
+// flight, subsequent callers receive that same promise instead of
+// starting a fresh pass. Codex P1 round 1 on PR #732.
+let replayInFlight: Promise<ReplayResult> | null = null;
 
 const subscribers = new Set<() => void>();
 function emitChange(): void {
@@ -156,8 +163,24 @@ export async function enqueue<P>(action: string, payload: P): Promise<QueueItem<
  * Items whose action has no registered handler are dropped immediately —
  * an orphaned action type can't be processed and parking it in the queue
  * forever serves nobody.
+ *
+ * Single-flight: concurrent callers receive the in-flight promise instead
+ * of starting a parallel replay (which would double-process snapshots and
+ * duplicate garment rows). Codex P1 round 1 on PR #732.
  */
-export async function replay(): Promise<ReplayResult> {
+export function replay(): Promise<ReplayResult> {
+  if (replayInFlight) return replayInFlight;
+  replayInFlight = (async () => {
+    try {
+      return await runReplay();
+    } finally {
+      replayInFlight = null;
+    }
+  })();
+  return replayInFlight;
+}
+
+async function runReplay(): Promise<ReplayResult> {
   await hydrate();
   if (queue.length === 0) {
     return { succeeded: 0, failed: 0, remaining: 0 };

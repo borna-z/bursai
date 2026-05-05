@@ -38,6 +38,7 @@ import {
   clearQueue as clearOfflineQueue,
 } from '../lib/offlineQueue';
 import {
+  isOnlineNow,
   persistGarment,
   type AddGarmentParams,
 } from '../lib/garmentSave';
@@ -245,7 +246,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // had survivors from a previous session AND NetInfo's "online" event
     // never fires (because we already landed online). NetInfo's event
     // listener only emits on transitions, not on the steady state.
-    void replayOfflineQueue().catch(() => {});
+    //
+    // Codex P2 round 1: gate this mount kick on connectivity. A cold-start
+    // while offline would otherwise consume one of each item's 3 retry
+    // attempts on every launch, dropping items after 3 offline cold-starts
+    // even though they never had a real shot at syncing. The NetInfo
+    // listener below picks them up the moment we transition to online.
+    void (async () => {
+      if (await isOnlineNow()) {
+        void replayOfflineQueue().catch(() => {});
+      }
+    })();
 
     const unsub = NetInfo.addEventListener((state) => {
       const online =
