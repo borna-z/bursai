@@ -248,12 +248,17 @@ export function AddPieceStep2() {
       mountedRef.current = false;
       const orphanId = uploadIdRef.current;
       const orphanStorage = uploadStorageRef.current;
+      const transferred = ownerTransferredRef.current;
       uploadIdRef.current = null;
       uploadStorageRef.current = null;
       if (orphanId) dropPendingUpload(orphanId);
-      // If the upload already wrote to storage by the time the user bailed,
-      // best-effort delete to keep the bucket tidy.
-      if (orphanStorage) void deleteUpload(orphanStorage);
+      // Only orphan-delete when ownership was NOT handed to Step 3. On the happy
+      // path (Step 2 → Step 3 → Save → nav.reset), the storage path is now
+      // referenced by a saved garment row; deleting it here would break the
+      // garment image. The .then wrapper inside runAnalyzeAndUpload covers the
+      // race where the upload resolves AFTER unmount on a non-transfer flow.
+      // Codex round 4 P1 on PR #725.
+      if (!transferred && orphanStorage) void deleteUpload(orphanStorage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
