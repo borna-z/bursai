@@ -126,6 +126,12 @@ export function AddPieceStep3() {
   // so we can chain .then(deleteUpload) before letting the cleanup return.
   useEffect(() => {
     const uploadId = params?.uploadId;
+    // Capture the direct storagePath at mount — Step 2's base64-fallback path
+    // navigates with `storagePath` populated and no `uploadId` (line 213-219 of
+    // AddPieceStep2.tsx). On that flow neither the pendingUpload registry nor
+    // the cached promise references the file, so a back-out without save would
+    // leak the JPEG forever. Codex round 8 P2 on PR #725.
+    const directStoragePath = params?.storagePath ?? null;
     return () => {
       // Codex round 7 P1: skip cleanup while a save is in flight. handleSave
       // resolves storagePath, then awaits mutateAsync — if the user backs out
@@ -151,11 +157,15 @@ export function AddPieceStep3() {
       }
       if (promise) {
         promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
+      } else if (directStoragePath) {
+        // Direct-path arrival (base64-fallback in Step 2): the file is already
+        // in storage and there's no promise to await. Delete it eagerly.
+        void deleteUpload(directStoragePath);
       }
     };
-    // params?.uploadId is stable for the lifetime of this screen instance —
-    // React Navigation creates a new instance on re-entry, so capturing once on
-    // mount is correct.
+    // params?.uploadId / storagePath are stable for the lifetime of this screen
+    // instance — React Navigation creates a new instance on re-entry, so
+    // capturing once on mount is correct.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
