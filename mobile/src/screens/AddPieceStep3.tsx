@@ -217,6 +217,9 @@ export function AddPieceStep3() {
     if (m.includes('not authenticated')) {
       return 'Please sign in again before saving.';
     }
+    if (m.includes('upload was lost') || m.includes('re-add')) {
+      return 'The upload didn’t finish. Tap Re-scan to try again.';
+    }
     return 'Could not save. Please try again.';
   };
 
@@ -241,8 +244,20 @@ export function AddPieceStep3() {
         if (!promise) {
           throw new Error('Upload was lost — please re-add this piece.');
         }
-        const upRes = await promise;
-        resolvedPath = upRes.storagePath;
+        try {
+          const upRes = await promise;
+          resolvedPath = upRes.storagePath;
+        } catch (uploadErr) {
+          // Codex round 11 P2 on PR #725: a failed upload poisons
+          // uploadPromiseRef — a subsequent Save tap would re-await the same
+          // rejected promise and fail identically. Clear the cached promise so
+          // the next Save attempt's getUploadPromise() returns null and we
+          // surface "Upload was lost" (which friendlySaveError now maps to a
+          // re-scan prompt). The registry entry was already consumed by
+          // takePendingUpload on the first read, so no extra cleanup needed.
+          uploadPromiseRef.current = null;
+          throw uploadErr;
+        }
       }
 
       const garment = await addGarment.mutateAsync({
