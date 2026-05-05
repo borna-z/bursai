@@ -273,13 +273,22 @@ export function AddPieceStep3() {
   // Surface the modal once per match: track which garment_id we've already
   // shown a prompt for so editing the title (which fires a fresh query) doesn't
   // re-pop the modal after the user already chose "Add anyway".
+  //
+  // Codex P2 round 4: if the duplicate query resolves AFTER the user has
+  // already opened the save sheet and started handleSave, popping the modal
+  // creates a race — "View existing" would nav.reset to the cached garment
+  // while the in-flight mutateAsync still inserts a new (duplicate) row and
+  // handleSave's onSuccess nav.reset competes with ours. Suppress the prompt
+  // once save is in flight, and hide an already-open modal via the visible
+  // gate below.
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const duplicateAcknowledgedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!duplicateMatch) return;
+    if (savingRef.current || addGarment.isPending) return;
     if (duplicateAcknowledgedRef.current === duplicateMatch.garment_id) return;
     setDuplicateModalOpen(true);
-  }, [duplicateMatch]);
+  }, [duplicateMatch, addGarment.isPending]);
 
   // Defensive guard — without route params the screen has nothing to render. Bounce
   // the user back to Step 1 instead of crashing on `params.analysis.title`.
@@ -646,7 +655,7 @@ export function AddPieceStep3() {
       />
 
       <Modal
-        visible={duplicateModalOpen && !!duplicateMatch}
+        visible={duplicateModalOpen && !!duplicateMatch && !saveBusy}
         transparent
         animationType="fade"
         onRequestClose={() => dismissDuplicate(false)}>
