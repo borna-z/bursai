@@ -83,7 +83,7 @@ export function UnusedOutfitsScreen() {
         </View>
       </View>
       <Caption style={{ paddingHorizontal: 20, paddingTop: 4, lineHeight: 18 }}>
-        Garments you haven't worn in the last 30 days — reshuffle a look around one of them.
+        Garments you haven&rsquo;t worn in the last 30 days — reshuffle a look around one of them.
       </Caption>
       <ScrollView
         horizontal
@@ -128,7 +128,7 @@ export function UnusedOutfitsScreen() {
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         {header}
         <View style={s.emptyWrap}>
-          <PageTitle size={22}>Everything's been worn lately</PageTitle>
+          <PageTitle size={22}>Everything&rsquo;s been worn lately</PageTitle>
           <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
             Nothing in this category has been left on the rail.
           </Caption>

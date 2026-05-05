@@ -447,7 +447,7 @@ export function AddPieceStep3() {
               ['Material', titleCase(analysis.material)],
               ['Pattern', titleCase(analysis.pattern)],
               ['Fit', titleCase(analysis.fit)],
-            ] as Array<[string, string]>
+            ] as [string, string][]
           ).map(([label, value]) => (
             <View
               key={label}

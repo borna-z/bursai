@@ -183,7 +183,6 @@ export function AddPieceStep2() {
       // Step 3's Save handler, which surfaces a friendlier message if the await
       // there ends up rejecting.
       wrapped.catch((err) => {
-        // eslint-disable-next-line no-console
         console.warn('[AddPieceStep2] upload failed:', err);
       });
 

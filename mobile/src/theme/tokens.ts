@@ -22,6 +22,14 @@ export type ThemeTokens = {
   accentDeep: string;
   accentFg: string;
   accentSoft: string;
+  /** Destructive action color (used for delete buttons, error text, signout). */
+  destructive: string;
+  /** Soft destructive tint (used for destructive backgrounds, hover states). */
+  destructiveSoft: string;
+  /** Backdrop scrim behind sheets / modals — semi-opaque dark overlay. */
+  scrimBg: string;
+  /** Foreground text/icon color on a scrim. */
+  scrimFg: string;
   shadowSm: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
   shadow: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
 };
@@ -40,6 +48,10 @@ export const light: ThemeTokens = {
   accentDeep: '#7C5A23', // accent darkened ~28% — bottom stop of FAB / "accent → deeper" gradients
   accentFg: '#FFFFFF',
   accentSoft: 'rgba(173,129,55,0.12)',
+  destructive:     '#B5432A', // warm clay-red, in-palette with the gold accent
+  destructiveSoft: 'rgba(181,67,42,0.12)',
+  scrimBg:         'rgba(17,16,14,0.58)', // bg-dark @ 58% — backdrop behind sheets
+  scrimFg:         '#FBF7EF',             // matches `card` from the dark theme
   shadowSm: { color: '#1C1917', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.04 },
   shadow:   { color: '#1C1917', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.08 },
 };
@@ -58,6 +70,10 @@ export const dark: ThemeTokens = {
   accentDeep: '#93764D', // same ~28% darkening recipe applied to dark accent
   accentFg: '#17140F',
   accentSoft: 'rgba(205,165,108,0.14)',
+  destructive:     '#D86A52', // lifted clay-red so it reads on the dark bg
+  destructiveSoft: 'rgba(216,106,82,0.16)',
+  scrimBg:         'rgba(0,0,0,0.72)',    // deeper scrim on dark — fg under it stays readable
+  scrimFg:         '#F4ECDD',             // matches `fg` from the dark theme
   shadowSm: { color: '#000000', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.4 },
   shadow:   { color: '#000000', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.4 },
 };

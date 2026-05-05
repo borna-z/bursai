@@ -64,7 +64,7 @@ export function SettingsNotificationsScreen() {
           </View>
         </View>
 
-        <Caption>What you'd like BURS to ping you about.</Caption>
+        <Caption>What you&rsquo;d like BURS to ping you about.</Caption>
 
         {/* ============ TOGGLES ============ */}
         <Card padding={4}>

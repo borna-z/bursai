@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type AccessibilityState, type StyleProp, type ViewStyle } from 'react-native';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 
@@ -16,6 +16,8 @@ export function Button({
   leadingIcon,
   trailingIcon,
   style,
+  accessibilityLabel,
+  accessibilityState,
 }: {
   label: string;
   onPress?: () => void;
@@ -26,6 +28,8 @@ export function Button({
   leadingIcon?: React.ReactNode;
   trailingIcon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+  accessibilityState?: AccessibilityState;
 }) {
   const t = useTokens();
 
@@ -48,6 +52,9 @@ export function Button({
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={accessibilityState}
       style={({ pressed }) => [
         {
           height: dims.height,

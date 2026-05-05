@@ -9,21 +9,57 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import type { TabId } from '../components/BottomNav';
+import type { MoodId } from '../components/MoodCard';
+import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
+import type { AddGarmentSource } from '../hooks/useAddGarment';
 
 export type TabName = TabId;
+
+/**
+ * Shape of a single staged photo in the AddPiece flow.
+ * id = monotonic counter so two photos in the same ms don't collide;
+ * hue is the HSL gradient seed for the placeholder card before upload.
+ */
+export type AddPiecePhoto = {
+  id: number;
+  hue: number;
+  uri: string;
+};
+
+/** Wardrobe filter selection — passed both to and from the Filters sheet. */
+export type WardrobeFilters = {
+  categories: string[];
+  colors: string[];
+  materials: string[];
+  fits: string[];
+  seasons: string[];
+  sort: string;
+};
 
 export type RootStackParamList = {
   MainTabs: { initialTab?: TabId } | undefined;
 
+  // Auth + onboarding shell
+  Auth: undefined;
+  Onboarding: undefined;
+  Paywall: undefined;
+
   // Add piece flow (3 steps)
   AddPieceStep1: undefined;
-  AddPieceStep2: undefined;
-  AddPieceStep3: undefined;
+  AddPieceStep2: { photoUri: string; allUris: string[]; source: AddGarmentSource };
+  AddPieceStep3: {
+    storagePath: string | null;
+    uploadId?: string;
+    photoUri: string;
+    analysis: AnalysisResult;
+    source: AddGarmentSource;
+  };
   LiveScan: undefined;
 
   // Outfit / garment / sharing
   Outfits: undefined;
   OutfitDetail: { id?: string } | undefined;
+  OutfitGenerate: { garmentId?: string } | undefined;
   EditGarment: { id?: string } | undefined;
   GarmentDetail: { id?: string } | undefined;
   ShareOutfit: { id?: string } | undefined;
@@ -32,8 +68,8 @@ export type RootStackParamList = {
   // Stylist / mood / occasion
   StyleChat: undefined;
   StyleMe: undefined;
-  MoodOutfit: undefined;
-  MoodFlow: undefined;
+  MoodOutfit: { moodId?: MoodId; time?: string } | undefined;
+  MoodFlow: { moodId: MoodId; time: string };
 
   // Travel capsule wizard
   TravelCapsule: undefined;
@@ -63,7 +99,7 @@ export type RootStackParamList = {
 
   // Search / filters
   Search: undefined;
-  Filters: undefined;
+  Filters: { initial?: WardrobeFilters; onApply?: (next: WardrobeFilters) => void } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -79,11 +115,17 @@ const placeholder = (eyebrow: string, title: string, body?: string) => {
 };
 
 const Placeholders = {
+  // Auth + onboarding shell
+  Auth: placeholder('Account', 'Sign in', 'Auth flow placeholder.'),
+  Onboarding: placeholder('Welcome', 'Get started', 'Onboarding placeholder.'),
+  Paywall: placeholder('Premium', 'Upgrade', 'Paywall placeholder.'),
+
   // Add piece flow
   AddPieceStep1: placeholder('New garment', 'Add pieces', 'Step 1 — choose source + multi-photo grid. Coming next.'),
   AddPieceStep2: placeholder('Step 2 of 3', 'Analyzing', 'Per-item progress + counter. Coming next.'),
   AddPieceStep3: placeholder('Step 3 of 3', 'Confirm batch', 'Piece selector + form fields + sticky save. Coming next.'),
   LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
+  OutfitGenerate: placeholder('Generate', 'New outfit', 'Outfit generation placeholder.'),
 
   // Outfit / garment / sharing
   Outfits: placeholder('Looks', 'Your outfits'),
@@ -141,11 +183,21 @@ export function RootNavigator() {
       }}>
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
+      {/* Auth + onboarding shell — kept as PlaceholderScreen to match the
+          file's existing 32-route placeholder pattern. Real `AuthScreen`,
+          `OnboardingScreen`, `PaywallScreen` implementations live under
+          `mobile/src/screens/` and will be wired in a follow-up screen-
+          mounting pass alongside the other ready-to-mount screens. */}
+      <Stack.Screen name="Auth" component={Placeholders.Auth} />
+      <Stack.Screen name="Onboarding" component={Placeholders.Onboarding} />
+      <Stack.Screen name="Paywall" component={Placeholders.Paywall} />
+
       {/* Add piece flow */}
       <Stack.Screen name="AddPieceStep1" component={Placeholders.AddPieceStep1} />
       <Stack.Screen name="AddPieceStep2" component={Placeholders.AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={Placeholders.AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
+      <Stack.Screen name="OutfitGenerate" component={Placeholders.OutfitGenerate} />
 
       {/* Outfit / garment / sharing */}
       <Stack.Screen name="Outfits" component={Placeholders.Outfits} />

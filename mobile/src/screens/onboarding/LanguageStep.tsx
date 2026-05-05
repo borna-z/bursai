@@ -19,7 +19,7 @@ export type LanguageCode = 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa'
 
 type LanguageEntry = { code: LanguageCode; name: string; flag: string };
 
-const LANGUAGES: ReadonlyArray<LanguageEntry> = [
+const LANGUAGES: readonly LanguageEntry[] = [
   { code: 'en', name: 'English',    flag: '🇬🇧' },
   { code: 'sv', name: 'Svenska',    flag: '🇸🇪' },
   { code: 'fr', name: 'Français',   flag: '🇫🇷' },

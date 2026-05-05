@@ -14,10 +14,12 @@
 import React from 'react';
 import * as Localization from 'expo-localization';
 
+import { en } from '../i18n/en';
+
 export type Locale =
   | 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
 
-const SUPPORTED_LOCALES: ReadonlyArray<Locale> = [
+const SUPPORTED_LOCALES: readonly Locale[] = [
   'en', 'sv', 'fr', 'de', 'es', 'it', 'ar', 'fa', 'pl', 'pt',
 ];
 
@@ -65,8 +67,6 @@ function interpolate(template: string, params?: TranslationParams): string {
     return v === undefined ? `{${key}}` : String(v);
   });
 }
-
-import { en } from '../i18n/en';
 
 const DICTIONARIES: Record<Locale, Record<string, string>> = {
   en,

@@ -222,7 +222,6 @@ export async function triggerGarmentEnrichment(
       .update({ enrichment_status: status })
       .eq('id', garmentId);
     if (error) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[triggerGarmentEnrichment] status='${status}' write failed for ${garmentId}: ${error.message}`,
       );
@@ -277,7 +276,6 @@ export async function triggerGarmentEnrichment(
       .eq('id', garmentId)
       .single();
     if (fetchErr || !existing) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[triggerGarmentEnrichment] ai_raw read failed for ${garmentId}: ${fetchErr?.message ?? 'no row'}`,
       );
@@ -325,7 +323,6 @@ export async function triggerGarmentEnrichment(
     // gets a signal we can monitor post-launch.
     const { error: updateErr } = await supabase.from('garments').update(updates).eq('id', garmentId);
     if (updateErr) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[triggerGarmentEnrichment] enrichment update failed for ${garmentId}: ${updateErr.message}`,
       );

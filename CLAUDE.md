@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | V0 — CI/CD foundations |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m-v0-ci-foundations.md` |
+| **CURRENT WAVE** | M1 — Render polling |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m1-render-polling.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

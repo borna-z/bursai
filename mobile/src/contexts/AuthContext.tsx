@@ -312,7 +312,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       subData.subscription.unsubscribe();
     };
-  }, []);
+    // queryClient is referentially stable across renders (it comes from the
+    // QueryClientProvider mounted once at app root), so listing it as a dep
+    // doesn't re-fire this effect — but the lint rule needs to see it.
+  }, [queryClient]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignResult> => {
     const { error } = await supabase.auth.signInWithPassword({

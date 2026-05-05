@@ -58,7 +58,11 @@ export function OutfitsScreen() {
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid');
 
   const outfitsQ = useOutfits(true);
-  const outfits = outfitsQ.data ?? [];
+  // Memoise the fallback so the `outfits` reference is stable across renders
+  // when the query has no data yet — avoids re-running the `visible` useMemo
+  // on every render (react-hooks/exhaustive-deps would otherwise warn that the
+  // `?? []` literal is a fresh reference each render).
+  const outfits = React.useMemo<OutfitWithItems[]>(() => outfitsQ.data ?? [], [outfitsQ.data]);
   const loading = outfitsQ.isLoading;
   const refreshing = outfitsQ.isRefetching;
   const error = outfitsQ.isError;

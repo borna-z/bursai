@@ -39,7 +39,7 @@ type Option = {
   recommended?: boolean;
 };
 
-const OPTIONS: ReadonlyArray<Option> = [
+const OPTIONS: readonly Option[] = [
   {
     id: 'ghost_mannequin',
     titleKey: 'studio.option.ghost.title',

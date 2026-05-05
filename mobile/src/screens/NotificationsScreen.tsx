@@ -174,7 +174,7 @@ export function NotificationsScreen() {
               All quiet
             </Text>
             <Caption style={{ textAlign: 'center', marginTop: 6, maxWidth: 240 }}>
-              No notifications yet. We'll ping you when there's something worth your eyes.
+              No notifications yet. We&rsquo;ll ping you when there&rsquo;s something worth your eyes.
             </Caption>
           </View>
         </ScrollView>

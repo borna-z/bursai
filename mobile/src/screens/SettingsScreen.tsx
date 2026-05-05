@@ -9,13 +9,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts } from '../theme/tokens';
+import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { radii } from '../theme/tokens';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { useAuth } from '../hooks/useAuth';
