@@ -117,17 +117,30 @@ export function AddPieceStep3() {
   // savedRef gates the storage delete — on the happy save path, nav.reset
   // unmounts Step 3 too, but we MUST NOT delete the file the saved garment row
   // now references.
+  //
+  // Codex round 6 P1: if the user backs out before getUploadPromise() ever ran
+  // (e.g. immediately taps Re-scan on entering Step 3), uploadPromiseRef is
+  // still null — `dropPendingUpload` would just remove the Map entry without
+  // ever attaching a delete handler, so the in-flight upload would land and
+  // its storage object would leak. We need to TAKE the promise (not just drop)
+  // so we can chain .then(deleteUpload) before letting the cleanup return.
   useEffect(() => {
     const uploadId = params?.uploadId;
     return () => {
       if (savedRef.current) return;
-      if (uploadId) dropPendingUpload(uploadId);
-      // If the upload landed before the user bailed, our cached promise has
-      // resolved — read the storagePath out and delete it. We do this via .then
-      // (not awaiting in the cleanup, which can't be async) so a still-in-flight
-      // upload that lands AFTER unmount also gets cleaned. Errors are swallowed
-      // by deleteUpload so there's nothing to surface.
-      const promise = uploadPromiseRef.current;
+      // Prefer the cached promise; fall back to taking from the registry if
+      // nobody read it yet (early-exit path). takePendingUpload is idempotent —
+      // a no-op if Step 2 already cleared the entry on its own unmount path
+      // (shouldn't happen since Step 2 only clears on non-transfer flows).
+      let promise = uploadPromiseRef.current;
+      if (!promise && uploadId) {
+        promise = takePendingUpload(uploadId) ?? null;
+      } else if (uploadId) {
+        // We did consume earlier — make sure the registry entry isn't stranded
+        // (takePendingUpload already deletes on consumption, but a defensive
+        // drop here protects against future wiring changes in the registry).
+        dropPendingUpload(uploadId);
+      }
       if (promise) {
         promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
       }

@@ -153,10 +153,21 @@ export function AddPieceStep2() {
       //      between upload latency and back-button), fire orphan deletion directly
       //      from the .then — the cleanup snapshot can't catch a path that wasn't
       //      yet set when it ran. Reviewer-flagged leak.
-      // Step 3 ownership transfer is signalled by `uploadIdRef.current === null` —
-      // when ownership transfers, Step 2 sets uploadIdRef to null but uploadStorageRef
-      // remains. So we use a separate ownership flag.
+      //
+      // Codex round 6 P2: gate every shared-state mutation on this upload still
+      // being the active one. Without this, a Retry-after-failure scenario can
+      // have the OLD upload's .then resolve LATER and overwrite uploadStorageRef
+      // with a stale path; the unmount cleanup then deletes the wrong file (or
+      // the new path leaks because uploadStorageRef no longer points at it).
+      // Comparing against `uploadId` captured in this closure isolates the two
+      // attempts. If we're stale, eagerly delete our own storage object — no
+      // shared ref will track it, and the new attempt has its own bookkeeping.
       const wrapped = uploadPromise.then((res) => {
+        const isStale = uploadIdRef.current !== uploadId && !ownerTransferredRef.current;
+        if (isStale) {
+          void deleteUpload(res.storagePath);
+          return res;
+        }
         uploadStorageRef.current = res.storagePath;
         // If the component already unmounted AND ownership wasn't transferred to
         // Step 3 (uploadIdRef cleared by handover, not unmount), the storage object
