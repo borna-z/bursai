@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Persist save mutations through connectivity loss so an interrupted AddPiece save replays automatically when the network returns. |
-| Status | TODO |
+| Status | DONE (PR #732) |
 | Branch | `mobile-m5-offline-queue` |
 | PR count | 1 |
 | Depends on | V0 |

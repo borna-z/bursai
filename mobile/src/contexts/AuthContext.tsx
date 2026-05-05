@@ -28,9 +28,19 @@ import React, {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
 
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { clearSignedUrlCache } from '../hooks/useSignedUrl';
+import {
+  registerHandler,
+  replay as replayOfflineQueue,
+  clearQueue as clearOfflineQueue,
+} from '../lib/offlineQueue';
+import {
+  persistGarment,
+  type AddGarmentParams,
+} from '../lib/garmentSave';
 
 export type OnboardingPrefs = {
   completed?: boolean;
@@ -217,6 +227,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(next);
   }, []);
 
+  // M5 — register offline-queue handlers + drive replay from NetInfo.
+  // The handler captures `queryClient` so post-replay invalidation refreshes
+  // the wardrobe list / count / insights even though replay runs outside any
+  // component context. Subscribing to NetInfo here (rather than per-screen)
+  // means there's exactly one replay trigger at the app root — multiple
+  // listeners would each kick replay, which is idempotent but wasteful.
+  useEffect(() => {
+    registerHandler<AddGarmentParams>('add-garment-save', async (payload) => {
+      await persistGarment(payload);
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+    });
+
+    // Kick a replay on mount in case the app cold-started while the queue
+    // had survivors from a previous session AND NetInfo's "online" event
+    // never fires (because we already landed online). NetInfo's event
+    // listener only emits on transitions, not on the steady state.
+    void replayOfflineQueue().catch(() => {});
+
+    const unsub = NetInfo.addEventListener((state) => {
+      const online =
+        state.isConnected !== false && state.isInternetReachable !== false;
+      if (online) {
+        void replayOfflineQueue().catch(() => {});
+      }
+    });
+    return () => {
+      unsub();
+    };
+  }, [queryClient]);
+
   useEffect(() => {
     let cancelled = false;
     // De-duplicates concurrent profile fetches from racing listeners
@@ -285,6 +327,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // string) into user B's renders. Audit-equivalent to the
         // `queryClient.clear()` rationale on PR #718. Wave M2.
         clearSignedUrlCache();
+        // Drop any queued mutations so user A's pending offline saves don't
+        // replay against user B's session on the same device. Wave M5.
+        void clearOfflineQueue();
       }
     });
 
