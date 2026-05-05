@@ -593,7 +593,7 @@ export function AddPieceStep3() {
               s.modalCard,
               { backgroundColor: t.card, borderColor: t.border },
             ]}>
-            <Eyebrow style={{ marginBottom: 6 }}>Duplicate?</Eyebrow>
+            <Eyebrow style={{ marginBottom: 6 }}>{tr('addpiece.duplicate.eyebrow')}</Eyebrow>
             <PageTitle size={22}>{tr('addpiece.duplicate.title')}</PageTitle>
             <Caption style={{ marginTop: 8, lineHeight: 19 }}>
               {duplicateMatch?.title

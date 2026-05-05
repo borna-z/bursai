@@ -6,6 +6,9 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AddPieceStep1 } from '../screens/AddPieceStep1';
+import { AddPieceStep2 } from '../screens/AddPieceStep2';
+import { AddPieceStep3 } from '../screens/AddPieceStep3';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
@@ -194,9 +197,9 @@ export function RootNavigator() {
       <Stack.Screen name="Paywall" component={Placeholders.Paywall} />
 
       {/* Add piece flow */}
-      <Stack.Screen name="AddPieceStep1" component={Placeholders.AddPieceStep1} />
-      <Stack.Screen name="AddPieceStep2" component={Placeholders.AddPieceStep2} />
-      <Stack.Screen name="AddPieceStep3" component={Placeholders.AddPieceStep3} />
+      <Stack.Screen name="AddPieceStep1" component={AddPieceStep1} />
+      <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
+      <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
       <Stack.Screen name="OutfitGenerate" component={Placeholders.OutfitGenerate} />
 

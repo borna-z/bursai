@@ -194,6 +194,7 @@ export const en: Record<string, string> = {
 
   // M4 — duplicate detection. en-only for now; sv (and the other 8 locales)
   // land with M33 i18n.
+  'addpiece.duplicate.eyebrow': 'Duplicate?',
   'addpiece.duplicate.title': 'Already in your wardrobe?',
   'addpiece.duplicate.body': 'This looks a lot like {title} — you may already own it.',
   'addpiece.duplicate.bodyNoTitle': 'This looks a lot like a piece you already own.',
