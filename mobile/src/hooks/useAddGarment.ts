@@ -77,6 +77,36 @@ function makeClientNonce(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Reset garment.render_status to 'none' after an enqueue failure so the row
+ * doesn't strand forever at 'pending' (Codex P1 on PR #725 — mirrors web's
+ * resetGarmentRenderStateOnEnqueueFailure in src/lib/garmentIntelligence.ts).
+ *
+ * Why 'none' and not 'failed': no render attempt actually exists server-side
+ * (the failure happened BEFORE any render_jobs row was written), and the
+ * wardrobe UI surfaces a "Studio photo" CTA when render_status === 'none'. So
+ * the row reverts to a state that lets the user retry from GarmentDetail. A
+ * 'failed' status would be misleading — there's no failed job to retry.
+ */
+async function resetRenderStatusOnEnqueueFailure(garmentId: string, source: string, originalErr: unknown): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('garments')
+      .update({ render_status: 'none' })
+      .eq('id', garmentId);
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[useAddGarment] [${source}] reset-to-none after enqueue failure also failed — garment may strand at 'pending'`,
+        { garmentId, updateError: error.message, originalError: originalErr instanceof Error ? originalErr.message : String(originalErr) },
+      );
+    }
+  } catch (resetErr) {
+    // eslint-disable-next-line no-console
+    console.warn('[useAddGarment] reset render_status threw:', resetErr);
+  }
+}
+
 async function queueRender(
   garmentId: string,
   source: AddGarmentSource,
@@ -95,19 +125,23 @@ async function queueRender(
         clientNonce: makeClientNonce(),
       }),
     });
-    // Surface non-2xx so dev builds catch contract drift instead of swallowing it
-    // (the 60s cron safety-net only re-runs already-inserted pending rows; a 400
-    // from enqueue means the row was never inserted in the first place).
+    // Non-2xx: log AND reset render_status. The cron safety net only re-runs
+    // already-inserted render_jobs rows; a 4xx/5xx here means no row was written,
+    // so leaving render_status='pending' permanently strands the garment.
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       // eslint-disable-next-line no-console
       console.warn(`[useAddGarment] enqueue_render_job failed ${response.status}: ${body}`);
+      await resetRenderStatusOnEnqueueFailure(garmentId, source, new Error(`HTTP ${response.status}: ${body}`));
     }
   } catch (err) {
-    // Fire-and-forget — render failure must never block the garment save. We still
-    // warn so the network-failure case isn't completely invisible in dev.
+    // Network / transport failure — same recovery: revert to 'none' so the user can
+    // retry from the wardrobe UI. (Web's parity logic does a same-nonce retry first;
+    // mobile leaves that to PR 2 where useRenderJobStatus + retry UI lands. For now,
+    // the simpler reset matches what web does in the terminal-failure case.)
     // eslint-disable-next-line no-console
     console.warn('[useAddGarment] enqueue_render_job threw:', err);
+    await resetRenderStatusOnEnqueueFailure(garmentId, source, err);
   }
 }
 

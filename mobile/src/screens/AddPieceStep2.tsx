@@ -119,13 +119,20 @@ export function AddPieceStep2() {
     }
 
     // Clean up any prior upload registration that didn't end in a saved garment
-    // — applies on retry. We can't await its outcome here because Step 2 may have
-    // unmounted first; the eventual storagePath is dropped via the .catch handler
-    // below.
+    // — applies on retry. Two layers:
+    //   1. dropPendingUpload removes the still-in-flight registration from the
+    //      module map so a stale promise can't be consumed by Step 3.
+    //   2. If a prior attempt already finished its upload (analyze failed AFTER
+    //      upload landed), `previousStorage` holds the storage path. Best-effort
+    //      delete it before re-uploading so retries don't accumulate orphans in
+    //      the user's bucket. Codex P2 on PR #725.
     const previousUploadId = uploadIdRef.current;
+    const previousStorage = uploadStorageRef.current;
     uploadIdRef.current = null;
     uploadStorageRef.current = null;
+    ownerTransferredRef.current = false;
     if (previousUploadId) dropPendingUpload(previousUploadId);
+    if (previousStorage) void deleteUpload(previousStorage);
 
     try {
       // Single resize, two consumers — base64 for analyze, file bytes for upload.
