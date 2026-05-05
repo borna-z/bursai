@@ -183,7 +183,6 @@ export function AddPieceStep2() {
       // Step 3's Save handler, which surfaces a friendlier message if the await
       // there ends up rejecting.
       wrapped.catch((err) => {
-        // eslint-disable-next-line no-console
         console.warn('[AddPieceStep2] upload failed:', err);
       });
 
@@ -362,7 +361,7 @@ export function AddPieceStep2() {
           </Text>
 
           <Caption style={{ textAlign: 'center', marginTop: 8, maxWidth: 280 }}>
-            We&rsquo;ll have your garment ready in a moment.
+            We'll have your garment ready in a moment.
           </Caption>
 
           {/* Honest UX about W5's single-photo limit so the user isn't surprised when

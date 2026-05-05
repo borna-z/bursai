@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | V0 — CI/CD foundations |
-| **CURRENT WAVE FILE** | [`waves/m-v0-ci-foundations.md`](waves/m-v0-ci-foundations.md) |
+| **CURRENT WAVE** | M1 — Render polling |
+| **CURRENT WAVE FILE** | [`waves/m1-render-polling.md`](waves/m1-render-polling.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -73,7 +73,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Pre-launch foundation
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| V0 | [CI/CD foundations](waves/m-v0-ci-foundations.md) | TODO | — |
+| V0 | [CI/CD foundations](waves/m-v0-ci-foundations.md) | DONE (PR #727) | — |
 
 ### Add-garment depth chain (remaining 8)
 | Wave | File | Status | Depends on |

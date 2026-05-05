@@ -209,3 +209,141 @@ export const GridIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
     <Rect x={14} y={14} width={7} height={7} rx={1.2} />
   </Svg>
 );
+
+export const CheckIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="m4 12 5 5L20 6" />
+  </Svg>
+);
+
+export const MinusIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round">
+    <Path d="M5 12h14" />
+  </Svg>
+);
+
+export const FileIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <Path d="M14 3v5h5" />
+  </Svg>
+);
+
+export const TrashIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" />
+    <Path d="M10 11v6M14 11v6" />
+  </Svg>
+);
+
+export const ShareIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx={18} cy={5} r={3} />
+    <Circle cx={6} cy={12} r={3} />
+    <Circle cx={18} cy={19} r={3} />
+    <Path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+  </Svg>
+);
+
+export const RotateIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 12a9 9 0 1 1-3.5-7.1" />
+    <Path d="M21 4v5h-5" />
+  </Svg>
+);
+
+export const ShieldIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 2 4 5v6c0 5 3.5 9.4 8 11 4.5-1.6 8-6 8-11V5l-8-3Z" />
+  </Svg>
+);
+
+export const PaletteIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 4-4 4h-1.8a2 2 0 0 0-1.4 3.4 2 2 0 0 1-1.4 3.4H12Z" />
+    <Circle cx={7.5} cy={11} r={1} fill={color} />
+    <Circle cx={9.5} cy={7} r={1} fill={color} />
+    <Circle cx={14.5} cy={7} r={1} fill={color} />
+    <Circle cx={17} cy={11} r={1} fill={color} />
+  </Svg>
+);
+
+export const MoreIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5}>
+    <Circle cx={5} cy={12} r={1.4} fill={color} />
+    <Circle cx={12} cy={12} r={1.4} fill={color} />
+    <Circle cx={19} cy={12} r={1.4} fill={color} />
+  </Svg>
+);
+
+export const GlobeIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx={12} cy={12} r={9} />
+    <Path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+  </Svg>
+);
+
+export const BellIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M6 9a6 6 0 1 1 12 0v4l1.5 3H4.5L6 13V9Z" />
+    <Path d="M10 19a2 2 0 0 0 4 0" />
+  </Svg>
+);
+
+export const MailIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x={3} y={5} width={18} height={14} rx={2} />
+    <Path d="m3 7 9 7 9-7" />
+  </Svg>
+);
+
+export const KeyIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx={8} cy={15} r={4} />
+    <Path d="m11 12 9-9M16 7l3 3M14 9l3 3" />
+  </Svg>
+);
+
+export const EditIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 20h4l11-11-4-4L4 16v4Z" />
+    <Path d="m14 6 4 4" />
+  </Svg>
+);
+
+export const MoonIcon = ({ size = 14, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+  </Svg>
+);
+
+export const LockIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x={4} y={11} width={16} height={10} rx={2} />
+    <Path d="M8 11V8a4 4 0 1 1 8 0v3" />
+  </Svg>
+);
+
+export const ListIcon = ({ size = 16, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round">
+    <Path d="M8 6h12M8 12h12M8 18h12" />
+    <Circle cx={4} cy={6} r={1} fill={color} />
+    <Circle cx={4} cy={12} r={1} fill={color} />
+    <Circle cx={4} cy={18} r={1} fill={color} />
+  </Svg>
+);
+
+export const StarIcon = ({ size = 18, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1L3.2 9.4l6.1-.9L12 3Z" />
+  </Svg>
+);
+
+// Variant of SunIcon with stylised rays — same family as SunIcon.
+export const SunRayIcon = ({ size = 14, color = 'currentColor' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx={12} cy={12} r={3.4} />
+    <Path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" />
+  </Svg>
+);
+

@@ -22,7 +22,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import {
   ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
-  SunIcon, ChevronIcon, SparklesIcon, type IconProps,
+  SunIcon, ChevronIcon, SparklesIcon,
 } from '../components/icons';
 import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
 

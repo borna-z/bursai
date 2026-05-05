@@ -95,14 +95,12 @@ async function resetRenderStatusOnEnqueueFailure(garmentId: string, source: stri
       .update({ render_status: 'none' })
       .eq('id', garmentId);
     if (error) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[useAddGarment] [${source}] reset-to-none after enqueue failure also failed — garment may strand at 'pending'`,
         { garmentId, updateError: error.message, originalError: originalErr instanceof Error ? originalErr.message : String(originalErr) },
       );
     }
   } catch (resetErr) {
-    // eslint-disable-next-line no-console
     console.warn('[useAddGarment] reset render_status threw:', resetErr);
   }
 }
@@ -130,7 +128,6 @@ async function queueRender(
     // so leaving render_status='pending' permanently strands the garment.
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      // eslint-disable-next-line no-console
       console.warn(`[useAddGarment] enqueue_render_job failed ${response.status}: ${body}`);
       await resetRenderStatusOnEnqueueFailure(garmentId, source, new Error(`HTTP ${response.status}: ${body}`));
     }
@@ -139,7 +136,6 @@ async function queueRender(
     // retry from the wardrobe UI. (Web's parity logic does a same-nonce retry first;
     // mobile leaves that to PR 2 where useRenderJobStatus + retry UI lands. For now,
     // the simpler reset matches what web does in the terminal-failure case.)
-    // eslint-disable-next-line no-console
     console.warn('[useAddGarment] enqueue_render_job threw:', err);
     await resetRenderStatusOnEnqueueFailure(garmentId, source, err);
   }

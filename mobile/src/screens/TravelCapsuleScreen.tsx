@@ -70,7 +70,7 @@ function offsetISO(daysFromToday: number): string {
   return localISO(d);
 }
 
-const DATE_PRESETS: ReadonlyArray<{ label: string; daysFromToday: number }> = [
+const DATE_PRESETS: readonly { label: string; daysFromToday: number }[] = [
   { label: 'Today',     daysFromToday: 0 },
   { label: 'Tomorrow',  daysFromToday: 1 },
   { label: '+3 days',   daysFromToday: 3 },
@@ -158,7 +158,7 @@ export function TravelCapsuleScreen() {
   // opens an inline mini-calendar sheet so the user can pick any specific date directly.
   // Avoids dragging in @react-native-community/datetimepicker.
   const openDatePicker = React.useCallback((which: 'from' | 'to') => {
-    const buttons: Array<{ text: string; onPress?: () => void; style?: 'cancel' }> = DATE_PRESETS.map(
+    const buttons: { text: string; onPress?: () => void; style?: 'cancel' }[] = DATE_PRESETS.map(
       ({ label, daysFromToday }) => ({
         text: label,
         onPress: () => {

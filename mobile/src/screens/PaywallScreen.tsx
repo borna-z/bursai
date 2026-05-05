@@ -24,7 +24,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Plan = 'monthly' | 'yearly';
 
-const FEATURES: ReadonlyArray<{ titleKey: string; captionKey: string }> = [
+const FEATURES: readonly { titleKey: string; captionKey: string }[] = [
   { titleKey: 'paywall.feature.unlimited.title', captionKey: 'paywall.feature.unlimited.caption' },
   { titleKey: 'paywall.feature.chat.title',      captionKey: 'paywall.feature.chat.caption' },
   { titleKey: 'paywall.feature.studio.title',    captionKey: 'paywall.feature.studio.caption' },

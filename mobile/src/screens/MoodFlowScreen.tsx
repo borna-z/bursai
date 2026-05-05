@@ -164,7 +164,7 @@ export function MoodFlowScreen() {
               letterSpacing: -0.1,
               textAlign: 'center',
             }}>
-            Pulling pieces that hold &ldquo;{MOOD_LABEL.toLowerCase()}&rdquo;
+            Pulling pieces that hold "{MOOD_LABEL.toLowerCase()}"
           </Text>
         </View>
       ) : itemCount === 0 ? (

@@ -2,7 +2,6 @@ import React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTokens } from '../theme/ThemeProvider';
-import { radii } from '../theme/tokens';
 
 // Standard card surface. Hero variant adds a soft gold radial accent at the top-right
 // (RN can't do CSS radial-gradient, so we approximate with an absolute LinearGradient overlay

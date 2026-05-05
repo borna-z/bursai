@@ -95,7 +95,6 @@ export async function deleteUpload(storagePath: string): Promise<void> {
   try {
     await supabase.storage.from(BUCKET).remove([storagePath]);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn('[imageUpload] orphan cleanup failed:', err);
   }
 }

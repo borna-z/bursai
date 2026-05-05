@@ -6,13 +6,13 @@
 // query result.
 
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
+import { radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
