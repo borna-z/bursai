@@ -70,6 +70,20 @@ export function AddPieceStep3() {
   const addGarment = useAddGarment();
   const [titleOverride, setTitleOverride] = useState<string>(params?.analysis.title ?? '');
   const [choiceOpen, setChoiceOpen] = useState(false);
+  // In-flight guard for the entire save flow — covers the pre-mutation upload
+  // await window where `addGarment.isPending` is still false. Without this, a
+  // user could reopen the sheet and tap again while the first call is still
+  // waiting on the upload promise; both paths would then execute mutateAsync
+  // in parallel (TanStack Query has no default same-mutation serialization)
+  // and create duplicate garment rows + duplicate render/enrichment side
+  // effects. Codex P1 on PR #725.
+  //
+  // Ref + state pair: the ref is the source of truth for reentrancy (state
+  // setters are async, so two double-taps fired in the same tick both see the
+  // stale `isSaving === false` snapshot). The state mirrors the ref so the
+  // sheet + Save button can disable themselves on rerender.
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
   // Pending-upload promise pulled out of the global registry on first read so the
   // sheet's two paths (Studio / Original) share a single resolution. `take` deletes
   // the entry from the module on first read; we cache it here in case the user
@@ -122,6 +136,13 @@ export function AddPieceStep3() {
   };
 
   const handleSave = async (enableStudioQuality: boolean) => {
+    // Reentrancy guard — if a prior tap is still resolving the upload await OR
+    // running mutateAsync, drop this call. Ref check (not state) because two
+    // taps in the same tick both see the same stale isSaving snapshot before
+    // React rerenders.
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setIsSaving(true);
     hapticLight();
     setChoiceOpen(false);
     try {
@@ -160,13 +181,22 @@ export function AddPieceStep3() {
       });
     } catch (err) {
       Alert.alert('Save failed', friendlySaveError(err));
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
     }
   };
 
   const openChoiceSheet = () => {
+    if (isSaving) return;
     hapticLight();
     setChoiceOpen(true);
   };
+
+  // Either flag covers a different phase: isSaving spans the upload-await window;
+  // addGarment.isPending spans the mutateAsync round-trip. Both must keep the UI
+  // disabled to fully cover the race surface.
+  const saveBusy = isSaving || addGarment.isPending;
 
   // "Re-scan" pops back to Step 1 instead of nav.goBack() to Step 2 — Step 2 keeps its
   // post-success state in the back stack (idle render with no in-flight work), so a
@@ -358,17 +388,17 @@ export function AddPieceStep3() {
           </Text>
         </View>
         <Button
-          label={addGarment.isPending ? 'Saving…' : 'Save'}
+          label={saveBusy ? 'Saving…' : 'Save'}
           onPress={openChoiceSheet}
-          disabled={addGarment.isPending}
-          accessibilityLabel={addGarment.isPending ? 'Saving garment' : 'Save garment'}
-          accessibilityState={{ busy: addGarment.isPending, disabled: addGarment.isPending }}
+          disabled={saveBusy}
+          accessibilityLabel={saveBusy ? 'Saving garment' : 'Save garment'}
+          accessibilityState={{ busy: saveBusy, disabled: saveBusy }}
         />
       </View>
 
       <GarmentSaveChoiceSheet
         open={choiceOpen}
-        isSaving={addGarment.isPending}
+        isSaving={saveBusy}
         onClose={() => setChoiceOpen(false)}
         onSelectStudio={() => void handleSave(true)}
         onSelectOriginal={() => void handleSave(false)}
