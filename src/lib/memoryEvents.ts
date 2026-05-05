@@ -65,12 +65,22 @@ export interface RecordMemoryEventInput {
  * The key collapses double-tap, React StrictMode double-invokes, and React
  * Query retry within a 60-second window so the server-side
  * `request_idempotency` cache returns the same response without burning
- * rate-limit quota.
+ * rate-limit quota — while still letting *distinct* events on the same
+ * outfit/garment within the same minute pass through (e.g. quick_reaction
+ * "like" → "love", rating 2 → 5, swap with different garment sets,
+ * different rejected-outfit feedback). The payload-discriminator segment
+ * keeps true replays colliding while letting genuinely different events
+ * earn their own server-side cache row.
  *
- * Shape: `${userId}:${signal_type}:${target}:${minute_bucket}` where
+ * Shape: `${userId}:${signal_type}:${target}:${discriminator}:${bucket}` where
  *
- *   - `target` = `outfit_id` if set, else sorted
+ *   - `target` = first non-empty of `outfit_id`, `garment_id`, sorted
  *     `garment_ids.join(',')`, else literal `'_'`.
+ *   - `discriminator` = stable serialization of the payload fields that
+ *     differentiate semantic events (`value`, `rating`,
+ *     `added_garment_ids`, `removed_garment_ids`, `feedback_text`,
+ *     `metadata`). Empty when no differentiating fields are set, so simple
+ *     events keep terse keys.
  *   - `minute_bucket` = `floor(now_ms / 60_000)`.
  *
  * @param userId  Verified user id — pass from the auth context. NEVER trust
@@ -83,14 +93,81 @@ export function buildMemoryIdempotencyKey(
   input: RecordMemoryEventInput,
   nowMs: number = Date.now(),
 ): string {
+  const outfitTarget =
+    input.outfit_id != null && input.outfit_id !== "" ? input.outfit_id : null;
+  const singleGarmentTarget =
+    input.garment_id != null && input.garment_id !== ""
+      ? input.garment_id
+      : null;
   const target =
-    input.outfit_id != null && input.outfit_id !== ""
-      ? input.outfit_id
-      : input.garment_ids && input.garment_ids.length > 0
-        ? [...input.garment_ids].sort().join(",")
-        : "_";
+    outfitTarget ??
+    singleGarmentTarget ??
+    (input.garment_ids && input.garment_ids.length > 0
+      ? [...input.garment_ids].sort().join(",")
+      : "_");
+  const discriminator = buildPayloadDiscriminator(input);
   const bucket = Math.floor(nowMs / 60_000);
-  return `${userId}:${input.signal_type}:${target}:${bucket}`;
+  return `${userId}:${input.signal_type}:${target}:${discriminator}:${bucket}`;
+}
+
+/**
+ * Stable serialization of the payload fields that differentiate semantic
+ * events. Empty string when no differentiating fields are set.
+ *
+ * Field order is fixed (alphabetical-by-prefix) so that callers passing
+ * the same fields in different declaration order produce identical keys.
+ * Arrays are sorted before joining; metadata keys are sorted before
+ * stringification. `feedback_text` is truncated to its length + first 64
+ * chars to keep the key bounded — distinct user-typed feedback within a
+ * minute is rare and the server-side cache TTL is short.
+ */
+function buildPayloadDiscriminator(input: RecordMemoryEventInput): string {
+  const parts: string[] = [];
+  if (
+    input.added_garment_ids != null &&
+    input.added_garment_ids.length > 0
+  ) {
+    parts.push(`a=${[...input.added_garment_ids].sort().join(",")}`);
+  }
+  if (input.feedback_text != null && input.feedback_text !== "") {
+    const t = input.feedback_text;
+    parts.push(`f=${t.length}:${t.slice(0, 64)}`);
+  }
+  if (input.metadata != null && Object.keys(input.metadata).length > 0) {
+    parts.push(`m=${stableStringify(input.metadata)}`);
+  }
+  if (input.rating != null) {
+    parts.push(`r=${input.rating}`);
+  }
+  if (input.value != null && input.value !== "") {
+    parts.push(`v=${input.value}`);
+  }
+  if (
+    input.removed_garment_ids != null &&
+    input.removed_garment_ids.length > 0
+  ) {
+    parts.push(`x=${[...input.removed_garment_ids].sort().join(",")}`);
+  }
+  return parts.join("|");
+}
+
+/**
+ * Stable JSON stringify with sorted object keys. Recursive over nested
+ * objects + arrays so callers passing the same logical metadata in
+ * different key order produce identical output.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys
+    .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+    .join(",")}}`;
 }
 
 /**
