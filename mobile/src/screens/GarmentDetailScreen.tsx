@@ -26,6 +26,7 @@ import { ListRow } from '../components/ListRow';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
+import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import type { Garment } from '../types/garment';
@@ -97,6 +98,28 @@ export function GarmentDetailScreen() {
   const { data: garment, isLoading, isError, refetch } = useGarment(id);
   const heroPath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
   const { data: heroUrl } = useSignedUrl(heroPath);
+
+  // Studio-render polling. The hook only ticks while `render_status` is active
+  // (`pending` = enqueued, `rendering` = worker claimed). Once the worker
+  // writes the rendered image and flips render_status to 'ready', the hook's
+  // terminal-state branch invalidates the garment cache, useGarment refetches,
+  // and this gate disables. Same flow for 'failed' / the 90 s ceiling, except
+  // no invalidation fires because the original image stays as the hero.
+  //
+  // Both 'pending' and 'rendering' must be in scope — the row transitions
+  // pending → rendering when the worker claims the job, and a user opening
+  // GarmentDetail after the claim would otherwise see no pill and no image
+  // swap until manual refresh. (Codex P2 on PR #728. Web treats both as
+  // active in `useGarments`, `GarmentCardSystem`, `RenderPendingOverlay`,
+  // etc. — `isActiveGarmentRenderStatus` is the shared predicate.)
+  const isStudioRendering = isActiveGarmentRenderStatus(garment?.render_status);
+  const renderJobGarmentId = isStudioRendering ? (garment?.id ?? null) : null;
+  // Side-effecting hook — the snapshot itself is unused on this surface. The
+  // hook's own terminal-state effect invalidates the garment cache, which is
+  // the only behaviour we need here. The pill below reads `render_status`
+  // straight off the (now-fresh) garment row.
+  useRenderJobStatus(renderJobGarmentId);
+  const hasRenderedImage = !!garment?.rendered_image_path;
 
   const markWorn = useMarkWorn();
   const markLaundry = useMarkLaundry();
@@ -273,9 +296,24 @@ export function GarmentDetailScreen() {
               resizeMode="cover"
             />
           ) : null}
-          <View style={[s.heroBadge, { backgroundColor: t.accentSoft }]}>
-            <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio</Text>
-          </View>
+          {/* Studio badge — three states:
+              • pending render → "Studio render…" with an inline spinner
+              • rendered image present → "Studio"
+              • otherwise (render_status='none' / 'failed') → hidden, the
+                original photo stands on its own without a misleading label. */}
+          {isStudioRendering ? (
+            <View
+              accessibilityLiveRegion="polite"
+              accessibilityLabel="Studio render in progress"
+              style={[s.heroBadge, s.heroBadgePending, { backgroundColor: t.accentSoft }]}>
+              <ActivityIndicator size="small" color={t.accent} style={{ marginRight: 6 }} />
+              <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio render…</Text>
+            </View>
+          ) : hasRenderedImage ? (
+            <View style={[s.heroBadge, { backgroundColor: t.accentSoft }]}>
+              <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio</Text>
+            </View>
+          ) : null}
           <View style={[s.heroBadgeRight, { backgroundColor: t.card, borderColor: t.border }]}>
             <Text
               style={{
@@ -433,6 +471,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: radii.pill,
+  },
+  heroBadgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   heroBadgeText: {
     fontFamily: fonts.uiSemi,
