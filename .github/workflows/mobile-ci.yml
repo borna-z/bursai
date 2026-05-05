@@ -136,16 +136,47 @@ jobs:
           fi
           # --diff-filter=ACMR: skip Deleted (D) — feeding a removed path to
           # `deno check` would file-not-found and block legitimate deletions.
-          # Skip `_shared/`: not entry-points; consumers are checked when they
-          # themselves change.
-          CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" \
-            | grep -E '^supabase/functions/[^_][^/]+/index\.ts$' | tr '\n' ' ' || true)
-          if [ -n "$CHANGED" ]; then
-            echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
-            echo "Functions to type-check: $CHANGED"
+          #
+          # `deno check <function>/index.ts` walks the import graph, so we run
+          # it on entry-points (the only thing it can be invoked on), but we
+          # must trigger when *anything* in that graph changes, not just
+          # `index.ts`. Three cases:
+          #   1. `_shared/*.ts` changed → check ALL entry-points (we can't
+          #      know which consumers without parsing imports).
+          #   2. `<name>/*.ts` changed (sibling of index.ts) → check that
+          #      function's index.ts.
+          #   3. `<name>/index.ts` changed → check it.
+          CHANGED_TS=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" \
+            | grep -E '^supabase/functions/.*\.ts$' || true)
+          if [ -z "$CHANGED_TS" ]; then
+            echo "files=" >> "$GITHUB_OUTPUT"
+            echo "No edge-function .ts changes — deno check skipped."
+            exit 0
+          fi
+          if echo "$CHANGED_TS" | grep -qE '^supabase/functions/_shared/'; then
+            echo "Shared module changed — type-checking all entry-points."
+            ENTRYPOINTS=$(find supabase/functions -mindepth 2 -maxdepth 2 -name index.ts \
+              -not -path 'supabase/functions/_shared/*' | tr '\n' ' ')
+          else
+            # Collect unique function dirs whose contents changed, then map
+            # each to its index.ts (skipping any without one).
+            FUNC_DIRS=$(echo "$CHANGED_TS" \
+              | grep -E '^supabase/functions/[^_][^/]+/' \
+              | awk -F/ '{print $1"/"$2"/"$3}' | sort -u)
+            ENTRYPOINTS=""
+            for d in $FUNC_DIRS; do
+              if [ -f "$d/index.ts" ]; then
+                ENTRYPOINTS="$ENTRYPOINTS $d/index.ts"
+              fi
+            done
+            ENTRYPOINTS=$(echo "$ENTRYPOINTS" | xargs)
+          fi
+          if [ -n "$ENTRYPOINTS" ]; then
+            echo "files=$ENTRYPOINTS" >> "$GITHUB_OUTPUT"
+            echo "Entry-points to type-check: $ENTRYPOINTS"
           else
             echo "files=" >> "$GITHUB_OUTPUT"
-            echo "No edge-function entry-point changes — deno check skipped."
+            echo "No entry-points map to changed files — deno check skipped."
           fi
       - name: Setup Deno
         if: steps.detect.outputs.files != ''
