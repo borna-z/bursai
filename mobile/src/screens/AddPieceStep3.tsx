@@ -99,6 +99,12 @@ export function AddPieceStep3() {
   // succeeded → nav.reset → unmount" (don't touch — the saved garment row owns
   // the storage object now). Codex round 5 P2 on PR #725.
   const savedRef = useRef(false);
+  // Deferred cleanup callback. Set by the unmount handler IF the user navigates
+  // away while a save is in flight. handleSave's finally invokes it after
+  // savingRef has been cleared and savedRef reflects the outcome — runCleanup
+  // is internally guarded by savedRef, so a successful save no-ops it; a
+  // failed save runs the orphan-delete path. Codex round 10 P2 on PR #725.
+  const pendingCleanupRef = useRef<(() => void) | null>(null);
 
   // Resolve the deferred storagePath if Step 2 navigated us here before the
   // upload landed. Idempotent — repeat calls return the cached promise.
@@ -133,35 +139,45 @@ export function AddPieceStep3() {
     // leak the JPEG forever. Codex round 8 P2 on PR #725.
     const directStoragePath = params?.storagePath ?? null;
     return () => {
-      // Codex round 7 P1: skip cleanup while a save is in flight. handleSave
-      // resolves storagePath, then awaits mutateAsync — if the user backs out
-      // mid-mutation, deleting here would yank the file out from under a
-      // succeeding insert. The save's finally clears savingRef but by then the
-      // unmount cleanup already ran. Tradeoff: if the save fails after unmount,
-      // the storage object leaks (no cleanup will run). Acceptable v1 — failure
-      // rate post-PR-1 should be low and orphan storage isn't user-visible.
-      if (savingRef.current) return;
-      if (savedRef.current) return;
-      // Prefer the cached promise; fall back to taking from the registry if
-      // nobody read it yet (early-exit path). takePendingUpload is idempotent —
-      // a no-op if Step 2 already cleared the entry on its own unmount path
-      // (shouldn't happen since Step 2 only clears on non-transfer flows).
-      let promise = uploadPromiseRef.current;
-      if (!promise && uploadId) {
-        promise = takePendingUpload(uploadId) ?? null;
-      } else if (uploadId) {
-        // We did consume earlier — make sure the registry entry isn't stranded
-        // (takePendingUpload already deletes on consumption, but a defensive
-        // drop here protects against future wiring changes in the registry).
-        dropPendingUpload(uploadId);
+      // Build the orphan-delete work as a closure so we can either run it now
+      // (no save in flight) or defer it until the save settles. The closure
+      // re-checks savedRef at invocation time so a successful save no-ops it.
+      const runCleanup = () => {
+        if (savedRef.current) return;
+        // Prefer the cached promise; fall back to taking from the registry if
+        // nobody read it yet (early-exit path). takePendingUpload is idempotent
+        // — a no-op if Step 2 already cleared the entry on its own unmount path
+        // (shouldn't happen since Step 2 only clears on non-transfer flows).
+        let promise = uploadPromiseRef.current;
+        if (!promise && uploadId) {
+          promise = takePendingUpload(uploadId) ?? null;
+        } else if (uploadId) {
+          // We did consume earlier — make sure the registry entry isn't stranded
+          // (takePendingUpload already deletes on consumption, but a defensive
+          // drop here protects against future wiring changes in the registry).
+          dropPendingUpload(uploadId);
+        }
+        if (promise) {
+          promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
+        } else if (directStoragePath) {
+          // Direct-path arrival (base64-fallback in Step 2): the file is already
+          // in storage and there's no promise to await. Delete it eagerly.
+          void deleteUpload(directStoragePath);
+        }
+      };
+      // Codex round 10 P2 on PR #725: if a save is in flight when the user
+      // navigates away (back / re-scan), defer cleanup to handleSave's finally
+      // instead of running it now. Round 7's eager early-return left the file
+      // orphaned forever when the save subsequently failed; round 10 splits
+      // the two phases so:
+      //   - mid-save unmount + save success → savedRef=true, deferred no-ops
+      //   - mid-save unmount + save failure → finally runs deferred runCleanup
+      //   - no save in flight → run cleanup immediately (back-out / re-scan)
+      if (savingRef.current) {
+        pendingCleanupRef.current = runCleanup;
+        return;
       }
-      if (promise) {
-        promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
-      } else if (directStoragePath) {
-        // Direct-path arrival (base64-fallback in Step 2): the file is already
-        // in storage and there's no promise to await. Delete it eagerly.
-        void deleteUpload(directStoragePath);
-      }
+      runCleanup();
     };
     // params?.uploadId / storagePath are stable for the lifetime of this screen
     // instance — React Navigation creates a new instance on re-entry, so
@@ -258,6 +274,15 @@ export function AddPieceStep3() {
     } finally {
       savingRef.current = false;
       setIsSaving(false);
+      // Codex round 10 P2: if the user unmounted Step 3 while this save was in
+      // flight, the cleanup effect parked a closure here instead of running
+      // it. Invoke it now — runCleanup is internally guarded by savedRef, so
+      // a successful save no-ops, and a failed save runs the orphan delete.
+      const deferred = pendingCleanupRef.current;
+      if (deferred) {
+        pendingCleanupRef.current = null;
+        deferred();
+      }
     }
   };
 
