@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import type { TabId } from '../components/BottomNav';
@@ -203,7 +204,11 @@ export function RootNavigator() {
       <Stack.Screen name="Outfits" component={Placeholders.Outfits} />
       <Stack.Screen name="OutfitDetail" component={Placeholders.OutfitDetail} />
       <Stack.Screen name="EditGarment" component={Placeholders.EditGarment} />
-      <Stack.Screen name="GarmentDetail" component={Placeholders.GarmentDetail} />
+      {/* GarmentDetail mounted in M1 (PR #728) so render polling actually
+          renders. Other "real" screens under mobile/src/screens/ stay
+          registered as placeholders pending the systematic screen-mount pass
+          tracked in the launch plan. */}
+      <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
       <Stack.Screen name="ShareOutfit" component={Placeholders.ShareOutfit} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
 

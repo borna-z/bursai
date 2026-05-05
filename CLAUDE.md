@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M1 — Render polling |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m1-render-polling.md` |
+| **CURRENT WAVE** | M2 — Signed-URL cache |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m2-signed-url-cache.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M1 — Render polling |
-| **CURRENT WAVE FILE** | [`waves/m1-render-polling.md`](waves/m1-render-polling.md) |
+| **CURRENT WAVE** | M2 — Signed-URL cache |
+| **CURRENT WAVE FILE** | [`waves/m2-signed-url-cache.md`](waves/m2-signed-url-cache.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -78,7 +78,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Add-garment depth chain (remaining 8)
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M1 | [Render polling](waves/m1-render-polling.md) | TODO | V0 |
+| M1 | [Render polling](waves/m1-render-polling.md) | DONE (PR #728) | V0 |
 | M2 | [Signed-URL cache](waves/m2-signed-url-cache.md) | TODO | V0 |
 | M3 | [useGarmentCount](waves/m3-garment-count.md) | TODO | V0 |
 | M4 | [Duplicate detection](waves/m4-duplicate-detection.md) | TODO | V0 |
