@@ -58,11 +58,20 @@ export function WardrobeGapsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { gaps, isLoading, error, analyzed, analyze, reset } = useWardrobeGaps();
-  const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
+  const { data: garmentCount, isFetching: isCountFetching } = useGarmentCount();
   const paywallShownRef = useRef(false);
 
+  // `isFetching` (not `isLoading`) is the right signal here. After
+  // useAddGarment / useDeleteGarment invalidate ['garments-count'], React
+  // Query keeps the previous (stale) data on the next mount while it
+  // refetches in the background — Codex P2 round 2. If we trusted the
+  // value during that window, a delete that just took the wardrobe under
+  // the threshold could still pass the gate before the refetch lands.
+  // Treat the count as unknown while a fetch is in flight.
   const hasEnoughGarments =
-    typeof garmentCount === 'number' && garmentCount >= MIN_GARMENTS_FOR_GAP_ANALYSIS;
+    !isCountFetching &&
+    typeof garmentCount === 'number' &&
+    garmentCount >= MIN_GARMENTS_FOR_GAP_ANALYSIS;
 
   // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
   // is React-Query backed so a return visit reads from cache instead of
@@ -173,7 +182,7 @@ export function WardrobeGapsScreen() {
               </Caption>
               <Button
                 label={isLoading ? 'Analysing…' : 'Analyse now'}
-                disabled={isLoading || isCountLoading || !hasEnoughGarments}
+                disabled={isLoading || !hasEnoughGarments}
                 onPress={() => {
                   reset();
                   void analyze();
