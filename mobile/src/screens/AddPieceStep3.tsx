@@ -14,7 +14,7 @@
 // Multi-photo (W9 follow-up): the piece-selector strip is gone in W5. When multi-photo
 // lands, the strip returns and Save loops back to Step 2 with the next photo.
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -37,8 +37,10 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
+import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
 import { useAddGarment } from '../hooks/useAddGarment';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
+import { takePendingUpload, type PendingUploadPromise } from '../lib/pendingUpload';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -67,6 +69,22 @@ export function AddPieceStep3() {
   const params = route.params;
   const addGarment = useAddGarment();
   const [titleOverride, setTitleOverride] = useState<string>(params?.analysis.title ?? '');
+  const [choiceOpen, setChoiceOpen] = useState(false);
+  // Pending-upload promise pulled out of the global registry on first read so the
+  // sheet's two paths (Studio / Original) share a single resolution. `take` deletes
+  // the entry from the module on first read; we cache it here in case the user
+  // taps Cancel and then opens the sheet again.
+  const uploadPromiseRef = useRef<PendingUploadPromise | null>(null);
+
+  // Resolve the deferred storagePath if Step 2 navigated us here before the
+  // upload landed. Idempotent — repeat calls return the cached promise.
+  const getUploadPromise = (): PendingUploadPromise | null => {
+    if (uploadPromiseRef.current) return uploadPromiseRef.current;
+    if (!params?.uploadId) return null;
+    const promise = takePendingUpload(params.uploadId);
+    if (promise) uploadPromiseRef.current = promise;
+    return uploadPromiseRef.current;
+  };
 
   // Defensive guard — without route params the screen has nothing to render. Bounce
   // the user back to Step 1 instead of crashing on `params.analysis.title`.
@@ -103,13 +121,29 @@ export function AddPieceStep3() {
     return 'Could not save. Please try again.';
   };
 
-  const handleSave = async () => {
+  const handleSave = async (enableStudioQuality: boolean) => {
     hapticLight();
+    setChoiceOpen(false);
     try {
+      // Resolve the storagePath. If Step 2 already finished its upload, the param
+      // is populated and we save immediately. If not, await the in-flight upload
+      // before calling useAddGarment — analyze had a head start, so the wait is
+      // typically <500ms by the time the user has reviewed the form.
+      let resolvedPath = storagePath;
+      if (!resolvedPath) {
+        const promise = getUploadPromise();
+        if (!promise) {
+          throw new Error('Upload was lost — please re-add this piece.');
+        }
+        const upRes = await promise;
+        resolvedPath = upRes.storagePath;
+      }
+
       const garment = await addGarment.mutateAsync({
-        storagePath,
+        storagePath: resolvedPath,
         analysis,
         source,
+        enableStudioQuality,
         title: titleOverride.trim() || analysis.title,
         category: analysis.category,
       });
@@ -127,6 +161,11 @@ export function AddPieceStep3() {
     } catch (err) {
       Alert.alert('Save failed', friendlySaveError(err));
     }
+  };
+
+  const openChoiceSheet = () => {
+    hapticLight();
+    setChoiceOpen(true);
   };
 
   // "Re-scan" pops back to Step 1 instead of nav.goBack() to Step 2 — Step 2 keeps its
@@ -320,12 +359,20 @@ export function AddPieceStep3() {
         </View>
         <Button
           label={addGarment.isPending ? 'Saving…' : 'Save'}
-          onPress={handleSave}
+          onPress={openChoiceSheet}
           disabled={addGarment.isPending}
           accessibilityLabel={addGarment.isPending ? 'Saving garment' : 'Save garment'}
           accessibilityState={{ busy: addGarment.isPending, disabled: addGarment.isPending }}
         />
       </View>
+
+      <GarmentSaveChoiceSheet
+        open={choiceOpen}
+        isSaving={addGarment.isPending}
+        onClose={() => setChoiceOpen(false)}
+        onSelectStudio={() => void handleSave(true)}
+        onSelectOriginal={() => void handleSave(false)}
+      />
     </SafeAreaView>
   );
 }
