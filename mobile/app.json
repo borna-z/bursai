@@ -2,7 +2,6 @@
   "expo": {
     "name": "mobile",
     "slug": "mobile",
-    "scheme": "burs",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,11 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "burs.expo.build",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -32,20 +27,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font",
-      "expo-localization",
-      [
-        "@sentry/react-native/expo",
-        {
-          "organization": "burs",
-          "project": "burs-mobile"
-        }
-      ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "00d9bb65-ab97-499d-9ee6-2db4a3725ed8"
-      }
-    }
+      "expo-font"
+    ]
   }
 }

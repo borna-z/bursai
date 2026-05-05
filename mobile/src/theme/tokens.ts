@@ -22,27 +22,6 @@ export type ThemeTokens = {
   accentDeep: string;
   accentFg: string;
   accentSoft: string;
-  /**
-   * Single destructive-action color (delete row, "Sign out", "Cancel subscription"). Warm
-   * terracotta tuned to sit on the same palette as `accent` rather than a generic system red,
-   * to keep the editorial mood. Codex P1 round 1 — replaces hardcoded EditGarmentScreen hex.
-   */
-  destructive: string;
-  /**
-   * Translucent companion to `destructive` — for soft warning surfaces (e.g. the AI-confidence
-   * "Review carefully" badge in AddPieceStep3) that need a destructive-tinted backing without
-   * shouting at the user. Mirrors the accent → accentSoft relationship.
-   */
-  destructiveSoft: string;
-  /**
-   * Theme-INVARIANT pair for badges/labels that overlay a photo or arbitrary user content
-   * (e.g. the "01" piece-number badge in AddPiece, remove × buttons on photo tiles).
-   * `scrimBg` is a translucent dark backing so text stays legible against any image content;
-   * `scrimFg` is the foreground rendered on top. Same values in light and dark — these aren't
-   * theme-driven, they're "always-readable on photos".
-   */
-  scrimBg: string;
-  scrimFg: string;
   shadowSm: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
   shadow: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
 };
@@ -61,10 +40,6 @@ export const light: ThemeTokens = {
   accentDeep: '#7C5A23', // accent darkened ~28% — bottom stop of FAB / "accent → deeper" gradients
   accentFg: '#FFFFFF',
   accentSoft: 'rgba(173,129,55,0.12)',
-  destructive: '#C25B45', // warm terracotta; AA-contrast on light bg
-  destructiveSoft: 'rgba(194,91,69,0.12)', // tinted destructive — same recipe as accentSoft
-  scrimBg:  'rgba(0,0,0,0.55)',
-  scrimFg:  '#FFFFFF',
   shadowSm: { color: '#1C1917', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.04 },
   shadow:   { color: '#1C1917', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.08 },
 };
@@ -83,11 +58,6 @@ export const dark: ThemeTokens = {
   accentDeep: '#93764D', // same ~28% darkening recipe applied to dark accent
   accentFg: '#17140F',
   accentSoft: 'rgba(205,165,108,0.14)',
-  destructive: '#E27865', // lighter shifted hue; readable on charcoal bg
-  destructiveSoft: 'rgba(226,120,101,0.14)', // tinted destructive on charcoal — same recipe as accentSoft
-  // Same scrim values as light — these are theme-invariant by design (see ThemeTokens type).
-  scrimBg:  'rgba(0,0,0,0.55)',
-  scrimFg:  '#FFFFFF',
   shadowSm: { color: '#000000', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.4 },
   shadow:   { color: '#000000', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.4 },
 };
@@ -116,19 +86,15 @@ export const spacing = {
   '7':   28,
 } as const;
 
-// Font families — these strings MUST match the keys passed to `useFonts({...})` in App.tsx,
-// which in turn come from @expo-google-fonts/playfair-display + @expo-google-fonts/dm-sans.
-// Mismatch = silent system-font fallback (the old "Italic Playfair not rendering" bug).
-//
-// `display` is plain italic (regular weight); `displayMedium` is the heavier italic used by
-// page titles + large numerals. The DM Sans family covers the rest of the UI.
+// Font families. Real .ttf files load via expo-font in App.tsx (see assets/fonts/).
+// Until the user drops the .ttf files in place, RN falls back to system serif/sans.
 export const fonts = {
-  display:        'PlayfairDisplay_400Regular_Italic',
-  displayMedium:  'PlayfairDisplay_500Medium_Italic',
-  ui:             'DMSans_400Regular',
-  uiMed:          'DMSans_500Medium',
-  uiSemi:         'DMSans_600SemiBold',
-  uiBold:         'DMSans_700Bold',
+  display:        'PlayfairDisplay-Italic',
+  displayMedium:  'PlayfairDisplay-MediumItalic',
+  ui:             'DMSans-Regular',
+  uiMed:          'DMSans-Medium',
+  uiSemi:         'DMSans-SemiBold',
+  uiBold:         'DMSans-Bold',
 } as const;
 
 // Type scale — every screen uses these via the typography components.

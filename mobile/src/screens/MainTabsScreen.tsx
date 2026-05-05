@@ -46,10 +46,7 @@ export function MainTabsScreen() {
         <PlanScreen />
       </View>
       <View style={{ flex: 1, display: tab === 'insights' ? 'flex' : 'none' }} pointerEvents={tab === 'insights' ? 'auto' : 'none'}>
-        {/* `active` lets InsightsScreen drive its mount-time animations (gauge rings)
-            from tab visibility instead of plain mount — every tab stays mounted to
-            preserve scroll position, so the mount fires while Insights is hidden. */}
-        <InsightsScreen active={tab === 'insights'} />
+        <InsightsScreen />
       </View>
       <BottomNav
         active={tab}

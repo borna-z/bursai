@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View, type AccessibilityState, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 
@@ -16,8 +16,6 @@ export function Button({
   leadingIcon,
   trailingIcon,
   style,
-  accessibilityLabel,
-  accessibilityState,
 }: {
   label: string;
   onPress?: () => void;
@@ -28,10 +26,6 @@ export function Button({
   leadingIcon?: React.ReactNode;
   trailingIcon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Optional override for VoiceOver / TalkBack — defaults to the visible `label`. */
-  accessibilityLabel?: string;
-  /** Pass `{ busy: true }` while a mutation is pending so screen readers announce the spinner state. */
-  accessibilityState?: AccessibilityState;
 }) {
   const t = useTokens();
 
@@ -54,9 +48,6 @@ export function Button({
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={accessibilityState ?? { disabled }}
       style={({ pressed }) => [
         {
           height: dims.height,
