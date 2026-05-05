@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Port `useGarmentCount` so onboarding, paywall thresholds, and gap analyses can read a single canonical garment count without `select('*')`. |
-| Status | TODO |
+| Status | DONE (PR #730) |
 | Branch | `mobile-m3-garment-count` |
 | PR count | 1 |
 | Depends on | V0 |
