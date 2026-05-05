@@ -19,21 +19,23 @@
 
 name: Mobile CI
 
+# IMPORTANT: no top-level `paths` filter on these triggers.
+#
+# This workflow is a REQUIRED gate (six checks must pass before merge into
+# `feat/mobile-rn-app`). If a PR doesn't touch any of the mobile/edge-fn/
+# migration paths, a `paths` filter would skip the workflow entirely — and
+# GitHub treats a skipped required check as permanently pending, blocking
+# merge. So the workflow always runs on PRs targeting feat/mobile-rn-app.
+#
+# Heavy conditional work (deno-check, migration-smoke) is gated by per-job
+# `detect` steps that diff the PR and no-op when no relevant files changed —
+# the job itself still registers a check (in seconds) but doesn't burn time
+# on irrelevant work.
 on:
   pull_request:
     branches: [feat/mobile-rn-app]
-    paths:
-      - 'mobile/**'
-      - 'supabase/functions/**'
-      - 'supabase/migrations/**'
-      - '.github/workflows/mobile-ci.yml'
   push:
     branches: [feat/mobile-rn-app]
-    paths:
-      - 'mobile/**'
-      - 'supabase/functions/**'
-      - 'supabase/migrations/**'
-      - '.github/workflows/mobile-ci.yml'
 
 jobs:
   typecheck:
