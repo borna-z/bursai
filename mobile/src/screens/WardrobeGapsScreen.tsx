@@ -29,7 +29,12 @@ import {
 } from '../components/icons';
 import { ErrorState } from '../components/ErrorState';
 import { useWardrobeGaps, type WardrobeGap } from '../hooks/useWardrobeGaps';
+import { useGarmentCount } from '../hooks/useGarmentCount';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+
+// Web parity: gap analysis is meaningless on a near-empty wardrobe — it would
+// flag every basic category as a "gap". Web gates the CTA at 5 garments.
+const MIN_GARMENTS_FOR_GAP_ANALYSIS = 5;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DisplayPriority = 'High' | 'Med' | 'Low';
@@ -53,7 +58,11 @@ export function WardrobeGapsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { gaps, isLoading, error, analyzed, analyze, reset } = useWardrobeGaps();
+  const { data: garmentCount, isLoading: isCountLoading } = useGarmentCount();
   const paywallShownRef = useRef(false);
+
+  const hasEnoughGarments =
+    typeof garmentCount === 'number' && garmentCount >= MIN_GARMENTS_FOR_GAP_ANALYSIS;
 
   // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
   // is React-Query backed so a return visit reads from cache instead of
@@ -61,10 +70,13 @@ export function WardrobeGapsScreen() {
   // rehydrated yet, retry once it does — analyze() short-circuits without
   // a token, and the effect re-fires when accessToken flips truthy.
   // Codex audit P0-1 (audit 2) + P1-4 (audit 2).
+  // Gate: don't auto-run on a near-empty wardrobe — gap analysis on <5
+  // garments is noise. The user has to add more pieces first.
   useEffect(() => {
     if (analyzed || isLoading || error) return;
+    if (!hasEnoughGarments) return;
     void analyze();
-  }, [analyzed, isLoading, error, analyze]);
+  }, [analyzed, isLoading, error, analyze, hasEnoughGarments]);
   // No unmount reset — the React Query cache is the cross-mount memory.
 
   useEffect(() => {
@@ -147,11 +159,13 @@ export function WardrobeGapsScreen() {
                 {gapDisplays.length === 1 ? '' : 's'}
               </Text>
               <Caption style={{ marginTop: 8, marginBottom: 14, lineHeight: 18 }}>
-                Identified from your last 90 days of wear, weather, and missed-occasion patterns.
+                {hasEnoughGarments
+                  ? 'Identified from your last 90 days of wear, weather, and missed-occasion patterns.'
+                  : `Add at least ${MIN_GARMENTS_FOR_GAP_ANALYSIS} garments so the analysis has enough signal to find real gaps.`}
               </Caption>
               <Button
                 label={isLoading ? 'Analysing…' : 'Analyse now'}
-                disabled={isLoading}
+                disabled={isLoading || isCountLoading || !hasEnoughGarments}
                 onPress={() => {
                   reset();
                   void analyze();

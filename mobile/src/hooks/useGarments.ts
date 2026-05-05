@@ -250,6 +250,9 @@ export function useDeleteGarment() {
     },
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
+      // garments-count is a sibling cache key; ['garments'] prefix-match
+      // does not cover it, so the count would stay stale until staleTime.
+      queryClient.invalidateQueries({ queryKey: ['garments-count'] });
       queryClient.removeQueries({ queryKey: ['garment', user?.id, id] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
