@@ -71,6 +71,7 @@ export interface UseStyleChatResult {
   sendMessage: (content: string) => Promise<void>;
   clearChat: () => Promise<void>;
   stopStreaming: () => void;
+  clearActiveLook: () => void;
 }
 
 type StyleChatChunk =
@@ -90,6 +91,12 @@ type StoredRow = {
   created_at: string;
 };
 
+// Module-level monotonic counter — combined with Date.now() to keep
+// generated message ids unique even when sendMessage is called twice in
+// the same millisecond (rapid-tap, scripted retry, etc.). Previously the
+// id collided which made FlatList drop one of the two bubbles. Codex P2-10.
+let messageIdCounter = 0;
+
 // Mirror of web's `parseStoredMessage` (src/pages/AIChat.tsx) for mobile
 // strings only. JSON content with `kind: 'stylist_message'` decodes into a
 // ChatMessage carrying both the assistant text and the contract envelope;
@@ -102,7 +109,28 @@ function parseStoredMessage(row: StoredRow, index: number): ChatMessage {
     try {
       const parsed = JSON.parse(row.content) as PersistedStyleChatMessage;
       if (parsed?.kind === 'stylist_message') {
-        const text = typeof parsed.content === 'string' ? parsed.content : '';
+        // Web's AIChat persists `content` as either a string OR an
+        // OpenAI-style multimodal array (`[{type:'text',text}, {type:'image_url',...}]`).
+        // Coercing the array to '' would drop user-typed text on mobile
+        // hydration; instead, concatenate every text part. Non-text parts
+        // (image attachments) have no mobile-visible representation today
+        // — they're silently skipped, which is fine because the bubble
+        // still shows what the user wrote. Codex P1-3.
+        let text = '';
+        if (typeof parsed.content === 'string') {
+          text = parsed.content;
+        } else if (Array.isArray(parsed.content)) {
+          text = parsed.content
+            .filter(
+              (c): c is { type: 'text'; text: string } =>
+                !!c
+                && typeof c === 'object'
+                && (c as { type?: unknown }).type === 'text'
+                && typeof (c as { text?: unknown }).text === 'string',
+            )
+            .map((c) => c.text)
+            .join(' ');
+        }
         return {
           id,
           role: row.role,
@@ -157,6 +185,11 @@ export function useStyleChat(): UseStyleChatResult {
   const [isHydrating, setIsHydrating] = useState<boolean>(true);
   const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
   const [anchoredGarmentId, setAnchoredGarmentIdState] = useState<string | null>(null);
+  // Wall-clock timestamp of the most recent local Clear-active-look action.
+  // Any prior assistant message is treated as if it had no active_look so
+  // subsequent sends won't ship a stale look in the payload, and the
+  // active-look badge above the composer disappears immediately. Codex P1-1.
+  const [activeLookClearedAt, setActiveLookClearedAt] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   // Latest messages snapshot — used inside sendMessage to assemble the
   // history payload + active-look without re-binding sendMessage on every
@@ -165,6 +198,13 @@ export function useStyleChat(): UseStyleChatResult {
   messagesRef.current = messages;
   const anchorRef = useRef<string | null>(null);
   anchorRef.current = anchoredGarmentId;
+  const activeLookClearedAtRef = useRef<number | null>(null);
+  activeLookClearedAtRef.current = activeLookClearedAt;
+  // Synchronous mirror of `isStreaming`. Used inside sendMessage to early-
+  // return on rapid double-tap before the React state batch has flushed —
+  // the state check alone races when the user taps Send twice in <16ms.
+  // Codex P2-7.
+  const streamingRef = useRef<boolean>(false);
 
   // ─── Hydration ─────────────────────────────────────────────────────────
   // Restore the user's prior `stylist`-mode chat on mount. Gated on user.id
@@ -173,8 +213,13 @@ export function useStyleChat(): UseStyleChatResult {
     let cancelled = false;
     const userId = user?.id;
     if (!userId) {
+      // Signed-out cold start: hold `isHydrating: true` so the screen
+      // stays in spinner mode until AuthContext resolves either way.
+      // Acceptable trade-off — signed-out users see a brief spinner
+      // before the empty welcome (no auth restore actually runs but
+      // AuthContext's loading flag covers the wait). Codex P2-6.
       setMessages([]);
-      setIsHydrating(false);
+      setIsHydrating(true);
       return () => {
         cancelled = true;
       };
@@ -206,7 +251,27 @@ export function useStyleChat(): UseStyleChatResult {
       setIsHydrating(false);
     })();
     return () => {
+      // Identity-change cleanup. When the user signs out (or signs in as
+      // a different user) we must:
+      //   1. mark this run as cancelled so a late-arriving SELECT result
+      //      doesn't repaint the new user's UI with the prior user's rows;
+      //   2. abort any in-flight SSE stream so its onDone won't try to
+      //      persist against the new (RLS-rejected) auth context, which
+      //      Sentry would then log as a real failure;
+      //   3. flip streamingRef.current = false so the next sendMessage
+      //      can run for the new user;
+      //   4. clear all visible state so the new user starts fresh.
+      // Codex P1-4.
       cancelled = true;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      streamingRef.current = false;
+      setIsStreaming(false);
+      setMessages([]);
+      setError(null);
+      setSuggestionChips([]);
+      setActiveLookClearedAt(null);
+      setIsHydrating(true);
     };
   }, [user?.id]);
 
@@ -214,22 +279,47 @@ export function useStyleChat(): UseStyleChatResult {
     setAnchoredGarmentIdState(id);
   }, []);
 
-  const activeLook = useMemo(() => getLatestActiveLook(messages), [messages]);
+  // Filter out any message whose timestamp predates the most recent local
+  // Clear-active-look. Without this filter, getLatestActiveLook walks
+  // bottom-up and skips messages whose `active_look.garment_ids.length === 0`,
+  // so an OLDER look-bearing message is still picked as "latest" and the
+  // stale active_look ships in subsequent payloads. Codex P1-1.
+  const visibleMessagesForActiveLook = useMemo(() => {
+    if (activeLookClearedAt === null) return messages;
+    return messages.filter((m) => m.timestamp.getTime() >= activeLookClearedAt);
+  }, [messages, activeLookClearedAt]);
+
+  const activeLook = useMemo(
+    () => getLatestActiveLook(visibleMessagesForActiveLook),
+    [visibleMessagesForActiveLook],
+  );
+
+  const clearActiveLook = useCallback(() => {
+    setActiveLookClearedAt(Date.now());
+    setAnchoredGarmentIdState(null);
+  }, []);
 
   const sendMessage = useCallback(
     async (content: string) => {
       if (!session?.access_token || !user?.id || !content.trim()) return;
-      if (isStreaming) return;
+      // Synchronous double-fire guard. Without this, a rapid double-tap
+      // on Send (or two suggestion chips fired back-to-back from the
+      // 150ms auto-send timer) can race two streams because `isStreaming`
+      // is React state and only flips after a render commit. Codex P2-7.
+      if (streamingRef.current || isStreaming) return;
+      streamingRef.current = true;
 
       const trimmed = content.trim();
+      messageIdCounter += 1;
+      const turnTag = `${Date.now()}-${messageIdCounter}`;
       const userMsg: ChatMessage = {
-        id: `user-${Date.now()}`,
+        id: `user-${turnTag}`,
         role: 'user',
         content: trimmed,
         timestamp: new Date(),
       };
 
-      const assistantId = `assistant-${Date.now()}`;
+      const assistantId = `assistant-${turnTag}`;
       const assistantMsg: ChatMessage = {
         id: assistantId,
         role: 'assistant',
@@ -256,8 +346,15 @@ export function useStyleChat(): UseStyleChatResult {
       // server keeps the same look in flight when the user is iterating
       // ("warmer", "swap the shoes"). The anchor flags ride along with the
       // current anchoredGarmentId so the server can lock that piece even
-      // when the look is otherwise being refreshed.
-      const latestLook = getLatestActiveLook(messagesRef.current);
+      // when the look is otherwise being refreshed. Honour any local
+      // Clear-active-look so the next turn doesn't ship a stale look.
+      // Codex P1-1.
+      const clearedAt = activeLookClearedAtRef.current;
+      const lookSourceMessages =
+        clearedAt === null
+          ? messagesRef.current
+          : messagesRef.current.filter((m) => m.timestamp.getTime() >= clearedAt);
+      const latestLook = getLatestActiveLook(lookSourceMessages);
       const activeLookPayload: StyleChatActiveLookInput | undefined = latestLook
         ? {
             garment_ids: latestLook.active_look?.garment_ids?.length
@@ -389,6 +486,10 @@ export function useStyleChat(): UseStyleChatResult {
             // the envelope itself.
           },
           onDone: () => {
+            // Always release the rapid-tap guard, even when aborted —
+            // otherwise a stop-then-resend would deadlock at the early
+            // return inside sendMessage. Codex P2-7.
+            streamingRef.current = false;
             if (controller.signal.aborted) return;
             // Degraded path: server delivered the envelope but no deltas
             // (e.g. tool-only response). Fall back to the envelope text so
@@ -423,6 +524,8 @@ export function useStyleChat(): UseStyleChatResult {
             }
           },
           onError: (err) => {
+            // Same release as onDone — required so the user can retry.
+            streamingRef.current = false;
             if (controller.signal.aborted) return;
             // Don't burn Sentry quota on the expected paywall sentinel —
             // those are subscription gating, not real failures.
@@ -451,11 +554,13 @@ export function useStyleChat(): UseStyleChatResult {
   const clearChat = useCallback(async () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    streamingRef.current = false;
     setMessages([]);
     setIsStreaming(false);
     setError(null);
     setSuggestionChips([]);
     setAnchoredGarmentIdState(null);
+    setActiveLookClearedAt(null);
     if (!user?.id) return;
     const { error: deleteError } = await supabase
       .from('chat_messages')
@@ -472,9 +577,46 @@ export function useStyleChat(): UseStyleChatResult {
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    streamingRef.current = false;
+    // Persist the partial assistant reply paired with the user's prompt
+    // so a refresh keeps both. The user typed something and the assistant
+    // gave a partial response — both are worth keeping. We walk
+    // bottom-up to find the streaming assistant + the user msg
+    // immediately preceding it. Codex P2-8.
+    const snapshot = messagesRef.current;
+    let assistantIdx = -1;
+    for (let i = snapshot.length - 1; i >= 0; i -= 1) {
+      if (snapshot[i].role === 'assistant' && snapshot[i].isStreaming) {
+        assistantIdx = i;
+        break;
+      }
+    }
+    if (assistantIdx >= 0 && user?.id) {
+      const assistantMsg = snapshot[assistantIdx];
+      // Find the closest preceding user msg.
+      let userMsg: ChatMessage | null = null;
+      for (let i = assistantIdx - 1; i >= 0; i -= 1) {
+        if (snapshot[i].role === 'user') {
+          userMsg = snapshot[i];
+          break;
+        }
+      }
+      // Only persist when the assistant produced at least some text
+      // (or attached an envelope) — empty turns are noise.
+      if (userMsg && (assistantMsg.content || assistantMsg.stylistMeta)) {
+        void persistMessages(user.id, [
+          { role: 'user', content: userMsg.content },
+          {
+            role: 'assistant',
+            content: assistantMsg.content,
+            stylistMeta: assistantMsg.stylistMeta ?? null,
+          },
+        ]);
+      }
+    }
     setIsStreaming(false);
     setMessages((prev) => prev.map((m) => ({ ...m, isStreaming: false })));
-  }, []);
+  }, [user?.id]);
 
   // Cancel any in-flight stream when the consumer screen unmounts so the
   // SSE callbacks don't fire setState against a torn-down tree (RN logs
@@ -482,6 +624,7 @@ export function useStyleChat(): UseStyleChatResult {
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      streamingRef.current = false;
     };
   }, []);
 
@@ -497,5 +640,6 @@ export function useStyleChat(): UseStyleChatResult {
     sendMessage,
     clearChat,
     stopStreaming,
+    clearActiveLook,
   };
 }

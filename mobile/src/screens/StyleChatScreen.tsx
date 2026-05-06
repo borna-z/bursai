@@ -64,6 +64,9 @@ const STATIC_SUGGESTIONS = [
   'More casual',
 ];
 
+// Hoisted for stable identity across renders — used by the message FlatList.
+const messageKey = (m: ChatMessage) => m.id;
+
 // Friendly labels for the 8 stylist modes. Keys mirror the
 // `chat.mode.<MODE>` namespace appended to en.ts so a future translator
 // pass can swap them without touching this file.
@@ -72,6 +75,11 @@ function modeLabel(mode: StylistChatMode | undefined | null): string | null {
   return tr(`chat.mode.${mode}`);
 }
 
+// NOTE: Typography sizes (fontSize, lineHeight, letterSpacing) are
+// hardcoded inline throughout this screen. Mobile does not yet have a
+// `text` token system — every other M-wave screen uses the same inline
+// pattern, and a follow-up wave will introduce typography tokens. Codex
+// P2-9 acknowledged.
 export function StyleChatScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -90,6 +98,7 @@ export function StyleChatScreen() {
     sendMessage,
     clearChat,
     stopStreaming,
+    clearActiveLook,
   } = useStyleChat();
   const { facts } = useStyleMemoryFacts();
   const forgetMutation = useRecordMemoryEvent();
@@ -102,8 +111,8 @@ export function StyleChatScreen() {
     if (error === 'subscription_required' && !paywallShownRef.current) {
       paywallShownRef.current = true;
       Alert.alert(
-        'Premium feature',
-        'Style Chat is part of BURS Premium. Upgrade to keep talking with your stylist.',
+        tr('chat.error.premium.title'),
+        tr('chat.error.premium.body'),
         [{ text: 'OK', style: 'default' }],
       );
     }
@@ -155,8 +164,15 @@ export function StyleChatScreen() {
     if (anchoredGarmentId) ids.add(anchoredGarmentId);
     return Array.from(ids);
   }, [activeLookGarmentIds, anchoredGarmentId]);
-  const { data: garmentTitleRows } = useQuery({
-    queryKey: ['styleChatGarmentTitles', user?.id, titleLookupIds.join(',')],
+  // Sort the id list before joining so the cache key is order-stable —
+  // otherwise a different garment ordering in the same set would miss
+  // the cache and refire the SELECT. Codex P2-5.
+  const titleLookupCacheKey = useMemo(
+    () => [...titleLookupIds].sort().join(','),
+    [titleLookupIds],
+  );
+  const { data: garmentTitleRows, isFetching: garmentTitlesFetching } = useQuery({
+    queryKey: ['styleChatGarmentTitles', user?.id, titleLookupCacheKey],
     enabled: !!user && titleLookupIds.length > 0,
     queryFn: async () => {
       if (!user || titleLookupIds.length === 0) return [];
@@ -183,6 +199,20 @@ export function StyleChatScreen() {
       .filter((s): s is string => !!s);
     return titles.join(', ');
   }, [activeLookGarmentIds, garmentTitleMap]);
+
+  // P2-1: localized fallback (count + 'pieces') used while titles load
+  // OR when none of the ids resolve. Pre-fix the badge briefly rendered
+  // an empty string between paint and react-query settle, which read as
+  // a layout glitch. Now we always show the count immediately and swap
+  // in titles once they land.
+  const activeLookCountFallback = useMemo(
+    () =>
+      tr('chat.active_look.fallback.template', { n: activeLookGarmentIds.length }),
+    [activeLookGarmentIds.length],
+  );
+  const activeLookDisplayLabel =
+    activeLookTitleString
+    || (garmentTitlesFetching ? activeLookCountFallback : activeLookCountFallback);
 
   const anchoredGarmentTitle = anchoredGarmentId
     ? garmentTitleMap.get(anchoredGarmentId) ?? null
@@ -225,12 +255,12 @@ export function StyleChatScreen() {
         ?? null;
       if (!candidate) return;
       Alert.alert(
-        'Set anchor',
-        "Use this look's main piece as your anchor for the next turn?",
+        tr('chat.anchor.set.title'),
+        tr('chat.anchor.set.body'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: tr('chat.anchor.set.cancel'), style: 'cancel' },
           {
-            text: 'Set',
+            text: tr('chat.anchor.set.confirm'),
             onPress: () => setAnchoredGarmentId(candidate),
           },
         ],
@@ -240,14 +270,29 @@ export function StyleChatScreen() {
   );
 
   const handleClearActiveLook = React.useCallback(() => {
-    setAnchoredGarmentId(null);
-    // Server honors the natural-language phrasing per `style_chat`'s
-    // `clear_active_look` flag — no special wire field required.
-    void sendMessage('clear active look');
-  }, [setAnchoredGarmentId, sendMessage]);
+    // Local-only clear. Sending a natural-language "clear active look"
+    // turn would still ship the stale active_look in the payload because
+    // getLatestActiveLook walks bottom-up past empty active_looks. The
+    // hook's clearActiveLook() instead stamps a wall-clock cutoff that
+    // hides every prior message from the active-look derivation, so the
+    // next user turn naturally won't carry a look. Codex P1-1.
+    clearActiveLook();
+  }, [clearActiveLook]);
 
   const showInlineError =
     error && error !== 'subscription_required' ? error : null;
+
+  // P2-4: stable renderItem reference. Inline `({item}) => <MessageItem ... />`
+  // re-creates the function on every keystroke (because the screen re-renders
+  // as `draft` state changes), which forces FlatList to re-mount every row's
+  // cell host. The useCallback closes over `handleSetAnchorFromMessage`,
+  // which is itself useCallback-stabilized on `setAnchoredGarmentId`.
+  const renderMessageItem = React.useCallback(
+    ({ item }: { item: ChatMessage }) => (
+      <MessageItem msg={item} onLongPress={handleSetAnchorFromMessage} />
+    ),
+    [handleSetAnchorFromMessage],
+  );
 
   // Suggestion chips: server-provided takes precedence over the static fallback.
   const visibleSuggestions = suggestionChips.length > 0
@@ -267,9 +312,9 @@ export function StyleChatScreen() {
             <BackIcon color={t.fg} />
           </IconBtn>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Eyebrow style={{ marginBottom: 1 }}>AI</Eyebrow>
+            <Eyebrow style={{ marginBottom: 1 }}>{tr('chat.eyebrow')}</Eyebrow>
             <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontWeight: '500', fontSize: 18, color: t.fg, letterSpacing: -0.18 }}>
-              Style Chat
+              {tr('chat.title')}
             </Text>
           </View>
           <IconBtn variant="ghost" onPress={handleClear} ariaLabel="New chat">
@@ -289,7 +334,7 @@ export function StyleChatScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Eyebrow>{tr('chat.memory.section_title')}</Eyebrow>
               <Pressable onPress={() => setMemoryOpen(false)} style={{ paddingHorizontal: 4 }} accessibilityRole="button" accessibilityLabel="Hide style memory">
-                <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Hide</Text>
+                <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>{tr('chat.memory.toggle.hide')}</Text>
               </Pressable>
             </View>
             {facts.length === 0 ? (
@@ -323,7 +368,7 @@ export function StyleChatScreen() {
               { borderBottomColor: t.border, backgroundColor: t.bg, opacity: pressed ? 0.7 : 1 },
             ]}>
             <Eyebrow>{tr('chat.memory.section_title')}</Eyebrow>
-            <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>Show</Text>
+            <Text style={{ fontFamily: fonts.uiMed, fontSize: 11.5, color: t.accent }}>{tr('chat.memory.toggle.show')}</Text>
           </Pressable>
         )}
 
@@ -372,7 +417,7 @@ export function StyleChatScreen() {
                 accessibilityLabel="Retry last message"
                 style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
                 <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>
-                  Retry
+                  {tr('chat.error.retry')}
                 </Text>
               </Pressable>
             ) : null}
@@ -386,20 +431,20 @@ export function StyleChatScreen() {
           </View>
         ) : messages.length === 0 ? (
           <View style={s.emptyShell}>
-            <Eyebrow>Start a conversation</Eyebrow>
+            <Eyebrow>{tr('chat.empty.title')}</Eyebrow>
             <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
-              Ask your stylist anything — outfit picks, packing lists, what fits the weather.
+              {user
+                ? tr('chat.empty.subtitle.auth')
+                : tr('chat.empty.subtitle.unauth')}
             </Caption>
           </View>
         ) : (
           <FlatList
             data={reversed}
-            keyExtractor={(m) => m.id}
+            keyExtractor={messageKey}
             inverted
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 }}
-            renderItem={({ item }) => (
-              <MessageItem msg={item} onLongPress={handleSetAnchorFromMessage} />
-            )}
+            renderItem={renderMessageItem}
           />
         )}
 
@@ -416,7 +461,7 @@ export function StyleChatScreen() {
                   color: t.fg,
                   letterSpacing: -0.1,
                 }}>
-                {activeLookTitleString || activeLookGarmentIds.length + ' pieces'}
+                {activeLookDisplayLabel}
               </Text>
             </View>
             <IconBtn
@@ -457,7 +502,7 @@ export function StyleChatScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Ask your stylist…"
+              placeholder={tr('chat.composer.placeholder')}
               placeholderTextColor={t.fg3}
               editable={!isStreaming}
               multiline
@@ -513,24 +558,26 @@ function MemoryChipRow({
   const handlePress = () => {
     if (!canForget) {
       Alert.alert(
-        tr('chat.memory.forget_action'),
-        'Garment-level forget only — full memory edit lands later.',
+        tr('chat.memory.disabled.title'),
+        tr('chat.memory.disabled.body'),
         [{ text: 'OK', style: 'default' }],
       );
       return;
     }
     Alert.alert(
-      tr('chat.memory.forget_action'),
-      `Stop suggesting "${fact.label}"?`,
+      tr('chat.memory.confirm.title'),
+      tr('chat.memory.confirm.body.template', { label: fact.label }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('chat.anchor.set.cancel'), style: 'cancel' },
         { text: tr('chat.memory.forget_action'), onPress: onForget, style: 'destructive' },
       ],
     );
   };
   return (
+    // P2-3: a single onPress is enough — long-press fired the same handler
+    // before, which made every chip act like a long-press target with no
+    // alternative. Drop onLongPress entirely.
     <Pressable
-      onLongPress={handlePress}
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={`Style memory chip: ${fact.label}`}
@@ -597,6 +644,7 @@ const MessageItem = React.memo(
         onLongPress={handleLongPress}
         delayLongPress={400}
         disabled={!canAnchor}
+        accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}
         style={{
           alignSelf: isUser ? 'flex-end' : 'flex-start',
           maxWidth: '82%',
