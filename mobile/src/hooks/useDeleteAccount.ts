@@ -17,6 +17,11 @@ import { useMutation } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import {
+  clearQueue,
+  pauseReplaysAndWaitSettled,
+  resumeReplays,
+} from '../lib/offlineQueue';
 import { captureMutationError } from '../lib/sentry';
 
 export function useDeleteAccount() {
@@ -56,16 +61,41 @@ export function useDeleteAccount() {
       // sign-in attempt will fail (account gone) — at that point the
       // AuthScreen surfaces the canonical "no such user" message. No
       // false-success path. Codex P1 round 8 on PR #735.
-      await callEdgeFunction('delete_user_account', {
-        body: {},
-        retries: 1,
-        idempotent: true,
-      });
-      // Always tear down the local session — even if the remote
-      // sign-out call fails transiently, the server-side rows are gone
-      // and the next request will 401-fail. AuthContext's signOut
-      // wrapper guarantees the local clear lands.
-      await signOut();
+      //
+      // Codex P1 round 13: pause queue replays + wait for in-flight
+      // pass to settle BEFORE the delete cascade runs. Without this,
+      // a queued add-garment-save replaying after delete_user_account's
+      // storage-path enumeration but before the auth user is deleted
+      // would insert a new row pointing at a freshly-uploaded storage
+      // object the cascade never removes — orphan media after the
+      // account is gone.
+      await pauseReplaysAndWaitSettled();
+      try {
+        // retries: 3 (Codex P2 round 13) — a same-key retry within
+        // the cascade window can receive a 409 Retry-After ("still
+        // in-flight") from the idempotency helper. With backoff +
+        // jitter ~1s/2s/4s the third retry typically lands after the
+        // cascade completes (<5s observed) and gets the cached 200.
+        // The idempotency key ensures the cascade itself runs once.
+        await callEdgeFunction('delete_user_account', {
+          body: {},
+          retries: 3,
+          idempotent: true,
+        });
+        // Clear the queue ONLY after the cascade succeeds — none of
+        // the pending items will be relevant against a deleted user
+        // and `signOut()` below also re-clears as defense-in-depth.
+        // If the cascade FAILS, leave the queue alone so the user can
+        // retry the delete (or any other queued action) later.
+        await clearQueue();
+        // Always tear down the local session — even if the remote
+        // sign-out call fails transiently, the server-side rows are
+        // gone and the next request will 401-fail. AuthContext's
+        // signOut wrapper guarantees the local clear lands.
+        await signOut();
+      } finally {
+        resumeReplays();
+      }
     },
     onError: captureMutationError('useDeleteAccount'),
   });
