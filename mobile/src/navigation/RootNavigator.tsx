@@ -47,6 +47,7 @@ import { OutfitsScreen } from '../screens/OutfitsScreen';
 import { OutfitDetailScreen } from '../screens/OutfitDetailScreen';
 import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
 import { OutfitPoolScreen } from '../screens/OutfitPoolScreen';
+import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { EditGarmentScreen } from '../screens/EditGarmentScreen';
 import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
@@ -163,6 +164,11 @@ export type RootStackParamList = {
   // generator's params (so a Restyle-from-piece tap can fan out to a pool of
   // 5–10 candidates). `count` defaults to 5 in the screen when omitted.
   OutfitPool: { anchorGarmentId?: string; occasion?: string; count?: number } | undefined;
+  // M18 — photo feedback / selfie comparison. Reads `outfitId` and routes
+  // the user through camera permission → capture → confirm → upload +
+  // analyze → feedback card. Required param: the outfit being compared
+  // against. Entered from OutfitDetail or PlanScreen's planned-outfit row.
+  PhotoFeedback: { outfitId: string };
   EditGarment: { id: string };
   GarmentDetail: { id: string };
   ShareOutfit: { id?: string } | undefined;
@@ -403,6 +409,7 @@ export function RootNavigator() {
       <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
       <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
       <Stack.Screen name="OutfitPool" component={OutfitPoolScreen} />
+      <Stack.Screen name="PhotoFeedback" component={PhotoFeedbackScreen} />
       <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
       <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
       <Stack.Screen name="ShareOutfit" component={ShareOutfitScreen} />

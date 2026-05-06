@@ -372,4 +372,30 @@ export const en: Record<string, string> = {
   // M17 Codex P1.8 — refresh affordance inside the collapsible composition
   // sections. Aria/visual label for the small icon button.
   'outfitDetail.refreshAction': 'Refresh',
+
+  // ─── Photo feedback / selfie comparison (M18) ──────────────────────────
+  // Camera-first capture surface that compares a mirror selfie against an
+  // outfit's garments. Entered from OutfitDetail or PlanScreen.
+  'photoFeedback.eyebrow': 'Photo feedback',
+  'photoFeedback.title': 'Photo feedback',
+  'photoFeedback.tryOnAction': 'Try it on',
+  'photoFeedback.captureCta': 'Capture',
+  'photoFeedback.retake': 'Retake',
+  'photoFeedback.confirm': 'Use this selfie',
+  'photoFeedback.uploading': 'Uploading…',
+  'photoFeedback.analyzing': 'Analyzing…',
+  'photoFeedback.error': "We couldn't analyze that selfie. Try again.",
+  'photoFeedback.fitNotes': 'Fit notes',
+  'photoFeedback.colorCallouts': 'Color callouts',
+  'photoFeedback.swapSuggestions': 'Swap suggestions',
+  'photoFeedback.done': 'Done',
+  'photoFeedback.overallTemplate': 'Overall · {score} / 10',
+  'photoFeedback.hint': 'Stand in front of a mirror',
+  'photoFeedback.cameraUnavailable': 'Camera available in device build',
+  'photoFeedback.allowCamera': 'Allow camera',
+  'photoFeedback.openSettings': 'Open Settings',
+  'photoFeedback.captureFailedTitle': 'Capture failed',
+  'photoFeedback.captureFailedBody': 'Try again.',
+  'photoFeedback.close': 'Close',
+  'photoFeedback.switchCamera': 'Switch camera',
 };

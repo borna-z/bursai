@@ -574,6 +574,18 @@ export function OutfitDetailScreen() {
             />
           </View>
 
+          {/* M18 — "Try it on" CTA routes to PhotoFeedback for a selfie
+              comparison against this saved outfit. Sits above the M17
+              composition helpers because it's a one-tap mainline action
+              (vs. the helpers' opt-in, AI-cost-bearing affordances). */}
+          <Button
+            label={tr('photoFeedback.tryOnAction')}
+            variant="quiet"
+            size="sm"
+            onPress={() => nav.navigate('PhotoFeedback', { outfitId: outfit.id })}
+            accessibilityHint="Take a mirror selfie and compare to this outfit"
+          />
+
           {/* M17 — composition helper actions. Collapsible so the screen
               stays scan-friendly until the user opts in. Codex P2.6 on PR
               #743: while a helper is mid-request, swap the label to a
