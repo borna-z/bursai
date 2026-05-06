@@ -27,7 +27,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, CameraIcon, ImageIcon } from '../components/icons';
+import { BackIcon, CameraIcon, ImageIcon, SearchIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
@@ -83,6 +83,16 @@ export function AddPieceStep1() {
   const openLiveScan = useCallback(() => {
     hapticLight();
     nav.navigate('LiveScan');
+  }, [nav]);
+
+  // M19 — third entry mode. Visual Search routes to its own screen rather than
+  // staging a photo into the grid: the user supplies a reference image (camera
+  // or gallery) and the screen surfaces wardrobe + online matches via the
+  // `visual_search` edge function. Tap a wardrobe match → GarmentDetail; tap
+  // an online match → "import coming soon" alert (M20 owns the real import).
+  const openVisualSearch = useCallback(() => {
+    hapticLight();
+    nav.navigate('VisualSearch');
   }, [nav]);
 
   const removePhoto = (id: number) => {
@@ -167,20 +177,32 @@ export function AddPieceStep1() {
         </Pressable>
 
         {/* ============ SOURCE ROW ============ */}
+        {/* M19 Codex round 1 P2.5 — two-row layout. Camera + Gallery share
+            the first row; Visual Search promoted to a full-width hero pill
+            on the second row so the three entries don't squeeze on narrow
+            devices and the visual hierarchy stays readable. */}
         <View>
           <Eyebrow style={{ marginBottom: 8 }}>Or add photos</Eyebrow>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <SourcePill
+                label="Camera"
+                sub="Shoot now"
+                icon={<CameraIcon color={t.accent} />}
+                onPress={openLiveScan}
+              />
+              <SourcePill
+                label="Gallery"
+                sub="Pick photos"
+                icon={<ImageIcon color={t.accent} />}
+                onPress={pickFromGallery}
+              />
+            </View>
             <SourcePill
-              label="Camera"
-              sub="Shoot now"
-              icon={<CameraIcon color={t.accent} />}
-              onPress={openLiveScan}
-            />
-            <SourcePill
-              label="Gallery"
-              sub="Pick photos"
-              icon={<ImageIcon color={t.accent} />}
-              onPress={pickFromGallery}
+              label="Search by photo"
+              sub="Find similar"
+              icon={<SearchIcon color={t.accent} />}
+              onPress={openVisualSearch}
             />
           </View>
         </View>

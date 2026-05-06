@@ -41,6 +41,7 @@ import { AddPieceStep1 } from '../screens/AddPieceStep1';
 import { AddPieceStep2 } from '../screens/AddPieceStep2';
 import { AddPieceStep3 } from '../screens/AddPieceStep3';
 import { LiveScanScreen } from '../screens/LiveScanScreen';
+import { VisualSearchScreen } from '../screens/VisualSearchScreen';
 
 // Wardrobe / outfit / sharing
 import { OutfitsScreen } from '../screens/OutfitsScreen';
@@ -148,6 +149,11 @@ export type RootStackParamList = {
     source: AddGarmentSource;
   };
   LiveScan: undefined;
+  // M19 — Visual Search reachable from AddPieceStep1's third entry pill.
+  // Self-contained surface (capture/pick reference → matches → tap a
+  // wardrobe match → GarmentDetail; tap an online match → "import coming
+  // soon" alert routed to M20).
+  VisualSearch: undefined;
 
   // Outfit / garment / sharing
   Outfits: undefined;
@@ -403,6 +409,7 @@ export function RootNavigator() {
       <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={LiveScanScreen} />
+      <Stack.Screen name="VisualSearch" component={VisualSearchScreen} />
 
       {/* Outfit / garment / sharing */}
       <Stack.Screen name="Outfits" component={OutfitsScreen} />
