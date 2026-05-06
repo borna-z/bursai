@@ -6,12 +6,21 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  getStateFromPath as defaultGetStateFromPath,
+  type LinkingOptions,
+} from '@react-navigation/native';
 import { AddPieceStep1 } from '../screens/AddPieceStep1';
 import { AddPieceStep2 } from '../screens/AddPieceStep2';
 import { AddPieceStep3 } from '../screens/AddPieceStep3';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+// M12 — real ResetPasswordScreen mounted (was a placeholder pre-M12). The
+// recovery email link `burs://reset-password` deep-links here via the
+// `linking` config exported below; the screen reads the now-hydrated
+// session and writes the new password through useResetPassword.confirmReset.
+import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 // M11 — destructive flows live behind Settings → Account / Privacy & data,
 // so SettingsScreen + SettingsAccountScreen + SettingsPrivacyScreen
 // have to be reachable for App Store guideline 5.1.1(v) review. The
@@ -125,6 +134,34 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// M12 — deep-link routing. The recovery email URL is
+// `burs://reset-password#access_token=...&refresh_token=...&type=recovery`.
+// React Navigation matches the path and routes to ResetPassword; the hash
+// fragment is parsed by the recovery handler in App.tsx (which calls
+// supabase.auth.setSession before this screen reads the session). Other
+// routes are unlinked: the app cold-starts to MainTabs unless a recovery
+// URL fired the launch.
+//
+// `getStateFromPath` override (Codex P1 round 1): RN's default parser
+// strips `?` query strings but not `#` fragments, so the path
+// `reset-password#access_token=...` would never match the configured
+// `reset-password` route — the session would hydrate but the user would
+// never navigate to ResetPasswordScreen. Strip the fragment first, then
+// delegate to the default parser so route matching sees only the path.
+export const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['burs://'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password',
+    },
+  },
+  getStateFromPath: (path, options) => {
+    const fragmentIdx = path.indexOf('#');
+    const cleanPath = fragmentIdx === -1 ? path : path.slice(0, fragmentIdx);
+    return defaultGetStateFromPath(cleanPath, options);
+  },
+};
+
 // Placeholder components MUST be created at module scope — not inside RootNavigator's render —
 // so React Navigation sees stable function references across re-renders (e.g. after a theme
 // change). Building them per-render would unmount/remount every screen in the stack, blowing
@@ -183,7 +220,6 @@ const Placeholders = {
   // Profile / account / extras
   Profile: placeholder('You', 'Profile'),
   Notifications: placeholder('Inbox', 'Notifications'),
-  ResetPassword: placeholder('Account', 'Reset password'),
   BillingSuccess: placeholder('Welcome', 'Premium activated'),
   BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
   NotFound: placeholder('Off the rail', '404'),
@@ -259,7 +295,7 @@ export function RootNavigator() {
       {/* Profile / account / extras */}
       <Stack.Screen name="Profile" component={Placeholders.Profile} />
       <Stack.Screen name="Notifications" component={Placeholders.Notifications} />
-      <Stack.Screen name="ResetPassword" component={Placeholders.ResetPassword} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="BillingSuccess" component={Placeholders.BillingSuccess} />
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />
       <Stack.Screen name="NotFound" component={Placeholders.NotFound} />

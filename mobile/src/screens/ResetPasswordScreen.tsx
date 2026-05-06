@@ -1,10 +1,26 @@
-// Reset password — request + success states.
-// Mirrors design_handoff_burs_rn/source/audit-screens.jsx ResetPasswordScreen.
+// Reset password — confirm-new-password screen.
+//
+// Two ways the user lands here:
+//   1. Recovery deep link from email: `burs://reset-password#access_token=...`.
+//      The Linking handler in App.tsx parses the hash, calls
+//      supabase.auth.setSession({ access_token, refresh_token }), and React
+//      Navigation routes to this screen. By the time this component mounts
+//      the session is hydrated and updateUser succeeds.
+//   2. Signed-in user from SettingsAccountScreen → Reset password row. They
+//      already have an active session, so the same updateUser call works.
+//
+// Either way: enter + confirm a new password, dispatch confirmReset, then
+// reset to MainTabs (the AuthContext listener routes appropriately based on
+// the now-authenticated session).
+//
+// The "request a reset email" UI moved to AuthScreen's "Forgot password?"
+// link in M12 — that flow uses the email field already on screen and shows
+// a "check your email" Alert, so it doesn't need its own route.
 
 import React from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -24,56 +40,68 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, CheckIcon } from '../components/icons';
+import { BackIcon } from '../components/icons';
+import { useResetPassword } from '../hooks/useResetPassword';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-type ScreenState = 'request' | 'success';
+const MIN_PASSWORD = 6;
 
 export function ResetPasswordScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { confirmReset } = useResetPassword();
 
-  const [state, setState] = React.useState<ScreenState>('request');
-  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [confirm, setConfirm] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  const [touched, setTouched] = React.useState<{ password?: boolean; confirm?: boolean }>({});
 
-  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const confirmRef = React.useRef<TextInput | null>(null);
 
-  // Track in-flight timer + mounted flag so we don't setState after unmount.
-  // Codex audit P1.4. The ref pattern survives unmount during the 700ms mock delay; once
-  // supabase.auth.resetPasswordForEmail() is wired, the same guard prevents promise
-  // resolution from updating an unmounted component.
-  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards setState in the async finally — the post-success nav.reset can
+  // unmount the screen before updateUser resolves on a slow connection.
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
     return () => {
       mountedRef.current = false;
-      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
-  const handleSubmit = () => {
-    if (!isEmailValid) return;
+  const passwordValid = password.length >= MIN_PASSWORD;
+  const passwordsMatch = password.length > 0 && password === confirm;
+  const canSubmit = passwordValid && passwordsMatch && !submitting;
+
+  const showPasswordError = Boolean(touched.password) && !passwordValid;
+  const showConfirmError = Boolean(touched.confirm) && password.length > 0 && !passwordsMatch;
+
+  const handleSubmit = async () => {
+    setTouched({ password: true, confirm: true });
+    if (!canSubmit) return;
     setSubmitting(true);
-    // TODO: replace with supabase.auth.resetPasswordForEmail() once mobile auth bridge lands.
-    timerRef.current = setTimeout(() => {
+    try {
+      const { error } = await confirmReset(password);
       if (!mountedRef.current) return;
-      setSubmitting(false);
-      setState('success');
-    }, 700);
-  };
-
-  // `mailto:` opens compose, not the inbox — no public scheme exists for "open inbox".
-  // Honest label below ("Open mail to compose") matches what the OS will actually do.
-  // Codex audit P1.6.
-  const handleOpenMail = () => {
-    Linking.openURL('mailto:').catch(() => {});
-  };
-
-  const handleResend = () => {
-    setState('request');
+      if (error) {
+        Alert.alert(tr('resetPassword.errorTitle'), error.message);
+        return;
+      }
+      Alert.alert(tr('resetPassword.successTitle'), tr('resetPassword.successBody'), [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Session is now valid (recovery flow set it; signed-in flow
+            // already had it). AuthContext will route via MainTabs/Onboarding
+            // depending on profile state.
+            nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+          },
+        },
+      ]);
+    } finally {
+      if (mountedRef.current) setSubmitting(false);
+    }
   };
 
   return (
@@ -85,99 +113,94 @@ export function ResetPasswordScreen() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, gap: 18 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          {/* ============ HEADER ============ */}
           <View style={s.headerRow}>
-            <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <IconBtn ariaLabel={tr('resetPassword.back')} onPress={() => nav.goBack()} variant="ghost">
               <BackIcon color={t.fg} />
             </IconBtn>
             <View style={{ flex: 1 }}>
-              <PageTitle>Reset password</PageTitle>
+              <PageTitle>{tr('resetPassword.title')}</PageTitle>
             </View>
           </View>
 
-          {state === 'request' ? (
-            <View style={{ gap: 18 }}>
-              <View style={{ gap: 6 }}>
-                <Eyebrow>Forgot your password?</Eyebrow>
-                <Caption>Enter your email and we'll send a reset link.</Caption>
-              </View>
+          <View style={{ gap: 6 }}>
+            <Eyebrow>{tr('resetPassword.eyebrow')}</Eyebrow>
+            <Caption>{tr('resetPassword.intro')}</Caption>
+          </View>
 
-              <View style={[s.input, { backgroundColor: t.bg2, borderColor: t.border }]}>
+          <View style={{ gap: 12 }}>
+            <View>
+              <Eyebrow style={{ marginBottom: 6 }}>{tr('resetPassword.newPasswordLabel')}</Eyebrow>
+              <View style={[s.input, { backgroundColor: t.card, borderColor: t.border }]}>
                 <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@email.com"
-                  placeholderTextColor={t.fg3}
+                  value={password}
+                  onChangeText={setPassword}
+                  onBlur={() => setTouched((x) => ({ ...x, password: true }))}
+                  editable={!submitting}
+                  secureTextEntry
                   autoCapitalize="none"
                   autoCorrect={false}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  returnKeyType="send"
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  returnKeyType="next"
+                  onSubmitEditing={() => confirmRef.current?.focus()}
+                  style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 14, padding: 0 }}
+                />
+              </View>
+              {showPasswordError ? (
+                <Text style={[s.errorText, { color: t.destructive }]}>
+                  {tr('resetPassword.tooShort')}
+                </Text>
+              ) : null}
+            </View>
+
+            <View>
+              <Eyebrow style={{ marginBottom: 6 }}>{tr('resetPassword.confirmPasswordLabel')}</Eyebrow>
+              <View style={[s.input, { backgroundColor: t.card, borderColor: t.border }]}>
+                <TextInput
+                  ref={confirmRef}
+                  value={confirm}
+                  onChangeText={setConfirm}
+                  onBlur={() => setTouched((x) => ({ ...x, confirm: true }))}
+                  editable={!submitting}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  returnKeyType="go"
                   onSubmitEditing={handleSubmit}
                   style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 14, padding: 0 }}
                 />
               </View>
-
-              <Button
-                label={submitting ? 'Sending…' : 'Send reset link'}
-                variant="accent"
-                block
-                disabled={!isEmailValid || submitting}
-                onPress={handleSubmit}
-              />
-
-              <Pressable accessibilityRole="link" onPress={() => nav.goBack()} hitSlop={6}>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiMed,
-                    fontSize: 12.5,
-                    color: t.fg2,
-                    textAlign: 'center',
-                    paddingVertical: 8,
-                    letterSpacing: -0.1,
-                  }}>
-                  Back to sign in
+              {showConfirmError ? (
+                <Text style={[s.errorText, { color: t.destructive }]}>
+                  {tr('resetPassword.mismatch')}
                 </Text>
-              </Pressable>
+              ) : null}
             </View>
-          ) : (
-            <View style={{ gap: 18, alignItems: 'center', paddingTop: 20 }}>
-              <View style={[s.successBadge, { backgroundColor: t.accent }]}>
-                <CheckIcon color={t.accentFg} size={32} />
-              </View>
-              <Text
-                style={{
-                  fontFamily: fonts.displayMedium,
-                  fontStyle: 'italic',
-                  fontSize: 26,
-                  fontWeight: '500',
-                  color: t.fg,
-                  letterSpacing: -0.26,
-                  textAlign: 'center',
-                }}>
-                Check your inbox
-              </Text>
-              <Caption style={{ textAlign: 'center', maxWidth: 280 }}>
-                We sent a reset link to{' '}
-                <Text style={{ color: t.fg, fontFamily: fonts.uiSemi }}>{email}</Text>
-                . It expires in 1 hour.
-              </Caption>
+          </View>
 
-              <Button label="Open mail app" variant="accent" block onPress={handleOpenMail} />
-              <Pressable accessibilityRole="link" onPress={handleResend} hitSlop={6}>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 12.5,
-                    color: t.accent,
-                    paddingVertical: 8,
-                    letterSpacing: -0.1,
-                  }}>
-                  Resend link
-                </Text>
-              </Pressable>
-            </View>
-          )}
+          <Button
+            label={submitting ? tr('resetPassword.submitting') : tr('resetPassword.cta')}
+            variant="accent"
+            block
+            disabled={!canSubmit}
+            onPress={handleSubmit}
+          />
+
+          <Pressable accessibilityRole="link" onPress={() => nav.goBack()} hitSlop={6}>
+            <Text
+              style={{
+                fontFamily: fonts.uiMed,
+                fontSize: 12.5,
+                color: t.fg2,
+                textAlign: 'center',
+                paddingVertical: 8,
+                letterSpacing: -0.1,
+              }}>
+              {tr('resetPassword.back')}
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -194,11 +217,11 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  successBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  errorText: {
+    marginTop: 6,
+    marginLeft: 4,
+    fontFamily: fonts.uiMed,
+    fontSize: 12,
+    letterSpacing: -0.1,
   },
 });

@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M12 — Password reset + deep links |
-| **CURRENT WAVE FILE** | [`waves/m12-password-reset.md`](waves/m12-password-reset.md) |
+| **CURRENT WAVE** | M6 — Multi-garment LiveScan continuous-scan |
+| **CURRENT WAVE FILE** | [`waves/m6-livescan-continuous.md`](waves/m6-livescan-continuous.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -97,7 +97,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | Wave | File | Status | Depends on |
 |---|---|---|---|
 | M11 | [Account deletion + reset style memory](waves/m11-destructive-mutations.md) | DONE (PR #735) | V0 |
-| M12 | [Password reset + deep links](waves/m12-password-reset.md) | TODO | V0 |
+| M12 | [Password reset + deep links](waves/m12-password-reset.md) | DONE (PR #736) | V0 |
 
 ### Style + intelligence depth
 | Wave | File | Status | Depends on |
