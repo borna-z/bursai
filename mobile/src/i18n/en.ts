@@ -326,7 +326,6 @@ export const en: Record<string, string> = {
   'outfitPool.empty.title': 'No outfits generated',
   'outfitPool.empty.body':
     "We couldn't build any outfits this round. Try again or adjust your wardrobe.",
-  'outfitPool.empty.retry': 'Try again',
   'outfitPool.savedTemplate': '{n} saved',
   'outfitPool.partialSaveBody': '{failed} couldn\'t be saved — try again.',
   'weekPlan.title': 'Week plan',
@@ -335,5 +334,9 @@ export const en: Record<string, string> = {
   'weekPlan.progressTemplate': '{n}/{total}',
   'weekPlan.dayFailedTemplate': "Couldn't generate {day} — tap to retry",
   'weekPlan.swap': 'Tap to swap',
-  'weekPlan.savedTemplate': 'Saved {day}',
+  // Surfaced by OutfitPoolScreen when every selected draft fails to
+  // persist — pairs with `outfitPool.partialSaveBody` for the count.
+  // Replaces the earlier "0 saved" title which was misleading on full
+  // failure (M16 P2.5).
+  'outfitPool.saveFailedTitle': "Couldn't save outfits",
 };

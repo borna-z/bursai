@@ -6,13 +6,14 @@
 //   • outfit preview (gradient swatch + piece count) when present
 //   • skeleton when generating + outfit not yet landed
 //   • "Couldn't generate {day} — tap to retry" pressable on per-day error
-//   • quick-swap action (chevron) that fires `onSwapDay(date)`
+//   • quick-swap action (chevron) that fires `onRegenerateDay(date)` (the
+//     prop doubles as the retry handler on the error path).
 //
 // When `entries` is empty, renders a single "Generate week" CTA so the
 // PlanScreen surface stays compact until the user opts in.
 
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -32,8 +33,14 @@ export type WeekPlanPreviewProps = {
   /** Total expected (always 7 for the week generator; param keeps the
    *  copy honest if the loop ever reseeds with fewer days). */
   total?: number;
+  /** Per-row in-flight set. Rows whose date is in the set are gated
+   *  against repeat presses and render an inline spinner. */
+  regeneratingDates?: Set<string>;
   onGenerateWeek: () => void;
-  onSwapDay: (date: string) => void;
+  /** Fired when a row is tapped — triggers a per-day regeneration. The
+   *  same handler doubles as the retry affordance on rows that landed
+   *  with an error (the screen's hook treats both paths identically). */
+  onRegenerateDay: (date: string) => void;
 };
 
 function formatDateLabel(iso: string): { dow: string; n: string } {
@@ -41,7 +48,16 @@ function formatDateLabel(iso: string): { dow: string; n: string } {
   // it parsed as local midnight (avoids the UTC-skew gotcha noted in
   // localISODate's comment).
   const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return { dow: '', n: '' };
+  if (Number.isNaN(d.getTime())) {
+    // Invalid iso — surface a non-blank placeholder so the row still
+    // renders cleanly and dev gets a console warning to chase the bad
+    // input. Returning empty strings would have collapsed the date
+    // column to zero width on some devices.
+    if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+      console.warn('WeekPlanPreview.formatDateLabel: invalid iso', iso);
+    }
+    return { dow: '—', n: '—' };
+  }
   return {
     dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
     n: String(d.getDate()),
@@ -53,8 +69,9 @@ export function WeekPlanPreview({
   isGenerating,
   completed,
   total = 7,
+  regeneratingDates,
   onGenerateWeek,
-  onSwapDay,
+  onRegenerateDay,
 }: WeekPlanPreviewProps) {
   const t = useTokens();
 
@@ -73,6 +90,7 @@ export function WeekPlanPreview({
             }
           }}
           disabled={isGenerating}
+          accessibilityHint="Generates 7 outfits, one per day"
           block
         />
       </View>
@@ -89,18 +107,28 @@ export function WeekPlanPreview({
       </View>
 
       <View style={[s.list, { borderColor: t.border }]}>
-        {entries.map((entry, idx) => (
-          <WeekRow
-            key={entry.date}
-            entry={entry}
-            isLast={idx === entries.length - 1}
-            isGenerating={isGenerating}
-            onPress={() => {
-              hapticLight();
-              onSwapDay(entry.date);
-            }}
-          />
-        ))}
+        {entries.map((entry, idx) => {
+          const isRowRegenerating = regeneratingDates?.has(entry.date) ?? false;
+          return (
+            <WeekRow
+              key={entry.date}
+              entry={entry}
+              isLast={idx === entries.length - 1}
+              isGenerating={isGenerating}
+              isRowRegenerating={isRowRegenerating}
+              onPress={() => {
+                // Gate the press while a per-row regeneration is in
+                // flight — without this a rapid double-tap would race
+                // two engine calls for the same date and the second
+                // response would clobber the first (or vice versa
+                // depending on settle order).
+                if (isRowRegenerating) return;
+                hapticLight();
+                onRegenerateDay(entry.date);
+              }}
+            />
+          );
+        })}
       </View>
     </View>
   );
@@ -110,11 +138,13 @@ function WeekRow({
   entry,
   isLast,
   isGenerating,
+  isRowRegenerating,
   onPress,
 }: {
   entry: WeekGeneratorEntry;
   isLast: boolean;
   isGenerating: boolean;
+  isRowRegenerating: boolean;
   onPress: () => void;
 }) {
   const t = useTokens();
@@ -124,9 +154,9 @@ function WeekRow({
   const hasError = entry.error !== null;
   // Pending state — generating, no outfit yet, no error. The screen-wide
   // `isGenerating` is the global flag (true during the sequential loop);
-  // we infer per-row pendingness when the entry is empty + the global
-  // flag is on.
-  const isPending = isGenerating && !hasOutfit && !hasError;
+  // `isRowRegenerating` is true while THIS row's per-day swap is in
+  // flight. Either implies pendingness when the entry has nothing to show.
+  const isPending = (isGenerating || isRowRegenerating) && !hasOutfit && !hasError;
   const hue = entry.outfit ? outfitGradientHue(entry.outfit.draftId) : 200;
   const itemCount = entry.outfit?.items.length ?? 0;
   const pieceLabel = itemCount === 1 ? '1 piece' : `${itemCount} pieces`;
@@ -135,6 +165,7 @@ function WeekRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityState={{ disabled: isRowRegenerating, busy: isRowRegenerating }}
       accessibilityLabel={
         hasError
           ? tr('weekPlan.dayFailedTemplate', { day: dayLabel })
@@ -145,7 +176,7 @@ function WeekRow({
         {
           borderBottomColor: t.border,
           borderBottomWidth: isLast ? 0 : 1,
-          opacity: pressed ? 0.85 : 1,
+          opacity: pressed && !isRowRegenerating ? 0.85 : 1,
         },
       ]}>
       {/* Date column */}
@@ -195,8 +226,13 @@ function WeekRow({
               backgroundColor: t.bg2,
               borderWidth: 1,
               borderColor: t.border,
-            }}
-          />
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            {/* Per-row spinner — visible while the row is regenerating
+                so the user knows their tap registered. */}
+            {isRowRegenerating ? <ActivityIndicator size="small" color={t.fg3} /> : null}
+          </View>
           <Text
             style={{
               fontFamily: fonts.ui,

@@ -165,18 +165,25 @@ export function PlanScreen() {
 
   // M16 — week generator surface. Lazy-mounted: the preview shows a single
   // "Generate week" CTA until the user opts in, at which point it expands
-  // into 7 rows. Once entries land, the preview stays visible for the
-  // session so the user can tap "swap" per day without re-opting-in.
+  // into 7 rows. Once entries land, the section default-collapses behind a
+  // "View N planned days" toggle so the PlanScreen surface stays compact;
+  // the user can re-expand to swap individual days.
   const weekGen = useWeekGenerator();
+  // Destructure the methods so the dep arrays below depend on stable
+  // function refs (the hook returns new objects every render). Without
+  // this `weekGen` itself ticks the dep set every render and the
+  // memoised callbacks rebuild needlessly.
+  const { generateWeek, regenerateDay } = weekGen;
   const handleGenerateWeek = React.useCallback(() => {
-    void weekGen.generateWeek({ startDate: now });
-  }, [weekGen, now]);
+    void generateWeek({ startDate: now });
+  }, [generateWeek, now]);
   const handleSwapDay = React.useCallback(
     (date: string) => {
-      void weekGen.regenerateDay(date);
+      void regenerateDay(date);
     },
-    [weekGen],
+    [regenerateDay],
   );
+  const [weekPreviewExpanded, setWeekPreviewExpanded] = React.useState(false);
 
   // "Worn today" gate for the today-only Wear button. Mirrors OutfitDetail.
   // Without this the button stays primary-coloured + enabled even after a
@@ -409,15 +416,55 @@ export function PlanScreen() {
         <View style={{ height: 1, backgroundColor: t.border, opacity: 0.7 }} />
 
         {/* ============ WEEK GENERATOR (M16) ============
-            Renders the empty CTA initially; after the user taps "Generate
-            week" it expands into the 7-row preview with per-day swap. */}
-        <WeekPlanPreview
-          entries={weekGen.entries}
-          isGenerating={weekGen.isGenerating}
-          completed={weekGen.completed}
-          onGenerateWeek={handleGenerateWeek}
-          onSwapDay={handleSwapDay}
-        />
+            Empty (no entries, not generating): single "Generate week" CTA.
+            Populated: collapsed by default behind a "View N planned days"
+            toggle so the PlanScreen stays compact; expanding reveals the
+            7-row preview with per-day swap. */}
+        {weekGen.entries.length === 0 && !weekGen.isGenerating ? (
+          <WeekPlanPreview
+            entries={weekGen.entries}
+            isGenerating={weekGen.isGenerating}
+            completed={weekGen.completed}
+            regeneratingDates={weekGen.regeneratingDates}
+            onGenerateWeek={handleGenerateWeek}
+            onRegenerateDay={handleSwapDay}
+          />
+        ) : (
+          <View style={{ gap: 10 }}>
+            <Pressable
+              onPress={() => setWeekPreviewExpanded((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: weekPreviewExpanded }}
+              accessibilityLabel={
+                weekPreviewExpanded
+                  ? 'Hide planned week'
+                  : `View ${weekGen.entries.length} planned days`
+              }
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 4,
+              }}>
+              <Eyebrow>
+                {weekPreviewExpanded
+                  ? 'Hide planned week'
+                  : `View ${weekGen.entries.length} planned days`}
+              </Eyebrow>
+              <ChevronIcon color={t.fg3} />
+            </Pressable>
+            {weekPreviewExpanded ? (
+              <WeekPlanPreview
+                entries={weekGen.entries}
+                isGenerating={weekGen.isGenerating}
+                completed={weekGen.completed}
+                regeneratingDates={weekGen.regeneratingDates}
+                onGenerateWeek={handleGenerateWeek}
+                onRegenerateDay={handleSwapDay}
+              />
+            ) : null}
+          </View>
+        )}
 
         {/* ============ HR ============ */}
         <View style={{ height: 1, backgroundColor: t.border, opacity: 0.7 }} />

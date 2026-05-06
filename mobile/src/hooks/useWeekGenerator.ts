@@ -13,15 +13,18 @@
 // weather (M35) hooks ship, events default to `[]` and weather to the
 // same mild placeholder used by `useSmartDayRecommendation` so the
 // engine produces a sane composition rather than refusing to score.
-// Recently-worn garment IDs come from `useFlatGarments` and are passed
-// to the engine as `exclude_garment_ids` to bias against repetition
-// across the week.
+// Recently-worn garment IDs come from a dedicated id-only Supabase
+// query (id + last_worn_at indexed) and are passed to the engine as
+// `exclude_garment_ids` to bias against repetition across the week. The
+// query is independent of the paginated `useFlatGarments` cache so we
+// never under-count repeats just because a wardrobe page hasn't loaded.
 //
 // Subscription gating: a 402 / `subscription_required` from any single
 // day short-circuits the loop and surfaces the same sentinel error
 // `useGenerateOutfit` raises so the screen can route to the paywall.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -29,7 +32,7 @@ import {
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
 } from '../lib/edgeFunctionClient';
-import { useFlatGarments } from './useGarments';
+import { supabase } from '../lib/supabase';
 import {
   buildDayIntelligence,
   type DayEventInput,
@@ -42,9 +45,16 @@ import type { ScoredOutfitDraft } from './useOutfitPool';
 
 const RECENTLY_WORN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Mild placeholder weather. Matches `useGenerateOutfit` and `useOutfitPool`
+// so the engine's `normalizeWeather` reads the same baseline shape across
+// every mobile entry-point. `precipitation: 'unknown'` would otherwise
+// trip the engine's wet-weather branch (treats unknown as "potentially
+// raining" → biases toward waterproof outerwear and away from suede),
+// silently skewing the whole week.
 const FALLBACK_WEATHER: DayWeatherInput = {
   temperature: 18,
-  precipitation: 'unknown',
+  precipitation: 'none',
+  wind: 'none',
 };
 
 const SUBSCRIPTION_SENTINEL = 'subscription_required';
@@ -68,6 +78,11 @@ export interface UseWeekGeneratorResult {
    *  or when the wrapper itself throws. Per-day errors live on
    *  `entries[i].error`. */
   error: string | null;
+  /** Per-row pending state — populated while `regenerateDay` is in flight
+   *  for a specific date. WeekPlanPreview reads this to gate row presses
+   *  (so the user can't fire two regenerations in parallel for the same
+   *  day) and to render a row-local spinner. */
+  regeneratingDates: Set<string>;
   generateWeek: (params?: {
     startDate?: Date;
     locale?: string;
@@ -85,6 +100,7 @@ type EngineResponse = {
   family_label?: string | null;
   confidence_score?: number | null;
   confidence_level?: string | null;
+  occasion?: string | null;
   error?: string;
 };
 
@@ -112,16 +128,47 @@ function computeWeekIsos(startDate: Date): string[] {
 }
 
 export function useWeekGenerator(): UseWeekGeneratorResult {
-  const { session } = useAuth();
-  const flatGarmentsQ = useFlatGarments();
+  const { session, user } = useAuth();
+
+  // Dedicated id-only query for recently-worn garments. Independent of the
+  // paginated wardrobe cache so the exclude set is complete even when the
+  // wardrobe pager hasn't loaded every page. id-only payload + indexed
+  // `last_worn_at` filter keeps this cheap; cached for an hour because a
+  // freshly worn garment doesn't need to land in the bias set within the
+  // same minute.
+  const recentlyWornCutoffIso = new Date(Date.now() - RECENTLY_WORN_WINDOW_MS).toISOString();
+  const recentlyWornQ = useQuery({
+    queryKey: ['recentlyWornGarmentIds', user?.id, recentlyWornCutoffIso.slice(0, 10)],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return new Set<string>();
+      const { data, error: qErr } = await supabase
+        .from('garments')
+        .select('id')
+        .eq('user_id', user.id)
+        .gt('last_worn_at', recentlyWornCutoffIso);
+      if (qErr) throw qErr;
+      return new Set((data ?? []).map((r) => r.id));
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+
   const [entries, setEntries] = useState<WeekGeneratorEntry[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [regeneratingDates, setRegeneratingDates] = useState<Set<string>>(new Set());
   const abortRef = useRef<AbortController | null>(null);
+  // Per-date AbortController map for `regenerateDay` so a day-swap can be
+  // cancelled on unmount without nuking concurrent or full-week traffic. We
+  // also abort any in-flight controller for the same date before starting a
+  // fresh regeneration so a rapid double-tap doesn't leak two requests.
+  const regenAbortMapRef = useRef<Map<string, AbortController>>(new Map());
   // Snapshot the last-generation params so `regenerateDay` can re-run a
-  // single slot with the same locale + recently-worn set the original
-  // batch saw. Without this the day swap would silently change context.
-  const lastParamsRef = useRef<{ locale: string; recentlyWornIds: string[] } | null>(null);
+  // single slot with the same locale the original batch saw. (We DO NOT
+  // snapshot recently-worn ids here — those are re-derived from the live
+  // React Query result at regeneration time so a freshly worn garment
+  // doesn't get re-suggested.)
+  const lastParamsRef = useRef<{ locale: string } | null>(null);
 
   const callOneDay = useCallback(
     async ({
@@ -149,13 +196,19 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
             generator_mode: 'standard',
             occasion: intelligence.dominant_occasion,
             style: null,
+            // Engine reads `body.weather` as a flat WeatherInput sibling
+            // of `body.day_context` (see supabase/functions/burs_style_engine
+            // index.ts:806 + _shared/outfit-scoring.ts:74-78).
             weather: FALLBACK_WEATHER,
             locale,
-            day_context: {
-              date,
-              intelligence,
-              weather: FALLBACK_WEATHER,
-            },
+            // Engine destructures `body.day_context` as a flat
+            // DayContextInput (`dominant_occasion`, `anchor_event`,
+            // `emphasis`, etc. directly on the object — see
+            // _shared/outfit-scoring.ts:80-99 + index.ts:797). Pass the
+            // `intelligence` object directly, NOT wrapped in `{ date,
+            // intelligence, weather }` (which would silently strand
+            // every field under an unread key).
+            day_context: intelligence,
             // Bias the engine away from already-worn garments to reduce
             // week-over-week repetition. Soft hint, not a hard exclude —
             // mirrors web's web reference.
@@ -197,7 +250,11 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
             draftId: makeDraftId(),
             items,
             explanation: data?.explanation ?? '',
-            occasion: intelligence.dominant_occasion,
+            // Prefer the engine's overridden occasion when it returns one
+            // (e.g. style-chat normalised the request and the engine landed
+            // on a different bucket). Fall back to the day-context dominant
+            // occasion the request was kicked with.
+            occasion: data?.occasion ?? intelligence.dominant_occasion ?? undefined,
             family_label: data?.family_label ?? null,
             confidence_score: data?.confidence_score ?? null,
             confidence_level: data?.confidence_level ?? null,
@@ -241,18 +298,12 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
       const locale = params?.locale ?? 'en';
       const isos = computeWeekIsos(start);
 
-      // Recently-worn = last 7 days. Pulled from the flat garment cache,
-      // not refetched — matches `useSmartDayRecommendation`'s approach.
-      const cutoffMs = Date.now() - RECENTLY_WORN_WINDOW_MS;
-      const recentlyWornIds: string[] = [];
-      for (const g of flatGarmentsQ.data ?? []) {
-        const lastWorn = g.last_worn_at ? new Date(g.last_worn_at).getTime() : NaN;
-        if (Number.isFinite(lastWorn) && lastWorn >= cutoffMs) {
-          recentlyWornIds.push(g.id);
-        }
-      }
+      // Recently-worn = last 7 days. Pulled from the dedicated id-only
+      // query (above) — independent of the wardrobe pager so we don't
+      // miss garments on later pages.
+      const recentlyWornIds = Array.from(recentlyWornQ.data ?? []);
 
-      lastParamsRef.current = { locale, recentlyWornIds };
+      lastParamsRef.current = { locale };
 
       setIsGenerating(true);
       setError(null);
@@ -295,7 +346,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
         }
       }
     },
-    [session?.access_token, flatGarmentsQ.data, callOneDay],
+    [session?.access_token, recentlyWornQ.data, callOneDay],
   );
 
   const regenerateDay = useCallback(
@@ -305,54 +356,123 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
       if (!params) return; // no prior batch — caller should call generateWeek first
 
       // Per-day regeneration uses its own controller so it doesn't fight a
-      // backgrounded full-week run for the abort signal.
+      // backgrounded full-week run for the abort signal. We track each
+      // controller in a per-date map so unmount cleanup can abort all
+      // in-flight regenerations and a rapid double-tap on the same row
+      // cancels the prior request before kicking the next.
+      const existing = regenAbortMapRef.current.get(date);
+      if (existing) {
+        existing.abort();
+      }
       const controller = new AbortController();
+      regenAbortMapRef.current.set(date, controller);
 
-      // Mark this row as in-flight by clearing the existing error so the
-      // screen can render a skeleton/spinner. We don't flip the top-level
-      // `isGenerating` because that would dim the rest of the week.
-      setEntries((prev) =>
-        prev.map((e) => (e.date === date ? { date, outfit: null, error: null } : e)),
-      );
+      // Snapshot the existing entry so we can restore it if the row falls
+      // back to a subscription-locked state (otherwise the row would be
+      // stuck blank with no outfit and no error after the redirect).
+      let previousEntry: WeekGeneratorEntry | null = null;
+      setEntries((prev) => {
+        const found = prev.find((e) => e.date === date);
+        if (found) previousEntry = found;
+        return prev.map((e) => (e.date === date ? { date, outfit: null, error: null } : e));
+      });
+
+      // Mark this row as in-flight so WeekPlanPreview can gate the press +
+      // render a per-row spinner. Cleared in `finally` regardless of
+      // success / abort / failure.
+      setRegeneratingDates((prev) => {
+        const next = new Set(prev);
+        next.add(date);
+        return next;
+      });
+
+      // Re-derive `recentlyWornIds` at regeneration time so a garment the
+      // user just wore lands in the bias set on the next swap (the
+      // snapshot from `generateWeek` would otherwise stay frozen for the
+      // session).
+      const recentlyWornIds = Array.from(recentlyWornQ.data ?? []);
 
       try {
         const entry = await callOneDay({
           date,
           locale: params.locale,
-          recentlyWornIds: params.recentlyWornIds,
+          recentlyWornIds,
           signal: controller.signal,
         });
+        if (controller.signal.aborted) return;
         setEntries((prev) => prev.map((e) => (e.date === date ? entry : e)));
       } catch (err) {
         if (err instanceof EdgeFunctionSubscriptionLockedError) {
           setError(SUBSCRIPTION_SENTINEL);
+          // Restore the previous entry's outfit (or surface a
+          // subscription_required sentinel on the row if there was
+          // nothing prior) so the row isn't stuck blank between the
+          // redirect-effect and the modal mount.
+          setEntries((prev) =>
+            prev.map((e) => {
+              if (e.date !== date) return e;
+              if (previousEntry) return previousEntry;
+              return { date, outfit: null, error: SUBSCRIPTION_SENTINEL };
+            }),
+          );
           return;
         }
         const message = err instanceof Error ? err.message : 'Generation failed';
         setEntries((prev) =>
           prev.map((e) => (e.date === date ? { date, outfit: null, error: message } : e)),
         );
+      } finally {
+        // Drop the controller from the map only if we still own this slot
+        // (a follow-up regeneration may have replaced it).
+        if (regenAbortMapRef.current.get(date) === controller) {
+          regenAbortMapRef.current.delete(date);
+        }
+        setRegeneratingDates((prev) => {
+          if (!prev.has(date)) return prev;
+          const next = new Set(prev);
+          next.delete(date);
+          return next;
+        });
       }
     },
-    [session?.access_token, callOneDay],
+    [session?.access_token, recentlyWornQ.data, callOneDay],
   );
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    for (const controller of regenAbortMapRef.current.values()) {
+      controller.abort();
+    }
+    regenAbortMapRef.current.clear();
     lastParamsRef.current = null;
     setEntries([]);
     setError(null);
     setIsGenerating(false);
+    setRegeneratingDates(new Set());
   }, []);
 
   useEffect(() => {
+    const regenMap = regenAbortMapRef.current;
     return () => {
       abortRef.current?.abort();
+      for (const controller of regenMap.values()) {
+        controller.abort();
+      }
+      regenMap.clear();
     };
   }, []);
 
   const completed = entries.filter((e) => e.outfit !== null).length;
 
-  return { entries, isGenerating, completed, error, generateWeek, regenerateDay, reset };
+  return {
+    entries,
+    isGenerating,
+    completed,
+    error,
+    regeneratingDates,
+    generateWeek,
+    regenerateDay,
+    reset,
+  };
 }

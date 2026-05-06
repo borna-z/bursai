@@ -18,9 +18,10 @@
 // successful response is post-validated via `isAnchorPresent`. Drafts that
 // drop the anchor are dropped from the pool (the consumer doesn't need to
 // see them) but tallied in `anchorMissed` so the screen can surface a
-// "regenerate?" hint. Slot-rule validation mirrors `useGenerateOutfit` —
-// invalid compositions (top + shoes without a bottom, dress + bottom, two
-// non-layered tops, etc.) are also dropped.
+// "regenerate?" hint. Drops for empty items / invalid composition are
+// bucketed separately (`dropped`) so a noisy validation outage doesn't
+// inflate `anchorMissed` and trigger a misleading "couldn't honour the
+// anchor" affordance.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -57,7 +58,9 @@ export interface UseOutfitPoolResult {
    *  the batch). */
   error: string | null;
   /** Count of fan-out calls whose response dropped the requested anchor.
-   *  Surfaced to the screen so it can render a "regenerate?" affordance. */
+   *  Surfaced to the screen so it can render a "regenerate?" affordance.
+   *  Drops for empty items / invalid composition land in a separate
+   *  bucket and are absorbed in `completed = drafts.length`. */
   anchorMissed: number;
   /** How many of the requested `count` actually came back as a usable
    *  outfit. May be less than `count` due to per-call failures or
@@ -80,6 +83,20 @@ type EngineResponse = {
   confidence_level?: string | null;
   error?: string;
 };
+
+/** Discriminated outcome per engine call. Lets the accumulator bucket
+ *  anchor-missed and other drops into separate counters so the screen
+ *  doesn't surface a "couldn't honour the anchor" affordance when the
+ *  real problem is the engine returning empty / invalid items.
+ *  - `ok`: usable draft, push into `drafts`
+ *  - `anchor_missed`: anchor was requested + dropped → counts toward `anchorMissed`
+ *  - `empty` / `invalid`: returned no items / failed slot validation → silently absorbed
+ */
+type CallOneResult =
+  | { kind: 'ok'; draft: ScoredOutfitDraft }
+  | { kind: 'anchor_missed' }
+  | { kind: 'empty' }
+  | { kind: 'invalid' };
 
 const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
@@ -119,9 +136,13 @@ export function useOutfitPool(): UseOutfitPoolResult {
         setError('Not authenticated');
         return;
       }
-      // Clamp to the wave's stated 5-10 envelope and guard against zero —
-      // an idle pool screen would otherwise sit forever on "0/0 ready".
-      const safeCount = Math.max(1, Math.min(10, Math.floor(count)));
+      // Clamp to the wave's stated 5-10 envelope and guard against zero +
+      // NaN — `Math.floor(NaN)` is NaN, and `Math.max(1, Math.min(10, NaN))`
+      // returns NaN, so a malformed route param would otherwise yield zero
+      // requests and a stuck "0/0 ready" screen.
+      const safeCount = Number.isFinite(count)
+        ? Math.max(1, Math.min(10, Math.floor(count)))
+        : 5;
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -136,19 +157,23 @@ export function useOutfitPool(): UseOutfitPoolResult {
       const anchorId = anchorGarmentId?.trim() || undefined;
       const safeOccasion = occasion?.trim() || 'Everyday';
 
-      const callOne = async (): Promise<ScoredOutfitDraft | null> => {
+      const callOne = async (): Promise<CallOneResult> => {
         const data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
           body: {
             mode: 'generate',
             generator_mode: 'standard',
             occasion: safeOccasion,
             style: null,
-            // Mild placeholder weather — same as `useGenerateOutfit`.
-            // M35 will wire a real weather provider; until then the
-            // engine's `normalizeWeather` accepts this shape cleanly.
-            weather: { precipitation: 'none', wind: 'none' },
+            // Mild placeholder weather — same as `useGenerateOutfit` and
+            // `useWeekGenerator`. M35 will wire a real weather provider;
+            // until then the engine's `normalizeWeather` accepts this
+            // shape cleanly.
+            weather: { temperature: 18, precipitation: 'none', wind: 'none' },
             locale: 'en',
-            prefer_garment_ids: anchorId ? [anchorId] : [],
+            // Only include the field when an anchor exists — keeps the
+            // body terse and avoids sending an empty array the engine
+            // would otherwise have to ignore.
+            ...(anchorId ? { prefer_garment_ids: [anchorId] } : {}),
           },
           signal: controller.signal,
         });
@@ -159,16 +184,17 @@ export function useOutfitPool(): UseOutfitPoolResult {
 
         const items = adaptItems(data?.items);
         if (items.length === 0) {
-          // Engine returned no garments — drop this draft from the pool,
-          // count it toward `completed` only as a failure.
-          return null;
+          // Engine returned no garments — drop this draft from the pool.
+          // Bucketed as `empty`, NOT as `anchor_missed`, so a flaky AI
+          // response doesn't poison the anchor counter.
+          return { kind: 'empty' };
         }
 
         // Anchor enforcement (mobile parity with `useGenerateOutfit`).
         if (anchorId) {
           const ids = items.map((it) => it.garment_id);
           if (!isAnchorPresent(ids, anchorId)) {
-            return null; // counted as anchor-missed by the caller
+            return { kind: 'anchor_missed' };
           }
         }
 
@@ -187,17 +213,20 @@ export function useOutfitPool(): UseOutfitPoolResult {
           || validation.conflictingSlots.length > 0
           || nonLayeredDuplicates.length > 0
         ) {
-          return null;
+          return { kind: 'invalid' };
         }
 
         return {
-          draftId: makeDraftId(),
-          items,
-          explanation: data?.explanation ?? '',
-          occasion: safeOccasion,
-          family_label: data?.family_label ?? null,
-          confidence_score: data?.confidence_score ?? null,
-          confidence_level: data?.confidence_level ?? null,
+          kind: 'ok',
+          draft: {
+            draftId: makeDraftId(),
+            items,
+            explanation: data?.explanation ?? '',
+            occasion: safeOccasion,
+            family_label: data?.family_label ?? null,
+            confidence_score: data?.confidence_score ?? null,
+            confidence_level: data?.confidence_level ?? null,
+          },
         };
       };
 
@@ -211,25 +240,19 @@ export function useOutfitPool(): UseOutfitPoolResult {
         let subscriptionLocked = false;
         let allFailed = true;
         let anchorMissedLocal = 0;
-        let completedLocal = 0;
         const drafts: ScoredOutfitDraft[] = [];
 
         for (const result of settled) {
           if (result.status === 'fulfilled') {
             allFailed = false;
-            const draft = result.value;
-            if (draft) {
-              drafts.push(draft);
-              completedLocal++;
-            } else if (anchorId) {
-              // The only `null`-returning branch that ties to the anchor
-              // semantically is the `isAnchorPresent` drop. Drops for
-              // empty items / invalid composition still happen but are
-              // bucketed under "completed shortfall" in the screen. We
-              // can't disambiguate post-hoc without threading a richer
-              // return; the screen surfaces both via `completed < count`.
+            const outcome = result.value;
+            if (outcome.kind === 'ok') {
+              drafts.push(outcome.draft);
+            } else if (outcome.kind === 'anchor_missed') {
               anchorMissedLocal++;
             }
+            // `empty` and `invalid` are silently absorbed — the consumer
+            // sees the shortfall via `completed < count`.
           } else {
             const err = result.reason;
             if (err instanceof EdgeFunctionSubscriptionLockedError) {
@@ -259,7 +282,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
 
         setPool(drafts);
         setAnchorMissed(anchorMissedLocal);
-        setCompleted(completedLocal);
+        setCompleted(drafts.length);
 
         if (allFailed) {
           setError('Generation failed');
@@ -274,9 +297,12 @@ export function useOutfitPool(): UseOutfitPoolResult {
         });
         setError(err instanceof Error ? err.message : 'Generation failed');
       } finally {
-        if (!controller.signal.aborted) {
-          setIsGenerating(false);
-        }
+        // Always reset isGenerating regardless of abort state — matches
+        // `useGenerateOutfit`. Leaving it `true` after an abort would
+        // strand the screen in a permanent "Generating…" state if the
+        // user re-enters without unmounting (e.g. param change races
+        // a regenerate tap).
+        setIsGenerating(false);
       }
     },
     [session?.access_token],

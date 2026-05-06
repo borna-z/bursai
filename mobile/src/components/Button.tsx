@@ -19,6 +19,7 @@ export function Button({
   style,
   accessibilityLabel,
   accessibilityState,
+  accessibilityHint,
 }: {
   label: string;
   onPress?: () => void;
@@ -37,6 +38,10 @@ export function Button({
   accessibilityLabel?: string;
   /** Pass `{ busy: true }` while a mutation is pending so screen readers announce the spinner state. */
   accessibilityState?: AccessibilityState;
+  /** Optional supplementary description read after the label by screen
+   *  readers (e.g. "Generates 7 outfits, one per day"). Not announced
+   *  visually. */
+  accessibilityHint?: string;
 }) {
   const t = useTokens();
 
@@ -67,6 +72,7 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={accessibilityState ?? { disabled }}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => [
         {
           height: dims.height,

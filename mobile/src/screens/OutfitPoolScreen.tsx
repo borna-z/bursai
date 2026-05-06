@@ -157,6 +157,8 @@ export function OutfitPoolScreen() {
   );
 
   const saveSelected = React.useCallback(async () => {
+    // Bail before the haptic fires — a no-op save shouldn't trigger any
+    // tactile feedback (P3.4).
     if (selectedIds.size === 0 || !user) return;
     hapticLight();
     setIsSaving(true);
@@ -169,17 +171,24 @@ export function OutfitPoolScreen() {
       const savedCount = results.filter(Boolean).length;
       const failedCount = results.length - savedCount;
 
-      // Invalidate outfit queries so the OutfitsScreen refetches and the
-      // user sees their saves on next visit.
-      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      // Only invalidate if at least one save landed — invalidating on
+      // total failure would force a needless refetch with no new rows.
+      if (savedCount > 0) {
+        queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      }
 
       if (savedCount > 0) hapticSuccess();
-      Alert.alert(
-        tr('outfitPool.savedTemplate', { n: savedCount }),
-        failedCount > 0
-          ? tr('outfitPool.partialSaveBody', { failed: failedCount })
-          : '',
-      );
+      // Title swaps to a failure framing when nothing landed; the body
+      // surfaces the partial-save count so the user knows whether to
+      // retry. Empty title-only alert ("0 saved") was misleading on
+      // total failure.
+      const title = savedCount === 0
+        ? tr('outfitPool.saveFailedTitle')
+        : tr('outfitPool.savedTemplate', { n: savedCount });
+      const body = failedCount > 0
+        ? tr('outfitPool.partialSaveBody', { failed: failedCount })
+        : '';
+      Alert.alert(title, body);
 
       // Clear selection but keep the pool around so the user can save more.
       setSelectedIds(new Set());
@@ -266,10 +275,13 @@ export function OutfitPoolScreen() {
                 paddingBottom: insets.bottom + 12,
               },
             ]}>
+            {/* Buttons share the row width — `block` (which sets
+                `width: '100%'` per the Button primitive contract) would
+                push each button to fill the parent and break the
+                horizontal layout. `flex: 1` lets them split evenly. */}
             <Button
               label={tr('outfitPool.saveSelectedTemplate', { n: selectedIds.size })}
               onPress={saveSelected}
-              block
               style={{ flex: 1 }}
               disabled={selectedIds.size === 0 || isSaving}
             />
@@ -278,7 +290,7 @@ export function OutfitPoolScreen() {
               onPress={regenerate}
               variant="outline"
               disabled={isGenerating}
-              style={{ flexShrink: 0 }}
+              style={{ flex: 1 }}
             />
           </View>
         </>
@@ -322,7 +334,9 @@ function PoolCell({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${sub}${selected ? ', selected' : ''}`}
+      accessibilityLabel={`${name}, ${sub}`}
+      accessibilityHint="Toggles selection"
+      accessibilityState={{ selected }}
       style={({ pressed }) => [
         s.cell,
         {

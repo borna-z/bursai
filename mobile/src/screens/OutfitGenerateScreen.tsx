@@ -18,6 +18,7 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
+import { Caption } from '../components/Caption';
 import { IconBtn } from '../components/IconBtn';
 import { ErrorState } from '../components/ErrorState';
 import { CloseIcon } from '../components/icons';
@@ -514,7 +515,13 @@ export function OutfitGenerateScreen() {
           <Button label="Try again" variant="quiet" onPress={tryAgain} block />
           {/* M16 — pool entry. Reuses the same anchor / occasion as the
               single-outfit call so a Restyle-from-piece flow can pivot to
-              a 5-shot pool without re-collecting context. */}
+              a 5-shot pool without re-collecting context. The caption
+              clarifies the visual hierarchy — this CTA is a secondary
+              "want more options?" path, not a peer of the preview-only
+              Wear/Save/Try again actions above. */}
+          <Caption style={{ marginTop: 8, textAlign: 'center' }}>
+            Want more options? Generate a pool of looks.
+          </Caption>
           <Button
             label="Generate pool"
             variant="outline"
