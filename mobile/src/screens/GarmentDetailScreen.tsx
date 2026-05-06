@@ -26,8 +26,10 @@ import { ListRow } from '../components/ListRow';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
+import { useNow } from '../hooks/useNow';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { localISODate } from '../lib/outfitDisplay';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import type { Garment } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -44,16 +46,31 @@ function hueFromId(id: string): number {
   return h % 360;
 }
 
+// Calendar-day diff via `localISODate` rather than ms-subtraction. The old
+// `(Date.now() - ms) / 86400000 | 0` shape mis-counts on DST transition days
+// (a wear logged 23 calendar hours ago can read "0 days" or "2 days" depending
+// on the spring-forward / fall-back direction). Codex P2 on PR #738.
 function formatLastWorn(iso: string | null | undefined): string {
   if (!iso) return 'Never';
-  const ms = new Date(iso).getTime();
-  if (Number.isNaN(ms)) return '—';
-  const days = Math.floor((Date.now() - ms) / (24 * 60 * 60 * 1000));
-  if (days <= 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days} days ago`;
+  const wornAt = new Date(iso);
+  if (Number.isNaN(wornAt.getTime())) return '—';
+  const wornIso = localISODate(wornAt);
+  const today = new Date();
+  const todayIso = localISODate(today);
+  if (wornIso >= todayIso) return 'Today';
+  // Walk back one local day at a time off `today` until we hit the worn iso.
+  // Capped at 30 to bound the loop on extreme staleness — beyond a month we
+  // bail out to the locale date format below anyway.
+  for (let i = 1; i <= 30; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    if (localISODate(d) === wornIso) {
+      if (i === 1) return 'Yesterday';
+      return `${i} days ago`;
+    }
+  }
   // Beyond a month, show the date in the user's locale.
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return wornAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function formatPrice(value: number | null | undefined, currency: string | null | undefined): string | null {
@@ -127,8 +144,24 @@ export function GarmentDetailScreen() {
 
   const [tab, setTab] = React.useState<Tab>('info');
 
+  // Day-level idempotency gate for the "Wear today" CTA. The mutation
+  // itself is read-modify-write on `wear_count`, so a tap that lands while
+  // `markWorn.isPending` is still false-from-the-previous-render would
+  // double-bump the counter. Derive `wornToday` from the cached
+  // `last_worn_at` and disable the button when it matches today's local
+  // date — same pattern useMarkOutfitWorn's screen consumers (Home,
+  // OutfitDetail, Plan) follow. Codex P1 round-N from internal review.
+  const now = useNow();
+  const wornToday = React.useMemo(() => {
+    if (!garment?.last_worn_at) return false;
+    const lastWorn = new Date(garment.last_worn_at);
+    if (Number.isNaN(lastWorn.getTime())) return false;
+    return localISODate(lastWorn) === localISODate(now);
+  }, [garment?.last_worn_at, now]);
+
   const handleWearToday = () => {
     if (!id) return;
+    if (wornToday) return;
     hapticSuccess();
     markWorn.mutate(id, {
       onError: (err) => {
@@ -428,9 +461,9 @@ export function GarmentDetailScreen() {
           },
         ]}>
         <Button
-          label={markWorn.isPending ? 'Logging…' : 'Wear today'}
+          label={wornToday ? 'Worn today' : markWorn.isPending ? 'Logging…' : 'Wear today'}
           block
-          disabled={markWorn.isPending}
+          disabled={wornToday || markWorn.isPending}
           onPress={handleWearToday}
         />
       </View>

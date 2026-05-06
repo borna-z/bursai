@@ -45,6 +45,7 @@ import {
 import { t as tr } from '../lib/i18n';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useNow } from '../hooks/useNow';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -91,12 +92,15 @@ export function OutfitDetailScreen() {
   const persistedNote = feedbackQ.data?.commentary ?? '';
   const notesDirty = notes.trim() !== persistedNote.trim();
 
+  // Reactive `now` so the wornToday gate flips correctly across midnight on
+  // a screen left open. Same fix HomeScreen + PlanScreen got.
+  const now = useNow();
   const wornToday = React.useMemo(() => {
     if (!outfit?.worn_at) return false;
     const wornDate = new Date(outfit.worn_at);
     if (Number.isNaN(wornDate.getTime())) return false;
-    return localISODate(wornDate) === localISODate(new Date());
-  }, [outfit?.worn_at]);
+    return localISODate(wornDate) === localISODate(now);
+  }, [outfit?.worn_at, now]);
 
   const isSaved = Boolean(outfit?.saved);
 
@@ -147,7 +151,7 @@ export function OutfitDetailScreen() {
   const handleAddToPlan = React.useCallback(() => {
     if (!outfit) return;
     upsertPlanned.mutate(
-      { date: localISODate(new Date()), outfitId: outfit.id },
+      { date: localISODate(now), outfitId: outfit.id },
       {
         onSuccess: () => Alert.alert('Added', 'Outfit added to today\'s plan.'),
         onError: (err: unknown) =>
@@ -157,7 +161,7 @@ export function OutfitDetailScreen() {
           ),
       },
     );
-  }, [outfit, upsertPlanned]);
+  }, [outfit, upsertPlanned, now]);
 
   const handleDelete = React.useCallback(() => {
     if (!outfit) return;

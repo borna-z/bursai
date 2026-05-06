@@ -123,12 +123,34 @@ function useRecoveryDeepLink(): void {
   React.useEffect(() => {
     const hydrate = (url: string | null): void => {
       if (!url) return;
-      const hashIdx = url.indexOf('#');
-      if (hashIdx === -1) return;
-      const params = new URLSearchParams(url.slice(hashIdx + 1));
-      if (params.get('type') !== 'recovery') return;
-      const access_token = params.get('access_token');
-      const refresh_token = params.get('refresh_token');
+      // Recovery tokens can land in either the `?` query string or the `#`
+      // fragment depending on how the Supabase email template is authored
+      // — the `?`-query variant would silently no-op without this handling.
+      // Try the URL parser's `searchParams` first (covers `?` and combined
+      // `?…#…` URLs), then fall back to manual fragment parsing for the
+      // legacy `#`-only format. Codex P2 round on PR #738.
+      let access_token: string | null = null;
+      let refresh_token: string | null = null;
+      let type: string | null = null;
+      try {
+        const parsed = new URL(url);
+        access_token = parsed.searchParams.get('access_token');
+        refresh_token = parsed.searchParams.get('refresh_token');
+        type = parsed.searchParams.get('type');
+      } catch {
+        // URL constructor can throw on malformed deep-link inputs — fall
+        // through to the hash-fragment path below.
+      }
+      if (!access_token || !refresh_token || !type) {
+        const hashIdx = url.indexOf('#');
+        if (hashIdx !== -1) {
+          const fragmentParams = new URLSearchParams(url.slice(hashIdx + 1));
+          access_token = access_token ?? fragmentParams.get('access_token');
+          refresh_token = refresh_token ?? fragmentParams.get('refresh_token');
+          type = type ?? fragmentParams.get('type');
+        }
+      }
+      if (type !== 'recovery') return;
       if (!access_token || !refresh_token) return;
       void supabase.auth.setSession({ access_token, refresh_token });
     };

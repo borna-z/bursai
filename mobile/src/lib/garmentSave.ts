@@ -131,7 +131,8 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     // occasion_tags intentionally omitted — analyze_garment in `fast`/`full` mode
     // does NOT return occasion data (only `enrich` mode prompts for it). Inserting
     // the empty array would override any later enrichment write. Audit round 2.
-    formality: params.analysis.formality,
+    // formality is conditionally added below — sending NULL here would
+    // override the column's schema default of 3. Codex P2 round on PR #738.
     original_image_path: params.storagePath,
     wear_count: 0,
     in_laundry: false,
@@ -143,6 +144,14 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     render_status: params.enableStudioQuality ? 'pending' : 'none',
     imported_via: params.source,
   };
+
+  // Only set formality when the model actually returned a number — leaving
+  // the field absent lets Postgres apply the column's schema default (3)
+  // instead of writing NULL into a NOT-NULL-defaulted column. Codex P2
+  // round on PR #738.
+  if (typeof params.analysis.formality === 'number') {
+    insert.formality = params.analysis.formality;
+  }
 
   const { data, error } = await supabase
     .from('garments')
@@ -159,7 +168,11 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
   if (params.enableStudioQuality) {
     void queueRender(data.id, params.source);
   }
-  void triggerGarmentEnrichment(params.storagePath, data.id);
+  // .catch() to swallow synchronous rejections — without it a throw inside
+  // triggerGarmentEnrichment before its first await would surface as an
+  // unhandled-promise-rejection (RN logs it; production crashlytics flags
+  // it). Same shape as queueRender. Codex P2 round on PR #738.
+  void triggerGarmentEnrichment(params.storagePath, data.id, user.id).catch(() => {});
 
   return data as Garment;
 }

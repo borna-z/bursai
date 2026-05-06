@@ -42,8 +42,15 @@ export function LanguageStep({
   const t = useTokens();
   // Default to the detected system locale (set at import in lib/i18n.ts) so a
   // Swedish-system user sees Svenska pre-selected, not English. Caller-supplied
-  // `initial` still wins (used for re-entry from a persisted draft).
-  const [selected, setSelected] = React.useState<LanguageCode>(initial ?? (getLocale() as LanguageCode));
+  // `initial` still wins (used for re-entry from a persisted draft). System
+  // locales outside the 10-language whitelist (e.g. `'ja'`) fall back to
+  // English so Continue never emits an unsupported code.
+  const [selected, setSelected] = React.useState<LanguageCode>(() => {
+    if (initial) return initial;
+    const detected = getLocale();
+    const match = LANGUAGES.find((l) => l.code === detected);
+    return match ? match.code : 'en';
+  });
 
   return (
     <View style={{ flex: 1 }}>

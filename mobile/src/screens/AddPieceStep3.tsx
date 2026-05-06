@@ -304,7 +304,10 @@ export function AddPieceStep3() {
   }
 
   const { storagePath, photoUri, analysis, source } = params;
-  const confidenceHigh = analysis.confidence >= 0.7;
+  // Missing confidence (`null`) is treated as low — the badge surfaces a
+  // prompt to review fields rather than the auto-confirmed copy. Codex P2
+  // round on PR #738.
+  const confidenceHigh = typeof analysis.confidence === 'number' && analysis.confidence >= 0.7;
   const seasonsLower = analysis.season_tags.map((s) => s.toLowerCase());
 
   const dismissDuplicate = (acknowledge: boolean) => {
@@ -474,11 +477,33 @@ export function AddPieceStep3() {
     nav.navigate('AddPieceStep1');
   };
 
+  // Codex P2 on PR #738: a tap on the header back button used to silently
+  // pop the screen, dropping the upload + analysis the user just spent
+  // 2-5 seconds producing. Confirm before discarding when there's a
+  // successful analysis on the screen (the only state Step 3 ever renders;
+  // the no-params bail-out above handles the missing-analysis case). The
+  // unmount cleanup effect still runs on the discard path — savedRef stays
+  // false, so the orphan-delete fires and frees the storage object.
+  const confirmBack = () => {
+    if (!params?.analysis) {
+      nav.goBack();
+      return;
+    }
+    Alert.alert(
+      'Discard this piece?',
+      "You'll lose the photo and the AI analysis. You can rescan from Step 1.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => nav.goBack() },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
       {/* ============ HEADER ============ */}
       <View style={[s.header, { borderBottomColor: t.border }]}>
-        <IconBtn variant="ghost" onPress={() => nav.goBack()} ariaLabel="Back">
+        <IconBtn variant="ghost" onPress={confirmBack} ariaLabel="Back">
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1 }}>

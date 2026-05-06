@@ -16,7 +16,7 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { TypedConfirmModal } from '../components/TypedConfirmModal';
-import { BackIcon, FileIcon, RotateIcon, TrashIcon, ShieldIcon } from '../components/icons';
+import { BackIcon, RotateIcon, TrashIcon, ShieldIcon } from '../components/icons';
 import { useDeleteAccount } from '../hooks/useDeleteAccount';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { t as tr } from '../lib/i18n';
@@ -121,15 +121,11 @@ export function SettingsPrivacyScreen() {
         </Card>
 
         {/* ============ ACTIONS ============ */}
+        {/* "Export all my data" row intentionally omitted: there is no edge
+            function or job behind it yet, and App Store guideline 5.1.1(a)(ii)
+            actively tests data-export claims. The row returns once a real
+            export pipeline ships. */}
         <Card padding={4}>
-          <SettingsRow
-            icon={<FileIcon size={18} color={t.accent} />}
-            title="Export all my data"
-            caption="Get a ZIP archive of everything"
-            onPress={() =>
-              Alert.alert('Export', 'Your data export will be emailed to you.')
-            }
-          />
           <SettingsRow
             icon={<RotateIcon size={18} color={t.accent} />}
             title="Reset style memory"

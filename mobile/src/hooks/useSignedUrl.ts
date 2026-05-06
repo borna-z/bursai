@@ -353,12 +353,18 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
 // Helpers for dynamic staleTime — read remaining lifetime from the module
 // cache so React Query refetches just before the underlying URL expires.
 const STALE_PAD_MS = 30 * 1000;
+// Floor for the dynamic staleTime so a freshly-expired cache entry doesn't
+// drop the value to 0 and trigger React Query's "every observation refetches"
+// loop on flaky networks. 30s is short enough that an expired URL still
+// refetches promptly but long enough to coalesce a burst of observers (list
+// scroll, tab switch) into a single round-trip. Codex P2 round on PR #738.
+const MIN_STALE_MS = 30 * 1000;
 
 function signedUrlStaleTimeFor(path: string | null | undefined): number {
   if (!path) return TTL_MS;
   const cached = urlCache.get(cacheKey(BUCKET, path));
   if (!cached) return TTL_MS; // queryFn hasn't populated yet — let it run.
-  return Math.max(0, cached.expiresAt - Date.now() - STALE_PAD_MS);
+  return Math.max(MIN_STALE_MS, cached.expiresAt - Date.now() - STALE_PAD_MS);
 }
 
 function bulkSignedUrlsStaleTimeFor(paths: readonly string[]): number {
@@ -370,5 +376,5 @@ function bulkSignedUrlsStaleTimeFor(paths: readonly string[]): number {
     if (cached.expiresAt < soonest) soonest = cached.expiresAt;
   }
   if (!Number.isFinite(soonest)) return TTL_MS;
-  return Math.max(0, soonest - Date.now() - STALE_PAD_MS);
+  return Math.max(MIN_STALE_MS, soonest - Date.now() - STALE_PAD_MS);
 }

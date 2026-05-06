@@ -91,12 +91,14 @@ export function PaywallScreen() {
     );
   };
 
-  const openExternal = (url: string) => () => {
+  const openExternal = (url: string, label: string) => () => {
     hapticLight();
     Linking.openURL(url).catch(() => {
       // Failed to open (no browser? offline?) — surface a graceful fallback
-      // so the link button isn't a silent no-op.
-      Alert.alert(tr('paywall.linkError.title'), url);
+      // with the action context so the user sees "Could not open Terms"
+      // instead of the raw URL string. Inline strings (not i18n) — paywall
+      // locale pass is M33 per existing code comments above.
+      Alert.alert(tr('paywall.linkError.title'), `Could not open ${label}`);
     });
   };
 
@@ -260,7 +262,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(TERMS_URL)}
+            onPress={openExternal(TERMS_URL, 'Terms')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.terms.label')}
             hitSlop={6}>
@@ -270,7 +272,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(PRIVACY_URL)}
+            onPress={openExternal(PRIVACY_URL, 'Privacy Policy')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.privacy.label')}
             hitSlop={6}>

@@ -1,8 +1,8 @@
 // Settings · Account — profile card + account fields + connected accounts + delete.
 // Mirrors design_handoff_burs_rn/source/audit-screens.jsx SettingsAccountScreen.
 
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,6 +34,42 @@ export function SettingsAccountScreen() {
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const email = user?.email ?? '';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
+
+  // Real provider list straight from the JWT. `app_metadata.providers` is the
+  // canonical Supabase shape (string[]); 'email' shows up alongside any OAuth
+  // providers the user has linked. We surface the comma-joined Title-Case
+  // names so a user who signed up with email-only no longer sees a hardcoded
+  // "Google" label they never connected.
+  const connectedProviders = useMemo<string[]>(() => {
+    const raw = (user?.app_metadata as { providers?: unknown } | undefined)?.providers;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((p): p is string => typeof p === 'string' && p.length > 0);
+  }, [user?.app_metadata]);
+  const connectedLabel = connectedProviders
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(', ');
+
+  // Support contact lives at support@<project domain>. Compose a mailto so the
+  // dead-end "contact support" Alert at least surfaces the address (and opens
+  // the user's mail client when possible).
+  const SUPPORT_EMAIL = 'support@burs.me';
+  const handleEmailRowPress = () => {
+    Alert.alert(
+      'Email',
+      `To change the email on your account, contact ${SUPPORT_EMAIL}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Email support',
+          onPress: () => {
+            void Linking.openURL(
+              `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Change account email')}`,
+            );
+          },
+        },
+      ],
+    );
+  };
 
   const handleConfirmDelete = () => {
     deleteAccount.mutate(undefined, {
@@ -135,24 +171,23 @@ export function SettingsAccountScreen() {
               icon={<MailIcon size={18} color={t.accent} />}
               title="Email"
               value={email || '—'}
-              onPress={() =>
-                Alert.alert('Email', 'Contact support to change your email.')
-              }
+              onPress={handleEmailRowPress}
             />
             <SettingsRow
               icon={<KeyIcon size={18} color={t.accent} />}
               title="Change password"
+              last={connectedProviders.length === 0}
               onPress={() => nav.navigate('ResetPassword')}
             />
-            <SettingsRow
-              icon={<GlobeIcon size={18} color={t.accent} />}
-              title="Connected accounts"
-              value="Google"
-              last
-              onPress={() =>
-                Alert.alert('Coming soon', 'Google sign-in coming soon.')
-              }
-            />
+            {connectedProviders.length > 0 ? (
+              <SettingsRow
+                icon={<GlobeIcon size={18} color={t.accent} />}
+                title="Connected accounts"
+                value={connectedLabel}
+                last
+                hideChevron
+              />
+            ) : null}
           </Card>
         </View>
 

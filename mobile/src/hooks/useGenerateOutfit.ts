@@ -13,7 +13,7 @@
 //   { items: { slot, garment_id }[], explanation: string,
 //     wardrobe_insights?: string[], confidence_*?, error? }
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -245,6 +245,22 @@ export function useGenerateOutfit() {
           };
         }
 
+        // Treat an empty composition as a generation failure rather than a
+        // success — the screen would otherwise expose Save / Wear today CTAs
+        // over an outfit with zero items. Reuse the INVALID_OUTFIT_ERROR
+        // sentinel so screens already branching on it (formatGenerateOutfitError +
+        // OutfitGenerateScreen) render the existing "we couldn't build a
+        // complete outfit" copy. Codex P2 round on PR #738.
+        if (nextResult.items.length === 0) {
+          setError(INVALID_OUTFIT_ERROR);
+          Sentry.withScope((s) => {
+            s.setTag('mutation', 'useGenerateOutfit.emptyItems');
+            s.setExtra('engine_response', data);
+            Sentry.captureMessage('engine_returned_empty_items', 'warning');
+          });
+          return;
+        }
+
         // M13: post-response anchor enforcement. The engine treats
         // prefer_garment_ids as a soft hint, so a returned outfit may not
         // include the anchor. Web's generator rejects this scenario rather
@@ -363,6 +379,15 @@ export function useGenerateOutfit() {
     setIsLoading(false);
     setError(null);
     setAnchorMissed(false);
+  }, []);
+
+  // Cancel any in-flight generation when the consumer screen unmounts so
+  // the trailing setState calls don't fire against a torn-down tree.
+  // Codex P2 round on PR #738.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   return { result, isLoading, error, anchorMissed, generate, reset };

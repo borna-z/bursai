@@ -26,7 +26,7 @@ import { ErrorState } from '../components/ErrorState';
 import { BackIcon, GridIcon, ListIcon } from '../components/icons';
 import { useOutfits } from '../hooks/useOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
-import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -40,15 +40,24 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type FilterKey = 'all' | 'recent';
 type ViewMode = 'grid' | 'list';
 
-// "Recent" cutoff: outfits worn in the last 14 days. Tunable.
+// "Recent" cutoff: outfits worn in the last 14 calendar days. Tunable.
 const RECENT_DAYS = 14;
-const RECENT_CUTOFF_MS = RECENT_DAYS * 24 * 60 * 60 * 1000;
 
-function lastWornAgeMs(o: OutfitWithItems): number | null {
+// Build the "14 calendar days ago" reference iso. Calendar arithmetic via
+// `setDate(getDate() - N)` rather than ms-subtraction so DST transitions
+// don't shift the cutoff by an hour and silently drop / include rows
+// across the spring-forward / fall-back days. Codex P2 on PR #738.
+function recentCutoffIso(now: Date, days: number): string {
+  const d = new Date(now);
+  d.setDate(d.getDate() - days);
+  return localISODate(d);
+}
+
+function wornDateIso(o: OutfitWithItems): string | null {
   if (!o.worn_at) return null;
-  const ts = new Date(o.worn_at).getTime();
-  if (!Number.isFinite(ts)) return null;
-  return Date.now() - ts;
+  const d = new Date(o.worn_at);
+  if (Number.isNaN(d.getTime())) return null;
+  return localISODate(d);
 }
 
 export function OutfitsScreen() {
@@ -74,9 +83,10 @@ export function OutfitsScreen() {
   // Apply the active filter chip on the live outfit list.
   const visible = React.useMemo<OutfitWithItems[]>(() => {
     if (filter === 'recent') {
+      const cutoffIso = recentCutoffIso(new Date(), RECENT_DAYS);
       return outfits.filter((o) => {
-        const age = lastWornAgeMs(o);
-        return age != null && age <= RECENT_CUTOFF_MS;
+        const wornIso = wornDateIso(o);
+        return wornIso != null && wornIso >= cutoffIso;
       });
     }
     return outfits;

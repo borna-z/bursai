@@ -325,6 +325,11 @@ export function useDeleteOutfit() {
     onSuccess: (_data, outfitId) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.removeQueries({ queryKey: ['outfit', user?.id, outfitId] });
+      // Drop the cached feedback row too — without this, a subsequent
+      // outfit save that happens to mint the same id (cosmic chance, but
+      // also true after manual DB cleanup in dev) would surface the prior
+      // user's rating/note. Codex P2 round on PR #738.
+      queryClient.removeQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
     },
@@ -381,8 +386,17 @@ async function upsertOutfitFeedbackRow(
       const staleIds = rows.slice(1).map((r) => r.id);
       // Best-effort cleanup — failure here just leaves the duplicate around
       // (caught by the read-tolerant `.limit(1)` path) so we don't surface
-      // it as a mutation error.
-      await supabase.from('outfit_feedback').delete().in('id', staleIds);
+      // it as a mutation error. Log the error so Sentry breadcrumbs catch
+      // a sustained leak. Codex P2 round on PR #738.
+      const { error: delErr } = await supabase
+        .from('outfit_feedback')
+        .delete()
+        .in('id', staleIds);
+      if (delErr) {
+        console.warn(
+          `[useOutfits] sibling cleanup delete failed for ${outfitId}: ${delErr.message}`,
+        );
+      }
     }
     return;
   }
@@ -403,7 +417,18 @@ async function upsertOutfitFeedbackRow(
     .order('created_at', { ascending: false });
   if (postRows && postRows.length > 1) {
     const staleIds = postRows.slice(1).map((r) => r.id);
-    await supabase.from('outfit_feedback').delete().in('id', staleIds);
+    // Same best-effort log as the update branch above — surface the
+    // failure to console so Sentry breadcrumbs see it without elevating
+    // it to a thrown mutation error. Codex P2 round on PR #738.
+    const { error: postDelErr } = await supabase
+      .from('outfit_feedback')
+      .delete()
+      .in('id', staleIds);
+    if (postDelErr) {
+      console.warn(
+        `[useOutfits] post-insert sibling sweep failed for ${outfitId}: ${postDelErr.message}`,
+      );
+    }
   }
 }
 

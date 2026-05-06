@@ -129,10 +129,15 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     return localISODate(wornDate) === localISODate(now);
   }, [todayOutfit?.worn_at, now]);
 
-  // Total pieces — prefer the server-side count when it's settled. Falls back
-  // to the loaded-pages length only while the count query is still loading,
-  // so the stat doesn't briefly read 0 on cold mount.
-  const garmentTotal = garmentCountQ.data ?? garmentsQ.data?.length ?? 0;
+  // Total pieces — server-side count is the only authoritative source
+  // (paginated `garmentsQ.data?.length` would silently undercount once the
+  // user crosses the 30-row PAGE_SIZE). When the count query errors or
+  // hasn't settled yet, render `'—'` instead of a wrong number — same gate
+  // shape as `wardrobeStatsAuthoritative` below. Codex P2 on PR #738.
+  const garmentCountReady = garmentCountQ.isSuccess;
+  const garmentTotal = garmentCountReady
+    ? String(garmentCountQ.data ?? 0)
+    : '—';
 
   // Wardrobe-used % derives from the *full* garment set (the 30-day cutoff
   // rides on `last_worn_at`). useFlatGarments paginates at PAGE_SIZE=30 so a
@@ -408,7 +413,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
           ) : (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <RhythmStat
-                num={String(garmentTotal)}
+                num={garmentTotal}
                 label="Pieces in wardrobe"
                 onPress={() => goTab('insights')}
               />
@@ -503,7 +508,10 @@ function OutfitThumb({
   const [broken, setBroken] = React.useState(false);
   React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
   const showImage = signedUrl && !broken;
-  const label = (item?.slot ?? garment?.category ?? '').toString().toUpperCase();
+  // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
+  // as the empty string `''` rather than null, and `??` would still pick
+  // that empty value over the garment's category. Codex P2 on PR #738.
+  const label = (item?.slot || garment?.category || '').toString().toUpperCase();
   const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
 
   return (

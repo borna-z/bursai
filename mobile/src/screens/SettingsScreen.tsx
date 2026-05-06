@@ -7,13 +7,12 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Constants from 'expo-constants';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
-import { Caption } from '../components/Caption';
-import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
@@ -37,7 +36,10 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const APP_VERSION = '2.0.4';
+// Source of truth is app.json → expo.version. Reading via expo-constants keeps
+// the displayed version in lock-step with the binary that ships, so we don't
+// drift back into hardcoded mismatches when the version bumps.
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export function SettingsScreen() {
   const t = useTokens();
@@ -107,26 +109,12 @@ export function SettingsScreen() {
         </View>
 
         {/* ============ SUBSCRIPTION CARD ============ */}
-        <Card hero padding={18}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Eyebrow>Premium · 3-day trial</Eyebrow>
-              <Text
-                style={{
-                  fontFamily: fonts.displayMedium,
-                  fontStyle: 'italic',
-                  fontSize: 22,
-                  fontWeight: '500',
-                  color: t.fg,
-                  letterSpacing: -0.22,
-                }}>
-                Free trial
-              </Text>
-              <Caption>2 days remaining · renews automatically</Caption>
-            </View>
-            <Button label="Manage" variant="outline" size="sm" onPress={() => nav.navigate('Paywall')} />
-          </View>
-        </Card>
+        {/* Intentionally not rendered. The mock card hardcoded a "Premium · 3-day
+            trial · 2 days remaining · renews automatically" state regardless of
+            the actual user — actively misleading. The profiles table has no
+            subscription columns yet, so we have nothing honest to show.
+            M31 (RevenueCat) wires real billing; the card returns then with
+            real entitlement state from the RC customer info. */}
 
         {/* ============ PROFILE SECTION ============ */}
         <Section title="Profile">

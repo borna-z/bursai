@@ -17,7 +17,7 @@
 //     RootNavigator listens via Linking and calls supabase.auth.exchangeCodeForSession;
 //     the auth listener in AuthContext + SplashScreen completes the flow.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -171,10 +171,15 @@ export type RootStackParamList = {
   // (e.g. from a future deep link) still lands on the screen with sane defaults.
   MoodFlow: { moodId?: string; time?: string } | undefined;
 
-  // Travel capsule wizard
+  // Travel capsule wizard. `selectedIds` carries the must-have garment IDs
+  // picked on the TravelMustHaves step into the packing-list view so the next
+  // screen knows what the user committed to bringing. Optional so a user can
+  // still land on TravelPackingList directly (e.g. restoring a saved trip in
+  // the future) without having gone through the picker — the screen falls
+  // back to its own logic in that case.
   TravelCapsule: undefined;
   TravelMustHaves: undefined;
-  TravelPackingList: undefined;
+  TravelPackingList: { selectedIds?: string[] } | undefined;
 
   // Discover / lists
   WardrobeGaps: undefined;
@@ -283,7 +288,10 @@ function isOAuthCallbackUrl(url: string): boolean {
   }
 }
 
-async function handleOAuthDeepLink(url: string): Promise<void> {
+async function handleOAuthDeepLink(
+  url: string,
+  lastExchangedCodeRef: React.MutableRefObject<string | null>,
+): Promise<void> {
   if (!isOAuthCallbackUrl(url)) return;
   // supabase-auth-js's `exchangeCodeForSession` POSTs whatever string we pass
   // as the `auth_code` param, so it expects the raw code string — not the
@@ -300,6 +308,14 @@ async function handleOAuthDeepLink(url: string): Promise<void> {
     console.warn('[RootNavigator] OAuth callback URL missing `code` param:', url);
     return;
   }
+  // Dedupe per-launch: on iOS both `getInitialURL` and the `'url'` event
+  // fire for the same launch URL, which would have us call
+  // `exchangeCodeForSession` twice with the same code. The second call
+  // 4xxs (PKCE codes are single-use) and pollutes Sentry with noise. Track
+  // the last-exchanged code in a ref and short-circuit on a match. Codex
+  // P2 round on PR #738.
+  if (lastExchangedCodeRef.current === code) return;
+  lastExchangedCodeRef.current = code;
   try {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
@@ -311,15 +327,16 @@ async function handleOAuthDeepLink(url: string): Promise<void> {
 }
 
 export function RootNavigator() {
+  const lastExchangedCodeRef = useRef<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     const onUrl = ({ url }: { url: string }) => {
-      if (!cancelled) void handleOAuthDeepLink(url);
+      if (!cancelled) void handleOAuthDeepLink(url, lastExchangedCodeRef);
     };
     const subscription = Linking.addEventListener('url', onUrl);
     // Cold-start: app opened FROM a deep link — pull the URL ourselves.
     void Linking.getInitialURL().then((url) => {
-      if (!cancelled && url) void handleOAuthDeepLink(url);
+      if (!cancelled && url) void handleOAuthDeepLink(url, lastExchangedCodeRef);
     });
     return () => {
       cancelled = true;

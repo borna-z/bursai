@@ -155,12 +155,21 @@ export function WardrobeScreen() {
   const visibleGarments = React.useMemo(() => {
     if (!filters) return garments;
     const filtered = garments.filter((g) => matchesClientFilters(g, filters));
-    if (filters.sort && filters.sort !== 'recent_added') {
+    // Only apply the sort comparator once the eager-paginate loop has loaded
+    // every page (`!hasNextPage`). While pages are still arriving the sort
+    // would visibly reshuffle on each fetch as later rows reorder the prefix —
+    // keep server order (created_at desc) until the result set is complete.
+    // Codex P2 on PR #738.
+    if (
+      !hasNextPage &&
+      filters.sort &&
+      filters.sort !== 'recent_added'
+    ) {
       // Stable sort against a copy — never mutate React Query's flattened array.
       return [...filtered].sort((a, b) => compareForSort(a, b, filters.sort));
     }
     return filtered;
-  }, [garments, filters]);
+  }, [garments, filters, hasNextPage]);
   const activeFilterCount = filterActiveCount(filters);
 
   // Filters run client-side, so partial pagination produces a partial filter
@@ -394,6 +403,13 @@ export function WardrobeScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
         onEndReached={() => {
+          // When filters are active the eager-paginate effect above already
+          // walks every page; firing fetchNextPage from the FlatList scroll
+          // callback as well races the effect on every render where
+          // `hasNextPage` is still true. The infinite-query dedupes by key,
+          // but skipping the redundant trigger keeps the two paths from
+          // fighting over `isFetchingNextPage`. Codex P2 on PR #738.
+          if (filters) return;
           if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
         }}
         onEndReachedThreshold={0.4}
