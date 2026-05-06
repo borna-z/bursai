@@ -16,7 +16,10 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
-import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+} from '../lib/edgeFunctionClient';
 import { captureMutationError } from '../lib/sentry';
 
 export function useDeleteAccount() {
@@ -42,11 +45,29 @@ export function useDeleteAccount() {
       // mid-cascade recover instead of stranding the user inside the
       // app with their auth user already gone — Codex P2 round 3 on
       // PR #735. (Reset's ordering is the OPPOSITE — see useResetStyleMemory.)
-      await callEdgeFunction('delete_user_account', {
-        body: {},
-        retries: 1,
-        idempotent: true,
-      });
+      try {
+        await callEdgeFunction('delete_user_account', {
+          body: {},
+          retries: 1,
+          idempotent: true,
+        });
+      } catch (err) {
+        // Codex P2 round 4: if the first request succeeded server-side
+        // but the response was lost, the auth user is gone, the JWT no
+        // longer authenticates, and the wrapper's retry returns 401
+        // before re-checking idempotency. The cascade DID land — the
+        // 401 is the proof. Treat as success-with-side-effect: fall
+        // through to local sign-out so the user isn't stranded inside
+        // the protected app.
+        if (
+          err instanceof EdgeFunctionHttpError &&
+          err.status === 401
+        ) {
+          // Cascade is presumed-complete; sign out locally and exit.
+        } else {
+          throw err;
+        }
+      }
       // Always tear down the local session — even if the remote
       // sign-out call fails transiently, the server-side rows are gone
       // and the next request will 401-fail. AuthContext's signOut
