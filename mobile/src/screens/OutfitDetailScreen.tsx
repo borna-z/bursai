@@ -119,13 +119,23 @@ export function OutfitDetailScreen() {
 
   const handleSaveToggle = React.useCallback(() => {
     if (!outfit || isSaved || saveOutfit.isPending) return;
-    saveOutfit.mutate(outfit.id, {
-      onError: (err: unknown) =>
-        Alert.alert(
-          'Could not save',
-          err instanceof Error ? err.message : 'Please try again.',
-        ),
-    });
+    // Pass the outfit's garment roster so the Style Memory signal carries
+    // garment_ids — the ingest_memory_event RPC needs the array (≥2
+    // entries) to update positive pair-memory weight on a save.
+    const garmentIds =
+      outfit.outfit_items
+        ?.map((it) => it.garment?.id)
+        .filter((id): id is string => typeof id === 'string') ?? [];
+    saveOutfit.mutate(
+      { outfitId: outfit.id, garmentIds },
+      {
+        onError: (err: unknown) =>
+          Alert.alert(
+            'Could not save',
+            err instanceof Error ? err.message : 'Please try again.',
+          ),
+      },
+    );
   }, [outfit, isSaved, saveOutfit]);
 
   const handleAddToPlan = React.useCallback(() => {

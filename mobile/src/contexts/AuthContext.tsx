@@ -31,18 +31,27 @@ import { useQueryClient } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
 
 import { supabase } from '../lib/supabase';
-import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import {
+  callEdgeFunction,
+  EdgeFunctionRateLimitError,
+} from '../lib/edgeFunctionClient';
 import { clearSignedUrlCache } from '../hooks/useSignedUrl';
 import {
   registerHandler,
   replay as replayOfflineQueue,
   clearQueue as clearOfflineQueue,
+  HaltReplayError,
 } from '../lib/offlineQueue';
 import {
   isOnlineNow,
   persistGarment,
   type AddGarmentParams,
 } from '../lib/garmentSave';
+import {
+  dispatchMemoryEvent,
+  MEMORY_EVENT_ACTION,
+  type MemoryIngestPayload,
+} from '../lib/memoryIngest';
 
 export type OnboardingPrefs = {
   completed?: boolean;
@@ -234,6 +243,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+    });
+
+    // M10 — Style Memory event handler. Replays a queued payload via
+    // dispatchMemoryEvent which uses callEdgeFunction (auto auth refresh +
+    // circuit-break). 4xx is swallowed inside dispatchMemoryEvent (already
+    // logged); 5xx / transport throws and the queue retries with backoff
+    // up to MAX_ATTEMPTS=3 before dropping.
+    //
+    // Codex P2 round 5 on PR #734: a 429 mid-replay would otherwise burn
+    // attempts on every subsequent same-window item — translate it to a
+    // HaltReplayError so the queue parks the rest of the snapshot and
+    // schedules a deferred replay aligned with the server's retry-after.
+    registerHandler<MemoryIngestPayload>(MEMORY_EVENT_ACTION, async (payload) => {
+      try {
+        await dispatchMemoryEvent(payload);
+      } catch (err) {
+        if (err instanceof EdgeFunctionRateLimitError) {
+          const retryAfterSec = err.retryAfter > 0 ? err.retryAfter : 60;
+          throw new HaltReplayError(retryAfterSec * 1000);
+        }
+        throw err;
+      }
     });
 
     // Kick a replay on mount in case the app cold-started while the queue

@@ -21,7 +21,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ingestMemoryEvent } from '../lib/memoryIngest';
+import { recordMemoryEvent } from '../lib/memoryIngest';
+import { saveOutfitEvent, wearOutfitEvent } from '../lib/memoryEvents';
 import { captureMutationError } from '../lib/sentry';
 import type { OutfitWithItems } from '../types/outfit';
 
@@ -196,16 +197,15 @@ export function useMarkOutfitWorn() {
       // NOT ingest here (web's fireMemoryIngest does, but mobile defers
       // those signals to a future wave when the rating UI lands the same
       // event_type contract). Codex audit P2-4 (audit 3).
-      // M9: ingestMemoryEvent reads its own session via callEdgeFunction.
-      // Token presence is no longer the gate — the wrapper handles that.
-      void ingestMemoryEvent({
-        event_type: 'outfit_worn',
-        outfit_id: outfitId,
-        // Omit garment_ids when empty to avoid burning a 200/hr quota
-        // slot on a no-op signal. Codex audit P2-3 (audit 2).
-        ...(garmentIds.length > 0 ? { garment_ids: garmentIds } : {}),
-        source: 'mobile/useMarkOutfitWorn',
-      });
+      // M10: typed event creator + queue-aware dispatcher. The wire field
+      // is `signal_type` (NOT the legacy `event_type` which the server
+      // 400'd silently — Wave 8.5 P0 caught in PR #712); the typed creator
+      // gets the field name right. recordMemoryEvent enqueues to the M5
+      // offline queue on transport / 5xx so the wear signal is preserved
+      // through connectivity loss.
+      void recordMemoryEvent(
+        wearOutfitEvent(outfitId, garmentIds, 'mobile/useMarkOutfitWorn'),
+      );
     },
     onError: captureMutationError('useMarkOutfitWorn'),
   });
@@ -216,7 +216,7 @@ export function useSaveOutfit() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (outfitId: string) => {
+    mutationFn: async ({ outfitId }: { outfitId: string; garmentIds?: string[] }) => {
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('outfits')
@@ -225,16 +225,17 @@ export function useSaveOutfit() {
         .eq('user_id', user.id);
       if (error) throw error;
     },
-    onSuccess: (_data, outfitId) => {
+    onSuccess: (_data, { outfitId, garmentIds }) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
-      // Style Memory signal — fire-and-forget. Failure must never block
-      // the save flow.
-      void ingestMemoryEvent({
-        event_type: 'outfit_saved',
-        outfit_id: outfitId,
-        source: 'mobile/useSaveOutfit',
-      });
+      // Style Memory signal — fire-and-forget; queue-aware so a network
+      // drop doesn't lose the save signal. The `ingest_memory_event` RPC
+      // only updates positive pair-memory weight when garment_ids has ≥2
+      // entries, so the caller passes the outfit roster (Codex P2 round 4
+      // on PR #734).
+      void recordMemoryEvent(
+        saveOutfitEvent(outfitId, garmentIds ?? [], 'mobile/useSaveOutfit'),
+      );
     },
     onError: captureMutationError('useSaveOutfit'),
   });

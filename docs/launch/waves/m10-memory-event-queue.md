@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Wire `useFeedbackSignals` so save/wear/skip/swap actions persist to `memory_ingest` even across offline periods. |
-| Status | TODO |
+| Status | DONE (PR #734) |
 | Branch | `mobile-m10-memory-event-queue` |
 | PR count | 1 |
 | Depends on | V0, M5 (offline queue), M9 (edge fn client) |
