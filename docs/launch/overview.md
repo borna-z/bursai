@@ -117,7 +117,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Photo + visual
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M18 | [Photo feedback / selfie comparison](waves/m18-photo-feedback.md) | DONE (PR #TBD) | V0, M10 |
+| M18 | [Photo feedback / selfie comparison](waves/m18-photo-feedback.md) | DONE (PR #744) | V0, M10 |
 
 ### Distributed Discover
 | Wave | File | Status | Depends on |
