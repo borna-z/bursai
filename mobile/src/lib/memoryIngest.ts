@@ -20,6 +20,10 @@
 //   - Offline-replay path uses `dispatchMemoryEvent` directly so a 5xx
 //     leaves the item parked for the next replay tick (no infinite
 //     re-enqueue loop).
+//
+// Failures must never block the UI — wear/save/rate flows already got
+// their primary DB write through, so a missed memory event is a
+// best-effort signal degradation, not a correctness break.
 
 import { supabase } from './supabase';
 import {

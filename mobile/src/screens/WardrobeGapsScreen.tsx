@@ -36,6 +36,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 // flag every basic category as a "gap". Web gates the CTA at 5 garments.
 const MIN_GARMENTS_FOR_GAP_ANALYSIS = 5;
 
+
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DisplayPriority = 'High' | 'Med' | 'Low';
 type IconKey = 'tshirt' | 'hanger' | 'suitcase' | 'sun';
@@ -72,6 +73,7 @@ export function WardrobeGapsScreen() {
     !isCountFetching &&
     typeof garmentCount === 'number' &&
     garmentCount >= MIN_GARMENTS_FOR_GAP_ANALYSIS;
+
 
   // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
   // is React-Query backed so a return visit reads from cache instead of

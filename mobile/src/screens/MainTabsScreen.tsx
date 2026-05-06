@@ -49,7 +49,10 @@ export function MainTabsScreen() {
         <PlanScreen />
       </View>
       <View style={{ flex: 1, display: tab === 'insights' ? 'flex' : 'none' }} pointerEvents={tab === 'insights' ? 'auto' : 'none'}>
-        <InsightsScreen />
+        {/* `active` lets InsightsScreen drive its mount-time animations (gauge rings)
+            from tab visibility instead of plain mount — every tab stays mounted to
+            preserve scroll position, so the mount fires while Insights is hidden. */}
+        <InsightsScreen active={tab === 'insights'} />
       </View>
       {/* M5 — global offline banner. Self-renders null when online or
           when the queue is empty, so it occupies zero space in the steady

@@ -14,7 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "burs.expo.build",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +33,19 @@
     },
     "plugins": [
       "expo-font",
-      "expo-localization"
-    ]
+      "expo-localization",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "burs",
+          "project": "burs-mobile"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "00d9bb65-ab97-499d-9ee6-2db4a3725ed8"
+      }
+    }
   }
 }
