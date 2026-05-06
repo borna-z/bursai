@@ -374,6 +374,17 @@ export async function callEdgeFunction<T>(
         attempt--;
         continue;
       }
+      // Codex P2 round 3 on PR #733: a 401 AFTER the one-shot refresh has
+      // run is a genuine auth failure — expired/revoked session, no point
+      // retrying. Classifying as transient would burn the retry budget on
+      // a known-bad outcome AND, with a default retries=2, accumulate enough
+      // circuit failures across 5 calls to trip the per-function 30s
+      // cooldown. Treat post-refresh 401 the same as the rest of the
+      // permanent-client-error set.
+      if (status === 401 && authRetried) {
+        recordCircuitFailure(fnName);
+        throw new EdgeFunctionHttpError(fnName, status, bodyText);
+      }
       if (isNonRetryableStatus(status)) {
         recordCircuitFailure(fnName);
         throw new EdgeFunctionHttpError(fnName, status, bodyText);
