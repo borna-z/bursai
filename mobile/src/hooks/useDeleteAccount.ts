@@ -33,19 +33,18 @@ export function useDeleteAccount() {
     mutationFn: async () => {
       // delete_user_account performs a 24-table cascade — body is empty;
       // the user's auth context drives the scope server-side.
-      // idempotent: true so the wrapper sends X-Idempotency-Key — the
-      // server-side retry-safe path dedups on that header before the
-      // per-minute rate limit, so a timed-out first request that
-      // succeeded server-side won't be misclassified on the user's
-      // next manual retry.
-      // retries: 0 — server-side enforceRateLimit runs BEFORE the
-      // idempotency check, so an automatic client retry within the
-      // rate-limit window 429s before the cached response can replay
-      // (Codex P2 round 2 mirrors PR #735 reset path). Surface failures
-      // to the user; the cascade completes server-side or it doesn't.
+      // idempotent: true so the wrapper sends X-Idempotency-Key. The
+      // server-side ordering for THIS function is `checkIdempotency`
+      // BEFORE `enforceRateLimit` (verified in
+      // supabase/functions/delete_user_account/index.ts:64,72), so a
+      // same-key client retry replays the cached/pending response
+      // without bouncing off the rate limit. retries: 1 lets a timeout
+      // mid-cascade recover instead of stranding the user inside the
+      // app with their auth user already gone — Codex P2 round 3 on
+      // PR #735. (Reset's ordering is the OPPOSITE — see useResetStyleMemory.)
       await callEdgeFunction('delete_user_account', {
         body: {},
-        retries: 0,
+        retries: 1,
         idempotent: true,
       });
       // Always tear down the local session — even if the remote

@@ -192,6 +192,15 @@ export const en: Record<string, string> = {
   'paywall.privacy.label': 'Open privacy policy',
   'paywall.linkError.title': 'Could not open link',
 
+  // M11 — typed-confirm modal chrome (used by every destructive flow).
+  // Title / body / required-text / confirm-label come from the caller
+  // so each flow can localize its own scenario, but the modal chrome
+  // (eyebrow, instruction, cancel, pending) is shared.
+  'confirmModal.eyebrow': 'Are you sure?',
+  'confirmModal.instruction': 'Type {required} to confirm.',
+  'confirmModal.cancel': 'Cancel',
+  'confirmModal.pending': 'Working…',
+
   // M11 — destructive mutations (account deletion + reset style memory).
   // App Store guideline 5.1.1(v) gates the delete path; the typed-confirm
   // copy mirrors web's PR #712 clickjacking-mitigation strings.

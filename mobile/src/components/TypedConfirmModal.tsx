@@ -27,6 +27,7 @@ import { Eyebrow } from './Eyebrow';
 import { PageTitle } from './PageTitle';
 import { Caption } from './Caption';
 import { Button } from './Button';
+import { t as tr } from '../lib/i18n';
 
 export interface TypedConfirmModalProps {
   open: boolean;
@@ -72,15 +73,26 @@ export function TypedConfirmModal({
       <View style={[s.scrim, { backgroundColor: t.scrimBg }]}>
         <View
           style={[s.card, { backgroundColor: t.card, borderColor: t.border }]}>
-          <Eyebrow style={{ marginBottom: 6 }}>Are you sure?</Eyebrow>
+          <Eyebrow style={{ marginBottom: 6 }}>{tr('confirmModal.eyebrow')}</Eyebrow>
           <PageTitle size={22}>{title}</PageTitle>
           <Caption style={{ marginTop: 8, lineHeight: 19 }}>{body}</Caption>
           <Caption style={{ marginTop: 14 }}>
-            Type{' '}
-            <Text style={{ fontFamily: fonts.uiSemi, color: t.fg }}>
-              {requiredText}
-            </Text>{' '}
-            to confirm.
+            {/* Locales that need to flip word order around the typed token
+                can rephrase this string; the {required} placeholder marks
+                where the literal text goes (with bold styling preserved). */}
+            {(() => {
+              const template = tr('confirmModal.instruction');
+              const [before, after] = template.split('{required}');
+              return (
+                <>
+                  {before}
+                  <Text style={{ fontFamily: fonts.uiSemi, color: t.fg }}>
+                    {requiredText}
+                  </Text>
+                  {after ?? ''}
+                </>
+              );
+            })()}
           </Caption>
           <TextInput
             value={value}
@@ -102,7 +114,7 @@ export function TypedConfirmModal({
           />
           <View style={{ marginTop: 16, gap: 8 }}>
             <Button
-              label={isPending ? 'Working…' : confirmLabel}
+              label={isPending ? tr('confirmModal.pending') : confirmLabel}
               variant={destructive ? 'primary' : 'accent'}
               destructive={destructive}
               disabled={!matches || !!isPending}
@@ -110,11 +122,11 @@ export function TypedConfirmModal({
               accessibilityLabel={confirmLabel}
             />
             <Button
-              label="Cancel"
+              label={tr('confirmModal.cancel')}
               variant="quiet"
               disabled={!!isPending}
               onPress={onCancel}
-              accessibilityLabel="Cancel"
+              accessibilityLabel={tr('confirmModal.cancel')}
             />
           </View>
         </View>
