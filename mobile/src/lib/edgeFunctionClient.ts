@@ -271,6 +271,13 @@ export async function callEdgeFunction<T>(
       }
     }
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // Stream returns hand the body reader off to the caller. The fetch
+    // resolves as soon as headers arrive, but the SSE body lifetime can
+    // be many minutes — the caller's abort needs to keep wiring through to
+    // the underlying fetch even after we return. We flip this when we're
+    // about to return a stream so the `finally` clause leaves the listener
+    // and timer cleanup is handled inline. Codex P1 round 1 on PR #733.
+    let cleanupAbortListener = true;
 
     try {
       const reqHeaders: Record<string, string> = {
@@ -306,6 +313,12 @@ export async function callEdgeFunction<T>(
       if (response.ok) {
         if (stream) {
           recordCircuitSuccess(fnName);
+          // Header-arrival timer: clear it manually since the body lifetime
+          // isn't bounded by the 90s budget (an SSE stream can run for
+          // minutes). Leave the abort listener attached so a late caller
+          // abort still aborts the underlying fetch + body reader.
+          clearTimeout(timer);
+          cleanupAbortListener = false;
           return response;
         }
         // Some functions reply 200 with `{ error, retryAfter }` — honour the
@@ -353,9 +366,12 @@ export async function callEdgeFunction<T>(
           // Refresh failed — continue with the next attempt; if the next
           // call also 401s we'll surface it.
         }
-        // Don't count this as a normal retry tick — fall through into the
-        // next loop iteration which already does backoff.
+        // Don't count this as a retry tick — even callers with retries: 0
+        // (start_trial, memory_ingest, detect_duplicate, SSE) need the
+        // refreshed-token request to actually fire. Decrement so the next
+        // iteration re-runs at the same budget slot. Codex P2 round 1.
         lastError = new EdgeFunctionHttpError(fnName, status, bodyText);
+        attempt--;
         continue;
       }
       if (isNonRetryableStatus(status)) {
@@ -395,8 +411,12 @@ export async function callEdgeFunction<T>(
       recordCircuitFailure(fnName);
       if (attempt >= retries) break;
     } finally {
-      clearTimeout(timer);
-      if (signal) signal.removeEventListener('abort', onAbort);
+      // Stream returns own the abort wiring for the body lifetime — the
+      // success branch above already cleared the timer + flipped the flag.
+      if (cleanupAbortListener) {
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+      }
     }
   }
 
