@@ -34,7 +34,14 @@ export function SettingsPrivacyScreen() {
 
   const handleConfirmDelete = () => {
     deleteAccount.mutate(undefined, {
-      onSuccess: () => setDeleteOpen(false),
+      onSuccess: () => {
+        setDeleteOpen(false);
+        // Same nav.reset rationale as SettingsAccountScreen: AuthContext's
+        // SIGNED_OUT handler clears auth + caches but doesn't touch the
+        // nav stack, so the deleted user would otherwise stay on this
+        // mounted screen.
+        nav.reset({ index: 0, routes: [{ name: 'Auth' }] });
+      },
       onError: (err) => {
         setDeleteOpen(false);
         Alert.alert(

@@ -39,9 +39,12 @@ export function SettingsAccountScreen() {
     deleteAccount.mutate(undefined, {
       onSuccess: () => {
         setDeleteOpen(false);
-        // Sign-out has already landed inside the mutation; the auth
-        // listener will route the app to the auth/splash flow on next
-        // render. No nav.reset needed — AuthContext owns that surface.
+        // Codex P1 round 5 on PR #735: AuthContext's SIGNED_OUT handler
+        // clears auth + caches but does NOT reset the nav stack — the
+        // protected Settings screens stay mounted unless the caller
+        // explicitly resets. Drop straight back to the Auth flow so the
+        // deleted user can't tap around their own residual UI.
+        nav.reset({ index: 0, routes: [{ name: 'Auth' }] });
       },
       onError: (err) => {
         setDeleteOpen(false);
