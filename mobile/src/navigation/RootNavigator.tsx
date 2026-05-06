@@ -16,6 +16,9 @@ import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 // so SettingsScreen + SettingsAccountScreen + SettingsPrivacyScreen
 // have to be reachable for App Store guideline 5.1.1(v) review. The
 // other settings screens are mounted alongside since they're a unit.
+// AuthScreen also has to be real because the post-deletion nav.reset
+// lands there — without this, a deleted user lands on a placeholder.
+import { AuthScreen } from '../screens/AuthScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
 import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
@@ -202,7 +205,7 @@ export function RootNavigator() {
           `OnboardingScreen`, `PaywallScreen` implementations live under
           `mobile/src/screens/` and will be wired in a follow-up screen-
           mounting pass alongside the other ready-to-mount screens. */}
-      <Stack.Screen name="Auth" component={Placeholders.Auth} />
+      <Stack.Screen name="Auth" component={AuthScreen} />
       <Stack.Screen name="Onboarding" component={Placeholders.Onboarding} />
       <Stack.Screen name="Paywall" component={Placeholders.Paywall} />
 

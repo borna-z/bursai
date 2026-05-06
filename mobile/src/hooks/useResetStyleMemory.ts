@@ -21,6 +21,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import { clearActionFromQueue } from '../lib/offlineQueue';
+import { MEMORY_EVENT_ACTION } from '../lib/memoryIngest';
 import { captureMutationError } from '../lib/sentry';
 
 export function useResetStyleMemory() {
@@ -41,6 +43,13 @@ export function useResetStyleMemory() {
         retries: 0,
         idempotent: true,
       });
+      // Codex P2 round 6 on PR #735: drop every pending memory-event
+      // queue item AFTER the server-side reset lands. If a queued
+      // save_outfit / wear_outfit / quick_reaction were left in the
+      // M5 offline queue, AuthContext's connectivity-restored replay
+      // would write it back into feedback_signals + garment_pair_memory
+      // and silently undo part of what the user just reset.
+      await clearActionFromQueue(MEMORY_EVENT_ACTION);
     },
     onSuccess: () => {
       // Outfit recommendations + scoring shift after a memory reset.

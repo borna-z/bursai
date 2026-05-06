@@ -358,6 +358,23 @@ export async function clearQueue(): Promise<void> {
 }
 
 /**
+ * Drop every queued item whose action matches the given name. Used by
+ * destructive flows whose server-side reset must NOT see a stale
+ * pending write replay after the destructive op (e.g.
+ * `useResetStyleMemory` clears `memory-event` items so a queued
+ * save_outfit signal can't repopulate the just-cleared feedback_signals
+ * table). Codex P2 round 6 on PR #735.
+ */
+export async function clearActionFromQueue(action: string): Promise<void> {
+  await hydrate();
+  const before = queue.length;
+  queue = queue.filter((item) => item.action !== action);
+  if (queue.length === before) return;
+  await persist();
+  emitChange();
+}
+
+/**
  * Subscribe to queue changes (count up / down). Returns an unsubscribe.
  * useOfflineQueue uses this to drive component re-renders.
  */
