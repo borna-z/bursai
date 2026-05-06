@@ -27,6 +27,7 @@
 // handler-registry instead of inline supabase-from(table) dispatch.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 const STORAGE_KEY = 'burs.offline-queue.v1';
 
@@ -50,6 +51,25 @@ export interface QueueItem<P = unknown> {
 }
 
 type Handler<P = unknown> = (payload: P) => Promise<void>;
+
+/**
+ * Sentinel a handler can throw to halt the current replay pass without
+ * counting attempts on the failing item or any subsequent snapshot
+ * items. Used for rate-limit responses (HTTP 429) where the rest of
+ * a queued burst is going to bounce off the same gate — burning all
+ * three retry attempts in 90s would drop valid signals before the
+ * server window resets. `retryAfterMs` (when present) is fed into the
+ * deferred-replay scheduler so the next attempt aligns with the
+ * server's recovery window. Codex P2 round 5 on PR #734.
+ */
+export class HaltReplayError extends Error {
+  retryAfterMs?: number;
+  constructor(retryAfterMs?: number) {
+    super('Replay halted by handler');
+    this.name = 'HaltReplayError';
+    this.retryAfterMs = retryAfterMs;
+  }
+}
 
 interface ReplayResult {
   succeeded: number;
@@ -199,7 +219,10 @@ async function runReplay(): Promise<ReplayResult> {
   // get processed in this pass — it'll wait for the next replay tick.
   const snapshot = [...queue];
   const survivors: QueueItem[] = [];
-  for (const item of snapshot) {
+  let halted = false;
+  let haltRetryAfterMs: number | undefined;
+  for (let idx = 0; idx < snapshot.length; idx++) {
+    const item = snapshot[idx];
     const handler = handlers.get(item.action);
     if (!handler) {
       // Drop orphaned action types — see jsdoc above.
@@ -208,7 +231,23 @@ async function runReplay(): Promise<ReplayResult> {
     try {
       await handler(item.payload);
       succeeded++;
-    } catch {
+    } catch (err) {
+      if (err instanceof HaltReplayError) {
+        // Park this item AND every remaining snapshot item without
+        // counting attempts — they all belong to the same handler's
+        // failure window (typically a 429 burst). Schedule a deferred
+        // replay aligned to the server's retry-after when known.
+        survivors.push(item);
+        for (let j = idx + 1; j < snapshot.length; j++) {
+          const remaining = snapshot[j];
+          if (handlers.has(remaining.action)) {
+            survivors.push(remaining);
+          }
+        }
+        halted = true;
+        haltRetryAfterMs = err.retryAfterMs;
+        break;
+      }
       const nextAttempts = item.attempts + 1;
       if (nextAttempts >= MAX_ATTEMPTS) {
         // Surface dropped retries via subscription so a UI hook can warn
@@ -227,6 +266,9 @@ async function runReplay(): Promise<ReplayResult> {
   queue = [...survivors, ...newcomers];
   await persist();
   emitChange();
+  if (halted) {
+    scheduleDeferredReplay(haltRetryAfterMs);
+  }
   return { succeeded, failed, remaining: queue.length };
 }
 
@@ -243,21 +285,59 @@ export function pendingCount(): number {
 // ─── deferred replay scheduler ────────────────────────────────────────
 // When a live caller enqueues after a transient failure (5xx, 429), we
 // want to retry without waiting for the next NetInfo transition or app
-// restart. This single-flight-coalesced timer kicks a replay ~30s later,
-// matching typical 5xx outage / 429 rate-limit-window durations.
-// Codex P2 round 4 on PR #734.
+// restart. This single-flight-coalesced timer kicks a replay later
+// (default 30s, or the server's retry-after when supplied via
+// HaltReplayError), and gates the actual replay on connectivity so an
+// offline tick doesn't burn the queue's MAX_ATTEMPTS budget.
+// Codex P2 rounds 4 + 5 on PR #734.
 const DEFERRED_REPLAY_MS = 30_000;
+const MIN_DEFERRED_REPLAY_MS = 5_000;
+const MAX_DEFERRED_REPLAY_MS = 5 * 60_000;
 let deferredReplayTimer: ReturnType<typeof setTimeout> | null = null;
+let deferredReplayDelayMs = 0;
 
-export function scheduleDeferredReplay(): void {
-  if (deferredReplayTimer) return; // already pending
+export function scheduleDeferredReplay(retryAfterMs?: number): void {
+  // Cap the delay so a server retry-after of "Wait an hour" doesn't park
+  // the queue for an hour — the next NetInfo transition / app cold start
+  // will pick it up sooner anyway. Floor matches a sane client-side
+  // backoff that won't burn cache on a tight loop.
+  const requestedDelay =
+    retryAfterMs != null && retryAfterMs > 0 ? retryAfterMs : DEFERRED_REPLAY_MS;
+  const delay = Math.max(
+    MIN_DEFERRED_REPLAY_MS,
+    Math.min(MAX_DEFERRED_REPLAY_MS, requestedDelay),
+  );
+  if (deferredReplayTimer) {
+    // If a longer delay is already pending, leave it. If the new delay
+    // would land sooner (a 429 with shorter retry-after lands while a
+    // generic 30s timer is pending), reschedule.
+    if (delay >= deferredReplayDelayMs) return;
+    clearTimeout(deferredReplayTimer);
+  }
+  deferredReplayDelayMs = delay;
   deferredReplayTimer = setTimeout(() => {
     deferredReplayTimer = null;
-    void replay().catch(() => {
-      // replay() owns its own error surface — caller's responsibility
-      // to log if needed.
-    });
-  }, DEFERRED_REPLAY_MS);
+    deferredReplayDelayMs = 0;
+    void (async () => {
+      // Codex P2 round 5: gate on connectivity so an offline tick
+      // doesn't iterate the queue and increment attempts uselessly.
+      // NetInfo transition listeners pick it up the moment we're back
+      // online; the deferred timer is for the case where we're online
+      // but the server / rate-limit gate hasn't recovered.
+      try {
+        const state = await NetInfo.fetch();
+        if (state.isConnected === false || state.isInternetReachable === false) {
+          return;
+        }
+      } catch {
+        // NetInfo probe failure — fall through and let replay try; the
+        // wrapper itself defaults the unknown-state to online.
+      }
+      void replay().catch(() => {
+        // replay() owns its own error surface.
+      });
+    })();
+  }, delay);
 }
 
 /**
