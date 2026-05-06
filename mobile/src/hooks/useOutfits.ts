@@ -101,6 +101,20 @@ export function useOutfit(id: string | undefined) {
  * same trade-off, see web's useMarkWorn). Concurrent same-garment wears lose
  * increments under contention; acceptable for v1.
  */
+
+// Module-level in-flight set keyed by outfitId. Synchronous double-mutate
+// calls (e.g. HomeScreen exposes two CTAs wired to the same mutation —
+// "Wear this" in the hero and "Wear today" in the mini-week strip — and
+// React Query's `isPending` flag flips after the next render, so a tight
+// double-tap can fire two `mutate(...)` calls before the disabled state
+// renders) would otherwise double-bump every garment's wear_count and
+// insert duplicate wear_logs. The synchronous prefix of mutationFn
+// (set.has + set.add) runs to completion before the first `await` yields,
+// so the second concurrent invocation always sees the entry and bails.
+// The `try/finally delete()` guarantees the lock releases even on error.
+// Codex P2 round 9 on PR #738.
+const inFlightWearOutfit = new Set<string>();
+
 export function useMarkOutfitWorn() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -114,112 +128,113 @@ export function useMarkOutfitWorn() {
       garmentIds?: string[];
     }) => {
       if (!user) throw new Error('Not authenticated');
-      const nowIso = new Date().toISOString();
-
-      // 1. Stamp the outfit.
-      const { error: outfitError } = await supabase
-        .from('outfits')
-        .update({ worn_at: nowIso })
-        .eq('id', outfitId)
-        .eq('user_id', user.id);
-      if (outfitError) throw outfitError;
-
-      // 2. Fallback path — caller didn't pass garmentIds. Single null-garment
-      //    wear_log so we at least record the outfit-level wear.
-      if (garmentIds.length === 0) {
-        const { error: logError } = await supabase.from('wear_logs').insert({
-          user_id: user.id,
-          outfit_id: outfitId,
-          worn_at: nowIso,
-        });
-        if (logError) throw logError;
-        return;
+      // Synchronous in-flight gate — see module comment above.
+      if (inFlightWearOutfit.has(outfitId)) {
+        // Silently no-op the duplicate. The first invocation's onSuccess
+        // will surface the confirmation alert + cache invalidations.
+        return { deduped: true };
       }
-
-      // 3a. Read current wear_count snapshot so the per-row +1 doesn't
-      //     clobber concurrent writes from a different mutation. Last-write-
-      //     wins under contention (matches web behavior).
-      const { data: garmentStates, error: stateError } = await supabase
-        .from('garments')
-        .select('id, wear_count')
-        .in('id', garmentIds)
-        .eq('user_id', user.id);
-      if (stateError) throw stateError;
-
-      const stateMap = new Map(
-        (garmentStates ?? []).map((g) => [g.id, g.wear_count ?? 0]),
-      );
-
-      // 3b. Bump every garment in parallel.
-      await Promise.all(
-        garmentIds.map((garmentId) => {
-          const next = (stateMap.get(garmentId) ?? 0) + 1;
-          return supabase
-            .from('garments')
-            .update({ wear_count: next, last_worn_at: nowIso })
-            .eq('id', garmentId)
-            .eq('user_id', user.id);
-        }),
-      );
-
-      // 3c. Per-garment wear log — append-only INSERT.
-      //
-      // The previous version called .upsert(rows, { onConflict:
-      //  'user_id,garment_id,worn_at' }) but the `wear_logs` table has only
-      // a PK on `id` — no UNIQUE on (user_id, garment_id, worn_at) — so
-      // PostgREST rejected the upsert and the mutation threw AFTER the
-      // outfit + garment UPDATEs had already committed (partial-state
-      // corruption + a "Could not mark worn" alert). Codex P1 on PR #738.
-      //
-      // Plain INSERT is correct for this column: `worn_at = nowIso` is
-      // ms-precision so two distinct taps already produce different
-      // timestamps (the upsert idempotency was a no-op even when it
-      // didn't error). Double-tap protection lives at the screen layer
-      // via `markWorn.isPending` disabling the CTA. A truly idempotent
-      // wear_log would need a migration adding the unique constraint —
-      // tracked for follow-up in findings-log.md.
-      const wearLogRows = garmentIds.map((garmentId) => ({
-        user_id: user.id,
-        garment_id: garmentId,
-        outfit_id: outfitId,
-        worn_at: nowIso,
-      }));
-      const { error: logError } = await supabase
-        .from('wear_logs')
-        .insert(wearLogRows);
-      if (logError) throw logError;
+      inFlightWearOutfit.add(outfitId);
+      try {
+        return await runMarkOutfitWorn({ outfitId, garmentIds, userId: user.id });
+      } finally {
+        inFlightWearOutfit.delete(outfitId);
+      }
     },
     onSuccess: (_data, { outfitId, garmentIds = [] }) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
-      // Garment caches refresh so HomeScreen "Wardrobe used %" + Wardrobe
-      // most-worn surfaces reflect the bumped wear_count immediately.
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment'] });
-      // Insights derives wear-frequency bars, most-worn list, and utilisation
-      // from this very wear_logs insert — refresh so the gauges and chart
-      // update immediately instead of waiting for staleTime.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
-      // Style Memory signal — fire-and-forget. Failure must never block
-      // the wear flow (the primary DB write already succeeded). Scope is
-      // limited to wear + save in W4 — delete and rate intentionally do
-      // NOT ingest here (web's fireMemoryIngest does, but mobile defers
-      // those signals to a future wave when the rating UI lands the same
-      // event_type contract). Codex audit P2-4 (audit 3).
-      // M10: typed event creator + queue-aware dispatcher. The wire field
-      // is `signal_type` (NOT the legacy `event_type` which the server
-      // 400'd silently — Wave 8.5 P0 caught in PR #712); the typed creator
-      // gets the field name right. recordMemoryEvent enqueues to the M5
-      // offline queue on transport / 5xx so the wear signal is preserved
-      // through connectivity loss.
       void recordMemoryEvent(
         wearOutfitEvent(outfitId, garmentIds, 'mobile/useMarkOutfitWorn'),
       );
     },
     onError: captureMutationError('useMarkOutfitWorn'),
   });
+}
+
+// The actual mark-worn write sequence — extracted from the hook so the
+// in-flight gate above can wrap it cleanly. Returns void (the wrapper
+// returns `{ deduped: true }` for the dedup path; the real path returns
+// undefined which TS narrows fine — both are valid mutation results).
+async function runMarkOutfitWorn({
+  outfitId,
+  garmentIds,
+  userId,
+}: {
+  outfitId: string;
+  garmentIds: string[];
+  userId: string;
+}): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  // 1. Stamp the outfit.
+  const { error: outfitError } = await supabase
+    .from('outfits')
+    .update({ worn_at: nowIso })
+    .eq('id', outfitId)
+    .eq('user_id', userId);
+  if (outfitError) throw outfitError;
+
+  // 2. Fallback path — caller didn't pass garmentIds. Single null-garment
+  //    wear_log so we at least record the outfit-level wear.
+  if (garmentIds.length === 0) {
+    const { error: logError } = await supabase.from('wear_logs').insert({
+      user_id: userId,
+      outfit_id: outfitId,
+      worn_at: nowIso,
+    });
+    if (logError) throw logError;
+    return;
+  }
+
+  // 3a. Read current wear_count snapshot so the per-row +1 doesn't
+  //     clobber concurrent writes from a different mutation. Last-write-
+  //     wins under contention (matches web behavior).
+  const { data: garmentStates, error: stateError } = await supabase
+    .from('garments')
+    .select('id, wear_count')
+    .in('id', garmentIds)
+    .eq('user_id', userId);
+  if (stateError) throw stateError;
+
+  const stateMap = new Map(
+    (garmentStates ?? []).map((g) => [g.id, g.wear_count ?? 0]),
+  );
+
+  // 3b. Bump every garment in parallel.
+  await Promise.all(
+    garmentIds.map((garmentId) => {
+      const next = (stateMap.get(garmentId) ?? 0) + 1;
+      return supabase
+        .from('garments')
+        .update({ wear_count: next, last_worn_at: nowIso })
+        .eq('id', garmentId)
+        .eq('user_id', userId);
+    }),
+  );
+
+  // 3c. Per-garment wear log — append-only INSERT. Idempotency for
+  //     synchronous double-mutate calls is enforced by the
+  //     `inFlightWearOutfit` Set in the hook wrapper above; this body only
+  //     runs once per (outfitId, distinct mutate call). The wear_logs
+  //     table has only a PK on `id` — no UNIQUE on
+  //     (user_id, garment_id, worn_at) — so a real PostgREST upsert isn't
+  //     viable without a migration. Tracked for follow-up.
+  const wearLogRows = garmentIds.map((garmentId) => ({
+    user_id: userId,
+    garment_id: garmentId,
+    outfit_id: outfitId,
+    worn_at: nowIso,
+  }));
+  const { error: logError } = await supabase
+    .from('wear_logs')
+    .insert(wearLogRows);
+  if (logError) throw logError;
 }
 
 export function useSaveOutfit() {

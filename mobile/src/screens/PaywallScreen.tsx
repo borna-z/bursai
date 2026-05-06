@@ -64,10 +64,19 @@ export function PaywallScreen() {
 
   const onSubscribe = () => {
     hapticLight();
-    // TODO(billing): wire Stripe checkout (web) or StoreKit (native iOS via
-    // a Wave 9 StoreKit module). For now, close the modal optimistically.
-    if (nav.canGoBack()) nav.goBack();
-    else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    // Subscriptions launch with M31 (RevenueCat — StoreKit on iOS, Billing
+    // Library on Android). Until that wave lands, the Subscribe CTA is a
+    // placeholder. The previous version closed the modal silently which
+    // read as "you're subscribed" to both real users and the App Store
+    // review process — surface an explicit "coming soon" alert instead so
+    // there's no false sense of purchase / entitlement. Codex P2 round 9
+    // on PR #738. Inline strings (not i18n) — the locale pass for paywall
+    // copy is M33; this string ships English-only on the placeholder.
+    Alert.alert(
+      'Subscriptions coming soon',
+      "We're wiring up subscriptions for the App Store launch. You'll be among the first to know when they go live.",
+      [{ text: 'OK' }],
+    );
   };
 
   const onRestore = () => {

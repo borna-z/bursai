@@ -221,9 +221,13 @@ export function WardrobeScreen() {
       <View style={s.header}>
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 4 }}>
+            {/* Use the smart-tiles' "—" placeholder until counts are
+                authoritative, so a paginated wardrobe doesn't render
+                "Inventory · 30" or a filtered total against the same
+                undercount. Codex P2 round 9 on PR #738. */}
             {activeFilterCount > 0
-              ? `Filtered · ${visibleGarments.length} of ${totalCount}`
-              : `Inventory · ${totalCount}`}
+              ? `Filtered · ${countsAuthoritative ? visibleGarments.length : '—'} of ${fmtCount(totalCount)}`
+              : `Inventory · ${fmtCount(totalCount)}`}
           </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
         </View>
@@ -243,7 +247,11 @@ export function WardrobeScreen() {
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <SearchBar
-          placeholder={`Search ${totalCount} garments…`}
+          placeholder={
+            countsAuthoritative
+              ? `Search ${totalCount} garments…`
+              : 'Search your wardrobe…'
+          }
           onPress={() => nav.navigate('Search')}
         />
         <IconBtn

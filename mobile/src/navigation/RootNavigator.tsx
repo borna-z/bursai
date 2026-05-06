@@ -285,8 +285,23 @@ function isOAuthCallbackUrl(url: string): boolean {
 
 async function handleOAuthDeepLink(url: string): Promise<void> {
   if (!isOAuthCallbackUrl(url)) return;
+  // supabase-auth-js's `exchangeCodeForSession` POSTs whatever string we pass
+  // as the `auth_code` param, so it expects the raw code string — not the
+  // full deep-link URL. Passing the URL would make every OAuth login fail
+  // even after the URL pattern matched. Parse the `code` query param and
+  // exchange that. Codex P1 round 9 on PR #738.
+  let code: string | null = null;
   try {
-    const { error } = await supabase.auth.exchangeCodeForSession(url);
+    code = new URL(url).searchParams.get('code');
+  } catch {
+    code = null;
+  }
+  if (!code) {
+    console.warn('[RootNavigator] OAuth callback URL missing `code` param:', url);
+    return;
+  }
+  try {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       console.warn('[RootNavigator] OAuth callback exchange failed:', error.message);
     }
