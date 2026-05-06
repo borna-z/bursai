@@ -112,6 +112,14 @@ async function hydrate(): Promise<void> {
     } finally {
       hydrated = true;
       hydrating = null;
+      // Codex P2 round 2 on PR #732: subscribers added before hydrate
+      // completed (the typical UI mount order — OfflineBanner subscribes
+      // synchronously, hydrate returns one tick later) would otherwise
+      // read pendingCount()=0 forever in the offline-cold-start case
+      // because nothing else emits until the next enqueue / replay.
+      // Emit unconditionally on hydrate completion so the banner picks
+      // up surviving items immediately.
+      emitChange();
     }
   })();
   return hydrating;
