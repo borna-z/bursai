@@ -512,6 +512,21 @@ export function OutfitGenerateScreen() {
             block
           />
           <Button label="Try again" variant="quiet" onPress={tryAgain} block />
+          {/* M16 — pool entry. Reuses the same anchor / occasion as the
+              single-outfit call so a Restyle-from-piece flow can pivot to
+              a 5-shot pool without re-collecting context. */}
+          <Button
+            label="Generate pool"
+            variant="outline"
+            onPress={() => {
+              hapticLight();
+              nav.navigate('OutfitPool', {
+                anchorGarmentId: anchorId,
+                occasion: result.occasion,
+              });
+            }}
+            block
+          />
           {/* M13 — clear the lock and regenerate without it. Hidden when
               there's no anchor in the first place. Codex P2 round 6. */}
           {anchorId ? (

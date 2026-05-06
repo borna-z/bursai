@@ -21,10 +21,12 @@ import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { WeekStrip, type WeekDay } from '../components/WeekStrip';
+import { WeekPlanPreview } from '../components/WeekPlanPreview';
 import { PlanCardSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
 import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/usePlannedOutfits';
+import { useWeekGenerator } from '../hooks/useWeekGenerator';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useNow } from '../hooks/useNow';
 import { useSignedUrl } from '../hooks/useSignedUrl';
@@ -160,6 +162,21 @@ export function PlanScreen() {
 
   const markWorn = useMarkOutfitWorn();
   const deletePlanned = useDeletePlannedOutfit();
+
+  // M16 — week generator surface. Lazy-mounted: the preview shows a single
+  // "Generate week" CTA until the user opts in, at which point it expands
+  // into 7 rows. Once entries land, the preview stays visible for the
+  // session so the user can tap "swap" per day without re-opting-in.
+  const weekGen = useWeekGenerator();
+  const handleGenerateWeek = React.useCallback(() => {
+    void weekGen.generateWeek({ startDate: now });
+  }, [weekGen, now]);
+  const handleSwapDay = React.useCallback(
+    (date: string) => {
+      void weekGen.regenerateDay(date);
+    },
+    [weekGen],
+  );
 
   // "Worn today" gate for the today-only Wear button. Mirrors OutfitDetail.
   // Without this the button stays primary-coloured + enabled even after a
@@ -387,6 +404,20 @@ export function PlanScreen() {
             <Button label="Generate outfit" onPress={() => nav.navigate('OutfitGenerate')} block />
           </View>
         )}
+
+        {/* ============ HR ============ */}
+        <View style={{ height: 1, backgroundColor: t.border, opacity: 0.7 }} />
+
+        {/* ============ WEEK GENERATOR (M16) ============
+            Renders the empty CTA initially; after the user taps "Generate
+            week" it expands into the 7-row preview with per-day swap. */}
+        <WeekPlanPreview
+          entries={weekGen.entries}
+          isGenerating={weekGen.isGenerating}
+          completed={weekGen.completed}
+          onGenerateWeek={handleGenerateWeek}
+          onSwapDay={handleSwapDay}
+        />
 
         {/* ============ HR ============ */}
         <View style={{ height: 1, backgroundColor: t.border, opacity: 0.7 }} />
