@@ -76,8 +76,17 @@ export function ShareOutfitScreen() {
       Alert.alert(tr('shareOutfit.flatlayError'));
       return;
     }
-    if (flatlay.flatlayPath || flatlay.isGenerating) return;
+    // Codex P1.5 on PR #743 — drop the `flatlay.flatlayPath` short-circuit.
+    // The wave's stated UX is "or allow re-generation if needed", and the
+    // button now flips its label to "Regenerate flatlay" when a path
+    // exists. Only `flatlay.isGenerating` should block the tap (idempotency
+    // for a request mid-flight is enforced by useGenerateFlatlay's
+    // lastOutfitIdRef). Reset before re-running so the spinner branch
+    // engages cleanly and the prior signed-URL doesn't ghost over the
+    // new one.
+    if (flatlay.isGenerating) return;
     hapticLight();
+    if (flatlay.flatlayPath) flatlay.reset();
     void flatlay.generate(outfitId);
   }, [outfitId, flatlay]);
 
@@ -132,16 +141,13 @@ export function ShareOutfitScreen() {
               BURS
             </Text>
           </View>
-          {flatlaySignedUrl ? (
-            <View style={s.flatlayWrap}>
-              <Image
-                source={{ uri: flatlaySignedUrl }}
-                style={s.flatlayImage}
-                resizeMode="cover"
-                accessibilityLabel="Generated flatlay preview"
-              />
-            </View>
-          ) : flatlay.isGenerating ? (
+          {flatlay.isGenerating
+            || (flatlay.flatlayPath && !flatlaySignedUrl) ? (
+            // Codex P1.9 on PR #743 — keep the spinner on screen during the
+            // transient gap between "edge function returned a path" and
+            // "useSignedUrl resolved a renderable URL". Without this gate
+            // the placeholder grid briefly flashes back in before the image
+            // appears, which reads as "generation failed → reset".
             <View style={[s.flatlayWrap, s.flatlayLoading, { borderColor: CARD_BORDER }]}>
               <ActivityIndicator color={CARD_ACCENT} />
               <Text
@@ -155,6 +161,15 @@ export function ShareOutfitScreen() {
                 }}>
                 {tr('shareOutfit.generatingFlatlay')}
               </Text>
+            </View>
+          ) : flatlaySignedUrl ? (
+            <View style={s.flatlayWrap}>
+              <Image
+                source={{ uri: flatlaySignedUrl }}
+                style={s.flatlayImage}
+                resizeMode="cover"
+                accessibilityLabel="Generated flatlay preview"
+              />
             </View>
           ) : (
             <View style={s.cardGrid}>
@@ -210,17 +225,20 @@ export function ShareOutfitScreen() {
           Share your look to Instagram, stories, and more.
         </Text>
 
-        {/* M17 — Generate flatlay. Hidden once we have a rendered image
-            (re-generation is allowed but cheap because the function upserts
-            to a deterministic storage path; we show "Regenerate" so the
-            user can intentionally re-run if they want a fresh roll). */}
+        {/* M17 — Generate flatlay. The button stays visible after the first
+            render so the user can intentionally re-run if they want a fresh
+            roll. Codex P1.5 on PR #743 — "Regenerate flatlay" copy when a
+            rendered path already exists; "Generate flatlay" otherwise.
+            P3.4 — when there's no outfit context (shallow deep link), show
+            a disabled CTA explaining how to land on the screen with a real
+            outfit instead of silently rendering nothing. */}
         {outfitId ? (
           <Button
             label={
               flatlay.isGenerating
                 ? tr('shareOutfit.generatingFlatlay')
                 : flatlay.flatlayPath
-                  ? tr('shareOutfit.generateFlatlay')
+                  ? tr('shareOutfit.regenerateFlatlay')
                   : tr('shareOutfit.generateFlatlay')
             }
             onPress={onGenerateFlatlay}
@@ -228,7 +246,17 @@ export function ShareOutfitScreen() {
             disabled={flatlay.isGenerating}
             variant={flatlay.flatlayPath ? 'outline' : 'primary'}
           />
-        ) : null}
+        ) : (
+          <Button
+            label={tr('shareOutfit.openFromOutfit')}
+            onPress={() => {
+              /* No-op — disabled CTA exists purely to surface context. */
+            }}
+            block
+            disabled
+            variant="outline"
+          />
+        )}
 
         {flatlay.error && flatlay.error !== 'subscription_required' ? (
           <Text

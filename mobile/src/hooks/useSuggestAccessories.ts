@@ -30,7 +30,23 @@ type SuggestAccessoriesResponse = {
   error?: string;
 };
 
+/** A single AI-suggested accessory. `reason` is the rationale string the
+ *  function returns (e.g. "Adds a warm tone to balance the cool palette");
+ *  null when the response omitted it (defensive — recent prompt versions
+ *  always include one). Codex P1.1 on PR #743 — earlier shape dropped the
+ *  reason and the screen could only surface color/category, losing the
+ *  human-readable narrative the function was already producing. */
+export interface AccessorySuggestion {
+  garment_id: string;
+  reason: string | null;
+}
+
 export interface UseSuggestAccessoriesResult {
+  /** Suggestion list with both id + rationale. Use `accessorySuggestions[i].reason`
+   *  to surface the AI's explanation in the UI. */
+  accessorySuggestions: AccessorySuggestion[];
+  /** Convenience id-only projection for callers that only need to look up
+   *  garment rows. Order matches `accessorySuggestions`. */
   accessoryGarmentIds: string[];
   isSuggesting: boolean;
   error: string | null;
@@ -40,7 +56,7 @@ export interface UseSuggestAccessoriesResult {
 
 export function useSuggestAccessories(): UseSuggestAccessoriesResult {
   const { session } = useAuth();
-  const [accessoryGarmentIds, setAccessoryGarmentIds] = useState<string[]>([]);
+  const [accessorySuggestions, setAccessorySuggestions] = useState<AccessorySuggestion[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -95,20 +111,29 @@ export function useSuggestAccessories(): UseSuggestAccessoriesResult {
           return;
         }
 
-        const ids = (data?.suggestions ?? [])
-          .map((s) => (typeof s?.garment_id === 'string' ? s.garment_id.trim() : ''))
-          .filter((id): id is string => id.length > 0);
+        const rawSuggestions = (data?.suggestions ?? [])
+          .map((s) => {
+            const id = typeof s?.garment_id === 'string' ? s.garment_id.trim() : '';
+            const reasonRaw = typeof s?.reason === 'string' ? s.reason.trim() : '';
+            return {
+              garment_id: id,
+              reason: reasonRaw.length > 0 ? reasonRaw : null,
+            };
+          })
+          .filter((s): s is AccessorySuggestion => s.garment_id.length > 0);
         // De-dupe while preserving order — the AI occasionally returns the
         // same garment twice with different reasons; the screen's `+ Add`
         // mutation would otherwise insert a duplicate `outfit_items` row.
+        // Keep the FIRST occurrence's reason on a collision (matches the
+        // wave's "surface the AI's narrative" intent — first one wins).
         const seen = new Set<string>();
-        const deduped: string[] = [];
-        for (const id of ids) {
-          if (seen.has(id)) continue;
-          seen.add(id);
-          deduped.push(id);
+        const deduped: AccessorySuggestion[] = [];
+        for (const sugg of rawSuggestions) {
+          if (seen.has(sugg.garment_id)) continue;
+          seen.add(sugg.garment_id);
+          deduped.push(sugg);
         }
-        setAccessoryGarmentIds(deduped);
+        setAccessorySuggestions(deduped);
       } catch (err) {
         if (controller.signal.aborted) return;
         const message = err instanceof Error ? err.message : 'Accessory suggestion failed';
@@ -131,7 +156,7 @@ export function useSuggestAccessories(): UseSuggestAccessoriesResult {
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
-    setAccessoryGarmentIds([]);
+    setAccessorySuggestions([]);
     setIsSuggesting(false);
     setError(null);
   }, []);
@@ -142,5 +167,18 @@ export function useSuggestAccessories(): UseSuggestAccessoriesResult {
     };
   }, []);
 
-  return { accessoryGarmentIds, isSuggesting, error, suggest, reset };
+  // Stable id-only projection — exposed for callers that just need to look
+  // up garment rows (the AccessoryCard subtitle now reads `reason` from the
+  // suggestion list directly). Computing here keeps a single source of
+  // truth so the two arrays can never drift.
+  const accessoryGarmentIds = accessorySuggestions.map((s) => s.garment_id);
+
+  return {
+    accessorySuggestions,
+    accessoryGarmentIds,
+    isSuggesting,
+    error,
+    suggest,
+    reset,
+  };
 }

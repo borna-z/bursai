@@ -47,6 +47,13 @@ export function useGenerateFlatlay(): UseGenerateFlatlayResult {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Codex P2.1 on PR #743 — track the in-flight outfit id so a rapid
+  // double-tap on "Generate flatlay" doesn't fire two image-gen calls
+  // (each one bills the AI provider). The first `generate(id)` enters,
+  // sets isGenerating=true; a second tap with the same id is short-
+  // circuited. A different id (the user navigated to another outfit
+  // mid-flight) cancels the prior request via abortRef.
+  const lastOutfitIdRef = useRef<string | null>(null);
 
   const generate = useCallback(
     async (outfitId: string) => {
@@ -60,9 +67,16 @@ export function useGenerateFlatlay(): UseGenerateFlatlayResult {
         return;
       }
 
+      // Idempotency: if we're already generating for the same outfit, no-op.
+      // The current flight will resolve and update `flatlayPath` on its own.
+      if (isGenerating && lastOutfitIdRef.current === trimmed) {
+        return;
+      }
+
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      lastOutfitIdRef.current = trimmed;
 
       setIsGenerating(true);
       setError(null);
@@ -117,17 +131,26 @@ export function useGenerateFlatlay(): UseGenerateFlatlayResult {
         }
         setError(message);
       } finally {
-        if (!controller.signal.aborted) {
-          setIsGenerating(false);
-        }
+        // Codex P2.8 on PR #743 — always reset isGenerating regardless of
+        // abort state. The previous gate left the flag stuck `true` when
+        // a request was aborted (e.g. the user re-tapped with a different
+        // outfit id mid-flight, or the screen unmounted), which then
+        // wedged the idempotency check above into a permanent skip even
+        // after the user navigated back. Mirror `useOutfitPool`'s
+        // unconditional reset. lastOutfitIdRef is allowed to persist —
+        // the idempotency check is `isGenerating && id === ref`, so once
+        // isGenerating flips false here, a follow-up tap with the same
+        // id (intentional re-generation) will fall through.
+        setIsGenerating(false);
       }
     },
-    [session?.access_token],
+    [session?.access_token, isGenerating],
   );
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    lastOutfitIdRef.current = null;
     setFlatlayPath(null);
     setIsGenerating(false);
     setError(null);

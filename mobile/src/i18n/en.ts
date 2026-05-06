@@ -356,4 +356,20 @@ export const en: Record<string, string> = {
   'shareOutfit.generateFlatlay': 'Generate flatlay',
   'shareOutfit.generatingFlatlay': 'Generating flatlay…',
   'shareOutfit.flatlayError': "Couldn't generate flatlay",
+  // M17 Codex P1.5 — surfaced when a flatlay path already exists; tapping the
+  // button re-runs the generator with the same outfit. Distinct from
+  // `shareOutfit.generateFlatlay` so the user knows the call will replace
+  // their current rendered image.
+  'shareOutfit.regenerateFlatlay': 'Regenerate flatlay',
+  // M17 Codex P3.4 — disabled CTA copy when the user lands on ShareOutfit
+  // without an outfit context (e.g. shallow deep link). Replaces the silent
+  // "no button" branch so the screen always explains what's missing.
+  'shareOutfit.openFromOutfit': 'Open from an outfit to generate flatlay',
+  // M17 Codex P2.6 — fallback button label while the composition helpers are
+  // mid-request. Distinct from the persistent action labels so the user
+  // sees the call is in flight.
+  'outfitDetail.helperLoading': 'Loading…',
+  // M17 Codex P1.8 — refresh affordance inside the collapsible composition
+  // sections. Aria/visual label for the small icon button.
+  'outfitDetail.refreshAction': 'Refresh',
 };

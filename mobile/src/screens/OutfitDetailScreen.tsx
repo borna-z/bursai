@@ -91,20 +91,50 @@ export function OutfitDetailScreen() {
   const [cloneOpen, setCloneOpen] = React.useState(false);
   const paywallShownRef = React.useRef(false);
 
-  // Hydrate accessory garment titles in one round-trip.
+  // P0.1 (Codex on PR #743) — pre-compute the set of garment ids ALREADY in
+  // this outfit so the suggestion list never surfaces an accessory the
+  // user already owns on this look. `outfit_items` has no UNIQUE on
+  // (outfit_id, garment_id), so a remount + re-tap would otherwise
+  // re-insert. Filter the suggestion list at render time AND defensively
+  // gate the mutation below.
+  const existingItemGarmentIds = React.useMemo<Set<string>>(() => {
+    const set = new Set<string>();
+    for (const item of outfit?.outfit_items ?? []) {
+      const id = item.garment?.id;
+      if (typeof id === 'string' && id.length > 0) set.add(id);
+    }
+    return set;
+  }, [outfit?.outfit_items]);
+
+  // Filtered suggestion list — anything already in the outfit is dropped
+  // before render. Keeps the screen's "Add" semantics meaningful.
+  const filteredAccessorySuggestions = React.useMemo(
+    () => accessoriesHook.accessorySuggestions.filter(
+      (s) => !existingItemGarmentIds.has(s.garment_id),
+    ),
+    [accessoriesHook.accessorySuggestions, existingItemGarmentIds],
+  );
+  const filteredAccessoryIds = React.useMemo(
+    () => filteredAccessorySuggestions.map((s) => s.garment_id),
+    [filteredAccessorySuggestions],
+  );
+
+  // Hydrate accessory garment titles in one round-trip — keyed off the
+  // filtered set so re-renders after a successful add don't refetch the
+  // hidden row.
   const accessoryIdsKey = React.useMemo(
-    () => [...accessoriesHook.accessoryGarmentIds].sort().join(','),
-    [accessoriesHook.accessoryGarmentIds],
+    () => [...filteredAccessoryIds].sort().join(','),
+    [filteredAccessoryIds],
   );
   const accessoryRowsQ = useQuery({
     queryKey: ['m17AccessoryRows', user?.id, accessoryIdsKey],
-    enabled: !!user && accessoriesHook.accessoryGarmentIds.length > 0,
+    enabled: !!user && filteredAccessoryIds.length > 0,
     queryFn: async () => {
-      if (!user || accessoriesHook.accessoryGarmentIds.length === 0) return [];
+      if (!user || filteredAccessoryIds.length === 0) return [];
       const { data, error: rowsErr } = await supabase
         .from('garments')
         .select('id, title, category, color_primary, rendered_image_path, original_image_path')
-        .in('id', accessoriesHook.accessoryGarmentIds)
+        .in('id', filteredAccessoryIds)
         .eq('user_id', user.id);
       if (rowsErr) throw rowsErr;
       return data ?? [];
@@ -112,52 +142,103 @@ export function OutfitDetailScreen() {
   });
 
   // Route to PaywallScreen when any helper surfaces the subscription
-  // sentinel. Sticky ref so a back-and-forth doesn't re-pop the modal.
+  // sentinel. Sticky ref so a back-and-forth doesn't re-pop the modal —
+  // BUT (Codex P1.7 on PR #743) we must release the latch when ALL three
+  // helpers' errors are no longer the sentinel. Without this, a user who
+  // dismisses the paywall, upgrades, and retriggers a helper would never
+  // re-route to the paywall again from this screen even if a later
+  // entitlement check fails. Reset when every error is either null or a
+  // non-sentinel value.
   React.useEffect(() => {
+    const sentinel = 'subscription_required';
     const subLocked =
-      accessoriesHook.error === 'subscription_required'
-      || combinationsHook.error === 'subscription_required'
-      || cloneHook.error === 'subscription_required';
+      accessoriesHook.error === sentinel
+      || combinationsHook.error === sentinel
+      || cloneHook.error === sentinel;
     if (subLocked && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
+      return;
+    }
+    if (!subLocked && paywallShownRef.current) {
+      // None of the helpers are reporting the sentinel any more — release
+      // the latch so a future failure can re-route. Reads as "back to
+      // ground state".
+      paywallShownRef.current = false;
     }
   }, [accessoriesHook.error, combinationsHook.error, cloneHook.error, nav]);
 
+  // Codex P2.4 on PR #743 — depend on the specific fields each callback
+  // reads, not the whole hook return object (the hook returns a fresh
+  // object each render, so depending on it would re-derive the callback
+  // every render and defeat the useCallback memoization).
+  const accessoriesIsSuggesting = accessoriesHook.isSuggesting;
+  const accessoriesIdsLen = accessoriesHook.accessoryGarmentIds.length;
+  const accessoriesSuggest = accessoriesHook.suggest;
   const handleSuggestAccessories = React.useCallback(() => {
     if (!outfit) return;
     setAccessoriesOpen(true);
-    if (
-      accessoriesHook.accessoryGarmentIds.length === 0
-      && !accessoriesHook.isSuggesting
-    ) {
-      void accessoriesHook.suggest(outfit.id);
+    if (accessoriesIdsLen === 0 && !accessoriesIsSuggesting) {
+      void accessoriesSuggest(outfit.id);
     }
-  }, [outfit, accessoriesHook]);
+  }, [outfit, accessoriesIdsLen, accessoriesIsSuggesting, accessoriesSuggest]);
 
+  const combinationsIsSuggesting = combinationsHook.isSuggesting;
+  const combinationsCount = combinationsHook.combinations.length;
+  const combinationsSuggest = combinationsHook.suggest;
   const handleTryVariations = React.useCallback(() => {
     if (!outfit) return;
     setVariationsOpen(true);
-    if (
-      combinationsHook.combinations.length === 0
-      && !combinationsHook.isSuggesting
-    ) {
-      void combinationsHook.suggest(outfit.id);
+    if (combinationsCount === 0 && !combinationsIsSuggesting) {
+      // Codex P1.6 on PR #743 — `suggest()` takes no args; the function
+      // scores the user's full wardrobe, no outfit_id required.
+      void combinationsSuggest();
     }
-  }, [outfit, combinationsHook]);
+  }, [outfit, combinationsCount, combinationsIsSuggesting, combinationsSuggest]);
 
+  const cloneIsCloning = cloneHook.isCloning;
+  const cloneCloned = cloneHook.cloned;
+  const cloneClone = cloneHook.clone;
   const handleCloneDna = React.useCallback(() => {
     if (!outfit) return;
     setCloneOpen(true);
-    if (!cloneHook.cloned && !cloneHook.isCloning) {
-      void cloneHook.clone(outfit.id);
+    if (!cloneCloned && !cloneIsCloning) {
+      void cloneClone(outfit.id);
     }
-  }, [outfit, cloneHook]);
+  }, [outfit, cloneCloned, cloneIsCloning, cloneClone]);
+
+  // Codex P1.8 on PR #743 — explicit refresh handlers per section. Re-firing
+  // a helper costs an AI call so we don't auto-refresh on re-open; the user
+  // gets a deliberate Refresh button inside each collapsible section. Each
+  // handler re-runs the relevant hook regardless of current state (overrides
+  // the "already have results" early-return above).
+  const accessoriesReset = accessoriesHook.reset;
+  const combinationsReset = combinationsHook.reset;
+  const cloneReset = cloneHook.reset;
+  const handleRefreshAccessories = React.useCallback(() => {
+    if (!outfit) return;
+    accessoriesReset();
+    void accessoriesSuggest(outfit.id);
+  }, [outfit, accessoriesReset, accessoriesSuggest]);
+  const handleRefreshCombinations = React.useCallback(() => {
+    if (!outfit) return;
+    combinationsReset();
+    void combinationsSuggest();
+  }, [outfit, combinationsReset, combinationsSuggest]);
+  const handleRefreshClone = React.useCallback(() => {
+    if (!outfit) return;
+    cloneReset();
+    void cloneClone(outfit.id);
+  }, [outfit, cloneReset, cloneClone]);
 
   // "+ Add to outfit" — inserts the accessory garment into the current
   // outfit's outfit_items as `slot: 'accessory'`. Idempotent at the screen
-  // layer via a Set of just-added ids; the table has no UNIQUE constraint
-  // on (outfit_id, garment_id) so we can't rely on the DB to dedupe.
+  // layer via a Set of just-added ids AND a defensive check against the
+  // outfit's already-persisted garment ids (Codex P0.1 on PR #743). The
+  // table has no UNIQUE constraint on (outfit_id, garment_id), so without
+  // both gates a remount + re-tap would re-insert. The render-time filter
+  // above hides already-added rows from the suggestion list; this gate is
+  // defense-in-depth in case the filter ever lags.
   const [addedAccessoryIds, setAddedAccessoryIds] = React.useState<Set<string>>(
     () => new Set(),
   );
@@ -166,6 +247,10 @@ export function OutfitDetailScreen() {
     async (accessoryGarmentId: string) => {
       if (!outfit || !user) return;
       if (addedAccessoryIds.has(accessoryGarmentId)) return;
+      // Defensive — never insert a row for a garment_id that's already
+      // attached to this outfit. Defends against the no-UNIQUE-constraint
+      // gap (see findings-log entry on outfit_items RLS).
+      if (existingItemGarmentIds.has(accessoryGarmentId)) return;
       setAddingAccessoryId(accessoryGarmentId);
       try {
         const { error: insertErr } = await supabase.from('outfit_items').insert({
@@ -179,6 +264,11 @@ export function OutfitDetailScreen() {
           next.add(accessoryGarmentId);
           return next;
         });
+        // Codex P2.5 on PR #743 — match `useOutfit`'s actual queryKey shape
+        // exactly. Hook is keyed `['outfit', user?.id, id]` (see
+        // mobile/src/hooks/useOutfits.ts:77). The detail/list invalidations
+        // re-fetch the outfit + the outfits index so the newly-added
+        // accessory appears in the pieces strip + on the outfits screen.
         queryClient.invalidateQueries({ queryKey: ['outfit', user.id, outfit.id] });
         queryClient.invalidateQueries({ queryKey: ['outfits'] });
       } catch (err) {
@@ -194,7 +284,7 @@ export function OutfitDetailScreen() {
         setAddingAccessoryId(null);
       }
     },
-    [outfit, user, addedAccessoryIds, queryClient],
+    [outfit, user, addedAccessoryIds, existingItemGarmentIds, queryClient],
   );
 
   const [rating, setRating] = React.useState(0);
@@ -485,35 +575,56 @@ export function OutfitDetailScreen() {
           </View>
 
           {/* M17 — composition helper actions. Collapsible so the screen
-              stays scan-friendly until the user opts in. */}
+              stays scan-friendly until the user opts in. Codex P2.6 on PR
+              #743: while a helper is mid-request, swap the label to a
+              loading copy so the disabled state isn't silent. Codex P2.7:
+              accessibilityHint describes the action's effect for VoiceOver
+              / TalkBack users. */}
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             <Button
-              label={tr('outfitDetail.suggestAccessoriesAction')}
+              label={
+                accessoriesHook.isSuggesting
+                  ? tr('outfitDetail.helperLoading')
+                  : tr('outfitDetail.suggestAccessoriesAction')
+              }
               variant="quiet"
               size="sm"
               onPress={handleSuggestAccessories}
               disabled={accessoriesHook.isSuggesting}
+              accessibilityHint="Suggests 3-5 accessories from your wardrobe"
             />
             <Button
-              label={tr('outfitDetail.tryVariationsAction')}
+              label={
+                combinationsHook.isSuggesting
+                  ? tr('outfitDetail.helperLoading')
+                  : tr('outfitDetail.tryVariationsAction')
+              }
               variant="quiet"
               size="sm"
               onPress={handleTryVariations}
               disabled={combinationsHook.isSuggesting}
+              accessibilityHint="Generates 3 alternative outfits"
             />
             <Button
-              label={tr('outfitDetail.cloneDnaAction')}
+              label={
+                cloneHook.isCloning
+                  ? tr('outfitDetail.helperLoading')
+                  : tr('outfitDetail.cloneDnaAction')
+              }
               variant="quiet"
               size="sm"
               onPress={handleCloneDna}
               disabled={cloneHook.isCloning}
+              accessibilityHint="Generates a fresh outfit in this style"
             />
           </View>
 
           {accessoriesOpen ? (
             <CollapsibleSection
               title={tr('outfitDetail.accessories.title')}
-              onClose={() => setAccessoriesOpen(false)}>
+              onClose={() => setAccessoriesOpen(false)}
+              onRefresh={handleRefreshAccessories}
+              refreshDisabled={accessoriesHook.isSuggesting}>
               {accessoriesHook.isSuggesting || accessoryRowsQ.isLoading ? (
                 <View style={{ paddingVertical: 12, alignItems: 'center' }}>
                   <ActivityIndicator color={t.accent} />
@@ -523,7 +634,7 @@ export function OutfitDetailScreen() {
                 <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
                   {accessoriesHook.error}
                 </Text>
-              ) : accessoriesHook.accessoryGarmentIds.length === 0 ? (
+              ) : filteredAccessorySuggestions.length === 0 ? (
                 <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
                   {tr('outfitDetail.accessories.empty')}
                 </Text>
@@ -532,18 +643,29 @@ export function OutfitDetailScreen() {
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
-                  {accessoriesHook.accessoryGarmentIds.map((accessoryId) => {
+                  {filteredAccessorySuggestions.map((sugg) => {
+                    const accessoryId = sugg.garment_id;
                     const row = (accessoryRowsQ.data ?? []).find((r) => r.id === accessoryId);
                     const added = addedAccessoryIds.has(accessoryId);
                     const adding = addingAccessoryId === accessoryId;
+                    // Codex P1.1 on PR #743 — surface the AI's `reason`
+                    // when present (it's the human-readable narrative for
+                    // why this accessory pairs with the look). Falls back
+                    // to the existing color · category line so older / null
+                    // rationales still get a meaningful subtitle.
+                    const fallbackSub = [row?.color_primary, row?.category]
+                      .filter(Boolean)
+                      .join(' · ')
+                      .toUpperCase();
+                    const subtitle = sugg.reason ?? fallbackSub;
                     return (
                       <AccessoryCard
                         key={accessoryId}
                         title={row?.title ?? 'Accessory'}
-                        subtitle={[row?.color_primary, row?.category]
-                          .filter(Boolean)
-                          .join(' · ')
-                          .toUpperCase()}
+                        subtitle={subtitle}
+                        // Reasons are full sentences; uppercase the
+                        // category fallback only.
+                        subtitleUppercase={!sugg.reason}
                         imagePath={row?.rendered_image_path ?? row?.original_image_path ?? null}
                         added={added}
                         adding={adding}
@@ -559,7 +681,9 @@ export function OutfitDetailScreen() {
           {variationsOpen ? (
             <CollapsibleSection
               title={tr('outfitDetail.variations.title')}
-              onClose={() => setVariationsOpen(false)}>
+              onClose={() => setVariationsOpen(false)}
+              onRefresh={handleRefreshCombinations}
+              refreshDisabled={combinationsHook.isSuggesting}>
               {combinationsHook.isSuggesting ? (
                 <View style={{ paddingVertical: 12, alignItems: 'center' }}>
                   <ActivityIndicator color={t.accent} />
@@ -585,17 +709,23 @@ export function OutfitDetailScreen() {
                       draft.family_label?.trim()
                       || draft.occasion?.trim()
                       || 'Variation';
+                    // Codex P1.4 on PR #743 — pass the full garment id list
+                    // as `seedGarmentIds` so the engine builds an outfit
+                    // around every source piece, not just the first. The
+                    // earlier `garmentId: draft.items[0]?.garment_id`
+                    // dropped N-1 garments and turned the variation tap
+                    // into a single-anchor restyle.
+                    const seedIds = draft.items
+                      .map((it) => it.garment_id)
+                      .filter((id): id is string => typeof id === 'string' && id.length > 0);
                     return (
                       <View key={draft.draftId} style={{ width: 220 }}>
                         <OutfitCard
                           name={name}
                           sub={sub}
-                          // Tap navigates to OutfitGenerate seeded with the
-                          // draft's first garment as anchor — the screen's
-                          // anchor pill keeps the variation's intent.
                           onPress={() =>
                             nav.navigate('OutfitGenerate', {
-                              garmentId: draft.items[0]?.garment_id,
+                              seedGarmentIds: seedIds,
                             })
                           }
                         />
@@ -610,7 +740,9 @@ export function OutfitDetailScreen() {
           {cloneOpen ? (
             <CollapsibleSection
               title={tr('outfitDetail.cloneDna.title')}
-              onClose={() => setCloneOpen(false)}>
+              onClose={() => setCloneOpen(false)}
+              onRefresh={handleRefreshClone}
+              refreshDisabled={cloneHook.isCloning}>
               {cloneHook.isCloning ? (
                 <View style={{ paddingVertical: 12, alignItems: 'center' }}>
                   <ActivityIndicator color={t.accent} />
@@ -625,15 +757,28 @@ export function OutfitDetailScreen() {
                   <Text style={[s.cloneBanner, { color: t.fg2, borderColor: t.border }]}>
                     {tr('outfitDetail.cloneDna.banner')}
                   </Text>
-                  <OutfitCard
-                    name={cloneHook.cloned.family_label?.trim() || 'Cloned look'}
-                    sub={`${cloneHook.cloned.items.length} PIECE${cloneHook.cloned.items.length === 1 ? '' : 'S'}`}
-                    onPress={() =>
-                      nav.navigate('OutfitGenerate', {
-                        garmentId: cloneHook.cloned?.items[0]?.garment_id,
-                      })
-                    }
-                  />
+                  {(() => {
+                    // Codex P1.4 on PR #743 — same fix as the variations
+                    // branch: pass the full clone roster, not just the
+                    // first garment. Wrapped in an IIFE so the seed list
+                    // is computed once per render without leaking into
+                    // the surrounding gap-style View.
+                    const cloned = cloneHook.cloned;
+                    const seedIds = cloned.items
+                      .map((it) => it.garment_id)
+                      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+                    return (
+                      <OutfitCard
+                        name={cloned.family_label?.trim() || 'Cloned look'}
+                        sub={`${cloned.items.length} PIECE${cloned.items.length === 1 ? '' : 'S'}`}
+                        onPress={() =>
+                          nav.navigate('OutfitGenerate', {
+                            seedGarmentIds: seedIds,
+                          })
+                        }
+                      />
+                    );
+                  })()}
                 </View>
               ) : (
                 <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
@@ -765,10 +910,18 @@ export function OutfitDetailScreen() {
 function CollapsibleSection({
   title,
   onClose,
+  onRefresh,
+  refreshDisabled,
   children,
 }: {
   title: string;
   onClose: () => void;
+  /** M17 Codex P1.8 — small refresh button alongside Hide. Re-fires the
+   *  upstream hook when tapped. Don't auto-refresh on re-open (cost-aware
+   *  — each tap costs an AI call); explicit user gesture only. Optional
+   *  so non-helper sections can omit it. */
+  onRefresh?: () => void;
+  refreshDisabled?: boolean;
   children: React.ReactNode;
 }) {
   const t = useTokens();
@@ -784,22 +937,44 @@ function CollapsibleSection({
       }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Eyebrow>{title}</Eyebrow>
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Hide section"
-          hitSlop={6}>
-          <Text
-            style={{
-              fontFamily: fonts.uiSemi,
-              fontSize: 11,
-              letterSpacing: 1.4,
-              color: t.fg2,
-              textTransform: 'uppercase',
-            }}>
-            Hide
-          </Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          {onRefresh ? (
+            <Pressable
+              onPress={onRefresh}
+              accessibilityRole="button"
+              accessibilityLabel={tr('outfitDetail.refreshAction')}
+              accessibilityHint="Re-runs the suggestion to fetch a fresh result"
+              disabled={refreshDisabled}
+              hitSlop={6}>
+              <Text
+                style={{
+                  fontFamily: fonts.uiSemi,
+                  fontSize: 11,
+                  letterSpacing: 1.4,
+                  color: refreshDisabled ? t.fg3 : t.fg2,
+                  textTransform: 'uppercase',
+                }}>
+                {tr('outfitDetail.refreshAction')}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Hide section"
+            hitSlop={6}>
+            <Text
+              style={{
+                fontFamily: fonts.uiSemi,
+                fontSize: 11,
+                letterSpacing: 1.4,
+                color: t.fg2,
+                textTransform: 'uppercase',
+              }}>
+              Hide
+            </Text>
+          </Pressable>
+        </View>
       </View>
       {children}
     </View>
@@ -809,6 +984,7 @@ function CollapsibleSection({
 function AccessoryCard({
   title,
   subtitle,
+  subtitleUppercase = true,
   imagePath,
   added,
   adding,
@@ -816,6 +992,10 @@ function AccessoryCard({
 }: {
   title: string;
   subtitle: string;
+  /** True for the eyebrow-style color · category fallback (uppercase,
+   *  tracked) — false for the AI's `reason` narrative (sentence case,
+   *  natural reading). M17 Codex P1.1 on PR #743. */
+  subtitleUppercase?: boolean;
   imagePath: string | null;
   added: boolean;
   adding: boolean;
@@ -867,14 +1047,23 @@ function AccessoryCard({
         </Text>
         {subtitle ? (
           <Text
-            numberOfLines={1}
-            style={{
-              fontFamily: fonts.uiSemi,
-              fontSize: 9.5,
-              color: t.fg2,
-              letterSpacing: 1.4,
-              textTransform: 'uppercase',
-            }}>
+            numberOfLines={subtitleUppercase ? 1 : 3}
+            style={
+              subtitleUppercase
+                ? {
+                    fontFamily: fonts.uiSemi,
+                    fontSize: 9.5,
+                    color: t.fg2,
+                    letterSpacing: 1.4,
+                    textTransform: 'uppercase',
+                  }
+                : {
+                    fontFamily: fonts.ui,
+                    fontSize: 11,
+                    lineHeight: 15,
+                    color: t.fg2,
+                  }
+            }>
             {subtitle}
           </Text>
         ) : null}

@@ -42,7 +42,15 @@ export type ScoredOutfitDraft = {
   /** Stable client-side id so React lists key cleanly across re-renders.
    *  Not the persisted outfit id (none exists until save). */
   draftId: string;
-  items: { slot: string; garment_id: string }[];
+  /** Per-item slot is OPTIONAL — some upstreams (clone_outfit_dna,
+   *  suggest_outfit_combinations) don't return a server-side slot per
+   *  garment, and presuming a slot client-side ('top' as a blanket
+   *  default) was misleading downstream rendering (Codex P1.2 / P1.3 on
+   *  PR #743). Consumers that need a slot should hydrate it from the
+   *  garment row via `useGarments` / `inferCanonicalOutfitSlot`.
+   *  Engine-driven sources (`useGenerateOutfit`, `useOutfitPool`) still
+   *  populate it because `burs_style_engine` returns explicit slots. */
+  items: { slot?: string; garment_id: string }[];
   explanation: string;
   occasion?: string;
   family_label?: string | null;

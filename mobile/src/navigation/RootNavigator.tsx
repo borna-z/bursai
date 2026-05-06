@@ -153,7 +153,12 @@ export type RootStackParamList = {
   OutfitDetail: { id?: string } | undefined;
   // Outfit-generation flow (loading → result). garmentId optional for "Wear today" /
   // "Restyle from this piece" entry points that anchor on a specific item.
-  OutfitGenerate: { garmentId?: string } | undefined;
+  // seedGarmentIds (M17 Codex P1.4) optional for variation/clone entry
+  // points that need to thread N-1 source garments — the screen feeds the
+  // entire seed into `prefer_garment_ids` so the engine builds in-style
+  // alternatives, not just an anchor-around-one-piece. Earlier code threaded
+  // only `draft.items[0].garment_id` and lost N-1 of the source pieces.
+  OutfitGenerate: { garmentId?: string; seedGarmentIds?: string[] } | undefined;
   // M16 — outfit pool. anchorGarmentId / occasion mirror the single-outfit
   // generator's params (so a Restyle-from-piece tap can fan out to a pool of
   // 5–10 candidates). `count` defaults to 5 in the screen when omitted.

@@ -96,6 +96,15 @@ export type GenerateOutfitParams = {
    * `locked_slots` field. M13.
    */
   lockedSlots?: LockedSlots;
+  /**
+   * Optional N-piece seed for variation/clone entry points (M17 Codex
+   * P1.4). When present, the entire array is sent as `prefer_garment_ids`
+   * so the engine builds an outfit around the source's full piece roster
+   * — the previous one-piece anchor lost N-1 garments on a variation tap.
+   * If both `anchorGarmentId` and `preferGarmentIds` are set, the union
+   * is sent (anchor first to preserve lock-intent), de-duplicated.
+   */
+  preferGarmentIds?: string[];
   mood?: string;
 };
 
@@ -172,6 +181,25 @@ export function useGenerateOutfit() {
       // `garmentId` until callers migrate.
       const anchorId = (params.anchorGarmentId ?? params.garmentId)?.trim();
 
+      // M17 Codex P1.4 — variation/clone entry points seed the engine with
+      // the source outfit's full garment roster so the engine builds in
+      // style, not around a single anchor. Union the anchor (if present)
+      // with the seed list, de-duplicating while preserving order
+      // (anchor first to keep lock semantics readable).
+      const seedIds = (params.preferGarmentIds ?? [])
+        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .filter((id) => id.length > 0);
+      const preferList: string[] = [];
+      const seenPrefer = new Set<string>();
+      const pushUnique = (id: string | undefined) => {
+        if (!id) return;
+        if (seenPrefer.has(id)) return;
+        seenPrefer.add(id);
+        preferList.push(id);
+      };
+      pushUnique(anchorId);
+      for (const id of seedIds) pushUnique(id);
+
       try {
         let data: EngineResponse;
         try {
@@ -186,7 +214,7 @@ export function useGenerateOutfit() {
               // wires weather context via useWeather().
               weather: { precipitation: 'none', wind: 'none' },
               locale: 'en',
-              prefer_garment_ids: anchorId ? [anchorId] : [],
+              prefer_garment_ids: preferList,
             },
             signal: controller.signal,
           });

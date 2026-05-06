@@ -30,7 +30,13 @@ type SuggestCombinationsResponse = {
     garment_ids?: string[];
     explanation?: string;
     occasion?: string;
-    garments?: { id?: string; category?: string | null; subcategory?: string | null }[];
+    // `garments[]` hydrated rows are returned by the function but no
+    // longer consumed client-side (Codex P1.3 on PR #743 dropped the
+    // local slot taxonomy in favour of `slot: 'unknown'`). Kept untyped
+    // here so we don't fall out of sync with the function if it grows
+    // a wider hydration shape; consumers can switch to a typed accessor
+    // later if needed.
+    garments?: unknown[];
   }[];
   message?: string;
   error?: string;
@@ -40,31 +46,17 @@ export interface UseSuggestCombinationsResult {
   combinations: ScoredOutfitDraft[];
   isSuggesting: boolean;
   error: string | null;
-  /** Per the wave spec the param is the source `outfit_id`; the deployed
-   *  function ignores it (it scores against the full wardrobe) but we
-   *  thread it through anyway so the contract surface is forward-compat
-   *  if the function ever grows reference-outfit awareness. */
-  suggest: (outfitId: string) => Promise<void>;
+  /** Codex P1.6 on PR #743 — the function scores against the user's full
+   *  wardrobe (not against a reference outfit), and the previous
+   *  `outfit_id` parameter was dead validation: never sent on the wire,
+   *  only used to early-error out. The hook now takes no arguments;
+   *  callers don't need to plumb context through. */
+  suggest: () => Promise<void>;
   reset: () => void;
 }
 
 function makeDraftId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function inferSlot(g: { category?: string | null; subcategory?: string | null } | undefined): string {
-  // Defensive fallback only. The function's response includes hydrated
-  // garment rows with category — map a few common categories to engine
-  // slots so the variation cards render with sensible labels. Anything
-  // we don't recognize lands in `top` to match the existing
-  // `useGenerateOutfit.adaptItems` default.
-  const cat = (g?.category || '').toLowerCase();
-  if (cat === 'shoes' || cat === 'footwear') return 'shoes';
-  if (cat === 'bottoms' || cat === 'pants' || cat === 'skirts') return 'bottom';
-  if (cat === 'dresses') return 'dress';
-  if (cat === 'outerwear' || cat === 'jackets' || cat === 'coats') return 'outerwear';
-  if (cat === 'accessories') return 'accessory';
-  return 'top';
 }
 
 export function useSuggestCombinations(): UseSuggestCombinationsResult {
@@ -75,20 +67,17 @@ export function useSuggestCombinations(): UseSuggestCombinationsResult {
   const abortRef = useRef<AbortController | null>(null);
 
   const suggest = useCallback(
-    async (outfitId: string) => {
+    async () => {
       if (!session?.access_token) {
         setError('Not authenticated');
         return;
       }
-      // outfitId isn't sent on the wire (function doesn't accept it) but
-      // we still trim-validate so a bad caller surfaces an error instead
-      // of silently scoring against the wardrobe with no context. Logged
-      // in code so a future contract change can flip this to a real send.
-      const trimmed = outfitId?.trim();
-      if (!trimmed) {
-        setError('Missing outfit_id');
-        return;
-      }
+      // Codex P1.6 on PR #743 — no outfit_id needed. The
+      // `suggest_outfit_combinations` function scores against the user's
+      // full wardrobe + recent outfits to surface unused garments; it
+      // never consumed an outfit_id parameter. Earlier wave shipped a
+      // dead `outfit_id` validator that only created a paper trail of
+      // a forward-compat field that wasn't there. Removed.
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -132,20 +121,26 @@ export function useSuggestCombinations(): UseSuggestCombinationsResult {
         }
 
         const drafts: ScoredOutfitDraft[] = [];
-        for (const sugg of data?.suggestions ?? []) {
+        // Codex P2.11-style guard — defensively normalize to an array so a
+        // malformed AI response (omitted/null `suggestions`) doesn't crash
+        // the for…of with "is not iterable".
+        const suggestionList = Array.isArray(data?.suggestions) ? data.suggestions : [];
+        for (const sugg of suggestionList) {
           const ids = (sugg?.garment_ids ?? []).filter(
             (id): id is string => typeof id === 'string' && id.length > 0,
           );
           if (ids.length === 0) continue;
-          const garmentMap = new Map<
-            string,
-            { category?: string | null; subcategory?: string | null }
-          >();
-          for (const g of sugg?.garments ?? []) {
-            if (g?.id) garmentMap.set(g.id, g);
-          }
+          // Codex P1.3 on PR #743 — drop the local `inferSlot` taxonomy.
+          // It was wrong against the canonical taxonomy in
+          // `mobile/src/lib/outfitRules.ts` (e.g. mapped 'jackets' →
+          // 'outerwear' but emitted 'top' for 'shirts'), and the function's
+          // garments[] hydration is hint-only — the server picks the real
+          // slot per garment via its own `classifySlot`. Mark each item
+          // `slot: 'unknown'` so consumers know to hydrate from the garment
+          // row when slot context is needed (mirrors the optional-slot
+          // contract `useCloneOutfitDNA` adopted alongside this fix).
           const items = ids.map((id) => ({
-            slot: inferSlot(garmentMap.get(id)),
+            slot: 'unknown',
             garment_id: id,
           }));
           drafts.push({

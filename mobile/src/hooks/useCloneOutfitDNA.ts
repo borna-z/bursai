@@ -61,10 +61,12 @@ function variationToDraft(v: CloneVariation): ScoredOutfitDraft | null {
   );
   if (ids.length === 0) return null;
   // Slot data isn't returned by clone_outfit_dna — the function lets the
-  // server-side `classifySlot` pick per garment. Default to `top` and let
-  // downstream rendering hydrate the real slot via the garment row when
-  // needed (matches `useGenerateOutfit.adaptItems` fallback).
-  const items = ids.map((id) => ({ slot: 'top', garment_id: id }));
+  // server-side `classifySlot` pick per garment. Codex P1.2 on PR #743:
+  // omit the `slot` field entirely instead of presuming `'top'` for every
+  // garment (which trickled into anchor / restyle paths and labelled e.g.
+  // shoes as "TOP"). `ScoredOutfitDraft.items[].slot` is now optional —
+  // consumers that need a slot must hydrate it from the garment row.
+  const items = ids.map((id) => ({ garment_id: id }));
   return {
     draftId: makeDraftId(),
     items,
@@ -133,8 +135,13 @@ export function useCloneOutfitDNA(): UseCloneOutfitDNAResult {
           return;
         }
 
+        // Codex P2.11 on PR #743 — defensively guard the response shape so a
+        // malformed AI response (variations omitted, set to null, or shipped
+        // as a non-array like `{}`) doesn't crash the `for…of` with
+        // "is not iterable". Falls back to an empty draft list.
+        const variationList = Array.isArray(data?.variations) ? data.variations : [];
         const drafts: ScoredOutfitDraft[] = [];
-        for (const variation of data?.variations ?? []) {
+        for (const variation of variationList) {
           const draft = variationToDraft(variation);
           if (draft) drafts.push(draft);
         }
