@@ -101,18 +101,25 @@ export async function dispatchMemoryEvent(
       timeoutMs: 8000,
     });
   } catch (err) {
-    // RateLimit + SubscriptionLocked are inherently 4xx-class — server
-    // explicitly classified them via 429/402 and retrying immediately
-    // would bounce off the same gate. Drop, logged.
-    if (
-      err instanceof EdgeFunctionRateLimitError ||
-      err instanceof EdgeFunctionSubscriptionLockedError
-    ) {
+    // SubscriptionLocked is permanent for the user's current plan —
+    // memory_ingest gates on subscription, and an unsubscribed user
+    // won't be subscribed by retry. Drop, logged.
+    if (err instanceof EdgeFunctionSubscriptionLockedError) {
       console.warn(
-        '[memoryIngest] memory_ingest 4xx (dropped):',
-        err instanceof Error ? err.message : String(err),
+        '[memoryIngest] memory_ingest paywalled (dropped):',
+        err.message,
       );
       return;
+    }
+    // RateLimit (HTTP 429) is RETRYABLE once the per-minute / per-hour
+    // window resets — Codex P2 round 2 on PR #734. A reconnect-burst
+    // that queued more events than the per-minute quota would otherwise
+    // see the first batch drop on 429. Re-throw so the live caller
+    // enqueues and the replay path leaves the item parked for the next
+    // tick. The M5 queue's MAX_ATTEMPTS=3 still caps the retry budget
+    // so a persistently-throttled user can't pile up forever.
+    if (err instanceof EdgeFunctionRateLimitError) {
+      throw err;
     }
     // EdgeFunctionHttpError covers BOTH 4xx (after the retry budget for
     // non-retryable statuses) AND 5xx (after the retry budget for
