@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M10 — Memory event queue |
-| **CURRENT WAVE FILE** | [`waves/m10-memory-event-queue.md`](waves/m10-memory-event-queue.md) |
+| **CURRENT WAVE** | M11 — Account deletion + reset style memory |
+| **CURRENT WAVE FILE** | [`waves/m11-destructive-mutations.md`](waves/m11-destructive-mutations.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -91,7 +91,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | Wave | File | Status | Depends on |
 |---|---|---|---|
 | M9 | [Edge function client wrapper](waves/m9-edge-fn-client.md) | DONE (PR #733) | V0 |
-| M10 | [Memory event queue](waves/m10-memory-event-queue.md) | TODO | V0, M5 |
+| M10 | [Memory event queue](waves/m10-memory-event-queue.md) | DONE (PR #734) | V0, M5 |
 
 ### Required platform mutations (App Store / privacy)
 | Wave | File | Status | Depends on |

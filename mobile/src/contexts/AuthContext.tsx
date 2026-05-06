@@ -43,6 +43,11 @@ import {
   persistGarment,
   type AddGarmentParams,
 } from '../lib/garmentSave';
+import {
+  dispatchMemoryEvent,
+  MEMORY_EVENT_ACTION,
+  type MemoryIngestPayload,
+} from '../lib/memoryIngest';
 
 export type OnboardingPrefs = {
   completed?: boolean;
@@ -234,6 +239,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+    });
+
+    // M10 — Style Memory event handler. Replays a queued payload via
+    // dispatchMemoryEvent which uses callEdgeFunction (auto auth refresh +
+    // circuit-break). 4xx is swallowed inside dispatchMemoryEvent (already
+    // logged); 5xx / transport throws and the queue retries with backoff
+    // up to MAX_ATTEMPTS=3 before dropping.
+    registerHandler<MemoryIngestPayload>(MEMORY_EVENT_ACTION, async (payload) => {
+      await dispatchMemoryEvent(payload);
     });
 
     // Kick a replay on mount in case the app cold-started while the queue
