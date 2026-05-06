@@ -466,7 +466,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // change is a no-op), pending add-garment-save / memory-event items
     // would otherwise sit in AsyncStorage and replay under the next
     // signed-in user.
-    void clearOfflineQueue();
+    //
+    // Codex P2 round 12: AWAIT the persisted clear before resolving so
+    // an app-kill immediately after the post-signOut nav.reset can't
+    // leave queued mutations on disk for the next session. clearQueue
+    // swallows its own AsyncStorage errors so this can't reject the
+    // outer mutation.
+    await clearOfflineQueue();
   }, [queryClient]);
 
   const isOnboarded = deriveIsOnboarded(profile);
