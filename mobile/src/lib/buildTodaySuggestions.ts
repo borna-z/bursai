@@ -18,7 +18,6 @@
 
 import type { DayContext, DayIntelligence } from './dayIntelligence';
 import type { OutfitWithItems } from '../types/outfit';
-import type { Garment } from '../types/garment';
 
 export interface ScoredOutfit {
   outfit: OutfitWithItems;
@@ -138,14 +137,15 @@ function scoreCompleteness(outfit: OutfitWithItems): number {
   return 0;
 }
 
+// Signature note: a `garments` parameter previously rode along here for
+// future scoring axes (anchor-pinned garment, palette balance against the
+// wardrobe). It was always unused — recently-worn is derived in the hook
+// layer — and the dead parameter misled callers into threading the flat
+// garment list through. Removed; reintroduce only when an axis actually
+// consumes it.
 export function buildSuggestions(
   context: DayContext,
   outfits: OutfitWithItems[],
-  // Garments parameter is part of the documented signature so future scoring
-  // axes (e.g. anchor-pinned garment, palette balance against the wardrobe)
-  // can read the full inventory without re-querying. Currently unused — the
-  // recently-worn set is already derived in the hook layer.
-  _garments: Garment[],
 ): ScoredOutfit[] {
   if (!Array.isArray(outfits) || outfits.length === 0) return [];
 

@@ -48,6 +48,9 @@ export interface UseSmartDayRecommendationOverrides {
 
 export interface UseSmartDayRecommendationResult {
   context: DayContext | null;
+  /** Highest-scoring outfit (the banner hero pick). `null` when the user has
+   *  no saved outfits yet — the consumer must self-hide in that case. */
+  top1: ScoredOutfit | null;
   /** Top 3 outfits ranked by `buildSuggestions`. Empty when the user has no
    *  saved outfits yet (banner consumer hides itself in that case). */
   top3: ScoredOutfit[];
@@ -106,14 +109,14 @@ export function useSmartDayRecommendation(
   const top3 = useMemo<ScoredOutfit[]>(() => {
     if (!context) return [];
     const outfits = outfitsQ.data ?? [];
-    const garments = garmentsQ.data ?? [];
     if (outfits.length === 0) return [];
-    const scored = buildSuggestions(context, outfits, garments);
+    const scored = buildSuggestions(context, outfits);
     return scored.slice(0, 3);
-  }, [context, outfitsQ.data, garmentsQ.data]);
+  }, [context, outfitsQ.data]);
 
   return {
     context,
+    top1: top3[0] ?? null,
     top3,
     isLoading: outfitsQ.isLoading || garmentsQ.isLoading,
     error: (outfitsQ.error as Error | null) ?? (garmentsQ.error as Error | null) ?? null,

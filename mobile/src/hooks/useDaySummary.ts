@@ -11,14 +11,11 @@
 // provided. When `events.length === 0` the function returns an empty
 // envelope (`summary: null`) — we still call it once so the cache primes.
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
-import {
-  callEdgeFunction,
-  EdgeFunctionRateLimitError,
-  EdgeFunctionSubscriptionLockedError,
-} from '../lib/edgeFunctionClient';
+import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { localISODate } from '../lib/outfitDisplay';
 import type { DayEventInput, DayWeatherInput } from '../lib/dayIntelligence';
 
@@ -43,17 +40,42 @@ export interface UseDaySummaryResult {
 
 export function useDaySummary(args?: UseDaySummaryArgs): UseDaySummaryResult {
   const { user } = useAuth();
-  const events = args?.events ?? [];
-  const weather = args?.weather ?? null;
+  const argsEvents = args?.events;
+  const argsWeather = args?.weather;
+
+  // Stabilise optional inputs so the queryKey hash is fed stable references,
+  // matching the pattern in `useSmartDayRecommendation`. The events/weather
+  // hashes already absorb identity churn via stringification, so this is
+  // style-consistency rather than a correctness fix — but worth doing.
+  const events = useMemo<DayEventInput[]>(() => argsEvents ?? [], [argsEvents]);
+  const weather = useMemo<DayWeatherInput | null>(
+    () => argsWeather ?? null,
+    [argsWeather],
+  );
 
   // Day-key cache: re-keying on `localISODate(new Date())` means the query
   // re-runs the moment the local calendar date rolls over. The events +
   // weather hash is folded in so a manual override (e.g. M35 weather change)
   // produces a fresh summary instead of serving yesterday's text.
   const dayKey = localISODate(new Date());
-  const eventsHash = events.length === 0 ? 'noevents' : events.map((e) => e.title).sort().join('|').slice(0, 64);
+  // Events hash participates: title + start_time + end_time. Title alone
+  // would collide on identical title sets that were rescheduled (same
+  // meetings moved an hour later → cache hit on yesterday's summary). We
+  // intentionally leave description/location out — they rarely shift the
+  // summary and inflate the key. Slice to 128 chars so the wider key still
+  // bounds at a sane size.
+  const eventsHash = events.length === 0
+    ? 'noevents'
+    : events
+        .map((e) => `${e.title}@${e.start_time ?? ''}-${e.end_time ?? ''}`)
+        .sort()
+        .join('|')
+        .slice(0, 128);
+  // Weather hash: temp + precipitation + wind. Matches the shape
+  // `DayWeatherInput` exposes; without `wind` a switch from calm to gusty
+  // would silently serve the cached summary.
   const weatherHash = weather
-    ? `${weather.temperature ?? '?'}-${weather.precipitation ?? '?'}`
+    ? `${weather.temperature ?? '?'}-${weather.precipitation ?? '?'}-${weather.wind ?? '?'}`
     : 'noweather';
 
   const query = useQuery<SummarizeDayResponse, Error>({
@@ -74,15 +96,11 @@ export function useDaySummary(args?: UseDaySummaryArgs): UseDaySummaryResult {
     // Day-level staleness: until the date rolls over we trust the response.
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    // 402 (paywall) and 429 (rate limit) are advisory for this surface —
-    // the banner hides itself on null summary, so swallow them via retry-0
-    // semantics inside the wrapper. We still surface other errors so the
-    // consumer can decide whether to log.
-    retry: (_failureCount, error) => {
-      if (error instanceof EdgeFunctionRateLimitError) return false;
-      if (error instanceof EdgeFunctionSubscriptionLockedError) return false;
-      return false;
-    },
+    // No retries on any error: the banner is advisory and self-hides on a
+    // null summary, so rate-limit / paywall / network all collapse to the
+    // same advisory-self-hide UX. Typed-error guards would be dead code
+    // here.
+    retry: false,
   });
 
   return {

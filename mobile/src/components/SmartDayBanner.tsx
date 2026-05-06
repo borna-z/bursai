@@ -9,9 +9,14 @@
 //   3. OutfitCard for `top1` from the recommendation engine, navigates to
 //      OutfitDetail on tap.
 //
-// Hidden states: while the recommendation hook is loading we render a
-// skeleton; on error or empty top1 we render nothing (engine errors aren't
-// surfaced to users — the banner is advisory, not load-bearing).
+// Hidden states: the banner self-hides (renders `null`) when:
+//   - the user already has a planned outfit for today (the today's-look hero
+//     owns that intent),
+//   - the recommendation engine errored (advisory surface — stay quiet), or
+//   - there's no candidate `top1` yet (empty wardrobe / scoring still in
+//     flight). We deliberately don't render a skeleton; the today's-look
+//     hero below owns the slot until we have a real outfit to surface,
+//     so the layout doesn't shift after a skeleton flash.
 
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -23,17 +28,26 @@ import { Eyebrow } from './Eyebrow';
 import { PageTitle } from './PageTitle';
 import { Caption } from './Caption';
 import { OutfitCard } from './OutfitCard';
-import { Skeleton } from './Skeleton';
 import { useSmartDayRecommendation } from '../hooks/useSmartDayRecommendation';
 import { useDaySummary } from '../hooks/useDaySummary';
+import { useNow } from '../hooks/useNow';
+import { useTodayPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
-import { t } from '../lib/i18n';
+import { getLocale, t } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type BannerNav = NativeStackNavigationProp<RootStackParamList>;
 
-function weekdayLabel(d: Date): string {
-  return d.toLocaleDateString('en-US', { weekday: 'long' });
+// Intl accepts bare BCP47 language codes (`'sv'`, `'en'`, `'fr'`) directly,
+// resolving them to a sensible region. We pass the active i18n locale through
+// here so the weekday label localises with the rest of the UI instead of
+// hard-coding `'en-US'`.
+function intlLocale(code: string): string {
+  return code;
+}
+
+function weekdayLabel(d: Date, locale: string): string {
+  return d.toLocaleDateString(intlLocale(locale), { weekday: 'long' });
 }
 
 function buildContextLabel(occasion: string | undefined, temperature: number | undefined): string | null {
@@ -52,19 +66,33 @@ export function SmartDayBanner() {
   const nav = useNavigation<BannerNav>();
   const recommendation = useSmartDayRecommendation();
   const summary = useDaySummary();
+  // Read planned-outfit state directly so the banner self-gates: when the
+  // user has a real planned look for today, the existing today's-look hero
+  // owns the "today's pick" intent and a second banner above it is just
+  // visual competition. The hook is tiny and already cached by Home, so
+  // the duplicate subscription is effectively free.
+  const todayPlanQ = useTodayPlannedOutfit();
+  const hasPlannedOutfit = !!todayPlanQ.data?.outfit;
 
-  const isLoading = recommendation.isLoading || summary.isLoading;
-  const top1 = recommendation.top3[0] ?? null;
+  // Reactive `now` so the weekday label rolls over at midnight / on
+  // foreground without remount — same pattern Home/Plan/Insights got in
+  // the M14 sweep.
+  const now = useNow();
+  const top1 = recommendation.top1;
 
-  // Hide entirely on engine error or no candidate outfit — the banner is
-  // advisory only, surfacing the engine's diagnostics to end-users would be
-  // noise. The existing today's-look hero card below picks up the slack.
-  if (!isLoading && (!top1 || recommendation.error)) {
-    return null;
-  }
+  // Self-hide when the banner has nothing to add. Three exits:
+  //  1. There's a planned outfit for today — let the hero own the slot.
+  //  2. The recommendation engine errored — advisory surface, stay quiet.
+  //  3. There's no candidate top1 (empty wardrobe / scoring still loading
+  //     without a result yet) — render `null` so the today's-look hero
+  //     doesn't shift up after a skeleton flash. While we wait for the
+  //     scoring to settle we deliberately stay invisible; the hero below
+  //     is the load-bearing surface.
+  if (hasPlannedOutfit) return null;
+  if (recommendation.error) return null;
+  if (!top1) return null;
 
-  const today = new Date();
-  const weekday = weekdayLabel(today);
+  const weekday = weekdayLabel(now, getLocale());
   const contextLabel = buildContextLabel(
     recommendation.context?.intelligence.dominant_occasion,
     recommendation.context?.weather?.temperature,
@@ -75,28 +103,17 @@ export function SmartDayBanner() {
 
   const titleText = summary.summaryText ?? t('home.smartDay.fallback.title');
 
-  const handlePress = () => {
-    if (top1) nav.navigate('OutfitDetail', { id: top1.outfit.id });
-  };
-
-  if (isLoading) {
-    return (
-      <View style={[styles.container, { borderColor: tokens.border, backgroundColor: tokens.card }]}>
-        <View style={{ gap: 8, marginBottom: 14 }}>
-          <Skeleton radius={4} height={11} style={{ width: 120 }} />
-          <Skeleton radius={4} height={26} style={{ width: '85%' }} />
-          <Skeleton radius={4} height={14} style={{ width: '60%' }} />
-        </View>
-        <Skeleton radius={18} height={170} style={{ width: '100%' }} />
-      </View>
-    );
-  }
-
-  if (!top1) return null;
-
   const outfit = top1.outfit;
   const hueSeed = outfitGradientHue(outfit.id);
   const hues = [hueSeed, (hueSeed + 30) % 360, (hueSeed + 60) % 360, (hueSeed + 90) % 360];
+  // `||` (not `??`) so a legacy empty-string `occasion` falls through to
+  // `style_vibe` instead of rendering an empty subtitle.
+  const outfitName = outfitDisplayName(outfit);
+  const subLabel = (outfit.occasion || outfit.style_vibe || 'Today').toUpperCase();
+
+  const handlePress = () => {
+    nav.navigate('OutfitDetail', { id: outfit.id });
+  };
 
   return (
     <View style={[styles.container, { borderColor: tokens.border, backgroundColor: tokens.card }]}>
@@ -107,11 +124,12 @@ export function SmartDayBanner() {
       <Pressable
         onPress={handlePress}
         accessibilityRole="button"
-        accessibilityLabel={t('home.smartDay.tapHint')}
+        accessibilityLabel={outfitName}
+        accessibilityHint={t('home.smartDay.openHint')}
         style={({ pressed }) => [{ transform: pressed ? [{ scale: 0.98 }] : [] }]}>
         <OutfitCard
-          name={outfitDisplayName(outfit)}
-          sub={(outfit.occasion ?? outfit.style_vibe ?? 'Today').toUpperCase()}
+          name={outfitName}
+          sub={subLabel}
           hues={hues}
         />
       </Pressable>

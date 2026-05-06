@@ -316,5 +316,5 @@ export const en: Record<string, string> = {
   'home.smartDay.fallback.eyebrow': '{weekday}',
   'home.smartDay.fallback.title': 'Pick what feels right today.',
   'home.smartDay.tapHint': 'View this outfit',
-  'home.smartDay.empty.title': 'No outfits yet',
+  'home.smartDay.openHint': 'Opens outfit details',
 };
