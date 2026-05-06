@@ -91,10 +91,18 @@ export function PlanScreen() {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
 
   const weekStart = React.useMemo(() => localISODate(now), [now]);
-  const weekEnd = React.useMemo(
-    () => localISODate(new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000)),
-    [now],
-  );
+  // Calendar-day arithmetic — `now.getTime() + 6 * 24h` would land 6 hours
+  // off in DST-observing time zones during the fall-back transition (e.g.
+  // America/New_York Nov 1 00:30 → Nov 6 23:30 instead of Nov 7), so the
+  // 7th displayed day in the strip would be queried out of range and its
+  // planned dot / Coming up entry / selected-day panel would silently drop.
+  // Use the same `setDate(getDate() + 6)` shape `buildPlanWeek` uses.
+  // Codex P2 round 7 on PR #738.
+  const weekEnd = React.useMemo(() => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + 6);
+    return localISODate(d);
+  }, [now]);
   const weekPlansQ = usePlannedOutfitsForRange(weekStart, weekEnd);
 
   const byDate = React.useMemo(() => {
