@@ -101,11 +101,10 @@ export async function dispatchMemoryEvent(
       timeoutMs: 8000,
     });
   } catch (err) {
-    // 4xx — client mistake (validation, rate limit, paywall, post-refresh
-    // 401). Retrying via the offline queue won't help; drop with a logged
-    // warning.
+    // RateLimit + SubscriptionLocked are inherently 4xx-class — server
+    // explicitly classified them via 429/402 and retrying immediately
+    // would bounce off the same gate. Drop, logged.
     if (
-      err instanceof EdgeFunctionHttpError ||
       err instanceof EdgeFunctionRateLimitError ||
       err instanceof EdgeFunctionSubscriptionLockedError
     ) {
@@ -115,7 +114,23 @@ export async function dispatchMemoryEvent(
       );
       return;
     }
-    // Unknown / transport — caller decides whether to enqueue or retry.
+    // EdgeFunctionHttpError covers BOTH 4xx (after the retry budget for
+    // non-retryable statuses) AND 5xx (after the retry budget for
+    // transient statuses). Codex P2 round 1 on PR #734: only 4xx is a
+    // permanent client mistake — 5xx is a server-side outage that may
+    // resolve, so throw it back so the live caller can enqueue and the
+    // queue replay can leave the item parked for the next attempt.
+    if (err instanceof EdgeFunctionHttpError) {
+      if (err.status >= 400 && err.status < 500) {
+        console.warn(
+          '[memoryIngest] memory_ingest 4xx (dropped):',
+          err.message,
+        );
+        return;
+      }
+      // 5xx — fall through to throw so the queue retries.
+    }
+    // Unknown / transport / 5xx — caller decides whether to enqueue or retry.
     throw err;
   }
 }
