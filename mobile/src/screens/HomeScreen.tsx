@@ -28,6 +28,7 @@ import {
 } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useGarmentCount } from '../hooks/useGarmentCount';
 import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
@@ -102,6 +103,10 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   const todayPlanQ = useTodayPlannedOutfit();
   const weekPlansQ = usePlannedOutfitsForWeek();
   const garmentsQ = useFlatGarments();
+  // Server-side count — authoritative regardless of pagination state, so
+  // "Pieces in wardrobe" doesn't undercount once a user crosses the 30-row
+  // PAGE_SIZE. Codex P2 on PR #738.
+  const garmentCountQ = useGarmentCount();
   const todayPlan = todayPlanQ.data ?? null;
   const todayOutfit = todayPlan?.outfit ?? null;
 
@@ -124,7 +129,30 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     return localISODate(wornDate) === localISODate(now);
   }, [todayOutfit?.worn_at, now]);
 
-  const garmentTotal = garmentsQ.data?.length ?? 0;
+  // Total pieces — prefer the server-side count when it's settled. Falls back
+  // to the loaded-pages length only while the count query is still loading,
+  // so the stat doesn't briefly read 0 on cold mount.
+  const garmentTotal = garmentCountQ.data ?? garmentsQ.data?.length ?? 0;
+
+  // Wardrobe-used % derives from the *full* garment set (the 30-day cutoff
+  // rides on `last_worn_at`). useFlatGarments paginates at PAGE_SIZE=30 so a
+  // wardrobe of 200 garments on a partial-load would compute against just the
+  // first page — the % would silently undercount. We auto-paginate when the
+  // user lands on Home so the stat is correct, AND only render the % once all
+  // pages are in. Otherwise we render `—` (matches WardrobeScreen's
+  // `countsAuthoritative` pattern). Codex P2 on PR #738.
+  const {
+    hasNextPage: garmentsHasNextPage,
+    isFetchingNextPage: garmentsFetchingNext,
+    isLoading: garmentsLoading,
+    fetchNextPage: garmentsFetchNextPage,
+  } = garmentsQ;
+  React.useEffect(() => {
+    if (garmentsHasNextPage && !garmentsFetchingNext && !garmentsLoading) {
+      void garmentsFetchNextPage();
+    }
+  }, [garmentsHasNextPage, garmentsFetchingNext, garmentsLoading, garmentsFetchNextPage]);
+  const wardrobeStatsAuthoritative = !garmentsHasNextPage;
   const wardrobeUsedPct = React.useMemo(() => {
     if (!garmentsQ.data || garmentsQ.data.length === 0) return 0;
     const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -378,7 +406,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
                 onPress={() => goTab('insights')}
               />
               <RhythmStat
-                num={`${wardrobeUsedPct}%`}
+                num={wardrobeStatsAuthoritative ? `${wardrobeUsedPct}%` : '—'}
                 label="Wardrobe used"
                 onPress={() => goTab('insights')}
               />

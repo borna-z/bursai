@@ -162,8 +162,22 @@ export function useMarkOutfitWorn() {
         }),
       );
 
-      // 3c. Per-garment wear log. ignoreDuplicates=false → repeat same-day
-      //     wear updates the row in place (idempotent under double-tap).
+      // 3c. Per-garment wear log — append-only INSERT.
+      //
+      // The previous version called .upsert(rows, { onConflict:
+      //  'user_id,garment_id,worn_at' }) but the `wear_logs` table has only
+      // a PK on `id` — no UNIQUE on (user_id, garment_id, worn_at) — so
+      // PostgREST rejected the upsert and the mutation threw AFTER the
+      // outfit + garment UPDATEs had already committed (partial-state
+      // corruption + a "Could not mark worn" alert). Codex P1 on PR #738.
+      //
+      // Plain INSERT is correct for this column: `worn_at = nowIso` is
+      // ms-precision so two distinct taps already produce different
+      // timestamps (the upsert idempotency was a no-op even when it
+      // didn't error). Double-tap protection lives at the screen layer
+      // via `markWorn.isPending` disabling the CTA. A truly idempotent
+      // wear_log would need a migration adding the unique constraint —
+      // tracked for follow-up in findings-log.md.
       const wearLogRows = garmentIds.map((garmentId) => ({
         user_id: user.id,
         garment_id: garmentId,
@@ -172,10 +186,7 @@ export function useMarkOutfitWorn() {
       }));
       const { error: logError } = await supabase
         .from('wear_logs')
-        .upsert(wearLogRows, {
-          onConflict: 'user_id,garment_id,worn_at',
-          ignoreDuplicates: false,
-        });
+        .insert(wearLogRows);
       if (logError) throw logError;
     },
     onSuccess: (_data, { outfitId, garmentIds = [] }) => {
@@ -285,13 +296,34 @@ export function useRateOutfit() {
   return useMutation({
     mutationFn: async ({ outfitId, rating }: { outfitId: string; rating: number }) => {
       if (!user) throw new Error('Not authenticated');
-      const { error: feedbackError } = await supabase
+      // outfit_feedback has only a PK on `id` — no UNIQUE on
+      // (user_id, outfit_id) — so .upsert(..., { onConflict: 'user_id,outfit_id' })
+      // is rejected by PostgREST. Manual SELECT-then-UPDATE-or-INSERT keeps
+      // the rate flow working without a migration. Sibling fix folded in
+      // alongside Codex P1 on PR #738. Race-window: two concurrent rate
+      // taps could both see "no row" and both INSERT — same last-write-wins
+      // tradeoff the read-modify-write `wear_count` increment already
+      // accepts.
+      const { data: existing, error: readErr } = await supabase
         .from('outfit_feedback')
-        .upsert(
-          { user_id: user.id, outfit_id: outfitId, rating },
-          { onConflict: 'user_id,outfit_id' },
-        );
-      if (feedbackError) throw feedbackError;
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('outfit_id', outfitId)
+        .maybeSingle();
+      if (readErr) throw readErr;
+
+      if (existing) {
+        const { error: updateErr } = await supabase
+          .from('outfit_feedback')
+          .update({ rating })
+          .eq('id', existing.id);
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase
+          .from('outfit_feedback')
+          .insert({ user_id: user.id, outfit_id: outfitId, rating });
+        if (insertErr) throw insertErr;
+      }
 
       const { error: outfitError } = await supabase
         .from('outfits')
@@ -350,17 +382,29 @@ export function useSaveOutfitNote() {
     mutationFn: async ({ outfitId, note }: { outfitId: string; note: string }) => {
       if (!user) throw new Error('Not authenticated');
       const trimmed = note.trim();
-      const { error } = await supabase
+      const commentary = trimmed.length === 0 ? null : trimmed;
+      // Same outfit_feedback unique-constraint issue as useRateOutfit — see
+      // its inline comment. Manual SELECT-then-UPDATE-or-INSERT.
+      const { data: existing, error: readErr } = await supabase
         .from('outfit_feedback')
-        .upsert(
-          {
-            user_id: user.id,
-            outfit_id: outfitId,
-            commentary: trimmed.length === 0 ? null : trimmed,
-          },
-          { onConflict: 'user_id,outfit_id' },
-        );
-      if (error) throw error;
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('outfit_id', outfitId)
+        .maybeSingle();
+      if (readErr) throw readErr;
+
+      if (existing) {
+        const { error: updateErr } = await supabase
+          .from('outfit_feedback')
+          .update({ commentary })
+          .eq('id', existing.id);
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase
+          .from('outfit_feedback')
+          .insert({ user_id: user.id, outfit_id: outfitId, commentary });
+        if (insertErr) throw insertErr;
+      }
     },
     onSuccess: (_data, { outfitId }) => {
       queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
