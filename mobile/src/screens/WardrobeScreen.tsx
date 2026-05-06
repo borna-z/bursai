@@ -118,6 +118,24 @@ export function WardrobeScreen() {
   );
   const activeFilterCount = filterActiveCount(filters);
 
+  // Filters run client-side against loaded pages only — a match that lives on
+  // page 2+ would otherwise be invisible and the screen would render an empty
+  // state while `hasNextPage` is still true. Auto-fetch the next page whenever
+  // the filtered result is empty, until we either find a match or exhaust the
+  // wardrobe. Terminates because each fetch flips `hasNextPage` to false once
+  // the last page lands. (Codex P2 on PR #738.)
+  React.useEffect(() => {
+    if (
+      filters &&
+      visibleGarments.length === 0 &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      !isLoading
+    ) {
+      void fetchNextPage();
+    }
+  }, [filters, visibleGarments.length, hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
+
   const onRefresh = React.useCallback(() => {
     void refetch();
   }, [refetch]);
