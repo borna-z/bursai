@@ -18,7 +18,11 @@ import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 // other settings screens are mounted alongside since they're a unit.
 // AuthScreen also has to be real because the post-deletion nav.reset
 // lands there — without this, a deleted user lands on a placeholder.
+// Onboarding mounts alongside Auth: AuthScreen reset-navigates a
+// fresh sign-up to Onboarding, which would otherwise be a placeholder
+// dead-end (Codex P2 round 11 on PR #735).
 import { AuthScreen } from '../screens/AuthScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
 import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
@@ -206,7 +210,7 @@ export function RootNavigator() {
           `mobile/src/screens/` and will be wired in a follow-up screen-
           mounting pass alongside the other ready-to-mount screens. */}
       <Stack.Screen name="Auth" component={AuthScreen} />
-      <Stack.Screen name="Onboarding" component={Placeholders.Onboarding} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Paywall" component={Placeholders.Paywall} />
 
       {/* Add piece flow */}
