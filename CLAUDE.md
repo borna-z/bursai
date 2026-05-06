@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M6 — Multi-garment LiveScan continuous-scan |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m6-livescan-continuous.md` |
+| **CURRENT WAVE** | M14 — 8-mode chat contract + AIChat depth |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m14-chat-8-mode.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

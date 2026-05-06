@@ -125,7 +125,11 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
                 Studio brunch
               </Text>
             </View>
-            <Pressable onPress={push('OutfitDetail')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            {/* "Today's Look" is a fixture surface until day intelligence (M15)
+                wires a real outfit id. Route View / Wear this to the Outfits
+                list — the real OutfitDetailScreen would otherwise land on
+                its "Outfit not found" branch. Codex P2 round 3 on PR #737. */}
+            <Pressable onPress={push('Outfits')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>View</Text>
               <ChevronIcon color={t.accent} />
             </Pressable>
@@ -140,7 +144,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
             14° clear — pair the wool overshirt with cream linen for the gallery opening at 11.
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label="Wear this" onPress={push('OutfitDetail')} block style={{ flex: 1 }} />
+            <Button label="Wear this" onPress={push('Outfits')} block style={{ flex: 1 }} />
             <Button label="Restyle" variant="outline" onPress={push('StyleMe')} />
           </View>
         </Card>
@@ -174,7 +178,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
           </View>
           <MiniWeek days={week} onPress={() => goTab('plan')} />
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
-            <Button label="Wear today" size="sm" onPress={push('OutfitDetail')} block style={{ flex: 1 }} />
+            <Button label="Wear today" size="sm" onPress={push('Outfits')} block style={{ flex: 1 }} />
             <Button label="Restyle" variant="outline" size="sm" onPress={push('StyleMe')} />
             <Button label="+ Add" variant="outline" size="sm" onPress={push('AddPieceStep1')} />
           </View>

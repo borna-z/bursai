@@ -251,4 +251,24 @@ export const en: Record<string, string> = {
   'resetPassword.tooShort': 'Password must be at least 6 characters.',
   'resetPassword.mismatch': 'Passwords do not match.',
   'resetPassword.back': 'Back',
+
+  // M13 — outfit anchor locking + rules engine.
+  'anchor.makeAnchor.title': 'Make this the anchor',
+  'anchor.makeAnchor.body': 'Generate a new outfit anchored on {title}?',
+  'anchor.makeAnchor.bodyFallback': 'Generate a new outfit anchored on this piece?',
+  'anchor.makeAnchor.cancel': 'Cancel',
+  'anchor.makeAnchor.confirm': 'Make anchor',
+  'anchor.locked.eyebrow': 'Anchor locked',
+  'anchor.missed.eyebrow': 'Anchor not honoured',
+  'anchor.locked.fallback': 'Selected piece',
+  'anchor.missed.errorTitle': "Couldn't build around the anchor",
+  'anchor.missed.errorBody':
+    "We couldn't build a complete outfit around {title}. Try again or pick a different anchor.",
+  'anchor.missed.errorBodyFallback':
+    "We couldn't build a complete outfit around the locked piece. Try again or pick a different anchor.",
+  'anchor.removeAnchor': 'Remove anchor',
+  'outfit.invalid.eyebrow': 'Outfit incomplete',
+  'outfit.invalid.errorTitle': "We couldn't build a complete outfit",
+  'outfit.invalid.errorBody':
+    "The pieces returned didn't add up to a wearable look. Try again or add more garments to your wardrobe.",
 };

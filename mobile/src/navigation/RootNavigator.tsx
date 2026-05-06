@@ -21,6 +21,13 @@ import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 // `linking` config exported below; the screen reads the now-hydrated
 // session and writes the new password through useResetPassword.confirmReset.
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
+// M13 — OutfitGenerateScreen + OutfitDetailScreen mounted (both were
+// placeholders pre-M13). The long-press → "Make this the anchor" flow
+// originates from OutfitDetailScreen's PieceCard and routes to
+// OutfitGenerateScreen — both have to be the real components for the
+// flow to be reachable. Codex P0 + P2 round 1+2 on PR #737.
+import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
+import { OutfitDetailScreen } from '../screens/OutfitDetailScreen';
 // M11 — destructive flows live behind Settings → Account / Privacy & data,
 // so SettingsScreen + SettingsAccountScreen + SettingsPrivacyScreen
 // have to be reachable for App Store guideline 5.1.1(v) review. The
@@ -183,11 +190,9 @@ const Placeholders = {
   AddPieceStep2: placeholder('Step 2 of 3', 'Analyzing', 'Per-item progress + counter. Coming next.'),
   AddPieceStep3: placeholder('Step 3 of 3', 'Confirm batch', 'Piece selector + form fields + sticky save. Coming next.'),
   LiveScan: placeholder('Live scan', 'Scan a piece', 'Single-piece live capture mode.'),
-  OutfitGenerate: placeholder('Generate', 'New outfit', 'Outfit generation placeholder.'),
 
   // Outfit / garment / sharing
   Outfits: placeholder('Looks', 'Your outfits'),
-  OutfitDetail: placeholder('Today', 'Outfit'),
   EditGarment: placeholder('Edit', 'Edit piece'),
   GarmentDetail: placeholder('Detail', 'Piece'),
   ShareOutfit: placeholder('Share', 'Share outfit'),
@@ -254,11 +259,11 @@ export function RootNavigator() {
       <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={Placeholders.LiveScan} />
-      <Stack.Screen name="OutfitGenerate" component={Placeholders.OutfitGenerate} />
+      <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
 
       {/* Outfit / garment / sharing */}
       <Stack.Screen name="Outfits" component={Placeholders.Outfits} />
-      <Stack.Screen name="OutfitDetail" component={Placeholders.OutfitDetail} />
+      <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
       <Stack.Screen name="EditGarment" component={Placeholders.EditGarment} />
       {/* GarmentDetail mounted in M1 (PR #728) so render polling actually
           renders. Other "real" screens under mobile/src/screens/ stay
