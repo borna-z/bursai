@@ -16,11 +16,7 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-import {
-  callEdgeFunction,
-  EdgeFunctionHttpError,
-} from '../lib/edgeFunctionClient';
+import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { captureMutationError } from '../lib/sentry';
 
 export function useDeleteAccount() {
@@ -46,37 +42,25 @@ export function useDeleteAccount() {
       // mid-cascade recover instead of stranding the user inside the
       // app with their auth user already gone — Codex P2 round 3 on
       // PR #735. (Reset's ordering is the OPPOSITE — see useResetStyleMemory.)
-      try {
-        await callEdgeFunction('delete_user_account', {
-          body: {},
-          retries: 1,
-          idempotent: true,
-        });
-      } catch (err) {
-        // Codex P1 round 7 on PR #735: don't blindly treat every 401 as
-        // a successful cascade. delete_user_account checks auth BEFORE
-        // idempotency, so a bad-session-from-the-start request also
-        // returns 401 — and in that path the cascade never ran.
-        //
-        // Disambiguate via supabase.auth.getUser(): a deleted auth user
-        // returns null (server says the user is gone — cascade succeeded
-        // and the response was just lost). A still-existing auth user
-        // returns the user object (cascade didn't run; surface the error
-        // and let the user retry / re-sign-in).
-        if (err instanceof EdgeFunctionHttpError && err.status === 401) {
-          const { data, error: getUserErr } = await supabase.auth.getUser();
-          if (getUserErr || !data?.user) {
-            // Auth user gone server-side → cascade succeeded; fall
-            // through to sign-out + nav.reset.
-          } else {
-            // User still exists — cascade didn't run. Re-throw so the
-            // screen surfaces the error; nothing was deleted.
-            throw err;
-          }
-        } else {
-          throw err;
-        }
-      }
+      // 401 handling: the previous round-7 attempt (post-error
+      // getUser() to "verify the cascade ran") still wasn't safe per
+      // Codex round 8 — supabase.auth.getUser() also returns null/
+      // error for plain session-invalid cases where the cascade never
+      // ran, so a fall-through-to-signOut on a 401 could mislead the
+      // user that their account was deleted while server data remained.
+      //
+      // Without a server-side "user_was_deleted" signal we can't
+      // disambiguate from the client. Surface the 401 (and every other
+      // error) to the screen, which asks the user to sign in again and
+      // retry. If the cascade succeeded the first time, the user's
+      // sign-in attempt will fail (account gone) — at that point the
+      // AuthScreen surfaces the canonical "no such user" message. No
+      // false-success path. Codex P1 round 8 on PR #735.
+      await callEdgeFunction('delete_user_account', {
+        body: {},
+        retries: 1,
+        idempotent: true,
+      });
       // Always tear down the local session — even if the remote
       // sign-out call fails transiently, the server-side rows are gone
       // and the next request will 401-fail. AuthContext's signOut
