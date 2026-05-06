@@ -27,7 +27,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, CameraIcon, ImageIcon, SearchIcon } from '../components/icons';
+import { BackIcon, CameraIcon, ImageIcon, LinkIcon, SearchIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
@@ -93,6 +93,15 @@ export function AddPieceStep1() {
   const openVisualSearch = useCallback(() => {
     hapticLight();
     nav.navigate('VisualSearch');
+  }, [nav]);
+
+  // M20 — fourth entry mode. Import from link routes to a paste-URL
+  // surface that calls `import_garments_from_links` and lands the
+  // scraped garment in the wardrobe with default category/color the
+  // user can refine from GarmentDetail.
+  const openImportFromLink = useCallback(() => {
+    hapticLight();
+    nav.navigate('ImportFromLink');
   }, [nav]);
 
   const removePhoto = (id: number) => {
@@ -203,6 +212,15 @@ export function AddPieceStep1() {
               sub="Find similar"
               icon={<SearchIcon color={t.accent} />}
               onPress={openVisualSearch}
+            />
+            {/* M20 — fourth entry. Full-width pill below Visual Search to
+                stay consistent with the M19 stacked layout. Routes into
+                ImportFromLinkScreen which owns the paste + scrape flow. */}
+            <SourcePill
+              label="Import from link"
+              sub="Paste a URL"
+              icon={<LinkIcon color={t.accent} />}
+              onPress={openImportFromLink}
             />
           </View>
         </View>
