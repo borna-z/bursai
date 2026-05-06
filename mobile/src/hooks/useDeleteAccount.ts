@@ -27,7 +27,17 @@ export function useDeleteAccount() {
       // retries: 1 because the cascade is idempotent (re-deleting an
       // already-deleted user returns success), but a hung first attempt
       // shouldn't block the user forever.
-      await callEdgeFunction('delete_user_account', { body: {}, retries: 1 });
+      // idempotent: true so callEdgeFunction reuses the same
+      // X-Idempotency-Key across retries — the function's retry-safe path
+      // dedups on that header before the one-per-minute rate limit. Without
+      // it, a timed-out first request that succeeded server-side would
+      // retry unkeyed and surface a misleading rate-limit / cascade-rerun
+      // error. Codex P2 round 1 on PR #735.
+      await callEdgeFunction('delete_user_account', {
+        body: {},
+        retries: 1,
+        idempotent: true,
+      });
       // Sign out locally — AuthContext's SIGNED_OUT listener clears the
       // React Query cache, signed-URL cache, and offline queue. Best-
       // effort: a sign-out failure here doesn't roll back the remote

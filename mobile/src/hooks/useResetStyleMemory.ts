@@ -28,7 +28,16 @@ export function useResetStyleMemory() {
 
   return useMutation({
     mutationFn: async () => {
-      await callEdgeFunction('reset_style_memory', { body: {}, retries: 1 });
+      // idempotent: true so the wrapper reuses one X-Idempotency-Key across
+      // retries — `reset_style_memory_atomic` is keyed off that header for
+      // dedup. A retried unkeyed request after a timeout would risk a
+      // rate-limit rejection or a redundant clear. Codex P2 round 1 on
+      // PR #735 (mirrors the delete-account fix).
+      await callEdgeFunction('reset_style_memory', {
+        body: {},
+        retries: 1,
+        idempotent: true,
+      });
     },
     onSuccess: () => {
       // Outfit recommendations + scoring shift after a memory reset.
