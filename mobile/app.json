@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "burs.expo.build",
+      "bundleIdentifier": "me.burs.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
