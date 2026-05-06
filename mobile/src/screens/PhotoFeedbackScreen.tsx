@@ -34,7 +34,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 
@@ -51,6 +51,7 @@ import { useGarment } from '../hooks/useGarments';
 import { usePhotoFeedback, type PhotoFeedback } from '../hooks/usePhotoFeedback';
 import { hapticLight, hapticMedium } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
+import { Sentry } from '../lib/sentry';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -64,7 +65,12 @@ const VF_FG2 = 'rgba(255,255,255,0.65)';
 const VF_BORDER = 'rgba(255,255,255,0.12)';
 
 export function PhotoFeedbackScreen() {
-  const t = useTokens();
+  // The capture/confirm/submitting branches of this screen render against
+  // the always-dark camera palette (VF_BG/VF_FG/...) — same documented
+  // exemption LiveScanScreen carries for camera UIs — so we don't read
+  // theme tokens here. The light-themed result card lives in
+  // `FeedbackView` below, which calls `useTokens()` in its own scope
+  // (M18 P3.2 — removed the dead zero-size Text suppressor).
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
   const outfitId = route.params?.outfitId ?? '';
@@ -96,6 +102,20 @@ export function PhotoFeedbackScreen() {
   // subscription sentinel surfaces. Same pattern OutfitDetail (M17) uses
   // for its composition helpers; keeps a paywall dismiss + retry flow
   // from re-popping the modal in a tight loop.
+  //
+  // M18 P1.3 — release strategies (belt + braces):
+  //   • `useFocusEffect` clears the latch when the screen regains focus
+  //     (the user dismissed the paywall and came back). This is the
+  //     primary release path — it doesn't depend on the error flipping
+  //     to non-sentinel between calls (which it may not, since a second
+  //     hit can land before any non-sentinel state is observed).
+  //   • The error-driven release below is kept as a backup so a clean
+  //     transition through a non-sentinel error also resets the latch.
+  //   • `handleConfirm` ALSO resets the latch immediately — a user who
+  //     explicitly retaps "Use this selfie" has clearly opted to retry,
+  //     and we want the next 402 to route to the paywall again instead
+  //     of falling through to the inline error path (which suppresses
+  //     the sentinel and would otherwise produce a silent failure).
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
     if (error === 'subscription_required' && !paywallShownRef.current) {
@@ -107,6 +127,16 @@ export function PhotoFeedbackScreen() {
       paywallShownRef.current = false;
     }
   }, [error, nav]);
+  useFocusEffect(
+    React.useCallback(() => {
+      // On focus regain — typically returning from PaywallScreen — clear
+      // the latch so the next 402 can route to the paywall again. Pure
+      // cleanup-on-focus; the focus listener fires both on initial focus
+      // and any re-focus, which is the desired behaviour.
+      paywallShownRef.current = false;
+      return undefined;
+    }, []),
+  );
 
   const handleCapture = React.useCallback(async () => {
     if (!cameraRef.current) return;
@@ -121,7 +151,12 @@ export function PhotoFeedbackScreen() {
       } else {
         Alert.alert(tr('photoFeedback.captureFailedTitle'), tr('photoFeedback.captureFailedBody'));
       }
-    } catch {
+    } catch (err) {
+      // M18 P2.5 — instrument capture failures so we can see them in
+      // Sentry the same way the hook tracks upload/analyze failures.
+      // Tagged with `mutation` so the dashboard groups it alongside the
+      // hook-side breadcrumbs.
+      Sentry.captureException(err, { tags: { mutation: 'photo_feedback_capture' } });
       Alert.alert(tr('photoFeedback.captureFailedTitle'), tr('photoFeedback.captureFailedBody'));
     }
   }, []);
@@ -134,6 +169,10 @@ export function PhotoFeedbackScreen() {
 
   const handleConfirm = React.useCallback(() => {
     if (!capturedUri || !outfitId) return;
+    // Release the paywall latch so a fresh 402 from this explicit retry
+    // can route to the paywall again instead of being suppressed by the
+    // inline-error guard (M18 P1.3).
+    paywallShownRef.current = false;
     void submitFeedback({ outfitId, selfieUri: capturedUri });
   }, [capturedUri, outfitId, submitFeedback]);
 
@@ -152,6 +191,15 @@ export function PhotoFeedbackScreen() {
     nav.goBack();
   }, [nav]);
 
+  // `cameraReady` only gates the live viewfinder branch — once the user
+  // has captured a still and we're rendering the confirm/submitting
+  // branches, mid-flow permission revocation is intentionally NOT
+  // re-checked. Reasoning (M18 P2.4): the captured `photo.uri` is a
+  // local cache file owned by the app, not a live-camera handle, so
+  // the upload + analyze flow continues to work even after permission
+  // is revoked from Settings. The only artefact would be the user
+  // returning to a "permission denied" placeholder if they hit
+  // "Retake". That's correct behaviour, not a bug.
   const cameraReady = Boolean(permission?.granted);
   const submitting = isUploading || isAnalyzing;
 
@@ -409,12 +457,6 @@ export function PhotoFeedbackScreen() {
           </Pressable>
         </View>
       ) : null}
-      {/* Suppress the unused-var warning on `t` — the camera-step view is
-          intentionally dark-themed and doesn't read tokens, but the
-          feedback view does (see FeedbackView below). */}
-      <View style={{ height: 0, width: 0 }} pointerEvents="none">
-        <Text style={{ color: t.fg }}> </Text>
-      </View>
     </SafeAreaView>
   );
 }
