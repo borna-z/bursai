@@ -11,7 +11,8 @@
 
 import NetInfo from '@react-native-community/netinfo';
 
-import { supabase, supabaseUrl } from './supabase';
+import { supabase } from './supabase';
+import { callEdgeFunction } from './edgeFunctionClient';
 import { enqueue as enqueueOffline } from './offlineQueue';
 import type { Garment, GarmentInsert } from '../types/garment';
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
@@ -152,13 +153,13 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
 
   // Post-save fan-out: render is gated on the studio-quality choice;
   // enrichment is unconditional. Fire-and-forget — the row is already saved.
-  const accessToken = sessionData.session?.access_token;
-  if (accessToken) {
-    if (params.enableStudioQuality) {
-      void queueRender(data.id, params.source, accessToken);
-    }
-    void triggerGarmentEnrichment(params.storagePath, data.id, accessToken);
+  // M9: queueRender now reads its own session via callEdgeFunction so the
+  // access-token plumbing is gone. triggerGarmentEnrichment still takes a
+  // token until its own migration in this same wave (below).
+  if (params.enableStudioQuality) {
+    void queueRender(data.id, params.source);
   }
+  void triggerGarmentEnrichment(params.storagePath, data.id);
 
   return data as Garment;
 }
@@ -243,32 +244,20 @@ async function resetRenderStatusOnEnqueueFailure(
 async function queueRender(
   garmentId: string,
   source: AddGarmentSource,
-  accessToken: string,
 ): Promise<void> {
   try {
-    const response = await fetch(`${supabaseUrl}/functions/v1/enqueue_render_job`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
+    await callEdgeFunction('enqueue_render_job', {
+      body: {
         garmentId,
         source,
         clientNonce: makeClientNonce(),
-      }),
+      },
+      // The edge function is idempotent on (garmentId, clientNonce) via
+      // its server-side reserve_credit_atomic replay — a network retry
+      // here is safe. Default 2 retries suffice.
     });
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      console.warn(`[garmentSave] enqueue_render_job failed ${response.status}: ${body}`);
-      await resetRenderStatusOnEnqueueFailure(
-        garmentId,
-        source,
-        new Error(`HTTP ${response.status}: ${body}`),
-      );
-    }
   } catch (err) {
-    console.warn('[garmentSave] enqueue_render_job threw:', err);
+    console.warn('[garmentSave] enqueue_render_job failed:', err);
     await resetRenderStatusOnEnqueueFailure(garmentId, source, err);
   }
 }

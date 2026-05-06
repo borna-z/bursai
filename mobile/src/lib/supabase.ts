@@ -31,7 +31,3 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     detectSessionInUrl: false,
   },
 });
-
-export function getSupabaseFunctionUrl(functionName: string): string {
-  return `${supabaseUrl}/functions/v1/${functionName}`;
-}

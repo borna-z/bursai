@@ -102,7 +102,7 @@ export function useOutfit(id: string | undefined) {
  */
 export function useMarkOutfitWorn() {
   const queryClient = useQueryClient();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -196,16 +196,16 @@ export function useMarkOutfitWorn() {
       // NOT ingest here (web's fireMemoryIngest does, but mobile defers
       // those signals to a future wave when the rating UI lands the same
       // event_type contract). Codex audit P2-4 (audit 3).
-      if (session?.access_token) {
-        void ingestMemoryEvent(session.access_token, {
-          event_type: 'outfit_worn',
-          outfit_id: outfitId,
-          // Omit garment_ids when empty to avoid burning a 200/hr quota
-          // slot on a no-op signal. Codex audit P2-3 (audit 2).
-          ...(garmentIds.length > 0 ? { garment_ids: garmentIds } : {}),
-          source: 'mobile/useMarkOutfitWorn',
-        });
-      }
+      // M9: ingestMemoryEvent reads its own session via callEdgeFunction.
+      // Token presence is no longer the gate — the wrapper handles that.
+      void ingestMemoryEvent({
+        event_type: 'outfit_worn',
+        outfit_id: outfitId,
+        // Omit garment_ids when empty to avoid burning a 200/hr quota
+        // slot on a no-op signal. Codex audit P2-3 (audit 2).
+        ...(garmentIds.length > 0 ? { garment_ids: garmentIds } : {}),
+        source: 'mobile/useMarkOutfitWorn',
+      });
     },
     onError: captureMutationError('useMarkOutfitWorn'),
   });
@@ -213,7 +213,7 @@ export function useMarkOutfitWorn() {
 
 export function useSaveOutfit() {
   const queryClient = useQueryClient();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (outfitId: string) => {
@@ -230,13 +230,11 @@ export function useSaveOutfit() {
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
       // Style Memory signal — fire-and-forget. Failure must never block
       // the save flow.
-      if (session?.access_token) {
-        void ingestMemoryEvent(session.access_token, {
-          event_type: 'outfit_saved',
-          outfit_id: outfitId,
-          source: 'mobile/useSaveOutfit',
-        });
-      }
+      void ingestMemoryEvent({
+        event_type: 'outfit_saved',
+        outfit_id: outfitId,
+        source: 'mobile/useSaveOutfit',
+      });
     },
     onError: captureMutationError('useSaveOutfit'),
   });

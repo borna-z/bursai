@@ -23,8 +23,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
-import { supabaseUrl } from '../lib/supabase';
-import { getEdgeFunctionUrl } from '../lib/sse';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionSubscriptionLockedError,
+} from '../lib/edgeFunctionClient';
 
 export type WardrobeGapPriority = 'high' | 'medium' | 'low';
 
@@ -86,29 +89,28 @@ function adapt(gap: EdgeGap): WardrobeGap {
   };
 }
 
-async function runAnalysis(accessToken: string): Promise<WardrobeGap[]> {
-  const response = await fetch(
-    getEdgeFunctionUrl(supabaseUrl, 'wardrobe_gap_analysis'),
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ locale: 'en' }),
-    },
-  );
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    const errorMsg = body.error ?? `HTTP ${response.status}`;
-    if (response.status === 402 || errorMsg === 'subscription_required') {
+async function runAnalysis(): Promise<WardrobeGap[]> {
+  let data: EdgeResponse;
+  try {
+    data = await callEdgeFunction<EdgeResponse>('wardrobe_gap_analysis', {
+      body: { locale: 'en' },
+    });
+  } catch (callErr) {
+    if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
       throw new GapAnalysisError('subscription_required', true);
     }
-    throw new GapAnalysisError(errorMsg);
+    if (callErr instanceof EdgeFunctionHttpError) {
+      const parsed = (() => {
+        try {
+          return JSON.parse(callErr.bodyText) as { error?: string };
+        } catch {
+          return null;
+        }
+      })();
+      throw new GapAnalysisError(parsed?.error ?? `HTTP ${callErr.status}`);
+    }
+    throw new GapAnalysisError(callErr instanceof Error ? callErr.message : String(callErr));
   }
-
-  const data = (await response.json()) as EdgeResponse;
   if (data.error) throw new GapAnalysisError(data.error);
   const raw = data.gaps ?? data.recommendations ?? [];
   return raw.map(adapt);
@@ -127,7 +129,7 @@ export function useWardrobeGaps() {
     // still requires it to be a function.
     queryFn: async () => {
       if (!accessToken) throw new GapAnalysisError('Not authenticated');
-      return runAnalysis(accessToken);
+      return runAnalysis();
     },
     enabled: false,
     // 30 min — long enough that normal back-and-forth navigation hits cache,
@@ -140,7 +142,7 @@ export function useWardrobeGaps() {
   const mutation = useMutation<WardrobeGap[], GapAnalysisError>({
     mutationFn: async () => {
       if (!accessToken) throw new GapAnalysisError('Not authenticated');
-      return runAnalysis(accessToken);
+      return runAnalysis();
     },
     onSuccess: (data) => {
       // Land the freshly-fetched gaps in the cache so re-mounts read from

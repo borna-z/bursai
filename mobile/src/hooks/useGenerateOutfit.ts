@@ -16,8 +16,11 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseUrl } from '../lib/supabase';
-import { getEdgeFunctionUrl } from '../lib/sse';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionSubscriptionLockedError,
+} from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
 
 export type GeneratedOutfitItem = {
@@ -111,15 +114,10 @@ export function useGenerateOutfit() {
       const anchorId = params.garmentId?.trim();
 
       try {
-        const response = await fetch(
-          getEdgeFunctionUrl(supabaseUrl, 'burs_style_engine'),
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
+        let data: EngineResponse;
+        try {
+          data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
+            body: {
               mode: 'generate',
               generator_mode: 'standard',
               occasion: params.occasion ?? 'Everyday',
@@ -130,25 +128,27 @@ export function useGenerateOutfit() {
               weather: { precipitation: 'none', wind: 'none' },
               locale: 'en',
               prefer_garment_ids: anchorId ? [anchorId] : [],
-            }),
+            },
             signal: controller.signal,
-          },
-        );
-
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          const errorMsg = body.error ?? `HTTP ${response.status}`;
-          if (response.status === 402 || errorMsg === 'subscription_required') {
+          });
+        } catch (callErr) {
+          if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError('subscription_required');
-          } else {
-            setError(errorMsg);
+            return;
           }
-          return;
+          if (callErr instanceof EdgeFunctionHttpError) {
+            const parsed = (() => {
+              try {
+                return JSON.parse(callErr.bodyText) as { error?: string };
+              } catch {
+                return null;
+              }
+            })();
+            setError(parsed?.error ?? `HTTP ${callErr.status}`);
+            return;
+          }
+          throw callErr;
         }
-
-        const data = (await response.json()) as EngineResponse;
 
         if (data.error) {
           setError(data.error);
