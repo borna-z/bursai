@@ -271,4 +271,22 @@ export const en: Record<string, string> = {
   'outfit.invalid.errorTitle': "We couldn't build a complete outfit",
   'outfit.invalid.errorBody':
     "The pieces returned didn't add up to a wearable look. Try again or add more garments to your wardrobe.",
+
+  // ─── Stylist chat (M14 — 8-mode chat contract) ─────────────────────────
+  'chat.mode.ACTIVE_LOOK_REFINEMENT': 'Refinement',
+  'chat.mode.GARMENT_FIRST_STYLING': 'Garment-first',
+  'chat.mode.OUTFIT_GENERATION': 'Outfit',
+  'chat.mode.WARDROBE_GAP_ANALYSIS': 'Wardrobe gap',
+  'chat.mode.PURCHASE_PRIORITIZATION': 'Buy next',
+  'chat.mode.STYLE_IDENTITY_ANALYSIS': 'Style identity',
+  'chat.mode.LOOK_EXPLANATION': 'Why this look',
+  'chat.mode.PLANNING': 'Plan',
+  'chat.memory.section_title': 'Style memory',
+  'chat.memory.forget_action': 'Forget',
+  'chat.memory.empty': 'Burs is still learning your style.',
+  'chat.active_look.title': 'Current look',
+  'chat.active_look.clear': 'Clear',
+  'chat.history.restored': 'History restored',
+  'chat.anchor.title': 'Anchor',
+  'chat.anchor.clear': 'Clear anchor',
 };

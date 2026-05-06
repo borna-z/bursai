@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M14 — 8-mode chat contract + AIChat depth |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m14-chat-8-mode.md` |
+| **CURRENT WAVE** | M15 — Day intelligence depth |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m15-day-intelligence.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
