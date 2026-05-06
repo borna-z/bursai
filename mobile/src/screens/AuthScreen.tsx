@@ -31,6 +31,7 @@ import { Button } from '../components/Button';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSelection } from '../lib/haptics';
 import { useAuth } from '../hooks/useAuth';
+import { useResetPassword } from '../hooks/useResetPassword';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -80,11 +81,13 @@ export function AuthScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { signIn, signUp, user, isLoading, isOnboarded } = useAuth();
+  const { requestReset } = useResetPassword();
   const [mode, setMode] = useState<Mode>('signIn');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   // "Touched" semantics: only show inline errors after the user has either
   // blurred a field or attempted submit. Keeps the empty form quiet on entry.
@@ -164,6 +167,38 @@ export function AuthScreen() {
       // AuthContext finishes loading the profile.
     } finally {
       if (isMountedRef.current) setSubmitting(false);
+    }
+  };
+
+  // Forgot password — fires `supabase.auth.resetPasswordForEmail` with the
+  // current email field's value. Validates email locally first (Supabase
+  // returns success even for unknown emails to prevent enumeration, so the
+  // local gate is the user's actual feedback that the email shape is wrong).
+  const handleForgotPassword = async () => {
+    if (resetSubmitting || submitting) return;
+    hapticLight();
+    setTouched((s) => ({ ...s, email: true }));
+    if (!emailValid) {
+      Alert.alert(
+        tr('auth.resetPassword.emailRequiredTitle'),
+        tr('auth.resetPassword.emailRequiredBody'),
+      );
+      return;
+    }
+    setResetSubmitting(true);
+    try {
+      const { error } = await requestReset(trimmedEmail);
+      if (!isMountedRef.current) return;
+      if (error) {
+        Alert.alert(tr('auth.resetPassword.errorTitle'), error.message);
+        return;
+      }
+      Alert.alert(
+        tr('auth.resetPassword.successTitle'),
+        tr('auth.resetPassword.successBody', { email: trimmedEmail }),
+      );
+    } finally {
+      if (isMountedRef.current) setResetSubmitting(false);
     }
   };
 
@@ -281,12 +316,19 @@ export function AuthScreen() {
             </View>
           </View>
 
-          {/* Forgot password — sign-in only */}
+          {/* Forgot password — sign-in only. Triggers requestReset directly
+              against the email field above; ResetPasswordScreen is reserved
+              for the deep-link confirm flow + signed-in password change. */}
           {!isSignUp && (
             <Pressable
-              onPress={() => { hapticLight(); nav.navigate('ResetPassword'); }}
-              disabled={inputsDisabled}
-              style={{ alignSelf: 'flex-end', marginTop: 10, paddingVertical: 4, opacity: inputsDisabled ? 0.5 : 1 }}
+              onPress={handleForgotPassword}
+              disabled={inputsDisabled || resetSubmitting}
+              style={{
+                alignSelf: 'flex-end',
+                marginTop: 10,
+                paddingVertical: 4,
+                opacity: inputsDisabled || resetSubmitting ? 0.5 : 1,
+              }}
               accessibilityRole="link"
               hitSlop={6}>
               <Text

@@ -229,4 +229,26 @@ export const en: Record<string, string> = {
   'addpiece.duplicate.bodyNoTitle': 'This looks a lot like a piece you already own.',
   'addpiece.duplicate.viewExisting': 'View existing',
   'addpiece.duplicate.addAnyway': 'Add anyway',
+
+  // M12 — password reset + deep links.
+  'auth.resetPassword.emailRequiredTitle': 'Email required',
+  'auth.resetPassword.emailRequiredBody':
+    'Enter the email for your account, then tap “Forgot password?” again.',
+  'auth.resetPassword.errorTitle': "We couldn't send the reset email",
+  'auth.resetPassword.successTitle': 'Check your email',
+  'auth.resetPassword.successBody':
+    'We sent a reset link to {email}. It expires in 1 hour.',
+  'resetPassword.title': 'Set a new password',
+  'resetPassword.eyebrow': 'New password',
+  'resetPassword.intro': 'Choose a new password to sign in with.',
+  'resetPassword.newPasswordLabel': 'New password',
+  'resetPassword.confirmPasswordLabel': 'Confirm password',
+  'resetPassword.cta': 'Update password',
+  'resetPassword.submitting': 'Updating…',
+  'resetPassword.errorTitle': "We couldn't update your password",
+  'resetPassword.successTitle': 'Password updated',
+  'resetPassword.successBody': 'Your password has been changed.',
+  'resetPassword.tooShort': 'Password must be at least 6 characters.',
+  'resetPassword.mismatch': 'Passwords do not match.',
+  'resetPassword.back': 'Back',
 };

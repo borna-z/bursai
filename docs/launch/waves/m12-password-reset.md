@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Real password reset flow + deep-link handler so the email "reset password" link opens the in-app reset screen. |
-| Status | TODO |
+| Status | DONE (PR #736) |
 | Branch | `mobile-m12-password-reset` |
 | PR count | 1 |
 | Depends on | V0 |
