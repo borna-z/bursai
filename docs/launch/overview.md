@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M14 — 8-mode chat contract + AIChat depth |
-| **CURRENT WAVE FILE** | [`waves/m14-chat-8-mode.md`](waves/m14-chat-8-mode.md) |
+| **CURRENT WAVE** | M15 — Day intelligence depth |
+| **CURRENT WAVE FILE** | [`waves/m15-day-intelligence.md`](waves/m15-day-intelligence.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -105,7 +105,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | Wave | File | Status | Depends on |
 |---|---|---|---|
 | M13 | [Outfit anchor locking + rules engine](waves/m13-outfit-rules-anchor.md) | DONE (PR #737) | V0, M9 |
-| M14 | [8-mode chat contract + AIChat depth](waves/m14-chat-8-mode.md) | TODO | V0, M9, M10 |
+| M14 | [8-mode chat contract + AIChat depth](waves/m14-chat-8-mode.md) | DONE (PR #739) | V0, M9, M10 |
 | M15 | [Day intelligence depth](waves/m15-day-intelligence.md) | TODO | V0, M9 |
 
 ### Generators
