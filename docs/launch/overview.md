@@ -105,7 +105,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | Wave | File | Status | Depends on |
 |---|---|---|---|
 | M13 | [Outfit anchor locking + rules engine](waves/m13-outfit-rules-anchor.md) | DONE (PR #737) | V0, M9 |
-| M14 | [8-mode chat contract + AIChat depth](waves/m14-chat-8-mode.md) | DONE (PR #TBD) | V0, M9, M10 |
+| M14 | [8-mode chat contract + AIChat depth](waves/m14-chat-8-mode.md) | DONE (PR #739) | V0, M9, M10 |
 | M15 | [Day intelligence depth](waves/m15-day-intelligence.md) | TODO | V0, M9 |
 
 ### Generators
