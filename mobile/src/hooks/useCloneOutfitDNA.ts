@@ -1,0 +1,183 @@
+// useCloneOutfitDNA — M17 composition helper.
+//
+// Wraps the deployed `clone_outfit_dna` edge function. Body shape is
+// `{ outfit_id, locale }`; response is
+// `{ variations: { name, garment_ids[], explanation }[] }` — the function
+// returns up to 3 variations that mirror the source's style profile but
+// use DIFFERENT pieces from the user's wardrobe.
+//
+// The wave spec says "result is a single outfit; show a banner + new
+// OutfitCard". Per the contract that's the FIRST variation. We surface
+// `cloned` as a single `ScoredOutfitDraft` (variations[0]) plus the full
+// `variations` array so a future depth pass can expose the alternates.
+// Subscription gating raises the shared `'subscription_required'`
+// sentinel.
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useAuth } from '../contexts/AuthContext';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionSubscriptionLockedError,
+} from '../lib/edgeFunctionClient';
+import { Sentry } from '../lib/sentry';
+import { getLocale } from '../lib/i18n';
+import type { ScoredOutfitDraft } from './useOutfitPool';
+
+const SUBSCRIPTION_SENTINEL = 'subscription_required';
+
+type CloneVariation = {
+  name?: string;
+  garment_ids?: string[];
+  explanation?: string;
+};
+
+type CloneOutfitDNAResponse = {
+  variations?: CloneVariation[];
+  error?: string;
+};
+
+export interface UseCloneOutfitDNAResult {
+  /** Primary cloned look — `variations[0]` mapped to a draft. Null until
+   *  `clone()` resolves successfully. */
+  cloned: ScoredOutfitDraft | null;
+  /** Full variation set (up to 3). Surfaced for future depth; the wave's
+   *  MVP only renders `cloned`. */
+  variations: ScoredOutfitDraft[];
+  isCloning: boolean;
+  error: string | null;
+  clone: (outfitId: string) => Promise<void>;
+  reset: () => void;
+}
+
+function makeDraftId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function variationToDraft(v: CloneVariation): ScoredOutfitDraft | null {
+  const ids = (v?.garment_ids ?? []).filter(
+    (id): id is string => typeof id === 'string' && id.length > 0,
+  );
+  if (ids.length === 0) return null;
+  // Slot data isn't returned by clone_outfit_dna — the function lets the
+  // server-side `classifySlot` pick per garment. Default to `top` and let
+  // downstream rendering hydrate the real slot via the garment row when
+  // needed (matches `useGenerateOutfit.adaptItems` fallback).
+  const items = ids.map((id) => ({ slot: 'top', garment_id: id }));
+  return {
+    draftId: makeDraftId(),
+    items,
+    explanation: v?.explanation ?? '',
+    occasion: undefined,
+    family_label: v?.name ?? null,
+    confidence_score: null,
+    confidence_level: null,
+  };
+}
+
+export function useCloneOutfitDNA(): UseCloneOutfitDNAResult {
+  const { session } = useAuth();
+  const [variations, setVariations] = useState<ScoredOutfitDraft[]>([]);
+  const [isCloning, setIsCloning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const clone = useCallback(
+    async (outfitId: string) => {
+      if (!session?.access_token) {
+        setError('Not authenticated');
+        return;
+      }
+      const trimmed = outfitId?.trim();
+      if (!trimmed) {
+        setError('Missing outfit_id');
+        return;
+      }
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setIsCloning(true);
+      setError(null);
+
+      try {
+        let data: CloneOutfitDNAResponse;
+        try {
+          data = await callEdgeFunction<CloneOutfitDNAResponse>('clone_outfit_dna', {
+            body: { outfit_id: trimmed, locale: getLocale() ?? 'en' },
+            signal: controller.signal,
+          });
+        } catch (callErr) {
+          if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
+            setError(SUBSCRIPTION_SENTINEL);
+            return;
+          }
+          if (callErr instanceof EdgeFunctionHttpError) {
+            const parsed = (() => {
+              try {
+                return JSON.parse(callErr.bodyText) as { error?: string };
+              } catch {
+                return null;
+              }
+            })();
+            setError(parsed?.error ?? `HTTP ${callErr.status}`);
+            return;
+          }
+          throw callErr;
+        }
+
+        if (data?.error) {
+          setError(data.error);
+          return;
+        }
+
+        const drafts: ScoredOutfitDraft[] = [];
+        for (const variation of data?.variations ?? []) {
+          const draft = variationToDraft(variation);
+          if (draft) drafts.push(draft);
+        }
+        setVariations(drafts);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        const message = err instanceof Error ? err.message : 'Clone failed';
+        if (message !== SUBSCRIPTION_SENTINEL) {
+          Sentry.withScope((s) => {
+            s.setTag('mutation', 'useCloneOutfitDNA');
+            Sentry.captureException(err);
+          });
+        }
+        setError(message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsCloning(false);
+        }
+      }
+    },
+    [session?.access_token],
+  );
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setVariations([]);
+    setIsCloning(false);
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  return {
+    cloned: variations[0] ?? null,
+    variations,
+    isCloning,
+    error,
+    clone,
+    reset,
+  };
+}

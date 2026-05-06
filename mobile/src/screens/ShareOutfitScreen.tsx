@@ -9,21 +9,36 @@
 // react-native-view-shot. Renders as Alert until those deps are authorized.
 
 import React from 'react';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
+import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, ShareIcon, FileIcon } from '../components/icons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
+import { useGenerateFlatlay } from '../hooks/useGenerateFlatlay';
+import { useSignedUrl } from '../hooks/useSignedUrl';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'ShareOutfit'>;
 
 // Always-light card palette. Documented exemption — see file header.
 const CARD_BG = '#F4ECDD';
@@ -39,6 +54,32 @@ export function ShareOutfitScreen() {
   const t = useTokens();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const outfitId = route.params?.id;
+  const flatlay = useGenerateFlatlay();
+  // Cache the rendered path so re-tapping "Generate flatlay" doesn't burn
+  // another image-gen call. M17 wave: "or allow re-generation if needed."
+  // Same path → re-tap is cheap (the function upserts to a deterministic
+  // storage path); we still skip the call when we already have the URL.
+  const { data: flatlaySignedUrl } = useSignedUrl(flatlay.flatlayPath);
+  const paywallShownRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (flatlay.error === 'subscription_required' && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      nav.navigate('Paywall');
+    }
+  }, [flatlay.error, nav]);
+
+  const onGenerateFlatlay = React.useCallback(() => {
+    if (!outfitId) {
+      Alert.alert(tr('shareOutfit.flatlayError'));
+      return;
+    }
+    if (flatlay.flatlayPath || flatlay.isGenerating) return;
+    hapticLight();
+    void flatlay.generate(outfitId);
+  }, [outfitId, flatlay]);
 
   const onShare = async () => {
     hapticLight();
@@ -91,20 +132,46 @@ export function ShareOutfitScreen() {
               BURS
             </Text>
           </View>
-          <View style={s.cardGrid}>
-            {[32, 18, 200, 45].map((hue, i) => (
-              <View
-                key={i}
-                style={[
-                  s.cardCell,
-                  {
-                    backgroundColor: `hsl(${hue}, 22%, 78%)`,
-                    borderColor: CARD_BORDER,
-                  },
-                ]}
+          {flatlaySignedUrl ? (
+            <View style={s.flatlayWrap}>
+              <Image
+                source={{ uri: flatlaySignedUrl }}
+                style={s.flatlayImage}
+                resizeMode="cover"
+                accessibilityLabel="Generated flatlay preview"
               />
-            ))}
-          </View>
+            </View>
+          ) : flatlay.isGenerating ? (
+            <View style={[s.flatlayWrap, s.flatlayLoading, { borderColor: CARD_BORDER }]}>
+              <ActivityIndicator color={CARD_ACCENT} />
+              <Text
+                style={{
+                  marginTop: 12,
+                  fontFamily: fonts.uiSemi,
+                  fontSize: 11,
+                  letterSpacing: 1.4,
+                  color: CARD_FG2,
+                  textTransform: 'uppercase',
+                }}>
+                {tr('shareOutfit.generatingFlatlay')}
+              </Text>
+            </View>
+          ) : (
+            <View style={s.cardGrid}>
+              {[32, 18, 200, 45].map((hue, i) => (
+                <View
+                  key={i}
+                  style={[
+                    s.cardCell,
+                    {
+                      backgroundColor: `hsl(${hue}, 22%, 78%)`,
+                      borderColor: CARD_BORDER,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          )}
           <Text
             style={{
               fontFamily: fonts.displayMedium,
@@ -142,6 +209,38 @@ export function ShareOutfitScreen() {
           }}>
           Share your look to Instagram, stories, and more.
         </Text>
+
+        {/* M17 — Generate flatlay. Hidden once we have a rendered image
+            (re-generation is allowed but cheap because the function upserts
+            to a deterministic storage path; we show "Regenerate" so the
+            user can intentionally re-run if they want a fresh roll). */}
+        {outfitId ? (
+          <Button
+            label={
+              flatlay.isGenerating
+                ? tr('shareOutfit.generatingFlatlay')
+                : flatlay.flatlayPath
+                  ? tr('shareOutfit.generateFlatlay')
+                  : tr('shareOutfit.generateFlatlay')
+            }
+            onPress={onGenerateFlatlay}
+            block
+            disabled={flatlay.isGenerating}
+            variant={flatlay.flatlayPath ? 'outline' : 'primary'}
+          />
+        ) : null}
+
+        {flatlay.error && flatlay.error !== 'subscription_required' ? (
+          <Text
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 12,
+              color: t.fg2,
+              textAlign: 'center',
+            }}>
+            {tr('shareOutfit.flatlayError')}
+          </Text>
+        ) : null}
 
         {/* Share options row — Save image is intentionally omitted until expo-media-library +
             react-native-view-shot are installed (deferred per "no new deps without asking" rule).
@@ -229,6 +328,21 @@ const s = StyleSheet.create({
     width: '48.5%',
     aspectRatio: 0.78,
     borderRadius: radii.lg,
+    borderWidth: 1,
+  },
+  flatlayWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+  },
+  flatlayImage: {
+    width: '100%',
+    height: '100%',
+  },
+  flatlayLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
   },
   optionsRow: {

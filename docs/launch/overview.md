@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M17 — Compositional helpers (flatlay + accessories + combinations + clone DNA) |
-| **CURRENT WAVE FILE** | [`waves/m17-composition-helpers.md`](waves/m17-composition-helpers.md) |
+| **CURRENT WAVE** | M18 — Photo feedback / selfie comparison |
+| **CURRENT WAVE FILE** | [`waves/m18-photo-feedback.md`](waves/m18-photo-feedback.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -112,7 +112,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | Wave | File | Status | Depends on |
 |---|---|---|---|
 | M16 | [Outfit pool + week generator](waves/m16-pool-week-generators.md) | DONE (PR #742) | V0, M13, M15 |
-| M17 | [Compositional helpers (flatlay + accessories + combinations + clone DNA)](waves/m17-composition-helpers.md) | TODO | V0, M13 |
+| M17 | [Compositional helpers (flatlay + accessories + combinations + clone DNA)](waves/m17-composition-helpers.md) | DONE (PR #TBD) | V0, M13 |
 
 ### Photo + visual
 | Wave | File | Status | Depends on |

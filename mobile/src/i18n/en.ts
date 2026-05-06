@@ -339,4 +339,21 @@ export const en: Record<string, string> = {
   // Replaces the earlier "0 saved" title which was misleading on full
   // failure (M16 P2.5).
   'outfitPool.saveFailedTitle': "Couldn't save outfits",
+
+  // ─── Composition helpers (M17) ─────────────────────────────────────────
+  'outfitDetail.suggestAccessoriesAction': 'Suggest accessories',
+  'outfitDetail.tryVariationsAction': 'Try variations',
+  'outfitDetail.cloneDnaAction': 'Clone style',
+  'outfitDetail.accessories.title': 'Accessories',
+  'outfitDetail.accessories.empty':
+    "We couldn't find accessories for this outfit.",
+  'outfitDetail.accessories.addAction': 'Add to outfit',
+  'outfitDetail.variations.title': 'Variations',
+  'outfitDetail.variations.empty':
+    "We couldn't build any variations from your wardrobe.",
+  'outfitDetail.cloneDna.title': 'Cloned style',
+  'outfitDetail.cloneDna.banner': 'A new outfit in the same style',
+  'shareOutfit.generateFlatlay': 'Generate flatlay',
+  'shareOutfit.generatingFlatlay': 'Generating flatlay…',
+  'shareOutfit.flatlayError': "Couldn't generate flatlay",
 };

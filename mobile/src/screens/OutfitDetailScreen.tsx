@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
@@ -32,6 +33,7 @@ import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
+import { OutfitCard } from '../components/OutfitCard';
 import { BackIcon, MoreIcon, ShareIcon, StarIcon } from '../components/icons';
 import {
   useOutfit,
@@ -42,6 +44,12 @@ import {
   useOutfitFeedback,
   useSaveOutfitNote,
 } from '../hooks/useOutfits';
+import { useSuggestAccessories } from '../hooks/useSuggestAccessories';
+import { useSuggestCombinations } from '../hooks/useSuggestCombinations';
+import { useCloneOutfitDNA } from '../hooks/useCloneOutfitDNA';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
@@ -58,6 +66,8 @@ export function OutfitDetailScreen() {
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
   const id = route.params?.id;
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const outfitQ = useOutfit(id);
   const outfit = outfitQ.data ?? null;
@@ -69,6 +79,123 @@ export function OutfitDetailScreen() {
   const upsertPlanned = useUpsertPlannedOutfit();
   const feedbackQ = useOutfitFeedback(outfit?.id);
   const saveNote = useSaveOutfitNote();
+
+  // M17 — composition helpers (lazy: hooks fire on first reveal, results
+  // collapse-friendly). Each section opens its own collapsible card so
+  // OutfitDetail stays scan-friendly until the user opts in.
+  const accessoriesHook = useSuggestAccessories();
+  const combinationsHook = useSuggestCombinations();
+  const cloneHook = useCloneOutfitDNA();
+  const [accessoriesOpen, setAccessoriesOpen] = React.useState(false);
+  const [variationsOpen, setVariationsOpen] = React.useState(false);
+  const [cloneOpen, setCloneOpen] = React.useState(false);
+  const paywallShownRef = React.useRef(false);
+
+  // Hydrate accessory garment titles in one round-trip.
+  const accessoryIdsKey = React.useMemo(
+    () => [...accessoriesHook.accessoryGarmentIds].sort().join(','),
+    [accessoriesHook.accessoryGarmentIds],
+  );
+  const accessoryRowsQ = useQuery({
+    queryKey: ['m17AccessoryRows', user?.id, accessoryIdsKey],
+    enabled: !!user && accessoriesHook.accessoryGarmentIds.length > 0,
+    queryFn: async () => {
+      if (!user || accessoriesHook.accessoryGarmentIds.length === 0) return [];
+      const { data, error: rowsErr } = await supabase
+        .from('garments')
+        .select('id, title, category, color_primary, rendered_image_path, original_image_path')
+        .in('id', accessoriesHook.accessoryGarmentIds)
+        .eq('user_id', user.id);
+      if (rowsErr) throw rowsErr;
+      return data ?? [];
+    },
+  });
+
+  // Route to PaywallScreen when any helper surfaces the subscription
+  // sentinel. Sticky ref so a back-and-forth doesn't re-pop the modal.
+  React.useEffect(() => {
+    const subLocked =
+      accessoriesHook.error === 'subscription_required'
+      || combinationsHook.error === 'subscription_required'
+      || cloneHook.error === 'subscription_required';
+    if (subLocked && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      nav.navigate('Paywall');
+    }
+  }, [accessoriesHook.error, combinationsHook.error, cloneHook.error, nav]);
+
+  const handleSuggestAccessories = React.useCallback(() => {
+    if (!outfit) return;
+    setAccessoriesOpen(true);
+    if (
+      accessoriesHook.accessoryGarmentIds.length === 0
+      && !accessoriesHook.isSuggesting
+    ) {
+      void accessoriesHook.suggest(outfit.id);
+    }
+  }, [outfit, accessoriesHook]);
+
+  const handleTryVariations = React.useCallback(() => {
+    if (!outfit) return;
+    setVariationsOpen(true);
+    if (
+      combinationsHook.combinations.length === 0
+      && !combinationsHook.isSuggesting
+    ) {
+      void combinationsHook.suggest(outfit.id);
+    }
+  }, [outfit, combinationsHook]);
+
+  const handleCloneDna = React.useCallback(() => {
+    if (!outfit) return;
+    setCloneOpen(true);
+    if (!cloneHook.cloned && !cloneHook.isCloning) {
+      void cloneHook.clone(outfit.id);
+    }
+  }, [outfit, cloneHook]);
+
+  // "+ Add to outfit" — inserts the accessory garment into the current
+  // outfit's outfit_items as `slot: 'accessory'`. Idempotent at the screen
+  // layer via a Set of just-added ids; the table has no UNIQUE constraint
+  // on (outfit_id, garment_id) so we can't rely on the DB to dedupe.
+  const [addedAccessoryIds, setAddedAccessoryIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const [addingAccessoryId, setAddingAccessoryId] = React.useState<string | null>(null);
+  const addAccessory = React.useCallback(
+    async (accessoryGarmentId: string) => {
+      if (!outfit || !user) return;
+      if (addedAccessoryIds.has(accessoryGarmentId)) return;
+      setAddingAccessoryId(accessoryGarmentId);
+      try {
+        const { error: insertErr } = await supabase.from('outfit_items').insert({
+          outfit_id: outfit.id,
+          garment_id: accessoryGarmentId,
+          slot: 'accessory',
+        });
+        if (insertErr) throw insertErr;
+        setAddedAccessoryIds((prev) => {
+          const next = new Set(prev);
+          next.add(accessoryGarmentId);
+          return next;
+        });
+        queryClient.invalidateQueries({ queryKey: ['outfit', user.id, outfit.id] });
+        queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      } catch (err) {
+        Sentry.withScope((s) => {
+          s.setTag('mutation', 'OutfitDetailScreen.addAccessory');
+          Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+        });
+        Alert.alert(
+          'Could not add accessory',
+          err instanceof Error ? err.message : 'Please try again.',
+        );
+      } finally {
+        setAddingAccessoryId(null);
+      }
+    },
+    [outfit, user, addedAccessoryIds, queryClient],
+  );
 
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
@@ -357,6 +484,165 @@ export function OutfitDetailScreen() {
             />
           </View>
 
+          {/* M17 — composition helper actions. Collapsible so the screen
+              stays scan-friendly until the user opts in. */}
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <Button
+              label={tr('outfitDetail.suggestAccessoriesAction')}
+              variant="quiet"
+              size="sm"
+              onPress={handleSuggestAccessories}
+              disabled={accessoriesHook.isSuggesting}
+            />
+            <Button
+              label={tr('outfitDetail.tryVariationsAction')}
+              variant="quiet"
+              size="sm"
+              onPress={handleTryVariations}
+              disabled={combinationsHook.isSuggesting}
+            />
+            <Button
+              label={tr('outfitDetail.cloneDnaAction')}
+              variant="quiet"
+              size="sm"
+              onPress={handleCloneDna}
+              disabled={cloneHook.isCloning}
+            />
+          </View>
+
+          {accessoriesOpen ? (
+            <CollapsibleSection
+              title={tr('outfitDetail.accessories.title')}
+              onClose={() => setAccessoriesOpen(false)}>
+              {accessoriesHook.isSuggesting || accessoryRowsQ.isLoading ? (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <ActivityIndicator color={t.accent} />
+                </View>
+              ) : accessoriesHook.error
+                  && accessoriesHook.error !== 'subscription_required' ? (
+                <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+                  {accessoriesHook.error}
+                </Text>
+              ) : accessoriesHook.accessoryGarmentIds.length === 0 ? (
+                <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+                  {tr('outfitDetail.accessories.empty')}
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+                  {accessoriesHook.accessoryGarmentIds.map((accessoryId) => {
+                    const row = (accessoryRowsQ.data ?? []).find((r) => r.id === accessoryId);
+                    const added = addedAccessoryIds.has(accessoryId);
+                    const adding = addingAccessoryId === accessoryId;
+                    return (
+                      <AccessoryCard
+                        key={accessoryId}
+                        title={row?.title ?? 'Accessory'}
+                        subtitle={[row?.color_primary, row?.category]
+                          .filter(Boolean)
+                          .join(' · ')
+                          .toUpperCase()}
+                        imagePath={row?.rendered_image_path ?? row?.original_image_path ?? null}
+                        added={added}
+                        adding={adding}
+                        onAdd={() => addAccessory(accessoryId)}
+                      />
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </CollapsibleSection>
+          ) : null}
+
+          {variationsOpen ? (
+            <CollapsibleSection
+              title={tr('outfitDetail.variations.title')}
+              onClose={() => setVariationsOpen(false)}>
+              {combinationsHook.isSuggesting ? (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <ActivityIndicator color={t.accent} />
+                </View>
+              ) : combinationsHook.error
+                  && combinationsHook.error !== 'subscription_required' ? (
+                <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+                  {combinationsHook.error}
+                </Text>
+              ) : combinationsHook.combinations.length === 0 ? (
+                <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+                  {tr('outfitDetail.variations.empty')}
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+                  {combinationsHook.combinations.slice(0, 3).map((draft) => {
+                    const itemCount = draft.items.length;
+                    const sub = `${itemCount} PIECE${itemCount === 1 ? '' : 'S'}`;
+                    const name =
+                      draft.family_label?.trim()
+                      || draft.occasion?.trim()
+                      || 'Variation';
+                    return (
+                      <View key={draft.draftId} style={{ width: 220 }}>
+                        <OutfitCard
+                          name={name}
+                          sub={sub}
+                          // Tap navigates to OutfitGenerate seeded with the
+                          // draft's first garment as anchor — the screen's
+                          // anchor pill keeps the variation's intent.
+                          onPress={() =>
+                            nav.navigate('OutfitGenerate', {
+                              garmentId: draft.items[0]?.garment_id,
+                            })
+                          }
+                        />
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </CollapsibleSection>
+          ) : null}
+
+          {cloneOpen ? (
+            <CollapsibleSection
+              title={tr('outfitDetail.cloneDna.title')}
+              onClose={() => setCloneOpen(false)}>
+              {cloneHook.isCloning ? (
+                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                  <ActivityIndicator color={t.accent} />
+                </View>
+              ) : cloneHook.error
+                  && cloneHook.error !== 'subscription_required' ? (
+                <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+                  {cloneHook.error}
+                </Text>
+              ) : cloneHook.cloned ? (
+                <View style={{ gap: 10 }}>
+                  <Text style={[s.cloneBanner, { color: t.fg2, borderColor: t.border }]}>
+                    {tr('outfitDetail.cloneDna.banner')}
+                  </Text>
+                  <OutfitCard
+                    name={cloneHook.cloned.family_label?.trim() || 'Cloned look'}
+                    sub={`${cloneHook.cloned.items.length} PIECE${cloneHook.cloned.items.length === 1 ? '' : 'S'}`}
+                    onPress={() =>
+                      nav.navigate('OutfitGenerate', {
+                        garmentId: cloneHook.cloned?.items[0]?.garment_id,
+                      })
+                    }
+                  />
+                </View>
+              ) : (
+                <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+                  {tr('outfitDetail.variations.empty')}
+                </Text>
+              )}
+            </CollapsibleSection>
+          ) : null}
+
           <View>
             <Eyebrow style={{ marginBottom: 10 }}>How was it?</Eyebrow>
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
@@ -473,6 +759,134 @@ export function OutfitDetailScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const t = useTokens();
+  return (
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: t.border,
+        borderRadius: radii.lg,
+        backgroundColor: t.card,
+        padding: 14,
+        gap: 10,
+      }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Eyebrow>{title}</Eyebrow>
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Hide section"
+          hitSlop={6}>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              color: t.fg2,
+              textTransform: 'uppercase',
+            }}>
+            Hide
+          </Text>
+        </Pressable>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function AccessoryCard({
+  title,
+  subtitle,
+  imagePath,
+  added,
+  adding,
+  onAdd,
+}: {
+  title: string;
+  subtitle: string;
+  imagePath: string | null;
+  added: boolean;
+  adding: boolean;
+  onAdd: () => void;
+}) {
+  const t = useTokens();
+  const { data: signedUrl } = useSignedUrl(imagePath);
+  const [broken, setBroken] = React.useState(false);
+  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
+  const showImage = signedUrl && !broken;
+  const hue = outfitGradientHue(title);
+
+  return (
+    <View
+      style={{
+        width: 150,
+        borderWidth: 1,
+        borderColor: t.border,
+        borderRadius: radii.lg,
+        backgroundColor: t.card,
+        overflow: 'hidden',
+      }}>
+      <View style={{ width: '100%', height: 110, position: 'relative' }}>
+        <LinearGradient
+          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        {showImage ? (
+          <Image
+            source={{ uri: signedUrl }}
+            onError={() => setBroken(true)}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        ) : null}
+      </View>
+      <View style={{ padding: 10, gap: 4 }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: fonts.uiSemi,
+            fontSize: 12.5,
+            color: t.fg,
+            letterSpacing: -0.13,
+          }}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 9.5,
+              color: t.fg2,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+            }}>
+            {subtitle}
+          </Text>
+        ) : null}
+        <Button
+          label={added ? 'Added' : tr('outfitDetail.accessories.addAction')}
+          size="sm"
+          variant={added ? 'accent' : 'outline'}
+          onPress={onAdd}
+          disabled={added || adding}
+        />
+      </View>
+    </View>
   );
 }
 
@@ -711,5 +1125,22 @@ const s = StyleSheet.create({
   pieceCardThumb: {
     width: '100%',
     height: 100,
+  },
+  sectionEmpty: {
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    lineHeight: 19,
+    paddingVertical: 8,
+  },
+  cloneBanner: {
+    fontFamily: fonts.uiSemi,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
   },
 });
