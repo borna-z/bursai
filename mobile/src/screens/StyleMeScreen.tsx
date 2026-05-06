@@ -30,7 +30,7 @@ import {
   SparklesIcon,
   type IconProps,
 } from '../components/icons';
-import { useGenerateOutfit } from '../hooks/useGenerateOutfit';
+import { useGenerateOutfit, formatGenerateOutfitError } from '../hooks/useGenerateOutfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -212,7 +212,7 @@ export function StyleMeScreen() {
         {error && error !== 'subscription_required' ? (
           <ErrorState
             title="Couldn't generate"
-            body={error}
+            body={formatGenerateOutfitError(error) ?? error}
             onRetry={onGenerate}
           />
         ) : isLoading ? (

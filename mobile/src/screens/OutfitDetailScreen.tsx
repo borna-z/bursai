@@ -42,6 +42,7 @@ import {
   useOutfitFeedback,
   useSaveOutfitNote,
 } from '../hooks/useOutfits';
+import { t as tr } from '../lib/i18n';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
@@ -427,6 +428,28 @@ export function OutfitDetailScreen() {
                   onPress={() => {
                     if (item.garment?.id) nav.push('GarmentDetail', { id: item.garment.id });
                   }}
+                  // M13 — long-press → "Make this the anchor" prompt. Confirms,
+                  // then routes to OutfitGenerate with the chosen anchor;
+                  // the screen's anchor pill + anchor-missed signal then
+                  // surface the lock state across regenerations.
+                  onLongPress={() => {
+                    const garmentId = item.garment?.id;
+                    if (!garmentId) return;
+                    const title = item.garment?.title;
+                    Alert.alert(
+                      tr('anchor.makeAnchor.title'),
+                      title
+                        ? tr('anchor.makeAnchor.body', { title })
+                        : tr('anchor.makeAnchor.bodyFallback'),
+                      [
+                        { text: tr('anchor.makeAnchor.cancel'), style: 'cancel' },
+                        {
+                          text: tr('anchor.makeAnchor.confirm'),
+                          onPress: () => nav.navigate('OutfitGenerate', { garmentId }),
+                        },
+                      ],
+                    );
+                  }}
                 />
               ))}
             </ScrollView>
@@ -516,9 +539,11 @@ function DetailThumbCell({
 function PieceCard({
   item,
   onPress,
+  onLongPress,
 }: {
   item: OutfitItemWithGarment;
   onPress: () => void;
+  onLongPress?: () => void;
 }) {
   const t = useTokens();
   const garment = item.garment;
@@ -542,6 +567,8 @@ function PieceCard({
       accessibilityRole="button"
       accessibilityLabel={`${title}${sub ? `, ${sub}` : ''}`}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       disabled={!garment?.id}
       style={({ pressed }) => [
         s.pieceCard,

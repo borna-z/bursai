@@ -22,7 +22,14 @@ import { IconBtn } from '../components/IconBtn';
 import { ErrorState } from '../components/ErrorState';
 import { CloseIcon } from '../components/icons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
-import { useGenerateOutfit } from '../hooks/useGenerateOutfit';
+import {
+  useGenerateOutfit,
+  ANCHOR_MISSED_ERROR,
+  INVALID_OUTFIT_ERROR,
+} from '../hooks/useGenerateOutfit';
+import { useGarment } from '../hooks/useGarments';
+import { applyAnchor } from '../lib/outfitAnchoring';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -46,9 +53,20 @@ export function OutfitGenerateScreen() {
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
 
-  const { result, isLoading, error, generate, reset } = useGenerateOutfit();
+  const { result, isLoading, error, anchorMissed, generate, reset } = useGenerateOutfit();
   const [messageIdx, setMessageIdx] = useState(0);
   const paywallShownRef = useRef(false);
+
+  // M13: anchor metadata for the lock pill + status row. The route param
+  // carries the anchor id; the garment record gives us the title/category
+  // for the human-readable affordance and the lockedSlots constraint.
+  const anchorId = route.params?.garmentId?.trim() || undefined;
+  const anchorGarmentQ = useGarment(anchorId);
+  const anchorGarment = anchorGarmentQ.data ?? null;
+  const lockedSlots = useMemo(
+    () => (anchorGarment ? applyAnchor([anchorGarment], anchorId) : {}),
+    [anchorGarment, anchorId],
+  );
 
   const spinAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -74,14 +92,28 @@ export function OutfitGenerateScreen() {
     return () => loop.stop();
   }, [isInLoadingPhase, spinAnim]);
 
-  // Kick generation on mount + when the anchor garment changes.
+  // Kick generation on mount + when the anchor garment changes. M13: pass
+  // the anchor as `anchorGarmentId` (the legacy `garmentId` field is still
+  // accepted by the hook but the new one carries the lock-intent semantics)
+  // alongside the slot constraints derived from the anchor itself.
+  //
+  // `lockedSlots` is intentionally excluded from the dep list — the hook
+  // doesn't currently ship it through to `burs_style_engine` (the engine
+  // only consumes `prefer_garment_ids`), and `lockedSlots` mutates from
+  // `{}` to the real map once `useGarment(anchorId)` resolves, which
+  // would otherwise abort the in-flight generation and re-fire a second
+  // identical request — duplicate spend + a momentary loading flash for
+  // the user. Codex P2 round 1 on PR #737. When the engine grows a
+  // `locked_slots` field this effect's deps + the hook body need to stay
+  // in sync; the current value is read from the latest closure on the
+  // `tryAgain` path so manual retries still see the fresh map.
   useEffect(() => {
-    void generate({ garmentId: route.params?.garmentId });
+    void generate({ anchorGarmentId: anchorId, lockedSlots });
     return () => {
       reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.params?.garmentId]);
+  }, [anchorId]);
 
   // Drive the loading affordance off the request lifecycle. Progress climbs
   // to 90% over 2s then holds; we snap to 100% on completion.
@@ -137,7 +169,19 @@ export function OutfitGenerateScreen() {
   const tryAgain = () => {
     hapticLight();
     reset();
-    void generate({ garmentId: route.params?.garmentId });
+    void generate({ anchorGarmentId: anchorId, lockedSlots });
+  };
+
+  // M13: clear the anchor and regenerate without it. Resetting the route
+  // param is the cleanest signal — the [anchorId]-keyed effect re-fires
+  // with `anchorGarmentId: undefined`, the screen's anchor pill disappears,
+  // and any subsequent "Try again" stays unanchored too. Codex P2 round 6
+  // on PR #737 — without this control the wave's "tap remove anchor"
+  // acceptance gate isn't reachable.
+  const removeAnchor = () => {
+    hapticLight();
+    reset();
+    nav.setParams({ garmentId: undefined });
   };
 
   if (error === 'subscription_required') {
@@ -188,6 +232,25 @@ export function OutfitGenerateScreen() {
   }
 
   if (error) {
+    const isAnchorMiss = error === ANCHOR_MISSED_ERROR;
+    const isInvalidOutfit = error === INVALID_OUTFIT_ERROR;
+    const eyebrow = isAnchorMiss
+      ? tr('anchor.missed.eyebrow')
+      : isInvalidOutfit
+        ? tr('outfit.invalid.eyebrow')
+        : 'Generation failed';
+    const title = isAnchorMiss
+      ? tr('anchor.missed.errorTitle')
+      : isInvalidOutfit
+        ? tr('outfit.invalid.errorTitle')
+        : "Couldn't build your outfit";
+    const body = isAnchorMiss
+      ? anchorGarment?.title
+        ? tr('anchor.missed.errorBody', { title: anchorGarment.title })
+        : tr('anchor.missed.errorBodyFallback')
+      : isInvalidOutfit
+        ? tr('outfit.invalid.errorBody')
+        : error;
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <View style={s.header}>
@@ -195,16 +258,17 @@ export function OutfitGenerateScreen() {
             <CloseIcon color={t.fg} />
           </IconBtn>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Eyebrow>Generation failed</Eyebrow>
+            <Eyebrow>{eyebrow}</Eyebrow>
             <PageTitle style={{ marginTop: 4 }}>New look</PageTitle>
           </View>
           <View style={{ width: 36 }} />
         </View>
-        <ErrorState
-          title="Couldn't build your outfit"
-          body={error}
-          onRetry={tryAgain}
-        />
+        <ErrorState title={title} body={body} onRetry={tryAgain} />
+        {anchorId ? (
+          <View style={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 16 }}>
+            <Button label={tr('anchor.removeAnchor')} variant="quiet" onPress={removeAnchor} block />
+          </View>
+        ) : null}
       </SafeAreaView>
     );
   }
@@ -293,6 +357,29 @@ export function OutfitGenerateScreen() {
           showsVerticalScrollIndicator={false}>
           <PageTitle style={{ textAlign: 'center', fontSize: 24 }}>{result.outfit_name}</PageTitle>
 
+          {/* M13 — anchor lock status. Renders only when an anchor was
+              requested. The "missed" branch surfaces when the engine
+              dropped the anchor despite prefer_garment_ids; CTA below
+              becomes "Try again" (the existing button at the bottom),
+              which preserves the anchor on retry. */}
+          {anchorId ? (
+            <View
+              style={[
+                s.anchorRow,
+                {
+                  backgroundColor: anchorMissed ? t.bg2 : t.card,
+                  borderColor: anchorMissed ? t.destructive : t.accent,
+                },
+              ]}>
+              <Text style={[s.anchorEyebrow, { color: anchorMissed ? t.destructive : t.accent }]}>
+                {tr(anchorMissed ? 'anchor.missed.eyebrow' : 'anchor.locked.eyebrow')}
+              </Text>
+              <Text style={[s.anchorTitle, { color: t.fg }]} numberOfLines={1}>
+                {anchorGarment?.title ?? tr('anchor.locked.fallback')}
+              </Text>
+            </View>
+          ) : null}
+
           {/* 2x2 grid — placeholder hues until real garment images land. */}
           <View style={s.grid}>
             {[0, 1, 2, 3].map((i) => (
@@ -370,6 +457,11 @@ export function OutfitGenerateScreen() {
             block
           />
           <Button label="Try again" variant="quiet" onPress={tryAgain} block />
+          {/* M13 — clear the lock and regenerate without it. Hidden when
+              there's no anchor in the first place. Codex P2 round 6. */}
+          {anchorId ? (
+            <Button label={tr('anchor.removeAnchor')} variant="outline" onPress={removeAnchor} block />
+          ) : null}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -450,5 +542,23 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  anchorRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    gap: 2,
+  },
+  anchorEyebrow: {
+    fontFamily: fonts.uiSemi,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  anchorTitle: {
+    fontFamily: fonts.uiMed,
+    fontSize: 13,
+    letterSpacing: -0.13,
   },
 });

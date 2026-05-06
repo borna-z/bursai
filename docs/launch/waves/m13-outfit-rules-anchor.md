@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Port the client-side outfit rules engine + anchor-locking so generation honors slot validity and the "anchor garment" stays locked across regeneration. |
-| Status | TODO |
+| Status | DONE (PR #737) |
 | Branch | `mobile-m13-outfit-rules-anchor` |
 | PR count | 1 |
 | Depends on | V0, M9 |
