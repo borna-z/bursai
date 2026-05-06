@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
+import { t as tr } from '../lib/i18n';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
@@ -388,6 +389,16 @@ export function PlanScreen() {
               />
               <Button label="+ Add" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('AddPieceStep1')} />
             </View>
+            {/* M18 — "Try it on" CTA on the planned-outfit row. Same
+                destination as OutfitDetail's CTA — captures a selfie and
+                compares against the planned outfit's garments. */}
+            <Button
+              label={tr('photoFeedback.tryOnAction')}
+              variant="quiet"
+              size="sm"
+              onPress={() => nav.navigate('PhotoFeedback', { outfitId: selectedOutfit.id })}
+              accessibilityHint="Take a mirror selfie and compare to this outfit"
+            />
           </View>
         ) : (
           // Empty state — selected day has no planned outfit. Same vocabulary as MonthCalendar.
