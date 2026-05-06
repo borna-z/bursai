@@ -40,7 +40,7 @@ import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
 import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
-import { useAddGarment } from '../hooks/useAddGarment';
+import { useAddGarment, OfflineQueuedError } from '../hooks/useAddGarment';
 import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
@@ -421,7 +421,23 @@ export function AddPieceStep3() {
         ],
       });
     } catch (err) {
-      Alert.alert('Save failed', friendlySaveError(err));
+      // M5 — offline queue. The save was tucked into the offline queue; the
+      // file will replay when the network returns. Treat as "done with the
+      // AddPiece flow" from the user's POV — they've reviewed and committed
+      // — but unwind to MainTabs since there's no garment row id to nav to.
+      // The offlineQueue handler also retries the upload promise's resolved
+      // path, so we mark savedRef=true to skip the orphan cleanup (the
+      // queued payload owns the storagePath now).
+      if (err instanceof OfflineQueuedError) {
+        savedRef.current = true;
+        Alert.alert(
+          'Saved offline',
+          'We’ll finish saving this piece as soon as you’re back online.',
+        );
+        nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+      } else {
+        Alert.alert('Save failed', friendlySaveError(err));
+      }
     } finally {
       savingRef.current = false;
       setIsSaving(false);
