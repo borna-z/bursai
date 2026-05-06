@@ -23,8 +23,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { supabaseUrl } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { callEdgeFunction } from '../lib/edgeFunctionClient';
 
 export interface DuplicateMatch {
   garment_id: string;
@@ -71,25 +71,15 @@ export function useDetectDuplicate(input: DetectDuplicateInput | null) {
       if (input.material) body.material = input.material;
       if (input.exclude_garment_id) body.exclude_garment_id = input.exclude_garment_id;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/detect_duplicate_garment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errBody = (await response.json().catch(() => ({}))) as { error?: string };
-        const status = response.status;
-        // Subscription / rate-limit are advisory failures here — the AddPiece
-        // flow would rather save the row than block on a 402/429. The error is
-        // still propagated so screens that explicitly want to gate on it can.
-        throw new Error(errBody.error ?? `detect_duplicate_garment ${status}`);
-      }
-
-      const data = (await response.json()) as DetectDuplicateResponse;
+      // M9: callEdgeFunction handles auth + retry + 402/429 classification.
+      // The check is advisory: 402/429/network errors silently surface as a
+      // throw the screen ignores (no save path reads this query's error).
+      // retries: 0 because the AddPiece save flow only waits briefly — better
+      // a fast attribute-only result than a 90-second hold for retries.
+      const data = await callEdgeFunction<DetectDuplicateResponse>(
+        'detect_duplicate_garment',
+        { body, retries: 0 },
+      );
       return {
         duplicates: Array.isArray(data.duplicates) ? data.duplicates : [],
       };

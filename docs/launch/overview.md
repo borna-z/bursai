@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M6 — Multi-garment LiveScan continuous-scan |
-| **CURRENT WAVE FILE** | [`waves/m6-livescan-continuous.md`](waves/m6-livescan-continuous.md) |
+| **CURRENT WAVE** | M10 — Memory event queue |
+| **CURRENT WAVE FILE** | [`waves/m10-memory-event-queue.md`](waves/m10-memory-event-queue.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -90,7 +90,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Foundation infrastructure
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M9 | [Edge function client wrapper](waves/m9-edge-fn-client.md) | TODO | V0 |
+| M9 | [Edge function client wrapper](waves/m9-edge-fn-client.md) | DONE (PR #733) | V0 |
 | M10 | [Memory event queue](waves/m10-memory-event-queue.md) | TODO | V0, M5 |
 
 ### Required platform mutations (App Store / privacy)

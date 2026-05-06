@@ -22,8 +22,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseUrl } from '../lib/supabase';
-import { fetchSSE, getEdgeFunctionUrl } from '../lib/sse';
+import { fetchSSE } from '../lib/sse';
 import { Sentry } from '../lib/sentry';
 
 export type MoodOutfitItem = {
@@ -100,7 +99,7 @@ export function useMoodOutfit() {
       let textBuffer = '';
 
       await fetchSSE(
-        getEdgeFunctionUrl(supabaseUrl, 'mood_outfit'),
+        'mood_outfit',
         // NOTE: `time_of_day` is passed for forward-compat — the current
         // edge function destructures only { mood, weather, locale }
         // (supabase/functions/mood_outfit/index.ts:192) and ignores the
@@ -108,7 +107,6 @@ export function useMoodOutfit() {
         // now; W4.5+ may thread it into the weather context. Codex audit
         // P1-4 (audit 1).
         { mood, time_of_day: timeOfDay, locale: 'en' },
-        session.access_token,
         {
           onData: (raw) => {
             try {

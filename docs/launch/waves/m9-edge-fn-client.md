@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Replace raw `fetch` calls to `/functions/v1/...` with a single client wrapper that handles auth, retry, circuit breaking, and 4xx classification consistently. |
-| Status | TODO |
+| Status | DONE (PR #733) |
 | Branch | `mobile-m9-edge-fn-client` |
 | PR count | 1 |
 | Depends on | V0 |

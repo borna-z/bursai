@@ -21,7 +21,13 @@
 
 import { useCallback, useState } from 'react';
 
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionRateLimitError,
+  EdgeFunctionSubscriptionLockedError,
+} from '../lib/edgeFunctionClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Sentry } from '../lib/sentry';
 
@@ -106,34 +112,40 @@ export function useAnalyzeGarment() {
         if ('base64' in input) body.base64Image = input.base64;
         else body.storagePath = input.storagePath;
 
-        const response = await fetch(`${supabaseUrl}/functions/v1/analyze_garment`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-        setStatus(response.status);
-
-        if (!response.ok) {
-          const errBody = (await response.json().catch(() => ({}))) as { error?: string };
-          // Map known infrastructure failures to copy that gives the user something to do.
-          // 402 callers (Step 2) are expected to also route to Paywall; 429 callers may
-          // want to schedule a retry instead of just surfacing an error.
-          let message = errBody.error ?? `Analysis failed: ${response.status}`;
-          if (response.status === 402) {
-            message = 'AI analysis is a Premium feature. Upgrade to keep adding pieces.';
-          } else if (response.status === 429) {
-            message = "You've hit the analysis rate limit. Try again in a minute.";
-          } else if (response.status >= 500) {
-            message = 'Our AI is having a moment. Please try again.';
+        // M9: callEdgeFunction handles auth + retry + 4xx classification.
+        // 200 → returns parsed JSON; 402/429/4xx → throws typed error we
+        // map to the existing user-facing copy below.
+        let data: AnalysisResult & { error?: string };
+        try {
+          data = await callEdgeFunction<AnalysisResult & { error?: string }>('analyze_garment', {
+            body,
+          });
+          setStatus(200);
+        } catch (callErr) {
+          if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
+            setStatus(402);
+            throw new Error('AI analysis is a Premium feature. Upgrade to keep adding pieces.');
           }
-          throw new Error(message);
+          if (callErr instanceof EdgeFunctionRateLimitError) {
+            setStatus(429);
+            throw new Error("You've hit the analysis rate limit. Try again in a minute.");
+          }
+          if (callErr instanceof EdgeFunctionHttpError) {
+            setStatus(callErr.status);
+            const parsed = (() => {
+              try {
+                return JSON.parse(callErr.bodyText) as { error?: string };
+              } catch {
+                return null;
+              }
+            })();
+            if (callErr.status >= 500) {
+              throw new Error('Our AI is having a moment. Please try again.');
+            }
+            throw new Error(parsed?.error ?? `Analysis failed: ${callErr.status}`);
+          }
+          throw callErr;
         }
-
-        const data = (await response.json()) as AnalysisResult & { error?: string };
         if (data.error) throw new Error(data.error);
 
         // Defensive normalization — the edge function occasionally omits
@@ -207,7 +219,6 @@ export function useAnalyzeGarment() {
 export async function triggerGarmentEnrichment(
   storagePath: string,
   garmentId: string,
-  accessToken: string,
 ): Promise<void> {
   // Best-effort terminal write — if a transient supabase outage dropped the AI
   // call, this status flip also has a chance of failing. We capture the result
@@ -239,21 +250,16 @@ export async function triggerGarmentEnrichment(
     const procWrite = await writeStatus('processing');
     if (!procWrite.ok) return;
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/analyze_garment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ storagePath, mode: 'enrich' }),
-    });
-
-    if (!response.ok) {
+    let data: { enrichment?: Record<string, unknown> | null };
+    try {
+      data = await callEdgeFunction<{ enrichment?: Record<string, unknown> | null }>(
+        'analyze_garment',
+        { body: { storagePath, mode: 'enrich' } },
+      );
+    } catch {
       await writeStatus('failed');
       return;
     }
-
-    const data = (await response.json()) as { enrichment?: Record<string, unknown> | null };
     const e = data.enrichment;
     if (!e || typeof e !== 'object') {
       await writeStatus('failed');

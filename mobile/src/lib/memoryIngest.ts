@@ -10,8 +10,11 @@
 // Body shape per supabase/functions/memory_ingest/index.ts:
 //   { event_type: string, outfit_id?: string, garment_ids?: string[],
 //     metadata?: Record<string, unknown>, source?: string, ... }
+//
+// M9: routes through `callEdgeFunction` so retry / timeout / circuit-break /
+// pre-flight session refresh are consistent with every other edge call.
 
-import { supabaseUrl } from './supabase';
+import { callEdgeFunction } from './edgeFunctionClient';
 
 export type MemoryIngestEvent = {
   event_type: string;
@@ -21,19 +24,9 @@ export type MemoryIngestEvent = {
   source?: string;
 };
 
-export async function ingestMemoryEvent(
-  accessToken: string,
-  event: MemoryIngestEvent,
-): Promise<void> {
+export async function ingestMemoryEvent(event: MemoryIngestEvent): Promise<void> {
   try {
-    await fetch(`${supabaseUrl}/functions/v1/memory_ingest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(event),
-    });
+    await callEdgeFunction('memory_ingest', { body: event, retries: 0 });
   } catch {
     // Fire-and-forget — memory failure must never block UI.
   }

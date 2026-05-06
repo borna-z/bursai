@@ -30,7 +30,8 @@ import type { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
 
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { clearSignedUrlCache } from '../hooks/useSignedUrl';
 import {
   registerHandler,
@@ -99,16 +100,9 @@ const PROFILE_COLUMNS =
 // so this is a bandwidth optimisation, not a correctness gate.
 const FRESH_SIGNUP_WINDOW_MS = 60_000;
 
-async function callStartTrial(accessToken: string): Promise<void> {
+async function callStartTrial(): Promise<void> {
   try {
-    await fetch(`${supabaseUrl}/functions/v1/start_trial`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    await callEdgeFunction('start_trial', { body: {}, retries: 0 });
   } catch {
     // Fire-and-forget — trial failure must never block the auth flow.
   }
@@ -295,12 +289,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
     };
 
-    const maybeFireStartTrial = (u: User, accessToken: string) => {
+    const maybeFireStartTrial = (u: User) => {
       if (!isFreshSignup(u)) return;
       const key = u.id;
       if (triggeredTrialKeys.current.has(key)) return;
       triggeredTrialKeys.current.add(key);
-      void callStartTrial(accessToken);
+      // M9: callEdgeFunction reads its own session, so passing the access
+      // token through here is no longer needed.
+      void callStartTrial();
     };
 
     // 1. Subscribe FIRST so we don't miss the initial SIGNED_IN that getSession
@@ -316,8 +312,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // a stale `isOnboarded=false` for the duration of the fetch.
         setIsLoading(true);
         settleProfile(nextUser);
-        if (event === 'SIGNED_IN' && nextSession?.access_token) {
-          maybeFireStartTrial(nextUser, nextSession.access_token);
+        if (event === 'SIGNED_IN') {
+          maybeFireStartTrial(nextUser);
         }
       } else {
         setProfile(null);
@@ -355,13 +351,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (u) {
           setIsLoading(true);
           settleProfile(u);
-          if (data.session?.access_token) {
-            // Cold-start parity with the SIGNED_IN listener branch: a session
-            // rehydrated <60s after signup that died before the auth listener
-            // could fire still gets the trial mint. The edge function is
-            // server-idempotent so a duplicate fire here is a no-op.
-            maybeFireStartTrial(u, data.session.access_token);
-          }
+          // Cold-start parity with the SIGNED_IN listener branch: a session
+          // rehydrated <60s after signup that died before the auth listener
+          // could fire still gets the trial mint. The edge function is
+          // server-idempotent so a duplicate fire here is a no-op.
+          maybeFireStartTrial(u);
         } else {
           setIsLoading(false);
         }

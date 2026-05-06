@@ -21,8 +21,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseUrl } from '../lib/supabase';
-import { fetchSSE, getEdgeFunctionUrl } from '../lib/sse';
+import { fetchSSE } from '../lib/sse';
 import { Sentry } from '../lib/sentry';
 
 export type ChatMessage = {
@@ -138,9 +137,8 @@ export function useStyleChat() {
       };
 
       await fetchSSE(
-        getEdgeFunctionUrl(supabaseUrl, 'style_chat'),
+        'style_chat',
         { messages: messagesPayload, locale: 'en' },
-        session.access_token,
         {
           onData: (raw) => {
             let parsed: StyleChatChunk | null = null;
