@@ -294,9 +294,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const key = u.id;
       if (triggeredTrialKeys.current.has(key)) return;
       triggeredTrialKeys.current.add(key);
-      // M9: callEdgeFunction reads its own session, so passing the access
-      // token through here is no longer needed.
-      void callStartTrial();
+      // Codex P1 round 2 on PR #733: callEdgeFunction hits
+      // supabase.auth.getSession() / refreshSession() on its hot path, and
+      // Supabase's docs explicitly warn against calling auth methods inside
+      // an onAuthStateChange callback (deadlock). Defer with setTimeout so
+      // this synchronous SIGNED_IN listener unwinds before the edge call
+      // re-enters auth. The cold-start getSession() path also routes
+      // through here so this guard covers both.
+      setTimeout(() => {
+        void callStartTrial();
+      }, 0);
     };
 
     // 1. Subscribe FIRST so we don't miss the initial SIGNED_IN that getSession
