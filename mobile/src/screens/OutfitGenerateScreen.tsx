@@ -70,6 +70,21 @@ export function OutfitGenerateScreen() {
   // carries the anchor id; the garment record gives us the title/category
   // for the human-readable affordance and the lockedSlots constraint.
   const anchorId = route.params?.garmentId?.trim() || undefined;
+  // M17 Codex P1.4 — variation/clone entry points pass the FULL source
+  // garment roster so the engine builds an outfit that honours every
+  // piece, not just an anchor. The list is normalized (trimmed, empty
+  // strings dropped) before being fed to the hook.
+  const seedGarmentIds = useMemo(() => {
+    const raw = route.params?.seedGarmentIds;
+    if (!Array.isArray(raw)) return [] as string[];
+    return raw
+      .map((id) => (typeof id === 'string' ? id.trim() : ''))
+      .filter((id) => id.length > 0);
+  }, [route.params?.seedGarmentIds]);
+  // Stable key for the deps list — referencing the array reference
+  // directly would re-fire the effect on every render because route
+  // params re-create the array.
+  const seedGarmentIdsKey = seedGarmentIds.join(',');
   const anchorGarmentQ = useGarment(anchorId);
   const anchorGarment = anchorGarmentQ.data ?? null;
   const lockedSlots = useMemo(
@@ -118,7 +133,11 @@ export function OutfitGenerateScreen() {
   // `tryAgain` path so manual retries still see the fresh map.
   useEffect(() => {
     succeededRef.current = false;
-    void generate({ anchorGarmentId: anchorId, lockedSlots });
+    void generate({
+      anchorGarmentId: anchorId,
+      lockedSlots,
+      preferGarmentIds: seedGarmentIds,
+    });
     return () => {
       // Skip the reset on success-nav unmounts (e.g. nav.navigate to
       // OutfitDetail) so a swipe-back lands on the still-populated result.
@@ -128,7 +147,7 @@ export function OutfitGenerateScreen() {
       if (!succeededRef.current) reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchorId]);
+  }, [anchorId, seedGarmentIdsKey]);
 
   // Drive the loading affordance off the request lifecycle. Progress climbs
   // to 90% over 2s then holds; we snap to 100% on completion.
@@ -182,7 +201,11 @@ export function OutfitGenerateScreen() {
   const tryAgain = () => {
     hapticLight();
     reset();
-    void generate({ anchorGarmentId: anchorId, lockedSlots });
+    void generate({
+      anchorGarmentId: anchorId,
+      lockedSlots,
+      preferGarmentIds: seedGarmentIds,
+    });
   };
 
   // M13: clear the anchor and regenerate without it. Resetting the route

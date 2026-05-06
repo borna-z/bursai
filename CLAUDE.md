@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M17 — Compositional helpers (flatlay + accessories + combinations + clone DNA) |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m17-composition-helpers.md` |
+| **CURRENT WAVE** | M18 — Photo feedback / selfie comparison |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m18-photo-feedback.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
