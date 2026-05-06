@@ -1,7 +1,7 @@
 // Settings · Account — profile card + account fields + connected accounts + delete.
 // Mirrors design_handoff_burs_rn/source/audit-screens.jsx SettingsAccountScreen.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -15,8 +15,11 @@ import { Caption } from '../components/Caption';
 import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
+import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
+import { useDeleteAccount } from '../hooks/useDeleteAccount';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -25,10 +28,35 @@ export function SettingsAccountScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { user, profile } = useAuth();
+  const deleteAccount = useDeleteAccount();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const email = user?.email ?? '';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
+
+  const handleConfirmDelete = () => {
+    deleteAccount.mutate(undefined, {
+      onSuccess: () => {
+        setDeleteOpen(false);
+        // Codex P1 round 5 on PR #735: AuthContext's SIGNED_OUT handler
+        // clears auth + caches but does NOT reset the nav stack — the
+        // protected Settings screens stay mounted unless the caller
+        // explicitly resets. Drop straight back to the Auth flow so the
+        // deleted user can't tap around their own residual UI.
+        nav.reset({ index: 0, routes: [{ name: 'Auth' }] });
+      },
+      onError: (err) => {
+        setDeleteOpen(false);
+        Alert.alert(
+          tr('settings.delete_account.title'),
+          err instanceof Error
+            ? err.message
+            : tr('settings.delete_account.error'),
+        );
+      },
+    });
+  };
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -146,28 +174,23 @@ export function SettingsAccountScreen() {
               caption="Permanently removes all data"
               destructive
               last
-              onPress={() =>
-                Alert.alert(
-                  'Delete account',
-                  'This permanently removes your wardrobe, outfits, and learned style. This cannot be undone.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Delete',
-                      style: 'destructive',
-                      onPress: () =>
-                        Alert.alert(
-                          'Account deletion requested',
-                          'Your account will be removed within 30 days.',
-                        ),
-                    },
-                  ],
-                )
-              }
+              onPress={() => setDeleteOpen(true)}
             />
           </Card>
         </View>
       </ScrollView>
+
+      <TypedConfirmModal
+        open={deleteOpen}
+        title={tr('settings.delete_account.title')}
+        body={tr('settings.delete_account.body')}
+        requiredText={tr('settings.delete_account.required')}
+        confirmLabel={tr('settings.delete_account.confirm')}
+        destructive
+        isPending={deleteAccount.isPending}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </SafeAreaView>
   );
 }

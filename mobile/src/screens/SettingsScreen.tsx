@@ -2,7 +2,7 @@
 // — subscription card up top, then grouped sections rendered as Card-wrapped SettingsRow
 // stacks. Sign out button at the bottom.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +17,10 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
+import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { useAuth } from '../hooks/useAuth';
+import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
+import { t as tr } from '../lib/i18n';
 import {
   GlobeIcon,
   PaletteIcon,
@@ -40,10 +43,31 @@ export function SettingsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { user, profile, signOut } = useAuth();
+  const resetMemory = useResetStyleMemory();
+  const [resetOpen, setResetOpen] = useState(false);
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const accountEmail = user?.email ?? '';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
+
+  const handleConfirmReset = () => {
+    resetMemory.mutate(undefined, {
+      onSuccess: () => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.success.title'),
+          tr('settings.reset_memory.success.body'),
+        );
+      },
+      onError: (err) => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.title'),
+          err instanceof Error ? err.message : tr('settings.reset_memory.error'),
+        );
+      },
+    });
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -151,20 +175,7 @@ export function SettingsScreen() {
             caption="Clears learned preferences only"
             destructive
             last
-            onPress={() =>
-              Alert.alert(
-                'Reset style memory',
-                'This clears what BURS has learned about you. Your wardrobe and outfits are kept.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reset',
-                    style: 'destructive',
-                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
-                  },
-                ],
-              )
-            }
+            onPress={() => setResetOpen(true)}
           />
         </Section>
 
@@ -257,6 +268,18 @@ export function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <TypedConfirmModal
+        open={resetOpen}
+        title={tr('settings.reset_memory.title')}
+        body={tr('settings.reset_memory.body')}
+        requiredText={tr('settings.reset_memory.required')}
+        confirmLabel={tr('settings.reset_memory.confirm')}
+        destructive
+        isPending={resetMemory.isPending}
+        onConfirm={handleConfirmReset}
+        onCancel={() => setResetOpen(false)}
+      />
     </SafeAreaView>
   );
 }

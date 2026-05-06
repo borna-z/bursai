@@ -459,6 +459,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // racy and the worst case is we render user A's gradient placeholder
     // for one frame instead of leaking their signed URL into user B's session.
     clearSignedUrlCache();
+    // Codex P1 round 9 on PR #735: also clear the offline queue here.
+    // The SIGNED_OUT listener handles the happy path, but if the supabase
+    // auth call fails or the SIGNED_OUT event never fires (e.g. the auth
+    // user was just deleted server-side, so the listener's session-state
+    // change is a no-op), pending add-garment-save / memory-event items
+    // would otherwise sit in AsyncStorage and replay under the next
+    // signed-in user.
+    //
+    // Codex P2 round 12: AWAIT the persisted clear before resolving so
+    // an app-kill immediately after the post-signOut nav.reset can't
+    // leave queued mutations on disk for the next session. clearQueue
+    // swallows its own AsyncStorage errors so this can't reject the
+    // outer mutation.
+    await clearOfflineQueue();
   }, [queryClient]);
 
   const isOnboarded = deriveIsOnboarded(profile);

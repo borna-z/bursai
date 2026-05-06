@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M11 — Account deletion + reset style memory |
-| **CURRENT WAVE FILE** | [`waves/m11-destructive-mutations.md`](waves/m11-destructive-mutations.md) |
+| **CURRENT WAVE** | M12 — Password reset + deep links |
+| **CURRENT WAVE FILE** | [`waves/m12-password-reset.md`](waves/m12-password-reset.md) |
 | **STATUS** | TODO |
 
 The next agent reads this file → reads the wave file → implements.
@@ -96,7 +96,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Required platform mutations (App Store / privacy)
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M11 | [Account deletion + reset style memory](waves/m11-destructive-mutations.md) | TODO | V0 |
+| M11 | [Account deletion + reset style memory](waves/m11-destructive-mutations.md) | DONE (PR #735) | V0 |
 | M12 | [Password reset + deep links](waves/m12-password-reset.md) | TODO | V0 |
 
 ### Style + intelligence depth

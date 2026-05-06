@@ -12,6 +12,23 @@ import { AddPieceStep3 } from '../screens/AddPieceStep3';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { MainTabsScreen } from '../screens/MainTabsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+// M11 — destructive flows live behind Settings → Account / Privacy & data,
+// so SettingsScreen + SettingsAccountScreen + SettingsPrivacyScreen
+// have to be reachable for App Store guideline 5.1.1(v) review. The
+// other settings screens are mounted alongside since they're a unit.
+// AuthScreen also has to be real because the post-deletion nav.reset
+// lands there — without this, a deleted user lands on a placeholder.
+// Onboarding mounts alongside Auth: AuthScreen reset-navigates a
+// fresh sign-up to Onboarding, which would otherwise be a placeholder
+// dead-end (Codex P2 round 11 on PR #735).
+import { AuthScreen } from '../screens/AuthScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
+import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
+import { SettingsNotificationsScreen } from '../screens/SettingsNotificationsScreen';
+import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
+import { SettingsStyleScreen } from '../screens/SettingsStyleScreen';
 import type { TabId } from '../components/BottomNav';
 import type { MoodId } from '../components/MoodCard';
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
@@ -192,8 +209,8 @@ export function RootNavigator() {
           `OnboardingScreen`, `PaywallScreen` implementations live under
           `mobile/src/screens/` and will be wired in a follow-up screen-
           mounting pass alongside the other ready-to-mount screens. */}
-      <Stack.Screen name="Auth" component={Placeholders.Auth} />
-      <Stack.Screen name="Onboarding" component={Placeholders.Onboarding} />
+      <Stack.Screen name="Auth" component={AuthScreen} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Paywall" component={Placeholders.Paywall} />
 
       {/* Add piece flow */}
@@ -232,12 +249,12 @@ export function RootNavigator() {
       <Stack.Screen name="UnusedOutfits" component={Placeholders.UnusedOutfits} />
 
       {/* Settings */}
-      <Stack.Screen name="Settings" component={Placeholders.Settings} />
-      <Stack.Screen name="SettingsAppearance" component={Placeholders.SettingsAppearance} />
-      <Stack.Screen name="SettingsStyle" component={Placeholders.SettingsStyle} />
-      <Stack.Screen name="SettingsNotifications" component={Placeholders.SettingsNotifications} />
-      <Stack.Screen name="SettingsAccount" component={Placeholders.SettingsAccount} />
-      <Stack.Screen name="SettingsPrivacy" component={Placeholders.SettingsPrivacy} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
+      <Stack.Screen name="SettingsStyle" component={SettingsStyleScreen} />
+      <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsScreen} />
+      <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
+      <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
 
       {/* Profile / account / extras */}
       <Stack.Screen name="Profile" component={Placeholders.Profile} />

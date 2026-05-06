@@ -192,6 +192,35 @@ export const en: Record<string, string> = {
   'paywall.privacy.label': 'Open privacy policy',
   'paywall.linkError.title': 'Could not open link',
 
+  // M11 — typed-confirm modal chrome (used by every destructive flow).
+  // Title / body / required-text / confirm-label come from the caller
+  // so each flow can localize its own scenario, but the modal chrome
+  // (eyebrow, instruction, cancel, pending) is shared.
+  'confirmModal.eyebrow': 'Are you sure?',
+  'confirmModal.instruction': 'Type {required} to confirm.',
+  'confirmModal.cancel': 'Cancel',
+  'confirmModal.pending': 'Working…',
+
+  // M11 — destructive mutations (account deletion + reset style memory).
+  // App Store guideline 5.1.1(v) gates the delete path; the typed-confirm
+  // copy mirrors web's PR #712 clickjacking-mitigation strings.
+  'settings.delete_account.title': 'Delete account',
+  'settings.delete_account.body':
+    'This permanently removes your wardrobe, outfits, and learned style — every photo, every signal, every preference. This cannot be undone.',
+  'settings.delete_account.confirm': 'Delete account',
+  'settings.delete_account.required': 'DELETE',
+  'settings.delete_account.error': 'Could not delete your account. Please try again or contact support.',
+
+  'settings.reset_memory.title': 'Reset style memory',
+  'settings.reset_memory.body':
+    'BURS will forget what it has learned about your taste — saves, swaps, ratings, never-suggest pins. Your wardrobe and outfits stay.',
+  'settings.reset_memory.confirm': 'Reset memory',
+  'settings.reset_memory.required': 'RESET',
+  'settings.reset_memory.success.title': 'Style memory cleared',
+  'settings.reset_memory.success.body':
+    'BURS will start fresh on your next session.',
+  'settings.reset_memory.error': 'Could not reset style memory. Please try again.',
+
   // M4 — duplicate detection. en-only for now; sv (and the other 8 locales)
   // land with M33 i18n.
   'addpiece.duplicate.eyebrow': 'Duplicate?',
