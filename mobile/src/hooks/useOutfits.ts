@@ -24,7 +24,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { recordMemoryEvent } from '../lib/memoryIngest';
 import { saveOutfitEvent, wearOutfitEvent } from '../lib/memoryEvents';
 import { captureMutationError } from '../lib/sentry';
+import { localISODate } from './../lib/outfitDisplay';
 import type { OutfitWithItems } from '../types/outfit';
+
+/**
+ * Sentinel result from `useMarkOutfitWorn`. The mutation can decline to
+ * write when the outfit is already marked worn today — callers should
+ * gate `Alert.alert` and other side effects on `data.deduped` so a
+ * dedupe round doesn't surface a "Marked worn" toast that didn't
+ * correspond to a real write. Codex P2 round 10 on PR #738.
+ */
+export type MarkOutfitWornResult = { deduped: boolean };
 
 const OUTFIT_WITH_ITEMS_SELECT = `
   *,
@@ -119,19 +129,17 @@ export function useMarkOutfitWorn() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  return useMutation({
-    mutationFn: async ({
-      outfitId,
-      garmentIds = [],
-    }: {
-      outfitId: string;
-      garmentIds?: string[];
-    }) => {
+  return useMutation<
+    MarkOutfitWornResult,
+    Error,
+    { outfitId: string; garmentIds?: string[] }
+  >({
+    mutationFn: async ({ outfitId, garmentIds = [] }) => {
       if (!user) throw new Error('Not authenticated');
-      // Synchronous in-flight gate — see module comment above.
+      // Synchronous in-flight gate — covers the same-frame double-mutate
+      // case where two `mutate(...)` calls fire before the first's `await`
+      // yields. See module comment above.
       if (inFlightWearOutfit.has(outfitId)) {
-        // Silently no-op the duplicate. The first invocation's onSuccess
-        // will surface the confirmation alert + cache invalidations.
         return { deduped: true };
       }
       inFlightWearOutfit.add(outfitId);
@@ -141,7 +149,11 @@ export function useMarkOutfitWorn() {
         inFlightWearOutfit.delete(outfitId);
       }
     },
-    onSuccess: (_data, { outfitId, garmentIds = [] }) => {
+    onSuccess: (data, { outfitId, garmentIds = [] }) => {
+      // Skip cache invalidations + memory event when the mutation deduped
+      // (no DB write occurred, so caches don't need refresh, and recording
+      // a wear signal would over-count style memory). Codex P2 round 10.
+      if (data.deduped) return;
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
@@ -169,7 +181,34 @@ async function runMarkOutfitWorn({
   outfitId: string;
   garmentIds: string[];
   userId: string;
-}): Promise<void> {
+}): Promise<MarkOutfitWornResult> {
+  // Day-level idempotency. Two scenarios this catches that the synchronous
+  // in-flight Set above does NOT:
+  //   (a) The user taps the second Wear CTA AFTER the first mutation has
+  //       resolved (so the in-flight entry is gone) but BEFORE the
+  //       refetched outfit's `worn_at` has reached the cache and disabled
+  //       the screen's `wornToday` gate. Codex P2 round 10 on PR #738.
+  //   (b) The user opens the same outfit on a second device and taps
+  //       Wear today there too — same-day double-write would still produce
+  //       duplicate wear_logs + a doubled wear_count.
+  // The check reads `outfits.worn_at` directly so it ALWAYS sees the
+  // current server state, not a possibly-stale cached row.
+  const { data: existingOutfit, error: readErr } = await supabase
+    .from('outfits')
+    .select('worn_at')
+    .eq('id', outfitId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (existingOutfit?.worn_at) {
+    const wornDate = new Date(existingOutfit.worn_at);
+    if (!Number.isNaN(wornDate.getTime())) {
+      if (localISODate(wornDate) === localISODate(new Date())) {
+        return { deduped: true };
+      }
+    }
+  }
+
   const nowIso = new Date().toISOString();
 
   // 1. Stamp the outfit.
@@ -189,7 +228,7 @@ async function runMarkOutfitWorn({
       worn_at: nowIso,
     });
     if (logError) throw logError;
-    return;
+    return { deduped: false };
   }
 
   // 3a. Read current wear_count snapshot so the per-row +1 doesn't
@@ -235,6 +274,8 @@ async function runMarkOutfitWorn({
     .from('wear_logs')
     .insert(wearLogRows);
   if (logError) throw logError;
+
+  return { deduped: false };
 }
 
 export function useSaveOutfit() {

@@ -158,7 +158,12 @@ export function PlanScreen() {
     markWorn.mutate(
       { outfitId: selectedOutfit.id, garmentIds },
       {
-        onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
+        // Skip the toast when the mutation deduped — see useMarkOutfitWorn's
+        // day-level idempotency check (Codex P2 round 10 on PR #738).
+        onSuccess: (data) => {
+          if (data?.deduped) return;
+          Alert.alert('Marked worn', 'Saved to your wear log.');
+        },
         onError: (err: unknown) =>
           Alert.alert(
             'Could not mark worn',

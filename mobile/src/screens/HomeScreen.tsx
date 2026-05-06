@@ -193,7 +193,14 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     markWorn.mutate(
       { outfitId: todayOutfit.id, garmentIds },
       {
-        onSuccess: () => Alert.alert('Marked worn', 'Today\'s look saved to your wear log.'),
+        // Skip the success alert when the mutation deduped (already worn
+        // today / synchronous in-flight). The first real write's alert
+        // already covered the user; a second toast for a no-op write is
+        // confusing. Codex P2 round 10 on PR #738.
+        onSuccess: (data) => {
+          if (data?.deduped) return;
+          Alert.alert('Marked worn', "Today's look saved to your wear log.");
+        },
         onError: (err: unknown) =>
           Alert.alert(
             'Could not mark worn',
