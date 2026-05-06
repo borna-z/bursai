@@ -129,11 +129,24 @@ export function isQuickReactionMissingValue(input: RecordMemoryEventInput): bool
 // Thin helpers so call sites don't have to remember the field names. Each
 // returns a `RecordMemoryEventInput` ready for `recordMemoryEvent`.
 
+/**
+ * Save event creator. `garmentIds` is the outfit's garment roster — the
+ * `ingest_memory_event` RPC only updates positive pair-memory weight for
+ * `save_outfit` when `p_garment_ids` has ≥2 entries, so omitting the
+ * roster reduces the save to a bare feedback row that doesn't shift
+ * recommendations. Codex P2 round 4 on PR #734.
+ */
 export function saveOutfitEvent(
   outfitId: string,
+  garmentIds: string[],
   source: string,
 ): RecordMemoryEventInput {
-  return { signal_type: 'save_outfit', outfit_id: outfitId, source };
+  return {
+    signal_type: 'save_outfit',
+    outfit_id: outfitId,
+    ...(garmentIds.length > 0 ? { garment_ids: garmentIds } : {}),
+    source,
+  };
 }
 
 export function unsaveOutfitEvent(

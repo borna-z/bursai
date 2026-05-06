@@ -240,6 +240,26 @@ export function pendingCount(): number {
   return queue.length;
 }
 
+// ─── deferred replay scheduler ────────────────────────────────────────
+// When a live caller enqueues after a transient failure (5xx, 429), we
+// want to retry without waiting for the next NetInfo transition or app
+// restart. This single-flight-coalesced timer kicks a replay ~30s later,
+// matching typical 5xx outage / 429 rate-limit-window durations.
+// Codex P2 round 4 on PR #734.
+const DEFERRED_REPLAY_MS = 30_000;
+let deferredReplayTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function scheduleDeferredReplay(): void {
+  if (deferredReplayTimer) return; // already pending
+  deferredReplayTimer = setTimeout(() => {
+    deferredReplayTimer = null;
+    void replay().catch(() => {
+      // replay() owns its own error surface — caller's responsibility
+      // to log if needed.
+    });
+  }, DEFERRED_REPLAY_MS);
+}
+
 /**
  * Clear the queue. Used on sign-out so user A's pending mutations don't
  * replay against user B's session.

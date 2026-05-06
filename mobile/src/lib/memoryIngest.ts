@@ -28,7 +28,7 @@ import {
   EdgeFunctionRateLimitError,
   EdgeFunctionSubscriptionLockedError,
 } from './edgeFunctionClient';
-import { enqueue as enqueueOffline } from './offlineQueue';
+import { enqueue as enqueueOffline, scheduleDeferredReplay } from './offlineQueue';
 import {
   buildMemoryIdempotencyKey,
   isQuickReactionMissingValue,
@@ -77,6 +77,11 @@ export async function recordMemoryEvent(
     // 5xx / transport / unclassified — preserve via the M5 queue. The
     // 4xx surface was already swallowed inside dispatchMemoryEvent.
     await enqueueOffline(MEMORY_EVENT_ACTION, payload);
+    // Codex P2 round 4 on PR #734: an online failure (transient 5xx /
+    // 429) would otherwise sit in the queue until the next NetInfo
+    // transition or app restart. Schedule a deferred replay so the
+    // event syncs once the server / rate-limit window recovers.
+    scheduleDeferredReplay();
     console.warn(
       '[memoryIngest] enqueued for retry:',
       err instanceof Error ? err.message : String(err),

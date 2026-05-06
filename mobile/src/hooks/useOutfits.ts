@@ -216,7 +216,7 @@ export function useSaveOutfit() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (outfitId: string) => {
+    mutationFn: async ({ outfitId }: { outfitId: string; garmentIds?: string[] }) => {
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('outfits')
@@ -225,13 +225,17 @@ export function useSaveOutfit() {
         .eq('user_id', user.id);
       if (error) throw error;
     },
-    onSuccess: (_data, outfitId) => {
+    onSuccess: (_data, { outfitId, garmentIds }) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
       // Style Memory signal — fire-and-forget; queue-aware so a network
-      // drop doesn't lose the save signal. M10 fix: also corrects the
-      // `event_type` → `signal_type` field-name bug.
-      void recordMemoryEvent(saveOutfitEvent(outfitId, 'mobile/useSaveOutfit'));
+      // drop doesn't lose the save signal. The `ingest_memory_event` RPC
+      // only updates positive pair-memory weight when garment_ids has ≥2
+      // entries, so the caller passes the outfit roster (Codex P2 round 4
+      // on PR #734).
+      void recordMemoryEvent(
+        saveOutfitEvent(outfitId, garmentIds ?? [], 'mobile/useSaveOutfit'),
+      );
     },
     onError: captureMutationError('useSaveOutfit'),
   });
