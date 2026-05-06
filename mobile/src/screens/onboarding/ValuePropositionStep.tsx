@@ -161,7 +161,7 @@ export function ValuePropositionStep({ onComplete }: { onComplete: () => void })
 
 // Slide content keyed off i18n. Eyebrow / title / body all flow through tr()
 // at render time so the LanguageStep selection actually changes copy here.
-const SLIDES: ReadonlyArray<{ id: SlideId; eyebrowKey: string; titleKey: string; bodyKey: string }> = [
+const SLIDES: readonly { id: SlideId; eyebrowKey: string; titleKey: string; bodyKey: string }[] = [
   { id: 'wardrobe', eyebrowKey: 'value.slide.wardrobe.eyebrow', titleKey: 'value.slide.wardrobe.title', bodyKey: 'value.slide.wardrobe.body' },
   { id: 'styling',  eyebrowKey: 'value.slide.styling.eyebrow',  titleKey: 'value.slide.styling.title',  bodyKey: 'value.slide.styling.body' },
   { id: 'stylist',  eyebrowKey: 'value.slide.stylist.eyebrow',  titleKey: 'value.slide.stylist.title',  bodyKey: 'value.slide.stylist.body' },

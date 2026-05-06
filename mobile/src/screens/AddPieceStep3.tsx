@@ -14,10 +14,11 @@
 // Multi-photo (W9 follow-up): the piece-selector strip is gone in W5. When multi-photo
 // lands, the strip returns and Save loops back to Step 2 with the next photo.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,12 +34,15 @@ import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
+import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon } from '../components/icons';
 import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
-import { useAddGarment } from '../hooks/useAddGarment';
+import { useAddGarment, OfflineQueuedError } from '../hooks/useAddGarment';
+import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
+import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { deleteUpload } from '../lib/imageUpload';
 import {
@@ -65,6 +69,19 @@ const SEASON_LABELS: Record<string, string> = {
 function titleCase(value: string | null | undefined): string {
   if (!value) return '—';
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+// Tiny debounce hook — used to throttle the title input feeding the
+// duplicate-detection query so per-keystroke edits don't burn the
+// detect_duplicate_garment 8/min rate limit. Inlined here because it's the
+// only consumer; a shared util would be premature.
+function useDebouncedTitle(value: string, ms: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
 }
 
 export function AddPieceStep3() {
@@ -185,6 +202,94 @@ export function AddPieceStep3() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // M4 — duplicate detection. Hooks must run unconditionally (rules-of-hooks),
+  // so they're declared above the no-params early return. The query is
+  // disabled when category is missing — a missing-params render passes a
+  // null input and the hook short-circuits via its `enabled` gate.
+  //
+  // resolvedStoragePath: starts as the direct path (Step 2's base64-fallback)
+  // or null. The effect below awaits the parallel-upload promise and flips it
+  // to the real storage path once available, which re-fires the duplicate
+  // query with image_path so visual matches surface even when attribute
+  // scoring alone wouldn't reach the 0.85 modal threshold. Codex P2 round 2.
+  const [resolvedStoragePath, setResolvedStoragePath] = useState<string | null>(
+    () => params?.storagePath ?? null,
+  );
+  useEffect(() => {
+    if (params?.storagePath || !params?.uploadId) return;
+    if (!uploadPromiseRef.current) {
+      const promise = takePendingUpload(params.uploadId);
+      if (!promise) return;
+      uploadPromiseRef.current = promise;
+    }
+    let cancelled = false;
+    uploadPromiseRef.current
+      .then((res) => {
+        if (cancelled) return;
+        setResolvedStoragePath(res.storagePath);
+      })
+      // A rejected upload just leaves the duplicate query attribute-only —
+      // matching handleSave's failure path. Save itself surfaces the error
+      // via friendlySaveError; duplicate detection has no UX to surface here.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [params?.uploadId, params?.storagePath]);
+
+  // Codex P2 round 3: every keystroke on the title used to refire the
+  // duplicate query — `detect_duplicate_garment` is rate-limited at 8/min,
+  // so a 9-char edit could burn the budget and suppress the actual warning
+  // with a 429 by the time the visual check is ready. Debounce the
+  // title-derived input by 600ms so the user is mid-pause before we re-ask.
+  // The trim() lives inside the debounce target so a "  Blue Tee   " edit
+  // doesn't beat the debounce by churning whitespace.
+  const debouncedDuplicateTitle = useDebouncedTitle(
+    titleOverride.trim() || (params?.analysis.title ?? ''),
+    600,
+  );
+
+  const duplicateInput = useMemo(
+    () =>
+      params?.analysis
+        ? {
+            image_path: resolvedStoragePath,
+            category: params.analysis.category ?? null,
+            color_primary: params.analysis.color_primary ?? null,
+            title: debouncedDuplicateTitle || params.analysis.title,
+            subcategory: params.analysis.subcategory ?? null,
+            material: params.analysis.material ?? null,
+          }
+        : null,
+    [
+      resolvedStoragePath,
+      params?.analysis,
+      debouncedDuplicateTitle,
+    ],
+  );
+  const duplicateQuery = useDetectDuplicate(duplicateInput);
+  const duplicateMatch = topDuplicate(duplicateQuery.data);
+
+  // Surface the modal once per match: track which garment_id we've already
+  // shown a prompt for so editing the title (which fires a fresh query) doesn't
+  // re-pop the modal after the user already chose "Add anyway".
+  //
+  // Codex P2 round 4: if the duplicate query resolves AFTER the user has
+  // already opened the save sheet and started handleSave, popping the modal
+  // creates a race — "View existing" would nav.reset to the cached garment
+  // while the in-flight mutateAsync still inserts a new (duplicate) row and
+  // handleSave's onSuccess nav.reset competes with ours. Suppress the prompt
+  // once save is in flight, and hide an already-open modal via the visible
+  // gate below.
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const duplicateAcknowledgedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!duplicateMatch) return;
+    if (savingRef.current || addGarment.isPending) return;
+    if (duplicateAcknowledgedRef.current === duplicateMatch.garment_id) return;
+    setDuplicateModalOpen(true);
+  }, [duplicateMatch, addGarment.isPending]);
+
   // Defensive guard — without route params the screen has nothing to render. Bounce
   // the user back to Step 1 instead of crashing on `params.analysis.title`.
   if (!params) {
@@ -199,8 +304,42 @@ export function AddPieceStep3() {
   }
 
   const { storagePath, photoUri, analysis, source } = params;
-  const confidenceHigh = analysis.confidence >= 0.7;
+  // Missing confidence (`null`) is treated as low — the badge surfaces a
+  // prompt to review fields rather than the auto-confirmed copy. Codex P2
+  // round on PR #738.
+  const confidenceHigh = typeof analysis.confidence === 'number' && analysis.confidence >= 0.7;
   const seasonsLower = analysis.season_tags.map((s) => s.toLowerCase());
+
+  const dismissDuplicate = (acknowledge: boolean) => {
+    if (acknowledge && duplicateMatch) {
+      duplicateAcknowledgedRef.current = duplicateMatch.garment_id;
+    }
+    setDuplicateModalOpen(false);
+  };
+
+  const onViewExistingDuplicate = () => {
+    if (!duplicateMatch) return;
+    hapticLight();
+    dismissDuplicate(true);
+    // Codex P2 round 2: nav.navigate() pushes GarmentDetail on top while
+    // Step 3 stays mounted — the unmount-cleanup effect never runs and the
+    // newly-uploaded JPEG sits orphaned in storage until the user happens to
+    // pop back. Treat "View existing" as abandoning this new garment: reset
+    // the stack the same way handleSave does, so Step 3 unmounts and its
+    // cleanup runCleanup fires (savedRef stays false → orphan delete runs).
+    nav.reset({
+      index: 1,
+      routes: [
+        { name: 'MainTabs' },
+        { name: 'GarmentDetail', params: { id: duplicateMatch.garment_id } },
+      ],
+    });
+  };
+
+  const onAddAnyway = () => {
+    hapticLight();
+    dismissDuplicate(true);
+  };
 
   // Map raw exception text to user-facing copy. PostgREST and supabase-js bubble up
   // wire-format messages ("duplicate key value violates unique constraint",
@@ -285,7 +424,23 @@ export function AddPieceStep3() {
         ],
       });
     } catch (err) {
-      Alert.alert('Save failed', friendlySaveError(err));
+      // M5 — offline queue. The save was tucked into the offline queue; the
+      // file will replay when the network returns. Treat as "done with the
+      // AddPiece flow" from the user's POV — they've reviewed and committed
+      // — but unwind to MainTabs since there's no garment row id to nav to.
+      // The offlineQueue handler also retries the upload promise's resolved
+      // path, so we mark savedRef=true to skip the orphan cleanup (the
+      // queued payload owns the storagePath now).
+      if (err instanceof OfflineQueuedError) {
+        savedRef.current = true;
+        Alert.alert(
+          'Saved offline',
+          'We’ll finish saving this piece as soon as you’re back online.',
+        );
+        nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+      } else {
+        Alert.alert('Save failed', friendlySaveError(err));
+      }
     } finally {
       savingRef.current = false;
       setIsSaving(false);
@@ -322,11 +477,33 @@ export function AddPieceStep3() {
     nav.navigate('AddPieceStep1');
   };
 
+  // Codex P2 on PR #738: a tap on the header back button used to silently
+  // pop the screen, dropping the upload + analysis the user just spent
+  // 2-5 seconds producing. Confirm before discarding when there's a
+  // successful analysis on the screen (the only state Step 3 ever renders;
+  // the no-params bail-out above handles the missing-analysis case). The
+  // unmount cleanup effect still runs on the discard path — savedRef stays
+  // false, so the orphan-delete fires and frees the storage object.
+  const confirmBack = () => {
+    if (!params?.analysis) {
+      nav.goBack();
+      return;
+    }
+    Alert.alert(
+      'Discard this piece?',
+      "You'll lose the photo and the AI analysis. You can rescan from Step 1.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => nav.goBack() },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
       {/* ============ HEADER ============ */}
       <View style={[s.header, { borderBottomColor: t.border }]}>
-        <IconBtn variant="ghost" onPress={() => nav.goBack()} ariaLabel="Back">
+        <IconBtn variant="ghost" onPress={confirmBack} ariaLabel="Back">
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1 }}>
@@ -447,7 +624,7 @@ export function AddPieceStep3() {
               ['Material', titleCase(analysis.material)],
               ['Pattern', titleCase(analysis.pattern)],
               ['Fit', titleCase(analysis.fit)],
-            ] as Array<[string, string]>
+            ] as [string, string][]
           ).map(([label, value]) => (
             <View
               key={label}
@@ -498,7 +675,7 @@ export function AddPieceStep3() {
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 2 }}>Almost there</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
-            We&rsquo;ll keep refining in the background
+            We'll keep refining in the background
           </Text>
         </View>
         <Button
@@ -517,6 +694,41 @@ export function AddPieceStep3() {
         onSelectStudio={() => void handleSave(true)}
         onSelectOriginal={() => void handleSave(false)}
       />
+
+      <Modal
+        visible={duplicateModalOpen && !!duplicateMatch && !saveBusy}
+        transparent
+        animationType="fade"
+        onRequestClose={() => dismissDuplicate(false)}>
+        <View style={[s.modalScrim, { backgroundColor: t.scrimBg }]}>
+          <View
+            style={[
+              s.modalCard,
+              { backgroundColor: t.card, borderColor: t.border },
+            ]}>
+            <Eyebrow style={{ marginBottom: 6 }}>{tr('addpiece.duplicate.eyebrow')}</Eyebrow>
+            <PageTitle size={22}>{tr('addpiece.duplicate.title')}</PageTitle>
+            <Caption style={{ marginTop: 8, lineHeight: 19 }}>
+              {duplicateMatch?.title
+                ? tr('addpiece.duplicate.body', { title: duplicateMatch.title })
+                : tr('addpiece.duplicate.bodyNoTitle')}
+            </Caption>
+            <View style={{ marginTop: 18, gap: 8 }}>
+              <Button
+                label={tr('addpiece.duplicate.viewExisting')}
+                onPress={onViewExistingDuplicate}
+                accessibilityLabel={tr('addpiece.duplicate.viewExisting')}
+              />
+              <Button
+                label={tr('addpiece.duplicate.addAnyway')}
+                variant="quiet"
+                onPress={onAddAnyway}
+                accessibilityLabel={tr('addpiece.duplicate.addAnyway')}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -576,5 +788,18 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     padding: 24,
+  },
+  modalScrim: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    padding: 22,
   },
 });

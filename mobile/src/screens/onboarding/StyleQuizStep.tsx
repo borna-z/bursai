@@ -82,7 +82,6 @@ export function StyleQuizStep({
 }: {
   onComplete: (answers: StyleQuizAnswers) => void;
 }) {
-  const t = useTokens();
   const [q, setQ] = useState(0);
   const [answers, setAnswers] = useState<StyleQuizAnswers>(DEFAULT_ANSWERS);
   const [genderTouched, setGenderTouched] = useState(false);
@@ -218,7 +217,7 @@ function sumLifestyle(l: LifestyleMix): number {
 
 // ─── Q1 — Gender + height ───────────────────────────────────────────────────
 
-const GENDERS: ReadonlyArray<{ id: Gender; labelKey: string }> = [
+const GENDERS: readonly { id: Gender; labelKey: string }[] = [
   { id: 'woman',       labelKey: 'quiz.q1.gender.woman' },
   { id: 'man',         labelKey: 'quiz.q1.gender.man' },
   { id: 'nonbinary',   labelKey: 'quiz.q1.gender.nonbinary' },
@@ -452,7 +451,7 @@ function Q2({
 // rebalance — clamp the new value, then scale the OTHER 4 buckets so total stays 100.
 function rebalance(mix: LifestyleMix, key: keyof LifestyleMix, raw: number): LifestyleMix {
   const v = Math.max(0, Math.min(100, raw));
-  const others = LIFESTYLE_KEYS.filter((k) => k !== key) as Array<keyof LifestyleMix>;
+  const others = LIFESTYLE_KEYS.filter((k) => k !== key) as (keyof LifestyleMix)[];
   const otherSum = others.reduce((acc, k) => acc + mix[k], 0);
   const target = 100 - v;
   const next: LifestyleMix = { ...mix, [key]: v };
@@ -501,11 +500,19 @@ function LifestyleRow({
 
   // Drag-to-set slider — proper PanResponder so the user can fine-tune by
   // sliding instead of tapping pixel-precise positions. (P1-4.)
+  //
+  // Direction-gated capture so the parent ScrollView keeps vertical scroll:
+  // - onStartShouldSetPanResponder returns false so a touch-start never
+  //   blocks the ScrollView from beginning a vertical drag.
+  // - onMoveShouldSetPanResponder claims the responder only when the gesture
+  //   is horizontal-dominant (|dx| > |dy|), which is the slider's axis.
+  //   Vertical-dominant gestures fall through to the ScrollView untouched.
   const pan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_e, gestureState) =>
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderGrant: (e) => {
           const w = widthRef.current;
           if (w <= 0) return;
@@ -587,7 +594,7 @@ function LifestyleRow({
 
 // ─── Q3 — Climate + city ─────────────────────────────────────────────────────
 
-const CLIMATES: ReadonlyArray<{ id: Climate; labelKey: string }> = [
+const CLIMATES: readonly { id: Climate; labelKey: string }[] = [
   { id: 'hot',      labelKey: 'quiz.q3.climate.hot' },
   { id: 'warm',     labelKey: 'quiz.q3.climate.warm' },
   { id: 'mild',     labelKey: 'quiz.q3.climate.mild' },
@@ -692,7 +699,7 @@ function Q3({
 // IDs match the web's V4 ARCHETYPE_OPTIONS (src/types/styleProfile.ts:70) so
 // the eventual server-write doesn't fail the CHECK constraint. Verified
 // 2026-05-02. (P2-9.)
-const ARCHETYPES: ReadonlyArray<{ id: Archetype; labelKey: string }> = [
+const ARCHETYPES: readonly { id: Archetype; labelKey: string }[] = [
   { id: 'minimal',    labelKey: 'quiz.q4.archetype.minimal' },
   { id: 'classic',    labelKey: 'quiz.q4.archetype.classic' },
   { id: 'romantic',   labelKey: 'quiz.q4.archetype.romantic' },
@@ -781,7 +788,7 @@ function Q4({
 
 // ─── Q5 — Goal ───────────────────────────────────────────────────────────────
 
-const GOALS: ReadonlyArray<{ id: Goal; labelKey: string; captionKey: string }> = [
+const GOALS: readonly { id: Goal; labelKey: string; captionKey: string }[] = [
   { id: 'fasterDressing',  labelKey: 'quiz.q5.goal.fasterDressing.label',  captionKey: 'quiz.q5.goal.fasterDressing.caption' },
   { id: 'discoverCombos',  labelKey: 'quiz.q5.goal.discoverCombos.label',  captionKey: 'quiz.q5.goal.discoverCombos.caption' },
   { id: 'shopSmarter',     labelKey: 'quiz.q5.goal.shopSmarter.label',     captionKey: 'quiz.q5.goal.shopSmarter.caption' },

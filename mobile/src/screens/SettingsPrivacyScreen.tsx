@@ -1,7 +1,7 @@
 // Settings · Privacy & data — info card + actions for export, reset memory, delete.
 // Mirrors design_handoff_burs_rn/source/audit-screens.jsx SettingsPrivacyScreen.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -15,7 +15,11 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
-import { BackIcon, FileIcon, RotateIcon, TrashIcon, ShieldIcon } from '../components/icons';
+import { TypedConfirmModal } from '../components/TypedConfirmModal';
+import { BackIcon, RotateIcon, TrashIcon, ShieldIcon } from '../components/icons';
+import { useDeleteAccount } from '../hooks/useDeleteAccount';
+import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -23,6 +27,49 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function SettingsPrivacyScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const deleteAccount = useDeleteAccount();
+  const resetMemory = useResetStyleMemory();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  const handleConfirmDelete = () => {
+    deleteAccount.mutate(undefined, {
+      onSuccess: () => {
+        setDeleteOpen(false);
+        // Same nav.reset rationale as SettingsAccountScreen: AuthContext's
+        // SIGNED_OUT handler clears auth + caches but doesn't touch the
+        // nav stack, so the deleted user would otherwise stay on this
+        // mounted screen.
+        nav.reset({ index: 0, routes: [{ name: 'Auth' }] });
+      },
+      onError: (err) => {
+        setDeleteOpen(false);
+        Alert.alert(
+          tr('settings.delete_account.title'),
+          err instanceof Error ? err.message : tr('settings.delete_account.error'),
+        );
+      },
+    });
+  };
+
+  const handleConfirmReset = () => {
+    resetMemory.mutate(undefined, {
+      onSuccess: () => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.success.title'),
+          tr('settings.reset_memory.success.body'),
+        );
+      },
+      onError: (err) => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.title'),
+          err instanceof Error ? err.message : tr('settings.reset_memory.error'),
+        );
+      },
+    });
+  };
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -74,33 +121,16 @@ export function SettingsPrivacyScreen() {
         </Card>
 
         {/* ============ ACTIONS ============ */}
+        {/* "Export all my data" row intentionally omitted: there is no edge
+            function or job behind it yet, and App Store guideline 5.1.1(a)(ii)
+            actively tests data-export claims. The row returns once a real
+            export pipeline ships. */}
         <Card padding={4}>
-          <SettingsRow
-            icon={<FileIcon size={18} color={t.accent} />}
-            title="Export all my data"
-            caption="Get a ZIP archive of everything"
-            onPress={() =>
-              Alert.alert('Export', 'Your data export will be emailed to you.')
-            }
-          />
           <SettingsRow
             icon={<RotateIcon size={18} color={t.accent} />}
             title="Reset style memory"
             caption="Clears learned preferences only"
-            onPress={() =>
-              Alert.alert(
-                'Reset style memory',
-                'BURS will forget what it has learned about you. Your wardrobe and outfits stay.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reset',
-                    style: 'destructive',
-                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
-                  },
-                ],
-              )
-            }
+            onPress={() => setResetOpen(true)}
           />
           <SettingsRow
             icon={<TrashIcon size={18} color={t.destructive} />}
@@ -108,27 +138,34 @@ export function SettingsPrivacyScreen() {
             caption="Permanently removes all data"
             destructive
             last
-            onPress={() =>
-              Alert.alert(
-                'Delete account',
-                'This permanently removes your wardrobe, outfits, and learned style. This cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () =>
-                      Alert.alert(
-                        'Account deletion requested',
-                        'Your account will be removed within 30 days.',
-                      ),
-                  },
-                ],
-              )
-            }
+            onPress={() => setDeleteOpen(true)}
           />
         </Card>
       </ScrollView>
+
+      <TypedConfirmModal
+        open={resetOpen}
+        title={tr('settings.reset_memory.title')}
+        body={tr('settings.reset_memory.body')}
+        requiredText={tr('settings.reset_memory.required')}
+        confirmLabel={tr('settings.reset_memory.confirm')}
+        destructive
+        isPending={resetMemory.isPending}
+        onConfirm={handleConfirmReset}
+        onCancel={() => setResetOpen(false)}
+      />
+
+      <TypedConfirmModal
+        open={deleteOpen}
+        title={tr('settings.delete_account.title')}
+        body={tr('settings.delete_account.body')}
+        requiredText={tr('settings.delete_account.required')}
+        confirmLabel={tr('settings.delete_account.confirm')}
+        destructive
+        isPending={deleteAccount.isPending}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </SafeAreaView>
   );
 }

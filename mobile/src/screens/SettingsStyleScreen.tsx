@@ -1,7 +1,7 @@
 // Settings · Style profile — summary of current Style DNA + edit/reset actions.
 // Mirrors design_handoff_burs_rn/source/audit-screens.jsx SettingsStyleScreen.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -16,7 +16,11 @@ import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
+import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { BackIcon, SparklesIcon, PaletteIcon, TshirtIcon, RotateIcon } from '../components/icons';
+import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
+import { t as tr } from '../lib/i18n';
+import { clearOnboardingDraft } from './OnboardingScreen';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +35,27 @@ const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES;
 export function SettingsStyleScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const resetMemory = useResetStyleMemory();
+  const [resetOpen, setResetOpen] = useState(false);
+
+  const handleConfirmReset = () => {
+    resetMemory.mutate(undefined, {
+      onSuccess: () => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.success.title'),
+          tr('settings.reset_memory.success.body'),
+        );
+      },
+      onError: (err) => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.title'),
+          err instanceof Error ? err.message : tr('settings.reset_memory.error'),
+        );
+      },
+    });
+  };
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -102,7 +127,14 @@ export function SettingsStyleScreen() {
             icon={<SparklesIcon size={16} color={t.accent} />}
             title="Retake style quiz"
             caption="Refresh your DNA from scratch"
-            onPress={() => nav.navigate('Onboarding')}
+            onPress={async () => {
+              // Purge the persisted onboarding draft before navigating —
+              // otherwise OnboardingScreen.loadDraft() would resume the user
+              // on whatever step they were last on instead of starting at
+              // step 0 with empty answers.
+              await clearOnboardingDraft();
+              nav.navigate('Onboarding');
+            }}
           />
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}
@@ -126,23 +158,22 @@ export function SettingsStyleScreen() {
             caption="Forget what BURS has learned"
             destructive
             last
-            onPress={() =>
-              Alert.alert(
-                'Reset style memory',
-                "BURS will forget every learned preference. Your wardrobe and outfits stay.",
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reset',
-                    style: 'destructive',
-                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
-                  },
-                ],
-              )
-            }
+            onPress={() => setResetOpen(true)}
           />
         </Card>
       </ScrollView>
+
+      <TypedConfirmModal
+        open={resetOpen}
+        title={tr('settings.reset_memory.title')}
+        body={tr('settings.reset_memory.body')}
+        requiredText={tr('settings.reset_memory.required')}
+        confirmLabel={tr('settings.reset_memory.confirm')}
+        destructive
+        isPending={resetMemory.isPending}
+        onConfirm={handleConfirmReset}
+        onCancel={() => setResetOpen(false)}
+      />
     </SafeAreaView>
   );
 }

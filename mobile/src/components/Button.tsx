@@ -13,6 +13,7 @@ export function Button({
   size = 'md',
   block = false,
   disabled = false,
+  destructive = false,
   leadingIcon,
   trailingIcon,
   style,
@@ -25,6 +26,10 @@ export function Button({
   size?: Size;
   block?: boolean;
   disabled?: boolean;
+  /** When true, overrides the variant palette with the destructive token
+   * surface. Used for delete/reset confirmations where a single visual
+   * affordance (red fill + light text) is the App-Store-grade signal. */
+  destructive?: boolean;
   leadingIcon?: React.ReactNode;
   trailingIcon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -36,6 +41,11 @@ export function Button({
   const t = useTokens();
 
   const palette = (() => {
+    if (destructive) {
+      // M11: shared destructive surface across delete/reset confirmations.
+      // Wins over variant so the destructive intent reads consistently.
+      return { bg: t.destructive, color: t.accentFg, border: 'transparent' };
+    }
     switch (variant) {
       case 'primary':
         return { bg: t.fg,         color: t.bg,        border: 'transparent' };

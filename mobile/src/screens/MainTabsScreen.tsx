@@ -7,10 +7,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type RouteProp, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { BottomNav, type TabId } from '../components/BottomNav';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { HomeScreen } from './HomeScreen';
 import { WardrobeScreen } from './WardrobeScreen';
 import { PlanScreen } from './PlanScreen';
@@ -23,6 +25,7 @@ type Route = RouteProp<RootStackParamList, 'MainTabs'>;
 export function MainTabsScreen() {
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
   const initial: TabId = route.params?.initialTab ?? 'today';
   const [tab, setTab] = useState<TabId>(initial);
 
@@ -50,6 +53,16 @@ export function MainTabsScreen() {
             from tab visibility instead of plain mount — every tab stays mounted to
             preserve scroll position, so the mount fires while Insights is hidden. */}
         <InsightsScreen active={tab === 'insights'} />
+      </View>
+      {/* M5 — global offline banner. Self-renders null when online or
+          when the queue is empty, so it occupies zero space in the steady
+          state and only appears when there's something the user should
+          know about. Anchored to the safe-area top inset so dynamic-island /
+          notch / status-bar heights all draw cleanly across devices. */}
+      <View
+        pointerEvents="box-none"
+        style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
+        <OfflineBanner />
       </View>
       <BottomNav
         active={tab}

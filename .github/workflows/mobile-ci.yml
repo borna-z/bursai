@@ -1,0 +1,259 @@
+# Mobile CI — V0
+#
+# Per `docs/launch/waves/m-v0-ci-foundations.md`. Every later wave's
+# "V0 CI gates: all green" line resolves to this workflow.
+#
+# Runs on PRs targeting `main` (and pushes to it). Six jobs,
+# each a separate check so branch protection can require them individually:
+#
+#   1. typecheck         (always)
+#   2. lint              (always)
+#   3. expo-doctor       (always)
+#   4. bundle-size       (always; warn at 5MB gz, fail at 7MB gz)
+#   5. deno-check        (only when supabase/functions/<name>/index.ts changes)
+#   6. migration-smoke   (only when supabase/migrations/* changes)
+#
+# Conditional jobs (5, 6) still register as a check via a detect step that
+# either runs the gate or no-ops with a clear log line. This keeps branch
+# protection's "require six checks" rule satisfied on every PR.
+
+name: Mobile CI
+
+# IMPORTANT: no top-level `paths` filter on these triggers.
+#
+# This workflow is a REQUIRED gate (six checks must pass before merge into
+# `main`). If a PR doesn't touch any of the mobile/edge-fn/
+# migration paths, a `paths` filter would skip the workflow entirely — and
+# GitHub treats a skipped required check as permanently pending, blocking
+# merge. So the workflow always runs on PRs targeting main.
+#
+# Heavy conditional work (deno-check, migration-smoke) is gated by per-job
+# `detect` steps that diff the PR and no-op when no relevant files changed —
+# the job itself still registers a check (in seconds) but doesn't burn time
+# on irrelevant work.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+      - run: cd mobile && npm ci
+      - run: cd mobile && npx tsc --noEmit --skipLibCheck
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+      - run: cd mobile && npm ci
+      # ESLint v9 flat config in mobile/ — `--ext` is removed in flat config;
+      # extension filtering happens in eslint.config.js's `files` glob instead.
+      - run: cd mobile && npx eslint "src/**/*.{ts,tsx}" --max-warnings 0
+
+  expo-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+      - run: cd mobile && npm ci
+      # Sentry version mismatch is the known excluded warning — `package.json`
+      # already lists it under `expo.install.exclude` since M0. Any *new*
+      # warning fails the gate (expo-doctor exits non-zero on warnings).
+      - run: cd mobile && npx expo-doctor
+
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+      - run: cd mobile && npm ci
+      # Expo CLI 54+ uses `--output-dir`; the legacy `-o` short-flag was
+       # removed. Keep the path under /tmp/ so subsequent steps can find it.
+      - name: Export iOS bundle
+        run: cd mobile && npx expo export -p ios --output-dir /tmp/expo-export
+      # Warn at 5MB gzipped, fail at 7MB. Threshold revisited at M42.
+      - name: Measure bundle size
+        run: |
+          SIZE=$(du -sb /tmp/expo-export/_expo/static/js | cut -f1)
+          GZIPPED=$(find /tmp/expo-export/_expo/static/js \( -name '*.hbc' -o -name '*.js' \) -print0 \
+            | xargs -0 cat | gzip | wc -c)
+          echo "Raw bundle: $SIZE bytes; gzipped: $GZIPPED bytes"
+          if [ "$GZIPPED" -gt 7000000 ]; then
+            echo "::error::Bundle exceeds 7MB gzipped — fail"
+            exit 1
+          fi
+          if [ "$GZIPPED" -gt 5000000 ]; then
+            echo "::warning::Bundle exceeds 5MB gzipped — investigate"
+          fi
+
+  # Detect-step pattern (mirrors `.github/workflows/ci.yml` deno-check). The
+  # job always runs and registers a check, but only invokes `deno check`
+  # when an edge-function entry-point changed in this PR.
+  #
+  # Three-dot diff = merge-base(BASE,HEAD)..HEAD, so we only see what this
+  # PR actually changed, not migrations introduced on the base branch after
+  # this branch diverged.
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect changed edge functions
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA=$(git rev-parse "$HEAD_SHA^" 2>/dev/null || echo "$HEAD_SHA")
+          fi
+          # --diff-filter=ACMR: skip Deleted (D) — feeding a removed path to
+          # `deno check` would file-not-found and block legitimate deletions.
+          #
+          # `deno check <function>/index.ts` walks the import graph, so we run
+          # it on entry-points (the only thing it can be invoked on), but we
+          # must trigger when *anything* in that graph changes, not just
+          # `index.ts`. Three cases:
+          #   1. `_shared/*.ts` changed → check ALL entry-points (we can't
+          #      know which consumers without parsing imports).
+          #   2. `<name>/*.ts` changed (sibling of index.ts) → check that
+          #      function's index.ts.
+          #   3. `<name>/index.ts` changed → check it.
+          CHANGED_TS=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" \
+            | grep -E '^supabase/functions/.*\.ts$' || true)
+          if [ -z "$CHANGED_TS" ]; then
+            echo "files=" >> "$GITHUB_OUTPUT"
+            echo "No edge-function .ts changes — deno check skipped."
+            exit 0
+          fi
+          if echo "$CHANGED_TS" | grep -qE '^supabase/functions/_shared/'; then
+            echo "Shared module changed — type-checking all entry-points."
+            ENTRYPOINTS=$(find supabase/functions -mindepth 2 -maxdepth 2 -name index.ts \
+              -not -path 'supabase/functions/_shared/*' | tr '\n' ' ')
+          else
+            # Collect unique function dirs whose contents changed, then map
+            # each to its index.ts (skipping any without one).
+            FUNC_DIRS=$(echo "$CHANGED_TS" \
+              | grep -E '^supabase/functions/[^_][^/]+/' \
+              | awk -F/ '{print $1"/"$2"/"$3}' | sort -u)
+            ENTRYPOINTS=""
+            for d in $FUNC_DIRS; do
+              if [ -f "$d/index.ts" ]; then
+                ENTRYPOINTS="$ENTRYPOINTS $d/index.ts"
+              fi
+            done
+            ENTRYPOINTS=$(echo "$ENTRYPOINTS" | xargs)
+          fi
+          if [ -n "$ENTRYPOINTS" ]; then
+            echo "files=$ENTRYPOINTS" >> "$GITHUB_OUTPUT"
+            echo "Entry-points to type-check: $ENTRYPOINTS"
+          else
+            echo "files=" >> "$GITHUB_OUTPUT"
+            echo "No entry-points map to changed files — deno check skipped."
+          fi
+      - name: Setup Deno
+        if: steps.detect.outputs.files != ''
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Cache Deno dependencies
+        if: steps.detect.outputs.files != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ runner.os }}-${{ hashFiles('.github/workflows/mobile-ci.yml', 'supabase/functions/**/*.ts') }}
+          restore-keys: |
+            deno-${{ runner.os }}-
+      - name: Deno check changed functions
+        if: steps.detect.outputs.files != ''
+        run: |
+          for f in ${{ steps.detect.outputs.files }}; do
+            echo "::group::deno check $f"
+            deno check "$f"
+            echo "::endgroup::"
+          done
+
+  # Migration smoke: lint + dry-run push against the linked remote when the
+  # PR touches `supabase/migrations/*`. Loud failure on missing secrets so
+  # CI doesn't silently skip (P0d-iv lesson).
+  migration-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect migration changes
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA=$(git rev-parse "$HEAD_SHA^" 2>/dev/null || echo "$HEAD_SHA")
+          fi
+          if git diff --name-only "$BASE_SHA...$HEAD_SHA" | grep -q '^supabase/migrations/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Migration files changed — smoke will run."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No migration files changed — smoke skipped."
+          fi
+      - name: Setup Supabase CLI
+        if: steps.detect.outputs.changed == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          # Match the version pinned in `.github/workflows/ci.yml` smoke-local.
+          # Bump both together when syncing with the dev environment.
+          version: '1.226.4'
+      - name: Migration lint + dry-run push
+        if: steps.detect.outputs.changed == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN secret is not set. Add it as a repo secret."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::SUPABASE_DB_PASSWORD secret is not set. Add it as a repo secret."
+            exit 1
+          fi
+          supabase link --project-ref khvkwojtlkcvxjxztduj
+          echo "::group::supabase db lint --linked"
+          supabase db lint --linked
+          echo "::endgroup::"
+          echo "::group::supabase db push --linked --dry-run"
+          supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD"
+          echo "::endgroup::"

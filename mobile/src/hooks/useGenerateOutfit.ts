@@ -13,12 +13,50 @@
 //   { items: { slot, garment_id }[], explanation: string,
 //     wardrobe_insights?: string[], confidence_*?, error? }
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
-import { supabaseUrl } from '../lib/supabase';
-import { getEdgeFunctionUrl } from '../lib/sse';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionSubscriptionLockedError,
+} from '../lib/edgeFunctionClient';
+import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
+import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
+import { t as tr } from '../lib/i18n';
+
+/**
+ * Sentinel `error` value the hook raises when the engine returns a complete
+ * outfit that drops the requested anchor garment. Screens compare against
+ * this string to render anchor-specific copy + a tryAgain CTA instead of
+ * exposing "Wear today" / "Save outfit" over a result that violates the
+ * lock. M13 / Codex P2 round 4.
+ */
+export const ANCHOR_MISSED_ERROR = 'anchor_missed';
+
+/**
+ * Sentinel `error` for an engine response that fails the M13 slot-rule
+ * validator (e.g. top + shoes without a bottom, two bottoms, top + dress).
+ * Web's generator rejects the same scenario; mobile mirrors the contract
+ * so the screen never exposes "Wear today" over an invalid outfit.
+ * Codex P2 round 6 on PR #737.
+ */
+export const INVALID_OUTFIT_ERROR = 'invalid_outfit';
+
+/**
+ * Translate a hook `error` value to a user-facing message. Screens that
+ * branch on the sentinels (`OutfitGenerateScreen`) render their own copy;
+ * screens that don't (`StyleMeScreen`) call this helper so the user
+ * never sees a raw `'invalid_outfit'` / `'anchor_missed'` token. Codex
+ * P2 round 9a on PR #737.
+ */
+export function formatGenerateOutfitError(error: string | null): string | null {
+  if (!error) return null;
+  if (error === ANCHOR_MISSED_ERROR) return tr('anchor.missed.errorBodyFallback');
+  if (error === INVALID_OUTFIT_ERROR) return tr('outfit.invalid.errorBody');
+  return error;
+}
 
 export type GeneratedOutfitItem = {
   garment_id?: string;
@@ -41,7 +79,23 @@ export type GeneratedOutfit = {
 export type GenerateOutfitParams = {
   occasion?: string;
   formality?: string;
+  /**
+   * Preferred-anchor garment id. Passed to the engine as
+   * `prefer_garment_ids: [anchorGarmentId]`. M13 renamed from `garmentId`;
+   * the legacy field is still accepted for backwards compat with existing
+   * callers (StyleMeScreen, OutfitGenerateScreen) until they migrate.
+   */
+  anchorGarmentId?: string;
+  /** @deprecated Use anchorGarmentId. */
   garmentId?: string;
+  /**
+   * Optional client-side slot constraints derived from the anchor's
+   * inferred slot — surfaced to the engine via the same prefer/exclude
+   * envelope. Today only used for telemetry (Sentry breadcrumb on drift);
+   * server-side enforcement lands when burs_style_engine grows a
+   * `locked_slots` field. M13.
+   */
+  lockedSlots?: LockedSlots;
   mood?: string;
 };
 
@@ -87,6 +141,11 @@ export function useGenerateOutfit() {
   const [result, setResult] = useState<GeneratedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // M13: signals the screen that the anchor garment was requested but the
+  // engine returned an outfit without it (prefer_garment_ids is a soft hint
+  // server-side). Screens use this to render a "Anchor not honoured —
+  // regenerate?" affordance.
+  const [anchorMissed, setAnchorMissed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const generate = useCallback(
@@ -98,6 +157,7 @@ export function useGenerateOutfit() {
       setIsLoading(true);
       setError(null);
       setResult(null);
+      setAnchorMissed(false);
 
       abortRef.current?.abort();
       // Capture a local handle so finally/catch can read the right signal
@@ -108,18 +168,15 @@ export function useGenerateOutfit() {
       // Trim whitespace from anchor garment id — a non-empty whitespace
       // string would otherwise pass through and the engine's id-validation
       // would treat it as a garbage id. Codex audit P1-6.
-      const anchorId = params.garmentId?.trim();
+      // M13 preferred field is `anchorGarmentId`; fall back to the legacy
+      // `garmentId` until callers migrate.
+      const anchorId = (params.anchorGarmentId ?? params.garmentId)?.trim();
 
       try {
-        const response = await fetch(
-          getEdgeFunctionUrl(supabaseUrl, 'burs_style_engine'),
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
+        let data: EngineResponse;
+        try {
+          data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
+            body: {
               mode: 'generate',
               generator_mode: 'standard',
               occasion: params.occasion ?? 'Everyday',
@@ -130,25 +187,27 @@ export function useGenerateOutfit() {
               weather: { precipitation: 'none', wind: 'none' },
               locale: 'en',
               prefer_garment_ids: anchorId ? [anchorId] : [],
-            }),
+            },
             signal: controller.signal,
-          },
-        );
-
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          const errorMsg = body.error ?? `HTTP ${response.status}`;
-          if (response.status === 402 || errorMsg === 'subscription_required') {
+          });
+        } catch (callErr) {
+          if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError('subscription_required');
-          } else {
-            setError(errorMsg);
+            return;
           }
-          return;
+          if (callErr instanceof EdgeFunctionHttpError) {
+            const parsed = (() => {
+              try {
+                return JSON.parse(callErr.bodyText) as { error?: string };
+              } catch {
+                return null;
+              }
+            })();
+            setError(parsed?.error ?? `HTTP ${callErr.status}`);
+            return;
+          }
+          throw callErr;
         }
-
-        const data = (await response.json()) as EngineResponse;
 
         if (data.error) {
           setError(data.error);
@@ -158,32 +217,136 @@ export function useGenerateOutfit() {
         // Suggest-mode `outfits[0]` arrives pre-shaped; defensively re-adapt
         // items so a slot omission can't crash downstream `.toUpperCase()`.
         // Codex audit P1-1 + P0-2 (audit 3).
+        let nextResult: GeneratedOutfit;
         if (data.outfits?.[0]?.items) {
           const first = data.outfits[0];
-          setResult({
+          nextResult = {
             outfit_name: first.outfit_name ?? defaultName(params),
             description: first.description ?? data.explanation ?? '',
             occasion: params.occasion,
             formality: params.formality,
             items: adaptItems(first.items),
-          });
+          };
         } else if (data.items?.length || data.explanation) {
-          setResult({
+          nextResult = {
             outfit_name: defaultName(params),
             description: data.explanation ?? '',
             occasion: params.occasion,
             formality: params.formality,
             items: adaptItems(data.items),
-          });
+          };
         } else {
-          setResult({
+          nextResult = {
             outfit_name: defaultName(params),
             description: 'Generated for you',
             occasion: params.occasion,
             formality: params.formality,
             items: [],
-          });
+          };
         }
+
+        // Treat an empty composition as a generation failure rather than a
+        // success — the screen would otherwise expose Save / Wear today CTAs
+        // over an outfit with zero items. Reuse the INVALID_OUTFIT_ERROR
+        // sentinel so screens already branching on it (formatGenerateOutfitError +
+        // OutfitGenerateScreen) render the existing "we couldn't build a
+        // complete outfit" copy. Codex P2 round on PR #738.
+        if (nextResult.items.length === 0) {
+          setError(INVALID_OUTFIT_ERROR);
+          Sentry.withScope((s) => {
+            s.setTag('mutation', 'useGenerateOutfit.emptyItems');
+            s.setExtra('engine_response', data);
+            Sentry.captureMessage('engine_returned_empty_items', 'warning');
+          });
+          return;
+        }
+
+        // M13: post-response anchor enforcement. The engine treats
+        // prefer_garment_ids as a soft hint, so a returned outfit may not
+        // include the anchor. Web's generator rejects this scenario rather
+        // than offering "Wear today" / "Save outfit" CTAs over an outfit
+        // that violates the user's locked piece (Codex P2 round 4 on PR
+        // #737). Mobile mirrors web: skip publishing the result, raise the
+        // `anchor_missed` sentinel error, flip `anchorMissed` for screen
+        // copy. The "Try again" path on the screen calls generate() again
+        // with the same anchor; auto-retry inside the hook would loop on a
+        // wardrobe with no viable composition.
+        if (anchorId && nextResult.items.length > 0) {
+          const ids = nextResult.items.map((it) => it.garment_id);
+          if (!isAnchorPresent(ids, anchorId)) {
+            setAnchorMissed(true);
+            setError(ANCHOR_MISSED_ERROR);
+            Sentry.withScope((s) => {
+              s.setTag('mutation', 'useGenerateOutfit.anchorDrift');
+              s.setExtra('anchor_garment_id', anchorId);
+              s.setExtra('returned_garment_ids', ids);
+              Sentry.captureMessage('anchor_garment_dropped_by_engine', 'warning');
+            });
+            return;
+          }
+        }
+
+        // M13: post-response slot-rule validation. Engine items carry an
+        // explicit `slot` field — feed those to validateCompleteOutfit
+        // (the OutfitValidationItem path that consults `normalizeOutfitRuleSlot`
+        // when no garment is attached) so an invalid outfit (top + shoes
+        // with no bottom, top + dress conflict) is rejected with the same
+        // error-path treatment as anchor_missed. Codex P2 round 6 + 7 on
+        // PR #737.
+        //
+        // Reject criterion is `missing` OR `conflictingSlots`, NOT
+        // `!isValid`, because the engine may legitimately return a layered
+        // top (base + cardigan/overshirt) — both items arrive as
+        // `slot: 'top'` and `validateOutfitItems` flags duplicate-slot +
+        // unknown-layer-role for them since the response doesn't carry
+        // garment data we can use to infer `layering_role`. Hydrating the
+        // garments would require an extra DB hit; gating only on missing
+        // essentials + real conflicts (dress+top, dress+bottom) catches
+        // the broken cases the wave intends to block while letting valid
+        // layered outfits through. Codex round 7 — preserve layer roles.
+        if (nextResult.items.length > 0) {
+          // Use `validateOutfitItems` directly (same gates as
+          // `validateCompleteOutfit` — `requireShoes: true,
+          // allowLayeredTops: true`) so we can read `conflictingSlots`,
+          // which the wrapper doesn't surface.
+          const validation = validateOutfitItems(
+            nextResult.items.map((it) => ({ slot: it.slot })),
+            { requireShoes: true, allowLayeredTops: true },
+          );
+          // Reject on missing essentials, real slot conflicts, or any
+          // non-top duplicate (e.g. two bottoms / two pairs of shoes).
+          // `'top'` is excluded from the duplicate gate ONLY for the
+          // 2-top case (the legitimate base + cardigan/overshirt layered
+          // outfit) because we can't disambiguate `layering_role` from
+          // the engine response without an extra garment hydration query.
+          // 3+ tops never count as valid layering, so they stay rejected
+          // — Codex round 7 (allow layered) + round 8 (block other dups)
+          // + round 9b (cap the top exception at 2).
+          const topCount = nextResult.items.filter((it) => it.slot === 'top').length;
+          const nonLayeredDuplicates = validation.duplicateSlots.filter(
+            (slot) => slot !== 'top' || topCount > 2,
+          );
+          if (
+            validation.missing.length > 0
+            || validation.conflictingSlots.length > 0
+            || nonLayeredDuplicates.length > 0
+          ) {
+            setError(INVALID_OUTFIT_ERROR);
+            Sentry.withScope((s) => {
+              s.setTag('mutation', 'useGenerateOutfit.invalidOutfit');
+              s.setExtra('returned_items', nextResult.items);
+              s.setExtra('missing', validation.missing);
+              s.setExtra('conflicting_slots', validation.conflictingSlots);
+              s.setExtra('duplicate_slots', validation.duplicateSlots);
+              s.setExtra('present_slots', validation.presentSlots);
+              s.setExtra('top_count', topCount);
+              Sentry.captureMessage('engine_returned_invalid_outfit', 'warning');
+            });
+            return;
+          }
+        }
+
+        setResult(nextResult);
       } catch (err) {
         if (controller.signal.aborted) return;
         const message = err instanceof Error ? err.message : 'Generation failed';
@@ -215,7 +378,17 @@ export function useGenerateOutfit() {
     setResult(null);
     setIsLoading(false);
     setError(null);
+    setAnchorMissed(false);
   }, []);
 
-  return { result, isLoading, error, generate, reset };
+  // Cancel any in-flight generation when the consumer screen unmounts so
+  // the trailing setState calls don't fire against a torn-down tree.
+  // Codex P2 round on PR #738.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  return { result, isLoading, error, anchorMissed, generate, reset };
 }

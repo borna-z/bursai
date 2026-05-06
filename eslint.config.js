@@ -5,6 +5,10 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
+  // .claude/** holds agent-managed git worktrees with their own (and possibly
+  // stale) source trees — linting them from the root project surfaces thousands
+  // of errors that aren't on main. Same intent as the supabase/mobile excludes:
+  // each tree gets linted by its own pipeline.
   { ignores: ["dist", "supabase/**", "mobile/**", "design_handoff_burs_rn/**", ".claude/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

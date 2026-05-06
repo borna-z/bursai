@@ -48,6 +48,7 @@ import {
   type InsightsMostWorn,
 } from '../hooks/useInsightsDashboard';
 import { useSignedUrls } from '../hooks/useSignedUrl';
+import { useNow } from '../hooks/useNow';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -161,7 +162,10 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { width: screenWidth } = useWindowDimensions();
-  const now = new Date();
+  // Reactive `now` so the eyebrow + range labels recompute when the date
+  // rolls over while the screen is mounted. Same fix HomeScreen / PlanScreen
+  // got — keep behaviour consistent.
+  const now = useNow();
   const headerEyebrow = buildHeaderEyebrow();
   // Wear-frequency card spans the last 7 days (matches what `BarViz` renders),
   // so the bracketing labels also show that window — not the full 30d eyebrow.

@@ -191,4 +191,123 @@ export const en: Record<string, string> = {
   'paywall.privacy': 'Privacy',
   'paywall.privacy.label': 'Open privacy policy',
   'paywall.linkError.title': 'Could not open link',
+
+  // M11 — typed-confirm modal chrome (used by every destructive flow).
+  // Title / body / required-text / confirm-label come from the caller
+  // so each flow can localize its own scenario, but the modal chrome
+  // (eyebrow, instruction, cancel, pending) is shared.
+  'confirmModal.eyebrow': 'Are you sure?',
+  'confirmModal.instruction': 'Type {required} to confirm.',
+  'confirmModal.cancel': 'Cancel',
+  'confirmModal.pending': 'Working…',
+
+  // M11 — destructive mutations (account deletion + reset style memory).
+  // App Store guideline 5.1.1(v) gates the delete path; the typed-confirm
+  // copy mirrors web's PR #712 clickjacking-mitigation strings.
+  'settings.delete_account.title': 'Delete account',
+  'settings.delete_account.body':
+    'This permanently removes your wardrobe, outfits, and learned style — every photo, every signal, every preference. This cannot be undone.',
+  'settings.delete_account.confirm': 'Delete account',
+  'settings.delete_account.required': 'DELETE',
+  'settings.delete_account.error': 'Could not delete your account. Please try again or contact support.',
+
+  'settings.reset_memory.title': 'Reset style memory',
+  'settings.reset_memory.body':
+    'BURS will forget what it has learned about your taste — saves, swaps, ratings, never-suggest pins. Your wardrobe and outfits stay.',
+  'settings.reset_memory.confirm': 'Reset memory',
+  'settings.reset_memory.required': 'RESET',
+  'settings.reset_memory.success.title': 'Style memory cleared',
+  'settings.reset_memory.success.body':
+    'BURS will start fresh on your next session.',
+  'settings.reset_memory.error': 'Could not reset style memory. Please try again.',
+
+  // M4 — duplicate detection. en-only for now; sv (and the other 8 locales)
+  // land with M33 i18n.
+  'addpiece.duplicate.eyebrow': 'Duplicate?',
+  'addpiece.duplicate.title': 'Already in your wardrobe?',
+  'addpiece.duplicate.body': 'This looks a lot like {title} — you may already own it.',
+  'addpiece.duplicate.bodyNoTitle': 'This looks a lot like a piece you already own.',
+  'addpiece.duplicate.viewExisting': 'View existing',
+  'addpiece.duplicate.addAnyway': 'Add anyway',
+
+  // M12 — password reset + deep links.
+  'auth.resetPassword.emailRequiredTitle': 'Email required',
+  'auth.resetPassword.emailRequiredBody':
+    'Enter the email for your account, then tap “Forgot password?” again.',
+  'auth.resetPassword.errorTitle': "We couldn't send the reset email",
+  'auth.resetPassword.successTitle': 'Check your email',
+  'auth.resetPassword.successBody':
+    'We sent a reset link to {email}. It expires in 1 hour.',
+  'resetPassword.title': 'Set a new password',
+  'resetPassword.eyebrow': 'New password',
+  'resetPassword.intro': 'Choose a new password to sign in with.',
+  'resetPassword.newPasswordLabel': 'New password',
+  'resetPassword.confirmPasswordLabel': 'Confirm password',
+  'resetPassword.cta': 'Update password',
+  'resetPassword.submitting': 'Updating…',
+  'resetPassword.errorTitle': "We couldn't update your password",
+  'resetPassword.successTitle': 'Password updated',
+  'resetPassword.successBody': 'Your password has been changed.',
+  'resetPassword.tooShort': 'Password must be at least 6 characters.',
+  'resetPassword.mismatch': 'Passwords do not match.',
+  'resetPassword.back': 'Back',
+
+  // M13 — outfit anchor locking + rules engine.
+  'anchor.makeAnchor.title': 'Make this the anchor',
+  'anchor.makeAnchor.body': 'Generate a new outfit anchored on {title}?',
+  'anchor.makeAnchor.bodyFallback': 'Generate a new outfit anchored on this piece?',
+  'anchor.makeAnchor.cancel': 'Cancel',
+  'anchor.makeAnchor.confirm': 'Make anchor',
+  'anchor.locked.eyebrow': 'Anchor locked',
+  'anchor.missed.eyebrow': 'Anchor not honoured',
+  'anchor.locked.fallback': 'Selected piece',
+  'anchor.missed.errorTitle': "Couldn't build around the anchor",
+  'anchor.missed.errorBody':
+    "We couldn't build a complete outfit around {title}. Try again or pick a different anchor.",
+  'anchor.missed.errorBodyFallback':
+    "We couldn't build a complete outfit around the locked piece. Try again or pick a different anchor.",
+  'anchor.removeAnchor': 'Remove anchor',
+  'outfit.invalid.eyebrow': 'Outfit incomplete',
+  'outfit.invalid.errorTitle': "We couldn't build a complete outfit",
+  'outfit.invalid.errorBody':
+    "The pieces returned didn't add up to a wearable look. Try again or add more garments to your wardrobe.",
+
+  // ─── Stylist chat (M14 — 8-mode chat contract) ─────────────────────────
+  'chat.mode.ACTIVE_LOOK_REFINEMENT': 'Refinement',
+  'chat.mode.GARMENT_FIRST_STYLING': 'Garment-first',
+  'chat.mode.OUTFIT_GENERATION': 'Outfit',
+  'chat.mode.WARDROBE_GAP_ANALYSIS': 'Wardrobe gap',
+  'chat.mode.PURCHASE_PRIORITIZATION': 'Buy next',
+  'chat.mode.STYLE_IDENTITY_ANALYSIS': 'Style identity',
+  'chat.mode.LOOK_EXPLANATION': 'Why this look',
+  'chat.mode.PLANNING': 'Plan',
+  'chat.memory.section_title': 'Style memory',
+  'chat.memory.forget_action': 'Forget',
+  'chat.memory.empty': 'Burs is still learning your style.',
+  'chat.active_look.title': 'Current look',
+  'chat.active_look.clear': 'Clear',
+  'chat.anchor.title': 'Anchor',
+  'chat.anchor.clear': 'Clear anchor',
+  'chat.title': 'Style Chat',
+  'chat.eyebrow': 'AI',
+  'chat.memory.toggle.show': 'Show',
+  'chat.memory.toggle.hide': 'Hide',
+  'chat.error.premium.title': 'Premium feature',
+  'chat.error.premium.body':
+    'Outfit chat is part of BURS Premium. Upgrade to keep generating looks.',
+  'chat.anchor.set.title': 'Set anchor',
+  'chat.anchor.set.body': "Use this look's main piece as your anchor for the next turn?",
+  'chat.anchor.set.confirm': 'Set',
+  'chat.anchor.set.cancel': 'Cancel',
+  'chat.empty.title': 'Hi',
+  'chat.empty.subtitle.unauth': 'Sign in to chat with your stylist.',
+  'chat.empty.subtitle.auth': "Tell me what you're dressing for.",
+  'chat.error.retry': 'Retry',
+  'chat.composer.placeholder': 'Ask your stylist…',
+  'chat.memory.disabled.title': 'Garment-level forget only',
+  'chat.memory.disabled.body': 'Full memory edit lands in a future release.',
+  'chat.memory.confirm.title': 'Stop suggesting?',
+  'chat.memory.confirm.body.template': 'Stop suggesting "{label}"?',
+  'chat.active_look.fallback.template': '{n} pieces',
+  'chat.anchor.gesture.hint': "Long-press to anchor this look's main piece",
 };

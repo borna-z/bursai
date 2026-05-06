@@ -2,23 +2,24 @@
 // — subscription card up top, then grouped sections rendered as Card-wrapped SettingsRow
 // stacks. Sign out button at the bottom.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Constants from 'expo-constants';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts } from '../theme/tokens';
+import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
-import { Caption } from '../components/Caption';
-import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { radii } from '../theme/tokens';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
+import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { useAuth } from '../hooks/useAuth';
+import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
+import { t as tr } from '../lib/i18n';
 import {
   GlobeIcon,
   PaletteIcon,
@@ -35,16 +36,40 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const APP_VERSION = '2.0.4';
+// Source of truth is app.json → expo.version. Reading via expo-constants keeps
+// the displayed version in lock-step with the binary that ships, so we don't
+// drift back into hardcoded mismatches when the version bumps.
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export function SettingsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { user, profile, signOut } = useAuth();
+  const resetMemory = useResetStyleMemory();
+  const [resetOpen, setResetOpen] = useState(false);
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const accountEmail = user?.email ?? '';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
+
+  const handleConfirmReset = () => {
+    resetMemory.mutate(undefined, {
+      onSuccess: () => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.success.title'),
+          tr('settings.reset_memory.success.body'),
+        );
+      },
+      onError: (err) => {
+        setResetOpen(false);
+        Alert.alert(
+          tr('settings.reset_memory.title'),
+          err instanceof Error ? err.message : tr('settings.reset_memory.error'),
+        );
+      },
+    });
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -84,26 +109,12 @@ export function SettingsScreen() {
         </View>
 
         {/* ============ SUBSCRIPTION CARD ============ */}
-        <Card hero padding={18}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Eyebrow>Premium · 3-day trial</Eyebrow>
-              <Text
-                style={{
-                  fontFamily: fonts.displayMedium,
-                  fontStyle: 'italic',
-                  fontSize: 22,
-                  fontWeight: '500',
-                  color: t.fg,
-                  letterSpacing: -0.22,
-                }}>
-                Free trial
-              </Text>
-              <Caption>2 days remaining · renews automatically</Caption>
-            </View>
-            <Button label="Manage" variant="outline" size="sm" onPress={() => nav.navigate('Paywall')} />
-          </View>
-        </Card>
+        {/* Intentionally not rendered. The mock card hardcoded a "Premium · 3-day
+            trial · 2 days remaining · renews automatically" state regardless of
+            the actual user — actively misleading. The profiles table has no
+            subscription columns yet, so we have nothing honest to show.
+            M31 (RevenueCat) wires real billing; the card returns then with
+            real entitlement state from the RC customer info. */}
 
         {/* ============ PROFILE SECTION ============ */}
         <Section title="Profile">
@@ -152,20 +163,7 @@ export function SettingsScreen() {
             caption="Clears learned preferences only"
             destructive
             last
-            onPress={() =>
-              Alert.alert(
-                'Reset style memory',
-                'This clears what BURS has learned about you. Your wardrobe and outfits are kept.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Reset',
-                    style: 'destructive',
-                    onPress: () => Alert.alert('Reset', 'Style memory cleared.'),
-                  },
-                ],
-              )
-            }
+            onPress={() => setResetOpen(true)}
           />
         </Section>
 
@@ -258,6 +256,18 @@ export function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <TypedConfirmModal
+        open={resetOpen}
+        title={tr('settings.reset_memory.title')}
+        body={tr('settings.reset_memory.body')}
+        requiredText={tr('settings.reset_memory.required')}
+        confirmLabel={tr('settings.reset_memory.confirm')}
+        destructive
+        isPending={resetMemory.isPending}
+        onConfirm={handleConfirmReset}
+        onCancel={() => setResetOpen(false)}
+      />
     </SafeAreaView>
   );
 }

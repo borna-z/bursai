@@ -26,6 +26,7 @@ import { ErrorState } from '../components/ErrorState';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
 import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
+import { useNow } from '../hooks/useNow';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems, PlannedOutfitWithOutfit } from '../types/outfit';
@@ -61,7 +62,7 @@ function buildPlanWeek(today: Date, selectedIndex: number, plannedDates: Set<str
 function buildComingUp(
   week: WeekDay[],
   byDate: Map<string, PlannedOutfitWithOutfit>,
-): ReadonlyArray<{ when: string; label: string; iso: string; outfitId?: string }> {
+): readonly { when: string; label: string; iso: string; outfitId?: string }[] {
   return week
     .filter((d) => !d.active && d.planned)
     .slice(0, 2)
@@ -80,16 +81,36 @@ export function PlanScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
 
-  const now = React.useMemo(() => new Date(), []);
+  // Reactive `now` — RN tabs stay mounted across day boundaries so a static
+  // memo would freeze the week strip on yesterday's date and the eyebrow's
+  // month label could lag too. useNow ticks on AppState 'active' and at the
+  // next midnight. Codex P2 on PR #738.
+  const now = useNow();
   const headerEyebrow = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  // Track the selected day by ISO string, not by index. Across midnight
+  // the week strip rebuilds with today shifted to index 0, so a
+  // stored-index would silently point at yesterday's plan while the strip
+  // highlights today's slot. Storing the iso lets the rendering code
+  // re-derive the index after the rebuild and fall back to today when
+  // the previously-selected day has scrolled out of the 7-day window.
+  // Codex P2 on PR #738.
+  const todayIso = React.useMemo(() => localISODate(now), [now]);
+  const [selectedIso, setSelectedIso] = React.useState<string>(todayIso);
 
-  const weekStart = React.useMemo(() => localISODate(now), [now]);
-  const weekEnd = React.useMemo(
-    () => localISODate(new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000)),
-    [now],
-  );
+  const weekStart = todayIso;
+  // Calendar-day arithmetic — `now.getTime() + 6 * 24h` would land 6 hours
+  // off in DST-observing time zones during the fall-back transition (e.g.
+  // America/New_York Nov 1 00:30 → Nov 6 23:30 instead of Nov 7), so the
+  // 7th displayed day in the strip would be queried out of range and its
+  // planned dot / Coming up entry / selected-day panel would silently drop.
+  // Use the same `setDate(getDate() + 6)` shape `buildPlanWeek` uses.
+  // Codex P2 round 7 on PR #738.
+  const weekEnd = React.useMemo(() => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + 6);
+    return localISODate(d);
+  }, [now]);
   const weekPlansQ = usePlannedOutfitsForRange(weekStart, weekEnd);
 
   const byDate = React.useMemo(() => {
@@ -103,6 +124,31 @@ export function PlanScreen() {
   }, [weekPlansQ.data]);
 
   const plannedDates = React.useMemo(() => new Set(byDate.keys()), [byDate]);
+  // Derive the index from the iso. If the previously-selected day has fallen
+  // out of the rolling window (e.g. user kept the app on the prior day's
+  // selection across midnight + several day rolls), reset back to today.
+  // We compute index against the iso list independently of `buildPlanWeek`
+  // so the `active` flag and the `selectedDay` lookup agree even when the
+  // strip rebuilds.
+  const weekIsos = React.useMemo(() => {
+    const out: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + i);
+      out.push(localISODate(d));
+    }
+    return out;
+  }, [now]);
+  const isoInWindow = weekIsos.includes(selectedIso);
+  // Reconcile state with the rolling window once it shifts out of range —
+  // can't write state during render, so a layout effect sets it on the
+  // next tick. Reads use a memoised effective iso to avoid a one-frame
+  // visual mismatch in the meantime.
+  React.useEffect(() => {
+    if (!isoInWindow) setSelectedIso(weekIsos[0]);
+  }, [isoInWindow, weekIsos]);
+  const effectiveSelectedIso = isoInWindow ? selectedIso : weekIsos[0];
+  const selectedIndex = weekIsos.indexOf(effectiveSelectedIso);
   const week = React.useMemo(
     () => buildPlanWeek(now, selectedIndex, plannedDates),
     [now, selectedIndex, plannedDates],
@@ -145,7 +191,12 @@ export function PlanScreen() {
     markWorn.mutate(
       { outfitId: selectedOutfit.id, garmentIds },
       {
-        onSuccess: () => Alert.alert('Marked worn', 'Saved to your wear log.'),
+        // Skip the toast when the mutation deduped — see useMarkOutfitWorn's
+        // day-level idempotency check (Codex P2 round 10 on PR #738).
+        onSuccess: (data) => {
+          if (data?.deduped) return;
+          Alert.alert('Marked worn', 'Saved to your wear log.');
+        },
         onError: (err: unknown) =>
           Alert.alert(
             'Could not mark worn',
@@ -168,7 +219,18 @@ export function PlanScreen() {
           style: 'destructive',
           onPress: () => {
             deletePlanned.mutate(iso, {
-              onSuccess: () => Alert.alert('Cleared', 'Planned outfit cleared.'),
+              // Defer the success alert until the week-plan refetch lands so
+              // the underlying panel reflects the cleared state by the time
+              // the user dismisses the toast. Without this, the alert pops
+              // while the old planned outfit is still visible behind it —
+              // misleading "confirmation" UX. Codex P2 on PR #738.
+              onSuccess: async () => {
+                try {
+                  await weekPlansQ.refetch();
+                } finally {
+                  Alert.alert('Cleared', 'Planned outfit cleared.');
+                }
+              },
               onError: (err: unknown) =>
                 Alert.alert(
                   'Could not clear',
@@ -179,7 +241,7 @@ export function PlanScreen() {
         },
       ],
     );
-  }, [deletePlanned, selectedDay?.iso]);
+  }, [deletePlanned, selectedDay?.iso, weekPlansQ]);
 
   if (error) {
     return (
@@ -231,8 +293,7 @@ export function PlanScreen() {
         <WeekStrip
           days={week}
           onDayPress={(_day) => {
-            const idx = week.findIndex((d) => d.iso === _day.iso);
-            if (idx >= 0) setSelectedIndex(idx);
+            if (_day.iso) setSelectedIso(_day.iso);
           }}
         />
 
@@ -447,7 +508,10 @@ function PlanOutfitThumb({
   const [broken, setBroken] = React.useState(false);
   React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
   const showImage = signedUrl && !broken;
-  const label = (item?.slot ?? garment?.category ?? '').toString().toUpperCase();
+  // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
+  // as the empty string `''` rather than null, so `??` would still pick
+  // the empty value over the garment's category. Codex P2 on PR #738.
+  const label = (item?.slot || garment?.category || '').toString().toUpperCase();
   const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
 
   return (

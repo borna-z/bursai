@@ -1,4 +1,4 @@
-// Travel Capsule — Step 1 of 4. Destination + dates + trip type + weather context.
+// Travel Capsule — Step 1 of 3. Destination + dates + trip type.
 // Mirrors design_handoff_burs_rn/source/extra-screens.jsx TravelCapsuleScreen step 0.
 //
 // Builds the trip brief that's threaded through Steps 2 (TravelMustHaves) and 3
@@ -18,13 +18,16 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
-import { Card } from '../components/Card';
-import { BackIcon, CalendarIcon, ChevronIcon, SunIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, ChevronIcon } from '../components/icons';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const RECENT_DESTINATIONS = ['Lisbon', 'Tokyo', 'New York', 'Copenhagen', 'Marrakesh'];
+// Curated suggestions for the destination chip strip. Labelled "Popular" rather
+// than "Recent" so a first-time user doesn't see cities they've never visited
+// being framed as their own travel history. When real per-user trip history
+// ships we can rename the section back and source from the user's prior trips.
+const POPULAR_DESTINATIONS = ['Lisbon', 'Tokyo', 'New York', 'Copenhagen', 'Marrakesh'];
 const TRIP_TYPES = ['Business', 'Leisure', 'Beach', 'City', 'Outdoor', 'Winter'] as const;
 
 type TripType = (typeof TRIP_TYPES)[number];
@@ -70,7 +73,7 @@ function offsetISO(daysFromToday: number): string {
   return localISO(d);
 }
 
-const DATE_PRESETS: ReadonlyArray<{ label: string; daysFromToday: number }> = [
+const DATE_PRESETS: readonly { label: string; daysFromToday: number }[] = [
   { label: 'Today',     daysFromToday: 0 },
   { label: 'Tomorrow',  daysFromToday: 1 },
   { label: '+3 days',   daysFromToday: 3 },
@@ -158,7 +161,7 @@ export function TravelCapsuleScreen() {
   // opens an inline mini-calendar sheet so the user can pick any specific date directly.
   // Avoids dragging in @react-native-community/datetimepicker.
   const openDatePicker = React.useCallback((which: 'from' | 'to') => {
-    const buttons: Array<{ text: string; onPress?: () => void; style?: 'cancel' }> = DATE_PRESETS.map(
+    const buttons: { text: string; onPress?: () => void; style?: 'cancel' }[] = DATE_PRESETS.map(
       ({ label, daysFromToday }) => ({
         text: label,
         onPress: () => {
@@ -229,7 +232,7 @@ export function TravelCapsuleScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
-              {RECENT_DESTINATIONS.map((city) => (
+              {POPULAR_DESTINATIONS.map((city) => (
                 <Chip
                   key={city}
                   label={city}
@@ -305,30 +308,12 @@ export function TravelCapsuleScreen() {
           </View>
 
           {/* ============ WEATHER CONTEXT ============ */}
-          <Card padding={16}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-              <Eyebrow>Expected weather</Eyebrow>
-              <SunIcon color={t.accent} />
-            </View>
-            <Text
-              style={{
-                fontFamily: fonts.displayMedium,
-                fontStyle: 'italic',
-                fontSize: 28,
-                lineHeight: 30,
-                fontWeight: '500',
-                color: t.fg,
-                letterSpacing: -0.28,
-                marginTop: 2,
-              }}>
-              {destination.trim() ? '18–24°' : '—'}
-            </Text>
-            <Caption style={{ marginTop: 6 }}>
-              {destination.trim()
-                ? 'Mostly sunny · 1 day rain · light layers in the evening.'
-                : 'Pick a destination to see the forecast.'}
-            </Caption>
-          </Card>
+          {/* Weather card intentionally not rendered. The previous version
+              hardcoded "18–24° · Mostly sunny · 1 day rain" for every
+              destination, which is worse than no forecast at all — a user
+              packing for Reykjavik in January would be misled into leaving
+              their coat at home. The card returns once a real weather
+              provider is wired (TODO: M-weather wave). */}
 
           {/* ============ CTA ============ */}
           <Button

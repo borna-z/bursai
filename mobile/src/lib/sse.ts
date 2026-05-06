@@ -4,6 +4,11 @@
 // hook (useStyleChat, useMoodOutfit) just provides callbacks for the parsed
 // events.
 //
+// M9: routes through `callEdgeFunction({ stream: true })` so SSE consumers
+// inherit pre-flight session refresh + circuit-break + paywall classification
+// for free. The byte-stream parsing below is unchanged — only the request
+// dispatch was lifted into the shared client.
+//
 // Behaviour:
 //   • Splits the byte stream into newline-terminated lines, holding any
 //     partial trailing fragment in the buffer until the next chunk arrives.
@@ -17,6 +22,11 @@
 //     (no onError call). Lets screens cancel in-flight streams on unmount
 //     without firing terminal callbacks against torn-down components.
 
+import {
+  callEdgeFunction,
+  EdgeFunctionSubscriptionLockedError,
+} from './edgeFunctionClient';
+
 export interface SSECallbacks {
   onData: (chunk: string) => void;
   onDone: () => void;
@@ -24,38 +34,20 @@ export interface SSECallbacks {
 }
 
 export async function fetchSSE(
-  url: string,
+  fnName: string,
   body: unknown,
-  accessToken: string,
   callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'text/event-stream',
-      },
-      body: JSON.stringify(body),
+    // SSE retries don't make sense mid-conversation — a partial stream that
+    // gets re-issued duplicates the LLM call. Caller-controlled retry only.
+    const response = await callEdgeFunction(fnName, {
+      body,
       signal,
+      stream: true,
+      retries: 0,
     });
-
-    if (!response.ok) {
-      const errorBody = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      const errorMsg = errorBody.error ?? `HTTP ${response.status}`;
-
-      if (response.status === 402 || errorMsg === 'subscription_required') {
-        callbacks.onError(new Error('subscription_required'));
-        return;
-      }
-
-      callbacks.onError(new Error(errorMsg));
-      return;
-    }
 
     if (!response.body) {
       callbacks.onError(new Error('No response body'));
@@ -113,10 +105,10 @@ export async function fetchSSE(
     callbacks.onDone();
   } catch (err) {
     if (signal?.aborted) return;
+    if (err instanceof EdgeFunctionSubscriptionLockedError) {
+      callbacks.onError(new Error('subscription_required'));
+      return;
+    }
     callbacks.onError(err instanceof Error ? err : new Error(String(err)));
   }
-}
-
-export function getEdgeFunctionUrl(supabaseUrl: string, fnName: string): string {
-  return `${supabaseUrl}/functions/v1/${fnName}`;
 }

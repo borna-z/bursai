@@ -72,7 +72,14 @@ describe("useRecordMemoryEvent", () => {
         body: expect.objectContaining({
           signal_type: "save_outfit",
           outfit_id: "oA",
-          idempotency_key: expect.stringMatching(/^uA:save_outfit:oA:\d+$/),
+          // Empty discriminator segment is intentional — `save_outfit` with
+          // only outfit_id has no payload-differentiating fields, so
+          // `buildPayloadDiscriminator` returns "" and the key has the
+          // shape `user:signal:target::bucket`. Codex P1 fix on PR #726
+          // (commit 45b39878) added the discriminator slot; this test was
+          // missed in that update and surfaced when the launch-branch sync
+          // (PR #741) ran the test against the post-fix code path.
+          idempotency_key: expect.stringMatching(/^uA:save_outfit:oA::\d+$/),
         }),
         retries: 3,
         timeout: 8000,

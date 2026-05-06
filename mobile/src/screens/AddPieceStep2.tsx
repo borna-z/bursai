@@ -29,7 +29,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -183,7 +183,6 @@ export function AddPieceStep2() {
       // Step 3's Save handler, which surfaces a friendlier message if the await
       // there ends up rejecting.
       wrapped.catch((err) => {
-        // eslint-disable-next-line no-console
         console.warn('[AddPieceStep2] upload failed:', err);
       });
 
@@ -291,6 +290,25 @@ export function AddPieceStep2() {
     return () => clearInterval(id);
   }, [errorMsg]);
 
+  // Codex P2 on PR #738: after a successful analyze, Step 2 navigates forward
+  // without clearing local state — if the user backs out of Step 3, they'd
+  // land on Step 2 still showing the loading spinner with no path to retry.
+  // Detect that scenario on focus: if `transferredUploadIdRef` is non-null
+  // we already handed our work off to Step 3, so a re-focus means the user
+  // is back-navigating. Bounce them to Step 1 (the AddPiece entry point) so
+  // they don't sit on a stuck loading screen. The unmount-cleanup effect
+  // still fires correctly — `transferredUploadIdRef.current !== null` means
+  // `wasTransferred = true`, so the cleanup skips the orphan-delete path
+  // (Step 3 owns the storage object).
+  useFocusEffect(
+    useCallback(() => {
+      if (transferredUploadIdRef.current !== null) {
+        nav.navigate('AddPieceStep1');
+      }
+      return undefined;
+    }, [nav]),
+  );
+
   const isError = !!errorMsg;
   const totalCount = allUris.length;
   const currentIndex = 1; // Single-photo for now; PR 5 wires the batch loop.
@@ -362,7 +380,7 @@ export function AddPieceStep2() {
           </Text>
 
           <Caption style={{ textAlign: 'center', marginTop: 8, maxWidth: 280 }}>
-            We&rsquo;ll have your garment ready in a moment.
+            We'll have your garment ready in a moment.
           </Caption>
 
           {/* Honest UX about W5's single-photo limit so the user isn't surprised when

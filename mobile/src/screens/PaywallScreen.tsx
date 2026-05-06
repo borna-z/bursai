@@ -24,7 +24,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Plan = 'monthly' | 'yearly';
 
-const FEATURES: ReadonlyArray<{ titleKey: string; captionKey: string }> = [
+const FEATURES: readonly { titleKey: string; captionKey: string }[] = [
   { titleKey: 'paywall.feature.unlimited.title', captionKey: 'paywall.feature.unlimited.caption' },
   { titleKey: 'paywall.feature.chat.title',      captionKey: 'paywall.feature.chat.caption' },
   { titleKey: 'paywall.feature.studio.title',    captionKey: 'paywall.feature.studio.caption' },
@@ -64,10 +64,19 @@ export function PaywallScreen() {
 
   const onSubscribe = () => {
     hapticLight();
-    // TODO(billing): wire Stripe checkout (web) or StoreKit (native iOS via
-    // a Wave 9 StoreKit module). For now, close the modal optimistically.
-    if (nav.canGoBack()) nav.goBack();
-    else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    // Subscriptions launch with M31 (RevenueCat — StoreKit on iOS, Billing
+    // Library on Android). Until that wave lands, the Subscribe CTA is a
+    // placeholder. The previous version closed the modal silently which
+    // read as "you're subscribed" to both real users and the App Store
+    // review process — surface an explicit "coming soon" alert instead so
+    // there's no false sense of purchase / entitlement. Codex P2 round 9
+    // on PR #738. Inline strings (not i18n) — the locale pass for paywall
+    // copy is M33; this string ships English-only on the placeholder.
+    Alert.alert(
+      'Subscriptions coming soon',
+      "We're wiring up subscriptions for the App Store launch. You'll be among the first to know when they go live.",
+      [{ text: 'OK' }],
+    );
   };
 
   const onRestore = () => {
@@ -82,12 +91,14 @@ export function PaywallScreen() {
     );
   };
 
-  const openExternal = (url: string) => () => {
+  const openExternal = (url: string, label: string) => () => {
     hapticLight();
     Linking.openURL(url).catch(() => {
       // Failed to open (no browser? offline?) — surface a graceful fallback
-      // so the link button isn't a silent no-op.
-      Alert.alert(tr('paywall.linkError.title'), url);
+      // with the action context so the user sees "Could not open Terms"
+      // instead of the raw URL string. Inline strings (not i18n) — paywall
+      // locale pass is M33 per existing code comments above.
+      Alert.alert(tr('paywall.linkError.title'), `Could not open ${label}`);
     });
   };
 
@@ -251,7 +262,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(TERMS_URL)}
+            onPress={openExternal(TERMS_URL, 'Terms')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.terms.label')}
             hitSlop={6}>
@@ -261,7 +272,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(PRIVACY_URL)}
+            onPress={openExternal(PRIVACY_URL, 'Privacy Policy')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.privacy.label')}
             hitSlop={6}>

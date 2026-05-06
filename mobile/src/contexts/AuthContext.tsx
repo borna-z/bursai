@@ -1,13 +1,17 @@
 // AuthContext — single source of truth for auth + profile state on mobile.
 //
 // Modeled on src/contexts/AuthContext.tsx (web) but slimmed for RN:
-//   • No React Query — exposes profile directly so screens read via useAuth().
+//   • No React Query for profile — exposes profile directly so screens read
+//     via useAuth(). useQueryClient is consumed only to clear the cache on
+//     sign-out.
 //   • Session is persisted automatically (supabase.ts wires AsyncStorage).
 //   • start_trial fires once per fresh signup (gated on user.created_at < 60s)
-//     via plain fetch — no edgeFunctionClient port yet.
+//     via the M9 callEdgeFunction wrapper (pre-flight session refresh +
+//     circuit-break + paywall classification).
 //
 // On SIGNED_IN: load (or auto-create) the profile row.
-// On SIGNED_OUT: clear user/session/profile.
+// On SIGNED_OUT: clear user/session/profile + every per-user cache (React
+// Query, signed-URL Map, offline queue).
 //
 // `isLoading` stays true until BOTH the session AND the profile-load attempt
 // have settled, so callers (SplashScreen, AuthScreen post-sign-in routing
@@ -28,8 +32,30 @@ import React, {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
 
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import {
+  callEdgeFunction,
+  EdgeFunctionRateLimitError,
+} from '../lib/edgeFunctionClient';
+import { clearSignedUrlCache } from '../hooks/useSignedUrl';
+import {
+  registerHandler,
+  replay as replayOfflineQueue,
+  clearQueue as clearOfflineQueue,
+  HaltReplayError,
+} from '../lib/offlineQueue';
+import {
+  isOnlineNow,
+  persistGarment,
+  type AddGarmentParams,
+} from '../lib/garmentSave';
+import {
+  dispatchMemoryEvent,
+  MEMORY_EVENT_ACTION,
+  type MemoryIngestPayload,
+} from '../lib/memoryIngest';
 
 export type OnboardingPrefs = {
   completed?: boolean;
@@ -87,16 +113,9 @@ const PROFILE_COLUMNS =
 // so this is a bandwidth optimisation, not a correctness gate.
 const FRESH_SIGNUP_WINDOW_MS = 60_000;
 
-async function callStartTrial(accessToken: string): Promise<void> {
+async function callStartTrial(): Promise<void> {
   try {
-    await fetch(`${supabaseUrl}/functions/v1/start_trial`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    await callEdgeFunction('start_trial', { body: {}, retries: 0 });
   } catch {
     // Fire-and-forget — trial failure must never block the auth flow.
   }
@@ -216,6 +235,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(next);
   }, []);
 
+  // M5 — register offline-queue handlers + drive replay from NetInfo.
+  // The handler captures `queryClient` so post-replay invalidation refreshes
+  // the wardrobe list / count / insights even though replay runs outside any
+  // component context. Subscribing to NetInfo here (rather than per-screen)
+  // means there's exactly one replay trigger at the app root — multiple
+  // listeners would each kick replay, which is idempotent but wasteful.
+  useEffect(() => {
+    registerHandler<AddGarmentParams>('add-garment-save', async (payload) => {
+      await persistGarment(payload);
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+    });
+
+    // M10 — Style Memory event handler. Replays a queued payload via
+    // dispatchMemoryEvent which uses callEdgeFunction (auto auth refresh +
+    // circuit-break). 4xx is swallowed inside dispatchMemoryEvent (already
+    // logged); 5xx / transport throws and the queue retries with backoff
+    // up to MAX_ATTEMPTS=3 before dropping.
+    //
+    // Codex P2 round 5 on PR #734: a 429 mid-replay would otherwise burn
+    // attempts on every subsequent same-window item — translate it to a
+    // HaltReplayError so the queue parks the rest of the snapshot and
+    // schedules a deferred replay aligned with the server's retry-after.
+    registerHandler<MemoryIngestPayload>(MEMORY_EVENT_ACTION, async (payload) => {
+      try {
+        await dispatchMemoryEvent(payload);
+      } catch (err) {
+        if (err instanceof EdgeFunctionRateLimitError) {
+          const retryAfterSec = err.retryAfter > 0 ? err.retryAfter : 60;
+          throw new HaltReplayError(retryAfterSec * 1000);
+        }
+        throw err;
+      }
+    });
+
+    // Kick a replay on mount in case the app cold-started while the queue
+    // had survivors from a previous session AND NetInfo's "online" event
+    // never fires (because we already landed online). NetInfo's event
+    // listener only emits on transitions, not on the steady state.
+    //
+    // Codex P2 round 1: gate this mount kick on connectivity. A cold-start
+    // while offline would otherwise consume one of each item's 3 retry
+    // attempts on every launch, dropping items after 3 offline cold-starts
+    // even though they never had a real shot at syncing. The NetInfo
+    // listener below picks them up the moment we transition to online.
+    void (async () => {
+      if (await isOnlineNow()) {
+        void replayOfflineQueue().catch(() => {});
+      }
+    })();
+
+    const unsub = NetInfo.addEventListener((state) => {
+      const online =
+        state.isConnected !== false && state.isInternetReachable !== false;
+      if (online) {
+        void replayOfflineQueue().catch(() => {});
+      }
+    });
+    return () => {
+      unsub();
+    };
+  }, [queryClient]);
+
   useEffect(() => {
     let cancelled = false;
     // De-duplicates concurrent profile fetches from racing listeners
@@ -241,12 +324,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
     };
 
-    const maybeFireStartTrial = (u: User, accessToken: string) => {
+    const maybeFireStartTrial = (u: User) => {
       if (!isFreshSignup(u)) return;
       const key = u.id;
       if (triggeredTrialKeys.current.has(key)) return;
       triggeredTrialKeys.current.add(key);
-      void callStartTrial(accessToken);
+      // Codex P1 round 2 on PR #733: callEdgeFunction hits
+      // supabase.auth.getSession() / refreshSession() on its hot path, and
+      // Supabase's docs explicitly warn against calling auth methods inside
+      // an onAuthStateChange callback (deadlock). Defer with setTimeout so
+      // this synchronous SIGNED_IN listener unwinds before the edge call
+      // re-enters auth. The cold-start getSession() path also routes
+      // through here so this guard covers both.
+      setTimeout(() => {
+        void callStartTrial();
+      }, 0);
     };
 
     // 1. Subscribe FIRST so we don't miss the initial SIGNED_IN that getSession
@@ -262,8 +354,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // a stale `isOnboarded=false` for the duration of the fetch.
         setIsLoading(true);
         settleProfile(nextUser);
-        if (event === 'SIGNED_IN' && nextSession?.access_token) {
-          maybeFireStartTrial(nextUser, nextSession.access_token);
+        if (event === 'SIGNED_IN') {
+          maybeFireStartTrial(nextUser);
         }
       } else {
         setProfile(null);
@@ -277,6 +369,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // mid-sign-out, but defensive) are removed too — `clear()` is the
         // hammer; we trade a refetch on next sign-in for guaranteed isolation.
         queryClient.clear();
+        // Drop the module-scope signed-URL cache (`useSignedUrl.ts`). The
+        // React Query clear above only invalidates per-queryKey results;
+        // the underlying `${bucket}:${path}` Map survives independently and
+        // would leak user A's signed URLs (each embeds a JWT in the query
+        // string) into user B's renders. Audit-equivalent to the
+        // `queryClient.clear()` rationale on PR #718. Wave M2.
+        clearSignedUrlCache();
+        // Drop any queued mutations so user A's pending offline saves don't
+        // replay against user B's session on the same device. Wave M5.
+        void clearOfflineQueue();
       }
     });
 
@@ -291,13 +393,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (u) {
           setIsLoading(true);
           settleProfile(u);
-          if (data.session?.access_token) {
-            // Cold-start parity with the SIGNED_IN listener branch: a session
-            // rehydrated <60s after signup that died before the auth listener
-            // could fire still gets the trial mint. The edge function is
-            // server-idempotent so a duplicate fire here is a no-op.
-            maybeFireStartTrial(u, data.session.access_token);
-          }
+          // Cold-start parity with the SIGNED_IN listener branch: a session
+          // rehydrated <60s after signup that died before the auth listener
+          // could fire still gets the trial mint. The edge function is
+          // server-idempotent so a duplicate fire here is a no-op.
+          maybeFireStartTrial(u);
         } else {
           setIsLoading(false);
         }
@@ -312,7 +412,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       subData.subscription.unsubscribe();
     };
-  }, []);
+    // queryClient is referentially stable across renders (it comes from the
+    // QueryClientProvider mounted once at app root), so listing it as a dep
+    // doesn't re-fire this effect — but the lint rule needs to see it.
+  }, [queryClient]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignResult> => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -355,6 +458,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // post-await navigation, and the SIGNED_OUT branch above also clears,
     // so this is a "last to win" no-op in the happy path. Audit D.
     queryClient.clear();
+    // Same eager-clear rationale for the signed-URL Map: the SIGNED_OUT
+    // listener clears it too, but listener ordering vs. post-await nav is
+    // racy and the worst case is we render user A's gradient placeholder
+    // for one frame instead of leaking their signed URL into user B's session.
+    clearSignedUrlCache();
+    // Codex P1 round 9 on PR #735: also clear the offline queue here.
+    // The SIGNED_OUT listener handles the happy path, but if the supabase
+    // auth call fails or the SIGNED_OUT event never fires (e.g. the auth
+    // user was just deleted server-side, so the listener's session-state
+    // change is a no-op), pending add-garment-save / memory-event items
+    // would otherwise sit in AsyncStorage and replay under the next
+    // signed-in user.
+    //
+    // Codex P2 round 12: AWAIT the persisted clear before resolving so
+    // an app-kill immediately after the post-signOut nav.reset can't
+    // leave queued mutations on disk for the next session. clearQueue
+    // swallows its own AsyncStorage errors so this can't reject the
+    // outer mutation.
+    await clearOfflineQueue();
   }, [queryClient]);
 
   const isOnboarded = deriveIsOnboarded(profile);

@@ -50,34 +50,37 @@ export function MoodFlowScreen() {
   const { result, isLoading, error, generate, reset } = useMoodOutfit();
   const paywallShownRef = useRef(false);
 
+  // Reset + regenerate atomically when MOOD_LABEL / TIME_LABEL changes.
+  // Splitting these into two effects (one for [mood,time] → generate, one
+  // for unmount → reset) left a window where the previous result was still
+  // visible after the mood changed but before generate's first delta landed
+  // — a brief flash of stale outfit. The cleanup function aborts whatever
+  // mood Flow had in flight (reset() cancels the SSE stream in the hook)
+  // before the next generate runs, AND on unmount the same cleanup tears
+  // down any open stream. Codex P2 on PR #738.
   useEffect(() => {
+    reset();
     void generate(MOOD_LABEL, TIME_LABEL);
-    // generate identity is stable per session; we only want to re-fire when
-    // the mood / time pair changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [MOOD_LABEL, TIME_LABEL]);
-
-  // Cancel in-flight generation on unmount — prevents setState calls
-  // landing after the screen has been popped.
-  useEffect(() => {
     return () => {
       reset();
     };
-  }, [reset]);
+    // generate / reset identities are stable per session; we only want to
+    // re-fire on mood / time pair changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [MOOD_LABEL, TIME_LABEL]);
 
   useEffect(() => {
+    // Route to the real PaywallScreen instead of popping an Alert each time
+    // the engine returns `subscription_required`. The previous version
+    // re-popped the alert every time the user tapped Restyle after a
+    // dismiss + reset() — App Store reviewers flag this as harassing UX.
+    // The ref stays sticky for the screen's lifetime so we don't re-route
+    // on every retry attempt.
     if (error === 'subscription_required' && !paywallShownRef.current) {
       paywallShownRef.current = true;
-      Alert.alert(
-        'Premium feature',
-        'Mood Outfit is part of BURS Premium. Upgrade to keep generating mood looks.',
-        [{ text: 'OK' }],
-      );
+      nav.navigate('Paywall');
     }
-    if (error !== 'subscription_required') {
-      paywallShownRef.current = false;
-    }
-  }, [error]);
+  }, [error, nav]);
 
   const restyle = () => {
     reset();
@@ -164,7 +167,7 @@ export function MoodFlowScreen() {
               letterSpacing: -0.1,
               textAlign: 'center',
             }}>
-            Pulling pieces that hold &ldquo;{MOOD_LABEL.toLowerCase()}&rdquo;
+            Pulling pieces that hold "{MOOD_LABEL.toLowerCase()}"
           </Text>
         </View>
       ) : itemCount === 0 ? (

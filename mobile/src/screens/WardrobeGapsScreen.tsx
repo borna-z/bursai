@@ -5,8 +5,7 @@
 // hook.
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Alert } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,7 +29,13 @@ import {
 } from '../components/icons';
 import { ErrorState } from '../components/ErrorState';
 import { useWardrobeGaps, type WardrobeGap } from '../hooks/useWardrobeGaps';
+import { useGarmentCount } from '../hooks/useGarmentCount';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+
+// Web parity: gap analysis is meaningless on a near-empty wardrobe — it would
+// flag every basic category as a "gap". Web gates the CTA at 5 garments.
+const MIN_GARMENTS_FOR_GAP_ANALYSIS = 5;
+
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DisplayPriority = 'High' | 'Med' | 'Low';
@@ -54,7 +59,21 @@ export function WardrobeGapsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { gaps, isLoading, error, analyzed, analyze, reset } = useWardrobeGaps();
+  const { data: garmentCount, isFetching: isCountFetching } = useGarmentCount();
   const paywallShownRef = useRef(false);
+
+  // `isFetching` (not `isLoading`) is the right signal here. After
+  // useAddGarment / useDeleteGarment invalidate ['garments-count'], React
+  // Query keeps the previous (stale) data on the next mount while it
+  // refetches in the background — Codex P2 round 2. If we trusted the
+  // value during that window, a delete that just took the wardrobe under
+  // the threshold could still pass the gate before the refetch lands.
+  // Treat the count as unknown while a fetch is in flight.
+  const hasEnoughGarments =
+    !isCountFetching &&
+    typeof garmentCount === 'number' &&
+    garmentCount >= MIN_GARMENTS_FOR_GAP_ANALYSIS;
+
 
   // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
   // is React-Query backed so a return visit reads from cache instead of
@@ -62,10 +81,20 @@ export function WardrobeGapsScreen() {
   // rehydrated yet, retry once it does — analyze() short-circuits without
   // a token, and the effect re-fires when accessToken flips truthy.
   // Codex audit P0-1 (audit 2) + P1-4 (audit 2).
+  // Gate: don't auto-run on a near-empty wardrobe — gap analysis on <5
+  // garments is noise. The user has to add more pieces first.
+  //
+  // Codex P2 on PR #738: explicit `!gaps.length` gate — `analyzed` already
+  // flips true after a successful run, but a transient count flip
+  // (false → true → false from a useGarmentCount refetch) could still
+  // re-fire analyze if `analyzed` were ever cleared elsewhere. Combining
+  // the two gates makes the trigger idempotent against count noise.
   useEffect(() => {
-    if (analyzed || isLoading || error) return;
+    if (isLoading || error) return;
+    if (analyzed || gaps.length > 0) return;
+    if (!hasEnoughGarments) return;
     void analyze();
-  }, [analyzed, isLoading, error, analyze]);
+  }, [analyzed, gaps.length, isLoading, error, analyze, hasEnoughGarments]);
   // No unmount reset — the React Query cache is the cross-mount memory.
 
   useEffect(() => {
@@ -110,7 +139,23 @@ export function WardrobeGapsScreen() {
     [gaps],
   );
 
-  const heroCount = analyzed ? gapDisplays.length : '—';
+  // Codex P2: cached gaps must hide when the wardrobe drops below the
+  // threshold. The React Query cache persists across mounts, so a delete that
+  // takes the user under 5 garments would otherwise leave the stale gap list
+  // rendered while the caption tells them to add more pieces — contradictory
+  // UX. Gating the display (not the cache) keeps the count cheap to recover
+  // if the user adds garments back.
+  const showCachedAnalysis = hasEnoughGarments && analyzed;
+  const heroCount = showCachedAnalysis ? gapDisplays.length : '—';
+  const heroPiecesPluralized = showCachedAnalysis && gapDisplays.length === 1 ? '' : 's';
+
+  // Hero copy varies by gate so the not-enough-garments state reads as a
+  // prerequisite gate rather than a loading state — both branches share the
+  // em-dash placeholder, but the copy below the count needs to make the
+  // distinction obvious. Codex P2 on PR #738.
+  const heroEyebrow = !hasEnoughGarments
+    ? 'Wardrobe too small to analyse'
+    : 'Your wardrobe needs';
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -133,7 +178,7 @@ export function WardrobeGapsScreen() {
         ) : (
           <>
             <Card hero padding={20}>
-              <Eyebrow style={{ marginBottom: 6 }}>Your wardrobe needs</Eyebrow>
+              <Eyebrow style={{ marginBottom: 6 }}>{heroEyebrow}</Eyebrow>
               <Text
                 style={{
                   fontFamily: fonts.displayMedium,
@@ -144,15 +189,23 @@ export function WardrobeGapsScreen() {
                   color: t.fg,
                   letterSpacing: -0.3,
                 }}>
-                <Text style={{ color: t.accent }}>{heroCount}</Text> key piece
-                {gapDisplays.length === 1 ? '' : 's'}
+                {hasEnoughGarments ? (
+                  <>
+                    <Text style={{ color: t.accent }}>{heroCount}</Text> key piece
+                    {heroPiecesPluralized}
+                  </>
+                ) : (
+                  'Add more pieces first'
+                )}
               </Text>
               <Caption style={{ marginTop: 8, marginBottom: 14, lineHeight: 18 }}>
-                Identified from your last 90 days of wear, weather, and missed-occasion patterns.
+                {hasEnoughGarments
+                  ? 'Identified from your last 90 days of wear, weather, and missed-occasion patterns.'
+                  : `Add at least ${MIN_GARMENTS_FOR_GAP_ANALYSIS} garments so the analysis has enough signal to find real gaps.`}
               </Caption>
               <Button
                 label={isLoading ? 'Analysing…' : 'Analyse now'}
-                disabled={isLoading}
+                disabled={isLoading || !hasEnoughGarments}
                 onPress={() => {
                   reset();
                   void analyze();
@@ -169,7 +222,7 @@ export function WardrobeGapsScreen() {
               </View>
             ) : null}
 
-            {!isLoading && analyzed && gapDisplays.length === 0 ? (
+            {!isLoading && showCachedAnalysis && gapDisplays.length === 0 ? (
               <View style={s.stateWrap}>
                 <PageTitle size={22}>No gaps found</PageTitle>
                 <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 240 }}>
@@ -178,7 +231,7 @@ export function WardrobeGapsScreen() {
               </View>
             ) : null}
 
-            {!isLoading && analyzed && gapDisplays.length > 0 ? (
+            {!isLoading && showCachedAnalysis && gapDisplays.length > 0 ? (
               <View style={[s.gapList, { backgroundColor: t.card, borderColor: t.border }]}>
                 {gapDisplays.map((g, i) => {
                   const palette = priorityPalette(g.priority);

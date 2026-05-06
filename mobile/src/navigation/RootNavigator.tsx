@@ -1,42 +1,76 @@
-// Root native-stack registers every route from the design handoff.
-// MainTabs (containing Home/Wardrobe/Plan/Insights) is the initial screen.
-// Every other route is currently a `PlaceholderScreen` — swap in real implementations as they ship.
+// Root native-stack — every route the app can reach. Splash gates the user into
+// Auth → Onboarding → Paywall → MainTabs as the acquisition funnel; everything
+// else is reachable from inside MainTabs (Home / Wardrobe / Plan / Insights).
 //
-// Build order tracked in mobile/CLAUDE.md.
+// Each "real" screen has a dedicated component file under ../screens; only a
+// small handful (PublicProfile, BillingSuccess, BillingCancel, NotFound) still
+// resolve to PlaceholderScreen because the experiences haven't shipped yet.
+//
+// Key wiring details:
+//   • `linking` (M12) routes the password-recovery deep link
+//     `burs://reset-password#access_token=...` into ResetPasswordScreen. The
+//     hash fragment is parsed by App.tsx's useRecoveryDeepLink (it calls
+//     supabase.auth.setSession before this navigator routes). Without the
+//     fragment-stripping `getStateFromPath` override the default parser would
+//     never match the configured `reset-password` route.
+//   • Google OAuth completes by hitting `burs://auth/callback?code=...`.
+//     RootNavigator listens via Linking and calls supabase.auth.exchangeCodeForSession;
+//     the auth listener in AuthContext + SplashScreen completes the flow.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  getStateFromPath as defaultGetStateFromPath,
+  type LinkingOptions,
+} from '@react-navigation/native';
+
 import { supabase } from '../lib/supabase';
-import { MainTabsScreen } from '../screens/MainTabsScreen';
-import { PlaceholderScreen } from '../screens/PlaceholderScreen';
-// Acquisition flow (PR feat/mobile-onboarding-auth-paywall)
+
+// Acquisition flow
 import { SplashScreen as SplashRouteScreen } from '../screens/SplashScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
-// AddPiece flow + stylist screens (from origin/main, PR #706 — Wave 8.5 P82)
+
+// Tabs shell
+import { MainTabsScreen } from '../screens/MainTabsScreen';
+
+// AddPiece flow
 import { AddPieceStep1 } from '../screens/AddPieceStep1';
 import { AddPieceStep2 } from '../screens/AddPieceStep2';
 import { AddPieceStep3 } from '../screens/AddPieceStep3';
-import { StyleChatScreen } from '../screens/StyleChatScreen';
-import { StyleMeScreen } from '../screens/StyleMeScreen';
-import { MoodOutfitScreen } from '../screens/MoodOutfitScreen';
-import { MoodFlowScreen } from '../screens/MoodFlowScreen';
-// Wardrobe detail screens (this PR — #707)
+import { LiveScanScreen } from '../screens/LiveScanScreen';
+
+// Wardrobe / outfit / sharing
 import { OutfitsScreen } from '../screens/OutfitsScreen';
 import { OutfitDetailScreen } from '../screens/OutfitDetailScreen';
+import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { EditGarmentScreen } from '../screens/EditGarmentScreen';
+import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
 import { WardrobeGapsScreen } from '../screens/WardrobeGapsScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { FiltersScreen } from '../screens/FiltersScreen';
 import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
 import { UnusedOutfitsScreen } from '../screens/UnusedOutfitsScreen';
-// Travel + Settings + Profile + Notifications + ResetPassword (this PR)
+
+// Stylist / mood / occasion
+import { StyleChatScreen } from '../screens/StyleChatScreen';
+import { StyleMeScreen } from '../screens/StyleMeScreen';
+import { MoodOutfitScreen } from '../screens/MoodOutfitScreen';
+import { MoodFlowScreen } from '../screens/MoodFlowScreen';
+
+// Travel capsule
 import { TravelCapsuleScreen } from '../screens/TravelCapsuleScreen';
 import { TravelMustHavesScreen } from '../screens/TravelMustHavesScreen';
 import { TravelPackingListScreen } from '../screens/TravelPackingListScreen';
+
+// Calendar / laundry
+import { MonthCalendarScreen } from '../screens/MonthCalendarScreen';
+import { LaundryScreen } from '../screens/LaundryScreen';
+
+// Settings / profile / extras
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
 import { SettingsStyleScreen } from '../screens/SettingsStyleScreen';
@@ -45,70 +79,43 @@ import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
 import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+// M12 — real ResetPasswordScreen mounted (was a placeholder pre-M12). The
+// recovery email link `burs://reset-password` deep-links here via the
+// `linking` config exported below; the screen reads the now-hydrated
+// session and writes the new password through useResetPassword.confirmReset.
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
-// Missing-screens cleanup PR (feat/mobile-cleanup-missing-screens)
-import { MonthCalendarScreen } from '../screens/MonthCalendarScreen';
-import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
-import { LaundryScreen } from '../screens/LaundryScreen';
-import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
-import { LiveScanScreen } from '../screens/LiveScanScreen';
+
+import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+
 import type { TabId } from '../components/BottomNav';
+import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
+import type { AddGarmentSource } from '../hooks/useAddGarment';
 
 export type TabName = TabId;
 
 /**
  * Staged-photo shape for the AddPiece flow. Threaded from Step 1 through Step 2 and Step 3
- * via route params so the user's actual count + hue selections drive the downstream rows
- * (Codex P2 on PR #706 — earlier impl rendered fixed 5-item mocks regardless of choices).
+ * via route params so the user's actual count + hue selections drive the downstream rows.
  *
  * `uri` is required once W5 wires real upload — Step 1 only stages photos that have a
- * camera/gallery URI, so the placeholder hue path is gone. `hue` is retained so the
- * piece-selector strip in Step 3 has a stable fallback colour while the real image loads.
- *
- * Plain serializable data so React Navigation can persist it through state restoration.
+ * camera/gallery URI. `hue` is retained so the piece-selector strip in Step 3 has a
+ * stable fallback colour while the real image loads.
  */
 export type AddPiecePhoto = { id: number; hue: number; uri: string };
 
 /**
- * Inline copy of useAnalyzeGarment.AnalysisResult so RootNavigator stays at the bottom of
- * the import graph (the analyze hook imports AuthContext + supabase client; routing types
- * importing those would broaden the navigator's dep surface for no benefit). The two
- * declarations are intentionally identical — a future audit can collapse them with a
- * shared `types/analysis.ts` if drift becomes a real concern.
+ * Wardrobe filter selection passed back from FiltersScreen via the route's `onApply` callback.
+ * Mirrors the local FiltersScreen state shape (multi-select for Category/Color/Material/Fit/
+ * Season; single-select for Sort). When the wardrobe filtering hook lands, this becomes the
+ * input shape for the server-side query (or the in-memory client-side filter).
  */
-export type AnalysisResultParam = {
-  title: string;
-  category: string;
-  subcategory: string | null;
-  color_primary: string | null;
-  color_secondary: string | null;
-  material: string | null;
-  fit: string | null;
-  pattern: string | null;
-  season_tags: string[];
-  formality: number | null;
-  description: string | null;
-  confidence: number;
-  ai_provider?: string | null;
-  ai_raw?: Record<string, unknown> | null;
-  // Forwarded for PR 3's MultiGarmentReviewSheet — included on the param shape
-  // now so the route signature is stable across the PR sequence (no breaking
-  // change at PR 3 boundary). Both fields are optional; analyze in `fast` mode
-  // generally returns a single garment with the flag false.
-  image_contains_multiple_garments?: boolean;
-  detected_garments?: Array<{
-    title: string;
-    category: string;
-    subcategory?: string | null;
-    color_primary: string;
-    color_secondary?: string | null;
-    pattern?: string | null;
-    material?: string | null;
-    fit?: string | null;
-    season_tags?: string[] | null;
-    formality?: number | null;
-    confidence?: number | null;
-  }>;
+export type WardrobeFilters = {
+  categories: string[];
+  colors: string[];
+  materials: string[];
+  fits: string[];
+  seasons: string[];
+  sort: string;
 };
 
 export type RootStackParamList = {
@@ -124,43 +131,34 @@ export type RootStackParamList = {
   // saves. Photo URIs thread forward; storagePath + analysis come back from Step 2 →
   // Step 3 once the upload + AI round-trip lands. `source` is plumbed end-to-end so the
   // render-queue job is tagged with where the user actually came in (gallery/camera-tile
-  // → 'add_photo'; LiveScan → 'live_scan'). Default at Step 2 boundary is 'add_photo'.
+  // → 'add_photo'; LiveScan → 'live_scan').
   AddPieceStep1: undefined;
-  AddPieceStep2: {
-    photoUri: string;
-    allUris: string[];
-    source?: 'add_photo' | 'live_scan';
-  } | undefined;
+  AddPieceStep2: { photoUri: string; allUris: string[]; source: AddGarmentSource };
   // `storagePath` is nullable so Step 2 can forward the user to Step 3 before the
   // background upload settles (parallel analyze + upload). When null, Step 3 awaits
   // the in-flight upload via `uploadId` against the pendingUpload module before
-  // calling useAddGarment. Old callers that already have a finished upload (e.g.
-  // a PR-3 duplicate-detection redirect) can still pass a populated storagePath
-  // and omit uploadId.
+  // calling useAddGarment.
   AddPieceStep3: {
     storagePath: string | null;
     uploadId?: string;
     photoUri: string;
-    analysis: AnalysisResultParam;
-    source: 'add_photo' | 'live_scan';
+    analysis: AnalysisResult;
+    source: AddGarmentSource;
   };
   LiveScan: undefined;
 
-  // Outfit / garment / sharing — GarmentDetail and EditGarment now require a real
-  // garment id (Wave W2 wires them to useGarment / useUpdateGarment / useDeleteGarment;
-  // there's no fallback fixture path anymore, so id-less navigation would 404).
-  // OutfitDetail / ShareOutfit stay optional pending Wave W3's outfits hook.
+  // Outfit / garment / sharing
   Outfits: undefined;
   OutfitDetail: { id?: string } | undefined;
+  // Outfit-generation flow (loading → result). garmentId optional for "Wear today" /
+  // "Restyle from this piece" entry points that anchor on a specific item.
+  OutfitGenerate: { garmentId?: string } | undefined;
   EditGarment: { id: string };
   GarmentDetail: { id: string };
   ShareOutfit: { id?: string } | undefined;
   PublicProfile: { handle?: string } | undefined;
-  // Outfit-generation flow (loading → result). garmentId optional for "Wear today"
-  // / "Restyle from this piece" entry points that anchor on a specific item.
-  OutfitGenerate: { garmentId?: string } | undefined;
 
-  // Calendar + laundry (cleanup PR)
+  // Calendar + laundry
   MonthCalendar: undefined;
   Laundry: undefined;
 
@@ -173,10 +171,15 @@ export type RootStackParamList = {
   // (e.g. from a future deep link) still lands on the screen with sane defaults.
   MoodFlow: { moodId?: string; time?: string } | undefined;
 
-  // Travel capsule wizard
+  // Travel capsule wizard. `selectedIds` carries the must-have garment IDs
+  // picked on the TravelMustHaves step into the packing-list view so the next
+  // screen knows what the user committed to bringing. Optional so a user can
+  // still land on TravelPackingList directly (e.g. restoring a saved trip in
+  // the future) without having gone through the picker — the screen falls
+  // back to its own logic in that case.
   TravelCapsule: undefined;
   TravelMustHaves: undefined;
-  TravelPackingList: undefined;
+  TravelPackingList: { selectedIds?: string[] } | undefined;
 
   // Discover / lists
   WardrobeGaps: undefined;
@@ -199,34 +202,46 @@ export type RootStackParamList = {
   BillingCancel: undefined;
   NotFound: undefined;
 
-  // Search / filters
+  // Search / filters — FiltersScreen accepts an optional initial selection (so re-opening
+  // the sheet preserves the previous picks) and an `onApply` callback fired with the chosen
+  // filters before goBack. Callback-in-params is the standard React Navigation v6 pattern
+  // for transient modal-style returns where deep-linking + persistence don't apply
+  // (Wardrobe is a tab inside MainTabsScreen, not a stack route, so `nav.navigate('Wardrobe', ...)`
+  // isn't an option). RN may log a non-serializable-params warning in dev; benign here
+  // because Filters is never deep-linked and never restored from persisted nav state.
   Search: undefined;
-  // FiltersScreen accepts an optional initial selection (so re-opening the sheet preserves the
-  // previous picks) and an `onApply` callback fired with the chosen filters before goBack.
-  // Callback-in-params is the standard React Navigation v6 pattern for transient modal-style
-  // returns where deep-linking + persistence don't apply (Wardrobe isn't a stack route — it's a
-  // tab inside MainTabsScreen — so `nav.navigate('Wardrobe', ...)` isn't an option). RN may log
-  // a non-serializable-params warning in dev; benign here because Filters is never deep-linked
-  // and never restored from persisted nav state. Codex P2 round 8.
   Filters: { initial?: WardrobeFilters; onApply?: (filters: WardrobeFilters) => void } | undefined;
 };
 
-/**
- * Wardrobe filter selection passed back from FiltersScreen via the route's `onApply` callback.
- * Mirrors the local FiltersScreen state shape (multi-select for Category/Color/Material/Fit/
- * Season; single-select for Sort). When the wardrobe filtering hook lands, this becomes the
- * input shape for the server-side query (or the in-memory client-side filter).
- */
-export type WardrobeFilters = {
-  categories: string[];
-  colors: string[];
-  materials: string[];
-  fits: string[];
-  seasons: string[];
-  sort: string;
-};
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// M12 — deep-link routing. The recovery email URL is
+// `burs://reset-password#access_token=...&refresh_token=...&type=recovery`.
+// React Navigation matches the path and routes to ResetPassword; the hash
+// fragment is parsed by the recovery handler in App.tsx (which calls
+// supabase.auth.setSession before this screen reads the session). Other
+// routes are unlinked: the app cold-starts to its initial route unless a
+// recovery URL fired the launch.
+//
+// `getStateFromPath` override (Codex P1 round 1): RN's default parser
+// strips `?` query strings but not `#` fragments, so the path
+// `reset-password#access_token=...` would never match the configured
+// `reset-password` route — the session would hydrate but the user would
+// never navigate to ResetPasswordScreen. Strip the fragment first, then
+// delegate to the default parser so route matching sees only the path.
+export const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['burs://'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password',
+    },
+  },
+  getStateFromPath: (path, options) => {
+    const fragmentIdx = path.indexOf('#');
+    const cleanPath = fragmentIdx === -1 ? path : path.slice(0, fragmentIdx);
+    return defaultGetStateFromPath(cleanPath, options);
+  },
+};
 
 // Placeholder components MUST be created at module scope — not inside RootNavigator's render —
 // so React Navigation sees stable function references across re-renders (e.g. after a theme
@@ -239,21 +254,10 @@ const placeholder = (eyebrow: string, title: string, body?: string) => {
 };
 
 const Placeholders = {
-  // (LiveScan + ShareOutfit are real now — see Stack.Screen list below.)
-  // Outfit / garment / sharing — Outfits, OutfitDetail, EditGarment, GarmentDetail are now
-  // real screens (PR #707). PublicProfile remains a placeholder.
   PublicProfile: placeholder('Public', 'Profile'),
-
-  // (StyleChat / StyleMe / MoodOutfit / MoodFlow now have real impls — see Stack.Screen list below.)
-
-  // (Travel / Settings / Profile / Notifications / ResetPassword are real now — see Stack.Screen list.)
-
   BillingSuccess: placeholder('Welcome', 'Premium activated'),
   BillingCancel: placeholder('Cancelled', 'Plan cancelled'),
   NotFound: placeholder('Off the rail', '404'),
-
-  // Search / filters — both are real screens now (PR #707).
-  // (no placeholders remaining in this group)
 } as const;
 
 // Google OAuth completes by redirecting back to `burs://auth/callback?code=...`.
@@ -284,10 +288,36 @@ function isOAuthCallbackUrl(url: string): boolean {
   }
 }
 
-async function handleOAuthDeepLink(url: string): Promise<void> {
+async function handleOAuthDeepLink(
+  url: string,
+  lastExchangedCodeRef: React.MutableRefObject<string | null>,
+): Promise<void> {
   if (!isOAuthCallbackUrl(url)) return;
+  // supabase-auth-js's `exchangeCodeForSession` POSTs whatever string we pass
+  // as the `auth_code` param, so it expects the raw code string — not the
+  // full deep-link URL. Passing the URL would make every OAuth login fail
+  // even after the URL pattern matched. Parse the `code` query param and
+  // exchange that. Codex P1 round 9 on PR #738.
+  let code: string | null = null;
   try {
-    const { error } = await supabase.auth.exchangeCodeForSession(url);
+    code = new URL(url).searchParams.get('code');
+  } catch {
+    code = null;
+  }
+  if (!code) {
+    console.warn('[RootNavigator] OAuth callback URL missing `code` param:', url);
+    return;
+  }
+  // Dedupe per-launch: on iOS both `getInitialURL` and the `'url'` event
+  // fire for the same launch URL, which would have us call
+  // `exchangeCodeForSession` twice with the same code. The second call
+  // 4xxs (PKCE codes are single-use) and pollutes Sentry with noise. Track
+  // the last-exchanged code in a ref and short-circuit on a match. Codex
+  // P2 round on PR #738.
+  if (lastExchangedCodeRef.current === code) return;
+  lastExchangedCodeRef.current = code;
+  try {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       console.warn('[RootNavigator] OAuth callback exchange failed:', error.message);
     }
@@ -297,15 +327,16 @@ async function handleOAuthDeepLink(url: string): Promise<void> {
 }
 
 export function RootNavigator() {
+  const lastExchangedCodeRef = useRef<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     const onUrl = ({ url }: { url: string }) => {
-      if (!cancelled) void handleOAuthDeepLink(url);
+      if (!cancelled) void handleOAuthDeepLink(url, lastExchangedCodeRef);
     };
     const subscription = Linking.addEventListener('url', onUrl);
     // Cold-start: app opened FROM a deep link — pull the URL ourselves.
     void Linking.getInitialURL().then((url) => {
-      if (!cancelled && url) void handleOAuthDeepLink(url);
+      if (!cancelled && url) void handleOAuthDeepLink(url, lastExchangedCodeRef);
     });
     return () => {
       cancelled = true;
@@ -317,7 +348,7 @@ export function RootNavigator() {
     <Stack.Navigator
       // Splash is the production entry. In dev builds, drop straight to MainTabs
       // so the engineer-loop doesn't sit through a 1.5s splash on every reload.
-      // (X-5 from review.) Override at runtime by pushing 'Splash' explicitly.
+      // Override at runtime by pushing 'Splash' explicitly.
       initialRouteName={__DEV__ ? 'MainTabs' : 'Splash'}
       screenOptions={{
         headerShown: false,
@@ -351,43 +382,42 @@ export function RootNavigator() {
 
       <Stack.Screen name="MainTabs" component={MainTabsScreen} />
 
-      {/* Add piece flow — real implementations (PR #706) */}
+      {/* Add piece flow */}
       <Stack.Screen name="AddPieceStep1" component={AddPieceStep1} />
       <Stack.Screen name="AddPieceStep2" component={AddPieceStep2} />
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={LiveScanScreen} />
 
-      {/* Outfit / garment / sharing — Outfits / OutfitDetail / EditGarment / GarmentDetail /
-          ShareOutfit are real screens; PublicProfile remains a placeholder. */}
+      {/* Outfit / garment / sharing */}
       <Stack.Screen name="Outfits" component={OutfitsScreen} />
       <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
+      <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
       <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
       <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
       <Stack.Screen name="ShareOutfit" component={ShareOutfitScreen} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
-      <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
 
-      {/* Calendar + laundry (cleanup PR) */}
+      {/* Calendar + laundry */}
       <Stack.Screen name="MonthCalendar" component={MonthCalendarScreen} />
       <Stack.Screen name="Laundry" component={LaundryScreen} />
 
-      {/* Stylist / mood / occasion — real implementations (PR #706) */}
+      {/* Stylist / mood / occasion */}
       <Stack.Screen name="StyleChat" component={StyleChatScreen} />
       <Stack.Screen name="StyleMe" component={StyleMeScreen} />
       <Stack.Screen name="MoodOutfit" component={MoodOutfitScreen} />
       <Stack.Screen name="MoodFlow" component={MoodFlowScreen} />
 
-      {/* Travel capsule — real implementations (this PR) */}
+      {/* Travel capsule */}
       <Stack.Screen name="TravelCapsule" component={TravelCapsuleScreen} />
       <Stack.Screen name="TravelMustHaves" component={TravelMustHavesScreen} />
       <Stack.Screen name="TravelPackingList" component={TravelPackingListScreen} />
 
-      {/* Discover / lists — all three real (PR #707) */}
+      {/* Discover / lists */}
       <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
       <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
       <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
 
-      {/* Settings — real implementations (this PR) */}
+      {/* Settings */}
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
       <Stack.Screen name="SettingsStyle" component={SettingsStyleScreen} />
@@ -395,7 +425,7 @@ export function RootNavigator() {
       <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
       <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
 
-      {/* Profile / account / extras — Profile + Notifications + ResetPassword real (this PR) */}
+      {/* Profile / account / extras */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
@@ -403,7 +433,7 @@ export function RootNavigator() {
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />
       <Stack.Screen name="NotFound" component={Placeholders.NotFound} />
 
-      {/* Search / filters — both real (PR #707) */}
+      {/* Search / filters */}
       <Stack.Screen name="Search" component={SearchScreen} />
       <Stack.Screen name="Filters" component={FiltersScreen} />
     </Stack.Navigator>

@@ -3,7 +3,7 @@
 **Goal:** Cut TestFlight build #1, internal testing, bug burndown, TestFlight build #2 with external testers, final burndown.
 
 **Status:** ⛔ BLOCKED — needs Apple Developer account + EAS Build configured.
-**Branch:** N/A — this wave is process, not code (bug-fix PRs cut from `feat/mobile-rn-app` as needed).
+**Branch:** N/A — this wave is process, not code (bug-fix PRs cut from `main` as needed; policy update 2026-05-06).
 **Depends on:** M0–M12 merged + Apple Developer + EAS configured.
 **Complexity:** running, ~7-10 days calendar.
 

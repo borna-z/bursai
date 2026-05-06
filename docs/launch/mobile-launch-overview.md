@@ -2,7 +2,7 @@
 
 **Goal:** Ship `mobile/` (React Native + Expo SDK 54) to App Store + Play Store on **2026-05-31** at 119 SEK/month or 899 SEK/year.
 
-**Branch base:** all work cuts from `feat/mobile-rn-app`. PRs target `feat/mobile-rn-app`, never `main`.
+**Branch base:** all PRs target `main`. (The earlier `feat/mobile-rn-app` launch-branch policy was retired 2026-05-06 per user direction.)
 
 **Replaces:** Wave 9 (Capacitor migration) is dropped — `mobile/` is the actual mobile path.
 
@@ -84,7 +84,7 @@ Mobile has no eslint or build pipeline yet. Bundle health is verified at TestFli
 
 ### Code-reviewer subagent before push (mandatory)
 Use `Agent(subagent_type="superpowers:code-reviewer", ...)` with this brief verbatim:
-> Review this diff against `feat/mobile-rn-app`. Check: (1) does it satisfy the wave's acceptance criteria? (2) are any callers of changed symbols broken? (3) does new code follow the `useAddGarment.ts` hook pattern (useAuth + supabase from `../lib/supabase` + captureMutationError on mutations)? (4) any drift from the wave file's skeletons? Report under 200 words.
+> Review this diff against `main`. Check: (1) does it satisfy the wave's acceptance criteria? (2) are any callers of changed symbols broken? (3) does new code follow the `useAddGarment.ts` hook pattern (useAuth + supabase from `../lib/supabase` + captureMutationError on mutations)? (4) any drift from the wave file's skeletons? Report under 200 words.
 
 If a regression is flagged: fix → re-run gates → re-review.
 
@@ -126,7 +126,7 @@ PR number placeholder: resolve with `git commit --amend --no-edit && git push --
 
 - **New edge functions allowed when they improve quality.** The mobile/CLAUDE.md "no new edge functions" rule has a launch carve-out: M6 ships `revenuecat_webhook`. Any other new function requires explicit user approval.
 - **Never reach into web `src/`** except for type imports (`import type { Database } from '../../../src/integrations/supabase/types'`).
-- **Never push to `main`.** All PRs target `feat/mobile-rn-app`.
+- **Never push directly to `main`.** All changes go through PRs targeting `main` (no direct pushes; the prior `feat/mobile-rn-app` launch-branch policy was retired 2026-05-06).
 - **Avatar feature is dead.** `avatars` bucket dropped 2026-04-21. The `SettingsAccountScreen.tsx` L77 row gets deleted in M10, not wired.
 - **No new design primitives.** Reuse existing `Eyebrow`, `PageTitle`, `Caption`, `Button`, `IconBtn`, `Chip`, `Card`, `SettingsRow`, `ListRow`, `BottomNav`.
 - **Tokens via `useTokens()` only.** Never hardcode hex values.

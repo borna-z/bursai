@@ -36,6 +36,7 @@ import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useGarmentCount } from '../hooks/useGarmentCount';
 import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
@@ -91,6 +92,35 @@ function filterActiveCount(f: WardrobeFilters | null): number {
   return f.categories.length + f.colors.length + f.materials.length + f.fits.length + f.seasons.length;
 }
 
+// Sort comparator for the FiltersScreen "Sort by" picker. The server query
+// always returns rows in `created_at desc` (the `recent_added` default), so
+// any non-default selection re-orders the in-memory result post-pagination.
+// Codex P2 on PR #738 caught that the sort selection was previously stored
+// but never applied. Sort IDs match `SORTS` in `FiltersScreen.tsx`.
+function compareForSort(a: Garment, b: Garment, sort: string): number {
+  switch (sort) {
+    case 'name_asc':
+      return (a.title ?? '').localeCompare(b.title ?? '');
+    case 'most_worn':
+      return (b.wear_count ?? 0) - (a.wear_count ?? 0);
+    case 'least_worn':
+      return (a.wear_count ?? 0) - (b.wear_count ?? 0);
+    case 'recent_worn': {
+      // Nulls (never worn) sink to the bottom — a "recently worn" sort that
+      // surfaces never-worn rows ahead of recently-worn ones is misleading.
+      const aMs = a.last_worn_at ? new Date(a.last_worn_at).getTime() : 0;
+      const bMs = b.last_worn_at ? new Date(b.last_worn_at).getTime() : 0;
+      return bMs - aMs;
+    }
+    case 'recent_added':
+    default: {
+      const aMs = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bMs = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bMs - aMs;
+    }
+  }
+}
+
 export function WardrobeScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -112,11 +142,50 @@ export function WardrobeScreen() {
     isFetchingNextPage,
   } = useFlatGarments(WARDROBE_FILTERS);
 
-  const visibleGarments = React.useMemo(
-    () => (filters ? garments.filter((g) => matchesClientFilters(g, filters)) : garments),
-    [garments, filters],
-  );
+  // True total — counts ALL garments (including in-laundry) so we can
+  // distinguish a brand-new wardrobe (zero garments at all) from a fully-
+  // laundered wardrobe (garments exist but every one is currently inLaundry,
+  // so the non-laundry query returns []). Without this, washing the whole
+  // capsule would silently bounce the user to the new-user empty state +
+  // "Add your first piece" CTA. Codex P2 round 6 on PR #738.
+  const garmentCountQ = useGarmentCount();
+  const trueTotalCount = garmentCountQ.data ?? 0;
+  const allInLaundry = trueTotalCount > 0 && garments.length === 0 && !hasNextPage;
+
+  const visibleGarments = React.useMemo(() => {
+    if (!filters) return garments;
+    const filtered = garments.filter((g) => matchesClientFilters(g, filters));
+    // Only apply the sort comparator once the eager-paginate loop has loaded
+    // every page (`!hasNextPage`). While pages are still arriving the sort
+    // would visibly reshuffle on each fetch as later rows reorder the prefix —
+    // keep server order (created_at desc) until the result set is complete.
+    // Codex P2 on PR #738.
+    if (
+      !hasNextPage &&
+      filters.sort &&
+      filters.sort !== 'recent_added'
+    ) {
+      // Stable sort against a copy — never mutate React Query's flattened array.
+      return [...filtered].sort((a, b) => compareForSort(a, b, filters.sort));
+    }
+    return filtered;
+  }, [garments, filters, hasNextPage]);
   const activeFilterCount = filterActiveCount(filters);
+
+  // Filters run client-side, so partial pagination produces a partial filter
+  // result. When ANY filter is active, eagerly fetch every remaining page
+  // before the user trusts the count. Without this, a match that lives on
+  // page 2+ stays invisible — and the "Filtered · N of M" eyebrow lies.
+  // Codex P2 round 2 on PR #738 sharpened the original "only fetch when empty"
+  // fix to cover the partial-match case too. The loop terminates because each
+  // fetch flips `hasNextPage` to false once the last page lands; `isLoading`
+  // gates the very first page so we don't double-trigger before the initial
+  // render settles.
+  React.useEffect(() => {
+    if (filters && hasNextPage && !isFetchingNextPage && !isLoading) {
+      void fetchNextPage();
+    }
+  }, [filters, hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
 
   const onRefresh = React.useCallback(() => {
     void refetch();
@@ -161,9 +230,13 @@ export function WardrobeScreen() {
       <View style={s.header}>
         <View style={{ flex: 1 }}>
           <Eyebrow style={{ marginBottom: 4 }}>
+            {/* Use the smart-tiles' "—" placeholder until counts are
+                authoritative, so a paginated wardrobe doesn't render
+                "Inventory · 30" or a filtered total against the same
+                undercount. Codex P2 round 9 on PR #738. */}
             {activeFilterCount > 0
-              ? `Filtered · ${visibleGarments.length} of ${totalCount}`
-              : `Inventory · ${totalCount}`}
+              ? `Filtered · ${countsAuthoritative ? visibleGarments.length : '—'} of ${fmtCount(totalCount)}`
+              : `Inventory · ${fmtCount(totalCount)}`}
           </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
         </View>
@@ -183,7 +256,11 @@ export function WardrobeScreen() {
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <SearchBar
-          placeholder={`Search ${totalCount} garments…`}
+          placeholder={
+            countsAuthoritative
+              ? `Search ${totalCount} garments…`
+              : 'Search your wardrobe…'
+          }
           onPress={() => nav.navigate('Search')}
         />
         <IconBtn
@@ -260,9 +337,15 @@ export function WardrobeScreen() {
     );
   }
 
-  // Empty wardrobe — no items at all (not the "filters narrow it to zero"
-  // case; that one keeps the filter chips visible and just renders nothing).
-  if (totalCount === 0) {
+  // Empty wardrobe — distinct cases:
+  //   1. trueTotalCount === 0  → genuinely new user, "Add your first piece"
+  //   2. trueTotalCount > 0    → wardrobe exists but every garment is inLaundry,
+  //      "All in laundry"        send the user to LaundryScreen instead of an
+  //                              "Add your first piece" CTA they don't need.
+  // The "filters narrow it to zero" case is handled below via filteredEmpty
+  // — it keeps the filter chips visible and just renders the no-matches state.
+  if (totalCount === 0 && !hasNextPage) {
+    const isAllLaundry = allInLaundry;
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
@@ -283,12 +366,18 @@ export function WardrobeScreen() {
                 letterSpacing: -0.26,
                 textAlign: 'center',
               }}>
-              Your wardrobe is empty
+              {isAllLaundry ? 'Everything is in laundry' : 'Your wardrobe is empty'}
             </Text>
             <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
-              Add your first piece to get started.
+              {isAllLaundry
+                ? `All ${trueTotalCount} of your pieces are marked as in laundry. Bring them back when they're clean.`
+                : 'Add your first piece to get started.'}
             </Caption>
-            <Button label="Add piece" onPress={() => nav.navigate('AddPieceStep1')} />
+            {isAllLaundry ? (
+              <Button label="Open laundry" onPress={() => nav.navigate('Laundry')} />
+            ) : (
+              <Button label="Add piece" onPress={() => nav.navigate('AddPieceStep1')} />
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -314,6 +403,13 @@ export function WardrobeScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
         onEndReached={() => {
+          // When filters are active the eager-paginate effect above already
+          // walks every page; firing fetchNextPage from the FlatList scroll
+          // callback as well races the effect on every render where
+          // `hasNextPage` is still true. The infinite-query dedupes by key,
+          // but skipping the redundant trigger keeps the two paths from
+          // fighting over `isFetchingNextPage`. Codex P2 on PR #738.
+          if (filters) return;
           if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
         }}
         onEndReachedThreshold={0.4}

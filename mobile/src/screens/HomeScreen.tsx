@@ -24,10 +24,12 @@ import { Card } from '../components/Card';
 import { PlanCardSkeleton, StatRowSkeleton } from '../components/skeletons';
 import {
   ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
-  SunIcon, ChevronIcon, SparklesIcon, type IconProps,
+  SunIcon, ChevronIcon, SparklesIcon,
 } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useGarmentCount } from '../hooks/useGarmentCount';
+import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
@@ -86,9 +88,11 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   const { profile } = useAuth();
   const firstName = (profile?.display_name ?? '').trim().split(/\s+/)[0] ?? '';
 
-  // Memoised so the React.useMemo([now, ...]) dependencies below don't tear on every render.
-  // PlanScreen does the same; mismatch would defeat the week-strip memoisation.
-  const now = React.useMemo(() => new Date(), []);
+  // Reactive `now` — RN tabs stay mounted across day boundaries so a static
+  // `useMemo([])` would freeze the date and `wornToday` would compare today's
+  // outfit against yesterday. useNow ticks on AppState 'active' and at the
+  // next midnight. Codex P2 on PR #738.
+  const now = useNow();
   const headerDate = formatHeaderDate(now);
   const greeting = greetingFor(now);
 
@@ -99,6 +103,10 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   const todayPlanQ = useTodayPlannedOutfit();
   const weekPlansQ = usePlannedOutfitsForWeek();
   const garmentsQ = useFlatGarments();
+  // Server-side count — authoritative regardless of pagination state, so
+  // "Pieces in wardrobe" doesn't undercount once a user crosses the 30-row
+  // PAGE_SIZE. Codex P2 on PR #738.
+  const garmentCountQ = useGarmentCount();
   const todayPlan = todayPlanQ.data ?? null;
   const todayOutfit = todayPlan?.outfit ?? null;
 
@@ -121,7 +129,35 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     return localISODate(wornDate) === localISODate(now);
   }, [todayOutfit?.worn_at, now]);
 
-  const garmentTotal = garmentsQ.data?.length ?? 0;
+  // Total pieces — server-side count is the only authoritative source
+  // (paginated `garmentsQ.data?.length` would silently undercount once the
+  // user crosses the 30-row PAGE_SIZE). When the count query errors or
+  // hasn't settled yet, render `'—'` instead of a wrong number — same gate
+  // shape as `wardrobeStatsAuthoritative` below. Codex P2 on PR #738.
+  const garmentCountReady = garmentCountQ.isSuccess;
+  const garmentTotal = garmentCountReady
+    ? String(garmentCountQ.data ?? 0)
+    : '—';
+
+  // Wardrobe-used % derives from the *full* garment set (the 30-day cutoff
+  // rides on `last_worn_at`). useFlatGarments paginates at PAGE_SIZE=30 so a
+  // wardrobe of 200 garments on a partial-load would compute against just the
+  // first page — the % would silently undercount. We auto-paginate when the
+  // user lands on Home so the stat is correct, AND only render the % once all
+  // pages are in. Otherwise we render `—` (matches WardrobeScreen's
+  // `countsAuthoritative` pattern). Codex P2 on PR #738.
+  const {
+    hasNextPage: garmentsHasNextPage,
+    isFetchingNextPage: garmentsFetchingNext,
+    isLoading: garmentsLoading,
+    fetchNextPage: garmentsFetchNextPage,
+  } = garmentsQ;
+  React.useEffect(() => {
+    if (garmentsHasNextPage && !garmentsFetchingNext && !garmentsLoading) {
+      void garmentsFetchNextPage();
+    }
+  }, [garmentsHasNextPage, garmentsFetchingNext, garmentsLoading, garmentsFetchNextPage]);
+  const wardrobeStatsAuthoritative = !garmentsHasNextPage;
   const wardrobeUsedPct = React.useMemo(() => {
     if (!garmentsQ.data || garmentsQ.data.length === 0) return 0;
     const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -162,7 +198,14 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     markWorn.mutate(
       { outfitId: todayOutfit.id, garmentIds },
       {
-        onSuccess: () => Alert.alert('Marked worn', 'Today\'s look saved to your wear log.'),
+        // Skip the success alert when the mutation deduped (already worn
+        // today / synchronous in-flight). The first real write's alert
+        // already covered the user; a second toast for a no-op write is
+        // confusing. Codex P2 round 10 on PR #738.
+        onSuccess: (data) => {
+          if (data?.deduped) return;
+          Alert.alert('Marked worn', "Today's look saved to your wear log.");
+        },
         onError: (err: unknown) =>
           Alert.alert(
             'Could not mark worn',
@@ -370,12 +413,12 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
           ) : (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <RhythmStat
-                num={String(garmentTotal)}
+                num={garmentTotal}
                 label="Pieces in wardrobe"
                 onPress={() => goTab('insights')}
               />
               <RhythmStat
-                num={`${wardrobeUsedPct}%`}
+                num={wardrobeStatsAuthoritative ? `${wardrobeUsedPct}%` : '—'}
                 label="Wardrobe used"
                 onPress={() => goTab('insights')}
               />
@@ -465,7 +508,10 @@ function OutfitThumb({
   const [broken, setBroken] = React.useState(false);
   React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
   const showImage = signedUrl && !broken;
-  const label = (item?.slot ?? garment?.category ?? '').toString().toUpperCase();
+  // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
+  // as the empty string `''` rather than null, and `??` would still pick
+  // that empty value over the garment's category. Codex P2 on PR #738.
+  const label = (item?.slot || garment?.category || '').toString().toUpperCase();
   const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
 
   return (
