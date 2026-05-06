@@ -177,6 +177,13 @@ export function OutfitDetailScreen() {
 
   const handleRate = React.useCallback(
     (n: number) => {
+      // Gate on isPending so a quick double-tap on adjacent stars can't
+      // fire two concurrent mutations and create duplicate
+      // `outfit_feedback` rows. The hook's defensive sweep collapses
+      // duplicates if they slip through, but preventing them at the
+      // screen layer is the cheaper first line of defence (Codex P2
+      // round 8 on PR #738).
+      if (rateOutfit.isPending) return;
       const next = n === rating ? 0 : n;
       setRating(next);
       if (!outfit) return;

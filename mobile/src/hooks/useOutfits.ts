@@ -277,9 +277,84 @@ export function useDeleteOutfit() {
 }
 
 /**
+ * SELECT-newest, UPDATE-or-INSERT, then DELETE-siblings on `outfit_feedback`.
+ *
+ * `outfit_feedback` lacks a UNIQUE constraint on `(user_id, outfit_id)` (see
+ * inline comment on the per-hook fix history) so the canonical PostgREST
+ * upsert path doesn't work. A naive SELECT-then-INSERT has a race window
+ * where two concurrent rate/note taps both see "no row" and both INSERT,
+ * leaving duplicate rows that subsequently break `useOutfitFeedback`'s
+ * `.maybeSingle()` read with a "multiple rows returned" error — Codex P2
+ * round 8 on PR #738.
+ *
+ * This helper:
+ *   1. SELECTs every row for `(user_id, outfit_id)` ordered newest first.
+ *   2. If any rows exist: UPDATEs the newest with the patch, DELETEs the
+ *      stale siblings to collapse duplicates created by an earlier race.
+ *   3. If no rows: INSERTs the new row, then re-reads + collapses any
+ *      siblings that arrived from a concurrent INSERT we lost the
+ *      milliseconds-race against. The defensive sweep is what makes
+ *      back-to-back rates converge to a single row even under contention.
+ *
+ * Reads (`useOutfitFeedback` below) tolerate transient duplicates by using
+ * `.order('created_at', desc).limit(1)` instead of `.maybeSingle()` — they
+ * always pick the newest row, so even mid-race the user sees their latest
+ * tap reflected. The next write collapses to one row again.
+ */
+async function upsertOutfitFeedbackRow(
+  userId: string,
+  outfitId: string,
+  patch: { rating?: number; commentary?: string | null },
+): Promise<void> {
+  const { data: rows, error: readErr } = await supabase
+    .from('outfit_feedback')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('outfit_id', outfitId)
+    .order('created_at', { ascending: false });
+  if (readErr) throw readErr;
+
+  if (rows && rows.length > 0) {
+    const newestId = rows[0].id;
+    const { error: updateErr } = await supabase
+      .from('outfit_feedback')
+      .update(patch)
+      .eq('id', newestId);
+    if (updateErr) throw updateErr;
+    if (rows.length > 1) {
+      const staleIds = rows.slice(1).map((r) => r.id);
+      // Best-effort cleanup — failure here just leaves the duplicate around
+      // (caught by the read-tolerant `.limit(1)` path) so we don't surface
+      // it as a mutation error.
+      await supabase.from('outfit_feedback').delete().in('id', staleIds);
+    }
+    return;
+  }
+
+  const { error: insertErr } = await supabase
+    .from('outfit_feedback')
+    .insert({ user_id: userId, outfit_id: outfitId, ...patch });
+  if (insertErr) throw insertErr;
+
+  // Defensive sweep — a concurrent mutation may have INSERTed in parallel
+  // since our SELECT. Re-read and delete any older siblings, keeping only
+  // the newest row.
+  const { data: postRows } = await supabase
+    .from('outfit_feedback')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('outfit_id', outfitId)
+    .order('created_at', { ascending: false });
+  if (postRows && postRows.length > 1) {
+    const staleIds = postRows.slice(1).map((r) => r.id);
+    await supabase.from('outfit_feedback').delete().in('id', staleIds);
+  }
+}
+
+/**
  * Save / replace a rating. Writes BOTH:
- *   1. `outfit_feedback` row (web's canonical store, upsert on
- *      `(user_id, outfit_id)`); and
+ *   1. `outfit_feedback` row via `upsertOutfitFeedbackRow` (race-tolerant,
+ *      collapses duplicates); and
  *   2. `outfits.rating` column (used by OutfitDetailScreen to hydrate prior
  *      ratings on screen open — without this, the local rating state always
  *      starts at 0 and a re-tap would silently overwrite a prior rating;
@@ -296,34 +371,7 @@ export function useRateOutfit() {
   return useMutation({
     mutationFn: async ({ outfitId, rating }: { outfitId: string; rating: number }) => {
       if (!user) throw new Error('Not authenticated');
-      // outfit_feedback has only a PK on `id` — no UNIQUE on
-      // (user_id, outfit_id) — so .upsert(..., { onConflict: 'user_id,outfit_id' })
-      // is rejected by PostgREST. Manual SELECT-then-UPDATE-or-INSERT keeps
-      // the rate flow working without a migration. Sibling fix folded in
-      // alongside Codex P1 on PR #738. Race-window: two concurrent rate
-      // taps could both see "no row" and both INSERT — same last-write-wins
-      // tradeoff the read-modify-write `wear_count` increment already
-      // accepts.
-      const { data: existing, error: readErr } = await supabase
-        .from('outfit_feedback')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('outfit_id', outfitId)
-        .maybeSingle();
-      if (readErr) throw readErr;
-
-      if (existing) {
-        const { error: updateErr } = await supabase
-          .from('outfit_feedback')
-          .update({ rating })
-          .eq('id', existing.id);
-        if (updateErr) throw updateErr;
-      } else {
-        const { error: insertErr } = await supabase
-          .from('outfit_feedback')
-          .insert({ user_id: user.id, outfit_id: outfitId, rating });
-        if (insertErr) throw insertErr;
-      }
+      await upsertOutfitFeedbackRow(user.id, outfitId, { rating });
 
       const { error: outfitError } = await supabase
         .from('outfits')
@@ -354,14 +402,21 @@ export function useOutfitFeedback(outfitId: string | undefined) {
     queryKey: ['outfit_feedback', user?.id, outfitId],
     queryFn: async () => {
       if (!user || !outfitId) return null;
+      // `.order(desc).limit(1)` not `.maybeSingle()` — the latter throws on
+      // multiple rows, which can transiently exist if two near-simultaneous
+      // rate taps each INSERT before either's defensive sweep collapses the
+      // duplicates. Picking the newest row keeps the screen showing the
+      // user's latest tap; the next write converges back to a single row.
       const { data, error } = await supabase
         .from('outfit_feedback')
         .select('rating, commentary')
         .eq('user_id', user.id)
         .eq('outfit_id', outfitId)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
       if (error) throw error;
-      return (data as { rating: number | null; commentary: string | null } | null) ?? null;
+      const row = (data ?? [])[0] as { rating: number | null; commentary: string | null } | undefined;
+      return row ?? null;
     },
     enabled: !!user && !!outfitId,
     staleTime: 60 * 1000,
@@ -383,28 +438,7 @@ export function useSaveOutfitNote() {
       if (!user) throw new Error('Not authenticated');
       const trimmed = note.trim();
       const commentary = trimmed.length === 0 ? null : trimmed;
-      // Same outfit_feedback unique-constraint issue as useRateOutfit — see
-      // its inline comment. Manual SELECT-then-UPDATE-or-INSERT.
-      const { data: existing, error: readErr } = await supabase
-        .from('outfit_feedback')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('outfit_id', outfitId)
-        .maybeSingle();
-      if (readErr) throw readErr;
-
-      if (existing) {
-        const { error: updateErr } = await supabase
-          .from('outfit_feedback')
-          .update({ commentary })
-          .eq('id', existing.id);
-        if (updateErr) throw updateErr;
-      } else {
-        const { error: insertErr } = await supabase
-          .from('outfit_feedback')
-          .insert({ user_id: user.id, outfit_id: outfitId, commentary });
-        if (insertErr) throw insertErr;
-      }
+      await upsertOutfitFeedbackRow(user.id, outfitId, { commentary });
     },
     onSuccess: (_data, { outfitId }) => {
       queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
