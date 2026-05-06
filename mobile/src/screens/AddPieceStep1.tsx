@@ -27,7 +27,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, CameraIcon, ImageIcon } from '../components/icons';
+import { BackIcon, CameraIcon, ImageIcon, SearchIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
@@ -83,6 +83,16 @@ export function AddPieceStep1() {
   const openLiveScan = useCallback(() => {
     hapticLight();
     nav.navigate('LiveScan');
+  }, [nav]);
+
+  // M19 — third entry mode. Visual Search routes to its own screen rather than
+  // staging a photo into the grid: the user supplies a reference image (camera
+  // or gallery) and the screen surfaces wardrobe + online matches via the
+  // `visual_search` edge function. Tap a wardrobe match → GarmentDetail; tap
+  // an online match → "import coming soon" alert (M20 owns the real import).
+  const openVisualSearch = useCallback(() => {
+    hapticLight();
+    nav.navigate('VisualSearch');
   }, [nav]);
 
   const removePhoto = (id: number) => {
@@ -181,6 +191,15 @@ export function AddPieceStep1() {
               sub="Pick photos"
               icon={<ImageIcon color={t.accent} />}
               onPress={pickFromGallery}
+            />
+            {/* M19 — Visual Search third entry. Same SourcePill primitive so
+                the row stays visually consistent; the icon is reused from
+                the Search bar set. */}
+            <SourcePill
+              label="Search by photo"
+              sub="Find similar"
+              icon={<SearchIcon color={t.accent} />}
+              onPress={openVisualSearch}
             />
           </View>
         </View>

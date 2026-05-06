@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M19 — Visual Search → AddPiece |
-| **CURRENT WAVE FILE** | [`waves/m19-visual-search.md`](waves/m19-visual-search.md) |
+| **CURRENT WAVE** | M20 — Import garments from links → AddPiece |
+| **CURRENT WAVE FILE** | [`waves/m20-import-from-links.md`](waves/m20-import-from-links.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -122,7 +122,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Distributed Discover
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M19 | [Visual Search → AddPiece](waves/m19-visual-search.md) | TODO | V0, M9 |
+| M19 | [Visual Search → AddPiece](waves/m19-visual-search.md) | DONE (PR #TBD) | V0, M9 |
 | M20 | [Import garments from links → AddPiece](waves/m20-import-from-links.md) | TODO | V0, M9 |
 | M21 | [Assess condition → GarmentDetail](waves/m21-assess-condition.md) | TODO | V0, M9 |
 | M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | TODO | V0, M9 |

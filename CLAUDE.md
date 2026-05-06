@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M19 — Visual Search → AddPiece |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m19-visual-search.md` |
+| **CURRENT WAVE** | M20 — Import garments from links → AddPiece |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m20-import-from-links.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

@@ -398,4 +398,18 @@ export const en: Record<string, string> = {
   'photoFeedback.captureFailedBody': 'Try again.',
   'photoFeedback.close': 'Close',
   'photoFeedback.switchCamera': 'Switch camera',
+
+  // ─── M19 — Visual Search (AddPiece third entry) ────────────────────────
+  'visualSearch.title': 'Search by photo',
+  'visualSearch.eyebrow': 'Visual search',
+  'visualSearch.takePhoto': 'Take photo',
+  'visualSearch.chooseFromLibrary': 'Choose from library',
+  'visualSearch.searchCta': 'Search this look',
+  'visualSearch.searching': 'Finding similar pieces…',
+  'visualSearch.error': "We couldn't run that search. Try again.",
+  'visualSearch.wardrobeRow': 'Your wardrobe',
+  'visualSearch.webRow': 'Found online',
+  'visualSearch.wardrobeEmpty': 'No wardrobe matches yet — try another reference.',
+  'visualSearch.webEmpty': 'No online matches yet.',
+  'visualSearch.webComingSoon': 'Online import coming soon',
 };
