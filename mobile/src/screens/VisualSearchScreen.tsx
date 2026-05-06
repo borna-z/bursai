@@ -38,7 +38,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { useCameraPermissions } from 'expo-camera';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
@@ -69,52 +68,59 @@ export function VisualSearchScreen() {
   const nav = useNavigation<Nav>();
 
   const [referenceUri, setReferenceUri] = React.useState<string | null>(null);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const visualSearch = useVisualSearch();
   const { result, isUploading, isSearching, error, submitSearch, reset } = visualSearch;
 
   // Sticky paywall redirect — the hook surfaces `'subscription_required'`
   // sentinel via the `error` field; first time we see it, route to Paywall
-  // and clear the error so re-renders don't double-fire.
+  // and clear the error so re-renders don't double-fire. M19 Codex round 1
+  // P3.3 — single effect keyed on `error` covers both the route-on-set
+  // and the reset-on-clear branches so the lifecycle has one source of
+  // truth.
   const paywallRoutedRef = React.useRef(false);
   React.useEffect(() => {
-    if (error === SUBSCRIPTION_SENTINEL && !paywallRoutedRef.current) {
-      paywallRoutedRef.current = true;
-      reset();
-      nav.navigate('Paywall');
+    if (error === SUBSCRIPTION_SENTINEL) {
+      if (!paywallRoutedRef.current) {
+        paywallRoutedRef.current = true;
+        reset();
+        nav.navigate('Paywall');
+      }
+      return;
     }
+    // Any other error transition (including null) clears the sticky ref
+    // so a second 402 in the same mount cycle still redirects.
+    paywallRoutedRef.current = false;
   }, [error, nav, reset]);
-
-  // Reset the paywall-routed sticky ref whenever the screen is re-entered
-  // with no error (e.g. user came back from Paywall after subscribing).
-  // Without this, a second 402 in the same mount cycle would silently
-  // ignore the redirect.
-  React.useEffect(() => {
-    if (error === null) paywallRoutedRef.current = false;
-  }, [error]);
 
   // Camera capture — uses expo-image-picker's `launchCameraAsync` for a
   // single-shot flow (LiveScan's full CameraView pattern is overkill for
-  // a one-off reference photo). Permission is auto-requested via the
-  // hook's first call; if the user has hard-denied it, surface the
-  // standard alert.
+  // a one-off reference photo). M19 Codex round 1 P1.2 — relies on
+  // ImagePicker's built-in permission prompt; the prior
+  // `useCameraPermissions` pre-check double-asked on cold start because
+  // ImagePicker also prompts internally. The screen does NOT render an
+  // inline camera preview, so the expo-camera permission hook is not
+  // needed here.
   const handleTakePhoto = React.useCallback(async () => {
     hapticLight();
     try {
-      // expo-image-picker handles its own camera permission prompt when
-      // we call requestCameraPermissionsAsync — but we mirror the
-      // LiveScan pattern of triggering useCameraPermissions first so
-      // the screen's first interaction surfaces the OS dialog.
-      if (cameraPermission && !cameraPermission.granted && cameraPermission.canAskAgain) {
-        const granted = await requestCameraPermission();
-        if (!granted.granted) {
-          return;
-        }
-      }
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission needed', 'Grant camera access to take a reference photo.');
+        Alert.alert(
+          tr('visualSearch.permission.cameraTitle'),
+          tr('visualSearch.permission.cameraBody'),
+          [
+            {
+              text: tr('visualSearch.permission.openSettings'),
+              onPress: () => {
+                void Linking.openSettings().catch(() => {
+                  /* swallow — best-effort */
+                });
+              },
+            },
+            { text: tr('visualSearch.permission.cancel'), style: 'cancel' },
+          ],
+        );
         return;
       }
       const cap = await ImagePicker.launchCameraAsync({
@@ -128,16 +134,33 @@ export function VisualSearchScreen() {
       // state when the user picks a new reference.
       reset();
     } catch {
-      Alert.alert('Camera unavailable', 'Could not open the camera.');
+      Alert.alert(
+        tr('visualSearch.cameraUnavailableTitle'),
+        tr('visualSearch.cameraUnavailableBody'),
+      );
     }
-  }, [cameraPermission, requestCameraPermission, reset]);
+  }, [reset]);
 
   const handleChooseFromLibrary = React.useCallback(async () => {
     hapticLight();
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission needed', 'Grant photo access to pick a reference image.');
+        Alert.alert(
+          tr('visualSearch.permission.galleryTitle'),
+          tr('visualSearch.permission.galleryBody'),
+          [
+            {
+              text: tr('visualSearch.permission.openSettings'),
+              onPress: () => {
+                void Linking.openSettings().catch(() => {
+                  /* swallow — best-effort */
+                });
+              },
+            },
+            { text: tr('visualSearch.permission.cancel'), style: 'cancel' },
+          ],
+        );
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -149,7 +172,10 @@ export function VisualSearchScreen() {
       setReferenceUri(result.assets[0].uri);
       reset();
     } catch {
-      Alert.alert('Gallery unavailable', 'Could not open the photo library.');
+      Alert.alert(
+        tr('visualSearch.galleryUnavailableTitle'),
+        tr('visualSearch.galleryUnavailableBody'),
+      );
     }
   }, [reset]);
 
@@ -167,18 +193,34 @@ export function VisualSearchScreen() {
 
   const handleWebMatchTap = React.useCallback((match: VisualSearchWebMatch) => {
     hapticLight();
+    // M19 Codex round 1 P2.4 — only allow https:// product URLs through
+    // to `Linking.openURL`. URL parsing failure or a non-https protocol
+    // surfaces an inline alert and short-circuits without navigating.
+    let safeUrl: string | null = null;
+    try {
+      const parsed = new URL(match.product_url);
+      if (parsed.protocol === 'https:') {
+        safeUrl = parsed.toString();
+      }
+    } catch {
+      safeUrl = null;
+    }
+    if (!safeUrl) {
+      Alert.alert(tr('visualSearch.webRow'), tr('visualSearch.invalidWebUrl'));
+      return;
+    }
     Alert.alert(
       tr('visualSearch.webRow'),
       tr('visualSearch.webComingSoon'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('visualSearch.cancel'), style: 'cancel' },
         // Best-effort open of the product URL in the system browser so
         // the user can still discover the product manually until the
         // M20 import flow lands.
         {
-          text: 'Open',
+          text: tr('visualSearch.webMatchOpenAction'),
           onPress: () => {
-            void Linking.openURL(match.product_url).catch(() => {
+            void Linking.openURL(safeUrl).catch(() => {
               // Swallow — the URL might be malformed; we don't want
               // an unhandled rejection to crash the alert.
             });
@@ -236,7 +278,8 @@ export function VisualSearchScreen() {
                 <Pressable
                   onPress={handleClearReference}
                   accessibilityRole="button"
-                  accessibilityLabel="Clear reference"
+                  accessibilityLabel={tr('visualSearch.clearReferenceLabel')}
+                  accessibilityHint={tr('visualSearch.clearReferenceHint')}
                   style={({ pressed }) => [
                     s.clearBtn,
                     {
@@ -285,11 +328,13 @@ export function VisualSearchScreen() {
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <SourcePill
                 label={tr('visualSearch.takePhoto')}
+                hint={tr('visualSearch.takePhotoHint')}
                 icon={<CameraIcon color={t.accent} />}
                 onPress={handleTakePhoto}
               />
               <SourcePill
                 label={tr('visualSearch.chooseFromLibrary')}
+                hint={tr('visualSearch.chooseFromLibraryHint')}
                 icon={<ImageIcon color={t.accent} />}
                 onPress={handleChooseFromLibrary}
               />
@@ -348,7 +393,7 @@ export function VisualSearchScreen() {
 
             <ResultsRow
               title={tr('visualSearch.webRow')}
-              emptyLabel={tr('visualSearch.webEmpty')}
+              emptyLabel={tr('visualSearch.webComingSoonInline')}
               count={result.webMatches.length}>
               {result.webMatches.length === 0 ? null : (
                 <FlatList
@@ -374,10 +419,12 @@ export function VisualSearchScreen() {
 
 function SourcePill({
   label,
+  hint,
   icon,
   onPress,
 }: {
   label: string;
+  hint: string;
   icon: React.ReactNode;
   onPress: () => void;
 }) {
@@ -387,6 +434,7 @@ function SourcePill({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={hint}
       style={({ pressed }) => [
         {
           flex: 1,
@@ -479,20 +527,26 @@ function WardrobeMatchTile({
   // While the garment row is loading or the lookup returned null
   // (race between the function's match list and the user's wardrobe
   // sync), render a synthetic placeholder card with just the id so the
-  // tile keeps the row rhythm.
+  // tile keeps the row rhythm. M19 Codex round 1 P2.3 — the placeholder
+  // stays tappable so the user can navigate to GarmentDetail (which can
+  // hydrate the row independently); GarmentCard's `onPress` propagates
+  // through the wrapper Pressable. M19 Codex round 1 P3.1 — `image_path`
+  // dropped from the match shape; the `useGarment` lookup feeds the
+  // real image once the row hydrates, and the placeholder leans on
+  // GarmentCard's id-derived hue gradient.
   if (!garment) {
     return (
-      <View style={{ width: 160 }}>
+      <Pressable
+        onPress={() => onPress(match.garment_id)}
+        accessibilityRole="button"
+        accessibilityLabel={tr('visualSearch.wardrobeRow')}
+        accessibilityHint={tr('visualSearch.wardrobeMatchLoadingHint')}
+        style={{ width: 160 }}>
         <GarmentCard
           garment={{
             id: match.garment_id,
             title: '…',
             category: null,
-            // Defensive: prefer the function's `image_path` if it ever
-            // surfaces one (today it never does); otherwise let
-            // GarmentCard derive a hue from the garment_id so the
-            // placeholder gradient is stable.
-            original_image_path: match.image_path,
           }}
         />
         <View style={{ marginTop: 4, paddingHorizontal: 4 }}>
@@ -500,12 +554,17 @@ function WardrobeMatchTile({
             {Math.round(match.score * 100)}%
           </Caption>
         </View>
-      </View>
+      </Pressable>
     );
   }
 
   return (
-    <View style={{ width: 160 }}>
+    <Pressable
+      onPress={() => onPress(garment.id)}
+      accessibilityRole="button"
+      accessibilityLabel={garment.title ?? tr('visualSearch.wardrobeRow')}
+      accessibilityHint={tr('visualSearch.wardrobeMatchHint')}
+      style={{ width: 160 }}>
       <GarmentCard
         garment={{
           id: garment.id,
@@ -532,7 +591,7 @@ function WardrobeMatchTile({
           {Math.round(match.score * 100)}% match
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -555,6 +614,7 @@ function WebMatchTile({
       onPress={() => onPress(match)}
       accessibilityRole="button"
       accessibilityLabel={match.title}
+      accessibilityHint={tr('visualSearch.webMatchHint')}
       style={({ pressed }) => [
         {
           width: 160,

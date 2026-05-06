@@ -177,24 +177,27 @@ export function AddPieceStep1() {
         </Pressable>
 
         {/* ============ SOURCE ROW ============ */}
+        {/* M19 Codex round 1 P2.5 — two-row layout. Camera + Gallery share
+            the first row; Visual Search promoted to a full-width hero pill
+            on the second row so the three entries don't squeeze on narrow
+            devices and the visual hierarchy stays readable. */}
         <View>
           <Eyebrow style={{ marginBottom: 8 }}>Or add photos</Eyebrow>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <SourcePill
-              label="Camera"
-              sub="Shoot now"
-              icon={<CameraIcon color={t.accent} />}
-              onPress={openLiveScan}
-            />
-            <SourcePill
-              label="Gallery"
-              sub="Pick photos"
-              icon={<ImageIcon color={t.accent} />}
-              onPress={pickFromGallery}
-            />
-            {/* M19 — Visual Search third entry. Same SourcePill primitive so
-                the row stays visually consistent; the icon is reused from
-                the Search bar set. */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <SourcePill
+                label="Camera"
+                sub="Shoot now"
+                icon={<CameraIcon color={t.accent} />}
+                onPress={openLiveScan}
+              />
+              <SourcePill
+                label="Gallery"
+                sub="Pick photos"
+                icon={<ImageIcon color={t.accent} />}
+                onPress={pickFromGallery}
+              />
+            </View>
             <SourcePill
               label="Search by photo"
               sub="Find similar"

@@ -51,12 +51,18 @@ import {
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
 } from '../lib/edgeFunctionClient';
-import { getLocale } from '../lib/i18n';
+import { getLocale, t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
 
 const SUBSCRIPTION_SENTINEL = 'subscription_required';
 const MAX_DIMENSION = 1200;
 const JPEG_QUALITY = 0.85;
+// M19 Codex round 1 P2.1 — payload guard. The deployed function inlines
+// the base64 payload inside the JSON body; Supabase edge functions reject
+// payloads above ~6 MB. base64 inflates binary by ~33 %, so we cap the
+// base64 string at 3 MB (≈ 2.25 MB binary) to leave headroom for the
+// JSON envelope and any additional fields.
+const MAX_BASE64_LENGTH = 3_000_000;
 
 export interface VisualSearchWardrobeMatch {
   garment_id: string;
@@ -64,13 +70,6 @@ export interface VisualSearchWardrobeMatch {
    * 0-100 confidence value by dividing by 100; clamped to the [0, 1]
    * range so a malformed server payload can't break consumer math. */
   score: number;
-  /** Storage path for the matched garment's image. The deployed function
-   * doesn't return one (it only emits `garment_id`), so this is always
-   * `null` today — the screen falls back to looking up the garment row
-   * via `useGarment(id)` for the actual `rendered_image_path` /
-   * `original_image_path`. Kept on the type so a future server expansion
-   * can populate it directly without a hook signature change. */
-  image_path: string | null;
 }
 
 export interface VisualSearchWebMatch {
@@ -179,11 +178,9 @@ function adaptWardrobeMatches(raw: unknown): VisualSearchWardrobeMatch[] {
     const score = Number.isFinite(confidenceRaw)
       ? Math.max(0, Math.min(1, confidenceRaw / 100))
       : 0;
-    const imagePathRaw = typeof obj.image_path === 'string' ? obj.image_path.trim() : '';
     out.push({
       garment_id: garmentIdRaw,
       score,
-      image_path: imagePathRaw.length > 0 ? imagePathRaw : null,
     });
   }
   return out;
@@ -288,6 +285,14 @@ export function useVisualSearch(): UseVisualSearchResult {
             setError('Could not encode reference image');
             return;
           }
+          // M19 Codex round 1 P2.1 — payload size guard. Inline base64
+          // payloads above ~3 MB push the JSON envelope past Supabase's
+          // edge-function body limit; surface a typed user-facing error
+          // before we attempt the request.
+          if (resized.base64.length >= MAX_BASE64_LENGTH) {
+            setError(tr('visualSearch.imageTooLarge'));
+            return;
+          }
           // The function expects a data URL or raw base64; pass a data URL
           // so the OpenAI-compatible image_url surface accepts it directly
           // (the deployed function forwards the value as `image_url.url`).
@@ -324,7 +329,9 @@ export function useVisualSearch(): UseVisualSearchResult {
           response = await callEdgeFunction<DeployedVisualSearchResponse>('visual_search', {
             body: {
               image_base64: imageBase64Payload,
-              locale: getLocale() ?? 'en',
+              // `getLocale()` is non-nullable (returns the active `Locale`
+              // union via i18n.ts), so the prior `?? 'en'` was dead.
+              locale: getLocale(),
             },
             signal: controller.signal,
           });

@@ -412,4 +412,38 @@ export const en: Record<string, string> = {
   'visualSearch.wardrobeEmpty': 'No wardrobe matches yet — try another reference.',
   'visualSearch.webEmpty': 'No online matches yet.',
   'visualSearch.webComingSoon': 'Online import coming soon',
+  // M19 Codex round 1 P1.1 — accessibility hints for tappable surfaces
+  // (SourcePill camera/library, WardrobeMatchTile, WebMatchTile, clear
+  // reference button). Hints describe the action that follows the tap.
+  'visualSearch.takePhotoHint': 'Opens the camera to take a reference photo',
+  'visualSearch.chooseFromLibraryHint': 'Opens the gallery to pick a reference photo',
+  'visualSearch.wardrobeMatchHint': 'Opens GarmentDetail',
+  'visualSearch.wardrobeMatchLoadingHint': 'Loading garment — tap to open detail',
+  'visualSearch.webMatchHint': 'Shows online product info',
+  'visualSearch.clearReferenceHint': 'Removes the reference photo',
+  'visualSearch.clearReferenceLabel': 'Clear reference',
+  // M19 Codex round 1 P2.1 — surfaced when the resized reference base64
+  // exceeds the inline-payload guard (≈ 2.25 MB binary).
+  'visualSearch.imageTooLarge': 'Image too large — try a smaller photo',
+  // M19 Codex round 1 P2.2 — translated copy for permission + capture
+  // alert dialogs that previously held hardcoded English strings.
+  'visualSearch.permission.cameraTitle': 'Permission needed',
+  'visualSearch.permission.cameraBody': 'Camera access is required to take a reference photo.',
+  'visualSearch.permission.galleryTitle': 'Permission needed',
+  'visualSearch.permission.galleryBody': 'Photo library access is required to pick a reference image.',
+  'visualSearch.permission.openSettings': 'Open settings',
+  'visualSearch.permission.cancel': 'Cancel',
+  'visualSearch.cameraUnavailableTitle': 'Camera unavailable',
+  'visualSearch.cameraUnavailableBody': 'Could not capture a photo. Try again.',
+  'visualSearch.galleryUnavailableTitle': 'Gallery unavailable',
+  'visualSearch.galleryUnavailableBody': 'Could not pick a photo. Try again.',
+  'visualSearch.webMatchOpenAction': 'Open',
+  'visualSearch.cancel': 'Cancel',
+  // M19 Codex round 1 P2.4 — surfaced when a web match's product_url
+  // fails the https:// allowlist guard.
+  'visualSearch.invalidWebUrl': 'This link is not safe to open.',
+  // M19 Codex round 1 P3.4 — empty-row copy for the "Found online" row
+  // pre-launch (online matches are not live yet). Replaces `webEmpty`
+  // until the M20 product-search side lights up.
+  'visualSearch.webComingSoonInline': 'Online matches coming soon',
 };
