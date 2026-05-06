@@ -4,7 +4,7 @@
 
 **Scope:** `mobile/` only. Backend is read-only — all required edge functions (`delete_user_account`, `reset_style_memory`, `travel_capsule`, `send_push_notification`) already exist; per `mobile/CLAUDE.md` no new edge functions are added.
 
-**Branch:** all work cuts from `feat/mobile-rn-app`. PRs target that branch, not `main`.
+**Branch:** all PRs target `main`. (The earlier `feat/mobile-rn-app` launch-branch policy was retired 2026-05-06 per user direction.)
 
 **Convention:** hooks mirror `mobile/src/hooks/useAddGarment.ts` style — `useAuth()` for user/session, `supabase` from `../lib/supabase`, edge functions via `fetch(\`${supabaseUrl}/functions/v1/<name>\`, ...)` with `Authorization: Bearer ${session.access_token}`. Tokens via `useTokens()`. No new design primitives — reuse existing `Eyebrow`, `PageTitle`, `Caption`, `Button`, `IconBtn`, `Chip`, `Card`, `SettingsRow`, `ListRow`, `BottomNav`.
 

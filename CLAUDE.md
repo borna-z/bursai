@@ -17,7 +17,7 @@ The current wave pointer is also tracked in `docs/launch/overview.md` and update
 - Mobile RN + Expo app at `mobile/`
 - Edge functions at `supabase/functions/` (Deno runtime, ESM URL imports)
 - Web React/Vite app at `src/` — **runtime imports forbidden from mobile**; type imports allowed
-- All mobile PRs target `feat/mobile-rn-app` (never `main`)
+- All PRs target `main` (user direction 2026-05-06; the prior `feat/mobile-rn-app` launch-branch policy is retired)
 - Supabase project ref: `khvkwojtlkcvxjxztduj` (region: `eu-central-1`)
 - Working directory: `C:\Users\borna\OneDrive\Desktop\BZ\Burs\bursai-working`
 

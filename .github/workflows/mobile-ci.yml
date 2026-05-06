@@ -3,7 +3,7 @@
 # Per `docs/launch/waves/m-v0-ci-foundations.md`. Every later wave's
 # "V0 CI gates: all green" line resolves to this workflow.
 #
-# Runs on PRs targeting `feat/mobile-rn-app` (and pushes to it). Six jobs,
+# Runs on PRs targeting `main` (and pushes to it). Six jobs,
 # each a separate check so branch protection can require them individually:
 #
 #   1. typecheck         (always)
@@ -22,10 +22,10 @@ name: Mobile CI
 # IMPORTANT: no top-level `paths` filter on these triggers.
 #
 # This workflow is a REQUIRED gate (six checks must pass before merge into
-# `feat/mobile-rn-app`). If a PR doesn't touch any of the mobile/edge-fn/
+# `main`). If a PR doesn't touch any of the mobile/edge-fn/
 # migration paths, a `paths` filter would skip the workflow entirely — and
 # GitHub treats a skipped required check as permanently pending, blocking
-# merge. So the workflow always runs on PRs targeting feat/mobile-rn-app.
+# merge. So the workflow always runs on PRs targeting main.
 #
 # Heavy conditional work (deno-check, migration-smoke) is gated by per-job
 # `detect` steps that diff the PR and no-op when no relevant files changed —
@@ -33,9 +33,9 @@ name: Mobile CI
 # on irrelevant work.
 on:
   pull_request:
-    branches: [feat/mobile-rn-app]
+    branches: [main]
   push:
-    branches: [feat/mobile-rn-app]
+    branches: [main]
 
 jobs:
   typecheck:

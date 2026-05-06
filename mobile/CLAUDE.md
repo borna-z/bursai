@@ -7,7 +7,7 @@ Patterns and conventions for `mobile/`. Read once per session.
 | Field | Value |
 |---|---|
 | Runtime | Expo SDK 54, React Native |
-| Branch | `feat/mobile-rn-app` (all PRs target this; never `main`) |
+| Branch | `main` (all PRs target main; the prior `feat/mobile-rn-app` launch-branch policy was retired 2026-05-06) |
 | Backend | Supabase project ref `khvkwojtlkcvxjxztduj` (shared with web) |
 | State | TanStack React Query for server state; component-local `useState` for UI state |
 | Navigation | React Navigation v7 native-stack; custom 4-tab `MainTabsScreen` |
@@ -118,7 +118,7 @@ For edge function changes: `deno check supabase/functions/<name>/index.ts`.
 
 ## Code-reviewer subagent brief (verbatim — paste before push)
 
-> Review this diff against `feat/mobile-rn-app`. Check: (1) does it satisfy the wave's acceptance criteria as written in `docs/launch/waves/m<N>-<slug>.md`? (2) are any callers of changed symbols broken? (3) does new code follow the `useAddGarment.ts` hook pattern (`useAuth` + `supabase` from `../lib/supabase` + `captureMutationError` on mutations + `callEdgeFunction` on edge calls when M9 has shipped)? (4) any drift from the wave file's skeletons or scope creep? (5) for screens, does it use existing primitives (`Eyebrow`, `PageTitle`, `Caption`, `Button`, `Chip`, `Card`) and `useTokens()` (no hardcoded hex)? (6) for migrations: timestamp matches the MCP-applied one; idempotent guards present where needed. Report under 200 words. Flag P0 (blocks merge) vs P1 (fix in this PR) vs P2 (track in findings-log).
+> Review this diff against `main`. Check: (1) does it satisfy the wave's acceptance criteria as written in `docs/launch/waves/m<N>-<slug>.md`? (2) are any callers of changed symbols broken? (3) does new code follow the `useAddGarment.ts` hook pattern (`useAuth` + `supabase` from `../lib/supabase` + `captureMutationError` on mutations + `callEdgeFunction` on edge calls when M9 has shipped)? (4) any drift from the wave file's skeletons or scope creep? (5) for screens, does it use existing primitives (`Eyebrow`, `PageTitle`, `Caption`, `Button`, `Chip`, `Card`) and `useTokens()` (no hardcoded hex)? (6) for migrations: timestamp matches the MCP-applied one; idempotent guards present where needed. Report under 200 words. Flag P0 (blocks merge) vs P1 (fix in this PR) vs P2 (track in findings-log).
 
 If the reviewer flags a regression: fix → re-run gates → re-review.
 

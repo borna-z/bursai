@@ -3,7 +3,7 @@
 **Goal:** Initialize Sentry for the mobile app and add `onError` reporting to every existing mutation hook so future waves ship with error telemetry from day one.
 
 **Status:** 🔄 TODO
-**Branch:** `mobile-w0-sentry` (cut from `feat/mobile-rn-app`)
+**Branch:** `mobile-w0-sentry` (cut from `main` — policy update 2026-05-06)
 **PR count:** 1
 **Depends on:** none (this unlocks every later wave)
 **Complexity:** S

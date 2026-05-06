@@ -11,7 +11,7 @@
 
 ## Background
 
-Every later wave's "Acceptance gates" line `V0 CI gates: all green` resolves to the workflow built here. The workflow runs on every PR targeting `feat/mobile-rn-app` and blocks merge on any failed gate. Branch protection enforces that.
+Every later wave's "Acceptance gates" line `V0 CI gates: all green` resolves to the workflow built here. The workflow runs on every PR targeting `main` and blocks merge on any failed gate. Branch protection enforces that.
 
 ## Files touched
 
@@ -31,7 +31,7 @@ Every later wave's "Acceptance gates" line `V0 CI gates: all green` resolves to 
 
 ## Workflow gates
 
-The workflow runs on `pull_request` targeting `feat/mobile-rn-app`. Trigger paths: `mobile/**`, `supabase/functions/**`, `supabase/migrations/**`, `.github/workflows/**`.
+The workflow runs on `pull_request` targeting `main`. Trigger paths: `mobile/**`, `supabase/functions/**`, `supabase/migrations/**`, `.github/workflows/**`.
 
 Each job is its own check so branch protection can require all six.
 
@@ -70,7 +70,7 @@ Warn at 5 MB gzipped, fail at 7 MB. Threshold revisited at M42.
 ```yaml
 - if: contains(github.event.pull_request.changed_files, 'supabase/functions/')
 - run: |
-    for fn in $(git diff --name-only origin/feat/mobile-rn-app...HEAD -- 'supabase/functions/*/index.ts'); do
+    for fn in $(git diff --name-only origin/main...HEAD -- 'supabase/functions/*/index.ts'); do
       deno check "$fn"
     done
 ```
@@ -86,7 +86,7 @@ Migration-list drift would fail this. New migrations should appear in dry-run ou
 
 ## Branch protection (configure in GitHub)
 
-On `feat/mobile-rn-app`:
+On `main`:
 - Require PRs (no direct pushes)
 - Require all six checks to pass: `typecheck`, `lint`, `expo-doctor`, `bundle-size`, `deno-check`, `migration-smoke`
 - Require linear history
@@ -131,7 +131,7 @@ Note in `findings-log.md`:
 
 - TypeScript: workflow `typecheck` job passes
 - Lint: workflow `lint` job passes
-- Branch protection: all six checks listed as required on `feat/mobile-rn-app`
+- Branch protection: all six checks listed as required on `main`
 - Negative test: open a throwaway PR that intentionally fails `tsc` (e.g., add `const x: number = "string"` to a screen), confirm CI blocks merge, close PR
 - Positive test: open a throwaway PR that passes (e.g., add a no-op comment), confirm green checks, close PR
 - Code-reviewer subagent: approved (brief in `mobile/CLAUDE.md`)

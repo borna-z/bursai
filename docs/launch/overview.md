@@ -2,7 +2,7 @@
 
 Single source of truth for the mobile launch. Wave files in `waves/` are self-contained — read this file once, then read the current wave file, then implement.
 
-**Branch base:** all PRs target `feat/mobile-rn-app`. Never `main`.
+**Branch base:** all PRs target `main`. (Prior policy targeted a `feat/mobile-rn-app` launch branch; retired 2026-05-06 per user direction.)
 
 **Quality bar:** mobile must reach 100% feature parity with the web `src/` tree (modulo cuts below) before web is deleted post-launch. Sequencing is by dependency only — no calendar, no estimates.
 
