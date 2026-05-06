@@ -219,10 +219,20 @@ async function runReplay(): Promise<ReplayResult> {
   // get processed in this pass — it'll wait for the next replay tick.
   const snapshot = [...queue];
   const survivors: QueueItem[] = [];
-  let halted = false;
+  // Set of action types that hit a HaltReplayError this pass. Only items
+  // of those actions get parked-without-attempts; unrelated actions
+  // continue processing normally so a memory-event 429 doesn't starve
+  // queued add-garment saves behind it. Codex P2 round 6 on PR #734.
+  const haltedActions = new Set<string>();
   let haltRetryAfterMs: number | undefined;
-  for (let idx = 0; idx < snapshot.length; idx++) {
-    const item = snapshot[idx];
+  for (const item of snapshot) {
+    if (haltedActions.has(item.action)) {
+      // Same action as a previously-halted item this tick — park
+      // without counting attempts and let the deferred replay pick
+      // it up after retry-after.
+      survivors.push(item);
+      continue;
+    }
     const handler = handlers.get(item.action);
     if (!handler) {
       // Drop orphaned action types — see jsdoc above.
@@ -233,20 +243,17 @@ async function runReplay(): Promise<ReplayResult> {
       succeeded++;
     } catch (err) {
       if (err instanceof HaltReplayError) {
-        // Park this item AND every remaining snapshot item without
-        // counting attempts — they all belong to the same handler's
-        // failure window (typically a 429 burst). Schedule a deferred
-        // replay aligned to the server's retry-after when known.
         survivors.push(item);
-        for (let j = idx + 1; j < snapshot.length; j++) {
-          const remaining = snapshot[j];
-          if (handlers.has(remaining.action)) {
-            survivors.push(remaining);
-          }
+        haltedActions.add(item.action);
+        // Capture the earliest retry-after across actions so the
+        // scheduled replay aligns with the soonest recovery window.
+        if (
+          err.retryAfterMs != null &&
+          (haltRetryAfterMs == null || err.retryAfterMs < haltRetryAfterMs)
+        ) {
+          haltRetryAfterMs = err.retryAfterMs;
         }
-        halted = true;
-        haltRetryAfterMs = err.retryAfterMs;
-        break;
+        continue;
       }
       const nextAttempts = item.attempts + 1;
       if (nextAttempts >= MAX_ATTEMPTS) {
@@ -266,7 +273,7 @@ async function runReplay(): Promise<ReplayResult> {
   queue = [...survivors, ...newcomers];
   await persist();
   emitChange();
-  if (halted) {
+  if (haltedActions.size > 0) {
     scheduleDeferredReplay(haltRetryAfterMs);
   }
   return { succeeded, failed, remaining: queue.length };
