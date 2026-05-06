@@ -36,6 +36,7 @@ import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useGarmentCount } from '../hooks/useGarmentCount';
 import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
@@ -140,6 +141,16 @@ export function WardrobeScreen() {
     hasNextPage,
     isFetchingNextPage,
   } = useFlatGarments(WARDROBE_FILTERS);
+
+  // True total — counts ALL garments (including in-laundry) so we can
+  // distinguish a brand-new wardrobe (zero garments at all) from a fully-
+  // laundered wardrobe (garments exist but every one is currently inLaundry,
+  // so the non-laundry query returns []). Without this, washing the whole
+  // capsule would silently bounce the user to the new-user empty state +
+  // "Add your first piece" CTA. Codex P2 round 6 on PR #738.
+  const garmentCountQ = useGarmentCount();
+  const trueTotalCount = garmentCountQ.data ?? 0;
+  const allInLaundry = trueTotalCount > 0 && garments.length === 0 && !hasNextPage;
 
   const visibleGarments = React.useMemo(() => {
     if (!filters) return garments;
@@ -309,9 +320,15 @@ export function WardrobeScreen() {
     );
   }
 
-  // Empty wardrobe — no items at all (not the "filters narrow it to zero"
-  // case; that one keeps the filter chips visible and just renders nothing).
-  if (totalCount === 0) {
+  // Empty wardrobe — distinct cases:
+  //   1. trueTotalCount === 0  → genuinely new user, "Add your first piece"
+  //   2. trueTotalCount > 0    → wardrobe exists but every garment is inLaundry,
+  //      "All in laundry"        send the user to LaundryScreen instead of an
+  //                              "Add your first piece" CTA they don't need.
+  // The "filters narrow it to zero" case is handled below via filteredEmpty
+  // — it keeps the filter chips visible and just renders the no-matches state.
+  if (totalCount === 0 && !hasNextPage) {
+    const isAllLaundry = allInLaundry;
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
@@ -332,12 +349,18 @@ export function WardrobeScreen() {
                 letterSpacing: -0.26,
                 textAlign: 'center',
               }}>
-              Your wardrobe is empty
+              {isAllLaundry ? 'Everything is in laundry' : 'Your wardrobe is empty'}
             </Text>
             <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
-              Add your first piece to get started.
+              {isAllLaundry
+                ? `All ${trueTotalCount} of your pieces are marked as in laundry. Bring them back when they're clean.`
+                : 'Add your first piece to get started.'}
             </Caption>
-            <Button label="Add piece" onPress={() => nav.navigate('AddPieceStep1')} />
+            {isAllLaundry ? (
+              <Button label="Open laundry" onPress={() => nav.navigate('Laundry')} />
+            ) : (
+              <Button label="Add piece" onPress={() => nav.navigate('AddPieceStep1')} />
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
