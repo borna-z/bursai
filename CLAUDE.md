@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M11 — Account deletion + reset style memory |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m11-destructive-mutations.md` |
+| **CURRENT WAVE** | M12 — Password reset + deep links |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m12-password-reset.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

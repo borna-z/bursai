@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Wire the two destructive mutations the App Store reviewers test on day one: full account deletion and reset-style-memory. Both edge functions exist server-side. |
-| Status | TODO |
+| Status | DONE (PR #735) |
 | Branch | `mobile-m11-destructive-mutations` |
 | PR count | 1 |
 | Depends on | V0 |
