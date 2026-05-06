@@ -21,7 +21,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
-import { clearActionFromQueue } from '../lib/offlineQueue';
+import {
+  clearActionFromQueue,
+  pauseReplaysAndWaitSettled,
+  resumeReplays,
+} from '../lib/offlineQueue';
 import { MEMORY_EVENT_ACTION } from '../lib/memoryIngest';
 import { captureMutationError } from '../lib/sentry';
 
@@ -30,26 +34,35 @@ export function useResetStyleMemory() {
 
   return useMutation({
     mutationFn: async () => {
-      // idempotent: true so the server's request_idempotency cache can
-      // replay the original response on a same-key retry. The reset
-      // server-side path is keyed off X-Idempotency-Key.
-      // retries: 0 because the edge function's enforceRateLimit runs
-      // BEFORE checkIdempotency — a wrapper-level retry within the
-      // rate-limit window 429s instead of replaying the cached response,
-      // so the user sees an error even though the first request landed
-      // server-side. Codex P2 round 2 on PR #735.
-      await callEdgeFunction('reset_style_memory', {
-        body: {},
-        retries: 0,
-        idempotent: true,
-      });
-      // Codex P2 round 6 on PR #735: drop every pending memory-event
-      // queue item AFTER the server-side reset lands. If a queued
-      // save_outfit / wear_outfit / quick_reaction were left in the
-      // M5 offline queue, AuthContext's connectivity-restored replay
-      // would write it back into feedback_signals + garment_pair_memory
-      // and silently undo part of what the user just reset.
-      await clearActionFromQueue(MEMORY_EVENT_ACTION);
+      // Codex P2 round 7 on PR #735: pause queue replays AND wait for
+      // any in-flight replay pass to settle before the destructive
+      // call. Without this, an already-running replay snapshot could
+      // dispatch a queued memory-event mid-reset and write to
+      // memory_ingest AFTER the server cleared the user's tables —
+      // silently undoing the destructive op the user just confirmed.
+      await pauseReplaysAndWaitSettled();
+      try {
+        // idempotent: true so the server's request_idempotency cache can
+        // replay the original response on a same-key retry. The reset
+        // server-side path is keyed off X-Idempotency-Key.
+        // retries: 0 because the edge function's enforceRateLimit runs
+        // BEFORE checkIdempotency — a wrapper-level retry within the
+        // rate-limit window 429s instead of replaying the cached response,
+        // so the user sees an error even though the first request landed
+        // server-side. Codex P2 round 2 on PR #735.
+        await callEdgeFunction('reset_style_memory', {
+          body: {},
+          retries: 0,
+          idempotent: true,
+        });
+        // Drop every pending memory-event queue item AFTER the server-
+        // side reset lands. With replays paused above, no new dispatches
+        // will fire between the server clear and this drop. Codex P2
+        // round 6.
+        await clearActionFromQueue(MEMORY_EVENT_ACTION);
+      } finally {
+        resumeReplays();
+      }
     },
     onSuccess: () => {
       // Outfit recommendations + scoring shift after a memory reset.

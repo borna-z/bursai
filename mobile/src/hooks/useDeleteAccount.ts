@@ -16,6 +16,7 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import {
   callEdgeFunction,
   EdgeFunctionHttpError,
@@ -52,18 +53,26 @@ export function useDeleteAccount() {
           idempotent: true,
         });
       } catch (err) {
-        // Codex P2 round 4: if the first request succeeded server-side
-        // but the response was lost, the auth user is gone, the JWT no
-        // longer authenticates, and the wrapper's retry returns 401
-        // before re-checking idempotency. The cascade DID land — the
-        // 401 is the proof. Treat as success-with-side-effect: fall
-        // through to local sign-out so the user isn't stranded inside
-        // the protected app.
-        if (
-          err instanceof EdgeFunctionHttpError &&
-          err.status === 401
-        ) {
-          // Cascade is presumed-complete; sign out locally and exit.
+        // Codex P1 round 7 on PR #735: don't blindly treat every 401 as
+        // a successful cascade. delete_user_account checks auth BEFORE
+        // idempotency, so a bad-session-from-the-start request also
+        // returns 401 — and in that path the cascade never ran.
+        //
+        // Disambiguate via supabase.auth.getUser(): a deleted auth user
+        // returns null (server says the user is gone — cascade succeeded
+        // and the response was just lost). A still-existing auth user
+        // returns the user object (cascade didn't run; surface the error
+        // and let the user retry / re-sign-in).
+        if (err instanceof EdgeFunctionHttpError && err.status === 401) {
+          const { data, error: getUserErr } = await supabase.auth.getUser();
+          if (getUserErr || !data?.user) {
+            // Auth user gone server-side → cascade succeeded; fall
+            // through to sign-out + nav.reset.
+          } else {
+            // User still exists — cascade didn't run. Re-throw so the
+            // screen surfaces the error; nothing was deleted.
+            throw err;
+          }
         } else {
           throw err;
         }

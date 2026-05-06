@@ -88,6 +88,10 @@ let hydrating: Promise<void> | null = null;
 // flight, subsequent callers receive that same promise instead of
 // starting a fresh pass. Codex P1 round 1 on PR #732.
 let replayInFlight: Promise<ReplayResult> | null = null;
+// When true, replay() short-circuits without dispatching. Used by
+// destructive flows (reset_style_memory) that need to guarantee no
+// queued events leak past the reset point. Codex P2 round 7 on PR #735.
+let replaysPaused = false;
 
 const subscribers = new Set<() => void>();
 function emitChange(): void {
@@ -197,6 +201,9 @@ export async function enqueue<P>(action: string, payload: P): Promise<QueueItem<
  * duplicate garment rows). Codex P1 round 1 on PR #732.
  */
 export function replay(): Promise<ReplayResult> {
+  if (replaysPaused) {
+    return Promise.resolve({ succeeded: 0, failed: 0, remaining: queue.length });
+  }
   if (replayInFlight) return replayInFlight;
   replayInFlight = (async () => {
     try {
@@ -206,6 +213,29 @@ export function replay(): Promise<ReplayResult> {
     }
   })();
   return replayInFlight;
+}
+
+/**
+ * Pause future replays AND await any in-flight pass to settle. Used by
+ * destructive flows that need to guarantee no queued events for a given
+ * action will dispatch (e.g. resetting style memory while a memory-event
+ * replay is mid-snapshot). The caller is responsible for re-enabling
+ * via `resumeReplays()`. Codex P2 round 7 on PR #735.
+ */
+export async function pauseReplaysAndWaitSettled(): Promise<void> {
+  replaysPaused = true;
+  if (replayInFlight) {
+    try {
+      await replayInFlight;
+    } catch {
+      // replay() owns its own error surface; we just need to know it
+      // finished, success or failure.
+    }
+  }
+}
+
+export function resumeReplays(): void {
+  replaysPaused = false;
 }
 
 async function runReplay(): Promise<ReplayResult> {
