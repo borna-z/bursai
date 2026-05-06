@@ -28,14 +28,17 @@ export function useResetStyleMemory() {
 
   return useMutation({
     mutationFn: async () => {
-      // idempotent: true so the wrapper reuses one X-Idempotency-Key across
-      // retries — `reset_style_memory_atomic` is keyed off that header for
-      // dedup. A retried unkeyed request after a timeout would risk a
-      // rate-limit rejection or a redundant clear. Codex P2 round 1 on
-      // PR #735 (mirrors the delete-account fix).
+      // idempotent: true so the server's request_idempotency cache can
+      // replay the original response on a same-key retry. The reset
+      // server-side path is keyed off X-Idempotency-Key.
+      // retries: 0 because the edge function's enforceRateLimit runs
+      // BEFORE checkIdempotency — a wrapper-level retry within the
+      // rate-limit window 429s instead of replaying the cached response,
+      // so the user sees an error even though the first request landed
+      // server-side. Codex P2 round 2 on PR #735.
       await callEdgeFunction('reset_style_memory', {
         body: {},
-        retries: 1,
+        retries: 0,
         idempotent: true,
       });
     },

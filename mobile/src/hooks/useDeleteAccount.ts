@@ -15,38 +15,44 @@
 
 import { useMutation } from '@tanstack/react-query';
 
-import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { captureMutationError } from '../lib/sentry';
 
 export function useDeleteAccount() {
+  // AuthContext's signOut callback explicitly nulls user/session/profile
+  // and clears every cache + the signed-URL Map + the offline queue,
+  // even if the underlying supabase.auth.signOut() returns a transient
+  // error. Codex P2 round 2: a raw supabase.auth.signOut() can fail
+  // before clearing the local session, leaving the user inside the
+  // protected app with a deleted auth user. The context-level wrapper
+  // is the canonical "leave the app" path.
+  const { signOut } = useAuth();
+
   return useMutation({
     mutationFn: async () => {
       // delete_user_account performs a 24-table cascade — body is empty;
       // the user's auth context drives the scope server-side.
-      // retries: 1 because the cascade is idempotent (re-deleting an
-      // already-deleted user returns success), but a hung first attempt
-      // shouldn't block the user forever.
-      // idempotent: true so callEdgeFunction reuses the same
-      // X-Idempotency-Key across retries — the function's retry-safe path
-      // dedups on that header before the one-per-minute rate limit. Without
-      // it, a timed-out first request that succeeded server-side would
-      // retry unkeyed and surface a misleading rate-limit / cascade-rerun
-      // error. Codex P2 round 1 on PR #735.
+      // idempotent: true so the wrapper sends X-Idempotency-Key — the
+      // server-side retry-safe path dedups on that header before the
+      // per-minute rate limit, so a timed-out first request that
+      // succeeded server-side won't be misclassified on the user's
+      // next manual retry.
+      // retries: 0 — server-side enforceRateLimit runs BEFORE the
+      // idempotency check, so an automatic client retry within the
+      // rate-limit window 429s before the cached response can replay
+      // (Codex P2 round 2 mirrors PR #735 reset path). Surface failures
+      // to the user; the cascade completes server-side or it doesn't.
       await callEdgeFunction('delete_user_account', {
         body: {},
-        retries: 1,
+        retries: 0,
         idempotent: true,
       });
-      // Sign out locally — AuthContext's SIGNED_OUT listener clears the
-      // React Query cache, signed-URL cache, and offline queue. Best-
-      // effort: a sign-out failure here doesn't roll back the remote
-      // delete (impossible) and the next request will 401-fail anyway.
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // Swallowed — the remote cascade is the canonical signal.
-      }
+      // Always tear down the local session — even if the remote
+      // sign-out call fails transiently, the server-side rows are gone
+      // and the next request will 401-fail. AuthContext's signOut
+      // wrapper guarantees the local clear lands.
+      await signOut();
     },
     onError: captureMutationError('useDeleteAccount'),
   });
