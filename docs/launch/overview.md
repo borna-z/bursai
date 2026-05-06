@@ -122,7 +122,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Distributed Discover
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M19 | [Visual Search → AddPiece](waves/m19-visual-search.md) | DONE (PR #TBD) | V0, M9 |
+| M19 | [Visual Search → AddPiece](waves/m19-visual-search.md) | DONE (PR #745) | V0, M9 |
 | M20 | [Import garments from links → AddPiece](waves/m20-import-from-links.md) | TODO | V0, M9 |
 | M21 | [Assess condition → GarmentDetail](waves/m21-assess-condition.md) | TODO | V0, M9 |
 | M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | TODO | V0, M9 |
