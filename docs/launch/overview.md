@@ -111,7 +111,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Generators
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M16 | [Outfit pool + week generator](waves/m16-pool-week-generators.md) | DONE (PR #TBD) | V0, M13, M15 |
+| M16 | [Outfit pool + week generator](waves/m16-pool-week-generators.md) | DONE (PR #742) | V0, M13, M15 |
 | M17 | [Compositional helpers (flatlay + accessories + combinations + clone DNA)](waves/m17-composition-helpers.md) | TODO | V0, M13 |
 
 ### Photo + visual
