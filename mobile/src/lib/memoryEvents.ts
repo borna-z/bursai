@@ -186,10 +186,19 @@ export function rateOutfitEvent(
   return { signal_type: 'rate_outfit', outfit_id: outfitId, rating, source };
 }
 
+/**
+ * Swap event creator. `postSwapGarmentIds` is the COMPLETE roster the
+ * outfit holds AFTER the swap (i.e. previous roster minus `removed` plus
+ * `added`). The `ingest_memory_event` RPC derives positive/negative
+ * pair-memory updates from this roster — without it the swap inserts a
+ * bare `feedback_signals` row but the pair memory never updates and the
+ * swap doesn't shift recommendations. Codex P2 round 3 on PR #734.
+ */
 export function swapGarmentEvent(
   outfitId: string,
   removed: string[],
   added: string[],
+  postSwapGarmentIds: string[],
   source: string,
 ): RecordMemoryEventInput {
   return {
@@ -197,15 +206,29 @@ export function swapGarmentEvent(
     outfit_id: outfitId,
     removed_garment_ids: removed,
     added_garment_ids: added,
+    garment_ids: postSwapGarmentIds,
     source,
   };
 }
 
+/**
+ * Never-suggest event. The wire field the edge function reads is
+ * `garment_ids` (array) — the standalone `garment_id` is forwarded only
+ * when present but the RPC's hard-exclusion list keys on the array.
+ * Sending both keeps the idempotency key terse (target uses `garment_id`
+ * when set) AND ensures the server-side processing has the array it
+ * actually consumes. Codex P2 round 3 on PR #734.
+ */
 export function neverSuggestGarmentEvent(
   garmentId: string,
   source: string,
 ): RecordMemoryEventInput {
-  return { signal_type: 'never_suggest_garment', garment_id: garmentId, source };
+  return {
+    signal_type: 'never_suggest_garment',
+    garment_id: garmentId,
+    garment_ids: [garmentId],
+    source,
+  };
 }
 
 export function quickReactionEvent(
