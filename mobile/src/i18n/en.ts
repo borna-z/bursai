@@ -310,4 +310,11 @@ export const en: Record<string, string> = {
   'chat.memory.confirm.body.template': 'Stop suggesting "{label}"?',
   'chat.active_look.fallback.template': '{n} pieces',
   'chat.anchor.gesture.hint': "Long-press to anchor this look's main piece",
+
+  // ─── Home — Smart Day Banner (M15) ─────────────────────────────────────
+  'home.smartDay.eyebrowTemplate': '{weekday} · {context}',
+  'home.smartDay.fallback.eyebrow': '{weekday}',
+  'home.smartDay.fallback.title': 'Pick what feels right today.',
+  'home.smartDay.tapHint': 'View this outfit',
+  'home.smartDay.openHint': 'Opens outfit details',
 };

@@ -21,6 +21,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { SmartDayBanner } from '../components/SmartDayBanner';
 import { PlanCardSkeleton, StatRowSkeleton } from '../components/skeletons';
 import {
   ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
@@ -262,6 +263,13 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
             </Pressable>
           </View>
         </View>
+
+        {/* ============ SMART DAY BANNER (M15) ============ */}
+        {/* Day-intelligence engine: ranks today's outfit against weather +
+            calendar context. Renders above the existing today's-look hero
+            card; hides itself on engine error / empty wardrobe so the hero
+            below always remains the primary surface. */}
+        <SmartDayBanner />
 
         {/* ============ TODAY'S LOOK HERO ============ */}
         <Card hero padding={18}>
