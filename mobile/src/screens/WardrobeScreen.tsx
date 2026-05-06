@@ -91,6 +91,35 @@ function filterActiveCount(f: WardrobeFilters | null): number {
   return f.categories.length + f.colors.length + f.materials.length + f.fits.length + f.seasons.length;
 }
 
+// Sort comparator for the FiltersScreen "Sort by" picker. The server query
+// always returns rows in `created_at desc` (the `recent_added` default), so
+// any non-default selection re-orders the in-memory result post-pagination.
+// Codex P2 on PR #738 caught that the sort selection was previously stored
+// but never applied. Sort IDs match `SORTS` in `FiltersScreen.tsx`.
+function compareForSort(a: Garment, b: Garment, sort: string): number {
+  switch (sort) {
+    case 'name_asc':
+      return (a.title ?? '').localeCompare(b.title ?? '');
+    case 'most_worn':
+      return (b.wear_count ?? 0) - (a.wear_count ?? 0);
+    case 'least_worn':
+      return (a.wear_count ?? 0) - (b.wear_count ?? 0);
+    case 'recent_worn': {
+      // Nulls (never worn) sink to the bottom — a "recently worn" sort that
+      // surfaces never-worn rows ahead of recently-worn ones is misleading.
+      const aMs = a.last_worn_at ? new Date(a.last_worn_at).getTime() : 0;
+      const bMs = b.last_worn_at ? new Date(b.last_worn_at).getTime() : 0;
+      return bMs - aMs;
+    }
+    case 'recent_added':
+    default: {
+      const aMs = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bMs = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bMs - aMs;
+    }
+  }
+}
+
 export function WardrobeScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -112,29 +141,31 @@ export function WardrobeScreen() {
     isFetchingNextPage,
   } = useFlatGarments(WARDROBE_FILTERS);
 
-  const visibleGarments = React.useMemo(
-    () => (filters ? garments.filter((g) => matchesClientFilters(g, filters)) : garments),
-    [garments, filters],
-  );
+  const visibleGarments = React.useMemo(() => {
+    if (!filters) return garments;
+    const filtered = garments.filter((g) => matchesClientFilters(g, filters));
+    if (filters.sort && filters.sort !== 'recent_added') {
+      // Stable sort against a copy — never mutate React Query's flattened array.
+      return [...filtered].sort((a, b) => compareForSort(a, b, filters.sort));
+    }
+    return filtered;
+  }, [garments, filters]);
   const activeFilterCount = filterActiveCount(filters);
 
-  // Filters run client-side against loaded pages only — a match that lives on
-  // page 2+ would otherwise be invisible and the screen would render an empty
-  // state while `hasNextPage` is still true. Auto-fetch the next page whenever
-  // the filtered result is empty, until we either find a match or exhaust the
-  // wardrobe. Terminates because each fetch flips `hasNextPage` to false once
-  // the last page lands. (Codex P2 on PR #738.)
+  // Filters run client-side, so partial pagination produces a partial filter
+  // result. When ANY filter is active, eagerly fetch every remaining page
+  // before the user trusts the count. Without this, a match that lives on
+  // page 2+ stays invisible — and the "Filtered · N of M" eyebrow lies.
+  // Codex P2 round 2 on PR #738 sharpened the original "only fetch when empty"
+  // fix to cover the partial-match case too. The loop terminates because each
+  // fetch flips `hasNextPage` to false once the last page lands; `isLoading`
+  // gates the very first page so we don't double-trigger before the initial
+  // render settles.
   React.useEffect(() => {
-    if (
-      filters &&
-      visibleGarments.length === 0 &&
-      hasNextPage &&
-      !isFetchingNextPage &&
-      !isLoading
-    ) {
+    if (filters && hasNextPage && !isFetchingNextPage && !isLoading) {
       void fetchNextPage();
     }
-  }, [filters, visibleGarments.length, hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
+  }, [filters, hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
 
   const onRefresh = React.useCallback(() => {
     void refetch();

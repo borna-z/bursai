@@ -26,6 +26,7 @@ import { ErrorState } from '../components/ErrorState';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
 import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
+import { useNow } from '../hooks/useNow';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems, PlannedOutfitWithOutfit } from '../types/outfit';
@@ -80,7 +81,11 @@ export function PlanScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
 
-  const now = React.useMemo(() => new Date(), []);
+  // Reactive `now` — RN tabs stay mounted across day boundaries so a static
+  // memo would freeze the week strip on yesterday's date and the eyebrow's
+  // month label could lag too. useNow ticks on AppState 'active' and at the
+  // next midnight. Codex P2 on PR #738.
+  const now = useNow();
   const headerEyebrow = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const [selectedIndex, setSelectedIndex] = React.useState(0);

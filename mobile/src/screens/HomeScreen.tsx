@@ -28,6 +28,7 @@ import {
 } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
@@ -86,9 +87,11 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   const { profile } = useAuth();
   const firstName = (profile?.display_name ?? '').trim().split(/\s+/)[0] ?? '';
 
-  // Memoised so the React.useMemo([now, ...]) dependencies below don't tear on every render.
-  // PlanScreen does the same; mismatch would defeat the week-strip memoisation.
-  const now = React.useMemo(() => new Date(), []);
+  // Reactive `now` — RN tabs stay mounted across day boundaries so a static
+  // `useMemo([])` would freeze the date and `wornToday` would compare today's
+  // outfit against yesterday. useNow ticks on AppState 'active' and at the
+  // next midnight. Codex P2 on PR #738.
+  const now = useNow();
   const headerDate = formatHeaderDate(now);
   const greeting = greetingFor(now);
 
