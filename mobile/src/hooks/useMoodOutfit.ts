@@ -19,7 +19,7 @@
 //
 // Subscription-locked → onError fires with sentinel 'subscription_required'.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { fetchSSE } from '../lib/sse';
@@ -97,6 +97,12 @@ export function useMoodOutfit() {
       // try to JSON.parse on done.
       let captured: EdgeMoodResponse | null = null;
       let textBuffer = '';
+      // Track whether a chunk-level error has already been raised. Without
+      // this guard, `onDone`'s text-buffer fallback can call `setResult`
+      // even after `onData` fired `setError(parsed.error)` — overwriting
+      // the surfaced error with a stray result and breaking the screen's
+      // error-state branch. Codex P2 round on PR #738.
+      let errored = false;
 
       await fetchSSE(
         'mood_outfit',
@@ -113,6 +119,7 @@ export function useMoodOutfit() {
               const parsed = JSON.parse(raw) as EdgeMoodResponse;
               if (parsed && typeof parsed === 'object') {
                 if (parsed.error) {
+                  errored = true;
                   setError(parsed.error);
                   return;
                 }
@@ -128,7 +135,11 @@ export function useMoodOutfit() {
           },
           onDone: () => {
             if (controller.signal.aborted) return;
-            if (!captured && textBuffer) {
+            // Skip the text-buffer fallback when a chunk-level error was
+            // raised — otherwise a buffered text payload trailing the
+            // error chunk would call setResult and clobber the error
+            // state.
+            if (!errored && !captured && textBuffer) {
               try {
                 const parsed = JSON.parse(textBuffer) as EdgeMoodResponse;
                 if (parsed.error) {
@@ -173,6 +184,15 @@ export function useMoodOutfit() {
     setResult(null);
     setIsLoading(false);
     setError(null);
+  }, []);
+
+  // Cancel any in-flight stream when the consumer screen unmounts so RN
+  // doesn't log "setState on an unmounted component" warnings from the
+  // SSE callbacks landing post-teardown. Codex P2 round on PR #738.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   return { result, isLoading, error, generate, reset };

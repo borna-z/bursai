@@ -76,18 +76,18 @@ export function StyleMeScreen() {
   }, [reset]);
 
   useEffect(() => {
+    // Route to the real PaywallScreen instead of popping an Alert each time
+    // the engine returns `subscription_required`. The previous version
+    // re-popped the alert every time the user tapped Generate after a
+    // dismiss + reset() — App Store reviewers flag this as harassing UX
+    // (and screen-reviewer P1 caught it). The ref stays sticky for the
+    // screen's lifetime so we don't re-route on every retry attempt; the
+    // user navigates back to StyleMe explicitly when they want to retry.
     if (error === 'subscription_required' && !paywallShownRef.current) {
       paywallShownRef.current = true;
-      Alert.alert(
-        'Premium feature',
-        'Outfit generation is part of BURS Premium. Upgrade to keep generating looks.',
-        [{ text: 'OK' }],
-      );
+      nav.navigate('Paywall');
     }
-    if (error !== 'subscription_required') {
-      paywallShownRef.current = false;
-    }
-  }, [error]);
+  }, [error, nav]);
 
   const onGenerate = () => {
     void generate({ occasion: occ.label, formality });

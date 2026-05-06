@@ -1,13 +1,17 @@
 // AuthContext — single source of truth for auth + profile state on mobile.
 //
 // Modeled on src/contexts/AuthContext.tsx (web) but slimmed for RN:
-//   • No React Query — exposes profile directly so screens read via useAuth().
+//   • No React Query for profile — exposes profile directly so screens read
+//     via useAuth(). useQueryClient is consumed only to clear the cache on
+//     sign-out.
 //   • Session is persisted automatically (supabase.ts wires AsyncStorage).
 //   • start_trial fires once per fresh signup (gated on user.created_at < 60s)
-//     via plain fetch — no edgeFunctionClient port yet.
+//     via the M9 callEdgeFunction wrapper (pre-flight session refresh +
+//     circuit-break + paywall classification).
 //
 // On SIGNED_IN: load (or auto-create) the profile row.
-// On SIGNED_OUT: clear user/session/profile.
+// On SIGNED_OUT: clear user/session/profile + every per-user cache (React
+// Query, signed-URL Map, offline queue).
 //
 // `isLoading` stays true until BOTH the session AND the profile-load attempt
 // have settled, so callers (SplashScreen, AuthScreen post-sign-in routing

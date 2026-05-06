@@ -170,21 +170,21 @@ async function computeFromRawData(userId: string): Promise<InsightsData> {
   // Palette — bucket by color_primary, top 6 by share. Garments without a
   // recognised color name (free-form entries, future locales, missing values)
   // collapse into a single "Other" bucket so they never crowd the legend with
-  // mis-mapped grey swatches. We compute share against the *known* total so
-  // unmapped garments don't depress everyone else's percentages disproportionately.
+  // mis-mapped grey swatches. Share is computed against `totalGarments` so
+  // every entry — including Other — sits on the same denominator and the
+  // percentages stay coherent (sum ≤ 100%). The earlier "known total"
+  // denominator divided Other against an excluding count and could overflow
+  // (e.g. 1 known + 9 Other → Other 900%). Codex P2 on PR #738.
   const colorMap: Record<string, number> = {};
-  let knownColorCount = 0;
   for (const g of garments) {
     const raw = (g.color_primary ?? '').trim();
     const label = raw.length > 0 ? capitalize(raw) : '';
     if (label && COLOR_HEX_MAP[label]) {
       colorMap[label] = (colorMap[label] ?? 0) + 1;
-      knownColorCount += 1;
     } else {
       colorMap.Other = (colorMap.Other ?? 0) + 1;
     }
   }
-  const paletteDenominator = knownColorCount > 0 ? knownColorCount : totalGarments;
   const palette: InsightsPaletteEntry[] =
     totalGarments === 0
       ? []
@@ -200,7 +200,7 @@ async function computeFromRawData(userId: string): Promise<InsightsData> {
           .map(([label, count]) => ({
             color: colorNameToHex(label),
             label,
-            percent: Math.round((count / paletteDenominator) * 100),
+            percent: Math.round((count / totalGarments) * 100),
           }))
           // Drop sub-1% slivers — they vanish visually and would just clutter
           // the legend with "0%" rows.

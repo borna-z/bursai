@@ -20,6 +20,7 @@ import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { BackIcon, SparklesIcon, PaletteIcon, TshirtIcon, RotateIcon } from '../components/icons';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { t as tr } from '../lib/i18n';
+import { clearOnboardingDraft } from './OnboardingScreen';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -126,7 +127,14 @@ export function SettingsStyleScreen() {
             icon={<SparklesIcon size={16} color={t.accent} />}
             title="Retake style quiz"
             caption="Refresh your DNA from scratch"
-            onPress={() => nav.navigate('Onboarding')}
+            onPress={async () => {
+              // Purge the persisted onboarding draft before navigating —
+              // otherwise OnboardingScreen.loadDraft() would resume the user
+              // on whatever step they were last on instead of starting at
+              // step 0 with empty answers.
+              await clearOnboardingDraft();
+              nav.navigate('Onboarding');
+            }}
           />
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}

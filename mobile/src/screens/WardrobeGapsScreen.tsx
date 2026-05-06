@@ -36,6 +36,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 // flag every basic category as a "gap". Web gates the CTA at 5 garments.
 const MIN_GARMENTS_FOR_GAP_ANALYSIS = 5;
 
+
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type DisplayPriority = 'High' | 'Med' | 'Low';
 type IconKey = 'tshirt' | 'hanger' | 'suitcase' | 'sun';
@@ -73,6 +74,7 @@ export function WardrobeGapsScreen() {
     typeof garmentCount === 'number' &&
     garmentCount >= MIN_GARMENTS_FOR_GAP_ANALYSIS;
 
+
   // Auto-run analysis when the screen mounts WITHOUT cached gaps. The hook
   // is React-Query backed so a return visit reads from cache instead of
   // burning the rate-limited endpoint (15/hr base). If the session hasn't
@@ -81,11 +83,18 @@ export function WardrobeGapsScreen() {
   // Codex audit P0-1 (audit 2) + P1-4 (audit 2).
   // Gate: don't auto-run on a near-empty wardrobe — gap analysis on <5
   // garments is noise. The user has to add more pieces first.
+  //
+  // Codex P2 on PR #738: explicit `!gaps.length` gate — `analyzed` already
+  // flips true after a successful run, but a transient count flip
+  // (false → true → false from a useGarmentCount refetch) could still
+  // re-fire analyze if `analyzed` were ever cleared elsewhere. Combining
+  // the two gates makes the trigger idempotent against count noise.
   useEffect(() => {
-    if (analyzed || isLoading || error) return;
+    if (isLoading || error) return;
+    if (analyzed || gaps.length > 0) return;
     if (!hasEnoughGarments) return;
     void analyze();
-  }, [analyzed, isLoading, error, analyze, hasEnoughGarments]);
+  }, [analyzed, gaps.length, isLoading, error, analyze, hasEnoughGarments]);
   // No unmount reset — the React Query cache is the cross-mount memory.
 
   useEffect(() => {
@@ -140,6 +149,14 @@ export function WardrobeGapsScreen() {
   const heroCount = showCachedAnalysis ? gapDisplays.length : '—';
   const heroPiecesPluralized = showCachedAnalysis && gapDisplays.length === 1 ? '' : 's';
 
+  // Hero copy varies by gate so the not-enough-garments state reads as a
+  // prerequisite gate rather than a loading state — both branches share the
+  // em-dash placeholder, but the copy below the count needs to make the
+  // distinction obvious. Codex P2 on PR #738.
+  const heroEyebrow = !hasEnoughGarments
+    ? 'Wardrobe too small to analyse'
+    : 'Your wardrobe needs';
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={s.headerRow}>
@@ -161,7 +178,7 @@ export function WardrobeGapsScreen() {
         ) : (
           <>
             <Card hero padding={20}>
-              <Eyebrow style={{ marginBottom: 6 }}>Your wardrobe needs</Eyebrow>
+              <Eyebrow style={{ marginBottom: 6 }}>{heroEyebrow}</Eyebrow>
               <Text
                 style={{
                   fontFamily: fonts.displayMedium,
@@ -172,8 +189,14 @@ export function WardrobeGapsScreen() {
                   color: t.fg,
                   letterSpacing: -0.3,
                 }}>
-                <Text style={{ color: t.accent }}>{heroCount}</Text> key piece
-                {heroPiecesPluralized}
+                {hasEnoughGarments ? (
+                  <>
+                    <Text style={{ color: t.accent }}>{heroCount}</Text> key piece
+                    {heroPiecesPluralized}
+                  </>
+                ) : (
+                  'Add more pieces first'
+                )}
               </Text>
               <Caption style={{ marginTop: 8, marginBottom: 14, lineHeight: 18 }}>
                 {hasEnoughGarments

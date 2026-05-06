@@ -18,7 +18,7 @@
 // AbortController is exposed via stopStreaming() and clearChat() so the
 // screen unmount effect can cancel an in-flight stream cleanly.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { fetchSSE } from '../lib/sse';
@@ -228,6 +228,15 @@ export function useStyleChat() {
     abortRef.current = null;
     setIsStreaming(false);
     setMessages((prev) => prev.map((m) => ({ ...m, isStreaming: false })));
+  }, []);
+
+  // Cancel any in-flight stream when the consumer screen unmounts so the
+  // SSE callbacks don't fire setState against a torn-down tree (RN logs
+  // those as warnings). Codex P2 round on PR #738.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   return {

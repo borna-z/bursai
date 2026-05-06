@@ -13,7 +13,7 @@
 // TODO(server-write): once Supabase auth is wired, persist `draft` to
 // profiles.preferences.styleProfile + advance_onboarding_step before navigating.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -89,6 +89,14 @@ async function clearDraft(): Promise<void> {
   }
 }
 
+// Exported so callers that route into Onboarding from a "start fresh" entry
+// point (e.g. Settings → Retake style quiz) can purge the persisted draft
+// before navigating, otherwise `loadDraft` would resume from the previous
+// step on mount.
+export async function clearOnboardingDraft(): Promise<void> {
+  await clearDraft();
+}
+
 export function OnboardingScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -96,6 +104,11 @@ export function OnboardingScreen() {
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<OnboardingDraft>({});
+  // Tracks consecutive `finish()` failures so the Retry alert can escalate
+  // to a "give up gracefully" message after a couple of failed attempts
+  // instead of looping the user through the same dialog forever.
+  const finishRetryRef = useRef(0);
+  const FINISH_RETRY_LIMIT = 2;
 
   // Hydrate persisted draft on first mount so a user who backgrounded the app
   // mid-quiz lands back on the same step with their answers intact. (P1-23.)
@@ -205,9 +218,17 @@ export function OnboardingScreen() {
       // User-visible failure surface. Non-blocking — they can choose to
       // continue (legacy flag carries them through this session, with a
       // warning) or retry (rare; means a network hiccup at the very end).
+      // After FINISH_RETRY_LIMIT consecutive failures, swap the dialog so
+      // the user isn't stuck in a "Retry → same alert → Retry" loop.
+      finishRetryRef.current += 1;
+      const exhausted = finishRetryRef.current > FINISH_RETRY_LIMIT;
+      const title = exhausted ? 'Trouble saving' : 'Save failed';
+      const body = exhausted
+        ? 'We are having trouble saving your onboarding progress. You can continue without saving and we will try again later.'
+        : 'We could not save your onboarding progress. You can continue and we will try again later, or retry now.';
       Alert.alert(
-        'Save failed',
-        'We could not save your onboarding progress. You can continue and we will try again later, or retry now.',
+        title,
+        body,
         [
           {
             text: 'Retry',
@@ -219,6 +240,7 @@ export function OnboardingScreen() {
             text: 'Continue anyway',
             style: 'cancel',
             onPress: () => {
+              finishRetryRef.current = 0;
               void clearDraft();
               nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
             },
@@ -228,6 +250,7 @@ export function OnboardingScreen() {
       return;
     }
 
+    finishRetryRef.current = 0;
     void clearDraft();
     nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   };
@@ -271,7 +294,7 @@ export function OnboardingScreen() {
   }, [step]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header: back · progress · skip */}
       <View
         style={{

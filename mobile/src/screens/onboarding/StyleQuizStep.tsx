@@ -500,11 +500,19 @@ function LifestyleRow({
 
   // Drag-to-set slider — proper PanResponder so the user can fine-tune by
   // sliding instead of tapping pixel-precise positions. (P1-4.)
+  //
+  // Direction-gated capture so the parent ScrollView keeps vertical scroll:
+  // - onStartShouldSetPanResponder returns false so a touch-start never
+  //   blocks the ScrollView from beginning a vertical drag.
+  // - onMoveShouldSetPanResponder claims the responder only when the gesture
+  //   is horizontal-dominant (|dx| > |dy|), which is the slider's axis.
+  //   Vertical-dominant gestures fall through to the ScrollView untouched.
   const pan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_e, gestureState) =>
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderGrant: (e) => {
           const w = widthRef.current;
           if (w <= 0) return;

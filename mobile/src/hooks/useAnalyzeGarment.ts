@@ -57,7 +57,7 @@ export interface AnalysisResult {
   season_tags: string[];
   formality: number | null;
   description: string | null;
-  confidence: number;
+  confidence: number | null;
   ai_provider?: string | null;
   ai_raw?: Record<string, unknown> | null;
   // Multi-garment surface — analyze_garment in 'full' mode flips this when the
@@ -163,7 +163,13 @@ export function useAnalyzeGarment() {
           season_tags: Array.isArray(data.season_tags) ? data.season_tags : [],
           formality: typeof data.formality === 'number' ? data.formality : null,
           description: data.description ?? null,
-          confidence: typeof data.confidence === 'number' ? data.confidence : 0,
+          // Leave confidence as null when the model didn't return a number —
+          // garmentSave.deriveReviewDecision treats `typeof c !== 'number'`
+          // as `missing_confidence` (a distinct review reason from
+          // `low_confidence`). Coercing to 0 here would misclassify the
+          // missing case as low-confidence and lose the signal. Codex P2
+          // round on PR #738.
+          confidence: typeof data.confidence === 'number' ? data.confidence : null,
           ai_provider: data.ai_provider ?? null,
           ai_raw: data.ai_raw ?? null,
           image_contains_multiple_garments:
@@ -219,6 +225,7 @@ export function useAnalyzeGarment() {
 export async function triggerGarmentEnrichment(
   storagePath: string,
   garmentId: string,
+  userId: string,
 ): Promise<void> {
   // Best-effort terminal write — if a transient supabase outage dropped the AI
   // call, this status flip also has a chance of failing. We capture the result
@@ -228,10 +235,15 @@ export async function triggerGarmentEnrichment(
   const writeStatus = async (
     status: 'processing' | 'completed' | 'failed',
   ): Promise<{ ok: boolean; reason?: string }> => {
+    // Defense-in-depth: pin every write to (id, user_id) so a future RLS
+    // regression can't let one user's row update another's. RLS already
+    // gates this; the explicit filter is belt-and-suspenders. Codex P2
+    // round on PR #738.
     const { error } = await supabase
       .from('garments')
       .update({ enrichment_status: status })
-      .eq('id', garmentId);
+      .eq('id', garmentId)
+      .eq('user_id', userId);
     if (error) {
       console.warn(
         `[triggerGarmentEnrichment] status='${status}' write failed for ${garmentId}: ${error.message}`,
@@ -280,6 +292,7 @@ export async function triggerGarmentEnrichment(
       .from('garments')
       .select('ai_raw')
       .eq('id', garmentId)
+      .eq('user_id', userId)
       .single();
     if (fetchErr || !existing) {
       console.warn(
@@ -327,7 +340,11 @@ export async function triggerGarmentEnrichment(
     // 'processing' forever — caller assumes success, the row stays half-baked.
     // On error: roll the status to 'failed' so cron retry kicks in and Sentry
     // gets a signal we can monitor post-launch.
-    const { error: updateErr } = await supabase.from('garments').update(updates).eq('id', garmentId);
+    const { error: updateErr } = await supabase
+      .from('garments')
+      .update(updates)
+      .eq('id', garmentId)
+      .eq('user_id', userId);
     if (updateErr) {
       console.warn(
         `[triggerGarmentEnrichment] enrichment update failed for ${garmentId}: ${updateErr.message}`,

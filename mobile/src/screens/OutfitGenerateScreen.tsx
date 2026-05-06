@@ -56,6 +56,14 @@ export function OutfitGenerateScreen() {
   const { result, isLoading, error, anchorMissed, generate, reset } = useGenerateOutfit();
   const [messageIdx, setMessageIdx] = useState(0);
   const paywallShownRef = useRef(false);
+  // Tracks whether the screen produced a usable result before unmount. The
+  // cleanup `reset()` only fires when this is false — i.e. on real abandon
+  // paths (close button, back swipe before result, anchor change). When
+  // the user navigates forward to OutfitDetail (success path) and later
+  // returns, we want to preserve the generated result so the screen
+  // doesn't sit on a cleared state and burn a re-generation. Codex P2
+  // on PR #738.
+  const succeededRef = useRef(false);
 
   // M13: anchor metadata for the lock pill + status row. The route param
   // carries the anchor id; the garment record gives us the title/category
@@ -108,9 +116,15 @@ export function OutfitGenerateScreen() {
   // in sync; the current value is read from the latest closure on the
   // `tryAgain` path so manual retries still see the fresh map.
   useEffect(() => {
+    succeededRef.current = false;
     void generate({ anchorGarmentId: anchorId, lockedSlots });
     return () => {
-      reset();
+      // Skip the reset on success-nav unmounts (e.g. nav.navigate to
+      // OutfitDetail) so a swipe-back lands on the still-populated result.
+      // The generate-on-anchor-change path explicitly clears succeededRef
+      // above so a true re-run still tears down stale state. Codex P2 on
+      // PR #738.
+      if (!succeededRef.current) reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchorId]);
@@ -144,18 +158,16 @@ export function OutfitGenerateScreen() {
   }, [isLoading, result, progressAnim]);
 
   useEffect(() => {
+    // Route to the real PaywallScreen instead of popping an Alert each time
+    // the engine returns `subscription_required`. The previous version
+    // re-popped the alert every time the user tapped Restyle / Try again
+    // after a dismiss — App Store reviewers flag this as harassing UX.
+    // The ref stays sticky for the screen's lifetime.
     if (error === 'subscription_required' && !paywallShownRef.current) {
       paywallShownRef.current = true;
-      Alert.alert(
-        'Premium feature',
-        'Outfit generation is part of BURS Premium. Upgrade to keep generating looks.',
-        [{ text: 'OK' }],
-      );
+      nav.navigate('Paywall');
     }
-    if (error !== 'subscription_required') {
-      paywallShownRef.current = false;
-    }
-  }, [error]);
+  }, [error, nav]);
 
   const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
@@ -316,6 +328,45 @@ export function OutfitGenerateScreen() {
             />
           </View>
         </View>
+      ) : anchorId && (anchorMissed || itemCount === 0) ? (
+        // Anchor-missed UX takes precedence over the generic empty state.
+        // Two cases land here:
+        //   • `anchorMissed` flipped true after the hook validated the
+        //     returned items and the anchor wasn't among them.
+        //   • `itemCount === 0` with an anchor set — the engine couldn't
+        //     compose a viable outfit honouring the anchor and returned no
+        //     items. Without this branch the screen would land on the
+        //     generic empty-state and "Try again" would loop with the same
+        //     anchor indefinitely. The "Remove anchor" CTA below lets the
+        //     user clear the lock and retry unanchored. Codex P2 on PR #738.
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            paddingBottom: insets.bottom + 32,
+            gap: 14,
+          }}
+          showsVerticalScrollIndicator={false}>
+          <View style={{ alignItems: 'center', paddingVertical: 32, gap: 6 }}>
+            <Eyebrow>{tr('anchor.missed.eyebrow')}</Eyebrow>
+            <Text
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 13.5,
+                lineHeight: 20,
+                color: t.fg2,
+                textAlign: 'center',
+                letterSpacing: -0.13,
+                maxWidth: 260,
+              }}>
+              {anchorGarment?.title
+                ? tr('anchor.missed.errorBody', { title: anchorGarment.title })
+                : tr('anchor.missed.errorBodyFallback')}
+            </Text>
+          </View>
+          <Button label="Try again" variant="outline" onPress={tryAgain} block />
+          <Button label={tr('anchor.removeAnchor')} variant="quiet" onPress={removeAnchor} block />
+        </ScrollView>
       ) : itemCount === 0 ? (
         // Engine returned a non-error response with no garments. Surface a
         // soft empty state instead of rendering 4 empty placeholder tiles.
@@ -434,6 +485,10 @@ export function OutfitGenerateScreen() {
             onPress={() => {
               hapticLight();
               if (result.outfit_id) {
+                // Mark success BEFORE nav so the cleanup effect (fired on
+                // unmount when the new screen mounts) keeps the result
+                // intact for the back-swipe return path. Codex P2 on PR #738.
+                succeededRef.current = true;
                 nav.navigate('OutfitDetail', { id: result.outfit_id });
               } else {
                 Alert.alert(

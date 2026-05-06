@@ -22,13 +22,24 @@ export type ThemeTokens = {
   accentDeep: string;
   accentFg: string;
   accentSoft: string;
-  /** Destructive action color (used for delete buttons, error text, signout). */
+  /**
+   * Single destructive-action color (delete row, "Sign out", "Cancel subscription"). Warm
+   * terracotta/clay-red tuned to sit on the same palette as `accent` rather than a generic
+   * system red, to keep the editorial mood.
+   */
   destructive: string;
-  /** Soft destructive tint (used for destructive backgrounds, hover states). */
+  /**
+   * Translucent companion to `destructive` — for soft warning surfaces (e.g. the AI-confidence
+   * "Review carefully" badge in AddPieceStep3, destructive-row hover states) that need a
+   * destructive-tinted backing without shouting at the user. Mirrors the accent → accentSoft
+   * relationship.
+   */
   destructiveSoft: string;
-  /** Backdrop scrim behind sheets / modals — semi-opaque dark overlay. */
+  /**
+   * Theme-aware backdrop scrim behind sheets / modals — semi-opaque dark overlay.
+   * Paired with `scrimFg` (foreground text/icon color rendered on top of a scrim).
+   */
   scrimBg: string;
-  /** Foreground text/icon color on a scrim. */
   scrimFg: string;
   shadowSm: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
   shadow: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
@@ -102,15 +113,19 @@ export const spacing = {
   '7':   28,
 } as const;
 
-// Font families. Real .ttf files load via expo-font in App.tsx (see assets/fonts/).
-// Until the user drops the .ttf files in place, RN falls back to system serif/sans.
+// Font families — these strings MUST match the keys passed to `useFonts({...})` in App.tsx,
+// which in turn come from @expo-google-fonts/playfair-display + @expo-google-fonts/dm-sans.
+// Mismatch = silent system-font fallback (the old "Italic Playfair not rendering" bug).
+//
+// `display` is plain italic (regular weight); `displayMedium` is the heavier italic used by
+// page titles + large numerals. The DM Sans family covers the rest of the UI.
 export const fonts = {
-  display:        'PlayfairDisplay-Italic',
-  displayMedium:  'PlayfairDisplay-MediumItalic',
-  ui:             'DMSans-Regular',
-  uiMed:          'DMSans-Medium',
-  uiSemi:         'DMSans-SemiBold',
-  uiBold:         'DMSans-Bold',
+  display:        'PlayfairDisplay_400Regular_Italic',
+  displayMedium:  'PlayfairDisplay_500Medium_Italic',
+  ui:             'DMSans_400Regular',
+  uiMed:          'DMSans_500Medium',
+  uiSemi:         'DMSans_600SemiBold',
+  uiBold:         'DMSans_700Bold',
 } as const;
 
 // Type scale — every screen uses these via the typography components.

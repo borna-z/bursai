@@ -14,9 +14,16 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "me.burs.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "BURS uses the camera to scan and add garments to your wardrobe.",
+        "NSPhotoLibraryUsageDescription": "BURS reads photos from your library so you can add garments to your wardrobe."
+      }
     },
     "android": {
+      "package": "me.burs.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -29,7 +36,19 @@
     },
     "plugins": [
       "expo-font",
-      "expo-localization"
-    ]
+      "expo-localization",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "burs",
+          "project": "burs-mobile"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "00d9bb65-ab97-499d-9ee6-2db4a3725ed8"
+      }
+    }
   }
 }

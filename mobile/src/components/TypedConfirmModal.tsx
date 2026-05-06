@@ -62,6 +62,23 @@ export function TypedConfirmModal({
     if (!open) setValue('');
   }, [open]);
 
+  // Stuck-pending escape hatch: while pending we suppress onRequestClose
+  // (above) to prevent dismissing a destructive action mid-flight, but
+  // that leaves the user with no way out if the network call hangs —
+  // Android back button is no-op'd and the cancel/confirm buttons are
+  // disabled. After 30s of pending, auto-fire onCancel so the modal can
+  // be recovered from. The parent's onCancel should be safe to call even
+  // while the mutation is in flight (it just closes the modal; the
+  // mutation either resolves or errors normally).
+  useEffect(() => {
+    if (!open || !isPending) return;
+    const PENDING_TIMEOUT_MS = 30_000;
+    const timer = setTimeout(() => {
+      onCancel();
+    }, PENDING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [open, isPending, onCancel]);
+
   const matches = value === requiredText;
 
   return (
@@ -97,7 +114,13 @@ export function TypedConfirmModal({
           <TextInput
             value={value}
             onChangeText={setValue}
-            autoCapitalize="characters"
+            // Auto-derive autoCapitalize so a generic `requiredText` of
+            // mixed case stays typeable — locking to "characters" would make
+            // any non-uppercase target physically unreachable on iOS, where
+            // shift-lock isn't manually toggleable from a forced-caps field.
+            // Today's call sites pass "DELETE" / "RESET" so the practical
+            // behaviour is unchanged.
+            autoCapitalize={requiredText === requiredText.toUpperCase() ? 'characters' : 'none'}
             autoCorrect={false}
             editable={!isPending}
             accessibilityLabel={`Type ${requiredText} to confirm`}

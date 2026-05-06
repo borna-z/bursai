@@ -92,10 +92,18 @@ export function ResetPasswordScreen() {
         {
           text: 'OK',
           onPress: () => {
-            // Session is now valid (recovery flow set it; signed-in flow
-            // already had it). AuthContext will route via MainTabs/Onboarding
-            // depending on profile state.
-            nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+            // Two entry points land here:
+            //   1. Deep-link recovery — opens this screen as a fresh root, so
+            //      canGoBack() is false and we reset into MainTabs (AuthContext
+            //      routes per profile state).
+            //   2. Signed-in change-password from Settings → there's a back
+            //      stack to pop, and popping back to Settings is less jarring
+            //      than wiping the stack.
+            if (nav.canGoBack()) {
+              nav.goBack();
+            } else {
+              nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+            }
           },
         },
       ]);
