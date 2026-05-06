@@ -46,6 +46,7 @@ import { LiveScanScreen } from '../screens/LiveScanScreen';
 import { OutfitsScreen } from '../screens/OutfitsScreen';
 import { OutfitDetailScreen } from '../screens/OutfitDetailScreen';
 import { OutfitGenerateScreen } from '../screens/OutfitGenerateScreen';
+import { OutfitPoolScreen } from '../screens/OutfitPoolScreen';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { EditGarmentScreen } from '../screens/EditGarmentScreen';
 import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
@@ -153,6 +154,10 @@ export type RootStackParamList = {
   // Outfit-generation flow (loading → result). garmentId optional for "Wear today" /
   // "Restyle from this piece" entry points that anchor on a specific item.
   OutfitGenerate: { garmentId?: string } | undefined;
+  // M16 — outfit pool. anchorGarmentId / occasion mirror the single-outfit
+  // generator's params (so a Restyle-from-piece tap can fan out to a pool of
+  // 5–10 candidates). `count` defaults to 5 in the screen when omitted.
+  OutfitPool: { anchorGarmentId?: string; occasion?: string; count?: number } | undefined;
   EditGarment: { id: string };
   GarmentDetail: { id: string };
   ShareOutfit: { id?: string } | undefined;
@@ -392,6 +397,7 @@ export function RootNavigator() {
       <Stack.Screen name="Outfits" component={OutfitsScreen} />
       <Stack.Screen name="OutfitDetail" component={OutfitDetailScreen} />
       <Stack.Screen name="OutfitGenerate" component={OutfitGenerateScreen} />
+      <Stack.Screen name="OutfitPool" component={OutfitPoolScreen} />
       <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
       <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
       <Stack.Screen name="ShareOutfit" component={ShareOutfitScreen} />

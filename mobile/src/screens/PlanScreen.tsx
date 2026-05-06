@@ -21,10 +21,12 @@ import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { WeekStrip, type WeekDay } from '../components/WeekStrip';
+import { WeekPlanPreview } from '../components/WeekPlanPreview';
 import { PlanCardSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
 import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/usePlannedOutfits';
+import { useWeekGenerator } from '../hooks/useWeekGenerator';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useNow } from '../hooks/useNow';
 import { useSignedUrl } from '../hooks/useSignedUrl';
@@ -160,6 +162,28 @@ export function PlanScreen() {
 
   const markWorn = useMarkOutfitWorn();
   const deletePlanned = useDeletePlannedOutfit();
+
+  // M16 — week generator surface. Lazy-mounted: the preview shows a single
+  // "Generate week" CTA until the user opts in, at which point it expands
+  // into 7 rows. Once entries land, the section default-collapses behind a
+  // "View N planned days" toggle so the PlanScreen surface stays compact;
+  // the user can re-expand to swap individual days.
+  const weekGen = useWeekGenerator();
+  // Destructure the methods so the dep arrays below depend on stable
+  // function refs (the hook returns new objects every render). Without
+  // this `weekGen` itself ticks the dep set every render and the
+  // memoised callbacks rebuild needlessly.
+  const { generateWeek, regenerateDay } = weekGen;
+  const handleGenerateWeek = React.useCallback(() => {
+    void generateWeek({ startDate: now });
+  }, [generateWeek, now]);
+  const handleSwapDay = React.useCallback(
+    (date: string) => {
+      void regenerateDay(date);
+    },
+    [regenerateDay],
+  );
+  const [weekPreviewExpanded, setWeekPreviewExpanded] = React.useState(false);
 
   // "Worn today" gate for the today-only Wear button. Mirrors OutfitDetail.
   // Without this the button stays primary-coloured + enabled even after a
@@ -385,6 +409,60 @@ export function PlanScreen() {
               Generate an outfit or pick from your saved looks.
             </Text>
             <Button label="Generate outfit" onPress={() => nav.navigate('OutfitGenerate')} block />
+          </View>
+        )}
+
+        {/* ============ HR ============ */}
+        <View style={{ height: 1, backgroundColor: t.border, opacity: 0.7 }} />
+
+        {/* ============ WEEK GENERATOR (M16) ============
+            Empty (no entries, not generating): single "Generate week" CTA.
+            Populated: collapsed by default behind a "View N planned days"
+            toggle so the PlanScreen stays compact; expanding reveals the
+            7-row preview with per-day swap. */}
+        {weekGen.entries.length === 0 && !weekGen.isGenerating ? (
+          <WeekPlanPreview
+            entries={weekGen.entries}
+            isGenerating={weekGen.isGenerating}
+            completed={weekGen.completed}
+            regeneratingDates={weekGen.regeneratingDates}
+            onGenerateWeek={handleGenerateWeek}
+            onRegenerateDay={handleSwapDay}
+          />
+        ) : (
+          <View style={{ gap: 10 }}>
+            <Pressable
+              onPress={() => setWeekPreviewExpanded((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: weekPreviewExpanded }}
+              accessibilityLabel={
+                weekPreviewExpanded
+                  ? 'Hide planned week'
+                  : `View ${weekGen.entries.length} planned days`
+              }
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 4,
+              }}>
+              <Eyebrow>
+                {weekPreviewExpanded
+                  ? 'Hide planned week'
+                  : `View ${weekGen.entries.length} planned days`}
+              </Eyebrow>
+              <ChevronIcon color={t.fg3} />
+            </Pressable>
+            {weekPreviewExpanded ? (
+              <WeekPlanPreview
+                entries={weekGen.entries}
+                isGenerating={weekGen.isGenerating}
+                completed={weekGen.completed}
+                regeneratingDates={weekGen.regeneratingDates}
+                onGenerateWeek={handleGenerateWeek}
+                onRegenerateDay={handleSwapDay}
+              />
+            ) : null}
           </View>
         )}
 

@@ -317,4 +317,26 @@ export const en: Record<string, string> = {
   'home.smartDay.fallback.title': 'Pick what feels right today.',
   'home.smartDay.tapHint': 'View this outfit',
   'home.smartDay.openHint': 'Opens outfit details',
+
+  // ─── Outfit pool + week generator (M16) ────────────────────────────────
+  'outfitPool.title': 'Outfit Pool',
+  'outfitPool.progressTemplate': '{n} of {total} ready',
+  'outfitPool.saveSelectedTemplate': 'Save selected ({n})',
+  'outfitPool.generateMore': 'Generate more',
+  'outfitPool.empty.title': 'No outfits generated',
+  'outfitPool.empty.body':
+    "We couldn't build any outfits this round. Try again or adjust your wardrobe.",
+  'outfitPool.savedTemplate': '{n} saved',
+  'outfitPool.partialSaveBody': '{failed} couldn\'t be saved — try again.',
+  'weekPlan.title': 'Week plan',
+  'weekPlan.generate': 'Generate week',
+  'weekPlan.generating': 'Generating…',
+  'weekPlan.progressTemplate': '{n}/{total}',
+  'weekPlan.dayFailedTemplate': "Couldn't generate {day} — tap to retry",
+  'weekPlan.swap': 'Tap to swap',
+  // Surfaced by OutfitPoolScreen when every selected draft fails to
+  // persist — pairs with `outfitPool.partialSaveBody` for the count.
+  // Replaces the earlier "0 saved" title which was misleading on full
+  // failure (M16 P2.5).
+  'outfitPool.saveFailedTitle': "Couldn't save outfits",
 };
