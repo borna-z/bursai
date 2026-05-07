@@ -226,16 +226,26 @@ export function CoachOverlay({
   }, [targetRect, windowSize]);
 
   // Decide whether the caption block sits ABOVE or BELOW the target.
-  // Below by default; flip to above only when below doesn't fit AND above
-  // does. If neither side has room, fall through to the centered fallback
-  // (top/bottom both undefined → JSX site centers via `top: '50%'`).
+  // Below preferred (most natural reading order); flip to above only
+  // when below doesn't fit AND above does. If neither side has room
+  // for the estimated block within the safe area, return both-undefined
+  // so the JSX site falls back to the centered placement
+  // (`top: '50%'` + translateY). The centered fallback may visually
+  // cover the cutout, but that's the explicit trade-off — better to
+  // obscure the highlight than to strand the user with unreachable
+  // controls behind the notch / home indicator. The accessibility
+  // descriptor on the cutout still surfaces the same caption to
+  // screen readers regardless of visual occlusion.
   //
   // Field-report fix (2026-05-07): the prior heuristic picked ABOVE
-  // whenever `spaceAbove > spaceBelow`, even if `spaceAbove` was less than
-  // the estimated block height. On Dynamic-Island devices that pushed the
-  // captionWrap's TOP edge behind the notch, hiding the Skip / Next
-  // buttons that sit at the top of the card. The clamp below requires the
-  // chosen side to actually fit the estimated block within the safe area.
+  // whenever `spaceAbove > spaceBelow`, even if `spaceAbove` was less
+  // than the estimated block height. On Dynamic-Island devices that
+  // pushed the captionWrap's TOP edge behind the notch, hiding the
+  // Skip / Next buttons. Reviewer A on PR #763 caught a follow-up bug
+  // in the first revision: the case-3 fallback was supposed to clamp
+  // but actually re-applied the side-pick formula, so the off-screen
+  // failure was reintroduced for any small-device + mid-target geometry.
+  // Falling through to the centered placement guarantees reachability.
   const captionPlacement = React.useMemo<{
     top: number | undefined;
     bottom: number | undefined;
@@ -254,17 +264,7 @@ export function CoachOverlay({
         bottom: windowSize.height - cutout.top + CAPTION_GAP,
       };
     }
-    // Neither side fits — pick the larger one and clamp to the safe-area
-    // boundary so the block stays fully reachable even if it visually
-    // covers part of the cutout. Better to obscure the highlight than to
-    // strand the user with unreachable controls.
-    if (spaceBelow >= spaceAbove) {
-      return { top: cutout.bottom + CAPTION_GAP, bottom: undefined };
-    }
-    return {
-      top: undefined,
-      bottom: windowSize.height - cutout.top + CAPTION_GAP,
-    };
+    return { top: undefined, bottom: undefined };
   }, [cutout, windowSize, insets.top, insets.bottom]);
 
   return (

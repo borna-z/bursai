@@ -112,15 +112,18 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
 
-    await enforceRateLimit(serviceClient, userId, "send_push_notification");
-
-    // Idempotency — scoped per (function, user, raw header key) so retried
-    // sends (network blip, client timeout) don't double-fan-out. Server-
-    // side analytics functions, cron jobs, and reliable callers should
-    // pass `x-idempotency-key`; absent header → behavior unchanged.
+    // Idempotency BEFORE rate-limit — canonical pattern per
+    // `_shared/idempotency.ts:9-20` and the `delete_user_account` shape.
+    // A legitimate retry of a successful send (network blip, client
+    // timeout) carrying the same `x-idempotency-key` MUST replay from
+    // cache rather than burn a rate-limit token and 429. Both reviewers
+    // (A + B) on PR #763 flagged the prior ordering as breaking the
+    // retry contract for clients on the rate-limit boundary.
     const idemScope = { functionName: "send_push_notification", userId };
     const cached = await checkIdempotency(req, serviceClient, idemScope);
     if (cached) return cached;
+
+    await enforceRateLimit(serviceClient, userId, "send_push_notification");
 
     const startedAt = Date.now();
 
@@ -184,10 +187,10 @@ Deno.serve(async (req) => {
         userId,
         error: subErr.message,
       });
-      return new Response(
-        JSON.stringify({ error: "Failed to read push subscriptions" }),
-        { status: 500, headers: CORS_HEADERS },
-      );
+      // 500 path intentionally NOT cached via storeIdempotencyResult —
+      // transient DB errors should be retryable rather than poisoning
+      // the cache with a failure for the next 5 minutes.
+      return jsonResponse({ error: "Failed to read push subscriptions" }, 500);
     }
 
     if (!subs || subs.length === 0) {
