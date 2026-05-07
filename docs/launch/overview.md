@@ -141,7 +141,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 |---|---|---|---|
 | ) | V0 |
 | ) | V0 |
-| M30 | [Push notifications + Expo send branch](waves/m30-push.md) | DONE (PR #TBD) | V0 |
+| ) | V0 |
 | M31 | [RevenueCat + paywall + webhook](waves/m31-revenuecat.md) | TODO | V0 |
 | M32 | [Restore Purchases](waves/m32-restore-purchases.md) | TODO | V0, M31 |
 | M33 | [i18n Swedish + English baseline](waves/m33-i18n.md) | TODO | V0 |
