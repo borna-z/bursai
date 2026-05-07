@@ -473,4 +473,19 @@ export const en: Record<string, string> = {
   'importFromLink.cancelBody': 'The current batch is still in progress.',
   'importFromLink.cancelStay': 'Keep importing',
   'importFromLink.cancelLeave': 'Stop',
+
+  // ─── M21 — Condition assessment (GarmentDetail entry) ──────────────────
+  'condition.checkAction': 'Check condition',
+  'condition.assessing': 'Assessing…',
+  'condition.scoreLabel': 'Condition {score} / 100',
+  'condition.tier.good': 'Good',
+  'condition.tier.fair': 'Fair',
+  'condition.tier.poor': 'Needs care',
+  'condition.wearSignals': 'Wear signals',
+  'condition.repairTitle': 'Repair recommendations',
+  'condition.reassessAction': 'Re-assess',
+  'condition.error.network': "Couldn't reach the assessor. Try again in a moment.",
+  'condition.openHint': 'Opens the full condition breakdown',
+  'condition.empty': 'No assessment yet.',
+  'condition.closeSheet': 'Close condition details',
 };
