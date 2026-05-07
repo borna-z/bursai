@@ -311,8 +311,24 @@ export async function purchasePackage(
 /**
  * Restore previously-purchased entitlements. Required by App Store
  * guideline 3.1.1 — every paywall must surface a "Restore Purchases"
- * affordance. Returns the refreshed CustomerInfo so the caller can refetch
- * the `subscriptions` row (the webhook syncs the entitlement).
+ * affordance.
+ *
+ * Return contract:
+ *   * `CustomerInfo`  — SDK round-trip succeeded; caller inspects
+ *                       `entitlements.active` to distinguish actual
+ *                       restore vs. fresh / never-purchased Apple ID.
+ *   * `null`          — unsupported environment (web / simulator /
+ *                       missing API key / module load failure). Wrapper
+ *                       has emitted a Sentry breadcrumb; this is NOT an
+ *                       error path — caller should surface "no purchases"
+ *                       UX rather than a transport-error alert.
+ *   * `throw`         — real SDK error (network failure, StoreKit
+ *                       timeout, auth issue). Caller's mutation hook
+ *                       routes this through `captureMutationError` and
+ *                       surfaces a transient-error alert. Distinguished
+ *                       from the `null` path so a user on a flaky
+ *                       network doesn't see the misleading
+ *                       "no purchases" empty-state.
  */
 export async function restorePurchases(): Promise<CustomerInfo | null> {
   if (!isPurchasesSupported()) return null;
@@ -322,10 +338,13 @@ export async function restorePurchases(): Promise<CustomerInfo | null> {
   try {
     return await Purchases.restorePurchases();
   } catch (err) {
+    // Capture for visibility, then re-throw so the caller can distinguish
+    // a transient SDK / network failure from the genuinely-unsupported
+    // null-return path above.
     Sentry.captureException(err, {
       tags: { feature: 'revenuecat', step: 'restore' },
     });
-    return null;
+    throw err;
   }
 }
 

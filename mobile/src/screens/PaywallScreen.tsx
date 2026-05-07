@@ -23,7 +23,6 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
@@ -36,11 +35,10 @@ import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSelection } from '../lib/haptics';
 import {
   getOfferingsWithIntroOffer,
-  restorePurchases,
   type OfferingsWithIntro,
 } from '../lib/revenuecat';
 import { usePurchaseSubscription } from '../hooks/usePurchaseSubscription';
-import { useAuth } from '../contexts/AuthContext';
+import { useRestorePurchases } from '../hooks/useRestorePurchases';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -80,10 +78,7 @@ const PRIVACY_URL = 'https://burs.me/privacy';
 export function PaywallScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [plan, setPlan] = useState<Plan>('yearly');
-  const [restoring, setRestoring] = useState(false);
   // Per-plan intro-offer presence. Determines:
   //   1. CTA copy: "Start 3-day free trial" only when an intro offer
   //      actually exists on the selected plan; "Subscribe" otherwise.
@@ -106,13 +101,21 @@ export function PaywallScreen() {
   }, []);
   const purchase = usePurchaseSubscription();
   const isPurchasing = purchase.isPending;
+  const restore = useRestorePurchases();
+  const restoring = restore.isPending;
 
   // Always provide an exit. If the Paywall was opened modally on top of an
   // existing screen we go back; if it's the only thing in the stack (deep link
   // or push-notification land-on-paywall), we route to MainTabs so the user
   // isn't trapped (P1-18 / P1-19 from review). App Store reviewers WILL test
   // this — silent dead-ends are rejection-worthy.
+  //
+  // Mid-flight restore / purchase: gate dismissal so the in-flight mutation's
+  // resolution alert doesn't fire over a different screen. Both flows are
+  // sub-second on a real device; the brief "uncloseable" window is preferable
+  // to a context-less alert popping over MainTabs.
   const onClose = () => {
+    if (isPurchasing || restoring) return;
     hapticLight();
     if (nav.canGoBack()) nav.goBack();
     else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
@@ -181,41 +184,52 @@ export function PaywallScreen() {
     );
   };
 
-  const onRestore = async () => {
+  const onRestore = () => {
     if (isPurchasing || restoring) return;
     hapticLight();
-    setRestoring(true);
-    try {
-      const customerInfo = await restorePurchases();
-      // Webhook may take a moment to mirror the restored entitlement —
-      // invalidate the cached query so `useSubscription` refetches when
-      // the user returns to a gated screen.
-      await queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
-      // RevenueCat returns a CustomerInfo object even when the user has
-      // never purchased anything — the meaningful signal is whether
-      // `entitlements.active` has any keys. Without this gate, a fresh
-      // user tapping "Restore Purchases" used to see a misleading
-      // "Purchases restored" toast (false positive). When the bag is
-      // empty, surface the dedicated empty-state alert instead.
-      const hasActive =
-        !!customerInfo &&
-        Object.keys(customerInfo.entitlements?.active ?? {}).length > 0;
-      if (hasActive) {
-        Alert.alert(
-          tr('paywall.restored'),
-          tr('paywall.restore.alertBody'),
-          [{ text: tr('paywall.restore.alertOk') }],
-        );
-      } else {
+    restore.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.status === 'restored') {
+          // Mirror onSubscribe success: dismiss the paywall after the
+          // user acknowledges the restore. Without this the restored
+          // user sees the paywall stay up after their entitlement
+          // unlocked — an inconsistent UX. nav.canGoBack() falls back
+          // to MainTabs for deep-link / push-notification entry where
+          // the paywall is the only stack entry.
+          Alert.alert(
+            tr('paywall.restored'),
+            tr('paywall.restored.body'),
+            [{
+              text: tr('paywall.restore.alertOk'),
+              onPress: () => {
+                if (nav.canGoBack()) nav.goBack();
+                else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+              },
+            }],
+          );
+          return;
+        }
+        // 'no_purchases' (RevenueCat returned empty entitlements) and
+        // 'unsupported' (web / simulator / missing API key, or the
+        // sign-out-mid-flight short-circuit inside the hook) collapse
+        // to the same empty-state alert.
         Alert.alert(
           tr('paywall.restoreNoPurchases.title'),
           tr('paywall.restoreNoPurchases.body'),
           [{ text: tr('paywall.restore.alertOk') }],
         );
-      }
-    } finally {
-      setRestoring(false);
-    }
+      },
+      onError: () => {
+        // Real SDK / network failures (revenuecat wrapper re-throws
+        // after Sentry-capture). Restore-specific error keys avoid
+        // the "try again or restore previous purchases" loop that
+        // `paywall.errorGeneric.body` would create here.
+        Alert.alert(
+          tr('paywall.restoreError.title'),
+          tr('paywall.restoreError.body'),
+        );
+      },
+    });
   };
 
   const openExternal = (url: string, label: string) => () => {
@@ -458,10 +472,15 @@ export function PaywallScreen() {
             disabled={ctaDisabled}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.restore.label')}
-            accessibilityState={{ disabled: ctaDisabled, busy: restoring }}
+            // Busy when EITHER a purchase or a restore is in flight —
+            // VoiceOver should announce the link as unavailable in
+            // both states. The visible label only flips to "Restoring…"
+            // for the restore path so the user sees the verb that
+            // matches the action they triggered.
+            accessibilityState={{ disabled: ctaDisabled, busy: ctaDisabled }}
             hitSlop={6}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: t.fg2, letterSpacing: -0.1, opacity: ctaDisabled ? 0.5 : 1 }}>
-              {restoring ? tr('paywall.processing') : tr('paywall.restorePurchases')}
+              {restoring ? tr('paywall.restoring') : tr('paywall.restorePurchases')}
             </Text>
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />

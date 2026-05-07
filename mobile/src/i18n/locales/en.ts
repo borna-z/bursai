@@ -1271,4 +1271,23 @@ export const en: Record<string, string> = {
   'addpiece.save.original.label': 'Original photo',
   'addpiece.save.original.body': 'Save the photo as it is with no studio processing.',
   'addpiece.save.original.aria': 'Save with the original photo — no studio render',
+
+  // M32 — Restore Purchases (Settings entry + new alert copy).
+  'settings.account.section.subscription': 'Subscription',
+  'settings.account.row.restorePurchases': 'Restore Purchases',
+  'settings.account.row.restorePurchases.caption':
+    'Reactivate a previous subscription on this Apple ID.',
+  // Success body for the restored alert. Apple 3.1.2: no pricing /
+  // renewal copy here.
+  'paywall.restored.body': 'Your subscription is active again.',
+  // Busy label for the restore CTA — distinct from the purchase CTA's
+  // `paywall.processing` so the user sees the verb for the action they
+  // triggered.
+  'paywall.restoring': 'Restoring…',
+  // Restore-specific transient-error keys. `paywall.errorGeneric.body`
+  // says "Try again or restore previous purchases" — using it here
+  // would loop the user back into the same flow that just failed.
+  'paywall.restoreError.title': 'Could not restore purchases',
+  'paywall.restoreError.body':
+    "We couldn't reach the App Store. Check your connection and try again.",
 };
