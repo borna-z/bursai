@@ -32,10 +32,20 @@ export interface WardrobeStats {
 }
 
 async function headCount(table: 'garments' | 'outfits' | 'wear_logs', userId: string): Promise<number> {
-  const { count, error } = await supabase
+  let query = supabase
     .from(table)
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId);
+  // The "Outfits" stat must reflect kept outfits, not the AI-generated
+  // previews that flow through `outfits` rows en route to a save. Both
+  // `outfits.saved` and `outfits.is_saved` exist on the table; the
+  // mobile app writes `saved` (see `useSaveOutfit`), and `useOutfits`
+  // also filters on `saved` when `savedOnly` is true — so the count
+  // here uses the same column for consistency. Codex P1 on M29 review.
+  if (table === 'outfits') {
+    query = query.eq('saved', true);
+  }
+  const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
 }

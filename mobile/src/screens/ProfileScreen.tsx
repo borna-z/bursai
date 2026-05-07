@@ -23,21 +23,13 @@ import { BackIcon, GearIcon, GapsIcon, TshirtIcon } from '../components/icons';
 import { ProfileSkeleton } from '../components/skeletons';
 import { useAuth } from '../hooks/useAuth';
 import { useShoppingList } from '../hooks/usePickMustHaves';
-import { useStyleDNA } from '../hooks/useStyleDNA';
+import { FORMALITY_BUCKETS_DISPLAY, useStyleDNA } from '../hooks/useStyleDNA';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
 import { t as tr } from '../lib/i18n';
-import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
+import { styleColorToHex } from '../theme/styleColors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-// Sourced from `theme/styleColors.ts` (single source of truth shared with
-// SettingsStyleScreen). The Style DNA card now reads its archetype + vibes
-// + formality from the M29 useStyleDNA() hook; FAVORITE_COLORS stays as a
-// visual placeholder swatch row (the real preferred-colors palette is
-// surfaced through the dna.signatureColors string list above the swatches).
-const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES.slice(0, 5);
-const FORMALITY_LEVELS = ['Casual', 'Smart casual', 'Business'];
 
 export function ProfileScreen() {
   const t = useTokens();
@@ -83,7 +75,13 @@ export function ProfileScreen() {
         <ScrollView
           contentContainerStyle={{ paddingTop: 8, paddingBottom: 60 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={t.accent}
+              colors={[t.accent]}
+              accessibilityLabel={tr('profile.refresh')}
+            />
           }
           showsVerticalScrollIndicator={false}>
           <ProfileSkeleton />
@@ -97,7 +95,13 @@ export function ProfileScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, gap: 18 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={t.accent}
+            colors={[t.accent]}
+            accessibilityLabel={tr('profile.refresh')}
+          />
         }
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
@@ -139,13 +143,14 @@ export function ProfileScreen() {
         </View>
 
         {/* ============ STYLE SUMMARY ============ */}
-        {/* M29: archetype + formality + vibes are read from useStyleDNA().
-            The hook reads `user_style_summaries.summary_json` first (canonical
-            once enough wear/feedback events exist) and falls back to the
-            V4 quiz answers when confidence is below threshold. The "Favorite
-            colors" swatch row keeps the existing hardcoded palette as a
-            visual placeholder — the real preferred-colors are surfaced as
-            a Caption above the swatches when the DNA hook produces them. */}
+        {/* M29: archetype + formality + vibes + signatureColors are all
+            read from useStyleDNA(). The hook reads
+            `user_style_summaries.summary_json` first (canonical once
+            enough wear/feedback events exist) and falls back to the V4
+            quiz answers when confidence is below threshold. The
+            "Favorite colors" swatch row maps each `dna.signatureColors`
+            name (e.g., 'navy', 'sage') to a hex via `styleColorToHex`;
+            the section hides entirely when the DNA has no colors yet. */}
         <Card hero padding={18}>
           <Eyebrow style={{ marginBottom: 8 }}>Style DNA</Eyebrow>
           {dna ? (
@@ -174,31 +179,30 @@ export function ProfileScreen() {
           ) : null}
 
           {dna && dna.signatureColors.length > 0 ? (
-            <Caption style={{ marginBottom: 8 }}>
-              {dna.signatureColors.slice(0, 5).join(' · ')}
-            </Caption>
+            <>
+              <Eyebrow style={{ marginBottom: 8 }}>Favorite colors</Eyebrow>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                {dna.signatureColors.slice(0, 5).map((colorName) => (
+                  <View
+                    key={colorName}
+                    accessibilityLabel={colorName}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      backgroundColor: styleColorToHex(colorName),
+                      borderWidth: 1,
+                      borderColor: t.border,
+                    }}
+                  />
+                ))}
+              </View>
+            </>
           ) : null}
-
-          <Eyebrow style={{ marginBottom: 8 }}>Favorite colors</Eyebrow>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-            {FAVORITE_COLORS.map((color) => (
-              <View
-                key={color}
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  backgroundColor: color,
-                  borderWidth: 1,
-                  borderColor: t.border,
-                }}
-              />
-            ))}
-          </View>
 
           <Eyebrow style={{ marginBottom: 8 }}>Formality</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-            {FORMALITY_LEVELS.map((level) => (
+            {FORMALITY_BUCKETS_DISPLAY.map((level) => (
               <Chip key={level} label={level} active={dna ? level === dna.formality : false} />
             ))}
           </View>
@@ -219,17 +223,32 @@ export function ProfileScreen() {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <StatBlock
             num={stats ? stats.garmentCount : '—'}
-            label="Garments"
+            label={tr('profile.stats.garments')}
+            accessibilityLabel={
+              stats
+                ? tr('profile.stats.garmentsTemplate', { count: stats.garmentCount })
+                : undefined
+            }
             style={{ flex: 1 }}
           />
           <StatBlock
             num={stats ? stats.outfitCount : '—'}
-            label="Outfits"
+            label={tr('profile.stats.outfits')}
+            accessibilityLabel={
+              stats
+                ? tr('profile.stats.outfitsTemplate', { count: stats.outfitCount })
+                : undefined
+            }
             style={{ flex: 1 }}
           />
           <StatBlock
             num={stats ? stats.wearLogCount : '—'}
-            label="Wears"
+            label={tr('profile.stats.wears')}
+            accessibilityLabel={
+              stats
+                ? tr('profile.stats.wearLogsTemplate', { count: stats.wearLogCount })
+                : undefined
+            }
             style={{ flex: 1 }}
           />
         </View>

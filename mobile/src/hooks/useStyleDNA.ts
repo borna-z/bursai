@@ -73,6 +73,21 @@ const FORMALITY_BUCKETS: readonly { min: number; label: string }[] = [
   { min: 0, label: 'Relaxed' },
 ];
 
+/**
+ * Display order for the formality chip strip on Profile + SettingsStyle.
+ * Mirrors the bucket vocabulary above (least → most formal) so the
+ * active chip is always one of the four real buckets the parser
+ * produces. Exported as the single source of truth so future drift
+ * across screens can't recur (Codex P1 on M29 review).
+ */
+export const FORMALITY_BUCKETS_DISPLAY = [
+  'Relaxed',
+  'Casual',
+  'Smart casual',
+  'Formal',
+] as const;
+export type StyleDNAFormality = (typeof FORMALITY_BUCKETS_DISPLAY)[number];
+
 function formalityLabelFor(score: number): string {
   for (const bucket of FORMALITY_BUCKETS) {
     if (score >= bucket.min) return bucket.label;

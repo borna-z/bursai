@@ -974,12 +974,30 @@ export const en: Record<string, string> = {
   'profile.styleDNA.vibes': 'Vibes',
   'profile.styleDNA.empty':
     'Your Style DNA builds as you wear and rate outfits.',
+  // StatBlock labels (uppercase noun) + accessibility templates that
+  // interpolate the live count so screen readers announce the full
+  // "12 garments" sentence rather than a bare "12 / GARMENTS" split.
   'profile.stats.garmentsTemplate': '{count} garments',
   'profile.stats.outfitsTemplate': '{count} outfits',
   'profile.stats.wearLogsTemplate': '{count} wears',
+  'profile.stats.garments': 'Garments',
+  'profile.stats.outfits': 'Outfits',
+  'profile.stats.wears': 'Wears',
   'profile.refresh': 'Pull to refresh',
   'settings.wardrobeBadgeTemplate': '{count} items',
   'settingsStyle.dnaPreview.title': 'Your style DNA',
   'settingsStyle.dnaPreview.empty':
     'Take the quiz to build your DNA preview.',
+
+  // ─── M29 review pass — review-finding follow-ups ───────────────────────
+  // Review pass: real swatches + count caption + i18n for the "coming
+  // soon" alert bodies. Append-only. The full editor lands in M38.
+  'settingsStyle.favoritesCountTemplate.one': '1 favorite',
+  'settingsStyle.favoritesCountTemplate': '{count} favorites',
+  'settingsStyle.editStyleWords.title': 'Coming soon',
+  'settingsStyle.editStyleWords.body': 'Style word editing coming soon.',
+  'settingsStyle.editColorPreferences.title': 'Coming soon',
+  'settingsStyle.editColorPreferences.body':
+    'Color preference editing coming soon.',
+  'settings.styleProfileEmpty': 'Build your DNA in the style profile',
 };
