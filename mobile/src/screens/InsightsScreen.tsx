@@ -43,12 +43,18 @@ import { BarViz } from '../components/BarViz';
 import { Skeleton, StatRowSkeleton, GarmentListSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { ChevronIcon } from '../components/icons';
+import { WardrobeAgingPanel } from '../components/WardrobeAgingPanel';
 import {
   useInsightsDashboard,
   type InsightsMostWorn,
 } from '../hooks/useInsightsDashboard';
 import { useSignedUrls } from '../hooks/useSignedUrl';
 import { useNow } from '../hooks/useNow';
+import {
+  useWardrobeAging,
+  WardrobeAgingSubscriptionError,
+  type WardrobeAgingBucketId,
+} from '../hooks/useWardrobeAging';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -173,6 +179,32 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const rangeEnd = formatRangeDate(now, 0);
 
   const { data, isLoading, isError, refetch, isRefetching } = useInsightsDashboard();
+
+  // M22 — wardrobe aging panel. Independent React Query call (1h
+  // staleTime) so the heavy insights dashboard query can fire in
+  // parallel. Subscription_required flips the user into the paywall
+  // exactly once per error window via a sticky ref — same pattern
+  // WardrobeGaps uses, so the gate looks identical wherever a paid
+  // surface is gated.
+  const aging = useWardrobeAging();
+  const agingPaywallShownRef = React.useRef(false);
+  const agingSubscriptionLocked = aging.error instanceof WardrobeAgingSubscriptionError;
+  React.useEffect(() => {
+    if (agingSubscriptionLocked && !agingPaywallShownRef.current) {
+      agingPaywallShownRef.current = true;
+      nav.navigate('Paywall');
+    }
+    if (!agingSubscriptionLocked) {
+      agingPaywallShownRef.current = false;
+    }
+  }, [agingSubscriptionLocked, nav]);
+
+  const onAgingRowTap = React.useCallback(
+    (bucketId: WardrobeAgingBucketId) => {
+      nav.navigate('UnusedGarments', { bucketId });
+    },
+    [nav],
+  );
 
   // Batch the most-worn signed URLs into a single Storage round-trip instead
   // of N parallel lookups. Empty list when data hasn't landed yet — the hook
@@ -421,6 +453,28 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
             <Caption>{rangeEnd}</Caption>
           </View>
         </Card>
+
+        {/* ============ WARDROBE AGING (M22) ============ */}
+        {/* The panel itself is presentation-only — subscription_required
+            errors are intercepted above (sticky-ref → Paywall), so we
+            forward `null` for that case to keep the section quiet while
+            the paywall modal opens. All other errors render the panel's
+            own subtle inline caption.
+
+            Note: the panel's internal loading skeleton (isLoading + no
+            result) is rarely visible because Insights gates the entire
+            screen on `dashboard.isLoading` above and the screen-level
+            skeletons render in its place. The aging skeleton only shows
+            on a manual refetch where dashboard data is already cached
+            but aging data isn't (e.g. cleared cache between sessions).
+            Acceptable; kept as a fallback so the panel remains
+            self-contained and renderable in isolation. */}
+        <WardrobeAgingPanel
+          result={aging.data ?? null}
+          isLoading={aging.isLoading}
+          error={agingSubscriptionLocked ? null : aging.error}
+          onRowTap={onAgingRowTap}
+        />
 
         {/* ============ MOST WORN LIST ============ */}
         {data.mostWorn.length > 0 ? (
