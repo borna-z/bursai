@@ -86,10 +86,10 @@ export function useV3CompatBackfill(profile: Profile | null): void {
     let cancelled = false;
     (async () => {
       try {
-        // Read the freshest preferences row before merging — the cached
-        // `profile.preferences` could be a snapshot from before another
-        // writer (web onboarding, future RPC, etc.) updated it. Canonical
-        // RMW pattern (mirrors useFirstRunCoach completion path).
+        // Read the freshest preferences row to confirm we still need to
+        // run — another client (web onboarding, future RPC) may have
+        // already written the V3 mirror since the cached profile loaded.
+        // The actual merge below uses the atomic RPC, not this select.
         const { data: row, error: readError } = await supabase
           .from('profiles')
           .select('preferences')
@@ -124,15 +124,16 @@ export function useV3CompatBackfill(profile: Profile | null): void {
         const v4 = parseStyleProfileV4(freshV4);
         const styleProfile = migrateV4ToV3Compat(v4);
 
-        const merged: Record<string, unknown> = {
-          ...fresh,
-          styleProfile,
-        };
-
-        const { error: writeError } = await supabase
-          .from('profiles')
-          .update({ preferences: merged })
-          .eq('id', userId);
+        // Theme 1 (post-launch audit): atomic JSONB merge via RPC. On
+        // first launch the backfill commonly fires while onboarding's
+        // finish() and useFirstRunCoach's retroactive seed are also
+        // mutating preferences. The RPC takes a row-level lock and
+        // applies Postgres' `||` merge so all three writers' patches
+        // land without clobbering each other's sibling keys.
+        const { error: writeError } = await supabase.rpc(
+          'merge_profile_preferences_jsonb',
+          { p_patch: { styleProfile } },
+        );
         if (cancelled) return;
         if (writeError) {
           Sentry.addBreadcrumb({

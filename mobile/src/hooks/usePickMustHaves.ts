@@ -151,36 +151,21 @@ export function useSaveShoppingList() {
         throw new Error('Shopping list too large (max 200 entries)');
       }
 
-      // Read-modify-write — fetch the current prefs row, merge in the new
-      // shopping_list_jsonb blob, write back. Concurrent edits from the
-      // same device are not expected (single screen, single user) so a
-      // simple read-modify-write is fine; the OnboardingScreen path uses
-      // the same shape.
-      const { data: existing, error: readError } = await supabase
-        .from('profiles')
-        .select('preferences')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (readError) throw readError;
-
-      const prevPrefs = (existing?.preferences ?? {}) as Record<
-        string,
-        unknown
-      >;
+      // Theme 1 (post-launch audit): atomic JSONB merge via RPC. The
+      // shopping list is single-screen single-user in isolation, but
+      // `preferences` is a shared blob — onboarding finish, V3-compat
+      // backfill, and coach-tour completion all write sibling keys.
+      // The RPC takes a row-level lock and applies Postgres' `||` merge
+      // so concurrent writes don't drop our update.
       const nextList: ShoppingList = {
         entries,
         updated_at: new Date().toISOString(),
       };
-      const mergedPrefs = {
-        ...prevPrefs,
-        shopping_list_jsonb: nextList,
-      };
-
-      const { error: writeError } = await supabase
-        .from('profiles')
-        .update({ preferences: mergedPrefs })
-        .eq('id', user.id);
-      if (writeError) throw writeError;
+      const { error: rpcError } = await supabase.rpc(
+        'merge_profile_preferences_jsonb',
+        { p_patch: { shopping_list_jsonb: nextList } },
+      );
+      if (rpcError) throw rpcError;
 
       return nextList;
     },
