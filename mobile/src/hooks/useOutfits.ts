@@ -263,12 +263,22 @@ async function runMarkOutfitWorn({
 
   // 3c. Per-garment wear log — upsert against the
   //     `wear_logs_user_garment_worn_at_uidx` UNIQUE INDEX added in the
-  //     post-launch theme-2 schema-hardening migration so that a duplicate
-  //     payload (e.g. the same garment appearing in two outfits both
-  //     marked worn within the same `nowIso` millisecond) is silently
-  //     dedup'd at the DB layer instead of surfacing as a 23505 error.
-  //     `inFlightWearOutfit` already covers the same-mutation double-tap
-  //     case; this is the cross-mutation safety net.
+  //     post-launch theme-2 schema-hardening migration. Two distinct
+  //     guards cover two distinct race shapes:
+  //
+  //       • `inFlightWearOutfit` (Set, keyed on outfit_id) handles the
+  //         SAME-OUTFIT double-tap case — that's the canonical guard.
+  //       • The UNIQUE INDEX handles the CROSS-OUTFIT collision where two
+  //         different outfits share a garment and are marked worn within
+  //         the same `nowIso` millisecond — neither outfit_id is in the
+  //         in-flight Set, but the per-garment wear_log payload is
+  //         identical, so without the index the second batch would 23505.
+  //
+  //     `ignoreDuplicates: true` (Prefer: resolution=ignore-duplicates)
+  //     silently drops conflicting rows from the INSERT — wear_count
+  //     bumps in 3b still land for the duplicate-collision case, which
+  //     is correct: the user really did "wear" both outfits, the
+  //     wear_log just records the underlying garment once per instant.
   const wearLogRows = garmentIds.map((garmentId) => ({
     user_id: userId,
     garment_id: garmentId,
@@ -360,6 +370,14 @@ export function useDeleteOutfit() {
  * (SELECT newest → UPDATE / INSERT → DELETE siblings) was retired with the
  * constraint; pre-existing duplicates were collapsed by the migration's
  * one-shot DELETE pass.
+ *
+ * Partial-payload semantics: PostgREST's single-object upsert builds the
+ * ON CONFLICT DO UPDATE SET list from the JSON keys actually present in
+ * the payload, so fields ABSENT from `patch` are preserved on the existing
+ * row. `useRateOutfit` (sends `{ rating }`) and `useSaveOutfitNote`
+ * (sends `{ commentary }`) therefore do NOT clobber each other. An
+ * EXPLICIT `commentary: null` in `patch` IS sent and DOES set the column
+ * to null — that's the deliberate "clear note" path.
  */
 async function upsertOutfitFeedbackRow(
   userId: string,
@@ -426,11 +444,12 @@ export function useOutfitFeedback(outfitId: string | undefined) {
     queryKey: ['outfit_feedback', user?.id, outfitId],
     queryFn: async () => {
       if (!user || !outfitId) return null;
-      // `.order(desc).limit(1)` not `.maybeSingle()` — the latter throws on
-      // multiple rows, which can transiently exist if two near-simultaneous
-      // rate taps each INSERT before either's defensive sweep collapses the
-      // duplicates. Picking the newest row keeps the screen showing the
-      // user's latest tap; the next write converges back to a single row.
+      // `.order(desc).limit(1)` is defense-in-depth: post-theme-2 the
+      // `outfit_feedback_user_outfit_uidx` UNIQUE INDEX guarantees ≤1 row
+      // per (user_id, outfit_id), but keeping the read tolerant means
+      // any future drift (e.g. a service-role write that bypasses the
+      // index check, or an out-of-band restore that re-introduces rows)
+      // still yields the newest row instead of an exception.
       const { data, error } = await supabase
         .from('outfit_feedback')
         .select('rating, commentary')

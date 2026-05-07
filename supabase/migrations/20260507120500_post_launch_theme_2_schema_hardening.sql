@@ -78,6 +78,11 @@ CREATE POLICY "outfit_items_insert_own" ON public.outfit_items
       WHERE o.id = outfit_items.outfit_id
         AND o.user_id = auth.uid()
     )
+    -- `garment_id IS NULL` branch is forward-compat: every current
+    -- INSERT call site (mobile + web) supplies a real garment_id, so
+    -- the OR is unreachable today. Preserved so a future flow that
+    -- writes a placeholder outfit_items row (e.g. accessory-pending)
+    -- doesn't fail the WITH CHECK before its own ownership check lands.
     AND (
       garment_id IS NULL
       OR EXISTS (
@@ -103,6 +108,11 @@ CREATE POLICY "outfit_items_update_own" ON public.outfit_items
       WHERE o.id = outfit_items.outfit_id
         AND o.user_id = auth.uid()
     )
+    -- `garment_id IS NULL` branch is forward-compat: every current
+    -- INSERT call site (mobile + web) supplies a real garment_id, so
+    -- the OR is unreachable today. Preserved so a future flow that
+    -- writes a placeholder outfit_items row (e.g. accessory-pending)
+    -- doesn't fail the WITH CHECK before its own ownership check lands.
     AND (
       garment_id IS NULL
       OR EXISTS (
@@ -191,6 +201,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS outfit_feedback_user_outfit_uidx
 -- keeping the predicate makes the intent unambiguous and survives any
 -- future RLS edit that loosens the row-scope.
 
+-- `RETURNS NULL ON NULL INPUT` is documentary belt-and-braces here. For
+-- LANGUAGE sql functions with RETURNS TABLE the planner does not honor
+-- STRICT as a short-circuit gate the way it does for scalar returns —
+-- the body still runs and `WHERE id = NULL` naturally yields zero rows.
+-- The attribute costs nothing and signals intent to readers.
 CREATE OR REPLACE FUNCTION public.increment_wear_count(p_garment_id uuid)
   RETURNS TABLE (id uuid, wear_count integer, last_worn_at timestamptz)
   LANGUAGE sql

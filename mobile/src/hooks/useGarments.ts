@@ -314,12 +314,19 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
  * The RPC's WHERE clause pins `user_id = auth.uid()`, so an unowned garment
  * id returns zero rows and the mutation surfaces a "Garment not found"
  * error — RLS on `garments` remains in effect as a second line of defense.
+ *
+ * The mutation result type is the narrow RPC return shape (id, wear_count,
+ * last_worn_at) — not the full Garment — because callers only use
+ * `isPending` / `onError` and never read `data`. Cache convergence to the
+ * canonical wear_count happens inside `mutationFn` via `patchGarmentInCaches`.
  */
+type WearCountIncrement = { id: string; wear_count: number; last_worn_at: string };
+
 export function useMarkWorn() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  return useMutation<Garment, Error, string, UpdateContext>({
+  return useMutation<WearCountIncrement, Error, string, UpdateContext>({
     mutationFn: async (id) => {
       if (!user) throw new Error('Not authenticated');
       // RPC returns SETOF (id, wear_count, last_worn_at). `.maybeSingle()`
@@ -330,7 +337,7 @@ export function useMarkWorn() {
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Garment not found');
-      const rpcRow = data as { id: string; wear_count: number; last_worn_at: string };
+      const rpcRow = data as WearCountIncrement;
       // Patch the canonical (wear_count, last_worn_at) into single + every
       // list cache. patchGarmentInCaches gates the single-cache write on
       // `prev` truthiness, so a cache miss is a true no-op — the next
@@ -341,10 +348,7 @@ export function useMarkWorn() {
         wear_count: rpcRow.wear_count,
         last_worn_at: rpcRow.last_worn_at,
       });
-      // Callers never read `data` (they only use isPending / onError); the
-      // return value is for type continuity. Merge into cache if present.
-      const cached = queryClient.getQueryData<Garment | null>(['garment', user.id, id]);
-      return (cached ? { ...cached, ...rpcRow } : rpcRow) as Garment;
+      return rpcRow;
     },
     onMutate: async (id) => {
       // Optimistic +1 to wear_count and last_worn_at = now. The detail
