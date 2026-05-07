@@ -3,12 +3,27 @@
 // Yearly savings: 119*12 - 899 = 529 SEK ≈ 37% off.
 //
 // Always-on Restore link satisfies App Store guideline 3.1.1 (P55 in web wave).
+//
+// M31 PR A — wired to RevenueCat. Tap on Subscribe runs the StoreKit
+// purchase via `usePurchaseSubscription`. Three terminal UX paths:
+//   * `'success'`     → toast "Subscription active" + nav.goBack()
+//   * `'pending'`     → alert "Activating… you'll see it within a minute"
+//                       (webhook lag) + nav.goBack()
+//   * `'cancelled'`   → silent dismiss (user closed the StoreKit sheet)
+// Any other failure surfaces as a generic error alert and Sentry capture
+// (handled inside the mutation hook).
+//
+// Restore Purchases is wired via `restorePurchases()` from the SDK
+// wrapper. Apple guideline 3.1.1 mandates this affordance — the wave file
+// didn't explicitly call it out, but it ships in PR A so the screen is
+// review-ready by the time M44 runs sandbox verification.
 
-import React, { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
@@ -19,11 +34,23 @@ import { Button } from '../components/Button';
 import { CheckIcon, CloseIcon } from '../components/icons';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSelection } from '../lib/haptics';
+import {
+  getOfferingsWithIntroOffer,
+  restorePurchases,
+  type OfferingsWithIntro,
+} from '../lib/revenuecat';
+import { usePurchaseSubscription } from '../hooks/usePurchaseSubscription';
+import { useAuth } from '../contexts/AuthContext';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Plan = 'monthly' | 'yearly';
 
+// Rich title+caption pairs render the 4 value bullets with the gold
+// CheckIcon chip + secondary line. The shorter `paywall.bullet.1..4`
+// keys are kept as locale alternates for surfaces that want a single-
+// line bullet (M33 will translate both sets together) — the screen
+// prefers the title+caption pair here for visual depth.
 const FEATURES: readonly { titleKey: string; captionKey: string }[] = [
   { titleKey: 'paywall.feature.unlimited.title', captionKey: 'paywall.feature.unlimited.caption' },
   { titleKey: 'paywall.feature.chat.title',      captionKey: 'paywall.feature.chat.caption' },
@@ -42,14 +69,43 @@ const YEARLY_SAVINGS_PCT = Math.round(
 );
 
 // External-link targets for the legal links — open in the system browser
-// rather than dead-ending on a no-op press (P1-16 from review).
+// rather than dead-ending on a no-op press (P1-16 from review). The
+// `paywall.termsLink` / `paywall.privacyLink` i18n keys are the canonical
+// URL source so locale variants can swap to a region-specific landing
+// page (e.g. SE-localised legal copy) without a code change. Constants
+// remain only as a documentation pointer for the canonical EN target.
 const TERMS_URL = 'https://burs.me/terms';
 const PRIVACY_URL = 'https://burs.me/privacy';
 
 export function PaywallScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [plan, setPlan] = useState<Plan>('yearly');
+  const [restoring, setRestoring] = useState(false);
+  // Per-plan intro-offer presence. Determines:
+  //   1. CTA copy: "Start 3-day free trial" only when an intro offer
+  //      actually exists on the selected plan; "Subscribe" otherwise.
+  //   2. Trial-price line: hidden when there's no intro offer (so we
+  //      don't false-advertise a free trial that won't exist at
+  //      checkout — Apple 3.1.1).
+  // Loaded async on mount via getOfferingsWithIntroOffer(); null while
+  // loading and on web/simulator/missing-key paths.
+  const [offerings, setOfferings] = useState<OfferingsWithIntro | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const result = await getOfferingsWithIntroOffer();
+      if (cancelled) return;
+      setOfferings(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const purchase = usePurchaseSubscription();
+  const isPurchasing = purchase.isPending;
 
   // Always provide an exit. If the Paywall was opened modally on top of an
   // existing screen we go back; if it's the only thing in the stack (deep link
@@ -63,32 +119,103 @@ export function PaywallScreen() {
   };
 
   const onSubscribe = () => {
+    if (isPurchasing || restoring) return;
     hapticLight();
-    // Subscriptions launch with M31 (RevenueCat — StoreKit on iOS, Billing
-    // Library on Android). Until that wave lands, the Subscribe CTA is a
-    // placeholder. The previous version closed the modal silently which
-    // read as "you're subscribed" to both real users and the App Store
-    // review process — surface an explicit "coming soon" alert instead so
-    // there's no false sense of purchase / entitlement. Codex P2 round 9
-    // on PR #738. Inline strings (not i18n) — the locale pass for paywall
-    // copy is M33; this string ships English-only on the placeholder.
-    Alert.alert(
-      'Subscriptions coming soon',
-      "We're wiring up subscriptions for the App Store launch. You'll be among the first to know when they go live.",
-      [{ text: 'OK' }],
+    purchase.mutate(
+      { packageType: plan },
+      {
+        onSuccess: (result) => {
+          if (result.status === 'success') {
+            // Dashboard / paywall consumers refetch via the invalidation
+            // already wired in the hook; flash a toast-style alert and
+            // bounce back to where the user came from. Title + body are
+            // split because Alert renders the title as a heading line and
+            // mashing both into the title produced cramped dialogs.
+            Alert.alert(
+              tr('paywall.activated.title'),
+              tr('paywall.activated.body'),
+              [{
+                text: tr('paywall.restore.alertOk'),
+                onPress: () => {
+                  if (nav.canGoBack()) nav.goBack();
+                  else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+                },
+              }],
+            );
+            return;
+          }
+          if (result.status === 'pending') {
+            // Webhook lag path — receipt is valid, entitlement just hasn't
+            // landed in `subscriptions` yet. Body copy includes the
+            // webhook-never-fires recovery hint ("…tap Restore Purchases")
+            // so a permanent webhook outage isn't a dead end.
+            Alert.alert(
+              tr('paywall.activating.title'),
+              tr('paywall.activating.body'),
+              [{
+                text: tr('paywall.restore.alertOk'),
+                onPress: () => {
+                  if (nav.canGoBack()) nav.goBack();
+                  else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+                },
+              }],
+            );
+            return;
+          }
+          // status === 'cancelled' — silent dismiss per spec. The
+          // `paywall.error.cancelled` i18n key is intentionally empty
+          // (and intentionally NOT rendered here); it exists only so an
+          // engineer searching the locale file sees the deliberate
+          // silence instead of assuming a missing key.
+        },
+        onError: () => {
+          // captureMutationError already fired inside the hook. Surface a
+          // user-friendly message — title + body split so the dialog
+          // renders with a clear heading.
+          Alert.alert(
+            tr('paywall.errorGeneric.title'),
+            tr('paywall.errorGeneric.body'),
+          );
+        },
+      },
     );
   };
 
-  const onRestore = () => {
+  const onRestore = async () => {
+    if (isPurchasing || restoring) return;
     hapticLight();
-    // TODO(billing): invoke restore_subscription edge function. Until that
-    // lands, surface a confirm so App Store guideline 3.1.1 review doesn't
-    // see a silent no-op (P1-17 from review).
-    Alert.alert(
-      tr('paywall.restore.alertTitle'),
-      tr('paywall.restore.alertBody'),
-      [{ text: tr('paywall.restore.alertOk') }],
-    );
+    setRestoring(true);
+    try {
+      const customerInfo = await restorePurchases();
+      // Webhook may take a moment to mirror the restored entitlement —
+      // invalidate the cached query so `useSubscription` refetches when
+      // the user returns to a gated screen.
+      await queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
+      // RevenueCat returns a CustomerInfo object even when the user has
+      // never purchased anything — the meaningful signal is whether
+      // `entitlements.active` has any keys. Without this gate, a fresh
+      // user tapping "Restore Purchases" used to see a misleading
+      // "Purchases restored" toast (false positive). When the bag is
+      // empty, surface the dedicated empty-state alert instead.
+      const hasActive =
+        !!customerInfo &&
+        Object.keys(customerInfo.entitlements?.active ?? {}).length > 0;
+      if (hasActive) {
+        Alert.alert(
+          tr('paywall.restored'),
+          tr('paywall.restore.alertBody'),
+          [{ text: tr('paywall.restore.alertOk') }],
+        );
+      } else {
+        Alert.alert(
+          tr('paywall.restoreNoPurchases.title'),
+          tr('paywall.restoreNoPurchases.body'),
+          [{ text: tr('paywall.restore.alertOk') }],
+        );
+      }
+    } finally {
+      setRestoring(false);
+    }
   };
 
   const openExternal = (url: string, label: string) => () => {
@@ -102,7 +229,31 @@ export function PaywallScreen() {
     });
   };
 
-  const trialPriceLine = tr(PRICING[plan].trialKey);
+  // Per-plan intro-offer presence drives both copy paths. Defensive
+  // default: when the offering hasn't loaded yet OR the SDK can't reach
+  // RevenueCat (web / simulator / missing-key), assume NO intro offer so
+  // the static copy doesn't false-advertise a trial. The instant the
+  // offering resolves with a real intro offer we flip back to the trial
+  // CTA — a brief CTA-flicker is preferable to a 3.1.1 violation.
+  const planIntro = plan === 'monthly' ? offerings?.monthly : offerings?.annual;
+  const hasIntroOffer = planIntro?.hasIntroOffer === true;
+  // Trial price line — only rendered when the intro offer exists. Without
+  // it we show the plain price line per Apple 3.1.1 (no false advertising
+  // of a free trial that won't materialise at checkout).
+  const trialPriceLine = hasIntroOffer ? tr(PRICING[plan].trialKey) : null;
+  const plainPriceLine = `${PRICING[plan].amount} SEK ${tr(PRICING[plan].periodKey)}`;
+  // CTA label respects the loading + intro-offer state.
+  let ctaLabel: string;
+  if (isPurchasing) {
+    ctaLabel = tr('paywall.processing');
+  } else if (hasIntroOffer) {
+    ctaLabel = tr('paywall.cta');
+  } else {
+    // No intro offer — fall back to the plan-specific CTA keys (start
+    // monthly / start yearly) which avoid trial language entirely.
+    ctaLabel = plan === 'monthly' ? tr('paywall.monthly.cta') : tr('paywall.yearly.cta');
+  }
+  const ctaDisabled = isPurchasing || restoring;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'left', 'right']}>
@@ -135,6 +286,7 @@ export function PaywallScreen() {
         <View style={{ gap: 8, marginTop: 8 }}>
           <Eyebrow>{tr('paywall.eyebrow')}</Eyebrow>
           <PageTitle>{tr('paywall.title')}</PageTitle>
+          <Caption style={{ marginTop: 4 }}>{tr('paywall.subtitle')}</Caption>
         </View>
 
         {/* Features */}
@@ -196,17 +348,24 @@ export function PaywallScreen() {
             gap: 4,
           }}>
           <PlanPill
-            label={tr('paywall.plan.monthly')}
+            label={tr('paywall.monthly.title')}
             active={plan === 'monthly'}
             onPress={() => { hapticSelection(); setPlan('monthly'); }}
-            sub={tr('paywall.price.monthly')}
+            sub={tr('paywall.monthly.priceLabel')}
           />
           <PlanPill
-            label={tr('paywall.plan.yearly')}
+            label={tr('paywall.yearly.title')}
             active={plan === 'yearly'}
             onPress={() => { hapticSelection(); setPlan('yearly'); }}
-            sub={tr('paywall.price.yearly')}
-            savingsLabel={tr('paywall.plan.savings', { pct: YEARLY_SAVINGS_PCT })}
+            sub={tr('paywall.yearly.priceLabel')}
+            // Prefer the M31-namespaced explicit savings badge ("Save 35%")
+            // when present; fall back to the dynamically-computed value
+            // for locales / future-rev pricing where the static label
+            // would drift.
+            savingsLabel={
+              tr('paywall.yearly.savingsBadge') ||
+              tr('paywall.plan.savings', { pct: YEARLY_SAVINGS_PCT })
+            }
           />
         </View>
 
@@ -248,21 +407,66 @@ export function PaywallScreen() {
           borderTopWidth: 1,
           borderTopColor: t.border,
         }}>
-        <Button label={tr('paywall.cta')} variant="accent" block onPress={onSubscribe} />
-        <Caption style={{ textAlign: 'center', letterSpacing: 0 }}>{trialPriceLine}</Caption>
+        {/* App Store guideline 3.1.2 — auto-renewal disclosure block.
+            MUST render on-screen and BEFORE the purchase CTA. Verbatim
+            Apple-compliant copy lives in the i18n keys; do not paraphrase.
+            App Review WILL reject builds that bury or omit this. */}
+        <View style={{ gap: 2, paddingBottom: 2 }}>
+          <Caption style={{ textAlign: 'center', letterSpacing: 0, fontSize: 11, lineHeight: 14 }}>
+            {tr('paywall.disclosure.autoRenew')}
+          </Caption>
+          <Caption style={{ textAlign: 'center', letterSpacing: 0, fontSize: 11, lineHeight: 14 }}>
+            {tr('paywall.disclosure.charge')}
+          </Caption>
+          <Caption style={{ textAlign: 'center', letterSpacing: 0, fontSize: 11, lineHeight: 14 }}>
+            {tr('paywall.disclosure.manage')}
+          </Caption>
+        </View>
+        <View style={{ position: 'relative' }}>
+          <Button
+            label={ctaLabel}
+            variant="accent"
+            block
+            disabled={ctaDisabled}
+            onPress={onSubscribe}
+            accessibilityState={{ disabled: ctaDisabled, busy: isPurchasing }}
+          />
+          {isPurchasing ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                right: 18,
+                top: 0,
+                bottom: 0,
+                justifyContent: 'center',
+              }}>
+              <ActivityIndicator color={t.accentFg} />
+            </View>
+          ) : null}
+        </View>
+        {/* Trial-price line — only when an intro offer actually exists.
+            Without an intro offer, show the plain price line so the user
+            still sees their billing amount before committing (UX) without
+            advertising a free trial that won't materialise (3.1.1). */}
+        <Caption style={{ textAlign: 'center', letterSpacing: 0 }}>
+          {trialPriceLine ?? plainPriceLine}
+        </Caption>
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, paddingVertical: 4 }}>
           <Pressable
             onPress={onRestore}
+            disabled={ctaDisabled}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.restore.label')}
+            accessibilityState={{ disabled: ctaDisabled, busy: restoring }}
             hitSlop={6}>
-            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: t.fg2, letterSpacing: -0.1 }}>
-              {tr('paywall.restore')}
+            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12.5, color: t.fg2, letterSpacing: -0.1, opacity: ctaDisabled ? 0.5 : 1 }}>
+              {restoring ? tr('paywall.processing') : tr('paywall.restorePurchases')}
             </Text>
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(TERMS_URL, 'Terms')}
+            onPress={openExternal(tr('paywall.termsLink') || TERMS_URL, 'Terms')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.terms.label')}
             hitSlop={6}>
@@ -272,7 +476,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(PRIVACY_URL, 'Privacy Policy')}
+            onPress={openExternal(tr('paywall.privacyLink') || PRIVACY_URL, 'Privacy Policy')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.privacy.label')}
             hitSlop={6}>

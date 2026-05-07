@@ -65,6 +65,7 @@ import {
   type RootStackParamList,
 } from './src/navigation/RootNavigator';
 import { useRegisterPushToken } from './src/hooks/usePushNotifications';
+import { configureRevenueCat, resetRevenueCat } from './src/lib/revenuecat';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this
 // synchronously at module load — before the first React render — is what the
@@ -195,6 +196,60 @@ function useRecoveryDeepLink(): void {
       sub.remove();
     };
   }, []);
+}
+
+// M31 — configure the RevenueCat SDK once auth resolves. Mounted ahead of
+// push-token registration so the IAP surface is ready before the paywall
+// can be presented (deep link / push-driven entry to Paywall would
+// otherwise race the configure call).
+//
+// Three transitions to handle:
+//   * sign-in (null → user)         → configureRevenueCat(user.id)
+//   * sign-out (user → null)        → resetRevenueCat()
+//   * user-swap (userA → userB)     → resetRevenueCat() then configure(B)
+//
+// The configure/reset helpers are idempotent (de-duped on the cached
+// `configuredFor`) so a re-fire from a TOKEN_REFRESHED event is a no-op.
+// Errors are swallowed inside the SDK wrapper (Sentry breadcrumbs only)
+// — RevenueCat misconfiguration must never block app boot.
+function useRevenueCatLifecycle(): void {
+  const { user, isLoading } = useAuth();
+  const lastUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const nextId = user?.id ?? null;
+    const prevId = lastUserId.current;
+    if (nextId === prevId) return;
+
+    let cancelled = false;
+    void (async () => {
+      if (!nextId) {
+        // sign-out — await so a fast re-sign-in into the same effect
+        // dependency-update chain serialises behind it. The wrapper's
+        // module-level inFlight queue serialises ALL callers, but
+        // capturing the await here also prevents `lastUserId.current`
+        // from leading the actual SDK state.
+        await resetRevenueCat();
+        if (cancelled) return;
+        lastUserId.current = null;
+        return;
+      }
+
+      // sign-in or user-swap. The wrapper's queue handles the implicit
+      // logOut + reconfigure when `configuredFor !== nextId`. Capture
+      // `lastUserId.current` only AFTER the configure resolves so a
+      // mid-flight unmount or another auth event doesn't end up with a
+      // ref pointing at a user the SDK isn't actually serving yet.
+      await configureRevenueCat(nextId);
+      if (cancelled) return;
+      lastUserId.current = nextId;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isLoading]);
 }
 
 // M30 — register the device's Expo push token once auth resolves. Mounted
@@ -374,6 +429,9 @@ function ThemedShell() {
   const { resolved } = useTheme();
   const t = themes[resolved];
   useRecoveryDeepLink();
+  // RevenueCat must be configured before push so the paywall is ready
+  // even if the user opens it immediately after auth resolves.
+  useRevenueCatLifecycle();
   usePushTokenRegistration();
   useNotificationDeepLink();
   // Map BURS tokens onto React Navigation's theme contract — the only thing it cares about

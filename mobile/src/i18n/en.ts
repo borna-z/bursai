@@ -1057,4 +1057,74 @@ export const en: Record<string, string> = {
   'settingsNotifications.permissionsDenied.body':
     'BURS needs notification permission to send you outfit reminders. Enable it in iOS Settings to start receiving pings.',
   'settingsNotifications.permissionsDenied.openSettings': 'Open Settings',
+
+  // ─── M31 — Paywall (RevenueCat) ─────────────────────────────────────────
+  // Append-only additions to the existing paywall.* namespace. The pre-M31
+  // keys (paywall.title / paywall.feature.*.* / paywall.plan.* /
+  // paywall.price.* / paywall.cta / paywall.trial.* / paywall.terms /
+  // paywall.privacy etc.) are reused directly by PaywallScreen and not
+  // duplicated here. These keys cover only the new surfaces introduced by
+  // PR A: subtitle / bullet shorthand / per-plan IAP labels / processing +
+  // success / pending / error states / dedicated restore-purchases label /
+  // legal-link external-target labels.
+  'paywall.subtitle': 'Unlimited outfits, AI styling, and ghost-mannequin renders.',
+  'paywall.bullet.1': 'Unlimited outfit generation',
+  'paywall.bullet.2': 'AI style chat in context',
+  'paywall.bullet.3': 'Ghost mannequin studio rendering',
+  'paywall.bullet.4': 'Travel capsule + wardrobe gaps',
+  'paywall.monthly.title': 'Monthly',
+  'paywall.monthly.priceLabel': '119 SEK / month',
+  'paywall.monthly.cta': 'Start monthly',
+  'paywall.yearly.title': 'Yearly',
+  'paywall.yearly.priceLabel': '899 SEK / year',
+  'paywall.yearly.cta': 'Start yearly',
+  'paywall.yearly.savingsBadge': 'Save 35%',
+  'paywall.processing': 'Processing…',
+  'paywall.activated': 'Subscription active',
+  'paywall.activating':
+    "Activating your subscription… you'll see it within a minute.",
+  'paywall.restorePurchases': 'Restore Purchases',
+  'paywall.restored': 'Purchases restored',
+  'paywall.error.generic':
+    "Something went wrong. We couldn't complete the purchase — please try again.",
+  // Cancellation is a silent-dismiss UX. The key exists so engineers
+  // searching the locale file see the intentional silence; the screen
+  // never renders this string.
+  'paywall.error.cancelled': '',
+  'paywall.termsLink': 'https://burs.me/terms',
+  'paywall.privacyLink': 'https://burs.me/privacy',
+
+  // ─── M31 PR A review — Apple 3.1.2 auto-renewal disclosure ──────────────
+  // Required on-screen, BEFORE the purchase CTA, per App Store Review
+  // Guideline 3.1.2 (Auto-Renewing Subscriptions). Verbatim Apple-compliant
+  // copy — do not paraphrase without re-reading the guideline.
+  'paywall.disclosure.autoRenew':
+    'Auto-renews unless cancelled at least 24 hours before the end of the current period.',
+  'paywall.disclosure.manage':
+    'Manage your subscription in your Apple ID settings.',
+  'paywall.disclosure.charge':
+    'Payment will be charged to your Apple ID account at confirmation of purchase.',
+
+  // CTA fallback copy when the RevenueCat offering ships WITHOUT an
+  // introductory free-trial offer. Existing `paywall.cta` keeps the trial
+  // language for the trial path.
+  'paywall.subscribeCta': 'Subscribe',
+
+  // Restore Purchases — empty-result alert (formerly hidden behind the
+  // generic restored toast which lied when entitlements were empty).
+  'paywall.restoreNoPurchases.title': 'No purchases to restore',
+  'paywall.restoreNoPurchases.body':
+    "We didn't find any active subscriptions on this Apple ID.",
+
+  // Alert title/body splits — Alert.alert renders the title as a heading
+  // line; using long body strings as titles produced cramped, hard-to-read
+  // dialogs. The body strings carry the user-actionable hint (including
+  // the webhook-never-fires recovery path for `activating`).
+  'paywall.activated.title': 'Subscription active',
+  'paywall.activated.body': 'Welcome to BURS Premium.',
+  'paywall.activating.title': 'Activating your subscription',
+  'paywall.activating.body':
+    "This usually takes a few seconds. If it doesn't appear within a minute, tap Restore Purchases.",
+  'paywall.errorGeneric.title': "Couldn't complete purchase",
+  'paywall.errorGeneric.body': 'Try again or restore previous purchases.',
 };
