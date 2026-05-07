@@ -133,7 +133,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | Wave | File | Status | Depends on |
 |---|---|---|---|
 | ) | V0 |
-| M26 | [AccentColorStep](waves/m26-accent-color-step.md) | DONE (PR #TBD) | V0 |
+| ) | V0 |
 | M27 | [Coach tour](waves/m27-coach-tour.md) | TODO | V0 |
 
 ### Existing baseline depth (ported from prior M0–M14 plan)
