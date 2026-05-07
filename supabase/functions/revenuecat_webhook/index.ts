@@ -1,0 +1,1031 @@
+/**
+ * M31 PR B — RevenueCat webhook.
+ *
+ * Mirrors `stripe_webhook` semantics for the RevenueCat path:
+ *   1. Verify the request originated from RevenueCat (HMAC + timestamp).
+ *   2. De-duplicate by event id (PRIMARY KEY race wins → idempotent).
+ *   3. Route by event type → upsert / patch the `subscriptions` row that
+ *      matches `app_user_id` to `user_id` (PR A configures Purchases with
+ *      `appUserID: user.id` so the values are 1:1 the auth UUID).
+ *   4. Always log to `revenuecat_events` so a replay of the same payload
+ *      short-circuits to `{ status: 'already_processed' }` AFTER successful
+ *      processing. Pending rows (transient failure on the first attempt)
+ *      are reprocessed on retry — see migration 20260507120300 for why.
+ *
+ * Signature scheme (per the M31 wave file):
+ *   The wave authoritatively specifies HMAC SHA256 over the raw body,
+ *   delivered via the `X-RevenueCat-Signature` header. RevenueCat's own
+ *   default flow uses `Authorization: Bearer <shared-secret>`, but we
+ *   follow the wave's directive — the dashboard configuration step in
+ *   M44 wires a custom HMAC header per the wave's contract.
+ *   The shared secret lives in `vault.secrets` under the name
+ *   `revenuecat_webhook_secret` (read via `vault.decrypted_secrets`),
+ *   with a fallback to the `REVENUECAT_WEBHOOK_SECRET` environment
+ *   variable for staging / preview branches that don't have vault
+ *   plumbing yet. Comparison is constant-time.
+ *
+ *   Replay protection (Codex P0 on PR #759): in addition to the HMAC, we
+ *   reject events whose `event_timestamp_ms` is older than 5 minutes,
+ *   and reject events with no timestamp at all. An attacker who captures
+ *   one valid POST + signature can otherwise replay it forever.
+ *
+ * Subscription state semantics:
+ *   - INITIAL_PURCHASE / RENEWAL / UNCANCELLATION / PRODUCT_CHANGE
+ *       → upsert `subscriptions` with status='active', plan='premium',
+ *         current_period_end = expiration_at_ms; render allowance set
+ *         to 20/month (parity with stripe_webhook).
+ *   - TRANSFER
+ *       → activate the new app_user_id AND end the original_app_user_id
+ *         (or every id in `transferred_from`) with status='canceled'.
+ *   - CANCELLATION
+ *       → keep status='active' until expiration (Apple grace period); the
+ *         existing `current_period_end` is left in place. RevenueCat will
+ *         later send EXPIRATION when the period actually ends.
+ *   - EXPIRATION
+ *       → status='canceled', plan='free', allowance reset to 0.
+ *   - BILLING_ISSUE
+ *       → status='past_due', plan='free', allowance reset to 0.
+ *   - NON_RENEWING_PURCHASE
+ *       → upsert as active for the duration the entitlement granted; if
+ *         expiration_at_ms is missing, log + skip (don't grant unbounded
+ *         premium).
+ *   - SUBSCRIBER_ALIAS
+ *       → if the auth user has no subscriptions row but the aliases include
+ *         a `$RCAnonymousID:*`, log a Sentry warning to flag the manual
+ *         recovery case (pre-alias purchase landed under the anon id and
+ *         was short-circuited).
+ *   - TEST / others
+ *       → log only, no subscriptions mutation.
+ *
+ * Out-of-order protection: each subscriptions mutation compares
+ * `event.event_timestamp_ms` against the row's current `updated_at`; older
+ * events are skipped (logged as `stale_event`) so a delayed RENEWAL
+ * arriving after an EXPIRATION can't re-activate a canceled subscription.
+ *
+ * Environment gating: events with `environment === 'SANDBOX'` are rejected
+ * in production unless `ALLOW_SANDBOX_EVENTS=true` is set (preview/staging
+ * branches). PRODUCTION events are always processed.
+ *
+ * Error handling:
+ *   - PERMANENT processing errors (bad shape, unknown user, FK violation,
+ *     non-UUID app_user_id, NOT NULL violation, syntax error) → log to
+ *     `revenuecat_events.error`, stamp `processed_at`, return 200 so
+ *     RevenueCat does not hammer the endpoint forever.
+ *   - TRANSIENT errors (network/timeout, 5xx PostgREST, unknown defaults)
+ *     → leave `processed_at` NULL so the next RC retry reprocesses,
+ *     return 500 so RevenueCat retries with its built-in exponential
+ *     backoff.
+ */
+
+import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
+import { CORS_HEADERS } from "../_shared/cors.ts";
+import { timingSafeEqual } from "../_shared/timing-safe.ts";
+import { setMonthlyAllowance } from "../_shared/render-credits.ts";
+import { captureWarning } from "../_shared/observability.ts";
+
+const VAULT_SECRET_NAME = "revenuecat_webhook_secret";
+const ENV_FALLBACK_SECRET = "REVENUECAT_WEBHOOK_SECRET";
+const SIGNATURE_HEADER = "x-revenuecat-signature";
+
+/**
+ * Replay-window for inbound events. Five minutes is wide enough to absorb
+ * RevenueCat's worst-case enqueue latency + clock skew between RC's egress
+ * fleet and our edge-function clock (Supabase functions run on Deno
+ * Deploy's worldwide POPs; a few hundred ms of skew is normal). Tighter
+ * than this risks dropping legitimate retries; looser than this widens
+ * the replay-attack window unnecessarily.
+ */
+const WEBHOOK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000;
+
+/**
+ * Vault secret cache TTL. The secret rotates rarely (once on initial
+ * setup, once on key rotation events) so reading it from vault on every
+ * webhook delivery is wasteful. Five minutes balances cache freshness
+ * against the cost of a vault round-trip per request.
+ */
+const SECRET_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Standard render allowance for a premium subscriber. Parity with
+ * `stripe_webhook` (`updateSubscription` → `creditAllowance`).
+ */
+const PREMIUM_MONTHLY_ALLOWANCE = 20;
+
+/**
+ * Lower-cased UUID v1-v5 regex. Used to gate `app_user_id` before any
+ * write hits `subscriptions` (whose `user_id` column is `uuid`). Non-UUID
+ * values are classified as PERMANENT (return 200) so RevenueCat does not
+ * retry forever — see Codex P1 on PR #759.
+ */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type SubscriptionsTable = {
+  user_id: string;
+  status: string;
+  plan: string;
+  price_id: string | null;
+  current_period_end: string | null;
+  updated_at: string;
+};
+
+type RevenueCatEvent = {
+  type?: string;
+  id?: string;
+  event_id?: string;
+  app_user_id?: string;
+  original_app_user_id?: string;
+  product_id?: string;
+  expiration_at_ms?: number;
+  purchased_at_ms?: number;
+  event_timestamp_ms?: number;
+  store?: string;
+  environment?: string;
+  aliases?: unknown;
+  transferred_from?: unknown;
+  // RevenueCat sometimes nests the event under `event`.
+  // We unwrap before touching it.
+  [key: string]: unknown;
+};
+
+type RevenueCatEnvelope = {
+  api_version?: string;
+  event?: RevenueCatEvent;
+};
+
+/**
+ * Permanent vs transient classification result. Permanent → return 200,
+ * stamp processed_at, do not retry. Transient → return 500, leave
+ * processed_at null, RC will retry on its exponential backoff.
+ */
+type ErrorClassification = "transient" | "permanent";
+
+/**
+ * Marker placed on RC-origin upserts so support tooling can distinguish
+ * RevenueCat-managed subscriptions from Stripe-managed ones when both
+ * pipelines coexist. Values: 'test' / 'live' on the Stripe side; we use
+ * a literal 'revenuecat' here so a `WHERE stripe_mode = 'revenuecat'`
+ * scan returns the iOS cohort cleanly.
+ */
+const RC_STRIPE_MODE_MARKER = "revenuecat";
+
+/** Module-scope vault secret cache. See `getCachedSecret`. */
+let cachedSecret: { value: string; fetchedAt: number } | null = null;
+
+const logStep = (step: string, details?: unknown, correlationId?: string) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
+  const prefix = correlationId ? `[REVENUECAT-WEBHOOK ${correlationId}]` : `[REVENUECAT-WEBHOOK]`;
+  console.log(`${prefix} ${step}${detailsStr}`);
+};
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    status,
+  });
+}
+
+/**
+ * Read the shared HMAC secret. Vault first (production), env var fallback
+ * (preview branches). We swallow vault errors so a misconfigured preview
+ * environment can still validate webhooks via the env var path.
+ */
+async function loadWebhookSecret(serviceClient: SupabaseClient): Promise<string | null> {
+  try {
+    const { data, error } = await serviceClient
+      .schema("vault")
+      .from("decrypted_secrets")
+      .select("decrypted_secret")
+      .eq("name", VAULT_SECRET_NAME)
+      .maybeSingle();
+
+    if (!error && data && typeof (data as { decrypted_secret?: unknown }).decrypted_secret === "string") {
+      const fromVault = (data as { decrypted_secret: string }).decrypted_secret;
+      if (fromVault.length > 0) return fromVault;
+    } else if (error) {
+      captureWarning("revenuecat_webhook_vault_read_failed", {
+        function: "revenuecat_webhook",
+        error: error.message,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    captureWarning("revenuecat_webhook_vault_read_failed", {
+      function: "revenuecat_webhook",
+      error: message,
+    });
+    logStep("Vault read failed; falling back to env", { message });
+  }
+
+  const fromEnv = Deno.env.get(ENV_FALLBACK_SECRET) ?? "";
+  return fromEnv.length > 0 ? fromEnv : null;
+}
+
+/**
+ * Module-scope cached wrapper around `loadWebhookSecret`. Avoids a vault
+ * round-trip per webhook delivery; the secret rotates rarely and the
+ * 5-minute TTL bounds staleness during a rotation event.
+ */
+async function getCachedSecret(serviceClient: SupabaseClient): Promise<string | null> {
+  if (cachedSecret && Date.now() - cachedSecret.fetchedAt < SECRET_TTL_MS) {
+    return cachedSecret.value;
+  }
+  const v = await loadWebhookSecret(serviceClient);
+  if (v) cachedSecret = { value: v, fetchedAt: Date.now() };
+  return v;
+}
+
+/**
+ * HMAC-SHA256(body, secret) → lowercase hex.
+ */
+async function computeHmacHex(secret: string, body: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(body));
+  const bytes = new Uint8Array(sig);
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) {
+    out += bytes[i].toString(16).padStart(2, "0");
+  }
+  return out;
+}
+
+/**
+ * Compare the incoming signature against the expected HMAC in constant
+ * time. Accepts either a bare hex digest or an `sha256=<hex>` prefixed
+ * form (some RevenueCat dashboard configurations include the prefix).
+ */
+function normalizeSignature(raw: string): string {
+  const trimmed = raw.trim();
+  const eq = trimmed.indexOf("=");
+  if (eq > 0 && trimmed.slice(0, eq).toLowerCase() === "sha256") {
+    return trimmed.slice(eq + 1).trim().toLowerCase();
+  }
+  return trimmed.toLowerCase();
+}
+
+/**
+ * Defensive parser — RevenueCat sometimes wraps the event under `event`
+ * and sometimes ships it at the top level (depending on dashboard
+ * config). Unwrap once, return the inner shape, never throw.
+ */
+function unwrapEvent(parsed: unknown): RevenueCatEvent | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as RevenueCatEnvelope & RevenueCatEvent;
+  if (obj.event && typeof obj.event === "object") {
+    return obj.event;
+  }
+  // Top-level — only treat as event if it has a `type` field.
+  if (typeof obj.type === "string") {
+    return obj as RevenueCatEvent;
+  }
+  return null;
+}
+
+/**
+ * Stable id for the event. RevenueCat uses `id` on the event object
+ * (top-level uuid). Fallback to `event_id` if a future schema rename
+ * happens.
+ */
+function deriveEventId(event: RevenueCatEvent): string | null {
+  if (typeof event.id === "string" && event.id.length > 0) return event.id;
+  if (typeof event.event_id === "string" && event.event_id.length > 0) return event.event_id;
+  return null;
+}
+
+/**
+ * Read `event_timestamp_ms` defensively. RevenueCat uses ms-precision
+ * unix epoch; some legacy fixtures used `event_timestamp_at` (ISO). We
+ * accept both and return ms or null.
+ */
+function deriveEventTimestampMs(event: RevenueCatEvent): number | null {
+  const ms = event.event_timestamp_ms;
+  if (typeof ms === "number" && Number.isFinite(ms) && ms > 0) return ms;
+  const iso = (event as { event_timestamp_at?: unknown }).event_timestamp_at;
+  if (typeof iso === "string") {
+    const parsed = Date.parse(iso);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return null;
+}
+
+/**
+ * Postgres SQLSTATE-driven classifier. RC will retry on 5xx so we map
+ * "permanent" causes to 200 (no retry possible without operator action)
+ * and unknown failures to "transient" (defensive — RC's own backoff is
+ * the cheapest place to absorb the retry).
+ *
+ * SQLSTATEs we know are PERMANENT:
+ *   - 23503: foreign_key_violation (subscriptions.user_id has no profile)
+ *   - 23502: not_null_violation (we forgot a required column)
+ *   - 22P02: invalid_text_representation (e.g. non-UUID for a uuid col)
+ *
+ * PostgREST shapes its own codes:
+ *   - PGRST1xx-PGRST3xx: PostgREST-side issues, mostly client-bad-request
+ *     (4xx semantics) → permanent.
+ *   - 5xx-flavoured PGRST codes → transient.
+ *
+ * Network errors (ECONNREFUSED, ETIMEDOUT, fetch aborts) → transient.
+ *
+ * Default: TRANSIENT. Costs us a free RC retry on a brand new error
+ * shape, but won't silently lose the subscription mutation.
+ */
+function classifyError(err: unknown): ErrorClassification {
+  if (!err) return "transient";
+
+  const code = (err as { code?: unknown })?.code;
+  const status = (err as { status?: unknown })?.status;
+  const message = err instanceof Error ? err.message : String(err);
+
+  if (typeof code === "string") {
+    if (code === "23503" || code === "23502" || code === "22P02") return "permanent";
+    if (code.startsWith("PGRST")) {
+      if (typeof status === "number") {
+        return status >= 500 ? "transient" : "permanent";
+      }
+      // PostgREST without status — assume client-shape issue (PGRST1xx).
+      return "permanent";
+    }
+  }
+
+  if (/ECONNREFUSED|ETIMEDOUT|ECONNRESET|ENOTFOUND|fetch failed|aborted|network/i.test(message)) {
+    return "transient";
+  }
+
+  // Default to transient — RC retries are cheap, silent state loss isn't.
+  return "transient";
+}
+
+/**
+ * Parse a Postgres error from supabase-js into a synthetic Error that
+ * carries `code` + `status` so `classifyError` can read them after we
+ * re-throw. supabase-js returns `{ data, error }`; the error object has
+ * `.code` (sqlstate or PGRSTxxx) and `.status` (HTTP). We need to round-
+ * trip these through the throw boundary.
+ */
+function dbError(prefix: string, error: { message?: string; code?: string; status?: number }): Error {
+  const e = new Error(`${prefix}: ${error.message ?? "unknown"}`);
+  // deno-lint-ignore no-explicit-any
+  (e as any).code = error.code;
+  // deno-lint-ignore no-explicit-any
+  (e as any).status = error.status;
+  return e;
+}
+
+function parseExpirationMs(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value <= 0) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+/**
+ * Out-of-order guard. Reads the current `subscriptions.updated_at` and
+ * returns true if `eventTimestampMs` is older — meaning the inbound
+ * event is stale and we should skip it. No-row case returns false (the
+ * first event for a user wins regardless of timestamp).
+ */
+async function isStaleEvent(
+  client: SupabaseClient,
+  userId: string,
+  eventTimestampMs: number | null,
+): Promise<boolean> {
+  if (eventTimestampMs === null) return false;
+  const { data } = await client
+    .from("subscriptions")
+    .select("updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data || !data.updated_at) return false;
+  const currentMs = Date.parse(data.updated_at);
+  if (Number.isNaN(currentMs)) return false;
+  return eventTimestampMs < currentMs;
+}
+
+async function upsertSubscriptionActive(
+  client: SupabaseClient,
+  userId: string,
+  event: RevenueCatEvent,
+  status: "active" | "trialing",
+  eventId: string,
+  correlationId: string,
+): Promise<void> {
+  const periodEnd = parseExpirationMs(event.expiration_at_ms);
+  const productId = typeof event.product_id === "string" ? event.product_id : null;
+
+  // The codebase's `subscriptions.plan` column is 'free' | 'premium' (see
+  // stripe_webhook). Granular monthly/yearly tracking lives in `price_id`,
+  // not `plan` — so every active RC purchase maps to `premium`.
+  const row: Partial<SubscriptionsTable> & { user_id: string; stripe_mode?: string } = {
+    user_id: userId,
+    status,
+    plan: "premium",
+    price_id: productId,
+    current_period_end: periodEnd,
+    stripe_mode: RC_STRIPE_MODE_MARKER,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await client
+    .from("subscriptions")
+    .upsert(row, { onConflict: "user_id" });
+
+  if (error) {
+    logStep("Active upsert failed", { userId, error: error.message, code: error.code }, correlationId);
+    throw dbError("subscriptions upsert", error);
+  }
+
+  // Mirror to user_subscriptions for backward compatibility (matches
+  // stripe_webhook).
+  await client
+    .from("user_subscriptions")
+    .update({ plan: row.plan, updated_at: row.updated_at })
+    .eq("user_id", userId);
+
+  // Render-credit allowance — parity with stripe_webhook
+  // (stripe_webhook/index.ts:316). Without this, every iOS-paying
+  // subscriber lands in `subscriptions` with plan='premium' but 0 monthly
+  // render credits and cannot use studio renders. Key on event id so
+  // every state-transition event gets its own allowance update instead
+  // of being collapsed into a single "first active" row.
+  const allowanceKey = `rc_allowance_${eventId}`;
+  const allowanceResult = await setMonthlyAllowance(
+    client,
+    userId,
+    PREMIUM_MONTHLY_ALLOWANCE,
+    allowanceKey,
+  );
+  if (!allowanceResult.ok && !allowanceResult.duplicate) {
+    logStep(
+      "Warning: failed to set monthly allowance",
+      { userId, allowance: PREMIUM_MONTHLY_ALLOWANCE, reason: allowanceResult.reason },
+      correlationId,
+    );
+  }
+}
+
+async function markSubscriptionEnded(
+  client: SupabaseClient,
+  userId: string,
+  status: "canceled" | "past_due",
+  eventId: string,
+  correlationId: string,
+): Promise<void> {
+  const updatedAt = new Date().toISOString();
+
+  const { error } = await client
+    .from("subscriptions")
+    .update({
+      status,
+      plan: "free",
+      stripe_mode: RC_STRIPE_MODE_MARKER,
+      updated_at: updatedAt,
+    })
+    .eq("user_id", userId);
+
+  if (error) {
+    logStep("End-of-life update failed", { userId, status, error: error.message, code: error.code }, correlationId);
+    throw dbError("subscriptions update", error);
+  }
+
+  await client
+    .from("user_subscriptions")
+    .update({ plan: "free", updated_at: updatedAt })
+    .eq("user_id", userId);
+
+  // Zero out render credits — parity with stripe_webhook
+  // (stripe_webhook/index.ts:191, :229).
+  const allowanceKey = `rc_allowance_${eventId}`;
+  const allowanceResult = await setMonthlyAllowance(client, userId, 0, allowanceKey);
+  if (!allowanceResult.ok && !allowanceResult.duplicate) {
+    logStep(
+      "Warning: failed to zero monthly allowance",
+      { userId, reason: allowanceResult.reason },
+      correlationId,
+    );
+  }
+}
+
+/**
+ * Resolve the previous app_user_ids on a TRANSFER event. RC's contract
+ * uses `transferred_from` (array of strings) but legacy fixtures shipped
+ * `original_app_user_id` (single string). Accept both, dedupe, and
+ * filter to UUIDs so we never call `markSubscriptionEnded` with an
+ * anonymous id.
+ */
+function extractTransferOriginIds(event: RevenueCatEvent): string[] {
+  const out = new Set<string>();
+  const arr = event.transferred_from;
+  if (Array.isArray(arr)) {
+    for (const v of arr) {
+      if (typeof v === "string" && UUID_REGEX.test(v)) out.add(v);
+    }
+  }
+  const single = event.original_app_user_id;
+  if (typeof single === "string" && UUID_REGEX.test(single)) out.add(single);
+  return Array.from(out);
+}
+
+/**
+ * SUBSCRIBER_ALIAS recovery hint — when an anon→auth alias arrives and
+ * the auth user has no subscriptions row, a pre-alias INITIAL_PURCHASE
+ * was likely short-circuited under the anon id. Surface the manual
+ * recovery case to Sentry. Full automated reroute is deferred (would
+ * require querying revenuecat_events under the anon id and replaying);
+ * this minimum-viable signal at least flags the support case.
+ */
+async function handleSubscriberAlias(
+  client: SupabaseClient,
+  event: RevenueCatEvent,
+  correlationId: string,
+): Promise<void> {
+  const aliases = event.aliases;
+  const newUserId = typeof event.app_user_id === "string" ? event.app_user_id : null;
+  if (!Array.isArray(aliases) || !newUserId || !UUID_REGEX.test(newUserId)) {
+    logStep("SUBSCRIBER_ALIAS: no actionable aliases / user", undefined, correlationId);
+    return;
+  }
+  const anonAliases = aliases.filter(
+    (a): a is string => typeof a === "string" && a.startsWith("$RCAnonymousID"),
+  );
+  if (anonAliases.length === 0) return;
+
+  const { data: subRow } = await client
+    .from("subscriptions")
+    .select("user_id")
+    .eq("user_id", newUserId)
+    .maybeSingle();
+
+  if (!subRow) {
+    captureWarning("revenuecat_alias_recovery_required", {
+      function: "revenuecat_webhook",
+      app_user_id: newUserId,
+      anon_alias_count: anonAliases.length,
+      first_anon_alias: anonAliases[0],
+      correlation_id: correlationId,
+    });
+    logStep(
+      "SUBSCRIBER_ALIAS: auth user has no subscriptions row + anonymous aliases present — manual recovery flagged",
+      { newUserId, anonAliases },
+      correlationId,
+    );
+  }
+}
+
+async function handleEvent(
+  client: SupabaseClient,
+  event: RevenueCatEvent,
+  eventId: string,
+  correlationId: string,
+): Promise<void> {
+  const userId = typeof event.app_user_id === "string" ? event.app_user_id : null;
+  const type = (event.type ?? "").toUpperCase();
+
+  // SUBSCRIBER_ALIAS is special: app_user_id is the new (auth) id but we
+  // also care about the anon aliases. Handle it before the UUID gate.
+  if (type === "SUBSCRIBER_ALIAS") {
+    await handleSubscriberAlias(client, event, correlationId);
+    return;
+  }
+
+  if (!userId) {
+    logStep("Event missing app_user_id; nothing to do", undefined, correlationId);
+    return;
+  }
+  // Sanity: RevenueCat aliases sometimes set `app_user_id` to a non-UUID
+  // anonymous id ($RCAnonymousID:...). Skip those — they were emitted
+  // before PR A's `Purchases.configure({ appUserID: user.id })` ran.
+  if (userId.startsWith("$RCAnonymousID")) {
+    logStep("Skipping anonymous app_user_id", { userId }, correlationId);
+    return;
+  }
+  // UUID gate: subscriptions.user_id is a uuid column. Non-UUID values
+  // (test-mode aliases, custom external ids) would 22P02 on insert and
+  // be classified as permanent — but classifying them up front means we
+  // never even start the write, which keeps the events log clean.
+  if (!UUID_REGEX.test(userId)) {
+    logStep("Skipping non-UUID app_user_id (permanent)", { userId }, correlationId);
+    throw Object.assign(new Error("non_uuid_app_user_id"), { code: "22P02" });
+  }
+
+  // Out-of-order guard for state-mutating events. CANCELLATION skips
+  // this gate because it only touches updated_at; SUBSCRIBER_ALIAS was
+  // handled above; TEST/empty fall to the default branch.
+  const eventTimestampMs = deriveEventTimestampMs(event);
+  const isMutation = [
+    "INITIAL_PURCHASE",
+    "RENEWAL",
+    "UNCANCELLATION",
+    "PRODUCT_CHANGE",
+    "TRANSFER",
+    "NON_RENEWING_PURCHASE",
+    "EXPIRATION",
+    "BILLING_ISSUE",
+  ].includes(type);
+  if (isMutation && (await isStaleEvent(client, userId, eventTimestampMs))) {
+    logStep("Skipping stale (out-of-order) event", { userId, type, eventTimestampMs }, correlationId);
+    captureWarning("revenuecat_stale_event", {
+      function: "revenuecat_webhook",
+      type,
+      app_user_id: userId,
+      correlation_id: correlationId,
+    });
+    // Throw a tagged permanent error so the outer handler logs it to
+    // events.error and returns 200 — RC must not retry a stale event.
+    throw Object.assign(new Error("stale_event"), { permanent: true });
+  }
+
+  switch (type) {
+    case "INITIAL_PURCHASE":
+    case "RENEWAL":
+    case "UNCANCELLATION":
+    case "PRODUCT_CHANGE":
+    case "NON_RENEWING_PURCHASE": {
+      // NON_RENEWING_PURCHASE: skip if no expiration_at_ms (would grant
+      // unbounded premium otherwise). The other types always carry an
+      // expiration so this gate is a no-op for them, but we apply it
+      // uniformly because RC's payload shape isn't strictly enforced.
+      if (type === "NON_RENEWING_PURCHASE" && parseExpirationMs(event.expiration_at_ms) === null) {
+        logStep("NON_RENEWING_PURCHASE missing expiration_at_ms — skipping", { userId }, correlationId);
+        captureWarning("revenuecat_non_renewing_no_expiration", {
+          function: "revenuecat_webhook",
+          app_user_id: userId,
+          correlation_id: correlationId,
+        });
+        return;
+      }
+      logStep("Active-state event", { type, userId }, correlationId);
+      await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
+      break;
+    }
+    case "TRANSFER": {
+      logStep("Transfer event", { userId }, correlationId);
+      await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
+      // End the previous user's subscription. RC's contract is that
+      // entitlement transferred FROM the originals TO the new user —
+      // their subscription is no longer active.
+      const originIds = extractTransferOriginIds(event);
+      for (const originalId of originIds) {
+        if (originalId === userId) continue;
+        try {
+          await markSubscriptionEnded(client, originalId, "canceled", eventId, correlationId);
+          logStep("TRANSFER: ended origin subscription", { originalId }, correlationId);
+        } catch (err) {
+          // Don't fail the whole event if the origin row doesn't exist
+          // or has already been ended — log and continue. Transient DB
+          // errors will propagate through classifyError on the new-user
+          // upsert anyway.
+          logStep(
+            "TRANSFER: origin end-of-life failed (continuing)",
+            { originalId, message: err instanceof Error ? err.message : String(err) },
+            correlationId,
+          );
+        }
+      }
+      break;
+    }
+    case "CANCELLATION": {
+      // Apple grace period: keep `active` until the period actually ends.
+      // We DO NOT downgrade plan here. RevenueCat sends EXPIRATION when
+      // the entitlement actually lapses.
+      logStep("Cancellation received — keeping active until expiration", { userId }, correlationId);
+      // Touch updated_at so observers see the event landed.
+      const { error } = await client
+        .from("subscriptions")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+      if (error) {
+        logStep("Cancellation touch failed", { userId, error: error.message, code: error.code }, correlationId);
+        throw dbError("subscriptions touch", error);
+      }
+      break;
+    }
+    case "EXPIRATION": {
+      logStep("Expiration event", { userId }, correlationId);
+      await markSubscriptionEnded(client, userId, "canceled", eventId, correlationId);
+      break;
+    }
+    case "BILLING_ISSUE": {
+      logStep("Billing issue event", { userId }, correlationId);
+      await markSubscriptionEnded(client, userId, "past_due", eventId, correlationId);
+      break;
+    }
+    case "TEST":
+    case "":
+    default: {
+      logStep("Logged-only event type", { type }, correlationId);
+      break;
+    }
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    logStep("Missing Supabase env");
+    return jsonResponse({ error: "Server misconfiguration" }, 500);
+  }
+
+  const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Provisional correlation id for early-failure logs — we'll switch to
+  // the eventId-derived one after parse, but we want SOMETHING traceable
+  // for signature-rejected payloads.
+  let correlationId: string = crypto.randomUUID();
+
+  let body: string;
+  try {
+    body = await req.text();
+  } catch (err) {
+    logStep("Failed to read body", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    return jsonResponse({ error: "Invalid body" }, 400);
+  }
+
+  // Signature verification — wave-mandated HMAC SHA256 over body.
+  const secret = await getCachedSecret(serviceClient);
+  if (!secret) {
+    logStep("Missing webhook secret in vault and env", undefined, correlationId);
+    captureWarning("revenuecat_webhook_secret_missing", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ error: "Webhook secret not configured" }, 500);
+  }
+
+  // Header lookup is already case-insensitive — no need for a second
+  // lookup with a different casing.
+  const headerSig = req.headers.get(SIGNATURE_HEADER);
+  if (!headerSig) {
+    logStep("Missing signature header", undefined, correlationId);
+    return jsonResponse({ error: "Missing signature" }, 401);
+  }
+
+  let expectedHex: string;
+  try {
+    expectedHex = await computeHmacHex(secret, body);
+  } catch (err) {
+    logStep("HMAC compute failed", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    return jsonResponse({ error: "Signature verification failure" }, 500);
+  }
+
+  const provided = normalizeSignature(headerSig);
+  if (!timingSafeEqual(expectedHex, provided)) {
+    logStep("Signature mismatch", undefined, correlationId);
+    captureWarning("revenuecat_signature_mismatch", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ error: "Invalid signature" }, 401);
+  }
+
+  // Parse payload (defensive — never crash on malformed input).
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch (err) {
+    logStep("Invalid JSON", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    return jsonResponse({ error: "Invalid JSON" }, 400);
+  }
+
+  const event = unwrapEvent(parsed);
+  if (!event) {
+    logStep("Unrecognized payload shape", undefined, correlationId);
+    return jsonResponse({ error: "Unrecognized payload" }, 400);
+  }
+
+  // Replay protection — reject events older than the tolerance window.
+  // Without this, a captured (body, signature) pair is valid forever.
+  const eventTimestampMs = deriveEventTimestampMs(event);
+  if (eventTimestampMs === null) {
+    logStep("Event missing timestamp; rejecting", undefined, correlationId);
+    captureWarning("revenuecat_event_no_timestamp", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ error: "event_too_old", reason: "no_timestamp" }, 401);
+  }
+  const ageMs = Date.now() - eventTimestampMs;
+  if (ageMs > WEBHOOK_TIMESTAMP_TOLERANCE_MS) {
+    logStep("Event too old (replay window exceeded)", { ageMs, eventTimestampMs }, correlationId);
+    captureWarning("revenuecat_event_too_old", {
+      function: "revenuecat_webhook",
+      age_ms: ageMs,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ error: "event_too_old", reason: "outside_tolerance" }, 401);
+  }
+
+  // Sandbox vs production gating. Default to production unless the
+  // operator has flipped ALLOW_SANDBOX_EVENTS=true on the function (used
+  // by preview branches that want to exercise the full path with RC
+  // sandbox payloads).
+  const allowSandbox = (Deno.env.get("ALLOW_SANDBOX_EVENTS") ?? "").toLowerCase() === "true";
+  const eventEnv = typeof event.environment === "string" ? event.environment.toUpperCase() : null;
+  if (!allowSandbox && eventEnv === "SANDBOX") {
+    logStep("Rejecting SANDBOX event in production environment", { eventEnv }, correlationId);
+    captureWarning("revenuecat_sandbox_on_prod", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    // Still log to events table so audit shows we received it. We
+    // synthesize a minimal log row + return 200 so RC doesn't retry.
+    const eventIdForLog = deriveEventId(event);
+    if (eventIdForLog) {
+      await serviceClient
+        .from("revenuecat_events")
+        .upsert(
+          {
+            event_id: eventIdForLog,
+            event_type: typeof event.type === "string" ? event.type : "UNKNOWN",
+            app_user_id: typeof event.app_user_id === "string" ? event.app_user_id : "unknown",
+            payload: event as unknown as Record<string, unknown>,
+            processed_at: new Date().toISOString(),
+            error: "sandbox_on_prod",
+          },
+          { onConflict: "event_id", ignoreDuplicates: true },
+        );
+    }
+    return jsonResponse({ received: true, status: "sandbox_on_prod" }, 200);
+  }
+  if (allowSandbox && eventEnv === "PRODUCTION") {
+    logStep("Processing PRODUCTION event in sandbox-allowed environment (preview branch)", undefined, correlationId);
+  }
+
+  const eventId = deriveEventId(event);
+  const eventType = typeof event.type === "string" ? event.type : "UNKNOWN";
+  const appUserId = typeof event.app_user_id === "string" ? event.app_user_id : "unknown";
+
+  if (eventId) {
+    // Upgrade the correlation id to a stable derivative of the event id
+    // so logs across retries can be grouped.
+    correlationId = `evt_${eventId.slice(0, 12)}`;
+  }
+
+  if (!eventId) {
+    logStep("Event missing id; cannot dedupe — accepting once", { eventType }, correlationId);
+    // Without an id we cannot dedupe. We still try to process so
+    // RevenueCat doesn't endlessly retry, but we don't write the events
+    // log row either. Return 200 to avoid retry storms.
+    try {
+      // Fabricate a one-off id for downstream allowance idempotency keys.
+      await handleEvent(serviceClient, event, `noid_${crypto.randomUUID()}`, correlationId);
+    } catch (err) {
+      logStep("Processing failed (no id)", {
+        message: err instanceof Error ? err.message : String(err),
+      }, correlationId);
+    }
+    return jsonResponse({ received: true, deduped: false }, 200);
+  }
+
+  // Idempotency: atomic claim via PRIMARY KEY conflict (mirrors
+  // stripe_events). Use `.maybeSingle()` so a duplicate insert (which
+  // ignoreDuplicates collapses to zero rows) returns `data: null`
+  // cleanly without an error code sentinel.
+  //
+  // Pending-row semantics (Codex P0 on PR #759):
+  // - Fresh insert → `inserted` carries the row, `processed_at` is NULL.
+  // - Duplicate insert → `inserted` is null. Read the existing row:
+  //     processed_at non-null  → already processed; short-circuit.
+  //     processed_at null      → previous attempt was transient-failed;
+  //                              this is a retry. Bump attempts and
+  //                              continue processing.
+  const { data: inserted, error: insertError } = await serviceClient
+    .from("revenuecat_events")
+    .upsert(
+      {
+        event_id: eventId,
+        event_type: eventType,
+        app_user_id: appUserId,
+        payload: event as unknown as Record<string, unknown>,
+        processed_at: null,
+        attempts: 0,
+      },
+      { onConflict: "event_id", ignoreDuplicates: true },
+    )
+    .select("event_id")
+    .maybeSingle();
+
+  if (insertError) {
+    logStep("Idempotency upsert failed", { error: insertError.message, code: insertError.code }, correlationId);
+    return jsonResponse({ error: "Database error" }, 500);
+  }
+
+  if (!inserted) {
+    // Existing row — check whether it was actually processed.
+    const { data: existing, error: existingErr } = await serviceClient
+      .from("revenuecat_events")
+      .select("event_id, processed_at, attempts")
+      .eq("event_id", eventId)
+      .maybeSingle();
+
+    if (existingErr) {
+      logStep("Existing-row lookup failed", { error: existingErr.message, code: existingErr.code }, correlationId);
+      return jsonResponse({ error: "Database error" }, 500);
+    }
+    if (!existing) {
+      // Disappeared between upsert and select (cleanup cron, manual
+      // delete) — treat as fresh-claim and proceed.
+      logStep("Existing row vanished between upsert and select; proceeding", undefined, correlationId);
+    } else if (existing.processed_at) {
+      logStep("Duplicate event — already processed", { eventId }, correlationId);
+      return jsonResponse({ received: true, status: "already_processed" }, 200);
+    } else {
+      // Pending row — previous attempt was transient-failed. Bump
+      // attempts and continue.
+      const nextAttempts = (existing.attempts ?? 0) + 1;
+      await serviceClient
+        .from("revenuecat_events")
+        .update({ attempts: nextAttempts })
+        .eq("event_id", eventId);
+      logStep("Reprocessing pending event", { eventId, attempts: nextAttempts }, correlationId);
+    }
+  }
+
+  logStep("Processing event", { eventId, eventType, appUserId }, correlationId);
+
+  let processingError: string | null = null;
+  let classification: ErrorClassification = "permanent";
+  try {
+    await handleEvent(serviceClient, event, eventId, correlationId);
+    classification = "permanent"; // success path: stamp processed_at, no retry needed
+  } catch (err) {
+    processingError = err instanceof Error ? err.message : String(err);
+    // Stale-event tag and explicit non-uuid throw → permanent.
+    const taggedPermanent = (err as { permanent?: boolean })?.permanent === true;
+    if (taggedPermanent) {
+      classification = "permanent";
+    } else {
+      classification = classifyError(err);
+    }
+    logStep("Processing error", { error: processingError, classification }, correlationId);
+    if (classification === "permanent") {
+      captureWarning("revenuecat_permanent_failure", {
+        function: "revenuecat_webhook",
+        type: eventType,
+        app_user_id: appUserId,
+        error: processingError,
+        correlation_id: correlationId,
+      });
+    }
+  }
+
+  // Update the events log with the outcome.
+  //   - Success or PERMANENT failure → stamp processed_at (no retry).
+  //   - TRANSIENT failure → leave processed_at NULL so RC's retry
+  //     re-enters this function and re-processes the event.
+  // Best-effort: failure to update the log row is a soft warning, never
+  // a 5xx (the subscription mutation is the source of truth).
+  try {
+    if (processingError && classification === "transient") {
+      // Record the transient error message but DO NOT stamp
+      // processed_at — leave the row pending for the next RC retry.
+      await serviceClient
+        .from("revenuecat_events")
+        .update({ error: processingError })
+        .eq("event_id", eventId);
+    } else {
+      await serviceClient
+        .from("revenuecat_events")
+        .update({
+          processed_at: new Date().toISOString(),
+          error: processingError,
+        })
+        .eq("event_id", eventId);
+    }
+  } catch (err) {
+    logStep("Events log update failed (non-fatal)", {
+      message: err instanceof Error ? err.message : String(err),
+    }, correlationId);
+  }
+
+  if (processingError && classification === "transient") {
+    return jsonResponse({ error: processingError, transient: true }, 500);
+  }
+
+  return jsonResponse(
+    {
+      received: true,
+      ok: !processingError,
+      ...(processingError ? { error: processingError } : {}),
+    },
+    200,
+  );
+});
