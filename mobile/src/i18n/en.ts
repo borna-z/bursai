@@ -886,4 +886,83 @@ export const en: Record<string, string> = {
     "You won't see these tips again. You can always poke around — the app will guide you when it can.",
   'coachTour.skipConfirm.cancel': 'Keep going',
   'coachTour.skipConfirm.confirm': 'Skip',
+
+  // ─── M28 — Travel capsule end-to-end ───────────────────────────────────
+  // The wizard threads through TravelCapsule → TravelMustHaves →
+  // TravelPackingList. Generation hits the `travel_capsule` edge function
+  // (~30s round-trip on a fresh wardrobe) and persists via
+  // `useGenerateTravelCapsule` since the function doesn't INSERT itself.
+  'travelCapsule.savedHeading': 'Saved trips',
+  'travelCapsule.savedEmpty': 'No saved capsules yet',
+  'travelCapsule.savedEmptyBody':
+    'Plan your first trip below — your saved capsules will live here.',
+  'travelCapsule.savedTripDeletedTitle': 'Removed',
+  'travelCapsule.savedTripDeleteFailed': "Couldn't delete that trip. Try again.",
+  'travelCapsule.delete.confirmTitle': 'Delete this trip?',
+  // Placeholder pattern matches mobile's i18n shim — see lib/i18n.ts.
+  'travelCapsule.delete.confirmBody':
+    'Your capsule for {destination} will be removed. This cannot be undone.',
+  'travelCapsule.delete.confirmCancel': 'Keep',
+  'travelCapsule.delete.confirmConfirm': 'Delete',
+  'travelCapsule.delete.aria': 'Delete saved trip',
+  'travelCapsule.openSavedHint': 'Opens this saved capsule',
+  'travelCapsule.savedTripItemsTemplate': '{items} pieces · {outfits} looks',
+  'travelCapsule.generating': 'Building your capsule…',
+  'travelCapsule.generatingBody':
+    "BURS is choosing pieces that travel well — this can take up to 30 seconds.",
+  'travelCapsule.generateFailed.title': "Couldn't build a capsule",
+  'travelCapsule.generateFailed.body':
+    'Something went wrong on our side. Try again in a moment.',
+  'travelCapsule.subscriptionRequired.title': 'Premium feature',
+  'travelCapsule.subscriptionRequired.body':
+    'Travel capsule is part of BURS Premium. Upgrade to keep packing smart.',
+  'travelCapsule.notEnoughGarmentsTitle': 'Not enough wardrobe yet',
+  'travelCapsule.notEnoughGarmentsBody':
+    'Add at least 5 garments to your wardrobe before building a capsule.',
+
+  // Step 2 — must-haves edit support. The user can flag a piece as
+  // "have", "buy" (gap they intend to purchase), or "unsure" — the
+  // tri-state mirrors web's PR #735 / Pick Must-Haves vocabulary.
+  'travelMustHaves.heading': 'Your must-haves',
+  'travelMustHaves.intro':
+    'Mark each piece — bringing it, replacing it, or still deciding. Your call.',
+  'travelMustHaves.status.have': 'I have this',
+  'travelMustHaves.status.buy': "I'll buy",
+  'travelMustHaves.status.unsure': 'Not sure',
+  'travelMustHaves.status.aria': 'Cycle through have / buy / unsure',
+  'travelMustHaves.continueCta': 'Continue · Packing list',
+  'travelMustHaves.empty.title': 'No must-haves yet',
+  'travelMustHaves.empty.body':
+    'Build a capsule first to see the pieces BURS chose for you.',
+  'travelMustHaves.saveFailed': "Couldn't save your changes. Try again.",
+
+  // Step 3 — packing list. Per-item checkboxes persist into
+  // `result.packed_state` JSONB on the capsule row, debounced 300ms so
+  // the user can rip through a list without 25 server writes.
+  'travelPackingList.eyebrowTemplate': '{destination} · {duration}',
+  'travelPackingList.empty.title': 'Empty packing list',
+  'travelPackingList.empty.body':
+    'No items here yet — try regenerating the capsule.',
+  'travelPackingList.allPacked': 'All packed · ready to fly',
+  // Surfaced when a packed-state write fails. Local checkbox state
+  // reverts to the last-known-good snapshot so the UI doesn't lie about
+  // a save that didn't land.
+  'travelPackingList.saveFailedTitle': "Couldn't save",
+  'travelPackingList.saveFailedBody':
+    "We couldn't save your packing changes. Pull to refresh and try again.",
+  // Specific copy for the optimistic-concurrency conflict — the row
+  // moved under us (cross-device or rapid same-device writes). The
+  // mutation refetches automatically; the user just needs to retry.
+  'travelPackingList.saveConflictTitle': 'Save conflict',
+  'travelPackingList.saveConflictBody':
+    'Your packing list was updated elsewhere. Please retry.',
+  // Singular handled inline by the screen; the template covers 0 / 2+.
+  'travelPackingList.itemsLeftTemplate': '{count} pieces left',
+  'travelPackingList.itemsLeftOne': '1 piece left',
+  'travelPackingList.toggleAria': 'Mark as packed',
+  'travelPackingList.shareCta': 'Share packing list',
+  'travelPackingList.shareSoon': 'Sharing coming soon.',
+  'travelPackingList.daysTemplate.zero': 'Day trip',
+  'travelPackingList.daysTemplate.one': '1 day',
+  'travelPackingList.daysTemplate.other': '{count} days',
 };

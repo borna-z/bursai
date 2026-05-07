@@ -205,15 +205,20 @@ export type RootStackParamList = {
   // (e.g. from a future deep link) still lands on the screen with sane defaults.
   MoodFlow: { moodId?: string; time?: string } | undefined;
 
-  // Travel capsule wizard. `selectedIds` carries the must-have garment IDs
-  // picked on the TravelMustHaves step into the packing-list view so the next
-  // screen knows what the user committed to bringing. Optional so a user can
-  // still land on TravelPackingList directly (e.g. restoring a saved trip in
-  // the future) without having gone through the picker — the screen falls
-  // back to its own logic in that case.
+  // Travel capsule wizard. M28 wires real persistence — the wizard now
+  // generates a saved capsule row before the user lands on either the
+  // must-haves or packing list step. `capsuleId` is the row id and is
+  // required once Step 1 has run; the legacy `selectedIds` carries the
+  // initial must-have selection from the previous screen for the
+  // generation hook to seed `result.must_haves`.
+  //
+  // Optional `capsuleId` on TravelMustHaves / TravelPackingList lets a
+  // direct entry point (e.g. tapping a saved trip on the wizard screen)
+  // skip the generation step. The screens guard against undefined and
+  // route back to TravelCapsule when no id is in scope.
   TravelCapsule: undefined;
-  TravelMustHaves: undefined;
-  TravelPackingList: { selectedIds?: string[] } | undefined;
+  TravelMustHaves: { capsuleId?: string } | undefined;
+  TravelPackingList: { capsuleId?: string; selectedIds?: string[] } | undefined;
 
   // Discover / lists
   WardrobeGaps: undefined;

@@ -1,11 +1,25 @@
-// Travel Capsule — Step 1 of 3. Destination + dates + trip type.
-// Mirrors design_handoff_burs_rn/source/extra-screens.jsx TravelCapsuleScreen step 0.
+// Travel Capsule — Step 1 of 3. Destination + dates + trip type + saved
+// capsules list. Mirrors design_handoff_burs_rn/source/extra-screens.jsx
+// TravelCapsuleScreen step 0.
 //
-// Builds the trip brief that's threaded through Steps 2 (TravelMustHaves) and 3
-// (TravelPackingList) via route params.
+// M28 wired the wizard to real data:
+//   • saved capsules render from `useTravelCapsules()` and tap-to-open
+//     into TravelPackingList with the row's `capsuleId`;
+//   • New trip CTA collects destination + date range + trip-type; tapping
+//     "Build my capsule" calls `useGenerateTravelCapsule()` which posts
+//     to the `travel_capsule` edge function (~30s on first run) and
+//     INSERTs the row server-side. On success the user lands on
+//     TravelMustHaves with the new row's id.
+//
+// Pre-M28 the screen rendered fixture cities + tripped through to
+// TravelMustHaves with no payload. The Builds-my-capsule CTA used to
+// call nav.navigate without any AI round-trip — the next two steps had
+// no real data to render. The replacement keeps the same visual chrome
+// (chips / date pickers / preset list) but the navigation moment now
+// represents a saved row.
 
 import React from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,8 +31,19 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
+import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, CalendarIcon, ChevronIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, ChevronIcon, TrashIcon } from '../components/icons';
+import { t as tr } from '../lib/i18n';
+import {
+  useTravelCapsules,
+  useDeleteTravelCapsule,
+  type TravelCapsuleRow,
+} from '../hooks/useTravelCapsules';
+import {
+  useGenerateTravelCapsule,
+  TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL,
+} from '../hooks/useGenerateTravelCapsule';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +56,17 @@ const POPULAR_DESTINATIONS = ['Lisbon', 'Tokyo', 'New York', 'Copenhagen', 'Marr
 const TRIP_TYPES = ['Business', 'Leisure', 'Beach', 'City', 'Outdoor', 'Winter'] as const;
 
 type TripType = (typeof TRIP_TYPES)[number];
+
+// Map the visible TripType chips onto the trip_type strings the edge
+// function recognises (`TRIP_TYPE_CONTEXT` dict in the function).
+const TRIP_TYPE_TO_BACKEND: Record<TripType, string> = {
+  Business: 'business',
+  Leisure: 'casual',
+  Beach: 'beach',
+  City: 'mixed',
+  Outdoor: 'casual',
+  Winter: 'winter',
+};
 
 // Strict YYYY-MM-DD parser. `Date.parse` interprets ISO date strings as UTC, but the user
 // types local-calendar dates — and Hermes returns NaN inconsistently for non-ISO forms
@@ -85,6 +121,13 @@ function shortDateLabel(iso: string): string {
   const d = parseISODate(iso);
   if (!d) return iso;
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatRowDates(start: string | null, end: string | null): string {
+  if (!start) return '';
+  const s = shortDateLabel(start);
+  if (!end || end === start) return s;
+  return `${s} – ${shortDateLabel(end)}`;
 }
 
 // ---------- Mini calendar (used by the "Custom" preset) ----------
@@ -147,15 +190,29 @@ export function TravelCapsuleScreen() {
   const [destination, setDestination] = React.useState('');
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
-  const [tripTypes, setTripTypes] = React.useState<TripType[]>(['City']);
+  // Single-select — the edge function only accepts one `trip_type` and
+  // we used to send the first chip + spread the rest as occasions, which
+  // hid the multi-select effect from the user. Match web's parity by
+  // restricting to one chip at a time.
+  const [tripType, setTripType] = React.useState<TripType>('City');
   // Which date pill, if any, is showing the custom-date sheet. `null` = sheet closed.
   const [customPickerFor, setCustomPickerFor] = React.useState<'from' | 'to' | null>(null);
 
-  const nights = nightsBetween(fromDate, toDate);
-  const canContinue = destination.trim().length > 0 && tripTypes.length > 0;
+  const { data: savedCapsules = [], isLoading: capsulesLoading } = useTravelCapsules();
+  const deleteCapsule = useDeleteTravelCapsule();
+  const generate = useGenerateTravelCapsule();
 
-  const toggleTripType = (type: TripType) =>
-    setTripTypes((prev) => (prev.includes(type) ? prev.filter((x) => x !== type) : [...prev, type]));
+  const nights = nightsBetween(fromDate, toDate);
+  const canContinue =
+    destination.trim().length > 0 &&
+    !!tripType &&
+    !!fromDate &&
+    !!toDate &&
+    nights !== null &&
+    !generate.isPending;
+
+  // Single-select — tapping a chip selects only it, deselecting the rest.
+  const selectTripType = (type: TripType) => setTripType(type);
 
   // Preset-pill date chooser. The first 5 buttons are quick offsets; the 6th ("Custom")
   // opens an inline mini-calendar sheet so the user can pick any specific date directly.
@@ -188,6 +245,93 @@ export function TravelCapsuleScreen() {
     [customPickerFor],
   );
 
+  // Tap a saved trip → land on packing list with its capsuleId. The
+  // packing-list screen reads everything else off the row.
+  const handleOpenSaved = React.useCallback(
+    (row: TravelCapsuleRow) => {
+      nav.navigate('TravelPackingList', { capsuleId: row.id });
+    },
+    [nav],
+  );
+
+  const handleDeleteSaved = React.useCallback(
+    (row: TravelCapsuleRow) => {
+      Alert.alert(
+        tr('travelCapsule.delete.confirmTitle'),
+        tr('travelCapsule.delete.confirmBody', { destination: row.destination }),
+        [
+          { text: tr('travelCapsule.delete.confirmCancel'), style: 'cancel' },
+          {
+            text: tr('travelCapsule.delete.confirmConfirm'),
+            style: 'destructive',
+            onPress: () => {
+              deleteCapsule.mutate(row.id, {
+                onError: () => {
+                  Alert.alert(
+                    tr('travelCapsule.savedTripDeletedTitle'),
+                    tr('travelCapsule.savedTripDeleteFailed'),
+                  );
+                },
+              });
+            },
+          },
+        ],
+      );
+    },
+    [deleteCapsule],
+  );
+
+  // "Build my capsule" — kick off generation, navigate on success.
+  // Generation is slow (~30s) so the screen renders the full-bleed
+  // loading state below instead of trapping the CTA in a spinner.
+  const handleGenerate = React.useCallback(() => {
+    if (!canContinue) return;
+    const backendTripType = TRIP_TYPE_TO_BACKEND[tripType];
+    // Trip type also stands in for the single-occasion seed today (the
+    // wizard doesn't collect a separate occasion list). Lower-case
+    // matches the strings the edge function uses for occasion routing.
+    const occasions = [backendTripType];
+
+    generate.mutate(
+      {
+        destination: destination.trim(),
+        dates: { start: fromDate, end: toDate },
+        occasions,
+        weather: null,
+        tripType: backendTripType,
+      },
+      {
+        onSuccess: ({ capsule_id }) => {
+          nav.navigate('TravelMustHaves', { capsuleId: capsule_id });
+        },
+        onError: (err) => {
+          if (err.message === TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL) {
+            Alert.alert(
+              tr('travelCapsule.subscriptionRequired.title'),
+              tr('travelCapsule.subscriptionRequired.body'),
+            );
+            return;
+          }
+          // Edge function throws "Need at least 5 garments to build a
+          // capsule" when wardrobe is too sparse — surface that with a
+          // friendlier copy. Matching against the substring keeps the
+          // hint working even if the function reformats the error.
+          if (/at least 5 garments/i.test(err.message)) {
+            Alert.alert(
+              tr('travelCapsule.notEnoughGarmentsTitle'),
+              tr('travelCapsule.notEnoughGarmentsBody'),
+            );
+            return;
+          }
+          Alert.alert(
+            tr('travelCapsule.generateFailed.title'),
+            tr('travelCapsule.generateFailed.body'),
+          );
+        },
+      },
+    );
+  }, [canContinue, destination, fromDate, toDate, tripType, generate, nav]);
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <KeyboardAvoidingView
@@ -215,6 +359,22 @@ export function TravelCapsuleScreen() {
             </Text>
           </View>
 
+          {/* ============ GENERATING OVERLAY ============ */}
+          {/* travel_capsule is slow (Gemini tool-use over the full
+              wardrobe). Render an inline progress card so the user
+              has signal that the wizard didn't freeze. */}
+          {generate.isPending ? (
+            <Card padding={20}>
+              <View style={{ alignItems: 'center', gap: 14 }}>
+                <ActivityIndicator color={t.accent} />
+                <Eyebrow>{tr('travelCapsule.generating')}</Eyebrow>
+                <Caption style={{ textAlign: 'center', maxWidth: 280 }}>
+                  {tr('travelCapsule.generatingBody')}
+                </Caption>
+              </View>
+            </Card>
+          ) : null}
+
           {/* ============ DESTINATION ============ */}
           <View style={{ gap: 10 }}>
             <Eyebrow>Destination</Eyebrow>
@@ -226,6 +386,7 @@ export function TravelCapsuleScreen() {
                 placeholderTextColor={t.fg3}
                 style={{ flex: 1, color: t.fg, fontFamily: fonts.uiMed, fontSize: 14, padding: 0 }}
                 returnKeyType="next"
+                editable={!generate.isPending}
               />
             </View>
             <ScrollView
@@ -299,21 +460,13 @@ export function TravelCapsuleScreen() {
                 <Chip
                   key={type}
                   label={type}
-                  active={tripTypes.includes(type)}
-                  onPress={() => toggleTripType(type)}
+                  active={tripType === type}
+                  onPress={() => selectTripType(type)}
                 />
               ))}
             </View>
-            <Caption>Multi-select. Shapes what we recommend packing.</Caption>
+            <Caption>Pick one. Shapes what we recommend packing.</Caption>
           </View>
-
-          {/* ============ WEATHER CONTEXT ============ */}
-          {/* Weather card intentionally not rendered. The previous version
-              hardcoded "18–24° · Mostly sunny · 1 day rain" for every
-              destination, which is worse than no forecast at all — a user
-              packing for Reykjavik in January would be misled into leaving
-              their coat at home. The card returns once a real weather
-              provider is wired (TODO: M-weather wave). */}
 
           {/* ============ CTA ============ */}
           <Button
@@ -321,8 +474,40 @@ export function TravelCapsuleScreen() {
             variant="accent"
             block
             disabled={!canContinue}
-            onPress={() => nav.navigate('TravelMustHaves')}
+            accessibilityState={{ disabled: !canContinue, busy: generate.isPending }}
+            onPress={handleGenerate}
           />
+
+          {/* ============ SAVED CAPSULES ============ */}
+          {/* Real per-user history backed by `useTravelCapsules()`. Tap a
+              row to land on TravelPackingList for that capsule. */}
+          <View style={{ gap: 10, marginTop: 6 }}>
+            <Eyebrow>{tr('travelCapsule.savedHeading')}</Eyebrow>
+            {capsulesLoading ? (
+              <ActivityIndicator color={t.accent} />
+            ) : savedCapsules.length === 0 ? (
+              <Card padding={16}>
+                <View style={{ gap: 6 }}>
+                  <Eyebrow>{tr('travelCapsule.savedEmpty')}</Eyebrow>
+                  <Caption>{tr('travelCapsule.savedEmptyBody')}</Caption>
+                </View>
+              </Card>
+            ) : (
+              <FlatList
+                data={savedCapsules}
+                keyExtractor={(row) => row.id}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                renderItem={({ item }) => (
+                  <SavedCapsuleRow
+                    row={item}
+                    onOpen={() => handleOpenSaved(item)}
+                    onDelete={() => handleDeleteSaved(item)}
+                  />
+                )}
+              />
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -338,6 +523,82 @@ export function TravelCapsuleScreen() {
         onConfirm={onCustomConfirm}
       />
     </SafeAreaView>
+  );
+}
+
+// ---------- SavedCapsuleRow ----------
+//
+// Compact list row — destination + date range eyebrow + (items, looks)
+// caption. Tapping the body opens the capsule; tapping the trash icon
+// fires a confirm prompt before delete. The row uses Card so the
+// border / padding rhythm matches the rest of the screen.
+
+function SavedCapsuleRow({
+  row,
+  onOpen,
+  onDelete,
+}: {
+  row: TravelCapsuleRow;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const t = useTokens();
+  const dates = formatRowDates(row.start_date, row.end_date);
+  const itemCount = row.packing_list.length;
+  const outfitCount = row.outfits.length;
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityHint={tr('travelCapsule.openSavedHint')}
+      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+      <Card padding={14}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Eyebrow>{dates || row.destination}</Eyebrow>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 17,
+                color: t.fg,
+                letterSpacing: -0.16,
+              }}>
+              {row.destination}
+            </Text>
+            <Caption>
+              {tr('travelCapsule.savedTripItemsTemplate', {
+                items: itemCount,
+                outfits: outfitCount,
+              })}
+            </Caption>
+          </View>
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={tr('travelCapsule.delete.aria')}
+            hitSlop={8}
+            style={({ pressed }) => [
+              {
+                width: 36,
+                height: 36,
+                borderRadius: radii.pill,
+                borderWidth: 1,
+                borderColor: t.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.6 : 1,
+              },
+            ]}>
+            <TrashIcon color={t.fg2} size={16} />
+          </Pressable>
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 
