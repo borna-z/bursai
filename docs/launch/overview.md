@@ -134,7 +134,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 |---|---|---|---|
 | ) | V0 |
 | ) | V0 |
-| M27 | [Coach tour](waves/m27-coach-tour.md) | DONE (PR #TBD) | V0 |
+| ) | V0 |
 
 ### Existing baseline depth (ported from prior M0–M14 plan)
 | Wave | File | Status | Depends on |
