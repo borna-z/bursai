@@ -10,11 +10,20 @@
 --                          checking parent outfit_id ownership, which lets a
 --                          user attach another user's garment_id to their own
 --                          outfit row).
---   2. wear_logs        — UNIQUE INDEX on (user_id, garment_id, worn_at) so
---                          that a retried "Wear today" mutation re-sending the
---                          same payload (same nowIso) is dedup'd at the DB
---                          layer instead of relying solely on the in-flight
---                          Set in mobile/src/hooks/useOutfits.ts.
+--   2. wear_logs        — UNIQUE INDEX on (user_id, garment_id, worn_at).
+--                          Mobile (mobile/src/hooks/useOutfits.ts) now
+--                          inserts wear_logs via .upsert(..., {
+--                          onConflict: 'user_id,garment_id,worn_at',
+--                          ignoreDuplicates: true }) so two mutations that
+--                          legitimately collide on the same (garment, instant)
+--                          — e.g. the same garment in two outfits both
+--                          marked worn within one nowIso millisecond — are
+--                          silently dedup'd at the DB layer instead of
+--                          surfacing as a 23505 to the user. This index
+--                          does NOT enable cross-day idempotency (worn_at
+--                          is a timestamptz, fresh per mutation call); the
+--                          inFlightWearOutfit Set + outfits.worn_at gate
+--                          continue to handle that.
 --   3. outfit_feedback  — UNIQUE INDEX on (user_id, outfit_id) so the SELECT-
 --                          newest / UPDATE-newest / DELETE-siblings workaround
 --                          in mobile/src/hooks/useOutfits.ts can converge to
@@ -31,9 +40,13 @@
 --                          action policies that all carry an explicit
 --                          WITH CHECK (auth.uid() = user_id). Functionally
 --                          equivalent to the prior policy under PG's "WITH
---                          CHECK defaults to USING" rule, but survives a
---                          future agent adding a separate FOR INSERT policy
---                          without WITH CHECK and silently widening the gate.
+--                          CHECK defaults to USING" rule. The benefit is
+--                          documentary, not enforcement: PG policy stacking
+--                          is permissive (additive), so a stray loose policy
+--                          can still widen access regardless of the spelling
+--                          here. The explicit WITH CHECK is purely for
+--                          reviewability — future readers see the intent
+--                          without having to recall the implicit fallback.
 
 BEGIN;
 
@@ -111,19 +124,23 @@ CREATE POLICY "outfit_items_delete_own" ON public.outfit_items
   );
 
 -- ============================================================
--- 2. wear_logs — retry-safe UNIQUE INDEX
+-- 2. wear_logs — collision-safe UNIQUE INDEX
 -- ============================================================
 --
--- Mobile inserts (useOutfits.ts) batch all garments for a single "Wear
--- today" tap with one shared `nowIso`. A network retry of that mutation
--- re-sends the same `worn_at` value; without this UNIQUE we'd get
--- duplicate rows and a doubled wear_count downstream.
+-- Mobile inserts (useOutfits.ts:runMarkOutfitWorn) batch all garments for
+-- a single "Wear today" tap with one shared `nowIso`. Two distinct
+-- outfits that share a garment can both be marked worn within the same
+-- millisecond — the per-outfit inFlightWearOutfit Set keys on outfit_id
+-- and won't catch this. Without this UNIQUE the second batch's INSERT
+-- would surface as 23505 to the user. With this UNIQUE, the mobile
+-- code's `.upsert(..., { ignoreDuplicates: true })` silently dedup's at
+-- the DB layer.
 --
 -- garment_id is nullable (fallback path inserts a single null-garment
--- log); for that path the in-flight Set in useMarkOutfitWorn handles
--- same-call dedup. NULLs are treated as distinct (default), so two
+-- log). NULLs are treated as distinct (default behavior), so two
 -- separate fallback-path mutations CAN double-insert a null-garment
--- row — that's a pre-existing client-side concern and out of scope.
+-- row — same-call dedup is still handled by the in-flight Set, and
+-- cross-call collision is implausible at human-tap cadence.
 
 CREATE UNIQUE INDEX IF NOT EXISTS wear_logs_user_garment_worn_at_uidx
   ON public.wear_logs (user_id, garment_id, worn_at);
@@ -178,7 +195,8 @@ CREATE OR REPLACE FUNCTION public.increment_wear_count(p_garment_id uuid)
   RETURNS TABLE (id uuid, wear_count integer, last_worn_at timestamptz)
   LANGUAGE sql
   SECURITY INVOKER
-  SET search_path = public, pg_temp
+  RETURNS NULL ON NULL INPUT
+  SET search_path = public
   AS $$
     UPDATE public.garments
        SET wear_count = COALESCE(wear_count, 0) + 1,

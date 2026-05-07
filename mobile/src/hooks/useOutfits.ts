@@ -261,13 +261,14 @@ async function runMarkOutfitWorn({
     }),
   );
 
-  // 3c. Per-garment wear log — append-only INSERT. Idempotency for
-  //     synchronous double-mutate calls is enforced by the
-  //     `inFlightWearOutfit` Set in the hook wrapper above; this body only
-  //     runs once per (outfitId, distinct mutate call). The wear_logs
-  //     table has only a PK on `id` — no UNIQUE on
-  //     (user_id, garment_id, worn_at) — so a real PostgREST upsert isn't
-  //     viable without a migration. Tracked for follow-up.
+  // 3c. Per-garment wear log — upsert against the
+  //     `wear_logs_user_garment_worn_at_uidx` UNIQUE INDEX added in the
+  //     post-launch theme-2 schema-hardening migration so that a duplicate
+  //     payload (e.g. the same garment appearing in two outfits both
+  //     marked worn within the same `nowIso` millisecond) is silently
+  //     dedup'd at the DB layer instead of surfacing as a 23505 error.
+  //     `inFlightWearOutfit` already covers the same-mutation double-tap
+  //     case; this is the cross-mutation safety net.
   const wearLogRows = garmentIds.map((garmentId) => ({
     user_id: userId,
     garment_id: garmentId,
@@ -276,7 +277,10 @@ async function runMarkOutfitWorn({
   }));
   const { error: logError } = await supabase
     .from('wear_logs')
-    .insert(wearLogRows);
+    .upsert(wearLogRows, {
+      onConflict: 'user_id,garment_id,worn_at',
+      ignoreDuplicates: true,
+    });
   if (logError) throw logError;
 
   return { deduped: false };
@@ -349,98 +353,26 @@ export function useDeleteOutfit() {
 }
 
 /**
- * SELECT-newest, UPDATE-or-INSERT, then DELETE-siblings on `outfit_feedback`.
- *
- * `outfit_feedback` lacks a UNIQUE constraint on `(user_id, outfit_id)` (see
- * inline comment on the per-hook fix history) so the canonical PostgREST
- * upsert path doesn't work. A naive SELECT-then-INSERT has a race window
- * where two concurrent rate/note taps both see "no row" and both INSERT,
- * leaving duplicate rows that subsequently break `useOutfitFeedback`'s
- * `.maybeSingle()` read with a "multiple rows returned" error — Codex P2
- * round 8 on PR #738.
- *
- * This helper:
- *   1. SELECTs every row for `(user_id, outfit_id)` ordered newest first.
- *   2. If any rows exist: UPDATEs the newest with the patch, DELETEs the
- *      stale siblings to collapse duplicates created by an earlier race.
- *   3. If no rows: INSERTs the new row, then re-reads + collapses any
- *      siblings that arrived from a concurrent INSERT we lost the
- *      milliseconds-race against. The defensive sweep is what makes
- *      back-to-back rates converge to a single row even under contention.
- *
- * Reads (`useOutfitFeedback` below) tolerate transient duplicates by using
- * `.order('created_at', desc).limit(1)` instead of `.maybeSingle()` — they
- * always pick the newest row, so even mid-race the user sees their latest
- * tap reflected. The next write collapses to one row again.
+ * Upsert one `outfit_feedback` row per (user_id, outfit_id), backed by the
+ * `outfit_feedback_user_outfit_uidx` UNIQUE INDEX (post-launch theme-2
+ * schema hardening). A single PostgREST upsert is atomic at the DB layer
+ * — no SELECT-then-write race, no sibling cleanup. The historical workaround
+ * (SELECT newest → UPDATE / INSERT → DELETE siblings) was retired with the
+ * constraint; pre-existing duplicates were collapsed by the migration's
+ * one-shot DELETE pass.
  */
 async function upsertOutfitFeedbackRow(
   userId: string,
   outfitId: string,
   patch: { rating?: number; commentary?: string | null },
 ): Promise<void> {
-  const { data: rows, error: readErr } = await supabase
+  const { error } = await supabase
     .from('outfit_feedback')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('outfit_id', outfitId)
-    .order('created_at', { ascending: false });
-  if (readErr) throw readErr;
-
-  if (rows && rows.length > 0) {
-    const newestId = rows[0].id;
-    const { error: updateErr } = await supabase
-      .from('outfit_feedback')
-      .update(patch)
-      .eq('id', newestId);
-    if (updateErr) throw updateErr;
-    if (rows.length > 1) {
-      const staleIds = rows.slice(1).map((r) => r.id);
-      // Best-effort cleanup — failure here just leaves the duplicate around
-      // (caught by the read-tolerant `.limit(1)` path) so we don't surface
-      // it as a mutation error. Log the error so Sentry breadcrumbs catch
-      // a sustained leak. Codex P2 round on PR #738.
-      const { error: delErr } = await supabase
-        .from('outfit_feedback')
-        .delete()
-        .in('id', staleIds);
-      if (delErr) {
-        console.warn(
-          `[useOutfits] sibling cleanup delete failed for ${outfitId}: ${delErr.message}`,
-        );
-      }
-    }
-    return;
-  }
-
-  const { error: insertErr } = await supabase
-    .from('outfit_feedback')
-    .insert({ user_id: userId, outfit_id: outfitId, ...patch });
-  if (insertErr) throw insertErr;
-
-  // Defensive sweep — a concurrent mutation may have INSERTed in parallel
-  // since our SELECT. Re-read and delete any older siblings, keeping only
-  // the newest row.
-  const { data: postRows } = await supabase
-    .from('outfit_feedback')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('outfit_id', outfitId)
-    .order('created_at', { ascending: false });
-  if (postRows && postRows.length > 1) {
-    const staleIds = postRows.slice(1).map((r) => r.id);
-    // Same best-effort log as the update branch above — surface the
-    // failure to console so Sentry breadcrumbs see it without elevating
-    // it to a thrown mutation error. Codex P2 round on PR #738.
-    const { error: postDelErr } = await supabase
-      .from('outfit_feedback')
-      .delete()
-      .in('id', staleIds);
-    if (postDelErr) {
-      console.warn(
-        `[useOutfits] post-insert sibling sweep failed for ${outfitId}: ${postDelErr.message}`,
-      );
-    }
-  }
+    .upsert(
+      { user_id: userId, outfit_id: outfitId, ...patch },
+      { onConflict: 'user_id,outfit_id' },
+    );
+  if (error) throw error;
 }
 
 /**

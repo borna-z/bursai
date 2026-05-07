@@ -312,8 +312,8 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
  * accumulate instead of last-write-winning.
  *
  * The RPC's WHERE clause pins `user_id = auth.uid()`, so an unowned garment
- * id returns zero rows and the mutation surfaces an "outfit not found" error
- * — RLS belt remains in effect as a second line of defense.
+ * id returns zero rows and the mutation surfaces a "Garment not found"
+ * error — RLS on `garments` remains in effect as a second line of defense.
  */
 export function useMarkWorn() {
   const queryClient = useQueryClient();
@@ -330,15 +330,21 @@ export function useMarkWorn() {
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Garment not found');
-      // Merge RPC return (id, wear_count, last_worn_at) into whatever the
-      // single-garment cache already holds so consumers get the full Garment
-      // shape back, not a 3-field projection that would clobber the rest.
+      const rpcRow = data as { id: string; wear_count: number; last_worn_at: string };
+      // Patch the canonical (wear_count, last_worn_at) into single + every
+      // list cache. patchGarmentInCaches gates the single-cache write on
+      // `prev` truthiness, so a cache miss is a true no-op — the next
+      // fetch will hydrate the full row. List caches are merged in place
+      // when the row is already paginated. This replaces the optimistic
+      // +1 with the canonical server count.
+      patchGarmentInCaches(queryClient, user.id, id, {
+        wear_count: rpcRow.wear_count,
+        last_worn_at: rpcRow.last_worn_at,
+      });
+      // Callers never read `data` (they only use isPending / onError); the
+      // return value is for type continuity. Merge into cache if present.
       const cached = queryClient.getQueryData<Garment | null>(['garment', user.id, id]);
-      const merged = {
-        ...(cached ?? ({ id } as Garment)),
-        ...(data as { id: string; wear_count: number; last_worn_at: string }),
-      } as Garment;
-      return merged;
+      return (cached ? { ...cached, ...rpcRow } : rpcRow) as Garment;
     },
     onMutate: async (id) => {
       // Optimistic +1 to wear_count and last_worn_at = now. The detail
@@ -377,9 +383,6 @@ export function useMarkWorn() {
       // the gauges, palette, weekly bars, and most-worn list don't lie for up
       // to staleTime (5min) after a wear / laundry / update.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['garment', user?.id, data.id], data);
     },
   });
 }
