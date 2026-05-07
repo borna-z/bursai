@@ -306,40 +306,49 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
 }
 
 /**
- * Increments wear_count and stamps last_worn_at = now. Mirrors the web's
- * `useMarkGarmentWorn` minus the wear_logs insert (which is a wave-9 concern).
+ * Increments wear_count and stamps last_worn_at = now via the
+ * `increment_wear_count(uuid)` RPC (post-launch theme-2 schema hardening).
+ * Single-statement UPDATE-with-RETURNING on the server, so concurrent wears
+ * accumulate instead of last-write-winning.
  *
- * Read-modify-write — concurrent wears are last-write-wins and would lose an
- * increment. Acceptable trade-off for v1; a Postgres `increment_wear_count`
- * RPC is the long-term fix (logged in Findings).
+ * The RPC's WHERE clause pins `user_id = auth.uid()`, so an unowned garment
+ * id returns zero rows and the mutation surfaces a "Garment not found"
+ * error — RLS on `garments` remains in effect as a second line of defense.
+ *
+ * The mutation result type is the narrow RPC return shape (id, wear_count,
+ * last_worn_at) — not the full Garment — because callers only use
+ * `isPending` / `onError` and never read `data`. Cache convergence to the
+ * canonical wear_count happens inside `mutationFn` via `patchGarmentInCaches`.
  */
+type WearCountIncrement = { id: string; wear_count: number; last_worn_at: string };
+
 export function useMarkWorn() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  return useMutation<Garment, Error, string, UpdateContext>({
+  return useMutation<WearCountIncrement, Error, string, UpdateContext>({
     mutationFn: async (id) => {
       if (!user) throw new Error('Not authenticated');
-      const { data: existing, error: readError } = await supabase
-        .from('garments')
-        .select('wear_count')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (readError) throw readError;
-      const next = (existing?.wear_count ?? 0) + 1;
+      // RPC returns SETOF (id, wear_count, last_worn_at). `.maybeSingle()`
+      // gives null when the row isn't owned (or doesn't exist) — surface
+      // that as an explicit error so the optimistic +1 rolls back.
       const { data, error } = await supabase
-        .from('garments')
-        .update({
-          wear_count: next,
-          last_worn_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        .rpc('increment_wear_count', { p_garment_id: id })
+        .maybeSingle();
       if (error) throw error;
-      return data as Garment;
+      if (!data) throw new Error('Garment not found');
+      const rpcRow = data as WearCountIncrement;
+      // Patch the canonical (wear_count, last_worn_at) into single + every
+      // list cache. patchGarmentInCaches gates the single-cache write on
+      // `prev` truthiness, so a cache miss is a true no-op — the next
+      // fetch will hydrate the full row. List caches are merged in place
+      // when the row is already paginated. This replaces the optimistic
+      // +1 with the canonical server count.
+      patchGarmentInCaches(queryClient, user.id, id, {
+        wear_count: rpcRow.wear_count,
+        last_worn_at: rpcRow.last_worn_at,
+      });
+      return rpcRow;
     },
     onMutate: async (id) => {
       // Optimistic +1 to wear_count and last_worn_at = now. The detail
@@ -378,9 +387,6 @@ export function useMarkWorn() {
       // the gauges, palette, weekly bars, and most-worn list don't lie for up
       // to staleTime (5min) after a wear / laundry / update.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['garment', user?.id, data.id], data);
     },
   });
 }
