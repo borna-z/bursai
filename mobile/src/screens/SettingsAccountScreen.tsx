@@ -31,7 +31,7 @@ export function SettingsAccountScreen() {
   const deleteAccount = useDeleteAccount();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
+  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? tr('settings.profile.fallbackName');
   const email = user?.email ?? '';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
 
@@ -55,15 +55,15 @@ export function SettingsAccountScreen() {
   const SUPPORT_EMAIL = 'support@burs.me';
   const handleEmailRowPress = () => {
     Alert.alert(
-      'Email',
-      `To change the email on your account, contact ${SUPPORT_EMAIL}.`,
+      tr('settings.account.email.alert.title'),
+      tr('settings.account.email.alert.body', { email: SUPPORT_EMAIL }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('common.cancel'), style: 'cancel' },
         {
-          text: 'Email support',
+          text: tr('settings.account.email.alert.action'),
           onPress: () => {
             void Linking.openURL(
-              `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Change account email')}`,
+              `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(tr('settings.account.email.subject'))}`,
             );
           },
         },
@@ -101,12 +101,12 @@ export function SettingsAccountScreen() {
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>
-          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+          <IconBtn ariaLabel={tr('common.back')} onPress={() => nav.goBack()} variant="ghost">
             <BackIcon color={t.fg} />
           </IconBtn>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Settings</Eyebrow>
-            <PageTitle>Account</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{tr('settings.account.headerEyebrow')}</Eyebrow>
+            <PageTitle>{tr('settings.account.headerTitle')}</PageTitle>
           </View>
         </View>
 
@@ -138,7 +138,10 @@ export function SettingsAccountScreen() {
               <Pressable
                 accessibilityRole="link"
                 onPress={() =>
-                  Alert.alert('Coming soon', 'Profile photo upload coming soon.')
+                  Alert.alert(
+                    tr('settings.account.comingSoon.title'),
+                    tr('settings.account.comingSoon.body'),
+                  )
                 }
                 hitSlop={6}>
                 <Text
@@ -149,7 +152,7 @@ export function SettingsAccountScreen() {
                     marginTop: 4,
                     letterSpacing: -0.1,
                   }}>
-                  Edit photo
+                  {tr('settings.account.editPhoto')}
                 </Text>
               </Pressable>
             </View>
@@ -158,31 +161,34 @@ export function SettingsAccountScreen() {
 
         {/* ============ ACCOUNT FIELDS ============ */}
         <View style={{ gap: 8 }}>
-          <Eyebrow>Account</Eyebrow>
+          <Eyebrow>{tr('settings.account.section.account')}</Eyebrow>
           <Card padding={4}>
             <SettingsRow
-              title="Full name"
+              title={tr('settings.account.row.fullName')}
               value={displayName}
               onPress={() =>
-                Alert.alert('Full name', 'Edit your name in Profile.')
+                Alert.alert(
+                  tr('settings.account.fullName.alert.title'),
+                  tr('settings.account.fullName.alert.body'),
+                )
               }
             />
             <SettingsRow
               icon={<MailIcon size={18} color={t.accent} />}
-              title="Email"
-              value={email || '—'}
+              title={tr('settings.account.row.email')}
+              value={email || tr('common.empty')}
               onPress={handleEmailRowPress}
             />
             <SettingsRow
               icon={<KeyIcon size={18} color={t.accent} />}
-              title="Change password"
+              title={tr('settings.account.row.changePassword')}
               last={connectedProviders.length === 0}
               onPress={() => nav.navigate('ResetPassword')}
             />
             {connectedProviders.length > 0 ? (
               <SettingsRow
                 icon={<GlobeIcon size={18} color={t.accent} />}
-                title="Connected accounts"
+                title={tr('settings.account.row.connected')}
                 value={connectedLabel}
                 last
                 hideChevron
@@ -193,20 +199,23 @@ export function SettingsAccountScreen() {
 
         {/* ============ DATA ============ */}
         <View style={{ gap: 8 }}>
-          <Eyebrow>Data</Eyebrow>
+          <Eyebrow>{tr('settings.account.section.data')}</Eyebrow>
           <Card padding={4}>
             <SettingsRow
               icon={<FileIcon size={18} color={t.accent} />}
-              title="Export my data"
-              caption="Get a copy as a ZIP archive"
+              title={tr('settings.account.row.export')}
+              caption={tr('settings.account.row.export.caption')}
               onPress={() =>
-                Alert.alert('Export', 'Your data export will be emailed to you.')
+                Alert.alert(
+                  tr('settings.account.export.alert.title'),
+                  tr('settings.account.export.alert.body'),
+                )
               }
             />
             <SettingsRow
               icon={<TrashIcon size={18} color={t.destructive} />}
-              title="Delete account"
-              caption="Permanently removes all data"
+              title={tr('settings.account.row.delete')}
+              caption={tr('settings.account.row.delete.caption')}
               destructive
               last
               onPress={() => setDeleteOpen(true)}

@@ -28,7 +28,8 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Caption } from './Caption';
-import { t as tr } from '../lib/i18n';
+import { t as tr, useTranslation } from '../lib/i18n';
+import { formatPrice } from '../lib/formatPrice';
 import { Sentry } from '../lib/sentry';
 import type { ShoppingResultCard as ShoppingResultCardType } from '../lib/styleChatContract';
 
@@ -42,6 +43,10 @@ export function ShoppingResultCard({
   onOpen: (url: string) => void;
 }) {
   const t = useTokens();
+  // Subscribe to locale changes so the price reformats live when the user
+  // switches locale (e.g. from a settings deep-link). `getLocale()` alone
+  // would resolve once at first render.
+  const { locale } = useTranslation();
 
   // Track image-load failure so we can swap to the same neutral placeholder
   // we render when `image_url` is null. CDN 404s are common and low-signal,
@@ -53,12 +58,15 @@ export function ShoppingResultCard({
     setImageFailed(false);
   }, [card.id]);
 
+  // M23 follow-up (Theme 3 / M33): switch from the "{amount} {currency}"
+  // template to `Intl.NumberFormat` so SEK renders as `199 kr` with proper
+  // thousand-separators on a Swedish device, while a USD card on en-US
+  // renders as `$11.99`. Falls back gracefully when the runtime can't load
+  // a formatter for the requested locale/currency pair (older Hermes
+  // builds on Android lack ICU data for some locales).
   const priceLabel =
     card.price && Number.isFinite(card.price.amount) && card.price.currency
-      ? tr('shoppingChat.cardPriceTemplate', {
-          amount: card.price.amount,
-          currency: card.price.currency,
-        })
+      ? formatPrice(card.price.amount, card.price.currency, locale)
       : null;
 
   const subtitleParts: string[] = [];

@@ -163,7 +163,7 @@ function deriveDisplayHost(url: string): string {
  * (the textarea helper) and `submit` (the hook's last-line defence so a
  * caller that bypasses the helper still gets the same guarantees). The
  * https-only filter matches the M19 web-match guard precedent at
- * `mobile/src/i18n/en.ts:visualSearch.invalidWebUrl`. (Codex round 1
+ * `mobile/src/i18n/locales/en.ts:visualSearch.invalidWebUrl`. (Codex round 1
  * P3.1.) */
 function validateAndDedupeUrls(input: readonly string[]): string[] {
   const out: string[] = [];

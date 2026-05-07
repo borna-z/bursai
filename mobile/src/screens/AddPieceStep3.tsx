@@ -56,18 +56,19 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'AddPieceStep3'>;
 
 const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
-const SEASON_LABELS: Record<string, string> = {
-  spring: 'Spring',
-  summer: 'Summer',
-  autumn: 'Autumn',
-  winter: 'Winter',
+const SEASON_LABEL_KEYS: Record<string, string> = {
+  spring: 'addpiece.step3.season.spring',
+  summer: 'addpiece.step3.season.summer',
+  autumn: 'addpiece.step3.season.autumn',
+  winter: 'addpiece.step3.season.winter',
 };
 
 // Capitalise first character. The analyzer emits lowercase tokens for category /
 // color / material; the display rows want title-case so they read like editorial
-// copy rather than raw enum values.
+// copy rather than raw enum values. The em-dash empty marker uses the i18n
+// `fieldEmpty` key so locales can swap it (e.g. for RTL or punctuation rules).
 function titleCase(value: string | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return tr('common.empty');
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
@@ -296,8 +297,8 @@ export function AddPieceStep3() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
         <View style={s.fallback}>
-          <Text style={{ fontFamily: fonts.ui, color: t.fg }}>Missing analysis data.</Text>
-          <Button label="Start over" onPress={() => nav.navigate('AddPieceStep1')} />
+          <Text style={{ fontFamily: fonts.ui, color: t.fg }}>{tr('addpiece.step3.fallback.body')}</Text>
+          <Button label={tr('addpiece.step3.fallback.startOver')} onPress={() => nav.navigate('AddPieceStep1')} />
         </View>
       </SafeAreaView>
     );
@@ -345,21 +346,21 @@ export function AddPieceStep3() {
   // wire-format messages ("duplicate key value violates unique constraint",
   // "FetchError: Network request failed", etc.) that are noise to the end user.
   const friendlySaveError = (err: unknown): string => {
-    if (!(err instanceof Error)) return 'Could not save. Please try again.';
+    if (!(err instanceof Error)) return tr('addpiece.step3.error.generic');
     const m = err.message.toLowerCase();
     if (m.includes('network') || m.includes('fetch')) {
-      return 'No internet connection. Try again when you reconnect.';
+      return tr('addpiece.step3.error.network');
     }
     if (m.includes('duplicate')) {
-      return 'Looks like this piece is already in your wardrobe.';
+      return tr('addpiece.step3.error.duplicate');
     }
     if (m.includes('not authenticated')) {
-      return 'Please sign in again before saving.';
+      return tr('addpiece.step3.error.notSignedIn');
     }
     if (m.includes('upload was lost') || m.includes('re-add')) {
-      return 'The upload didn’t finish. Tap Re-scan to try again.';
+      return tr('addpiece.step3.error.uploadLost');
     }
-    return 'Could not save. Please try again.';
+    return tr('addpiece.step3.error.generic');
   };
 
   const handleSave = async (enableStudioQuality: boolean) => {
@@ -434,12 +435,12 @@ export function AddPieceStep3() {
       if (err instanceof OfflineQueuedError) {
         savedRef.current = true;
         Alert.alert(
-          'Saved offline',
-          'We’ll finish saving this piece as soon as you’re back online.',
+          tr('addpiece.step3.offline.title'),
+          tr('addpiece.step3.offline.body'),
         );
         nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
       } else {
-        Alert.alert('Save failed', friendlySaveError(err));
+        Alert.alert(tr('addpiece.step3.saveFailed.title'), friendlySaveError(err));
       }
     } finally {
       savingRef.current = false;
@@ -490,11 +491,11 @@ export function AddPieceStep3() {
       return;
     }
     Alert.alert(
-      'Discard this piece?',
-      "You'll lose the photo and the AI analysis. You can rescan from Step 1.",
+      tr('addpiece.step3.discard.title'),
+      tr('addpiece.step3.discard.body'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: () => nav.goBack() },
+        { text: tr('common.cancel'), style: 'cancel' },
+        { text: tr('common.discard'), style: 'destructive', onPress: () => nav.goBack() },
       ],
     );
   };
@@ -503,20 +504,20 @@ export function AddPieceStep3() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
       {/* ============ HEADER ============ */}
       <View style={[s.header, { borderBottomColor: t.border }]}>
-        <IconBtn variant="ghost" onPress={confirmBack} ariaLabel="Back">
+        <IconBtn variant="ghost" onPress={confirmBack} ariaLabel={tr('common.back')}>
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>Step 3 of 3</Eyebrow>
-          <PageTitle size={26}>Confirm</PageTitle>
+          <Eyebrow style={{ marginBottom: 2 }}>{tr('addpiece.step3.headerEyebrow')}</Eyebrow>
+          <PageTitle size={26}>{tr('addpiece.step3.headerTitle')}</PageTitle>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Re-scan a different photo"
+          accessibilityLabel={tr('addpiece.step3.rescan.aria')}
           onPress={handleRescan}
           style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
           <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.accent, fontWeight: '500' }}>
-            Re-scan
+            {tr('addpiece.step3.rescan')}
           </Text>
         </Pressable>
       </View>
@@ -538,7 +539,7 @@ export function AddPieceStep3() {
             />
           </View>
           <View style={{ flex: 1, paddingTop: 4 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Detected</Eyebrow>
+            <Eyebrow style={{ marginBottom: 4 }}>{tr('addpiece.step3.detected')}</Eyebrow>
             <Text
               style={{
                 fontFamily: fonts.displayMedium,
@@ -549,7 +550,7 @@ export function AddPieceStep3() {
                 letterSpacing: -0.22,
                 color: t.fg,
               }}>
-              {analysis.title || 'Untitled'}
+              {analysis.title || tr('addpiece.step3.untitled')}
             </Text>
             {/* Confidence badge — accent gold for high-trust auto-fill, soft destructive
                 terracotta for "review carefully". Honours the single-accent token rule
@@ -560,8 +561,8 @@ export function AddPieceStep3() {
                 accessible
                 accessibilityLabel={
                   confidenceHigh
-                    ? 'AI confidence high — auto-detected fields look correct'
-                    : 'AI confidence low — please review the auto-detected fields'
+                    ? tr('addpiece.step3.confidence.high.aria')
+                    : tr('addpiece.step3.confidence.low.aria')
                 }
                 style={[
                   s.confidenceBadge,
@@ -578,7 +579,7 @@ export function AddPieceStep3() {
                     textTransform: 'uppercase',
                     color: confidenceHigh ? t.accent : t.destructive,
                   }}>
-                  {confidenceHigh ? 'Looks good' : 'Review carefully'}
+                  {confidenceHigh ? tr('addpiece.step3.confidence.high') : tr('addpiece.step3.confidence.low')}
                 </Text>
               </View>
               <Chip label={titleCase(analysis.category)} />
@@ -597,12 +598,12 @@ export function AddPieceStep3() {
               color: t.fg2,
               textTransform: 'uppercase',
             }}>
-            Title
+            {tr('addpiece.step3.titleLabel')}
           </Text>
           <TextInput
             value={titleOverride}
             onChangeText={setTitleOverride}
-            placeholder={analysis.title || 'Name this piece'}
+            placeholder={analysis.title || tr('addpiece.step3.titlePlaceholder')}
             placeholderTextColor={t.fg3}
             style={[
               s.titleInput,
@@ -618,12 +619,12 @@ export function AddPieceStep3() {
           {/* Display-only in W5; editing each field needs picker UIs that land in Wave 9. */}
           {(
             [
-              ['Category', titleCase(analysis.category)],
-              ['Subcategory', titleCase(analysis.subcategory)],
-              ['Primary color', titleCase(analysis.color_primary)],
-              ['Material', titleCase(analysis.material)],
-              ['Pattern', titleCase(analysis.pattern)],
-              ['Fit', titleCase(analysis.fit)],
+              [tr('addpiece.step3.field.category'), titleCase(analysis.category)],
+              [tr('addpiece.step3.field.subcategory'), titleCase(analysis.subcategory)],
+              [tr('addpiece.step3.field.colorPrimary'), titleCase(analysis.color_primary)],
+              [tr('addpiece.step3.field.material'), titleCase(analysis.material)],
+              [tr('addpiece.step3.field.pattern'), titleCase(analysis.pattern)],
+              [tr('addpiece.step3.field.fit'), titleCase(analysis.fit)],
             ] as [string, string][]
           ).map(([label, value]) => (
             <View
@@ -657,12 +658,12 @@ export function AddPieceStep3() {
 
         {/* ============ SEASONS ============ */}
         <View>
-          <Eyebrow style={{ marginBottom: 8 }}>Seasons</Eyebrow>
+          <Eyebrow style={{ marginBottom: 8 }}>{tr('addpiece.step3.seasonsEyebrow')}</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {SEASONS.map((season) => (
               <Chip
                 key={season}
-                label={SEASON_LABELS[season]}
+                label={tr(SEASON_LABEL_KEYS[season])}
                 active={seasonsLower.includes(season)}
               />
             ))}
@@ -673,16 +674,16 @@ export function AddPieceStep3() {
       {/* ============ STICKY SAVE BAR ============ */}
       <View style={[s.stickyBar, { borderTopColor: t.border, backgroundColor: t.bg }]}>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>Almost there</Eyebrow>
+          <Eyebrow style={{ marginBottom: 2 }}>{tr('addpiece.step3.almostEyebrow')}</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
-            We'll keep refining in the background
+            {tr('addpiece.step3.almostBody')}
           </Text>
         </View>
         <Button
-          label={saveBusy ? 'Saving…' : 'Save'}
+          label={saveBusy ? tr('addpiece.step3.saving') : tr('addpiece.step3.save')}
           onPress={openChoiceSheet}
           disabled={saveBusy}
-          accessibilityLabel={saveBusy ? 'Saving garment' : 'Save garment'}
+          accessibilityLabel={saveBusy ? tr('addpiece.step3.saving.aria') : tr('addpiece.step3.save.aria')}
           accessibilityState={{ busy: saveBusy, disabled: saveBusy }}
         />
       </View>

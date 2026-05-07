@@ -29,6 +29,7 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CameraIcon, ImageIcon, LinkIcon, SearchIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
+import { t as tr } from '../lib/i18n';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -57,7 +58,7 @@ export function AddPieceStep1() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission needed', 'Grant photo access to import from your gallery.');
+        Alert.alert(tr('addpiece.step1.permission.title'), tr('addpiece.step1.permission.body'));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -74,7 +75,7 @@ export function AddPieceStep1() {
       }));
       setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX));
     } catch {
-      Alert.alert('Gallery unavailable', 'Could not open the photo library.');
+      Alert.alert(tr('addpiece.step1.galleryError.title'), tr('addpiece.step1.galleryError.body'));
     }
   }, []);
 
@@ -132,15 +133,15 @@ export function AddPieceStep1() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
       {/* ============ HEADER ============ */}
       <View style={[s.header, { borderBottomColor: t.border }]}>
-        <IconBtn variant="ghost" onPress={() => nav.goBack()} ariaLabel="Back">
+        <IconBtn variant="ghost" onPress={() => nav.goBack()} ariaLabel={tr('common.back')}>
           <BackIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>New garment</Eyebrow>
-          <PageTitle size={26}>Add pieces</PageTitle>
+          <Eyebrow style={{ marginBottom: 2 }}>{tr('addpiece.step1.headerEyebrow')}</Eyebrow>
+          <PageTitle size={26}>{tr('addpiece.step1.headerTitle')}</PageTitle>
         </View>
         <Pressable onPress={() => nav.goBack()} style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
-          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2, fontWeight: '500' }}>Cancel</Text>
+          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2, fontWeight: '500' }}>{tr('common.cancel')}</Text>
         </Pressable>
       </View>
 
@@ -164,12 +165,12 @@ export function AddPieceStep1() {
             pointerEvents="none"
           />
           <View style={{ flex: 1, gap: 4 }}>
-            <Eyebrow>Recommended · single piece</Eyebrow>
+            <Eyebrow>{tr('addpiece.step1.hero.eyebrow')}</Eyebrow>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 16, fontWeight: '600', letterSpacing: -0.32, color: t.fg, marginTop: 2 }}>
-              Live scan
+              {tr('addpiece.step1.hero.title')}
             </Text>
             <Text style={{ fontFamily: fonts.ui, fontSize: 12, color: t.fg2, lineHeight: 17 }}>
-              Place the garment on a flat surface — we'll auto-crop and tag.
+              {tr('addpiece.step1.hero.body')}
             </Text>
           </View>
           <View
@@ -193,32 +194,32 @@ export function AddPieceStep1() {
             the M19 stacked layout (which left two full-width entries
             below the Camera/Gallery row). */}
         <View>
-          <Eyebrow style={{ marginBottom: 8 }}>Or add photos</Eyebrow>
+          <Eyebrow style={{ marginBottom: 8 }}>{tr('addpiece.step1.sourceEyebrow')}</Eyebrow>
           <View style={{ gap: 8 }}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <SourcePill
-                label="Camera"
-                sub="Shoot now"
+                label={tr('addpiece.step1.source.camera.label')}
+                sub={tr('addpiece.step1.source.camera.sub')}
                 icon={<CameraIcon color={t.accent} />}
                 onPress={openLiveScan}
               />
               <SourcePill
-                label="Gallery"
-                sub="Pick photos"
+                label={tr('addpiece.step1.source.gallery.label')}
+                sub={tr('addpiece.step1.source.gallery.sub')}
                 icon={<ImageIcon color={t.accent} />}
                 onPress={pickFromGallery}
               />
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <SourcePill
-                label="Search by photo"
-                sub="Find similar"
+                label={tr('addpiece.step1.source.visualSearch.label')}
+                sub={tr('addpiece.step1.source.visualSearch.sub')}
                 icon={<SearchIcon color={t.accent} />}
                 onPress={openVisualSearch}
               />
               <SourcePill
-                label="Import from link"
-                sub="Paste a URL"
+                label={tr('addpiece.step1.source.importLink.label')}
+                sub={tr('addpiece.step1.source.importLink.sub')}
                 icon={<LinkIcon color={t.accent} />}
                 onPress={openImportFromLink}
               />
@@ -234,7 +235,7 @@ export function AddPieceStep1() {
               <Text style={{ color: t.fg3 }}> / {MAX}</Text>
             </Text>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 10, letterSpacing: 1.7, color: t.fg2, textTransform: 'uppercase' }}>
-              Photos staged
+              {tr('addpiece.step1.counterEyebrow')}
             </Text>
           </View>
           <View style={{ height: 3, borderRadius: 2, backgroundColor: t.bg2, overflow: 'hidden' }}>
@@ -275,7 +276,7 @@ export function AddPieceStep1() {
               </View>
               <Pressable
                 onPress={() => removePhoto(p.id)}
-                accessibilityLabel="Remove photo"
+                accessibilityLabel={tr('addpiece.step1.removePhoto')}
                 style={({ pressed }) => [
                   s.photoX,
                   { backgroundColor: t.scrimBg, opacity: pressed ? 0.7 : 1 },
@@ -287,7 +288,7 @@ export function AddPieceStep1() {
           {photos.length < MAX ? (
             <Pressable
               onPress={pickFromGallery}
-              accessibilityLabel="Add photo"
+              accessibilityLabel={tr('addpiece.step1.addPhoto')}
               style={({ pressed }) => [
                 s.photoTile,
                 {
@@ -303,27 +304,27 @@ export function AddPieceStep1() {
               ]}>
               <Text style={{ fontFamily: fonts.ui, fontSize: 22, color: t.accent, fontWeight: '300', lineHeight: 24 }}>+</Text>
               <Text style={{ fontFamily: fonts.uiSemi, fontSize: 10, color: t.accent, letterSpacing: 1.4, textTransform: 'uppercase' }}>
-                Add
+                {tr('addpiece.step1.addLabel')}
               </Text>
             </Pressable>
           ) : null}
         </View>
 
         <Caption style={{ textAlign: 'center', opacity: 0.7 }}>
-          Up to {MAX} photos · Private to your wardrobe
+          {tr('addpiece.step1.maxCaption', { max: MAX })}
         </Caption>
       </ScrollView>
 
       {/* ============ STICKY CTA ============ */}
       <View style={[s.stickyBar, { borderTopColor: t.border, backgroundColor: t.bg }]}>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>{ready} ready</Eyebrow>
+          <Eyebrow style={{ marginBottom: 2 }}>{tr('addpiece.step1.readyEyebrow', { count: ready })}</Eyebrow>
           <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2, letterSpacing: -0.11 }}>
-            We'll tag each one automatically
+            {tr('addpiece.step1.readyCaption')}
           </Text>
         </View>
         <Button
-          label={ready > 1 ? 'Analyze first' : 'Analyze piece'}
+          label={ready > 1 ? tr('addpiece.step1.cta.first') : tr('addpiece.step1.cta.single')}
           onPress={onContinue}
           disabled={ready === 0}
         />

@@ -78,12 +78,12 @@ export function SettingsPrivacyScreen() {
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>
-          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+          <IconBtn ariaLabel={tr('common.back')} onPress={() => nav.goBack()} variant="ghost">
             <BackIcon color={t.fg} />
           </IconBtn>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Settings</Eyebrow>
-            <PageTitle>Privacy & data</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{tr('settings.privacy.headerEyebrow')}</Eyebrow>
+            <PageTitle>{tr('settings.privacy.headerTitle')}</PageTitle>
           </View>
         </View>
 
@@ -102,17 +102,17 @@ export function SettingsPrivacyScreen() {
               <ShieldIcon size={22} color={t.accent} />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Eyebrow>Your data</Eyebrow>
-              <Caption>
-                BURS keeps your wardrobe and style data private. You can export, reset, or delete it
-                at any time.
-              </Caption>
+              <Eyebrow>{tr('settings.privacy.info.eyebrow')}</Eyebrow>
+              <Caption>{tr('settings.privacy.info.body')}</Caption>
               <Button
-                label="Read privacy policy"
+                label={tr('settings.privacy.info.cta')}
                 variant="quiet"
                 size="sm"
                 onPress={() =>
-                  Alert.alert('Privacy policy', 'Visit burs.me/privacy to read the full policy.')
+                  Alert.alert(
+                    tr('settings.privacy.alert.title'),
+                    tr('settings.privacy.alert.body'),
+                  )
                 }
                 style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
               />
@@ -128,14 +128,14 @@ export function SettingsPrivacyScreen() {
         <Card padding={4}>
           <SettingsRow
             icon={<RotateIcon size={18} color={t.accent} />}
-            title="Reset style memory"
-            caption="Clears learned preferences only"
+            title={tr('settings.row.resetMemory')}
+            caption={tr('settings.row.resetMemory.caption')}
             onPress={() => setResetOpen(true)}
           />
           <SettingsRow
             icon={<TrashIcon size={18} color={t.destructive} />}
-            title="Delete account"
-            caption="Permanently removes all data"
+            title={tr('settings.account.row.delete')}
+            caption={tr('settings.account.row.delete.caption')}
             destructive
             last
             onPress={() => setDeleteOpen(true)}
