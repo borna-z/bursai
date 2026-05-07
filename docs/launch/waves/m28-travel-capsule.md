@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Wire the 3-screen travel wizard (TravelCapsule → TravelMustHaves → TravelPackingList) to the deployed `travel_capsule` edge function. |
-| Status | TODO |
+| Status | DONE (PR #TBD) |
 | Branch | `mobile-m28-travel-capsule` |
 | PR count | 1 |
 | Depends on | V0 |

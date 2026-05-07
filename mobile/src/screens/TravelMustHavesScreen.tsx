@@ -1,215 +1,262 @@
-// Travel Capsule — Step 2 of 3. Pick the wardrobe pieces that must come.
-// Mirrors design_handoff_burs_rn/source/extra-screens.jsx capsule must-haves panel.
+// Travel Capsule — Step 2 of 3. Must-haves with edit support.
 //
-// 3-col GarmentCard grid with checkmark overlay on selected items + sticky bottom
-// continue bar. Backed by `useFlatGarments({ inLaundry: false })` — the real
-// non-laundered wardrobe — so the user picks from pieces they actually own.
-// Selected garment IDs are threaded into the next step via route params.
+// M28 wired this screen to real data. The capsule is generated server-side
+// before this screen mounts (see useGenerateTravelCapsule); this screen
+// reads `capsuleId` from route params, looks up the row via
+// useTravelCapsule(), and renders the must_haves the wizard seeded.
+//
+// Each row is a tri-state toggle:
+//   • have   — bringing this piece (default for rows seeded from the
+//              user's prior selection)
+//   • buy    — gap they intend to purchase before the trip
+//   • unsure — explicitly deferred decision
+//
+// Edits persist via useUpdateTravelCapsuleMustHaves with optimistic
+// updates so the toggle reflects instantly. The "Continue · Packing list"
+// CTA threads `capsuleId` into TravelPackingList.
+//
+// Empty-state copy renders when the capsule has no must_haves seeded
+// (e.g. user picked nothing on Step 1, or this is a legacy row from
+// before the M28 wave) — the user can still continue to the packing
+// list.
 
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { radii } from '../theme/tokens';
+import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
-import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
-import { GarmentCard, type GarmentCardData } from '../components/GarmentCard';
-import { BackIcon, CheckIcon } from '../components/icons';
-import { useFlatGarments } from '../hooks/useGarments';
-import type { Garment, GarmentFilters } from '../types/garment';
+import { Card } from '../components/Card';
+import { BackIcon } from '../components/icons';
+import { t as tr } from '../lib/i18n';
+import {
+  useTravelCapsule,
+  useUpdateTravelCapsuleMustHaves,
+  type TravelCapsuleMustHave,
+  type TravelCapsuleMustHaveStatus,
+} from '../hooks/useTravelCapsules';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'TravelMustHaves'>;
 
-// Hoisted to module scope so the queryKey for `useFlatGarments` is stable across
-// re-renders — same convention as WardrobeScreen. We only show non-laundered
-// pieces because the user can't realistically pack what's currently dirty.
-const WARDROBE_FILTERS: GarmentFilters = { inLaundry: false };
+const STATUS_CYCLE: TravelCapsuleMustHaveStatus[] = ['have', 'buy', 'unsure'];
 
-// Filter chips. Values match the canonical short-form categories the AI
-// enrichment writes to `garments.category` ("Top", "Bottom", "Outer", "Shoes",
-// "Dress"). 'All' is the no-filter pass-through. Compared case-insensitively
-// to defend against any historical row that used a different cap convention.
-const FILTERS = ['All', 'Top', 'Bottom', 'Shoes', 'Outer', 'Dress'] as const;
-type FilterKey = (typeof FILTERS)[number];
+function nextStatus(s: TravelCapsuleMustHaveStatus): TravelCapsuleMustHaveStatus {
+  const idx = STATUS_CYCLE.indexOf(s);
+  return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+}
+
+function statusLabel(s: TravelCapsuleMustHaveStatus): string {
+  switch (s) {
+    case 'have':
+      return tr('travelMustHaves.status.have');
+    case 'buy':
+      return tr('travelMustHaves.status.buy');
+    case 'unsure':
+      return tr('travelMustHaves.status.unsure');
+  }
+}
 
 export function TravelMustHavesScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
-  const [filter, setFilter] = React.useState<FilterKey>('All');
-  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const route = useRoute<Route>();
+  const capsuleId = route.params?.capsuleId;
+  const { capsule, isLoading } = useTravelCapsule(capsuleId);
+  const updateMustHaves = useUpdateTravelCapsuleMustHaves();
 
-  const { data: garments, isLoading } = useFlatGarments(WARDROBE_FILTERS);
+  // Local working copy so the user can flip several toggles before the
+  // optimistic write debounces. We persist on every change and let the
+  // optimistic-update reconcile back. Initialised from the row.
+  const [draft, setDraft] = React.useState<TravelCapsuleMustHave[]>([]);
+  const [hydrated, setHydrated] = React.useState(false);
 
-  // Apply category chip after fetch — server returns the full list, we slice
-  // client-side so chip switches don't refetch. Matches the WardrobeScreen
-  // pattern (in-memory category narrowing post-pagination).
-  const visible = React.useMemo<Garment[]>(() => {
-    if (filter === 'All') return garments;
-    const wanted = filter.toLowerCase();
-    return garments.filter((g) => (g.category ?? '').trim().toLowerCase() === wanted);
-  }, [garments, filter]);
+  // Sync local state from the cached capsule once. We don't sync on
+  // every render — the parent's optimistic update would clobber the
+  // user's mid-flight tap. Re-sync if the capsuleId changes (e.g.
+  // navigation pushes a different row mid-mount).
+  React.useEffect(() => {
+    if (!capsule) return;
+    setDraft(capsule.must_haves);
+    setHydrated(true);
+  }, [capsule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = React.useCallback((id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const header = (
-    <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
-      <View style={s.headerRow}>
-        <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
-          <BackIcon color={t.fg} />
-        </IconBtn>
-        <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 4 }}>Step 2 of 3</Eyebrow>
-          <PageTitle>Must-haves</PageTitle>
-        </View>
-      </View>
-      <Caption>Which pieces must come with you?</Caption>
-      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-        {FILTERS.map((key) => (
-          <Chip key={key} label={key} active={filter === key} onPress={() => setFilter(key)} />
-        ))}
-      </View>
-      <Eyebrow>{selected.size} selected</Eyebrow>
-    </View>
+  const handleToggle = React.useCallback(
+    (mh: TravelCapsuleMustHave) => {
+      if (!capsuleId) return;
+      const next = draft.map((row) =>
+        row.id === mh.id ? { ...row, status: nextStatus(row.status) } : row,
+      );
+      setDraft(next);
+      updateMustHaves.mutate(
+        { capsuleId, mustHaves: next },
+        {
+          onError: () => {
+            // Roll back local state on persistence failure so the row
+            // doesn't lie about a status that didn't actually save.
+            setDraft(draft);
+            Alert.alert('', tr('travelMustHaves.saveFailed'));
+          },
+        },
+      );
+    },
+    [capsuleId, draft, updateMustHaves],
   );
 
-  // Memoised renderTile — preserves FlatList row memoisation across parent re-renders.
-  // Codex audit P2.2.
-  const renderTile = React.useCallback(({ item }: { item: Garment }) => {
-    const isSelected = selected.has(item.id);
-    // GarmentCardData is a strict subset of Garment with the right photo/wear
-    // fields, so a direct hand-off works — no fixture mapping needed.
-    const cardData: GarmentCardData = item;
-    return (
-      <Pressable
-        onPress={() => toggle(item.id)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isSelected }}
-        accessibilityLabel={item.title}
-        style={({ pressed }) => [
-          {
-            flex: 1,
-            transform: pressed ? [{ scale: 0.98 }] : [],
-          },
-        ]}>
-        <View
-          style={[
-            s.tile,
-            {
-              borderColor: isSelected ? t.accent : t.border,
-              borderWidth: isSelected ? 2 : 1,
-              borderRadius: radii.lg,
-              overflow: 'hidden',
-            },
-          ]}>
-          <GarmentCard garment={cardData} />
-          {isSelected ? (
-            <View style={[s.checkBadge, { backgroundColor: t.accent }]}>
-              <CheckIcon color={t.accentFg} size={14} />
-            </View>
-          ) : null}
-        </View>
-      </Pressable>
-    );
-  }, [selected, toggle, t.accent, t.accentFg, t.border]);
+  const handleContinue = React.useCallback(() => {
+    if (!capsuleId) return;
+    nav.navigate('TravelPackingList', { capsuleId });
+  }, [capsuleId, nav]);
 
-  // First-run / empty wardrobe state. We don't ship fake fixtures any more, so
-  // a user with zero non-laundered garments needs a real path forward — point
-  // them at AddPieceStep1. We only show this once the fetch settles, so the
-  // initial-load flash doesn't briefly look like an empty wardrobe.
-  const showEmpty = !isLoading && garments.length === 0;
+  const showEmpty = hydrated && draft.length === 0;
+
+  // Without a capsuleId, the screen has nothing to render — bounce back
+  // to the wizard. Direct deep-link entry shouldn't be possible today
+  // but the guard keeps the navigator types honest.
+  if (!capsuleId) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <Header onBack={() => nav.goBack()} />
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 12 }}>
+          <Caption>{tr('travelMustHaves.empty.body')}</Caption>
+          <Button label="Back to wizard" variant="accent" onPress={() => nav.goBack()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-      {showEmpty ? (
-        <View style={{ flex: 1 }}>
-          {header}
-          <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingTop: 8, gap: 14 }}>
-            <Eyebrow>Empty wardrobe</Eyebrow>
-            <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
-              Add a few pieces to your wardrobe before building a travel capsule.
-            </Caption>
-            <Button
-              label="Add a piece"
-              variant="accent"
-              onPress={() => nav.navigate('AddPieceStep1')}
-            />
+      <FlatList
+        data={draft}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
+            <Header onBack={() => nav.goBack()} />
+            <Eyebrow>Step 2 of 3</Eyebrow>
+            <PageTitle>{tr('travelMustHaves.heading')}</PageTitle>
+            <Caption>{tr('travelMustHaves.intro')}</Caption>
+            {capsule?.destination ? <Eyebrow>{capsule.destination}</Eyebrow> : null}
           </View>
-        </View>
-      ) : (
-        <FlatList
-          data={visible}
-          keyExtractor={(g) => g.id}
-          numColumns={3}
-          ListHeaderComponent={header}
-          renderItem={renderTile}
-          columnWrapperStyle={{ gap: 8, paddingHorizontal: 20 }}
-          contentContainerStyle={{ gap: 8, paddingBottom: 130 }}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+        }
+        ListEmptyComponent={
+          isLoading ? null : showEmpty ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 14 }}>
+              <Card padding={16}>
+                <View style={{ gap: 6 }}>
+                  <Eyebrow>{tr('travelMustHaves.empty.title')}</Eyebrow>
+                  <Caption>{tr('travelMustHaves.empty.body')}</Caption>
+                </View>
+              </Card>
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <MustHaveRow row={item} onToggle={() => handleToggle(item)} />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+        contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingBottom: 130 }}
+        showsVerticalScrollIndicator={false}
+      />
 
-      {/* ============ STICKY CONTINUE BAR ============ */}
-      {/* Hidden in the empty state — there's nothing to select, so the
-          Continue affordance has no meaning. */}
-      {showEmpty ? null : (
-        <View style={[s.stickyBar, { backgroundColor: t.bg, borderTopColor: t.border }]}>
-          <View style={{ flex: 1 }}>
-            <Eyebrow>{selected.size} pieces selected</Eyebrow>
-            <Caption style={{ marginTop: 2 }}>
-              {selected.size === 0
-                ? 'Pick at least one to continue'
-                : selected.size < 5
-                  ? 'Add a few more for variety'
-                  : 'Looking good — ready to pack'}
-            </Caption>
-          </View>
-          <Button
-            label="Continue"
-            variant="accent"
-            disabled={selected.size === 0}
-            // Thread the selection forward as garment IDs so the packing-list
-            // step actually knows what the user picked — previously this Set
-            // was lost when the user navigated away.
-            onPress={() =>
-              nav.navigate('TravelPackingList', { selectedIds: Array.from(selected) })
-            }
-          />
+      {/* Sticky continue bar */}
+      <View style={[s.stickyBar, { backgroundColor: t.bg, borderTopColor: t.border }]}>
+        <View style={{ flex: 1 }}>
+          <Eyebrow>{capsule?.destination ?? ''}</Eyebrow>
+          <Caption style={{ marginTop: 2 }}>
+            {draft.length === 0
+              ? tr('travelMustHaves.empty.body')
+              : `${draft.filter((r) => r.status === 'have').length} bringing · ${draft.filter((r) => r.status === 'buy').length} buying`}
+          </Caption>
         </View>
-      )}
+        <Button
+          label={tr('travelMustHaves.continueCta')}
+          variant="accent"
+          onPress={handleContinue}
+        />
+      </View>
     </SafeAreaView>
+  );
+}
+
+function Header({ onBack }: { onBack: () => void }) {
+  const t = useTokens();
+  return (
+    <View style={s.headerRow}>
+      <IconBtn ariaLabel="Back" onPress={onBack} variant="ghost">
+        <BackIcon color={t.fg} />
+      </IconBtn>
+    </View>
+  );
+}
+
+function MustHaveRow({
+  row,
+  onToggle,
+}: {
+  row: TravelCapsuleMustHave;
+  onToggle: () => void;
+}) {
+  const t = useTokens();
+  const isHave = row.status === 'have';
+  const isBuy = row.status === 'buy';
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityLabel={row.label || row.id}
+      accessibilityHint={tr('travelMustHaves.status.aria')}
+      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+      <Card padding={14}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            {row.category ? <Eyebrow>{row.category}</Eyebrow> : null}
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.uiSemi,
+                fontSize: 14,
+                color: t.fg,
+                letterSpacing: -0.13,
+              }}>
+              {row.label || row.id}
+            </Text>
+          </View>
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: radii.pill,
+              backgroundColor: isHave ? t.accent : isBuy ? t.accentSoft : t.bg2,
+              borderWidth: isBuy ? 1 : 0,
+              borderColor: isBuy ? t.accent : 'transparent',
+            }}>
+            <Text
+              style={{
+                fontFamily: fonts.uiSemi,
+                fontSize: 11,
+                letterSpacing: 0.4,
+                color: isHave ? t.accentFg : isBuy ? t.accent : t.fg2,
+              }}>
+              {statusLabel(row.status)}
+            </Text>
+          </View>
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 
 const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingTop: 4 },
-  tile: {
-    position: 'relative',
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   stickyBar: {
     position: 'absolute',
     left: 0,
