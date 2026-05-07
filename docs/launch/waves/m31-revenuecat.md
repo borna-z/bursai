@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Wire `react-native-purchases` (RevenueCat SDK), the Paywall screen, and a new `revenuecat_webhook` edge function that mirrors Stripe webhook semantics. |
-| Status | DONE (PR A: #758, PR B: #TBD) |
+| Status | DONE (PR A: #758, PR B: #759) |
 | Branch | `mobile-m31-revenuecat` |
 | PR count | 2 (PR A: client + paywall; PR B: webhook edge function) |
 | Depends on | V0 |
