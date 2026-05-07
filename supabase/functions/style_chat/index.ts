@@ -1120,7 +1120,7 @@ serve(async (req) => {
         complexity: "trivial",
         cacheTtlSeconds: 0,
         cacheNamespace: "style_chat_quick",
-      });
+      }, serviceClient);
 
       const quickText = typeof quickReply.data === "string" ? quickReply.data : "Hey! How can I help you today?";
 
@@ -1219,7 +1219,7 @@ serve(async (req) => {
           complexity: complexity as "trivial",
           cacheTtlSeconds: 0,
           cacheNamespace: "style_chat_classifier",
-        });
+        }, serviceClient);
         return typeof resp.data === "string" ? resp.data : "";
       });
 
@@ -1820,7 +1820,7 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
           complexity: "standard",
           cacheTtlSeconds: 0,
           cacheNamespace: "style_chat_clarifier",
-        });
+        }, serviceClient);
         rawAssistantText = typeof clarifierResponse.data === "string" && clarifierResponse.data.trim()
           ? clarifierResponse.data
           : buildStyleClarifierText(locale, latestUser);
@@ -1836,7 +1836,7 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
         complexity: chatComplexity,
         max_tokens: stylistMode === "CONVERSATIONAL" ? 180 : chatComplexity === "complex" ? 800 : 420,
         functionName: "style_chat",
-      });
+      }, serviceClient);
 
       rawAssistantText = typeof aiResponse.data === "string" ? aiResponse.data : String(aiResponse.data ?? "");
       aiFinishReason = aiResponse.finish_reason;

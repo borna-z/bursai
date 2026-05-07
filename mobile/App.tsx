@@ -410,7 +410,15 @@ function useNotificationDeepLink(): void {
         // @ts-expect-error — route name is dynamic; runtime-validated above.
         navigationRef.navigate(route, data?.params);
       } catch (err) {
-        console.warn('[App] notification deep-link nav failed:', err);
+        // Silent catches in production = invisible failures. Surface to
+        // Sentry with the route/params context so a regression in the
+        // deep-link route table or NavigationContainer state doesn't
+        // disappear into stdout.
+        Sentry.withScope((scope) => {
+          scope.setTag('source', 'push_deep_link');
+          scope.setContext('deep_link', { route, params: data?.params ?? null });
+          Sentry.captureException(err);
+        });
       }
     };
 

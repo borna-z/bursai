@@ -232,7 +232,11 @@ async function aiRefine(
   isStylistMode = false,
   occasionSubmode: string | null = null,
   layeringContext: { needs_base_layer: boolean } | null = null,
-  dayContext: DayContextInput | null = null
+  dayContext: DayContextInput | null = null,
+  // Service-role client passed through so callBursAI can fire-and-forget
+  // telemetry to analytics_events. Without it, every burs_style_engine AI
+  // call was invisible in the AI usage dashboard.
+  serviceClient: any = null,
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
@@ -315,7 +319,7 @@ ${comboDescriptions}`;
       functionName: "burs_style_engine",
       cacheTtlSeconds: 300,
       cacheNamespace: "style_engine",
-    });
+    }, serviceClient);
     return { data };
   } catch (e: any) {
     if (e.status === 429) return { error: "rate_limit", status: 429 };
@@ -1527,7 +1531,8 @@ serve(async (req) => {
     const aiMode = mode === "suggest" ? "suggest" : "generate";
     const aiResult = await aiRefine(
       activeCombos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
-      occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }, dayContext
+      occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }, dayContext,
+      serviceClient,
     );
 
     if (aiResult.error) {
