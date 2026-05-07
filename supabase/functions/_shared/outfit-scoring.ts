@@ -1086,8 +1086,11 @@ export function resolveOccasionSubmode(
   // formality bounds via `formalityCeiling` / `formalityFloor` (0-100 scale,
   // see `mobile/src/lib/styleProfileV4.ts`). We read the midpoint (the user's
   // typical dress-up state) on the 1-5 occasion scale that `getFormalityRange`
-  // produces, so a single signal drives the adjustment instead of letting both
-  // bounds fire independently for a default V4 profile.
+  // produces. Midpoint avoids the wide-range pitfall: a user with floor=10,
+  // ceiling=95 has a precise midpoint (52.5 → on-scale 3.1) that says "I can
+  // wear anything," whereas evaluating ceiling and floor independently would
+  // push BOTH up and down at once and the order of operations would decide
+  // which side won.
   const v4CeilingPct =
     typeof sp.formalityCeiling === 'number' ? sp.formalityCeiling : null;
   const v4FloorPct =
