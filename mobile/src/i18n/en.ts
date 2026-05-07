@@ -935,6 +935,12 @@ export const en: Record<string, string> = {
   'travelMustHaves.empty.body':
     'Build a capsule first to see the pieces BURS chose for you.',
   'travelMustHaves.saveFailed': "Couldn't save your changes. Try again.",
+  // Audit follow-up (2026-05-07): distinct copy for the save-conflict path
+  // so the user understands a fresher write landed first (the screen
+  // refetches in the background; tap dismiss and the latest state shows).
+  'travelMustHaves.saveConflictTitle': 'Updated elsewhere',
+  'travelMustHaves.saveConflictBody':
+    "We pulled in a fresher version of this trip. Your last change wasn't saved — review the latest and try again if needed.",
 
   // Step 3 — packing list. Per-item checkboxes persist into
   // `result.packed_state` JSONB on the capsule row, debounced 300ms so
@@ -1000,4 +1006,37 @@ export const en: Record<string, string> = {
   'settingsStyle.editColorPreferences.body':
     'Color preference editing coming soon.',
   'settings.styleProfileEmpty': 'Build your DNA in the style profile',
+
+  // ─── M28(b) — Travel capsule garment picker step ────────────────────────
+  // Append-only. The wizard now opens with a "Pick must-haves" screen
+  // before destination/dates so the user can curate which wardrobe pieces
+  // anchor the trip. Picker selections become primary must-haves; the
+  // AI-emitted coverage_gaps render as a secondary "We also noticed gaps"
+  // section in TravelMustHaves.
+  'travelCapsule.pickerStep.eyebrow': 'Step 1 of 3',
+  'travelCapsule.pickerStep.title': 'Pick the pieces you need',
+  'travelCapsule.pickerStep.intro':
+    'Tap up to 8 pieces you definitely want on this trip. Skip if you want BURS to choose entirely.',
+  'travelCapsule.pickerStep.continueWithoutPicks': 'Skip · let BURS choose',
+  'travelCapsule.pickerStep.continueWithPicks': 'Continue with these',
+  'travelGarmentPicker.searchPlaceholder': 'Search your wardrobe',
+  'travelGarmentPicker.filter.all': 'All',
+  'travelGarmentPicker.filter.tops': 'Tops',
+  'travelGarmentPicker.filter.bottoms': 'Bottoms',
+  'travelGarmentPicker.filter.outerwear': 'Outerwear',
+  'travelGarmentPicker.filter.shoes': 'Shoes',
+  'travelGarmentPicker.filter.accessories': 'Accessories',
+  // Pluralisation handled by the picker — `.one` for exactly 1 selected,
+  // `.other` for 0 / 2+. Both interpolate the {max} cap; `.other` adds {count}.
+  'travelGarmentPicker.selectedTemplate.one': '1 / {max} selected',
+  'travelGarmentPicker.selectedTemplate.other': '{count} / {max} selected',
+  'travelGarmentPicker.empty.title': 'No garments yet',
+  'travelGarmentPicker.empty.body':
+    'Add some pieces to your wardrobe before building a capsule.',
+  'travelGarmentPicker.empty.cta': 'Add a piece',
+
+  // Section headers in TravelMustHaves — distinguishes user-curated
+  // primary picks from AI-suggested coverage gaps.
+  'travelMustHaves.section.picks': 'Your picks',
+  'travelMustHaves.section.gaps': 'We also noticed gaps for this trip',
 };

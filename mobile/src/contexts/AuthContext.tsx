@@ -56,6 +56,7 @@ import {
   MEMORY_EVENT_ACTION,
   type MemoryIngestPayload,
 } from '../lib/memoryIngest';
+import { useV3CompatBackfill } from '../hooks/useV3CompatBackfill';
 
 export type OnboardingPrefs = {
   completed?: boolean;
@@ -480,6 +481,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const isOnboarded = deriveIsOnboarded(profile);
+
+  // M25 audit follow-up — V3-compat mirror backfill for pre-M25 users.
+  // Pre-M25 onboarding wrote only `preferences.style_profile_v4_jsonb`; the
+  // AI engine consumers read `preferences.styleProfile` (V3 vocab). This
+  // hook detects the mismatch on profile load and runs `migrateV4ToV3Compat`
+  // once per (app session × user.id) so AI quality recovers without
+  // forcing a quiz retake. Idempotent + dedup'd internally; safe to mount
+  // unconditionally. Runs only after `isOnboarded`-related profile fields
+  // have resolved (the hook itself short-circuits when profile is null).
+  useV3CompatBackfill(profile);
 
   const value = useMemo<AuthContextValue>(
     () => ({

@@ -44,6 +44,8 @@ import {
   useGenerateTravelCapsule,
   TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL,
 } from '../hooks/useGenerateTravelCapsule';
+import { useFlatGarments } from '../hooks/useGarments';
+import { TravelGarmentPicker } from '../components/TravelGarmentPicker';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -183,9 +185,25 @@ function buildWeekdayHeaders(): string[] {
   return out;
 }
 
+// Sub-step within Step 1 of the wizard. M28(b) split the original
+// destination/dates form behind a "Pick must-haves" sub-step:
+//   - 'picker' — user curates which wardrobe garments anchor the trip.
+//     Selection threads through to `useGenerateTravelCapsule` as
+//     `mustHaveItemIds`. Empty selection allowed (skip → AI-only).
+//   - 'form'   — original destination + dates + trip-type + saved-trips
+//     surface. Generation kicks off from this sub-step's CTA.
+// The TravelMustHaves screen still represents "Step 2 of 3" — both
+// sub-steps live under Step 1.
+type WizardSubStep = 'picker' | 'form';
+
+const PICKER_MAX = 8;
+
 export function TravelCapsuleScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+
+  const [subStep, setSubStep] = React.useState<WizardSubStep>('picker');
+  const [mustHaveItemIds, setMustHaveItemIds] = React.useState<string[]>([]);
 
   const [destination, setDestination] = React.useState('');
   const [fromDate, setFromDate] = React.useState('');
@@ -201,6 +219,13 @@ export function TravelCapsuleScreen() {
   const { data: savedCapsules = [], isLoading: capsulesLoading } = useTravelCapsules();
   const deleteCapsule = useDeleteTravelCapsule();
   const generate = useGenerateTravelCapsule();
+
+  // Wardrobe — the picker reads from the same flat garments query the
+  // wardrobe surface uses. `enabled` is the substep gate: only fetch on
+  // entry to the picker, freeing the form sub-step from a cold-cache hit.
+  // React Query dedupes if Wardrobe was visited earlier in the session.
+  const garmentsQuery = useFlatGarments(undefined, subStep === 'picker');
+  const allGarments = garmentsQuery.data;
 
   const nights = nightsBetween(fromDate, toDate);
   const canContinue =
@@ -292,6 +317,23 @@ export function TravelCapsuleScreen() {
     // matches the strings the edge function uses for occasion routing.
     const occasions = [backendTripType];
 
+    // Build the picker-garment snapshot for the hook — just the fields
+    // `seedMustHaves` needs to hydrate the must_haves rows. Filtered to
+    // the actually-selected ids so we don't ship the entire wardrobe in
+    // the mutation payload.
+    const selectedSet = new Set(mustHaveItemIds);
+    const mustHaveGarments = (allGarments ?? [])
+      .filter((g) => selectedSet.has(g.id))
+      .map((g) => ({
+        id: g.id,
+        title: g.title ?? null,
+        category: g.category ?? null,
+        // Prefer the rendered ghost-mannequin path (matches GarmentCard's
+        // image fallback chain) so the must-have row eventually shows the
+        // user-facing showpiece rather than the raw original.
+        image_path: g.rendered_image_path ?? g.original_image_path ?? null,
+      }));
+
     generate.mutate(
       {
         destination: destination.trim(),
@@ -299,6 +341,8 @@ export function TravelCapsuleScreen() {
         occasions,
         weather: null,
         tripType: backendTripType,
+        mustHaveItemIds,
+        mustHaveGarments,
       },
       {
         onSuccess: ({ capsule_id }) => {
@@ -330,7 +374,32 @@ export function TravelCapsuleScreen() {
         },
       },
     );
-  }, [canContinue, destination, fromDate, toDate, tripType, generate, nav]);
+  }, [
+    canContinue,
+    destination,
+    fromDate,
+    toDate,
+    tripType,
+    generate,
+    nav,
+    mustHaveItemIds,
+    allGarments,
+  ]);
+
+  // Picker-step CTA. Empty selection allowed — mirrors web's "skip" path
+  // where the user lets the AI pick everything. The label changes based
+  // on whether the user has tapped any tile.
+  const handlePickerContinue = React.useCallback(() => {
+    setSubStep('form');
+  }, []);
+
+  // Tapping the back affordance from the form step rewinds to the picker.
+  // System back button is handled separately by the navigator (goBack
+  // pops the screen) — the in-screen back arrow only rewinds within the
+  // wizard.
+  const handleFormBack = React.useCallback(() => {
+    setSubStep('picker');
+  }, []);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -341,8 +410,14 @@ export function TravelCapsuleScreen() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130, gap: 18 }}
           keyboardShouldPersistTaps="handled">
           {/* ============ HEADER ============ */}
+          {/* The in-screen back arrow rewinds within the wizard when on
+              the form sub-step; on the picker sub-step it pops the
+              navigator (the picker is the wizard's entry point). */}
           <View style={s.headerRow}>
-            <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+            <IconBtn
+              ariaLabel="Back"
+              onPress={subStep === 'form' ? handleFormBack : () => nav.goBack()}
+              variant="ghost">
               <BackIcon color={t.fg} />
             </IconBtn>
             <View style={{ flex: 1 }}>
@@ -352,10 +427,12 @@ export function TravelCapsuleScreen() {
           </View>
 
           {/* ============ STEP INDICATOR ============ */}
-          {/* Wizard has 3 stops (this + must-haves + packing list). Codex audit P2.7. */}
+          {/* Both sub-steps (picker + form) live under the wizard's first
+              stop — TravelMustHaves is "Step 2 of 3", TravelPackingList
+              is "Step 3 of 3". Codex audit P2.7. */}
           <View style={[s.stepChip, { backgroundColor: t.accentSoft }]}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: t.accent }}>
-              Step 1 of 3
+              {tr('travelCapsule.pickerStep.eyebrow')}
             </Text>
           </View>
 
@@ -375,6 +452,69 @@ export function TravelCapsuleScreen() {
             </Card>
           ) : null}
 
+          {/* ============ PICKER SUB-STEP ============ */}
+          {/* User curates which wardrobe pieces anchor the trip. Empty
+              selection allowed — falls through to AI-only mode. */}
+          {subStep === 'picker' ? (
+            <View style={{ gap: 14 }}>
+              <View style={{ gap: 6 }}>
+                <PageTitle>{tr('travelCapsule.pickerStep.title')}</PageTitle>
+                <Caption>{tr('travelCapsule.pickerStep.intro')}</Caption>
+              </View>
+              <TravelGarmentPicker
+                garments={allGarments ?? []}
+                selectedIds={mustHaveItemIds}
+                onChange={setMustHaveItemIds}
+                max={PICKER_MAX}
+                loading={garmentsQuery.isLoading}
+              />
+              <Button
+                label={
+                  mustHaveItemIds.length === 0
+                    ? tr('travelCapsule.pickerStep.continueWithoutPicks')
+                    : tr('travelCapsule.pickerStep.continueWithPicks')
+                }
+                variant="accent"
+                block
+                onPress={handlePickerContinue}
+              />
+
+              {/* Saved trips still surface on the picker sub-step so a
+                  returning user can jump straight to a prior capsule
+                  without committing to a new selection first. */}
+              <View style={{ gap: 10, marginTop: 6 }}>
+                <Eyebrow>{tr('travelCapsule.savedHeading')}</Eyebrow>
+                {capsulesLoading ? (
+                  <ActivityIndicator color={t.accent} />
+                ) : savedCapsules.length === 0 ? (
+                  <Card padding={16}>
+                    <View style={{ gap: 6 }}>
+                      <Eyebrow>{tr('travelCapsule.savedEmpty')}</Eyebrow>
+                      <Caption>{tr('travelCapsule.savedEmptyBody')}</Caption>
+                    </View>
+                  </Card>
+                ) : (
+                  <FlatList
+                    data={savedCapsules}
+                    keyExtractor={(row) => row.id}
+                    scrollEnabled={false}
+                    ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                    renderItem={({ item }) => (
+                      <SavedCapsuleRow
+                        row={item}
+                        onOpen={() => handleOpenSaved(item)}
+                        onDelete={() => handleDeleteSaved(item)}
+                      />
+                    )}
+                  />
+                )}
+              </View>
+            </View>
+          ) : null}
+
+          {/* ============ FORM SUB-STEP ============ */}
+          {subStep === 'form' ? (
+            <>
           {/* ============ DESTINATION ============ */}
           <View style={{ gap: 10 }}>
             <Eyebrow>Destination</Eyebrow>
@@ -469,6 +609,10 @@ export function TravelCapsuleScreen() {
           </View>
 
           {/* ============ CTA ============ */}
+          {/* Picker selection threads through to the hook here — see
+              handleGenerate's `mustHaveItemIds` / `mustHaveGarments`
+              wiring above. Empty selection sends `[]` and the AI-only
+              path lights up server-side. */}
           <Button
             label="Build my capsule"
             variant="accent"
@@ -477,37 +621,8 @@ export function TravelCapsuleScreen() {
             accessibilityState={{ disabled: !canContinue, busy: generate.isPending }}
             onPress={handleGenerate}
           />
-
-          {/* ============ SAVED CAPSULES ============ */}
-          {/* Real per-user history backed by `useTravelCapsules()`. Tap a
-              row to land on TravelPackingList for that capsule. */}
-          <View style={{ gap: 10, marginTop: 6 }}>
-            <Eyebrow>{tr('travelCapsule.savedHeading')}</Eyebrow>
-            {capsulesLoading ? (
-              <ActivityIndicator color={t.accent} />
-            ) : savedCapsules.length === 0 ? (
-              <Card padding={16}>
-                <View style={{ gap: 6 }}>
-                  <Eyebrow>{tr('travelCapsule.savedEmpty')}</Eyebrow>
-                  <Caption>{tr('travelCapsule.savedEmptyBody')}</Caption>
-                </View>
-              </Card>
-            ) : (
-              <FlatList
-                data={savedCapsules}
-                keyExtractor={(row) => row.id}
-                scrollEnabled={false}
-                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                renderItem={({ item }) => (
-                  <SavedCapsuleRow
-                    row={item}
-                    onOpen={() => handleOpenSaved(item)}
-                    onDelete={() => handleDeleteSaved(item)}
-                  />
-                )}
-              />
-            )}
-          </View>
+            </>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
 

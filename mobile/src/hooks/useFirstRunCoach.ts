@@ -24,12 +24,19 @@
 // M27 R1 review additions (2026-05-07):
 //   1. Retroactive trigger gate. Pre-M27 users have no
 //      `coach_tour_completed_at` so on next launch they'd see the tour even
-//      after weeks of usage. We gate on `profiles.created_at` — accounts
-//      older than RETRO_THRESHOLD_DAYS get a fire-and-forget seed write of
-//      `coach_tour_completed_at = now()` so the tour stays dormant for them.
-//      Why `created_at` over a garment-count probe: it's a single column on
-//      the profile row we already fetch, no extra round-trip; counts are
-//      eventually-consistent under pagination and would race the gate.
+//      after weeks of usage. The audit follow-up (2026-05-07) replaced the
+//      original `created_at > 7 days` heuristic with a stronger
+//      onboarding-completion signal. The original gate produced two failure
+//      modes: (a) false negatives — users 1-7 days old who completed
+//      onboarding before M27 saw the tour with stale state; (b) false
+//      positives — 8+-day-old accounts that never finished onboarding got
+//      seeded as "tour done" before they earned it. The new gate fires the
+//      seed write when the user has FINISHED onboarding (precise signal:
+//      `preferences.onboarding.completed_at` set, OR legacy proxy:
+//      `preferences.onboarding.completed === true` AND
+//      `style_profile_v4_jsonb` exists) AND that completion is more than
+//      ONBOARDING_AGE_THRESHOLD_MS ago (anti-replay so users mid-flow
+//      don't get the tour seeded out from under them).
 //   2. AsyncStorage persistence of `currentStep` keyed on user.id. A
 //      force-quit mid-tour previously dropped the user back to step 1; we
 //      hydrate from disk on mount and clear on completion / skip.
@@ -65,34 +72,71 @@ const STATUS_QUERY_KEY = (userId: string | undefined) => ['coachTour:status', us
 // account on the same device doesn't resurrect a stale step value.
 const STEP_STORAGE_KEY = (userId: string) => `burs.coachTour.step.${userId}`;
 
-// Retroactive trigger threshold. Profiles created longer ago than this are
-// considered "existing users" and get a fire-and-forget seed write so the
-// tour never surfaces. 7 days picked as a reasonable launch threshold — any
-// account older than the M27 ship date should already be past this.
-const RETRO_THRESHOLD_DAYS = 7;
-const RETRO_THRESHOLD_MS = RETRO_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+// Anti-replay threshold for the onboarding-completion gate. A user who
+// finished onboarding within this window is still mid-session — we don't
+// want to seed `coach_tour_completed_at` and rob them of the tour they just
+// earned. One hour is generous: a typical onboarding-to-Home transition is
+// seconds, and a backgrounded session that re-foregrounds well after the
+// user genuinely stopped using the app is rare. After this window elapses
+// without the user having seen the tour, the seed write fires.
+const ONBOARDING_AGE_THRESHOLD_MS = 60 * 60 * 1000;
 
 interface CoachTourStatus {
   /** ISO timestamp when the user finished (or skipped) the tour, or null if
    * the tour is still pending. */
   completedAt: string | null;
-  /** ISO timestamp from `profiles.created_at`. Used by the retroactive
-   * gate — accounts older than RETRO_THRESHOLD_DAYS get the seed write. */
-  profileCreatedAt: string | null;
+  /** ISO timestamp the user finished onboarding, or null if still pending.
+   * Sourced from `preferences.onboarding.completed_at` (precise) — when
+   * absent on legacy rows we fall back to `profiles.created_at` paired
+   * with the `onboarding.completed === true` boolean + V4 quiz presence
+   * proxy. The retro gate fires when this is set AND older than
+   * ONBOARDING_AGE_THRESHOLD_MS. */
+  onboardingCompletedAt: string | null;
 }
 
 /**
- * Defensive parser — accepts the raw row and returns a strictly-typed
- * CoachTourStatus. Anything else downgrades to `completedAt: null` so a
- * malformed JSONB column doesn't crash the consumer.
+ * Defensive parser — accepts the raw `preferences` JSONB + `created_at` and
+ * returns a strictly-typed CoachTourStatus. Anything else downgrades to
+ * `completedAt: null` / `onboardingCompletedAt: null` so a malformed JSONB
+ * column doesn't crash the consumer.
+ *
+ * `onboardingCompletedAt` resolution order (audit follow-up 2026-05-07):
+ *   1. `preferences.onboarding.completed_at` — precise signal written by
+ *      mobile's OnboardingScreen.finish() going forward.
+ *   2. Legacy proxy: `preferences.onboarding.completed === true` AND
+ *      `preferences.style_profile_v4_jsonb` exists → use `profiles.created_at`
+ *      as a best-available timestamp. (A user who finished onboarding but
+ *      didn't write completed_at must have done so before this audit
+ *      follow-up; their account age is the closest safe lower bound.)
+ *   3. Otherwise null — user hasn't finished onboarding; tour stays pending.
  */
-function parseStatus(
-  prefsValue: unknown,
-  createdAt: string | null,
-): CoachTourStatus {
+function parseStatus(prefs: Record<string, unknown> | null, createdAt: string | null): CoachTourStatus {
+  const onboarding =
+    prefs?.onboarding && typeof prefs.onboarding === 'object'
+      ? (prefs.onboarding as Record<string, unknown>)
+      : null;
+
+  const completedAtRaw = prefs?.coach_tour_completed_at;
   const completedAt =
-    typeof prefsValue === 'string' && prefsValue.length > 0 ? prefsValue : null;
-  return { completedAt, profileCreatedAt: createdAt };
+    typeof completedAtRaw === 'string' && completedAtRaw.length > 0
+      ? completedAtRaw
+      : null;
+
+  let onboardingCompletedAt: string | null = null;
+  const obCompletedAt = onboarding?.completed_at;
+  if (typeof obCompletedAt === 'string' && obCompletedAt.length > 0) {
+    onboardingCompletedAt = obCompletedAt;
+  } else {
+    const obCompleted = onboarding?.completed === true;
+    const hasV4 =
+      !!prefs?.style_profile_v4_jsonb &&
+      typeof prefs.style_profile_v4_jsonb === 'object';
+    if (obCompleted && hasV4) {
+      onboardingCompletedAt = createdAt;
+    }
+  }
+
+  return { completedAt, onboardingCompletedAt };
 }
 
 /**
@@ -120,7 +164,7 @@ export function useFirstRunCoach(): {
     enabled: !!user,
     staleTime: Infinity, // one-shot read; the mutation below sets the cache directly.
     queryFn: async () => {
-      if (!user) return { completedAt: null, profileCreatedAt: null };
+      if (!user) return { completedAt: null, onboardingCompletedAt: null };
       const { data, error } = await supabase
         .from('profiles')
         .select('preferences, created_at')
@@ -129,7 +173,7 @@ export function useFirstRunCoach(): {
       if (error) throw error;
       const prefs = (data?.preferences ?? null) as Record<string, unknown> | null;
       const createdAt = (data?.created_at ?? null) as string | null;
-      return parseStatus(prefs?.coach_tour_completed_at ?? null, createdAt);
+      return parseStatus(prefs, createdAt);
     },
   });
 
@@ -199,23 +243,31 @@ export function useFirstRunCoach(): {
     };
   }, [user, queryClient]);
 
-  // M27 R1 — retroactive trigger gate. When the profile resolves and shows
-  // the user has been around longer than the threshold (and hasn't yet got
-  // a `coach_tour_completed_at` value), fire-and-forget seed the timestamp
-  // so the tour stays dormant. We DO NOT use the mutation hook here — that
-  // would optimistic-flip the cached status anyway, and we want a single
-  // direct write that doesn't double up with the user-driven completion
-  // path. Errors silently fall through (the gate is best-effort; the worst
-  // case is the user briefly sees the tour, which is no worse than before
-  // this fix).
+  // Retroactive trigger gate (audit follow-up 2026-05-07). When the profile
+  // resolves and shows the user finished onboarding more than
+  // ONBOARDING_AGE_THRESHOLD_MS ago WITHOUT yet getting a
+  // `coach_tour_completed_at` value, fire-and-forget seed the timestamp so
+  // the tour stays dormant. Stronger than the original `created_at > 7 days`
+  // heuristic — that signal flagged accounts that never finished onboarding
+  // and missed users who finished within the first week. We DO NOT use the
+  // mutation hook here — that would optimistic-flip the cached status
+  // anyway, and we want a single direct write that doesn't double up with
+  // the user-driven completion path. Errors silently fall through (the gate
+  // is best-effort; the worst case is the user briefly sees the tour, which
+  // is no worse than before this fix).
   useEffect(() => {
     if (!user || !status.isSuccess) return;
     const data = status.data;
     if (!data || data.completedAt !== null) return;
-    if (!data.profileCreatedAt) return;
-    const createdMs = new Date(data.profileCreatedAt).getTime();
-    if (!Number.isFinite(createdMs)) return;
-    if (Date.now() - createdMs < RETRO_THRESHOLD_MS) return;
+    // Gate (a) — user must have finished onboarding (precise or proxy
+    // signal — see parseStatus). Users still mid-flow have null here.
+    if (!data.onboardingCompletedAt) return;
+    const completedMs = new Date(data.onboardingCompletedAt).getTime();
+    if (!Number.isFinite(completedMs)) return;
+    // Gate (b) — completion must be older than the anti-replay window so
+    // we don't seed the tour out from under a user who just finished
+    // onboarding seconds ago.
+    if (Date.now() - completedMs < ONBOARDING_AGE_THRESHOLD_MS) return;
 
     let cancelled = false;
     (async () => {
@@ -238,7 +290,7 @@ export function useFirstRunCoach(): {
       if (cancelled || writeError) return;
       queryClient.setQueryData<CoachTourStatus>(STATUS_QUERY_KEY(user.id), {
         completedAt,
-        profileCreatedAt: data.profileCreatedAt,
+        onboardingCompletedAt: data.onboardingCompletedAt,
       });
     })();
     return () => {
@@ -285,7 +337,7 @@ export function useFirstRunCoach(): {
         queryClient.getQueryData<CoachStep>(STEP_QUERY_KEY(user?.id)) ?? 0;
       queryClient.setQueryData<CoachTourStatus>(STATUS_QUERY_KEY(user?.id), {
         completedAt: new Date().toISOString(),
-        profileCreatedAt: prev?.profileCreatedAt ?? null,
+        onboardingCompletedAt: prev?.onboardingCompletedAt ?? null,
       });
       return { prev, prevStep: prevStep as CoachStep };
     },
