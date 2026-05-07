@@ -187,6 +187,10 @@ export function PaywallScreen() {
   const onRestore = () => {
     if (isPurchasing || restoring) return;
     hapticLight();
+    const dismissPaywall = () => {
+      if (nav.canGoBack()) nav.goBack();
+      else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    };
     restore.mutate(undefined, {
       onSuccess: (result) => {
         if (result.status === 'restored') {
@@ -199,13 +203,23 @@ export function PaywallScreen() {
           Alert.alert(
             tr('paywall.restored'),
             tr('paywall.restored.body'),
-            [{
-              text: tr('paywall.restore.alertOk'),
-              onPress: () => {
-                if (nav.canGoBack()) nav.goBack();
-                else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
-              },
-            }],
+            [{ text: tr('paywall.restore.alertOk'), onPress: dismissPaywall }],
+          );
+          return;
+        }
+        if (result.status === 'restored_pending') {
+          // RevenueCat confirmed entitlements but the webhook hasn't
+          // mirrored them into the `subscriptions` row within the 10s
+          // poll. Mirror the purchase 'pending' UX (paywall.activating.*)
+          // so the user sees "Activating in the background" rather than
+          // a "restored" success that leaves them still gated. The hook
+          // already invalidated the cache so a manual refresh on the
+          // next gated screen will pick it up. Dismiss on OK so they're
+          // not trapped here while the webhook settles.
+          Alert.alert(
+            tr('paywall.activating.title'),
+            tr('paywall.activating.body'),
+            [{ text: tr('paywall.restore.alertOk'), onPress: dismissPaywall }],
           );
           return;
         }

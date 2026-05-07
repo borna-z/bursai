@@ -90,6 +90,19 @@ export function SettingsAccountScreen() {
           );
           return;
         }
+        if (result.status === 'restored_pending') {
+          // RevenueCat confirmed entitlements but the webhook hasn't
+          // mirrored them into the `subscriptions` row within the 10s
+          // poll window. Mirror the purchase 'pending' UX so the user
+          // sees "activating" rather than a misleading success that
+          // leaves them still gated.
+          Alert.alert(
+            tr('paywall.activating.title'),
+            tr('paywall.activating.body'),
+            [{ text: tr('paywall.restore.alertOk') }],
+          );
+          return;
+        }
         // 'no_purchases' (legitimate empty state) and 'unsupported'
         // (web / simulator / missing API key, or sign-out-mid-flight
         // short-circuit) collapse to the same alert. Real transport
