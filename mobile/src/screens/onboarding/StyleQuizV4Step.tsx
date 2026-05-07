@@ -13,7 +13,7 @@
 //  - Renders inside an animated ScrollView with KeyboardAvoidingView for the
 //    free-text inputs (city, style icons, cultural notes).
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -67,6 +67,7 @@ import {
   type ShoppingFrequency,
   type ShoppingStyle,
   type StyleProfileV4,
+  type StyleProfileV4Touched,
 } from '../../lib/styleProfileV4';
 
 // ─── Per-question option lists (mirror web vocab) ───────────────────────────
@@ -120,31 +121,125 @@ const FAVORITE_COLORS_MAX = 3;
 const DISLIKED_COLORS_MAX = 3;
 const FABRIC_PREFERRED_MAX = 3;
 
-interface Touched {
+// Touched tracks every scalar the user explicitly chose. The required-question
+// gate (canAdvance) reads `gender`/`build`/`ageRange`/`goal`/`height_cm`; the
+// V3-compat shim at submit time (`migrateV4ToV3Compat`) reads the rest to omit
+// untouched scalars from the V3 mirror so default values like
+// `paletteVibe: 'mixed'` aren't written as definitive answers.
+export interface Touched {
   gender: boolean;
+  height_cm: boolean;
   build: boolean;
   ageRange: boolean;
   goal: boolean;
+  climate: boolean;
+  paletteVibe: boolean;
+  patternComfort: boolean;
+  fitOverall: boolean;
+  fitTopVsBottom: boolean;
+  layering: boolean;
+  bodyFocus: boolean;
+  formality: boolean;
+  carePreference: boolean;
+  shoppingFrequency: boolean;
+  budget: boolean;
+  shoppingStyle: boolean;
 }
 
 const TOUCHED_DEFAULT: Touched = {
   gender: false,
+  height_cm: false,
   build: false,
   ageRange: false,
   goal: false,
+  climate: false,
+  paletteVibe: false,
+  patternComfort: false,
+  fitOverall: false,
+  fitTopVsBottom: false,
+  layering: false,
+  bodyFocus: false,
+  formality: false,
+  carePreference: false,
+  shoppingFrequency: false,
+  budget: false,
+  shoppingStyle: false,
 };
+
+/** Snapshot of mid-quiz state, lifted up to OnboardingScreen so its existing
+ * AsyncStorage draft (`burs.onboarding.draft.v1`) covers per-question
+ * persistence. Without this, force-quitting on Q5 dropped the user back at
+ * Q1 with empty answers on next launch (M25 Codex P1). */
+export interface QuizV4Progress {
+  qi: number;
+  answers: StyleProfileV4;
+  touched: Touched;
+}
+
+/** Build a `StyleProfileV4Touched` map (used by `migrateV4ToV3Compat`) from
+ * the screen's local `Touched`. Keys with the same name pass through; the
+ * shim's optional fields default to undefined when omitted. */
+export function touchedToCompatTouched(t: Touched): StyleProfileV4Touched {
+  return {
+    gender: t.gender,
+    height_cm: t.height_cm,
+    build: t.build,
+    ageRange: t.ageRange,
+    climate: t.climate,
+    paletteVibe: t.paletteVibe,
+    patternComfort: t.patternComfort,
+    fitOverall: t.fitOverall,
+    fitTopVsBottom: t.fitTopVsBottom,
+    layering: t.layering,
+    bodyFocus: t.bodyFocus,
+    formality: t.formality,
+    carePreference: t.carePreference,
+    shoppingFrequency: t.shoppingFrequency,
+    budget: t.budget,
+    shoppingStyle: t.shoppingStyle,
+    primaryGoal: t.goal,
+  };
+}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function StyleQuizV4Step({
   onComplete,
+  initial,
+  onProgress,
 }: {
-  onComplete: (profile: StyleProfileV4) => void;
+  onComplete: (profile: StyleProfileV4, touched: Touched) => void;
+  /** Resume snapshot — provided by OnboardingScreen when its AsyncStorage
+   * draft contains a `quizDraft`. Hydrates qi + answers + touched on mount. */
+  initial?: QuizV4Progress;
+  /** Fires on every meaningful state change so the parent can persist the
+   * mid-quiz progress to its onboarding draft (P1 — partial completion data
+   * loss when force-quit during quiz). */
+  onProgress?: (state: QuizV4Progress) => void;
 }) {
   const t = useTokens();
-  const [qi, setQi] = useState(0);
-  const [answers, setAnswers] = useState<StyleProfileV4>(defaultStyleProfileV4());
-  const [touched, setTouched] = useState<Touched>(TOUCHED_DEFAULT);
+  const [qi, setQi] = useState<number>(initial?.qi ?? 0);
+  const [answers, setAnswers] = useState<StyleProfileV4>(
+    initial?.answers ?? defaultStyleProfileV4(),
+  );
+  const [touched, setTouched] = useState<Touched>(initial?.touched ?? TOUCHED_DEFAULT);
+
+  // Per-update progress emit so OnboardingScreen's draft autopersist captures
+  // mid-quiz state without re-implementing AsyncStorage here. Skipped on the
+  // first render when `initial` is the source of truth (would echo our own
+  // hydrated value back at the parent).
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+  const progressEmittedRef = useRef(false);
+  useEffect(() => {
+    if (!progressEmittedRef.current && initial) {
+      // Skip the very first emit — parent already holds this state.
+      progressEmittedRef.current = true;
+      return;
+    }
+    progressEmittedRef.current = true;
+    onProgressRef.current?.({ qi, answers, touched });
+  }, [qi, answers, touched, initial]);
 
   // Animated cross-fade between questions — opacity + small slide. Mirrors
   // the M0 StyleQuizStep transition for visual continuity.
@@ -173,7 +268,13 @@ export function StyleQuizV4Step({
         }),
       ]).start(({ finished }) => {
         if (!finished) {
+          // Animation interrupted (parent re-render, unmount mid-tween, etc.).
+          // Without resetting the Animated values the screen can render at
+          // offset opacity / translateX even though `qi` never advanced —
+          // visually-stuck question. Snap values back to identity and bail.
           animatingRef.current = false;
+          fade.setValue(1);
+          slide.setValue(0);
           return;
         }
         setQi(next);
@@ -241,8 +342,12 @@ export function StyleQuizV4Step({
     if (!q) return false;
     switch (q.id) {
       case 'identity':
+        // height_cm default is now 170 (web parity, was 0), which would
+        // satisfy the range check by value alone. Gate explicitly on the
+        // touched flag so a user who hasn't tapped +/- can't slip past.
         return (
           touched.gender
+          && touched.height_cm
           && answers.height_cm >= HEIGHT_CM_MIN
           && answers.height_cm <= HEIGHT_CM_MAX
           && touched.build
@@ -267,8 +372,8 @@ export function StyleQuizV4Step({
       animateTo(qi + 1, 'fwd');
       return;
     }
-    onComplete({ ...answers, version: 4 });
-  }, [canAdvance, qi, animateTo, onComplete, answers]);
+    onComplete({ ...answers, version: 4 }, touched);
+  }, [canAdvance, qi, animateTo, onComplete, answers, touched]);
 
   const back = useCallback(() => {
     if (qi > 0) {
@@ -285,10 +390,12 @@ export function StyleQuizV4Step({
       animateTo(qi + 1, 'fwd');
       return;
     }
-    onComplete({ ...answers, version: 4 });
-  }, [qi, animateTo, onComplete, answers]);
+    onComplete({ ...answers, version: 4 }, touched);
+  }, [qi, animateTo, onComplete, answers, touched]);
 
   // Touch setters keep the canAdvance gate distinct from raw answer mutation.
+  // Scalar-enum touches drive both the required-question gate and the V3-
+  // compat shim's skip-omission map.
   const touchGender = (value: Gender) => {
     setTouched((prev) => ({ ...prev, gender: true }));
     set('gender', value);
@@ -305,8 +412,77 @@ export function StyleQuizV4Step({
     setTouched((prev) => ({ ...prev, goal: true }));
     set('primaryGoal', value);
   };
+  const touchClimate = (value: Climate) => {
+    setTouched((prev) => ({ ...prev, climate: true }));
+    set('climate', value);
+  };
+  const touchPaletteVibe = (value: PaletteVibe) => {
+    setTouched((prev) => ({ ...prev, paletteVibe: true }));
+    set('paletteVibe', value);
+  };
+  const touchPatternComfort = (value: PatternComfort) => {
+    setTouched((prev) => ({ ...prev, patternComfort: true }));
+    set('patternComfort', value);
+  };
+  const touchFitOverall = (value: FitOverall) => {
+    setTouched((prev) => ({ ...prev, fitOverall: true }));
+    set('fitOverall', value);
+  };
+  const touchFitTopVsBottom = (value: FitTopVsBottom) => {
+    setTouched((prev) => ({ ...prev, fitTopVsBottom: true }));
+    set('fitTopVsBottom', value);
+  };
+  const touchLayering = (value: Layering) => {
+    setTouched((prev) => ({ ...prev, layering: true }));
+    set('layering', value);
+  };
+  const touchBodyFocus = (value: BodyFocus) => {
+    setTouched((prev) => ({ ...prev, bodyFocus: true }));
+    set('bodyFocus', value);
+  };
+  const touchCarePreference = (value: CarePreference) => {
+    setTouched((prev) => ({ ...prev, carePreference: true }));
+    set('carePreference', value);
+  };
+  const touchShoppingFrequency = (value: ShoppingFrequency) => {
+    setTouched((prev) => ({ ...prev, shoppingFrequency: true }));
+    set('shoppingFrequency', value);
+  };
+  const touchBudget = (value: Budget) => {
+    setTouched((prev) => ({ ...prev, budget: true }));
+    set('budget', value);
+  };
+  const touchShoppingStyle = (value: ShoppingStyle) => {
+    setTouched((prev) => ({ ...prev, shoppingStyle: true }));
+    set('shoppingStyle', value);
+  };
+
+  // Formality is a slider pair — one touched flag covers both.
+  const setFormalityFloor = useCallback(
+    (v: number) => {
+      setTouched((prev) => ({ ...prev, formality: true }));
+      // Clamp against ceiling so floor cannot exceed it (Codex P2).
+      setAnswers((prev) => {
+        const clamped = Math.min(v, prev.formalityCeiling);
+        return { ...prev, formalityFloor: clamped };
+      });
+    },
+    [],
+  );
+  const setFormalityCeiling = useCallback(
+    (v: number) => {
+      setTouched((prev) => ({ ...prev, formality: true }));
+      // Clamp against floor so ceiling cannot drop below it (Codex P2).
+      setAnswers((prev) => {
+        const clamped = Math.max(v, prev.formalityFloor);
+        return { ...prev, formalityCeiling: clamped };
+      });
+    },
+    [],
+  );
 
   const adjustHeight = (delta: number) => {
+    setTouched((prev) => ({ ...prev, height_cm: true }));
     const start = answers.height_cm > 0 ? answers.height_cm : 170;
     const next = Math.max(HEIGHT_CM_MIN, Math.min(HEIGHT_CM_MAX, start + delta));
     set('height_cm', next);
@@ -315,6 +491,11 @@ export function StyleQuizV4Step({
   const currentQuestion = QUIZ_QUESTIONS[qi];
   const optional = currentQuestion?.optional ?? false;
   const isFinal = qi === QUIZ_TOTAL - 1;
+  // Inline hint shown under the Continue button when the gate is failing on
+  // a required question (Codex P2). VoiceOver also surfaces the disabled
+  // state via the Button's accessibilityState, but a sighted user with no
+  // visible explanation just sees a non-responsive button.
+  const showRequiredHint = !optional && !canAdvance;
 
   return (
     <KeyboardAvoidingView
@@ -368,28 +549,52 @@ export function StyleQuizV4Step({
             <QLifestyle answers={answers} setLifestyle={setLifestyle} />
           )}
           {currentQuestion?.id === 'climate' && (
-            <QClimate answers={answers} set={set} />
+            <QClimate answers={answers} set={set} touchClimate={touchClimate} />
           )}
           {currentQuestion?.id === 'archetypes' && (
             <QArchetypes answers={answers} toggleArray={toggleArray} set={set} />
           )}
           {currentQuestion?.id === 'colors' && (
-            <QColors answers={answers} toggleArray={toggleArray} set={set} />
+            <QColors
+              answers={answers}
+              toggleArray={toggleArray}
+              touchPaletteVibe={touchPaletteVibe}
+              touchPatternComfort={touchPatternComfort}
+            />
           )}
           {currentQuestion?.id === 'fit' && (
-            <QFit answers={answers} set={set} />
+            <QFit
+              answers={answers}
+              touchFitOverall={touchFitOverall}
+              touchFitTopVsBottom={touchFitTopVsBottom}
+              touchLayering={touchLayering}
+              touchBodyFocus={touchBodyFocus}
+            />
           )}
           {currentQuestion?.id === 'formality' && (
-            <QFormality answers={answers} set={set} />
+            <QFormality
+              answers={answers}
+              setFormalityFloor={setFormalityFloor}
+              setFormalityCeiling={setFormalityCeiling}
+            />
           )}
           {currentQuestion?.id === 'fabric' && (
-            <QFabric answers={answers} toggleArray={toggleArray} set={set} />
+            <QFabric
+              answers={answers}
+              toggleArray={toggleArray}
+              touchCarePreference={touchCarePreference}
+            />
           )}
           {currentQuestion?.id === 'occasions' && (
             <QOccasions answers={answers} toggleArray={toggleArray} />
           )}
           {currentQuestion?.id === 'shopping' && (
-            <QShopping answers={answers} set={set} />
+            <QShopping
+              answers={answers}
+              touchShoppingFrequency={touchShoppingFrequency}
+              touchBudget={touchBudget}
+              touchShoppingStyle={touchShoppingStyle}
+            />
           )}
           {currentQuestion?.id === 'goal' && (
             <QGoal answers={answers} touchGoal={touchGoal} />
@@ -401,43 +606,48 @@ export function StyleQuizV4Step({
       </Animated.View>
 
       {/* Action bar */}
-      <View
-        style={{
-          paddingHorizontal: 20,
-          paddingTop: 10,
-          flexDirection: 'row',
-          gap: 10,
-          alignItems: 'center',
-        }}>
-        {qi > 0 && (
-          <Button
-            label={tr('onboarding.quizV4.back')}
-            variant="outline"
-            size="md"
-            onPress={back}
-          />
-        )}
-        {optional && (
-          <Button
-            label={tr('onboarding.quizV4.skip')}
-            variant="quiet"
-            size="md"
-            onPress={skip}
-          />
-        )}
-        <View style={{ flex: 1 }}>
-          <Button
-            label={
-              isFinal
-                ? tr('onboarding.quizV4.complete.cta')
-                : tr('onboarding.quizV4.continue')
-            }
-            variant="accent"
-            block
-            onPress={next}
-            disabled={!canAdvance}
-          />
+      <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center',
+          }}>
+          {qi > 0 && (
+            <Button
+              label={tr('onboarding.quizV4.back')}
+              variant="outline"
+              size="md"
+              onPress={back}
+            />
+          )}
+          {optional && (
+            <Button
+              label={tr('onboarding.quizV4.skip')}
+              variant="quiet"
+              size="md"
+              onPress={skip}
+            />
+          )}
+          <View style={{ flex: 1 }}>
+            <Button
+              label={
+                isFinal
+                  ? tr('onboarding.quizV4.complete.cta')
+                  : tr('onboarding.quizV4.continue')
+              }
+              variant="accent"
+              block
+              onPress={next}
+              disabled={!canAdvance}
+            />
+          </View>
         </View>
+        {showRequiredHint && (
+          <View style={{ marginTop: 8 }}>
+            <Caption>{tr('onboarding.quizV4.requiredHint')}</Caption>
+          </View>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -740,6 +950,21 @@ function PercentSlider({
         accessibilityRole="adjustable"
         accessibilityLabel={label}
         accessibilityValue={{ min: 0, max: 100, now: value }}
+        // VoiceOver swipe-up/down nudges by 5pp (Codex P2 — without these
+        // actions, the adjustable role surfaces no AT control).
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(event) => {
+          const step = 5;
+          if (event.nativeEvent.actionName === 'increment') {
+            onChangeRef.current(Math.min(100, value + step));
+          } else if (event.nativeEvent.actionName === 'decrement') {
+            onChangeRef.current(Math.max(0, value - step));
+          }
+        }}
+        // Visual track is 32pt tall; pad gesture surface to a 44pt minimum
+        // touch target (Apple HIG / Material guideline) without changing the
+        // visual layout (Codex P2 — slider hit area below 44pt).
+        hitSlop={{ top: 6, bottom: 6 }}
         style={{
           height: 32,
           justifyContent: 'center',
@@ -770,9 +995,11 @@ function PercentSlider({
 function QClimate({
   answers,
   set,
+  touchClimate,
 }: {
   answers: StyleProfileV4;
   set: <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => void;
+  touchClimate: (value: Climate) => void;
 }) {
   const t = useTokens();
   return (
@@ -798,7 +1025,7 @@ function QClimate({
               active={answers.climate === value}
               onPress={() => {
                 hapticSelection();
-                set('climate', value);
+                touchClimate(value);
               }}
             />
           ))}
@@ -920,11 +1147,13 @@ function QArchetypes({
 function QColors({
   answers,
   toggleArray,
-  set,
+  touchPaletteVibe,
+  touchPatternComfort,
 }: {
   answers: StyleProfileV4;
   toggleArray: <K extends keyof StyleProfileV4>(key: K, val: string, max: number) => void;
-  set: <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => void;
+  touchPaletteVibe: (value: PaletteVibe) => void;
+  touchPatternComfort: (value: PatternComfort) => void;
 }) {
   return (
     <View style={{ gap: 18 }}>
@@ -956,7 +1185,7 @@ function QColors({
               active={answers.paletteVibe === value}
               onPress={() => {
                 hapticSelection();
-                set('paletteVibe', value);
+                touchPaletteVibe(value);
               }}
             />
           ))}
@@ -973,7 +1202,7 @@ function QColors({
               active={answers.patternComfort === value}
               onPress={() => {
                 hapticSelection();
-                set('patternComfort', value);
+                touchPatternComfort(value);
               }}
             />
           ))}
@@ -981,6 +1210,21 @@ function QColors({
       </View>
     </View>
   );
+}
+
+// Perceptual-luminance threshold for "is this swatch light enough that a
+// dark check icon reads better than a light one?" (Codex P3 — replaces a
+// hardcoded id allowlist that broke whenever a new swatch was added).
+// Coefficients are the standard Rec. 601 weights. Threshold 200/255 picked
+// empirically against the M25 18-swatch palette.
+function isLightSwatch(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 0xff;
+  const g = (n >> 8) & 0xff;
+  const b = n & 0xff;
+  return r * 0.299 + g * 0.587 + b * 0.114 > 200;
 }
 
 function ColorGrid({
@@ -995,8 +1239,7 @@ function ColorGrid({
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       {COLOR_SWATCHES.map((color) => {
         const isSelected = selected.includes(color.id);
-        const lightSwatch = color.id === 'white' || color.id === 'cream' || color.id === 'beige';
-        const checkColor = lightSwatch ? t.fg : t.bg;
+        const checkColor = isLightSwatch(color.hex) ? t.fg : t.bg;
         return (
           <Pressable
             key={color.id}
@@ -1030,10 +1273,16 @@ function ColorGrid({
 
 function QFit({
   answers,
-  set,
+  touchFitOverall,
+  touchFitTopVsBottom,
+  touchLayering,
+  touchBodyFocus,
 }: {
   answers: StyleProfileV4;
-  set: <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => void;
+  touchFitOverall: (value: FitOverall) => void;
+  touchFitTopVsBottom: (value: FitTopVsBottom) => void;
+  touchLayering: (value: Layering) => void;
+  touchBodyFocus: (value: BodyFocus) => void;
 }) {
   return (
     <View style={{ gap: 18 }}>
@@ -1044,28 +1293,28 @@ function QFit({
         choiceNamespace="fitOverall"
         options={FIT_OVERALLS}
         active={answers.fitOverall}
-        onPick={(v) => set('fitOverall', v)}
+        onPick={touchFitOverall}
       />
       <ChipRow
         eyebrowKey="onboarding.quizV4.q.fit.topVsBottom"
         choiceNamespace="fitTopVsBottom"
         options={FIT_TOP_VS_BOTTOMS}
         active={answers.fitTopVsBottom}
-        onPick={(v) => set('fitTopVsBottom', v)}
+        onPick={touchFitTopVsBottom}
       />
       <ChipRow
         eyebrowKey="onboarding.quizV4.q.fit.layering"
         choiceNamespace="layering"
         options={LAYERINGS}
         active={answers.layering}
-        onPick={(v) => set('layering', v)}
+        onPick={touchLayering}
       />
       <ChipRow
         eyebrowKey="onboarding.quizV4.q.fit.bodyFocus"
         choiceNamespace="bodyFocus"
         options={BODY_FOCUSES}
         active={answers.bodyFocus}
-        onPick={(v) => set('bodyFocus', v)}
+        onPick={touchBodyFocus}
       />
     </View>
   );
@@ -1109,10 +1358,12 @@ function ChipRow<T extends string>({
 
 function QFormality({
   answers,
-  set,
+  setFormalityFloor,
+  setFormalityCeiling,
 }: {
   answers: StyleProfileV4;
-  set: <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => void;
+  setFormalityFloor: (v: number) => void;
+  setFormalityCeiling: (v: number) => void;
 }) {
   return (
     <View style={{ gap: 18 }}>
@@ -1120,12 +1371,12 @@ function QFormality({
       <PercentSlider
         label={tr('onboarding.quizV4.q.formality.floor')}
         value={answers.formalityFloor}
-        onChange={(v) => set('formalityFloor', v)}
+        onChange={setFormalityFloor}
       />
       <PercentSlider
         label={tr('onboarding.quizV4.q.formality.ceiling')}
         value={answers.formalityCeiling}
-        onChange={(v) => set('formalityCeiling', v)}
+        onChange={setFormalityCeiling}
       />
     </View>
   );
@@ -1136,11 +1387,11 @@ function QFormality({
 function QFabric({
   answers,
   toggleArray,
-  set,
+  touchCarePreference,
 }: {
   answers: StyleProfileV4;
   toggleArray: <K extends keyof StyleProfileV4>(key: K, val: string, max: number) => void;
-  set: <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => void;
+  touchCarePreference: (value: CarePreference) => void;
 }) {
   return (
     <View style={{ gap: 18 }}>
@@ -1185,7 +1436,7 @@ function QFabric({
         choiceNamespace="care"
         options={CARE_PREFS}
         active={answers.carePreference}
-        onPick={(v) => set('carePreference', v)}
+        onPick={touchCarePreference}
       />
     </View>
   );
@@ -1224,10 +1475,14 @@ function QOccasions({
 
 function QShopping({
   answers,
-  set,
+  touchShoppingFrequency,
+  touchBudget,
+  touchShoppingStyle,
 }: {
   answers: StyleProfileV4;
-  set: <K extends keyof StyleProfileV4>(key: K, val: StyleProfileV4[K]) => void;
+  touchShoppingFrequency: (value: ShoppingFrequency) => void;
+  touchBudget: (value: Budget) => void;
+  touchShoppingStyle: (value: ShoppingStyle) => void;
 }) {
   return (
     <View style={{ gap: 18 }}>
@@ -1238,21 +1493,21 @@ function QShopping({
         choiceNamespace="shoppingFrequency"
         options={SHOPPING_FREQS}
         active={answers.shoppingFrequency}
-        onPick={(v) => set('shoppingFrequency', v)}
+        onPick={touchShoppingFrequency}
       />
       <ChipRow
         eyebrowKey="onboarding.quizV4.q.shopping.budget"
         choiceNamespace="budget"
         options={BUDGETS}
         active={answers.budget}
-        onPick={(v) => set('budget', v)}
+        onPick={touchBudget}
       />
       <ChipRow
         eyebrowKey="onboarding.quizV4.q.shopping.style"
         choiceNamespace="shoppingStyle"
         options={SHOPPING_STYLES}
         active={answers.shoppingStyle}
-        onPick={(v) => set('shoppingStyle', v)}
+        onPick={touchShoppingStyle}
       />
     </View>
   );

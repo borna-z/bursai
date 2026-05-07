@@ -31,21 +31,39 @@ import { supabase } from '../lib/supabase';
 
 import { LanguageStep, type LanguageCode } from './onboarding/LanguageStep';
 import { ValuePropositionStep } from './onboarding/ValuePropositionStep';
-import { StyleQuizV4Step } from './onboarding/StyleQuizV4Step';
+import {
+  StyleQuizV4Step,
+  touchedToCompatTouched,
+  type QuizV4Progress,
+  type Touched,
+} from './onboarding/StyleQuizV4Step';
 import { StudioSelectionStep, type Studio } from './onboarding/StudioSelectionStep';
 import { AchievementStep } from './onboarding/AchievementStep';
 import { RevealStep } from './onboarding/RevealStep';
 
-import type { StyleProfileV4 } from '../lib/styleProfileV4';
+import { migrateV4ToV3Compat, type StyleProfileV4 } from '../lib/styleProfileV4';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type OnboardingDraft = {
   language?: LanguageCode;
-  /** Full V4 style profile capture (M25). Persisted to
+  /** Final V4 style profile capture (M25), set when StyleQuizV4Step's
+   * `onComplete` fires. Persisted to
    * `profiles.preferences.style_profile_v4_jsonb` in `finish()`. */
   quiz?: StyleProfileV4;
+  /** Touched-flag map captured at quiz completion. Drives skip-omission in
+   * the V3-compat shim — fields the user never explicitly tapped are
+   * scrubbed from the V3 mirror so default scalars (`paletteVibe: 'mixed'`,
+   * `patternComfort: 'some'`, …) aren't downstream-indistinguishable from
+   * skip-defaults. */
+  quizTouched?: Touched;
+  /** Mid-quiz progress snapshot — answers + question index + per-field
+   * touched flags. Persisted on every update via the existing draft
+   * autopersist effect. Cleared once the user completes (then `quiz` carries
+   * the final state) or backs out. Without this, force-quitting on Q5 drops
+   * the user back at Q1 with empty answers (M25 Codex P1). */
+  quizDraft?: QuizV4Progress;
   studio?: Studio;
 };
 
@@ -185,13 +203,17 @@ export function OnboardingScreen() {
       // notifications, locale, anything we don't know about) are preserved.
       const existingPrefs = (profile?.preferences ?? {}) as Record<string, unknown>;
       const existingOnboarding = (existingPrefs.onboarding ?? {}) as Record<string, unknown>;
-      // M25: persist the full V4 style profile capture into the canonical
-      // `style_profile_v4_jsonb` slot so future cross-platform readers
-      // (web AI prompt builders, edge-function consumers) can pick it up
-      // without inspecting the legacy `onboarding.quiz` mirror. Only write
-      // when the quiz actually completed — a skip from the onboarding
-      // shell would leave `draft.quiz` undefined and clobbering the slot
-      // with `undefined` is a no-op rather than a data loss.
+      // M25 (Codex P0): persist the full V4 capture into:
+      //   1. `style_profile_v4_jsonb` — canonical V4 slot (web parity).
+      //   2. `styleProfile` — V3-shaped mirror so the AI engine consumers
+      //      (`burs_style_engine`, `_shared/outfit-scoring*`,
+      //      `_shared/style-summary-builder`, `suggest_outfit_combinations`,
+      //      `shopping_chat`, `style_chat`) keep emitting populated prompt
+      //      lines until they migrate to V4-native reads. Without the
+      //      mirror, mobile-V4 users get silent AI-quality regression on
+      //      every outfit / chat / score path that reads `preferences.styleProfile`.
+      // The legacy `onboarding.quiz` mirror is DROPPED — no live consumer
+      // reads it; readers consume `styleProfile` (M25 review).
       const mergedPrefs: Record<string, unknown> = {
         ...existingPrefs,
         onboarding: {
@@ -199,12 +221,19 @@ export function OnboardingScreen() {
           completed: true,
           step: STEP_COUNT,
           language: draft.language,
-          quiz: draft.quiz,
           studio: draft.studio,
         },
       };
       if (draft.quiz) {
         mergedPrefs.style_profile_v4_jsonb = draft.quiz;
+        // Build the V3-compat shape using the touched-flag map so default
+        // scalars the user never tapped (e.g. `paletteVibe: 'mixed'`) are
+        // omitted from the V3 mirror rather than written as definitive
+        // answers. Web parity: `src/pages/Onboarding.tsx` `handleQuizComplete`.
+        const compatTouched = draft.quizTouched
+          ? touchedToCompatTouched(draft.quizTouched)
+          : undefined;
+        mergedPrefs.styleProfile = migrateV4ToV3Compat(draft.quiz, compatTouched);
       }
       try {
         const { error: prefsError } = await supabase
@@ -394,8 +423,22 @@ export function OnboardingScreen() {
         {step === 1 && <ValuePropositionStep onComplete={advance} />}
         {step === 2 && (
           <StyleQuizV4Step
-            onComplete={(quiz) => {
-              setDraft((d) => ({ ...d, quiz }));
+            initial={draft.quizDraft}
+            onProgress={(progress) => {
+              // Per-update mid-quiz snapshot. The outer draft autopersist
+              // effect (depends on `draft`) writes it to AsyncStorage, so a
+              // user who force-quits on Q5 and re-launches resumes there.
+              setDraft((d) => ({ ...d, quizDraft: progress }));
+            }}
+            onComplete={(quiz, quizTouched) => {
+              // Drop quizDraft once the final answer is captured — the
+              // canonical `quiz` carries it from here.
+              setDraft((d) => ({
+                ...d,
+                quiz,
+                quizTouched,
+                quizDraft: undefined,
+              }));
               advance();
             }}
           />

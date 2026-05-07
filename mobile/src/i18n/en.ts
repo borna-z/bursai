@@ -560,6 +560,10 @@ export const en: Record<string, string> = {
   'onboarding.quizV4.skip': 'Skip',
   'onboarding.quizV4.back': 'Back',
   'onboarding.quizV4.progressTemplate': '{current} of {total}',
+  // Inline hint shown under the disabled Continue button on required
+  // questions (Q1 identity, Q4 archetypes, Q11 goal). Without it, sighted
+  // users with no AT just see a non-responsive button (M25 Codex P2).
+  'onboarding.quizV4.requiredHint': 'Answer to continue',
 
   // Q1 — Identity & body
   'onboarding.quizV4.q.identity.prompt': 'A bit about you.',
