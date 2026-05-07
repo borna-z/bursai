@@ -34,6 +34,7 @@ import { t as tr } from '../lib/i18n';
 import {
   useTravelCapsule,
   useUpdateTravelCapsulePackedState,
+  TRAVEL_CAPSULE_SAVE_CONFLICT,
   type PackedState,
   type TravelCapsulePackingItem,
 } from '../hooks/useTravelCapsules';
@@ -121,13 +122,85 @@ export function TravelPackingListScreen() {
   // re-creating it on every state change.
   const writeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestPackedRef = React.useRef<PackedState>({});
+  // Track the last-saved snapshot so onError can revert local `packed`
+  // back to the server-truth state. The cached row's packed_state is
+  // restored by the mutation hook's optimistic-rollback; this ref
+  // mirrors it for the screen-local mirror.
+  const lastSavedPackedRef = React.useRef<PackedState>({});
+  // Dedupe Alert prompts so a debounced retry storm doesn't fire 5 dialogs.
+  const lastAlertKeyRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     latestPackedRef.current = packed;
   }, [packed]);
+  // Hydrate the last-saved snapshot whenever the server-truth row lands
+  // back in the cache (initial mount + after a successful invalidate).
+  React.useEffect(() => {
+    if (!capsule) return;
+    lastSavedPackedRef.current = capsule.packed_state;
+  }, [capsule?.id, capsule?.packed_state]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Build a stable mutate call so the unmount-flush effect below can
+  // call it without retriggering on every render.
+  const persistPacked = React.useCallback(
+    (state: PackedState) => {
+      if (!capsuleId) return;
+      updatePackedState.mutate(
+        { capsuleId, packedState: state },
+        {
+          onError: (err) => {
+            // Revert local state — the cache rollback inside the
+            // mutation hook handles `capsule.packed_state`, but the
+            // screen mirror would otherwise stay stale (it's only
+            // hydrated from the cached row on capsule.id change).
+            setPacked(lastSavedPackedRef.current ?? {});
+            const key = err.message || 'unknown';
+            if (lastAlertKeyRef.current === key) return;
+            lastAlertKeyRef.current = key;
+            const isConflict = err.message === TRAVEL_CAPSULE_SAVE_CONFLICT;
+            Alert.alert(
+              tr(
+                isConflict
+                  ? 'travelPackingList.saveConflictTitle'
+                  : 'travelPackingList.saveFailedTitle',
+              ),
+              tr(
+                isConflict
+                  ? 'travelPackingList.saveConflictBody'
+                  : 'travelPackingList.saveFailedBody',
+              ),
+            );
+          },
+          onSuccess: () => {
+            lastSavedPackedRef.current = state;
+            lastAlertKeyRef.current = null;
+          },
+        },
+      );
+    },
+    [capsuleId, updatePackedState],
+  );
+
+  // Mirror persistPacked into a ref so the unmount cleanup (which
+  // doesn't list it in its deps to avoid re-running on every render)
+  // calls the latest closure rather than a stale first-render copy.
+  const persistPackedRef = React.useRef(persistPacked);
+  React.useEffect(() => {
+    persistPackedRef.current = persistPacked;
+  }, [persistPacked]);
+
+  // Flush any pending debounced write on unmount so a back-button tap
+  // doesn't drop the user's last toggle. Fire-and-forget — the screen
+  // is tearing down, awaiting the mutation would race the navigator.
   React.useEffect(() => {
     return () => {
-      if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+      if (writeTimerRef.current) {
+        clearTimeout(writeTimerRef.current);
+        writeTimerRef.current = null;
+        // Snapshot the latest packed state and fire a write before the
+        // screen tears down. React Query keeps the in-flight mutation
+        // alive past unmount.
+        persistPackedRef.current(latestPackedRef.current);
+      }
     };
   }, []);
 
@@ -135,12 +208,10 @@ export function TravelPackingListScreen() {
     if (!capsuleId) return;
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     writeTimerRef.current = setTimeout(() => {
-      updatePackedState.mutate({
-        capsuleId,
-        packedState: latestPackedRef.current,
-      });
+      writeTimerRef.current = null;
+      persistPacked(latestPackedRef.current);
     }, PACKED_DEBOUNCE_MS);
-  }, [capsuleId, updatePackedState]);
+  }, [capsuleId, persistPacked]);
 
   const togglePacked = React.useCallback(
     (id: string) => {

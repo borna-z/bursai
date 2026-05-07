@@ -67,6 +67,11 @@ export type GenerateTravelCapsuleParams = {
    *  fallbacks when undefined. */
   tripType?: string;
   outfitsPerDay?: number;
+  /** Optional list of garment IDs the user explicitly wants in the capsule.
+   *  Step 1 of the mobile wizard does not collect this today — must_haves
+   *  on the saved row are seeded from the AI-emitted `coverage_gaps`
+   *  instead (see `seedMustHaves`). Kept on the params type so a future
+   *  garment-picker step can layer onto the existing hook contract. */
   mustHaveItemIds?: string[];
   minimizeItems?: boolean;
   includeTravelDays?: boolean;
@@ -83,12 +88,23 @@ type EdgeCapsuleItem = {
   image_path?: string;
 };
 
+/** Coverage-gap entry as emitted by `supabase/functions/travel_capsule/index.ts`
+ *  (`buildCoverageGaps`). Always carries a stable enum `code`, a human
+ *  `message`, and optionally an `uncovered_outfits` count or a list of
+ *  `missing_slots`. */
+type EdgeCoverageGap = {
+  code: string;
+  message: string;
+  missing_slots?: string[];
+  uncovered_outfits?: number;
+};
+
 type EdgeTravelCapsuleResponse = {
   capsule_items?: EdgeCapsuleItem[];
   outfits?: TravelCapsuleOutfit[];
   packing_list?: TravelCapsulePackingItem[];
   packing_tips?: string[];
-  coverage_gaps?: unknown[];
+  coverage_gaps?: EdgeCoverageGap[];
   total_combinations?: number;
   reasoning?: string;
   trip_type?: string;
@@ -106,26 +122,36 @@ export type GenerateTravelCapsuleResult = {
   outfits: TravelCapsuleOutfit[];
 };
 
-/** Build the seed must-haves list from the user-selected garment IDs.
- *  Each id becomes a synthetic must-have row tagged 'have' so the next
- *  step can read them straight out of the saved row. The label / category
- *  are filled from the edge function's hydrated capsule_items where
- *  possible. */
+/** Build the seed must-haves list from the AI-emitted coverage_gaps.
+ *
+ *  Step 1 of the wizard doesn't (yet) include a garment selector — adding
+ *  one is out of scope for the M28 fix wave. The cleanest mobile-native
+ *  fix is to seed Step 2 (TravelMustHavesScreen) from the function's
+ *  `coverage_gaps` array — "what's missing for this trip from the user's
+ *  current wardrobe". Each gap becomes a tri-state must-have row tagged
+ *  'unsure' so the user can flip through have / buy / unsure as they
+ *  decide.
+ *
+ *  Stable id: derive from the gap `code` (enum, unique per response) so
+ *  the row id survives re-renders + persistence round-trips. The mobile
+ *  parser (parseMustHaves) accepts any non-empty string here.
+ *
+ *  When the function returns zero gaps (well-stocked wardrobe), this
+ *  returns []; TravelMustHavesScreen renders the empty-state Card. */
 function seedMustHaves(
-  selectedIds: string[],
-  capsuleItems: EdgeCapsuleItem[],
+  coverageGaps: EdgeCoverageGap[],
 ): TravelCapsuleMustHave[] {
-  const byId = new Map(capsuleItems.map((it) => [it.id, it]));
-  return selectedIds.map((id) => {
-    const hit = byId.get(id);
-    return {
-      id,
-      label: hit?.title ?? '',
-      category: hit?.category ?? null,
-      garment_id: id,
-      status: 'have' as const,
-    };
-  });
+  return coverageGaps
+    .filter((gap) => typeof gap?.code === 'string' && gap.code.length > 0)
+    .map((gap) => ({
+      id: `gap-${gap.code}`,
+      label: gap.message ?? '',
+      // No clean category for gap rows — leave null so the row eyebrow
+      // doesn't render a stray label.
+      category: null,
+      garment_id: null,
+      status: 'unsure' as const,
+    }));
 }
 
 export function useGenerateTravelCapsule() {
@@ -193,11 +219,16 @@ export function useGenerateTravelCapsule() {
       const capsuleItems = data.capsule_items ?? [];
       const packingList = data.packing_list ?? [];
       const outfits = data.outfits ?? [];
+      const coverageGaps = data.coverage_gaps ?? [];
 
-      // Seed must_haves from the IDs the user picked in Step 2 — Step 3
-      // (PackingList) reads `must_haves` out of the saved row, so the
-      // wizard hand-off has to actually carry those signals through.
-      const mustHaves = seedMustHaves(params.mustHaveItemIds ?? [], capsuleItems);
+      // Seed must_haves from the AI-emitted coverage_gaps (the function's
+      // "what's missing for this trip" array). Step 1 doesn't collect
+      // garment IDs today, so an earlier seedMustHaves(mustHaveItemIds)
+      // path always produced []. Future garment-picker step in Step 1
+      // can layer onto this — keep `mustHaveItemIds` on the params type
+      // so a follow-up wave can extend `seedMustHaves` without churning
+      // the public hook contract.
+      const mustHaves = seedMustHaves(coverageGaps);
 
       // INSERT — the edge function does not persist. The full response
       // envelope (must_haves + initial empty packed_state + the stable
@@ -236,6 +267,35 @@ export function useGenerateTravelCapsule() {
         .single();
       if (insertErr) throw insertErr;
       if (!row?.id) throw new Error('travel_capsule: insert returned no id');
+
+      // Match web's MAX_CAPSULES = 10 cap (`src/hooks/useTravelCapsules.ts`).
+      // After insert, trim the oldest rows so the user's saved-trips list
+      // stays bounded across both platforms. Failure here is non-fatal —
+      // the user's new capsule already saved, the cap repair can wait
+      // until the next generate.
+      try {
+        const MAX_CAPSULES = 10;
+        const { data: existing } = await supabase
+          .from('travel_capsules')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        const overflow = (existing ?? []).slice(MAX_CAPSULES);
+        if (overflow.length > 0) {
+          const overflowIds = overflow
+            .map((r) => r.id as string)
+            .filter((id): id is string => typeof id === 'string');
+          if (overflowIds.length > 0) {
+            await supabase
+              .from('travel_capsules')
+              .delete()
+              .in('id', overflowIds)
+              .eq('user_id', user.id);
+          }
+        }
+      } catch {
+        // Non-fatal — capsule list cap is best-effort hygiene.
+      }
 
       return {
         capsule_id: row.id as string,

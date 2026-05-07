@@ -190,7 +190,11 @@ export function TravelCapsuleScreen() {
   const [destination, setDestination] = React.useState('');
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
-  const [tripTypes, setTripTypes] = React.useState<TripType[]>(['City']);
+  // Single-select — the edge function only accepts one `trip_type` and
+  // we used to send the first chip + spread the rest as occasions, which
+  // hid the multi-select effect from the user. Match web's parity by
+  // restricting to one chip at a time.
+  const [tripType, setTripType] = React.useState<TripType>('City');
   // Which date pill, if any, is showing the custom-date sheet. `null` = sheet closed.
   const [customPickerFor, setCustomPickerFor] = React.useState<'from' | 'to' | null>(null);
 
@@ -201,14 +205,14 @@ export function TravelCapsuleScreen() {
   const nights = nightsBetween(fromDate, toDate);
   const canContinue =
     destination.trim().length > 0 &&
-    tripTypes.length > 0 &&
+    !!tripType &&
     !!fromDate &&
     !!toDate &&
     nights !== null &&
     !generate.isPending;
 
-  const toggleTripType = (type: TripType) =>
-    setTripTypes((prev) => (prev.includes(type) ? prev.filter((x) => x !== type) : [...prev, type]));
+  // Single-select — tapping a chip selects only it, deselecting the rest.
+  const selectTripType = (type: TripType) => setTripType(type);
 
   // Preset-pill date chooser. The first 5 buttons are quick offsets; the 6th ("Custom")
   // opens an inline mini-calendar sheet so the user can pick any specific date directly.
@@ -282,15 +286,11 @@ export function TravelCapsuleScreen() {
   // loading state below instead of trapping the CTA in a spinner.
   const handleGenerate = React.useCallback(() => {
     if (!canContinue) return;
-    // Map every selected trip-type chip to backend trip_type. The edge
-    // function only takes a single trip_type — when the user picks two,
-    // we send the first one (matches web behavior); the chips are still
-    // useful for occasion seeding below.
-    const primaryTripType = TRIP_TYPE_TO_BACKEND[tripTypes[0]];
-    // Trip-type chips also stand in for occasions today (the wizard
-    // doesn't yet collect a separate occasion list). Lower-case match
-    // the strings the edge function uses for occasion routing.
-    const occasions = tripTypes.map((tt) => TRIP_TYPE_TO_BACKEND[tt]);
+    const backendTripType = TRIP_TYPE_TO_BACKEND[tripType];
+    // Trip type also stands in for the single-occasion seed today (the
+    // wizard doesn't collect a separate occasion list). Lower-case
+    // matches the strings the edge function uses for occasion routing.
+    const occasions = [backendTripType];
 
     generate.mutate(
       {
@@ -298,7 +298,7 @@ export function TravelCapsuleScreen() {
         dates: { start: fromDate, end: toDate },
         occasions,
         weather: null,
-        tripType: primaryTripType,
+        tripType: backendTripType,
       },
       {
         onSuccess: ({ capsule_id }) => {
@@ -330,7 +330,7 @@ export function TravelCapsuleScreen() {
         },
       },
     );
-  }, [canContinue, destination, fromDate, toDate, tripTypes, generate, nav]);
+  }, [canContinue, destination, fromDate, toDate, tripType, generate, nav]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -460,12 +460,12 @@ export function TravelCapsuleScreen() {
                 <Chip
                   key={type}
                   label={type}
-                  active={tripTypes.includes(type)}
-                  onPress={() => toggleTripType(type)}
+                  active={tripType === type}
+                  onPress={() => selectTripType(type)}
                 />
               ))}
             </View>
-            <Caption>Multi-select. Shapes what we recommend packing.</Caption>
+            <Caption>Pick one. Shapes what we recommend packing.</Caption>
           </View>
 
           {/* ============ CTA ============ */}

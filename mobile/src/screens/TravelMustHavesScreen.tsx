@@ -92,6 +92,11 @@ export function TravelMustHavesScreen() {
   const handleToggle = React.useCallback(
     (mh: TravelCapsuleMustHave) => {
       if (!capsuleId) return;
+      // Capture the pre-toggle snapshot explicitly so rollback survives
+      // a second toggle landing while the first is still in-flight. A
+      // closed-over `draft` would point at the most recent render's
+      // value — onError would restore the wrong baseline.
+      const prev = draft;
       const next = draft.map((row) =>
         row.id === mh.id ? { ...row, status: nextStatus(row.status) } : row,
       );
@@ -102,7 +107,7 @@ export function TravelMustHavesScreen() {
           onError: () => {
             // Roll back local state on persistence failure so the row
             // doesn't lie about a status that didn't actually save.
-            setDraft(draft);
+            setDraft(prev);
             Alert.alert('', tr('travelMustHaves.saveFailed'));
           },
         },

@@ -906,7 +906,6 @@ export const en: Record<string, string> = {
   'travelCapsule.delete.confirmConfirm': 'Delete',
   'travelCapsule.delete.aria': 'Delete saved trip',
   'travelCapsule.openSavedHint': 'Opens this saved capsule',
-  'travelCapsule.savedTripCardTemplate': '{destination} · {dates}',
   'travelCapsule.savedTripItemsTemplate': '{items} pieces · {outfits} looks',
   'travelCapsule.generating': 'Building your capsule…',
   'travelCapsule.generatingBody':
@@ -920,7 +919,6 @@ export const en: Record<string, string> = {
   'travelCapsule.notEnoughGarmentsTitle': 'Not enough wardrobe yet',
   'travelCapsule.notEnoughGarmentsBody':
     'Add at least 5 garments to your wardrobe before building a capsule.',
-  'travelCapsule.errorGeneric': "We couldn't reach the planner. Try again.",
 
   // Step 2 — must-haves edit support. The user can flag a piece as
   // "have", "buy" (gap they intend to purchase), or "unsure" — the
@@ -937,10 +935,6 @@ export const en: Record<string, string> = {
   'travelMustHaves.empty.body':
     'Build a capsule first to see the pieces BURS chose for you.',
   'travelMustHaves.saveFailed': "Couldn't save your changes. Try again.",
-  // Codex-style fallback when the saved row has no must_haves array
-  // (older capsules predating this wave).
-  'travelMustHaves.legacyHint':
-    'This capsule predates must-have editing. Open the packing list to continue.',
 
   // Step 3 — packing list. Per-item checkboxes persist into
   // `result.packed_state` JSONB on the capsule row, debounced 300ms so
@@ -949,8 +943,19 @@ export const en: Record<string, string> = {
   'travelPackingList.empty.title': 'Empty packing list',
   'travelPackingList.empty.body':
     'No items here yet — try regenerating the capsule.',
-  'travelPackingList.packedCountTemplate': '{packed} / {total} packed',
   'travelPackingList.allPacked': 'All packed · ready to fly',
+  // Surfaced when a packed-state write fails. Local checkbox state
+  // reverts to the last-known-good snapshot so the UI doesn't lie about
+  // a save that didn't land.
+  'travelPackingList.saveFailedTitle': "Couldn't save",
+  'travelPackingList.saveFailedBody':
+    "We couldn't save your packing changes. Pull to refresh and try again.",
+  // Specific copy for the optimistic-concurrency conflict — the row
+  // moved under us (cross-device or rapid same-device writes). The
+  // mutation refetches automatically; the user just needs to retry.
+  'travelPackingList.saveConflictTitle': 'Save conflict',
+  'travelPackingList.saveConflictBody':
+    'Your packing list was updated elsewhere. Please retry.',
   // Singular handled inline by the screen; the template covers 0 / 2+.
   'travelPackingList.itemsLeftTemplate': '{count} pieces left',
   'travelPackingList.itemsLeftOne': '1 piece left',

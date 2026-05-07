@@ -19,10 +19,18 @@
 // which the edge function already populates with the full response
 // envelope. The mobile hook surfaces them as top-level fields on the
 // `TravelCapsuleRow` shape — readers stay clean even though the storage
-// is nested. Spec asked for column-level fields, but adding columns is
-// out of wave scope (no migrations) and shape compat with web's
-// `useTravelCapsules` (which also nests inside `result`) keeps the two
-// platforms reading the same row format.
+// is nested.
+//
+// Mobile-only schema convention. Web stores `capsuleResult` as-is in
+// `result` (raw edge response — see `src/hooks/useTravelCapsule.ts`'s
+// `saveCapsuleToDb`) and keeps packed-state in component-local
+// `useState<Set<string>>` (transient, never persisted). Mobile nests
+// `must_haves` and `packed_state` keys inside `result` so we don't need
+// a migration; web's read-path ignores extra keys, but cross-platform
+// editing is one-way: a capsule edited on web won't surface mobile's
+// persistent state, and a capsule edited on mobile will not show its
+// must-haves / packed-state on web. Track this divergence in
+// docs/launch/findings-log.md until web M28 ships.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -89,6 +97,11 @@ export interface TravelCapsuleRow {
   packed_state: PackedState;
   result: Record<string, unknown> | null;
   created_at: string;
+  /** Optimistic-concurrency token for `result` JSONB writes. Threaded
+   *  into the WHERE clause of the must_haves / packed_state mutations so
+   *  a stale RMW (cross-device or rapid same-device writes) returns 0
+   *  rows instead of clobbering a fresher payload. */
+  updated_at: string;
 }
 
 // ─── boundary parsers ─────────────────────────────────────────────────
@@ -213,6 +226,15 @@ function parseRow(raw: Record<string, unknown>): TravelCapsuleRow | null {
     packed_state: packedState,
     result,
     created_at: typeof raw.created_at === 'string' ? raw.created_at : new Date().toISOString(),
+    // Fall back to created_at when updated_at is missing (older rows that
+    // predate the column). Optimistic-concurrency check still works —
+    // if the row hasn't been written since insert the two are identical.
+    updated_at:
+      typeof raw.updated_at === 'string'
+        ? raw.updated_at
+        : typeof raw.created_at === 'string'
+          ? raw.created_at
+          : new Date().toISOString(),
   };
 }
 
@@ -237,6 +259,7 @@ const SELECT_COLUMNS = [
   'reasoning',
   'result',
   'created_at',
+  'updated_at',
 ].join(', ');
 
 export function useTravelCapsules() {
@@ -251,7 +274,10 @@ export function useTravelCapsules() {
         .select(SELECT_COLUMNS)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        // Match web's MAX_CAPSULES = 10 (`src/hooks/useTravelCapsules.ts`).
+        // Generation-side trim-oldest in `useGenerateTravelCapsule` keeps
+        // the row count below this cap on the writer side too.
+        .limit(10);
       if (error) throw error;
       return (data ?? [])
         .map((row) => parseRow(row as unknown as Record<string, unknown>))
@@ -276,6 +302,15 @@ export function useTravelCapsule(capsuleId: string | undefined) {
 }
 
 // ─── mutations ────────────────────────────────────────────────────────
+
+/** Thrown when an optimistic-concurrency-guarded RMW UPDATE on
+ *  `travel_capsules.result` finds the row's `updated_at` has moved since
+ *  the cached snapshot. Callers can detect this sentinel to surface a
+ *  "Save conflict" toast and refetch instead of retrying blindly.
+ *
+ *  Defensive only — the proper fix is an atomic `jsonb_set` RPC; tracked
+ *  in docs/launch/findings-log.md (M28) for a post-launch migration. */
+export const TRAVEL_CAPSULE_SAVE_CONFLICT = 'travel_capsule_save_conflict';
 
 export function useDeleteTravelCapsule() {
   const queryClient = useQueryClient();
@@ -341,27 +376,53 @@ export function useUpdateTravelCapsuleMustHaves() {
   >({
     mutationFn: async ({ capsuleId, mustHaves }) => {
       if (!user) throw new Error('Not authenticated');
-      // Read the current `result` payload first so the merge preserves
-      // unrelated keys (web's row stores capsule_items / outfits / etc
-      // inside the same blob — overwriting it would orphan that data).
+      // Read the current `result` + updated_at first. updated_at is the
+      // optimistic-concurrency token — we'll thread it into the UPDATE's
+      // WHERE clause so a stale RMW doesn't clobber a fresher write
+      // (cross-device, or rapid same-device retries). Defensive-only;
+      // the ideal fix is an atomic `jsonb_set` RPC tracked in the
+      // findings log for a post-launch migration.
       const { data: current, error: readErr } = await supabase
         .from('travel_capsules')
-        .select('result')
+        .select('result, updated_at')
         .eq('id', capsuleId)
         .eq('user_id', user.id)
         .maybeSingle();
       if (readErr) throw readErr;
+      if (!current) throw new Error('travel_capsule row not found');
       const prevResult =
-        current?.result && typeof current.result === 'object' && !Array.isArray(current.result)
+        current.result && typeof current.result === 'object' && !Array.isArray(current.result)
           ? (current.result as Record<string, unknown>)
           : {};
       const nextResult = { ...prevResult, must_haves: mustHaves };
-      const { error } = await supabase
+      const cachedUpdatedAt = typeof current.updated_at === 'string' ? current.updated_at : null;
+      let updateQuery = supabase
         .from('travel_capsules')
         .update({ result: nextResult })
         .eq('id', capsuleId)
         .eq('user_id', user.id);
+      if (cachedUpdatedAt) {
+        updateQuery = updateQuery.eq('updated_at', cachedUpdatedAt);
+      }
+      const { data: updatedRows, error } = await updateQuery.select('id, updated_at');
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        // Row moved under us — surface the sentinel so the caller can
+        // refetch and reconcile.
+        throw new Error(TRAVEL_CAPSULE_SAVE_CONFLICT);
+      }
+      // Update the cache with the fresh updated_at so subsequent writes
+      // use the latest token.
+      const newUpdatedAt = updatedRows[0]?.updated_at;
+      if (typeof newUpdatedAt === 'string') {
+        const cached = queryClient.getQueryData<TravelCapsuleRow[]>(queryKey);
+        if (cached) {
+          queryClient.setQueryData<TravelCapsuleRow[]>(
+            queryKey,
+            cached.map((c) => (c.id === capsuleId ? { ...c, updated_at: newUpdatedAt } : c)),
+          );
+        }
+      }
     },
     onMutate: async ({ capsuleId, mustHaves }) => {
       await queryClient.cancelQueries({ queryKey });
@@ -376,6 +437,11 @@ export function useUpdateTravelCapsuleMustHaves() {
     },
     onError: (err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(queryKey, ctx.previous);
+      // On a save-conflict, also refetch so the user sees the winning
+      // state instead of the rolled-back snapshot.
+      if (err.message === TRAVEL_CAPSULE_SAVE_CONFLICT) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
       captureMutationError('useUpdateTravelCapsuleMustHaves')(err);
     },
     onSettled: () => {
@@ -388,6 +454,10 @@ export function useUpdateTravelCapsuleMustHaves() {
  * Patch the `result.packed_state` JSONB on a capsule row. Same merge
  * semantics as `useUpdateTravelCapsuleMustHaves` — read-modify-write
  * preserves sibling keys. Optimistic update + rollback on failure.
+ *
+ * Same updated_at optimistic-concurrency guard as the must_haves
+ * mutation — stale RMW returns the `TRAVEL_CAPSULE_SAVE_CONFLICT`
+ * sentinel.
  */
 export function useUpdateTravelCapsulePackedState() {
   const queryClient = useQueryClient();
@@ -404,22 +474,41 @@ export function useUpdateTravelCapsulePackedState() {
       if (!user) throw new Error('Not authenticated');
       const { data: current, error: readErr } = await supabase
         .from('travel_capsules')
-        .select('result')
+        .select('result, updated_at')
         .eq('id', capsuleId)
         .eq('user_id', user.id)
         .maybeSingle();
       if (readErr) throw readErr;
+      if (!current) throw new Error('travel_capsule row not found');
       const prevResult =
-        current?.result && typeof current.result === 'object' && !Array.isArray(current.result)
+        current.result && typeof current.result === 'object' && !Array.isArray(current.result)
           ? (current.result as Record<string, unknown>)
           : {};
       const nextResult = { ...prevResult, packed_state: packedState };
-      const { error } = await supabase
+      const cachedUpdatedAt = typeof current.updated_at === 'string' ? current.updated_at : null;
+      let updateQuery = supabase
         .from('travel_capsules')
         .update({ result: nextResult })
         .eq('id', capsuleId)
         .eq('user_id', user.id);
+      if (cachedUpdatedAt) {
+        updateQuery = updateQuery.eq('updated_at', cachedUpdatedAt);
+      }
+      const { data: updatedRows, error } = await updateQuery.select('id, updated_at');
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error(TRAVEL_CAPSULE_SAVE_CONFLICT);
+      }
+      const newUpdatedAt = updatedRows[0]?.updated_at;
+      if (typeof newUpdatedAt === 'string') {
+        const cached = queryClient.getQueryData<TravelCapsuleRow[]>(queryKey);
+        if (cached) {
+          queryClient.setQueryData<TravelCapsuleRow[]>(
+            queryKey,
+            cached.map((c) => (c.id === capsuleId ? { ...c, updated_at: newUpdatedAt } : c)),
+          );
+        }
+      }
     },
     onMutate: async ({ capsuleId, packedState }) => {
       await queryClient.cancelQueries({ queryKey });
@@ -436,6 +525,9 @@ export function useUpdateTravelCapsulePackedState() {
     },
     onError: (err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(queryKey, ctx.previous);
+      if (err.message === TRAVEL_CAPSULE_SAVE_CONFLICT) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
       captureMutationError('useUpdateTravelCapsulePackedState')(err);
     },
     onSettled: () => {
