@@ -32,9 +32,8 @@ import { logger } from "../_shared/logger.ts";
 const log = logger("send_push_notification");
 
 // Build a JSON Response with CORS headers — used for every successful exit
-// path so the idempotency store sees a consistent shape and the caller
-// always gets the right CORS surface. Status defaults to 200; error paths
-// pass their own status.
+// path so the caller always gets the right Content-Type + CORS surface.
+// Status defaults to 200; error paths pass their own status.
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
