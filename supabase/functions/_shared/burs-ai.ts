@@ -686,7 +686,24 @@ export async function callBursAI(
           model, body, timeout,
         );
 
-        if ("fatal" in outcome && outcome.fatal) throw (outcome as any).error;
+        if ("fatal" in outcome && outcome.fatal) {
+          // Emit telemetry on the fatal-error throw path before unwinding —
+          // otherwise credit-exhausted (402) and other non-retryable failures
+          // are invisible in analytics_events even when the caller passes a
+          // service client. This is the costliest failure mode operationally
+          // and was the gap flagged in PR #762's 2nd-pass review.
+          const fatalErr = (outcome as any).error;
+          logUsage(supabaseServiceClient, {
+            functionName: options.functionName,
+            model_used: model,
+            latency_ms: Date.now() - startTime,
+            from_cache: false,
+            status: "error",
+            error_message: fatalErr instanceof Error ? fatalErr.message : String(fatalErr),
+            complexity: options.complexity,
+          });
+          throw fatalErr;
+        }
         if ("retry" in outcome) continue;
         if ("error" in outcome) {
           const err = outcome.error;
