@@ -1093,4 +1093,38 @@ export const en: Record<string, string> = {
   'paywall.error.cancelled': '',
   'paywall.termsLink': 'https://burs.me/terms',
   'paywall.privacyLink': 'https://burs.me/privacy',
+
+  // ─── M31 PR A review — Apple 3.1.2 auto-renewal disclosure ──────────────
+  // Required on-screen, BEFORE the purchase CTA, per App Store Review
+  // Guideline 3.1.2 (Auto-Renewing Subscriptions). Verbatim Apple-compliant
+  // copy — do not paraphrase without re-reading the guideline.
+  'paywall.disclosure.autoRenew':
+    'Auto-renews unless cancelled at least 24 hours before the end of the current period.',
+  'paywall.disclosure.manage':
+    'Manage your subscription in your Apple ID settings.',
+  'paywall.disclosure.charge':
+    'Payment will be charged to your Apple ID account at confirmation of purchase.',
+
+  // CTA fallback copy when the RevenueCat offering ships WITHOUT an
+  // introductory free-trial offer. Existing `paywall.cta` keeps the trial
+  // language for the trial path.
+  'paywall.subscribeCta': 'Subscribe',
+
+  // Restore Purchases — empty-result alert (formerly hidden behind the
+  // generic restored toast which lied when entitlements were empty).
+  'paywall.restoreNoPurchases.title': 'No purchases to restore',
+  'paywall.restoreNoPurchases.body':
+    "We didn't find any active subscriptions on this Apple ID.",
+
+  // Alert title/body splits — Alert.alert renders the title as a heading
+  // line; using long body strings as titles produced cramped, hard-to-read
+  // dialogs. The body strings carry the user-actionable hint (including
+  // the webhook-never-fires recovery path for `activating`).
+  'paywall.activated.title': 'Subscription active',
+  'paywall.activated.body': 'Welcome to BURS Premium.',
+  'paywall.activating.title': 'Activating your subscription',
+  'paywall.activating.body':
+    "This usually takes a few seconds. If it doesn't appear within a minute, tap Restore Purchases.",
+  'paywall.errorGeneric.title': "Couldn't complete purchase",
+  'paywall.errorGeneric.body': 'Try again or restore previous purchases.',
 };

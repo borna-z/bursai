@@ -50,6 +50,18 @@ let configuredFor: string | null = null;
 type PurchasesModule = typeof import('react-native-purchases').default;
 let purchasesRef: PurchasesModule | null = null;
 
+// Module-level promise queue — serialises configure / reset calls so a
+// rapid sign-out → sign-in sequence can't race the underlying logOut +
+// configure. Each lifecycle call chains off the previous one's resolution
+// (success OR failure — `.catch(() => {})` so a single transient error
+// can't poison the whole chain).
+let inFlight: Promise<void> | null = null;
+function enqueue(task: () => Promise<void>): Promise<void> {
+  const next = (inFlight ?? Promise.resolve()).catch(() => undefined).then(task);
+  inFlight = next;
+  return next;
+}
+
 function isPurchasesSupported(): boolean {
   // Web has no IAP surface; expo-doctor + Metro will still resolve the
   // module but every call no-ops or throws. Simulator returns false from
@@ -106,85 +118,96 @@ async function loadPurchasesModule(): Promise<PurchasesModule | null> {
  * — logs a Sentry breadcrumb and returns without throwing. The paywall hook
  * surfaces a friendly error if a purchase is then attempted.
  */
-export async function configureRevenueCat(userId: string): Promise<void> {
-  if (!isPurchasesSupported()) {
-    Sentry.addBreadcrumb({
-      category: 'revenuecat',
-      level: 'info',
-      message: 'configure_skipped_unsupported_platform',
-      data: { platform: Platform.OS, isDevice: Device.isDevice },
-    });
-    return;
-  }
-
-  const apiKey = resolveApiKey();
-  if (!apiKey) {
-    // Sandbox / production keys are provisioned in M44 (external setup).
-    // Until then dev builds boot without IAP — the breadcrumb makes the
-    // missing-config visible in Sentry without crashing.
-    Sentry.addBreadcrumb({
-      category: 'revenuecat',
-      level: 'warning',
-      message: 'configure_skipped_missing_api_key',
-      data: { platform: Platform.OS },
-    });
-    return;
-  }
-
-  if (configuredFor === userId) return;
-
-  const Purchases = await loadPurchasesModule();
-  if (!Purchases) return;
-
-  try {
-    if (configuredFor && configuredFor !== userId) {
-      // Different user signed in on the same device — clear the prior
-      // RevenueCat session before re-configuring so entitlements don't
-      // bleed across accounts.
-      await Purchases.logOut();
+export function configureRevenueCat(userId: string): Promise<void> {
+  return enqueue(async () => {
+    if (!isPurchasesSupported()) {
+      Sentry.addBreadcrumb({
+        category: 'revenuecat',
+        level: 'info',
+        message: 'configure_skipped_unsupported_platform',
+        data: { platform: Platform.OS, isDevice: Device.isDevice },
+      });
+      return;
     }
-    Purchases.configure({ apiKey, appUserID: userId });
-    configuredFor = userId;
-    Sentry.addBreadcrumb({
-      category: 'revenuecat',
-      level: 'info',
-      message: 'configured',
-      data: { userId },
-    });
-  } catch (err) {
-    // Configuration failures are non-fatal — every downstream call will
-    // surface its own error path. Capture for visibility.
-    Sentry.captureException(err, {
-      tags: { feature: 'revenuecat', step: 'configure' },
-    });
-  }
+
+    const apiKey = resolveApiKey();
+    if (!apiKey) {
+      // Sandbox / production keys are provisioned in M44 (external setup).
+      // Until then dev builds boot without IAP — the breadcrumb makes the
+      // missing-config visible in Sentry without crashing.
+      Sentry.addBreadcrumb({
+        category: 'revenuecat',
+        level: 'warning',
+        message: 'configure_skipped_missing_api_key',
+        data: { platform: Platform.OS },
+      });
+      return;
+    }
+
+    if (configuredFor === userId) return;
+
+    const Purchases = await loadPurchasesModule();
+    if (!Purchases) return;
+
+    try {
+      if (configuredFor && configuredFor !== userId) {
+        // Different user signed in on the same device — clear the prior
+        // RevenueCat session before re-configuring so entitlements don't
+        // bleed across accounts.
+        await Purchases.logOut();
+      }
+      Purchases.configure({ apiKey, appUserID: userId });
+      // Set AFTER configure resolves so an outer resetRevenueCat() that
+      // races a configure can't observe a half-initialised SDK as
+      // "configured" — the synchronous `configuredFor = null` at the top
+      // of resetRevenueCat is the symmetric guarantee for the other
+      // direction.
+      configuredFor = userId;
+      Sentry.addBreadcrumb({
+        category: 'revenuecat',
+        level: 'info',
+        message: 'configured',
+        data: { userId },
+      });
+    } catch (err) {
+      // Configuration failures are non-fatal — every downstream call will
+      // surface its own error path. Capture for visibility.
+      Sentry.captureException(err, {
+        tags: { feature: 'revenuecat', step: 'configure' },
+      });
+    }
+  });
 }
 
 /**
  * Reset the SDK on sign-out. Idempotent — a no-op if we never configured
  * (e.g. a sign-out fired before the configure effect ran).
  */
-export async function resetRevenueCat(): Promise<void> {
-  if (!isPurchasesSupported()) return;
-  if (!configuredFor) return;
-  const Purchases = purchasesRef ?? (await loadPurchasesModule());
-  if (!Purchases) {
-    configuredFor = null;
-    return;
-  }
-  try {
-    await Purchases.logOut();
-  } catch (err) {
-    // logOut throws if no user is configured — swallow, the SDK is
-    // already in the desired state.
-    Sentry.addBreadcrumb({
-      category: 'revenuecat',
-      level: 'info',
-      message: 'logout_swallowed',
-      data: { error: err instanceof Error ? err.message : String(err) },
-    });
-  }
+export function resetRevenueCat(): Promise<void> {
+  // Synchronous flip — any concurrent call to getOfferings / purchase /
+  // restore that observes `configuredFor === null` short-circuits before
+  // it can hit a half-torn-down SDK. The async logOut runs after, in the
+  // serialised queue.
+  const wasConfigured = configuredFor !== null;
   configuredFor = null;
+  return enqueue(async () => {
+    if (!isPurchasesSupported()) return;
+    if (!wasConfigured) return;
+    const Purchases = purchasesRef ?? (await loadPurchasesModule());
+    if (!Purchases) return;
+    try {
+      await Purchases.logOut();
+    } catch (err) {
+      // logOut throws if no user is configured — swallow, the SDK is
+      // already in the desired state.
+      Sentry.addBreadcrumb({
+        category: 'revenuecat',
+        level: 'info',
+        message: 'logout_swallowed',
+        data: { error: err instanceof Error ? err.message : String(err) },
+      });
+    }
+  });
 }
 
 /**
@@ -206,6 +229,54 @@ export async function getOfferings(): Promise<PurchasesOffering | null> {
     });
     return null;
   }
+}
+
+/**
+ * Per-plan view of the current offering with intro-offer presence flagged.
+ * The paywall consumes this so the CTA copy ("Start 3-day free trial" vs.
+ * plain "Subscribe") matches the offering RevenueCat actually ships — if
+ * the dashboard removes the intro offer for monthly, the screen MUST stop
+ * advertising it (Apple 3.1.1 false-advertising path).
+ *
+ * `introPriceLabel` is the SDK's localised price string for the intro
+ * period (e.g. "Free for 3 days") — render verbatim if present rather than
+ * paraphrasing, so the copy localises with the user's StoreKit locale.
+ */
+export type IntroOfferInfo = {
+  pkg: PurchasesPackage;
+  hasIntroOffer: boolean;
+  introPriceLabel: string | null;
+};
+export type OfferingsWithIntro = {
+  monthly: IntroOfferInfo | null;
+  annual: IntroOfferInfo | null;
+};
+
+function readIntroOffer(pkg: PurchasesPackage): IntroOfferInfo {
+  // Defensive read — `product.introPrice` is optional on the SDK's typed
+  // surface (Android promo offers, iOS intro offers, etc. populate it
+  // differently across versions). Treat any non-null `priceString` as the
+  // signal. A free trial reports priceString = "Free" / "Gratis" / etc.
+  const introPrice = (pkg.product as { introPrice?: { priceString?: string } | null })
+    .introPrice ?? null;
+  const introPriceLabel =
+    introPrice && typeof introPrice.priceString === 'string'
+      ? introPrice.priceString
+      : null;
+  return {
+    pkg,
+    hasIntroOffer: introPrice !== null,
+    introPriceLabel,
+  };
+}
+
+export async function getOfferingsWithIntroOffer(): Promise<OfferingsWithIntro | null> {
+  const offering = await getOfferings();
+  if (!offering) return null;
+  return {
+    monthly: offering.monthly ? readIntroOffer(offering.monthly) : null,
+    annual: offering.annual ? readIntroOffer(offering.annual) : null,
+  };
 }
 
 /**

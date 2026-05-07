@@ -17,7 +17,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, type Profile } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
 export type SubscriptionState = 'trialing' | 'premium' | 'locked';
@@ -55,6 +55,27 @@ function parseSubscriptionRow(input: unknown): SubscriptionRow | null {
   };
 }
 
+// Mirror web `src/hooks/useSubscription.ts` — backend
+// `_shared/scale-guard.ts` grants new signups a 24h boost window where
+// AI calls bypass the free-tier rate limit even before `start_trial`
+// has written `plan='premium', status='trialing'`. During that window
+// the `subscriptions` row can look like a locked free user, so the
+// frontend must apply the same bypass or UI will gate while API allows.
+//
+// 3 conditions (matches `_shared/scale-guard.ts:162-170` exactly):
+//   1. profile.onboarding_started_at is set
+//   2. profile.onboarding_step !== 'completed'
+//   3. Date.now() - startedMs < 24h
+const ONBOARDING_BOOST_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isInOnboardingBoost(profile: Profile | null | undefined): boolean {
+  if (!profile?.onboarding_started_at) return false;
+  if (profile.onboarding_step === 'completed') return false;
+  const startedMs = new Date(profile.onboarding_started_at).getTime();
+  if (!Number.isFinite(startedMs)) return false;
+  return Date.now() - startedMs < ONBOARDING_BOOST_WINDOW_MS;
+}
+
 function deriveState(row: SubscriptionRow | null): SubscriptionState {
   if (!row) return 'locked';
   if (row.status === 'trialing') {
@@ -78,7 +99,7 @@ function deriveState(row: SubscriptionRow | null): SubscriptionState {
 }
 
 export function useSubscription() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const query = useQuery<SubscriptionRow | null>({
     queryKey: ['subscription', user?.id],
@@ -100,7 +121,15 @@ export function useSubscription() {
   });
 
   const row = query.data ?? null;
-  const state = deriveState(row);
+  const baseState = deriveState(row);
+  // Onboarding-boost bypass — when active, override 'locked' to 'trialing'
+  // so gating helpers (and `isPremium`) match backend's permissive stance
+  // during the 24h post-signup boost window. Active states ('trialing',
+  // 'premium') are left untouched so the user keeps the strongest signal
+  // they've actually earned.
+  const onboardingBypass =
+    baseState === 'locked' && isInOnboardingBoost(profile);
+  const state: SubscriptionState = onboardingBypass ? 'trialing' : baseState;
   const plan = row?.plan ?? null;
   const isTrialing = state === 'trialing';
   const isPremium = state === 'premium' || state === 'trialing';

@@ -86,6 +86,13 @@ export type Profile = {
   created_at: string;
   onboarding_step?: string | null;
   onboarding_completed_at?: string | null;
+  // M31 PR A — needed to mirror web's onboarding-boost bypass in
+  // useSubscription. Backend `_shared/scale-guard.ts` grants new signups
+  // a 24h boost window where the `subscriptions` row may still read
+  // `plan='free', status='active'` (pre-`start_trial`); the frontend has
+  // to mirror the same window so gating UI doesn't deny actions the API
+  // would allow.
+  onboarding_started_at?: string | null;
 };
 
 type SignResult = { error: Error | null };
@@ -105,7 +112,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const PROFILE_COLUMNS =
-  'id, display_name, preferences, mannequin_presentation, created_at, onboarding_step, onboarding_completed_at';
+  'id, display_name, preferences, mannequin_presentation, created_at, onboarding_step, onboarding_completed_at, onboarding_started_at';
 
 // Fresh-signup detection window — start_trial fires only when the user row
 // was created within this many ms of the SIGNED_IN event. Prevents trial

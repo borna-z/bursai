@@ -222,17 +222,33 @@ function useRevenueCatLifecycle(): void {
     const prevId = lastUserId.current;
     if (nextId === prevId) return;
 
-    if (!nextId) {
-      // sign-out
-      lastUserId.current = null;
-      void resetRevenueCat();
-      return;
-    }
+    let cancelled = false;
+    void (async () => {
+      if (!nextId) {
+        // sign-out — await so a fast re-sign-in into the same effect
+        // dependency-update chain serialises behind it. The wrapper's
+        // module-level inFlight queue serialises ALL callers, but
+        // capturing the await here also prevents `lastUserId.current`
+        // from leading the actual SDK state.
+        await resetRevenueCat();
+        if (cancelled) return;
+        lastUserId.current = null;
+        return;
+      }
 
-    // sign-in or user-swap. configureRevenueCat handles the swap case
-    // internally (logOut + reconfigure when `configuredFor !== nextId`).
-    lastUserId.current = nextId;
-    void configureRevenueCat(nextId);
+      // sign-in or user-swap. The wrapper's queue handles the implicit
+      // logOut + reconfigure when `configuredFor !== nextId`. Capture
+      // `lastUserId.current` only AFTER the configure resolves so a
+      // mid-flight unmount or another auth event doesn't end up with a
+      // ref pointing at a user the SDK isn't actually serving yet.
+      await configureRevenueCat(nextId);
+      if (cancelled) return;
+      lastUserId.current = nextId;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, isLoading]);
 }
 

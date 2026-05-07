@@ -23,10 +23,11 @@
 // pending) lets the paywall branch on UX without try/catch noise. Real
 // errors still throw and bubble to React Query's `onError`.
 
+import { useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
-import { captureMutationError } from '../lib/sentry';
+import { captureMutationError, Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import {
   getOfferings,
@@ -87,10 +88,21 @@ async function findRevenueCatPackage(
   return null;
 }
 
-async function pollForEntitlement(userId: string): Promise<boolean> {
+async function pollForEntitlement(
+  userId: string,
+  signal: AbortSignal,
+  getCurrentUserId: () => string | null,
+): Promise<boolean> {
   const start = Date.now();
   while (Date.now() - start < POLL_MAX_MS) {
+    if (signal.aborted) return false;
     await delay(POLL_INTERVAL_MS);
+    if (signal.aborted) return false;
+    // Sign-out mid-poll race — if the user signed out while we were
+    // waiting, treat the poll as cancelled. The mutationFn surfaces this
+    // as a typed error so the screen doesn't end up showing "Subscription
+    // active" for a session that no longer exists.
+    if (getCurrentUserId() !== userId) return false;
     const { data, error } = await supabase
       .from('subscriptions')
       .select('plan, status')
@@ -99,7 +111,15 @@ async function pollForEntitlement(userId: string): Promise<boolean> {
     if (error) {
       // Transient SELECT failures don't abort the poll — keep trying. The
       // outer mutation throws if Supabase is permanently unreachable via
-      // the standard error path; here we just log a breadcrumb.
+      // the standard error path; here we record a breadcrumb so Sentry
+      // shows the upstream error before the (eventual) user-visible
+      // pending / generic-error path.
+      Sentry.addBreadcrumb({
+        category: 'subscription',
+        level: 'warning',
+        message: 'poll_error',
+        data: { code: (error as { code?: string }).code ?? 'unknown' },
+      });
       continue;
     }
     if (data && isPremiumActiveRow(data as { plan: string | null; status: string | null })) {
@@ -112,10 +132,36 @@ async function pollForEntitlement(userId: string): Promise<boolean> {
 export function usePurchaseSubscription() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  // Stable ref so the poll loop can re-check the current user.id without
+  // closing over a stale value from `mutationFn`'s opening frame. Updated
+  // every render — cheap (a single ref assignment).
+  const currentUserIdRef = useRef<string | null>(user?.id ?? null);
+  currentUserIdRef.current = user?.id ?? null;
+  // AbortController for the in-flight poll. Created on each mutation
+  // start, aborted on unmount and on a fresh mutation start (so a user
+  // who taps Subscribe twice doesn't end up with two overlapping polls).
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Unmount cleanup — abort any in-flight poll so React Query's stale
+  // mutation doesn't keep ticking after the screen unmounts. Idempotent.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   return useMutation<PurchaseResult, unknown, { packageType: PackageType }>({
     mutationFn: async ({ packageType }): Promise<PurchaseResult> => {
       if (!user) throw new Error('Not authenticated');
+      // Capture the user id at mutation start. After the StoreKit sheet
+      // resolves, we re-check against the current AuthContext value — if
+      // the user signed out mid-purchase (rare but observable on long
+      // StoreKit sheets), bail with a typed error so the screen surfaces
+      // a generic alert rather than activating a subscription for a
+      // session that no longer exists.
+      const startUserId = user.id;
+
+      // Reset the abort controller for this attempt — abort any prior
+      // in-flight poll, then create a fresh signal for the new one.
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
       const pkg = await findRevenueCatPackage(packageType);
       if (!pkg) {
@@ -143,9 +189,21 @@ export function usePurchaseSubscription() {
         return { status: 'cancelled' };
       }
 
+      // Sign-out-mid-purchase race — between the StoreKit sheet opening
+      // and resolving, the user could have signed out. Treat as a clean
+      // cancellation so the paywall doesn't show "Subscription active"
+      // for a session that no longer holds the entitlement.
+      if (currentUserIdRef.current !== startUserId) {
+        return { status: 'cancelled' };
+      }
+
       // Receipt is now forwarded to RevenueCat which fires the webhook.
       // Poll the `subscriptions` row for the entitlement transition.
-      const synced = await pollForEntitlement(user.id);
+      const synced = await pollForEntitlement(
+        startUserId,
+        controller.signal,
+        () => currentUserIdRef.current,
+      );
       if (synced) return { status: 'success' };
       return { status: 'pending', message: 'webhook delay' };
     },
