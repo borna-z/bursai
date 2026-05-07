@@ -139,7 +139,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Existing baseline depth (ported from prior M0–M14 plan)
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M28 | [Travel capsule end-to-end](waves/m28-travel-capsule.md) | DONE (PR #TBD) | V0 |
+| ) | V0 |
 | M29 | [Style DNA + wardrobe stats](waves/m29-style-dna.md) | TODO | V0 |
 | M30 | [Push notifications + Expo send branch](waves/m30-push.md) | TODO | V0 |
 | M31 | [RevenueCat + paywall + webhook](waves/m31-revenuecat.md) | TODO | V0 |
