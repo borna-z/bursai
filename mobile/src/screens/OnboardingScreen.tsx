@@ -245,6 +245,12 @@ export function OnboardingScreen() {
         onboarding: {
           ...existingOnboarding,
           completed: true,
+          // Audit follow-up (M27): write a precise `completed_at` timestamp
+          // so the first-run coach retro gate can distinguish "user finished
+          // onboarding ≥1 hour ago and never saw the tour" from "user is
+          // mid-flow right now". Pre-existing `completed: true` boolean is
+          // preserved for legacy readers; the new timestamp is additive.
+          completed_at: existingOnboarding.completed_at ?? new Date().toISOString(),
           step: STEP_COUNT,
           language: draft.language,
           studio: draft.studio,

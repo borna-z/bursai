@@ -21,7 +21,7 @@
 // list.
 
 import React from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,15 +39,42 @@ import { t as tr } from '../lib/i18n';
 import {
   useTravelCapsule,
   useUpdateTravelCapsuleMustHaves,
+  TRAVEL_CAPSULE_SAVE_CONFLICT,
   type TravelCapsuleMustHave,
   type TravelCapsuleMustHaveStatus,
 } from '../hooks/useTravelCapsules';
+import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'TravelMustHaves'>;
 
 const STATUS_CYCLE: TravelCapsuleMustHaveStatus[] = ['have', 'buy', 'unsure'];
+
+// M28(b) — render header rows interleaved with must-have rows so the
+// "Your picks" / "We also noticed gaps" section labels survive a single
+// FlatList without needing SectionList (which would force a heavier
+// reshape of the optimistic-update plumbing). The discriminator on
+// `kind` keeps renderItem branch-clean.
+type Row =
+  | { kind: 'header'; id: string; label: string }
+  | { kind: 'item'; id: string; data: TravelCapsuleMustHave };
+
+function buildRows(draft: TravelCapsuleMustHave[]): Row[] {
+  // Source defaults to 'gap' (matches parser fallback for legacy rows).
+  const picks = draft.filter((m) => m.source === 'picker');
+  const gaps = draft.filter((m) => m.source !== 'picker');
+  const out: Row[] = [];
+  if (picks.length > 0) {
+    out.push({ kind: 'header', id: 'header-picks', label: tr('travelMustHaves.section.picks') });
+    for (const m of picks) out.push({ kind: 'item', id: m.id, data: m });
+  }
+  if (gaps.length > 0) {
+    out.push({ kind: 'header', id: 'header-gaps', label: tr('travelMustHaves.section.gaps') });
+    for (const m of gaps) out.push({ kind: 'item', id: m.id, data: m });
+  }
+  return out;
+}
 
 function nextStatus(s: TravelCapsuleMustHaveStatus): TravelCapsuleMustHaveStatus {
   const idx = STATUS_CYCLE.indexOf(s);
@@ -104,10 +131,24 @@ export function TravelMustHavesScreen() {
       updateMustHaves.mutate(
         { capsuleId, mustHaves: next },
         {
-          onError: () => {
+          onError: (err) => {
             // Roll back local state on persistence failure so the row
             // doesn't lie about a status that didn't actually save.
             setDraft(prev);
+            // Audit follow-up (2026-05-07): distinguish the save-conflict
+            // path so the alert copy explains a fresh server state took
+            // priority — rather than the generic "couldn't save" line
+            // the user reads as a transient network failure. The hook's
+            // onError invalidation refetches the cached list, so by the
+            // time the user dismisses the alert the row reflects the
+            // winning write.
+            if (err instanceof Error && err.message === TRAVEL_CAPSULE_SAVE_CONFLICT) {
+              Alert.alert(
+                tr('travelMustHaves.saveConflictTitle'),
+                tr('travelMustHaves.saveConflictBody'),
+              );
+              return;
+            }
             Alert.alert('', tr('travelMustHaves.saveFailed'));
           },
         },
@@ -122,6 +163,7 @@ export function TravelMustHavesScreen() {
   }, [capsuleId, nav]);
 
   const showEmpty = hydrated && draft.length === 0;
+  const rows = React.useMemo(() => buildRows(draft), [draft]);
 
   // Without a capsuleId, the screen has nothing to render — bounce back
   // to the wizard. Direct deep-link entry shouldn't be possible today
@@ -140,9 +182,9 @@ export function TravelMustHavesScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-      <FlatList
-        data={draft}
-        keyExtractor={(item) => item.id}
+      <FlatList<Row>
+        data={rows}
+        keyExtractor={(row) => row.id}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
             <Header onBack={() => nav.goBack()} />
@@ -164,9 +206,16 @@ export function TravelMustHavesScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <MustHaveRow row={item} onToggle={() => handleToggle(item)} />
-        )}
+        renderItem={({ item }) => {
+          if (item.kind === 'header') {
+            return (
+              <View style={{ paddingTop: 4, paddingBottom: 6 }}>
+                <Eyebrow>{item.label}</Eyebrow>
+              </View>
+            );
+          }
+          return <MustHaveRow row={item.data} onToggle={() => handleToggle(item.data)} />;
+        }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
@@ -213,6 +262,11 @@ function MustHaveRow({
   const t = useTokens();
   const isHave = row.status === 'have';
   const isBuy = row.status === 'buy';
+  // Picker rows carry an image_path so we can render a small thumb. Gap
+  // rows have null/undefined here — useSignedUrl no-ops on null and the
+  // <Image> branch is gated on a successful URL.
+  const { data: signedUrl } = useSignedUrl(row.image_path ?? null);
+  const showThumb = row.source === 'picker' && !!signedUrl;
   return (
     <Pressable
       onPress={onToggle}
@@ -222,6 +276,18 @@ function MustHaveRow({
       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
       <Card padding={14}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {showThumb ? (
+            <Image
+              source={{ uri: signedUrl }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radii.md,
+                backgroundColor: t.bg2,
+              }}
+              resizeMode="cover"
+            />
+          ) : null}
           <View style={{ flex: 1, gap: 4 }}>
             {row.category ? <Eyebrow>{row.category}</Eyebrow> : null}
             <Text
