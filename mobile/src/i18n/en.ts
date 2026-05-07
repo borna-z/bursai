@@ -548,4 +548,261 @@ export const en: Record<string, string> = {
   'wardrobeGaps.pickMustHavesCta': 'Pick must-haves',
   'profile.shoppingList': 'Shopping list',
   'profile.shoppingListEmpty': 'No saved must-haves yet',
+
+  // ─── M25 — Onboarding StyleQuizV4 (full 12-question capture) ────────────
+  // Copy mirrors the web `StyleQuizV4.tsx` user-facing strings verbatim so
+  // the brand voice is consistent across platforms. Append-only; other 9
+  // locales fall back to en until M33 ports the dictionary.
+  'onboarding.quizV4.title': 'Tell us how you dress.',
+  'onboarding.quizV4.intro':
+    'Twelve quick answers help BURS tune outfits, planning, and wardrobe guidance around your real life.',
+  'onboarding.quizV4.continue': 'Continue',
+  'onboarding.quizV4.skip': 'Skip',
+  'onboarding.quizV4.back': 'Back',
+  'onboarding.quizV4.progressTemplate': '{current} of {total}',
+
+  // Q1 — Identity & body
+  'onboarding.quizV4.q.identity.prompt': 'A bit about you.',
+  'onboarding.quizV4.q.identity.help':
+    'Helps BURS suggest cuts and fits that flatter you.',
+  'onboarding.quizV4.q.identity.gender': 'How do you express your style?',
+  'onboarding.quizV4.q.identity.height': 'Height',
+  'onboarding.quizV4.q.identity.heightDecrease': 'Decrease height',
+  'onboarding.quizV4.q.identity.heightIncrease': 'Increase height',
+  'onboarding.quizV4.q.identity.cm': 'cm',
+  'onboarding.quizV4.q.identity.build': 'Build',
+  'onboarding.quizV4.q.identity.ageRange': 'Age range',
+  'onboarding.quizV4.choice.gender.feminine': 'Feminine',
+  'onboarding.quizV4.choice.gender.masculine': 'Masculine',
+  'onboarding.quizV4.choice.gender.neutral': 'Neutral',
+  'onboarding.quizV4.choice.gender.prefer_not': 'Prefer not to say',
+  'onboarding.quizV4.choice.build.slim': 'Slim',
+  'onboarding.quizV4.choice.build.athletic': 'Athletic',
+  'onboarding.quizV4.choice.build.curvy': 'Curvy',
+  'onboarding.quizV4.choice.build.fuller': 'Fuller',
+  'onboarding.quizV4.choice.build.prefer_not': 'Prefer not to say',
+  'onboarding.quizV4.choice.ageRange.18-24': '18–24',
+  'onboarding.quizV4.choice.ageRange.25-34': '25–34',
+  'onboarding.quizV4.choice.ageRange.35-44': '35–44',
+  'onboarding.quizV4.choice.ageRange.45-54': '45–54',
+  'onboarding.quizV4.choice.ageRange.55-64': '55–64',
+  'onboarding.quizV4.choice.ageRange.65+': '65+',
+
+  // Q2 — Lifestyle mix
+  'onboarding.quizV4.q.lifestyle.prompt': 'How is your week split?',
+  'onboarding.quizV4.q.lifestyle.help':
+    'Drag each slider to roughly reflect your time. Totals do not need to hit 100.',
+  'onboarding.quizV4.q.lifestyle.total': 'Total: {total}%',
+  'onboarding.quizV4.choice.lifestyle.work': 'Work',
+  'onboarding.quizV4.choice.lifestyle.social': 'Social',
+  'onboarding.quizV4.choice.lifestyle.casual': 'Casual',
+  'onboarding.quizV4.choice.lifestyle.sport': 'Sport',
+  'onboarding.quizV4.choice.lifestyle.evening': 'Evening',
+
+  // Q3 — Climate & location
+  'onboarding.quizV4.q.climate.prompt': 'Where do you dress?',
+  'onboarding.quizV4.q.climate.help':
+    'So weather and seasons are baked into recommendations from day one.',
+  'onboarding.quizV4.q.climate.homeCity': 'Home city (optional)',
+  'onboarding.quizV4.q.climate.homeCityPlaceholder': 'Stockholm',
+  'onboarding.quizV4.q.climate.climate': 'Climate',
+  'onboarding.quizV4.q.climate.secondaryCity': 'Travel often? (optional)',
+  'onboarding.quizV4.q.climate.secondaryCityPlaceholder': 'London',
+  'onboarding.quizV4.choice.climate.nordic': 'Nordic',
+  'onboarding.quizV4.choice.climate.temperate': 'Temperate',
+  'onboarding.quizV4.choice.climate.mediterranean': 'Mediterranean',
+  'onboarding.quizV4.choice.climate.tropical': 'Tropical',
+  'onboarding.quizV4.choice.climate.desert': 'Desert',
+  'onboarding.quizV4.choice.climate.varies': 'Varies',
+
+  // Q4 — Archetypes + style icons
+  'onboarding.quizV4.q.archetypes.prompt': 'Pick your style words.',
+  'onboarding.quizV4.q.archetypes.help': 'Choose 3–5 that feel true to you.',
+  'onboarding.quizV4.q.archetypes.range': 'Pick {min}–{max}',
+  'onboarding.quizV4.q.archetypes.selected': '{count} selected',
+  'onboarding.quizV4.q.archetypes.icons': 'Style icons (optional)',
+  'onboarding.quizV4.q.archetypes.iconsPlaceholder':
+    'e.g. The Row, Phoebe Philo, Kanye',
+  'onboarding.quizV4.choice.archetypes.minimal': 'Minimal',
+  'onboarding.quizV4.choice.archetypes.classic': 'Classic',
+  'onboarding.quizV4.choice.archetypes.street': 'Street',
+  'onboarding.quizV4.choice.archetypes.preppy': 'Preppy',
+  'onboarding.quizV4.choice.archetypes.bohemian': 'Bohemian',
+  'onboarding.quizV4.choice.archetypes.sporty': 'Sporty',
+  'onboarding.quizV4.choice.archetypes.edgy': 'Edgy',
+  'onboarding.quizV4.choice.archetypes.romantic': 'Romantic',
+  'onboarding.quizV4.choice.archetypes.scandi': 'Scandi',
+  'onboarding.quizV4.choice.archetypes.avantgarde': 'Avant-garde',
+  'onboarding.quizV4.choice.archetypes.workwear': 'Workwear',
+  'onboarding.quizV4.choice.archetypes.soft': 'Soft',
+
+  // Q5 — Color DNA
+  'onboarding.quizV4.q.colors.prompt': 'Your color story.',
+  'onboarding.quizV4.q.colors.help': 'Up to 3 favorites, up to 3 to avoid.',
+  'onboarding.quizV4.q.colors.favorites': 'Love wearing',
+  'onboarding.quizV4.q.colors.disliked': 'Avoid',
+  'onboarding.quizV4.q.colors.palette': 'Palette vibe',
+  'onboarding.quizV4.q.colors.pattern': 'Patterns',
+  'onboarding.quizV4.choice.color.black': 'Black',
+  'onboarding.quizV4.choice.color.white': 'White',
+  'onboarding.quizV4.choice.color.grey': 'Grey',
+  'onboarding.quizV4.choice.color.navy': 'Navy',
+  'onboarding.quizV4.choice.color.blue': 'Blue',
+  'onboarding.quizV4.choice.color.beige': 'Beige',
+  'onboarding.quizV4.choice.color.camel': 'Camel',
+  'onboarding.quizV4.choice.color.brown': 'Brown',
+  'onboarding.quizV4.choice.color.olive': 'Olive',
+  'onboarding.quizV4.choice.color.green': 'Green',
+  'onboarding.quizV4.choice.color.red': 'Red',
+  'onboarding.quizV4.choice.color.burgundy': 'Burgundy',
+  'onboarding.quizV4.choice.color.pink': 'Pink',
+  'onboarding.quizV4.choice.color.purple': 'Purple',
+  'onboarding.quizV4.choice.color.orange': 'Orange',
+  'onboarding.quizV4.choice.color.teal': 'Teal',
+  'onboarding.quizV4.choice.color.cream': 'Cream',
+  'onboarding.quizV4.choice.color.denim': 'Denim',
+  'onboarding.quizV4.choice.palette.neutrals': 'Neutrals',
+  'onboarding.quizV4.choice.palette.bold': 'Bold',
+  'onboarding.quizV4.choice.palette.dark': 'Dark',
+  'onboarding.quizV4.choice.palette.pastels': 'Pastels',
+  'onboarding.quizV4.choice.palette.earth': 'Earth',
+  'onboarding.quizV4.choice.palette.mixed': 'Mixed',
+  'onboarding.quizV4.choice.pattern.love': 'Love patterns',
+  'onboarding.quizV4.choice.pattern.some': 'Some',
+  'onboarding.quizV4.choice.pattern.minimal': 'Minimal',
+  'onboarding.quizV4.choice.pattern.solids_only': 'Solids only',
+
+  // Q6 — Fit & silhouette
+  'onboarding.quizV4.q.fit.prompt': 'Fit & silhouette.',
+  'onboarding.quizV4.q.fit.help':
+    'How the clothes sit on you when they feel right.',
+  'onboarding.quizV4.q.fit.overall': 'Overall fit',
+  'onboarding.quizV4.q.fit.topVsBottom': 'Top vs bottom',
+  'onboarding.quizV4.q.fit.layering': 'Layering',
+  'onboarding.quizV4.q.fit.bodyFocus': 'Show off',
+  'onboarding.quizV4.choice.fitOverall.fitted': 'Fitted',
+  'onboarding.quizV4.choice.fitOverall.regular': 'Regular',
+  'onboarding.quizV4.choice.fitOverall.relaxed': 'Relaxed',
+  'onboarding.quizV4.choice.fitOverall.oversized': 'Oversized',
+  'onboarding.quizV4.choice.fitOverall.mixed': 'Mixed',
+  'onboarding.quizV4.choice.fitTopVsBottom.same': 'Same all over',
+  'onboarding.quizV4.choice.fitTopVsBottom.fitted_top_loose_bottom':
+    'Fitted top, loose bottom',
+  'onboarding.quizV4.choice.fitTopVsBottom.loose_top_fitted_bottom':
+    'Loose top, fitted bottom',
+  'onboarding.quizV4.choice.fitTopVsBottom.mixed': 'Mixed',
+  'onboarding.quizV4.choice.layering.minimal': 'Minimal',
+  'onboarding.quizV4.choice.layering.some': 'Some',
+  'onboarding.quizV4.choice.layering.love': 'Love it',
+  'onboarding.quizV4.choice.bodyFocus.shoulders': 'Shoulders',
+  'onboarding.quizV4.choice.bodyFocus.waist': 'Waist',
+  'onboarding.quizV4.choice.bodyFocus.legs': 'Legs',
+  'onboarding.quizV4.choice.bodyFocus.none': 'None',
+
+  // Q7 — Formality range
+  'onboarding.quizV4.q.formality.prompt': 'How formal can you go?',
+  'onboarding.quizV4.q.formality.help':
+    'Set your usual floor and your dressed-up ceiling.',
+  'onboarding.quizV4.q.formality.floor': 'Casual floor',
+  'onboarding.quizV4.q.formality.ceiling': 'Formal ceiling',
+
+  // Q8 — Fabric & feel
+  'onboarding.quizV4.q.fabric.prompt': 'Fabric & feel.',
+  'onboarding.quizV4.q.fabric.help': 'Pick what you reach for and what you avoid.',
+  'onboarding.quizV4.q.fabric.preferred': 'Love wearing (up to 3)',
+  'onboarding.quizV4.q.fabric.sensitivities': 'Sensitivities',
+  'onboarding.quizV4.q.fabric.care': 'Care preference',
+  'onboarding.quizV4.choice.fabric.cotton': 'Cotton',
+  'onboarding.quizV4.choice.fabric.wool': 'Wool',
+  'onboarding.quizV4.choice.fabric.linen': 'Linen',
+  'onboarding.quizV4.choice.fabric.silk': 'Silk',
+  'onboarding.quizV4.choice.fabric.cashmere': 'Cashmere',
+  'onboarding.quizV4.choice.fabric.denim': 'Denim',
+  'onboarding.quizV4.choice.fabric.leather': 'Leather',
+  'onboarding.quizV4.choice.fabric.synthetic': 'Synthetic',
+  'onboarding.quizV4.choice.fabric.tencel': 'Tencel',
+  'onboarding.quizV4.choice.fabric.jersey': 'Jersey',
+  'onboarding.quizV4.choice.fabricSensitivity.wool_itchy': 'Wool feels itchy',
+  'onboarding.quizV4.choice.fabricSensitivity.synthetic_avoid': 'Avoid synthetics',
+  'onboarding.quizV4.choice.fabricSensitivity.linen_wrinkles':
+    'Linen wrinkles bother me',
+  'onboarding.quizV4.choice.fabricSensitivity.leather_avoid': 'Avoid leather',
+  'onboarding.quizV4.choice.fabricSensitivity.silk_fragile': 'Silk too fragile',
+  'onboarding.quizV4.choice.fabricSensitivity.none': 'None',
+  'onboarding.quizV4.choice.care.easy_care': 'Easy care',
+  'onboarding.quizV4.choice.care.mixed': 'Mixed',
+  'onboarding.quizV4.choice.care.high_maintenance_ok': 'High-maintenance OK',
+
+  // Q9 — Occasions
+  'onboarding.quizV4.q.occasions.prompt': 'When do you need outfits most?',
+  'onboarding.quizV4.q.occasions.help': 'Pick all that apply.',
+  'onboarding.quizV4.choice.occasion.work': 'Work',
+  'onboarding.quizV4.choice.occasion.casual': 'Casual',
+  'onboarding.quizV4.choice.occasion.date': 'Date',
+  'onboarding.quizV4.choice.occasion.party': 'Party',
+  'onboarding.quizV4.choice.occasion.travel': 'Travel',
+  'onboarding.quizV4.choice.occasion.workout': 'Workout',
+  'onboarding.quizV4.choice.occasion.formal_event': 'Formal event',
+  'onboarding.quizV4.choice.occasion.weekend': 'Weekend',
+
+  // Q10 — Shopping habits
+  'onboarding.quizV4.q.shopping.prompt': 'How do you shop?',
+  'onboarding.quizV4.q.shopping.help':
+    'A rough sense of cadence, budget, and style helps tune recommendations.',
+  'onboarding.quizV4.q.shopping.frequency': 'How often',
+  'onboarding.quizV4.q.shopping.budget': 'Budget',
+  'onboarding.quizV4.q.shopping.style': 'Shopping style',
+  'onboarding.quizV4.choice.shoppingFrequency.rare': 'Rarely',
+  'onboarding.quizV4.choice.shoppingFrequency.seasonal': 'Seasonally',
+  'onboarding.quizV4.choice.shoppingFrequency.monthly': 'Monthly',
+  'onboarding.quizV4.choice.shoppingFrequency.frequent': 'Frequently',
+  'onboarding.quizV4.choice.budget.budget': 'Budget',
+  'onboarding.quizV4.choice.budget.mid': 'Mid',
+  'onboarding.quizV4.choice.budget.premium': 'Premium',
+  'onboarding.quizV4.choice.budget.luxury': 'Luxury',
+  'onboarding.quizV4.choice.budget.mixed': 'Mixed',
+  'onboarding.quizV4.choice.shoppingStyle.planned': 'Planned',
+  'onboarding.quizV4.choice.shoppingStyle.impulse': 'Impulse',
+  'onboarding.quizV4.choice.shoppingStyle.mixed': 'Mixed',
+
+  // Q11 — Primary goal
+  'onboarding.quizV4.q.goal.prompt': 'What should BURS do for you?',
+  'onboarding.quizV4.q.goal.help': 'Pick the one that matters most right now.',
+  'onboarding.quizV4.choice.goal.reduce_decisions.label': 'Reduce decisions',
+  'onboarding.quizV4.choice.goal.reduce_decisions.caption':
+    'A clear pick every morning, no decision fatigue.',
+  'onboarding.quizV4.choice.goal.discover_style.label': 'Discover my style',
+  'onboarding.quizV4.choice.goal.discover_style.caption':
+    'Pairings and looks I would not have tried alone.',
+  'onboarding.quizV4.choice.goal.curate_capsule.label': 'Curate a capsule',
+  'onboarding.quizV4.choice.goal.curate_capsule.caption':
+    'Fewer pieces, more outfits, on purpose.',
+  'onboarding.quizV4.choice.goal.special_events.label': 'Plan special events',
+  'onboarding.quizV4.choice.goal.special_events.caption':
+    'Nail the brief for weddings, dates, parties.',
+  'onboarding.quizV4.choice.goal.professional_polish.label':
+    'Professional polish',
+  'onboarding.quizV4.choice.goal.professional_polish.caption':
+    'Look the part at work, every meeting.',
+  'onboarding.quizV4.choice.goal.sustainability.label': 'Shop more sustainably',
+  'onboarding.quizV4.choice.goal.sustainability.caption':
+    'Wear what I own; fill only the real gaps.',
+  'onboarding.quizV4.choice.goal.fun_experimenting.label': 'Have fun experimenting',
+  'onboarding.quizV4.choice.goal.fun_experimenting.caption':
+    'Try new looks; treat dressing as play.',
+
+  // Q12 — Cultural / accessibility
+  'onboarding.quizV4.q.cultural.prompt': 'Anything else BURS should know?',
+  'onboarding.quizV4.q.cultural.help':
+    'Cultural, religious, or accessibility needs we should respect. Optional.',
+  'onboarding.quizV4.q.cultural.placeholder':
+    'e.g. always cover shoulders, prefer modest cuts, no high heels.',
+
+  // Completion screen (currently rendered by the Achievement step that
+  // follows; reserved here for future inline confirmation if the screen
+  // ever needs to surface a "Done" state before advancing).
+  'onboarding.quizV4.complete.title': 'Your style profile is set.',
+  'onboarding.quizV4.complete.body':
+    'BURS now tunes outfits, planning, and shopping around your real life.',
+  'onboarding.quizV4.complete.cta': 'Done',
 };

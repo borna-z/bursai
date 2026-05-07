@@ -31,18 +31,21 @@ import { supabase } from '../lib/supabase';
 
 import { LanguageStep, type LanguageCode } from './onboarding/LanguageStep';
 import { ValuePropositionStep } from './onboarding/ValuePropositionStep';
-import { StyleQuizStep, type StyleQuizAnswers } from './onboarding/StyleQuizStep';
+import { StyleQuizV4Step } from './onboarding/StyleQuizV4Step';
 import { StudioSelectionStep, type Studio } from './onboarding/StudioSelectionStep';
 import { AchievementStep } from './onboarding/AchievementStep';
 import { RevealStep } from './onboarding/RevealStep';
 
+import type { StyleProfileV4 } from '../lib/styleProfileV4';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type OnboardingDraft = {
   language?: LanguageCode;
-  quiz?: StyleQuizAnswers;
+  /** Full V4 style profile capture (M25). Persisted to
+   * `profiles.preferences.style_profile_v4_jsonb` in `finish()`. */
+  quiz?: StyleProfileV4;
   studio?: Studio;
 };
 
@@ -182,7 +185,14 @@ export function OnboardingScreen() {
       // notifications, locale, anything we don't know about) are preserved.
       const existingPrefs = (profile?.preferences ?? {}) as Record<string, unknown>;
       const existingOnboarding = (existingPrefs.onboarding ?? {}) as Record<string, unknown>;
-      const mergedPrefs = {
+      // M25: persist the full V4 style profile capture into the canonical
+      // `style_profile_v4_jsonb` slot so future cross-platform readers
+      // (web AI prompt builders, edge-function consumers) can pick it up
+      // without inspecting the legacy `onboarding.quiz` mirror. Only write
+      // when the quiz actually completed — a skip from the onboarding
+      // shell would leave `draft.quiz` undefined and clobbering the slot
+      // with `undefined` is a no-op rather than a data loss.
+      const mergedPrefs: Record<string, unknown> = {
         ...existingPrefs,
         onboarding: {
           ...existingOnboarding,
@@ -193,6 +203,9 @@ export function OnboardingScreen() {
           studio: draft.studio,
         },
       };
+      if (draft.quiz) {
+        mergedPrefs.style_profile_v4_jsonb = draft.quiz;
+      }
       try {
         const { error: prefsError } = await supabase
           .from('profiles')
@@ -380,7 +393,7 @@ export function OnboardingScreen() {
         )}
         {step === 1 && <ValuePropositionStep onComplete={advance} />}
         {step === 2 && (
-          <StyleQuizStep
+          <StyleQuizV4Step
             onComplete={(quiz) => {
               setDraft((d) => ({ ...d, quiz }));
               advance();
