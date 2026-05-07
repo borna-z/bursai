@@ -42,6 +42,7 @@ import { AddPieceStep2 } from '../screens/AddPieceStep2';
 import { AddPieceStep3 } from '../screens/AddPieceStep3';
 import { LiveScanScreen } from '../screens/LiveScanScreen';
 import { VisualSearchScreen } from '../screens/VisualSearchScreen';
+import { ImportFromLinkScreen } from '../screens/ImportFromLinkScreen';
 
 // Wardrobe / outfit / sharing
 import { OutfitsScreen } from '../screens/OutfitsScreen';
@@ -154,6 +155,13 @@ export type RootStackParamList = {
   // wardrobe match → GarmentDetail; tap an online match → "import coming
   // soon" alert routed to M20).
   VisualSearch: undefined;
+  // M20 — Import garments from product URLs. Reachable from
+  // AddPieceStep1's fourth entry pill. Codex round 1 P3.4: route surface
+  // kept minimal (`undefined`) since `initialUrl` is dead today. When
+  // the iOS Share Extension wave lands, expand back to
+  // `{ initialUrl?: string } | undefined` and the screen already reads
+  // the param defensively.
+  ImportFromLink: undefined;
 
   // Outfit / garment / sharing
   Outfits: undefined;
@@ -410,6 +418,7 @@ export function RootNavigator() {
       <Stack.Screen name="AddPieceStep3" component={AddPieceStep3} />
       <Stack.Screen name="LiveScan" component={LiveScanScreen} />
       <Stack.Screen name="VisualSearch" component={VisualSearchScreen} />
+      <Stack.Screen name="ImportFromLink" component={ImportFromLinkScreen} />
 
       {/* Outfit / garment / sharing */}
       <Stack.Screen name="Outfits" component={OutfitsScreen} />

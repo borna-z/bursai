@@ -27,7 +27,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon, CameraIcon, ImageIcon, SearchIcon } from '../components/icons';
+import { BackIcon, CameraIcon, ImageIcon, LinkIcon, SearchIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
@@ -93,6 +93,15 @@ export function AddPieceStep1() {
   const openVisualSearch = useCallback(() => {
     hapticLight();
     nav.navigate('VisualSearch');
+  }, [nav]);
+
+  // M20 — fourth entry mode. Import from link routes to a paste-URL
+  // surface that calls `import_garments_from_links` and lands the
+  // scraped garment in the wardrobe with default category/color the
+  // user can refine from GarmentDetail.
+  const openImportFromLink = useCallback(() => {
+    hapticLight();
+    nav.navigate('ImportFromLink');
   }, [nav]);
 
   const removePhoto = (id: number) => {
@@ -177,10 +186,12 @@ export function AddPieceStep1() {
         </Pressable>
 
         {/* ============ SOURCE ROW ============ */}
-        {/* M19 Codex round 1 P2.5 — two-row layout. Camera + Gallery share
-            the first row; Visual Search promoted to a full-width hero pill
-            on the second row so the three entries don't squeeze on narrow
-            devices and the visual hierarchy stays readable. */}
+        {/* M20 Codex round 1 P2.6 — 2x2 grid. Camera + Gallery on row 1;
+            Visual Search + Import-from-link on row 2 as half-width pills
+            so all four entries stay equally weighted and the section
+            doesn't outgrow the viewport on narrow devices. Supersedes
+            the M19 stacked layout (which left two full-width entries
+            below the Camera/Gallery row). */}
         <View>
           <Eyebrow style={{ marginBottom: 8 }}>Or add photos</Eyebrow>
           <View style={{ gap: 8 }}>
@@ -198,12 +209,20 @@ export function AddPieceStep1() {
                 onPress={pickFromGallery}
               />
             </View>
-            <SourcePill
-              label="Search by photo"
-              sub="Find similar"
-              icon={<SearchIcon color={t.accent} />}
-              onPress={openVisualSearch}
-            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <SourcePill
+                label="Search by photo"
+                sub="Find similar"
+                icon={<SearchIcon color={t.accent} />}
+                onPress={openVisualSearch}
+              />
+              <SourcePill
+                label="Import from link"
+                sub="Paste a URL"
+                icon={<LinkIcon color={t.accent} />}
+                onPress={openImportFromLink}
+              />
+            </View>
           </View>
         </View>
 

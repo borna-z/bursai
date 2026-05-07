@@ -446,4 +446,31 @@ export const en: Record<string, string> = {
   // pre-launch (online matches are not live yet). Replaces `webEmpty`
   // until the M20 product-search side lights up.
   'visualSearch.webComingSoonInline': 'Online matches coming soon',
+
+  // ─── M20 — Import from link (AddPiece fourth entry) ────────────────────
+  'importFromLink.eyebrow': 'Import',
+  'importFromLink.title': 'Paste a link',
+  'importFromLink.back': 'Back',
+  'importFromLink.inputLabel': 'Product URLs',
+  'importFromLink.inputHint': 'One link per line · we’ll fetch the product image and details',
+  'importFromLink.placeholder': 'https://www.example.com/product\nhttps://www.example.com/another',
+  'importFromLink.cta': 'Find pieces',
+  // Placeholder pattern matches mobile's i18n shim — see lib/i18n.ts.
+  'importFromLink.searching': 'Importing {current} of {total}…',
+  'importFromLink.maxLinks': 'Max {max} links per import',
+  'importFromLink.resultsHeading': 'Imports',
+  'importFromLink.statusWaiting': 'Waiting',
+  'importFromLink.statusImporting': 'Importing',
+  'importFromLink.statusSuccess': 'Imported',
+  'importFromLink.statusFailed': 'Failed',
+  'importFromLink.openGarmentLabel': 'Open imported piece — {title}',
+  'importFromLink.openGarmentHint': 'Opens the saved garment so you can refine its details',
+  'importFromLink.allDone': '{success} imported · {failed} failed',
+  'importFromLink.error.invalidUrl': 'Add at least one valid https:// link.',
+  'importFromLink.error.noResults': 'None of the links could be imported. Try a different source.',
+  'importFromLink.error.network': 'Could not reach the importer. Check your connection and try again.',
+  'importFromLink.cancelTitle': 'Stop importing?',
+  'importFromLink.cancelBody': 'The current batch is still in progress.',
+  'importFromLink.cancelStay': 'Keep importing',
+  'importFromLink.cancelLeave': 'Stop',
 };
