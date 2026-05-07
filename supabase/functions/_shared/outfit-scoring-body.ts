@@ -8,6 +8,7 @@
 import type { GarmentRow, FeedbackSignal } from "./outfit-scoring.ts";
 import type { WearLog } from "./outfit-scoring-color.ts";
 import { classifySlot } from "./burs-slots.ts";
+import { readUnifiedStylePrefs } from "./style-prefs-reader.ts";
 
 // ─────────────────────────────────────────────
 // MATERIAL COMPATIBILITY
@@ -207,9 +208,17 @@ export interface BodyProfile {
 export function buildBodyProfile(profileData: Record<string, any> | null): BodyProfile {
   const heightCm = profileData?.height_cm || null;
   const weightKg = profileData?.weight_kg || null;
-  const prefs = profileData?.preferences || {};
-  const sp = prefs.styleProfile || prefs;
-  const fitPreference = sp.fit || null;
+  // Theme 7 (post-launch audit): unified V3-vocab view with V4 fallback.
+  // Pre-fix the V3-only `sp.fit` read meant V4-native users in the cold-
+  // start race window (before `useV3CompatBackfill` writes the V3 mirror)
+  // silently lost their fit preference — `fitProportionScore` skipped the
+  // user-stated-fit slot entirely. The unified reader translates V4
+  // `fitOverall` to V3 `fit` so the slot is always populated when V4 has
+  // an answer.
+  const sp = readUnifiedStylePrefs(profileData?.preferences ?? null);
+  const fitPreference = (typeof sp.fit === "string" && sp.fit.length > 0)
+    ? (sp.fit as string)
+    : null;
 
   let bmi: number | null = null;
   let buildCategory: BodyProfile['buildCategory'] = null;

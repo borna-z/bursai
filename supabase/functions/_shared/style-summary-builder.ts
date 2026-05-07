@@ -39,6 +39,7 @@ import {
   type CanonicalStyleMemorySignal,
   normalizeStyleMemorySignal,
 } from "./style-memory-signals.ts";
+import { readUnifiedStylePrefs } from "./style-prefs-reader.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC TYPES
@@ -1384,10 +1385,17 @@ function getStyleProfile(
   profile: StyleSummaryInputs["profile"],
 ): Record<string, unknown> | null {
   if (!profile?.preferences) return null;
-  const prefs = profile.preferences as Record<string, unknown>;
-  const sp = prefs["styleProfile"];
-  if (sp && typeof sp === "object") return sp as Record<string, unknown>;
-  return prefs;
+  // Theme 7 (post-launch audit): unified V3-vocab view that falls back to
+  // V4 canonical fields (`archetypes`, `formalityFloor` / `formalityCeiling`,
+  // `fitOverall`, …) for slots the V3 mirror leaves empty / missing. Closes
+  // the formality_center=50-for-every-pre-M25-user gap caused by the V3
+  // mirror writing `workFormality: ''` (skip-semantics that this builder
+  // used to interpret as "fall back to neutral 50") and the V4-native cold-
+  // start race window where the V3 mirror is missing entirely. See
+  // `_shared/style-prefs-reader.ts` for the full rationale.
+  // Always returns at least `{}` so existing callers' `sp?.["…"]` reads
+  // null-coalesce identically to the pre-refactor `return prefs` path.
+  return readUnifiedStylePrefs(profile.preferences);
 }
 
 function asStringArray(v: unknown): ReadonlyArray<string> {

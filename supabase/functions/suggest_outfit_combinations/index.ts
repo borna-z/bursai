@@ -4,6 +4,7 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
+import { readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
 
 const LOCALE_NAMES: Record<string, string> = {
   sv: "Swedish", en: "English", de: "German", fr: "French",
@@ -103,7 +104,11 @@ serve(async (req) => {
 
     const unusedGarments = garments.filter(g => !g.last_worn_at || g.last_worn_at < thirtyDaysAgoStr);
     const preferences = (profileRes.data?.preferences as Record<string, any>) || {};
-    const sp = preferences.styleProfile || {};
+    // Theme 7 (post-launch audit): unified V3-vocab view with V4 fallback so
+    // V4-native users (cold-start race window before useV3CompatBackfill
+    // writes) get a populated style context instead of the empty `{}`
+    // baseline that produced a generic prompt.
+    const sp = readUnifiedStylePrefs(preferences) as Record<string, any>;
 
     const styleContext = [
       sp.gender, sp.ageRange, sp.climate, sp.styleWords?.join(","),

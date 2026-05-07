@@ -149,7 +149,14 @@ const LOCALE_NAMES: Record<string, string> = {
 
 function buildStyleContext(preferences: Record<string, any> | null): string {
   if (!preferences) return "";
-  const sp = preferences.styleProfile || preferences;
+  // Theme 7 (post-launch audit): unified V3-vocab view with V4 fallback. The
+  // V4-native cold-start race window (no V3 mirror written yet) used to emit
+  // an entirely empty style context block — `preferences.styleProfile` was
+  // absent, the legacy fallback to `preferences` itself produced undefined
+  // for every V3 key. The reader translates V4 canonical fields back into
+  // V3 vocab so the engine retains style signal even before the backfill
+  // hook lands.
+  const sp = getStylePrefs(preferences);
   const lines: string[] = [];
   if (sp.gender) lines.push(`Gender: ${sp.gender}`);
   if (sp.ageRange) lines.push(`Age: ${sp.ageRange}`);
