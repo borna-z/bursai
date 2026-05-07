@@ -29,6 +29,7 @@ import {
   INVALID_OUTFIT_ERROR,
 } from '../hooks/useGenerateOutfit';
 import { useGarment } from '../hooks/useGarments';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { applyAnchor } from '../lib/outfitAnchoring';
 import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -183,7 +184,7 @@ export function OutfitGenerateScreen() {
     // re-popped the alert every time the user tapped Restyle / Try again
     // after a dismiss — App Store reviewers flag this as harassing UX.
     // The ref stays sticky for the screen's lifetime.
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
@@ -220,7 +221,7 @@ export function OutfitGenerateScreen() {
     nav.setParams({ garmentId: undefined });
   };
 
-  if (error === 'subscription_required') {
+  if (error === SUBSCRIPTION_SENTINEL) {
     // Paywall path — without an explicit branch the screen would sit
     // forever on the spinner (isLoading=false, result=null). Codex audit
     // P0-1 (audit 3).

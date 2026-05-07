@@ -19,10 +19,9 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
 type SuggestAccessoriesResponse = {
   suggestions?: { garment_id?: string; reason?: string }[];

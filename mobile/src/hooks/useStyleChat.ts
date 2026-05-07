@@ -38,6 +38,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { fetchSSE } from '../lib/sse';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
@@ -734,7 +735,7 @@ export function useStyleChat(): UseStyleChatResult {
             if (controller.signal.aborted) return;
             // Don't burn Sentry quota on the expected paywall sentinel —
             // those are subscription gating, not real failures.
-            if (err.message !== 'subscription_required') {
+            if (err.message !== SUBSCRIPTION_SENTINEL) {
               Sentry.withScope((s) => {
                 s.setTag('mutation', 'useStyleChat');
                 Sentry.captureException(err);

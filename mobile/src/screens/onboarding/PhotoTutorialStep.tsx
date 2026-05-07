@@ -18,8 +18,7 @@
 //  - Reuses Eyebrow / PageTitle / Caption / Button primitives.
 //  - All copy via `t(...)` from `../../lib/i18n` — zero hardcoded English.
 //  - `useTokens()` for every color — no hardcoded hex.
-//  - Same component shape as AccentColorStep (M26) and
-//    StudioSelectionStep — `{ initial?, onComplete, onSkip? }`.
+//  - Same component shape as StudioSelectionStep — `{ initial?, onComplete, onSkip? }`.
 
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';

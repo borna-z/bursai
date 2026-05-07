@@ -34,7 +34,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { OutfitCard } from '../components/OutfitCard';
-import { BackIcon, MoreIcon, ShareIcon, StarIcon } from '../components/icons';
+import { BackIcon, MoreIcon, StarIcon } from '../components/icons';
 import {
   useOutfit,
   useMarkOutfitWorn,
@@ -48,6 +48,7 @@ import { useSuggestAccessories } from '../hooks/useSuggestAccessories';
 import { useSuggestCombinations } from '../hooks/useSuggestCombinations';
 import { useCloneOutfitDNA } from '../hooks/useCloneOutfitDNA';
 import { useAuth } from '../contexts/AuthContext';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
@@ -150,11 +151,10 @@ export function OutfitDetailScreen() {
   // entitlement check fails. Reset when every error is either null or a
   // non-sentinel value.
   React.useEffect(() => {
-    const sentinel = 'subscription_required';
     const subLocked =
-      accessoriesHook.error === sentinel
-      || combinationsHook.error === sentinel
-      || cloneHook.error === sentinel;
+      accessoriesHook.error === SUBSCRIPTION_SENTINEL
+      || combinationsHook.error === SUBSCRIPTION_SENTINEL
+      || cloneHook.error === SUBSCRIPTION_SENTINEL;
     if (subLocked && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
@@ -508,18 +508,11 @@ export function OutfitDetailScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <IconBtn
-              ariaLabel="Share outfit"
-              variant="ghost"
-              onPress={() => nav.navigate('ShareOutfit', { id: outfit.id })}>
-              <ShareIcon color={t.fg} />
-            </IconBtn>
-            <IconBtn
               ariaLabel="More options"
               variant="ghost"
               onPress={() =>
                 Alert.alert('Options', undefined, [
                   { text: 'Add to plan', onPress: handleAddToPlan },
-                  { text: 'Share outfit', onPress: () => nav.navigate('ShareOutfit', { id: outfit.id }) },
                   { text: 'Delete outfit', style: 'destructive', onPress: handleDelete },
                   { text: 'Cancel', style: 'cancel' },
                 ])
@@ -642,7 +635,7 @@ export function OutfitDetailScreen() {
                   <ActivityIndicator color={t.accent} />
                 </View>
               ) : accessoriesHook.error
-                  && accessoriesHook.error !== 'subscription_required' ? (
+                  && accessoriesHook.error !== SUBSCRIPTION_SENTINEL ? (
                 <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
                   {accessoriesHook.error}
                 </Text>
@@ -701,7 +694,7 @@ export function OutfitDetailScreen() {
                   <ActivityIndicator color={t.accent} />
                 </View>
               ) : combinationsHook.error
-                  && combinationsHook.error !== 'subscription_required' ? (
+                  && combinationsHook.error !== SUBSCRIPTION_SENTINEL ? (
                 <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
                   {combinationsHook.error}
                 </Text>
@@ -760,7 +753,7 @@ export function OutfitDetailScreen() {
                   <ActivityIndicator color={t.accent} />
                 </View>
               ) : cloneHook.error
-                  && cloneHook.error !== 'subscription_required' ? (
+                  && cloneHook.error !== SUBSCRIPTION_SENTINEL ? (
                 <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
                   {cloneHook.error}
                 </Text>

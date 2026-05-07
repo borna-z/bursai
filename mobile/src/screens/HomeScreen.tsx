@@ -277,12 +277,13 @@ export function HomeScreen({
             <PageTitle>{greeting}{firstName ? `, ${firstName}` : ''}</PageTitle>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 2 }}>
-            <Pressable
-              onPress={push('Notifications')}
-              style={[s.weatherPill, { borderColor: t.border, backgroundColor: t.card }]}>
+            {/* M41: weather pill is non-interactive until Notifications inbox lands.
+                Render as a plain View so Pressable's press-state styling doesn't
+                fire on a no-op tap. */}
+            <View style={[s.weatherPill, { borderColor: t.border, backgroundColor: t.card }]}>
               <SunIcon color={t.fg} />
               <Text style={[s.weatherText, { color: t.fg, fontFamily: fonts.uiMed }]}>14°</Text>
-            </Pressable>
+            </View>
             <Pressable
               accessibilityLabel="Profile"
               onPress={push('Profile')}

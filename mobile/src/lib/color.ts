@@ -1,7 +1,7 @@
 // Shared color helpers for onboarding swatch grids.
 //
-// Extracted (M26 review) so AccentColorStep and StyleQuizV4Step share a
-// single definition rather than maintaining drifting copies.
+// Extracted so onboarding swatch grids share a single definition rather
+// than maintaining drifting copies.
 
 /**
  * Perceptual-luminance threshold: returns true when a swatch is light enough

@@ -27,6 +27,7 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 
 export type WardrobeGapPriority = 'high' | 'medium' | 'low';
@@ -97,7 +98,7 @@ async function runAnalysis(): Promise<WardrobeGap[]> {
     });
   } catch (callErr) {
     if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
-      throw new GapAnalysisError('subscription_required', true);
+      throw new GapAnalysisError(SUBSCRIPTION_SENTINEL, true);
     }
     if (callErr instanceof EdgeFunctionHttpError) {
       const parsed = (() => {

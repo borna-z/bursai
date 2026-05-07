@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { fetchSSE } from '../lib/sse';
 import { Sentry } from '../lib/sentry';
 
@@ -162,7 +163,7 @@ export function useMoodOutfit() {
           onError: (err) => {
             if (controller.signal.aborted) return;
             // Skip the expected paywall sentinel — those are gating, not failures.
-            if (err.message !== 'subscription_required') {
+            if (err.message !== SUBSCRIPTION_SENTINEL) {
               Sentry.withScope((s) => {
                 s.setTag('mutation', 'useMoodOutfit');
                 Sentry.captureException(err);

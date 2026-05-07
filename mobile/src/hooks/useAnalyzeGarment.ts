@@ -27,6 +27,7 @@ import {
   EdgeFunctionHttpError,
   EdgeFunctionRateLimitError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Sentry } from '../lib/sentry';
@@ -186,7 +187,7 @@ export function useAnalyzeGarment() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Analysis failed';
         // Skip the expected paywall sentinel — those are gating, not failures.
-        if (msg !== 'subscription_required') {
+        if (msg !== SUBSCRIPTION_SENTINEL) {
           Sentry.withScope((s) => {
             s.setTag('mutation', 'useAnalyzeGarment');
             Sentry.captureException(err);

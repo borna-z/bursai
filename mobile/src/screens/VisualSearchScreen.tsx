@@ -55,13 +55,12 @@ import {
   type VisualSearchWardrobeMatch,
   type VisualSearchWebMatch,
 } from '../hooks/useVisualSearch';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { hapticLight } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
 export function VisualSearchScreen() {
   const t = useTokens();

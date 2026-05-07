@@ -30,6 +30,7 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { isAnchorPresent } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
@@ -105,8 +106,6 @@ type CallOneResult =
   | { kind: 'anchor_missed' }
   | { kind: 'empty' }
   | { kind: 'invalid' };
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
 function adaptItems(items: EngineResponseItem[] | undefined): { slot: string; garment_id: string }[] {
   return (items ?? [])

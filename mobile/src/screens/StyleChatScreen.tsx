@@ -51,6 +51,7 @@ import { useStyleChat, type ChatMessage } from '../hooks/useStyleChat';
 import { useStyleMemoryFacts, type StyleMemoryFact } from '../hooks/useStyleMemoryFacts';
 import { useRecordMemoryEvent } from '../hooks/useRecordMemoryEvent';
 import { useAuth } from '../contexts/AuthContext';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import { hasRenderableActiveLook } from '../lib/chatActiveLook';
@@ -113,7 +114,7 @@ export function StyleChatScreen() {
   // sentinel persists.
   const paywallShownRef = useRef(false);
   useEffect(() => {
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       Alert.alert(
         tr('chat.error.premium.title'),
@@ -121,7 +122,7 @@ export function StyleChatScreen() {
         [{ text: 'OK', style: 'default' }],
       );
     }
-    if (error !== 'subscription_required') {
+    if (error !== SUBSCRIPTION_SENTINEL) {
       paywallShownRef.current = false;
     }
   }, [error]);
@@ -304,7 +305,7 @@ export function StyleChatScreen() {
   }, [clearActiveLook]);
 
   const showInlineError =
-    error && error !== 'subscription_required' ? error : null;
+    error && error !== SUBSCRIPTION_SENTINEL ? error : null;
 
   // P2-4: stable renderItem reference. Inline `({item}) => <MessageItem ... />`
   // re-creates the function on every keystroke (because the screen re-renders

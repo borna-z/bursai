@@ -3,7 +3,7 @@
 //
 // Always-dark background — `#0c0c0c` is intentional regardless of system theme. Camera UI
 // reads as a "system camera" mode; switching to light bg when OS is light would feel wrong.
-// Documented exemption to the token rule (only this screen + the always-light ShareOutfit card).
+// Documented exemption to the token rule (only this screen).
 //
 // W5 wiring:
 //   • Real CameraView capture via takePictureAsync — no more simulated hue placeholder.

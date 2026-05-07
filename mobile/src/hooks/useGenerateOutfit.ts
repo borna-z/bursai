@@ -20,6 +20,7 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
@@ -220,7 +221,7 @@ export function useGenerateOutfit() {
           });
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
-            setError('subscription_required');
+            setError(SUBSCRIPTION_SENTINEL);
             return;
           }
           if (callErr instanceof EdgeFunctionHttpError) {
@@ -379,7 +380,7 @@ export function useGenerateOutfit() {
         if (controller.signal.aborted) return;
         const message = err instanceof Error ? err.message : 'Generation failed';
         // Skip the expected paywall sentinel — those are gating, not failures.
-        if (message !== 'subscription_required') {
+        if (message !== SUBSCRIPTION_SENTINEL) {
           Sentry.withScope((s) => {
             s.setTag('mutation', 'useGenerateOutfit');
             Sentry.captureException(err);

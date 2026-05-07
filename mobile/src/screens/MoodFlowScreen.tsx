@@ -27,6 +27,7 @@ import { OutfitCard } from '../components/OutfitCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useMoodOutfit } from '../hooks/useMoodOutfit';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -76,7 +77,7 @@ export function MoodFlowScreen() {
     // dismiss + reset() — App Store reviewers flag this as harassing UX.
     // The ref stays sticky for the screen's lifetime so we don't re-route
     // on every retry attempt.
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
@@ -106,7 +107,7 @@ export function MoodFlowScreen() {
         </View>
       </View>
 
-      {error === 'subscription_required' ? (
+      {error === SUBSCRIPTION_SENTINEL ? (
         // Paywall path — without an explicit branch the screen would sit
         // forever on the spinner (isLoading=false, result=null). Codex
         // audit P0-1 (audit 3).

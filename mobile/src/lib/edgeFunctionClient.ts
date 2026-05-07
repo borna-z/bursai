@@ -26,6 +26,7 @@
 import { supabase, supabaseUrl } from './supabase';
 
 const DEFAULT_TIMEOUT_MS = 90_000;
+export const SUBSCRIPTION_SENTINEL = 'subscription_required' as const;
 const DEFAULT_RETRIES = 2;
 const MAX_BACKOFF_MS = 8_000;
 // Refresh the access token if it expires within this many seconds. Auto-

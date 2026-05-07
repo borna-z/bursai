@@ -52,7 +52,6 @@ import { OutfitPoolScreen } from '../screens/OutfitPoolScreen';
 import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
 import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { EditGarmentScreen } from '../screens/EditGarmentScreen';
-import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
 import { WardrobeGapsScreen } from '../screens/WardrobeGapsScreen';
 import { PickMustHavesScreen } from '../screens/PickMustHavesScreen';
 import { SearchScreen } from '../screens/SearchScreen';
@@ -84,7 +83,8 @@ import { SettingsNotificationsScreen } from '../screens/SettingsNotificationsScr
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
 import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { NotificationsScreen } from '../screens/NotificationsScreen';
+// M41: NotificationsScreen route hidden until inbox stream lands
+// import { NotificationsScreen } from '../screens/NotificationsScreen';
 // M12 — real ResetPasswordScreen mounted (was a placeholder pre-M12). The
 // recovery email link `burs://reset-password` deep-links here via the
 // `linking` config exported below; the screen reads the now-hydrated
@@ -189,7 +189,6 @@ export type RootStackParamList = {
   PhotoFeedback: { outfitId: string };
   EditGarment: { id: string };
   GarmentDetail: { id: string };
-  ShareOutfit: { id?: string } | undefined;
   PublicProfile: { handle?: string } | undefined;
 
   // Calendar + laundry
@@ -247,7 +246,8 @@ export type RootStackParamList = {
 
   // Profile / account / extras
   Profile: undefined;
-  Notifications: undefined;
+  // M41: route hidden until inbox stream lands
+  // Notifications: undefined;
   ResetPassword: undefined;
   BillingSuccess: undefined;
   BillingCancel: undefined;
@@ -449,7 +449,6 @@ export function RootNavigator() {
       <Stack.Screen name="PhotoFeedback" component={PhotoFeedbackScreen} />
       <Stack.Screen name="EditGarment" component={EditGarmentScreen} />
       <Stack.Screen name="GarmentDetail" component={GarmentDetailScreen} />
-      <Stack.Screen name="ShareOutfit" component={ShareOutfitScreen} />
       <Stack.Screen name="PublicProfile" component={Placeholders.PublicProfile} />
 
       {/* Calendar + laundry */}
@@ -484,7 +483,8 @@ export function RootNavigator() {
 
       {/* Profile / account / extras */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
-      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      {/* M41: NotificationsScreen route hidden until inbox stream lands */}
+      {/* <Stack.Screen name="Notifications" component={NotificationsScreen} /> */}
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="BillingSuccess" component={Placeholders.BillingSuccess} />
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />

@@ -20,12 +20,11 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
 import { getLocale } from '../lib/i18n';
 import type { ScoredOutfitDraft } from './useOutfitPool';
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
 type CloneVariation = {
   name?: string;

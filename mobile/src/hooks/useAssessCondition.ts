@@ -39,10 +39,9 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
 /** Public assessment shape exposed to consumers.
  *  - `condition_score`: 0-100 (the server's 1-10 multiplied by 10).

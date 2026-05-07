@@ -31,6 +31,7 @@ import {
   type IconProps,
 } from '../components/icons';
 import { useGenerateOutfit, formatGenerateOutfitError } from '../hooks/useGenerateOutfit';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -83,7 +84,7 @@ export function StyleMeScreen() {
     // (and screen-reviewer P1 caught it). The ref stays sticky for the
     // screen's lifetime so we don't re-route on every retry attempt; the
     // user navigates back to StyleMe explicitly when they want to retry.
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
@@ -209,7 +210,7 @@ export function StyleMeScreen() {
         </View>
 
         {/* ============ GENERATE / RESULT ============ */}
-        {error && error !== 'subscription_required' ? (
+        {error && error !== SUBSCRIPTION_SENTINEL ? (
           <ErrorState
             title="Couldn't generate"
             body={formatGenerateOutfitError(error) ?? error}

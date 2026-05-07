@@ -346,7 +346,6 @@ const ALLOWED_DEEP_LINK_ROUTES: ReadonlySet<string> = new Set<string>([
   'PhotoFeedback',
   'GarmentDetail',
   'EditGarment',
-  'ShareOutfit',
   // Calendar + laundry
   'MonthCalendar',
   'Laundry',
@@ -374,7 +373,7 @@ const ALLOWED_DEEP_LINK_ROUTES: ReadonlySet<string> = new Set<string>([
   'SettingsPrivacy',
   // Profile / extras
   'Profile',
-  'Notifications',
+  // 'Notifications' — M41: route hidden until inbox stream lands
   // Search
   'Search',
 ]);

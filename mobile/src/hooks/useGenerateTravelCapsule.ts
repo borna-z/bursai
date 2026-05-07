@@ -40,6 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   callEdgeFunction,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { captureMutationError, Sentry } from '../lib/sentry';
 import type {
@@ -48,7 +49,9 @@ import type {
   TravelCapsulePackingItem,
 } from './useTravelCapsules';
 
-export const TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL = 'subscription_required';
+/** Re-export of the canonical sentinel under the historic name —
+ *  TravelCapsuleScreen still imports it as `TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL`. */
+export const TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL = SUBSCRIPTION_SENTINEL;
 
 export type TravelCapsuleWeather = {
   temperature_min: number;

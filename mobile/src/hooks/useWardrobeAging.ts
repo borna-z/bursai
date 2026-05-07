@@ -45,6 +45,7 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -74,7 +75,7 @@ export interface WardrobeAgingResult {
 
 export class WardrobeAgingSubscriptionError extends Error {
   constructor() {
-    super('subscription_required');
+    super(SUBSCRIPTION_SENTINEL);
     this.name = 'WardrobeAgingSubscriptionError';
   }
 }
@@ -249,7 +250,7 @@ async function runAgingAnalysis(userId: string): Promise<WardrobeAgingResult> {
   ]);
 
   if (response && typeof response === 'object' && typeof response.error === 'string') {
-    if (response.error === 'subscription_required') {
+    if (response.error === SUBSCRIPTION_SENTINEL) {
       throw new WardrobeAgingSubscriptionError();
     }
     throw new WardrobeAgingError(response.error);

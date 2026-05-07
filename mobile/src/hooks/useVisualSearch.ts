@@ -50,11 +50,10 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { getLocale, t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 const MAX_DIMENSION = 1200;
 const JPEG_QUALITY = 0.85;
 // M19 Codex round 1 P2.1 — payload guard. The deployed function inlines

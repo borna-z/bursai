@@ -49,6 +49,7 @@ import { PageTitle } from '../components/PageTitle';
 import { CloseIcon, RotateIcon } from '../components/icons';
 import { useGarment } from '../hooks/useGarments';
 import { usePhotoFeedback, type PhotoFeedback } from '../hooks/usePhotoFeedback';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { hapticLight, hapticMedium } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
@@ -118,11 +119,11 @@ export function PhotoFeedbackScreen() {
   //     the sentinel and would otherwise produce a silent failure).
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
-    if (error !== 'subscription_required' && paywallShownRef.current) {
+    if (error !== SUBSCRIPTION_SENTINEL && paywallShownRef.current) {
       // Release the latch so a future failure can re-route.
       paywallShownRef.current = false;
     }
@@ -320,7 +321,7 @@ export function PhotoFeedbackScreen() {
             same selfie so a retry doesn't force a re-shoot. The
             subscription sentinel is intentionally NOT rendered here — the
             paywall route effect intercepts it before this branch. */}
-        {error && error !== 'subscription_required' ? (
+        {error && error !== SUBSCRIPTION_SENTINEL ? (
           <View style={[s.errorRow, { backgroundColor: VF_BG, borderTopColor: VF_BORDER }]}>
             <Text
               style={{
