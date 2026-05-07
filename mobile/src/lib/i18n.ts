@@ -80,7 +80,13 @@ const DICTIONARIES: Record<Locale, Record<string, string>> = {
 
 export function t(key: string, params?: TranslationParams): string {
   const dict = DICTIONARIES[activeLocale] ?? en;
-  const raw = dict[key] ?? en[key] ?? key;
+  // Use `||` (not `??`) for the dict→en fallback so a `''` value in a
+  // partial locale dictionary falls through to English instead of rendering
+  // a blank string. The append-only locale convention means future
+  // translators may try `'foo': ''` as a way to "delete" a key; treating
+  // empty as missing keeps that gesture safe. The final `?? key` keeps the
+  // loud-failure mode for genuinely missing keys.
+  const raw = (dict[key] || en[key]) ?? key;
   return interpolate(raw, params);
 }
 

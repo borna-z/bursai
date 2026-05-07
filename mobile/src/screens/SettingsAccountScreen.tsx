@@ -176,7 +176,7 @@ export function SettingsAccountScreen() {
             <SettingsRow
               icon={<MailIcon size={18} color={t.accent} />}
               title={tr('settings.account.row.email')}
-              value={email || tr('addpiece.step3.fieldEmpty')}
+              value={email || tr('common.empty')}
               onPress={handleEmailRowPress}
             />
             <SettingsRow

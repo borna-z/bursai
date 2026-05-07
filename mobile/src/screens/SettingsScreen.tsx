@@ -22,7 +22,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { useStyleDNA } from '../hooks/useStyleDNA';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
-import { t as tr, getLocale, type Locale } from '../lib/i18n';
+import { t as tr, useTranslation, type Locale } from '../lib/i18n';
 import {
   GlobeIcon,
   PaletteIcon,
@@ -64,6 +64,11 @@ const LOCALE_LABELS: Record<Locale, string> = {
 export function SettingsScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  // Subscribe to locale changes so the language row's endonym updates live
+  // when the user picks a new locale elsewhere in the app. Reading `getLocale()`
+  // synchronously here would lock the row to the locale at first mount until
+  // some unrelated cause re-renders the screen.
+  const { locale } = useTranslation();
   const { user, profile, signOut } = useAuth();
   const resetMemory = useResetStyleMemory();
   const [resetOpen, setResetOpen] = useState(false);
@@ -186,7 +191,7 @@ export function SettingsScreen() {
           <SettingsRow
             icon={<GlobeIcon size={18} color={t.accent} />}
             title={tr('settings.row.language')}
-            value={LOCALE_LABELS[getLocale()] ?? LOCALE_LABELS.en}
+            value={LOCALE_LABELS[locale] ?? LOCALE_LABELS.en}
             last
             onPress={() =>
               Alert.alert(tr('settings.languageAlert.title'), tr('settings.languageAlert.body'))

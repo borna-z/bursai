@@ -32,8 +32,11 @@ const LOCALE_TO_BCP47: Partial<Record<Locale, string>> = {
   it: 'it-IT',
   pt: 'pt-PT',
   pl: 'pl-PL',
-  ar: 'ar',
-  fa: 'fa',
+  // Pin region tags for ar/fa so Intl uses a stable digit-shaping +
+  // grouping convention across iOS/Android Hermes builds (bare `ar`/`fa`
+  // resolves to platform-default region, which differs).
+  ar: 'ar-SA',
+  fa: 'fa-IR',
 };
 
 export function formatPrice(amount: number, currency: string, locale: Locale): string {
@@ -42,8 +45,13 @@ export function formatPrice(amount: number, currency: string, locale: Locale): s
     return new Intl.NumberFormat(tag, {
       style: 'currency',
       currency,
-      // Cards typically carry whole-currency prices ($199, 199 kr). Allow up
-      // to 2 fraction digits for currencies that need them (USD $11.99).
+      // Cards typically carry whole-currency prices (199 kr, $25). Suppress
+      // the trailing `,00` for whole values by setting `min=0`, while still
+      // allowing two fraction digits for currencies/values that need them
+      // (USD $11.99). Without `minimumFractionDigits: 0`, Intl inherits the
+      // currency's standard (SEK = 2), so 199 SEK would render as "199,00 kr"
+      // when the audit acceptance asks for "199 kr".
+      minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {

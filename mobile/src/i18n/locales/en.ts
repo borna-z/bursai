@@ -1096,6 +1096,7 @@ export const en: Record<string, string> = {
   'common.cancel': 'Cancel',
   'common.back': 'Back',
   'common.discard': 'Discard',
+  'common.empty': '—',
   'settings.header.eyebrow': 'Account',
   'settings.header.title': 'Settings',
   'settings.profile.fallbackName': 'Your profile',

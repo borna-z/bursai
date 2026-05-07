@@ -68,7 +68,7 @@ const SEASON_LABEL_KEYS: Record<string, string> = {
 // copy rather than raw enum values. The em-dash empty marker uses the i18n
 // `fieldEmpty` key so locales can swap it (e.g. for RTL or punctuation rules).
 function titleCase(value: string | null | undefined): string {
-  if (!value) return tr('addpiece.step3.fieldEmpty');
+  if (!value) return tr('common.empty');
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
