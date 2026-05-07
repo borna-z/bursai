@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M24 — Pick Must-Haves → WardrobeGaps follow-up |
-| **CURRENT WAVE FILE** | [`waves/m24-pick-must-haves.md`](waves/m24-pick-must-haves.md) |
+| **CURRENT WAVE** | M25 — Onboarding quiz at full data capture |
+| **CURRENT WAVE FILE** | [`waves/m25-onboarding-quiz.md`](waves/m25-onboarding-quiz.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -127,7 +127,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | M21 | [Assess condition → GarmentDetail](waves/m21-assess-condition.md) | DONE (PR #747) | V0, M9 |
 | M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | DONE (PR #748) | V0, M9 |
 | ) | V0, M14 |
-| M24 | [Pick Must-Haves → WardrobeGaps follow-up](waves/m24-pick-must-haves.md) | TODO | V0 |
+| M24 | [Pick Must-Haves → WardrobeGaps follow-up](waves/m24-pick-must-haves.md) | DONE (PR #TBD) | V0 |
 
 ### Onboarding parity
 | Wave | File | Status | Depends on |
