@@ -1234,6 +1234,8 @@ export const en: Record<string, string> = {
   'addpiece.step3.field.material': 'Material',
   'addpiece.step3.field.pattern': 'Pattern',
   'addpiece.step3.field.fit': 'Fit',
+  // Deprecated 2026-05-07 (Theme 3 1st-pass review) — call sites moved to
+  // `common.empty`. Key retained per append-only convention; do not remove.
   'addpiece.step3.fieldEmpty': '—',
   'addpiece.step3.seasonsEyebrow': 'Seasons',
   'addpiece.step3.season.spring': 'Spring',

@@ -46,12 +46,16 @@ export const sv: Record<string, string> = {
   'addpiece.duplicate.body': 'Det här liknar {title} — du kanske redan äger det.',
   'addpiece.duplicate.bodyNoTitle': 'Det här liknar ett plagg du redan äger.',
   'addpiece.duplicate.viewExisting': 'Visa befintligt',
+
+  // ─── shoppingChat — Theme 3 sweep adds sv for the visible card actions ─
+  'shoppingChat.cardOpen': 'Öppna',
+  'shoppingChat.cardOpenHint': 'Öppnar produktsidan i webbläsaren',
   'addpiece.duplicate.addAnyway': 'Lägg till ändå',
 
   // ─── Theme 3 (M33) — Settings hub bring-up ─────────────────────────────
   'common.cancel': 'Avbryt',
   'common.back': 'Tillbaka',
-  'common.discard': 'Släng',
+  'common.discard': 'Förkasta',
   'common.empty': '—',
   'settings.header.eyebrow': 'Konto',
   'settings.header.title': 'Inställningar',
@@ -139,14 +143,14 @@ export const sv: Record<string, string> = {
   'addpiece.step1.source.visualSearch.sub': 'Hitta liknande',
   'addpiece.step1.source.importLink.label': 'Importera från länk',
   'addpiece.step1.source.importLink.sub': 'Klistra in en URL',
-  'addpiece.step1.counterEyebrow': 'Förberedda',
+  'addpiece.step1.counterEyebrow': 'Foton förberedda',
   'addpiece.step1.removePhoto': 'Ta bort foto',
   'addpiece.step1.addPhoto': 'Lägg till foto',
   'addpiece.step1.addLabel': 'Lägg till',
   'addpiece.step1.maxCaption': 'Upp till {max} foton · Privat för din garderob',
   'addpiece.step1.readyEyebrow': '{count} klara',
   'addpiece.step1.readyCaption': 'Vi taggar varje plagg automatiskt',
-  'addpiece.step1.cta.first': 'Analysera första',
+  'addpiece.step1.cta.first': 'Analysera första bilden',
   'addpiece.step1.cta.single': 'Analysera plagg',
 
   // Step 2 (analyzing)
@@ -190,6 +194,7 @@ export const sv: Record<string, string> = {
   'addpiece.step3.field.material': 'Material',
   'addpiece.step3.field.pattern': 'Mönster',
   'addpiece.step3.field.fit': 'Passform',
+  // Deprecated 2026-05-07 — call sites moved to `common.empty`.
   'addpiece.step3.fieldEmpty': '—',
   'addpiece.step3.seasonsEyebrow': 'Säsonger',
   'addpiece.step3.season.spring': 'Vår',
@@ -212,7 +217,7 @@ export const sv: Record<string, string> = {
   'addpiece.step3.saveFailed.title': 'Sparandet misslyckades',
   'addpiece.step3.offline.title': 'Sparat offline',
   'addpiece.step3.offline.body': 'Vi sparar plagget så snart du är online igen.',
-  'addpiece.step3.discard.title': 'Släng plagget?',
+  'addpiece.step3.discard.title': 'Förkasta plagget?',
   'addpiece.step3.discard.body': 'Du förlorar fotot och AI-analysen. Du kan skanna om från Steg 1.',
 
   // Save-choice sheet (GarmentSaveChoiceSheet)
