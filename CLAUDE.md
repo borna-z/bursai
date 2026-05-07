@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M31 — RevenueCat + paywall + webhook |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m31-revenuecat.md` |
+| **CURRENT WAVE** | M32 — Restore Purchases |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m32-restore-purchases.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
