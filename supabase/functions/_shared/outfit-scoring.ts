@@ -15,6 +15,7 @@ import { getHSL, isNeutral, getCurrentSeason, styleVectorScore, seasonalTransiti
 import type { StyleVector, SeasonTransitionInfo, WearLog } from "./outfit-scoring-color.ts";
 import { decayWeight, comfortStyleScore, socialContextPenalty, personalUniformScore, garmentReadinessSignals } from "./outfit-scoring-body.ts";
 import type { ComfortStyleProfile, SocialContextMap, PersonalUniform } from "./outfit-scoring-body.ts";
+import { readUnifiedStylePrefs } from "./style-prefs-reader.ts";
 
 // Re-export split modules for backward compatibility
 export * from "./outfit-scoring-color.ts";
@@ -601,7 +602,14 @@ export function clampScore(value: number): number {
 }
 
 export function getStylePrefs(prefs: Record<string, any> | null): Record<string, any> {
-  return (prefs?.styleProfile || prefs || {}) as Record<string, any>;
+  // Theme 7 (post-launch audit): unified V3-vocab view with V4 canonical
+  // fallbacks for slots the V3 mirror leaves empty / missing. See
+  // `_shared/style-prefs-reader.ts` for the full rationale — short version:
+  // (1) `migrateV4ToV3Compat` writes `workFormality: ''` for backfilled
+  // pre-M25 users, which used to silently default to neutral 50 here;
+  // (2) V4-native users in the cold-start race window before backfill
+  // writes had no V3 mirror at all and lost every V3-vocab field read.
+  return readUnifiedStylePrefs(prefs ?? null) as Record<string, any>;
 }
 
 export function styleAlignmentScore(garment: GarmentRow, prefs: Record<string, any> | null): number {

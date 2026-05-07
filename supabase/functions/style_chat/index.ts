@@ -23,6 +23,7 @@ import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 // Wave 8.5 PR B (P89) — canonical signal normalization + style summary loader + chat-driven preference extraction.
 import { normalizeStyleMemorySignal } from "../_shared/style-memory-signals.ts";
+import { readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
 import { loadOrBuildSummary, loadStandardSummaryInputs, type UserStyleSummaryRow } from "../_shared/summary-loader.ts";
 import { extractMemoryEvents } from "../_shared/style-chat-extraction.ts";
 import { ingestMemoryEvent } from "../_shared/style-memory-ingest.ts";
@@ -1384,7 +1385,19 @@ serve(async (req) => {
     }
 
     const preferences = profile?.preferences as Record<string, unknown> || {};
-    const sp = preferences.styleProfile as Record<string, any> | undefined;
+    // Theme 7 (post-launch audit): take the V3-vocab path whenever a V3
+    // mirror OR a V4 canonical record is present. The legacy condition only
+    // fired when `preferences.styleProfile` was set, so V4-native users in
+    // the cold-start race window (no V3 mirror written yet) silently fell
+    // into the v2 fallback below — which reads top-level `fitPreference` /
+    // `styleVibe` keys that V4 doesn't populate, yielding an empty Style
+    // profile prompt block. The unified reader translates V4 canonical
+    // fields back into V3 vocab so the prompt always carries signal.
+    const hasStructuredPrefs =
+      !!preferences.styleProfile || !!preferences.style_profile_v4_jsonb;
+    const sp = hasStructuredPrefs
+      ? (readUnifiedStylePrefs(preferences) as Record<string, any>)
+      : undefined;
     let styleLines = "";
     if (sp) {
       const parts: string[] = [];

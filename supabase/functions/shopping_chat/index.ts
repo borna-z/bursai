@@ -5,6 +5,7 @@ import { VOICE_SHOPPING } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
+import { readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
 
 // ---------- i18n ----------
 
@@ -191,7 +192,16 @@ serve(async (req) => {
 
     // Style prefs
     const preferences = profile?.preferences as Record<string, unknown> || {};
-    const sp = preferences.styleProfile as Record<string, any> | undefined;
+    // Theme 7 (post-launch audit): unified V3-vocab view with V4 fallback —
+    // see style_chat for the full rationale. Same gap closed: V4-native
+    // users in the cold-start race window used to fall into the v2 branch
+    // below, which reads keys (`fitPreference`, `styleVibe`) that V4
+    // doesn't populate, leaving the shopping prompt with no style signal.
+    const hasStructuredPrefs =
+      !!preferences.styleProfile || !!preferences.style_profile_v4_jsonb;
+    const sp = hasStructuredPrefs
+      ? (readUnifiedStylePrefs(preferences) as Record<string, any>)
+      : undefined;
     let styleLines = "";
     if (sp) {
       const parts: string[] = [];
