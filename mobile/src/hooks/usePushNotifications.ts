@@ -258,29 +258,18 @@ export function useUpdateNotificationPrefs() {
     mutationFn: async ({ key, value }) => {
       if (!user) throw new Error('Not authenticated');
 
-      // Read-modify-write — re-fetch so a concurrent edit elsewhere on the
-      // device doesn't get clobbered. The screen is single-active so the
-      // concurrent-edit risk is low; the merge protects against future
-      // server-side pref additions.
-      const { data: existing, error: readError } = await supabase
-        .from('profiles')
-        .select('notification_prefs')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (readError) throw readError;
-
-      const current = parseNotificationPrefs(
-        (existing?.notification_prefs ?? null) as unknown,
+      // Theme 1 (post-launch audit): atomic JSONB merge via RPC. Replaces
+      // the earlier client-side R-M-W which could clobber a sibling key
+      // written by a future server-side migration or a concurrent
+      // settings/onboarding write. The RPC takes a row-level lock and
+      // applies Postgres' `||` merge inside a single statement.
+      const { data: merged, error: rpcError } = await supabase.rpc(
+        'merge_notification_prefs_jsonb',
+        { p_patch: { [key]: value } },
       );
-      const next: NotificationPrefs = { ...current, [key]: value };
+      if (rpcError) throw rpcError;
 
-      const { error: writeError } = await supabase
-        .from('profiles')
-        .update({ notification_prefs: next })
-        .eq('id', user.id);
-      if (writeError) throw writeError;
-
-      return next;
+      return parseNotificationPrefs(merged);
     },
     onMutate: async ({ key, value }) => {
       await queryClient.cancelQueries({ queryKey: ['notificationPrefs', user?.id] });

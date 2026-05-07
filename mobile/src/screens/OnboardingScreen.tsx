@@ -208,10 +208,39 @@ export function OnboardingScreen() {
         columnWriteFailed = true;
       }
 
-      // Read-modify-write merge of preferences. Existing keys (web-side
-      // notifications, locale, anything we don't know about) are preserved.
-      const existingPrefs = (profile?.preferences ?? {}) as Record<string, unknown>;
-      const existingOnboarding = (existingPrefs.onboarding ?? {}) as Record<string, unknown>;
+      // Theme 1 (post-launch audit): atomic JSONB merge via RPC. Replaces
+      // the earlier top-level R-M-W on preferences which clobbered
+      // sibling keys (coach_tour_completed_at, shopping_list_jsonb,
+      // accent_color, locale) when first-run-coach retro gate or
+      // V3-compat backfill fired in the same tick. The RPC takes a
+      // row-level lock and applies Postgres' `||` merge so only the keys
+      // we set in the patch get rewritten; sibling keys are preserved
+      // even if another writer raced us.
+      //
+      // The `onboarding` slot is special: we deep-merge against the
+      // cached `profile.preferences.onboarding` because `||` is a
+      // top-level merge and would replace the whole onboarding object.
+      // OnboardingScreen.finish() is the only mobile writer to
+      // `onboarding.*` sub-keys, so reading the cached value is safe
+      // for the single-device case.
+      //
+      // Cross-platform race window (Reviewer A on PR #764): web's
+      // `src/pages/Onboarding.tsx` writes the same path, so a user
+      // resuming onboarding on mobile after starting on web could
+      // overwrite a web sub-key that's not in the cached snapshot.
+      // Mitigations: (a) `completed_at` is preserved with a
+      // `?? new Date().toISOString()` fallback so we don't reset it;
+      // (b) `completed: true` is monotonic; (c) sibling top-level keys
+      // (`style_profile_v4_jsonb`, `styleProfile`) go through the
+      // atomic RPC merge so only the `onboarding` sub-object's
+      // unknown keys are at risk. Web `src/` is being deleted
+      // post-launch (see CLAUDE.md), so the cross-platform window is
+      // bounded by that timeline.
+      const existingOnboarding =
+        ((profile?.preferences as Record<string, unknown> | null)?.onboarding ?? {}) as Record<
+          string,
+          unknown
+        >;
       // M25 (Codex P0): persist the full V4 capture into:
       //   1. `style_profile_v4_jsonb` — canonical V4 slot (web parity).
       //   2. `styleProfile` — V3-shaped mirror so the AI engine consumers
@@ -223,8 +252,7 @@ export function OnboardingScreen() {
       //      every outfit / chat / score path that reads `preferences.styleProfile`.
       // The legacy `onboarding.quiz` mirror is DROPPED — no live consumer
       // reads it; readers consume `styleProfile` (M25 review).
-      const mergedPrefs: Record<string, unknown> = {
-        ...existingPrefs,
+      const patch: Record<string, unknown> = {
         onboarding: {
           ...existingOnboarding,
           completed: true,
@@ -240,7 +268,7 @@ export function OnboardingScreen() {
         },
       };
       if (draft.quiz) {
-        mergedPrefs.style_profile_v4_jsonb = draft.quiz;
+        patch.style_profile_v4_jsonb = draft.quiz;
         // Build the V3-compat shape using the touched-flag map so default
         // scalars the user never tapped (e.g. `paletteVibe: 'mixed'`) are
         // omitted from the V3 mirror rather than written as definitive
@@ -248,13 +276,13 @@ export function OnboardingScreen() {
         const compatTouched = draft.quizTouched
           ? touchedToCompatTouched(draft.quizTouched)
           : undefined;
-        mergedPrefs.styleProfile = migrateV4ToV3Compat(draft.quiz, compatTouched);
+        patch.styleProfile = migrateV4ToV3Compat(draft.quiz, compatTouched);
       }
       try {
-        const { error: prefsError } = await supabase
-          .from('profiles')
-          .update({ preferences: mergedPrefs })
-          .eq('id', user.id);
+        const { error: prefsError } = await supabase.rpc(
+          'merge_profile_preferences_jsonb',
+          { p_patch: patch },
+        );
         if (prefsError) {
           // Legacy flag is the secondary signal; column gate (above) is the
           // canonical one. If the column write succeeded but this didn't,

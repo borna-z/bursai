@@ -16,10 +16,13 @@
 // Defensive read: profile load failures default `shouldShow = false` so the
 // tour never pops up on transient network errors and confuses the user.
 //
-// Persistence pattern: read-modify-write merge of `profiles.preferences`
-// (preserves sibling keys — `onboarding.*`, `style_profile_v4_jsonb`,
-// `accent_color`, `shopping_list_jsonb`, etc.) — mirrors the canonical merge
-// in OnboardingScreen.tsx and usePickMustHaves.ts.
+// Persistence pattern: atomic JSONB merge of `profiles.preferences` via the
+// `merge_profile_preferences_jsonb` RPC (Theme 1 post-launch audit). The
+// RPC takes a row-level lock and applies Postgres' `||` merge so sibling
+// keys (`onboarding.*`, `style_profile_v4_jsonb`, `accent_color`,
+// `shopping_list_jsonb`, etc.) are preserved even if another writer fires
+// in the same tick. Replaces the earlier client-side R-M-W which lost
+// keys under contention on first launch.
 //
 // M27 R1 review additions (2026-05-07):
 //   1. Retroactive trigger gate. Pre-M27 users have no
@@ -271,23 +274,31 @@ export function useFirstRunCoach(): {
 
     let cancelled = false;
     (async () => {
-      const { data: existing, error: readError } = await supabase
-        .from('profiles')
-        .select('preferences')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (cancelled || readError) return;
-      const prevPrefs = (existing?.preferences ?? {}) as Record<string, unknown>;
+      // Theme 1 (post-launch audit): atomic JSONB merge via RPC. The
+      // earlier client-side R-M-W could clobber a sibling key written by
+      // a concurrent writer (V3-compat backfill, onboarding finish) on
+      // the same first-launch tick. The RPC takes a row-level lock and
+      // applies Postgres' `||` merge in a single statement.
       const completedAt = new Date().toISOString();
-      const mergedPrefs = {
-        ...prevPrefs,
-        coach_tour_completed_at: completedAt,
-      };
-      const { error: writeError } = await supabase
-        .from('profiles')
-        .update({ preferences: mergedPrefs })
-        .eq('id', user.id);
-      if (cancelled || writeError) return;
+      const { error: rpcError } = await supabase.rpc(
+        'merge_profile_preferences_jsonb',
+        { p_patch: { coach_tour_completed_at: completedAt } },
+      );
+      if (cancelled) return;
+      if (rpcError) {
+        // R1 review pickup: surface the retroactive seed failure to
+        // Sentry. Pre-PR this site swallowed errors silently; the new
+        // RPC can raise on transient `auth.uid() IS NULL` cold-start
+        // races and we want signal when "tour re-surfaces" reports
+        // come in. Breadcrumb (not exception) — best-effort path.
+        Sentry.addBreadcrumb({
+          category: 'first-run-coach',
+          level: 'warning',
+          message: 'retroactive seed RPC failed',
+          data: { code: (rpcError as { code?: string }).code },
+        });
+        return;
+      }
       queryClient.setQueryData<CoachTourStatus>(STATUS_QUERY_KEY(user.id), {
         completedAt,
         onboardingCompletedAt: data.onboardingCompletedAt,
@@ -301,30 +312,16 @@ export function useFirstRunCoach(): {
   const completeMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      // Read-modify-write merge — preserve every sibling preferences key
-      // (onboarding.*, language, style_profile_v4_jsonb, accent_color,
-      // shopping_list_jsonb, etc.). UPDATE on a JSONB column with a fresh
-      // object replaces the entire value, not merges, so we MUST hydrate
-      // the existing row first.
-      const { data: existing, error: readError } = await supabase
-        .from('profiles')
-        .select('preferences')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (readError) throw readError;
-
-      const prevPrefs = (existing?.preferences ?? {}) as Record<string, unknown>;
+      // Theme 1 (post-launch audit): atomic JSONB merge via RPC. The
+      // RPC takes a row-level lock + applies Postgres' `||` merge so a
+      // concurrent merge (V3-compat backfill, must-haves save, onboarding
+      // finish) doesn't clobber the sibling keys we leave untouched.
       const completedAt = new Date().toISOString();
-      const mergedPrefs = {
-        ...prevPrefs,
-        coach_tour_completed_at: completedAt,
-      };
-
-      const { error: writeError } = await supabase
-        .from('profiles')
-        .update({ preferences: mergedPrefs })
-        .eq('id', user.id);
-      if (writeError) throw writeError;
+      const { error: rpcError } = await supabase.rpc(
+        'merge_profile_preferences_jsonb',
+        { p_patch: { coach_tour_completed_at: completedAt } },
+      );
+      if (rpcError) throw rpcError;
     },
     onMutate: () => {
       // Optimistic — flip the cached status immediately so the overlay
