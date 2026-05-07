@@ -417,7 +417,11 @@ function useNotificationDeepLink(): void {
         Sentry.withScope((scope) => {
           scope.setTag('source', 'push_deep_link');
           scope.setContext('deep_link', { route, params: data?.params ?? null });
-          Sentry.captureException(err);
+          // Wrap non-Error throws so Sentry still gets a usable stack
+          // trace. navigationRef.navigate normally throws Error, but the
+          // ts-expect-error annotation above means the type system isn't
+          // enforcing the throw shape — guard at runtime.
+          Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
         });
       }
     };

@@ -234,9 +234,11 @@ async function aiRefine(
   layeringContext: { needs_base_layer: boolean } | null = null,
   dayContext: DayContextInput | null = null,
   // Service-role client passed through so callBursAI can fire-and-forget
-  // telemetry to analytics_events. Without it, every burs_style_engine AI
-  // call was invisible in the AI usage dashboard.
-  serviceClient: any = null,
+  // telemetry to analytics_events. Required (no default) — a defaulted
+  // null would re-introduce the exact silent-telemetry-loss footgun this
+  // parameter exists to eliminate: a future caller could omit it and the
+  // analytics_events insert would be skipped without a typecheck error.
+  serviceClient: any,
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
