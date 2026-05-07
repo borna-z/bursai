@@ -534,6 +534,17 @@ export const en: Record<string, string> = {
     'Run a wardrobe gap analysis first to see which key pieces are worth adding.',
   'pickMustHaves.empty.cta': 'Open Wardrobe Gaps',
   'pickMustHaves.savedCountTemplate': '{count} items saved',
+  // Singular/plural variants — the screen picks the variant via a small
+  // helper so the count grammar is correct in English. Other locales
+  // can deviate as they land. Bare `savedCountTemplate` kept for
+  // back-compat with any older callers.
+  'pickMustHaves.savedCountTemplate.one': '1 item saved',
+  'pickMustHaves.savedCountTemplate.other': '{count} items saved',
+  'pickMustHaves.selectedCountTemplate.one': '1 selected',
+  'pickMustHaves.selectedCountTemplate.other': '{count} selected',
+  'pickMustHaves.loadError': 'Couldn’t load your saved list. Pull to retry.',
+  'pickMustHaves.remove': 'Remove',
+  'pickMustHaves.removeAriaLabel': 'Remove from shopping list',
   'wardrobeGaps.pickMustHavesCta': 'Pick must-haves',
   'profile.shoppingList': 'Shopping list',
   'profile.shoppingListEmpty': 'No saved must-haves yet',

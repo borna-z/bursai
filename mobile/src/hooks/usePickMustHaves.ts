@@ -144,6 +144,12 @@ export function useSaveShoppingList() {
   >({
     mutationFn: async (entries: ShoppingListEntry[]) => {
       if (!user) throw new Error('Not authenticated');
+      // Defensive cap so a runaway loop / bug can't balloon the JSONB
+      // column past a sane payload size. 200 is comfortably above the
+      // realistic max for a single user's must-have shortlist.
+      if (entries.length > 200) {
+        throw new Error('Shopping list too large (max 200 entries)');
+      }
 
       // Read-modify-write — fetch the current prefs row, merge in the new
       // shopping_list_jsonb blob, write back. Concurrent edits from the
@@ -211,14 +217,11 @@ export function useSaveShoppingList() {
     },
     onSettled: () => {
       // Refresh from server so the canonical updated_at + any concurrent
-      // edits land. Also touch ['profile'] so consumers reading the
-      // wider preferences tree (Settings/Style memory etc.) see the
-      // freshest copy.
+      // edits land. We don't invalidate `['profile', user?.id]` because
+      // `AuthContext.profile` is plain React state, not a React-Query
+      // cache entry — the invalidation would be a no-op.
       queryClient.invalidateQueries({
         queryKey: ['shoppingList', user?.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['profile', user?.id],
       });
     },
   });

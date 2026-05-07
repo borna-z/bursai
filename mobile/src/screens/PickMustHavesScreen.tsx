@@ -42,6 +42,7 @@ import {
   type ShoppingListPriority,
 } from '../hooks/usePickMustHaves';
 import { t as tr } from '../lib/i18n';
+import { Sentry } from '../lib/sentry';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'PickMustHaves'>;
@@ -61,8 +62,16 @@ function newEntryId(): string {
 // shape internally, but the gap object itself doesn't carry an id field
 // — derive one from category + item_name so the same gap recurring on
 // later analyses keys identically.
-function gapKey(g: GapInput, fallbackIndex: number): string {
-  return `${g.category}::${g.item_name}::${fallbackIndex}`;
+//
+// Content-only key (no index suffix). Normalised (trim + lowercase) so
+// casing/whitespace drift between analyses doesn't fragment a saved
+// entry off its row pre-fill. True duplicates within the SAME analysis
+// (same content key, different row) get a deterministic counter suffix
+// from the caller so React keys stay unique.
+function gapContentKey(g: GapInput): string {
+  const cat = g.category.trim().toLowerCase();
+  const name = g.item_name.trim().toLowerCase();
+  return `${cat}::${name}`;
 }
 
 export interface GapInput {
@@ -94,6 +103,35 @@ function priorityFromGap(p: GapInput['priority']): ShoppingListPriority {
   return 3;
 }
 
+// Pick the singular / plural variant for a {count} template. The
+// translation shim falls back to the bare key, so when an i18n key is
+// missing the count is rendered as a sensible English fallback rather
+// than a literal `{count} items` string.
+function pluralized(
+  baseKey: string,
+  count: number,
+  fallbackOne: string,
+  fallbackOther: string,
+): string {
+  const variantKey = count === 1 ? `${baseKey}.one` : `${baseKey}.other`;
+  const raw = tr(variantKey, { count });
+  if (raw === variantKey) {
+    // Missing key — substitute hardcoded English so the UI never shows
+    // a raw dot-namespaced key to the user.
+    return (count === 1 ? fallbackOne : fallbackOther).replace(
+      '{count}',
+      String(count),
+    );
+  }
+  return raw;
+}
+
+function priorityLabel(p: ShoppingListPriority): string {
+  if (p === 1) return tr('pickMustHaves.priority.high');
+  if (p === 2) return tr('pickMustHaves.priority.medium');
+  return tr('pickMustHaves.priority.low');
+}
+
 export function PickMustHavesScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
@@ -106,16 +144,31 @@ export function PickMustHavesScreen() {
     [routeGaps],
   );
 
-  const { entries: savedEntries, isLoading: isLoadingSaved } = useShoppingList();
+  const {
+    entries: savedEntries,
+    isLoading: isLoadingSaved,
+    error: savedError,
+  } = useShoppingList();
   const saveMutation = useSaveShoppingList();
 
   // Build draft rows once per (gaps, savedEntries) change. Pre-fills
   // from the persisted list by gap_id so the user sees their previous
   // shortlist marked + prioritised when they re-enter the screen.
+  //
+  // Duplicate-aware key derivation: same (category, item_name) appearing
+  // twice in one analysis gets a deterministic `::1`, `::2`… counter
+  // appended so React keys stay unique. Single-occurrence rows keep the
+  // bare content key, which is what re-runs of analysis will match
+  // against — preserving prior `existingEntryId` pre-fill across
+  // re-orderings.
   const initialRows = useMemo<RowDraft[]>(() => {
     const savedByGapId = new Map(savedEntries.map((e) => [e.gap_id, e]));
-    return incomingGaps.map((g, i) => {
-      const id = gapKey(g, i);
+    const seen = new Map<string, number>();
+    return incomingGaps.map((g) => {
+      const base = gapContentKey(g);
+      const dupCount = seen.get(base) ?? 0;
+      seen.set(base, dupCount + 1);
+      const id = dupCount === 0 ? base : `${base}::${dupCount}`;
       const existing = savedByGapId.get(id);
       return {
         gapId: id,
@@ -133,17 +186,49 @@ export function PickMustHavesScreen() {
   }, [incomingGaps, savedEntries]);
 
   const [rows, setRows] = useState<RowDraft[]>(initialRows);
-  // Re-seed when the inputs change (savedEntries hydrates async on first
-  // mount; the `gaps` param can also change if the user re-enters from
-  // a different gap analysis run).
-  const initialKeyRef = useRef('');
+  // Hydration-aware re-seed. On the FIRST non-loading render we replace
+  // the row state wholesale (this is the user's first view of the
+  // pre-filled list once `useShoppingList` has resolved). On subsequent
+  // saves / refetches we MERGE fresh `existingEntryId`/`existingAddedAt`
+  // into the current row state instead of clobbering user edits
+  // (selected / priority / notes / notesOpen).
+  const hasHydratedRef = useRef(false);
   useEffect(() => {
-    const key = JSON.stringify(initialRows.map((r) => [r.gapId, r.existingEntryId]));
-    if (key !== initialKeyRef.current) {
-      initialKeyRef.current = key;
+    if (isLoadingSaved) return;
+    if (!hasHydratedRef.current) {
+      hasHydratedRef.current = true;
       setRows(initialRows);
+      return;
     }
-  }, [initialRows]);
+    // Post-hydration: merge by gapId. Preserve user's in-progress
+    // edits; only adopt the fresh saved-entry pointers.
+    setRows((prev) => {
+      const byId = new Map(prev.map((r) => [r.gapId, r]));
+      return initialRows.map((fresh) => {
+        const existing = byId.get(fresh.gapId);
+        if (!existing) {
+          // New row appeared (e.g. re-run analysis added a gap).
+          return fresh;
+        }
+        return {
+          ...existing,
+          // Adopt latest server-side identity for this gap.
+          existingEntryId: fresh.existingEntryId,
+          existingAddedAt: fresh.existingAddedAt,
+        };
+      });
+    });
+  }, [initialRows, isLoadingSaved]);
+
+  // Surface read-query failures inline + once-per-error to Sentry so
+  // an empty list doesn't silently mask a fetch error.
+  useEffect(() => {
+    if (savedError) {
+      Sentry.captureException(savedError, {
+        tags: { component: 'PickMustHavesScreen' },
+      });
+    }
+  }, [savedError?.message]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleRow = (gapId: string) => {
     setRows((prev) =>
@@ -207,10 +292,27 @@ export function PickMustHavesScreen() {
     });
   };
 
+  // Remove a single saved entry by id. Used by the empty-state read-only
+  // list so the user can prune their saved must-haves without re-running
+  // analysis. Re-uses the same save mutation to keep the JSONB shape +
+  // optimistic-update path consistent with the main flow.
+  const handleRemoveSavedEntry = (entryId: string) => {
+    const next = savedEntries.filter((e) => e.id !== entryId);
+    saveMutation.mutate(next, {
+      onError: (err) => {
+        Alert.alert(
+          tr('pickMustHaves.title'),
+          err instanceof Error ? err.message : 'Failed to save',
+        );
+      },
+    });
+  };
+
   // ── Empty state — no gaps were threaded in (e.g. opened from Profile
   //    "Shopping list" row when the user hasn't run analysis yet). The
-  //    screen still renders the saved list count so they can see what's
-  //    there, but the primary affordance is "go run gap analysis".
+  //    screen renders any saved entries as read-only-ish rows with a
+  //    per-row remove affordance, plus the "Run analysis again" CTA as
+  //    the primary action.
   if (incomingGaps.length === 0) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -244,15 +346,31 @@ export function PickMustHavesScreen() {
             />
           </Card>
 
+          {savedError ? (
+            <Caption style={{ color: t.destructive }}>
+              {tr('pickMustHaves.loadError')}
+            </Caption>
+          ) : null}
+
           {!isLoadingSaved && savedEntries.length > 0 ? (
-            <Card padding={16}>
+            <View style={{ gap: 10 }}>
               <Caption>
-                {tr('pickMustHaves.savedCountTemplate').replace(
-                  '{count}',
-                  String(savedEntries.length),
+                {pluralized(
+                  'pickMustHaves.savedCountTemplate',
+                  savedEntries.length,
+                  '1 item saved',
+                  '{count} items saved',
                 )}
               </Caption>
-            </Card>
+              {savedEntries.map((entry) => (
+                <SavedEntryRow
+                  key={entry.id}
+                  entry={entry}
+                  disabled={saveMutation.isPending}
+                  onRemove={() => handleRemoveSavedEntry(entry.id)}
+                />
+              ))}
+            </View>
           ) : null}
         </ScrollView>
       </SafeAreaView>
@@ -275,6 +393,12 @@ export function PickMustHavesScreen() {
         contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 120, gap: 16 }}
         showsVerticalScrollIndicator={false}>
         <Caption style={{ lineHeight: 18 }}>{tr('pickMustHaves.intro')}</Caption>
+
+        {savedError ? (
+          <Caption style={{ color: t.destructive }}>
+            {tr('pickMustHaves.loadError')}
+          </Caption>
+        ) : null}
 
         {isLoadingSaved ? (
           <Card padding={16}>
@@ -314,9 +438,11 @@ export function PickMustHavesScreen() {
           onPress={handleSave}
         />
         <Caption style={{ marginTop: 6, textAlign: 'center' }}>
-          {tr('pickMustHaves.savedCountTemplate').replace(
-            '{count}',
-            String(selectedCount),
+          {pluralized(
+            'pickMustHaves.selectedCountTemplate',
+            selectedCount,
+            '1 selected',
+            '{count} selected',
           )}
         </Caption>
       </View>
@@ -419,6 +545,7 @@ function GapRow({
               placeholder={tr('pickMustHaves.notesPlaceholder')}
               placeholderTextColor={t.fg3}
               multiline
+              maxLength={500}
               style={{
                 minHeight: 64,
                 borderRadius: radii.md,
@@ -434,6 +561,82 @@ function GapRow({
           ) : null}
         </View>
       ) : null}
+    </Card>
+  );
+}
+
+// Read-only-ish saved-entry row for the empty-state branch (Profile
+// shortcut). Shows category + priority pill + optional notes; the only
+// affordance is a Remove button that prunes this entry from the saved
+// list via `useSaveShoppingList`.
+function SavedEntryRow({
+  entry,
+  disabled,
+  onRemove,
+}: {
+  entry: ShoppingListEntry;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  const t = useTokens();
+  return (
+    <Card padding={14}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 14,
+              fontWeight: '600',
+              color: t.fg,
+              letterSpacing: -0.13,
+            }}>
+            {entry.category}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <View
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: radii.sm,
+                borderWidth: 1,
+                borderColor: t.border2,
+              }}>
+              <Text
+                style={{
+                  fontFamily: fonts.uiSemi,
+                  fontSize: 11,
+                  color: t.fg2,
+                  letterSpacing: 0.04,
+                }}>
+                {priorityLabel(entry.priority)}
+              </Text>
+            </View>
+          </View>
+          {entry.notes ? (
+            <Caption style={{ marginTop: 6 }} numberOfLines={3}>
+              {entry.notes}
+            </Caption>
+          ) : null}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={tr('pickMustHaves.removeAriaLabel')}
+          onPress={onRemove}
+          disabled={disabled}
+          style={{ paddingVertical: 4, paddingHorizontal: 8, opacity: disabled ? 0.5 : 1 }}>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 12,
+              color: t.destructive,
+              letterSpacing: -0.05,
+            }}>
+            {tr('pickMustHaves.remove')}
+          </Text>
+        </Pressable>
+      </View>
     </Card>
   );
 }
