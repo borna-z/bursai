@@ -94,6 +94,15 @@ BEGIN
     RAISE EXCEPTION 'merge_profile_preferences_jsonb: profile row missing for %', v_uid;
   END IF;
 
+  -- Defensive: if a malformed historical write left `preferences` as a
+  -- non-object jsonb (array, scalar), Postgres' `||` would happily
+  -- produce `[{...}]` (array || object → array-with-object-appended)
+  -- and silently corrupt the row. Treat any non-object stored value as
+  -- empty so the merge always lands on a clean object.
+  IF jsonb_typeof(v_current) <> 'object' THEN
+    v_current := '{}'::jsonb;
+  END IF;
+
   v_merged := v_current || p_patch;
 
   UPDATE public.profiles
@@ -146,6 +155,12 @@ BEGIN
     RAISE EXCEPTION 'merge_notification_prefs_jsonb: profile row missing for %', v_uid;
   END IF;
 
+  -- Defensive: see merge_profile_preferences_jsonb above. Non-object
+  -- stored value would corrupt under `||`; coerce to empty object.
+  IF jsonb_typeof(v_current) <> 'object' THEN
+    v_current := '{}'::jsonb;
+  END IF;
+
   v_merged := v_current || p_patch;
 
   UPDATE public.profiles
@@ -169,6 +184,9 @@ REVOKE ALL ON FUNCTION public.merge_notification_prefs_jsonb(jsonb)  FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.merge_profile_preferences_jsonb(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.merge_notification_prefs_jsonb(jsonb)  TO authenticated;
 
+-- ──────────────────────────────────────────────────────────────────────
+-- Backfill grant — close the M30 column-grant gap
+-- ──────────────────────────────────────────────────────────────────────
 -- Column-level UPDATE grant for `notification_prefs`. Without this both
 -- the new RPC (SECURITY INVOKER → caller-grants) AND any direct write
 -- path fail with "permission denied" because of the table-level UPDATE
