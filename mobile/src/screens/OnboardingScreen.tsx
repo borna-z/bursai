@@ -220,9 +220,22 @@ export function OnboardingScreen() {
       // The `onboarding` slot is special: we deep-merge against the
       // cached `profile.preferences.onboarding` because `||` is a
       // top-level merge and would replace the whole onboarding object.
-      // OnboardingScreen.finish() is the only writer to `onboarding.*`
-      // sub-keys, so reading the cached value is safe (no concurrent
-      // sub-key writer to race).
+      // OnboardingScreen.finish() is the only mobile writer to
+      // `onboarding.*` sub-keys, so reading the cached value is safe
+      // for the single-device case.
+      //
+      // Cross-platform race window (Reviewer A on PR #764): web's
+      // `src/pages/Onboarding.tsx` writes the same path, so a user
+      // resuming onboarding on mobile after starting on web could
+      // overwrite a web sub-key that's not in the cached snapshot.
+      // Mitigations: (a) `completed_at` is preserved with a
+      // `?? new Date().toISOString()` fallback so we don't reset it;
+      // (b) `completed: true` is monotonic; (c) sibling top-level keys
+      // (`style_profile_v4_jsonb`, `styleProfile`) go through the
+      // atomic RPC merge so only the `onboarding` sub-object's
+      // unknown keys are at risk. Web `src/` is being deleted
+      // post-launch (see CLAUDE.md), so the cross-platform window is
+      // bounded by that timeline.
       const existingOnboarding =
         ((profile?.preferences as Record<string, unknown> | null)?.onboarding ?? {}) as Record<
           string,

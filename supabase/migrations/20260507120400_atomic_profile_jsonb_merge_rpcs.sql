@@ -30,6 +30,26 @@
 --
 -- Patch size is capped at 4 KB to bound the merged blob — a runaway client
 -- loop or bug can't inflate the column past a recoverable size.
+--
+-- Also fixes a pre-existing P0: `20260426120000_onboarding_state.sql`
+-- revoked table-level UPDATE on `profiles` from `authenticated` and
+-- granted column-level UPDATE on a fixed list of columns. The
+-- `notification_prefs` column was added later by
+-- `20260507120100_profiles_notification_prefs.sql` without re-granting
+-- UPDATE on it, so the M30 settings toggle (`useUpdateNotificationPrefs`)
+-- was silently failing with "permission denied" on every save — the
+-- optimistic UI flipped, then the round-trip rolled back. This migration
+-- closes that gap. Same applies for the new RPC: SECURITY INVOKER means
+-- the RPC's UPDATE statement runs with the caller's grants, so without
+-- this GRANT both the legacy direct-update path AND the RPC fail.
+--
+-- Side effect (intentional, called out for reviewers): the RPC also bumps
+-- `updated_at = NOW()` on every merge, which the pre-PR client UPDATEs
+-- did not do. Any consumer that filters on `profiles.updated_at` (sync
+-- jobs, observability dashboards) will see more churn after this lands.
+-- This matches the column's documented purpose ("last-write timestamp")
+-- and lets us tell apart a never-touched row from one that's actively
+-- being merged into.
 
 -- ──────────────────────────────────────────────────────────────────────
 -- merge_profile_preferences_jsonb — `profiles.preferences` patch merge
@@ -148,3 +168,10 @@ REVOKE ALL ON FUNCTION public.merge_notification_prefs_jsonb(jsonb)  FROM PUBLIC
 
 GRANT EXECUTE ON FUNCTION public.merge_profile_preferences_jsonb(jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.merge_notification_prefs_jsonb(jsonb)  TO authenticated;
+
+-- Column-level UPDATE grant for `notification_prefs`. Without this both
+-- the new RPC (SECURITY INVOKER → caller-grants) AND any direct write
+-- path fail with "permission denied" because of the table-level UPDATE
+-- revocation in `20260426120000_onboarding_state.sql`. See header
+-- comment for the full backstory.
+GRANT UPDATE (notification_prefs) ON public.profiles TO authenticated;

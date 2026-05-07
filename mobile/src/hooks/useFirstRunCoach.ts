@@ -284,7 +284,21 @@ export function useFirstRunCoach(): {
         'merge_profile_preferences_jsonb',
         { p_patch: { coach_tour_completed_at: completedAt } },
       );
-      if (cancelled || rpcError) return;
+      if (cancelled) return;
+      if (rpcError) {
+        // R1 review pickup: surface the retroactive seed failure to
+        // Sentry. Pre-PR this site swallowed errors silently; the new
+        // RPC can raise on transient `auth.uid() IS NULL` cold-start
+        // races and we want signal when "tour re-surfaces" reports
+        // come in. Breadcrumb (not exception) — best-effort path.
+        Sentry.addBreadcrumb({
+          category: 'first-run-coach',
+          level: 'warning',
+          message: 'retroactive seed RPC failed',
+          data: { code: (rpcError as { code?: string }).code },
+        });
+        return;
+      }
       queryClient.setQueryData<CoachTourStatus>(STATUS_QUERY_KEY(user.id), {
         completedAt,
         onboardingCompletedAt: data.onboardingCompletedAt,

@@ -269,7 +269,7 @@ export function useUpdateNotificationPrefs() {
       );
       if (rpcError) throw rpcError;
 
-      return parseNotificationPrefs(merged as unknown);
+      return parseNotificationPrefs(merged);
     },
     onMutate: async ({ key, value }) => {
       await queryClient.cancelQueries({ queryKey: ['notificationPrefs', user?.id] });
