@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  useFocusEffect,
   useNavigation,
   useRoute,
   type RouteProp,
@@ -44,6 +45,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { t as tr } from '../lib/i18n';
 import {
   useWardrobeAging,
+  WardrobeAgingSubscriptionError,
   type WardrobeAgingBucketId,
 } from '../hooks/useWardrobeAging';
 import type { Garment } from '../types/garment';
@@ -78,6 +80,31 @@ export function UnusedGarmentsScreen() {
     : 'aged';
 
   const aging = useWardrobeAging();
+
+  // Subscription gate — direct deep link into this screen (e.g. from a
+  // future notification or saved route) must paywall the same way the
+  // InsightsScreen entry point does. Sticky-ref + focus-effect reset
+  // pattern mirrors InsightsScreen so the gate looks identical wherever
+  // a paid surface is reached.
+  const subscriptionLocked = aging.error instanceof WardrobeAgingSubscriptionError;
+  const paywallShownRef = React.useRef(false);
+  React.useEffect(() => {
+    if (subscriptionLocked && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      nav.navigate('Paywall');
+    }
+  }, [subscriptionLocked, nav]);
+  // Reset the sticky ref on focus so a returning user (back from paywall
+  // without subscribing → re-enters this screen later) gets the same
+  // gate again on the next subscription error.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!subscriptionLocked) {
+        paywallShownRef.current = false;
+      }
+    }, [subscriptionLocked]),
+  );
+
   const bucket = aging.data?.buckets.find((b) => b.id === bucketId) ?? null;
   const ids = bucket?.garmentIds ?? [];
 
@@ -125,17 +152,30 @@ export function UnusedGarmentsScreen() {
         </View>
       </View>
       {bucket?.rationale ? (
-        <Caption style={{ paddingHorizontal: 20, paddingTop: 4, lineHeight: 18 }}>
+        <Caption
+          numberOfLines={3}
+          style={{ paddingHorizontal: 20, paddingTop: 4, lineHeight: 18 }}>
           {bucket.rationale}
         </Caption>
       ) : null}
     </View>
   );
 
+  // Subscription-locked → the effect above is opening the paywall. Render
+  // a quiet shell (header only, no ErrorState surface) so the screen
+  // doesn't flash a generic error before the paywall slides up.
+  if (subscriptionLocked) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        {header}
+      </SafeAreaView>
+    );
+  }
+
   // Aging hook errored OR hydrate errored → unified error surface with
-  // a retry that re-runs both queries. The aging error is more useful
-  // to surface than the hydrate one (the latter is a simple PostgREST
-  // call), so we prefer it.
+  // a retry that re-runs both queries. Subscription errors are handled
+  // above. The aging error is more useful to surface than the hydrate
+  // one (the latter is a simple PostgREST call), so we prefer it.
   const composedError = aging.error ?? hydrate.error ?? null;
   if (composedError) {
     return (

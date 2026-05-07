@@ -62,6 +62,9 @@ export function WardrobeAgingPanel({
   // Loading — three skeleton rows that match the final layout shape
   // (label · count badge · chevron column). Header stays solid so the
   // section doesn't look like it's still resolving.
+  // Skeleton row dimensions intentionally match the populated row so the
+  // loading→ready transition doesn't shift any pixels: label height 13.5,
+  // caption height 11.5, badge minWidth 36 + paddingVertical 4 → 23px tall.
   if (isLoading && !result) {
     return (
       <View>
@@ -77,11 +80,12 @@ export function WardrobeAgingPanel({
                   borderBottomWidth: i < 2 ? 1 : 0,
                 },
               ]}>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Skeleton radius={4} height={14} style={{ width: '55%' }} />
-                <Skeleton radius={4} height={11} style={{ width: '80%' }} />
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Skeleton radius={4} height={13.5} style={{ width: '55%' }} />
+                <Skeleton radius={4} height={11.5} style={{ width: '80%' }} />
               </View>
-              <Skeleton radius={999} height={22} style={{ width: 32 }} />
+              <Skeleton radius={999} height={23} style={{ width: 36 }} />
+              <View style={{ paddingLeft: 4, width: 20 }} />
             </View>
           ))}
         </View>
@@ -154,7 +158,7 @@ export function WardrobeAgingPanel({
             <Pressable
               key={row.id}
               accessibilityRole="button"
-              accessibilityLabel={`${row.label}, ${row.count}`}
+              accessibilityLabel={`${row.count} ${row.label}`}
               accessibilityHint={tr('wardrobeAging.openHint')}
               accessibilityState={{ disabled: row.disabled }}
               disabled={row.disabled}
@@ -191,7 +195,13 @@ export function WardrobeAgingPanel({
                 </Text>
               </View>
               <View
-                accessibilityLabel={tr('wardrobeAging.countLabel')}
+                // Inner badge has no own accessibilityLabel — the parent
+                // Pressable already announces "{label}, {count}" so an
+                // additional generic "garments in bucket" announcement
+                // would just clutter VoiceOver. The badge is decorative
+                // duplicate visual information at this level.
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
                 style={[
                   s.countBadge,
                   {

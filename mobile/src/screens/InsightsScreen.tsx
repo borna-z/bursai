@@ -459,7 +459,16 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
             errors are intercepted above (sticky-ref → Paywall), so we
             forward `null` for that case to keep the section quiet while
             the paywall modal opens. All other errors render the panel's
-            own subtle inline caption. */}
+            own subtle inline caption.
+
+            Note: the panel's internal loading skeleton (isLoading + no
+            result) is rarely visible because Insights gates the entire
+            screen on `dashboard.isLoading` above and the screen-level
+            skeletons render in its place. The aging skeleton only shows
+            on a manual refetch where dashboard data is already cached
+            but aging data isn't (e.g. cleared cache between sessions).
+            Acceptable; kept as a fallback so the panel remains
+            self-contained and renderable in isolation. */}
         <WardrobeAgingPanel
           result={aging.data ?? null}
           isLoading={aging.isLoading}

@@ -1,9 +1,11 @@
 // useWardrobeAging — M22. Surfaces the `wardrobe_aging` edge function as
 // three usable buckets for InsightsScreen:
 //
-//   - aged             health 30-70  OR months_remaining 1-6
-//   - retire_candidates health <= 30 OR months_remaining <= 0
-//   - unworn           wear_count === 0 AND created > 30 days ago
+//   - retire_candidates health_pct <= 30 OR months_remaining <= 0
+//   - aged              (after retire excluded)
+//                       30 < health_pct <= 70 OR 0 < months_remaining <= 6
+//   - unworn            wear_count === 0 AND created > 30 days ago,
+//                       AND not already classified as aged/retire by the AI
 //
 // **Wire contract (verified against
 // `supabase/functions/wardrobe_aging/index.ts`):**
@@ -136,9 +138,12 @@ interface UnwornGarment {
 
 async function fetchUnwornGarmentIds(userId: string): Promise<string[]> {
   const cutoffIso = new Date(Date.now() - UNWORN_AGE_CUTOFF_MS).toISOString();
-  // wear_count === 0 OR null AND created_at <= 30d ago. RLS already
-  // enforces user_id; we filter explicitly too — defense in depth, same
-  // pattern as useGarments.
+  // wear_count = 0 AND created_at <= 30d ago. The garments table defaults
+  // wear_count to 0 server-side, so NULLs shouldn't appear in practice;
+  // we keep the dual `wear_count.is.null,wear_count.eq.0` predicate to
+  // remain defensive for any legacy rows that pre-date the default
+  // (drift repair territory). RLS already enforces user_id; we filter
+  // explicitly too — defense in depth, same pattern as useGarments.
   const { data, error } = await supabase
     .from('garments')
     .select('id')
@@ -168,6 +173,14 @@ function buildBuckets(
       (p.healthPct <= 70 || p.monthsRemaining <= 6),
   );
 
+  // De-dupe unworn against any garment the AI already routed into
+  // aged/retire — without this, a 0-wear garment that the AI flagged
+  // as `retire_candidate` would surface in BOTH buckets, double-counting
+  // it across the panel. Each garment now appears in exactly one bucket;
+  // the AI bucket wins because it's the more specific signal.
+  const predictionIds = new Set<string>(predictions.map((p) => p.garmentId));
+  const dedupedUnwornIds = unwornIds.filter((id) => !predictionIds.has(id));
+
   // Strongest rationale wins — for retire/aged that's the lowest health
   // (closest to replacement). The AI's `replacement_reason` is more
   // user-facing than `tip`; fall back to `tip` if the reason is empty.
@@ -190,8 +203,8 @@ function buildBuckets(
     {
       id: 'unworn',
       label: bucketLabelFallback('unworn'),
-      count: unwornIds.length,
-      garmentIds: unwornIds,
+      count: dedupedUnwornIds.length,
+      garmentIds: dedupedUnwornIds,
       // No AI rationale for unworn — derived locally. The screen
       // composes a static caption from i18n.
       rationale: null,

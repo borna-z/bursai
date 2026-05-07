@@ -95,6 +95,7 @@ import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import type { TabId } from '../components/BottomNav';
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../hooks/useAddGarment';
+import type { WardrobeAgingBucketId } from '../hooks/useWardrobeAging';
 
 export type TabName = TabId;
 
@@ -216,10 +217,12 @@ export type RootStackParamList = {
   WardrobeGaps: undefined;
   UsedGarments: undefined;
   UnusedOutfits: undefined;
-  // M22 — Wardrobe Aging panel bucket-detail. `bucketId` is one of
-  // 'aged' | 'unworn' | 'retire_candidates'; the screen guards against
-  // unrecognised values defensively.
-  UnusedGarments: { bucketId: string };
+  // M22 — Wardrobe Aging panel bucket-detail. `bucketId` is the
+  // `WardrobeAgingBucketId` union exported from useWardrobeAging
+  // ('aged' | 'unworn' | 'retire_candidates'). The screen still runs a
+  // runtime guard (`isValidBucketId`) for stale deep links that pre-date
+  // an enum change; the static type protects in-app navigation.
+  UnusedGarments: { bucketId: WardrobeAgingBucketId };
 
   // Settings
   Settings: undefined;
