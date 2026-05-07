@@ -26,6 +26,9 @@ import { ErrorState } from '../components/ErrorState';
 import { BackIcon, GridIcon, ListIcon } from '../components/icons';
 import { useOutfits } from '../hooks/useOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
+import { CoachOverlay } from '../components/CoachOverlay';
+import { t as tr } from '../lib/i18n';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -65,6 +68,14 @@ export function OutfitsScreen() {
   const nav = useNavigation<Nav>();
   const [filter, setFilter] = React.useState<FilterKey>('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid');
+  // M27 — first-run coach overlay step 4 (Outfits grid header). Final
+  // step in the sequence; advance() persists `coach_tour_completed_at`
+  // and the overlay never surfaces again. Targeting the header keeps
+  // the empty-state and loaded-state visually anchored to the same
+  // region so the cutout stays recognizable across both.
+  const coach = useFirstRunCoach();
+  const headerRef = React.useRef<View | null>(null);
+  const showOutfitsCoach = coach.shouldShow && coach.currentStep === 3;
 
   const outfitsQ = useOutfits(true);
   // Memoise the fallback so the `outfits` reference is stable across renders
@@ -93,7 +104,7 @@ export function OutfitsScreen() {
   }, [filter, outfits]);
 
   const header = (
-    <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
+    <View ref={headerRef} collapsable={false} style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
       <View style={s.headerRow}>
         <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
           <BackIcon color={t.fg} />
@@ -123,38 +134,62 @@ export function OutfitsScreen() {
     />
   );
 
+  // M27 — single overlay element shared across every return path so
+  // the coachmark surfaces regardless of which Outfits state lands.
+  const coachOverlay = (
+    <CoachOverlay
+      visible={showOutfitsCoach}
+      targetRef={headerRef}
+      caption={tr('coachTour.step.outfits')}
+      ctaLabel={tr('coachTour.done')}
+      onNext={coach.advance}
+      onSkip={coach.skip}
+      step={4}
+      total={COACH_TOUR_TOTAL}
+    />
+  );
+
   if (error) {
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
-          }>
-          {header}
-          <ErrorState onRetry={retry} />
-        </ScrollView>
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            }>
+            {header}
+            <ErrorState onRetry={retry} />
+          </ScrollView>
+        </SafeAreaView>
+        {coachOverlay}
+      </>
     );
   }
 
   if (loading) {
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 130 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
-          }
-          showsVerticalScrollIndicator={false}>
-          {header}
-          <OutfitGridSkeleton />
-        </ScrollView>
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 130 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            }
+            showsVerticalScrollIndicator={false}>
+            {header}
+            <OutfitGridSkeleton />
+          </ScrollView>
+        </SafeAreaView>
+        {coachOverlay}
+      </>
     );
   }
 
   if (visible.length === 0) {
+    // Empty branch — wraps in fragment so the coach overlay still
+    // surfaces on a brand-new account that lands on Outfits with no
+    // saved looks yet.
     // Filter-aware empty state. The "No outfits yet" / "Style me" copy is reserved for the
     // genuine zero-data case (filter==='all'); filter-specific misses get their own quiet
     // copy + a "Show all" reset CTA so the user understands the filter is the cause.
@@ -164,6 +199,7 @@ export function OutfitsScreen() {
       ? 'Generate your first look from your wardrobe.'
       : `Nothing logged in the last ${RECENT_DAYS} days. Try wearing one of your saved looks.`;
     return (
+      <>
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         {header}
         <View style={s.emptyWrap}>
@@ -190,10 +226,13 @@ export function OutfitsScreen() {
           )}
         </View>
       </SafeAreaView>
+      {coachOverlay}
+      </>
     );
   }
 
   return (
+    <>
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <FlatList
         data={visible}
@@ -216,6 +255,8 @@ export function OutfitsScreen() {
         renderItem={renderCard}
       />
     </SafeAreaView>
+    {coachOverlay}
+    </>
   );
 }
 

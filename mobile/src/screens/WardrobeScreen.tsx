@@ -37,6 +37,9 @@ import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
 import { useGarmentCount } from '../hooks/useGarmentCount';
+import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
+import { CoachOverlay } from '../components/CoachOverlay';
+import { t as tr } from '../lib/i18n';
 import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
@@ -121,10 +124,27 @@ function compareForSort(a: Garment, b: Garment, sort: string): number {
   }
 }
 
-export function WardrobeScreen() {
+export function WardrobeScreen({
+  isActive = true,
+}: {
+  /** True when this screen is the active MainTabs tab. M27 R1 gate — see
+   * HomeScreen for the rationale; without this the coach overlay would
+   * surface against a display:'none' sibling and the cutout would
+   * collapse to 0×0. Defaults to true so callers unaware of the tab
+   * system (tests, future direct-route mounts) keep the prior behavior. */
+  isActive?: boolean;
+} = {}) {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('garments');
+  // M27 — first-run coach overlay step 2 (Wardrobe grid). The ref wraps
+  // the whole screen content so the cutout reads as "your wardrobe lives
+  // here". Targeting a single garment cell would be misleading on a
+  // brand-new wardrobe (no garments yet) and racy under FlatList
+  // virtualization.
+  const coach = useFirstRunCoach();
+  const gridRef = React.useRef<View | null>(null);
+  const showWardrobeCoach = isActive && coach.shouldShow && coach.currentStep === 1;
   // Filter state lives at the WardrobeScreen scope. FiltersScreen receives the current filters
   // as `initial` (so re-opening preserves picks) and writes back via `onApply`.
   const [filters, setFilters] = React.useState<WardrobeFilters | null>(null);
@@ -306,34 +326,57 @@ export function WardrobeScreen() {
     </View>
   );
 
+  // M27 — wraps every return path in the same fragment so the coach
+  // overlay surfaces regardless of which Wardrobe state the user lands on.
+  // Centered fallback (no targetRef.current) is intentional for non-grid
+  // states (error / loading / empty).
+  const coachOverlay = (
+    <CoachOverlay
+      visible={showWardrobeCoach}
+      targetRef={gridRef}
+      caption={tr('coachTour.step.wardrobe')}
+      ctaLabel={tr('coachTour.next')}
+      onNext={coach.advance}
+      onSkip={coach.skip}
+      step={2}
+      total={COACH_TOUR_TOTAL}
+    />
+  );
+
   if (isError) {
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
-          refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
-          }>
-          {header}
-          <ErrorState onRetry={() => void refetch()} />
-        </ScrollView>
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 130 }}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            }>
+            {header}
+            <ErrorState onRetry={() => void refetch()} />
+          </ScrollView>
+        </SafeAreaView>
+        {coachOverlay}
+      </>
     );
   }
 
   if (isLoading) {
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 130 }}
-          refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
-          }
-          showsVerticalScrollIndicator={false}>
-          {header}
-          <GarmentGridSkeleton />
-        </ScrollView>
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 130 }}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
+            }
+            showsVerticalScrollIndicator={false}>
+            {header}
+            <GarmentGridSkeleton />
+          </ScrollView>
+        </SafeAreaView>
+        {coachOverlay}
+      </>
     );
   }
 
@@ -347,7 +390,8 @@ export function WardrobeScreen() {
   if (totalCount === 0 && !hasNextPage) {
     const isAllLaundry = allInLaundry;
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+      <>
+        <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 130 }}
           refreshControl={
@@ -381,6 +425,8 @@ export function WardrobeScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      {coachOverlay}
+    </>
     );
   }
 
@@ -390,7 +436,9 @@ export function WardrobeScreen() {
   const filteredEmpty = totalCount > 0 && visibleGarments.length === 0 && activeFilterCount > 0;
 
   return (
+    <>
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+      <View ref={gridRef} collapsable={false} style={{ flex: 1 }}>
       <FlatList
         data={visibleGarments}
         keyExtractor={(g) => g.id}
@@ -454,7 +502,10 @@ export function WardrobeScreen() {
           </View>
         )}
       />
+      </View>
     </SafeAreaView>
+    {coachOverlay}
+    </>
   );
 }
 

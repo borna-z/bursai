@@ -34,6 +34,9 @@ import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
+import { CoachOverlay } from '../components/CoachOverlay';
+import { t as tr } from '../lib/i18n';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
@@ -80,7 +83,19 @@ function buildMiniWeek(today: Date, plannedDates: Set<string>): WeekDay[] {
   return out;
 }
 
-export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
+export function HomeScreen({
+  goTab,
+  isActive = true,
+}: {
+  goTab: (id: TabName) => void;
+  /** True when this screen is the active MainTabs tab. M27 R1 gate — the
+   * coach overlay only renders when the tab is visible so a hidden
+   * (display:'none') sibling can't measure 0×0 and surface the cutout
+   * over the wrong screen. Defaults to true so callers that aren't aware
+   * of the tab system (tests, future direct-route mounts) keep the prior
+   * always-on behavior. */
+  isActive?: boolean;
+}) {
   const t = useTokens();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<HomeNav>();
@@ -221,6 +236,21 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
     else nav.navigate('OutfitGenerate');
   }, [nav, todayOutfit]);
 
+  // M27 — first-run coach overlay step 1 (Today's Look hero). The ref
+  // wraps the hero Card so CoachOverlay can `measureInWindow` to draw
+  // the cutout. The overlay only renders when the hook reports
+  // `shouldShow && currentStep === 0` so re-mounts of this tab don't
+  // re-fire the coachmark on a user who's already past Home.
+  const coach = useFirstRunCoach();
+  const heroRef = React.useRef<View | null>(null);
+  // M27 R1 — also gate on `isActive` so a hidden (display:'none') Home
+  // tab sibling can't surface a stale cutout while the user is on
+  // another tab. measureInWindow on a hidden node returns 0×0 which
+  // collapses the cutout into a single full-bleed scrim with the caption
+  // floating over whatever IS visible — the dominant orchestration bug
+  // surfaced in PR #753 review.
+  const showHeroCoach = isActive && coach.shouldShow && coach.currentStep === 0;
+
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <ScrollView
@@ -272,6 +302,11 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
         <SmartDayBanner />
 
         {/* ============ TODAY'S LOOK HERO ============ */}
+        {/* Wrapped in a measurable View so M27's first-run coach overlay
+            can highlight the hero card via measureInWindow. The wrapper
+            is a no-op visually (no padding / borders) — it exists purely
+            as a ref target. */}
+        <View ref={heroRef} collapsable={false}>
         <Card hero padding={18}>
           {heroLoading ? (
             <PlanCardSkeleton />
@@ -341,6 +376,7 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
             </>
           )}
         </Card>
+        </View>
 
         {/* ============ YOUR STYLIST GRID ============ */}
         <Section title="Your Stylist">
@@ -434,6 +470,22 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
           )}
         </View>
       </ScrollView>
+
+      {/* M27 — first-run coach overlay step 1. Lives at the screen root
+          (sibling to ScrollView) so the modal scrim covers the whole
+          viewport, not just the scrollable area. The hook handles the
+          shouldShow gate; this only mounts the overlay when both
+          shouldShow and currentStep===0 are true. */}
+      <CoachOverlay
+        visible={showHeroCoach}
+        targetRef={heroRef}
+        caption={tr('coachTour.step.home')}
+        ctaLabel={tr('coachTour.next')}
+        onNext={coach.advance}
+        onSkip={coach.skip}
+        step={1}
+        total={COACH_TOUR_TOTAL}
+      />
     </View>
   );
 }

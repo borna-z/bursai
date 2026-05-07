@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | First-run coach overlay (web's CoachTourStep + PhotoTutorialStep) — short walkthrough of Home, Wardrobe, Add, Outfits. |
-| Status | TODO |
+| Status | DONE (PR #753) |
 | Branch | `mobile-m27-coach-tour` |
 | PR count | 1 |
 | Depends on | V0 |

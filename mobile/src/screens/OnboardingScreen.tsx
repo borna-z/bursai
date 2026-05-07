@@ -1,12 +1,12 @@
-// OnboardingScreen — container that walks the user through 7 steps.
+// OnboardingScreen — container that walks the user through 8 steps.
 // Each step is a self-contained sub-screen under ./onboarding/.
 //
 // Header layout:
 //   • Back button left (hidden on step 1)
 //   • Skip button right (steps 2-5 only — value prop / quiz / accent color
-//     / studio; language and the post-quiz reveal/achievement steps are not
-//     skippable)
-//   • Progress bar (shows current step / 7)
+//     / photo tutorial / studio; language and the post-quiz reveal /
+//     achievement steps are not skippable)
+//   • Progress bar (shows current step / 8)
 //
 // Step transitions are coordinated by `step` state. Each sub-step's onComplete
 // fires with a typed payload that we accumulate into `draft`. Once the final
@@ -43,6 +43,7 @@ import { StudioSelectionStep, type Studio } from './onboarding/StudioSelectionSt
 import { AchievementStep } from './onboarding/AchievementStep';
 import { RevealStep } from './onboarding/RevealStep';
 import { AccentColorStep } from './onboarding/AccentColorStep';
+import { PhotoTutorialStep } from './onboarding/PhotoTutorialStep';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '../lib/styleProfileV4';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -87,10 +88,13 @@ type PersistedState = {
 
 // Step order (0-indexed):
 //   0 Language · 1 ValueProposition · 2 StyleQuizV4 · 3 AccentColor (M26)
-//   4 StudioSelection · 5 Achievement · 6 Reveal
-const STEP_COUNT = 7;
-// Skippable: ValueProposition, StyleQuizV4, AccentColor, StudioSelection.
-const SKIPPABLE = [1, 2, 3, 4];
+//   4 PhotoTutorial (M27) · 5 StudioSelection · 6 Achievement · 7 Reveal
+const STEP_COUNT = 8;
+// Skippable: ValueProposition, StyleQuizV4, AccentColor, PhotoTutorial,
+// StudioSelection. PhotoTutorial is informational so the user can dismiss
+// it; the parent advance() pointer just moves on without persisting any
+// draft payload (the tutorial captures nothing).
+const SKIPPABLE = [1, 2, 3, 4, 5];
 
 // AsyncStorage key — namespaced so it can't collide with future onboarding
 // flavors. (P1-23.) Cleared once the user reaches MainTabs.
@@ -490,7 +494,8 @@ export function OnboardingScreen() {
             }}
           />
         )}
-        {step === 4 && (
+        {step === 4 && <PhotoTutorialStep onComplete={advance} />}
+        {step === 5 && (
           <StudioSelectionStep
             initial={draft.studio}
             onComplete={(studio) => {
@@ -499,8 +504,8 @@ export function OnboardingScreen() {
             }}
           />
         )}
-        {step === 5 && <AchievementStep onComplete={advance} />}
-        {step === 6 && <RevealStep onComplete={finish} />}
+        {step === 6 && <AchievementStep onComplete={advance} />}
+        {step === 7 && <RevealStep onComplete={finish} />}
       </FadeUp>
     </SafeAreaView>
   );
