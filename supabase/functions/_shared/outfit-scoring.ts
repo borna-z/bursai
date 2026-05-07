@@ -1070,17 +1070,40 @@ export function resolveOccasionSubmode(
   // Determine formality target from user's style vector or preferences
   const sp = prefs ? getStylePrefs(prefs) : {};
   const userFormalityCenter = styleVector?.formalityCenter ?? null;
-  const primaryGoal = String(sp.primaryGoal || '').toLowerCase();
 
   const [formalityMin, formalityMax] = getFormalityRange(occasion);
   let formalityTarget = (formalityMin + formalityMax) / 2;
   if (userFormalityCenter !== null) {
     formalityTarget = userFormalityCenter;
   }
-  if (primaryGoal.includes('formal') || primaryGoal.includes('professional')) {
+
+  // V4-native formality intent. The previous implementation matched substrings
+  // (`primaryGoal.includes('formal'|'professional'|'comfort'|'relaxed'|'creative')`)
+  // against the V3 `primaryGoal` vocab. After `migrateV4ToV3Compat`, V3 values
+  // are `save_time | better_style | wardrobe_org | reduce_waste | plan_outfits` —
+  // none of which contain those substrings — so the formality adjustment fired
+  // for ZERO users (V3 native or V4-migrated). V4 surfaces precise per-user
+  // formality bounds via `formalityCeiling` / `formalityFloor` (0-100 scale,
+  // see `mobile/src/lib/styleProfileV4.ts`). We read the midpoint (the user's
+  // typical dress-up state) on the 1-5 occasion scale that `getFormalityRange`
+  // produces, so a single signal drives the adjustment instead of letting both
+  // bounds fire independently for a default V4 profile.
+  const v4CeilingPct =
+    typeof sp.formalityCeiling === 'number' ? sp.formalityCeiling : null;
+  const v4FloorPct =
+    typeof sp.formalityFloor === 'number' ? sp.formalityFloor : null;
+  const v4MidpointOnScale =
+    v4CeilingPct !== null && v4FloorPct !== null
+      ? 1 + ((v4CeilingPct + v4FloorPct) / 2 / 100) * 4
+      : null;
+  // Midpoint ≥ 3.8 (≈ 70/100): user typically dresses formal — pull work
+  // target up so the engine ranks sharper pieces higher.
+  if (v4MidpointOnScale !== null && v4MidpointOnScale >= 3.8) {
     formalityTarget = Math.max(formalityTarget, 4.5);
   }
-  if (primaryGoal.includes('comfort') || primaryGoal.includes('relaxed') || primaryGoal.includes('creative')) {
+  // Midpoint ≤ 2.3 (≈ 32/100): user typically dresses comfort-first — let
+  // the casual side of work occasions relax rather than push formal pieces.
+  if (v4MidpointOnScale !== null && v4MidpointOnScale <= 2.3) {
     formalityTarget = Math.min(formalityTarget, 2.8);
   }
 
