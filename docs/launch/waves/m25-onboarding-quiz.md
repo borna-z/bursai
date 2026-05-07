@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Replace the minimal `StyleQuizStep` with the full 13+ question style profile capture from web's `StyleQuizV4`. |
-| Status | DONE (PR #TBD) |
+| Status | DONE (PR #751) |
 | Branch | `mobile-m25-onboarding-quiz` |
 | PR count | 1 |
 | Depends on | V0 |

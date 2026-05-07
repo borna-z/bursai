@@ -132,7 +132,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Onboarding parity
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M25 | [Onboarding quiz at full data capture](waves/m25-onboarding-quiz.md) | DONE (PR #TBD) | V0 |
+| ) | V0 |
 | M26 | [AccentColorStep](waves/m26-accent-color-step.md) | TODO | V0 |
 | M27 | [Coach tour](waves/m27-coach-tour.md) | TODO | V0 |
 
