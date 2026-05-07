@@ -25,6 +25,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -44,11 +45,13 @@ import { Eyebrow } from '../components/Eyebrow';
 import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
+import { ShoppingResultCard } from '../components/ShoppingResultCard';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { useStyleChat, type ChatMessage } from '../hooks/useStyleChat';
 import { useStyleMemoryFacts, type StyleMemoryFact } from '../hooks/useStyleMemoryFacts';
 import { useRecordMemoryEvent } from '../hooks/useRecordMemoryEvent';
 import { useAuth } from '../contexts/AuthContext';
+import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import { hasRenderableActiveLook } from '../lib/chatActiveLook';
 import { t as tr } from '../lib/i18n';
@@ -67,7 +70,7 @@ const STATIC_SUGGESTIONS = [
 // Hoisted for stable identity across renders — used by the message FlatList.
 const messageKey = (m: ChatMessage) => m.id;
 
-// Friendly labels for the 8 stylist modes. Keys mirror the
+// Friendly labels for the 9 stylist modes. Keys mirror the
 // `chat.mode.<MODE>` namespace appended to en.ts so a future translator
 // pass can swap them without touching this file.
 function modeLabel(mode: StylistChatMode | undefined | null): string | null {
@@ -99,6 +102,8 @@ export function StyleChatScreen() {
     clearChat,
     stopStreaming,
     clearActiveLook,
+    currentMode,
+    setMode,
   } = useStyleChat();
   const { facts } = useStyleMemoryFacts();
   const forgetMutation = useRecordMemoryEvent();
@@ -269,6 +274,25 @@ export function StyleChatScreen() {
     [setAnchoredGarmentId],
   );
 
+  // M23 — open a shopping result's product URL in the system browser.
+  // The card primitive trusts whatever URL it was handed, so this layer
+  // is the URL allowlist enforcement boundary (M19 precedent — only
+  // https:// links are surfaced). Linking.openURL failures fall back to
+  // an inline alert so a malformed link never silently no-ops.
+  const handleOpenProductLink = React.useCallback((url: string) => {
+    if (typeof url !== 'string' || !url.startsWith('https://')) {
+      Alert.alert(tr('shoppingChat.invalidUrl'));
+      return;
+    }
+    Linking.openURL(url).catch((err) => {
+      Sentry.withScope((s) => {
+        s.setTag('mutation', 'StyleChatScreen.openProductLink');
+        Sentry.captureException(err);
+      });
+      Alert.alert(tr('shoppingChat.invalidUrl'));
+    });
+  }, []);
+
   const handleClearActiveLook = React.useCallback(() => {
     // Local-only clear. Sending a natural-language "clear active look"
     // turn would still ship the stale active_look in the payload because
@@ -289,9 +313,13 @@ export function StyleChatScreen() {
   // which is itself useCallback-stabilized on `setAnchoredGarmentId`.
   const renderMessageItem = React.useCallback(
     ({ item }: { item: ChatMessage }) => (
-      <MessageItem msg={item} onLongPress={handleSetAnchorFromMessage} />
+      <MessageItem
+        msg={item}
+        onLongPress={handleSetAnchorFromMessage}
+        onOpenProductLink={handleOpenProductLink}
+      />
     ),
-    [handleSetAnchorFromMessage],
+    [handleSetAnchorFromMessage, handleOpenProductLink],
   );
 
   // Suggestion chips: server-provided takes precedence over the static fallback.
@@ -326,6 +354,29 @@ export function StyleChatScreen() {
               ))}
             </View>
           </IconBtn>
+        </View>
+
+        {/* ============ MODE TOGGLE (M23) ============ */}
+        {/* Style ↔ Shopping segmented control. Tapping a segment flips
+            the underlying useStyleChat() mode; the hook aborts any
+            in-flight stream so the next sendMessage uses the new mode
+            cleanly. The active segment renders as a filled pill (fg/bg
+            inversion) to match the Chip primitive's `active` palette. */}
+        <View
+          style={[
+            s.modeToggleRow,
+            { borderBottomColor: t.border, backgroundColor: t.bg },
+          ]}>
+          <ModeToggleSegment
+            label={tr('shoppingChat.modeLabel.style')}
+            active={currentMode === 'style'}
+            onPress={() => setMode('style')}
+          />
+          <ModeToggleSegment
+            label={tr('shoppingChat.modeLabel.shopping')}
+            active={currentMode === 'shopping'}
+            onPress={() => setMode('shopping')}
+          />
         </View>
 
         {/* ============ MEMORY PANEL ============ */}
@@ -625,63 +676,100 @@ const MessageItem = React.memo(
   function MessageItem({
     msg,
     onLongPress,
+    onOpenProductLink,
   }: {
     msg: ChatMessage;
     onLongPress: (msg: ChatMessage) => void;
+    // M23 — invoked when the user taps the Open button on any
+    // ShoppingResultCard rendered beneath this assistant bubble.
+    onOpenProductLink: (url: string) => void;
   }) {
     const t = useTokens();
     const isUser = msg.role === 'user';
     const showTypingDots = msg.isStreaming && !msg.content;
     const mode = !isUser ? modeLabel(msg.stylistMeta?.mode) : null;
-    const canAnchor = !isUser && Boolean(msg.stylistMeta?.active_look);
+    // Synthesized SHOPPING envelopes carry a non-null `active_look` with
+    // an empty `garment_ids: []`, so a Boolean() check alone returns true
+    // and the screen-reader announces the long-press anchor hint even
+    // though the underlying handler early-returns. Gate on a non-empty
+    // garment_ids list so the gesture surface only advertises when there
+    // is actually something to anchor.
+    const canAnchor =
+      !isUser &&
+      Boolean(msg.stylistMeta?.active_look) &&
+      (msg.stylistMeta?.active_look?.garment_ids?.length ?? 0) > 0;
+    // M23 — shopping result cards rendered beneath the bubble. Defensive
+    // accessor: the contract field is optional, may be absent or null,
+    // and parseShoppingResultCards already filtered malformed entries
+    // upstream.
+    const shoppingCards =
+      !isUser && msg.stylistMeta?.shopping_results
+        ? msg.stylistMeta.shopping_results
+        : null;
 
     const handleLongPress = () => {
       if (canAnchor) onLongPress(msg);
     };
 
     return (
-      <Pressable
-        onLongPress={handleLongPress}
-        delayLongPress={400}
-        disabled={!canAnchor}
-        accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}
+      <View
         style={{
           alignSelf: isUser ? 'flex-end' : 'flex-start',
           maxWidth: '82%',
+          gap: 8,
         }}>
-        {mode ? (
-          <Eyebrow style={{ marginBottom: 4, marginLeft: 4 }}>{mode}</Eyebrow>
+        <Pressable
+          onLongPress={handleLongPress}
+          delayLongPress={400}
+          disabled={!canAnchor}
+          accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}>
+          {mode ? (
+            <Eyebrow style={{ marginBottom: 4, marginLeft: 4 }}>{mode}</Eyebrow>
+          ) : null}
+          <View
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              backgroundColor: isUser ? t.fg : t.card,
+              borderRadius: 18,
+              borderBottomRightRadius: isUser ? 4 : 18,
+              borderBottomLeftRadius: isUser ? 18 : 4,
+              borderWidth: isUser ? 0 : 1,
+              borderColor: t.border,
+            }}>
+            {showTypingDots ? (
+              <TypingDots color={t.fg2} />
+            ) : (
+              <Text
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 13.5,
+                  lineHeight: 19,
+                  color: isUser ? t.bg : t.fg,
+                  letterSpacing: -0.13,
+                }}>
+                {msg.content}
+                {msg.isStreaming && msg.content ? (
+                  <Text style={{ color: t.fg3 }}> ▋</Text>
+                ) : null}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+        {/* M23 — render product cards beneath the regular text bubble.
+            Each card has a stable key from the server-issued `id`. */}
+        {shoppingCards && shoppingCards.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            {shoppingCards.map((card) => (
+              <ShoppingResultCard
+                key={card.id}
+                card={card}
+                onOpen={onOpenProductLink}
+              />
+            ))}
+          </View>
         ) : null}
-        <View
-          style={{
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            backgroundColor: isUser ? t.fg : t.card,
-            borderRadius: 18,
-            borderBottomRightRadius: isUser ? 4 : 18,
-            borderBottomLeftRadius: isUser ? 18 : 4,
-            borderWidth: isUser ? 0 : 1,
-            borderColor: t.border,
-          }}>
-          {showTypingDots ? (
-            <TypingDots color={t.fg2} />
-          ) : (
-            <Text
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 13.5,
-                lineHeight: 19,
-                color: isUser ? t.bg : t.fg,
-                letterSpacing: -0.13,
-              }}>
-              {msg.content}
-              {msg.isStreaming && msg.content ? (
-                <Text style={{ color: t.fg3 }}> ▋</Text>
-              ) : null}
-            </Text>
-          )}
-        </View>
-      </Pressable>
+      </View>
     );
   },
   (a, b) =>
@@ -689,8 +777,58 @@ const MessageItem = React.memo(
     && a.msg.content === b.msg.content
     && a.msg.isStreaming === b.msg.isStreaming
     && a.msg.stylistMeta?.mode === b.msg.stylistMeta?.mode
-    && a.onLongPress === b.onLongPress,
+    // M23 — re-render when the shopping_results array identity changes
+    // (rAF-coalesced flushes mutate-then-replace; the array ref
+    // changes when new cards land, the count comparison is a fast
+    // shallow check before falling back to ref equality).
+    && a.msg.stylistMeta?.shopping_results === b.msg.stylistMeta?.shopping_results
+    && a.onLongPress === b.onLongPress
+    && a.onOpenProductLink === b.onOpenProductLink,
 );
+
+// M23 — Mode toggle segment. Mirrors the Chip primitive's active palette
+// (fg/bg inversion) inline so the segmented control reads as a single
+// pill instead of two separate chips. Inline because StyleChatScreen
+// already inlines small primitives (MemoryChipRow, TypingDots).
+function ModeToggleSegment({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const t = useTokens();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      style={({ pressed }) => ({
+        flex: 1,
+        height: 32,
+        borderRadius: radii.pill,
+        backgroundColor: active ? t.fg : 'transparent',
+        borderWidth: 1,
+        borderColor: active ? 'transparent' : t.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: pressed ? 0.85 : 1,
+      })}>
+      <Text
+        style={{
+          fontFamily: fonts.uiSemi,
+          fontSize: 12,
+          letterSpacing: -0.1,
+          color: active ? t.bg : t.fg2,
+        }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 // Three-dot typing indicator. Uses simple opacity cycling rather than a
 // full Animated.loop so the assistant bubble doesn't pay the cost of a
@@ -730,6 +868,13 @@ const s = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  modeToggleRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderBottomWidth: 1,
   },
   memoryPanel: {

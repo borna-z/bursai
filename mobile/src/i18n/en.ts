@@ -506,4 +506,14 @@ export const en: Record<string, string> = {
   'unusedGarments.title.unworn': 'Never worn',
   'unusedGarments.title.retire': 'Retire candidates',
   'unusedGarments.empty': 'Nothing here yet',
+
+  // ─── M23 — Shopping Chat (StyleChatScreen mode toggle + cards) ─────────
+  'shoppingChat.modeLabel.style': 'Style',
+  'shoppingChat.modeLabel.shopping': 'Shopping',
+  'shoppingChat.cardOpen': 'Open',
+  'shoppingChat.cardOpenHint': 'Opens the product page in your browser',
+  // Placeholder pattern matches mobile's i18n shim — see lib/i18n.ts.
+  'shoppingChat.cardPriceTemplate': '{amount} {currency}',
+  'shoppingChat.invalidUrl': 'Invalid product link',
+  'chat.mode.SHOPPING': 'Shopping',
 };

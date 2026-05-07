@@ -44,11 +44,27 @@ import { supabase } from '../lib/supabase';
 import { getLocale } from '../lib/i18n';
 import {
   isStyleChatResponseEnvelope,
+  parseShoppingResultCards,
   type PersistedStyleChatMessage,
+  type ShoppingResultCard,
   type StyleChatActiveLookInput,
   type StyleChatResponseEnvelope,
 } from '../lib/styleChatContract';
 import { getLatestActiveLook } from '../lib/chatActiveLook';
+
+// M23 — chat-mode toggle. `style` routes to the existing `style_chat`
+// edge function (8-mode contract from M14); `shopping` routes to the
+// `shopping_chat` edge function (focuses on what to buy + where, returns
+// text + reserved `shopping_results` envelope for future product cards).
+//
+// Mirrors the StyleChatScreen segmented control. Adding a new mode here
+// means updating ROUTE_BY_MODE below + the `setMode` typing.
+export type StyleChatMode = 'style' | 'shopping';
+
+const ROUTE_BY_MODE: Record<StyleChatMode, string> = {
+  style: 'style_chat',
+  shopping: 'shopping_chat',
+};
 
 export type ChatMessage = {
   id: string;
@@ -72,12 +88,25 @@ export interface UseStyleChatResult {
   clearChat: () => Promise<void>;
   stopStreaming: () => void;
   clearActiveLook: () => void;
+  // M23 — chat-mode toggle. `currentMode` drives both the request route
+  // (style_chat vs shopping_chat) and the StyleChatScreen segmented
+  // control. `setMode(next)` aborts any in-flight stream so the next
+  // sendMessage uses the new mode cleanly without a half-streamed bubble
+  // bleeding across modes.
+  currentMode: StyleChatMode;
+  setMode: (mode: StyleChatMode) => void;
 }
 
 type StyleChatChunk =
   | { type: 'stylist_response'; payload: unknown }
   | { type: 'suggestions'; chips?: unknown[] }
   | { type: 'metadata'; truncated?: boolean }
+  // M23 — forward-compat shopping result envelope. `shopping_chat`
+  // streams text-only deltas today, so this branch is reserved for the
+  // future product-tool emission and never fires in production yet.
+  // Keeping the parser hot ensures a server upgrade flows through
+  // without a client release.
+  | { type: 'shopping_results'; results?: unknown }
   | { choices?: { delta?: { content?: string } }[] }
   | { text?: string };
 
@@ -177,6 +206,71 @@ async function persistMessages(
   }
 }
 
+// M23 — merges any accumulated shopping_results into a candidate envelope
+// without mutating either input. Returns the envelope as-is when there
+// are no results to attach; returns null when both inputs are empty so
+// the bubble's stylistMeta stays a clean null in style-mode degraded
+// paths.
+function mergeShoppingResults(
+  envelope: StyleChatResponseEnvelope | null,
+  results: ShoppingResultCard[] | null,
+): StyleChatResponseEnvelope | null {
+  if (!envelope) return null;
+  if (!results || results.length === 0) return envelope;
+  return { ...envelope, shopping_results: results };
+}
+
+// M23 — Synthesize the assistant message's final envelope for the active
+// mode. Style mode returns whatever the server delivered (or null when
+// the server stayed silent — same as M14). Shopping mode synthesizes a
+// minimal envelope tagged `mode: 'SHOPPING'` so the bubble can render
+// the mode pill and any product cards even though the server doesn't
+// emit a stylist_response payload today. The synthesized envelope uses
+// neutral defaults for every other field — a future backend that DOES
+// emit a stylist_response wins (the `envelope` arg is preferred when
+// non-null).
+function finalizeEnvelopeForMode(
+  mode: StyleChatMode,
+  envelope: StyleChatResponseEnvelope | null,
+  finalText: string,
+  results: ShoppingResultCard[] | null,
+): StyleChatResponseEnvelope | null {
+  if (envelope) return mergeShoppingResults(envelope, results);
+  if (mode !== 'shopping') return null;
+  // Shopping-mode + no server envelope. Build a minimal one so the
+  // bubble can render its 'Shopping' mode pill and ShoppingResultCards
+  // (when results land). Every other field is a neutral default.
+  const synthetic: StyleChatResponseEnvelope = {
+    kind: 'stylist_response',
+    mode: 'SHOPPING',
+    response_kind: 'style_explanation',
+    card_policy: 'optional',
+    card_state: 'unavailable',
+    assistant_text: finalText,
+    outfit_ids: [],
+    outfit_explanation: '',
+    garment_mentions: [],
+    suggestion_chips: [],
+    truncated: false,
+    active_look_status: 'unavailable',
+    active_look: {
+      garment_ids: [],
+      explanation: null,
+      source: null,
+      status: 'unavailable',
+      card_state: 'unavailable',
+      anchor_garment_id: null,
+      anchor_locked: false,
+    },
+    fallback_used: false,
+    degraded_reason: null,
+    render_outfit_card: false,
+    clear_active_look: false,
+    shopping_results: results && results.length > 0 ? results : null,
+  };
+  return synthetic;
+}
+
 export function useStyleChat(): UseStyleChatResult {
   const { user, session } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -185,6 +279,10 @@ export function useStyleChat(): UseStyleChatResult {
   const [isHydrating, setIsHydrating] = useState<boolean>(true);
   const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
   const [anchoredGarmentId, setAnchoredGarmentIdState] = useState<string | null>(null);
+  // M23 — Chat mode. Defaults to 'style' so existing callers behave
+  // identically to the M14 baseline. The screen's segmented control
+  // calls setMode() to flip between style_chat and shopping_chat.
+  const [currentMode, setCurrentModeState] = useState<StyleChatMode>('style');
   // Wall-clock timestamp of the most recent local Clear-active-look action.
   // Any prior assistant message is treated as if it had no active_look so
   // subsequent sends won't ship a stale look in the payload, and the
@@ -198,6 +296,11 @@ export function useStyleChat(): UseStyleChatResult {
   messagesRef.current = messages;
   const anchorRef = useRef<string | null>(null);
   anchorRef.current = anchoredGarmentId;
+  // Synchronous mirror of `currentMode`. sendMessage closes over this so
+  // a mode flip mid-render lands in the next request without a callback
+  // identity churn. Codex P2-7 pattern (same as streamingRef).
+  const currentModeRef = useRef<StyleChatMode>(currentMode);
+  currentModeRef.current = currentMode;
   const activeLookClearedAtRef = useRef<number | null>(null);
   activeLookClearedAtRef.current = activeLookClearedAt;
   // Synchronous mirror of `isStreaming`. Used inside sendMessage to early-
@@ -277,6 +380,40 @@ export function useStyleChat(): UseStyleChatResult {
 
   const setAnchoredGarmentId = useCallback((id: string | null) => {
     setAnchoredGarmentIdState(id);
+  }, []);
+
+  // M23 — Mode toggle. Aborting any in-flight stream guarantees the next
+  // sendMessage uses the new mode cleanly: a half-streamed style_chat
+  // bubble is dropped (the assistant placeholder is filtered on abort),
+  // and the user can immediately compose a shopping prompt without a
+  // stale style_chat envelope landing late and overwriting the screen.
+  const setMode = useCallback((mode: StyleChatMode) => {
+    setCurrentModeState((prev) => {
+      if (prev === mode) return prev;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      streamingRef.current = false;
+      setIsStreaming(false);
+      // Drop any actively-streaming assistant placeholder so the screen
+      // doesn't show a half-text bubble in the wrong mode. Also drop the
+      // user message that was paired with the aborted placeholder if it
+      // has no completed assistant successor — otherwise it lingers in
+      // history and the next sendMessage emits two consecutive role:'user'
+      // turns to the model.
+      setMessages((cur) => {
+        const idx = cur.findIndex((m) => m.isStreaming);
+        if (idx < 0) return cur;
+        const prior = idx > 0 ? cur[idx - 1] : null;
+        const orphanedUser =
+          prior && prior.role === 'user' ? idx - 1 : -1;
+        return cur.filter((_, i) => i !== idx && i !== orphanedUser);
+      });
+      // Suggestion chips are mode-specific (style_chat ships them; the
+      // current shopping_chat function does not). Reset so the static
+      // fallbacks render until the next turn settles.
+      setSuggestionChips([]);
+      return mode;
+    });
   }, []);
 
   // Filter out any message whose timestamp predates the most recent local
@@ -391,6 +528,18 @@ export function useStyleChat(): UseStyleChatResult {
       let deltaAccumulated = '';
       let receivedDeltas = false;
       let envelopeMeta: StyleChatResponseEnvelope | null = null;
+      // M23 — accumulator for any product cards emitted by the
+      // `shopping_chat` SSE stream. Today the function returns text-only,
+      // so this stays null in production and the parser remains hot for
+      // a future server upgrade. When populated, the cards land on the
+      // assistant message's `stylistMeta.shopping_results` so the screen
+      // renders ShoppingResultCards beneath the bubble.
+      let shoppingResults: ShoppingResultCard[] | null = null;
+      // M23 — capture the active mode at send time so the route + the
+      // persisted envelope reflect what the user chose, even if they
+      // toggle modes mid-stream (which also fires the abort path above).
+      const turnMode = currentModeRef.current;
+      const turnFunctionName = ROUTE_BY_MODE[turnMode];
 
       // rAF-coalesced flush — a 200-token reply arrives as ~200 micro-tasks
       // resolving at sub-frame intervals; firing setMessages per chunk costs
@@ -403,7 +552,11 @@ export function useStyleChat(): UseStyleChatResult {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: deltaAccumulated, stylistMeta: envelopeMeta }
+              ? {
+                  ...m,
+                  content: deltaAccumulated,
+                  stylistMeta: mergeShoppingResults(envelopeMeta, shoppingResults),
+                }
               : m,
           ),
         );
@@ -417,15 +570,31 @@ export function useStyleChat(): UseStyleChatResult {
         });
       };
 
-      const requestBody = {
-        messages: messagesPayload,
-        locale: getLocale() ?? 'en',
-        ...(anchorRef.current ? { selected_garment_ids: [anchorRef.current] } : {}),
-        ...(activeLookPayload ? { active_look: activeLookPayload } : {}),
-      };
+      // M23 — request body shape diverges by mode:
+      //   • style_chat accepts { messages, locale, selected_garment_ids?,
+      //     active_look? } (M14 8-mode contract).
+      //   • shopping_chat (verified against
+      //     supabase/functions/shopping_chat/index.ts) reads only
+      //     { messages, locale } — selected_garment_ids and active_look
+      //     are no-ops there. Shipping them anyway would still work but
+      //     would also bleed style-chat anchor state into the shopping
+      //     prompt's prior turns. Strip them so each route gets its
+      //     intended payload.
+      const requestBody =
+        turnMode === 'shopping'
+          ? {
+              messages: messagesPayload,
+              locale: getLocale() ?? 'en',
+            }
+          : {
+              messages: messagesPayload,
+              locale: getLocale() ?? 'en',
+              ...(anchorRef.current ? { selected_garment_ids: [anchorRef.current] } : {}),
+              ...(activeLookPayload ? { active_look: activeLookPayload } : {}),
+            };
 
       await fetchSSE(
-        'style_chat',
+        turnFunctionName,
         requestBody,
         {
           onData: (raw) => {
@@ -444,6 +613,12 @@ export function useStyleChat(): UseStyleChatResult {
               if (isStyleChatResponseEnvelope(parsed.payload)) {
                 envelopeMeta = parsed.payload;
                 envelopeFallback = parsed.payload.assistant_text ?? '';
+                // M23 — if the envelope carried shopping_results inline
+                // (forward-compat with a server tool emission that fuses
+                // the response + cards into one payload), normalize them
+                // through the same defensive accessor.
+                const inlineCards = parseShoppingResultCards(parsed.payload.shopping_results);
+                if (inlineCards) shoppingResults = inlineCards;
                 // Surface the envelope on the streaming bubble immediately so
                 // the mode pill + active-look badge can render before any
                 // deltas land.
@@ -452,7 +627,11 @@ export function useStyleChat(): UseStyleChatResult {
                     prev.map((m) => {
                       if (m.id !== assistantId) return m;
                       const nextContent = deltaAccumulated || envelopeFallback || m.content;
-                      return { ...m, content: nextContent, stylistMeta: envelopeMeta };
+                      return {
+                        ...m,
+                        content: nextContent,
+                        stylistMeta: mergeShoppingResults(envelopeMeta, shoppingResults),
+                      };
                     }),
                   );
                 }
@@ -465,6 +644,20 @@ export function useStyleChat(): UseStyleChatResult {
                 ? parsed.chips.filter((c): c is string => typeof c === 'string')
                 : [];
               setSuggestionChips(chips);
+              return;
+            }
+
+            if (parsed && 'type' in parsed && parsed.type === 'shopping_results') {
+              // M23 — defensive accessor drops malformed cards rather
+              // than rejecting the whole batch. The deployed
+              // shopping_chat function does not emit this event today,
+              // so this branch only activates when a future server
+              // upgrade ships the structured product-card tool.
+              const cards = parseShoppingResultCards(parsed.results);
+              if (cards) {
+                shoppingResults = cards;
+                scheduleBubbleFlush();
+              }
               return;
             }
 
@@ -496,13 +689,25 @@ export function useStyleChat(): UseStyleChatResult {
             // the bubble shows the assistant's reply rather than staying
             // empty. Codex audit P1-3.
             const finalContent = receivedDeltas ? deltaAccumulated : envelopeFallback;
+            // M23 — shopping_chat streams text-only without a
+            // stylist_response envelope, so envelopeMeta stays null on
+            // that path. Synthesize a minimal envelope so the assistant
+            // bubble can still render its mode pill ('Shopping') and so
+            // any shopping_results land on a stable persistence shape.
+            // For style mode we keep the full server envelope verbatim.
+            const finalMeta = finalizeEnvelopeForMode(
+              turnMode,
+              envelopeMeta,
+              finalContent || envelopeFallback,
+              shoppingResults,
+            );
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
                   ? {
                       ...m,
                       content: finalContent || m.content,
-                      stylistMeta: envelopeMeta,
+                      stylistMeta: finalMeta,
                       isStreaming: false,
                     }
                   : m,
@@ -512,13 +717,13 @@ export function useStyleChat(): UseStyleChatResult {
             // Persist the just-completed turn pair so a refresh resumes
             // the same conversation. Skip when we have nothing meaningful
             // to record (degraded zero-text path with no envelope).
-            if (finalContent || envelopeMeta) {
+            if (finalContent || finalMeta) {
               void persistMessages(user.id, [
                 { role: 'user', content: trimmed },
                 {
                   role: 'assistant',
                   content: finalContent || envelopeFallback,
-                  stylistMeta: envelopeMeta,
+                  stylistMeta: finalMeta,
                 },
               ]);
             }
@@ -641,5 +846,7 @@ export function useStyleChat(): UseStyleChatResult {
     clearChat,
     stopStreaming,
     clearActiveLook,
+    currentMode,
+    setMode,
   };
 }
