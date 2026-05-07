@@ -965,4 +965,21 @@ export const en: Record<string, string> = {
   'travelPackingList.daysTemplate.zero': 'Day trip',
   'travelPackingList.daysTemplate.one': '1 day',
   'travelPackingList.daysTemplate.other': '{count} days',
+
+  // ─── M29 — Style DNA + wardrobe stats ───────────────────────────────────
+  // ProfileScreen + SettingsStyleScreen surfaces wired to the
+  // user_style_summaries row with a V4-quiz fallback. Append-only.
+  'profile.styleDNA.archetype': 'Archetype',
+  'profile.styleDNA.formality': 'Formality',
+  'profile.styleDNA.vibes': 'Vibes',
+  'profile.styleDNA.empty':
+    'Your Style DNA builds as you wear and rate outfits.',
+  'profile.stats.garmentsTemplate': '{count} garments',
+  'profile.stats.outfitsTemplate': '{count} outfits',
+  'profile.stats.wearLogsTemplate': '{count} wears',
+  'profile.refresh': 'Pull to refresh',
+  'settings.wardrobeBadgeTemplate': '{count} items',
+  'settingsStyle.dnaPreview.title': 'Your style DNA',
+  'settingsStyle.dnaPreview.empty':
+    'Take the quiz to build your DNA preview.',
 };

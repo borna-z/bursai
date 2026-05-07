@@ -18,30 +18,47 @@ import { IconBtn } from '../components/IconBtn';
 import { Button } from '../components/Button';
 import { StatBlock } from '../components/StatBlock';
 import { SettingsRow } from '../components/SettingsRow';
+import { Skeleton } from '../components/Skeleton';
 import { BackIcon, GearIcon, GapsIcon, TshirtIcon } from '../components/icons';
 import { ProfileSkeleton } from '../components/skeletons';
-import { useMockRefresh } from '../hooks/useMockRefresh';
 import { useAuth } from '../hooks/useAuth';
 import { useShoppingList } from '../hooks/usePickMustHaves';
+import { useStyleDNA } from '../hooks/useStyleDNA';
+import { useWardrobeStats } from '../hooks/useWardrobeStats';
 import { t as tr } from '../lib/i18n';
 import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const ARCHETYPES = ['Minimal', 'Editorial', 'Earth tones'];
-// Sourced from `theme/styleColors.ts` (single source of truth shared with SettingsStyleScreen).
+// Sourced from `theme/styleColors.ts` (single source of truth shared with
+// SettingsStyleScreen). The Style DNA card now reads its archetype + vibes
+// + formality from the M29 useStyleDNA() hook; FAVORITE_COLORS stays as a
+// visual placeholder swatch row (the real preferred-colors palette is
+// surfaced through the dna.signatureColors string list above the swatches).
 const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES.slice(0, 5);
 const FORMALITY_LEVELS = ['Casual', 'Smart casual', 'Business'];
-const CURRENT_FORMALITY = 'Smart casual';
 
 export function ProfileScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const { user, profile } = useAuth();
-  const { refreshing, loading, onRefresh } = useMockRefresh(600);
   const { entries: shoppingEntries } = useShoppingList();
   const shoppingCount = shoppingEntries.length;
+  const dnaQuery = useStyleDNA();
+  const statsQuery = useWardrobeStats();
+  const dna = dnaQuery.data;
+  const stats = statsQuery.data;
+  // Pull-to-refresh kicks both the DNA + stats queries in parallel so the
+  // user can manually pull a fresh count after, e.g., adding garments on
+  // another device. `refreshing` stays true until the slower of the two
+  // settles. Initial-mount loading is handled by per-section skeletons
+  // (the DNA card + stat row each render their own placeholder) so the
+  // screen frame paints immediately rather than blanking on first open.
+  const refreshing = dnaQuery.isFetching || statsQuery.isFetching;
+  const onRefresh = React.useCallback(async () => {
+    await Promise.all([dnaQuery.refetch(), statsQuery.refetch()]);
+  }, [dnaQuery, statsQuery]);
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
@@ -53,7 +70,14 @@ export function ProfileScreen() {
       })
     : '';
 
-  if (loading) {
+  // First-load (no cached data yet) renders the existing ProfileSkeleton
+  // so the screen has structural feedback while the DNA + stats queries
+  // are in flight on cold start. Once we have ANY cached data (initial
+  // resolve OR a stale-while-refetch path) we fall through to the real
+  // surfaces — per-section skeletons handle subsequent fetches.
+  const isInitialLoading =
+    (dnaQuery.isLoading && !dna) || (statsQuery.isLoading && !stats);
+  if (isInitialLoading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <ScrollView
@@ -115,26 +139,45 @@ export function ProfileScreen() {
         </View>
 
         {/* ============ STYLE SUMMARY ============ */}
+        {/* M29: archetype + formality + vibes are read from useStyleDNA().
+            The hook reads `user_style_summaries.summary_json` first (canonical
+            once enough wear/feedback events exist) and falls back to the
+            V4 quiz answers when confidence is below threshold. The "Favorite
+            colors" swatch row keeps the existing hardcoded palette as a
+            visual placeholder — the real preferred-colors are surfaced as
+            a Caption above the swatches when the DNA hook produces them. */}
         <Card hero padding={18}>
           <Eyebrow style={{ marginBottom: 8 }}>Style DNA</Eyebrow>
-          <Text
-            style={{
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 22,
-              fontWeight: '500',
-              color: t.fg,
-              letterSpacing: -0.22,
-              marginBottom: 14,
-            }}>
-            Quiet luxe
-          </Text>
+          {dna ? (
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 22,
+                fontWeight: '500',
+                color: t.fg,
+                letterSpacing: -0.22,
+                marginBottom: 14,
+              }}>
+              {dna.archetype}
+            </Text>
+          ) : (
+            <Skeleton radius={4} height={26} style={{ width: 180, marginBottom: 14 }} />
+          )}
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-            {ARCHETYPES.map((a) => (
-              <Chip key={a} label={a} active />
-            ))}
-          </View>
+          {dna && dna.vibes.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+              {dna.vibes.map((vibe) => (
+                <Chip key={vibe} label={vibe} active />
+              ))}
+            </View>
+          ) : null}
+
+          {dna && dna.signatureColors.length > 0 ? (
+            <Caption style={{ marginBottom: 8 }}>
+              {dna.signatureColors.slice(0, 5).join(' · ')}
+            </Caption>
+          ) : null}
 
           <Eyebrow style={{ marginBottom: 8 }}>Favorite colors</Eyebrow>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
@@ -156,16 +199,39 @@ export function ProfileScreen() {
           <Eyebrow style={{ marginBottom: 8 }}>Formality</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
             {FORMALITY_LEVELS.map((level) => (
-              <Chip key={level} label={level} active={level === CURRENT_FORMALITY} />
+              <Chip key={level} label={level} active={dna ? level === dna.formality : false} />
             ))}
           </View>
+
+          {dna && dna.confidence < 0.2 ? (
+            <Caption style={{ marginTop: 12 }}>
+              {tr('profile.styleDNA.empty')}
+            </Caption>
+          ) : null}
         </Card>
 
         {/* ============ STATS ============ */}
+        {/* M29: counts come from useWardrobeStats() (3 HEAD count queries
+            in parallel). While the query is in flight on cold start the
+            ProfileSkeleton above takes over; this render path only fires
+            once stats have resolved at least once, so a stale-while-refetch
+            shows the previous numbers (good UX) instead of blanking. */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <StatBlock num="142" label="Garments" style={{ flex: 1 }} />
-          <StatBlock num="38" label="Outfits" style={{ flex: 1 }} />
-          <StatBlock num="186" label="Wears" style={{ flex: 1 }} />
+          <StatBlock
+            num={stats ? stats.garmentCount : '—'}
+            label="Garments"
+            style={{ flex: 1 }}
+          />
+          <StatBlock
+            num={stats ? stats.outfitCount : '—'}
+            label="Outfits"
+            style={{ flex: 1 }}
+          />
+          <StatBlock
+            num={stats ? stats.wearLogCount : '—'}
+            label="Wears"
+            style={{ flex: 1 }}
+          />
         </View>
 
         {/* ============ SETTINGS LINKS ============ */}

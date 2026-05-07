@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M29 — Style DNA + wardrobe stats |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m29-style-dna.md` |
+| **CURRENT WAVE** | M30 — Push notifications + Expo send branch |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m30-push.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
