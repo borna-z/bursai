@@ -809,4 +809,28 @@ export const en: Record<string, string> = {
   'onboarding.quizV4.complete.body':
     'BURS now tunes outfits, planning, and shopping around your real life.',
   'onboarding.quizV4.complete.cta': 'Done',
+
+  // ─── Step 4 — Accent color (M26) ────────────────────────────────────────
+  // Persists to `profiles.preferences.accent_color`. The hex is metadata
+  // only — the live UI accent stays the warm-gold token. Other 9 locales
+  // fall back to en until M33 ports the dictionary.
+  'onboarding.accentColor.eyebrow': 'Make it yours',
+  'onboarding.accentColor.title': 'Choose accent color',
+  'onboarding.accentColor.intro':
+    'Give your app a personal touch — we will remember your color and use it across details over time.',
+  'onboarding.accentColor.continue': 'Continue',
+  'onboarding.accentColor.skip': 'Skip',
+  'onboarding.accentColor.requiredHint': 'Pick a color to continue',
+  'onboarding.accentColor.swatch.indigo': 'Indigo',
+  'onboarding.accentColor.swatch.petrol': 'Petrol',
+  'onboarding.accentColor.swatch.forest': 'Forest',
+  'onboarding.accentColor.swatch.sage': 'Sage',
+  'onboarding.accentColor.swatch.navy': 'Navy',
+  'onboarding.accentColor.swatch.slate': 'Slate',
+  'onboarding.accentColor.swatch.burgundy': 'Burgundy',
+  'onboarding.accentColor.swatch.rose': 'Rose',
+  'onboarding.accentColor.swatch.terracotta': 'Terracotta',
+  'onboarding.accentColor.swatch.amber': 'Amber',
+  'onboarding.accentColor.swatch.plum': 'Plum',
+  'onboarding.accentColor.swatch.charcoal': 'Charcoal',
 };

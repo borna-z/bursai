@@ -40,6 +40,7 @@ import {
 import { StudioSelectionStep, type Studio } from './onboarding/StudioSelectionStep';
 import { AchievementStep } from './onboarding/AchievementStep';
 import { RevealStep } from './onboarding/RevealStep';
+import { AccentColorStep } from './onboarding/AccentColorStep';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '../lib/styleProfileV4';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -64,6 +65,10 @@ type OnboardingDraft = {
    * the final state) or backs out. Without this, force-quitting on Q5 drops
    * the user back at Q1 with empty answers (M25 Codex P1). */
   quizDraft?: QuizV4Progress;
+  /** Accent color hex picked in M26's AccentColorStep — persisted to
+   * `profiles.preferences.accent_color` at finish time. Metadata only:
+   * the live UI accent stays the warm-gold token. */
+  accentColor?: string;
   studio?: Studio;
 };
 
@@ -74,9 +79,12 @@ type PersistedState = {
   v: 1;
 };
 
-const STEP_COUNT = 6;
-// Steps 2, 3, 4 (1-indexed) are skippable per spec — that's 0-indexed 1, 2, 3.
-const SKIPPABLE = [1, 2, 3];
+// Step order (0-indexed):
+//   0 Language · 1 ValueProposition · 2 StyleQuizV4 · 3 AccentColor (M26)
+//   4 StudioSelection · 5 Achievement · 6 Reveal
+const STEP_COUNT = 7;
+// Skippable: ValueProposition, StyleQuizV4, AccentColor, StudioSelection.
+const SKIPPABLE = [1, 2, 3, 4];
 
 // AsyncStorage key — namespaced so it can't collide with future onboarding
 // flavors. (P1-23.) Cleared once the user reaches MainTabs.
@@ -234,6 +242,13 @@ export function OnboardingScreen() {
           ? touchedToCompatTouched(draft.quizTouched)
           : undefined;
         mergedPrefs.styleProfile = migrateV4ToV3Compat(draft.quiz, compatTouched);
+      }
+      // M26 — AccentColorStep. The hex is metadata only (memory + future
+      // personalization); the live UI accent stays the warm-gold token.
+      // Skipped steps leave the slot untouched (read-modify-write merge
+      // preserves any previously-stored value).
+      if (draft.accentColor) {
+        mergedPrefs.accent_color = draft.accentColor;
       }
       try {
         const { error: prefsError } = await supabase
@@ -444,6 +459,15 @@ export function OnboardingScreen() {
           />
         )}
         {step === 3 && (
+          <AccentColorStep
+            initial={{ color: draft.accentColor ?? null }}
+            onComplete={({ color }) => {
+              setDraft((d) => ({ ...d, accentColor: color }));
+              advance();
+            }}
+          />
+        )}
+        {step === 4 && (
           <StudioSelectionStep
             initial={draft.studio}
             onComplete={(studio) => {
@@ -452,8 +476,8 @@ export function OnboardingScreen() {
             }}
           />
         )}
-        {step === 4 && <AchievementStep onComplete={advance} />}
-        {step === 5 && <RevealStep onComplete={finish} />}
+        {step === 5 && <AchievementStep onComplete={advance} />}
+        {step === 6 && <RevealStep onComplete={finish} />}
       </FadeUp>
     </SafeAreaView>
   );
