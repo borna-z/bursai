@@ -25,6 +25,8 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -56,6 +58,8 @@ import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+// Route param surface stays minimal (Codex round 1 P3.4) — `initialUrl`
+// will return as a typed param when the iOS Share Extension wave lands.
 type Route = RouteProp<RootStackParamList, 'ImportFromLink'>;
 
 const SUBSCRIPTION_SENTINEL = 'subscription_required';
@@ -64,18 +68,24 @@ const INVALID_URL_SENTINEL = 'invalid_url';
 export function ImportFromLinkScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  // Route is read defensively — current param surface is `undefined`
+  // (Codex round 1 P3.4) but the optional chaining keeps the screen
+  // safe if the future Share Extension wave reintroduces `initialUrl`.
   const route = useRoute<Route>();
-  const initialUrl = route.params?.initialUrl ?? '';
+  const initialUrl =
+    (route.params as { initialUrl?: string } | undefined)?.initialUrl ?? '';
 
   const [linksText, setLinksText] = React.useState<string>(initialUrl);
 
   const importHook = useImportFromLinks();
   const { items, isImporting, currentIndex, totalCount, error, submit, reset } = importHook;
 
-  // Sticky paywall redirect — mirrors VisualSearchScreen's pattern. The
-  // hook surfaces `'subscription_required'` via `error`; first time we
-  // see it, route to Paywall and let the next error transition reset
-  // the sticky ref.
+  // Sticky paywall redirect — mirrors VisualSearchScreen's M19 P2.1 fix
+  // (Codex round 1 P2.1). One effect keyed on `error`: when the value
+  // transitions to the subscription sentinel for the first time we route
+  // and latch the ref; any subsequent transition (back to `null`, to a
+  // different error, etc.) resets the latch so a later paywall trigger
+  // routes again.
   const paywallRoutedRef = React.useRef(false);
   React.useEffect(() => {
     if (error === SUBSCRIPTION_SENTINEL) {
@@ -86,6 +96,8 @@ export function ImportFromLinkScreen() {
       }
       return;
     }
+    // Any non-sentinel value (including null) resets the latch so a
+    // subsequent paywall trigger re-routes.
     paywallRoutedRef.current = false;
   }, [error, nav, reset]);
 
@@ -166,23 +178,35 @@ export function ImportFromLinkScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-      {/* ============ HEADER ============ */}
-      <View style={[s.header, { borderBottomColor: t.border }]}>
-        <IconBtn variant="ghost" onPress={onBack} ariaLabel={tr('importFromLink.back')}>
-          <BackIcon color={t.fg} />
-        </IconBtn>
-        <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>{tr('importFromLink.eyebrow')}</Eyebrow>
-          <PageTitle size={26}>{tr('importFromLink.title')}</PageTitle>
+      {/* KeyboardAvoidingView wraps the body so the multi-line URL
+          textarea isn't covered by the keyboard on iOS (Codex round 1
+          P2.3). Matches `SearchScreen.tsx` / `EditGarmentScreen.tsx` —
+          `padding` on iOS, `height` on Android. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}>
+        {/* ============ HEADER ============ */}
+        <View style={[s.header, { borderBottomColor: t.border }]}>
+          <IconBtn variant="ghost" onPress={onBack} ariaLabel={tr('importFromLink.back')}>
+            <BackIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1 }}>
+            <Eyebrow style={{ marginBottom: 2 }}>{tr('importFromLink.eyebrow')}</Eyebrow>
+            <PageTitle size={26}>{tr('importFromLink.title')}</PageTitle>
+          </View>
         </View>
-      </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 12 }}
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={
+        <FlatList
+          // `flex: 1` constrains the FlatList to the remaining vertical
+          // space inside the KeyboardAvoidingView so empty/short result
+          // lists still leave the header pinned at the top (Codex round 1
+          // P2.5).
+          style={{ flex: 1 }}
+          data={items}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 12 }}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
           <View style={{ gap: 16, marginBottom: hasResults ? 8 : 0 }}>
             {/* ============ INPUT ============ */}
             <View style={{ gap: 6 }}>
@@ -262,9 +286,10 @@ export function ImportFromLinkScreen() {
                   .replace('{failed}', String(failedCount))}
               </Caption>
             </View>
-          ) : null
-        }
-      />
+            ) : null
+          }
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -289,12 +314,11 @@ function ImportRow({ item, onOpen }: ImportRowProps) {
   const signedUrlQuery = useSignedUrl(isSuccess ? item.image_path ?? null : null);
   const thumbUri = signedUrlQuery.data ?? null;
 
-  let displayHost = item.url;
-  try {
-    displayHost = new URL(item.url).hostname;
-  } catch {
-    /* keep raw URL */
-  }
+  // `displayHost` is cached on the item at adapt time inside
+  // `useImportFromLinks` (Codex round 1 P3.2) so we don't re-parse the
+  // URL on every render; fall back to the raw URL if a malformed payload
+  // ever omits it.
+  const displayHost = item.displayHost ?? item.url;
 
   let statusLabel: string;
   let statusColor: string;
@@ -317,10 +341,15 @@ function ImportRow({ item, onOpen }: ImportRowProps) {
     statusBg = t.bg2;
   }
 
-  const Container: typeof Pressable = Pressable;
+  // Codex round 1 P2.4: only success rows are interactive (they tap
+  // through to GarmentDetail), so `accessibilityRole="button"` is set
+  // only when `isSuccess`. Non-success rows leave the role unset and let
+  // RN pick the default — `accessibilityRole="text"` was invalid for a
+  // Pressable container and has been removed. The `Container = Pressable`
+  // dead indirection is gone too (we just render `<Pressable>`).
   return (
-    <Container
-      accessibilityRole={isSuccess ? 'button' : 'text'}
+    <Pressable
+      accessibilityRole={isSuccess ? 'button' : undefined}
       accessibilityLabel={
         isSuccess
           ? tr('importFromLink.openGarmentLabel').replace('{title}', item.title ?? displayHost)
@@ -401,7 +430,7 @@ function ImportRow({ item, onOpen }: ImportRowProps) {
           {statusLabel}
         </Text>
       </View>
-    </Container>
+    </Pressable>
   );
 }
 

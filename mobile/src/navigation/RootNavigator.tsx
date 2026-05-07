@@ -156,10 +156,12 @@ export type RootStackParamList = {
   // soon" alert routed to M20).
   VisualSearch: undefined;
   // M20 — Import garments from product URLs. Reachable from
-  // AddPieceStep1's fourth entry pill. Optional `initialUrl` is reserved
-  // for a future iOS Share Extension hand-off (deferred per the wave
-  // file) — when undefined, the textarea starts empty.
-  ImportFromLink: { initialUrl?: string } | undefined;
+  // AddPieceStep1's fourth entry pill. Codex round 1 P3.4: route surface
+  // kept minimal (`undefined`) since `initialUrl` is dead today. When
+  // the iOS Share Extension wave lands, expand back to
+  // `{ initialUrl?: string } | undefined` and the screen already reads
+  // the param defensively.
+  ImportFromLink: undefined;
 
   // Outfit / garment / sharing
   Outfits: undefined;

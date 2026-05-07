@@ -33,13 +33,15 @@
 // instead: per-URL status timeline, inline error captions, and a tap-
 // through to the saved garment for refinement.
 //
-// **Sequential per-URL processing:** the deployed function happily
-// accepts `urls: string[]` up to 30 in a single call, but processes
-// them serially server-side — and a single page-fetch can take 10+
-// seconds. Sending one URL per request lets the UI update progress
-// smoothly and keeps each round-trip well under the 90 s edge-function
-// budget. Matches the web flow at
-// `src/components/LinkImportForm.tsx:99-132`.
+// **Batched-by-5 dispatch (Codex round 1 P1.4):** the deployed function
+// processes URLs serially server-side and a single page-fetch can take
+// 10+ seconds. Sending one URL per request capped wall-clock at
+// `30 * round-trip` for a full batch (5+ minutes worst case). We now
+// batch URLs in groups of 5 per server call and fan the per-URL results
+// back into individual rows. Trade-off: progress is updated per-batch
+// (5-row chunks flip together) instead of per-row, but worst-case
+// wall-clock drops to `6 * round-trip`. Each batch stays well under the
+// 90 s edge-function budget.
 //
 // Standard pattern from `useVisualSearch` / `usePhotoFeedback`:
 // AbortController per call, unmount cleanup via ref + abort in
@@ -64,6 +66,11 @@ const SUBSCRIPTION_SENTINEL = 'subscription_required';
  * → 400) at `import_garments_from_links/index.ts:316`. We surface a
  * client-side guard so a paste of 200 URLs doesn't hit the wire. */
 export const MAX_LINKS_PER_BATCH = 30;
+/** URLs per server call. The deployed function loops internally; sending
+ * 5 at a time keeps each round-trip well under the 90 s edge budget while
+ * cutting the worst-case wall-clock from `30 * RTT` (per-URL) down to
+ * `6 * RTT` (Codex round 1 P1.4). */
+const URLS_PER_REQUEST = 5;
 
 /** Per-URL status surfaced to the consumer. Mirrors the web
  * `LinkItem.status` shape so the screen layer can render a familiar
@@ -101,6 +108,10 @@ export interface ImportItem {
    * "Already imported", "No image found", "HTTP 403",
    * "Timeout - page did not respond", "Image URL blocked". */
   error?: string;
+  /** Cached hostname derived from `url` at adapt time so the screen
+   * doesn't re-parse the URL every render (Codex round 1 P3.2). Falls
+   * back to the raw URL if parsing fails. */
+  displayHost?: string;
 }
 
 export interface UseImportFromLinksResult {
@@ -138,38 +149,54 @@ type DeployedResultRow = {
   reason?: unknown;
 };
 
-/**
- * Parse a multi-line textarea into a clean URL list. Mirrors the web
- * helper at `src/components/LinkImportForm.tsx:44-49` — split on
- * newlines, trim, drop empties, drop lines that don't begin with the
- * https:// allowlist. The web filter accepts http:// too; we tighten
- * to https-only to match the M19 web-match guard precedent
- * (`mobile/src/i18n/en.ts:visualSearch.invalidWebUrl`).
- */
-export function parseUrlList(text: string): string[] {
-  if (typeof text !== 'string' || text.length === 0) return [];
+/** Compute a hostname for display from a URL string. Falls back to the
+ * raw URL if `new URL(...)` rejects. Centralised so both the hook (cache
+ * at adapt time) and any defensive consumer can reuse the same logic. */
+function deriveDisplayHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+/** Validate + de-dupe a list of URL strings. Used by both `parseUrlList`
+ * (the textarea helper) and `submit` (the hook's last-line defence so a
+ * caller that bypasses the helper still gets the same guarantees). The
+ * https-only filter matches the M19 web-match guard precedent at
+ * `mobile/src/i18n/en.ts:visualSearch.invalidWebUrl`. (Codex round 1
+ * P3.1.) */
+function validateAndDedupeUrls(input: readonly string[]): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
-    if (line.length === 0) continue;
-    if (!line.startsWith('https://')) continue;
-    if (seen.has(line)) continue;
-    // `new URL(...)` parse — rejects malformed inputs (missing host,
-    // invalid escapes, etc.) before they go on the wire. Catches
-    // lines like `https://` (no host) that pass the prefix check.
+  for (const candidate of input) {
+    const trimmed = typeof candidate === 'string' ? candidate.trim() : '';
+    if (trimmed.length === 0) continue;
+    if (!trimmed.startsWith('https://')) continue;
+    if (seen.has(trimmed)) continue;
     let parsed: URL;
     try {
-      parsed = new URL(line);
+      parsed = new URL(trimmed);
     } catch {
       continue;
     }
     if (parsed.protocol !== 'https:') continue;
     if (!parsed.hostname || parsed.hostname.length === 0) continue;
-    seen.add(line);
-    out.push(line);
+    seen.add(trimmed);
+    out.push(trimmed);
   }
   return out;
+}
+
+/**
+ * Parse a multi-line textarea into a clean URL list. Mirrors the web
+ * helper at `src/components/LinkImportForm.tsx:44-49` — split on
+ * newlines, then run through `validateAndDedupeUrls` to apply the
+ * https-only + de-dupe guarantees.
+ */
+export function parseUrlList(text: string): string[] {
+  if (typeof text !== 'string' || text.length === 0) return [];
+  return validateAndDedupeUrls(text.split('\n'));
 }
 
 /** Adapt one `results[]` entry into an `ImportItem`. Defensive across
@@ -185,6 +212,7 @@ function adaptResultRow(raw: DeployedResultRow): ImportItem | null {
     id: urlRaw,
     url: urlRaw,
     status,
+    displayHost: deriveDisplayHost(urlRaw),
   };
   if (status === 'success') {
     if (typeof raw.garment_id === 'string' && raw.garment_id.trim().length > 0) {
@@ -211,38 +239,26 @@ export function useImportFromLinks(): UseImportFromLinksResult {
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Mounted latch — flipped false in the unmount cleanup so any post-await
+  // setState that resolves after the consumer leaves the screen is a no-op.
+  // Codex round 1 P2.2.
+  const isMountedRef = useRef(true);
 
   const submit = useCallback(
     async (urls: string[]) => {
       if (!user || !session?.access_token) {
-        setError('Not authenticated');
+        if (isMountedRef.current) setError('Not authenticated');
         return;
       }
 
       // Re-validate inside the hook so a caller that builds the URL list
       // without going through `parseUrlList` (or a test harness) still
-      // gets the https-only + de-dupe guarantees.
-      const cleaned: string[] = [];
-      const seen = new Set<string>();
-      for (const candidate of urls) {
-        const trimmed = typeof candidate === 'string' ? candidate.trim() : '';
-        if (trimmed.length === 0) continue;
-        if (!trimmed.startsWith('https://')) continue;
-        if (seen.has(trimmed)) continue;
-        try {
-          const parsed = new URL(trimmed);
-          if (parsed.protocol !== 'https:') continue;
-          if (!parsed.hostname || parsed.hostname.length === 0) continue;
-        } catch {
-          continue;
-        }
-        seen.add(trimmed);
-        cleaned.push(trimmed);
-        if (cleaned.length >= MAX_LINKS_PER_BATCH) break;
-      }
+      // gets the https-only + de-dupe guarantees. (Codex round 1 P3.1
+      // — shared helper.)
+      const cleaned = validateAndDedupeUrls(urls).slice(0, MAX_LINKS_PER_BATCH);
 
       if (cleaned.length === 0) {
-        setError('invalid_url');
+        if (isMountedRef.current) setError('invalid_url');
         return;
       }
 
@@ -254,11 +270,15 @@ export function useImportFromLinks(): UseImportFromLinksResult {
 
       // Seed the timeline with the staged URLs in 'waiting' state so the
       // user sees the full list immediately and watches each row flip.
+      // Pre-compute `displayHost` once so the screen never re-parses
+      // `new URL(item.url)` on every render. Codex round 1 P3.2.
       const initial: ImportItem[] = cleaned.map((u) => ({
         id: u,
         url: u,
         status: 'waiting' as ImportStatus,
+        displayHost: deriveDisplayHost(u),
       }));
+      if (!isMountedRef.current) return;
       setItems(initial);
       setError(null);
       setIsImporting(true);
@@ -268,18 +288,35 @@ export function useImportFromLinks(): UseImportFromLinksResult {
       let anySuccess = false;
       let topLevelError: string | null = null;
 
+      // Helper: gate every post-await setState on (a) the active controller
+      // not being superseded by a later `submit()` (Codex round 1 P1.2),
+      // (b) the controller not being aborted (P1.1), and (c) the consumer
+      // still being mounted (P2.2). Returning false means the caller
+      // should bail before touching state.
+      const isCurrentBatch = () =>
+        isMountedRef.current &&
+        !controller.signal.aborted &&
+        abortRef.current === controller;
+
       try {
-        for (let i = 0; i < cleaned.length; i++) {
-          if (controller.signal.aborted) return;
-          setCurrentIndex(i + 1);
-          // Flip the active row to 'importing' before we start the
-          // round-trip so the UI shows the spinner on the right line.
+        for (let batchStart = 0; batchStart < cleaned.length; batchStart += URLS_PER_REQUEST) {
+          if (!isCurrentBatch()) return;
+          const batchUrls = cleaned.slice(batchStart, batchStart + URLS_PER_REQUEST);
+          // Update progress to the first URL in this batch — the UI
+          // shows "X of Y" which advances per-batch now (Codex round 1
+          // P1.4 trade-off documented at file head).
+          setCurrentIndex(batchStart + 1);
+          // Flip every row in this batch to 'importing' before the
+          // round-trip so the spinner shows on each pending row.
+          const batchUrlSet = new Set(batchUrls);
           setItems((prev) =>
-            prev.map((row, idx) => (idx === i ? { ...row, status: 'importing' } : row)),
+            prev.map((row) =>
+              batchUrlSet.has(row.url) ? { ...row, status: 'importing' } : row,
+            ),
           );
 
           let response: DeployedImportResponse | null = null;
-          let perUrlError: string | null = null;
+          let batchError: string | null = null;
           try {
             response = await callEdgeFunction<DeployedImportResponse>(
               'import_garments_from_links',
@@ -291,12 +328,18 @@ export function useImportFromLinks(): UseImportFromLinksResult {
                   // the matching value keeps any future cross-check
                   // server-side honest.
                   userId: user.id,
-                  urls: [cleaned[i]],
+                  urls: batchUrls,
                 },
                 signal: controller.signal,
               },
             );
           } catch (callErr) {
+            // First and foremost — if the controller was aborted, swallow
+            // the rejection silently. This catches BOTH DOMException
+            // AbortError AND RN's TypeError "Network request aborted"
+            // variant that the underlying fetch surfaces. Codex round 1
+            // P1.1.
+            if (controller.signal.aborted) return;
             // Top-level failure modes — surface immediately and stop
             // the batch (no point burning the next URL on the same
             // auth failure).
@@ -312,17 +355,21 @@ export function useImportFromLinks(): UseImportFromLinksResult {
                   return null;
                 }
               })();
-              perUrlError = parsed?.error ?? `HTTP ${callErr.status}`;
-            } else if (
-              callErr &&
-              typeof callErr === 'object' &&
-              (callErr as { name?: string }).name === 'AbortError'
-            ) {
-              return;
+              const parsedErr = parsed?.error;
+              // Per-batch paywall envelope — the wrapper normally throws
+              // EdgeFunctionSubscriptionLockedError on 402, but if the
+              // server ever surfaces the sentinel through an HTTP body
+              // instead, propagate it as a global paywall (not a per-row
+              // failure). Codex round 1 P1.3.
+              if (parsedErr === SUBSCRIPTION_SENTINEL || parsedErr === 'subscription_required') {
+                topLevelError = SUBSCRIPTION_SENTINEL;
+                break;
+              }
+              batchError = parsedErr ?? `HTTP ${callErr.status}`;
             } else {
-              perUrlError =
+              batchError =
                 callErr instanceof Error ? callErr.message : 'Could not import this link';
-              if (perUrlError !== SUBSCRIPTION_SENTINEL) {
+              if (batchError !== SUBSCRIPTION_SENTINEL) {
                 Sentry.withScope((s) => {
                   s.setTag('mutation', 'useImportFromLinks.callEdge');
                   Sentry.captureException(callErr);
@@ -331,62 +378,85 @@ export function useImportFromLinks(): UseImportFromLinksResult {
             }
           }
 
-          if (controller.signal.aborted) return;
+          if (!isCurrentBatch()) return;
 
-          if (perUrlError !== null) {
+          if (batchError !== null) {
+            const failureCopy = batchError;
             setItems((prev) =>
-              prev.map((row, idx) =>
-                idx === i
-                  ? { ...row, status: 'failed', error: perUrlError ?? 'Could not import' }
+              prev.map((row) =>
+                batchUrlSet.has(row.url)
+                  ? { ...row, status: 'failed', error: failureCopy }
                   : row,
               ),
             );
+            setCurrentIndex(Math.min(batchStart + batchUrls.length, cleaned.length));
             continue;
           }
 
           // Top-level body-shape error (function emitted `{ error: '...' }`
           // with status 200 — rare, but the body parser surfaces it).
           if (response?.error) {
+            // Same paywall propagation as the HTTP-body case above —
+            // global, not per-row. Codex round 1 P1.3.
+            if (
+              response.error === SUBSCRIPTION_SENTINEL ||
+              response.error === 'subscription_required'
+            ) {
+              topLevelError = SUBSCRIPTION_SENTINEL;
+              break;
+            }
+            const bodyErr = response.error;
             setItems((prev) =>
-              prev.map((row, idx) =>
-                idx === i ? { ...row, status: 'failed', error: response?.error } : row,
+              prev.map((row) =>
+                batchUrlSet.has(row.url) ? { ...row, status: 'failed', error: bodyErr } : row,
               ),
             );
+            setCurrentIndex(Math.min(batchStart + batchUrls.length, cleaned.length));
             continue;
           }
 
           const resultsRaw = Array.isArray(response?.results) ? response?.results : [];
-          // Single-URL request → expect at most one row back. Match by
-          // URL anyway in case the function ever batches replies.
-          const matched = resultsRaw
-            .map((row) => adaptResultRow(row as DeployedResultRow))
-            .find((row) => row?.url === cleaned[i]);
-
-          if (!matched) {
-            setItems((prev) =>
-              prev.map((row, idx) =>
-                idx === i
-                  ? { ...row, status: 'failed', error: 'No response from importer' }
-                  : row,
-              ),
-            );
-            continue;
+          // Build URL → adapted-row map so we can fan results back into
+          // the matching timeline rows in O(n) regardless of server order.
+          const adaptedByUrl = new Map<string, ImportItem>();
+          for (const raw of resultsRaw) {
+            const adapted = adaptResultRow(raw as DeployedResultRow);
+            if (adapted) adaptedByUrl.set(adapted.url, adapted);
           }
 
-          if (matched.status === 'success') anySuccess = true;
-          setItems((prev) => prev.map((row, idx) => (idx === i ? { ...matched, id: row.id } : row)));
+          let batchAnySuccess = false;
+          setItems((prev) =>
+            prev.map((row) => {
+              if (!batchUrlSet.has(row.url)) return row;
+              const matched = adaptedByUrl.get(row.url);
+              if (!matched) {
+                return { ...row, status: 'failed', error: 'No response from importer' };
+              }
+              if (matched.status === 'success') batchAnySuccess = true;
+              // Preserve the original row's `id` (already the URL) and
+              // the pre-computed `displayHost`; everything else flows
+              // from the server response.
+              return { ...matched, id: row.id };
+            }),
+          );
+          if (batchAnySuccess) anySuccess = true;
+          setCurrentIndex(Math.min(batchStart + batchUrls.length, cleaned.length));
         }
       } finally {
-        setIsImporting(false);
-        if (controller.signal.aborted) {
-          // Reset progress counters on abort so a re-submit starts clean.
-          setCurrentIndex(0);
-          setTotalCount(0);
+        if (isMountedRef.current && abortRef.current === controller) {
+          setIsImporting(false);
+          if (controller.signal.aborted) {
+            // Reset progress counters on abort so a re-submit starts clean.
+            setCurrentIndex(0);
+            setTotalCount(0);
+          }
         }
       }
 
+      if (!isCurrentBatch() && topLevelError === null) return;
+
       if (topLevelError !== null) {
-        setError(topLevelError);
+        if (isMountedRef.current) setError(topLevelError);
         return;
       }
 
@@ -412,10 +482,13 @@ export function useImportFromLinks(): UseImportFromLinksResult {
   }, []);
 
   // Mount-lifetime cleanup — abort an in-flight batch when the consumer
-  // unmounts (typical case: user backs out of the screen mid-import).
-  // Mirrors every other M9-era hook.
+  // unmounts (typical case: user backs out of the screen mid-import) and
+  // flip the mounted latch so any post-await setState becomes a no-op
+  // (Codex round 1 P2.2). Mirrors every other M9-era hook.
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       abortRef.current?.abort();
     };
   }, []);
