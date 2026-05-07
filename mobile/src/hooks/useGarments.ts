@@ -306,12 +306,14 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
 }
 
 /**
- * Increments wear_count and stamps last_worn_at = now. Mirrors the web's
- * `useMarkGarmentWorn` minus the wear_logs insert (which is a wave-9 concern).
+ * Increments wear_count and stamps last_worn_at = now via the
+ * `increment_wear_count(uuid)` RPC (post-launch theme-2 schema hardening).
+ * Single-statement UPDATE-with-RETURNING on the server, so concurrent wears
+ * accumulate instead of last-write-winning.
  *
- * Read-modify-write — concurrent wears are last-write-wins and would lose an
- * increment. Acceptable trade-off for v1; a Postgres `increment_wear_count`
- * RPC is the long-term fix (logged in Findings).
+ * The RPC's WHERE clause pins `user_id = auth.uid()`, so an unowned garment
+ * id returns zero rows and the mutation surfaces an "outfit not found" error
+ * — RLS belt remains in effect as a second line of defense.
  */
 export function useMarkWorn() {
   const queryClient = useQueryClient();
@@ -320,26 +322,23 @@ export function useMarkWorn() {
   return useMutation<Garment, Error, string, UpdateContext>({
     mutationFn: async (id) => {
       if (!user) throw new Error('Not authenticated');
-      const { data: existing, error: readError } = await supabase
-        .from('garments')
-        .select('wear_count')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (readError) throw readError;
-      const next = (existing?.wear_count ?? 0) + 1;
+      // RPC returns SETOF (id, wear_count, last_worn_at). `.maybeSingle()`
+      // gives null when the row isn't owned (or doesn't exist) — surface
+      // that as an explicit error so the optimistic +1 rolls back.
       const { data, error } = await supabase
-        .from('garments')
-        .update({
-          wear_count: next,
-          last_worn_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+        .rpc('increment_wear_count', { p_garment_id: id })
+        .maybeSingle();
       if (error) throw error;
-      return data as Garment;
+      if (!data) throw new Error('Garment not found');
+      // Merge RPC return (id, wear_count, last_worn_at) into whatever the
+      // single-garment cache already holds so consumers get the full Garment
+      // shape back, not a 3-field projection that would clobber the rest.
+      const cached = queryClient.getQueryData<Garment | null>(['garment', user.id, id]);
+      const merged = {
+        ...(cached ?? ({ id } as Garment)),
+        ...(data as { id: string; wear_count: number; last_worn_at: string }),
+      } as Garment;
+      return merged;
     },
     onMutate: async (id) => {
       // Optimistic +1 to wear_count and last_worn_at = now. The detail
