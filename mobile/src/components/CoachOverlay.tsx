@@ -226,10 +226,26 @@ export function CoachOverlay({
   }, [targetRect, windowSize]);
 
   // Decide whether the caption block sits ABOVE or BELOW the target.
-  // Below by default; flip to above only if there isn't enough room
-  // beneath the cutout for the estimated block height. Keeps the caption
-  // visible on screens where the target is pinned to the bottom of the
-  // viewport (e.g. the FAB on MainTabs).
+  // Below preferred (most natural reading order); flip to above only
+  // when below doesn't fit AND above does. If neither side has room
+  // for the estimated block within the safe area, return both-undefined
+  // so the JSX site falls back to the centered placement
+  // (`top: '50%'` + translateY). The centered fallback may visually
+  // cover the cutout, but that's the explicit trade-off — better to
+  // obscure the highlight than to strand the user with unreachable
+  // controls behind the notch / home indicator. The accessibility
+  // descriptor on the cutout still surfaces the same caption to
+  // screen readers regardless of visual occlusion.
+  //
+  // Field-report fix (2026-05-07): the prior heuristic picked ABOVE
+  // whenever `spaceAbove > spaceBelow`, even if `spaceAbove` was less
+  // than the estimated block height. On Dynamic-Island devices that
+  // pushed the captionWrap's TOP edge behind the notch, hiding the
+  // Skip / Next buttons. Reviewer A on PR #763 caught a follow-up bug
+  // in the first revision: the case-3 fallback was supposed to clamp
+  // but actually re-applied the side-pick formula, so the off-screen
+  // failure was reintroduced for any small-device + mid-target geometry.
+  // Falling through to the centered placement guarantees reachability.
   const captionPlacement = React.useMemo<{
     top: number | undefined;
     bottom: number | undefined;
@@ -239,16 +255,16 @@ export function CoachOverlay({
     }
     const spaceBelow = windowSize.height - cutout.bottom - insets.bottom;
     const spaceAbove = cutout.top - insets.top;
-    if (spaceBelow >= CAPTION_BLOCK_ESTIMATED_HEIGHT || spaceBelow >= spaceAbove) {
+    if (spaceBelow >= CAPTION_BLOCK_ESTIMATED_HEIGHT) {
+      return { top: cutout.bottom + CAPTION_GAP, bottom: undefined };
+    }
+    if (spaceAbove >= CAPTION_BLOCK_ESTIMATED_HEIGHT) {
       return {
-        top: cutout.bottom + CAPTION_GAP,
-        bottom: undefined,
+        top: undefined,
+        bottom: windowSize.height - cutout.top + CAPTION_GAP,
       };
     }
-    return {
-      top: undefined,
-      bottom: windowSize.height - cutout.top + CAPTION_GAP,
-    };
+    return { top: undefined, bottom: undefined };
   }, [cutout, windowSize, insets.top, insets.bottom]);
 
   return (

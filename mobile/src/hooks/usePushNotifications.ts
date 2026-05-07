@@ -148,6 +148,12 @@ export function useRegisterPushToken() {
       }
 
       // Permission negotiation — read first, prompt only when undetermined.
+      // iOS provisional grants surface in the top-level `status` field as
+      // `GRANTED` already (with `ios.status === IosAuthorizationStatus.
+      // PROVISIONAL` carrying the quiet-delivery bit on the side), so the
+      // canonical `=== GRANTED` check below already accepts them — no
+      // extra branching is needed. (Reviewer A on PR #763 caught the
+      // earlier defensive isAllowed helper as dead code.)
       const existing = await Notifications.getPermissionsAsync();
       let finalStatus = existing.status;
       if (existing.status !== Notifications.PermissionStatus.GRANTED) {

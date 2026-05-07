@@ -27,6 +27,19 @@ import {
   checkOverload,
   overloadResponse,
 } from "../_shared/scale-guard.ts";
+import { logger } from "../_shared/logger.ts";
+
+const log = logger("send_push_notification");
+
+// Build a JSON Response with CORS headers — used for every successful exit
+// path so the caller always gets the right Content-Type + CORS surface.
+// Status defaults to 200; error paths pass their own status.
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
 
 type PushSubscriptionRow = {
   id: string;
@@ -99,6 +112,18 @@ Deno.serve(async (req) => {
 
     await enforceRateLimit(serviceClient, userId, "send_push_notification");
 
+    // Idempotency intentionally DEFERRED (Reviewer D on PR #763): no
+    // current caller passes `x-idempotency-key`, AND the shared
+    // `_shared/idempotency.ts` helpers key on the raw header without
+    // body-hashing. Adopting them here without a body-aware key would
+    // ship a feature that's simultaneously inert (no current consumers)
+    // AND landmined (a future date-keyed caller, e.g.
+    // `daily-${userId}-${YYYY-MM-DD}`, would have request B replay
+    // request A's cached counts). Re-add when (a) a real caller exists
+    // and (b) the key includes a body hash — see memory_ingest's
+    // sha256(body) fallback for the canonical defensive pattern.
+    const startedAt = Date.now();
+
     const requestBody = await req.json().catch(() => ({}));
     const {
       title,
@@ -130,15 +155,17 @@ Deno.serve(async (req) => {
         .eq("id", userId)
         .maybeSingle();
       if (profileErr) {
-        console.warn(
-          "send_push_notification: profile read failed, defaulting prefs on:",
-          profileErr.message,
-        );
+        log.warn("profile read failed, defaulting prefs on", {
+          userId,
+          pref_key: prefKey,
+          error: profileErr.message,
+        });
       } else if (!isPrefOn(profileRow?.notification_prefs, prefKey)) {
-        return new Response(
-          JSON.stringify({ sent: 0, skipped: "pref_off", pref_key: prefKey }),
-          { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-        );
+        return jsonResponse({
+          sent: 0,
+          skipped: "pref_off",
+          pref_key: prefKey,
+        });
       }
     }
 
@@ -151,17 +178,15 @@ Deno.serve(async (req) => {
       .eq("user_id", userId);
 
     if (subErr) {
-      return new Response(
-        JSON.stringify({ error: "Failed to read push subscriptions" }),
-        { status: 500, headers: CORS_HEADERS },
-      );
+      // log.exception (not log.error) so the structured exception path
+      // surfaces to Sentry alongside the catch-all at the bottom of the
+      // function — Reviewer C 2nd-pass observability nit.
+      log.exception("push_subscriptions read failed", subErr, { userId });
+      return jsonResponse({ error: "Failed to read push subscriptions" }, 500);
     }
 
     if (!subs || subs.length === 0) {
-      return new Response(
-        JSON.stringify({ sent: 0, message: "No subscriptions found" }),
-        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-      );
+      return jsonResponse({ sent: 0, message: "No subscriptions found" });
     }
 
     const rows = subs as PushSubscriptionRow[];
@@ -208,28 +233,77 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         const reason = e instanceof Error ? e.message : String(e);
-        console.error(
-          `send_push_notification: ${provider} send failed for sub ${sub.id}:`,
-          reason,
-        );
+        log.exception("send threw outside SendResult shape", e, {
+          userId,
+          subId: sub.id,
+          provider,
+        });
         failures.push({ id: sub.id, provider, reason });
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        sent: sentExpo + sentWeb,
-        sent_expo: sentExpo,
-        sent_web: sentWeb,
-        failures: failures.length,
-      }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    const sentTotal = sentExpo + sentWeb;
+    const response = jsonResponse({
+      sent: sentTotal,
+      sent_expo: sentExpo,
+      sent_web: sentWeb,
+      failures: failures.length,
+    });
+
+    // Fire-and-forget analytics — captures per-send detail (counts,
+    // failures, pref bucket) that scale-guard's `logTelemetry` shape
+    // can't express (its event is AI-call-shaped). Direct insert mirrors
+    // the same `analytics_events` table + `metadata` blob pattern used
+    // internally by `logTelemetry`. Intentionally not awaited — a
+    // telemetry write failure must never block the user-visible response.
+    //
+    // Status taxonomy (Reviewer D 2nd-pass on PR #763):
+    //   "ok"      — every row delivered
+    //   "partial" — some rows delivered, some failed (degraded)
+    //   "fail"    — zero rows delivered (full outage for this user)
+    // Distinguishing "fail" from "partial" lets dashboards surface
+    // total-failure spikes that "partial" alone would smear over.
+    let telemetryStatus: "ok" | "partial" | "fail";
+    if (failures.length === 0) telemetryStatus = "ok";
+    else if (sentTotal === 0) telemetryStatus = "fail";
+    else telemetryStatus = "partial";
+
+    serviceClient
+      .from("analytics_events")
+      .insert({
+        event_type: "push_send",
+        user_id: userId,
+        metadata: {
+          fn: "send_push_notification",
+          latency_ms: Date.now() - startedAt,
+          status: telemetryStatus,
+          sent_expo: sentExpo,
+          sent_web: sentWeb,
+          failures: failures.length,
+          sub_count: rows.length,
+          pref_key: prefKey,
+        },
+      })
+      .then(
+        () => {},
+        // Surface analytics-write failures to logs (and Sentry via
+        // `log.warn`'s structured emit) instead of silently swallowing —
+        // Reviewer D 2nd-pass nit. If `analytics_events` writes start
+        // failing (column drift, RLS regression), we'd otherwise lose
+        // the signal entirely.
+        (err) =>
+          log.warn("analytics_events insert failed", {
+            userId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+      );
+
+    return response;
   } catch (e) {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("send_push_notification error:", e);
+    log.exception("unhandled error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }), {
       status: 500,
       headers: CORS_HEADERS,
@@ -289,9 +363,10 @@ async function sendExpoPush(
   // from Expo's perspective; we'd retry forever). Skip + warn instead.
   const serialized = JSON.stringify(message);
   if (serialized.length > 3500) {
-    console.warn(
-      `send_push_notification: expo payload too large (${serialized.length} bytes) for sub ${sub.id}`,
-    );
+    log.warn("expo payload too large", {
+      subId: sub.id,
+      bytes: serialized.length,
+    });
     return { delivered: false, reason: "expo_payload_too_large", cleanup: false };
   }
 

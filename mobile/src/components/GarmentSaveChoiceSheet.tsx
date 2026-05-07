@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
@@ -41,6 +42,13 @@ export function GarmentSaveChoiceSheet({
   onSelectOriginal,
 }: GarmentSaveChoiceSheetProps) {
   const t = useTokens();
+  // Field-report fix (2026-05-07): the sheet previously used a hardcoded
+  // `paddingBottom: 28` which left the Cancel button under the home
+  // indicator on Face-ID iPhones (insets.bottom ≈ 34). Use the larger of
+  // the inset and the design padding so devices without an indicator keep
+  // the original spacing while notched devices get clearance.
+  const insets = useSafeAreaInsets();
+  const sheetPaddingBottom = Math.max(insets.bottom, 28);
 
   return (
     <Modal
@@ -63,6 +71,7 @@ export function GarmentSaveChoiceSheet({
           {
             backgroundColor: t.bg,
             borderTopColor: t.border,
+            paddingBottom: sheetPaddingBottom,
           },
         ]}>
         <View style={[s.handle, { backgroundColor: t.border }]} />
@@ -221,7 +230,7 @@ const s = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 28,
+    // paddingBottom is set inline from safe-area insets (Math.max(insets.bottom, 28)).
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
