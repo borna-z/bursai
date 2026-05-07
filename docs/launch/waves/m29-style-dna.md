@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Replace 6 hardcoded ProfileScreen / Settings surfaces with real Style DNA + wardrobe stats; add ProfileScreen pull-to-refresh. |
-| Status | TODO |
+| Status | DONE (PR #755) |
 | Branch | `mobile-m29-style-dna` |
 | PR count | 1 |
 | Depends on | V0 |

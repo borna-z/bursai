@@ -253,6 +253,10 @@ export function useDeleteGarment() {
       // garments-count is a sibling cache key; ['garments'] prefix-match
       // does not cover it, so the count would stay stale until staleTime.
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      // Profile stats bundle (M29) — Profile + SettingsScreen counters
+      // both read this key; without the explicit invalidation the badge
+      // stays stale up to staleTime (60s).
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
       queryClient.removeQueries({ queryKey: ['garment', user?.id, id] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
@@ -365,6 +369,11 @@ export function useMarkWorn() {
     onSettled: (_data, _err, id) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      // Profile stats bundle (M29). useMarkWorn doesn't insert into
+      // wear_logs today (that's the per-outfit wear path), but listing
+      // it here keeps the invalidation contract uniform — when the
+      // per-garment wear_logs path lands it'll already be wired.
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
       // Insights derives every metric from garments + wear_logs — refetch so
       // the gauges, palette, weekly bars, and most-worn list don't lie for up
       // to staleTime (5min) after a wear / laundry / update.

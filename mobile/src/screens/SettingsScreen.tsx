@@ -13,12 +13,15 @@ import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
+import { Caption } from '../components/Caption';
 import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { useAuth } from '../hooks/useAuth';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
+import { useStyleDNA } from '../hooks/useStyleDNA';
+import { useWardrobeStats } from '../hooks/useWardrobeStats';
 import { t as tr } from '../lib/i18n';
 import {
   GlobeIcon,
@@ -47,6 +50,23 @@ export function SettingsScreen() {
   const { user, profile, signOut } = useAuth();
   const resetMemory = useResetStyleMemory();
   const [resetOpen, setResetOpen] = useState(false);
+  // M29 — wardrobe-count badge below the header. Reads from the same
+  // bundled HEAD-count hook used by ProfileScreen so cache hits across
+  // the two screens (1-min staleTime) — opening Settings right after
+  // Profile shouldn't refetch.
+  const { data: wardrobeStats } = useWardrobeStats();
+  // Style profile row caption — show real archetype + first vibe so the
+  // row reflects the user's actual DNA instead of the previously
+  // hardcoded "Quiet luxe · Earth tones" placeholder. Hides the caption
+  // when the DNA hasn't resolved or has no archetype yet.
+  const { data: styleDNA } = useStyleDNA();
+  const styleProfileCaption = (() => {
+    if (!styleDNA) return undefined;
+    const parts = [styleDNA.archetype];
+    if (styleDNA.vibes.length > 0) parts.push(styleDNA.vibes[0]);
+    const joined = parts.filter(Boolean).join(' · ').trim();
+    return joined.length > 0 ? joined : undefined;
+  })();
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const accountEmail = user?.email ?? '';
@@ -97,6 +117,17 @@ export function SettingsScreen() {
           <View style={{ flex: 1 }}>
             <Eyebrow style={{ marginBottom: 4 }}>Account</Eyebrow>
             <PageTitle>Settings</PageTitle>
+            {/* M29 — wardrobe-count badge. Quiet caption below the title;
+                hidden until the count resolves (no skeleton in this slot
+                because the page itself doesn't block on the query). */}
+            {wardrobeStats && wardrobeStats.garmentCount > 0 ? (
+              <Caption style={{ marginTop: 4 }}>
+                {tr('settings.wardrobeBadgeTemplate').replace(
+                  '{count}',
+                  String(wardrobeStats.garmentCount),
+                )}
+              </Caption>
+            ) : null}
           </View>
           <IconBtn
             ariaLabel="Profile"
@@ -154,7 +185,7 @@ export function SettingsScreen() {
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}
             title="Style profile"
-            caption="Quiet luxe · Earth tones"
+            caption={styleProfileCaption}
             onPress={() => nav.navigate('SettingsStyle')}
           />
           <SettingsRow

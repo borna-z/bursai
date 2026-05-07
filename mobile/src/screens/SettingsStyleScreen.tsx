@@ -9,34 +9,53 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
-import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
+import { styleColorToHex } from '../theme/styleColors';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
+import { Caption } from '../components/Caption';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
+import { Skeleton } from '../components/Skeleton';
 import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { BackIcon, SparklesIcon, PaletteIcon, TshirtIcon, RotateIcon } from '../components/icons';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
+import { FORMALITY_BUCKETS_DISPLAY, useStyleDNA } from '../hooks/useStyleDNA';
 import { t as tr } from '../lib/i18n';
 import { clearOnboardingDraft } from './OnboardingScreen';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const ARCHETYPES = ['Minimal', 'Editorial', 'Earth tones'] as const;
-const FORMALITY_LEVELS = ['Loungewear', 'Casual', 'Smart casual', 'Business', 'Formal'] as const;
-const CURRENT_FORMALITY = 'Smart casual';
-
-// Sourced from `theme/styleColors.ts` (single source of truth shared with ProfileScreen).
-const FAVORITE_COLORS = FAVORITE_COLOR_SAMPLES;
+/** "Updated Nh ago" — minimal bucket logic, no date-fns dependency.
+ * Returns null when the timestamp is missing or unparseable so the
+ * caller can hide the freshness caption rather than show "just now"
+ * for a row that's actually decades stale. */
+function formatUpdatedAgo(updatedAt: string | null): string | null {
+  if (!updatedAt) return null;
+  const ts = Date.parse(updatedAt);
+  if (Number.isNaN(ts)) return null;
+  const diffMs = Date.now() - ts;
+  if (diffMs < 60_000) return 'Updated just now';
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `Updated ${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Updated ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `Updated ${days}d ago`;
+}
 
 export function SettingsStyleScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const resetMemory = useResetStyleMemory();
   const [resetOpen, setResetOpen] = useState(false);
+  // M29 — DNA preview row at the top of the page. Reads from the same
+  // hook ProfileScreen uses; cache hits across screens (5-min staleTime).
+  // The full editor lands in M38; for now we show a read-only preview.
+  const dnaQuery = useStyleDNA();
+  const dna = dnaQuery.data;
 
   const handleConfirmReset = () => {
     resetMemory.mutate(undefined, {
@@ -74,49 +93,86 @@ export function SettingsStyleScreen() {
         </View>
 
         {/* ============ STYLE SUMMARY CARD ============ */}
+        {/* M29: archetype + vibes + formality wired to useStyleDNA().
+            Loading shows skeleton placeholders for the title + chip rows
+            so the card frame still paints; the DNA hook is fast (single
+            indexed select) but cold-start can take a frame. The full
+            editor lands in M38 — for now SettingsRows below stay in their
+            "coming soon" state. */}
         <Card hero padding={18}>
-          <Eyebrow style={{ marginBottom: 8 }}>Your style DNA</Eyebrow>
-          <Text
-            style={{
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 22,
-              fontWeight: '500',
-              color: t.fg,
-              letterSpacing: -0.22,
-              marginBottom: 14,
-            }}>
-            Quiet luxe
-          </Text>
+          <Eyebrow style={{ marginBottom: 8 }}>{tr('settingsStyle.dnaPreview.title')}</Eyebrow>
+          {dna ? (
+            <>
+              <Text
+                style={{
+                  fontFamily: fonts.displayMedium,
+                  fontStyle: 'italic',
+                  fontSize: 22,
+                  fontWeight: '500',
+                  color: t.fg,
+                  letterSpacing: -0.22,
+                  marginBottom: 4,
+                }}>
+                {dna.archetype}
+              </Text>
+              {(() => {
+                const updatedAgo = formatUpdatedAgo(dna.updatedAt);
+                return updatedAgo ? (
+                  <Caption style={{ marginBottom: 14 }}>{updatedAgo}</Caption>
+                ) : (
+                  <View style={{ marginBottom: 14 }} />
+                );
+              })()}
+            </>
+          ) : (
+            <Skeleton radius={4} height={26} style={{ width: 180, marginBottom: 14 }} />
+          )}
 
           <Eyebrow style={{ marginBottom: 8 }}>Archetypes</Eyebrow>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-            {ARCHETYPES.map((a) => (
-              <Chip key={a} label={a} active />
-            ))}
-          </View>
+          {dna && dna.vibes.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {dna.vibes.map((vibe) => (
+                <Chip key={vibe} label={vibe} active />
+              ))}
+            </View>
+          ) : dna ? (
+            <Caption style={{ marginBottom: 16 }}>
+              {tr('settingsStyle.dnaPreview.empty')}
+            </Caption>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
+              <Skeleton radius={14} height={28} style={{ width: 80 }} />
+              <Skeleton radius={14} height={28} style={{ width: 80 }} />
+              <Skeleton radius={14} height={28} style={{ width: 80 }} />
+            </View>
+          )}
 
-          <Eyebrow style={{ marginBottom: 8 }}>Favorite colors</Eyebrow>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            {FAVORITE_COLORS.map((color) => (
-              <View
-                key={color}
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: color,
-                  borderWidth: 1,
-                  borderColor: t.border,
-                }}
-              />
-            ))}
-          </View>
+          {dna && dna.signatureColors.length > 0 ? (
+            <>
+              <Eyebrow style={{ marginBottom: 8 }}>Favorite colors</Eyebrow>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                {dna.signatureColors.map((colorName) => (
+                  <View
+                    key={colorName}
+                    accessibilityLabel={colorName}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: styleColorToHex(colorName),
+                      borderWidth: 1,
+                      borderColor: t.border,
+                    }}
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
 
           <Eyebrow style={{ marginBottom: 8 }}>Formality</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-            {FORMALITY_LEVELS.map((level) => (
-              <Chip key={level} label={level} active={level === CURRENT_FORMALITY} />
+            {FORMALITY_BUCKETS_DISPLAY.map((level) => (
+              <Chip key={level} label={level} active={dna ? level === dna.formality : false} />
             ))}
           </View>
         </Card>
@@ -139,17 +195,29 @@ export function SettingsStyleScreen() {
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}
             title="Edit style words"
-            caption={ARCHETYPES.join(' · ')}
+            caption={dna && dna.vibes.length > 0 ? dna.vibes.join(' · ') : undefined}
             onPress={() =>
-              Alert.alert('Coming soon', 'Style word editing coming soon.')
+              Alert.alert(
+                tr('settingsStyle.editStyleWords.title'),
+                tr('settingsStyle.editStyleWords.body'),
+              )
             }
           />
           <SettingsRow
             icon={<PaletteIcon size={18} color={t.accent} />}
             title="Edit color preferences"
-            caption="6 favorites"
+            caption={
+              dna && dna.signatureColors.length > 0
+                ? tr('settingsStyle.favoritesCountTemplate', {
+                    count: dna.signatureColors.length,
+                  })
+                : undefined
+            }
             onPress={() =>
-              Alert.alert('Coming soon', 'Color preference editing coming soon.')
+              Alert.alert(
+                tr('settingsStyle.editColorPreferences.title'),
+                tr('settingsStyle.editColorPreferences.body'),
+              )
             }
           />
           <SettingsRow

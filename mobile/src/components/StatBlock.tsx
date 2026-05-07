@@ -9,17 +9,24 @@ export function StatBlock({
   label,
   onPress,
   style,
+  accessibilityLabel,
 }: {
   num: string | number;
   label: string;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
+  /** Optional override for the screen-reader announcement. When omitted,
+   * the assembled "<num> <label>" is used. Templates like
+   * `'12 garments'` give a friendlier read than the uppercased label. */
+  accessibilityLabel?: string;
 }) {
   const t = useTokens();
   const Wrap: React.ElementType = onPress ? Pressable : View;
   return (
     <Wrap
       onPress={onPress}
+      accessible
+      accessibilityLabel={accessibilityLabel ?? `${num} ${label}`}
       style={[
         {
           paddingVertical: 14,

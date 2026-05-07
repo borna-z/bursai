@@ -160,6 +160,10 @@ export function useMarkOutfitWorn() {
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment'] });
+      // Profile stats bundle (M29) — wear_logs row count moves on every
+      // non-deduped wear, and outfits.worn_at flips affect the saved
+      // outfit count over time when filtered by saved=true.
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
       void recordMemoryEvent(
         wearOutfitEvent(outfitId, garmentIds, 'mobile/useMarkOutfitWorn'),
@@ -295,6 +299,9 @@ export function useSaveOutfit() {
     onSuccess: (_data, { outfitId, garmentIds }) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
+      // Profile stats bundle (M29) — flipping `saved` from false→true
+      // moves the outfit into the saved-only count on Profile.
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
       // Style Memory signal — fire-and-forget; queue-aware so a network
       // drop doesn't lose the save signal. The `ingest_memory_event` RPC
       // only updates positive pair-memory weight when garment_ids has ≥2
@@ -332,6 +339,10 @@ export function useDeleteOutfit() {
       queryClient.removeQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
+      // Profile stats bundle (M29). Deleting a saved outfit drops the
+      // count by one; the per-table HEAD count would otherwise stay
+      // stale up to 60s.
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
     },
     onError: captureMutationError('useDeleteOutfit'),
   });

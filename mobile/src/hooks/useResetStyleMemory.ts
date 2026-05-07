@@ -20,6 +20,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import {
   clearActionFromQueue,
@@ -31,6 +32,7 @@ import { captureMutationError } from '../lib/sentry';
 
 export function useResetStyleMemory() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async () => {
@@ -68,6 +70,11 @@ export function useResetStyleMemory() {
       // Outfit recommendations + scoring shift after a memory reset.
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      // M29 — Style DNA reads `user_style_summaries.summary_json`, which
+      // the server-side reset_style_memory_atomic RPC clears. Without
+      // this invalidation Profile + SettingsStyle would keep showing
+      // the pre-reset DNA up to staleTime (5min).
+      queryClient.invalidateQueries({ queryKey: ['styleDNA', user?.id] });
       // Insights derives utilisation + palette + most-worn — none directly
       // depend on Style Memory today, but `delta` text on a few cards
       // mentions "based on recent saves" so keep this fresh.

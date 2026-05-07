@@ -33,6 +33,9 @@ export function useAddGarment() {
       // garments-count is a sibling cache key; ['garments'] prefix-match
       // does not cover it, so the count would stay stale until staleTime.
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      // Profile stats bundle (M29) — sibling key, not covered by the
+      // ['garments'] prefix invalidation above.
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
       // Insights derives totals + palette + utilisation from garments — refresh
       // so the new piece is reflected next time the user opens the tab.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
