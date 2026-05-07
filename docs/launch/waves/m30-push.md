@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Register Expo push token on auth, expose notification preferences in Settings, add Expo branch to `send_push_notification` edge function. |
-| Status | TODO |
+| Status | DONE (PR #757) |
 | Branch | `mobile-m30-push` |
 | PR count | 1 |
 | Depends on | V0 |

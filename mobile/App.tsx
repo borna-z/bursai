@@ -29,13 +29,19 @@
 import { initSentry, Sentry } from './src/lib/sentry';
 initSentry();
 
-import React, { useCallback, useEffect } from 'react';
-import { Linking, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { AppState, Linking, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import {
   useFonts,
   PlayfairDisplay_400Regular_Italic,
@@ -48,12 +54,17 @@ import {
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
 
-import { AuthProvider } from './src/contexts/AuthContext';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { queryClient } from './src/lib/queryClient';
 import { supabase } from './src/lib/supabase';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { themes } from './src/theme/tokens';
-import { RootNavigator, linking } from './src/navigation/RootNavigator';
+import {
+  RootNavigator,
+  linking,
+  type RootStackParamList,
+} from './src/navigation/RootNavigator';
+import { useRegisterPushToken } from './src/hooks/usePushNotifications';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this
 // synchronously at module load — before the first React render — is what the
@@ -62,6 +73,30 @@ import { RootNavigator, linking } from './src/navigation/RootNavigator';
 SplashScreen.preventAutoHideAsync().catch(() => {
   // No-op: this can race on hot-reload (already hidden) — safe to swallow.
 });
+
+// M30 — global notification handler. Configured at module scope so the OS
+// receives the foreground-presentation policy before any notification can
+// land. `shouldShowAlert` keeps the banner visible while the app is open;
+// badge updates are deferred to a future wave (no inbox count today).
+//
+// `shouldShowBanner` / `shouldShowList` are the SDK 53+ replacements for the
+// deprecated `shouldShowAlert`. We set both for forward + backward compat
+// across the SDK 54 typings — expo-notifications still respects the legacy
+// field but emits a warning when only the legacy is set.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// M30 — navigation ref so the notification-tap listener can route without
+// needing a hook context. createNavigationContainerRef returns a stable ref
+// that's safe to wire to NavigationContainer's `ref` prop.
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -162,10 +197,185 @@ function useRecoveryDeepLink(): void {
   }, []);
 }
 
+// M30 — register the device's Expo push token once auth resolves. Mounted
+// inside AuthProvider so `useAuth()` is in scope; fires-and-forgets the
+// mutation (failures already get captured via captureMutationError).
+//
+// Why guard on `user.id` rather than just `user`: the dependency array needs
+// a primitive so React's stable equality detects a real user-change rather
+// than re-firing on every AuthContext re-render. The mutation itself is
+// idempotent server-side (upsert on user_id+endpoint) so a duplicate fire
+// is a no-op, but we still de-noise to avoid burning permission prompts.
+function usePushTokenRegistration(): void {
+  const { user, isLoading } = useAuth();
+  const register = useRegisterPushToken();
+  const triggeredFor = useRef<Set<string>>(new Set());
+  // `register` mutate fn comes from useMutation — its identity is not stable
+  // across renders. Pin to a ref so the effect dep array stays minimal.
+  const mutateRef = useRef(register.mutate);
+  useEffect(() => {
+    mutateRef.current = register.mutate;
+  }, [register.mutate]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) return;
+    if (triggeredFor.current.has(user.id)) return;
+    triggeredFor.current.add(user.id);
+    // Fire-and-forget — captureMutationError handles the failure path.
+    mutateRef.current();
+  }, [user, isLoading]);
+
+  // M30 review fix — re-fire registration when the user flips the OS
+  // notification permission from "denied" to "granted" while the app is
+  // backgrounded (Settings → Notifications → BURS → Allow). Without this
+  // listener the user would have to fully relaunch before we'd attempt the
+  // token fetch again. Guarded on `triggeredFor` so we only run once we've
+  // already captured the initial denied state for this user.
+  useEffect(() => {
+    if (!user) return;
+    let lastState = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      const wasBackgrounded = lastState === 'background' || lastState === 'inactive';
+      lastState = next;
+      if (next !== 'active' || !wasBackgrounded) return;
+      if (!triggeredFor.current.has(user.id)) return;
+      void (async () => {
+        try {
+          const current = await Notifications.getPermissionsAsync();
+          if (current.status !== Notifications.PermissionStatus.GRANTED) return;
+          // Permission flipped on while we were backgrounded — clear the
+          // dedupe and re-fire registration so the Expo token gets stored.
+          triggeredFor.current.delete(user.id);
+          triggeredFor.current.add(user.id);
+          mutateRef.current();
+        } catch {
+          // getPermissionsAsync should never throw on a real device; swallow
+          // so we don't crash the AppState listener.
+        }
+      })();
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [user]);
+}
+
+// M30 — notification deep-link handler. When the user taps a push, the OS
+// resumes the app and fires `addNotificationResponseReceivedListener` with
+// the notification payload. We pull a `route` field out of the data blob and
+// `navigate()` to it. Routes are passed by name (matching RootStackParamList
+// keys); arbitrary deep links coming over the push channel are ignored to
+// avoid letting a malformed payload crash the app.
+//
+// Allowlist (M30 review fix): even though the runtime `navigate` will throw
+// on an unknown route name, accepting any string from a push payload widens
+// our attack surface — a misconfigured server send could route the user
+// past Onboarding or Auth into the app. Restrict to a curated set of safe
+// destinations (tabs, detail screens, standalone tools, settings) and drop
+// anything outside that set. Excludes Splash / Auth / Onboarding / Paywall /
+// ResetPassword — those are part of the acquisition / recovery funnel and
+// should never be reachable from a push tap.
+//
+// Cold-launch path: `getLastNotificationResponseAsync` returns the response
+// that woke the app. Warm-app path: `addNotificationResponseReceivedListener`
+// fires for taps received while the app is running.
+const ALLOWED_DEEP_LINK_ROUTES: ReadonlySet<string> = new Set<string>([
+  // Tabs shell — `MainTabs` accepts an optional initialTab in params.
+  'MainTabs',
+  // Outfit / garment / sharing
+  'Outfits',
+  'OutfitDetail',
+  'OutfitGenerate',
+  'OutfitPool',
+  'PhotoFeedback',
+  'GarmentDetail',
+  'EditGarment',
+  'ShareOutfit',
+  // Calendar + laundry
+  'MonthCalendar',
+  'Laundry',
+  // Stylist / mood / occasion
+  'StyleChat',
+  'StyleMe',
+  'MoodOutfit',
+  'MoodFlow',
+  // Travel capsule
+  'TravelCapsule',
+  'TravelMustHaves',
+  'TravelPackingList',
+  // Discover / lists
+  'WardrobeGaps',
+  'PickMustHaves',
+  'UsedGarments',
+  'UnusedOutfits',
+  'UnusedGarments',
+  // Settings
+  'Settings',
+  'SettingsAppearance',
+  'SettingsStyle',
+  'SettingsNotifications',
+  'SettingsAccount',
+  'SettingsPrivacy',
+  // Profile / extras
+  'Profile',
+  'Notifications',
+  // Search
+  'Search',
+]);
+
+function useNotificationDeepLink(): void {
+  useEffect(() => {
+    const handle = (response: Notifications.NotificationResponse | null): void => {
+      if (!response) return;
+      const data = response.notification.request.content.data as
+        | Record<string, unknown>
+        | undefined;
+      const route = data?.route;
+      if (typeof route !== 'string' || route.length === 0) return;
+      if (!ALLOWED_DEEP_LINK_ROUTES.has(route)) {
+        Sentry.addBreadcrumb({
+          category: 'push',
+          message: 'unknown_route',
+          data: { route },
+        });
+        return;
+      }
+      // Wait for the navigation container to be ready — on cold launch the
+      // listener can fire before NavigationContainer mounts.
+      if (!navigationRef.isReady()) {
+        // Retry on next tick. `setTimeout` is fine here; the navigation
+        // container becomes ready synchronously after the mount completes.
+        setTimeout(() => handle(response), 50);
+        return;
+      }
+      // `navigate` is generic over the param list; the runtime check above
+      // gates string routes only. We type-assert to the loose shape because
+      // notification payloads carry untyped JSON.
+      try {
+        // @ts-expect-error — route name is dynamic; runtime-validated above.
+        navigationRef.navigate(route, data?.params);
+      } catch (err) {
+        console.warn('[App] notification deep-link nav failed:', err);
+      }
+    };
+
+    // Cold-launch: read the last response that woke the app, if any.
+    void Notifications.getLastNotificationResponseAsync().then(handle).catch(() => {});
+
+    const sub = Notifications.addNotificationResponseReceivedListener(handle);
+    return () => {
+      sub.remove();
+    };
+  }, []);
+}
+
 function ThemedShell() {
   const { resolved } = useTheme();
   const t = themes[resolved];
   useRecoveryDeepLink();
+  usePushTokenRegistration();
+  useNotificationDeepLink();
   // Map BURS tokens onto React Navigation's theme contract — the only thing it cares about
   // is background colour + text + primary, so the platform back gestures look right.
   const navTheme = {
@@ -183,7 +393,7 @@ function ThemedShell() {
   return (
     <>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
-      <NavigationContainer theme={navTheme} linking={linking}>
+      <NavigationContainer ref={navigationRef} theme={navTheme} linking={linking}>
         <RootNavigator />
       </NavigationContainer>
     </>

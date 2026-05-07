@@ -1,13 +1,24 @@
 // Settings · Notifications — toggle which notifications BURS sends.
-// Mirrors design_handoff_burs_rn/source/audit-screens.jsx SettingsNotificationsScreen.
+// M30: bound to real `profiles.notification_prefs` via useNotificationPrefs +
+// useUpdateNotificationPrefs. Permission state surfaced as a banner that
+// links into iOS Settings when the OS has denied access.
 
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as Notifications from 'expo-notifications';
 
 import { useTokens } from '../theme/ThemeProvider';
+import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
@@ -15,48 +26,90 @@ import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { BackIcon } from '../components/icons';
+import { t as translate } from '../lib/i18n';
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  useNotificationPrefs,
+  useUpdateNotificationPrefs,
+  type NotificationPrefKey,
+} from '../hooks/usePushNotifications';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-type ToggleKey =
-  | 'dailyOutfit'
-  | 'weeklyReport'
-  | 'newFeatures'
-  | 'promo';
+// Static row configuration — title / caption come from i18n at render time so
+// language changes pick up without a remount.
+type RowConfig = {
+  key: NotificationPrefKey;
+  titleKey: string;
+  captionKey: string;
+};
 
-type ToggleConfig = { key: ToggleKey; title: string; caption: string; defaultOn: boolean };
-
-const ROWS: ToggleConfig[] = [
-  { key: 'dailyOutfit',   title: 'Daily outfit reminder', caption: 'Get your daily look at 8am',  defaultOn: true },
-  { key: 'weeklyReport',  title: 'Weekly style report',   caption: 'Every Monday morning',         defaultOn: true },
-  { key: 'newFeatures',   title: 'New AI features',       caption: 'Be first to know',             defaultOn: false },
-  { key: 'promo',         title: 'Promotional updates',   caption: 'Offers and news',              defaultOn: false },
+const ROWS: RowConfig[] = [
+  {
+    key: 'daily',
+    titleKey: 'settingsNotifications.daily.label',
+    captionKey: 'settingsNotifications.daily.body',
+  },
+  {
+    key: 'new_outfit',
+    titleKey: 'settingsNotifications.newOutfit.label',
+    captionKey: 'settingsNotifications.newOutfit.body',
+  },
+  {
+    key: 'reminders',
+    titleKey: 'settingsNotifications.reminders.label',
+    captionKey: 'settingsNotifications.reminders.body',
+  },
 ];
 
 export function SettingsNotificationsScreen() {
-  const t = useTokens();
+  const tokens = useTokens();
   const nav = useNavigation<Nav>();
 
-  const [state, setState] = React.useState<Record<ToggleKey, boolean>>(() =>
-    ROWS.reduce(
-      (acc, row) => {
-        acc[row.key] = row.defaultOn;
-        return acc;
-      },
-      {} as Record<ToggleKey, boolean>,
-    ),
-  );
+  const { data: prefs } = useNotificationPrefs();
+  const updatePref = useUpdateNotificationPrefs();
+
+  // Permission state — read once on mount, then again on any OS resume so a
+  // user who flipped the toggle in iOS Settings sees the banner update.
+  // expo-notifications doesn't expose a permission-change subscription, so
+  // we re-poll on focus via a navigation listener.
+  const [permission, setPermission] =
+    React.useState<Notifications.PermissionStatus>(
+      Notifications.PermissionStatus.UNDETERMINED,
+    );
+  React.useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const result = await Notifications.getPermissionsAsync();
+        if (!cancelled) setPermission(result.status);
+      } catch {
+        // Ignore — surface as undetermined.
+      }
+    };
+    void refresh();
+    const unsub = nav.addListener('focus', () => {
+      void refresh();
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [nav]);
+
+  const effective = prefs ?? DEFAULT_NOTIFICATION_PREFS;
+  const permissionDenied = permission === Notifications.PermissionStatus.DENIED;
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: tokens.bg }}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 60, gap: 18 }}
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>
           <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
-            <BackIcon color={t.fg} />
+            <BackIcon color={tokens.fg} />
           </IconBtn>
           <View style={{ flex: 1 }}>
             <Eyebrow style={{ marginBottom: 4 }}>Settings</Eyebrow>
@@ -64,18 +117,65 @@ export function SettingsNotificationsScreen() {
           </View>
         </View>
 
-        <Caption>What you'd like BURS to ping you about.</Caption>
+        <Caption>{translate('settingsNotifications.permissionsRequest')}</Caption>
+
+        {permissionDenied ? (
+          <View
+            style={[
+              s.banner,
+              { backgroundColor: tokens.accentSoft, borderColor: tokens.border },
+            ]}>
+            <Text
+              style={{
+                fontFamily: fonts.uiSemi,
+                fontSize: 13,
+                color: tokens.fg,
+                marginBottom: 4,
+              }}>
+              {translate('settingsNotifications.permissionsDenied.title')}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 12,
+                color: tokens.fg2,
+                lineHeight: 16,
+                marginBottom: 10,
+              }}>
+              {translate('settingsNotifications.permissionsDenied.body')}
+            </Text>
+            <Pressable
+              onPress={() => {
+                void Linking.openSettings();
+              }}
+              style={({ pressed }) => [
+                s.bannerCta,
+                { borderColor: tokens.border, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Text
+                style={{
+                  fontFamily: fonts.uiSemi,
+                  fontSize: 12.5,
+                  color: tokens.fg,
+                }}>
+                {translate('settingsNotifications.permissionsDenied.openSettings')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* ============ TOGGLES ============ */}
         <Card padding={4}>
           {ROWS.map((row, i) => (
             <SettingsRow
               key={row.key}
-              title={row.title}
-              caption={row.caption}
+              title={translate(row.titleKey)}
+              caption={translate(row.captionKey)}
               toggle={{
-                value: state[row.key],
-                onValueChange: (v) => setState((prev) => ({ ...prev, [row.key]: v })),
+                value: effective[row.key],
+                onValueChange: (value) => {
+                  updatePref.mutate({ key: row.key, value });
+                },
               }}
               last={i === ROWS.length - 1}
             />
@@ -88,4 +188,16 @@ export function SettingsNotificationsScreen() {
 
 const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingTop: 8 },
+  banner: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+  },
+  bannerCta: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
 });

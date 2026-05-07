@@ -43,6 +43,13 @@
           "organization": "burs",
           "project": "burs-mobile"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0F172A",
+          "sounds": []
+        }
       ]
     ],
     "extra": {

@@ -1039,4 +1039,22 @@ export const en: Record<string, string> = {
   // primary picks from AI-suggested coverage gaps.
   'travelMustHaves.section.picks': 'Your picks',
   'travelMustHaves.section.gaps': 'We also noticed gaps for this trip',
+
+  // ─── M30 — Settings · Notifications ──────────────────────────────────────
+  // Three opt-in toggles surfaced in SettingsNotificationsScreen + the
+  // permissions-denied banner that links into iOS Settings.
+  'settingsNotifications.permissionsRequest':
+    "What you'd like BURS to ping you about.",
+  'settingsNotifications.daily.label': 'Daily outfit suggestion',
+  'settingsNotifications.daily.body': 'Your morning look, ready when you wake up.',
+  'settingsNotifications.newOutfit.label': 'New outfit ready',
+  'settingsNotifications.newOutfit.body':
+    "We'll let you know when a fresh combination lands.",
+  'settingsNotifications.reminders.label': 'Reminders',
+  'settingsNotifications.reminders.body':
+    'Laundry nudges, planned-outfit prompts, and gentle wardrobe check-ins.',
+  'settingsNotifications.permissionsDenied.title': 'Notifications are off',
+  'settingsNotifications.permissionsDenied.body':
+    'BURS needs notification permission to send you outfit reminders. Enable it in iOS Settings to start receiving pings.',
+  'settingsNotifications.permissionsDenied.openSettings': 'Open Settings',
 };

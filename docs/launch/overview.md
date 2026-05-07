@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M30 — Push notifications + Expo send branch |
-| **CURRENT WAVE FILE** | [`waves/m30-push.md`](waves/m30-push.md) |
+| **CURRENT WAVE** | M31 — RevenueCat + paywall + webhook |
+| **CURRENT WAVE FILE** | [`waves/m31-revenuecat.md`](waves/m31-revenuecat.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -141,7 +141,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 |---|---|---|---|
 | ) | V0 |
 | ) | V0 |
-| M30 | [Push notifications + Expo send branch](waves/m30-push.md) | TODO | V0 |
+| ) | V0 |
 | M31 | [RevenueCat + paywall + webhook](waves/m31-revenuecat.md) | TODO | V0 |
 | M32 | [Restore Purchases](waves/m32-restore-purchases.md) | TODO | V0, M31 |
 | M33 | [i18n Swedish + English baseline](waves/m33-i18n.md) | TODO | V0 |
