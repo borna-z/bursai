@@ -30,7 +30,7 @@ import { initSentry, Sentry } from './src/lib/sentry';
 initSentry();
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Linking, View } from 'react-native';
+import { AppState, Linking, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
   NavigationContainer,
@@ -225,6 +225,40 @@ function usePushTokenRegistration(): void {
     // Fire-and-forget — captureMutationError handles the failure path.
     mutateRef.current();
   }, [user, isLoading]);
+
+  // M30 review fix — re-fire registration when the user flips the OS
+  // notification permission from "denied" to "granted" while the app is
+  // backgrounded (Settings → Notifications → BURS → Allow). Without this
+  // listener the user would have to fully relaunch before we'd attempt the
+  // token fetch again. Guarded on `triggeredFor` so we only run once we've
+  // already captured the initial denied state for this user.
+  useEffect(() => {
+    if (!user) return;
+    let lastState = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      const wasBackgrounded = lastState === 'background' || lastState === 'inactive';
+      lastState = next;
+      if (next !== 'active' || !wasBackgrounded) return;
+      if (!triggeredFor.current.has(user.id)) return;
+      void (async () => {
+        try {
+          const current = await Notifications.getPermissionsAsync();
+          if (current.status !== Notifications.PermissionStatus.GRANTED) return;
+          // Permission flipped on while we were backgrounded — clear the
+          // dedupe and re-fire registration so the Expo token gets stored.
+          triggeredFor.current.delete(user.id);
+          triggeredFor.current.add(user.id);
+          mutateRef.current();
+        } catch {
+          // getPermissionsAsync should never throw on a real device; swallow
+          // so we don't crash the AppState listener.
+        }
+      })();
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [user]);
 }
 
 // M30 — notification deep-link handler. When the user taps a push, the OS
@@ -234,9 +268,62 @@ function usePushTokenRegistration(): void {
 // keys); arbitrary deep links coming over the push channel are ignored to
 // avoid letting a malformed payload crash the app.
 //
+// Allowlist (M30 review fix): even though the runtime `navigate` will throw
+// on an unknown route name, accepting any string from a push payload widens
+// our attack surface — a misconfigured server send could route the user
+// past Onboarding or Auth into the app. Restrict to a curated set of safe
+// destinations (tabs, detail screens, standalone tools, settings) and drop
+// anything outside that set. Excludes Splash / Auth / Onboarding / Paywall /
+// ResetPassword — those are part of the acquisition / recovery funnel and
+// should never be reachable from a push tap.
+//
 // Cold-launch path: `getLastNotificationResponseAsync` returns the response
 // that woke the app. Warm-app path: `addNotificationResponseReceivedListener`
 // fires for taps received while the app is running.
+const ALLOWED_DEEP_LINK_ROUTES: ReadonlySet<string> = new Set<string>([
+  // Tabs shell — `MainTabs` accepts an optional initialTab in params.
+  'MainTabs',
+  // Outfit / garment / sharing
+  'Outfits',
+  'OutfitDetail',
+  'OutfitGenerate',
+  'OutfitPool',
+  'PhotoFeedback',
+  'GarmentDetail',
+  'EditGarment',
+  'ShareOutfit',
+  // Calendar + laundry
+  'MonthCalendar',
+  'Laundry',
+  // Stylist / mood / occasion
+  'StyleChat',
+  'StyleMe',
+  'MoodOutfit',
+  'MoodFlow',
+  // Travel capsule
+  'TravelCapsule',
+  'TravelMustHaves',
+  'TravelPackingList',
+  // Discover / lists
+  'WardrobeGaps',
+  'PickMustHaves',
+  'UsedGarments',
+  'UnusedOutfits',
+  'UnusedGarments',
+  // Settings
+  'Settings',
+  'SettingsAppearance',
+  'SettingsStyle',
+  'SettingsNotifications',
+  'SettingsAccount',
+  'SettingsPrivacy',
+  // Profile / extras
+  'Profile',
+  'Notifications',
+  // Search
+  'Search',
+]);
+
 function useNotificationDeepLink(): void {
   useEffect(() => {
     const handle = (response: Notifications.NotificationResponse | null): void => {
@@ -246,6 +333,14 @@ function useNotificationDeepLink(): void {
         | undefined;
       const route = data?.route;
       if (typeof route !== 'string' || route.length === 0) return;
+      if (!ALLOWED_DEEP_LINK_ROUTES.has(route)) {
+        Sentry.addBreadcrumb({
+          category: 'push',
+          message: 'unknown_route',
+          data: { route },
+        });
+        return;
+      }
       // Wait for the navigation container to be ready — on cold launch the
       // listener can fire before NavigationContainer mounts.
       if (!navigationRef.isReady()) {

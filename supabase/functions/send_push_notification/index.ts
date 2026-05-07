@@ -283,6 +283,23 @@ async function sendExpoPush(
     data: mergedData,
   };
 
+  // M30 review fix — Expo's documented payload ceiling is 4 KB; we clamp at
+  // 3.5 KB so headers + JSON-array wrapper stay under the limit. Going over
+  // would yield a `MessageTooBig` ticket on the receiving end (transient
+  // from Expo's perspective; we'd retry forever). Skip + warn instead.
+  const serialized = JSON.stringify(message);
+  if (serialized.length > 3500) {
+    console.warn(
+      `send_push_notification: expo payload too large (${serialized.length} bytes) for sub ${sub.id}`,
+    );
+    return { delivered: false, reason: "expo_payload_too_large", cleanup: false };
+  }
+
+  // M30 review fix — bound the Expo POST. Deno's default fetch has no
+  // timeout and Expo's edge can occasionally stall; without a cap a single
+  // hung request blocks the whole per-row loop.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   let res: Response;
   try {
     res = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -292,14 +309,20 @@ async function sendExpoPush(
         "Accept-Encoding": "gzip, deflate",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify([message]),
+      body: serialized,
+      signal: controller.signal,
     });
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { delivered: false, reason: "expo_timeout", cleanup: false };
+    }
     return {
       delivered: false,
       reason: `expo_fetch_failed:${err instanceof Error ? err.message : String(err)}`,
       cleanup: false,
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!res.ok) {
