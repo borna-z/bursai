@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Add `shopping_chat` as a 9th mode of the chat contract; surface as a switch inside StyleChatScreen. |
-| Status | DONE (PR #TBD) |
+| Status | DONE (PR #749) |
 | Branch | `mobile-m23-shopping-chat` |
 | PR count | 1 |
 | Depends on | V0, M14 |
