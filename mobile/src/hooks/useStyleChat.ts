@@ -395,8 +395,19 @@ export function useStyleChat(): UseStyleChatResult {
       streamingRef.current = false;
       setIsStreaming(false);
       // Drop any actively-streaming assistant placeholder so the screen
-      // doesn't show a half-text bubble in the wrong mode.
-      setMessages((cur) => cur.filter((m) => !m.isStreaming));
+      // doesn't show a half-text bubble in the wrong mode. Also drop the
+      // user message that was paired with the aborted placeholder if it
+      // has no completed assistant successor — otherwise it lingers in
+      // history and the next sendMessage emits two consecutive role:'user'
+      // turns to the model.
+      setMessages((cur) => {
+        const idx = cur.findIndex((m) => m.isStreaming);
+        if (idx < 0) return cur;
+        const prior = idx > 0 ? cur[idx - 1] : null;
+        const orphanedUser =
+          prior && prior.role === 'user' ? idx - 1 : -1;
+        return cur.filter((_, i) => i !== idx && i !== orphanedUser);
+      });
       // Suggestion chips are mode-specific (style_chat ships them; the
       // current shopping_chat function does not). Reset so the static
       // fallbacks render until the next turn settles.

@@ -70,7 +70,7 @@ const STATIC_SUGGESTIONS = [
 // Hoisted for stable identity across renders — used by the message FlatList.
 const messageKey = (m: ChatMessage) => m.id;
 
-// Friendly labels for the 8 stylist modes. Keys mirror the
+// Friendly labels for the 9 stylist modes. Keys mirror the
 // `chat.mode.<MODE>` namespace appended to en.ts so a future translator
 // pass can swap them without touching this file.
 function modeLabel(mode: StylistChatMode | undefined | null): string | null {
@@ -688,7 +688,16 @@ const MessageItem = React.memo(
     const isUser = msg.role === 'user';
     const showTypingDots = msg.isStreaming && !msg.content;
     const mode = !isUser ? modeLabel(msg.stylistMeta?.mode) : null;
-    const canAnchor = !isUser && Boolean(msg.stylistMeta?.active_look);
+    // Synthesized SHOPPING envelopes carry a non-null `active_look` with
+    // an empty `garment_ids: []`, so a Boolean() check alone returns true
+    // and the screen-reader announces the long-press anchor hint even
+    // though the underlying handler early-returns. Gate on a non-empty
+    // garment_ids list so the gesture surface only advertises when there
+    // is actually something to anchor.
+    const canAnchor =
+      !isUser &&
+      Boolean(msg.stylistMeta?.active_look) &&
+      (msg.stylistMeta?.active_look?.garment_ids?.length ?? 0) > 0;
     // M23 — shopping result cards rendered beneath the bubble. Defensive
     // accessor: the contract field is optional, may be absent or null,
     // and parseShoppingResultCards already filtered malformed entries

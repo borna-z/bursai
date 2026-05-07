@@ -22,13 +22,14 @@
 // (styleChatContract.ts) already rejected non-https values during
 // envelope normalization.
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Caption } from './Caption';
 import { t as tr } from '../lib/i18n';
+import { Sentry } from '../lib/sentry';
 import type { ShoppingResultCard as ShoppingResultCardType } from '../lib/styleChatContract';
 
 const IMAGE_SIZE = 64;
@@ -41,6 +42,16 @@ export function ShoppingResultCard({
   onOpen: (url: string) => void;
 }) {
   const t = useTokens();
+
+  // Track image-load failure so we can swap to the same neutral placeholder
+  // we render when `image_url` is null. CDN 404s are common and low-signal,
+  // so we leave a Sentry breadcrumb (NOT a captureException). State resets
+  // when `card.id` changes so a list-item recycle doesn't preserve the
+  // broken flag for a different card.
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => {
+    setImageFailed(false);
+  }, [card.id]);
 
   const priceLabel =
     card.price && Number.isFinite(card.price.amount) && card.price.currency
@@ -73,12 +84,21 @@ export function ShoppingResultCard({
           s.imageBox,
           { backgroundColor: t.bg2, borderColor: t.border },
         ]}>
-        {card.image_url ? (
+        {card.image_url && !imageFailed ? (
           <Image
             source={{ uri: card.image_url }}
             style={s.image}
             resizeMode="cover"
             accessibilityIgnoresInvertColors
+            onError={() => {
+              setImageFailed(true);
+              Sentry.addBreadcrumb({
+                category: 'shopping_card.image',
+                level: 'info',
+                message: 'product image failed to load',
+                data: { card_id: card.id, image_url: card.image_url },
+              });
+            }}
           />
         ) : null}
       </View>
@@ -123,6 +143,9 @@ export function ShoppingResultCard({
         accessibilityRole="button"
         accessibilityLabel={tr('shoppingChat.cardOpen')}
         accessibilityHint={tr('shoppingChat.cardOpenHint')}
+        // The pill is 32pt tall; iOS HIG mandates ≥44pt hit area. Expand the
+        // pressable region without enlarging the visual control. 6+32+6=44.
+        hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
         style={({ pressed }) => [
           s.openBtn,
           {
