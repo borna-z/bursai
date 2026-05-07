@@ -1,12 +1,9 @@
 // AchievementStep — onboarding step 5.
 // Full-screen celebration. The accent circle scales-in via Animated API.
-//
-// TODO(server-write): the web equivalent (P48) invokes `grant_trial_gift` exactly
-// once on mount via fire-and-forget — wire that here when Supabase auth lands.
-// Until then this is purely visual; no backend side-effects fire.
 
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useTokens } from '../../theme/ThemeProvider';
 import { fonts, radii } from '../../theme/tokens';
@@ -17,6 +14,8 @@ import { Button } from '../../components/Button';
 import { CheckIcon } from '../../components/icons';
 import { t as tr } from '../../lib/i18n';
 import { hapticLight, hapticSuccess } from '../../lib/haptics';
+import { useAuth } from '../../hooks/useAuth';
+import { callEdgeFunction } from '../../lib/edgeFunctionClient';
 
 const FEATURE_KEYS = [
   'achievement.feature.unlimited',
@@ -32,6 +31,8 @@ export function AchievementStep({
   onRestore?: () => void;
 }) {
   const t = useTokens();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -61,6 +62,41 @@ export function AchievementStep({
       opacity.stopAnimation();
     };
   }, [opacity, scale]);
+
+  // Fire-and-forget `grant_trial_gift` once on mount. Server is idempotent
+  // (key `onboarding_gift_${userId}`) so a remount-driven re-call is safe.
+  // On success, invalidate the render_credits cache so StudioSelection
+  // sees the granted credits without waiting for staleTime.
+  //
+  // Mirrors web's non-fatal stance (`src/components/onboarding/AchievementStep.tsx`):
+  // a 200 with `{ ok: false }` and any thrown transport error both warn-and-skip
+  // — the trial gift is best-effort and shouldn't block onboarding completion
+  // or burn Sentry quota for transient onboarding network blips.
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await callEdgeFunction<{ ok: boolean; reason?: string }>(
+          'grant_trial_gift',
+          { body: {} },
+        );
+        if (cancelled) return;
+        if (data?.ok === false) {
+          console.warn('grant_trial_gift returned ok:false', data?.reason);
+          return;
+        }
+        queryClient.invalidateQueries({ queryKey: ['render_credits', userId] });
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('grant_trial_gift failed', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, queryClient]);
 
   return (
     <View style={{ flex: 1, paddingHorizontal: 20, justifyContent: 'space-between', paddingBottom: 12 }}>

@@ -25,6 +25,7 @@
 import {
   callEdgeFunction,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from './edgeFunctionClient';
 
 export interface SSECallbacks {
@@ -106,7 +107,7 @@ export async function fetchSSE(
   } catch (err) {
     if (signal?.aborted) return;
     if (err instanceof EdgeFunctionSubscriptionLockedError) {
-      callbacks.onError(new Error('subscription_required'));
+      callbacks.onError(new Error(SUBSCRIPTION_SENTINEL));
       return;
     }
     callbacks.onError(err instanceof Error ? err : new Error(String(err)));

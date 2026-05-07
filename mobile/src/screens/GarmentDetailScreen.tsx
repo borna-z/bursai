@@ -31,6 +31,7 @@ import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { localISODate } from '../lib/outfitDisplay';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
@@ -174,11 +175,11 @@ export function GarmentDetailScreen() {
   // effect-only would miss the dismiss-without-change path.
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
-    if (assessError === 'subscription_required' && !paywallShownRef.current) {
+    if (assessError === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
-    if (assessError !== 'subscription_required' && paywallShownRef.current) {
+    if (assessError !== SUBSCRIPTION_SENTINEL && paywallShownRef.current) {
       paywallShownRef.current = false;
     }
   }, [assessError, nav]);
@@ -562,7 +563,7 @@ export function GarmentDetailScreen() {
               ) : (
                 <Caption>{tr('condition.empty')}</Caption>
               )}
-              {assessError && assessError !== 'subscription_required' ? (
+              {assessError && assessError !== SUBSCRIPTION_SENTINEL ? (
                 <Caption style={{ color: t.destructive }}>
                   {tr('condition.error.network')}
                 </Caption>

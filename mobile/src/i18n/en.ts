@@ -353,18 +353,6 @@ export const en: Record<string, string> = {
     "We couldn't build any variations from your wardrobe.",
   'outfitDetail.cloneDna.title': 'Cloned style',
   'outfitDetail.cloneDna.banner': 'A new outfit in the same style',
-  'shareOutfit.generateFlatlay': 'Generate flatlay',
-  'shareOutfit.generatingFlatlay': 'Generating flatlay…',
-  'shareOutfit.flatlayError': "Couldn't generate flatlay",
-  // M17 Codex P1.5 — surfaced when a flatlay path already exists; tapping the
-  // button re-runs the generator with the same outfit. Distinct from
-  // `shareOutfit.generateFlatlay` so the user knows the call will replace
-  // their current rendered image.
-  'shareOutfit.regenerateFlatlay': 'Regenerate flatlay',
-  // M17 Codex P3.4 — disabled CTA copy when the user lands on ShareOutfit
-  // without an outfit context (e.g. shallow deep link). Replaces the silent
-  // "no button" branch so the screen always explains what's missing.
-  'shareOutfit.openFromOutfit': 'Open from an outfit to generate flatlay',
   // M17 Codex P2.6 — fallback button label while the composition helpers are
   // mid-request. Distinct from the persistent action labels so the user
   // sees the call is in flight.
@@ -810,33 +798,9 @@ export const en: Record<string, string> = {
     'BURS now tunes outfits, planning, and shopping around your real life.',
   'onboarding.quizV4.complete.cta': 'Done',
 
-  // ─── Step 4 — Accent color (M26) ────────────────────────────────────────
-  // Persists to `profiles.preferences.accent_color`. The hex is metadata
-  // only — the live UI accent stays the warm-gold token. Other 9 locales
-  // fall back to en until M33 ports the dictionary.
-  'onboarding.accentColor.eyebrow': 'Make it yours',
-  'onboarding.accentColor.title': 'Choose accent color',
-  'onboarding.accentColor.intro':
-    'Give your app a personal touch — we will remember your color and use it across details over time.',
-  'onboarding.accentColor.continue': 'Continue',
-  'onboarding.accentColor.skip': 'Skip',
-  'onboarding.accentColor.requiredHint': 'Pick a color to continue',
-  'onboarding.accentColor.swatch.indigo': 'Indigo',
-  'onboarding.accentColor.swatch.petrol': 'Petrol',
-  'onboarding.accentColor.swatch.forest': 'Forest',
-  'onboarding.accentColor.swatch.sage': 'Sage',
-  'onboarding.accentColor.swatch.navy': 'Navy',
-  'onboarding.accentColor.swatch.slate': 'Slate',
-  'onboarding.accentColor.swatch.burgundy': 'Burgundy',
-  'onboarding.accentColor.swatch.rose': 'Rose',
-  'onboarding.accentColor.swatch.terracotta': 'Terracotta',
-  'onboarding.accentColor.swatch.amber': 'Amber',
-  'onboarding.accentColor.swatch.plum': 'Plum',
-  'onboarding.accentColor.swatch.charcoal': 'Charcoal',
-
   // ─── M27 — PhotoTutorialStep (onboarding) ──────────────────────────────
   // Single-screen "how to scan a garment" tutorial inserted between
-  // AccentColorStep and StudioSelectionStep. Other 9 locales fall back
+  // StyleQuizV4Step and StudioSelectionStep. Other 9 locales fall back
   // to en until M33 ports the dictionary.
   'onboarding.photoTutorial.eyebrow': 'How to scan',
   'onboarding.photoTutorial.title': 'Take a great garment photo',

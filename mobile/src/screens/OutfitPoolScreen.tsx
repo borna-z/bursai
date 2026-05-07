@@ -40,6 +40,7 @@ import { IconBtn } from '../components/IconBtn';
 import { ErrorState } from '../components/ErrorState';
 import { CloseIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
 import { useOutfitPool, type ScoredOutfitDraft } from '../hooks/useOutfitPool';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
@@ -88,7 +89,7 @@ export function OutfitPoolScreen() {
   // Route to paywall once per screen lifetime when the engine surfaces the
   // subscription sentinel — sticky ref so a back-and-forth doesn't re-pop.
   React.useEffect(() => {
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
@@ -199,7 +200,7 @@ export function OutfitPoolScreen() {
 
   // Subscription branch — render a soft pre-paywall affordance so the
   // screen isn't blank between the redirect-effect and the modal mount.
-  if (error === 'subscription_required') {
+  if (error === SUBSCRIPTION_SENTINEL) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
         <Header onClose={() => nav.goBack()} />
@@ -223,7 +224,7 @@ export function OutfitPoolScreen() {
       {isFullyFailed ? (
         <ErrorState
           title={tr('outfitPool.empty.title')}
-          body={error && error !== 'subscription_required' ? error : tr('outfitPool.empty.body')}
+          body={error && error !== SUBSCRIPTION_SENTINEL ? error : tr('outfitPool.empty.body')}
           onRetry={regenerate}
         />
       ) : (

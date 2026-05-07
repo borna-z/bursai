@@ -30,6 +30,7 @@ import {
 import { ErrorState } from '../components/ErrorState';
 import { useWardrobeGaps, type WardrobeGap } from '../hooks/useWardrobeGaps';
 import { useGarmentCount } from '../hooks/useGarmentCount';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -99,7 +100,7 @@ export function WardrobeGapsScreen() {
   // No unmount reset — the React Query cache is the cross-mount memory.
 
   useEffect(() => {
-    if (error === 'subscription_required' && !paywallShownRef.current) {
+    if (error === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
       paywallShownRef.current = true;
       Alert.alert(
         'Premium feature',
@@ -107,7 +108,7 @@ export function WardrobeGapsScreen() {
         [{ text: 'OK' }],
       );
     }
-    if (error !== 'subscription_required') {
+    if (error !== SUBSCRIPTION_SENTINEL) {
       paywallShownRef.current = false;
     }
   }, [error]);
@@ -174,7 +175,7 @@ export function WardrobeGapsScreen() {
         contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 80, gap: 18 }}
         showsVerticalScrollIndicator={false}>
 
-        {error && error !== 'subscription_required' ? (
+        {error && error !== SUBSCRIPTION_SENTINEL ? (
           <ErrorState onRetry={() => analyze()} body={error} />
         ) : (
           <>

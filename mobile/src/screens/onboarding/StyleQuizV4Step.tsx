@@ -1214,7 +1214,7 @@ function QColors({
 }
 
 // `isLightSwatch` (perceptual-luminance threshold for picking a contrasting
-// check-icon color) is shared with AccentColorStep — see `../../lib/color`.
+// check-icon color) — see `../../lib/color`.
 
 function ColorGrid({
   selected,

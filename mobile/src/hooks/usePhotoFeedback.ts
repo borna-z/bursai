@@ -51,11 +51,10 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 const BUCKET = 'garments';
 const MAX_DIMENSION = 1200;
 const JPEG_QUALITY = 0.85;

@@ -53,6 +53,7 @@ import {
   MAX_LINKS_PER_BATCH,
 } from '../hooks/useImportFromLinks';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { hapticLight } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -62,7 +63,6 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // will return as a typed param when the iOS Share Extension wave lands.
 type Route = RouteProp<RootStackParamList, 'ImportFromLink'>;
 
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 const INVALID_URL_SENTINEL = 'invalid_url';
 
 export function ImportFromLinkScreen() {

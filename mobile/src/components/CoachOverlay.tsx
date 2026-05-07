@@ -21,8 +21,7 @@
 //
 // Tokens: every color reads from `useTokens()`. The scrim transparency
 // uses an inline rgba which is OK per wave brief (the rest of the
-// codebase already uses inline rgba for scrim overlays — see SmartTile,
-// AccentColorStep).
+// codebase already uses inline rgba for scrim overlays — see SmartTile).
 
 import React from 'react';
 import {

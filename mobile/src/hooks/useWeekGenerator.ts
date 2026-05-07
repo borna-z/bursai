@@ -31,6 +31,7 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
 import {
@@ -56,8 +57,6 @@ const FALLBACK_WEATHER: DayWeatherInput = {
   precipitation: 'none',
   wind: 'none',
 };
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 
 export interface WeekGeneratorEntry {
   /** ISO `YYYY-MM-DD` for this slot, in the user's local timezone. */

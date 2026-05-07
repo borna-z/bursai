@@ -58,10 +58,9 @@ import {
   callEdgeFunction,
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
-
-const SUBSCRIPTION_SENTINEL = 'subscription_required';
 /** Per-batch ceiling. Server enforces the same limit (`urls.length > 30`
  * → 400) at `import_garments_from_links/index.ts:316`. We surface a
  * client-side guard so a paste of 200 URLs doesn't hit the wire. */
@@ -361,7 +360,7 @@ export function useImportFromLinks(): UseImportFromLinksResult {
               // server ever surfaces the sentinel through an HTTP body
               // instead, propagate it as a global paywall (not a per-row
               // failure). Codex round 1 P1.3.
-              if (parsedErr === SUBSCRIPTION_SENTINEL || parsedErr === 'subscription_required') {
+              if (parsedErr === SUBSCRIPTION_SENTINEL) {
                 topLevelError = SUBSCRIPTION_SENTINEL;
                 break;
               }
@@ -398,10 +397,7 @@ export function useImportFromLinks(): UseImportFromLinksResult {
           if (response?.error) {
             // Same paywall propagation as the HTTP-body case above —
             // global, not per-row. Codex round 1 P1.3.
-            if (
-              response.error === SUBSCRIPTION_SENTINEL ||
-              response.error === 'subscription_required'
-            ) {
+            if (response.error === SUBSCRIPTION_SENTINEL) {
               topLevelError = SUBSCRIPTION_SENTINEL;
               break;
             }
