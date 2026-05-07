@@ -125,7 +125,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | M19 | [Visual Search → AddPiece](waves/m19-visual-search.md) | DONE (PR #745) | V0, M9 |
 | M20 | [Import garments from links → AddPiece](waves/m20-import-from-links.md) | DONE (PR #746) | V0, M9 |
 | M21 | [Assess condition → GarmentDetail](waves/m21-assess-condition.md) | DONE (PR #747) | V0, M9 |
-| M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | DONE (PR #TBD) | V0, M9 |
+| M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | DONE (PR #748) | V0, M9 |
 | M23 | [Shopping Chat → AIChat mode](waves/m23-shopping-chat.md) | TODO | V0, M14 |
 | M24 | [Pick Must-Haves → WardrobeGaps follow-up](waves/m24-pick-must-haves.md) | TODO | V0 |
 
