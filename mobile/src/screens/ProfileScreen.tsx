@@ -18,10 +18,12 @@ import { IconBtn } from '../components/IconBtn';
 import { Button } from '../components/Button';
 import { StatBlock } from '../components/StatBlock';
 import { SettingsRow } from '../components/SettingsRow';
-import { BackIcon, GearIcon, TshirtIcon } from '../components/icons';
+import { BackIcon, GearIcon, GapsIcon, TshirtIcon } from '../components/icons';
 import { ProfileSkeleton } from '../components/skeletons';
 import { useMockRefresh } from '../hooks/useMockRefresh';
 import { useAuth } from '../hooks/useAuth';
+import { useShoppingList } from '../hooks/usePickMustHaves';
+import { t as tr } from '../lib/i18n';
 import { FAVORITE_COLOR_SAMPLES } from '../theme/styleColors';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -38,6 +40,8 @@ export function ProfileScreen() {
   const nav = useNavigation<Nav>();
   const { user, profile } = useAuth();
   const { refreshing, loading, onRefresh } = useMockRefresh(600);
+  const { entries: shoppingEntries } = useShoppingList();
+  const shoppingCount = shoppingEntries.length;
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
@@ -176,8 +180,24 @@ export function ProfileScreen() {
             icon={<TshirtIcon size={18} color={t.accent} />}
             title="Style profile"
             caption="Aesthetic, sizes, color preferences"
-            last
             onPress={() => nav.navigate('SettingsStyle')}
+          />
+          {/* M24 — Shopping list shortcut. The screen handles the empty
+              `gaps: []` case with a link back to gap analysis, so this
+              row is reachable even before the user has run analysis. */}
+          <SettingsRow
+            icon={<GapsIcon size={18} color={t.accent} />}
+            title={tr('profile.shoppingList')}
+            caption={
+              shoppingCount > 0
+                ? tr('pickMustHaves.savedCountTemplate').replace(
+                    '{count}',
+                    String(shoppingCount),
+                  )
+                : tr('profile.shoppingListEmpty')
+            }
+            last
+            onPress={() => nav.navigate('PickMustHaves', { gaps: [] })}
           />
         </Card>
       </ScrollView>

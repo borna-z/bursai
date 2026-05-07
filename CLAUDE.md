@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M24 — Pick Must-Haves → WardrobeGaps follow-up |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m24-pick-must-haves.md` |
+| **CURRENT WAVE** | M25 — Onboarding quiz at full data capture |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m25-onboarding-quiz.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

@@ -516,4 +516,36 @@ export const en: Record<string, string> = {
   'shoppingChat.cardPriceTemplate': '{amount} {currency}',
   'shoppingChat.invalidUrl': 'Invalid product link',
   'chat.mode.SHOPPING': 'Shopping',
+
+  // ─── M24 — Pick Must-Haves (WardrobeGaps follow-up) ────────────────────
+  'pickMustHaves.title': 'Pick must-haves',
+  'pickMustHaves.eyebrow': 'Shopping list',
+  'pickMustHaves.intro':
+    'Mark the gaps you want to actually buy and set their priority. Your shortlist is saved to your profile.',
+  'pickMustHaves.priority.high': 'High',
+  'pickMustHaves.priority.medium': 'Med',
+  'pickMustHaves.priority.low': 'Low',
+  'pickMustHaves.notesPlaceholder': 'Add a note (size, brand, store…)',
+  'pickMustHaves.save': 'Save list',
+  'pickMustHaves.saving': 'Saving…',
+  'pickMustHaves.saved': 'Shopping list saved',
+  'pickMustHaves.empty.title': 'Nothing to pick yet',
+  'pickMustHaves.empty.body':
+    'Run a wardrobe gap analysis first to see which key pieces are worth adding.',
+  'pickMustHaves.empty.cta': 'Open Wardrobe Gaps',
+  'pickMustHaves.savedCountTemplate': '{count} items saved',
+  // Singular/plural variants — the screen picks the variant via a small
+  // helper so the count grammar is correct in English. Other locales
+  // can deviate as they land. Bare `savedCountTemplate` kept for
+  // back-compat with any older callers.
+  'pickMustHaves.savedCountTemplate.one': '1 item saved',
+  'pickMustHaves.savedCountTemplate.other': '{count} items saved',
+  'pickMustHaves.selectedCountTemplate.one': '1 selected',
+  'pickMustHaves.selectedCountTemplate.other': '{count} selected',
+  'pickMustHaves.loadError': 'Couldn’t load your saved list. Pull to retry.',
+  'pickMustHaves.remove': 'Remove',
+  'pickMustHaves.removeAriaLabel': 'Remove from shopping list',
+  'wardrobeGaps.pickMustHavesCta': 'Pick must-haves',
+  'profile.shoppingList': 'Shopping list',
+  'profile.shoppingListEmpty': 'No saved must-haves yet',
 };

@@ -30,6 +30,7 @@ import {
 import { ErrorState } from '../components/ErrorState';
 import { useWardrobeGaps, type WardrobeGap } from '../hooks/useWardrobeGaps';
 import { useGarmentCount } from '../hooks/useGarmentCount';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 // Web parity: gap analysis is meaningless on a near-empty wardrobe — it would
@@ -256,6 +257,18 @@ export function WardrobeGapsScreen() {
                   );
                 })}
               </View>
+            ) : null}
+
+            {/* M24 — "Pick must-haves" follow-up. Only meaningful once an
+                analysis has produced gaps; disabled (kept visible for
+                affordance) when the gap list is empty so the layout
+                doesn't reflow on re-analysis. */}
+            {!isLoading && showCachedAnalysis ? (
+              <Button
+                label={tr('wardrobeGaps.pickMustHavesCta')}
+                disabled={gapDisplays.length === 0}
+                onPress={() => nav.navigate('PickMustHaves', { gaps })}
+              />
             ) : null}
           </>
         )}

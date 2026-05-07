@@ -54,6 +54,7 @@ import { GarmentDetailScreen } from '../screens/GarmentDetailScreen';
 import { EditGarmentScreen } from '../screens/EditGarmentScreen';
 import { ShareOutfitScreen } from '../screens/ShareOutfitScreen';
 import { WardrobeGapsScreen } from '../screens/WardrobeGapsScreen';
+import { PickMustHavesScreen } from '../screens/PickMustHavesScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { FiltersScreen } from '../screens/FiltersScreen';
 import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
@@ -96,6 +97,7 @@ import type { TabId } from '../components/BottomNav';
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../hooks/useAddGarment';
 import type { WardrobeAgingBucketId } from '../hooks/useWardrobeAging';
+import type { WardrobeGap } from '../hooks/useWardrobeGaps';
 
 export type TabName = TabId;
 
@@ -215,6 +217,12 @@ export type RootStackParamList = {
 
   // Discover / lists
   WardrobeGaps: undefined;
+  // M24 — Pick must-haves follow-up. `gaps` carries the analysis result
+  // forward from WardrobeGapsScreen so the picker doesn't have to re-run
+  // (rate-limited) analysis. Empty `gaps: []` is the explicit signal for
+  // the "opened from Profile shopping list row" entry — the screen
+  // renders an empty state with a link back to gap analysis.
+  PickMustHaves: { gaps: WardrobeGap[] };
   UsedGarments: undefined;
   UnusedOutfits: undefined;
   // M22 — Wardrobe Aging panel bucket-detail. `bucketId` is the
@@ -456,6 +464,7 @@ export function RootNavigator() {
 
       {/* Discover / lists */}
       <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
+      <Stack.Screen name="PickMustHaves" component={PickMustHavesScreen} />
       <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
       <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
       <Stack.Screen name="UnusedGarments" component={UnusedGarmentsScreen} />
