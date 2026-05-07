@@ -90,6 +90,26 @@ const ENV_FALLBACK_SECRET = "REVENUECAT_WEBHOOK_SECRET";
 const SIGNATURE_HEADER = "x-revenuecat-signature";
 
 /**
+ * Authenticated client-triggered SYNC path (added post-M31, see findings-log
+ * 2026-05-08 / Codex round 2 on PR #768). The mobile `useRestorePurchases`
+ * hook calls `POST /functions/v1/revenuecat_webhook?action=sync` with a
+ * Supabase JWT after the local poll for the webhook-driven `subscriptions`
+ * row times out. The handler resolves the auth user, queries RevenueCat's
+ * REST API for fresh `CustomerInfo`, and reconciles the `subscriptions`
+ * row directly — closing the failure mode where RC never delivers (or
+ * already failed-and-exhausted-retries on) the inbound webhook.
+ *
+ * Secret: `REVENUECAT_REST_API_KEY` (vault `revenuecat_rest_api_key`,
+ * env fallback). When unset, the path returns 503 with
+ * `{ ok: false, reason: 'sync_unconfigured' }` — the launch-state until
+ * the user provisions the secret in M44 — and the client falls back to
+ * the existing `'restored_pending'` UX so nothing regresses.
+ */
+const VAULT_REST_API_KEY_NAME = "revenuecat_rest_api_key";
+const ENV_FALLBACK_REST_API_KEY = "REVENUECAT_REST_API_KEY";
+const RC_REST_BASE = "https://api.revenuecat.com/v1";
+
+/**
  * Replay-window for inbound events. Five minutes is wide enough to absorb
  * RevenueCat's worst-case enqueue latency + clock skew between RC's egress
  * fleet and our edge-function clock (Supabase functions run on Deno
@@ -172,6 +192,13 @@ const RC_STRIPE_MODE_MARKER = "revenuecat";
 
 /** Module-scope vault secret cache. See `getCachedSecret`. */
 let cachedSecret: { value: string; fetchedAt: number } | null = null;
+
+/**
+ * Module-scope cache for the RevenueCat REST API key (sync path). Same TTL
+ * semantics as the webhook secret — rotated rarely, expensive to re-fetch
+ * on every sync request.
+ */
+let cachedRestApiKey: { value: string; fetchedAt: number } | null = null;
 
 const logStep = (step: string, details?: unknown, correlationId?: string) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
@@ -727,6 +754,362 @@ async function handleEvent(
   }
 }
 
+/**
+ * Load the RevenueCat REST API key. Mirrors `loadWebhookSecret` — vault
+ * first (production), env fallback (preview). Returns null when neither
+ * source has a non-empty value; the sync handler maps this to a 503
+ * `sync_unconfigured` response so the client can fall back to the existing
+ * `restored_pending` UX without regressing.
+ */
+async function loadRestApiKey(serviceClient: SupabaseClient): Promise<string | null> {
+  try {
+    const { data, error } = await serviceClient
+      .schema("vault")
+      .from("decrypted_secrets")
+      .select("decrypted_secret")
+      .eq("name", VAULT_REST_API_KEY_NAME)
+      .maybeSingle();
+
+    if (!error && data && typeof (data as { decrypted_secret?: unknown }).decrypted_secret === "string") {
+      const fromVault = (data as { decrypted_secret: string }).decrypted_secret;
+      if (fromVault.length > 0) return fromVault;
+    } else if (error) {
+      captureWarning("revenuecat_sync_vault_read_failed", {
+        function: "revenuecat_webhook",
+        error: error.message,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    captureWarning("revenuecat_sync_vault_read_failed", {
+      function: "revenuecat_webhook",
+      error: message,
+    });
+    logStep("Sync vault read failed; falling back to env", { message });
+  }
+
+  const fromEnv = Deno.env.get(ENV_FALLBACK_REST_API_KEY) ?? "";
+  return fromEnv.length > 0 ? fromEnv : null;
+}
+
+/**
+ * Cached wrapper around `loadRestApiKey`. 5-minute TTL parity with the
+ * webhook secret — bounds staleness during a key rotation without paying
+ * a vault round-trip per restore-poll-timeout sync request.
+ */
+async function getCachedRestApiKey(serviceClient: SupabaseClient): Promise<string | null> {
+  if (cachedRestApiKey && Date.now() - cachedRestApiKey.fetchedAt < SECRET_TTL_MS) {
+    return cachedRestApiKey.value;
+  }
+  const v = await loadRestApiKey(serviceClient);
+  if (v) cachedRestApiKey = { value: v, fetchedAt: Date.now() };
+  return v;
+}
+
+/**
+ * RC subscriber response — partial typing of the fields we consume.
+ * Reference: https://www.revenuecat.com/reference/subscribers
+ *
+ * `subscriber.entitlements` is a map keyed by entitlement identifier; each
+ * value carries `expires_date` (ISO, nullable for non-expiring grants),
+ * `purchase_date`, and `product_identifier`. An entitlement is considered
+ * active when `expires_date` is null OR > now. We pick the latest-
+ * expiring active entitlement to drive the `subscriptions` row.
+ */
+type RcEntitlement = {
+  expires_date?: string | null;
+  purchase_date?: string | null;
+  product_identifier?: string | null;
+};
+
+type RcSubscriberResponse = {
+  subscriber?: {
+    entitlements?: Record<string, RcEntitlement>;
+  };
+};
+
+type ActiveEntitlement = {
+  expiresAt: string | null; // ISO or null (lifetime)
+  expiresMs: number; // Number.POSITIVE_INFINITY for lifetime, used for ordering
+  productId: string | null;
+};
+
+/**
+ * Pick the entitlement with the LATEST expiration as the canonical row
+ * driver. Lifetime grants (no `expires_date`) win over any time-bound
+ * grant. Ties resolve arbitrarily (Object.entries order) — acceptable
+ * because tied expirations imply the user genuinely has overlapping
+ * grants and either one is a valid reflection of "active premium".
+ */
+function pickLatestActiveEntitlement(
+  entitlements: Record<string, RcEntitlement> | undefined,
+): ActiveEntitlement | null {
+  if (!entitlements) return null;
+  const nowMs = Date.now();
+  let best: ActiveEntitlement | null = null;
+  for (const ent of Object.values(entitlements)) {
+    const expiresIso = typeof ent.expires_date === "string" ? ent.expires_date : null;
+    let expiresMs: number;
+    if (expiresIso === null) {
+      // Lifetime / non-expiring grant.
+      expiresMs = Number.POSITIVE_INFINITY;
+    } else {
+      const parsed = Date.parse(expiresIso);
+      if (Number.isNaN(parsed)) continue;
+      // Past expiry — skip.
+      if (parsed <= nowMs) continue;
+      expiresMs = parsed;
+    }
+    const candidate: ActiveEntitlement = {
+      expiresAt: expiresIso,
+      expiresMs,
+      productId: typeof ent.product_identifier === "string" ? ent.product_identifier : null,
+    };
+    if (!best || candidate.expiresMs > best.expiresMs) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+/**
+ * Authenticated SYNC handler — see comment block at the top of the file.
+ *
+ * Branches via early-return on the misconfigured / unknown-subscriber /
+ * RC-down cases so the client can apply specific fallback UX to each
+ * outcome (sync_unconfigured → keep restored_pending, rc_subscriber_not_found
+ * → no_purchases, transient → keep restored_pending).
+ */
+async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): Promise<Response> {
+  const correlationId: string = crypto.randomUUID();
+
+  // Auth — must be a valid Supabase JWT. We use an anon-keyed client only
+  // to call `getUser(token)` so RLS doesn't apply to our own identity check;
+  // the actual `subscriptions` mutation runs through `serviceClient` so
+  // the row is upserted with full privileges.
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !anonKey) {
+    logStep("Sync: missing supabase env", undefined, correlationId);
+    return jsonResponse({ ok: false, reason: "server_misconfigured" }, 500);
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return jsonResponse({ ok: false, reason: "missing_auth" }, 401);
+  }
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return jsonResponse({ ok: false, reason: "missing_auth" }, 401);
+  }
+
+  // Per supabase/functions/CLAUDE.md: never use getClaims() — use getUser().
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  let userId: string;
+  try {
+    const { data: userData, error: authErr } = await userClient.auth.getUser(token);
+    if (authErr || !userData?.user) {
+      logStep("Sync: getUser failed", { error: authErr?.message }, correlationId);
+      return jsonResponse({ ok: false, reason: "invalid_token" }, 401);
+    }
+    userId = userData.user.id;
+  } catch (err) {
+    logStep("Sync: getUser threw", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    return jsonResponse({ ok: false, reason: "invalid_token" }, 401);
+  }
+
+  if (!UUID_REGEX.test(userId)) {
+    // Defensive — Supabase auth uuids should always pass, but a non-uuid
+    // would 22P02 the upsert.
+    logStep("Sync: non-UUID user id (rejecting)", { userId }, correlationId);
+    return jsonResponse({ ok: false, reason: "invalid_user_id" }, 401);
+  }
+
+  const restApiKey = await getCachedRestApiKey(serviceClient);
+  if (!restApiKey) {
+    // Launch-state: the secret is provisioned later in M44. Returning 503
+    // (rather than 500) is the contract with the mobile client — it keeps
+    // the existing `restored_pending` UX instead of surfacing a transient
+    // generic-error alert. Captured as a warning so we know if the path
+    // is firing in production before M44 ships.
+    captureWarning("revenuecat_sync_unconfigured", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    logStep("Sync: REVENUECAT_REST_API_KEY not configured", undefined, correlationId);
+    return jsonResponse({ ok: false, reason: "sync_unconfigured" }, 503);
+  }
+
+  // Fetch fresh CustomerInfo from RC. We use a 10s timeout so a hung RC
+  // egress doesn't leave the client waiting past its own retry window.
+  const rcUrl = `${RC_REST_BASE}/subscribers/${encodeURIComponent(userId)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  let rcResponse: Response;
+  try {
+    rcResponse = await fetch(rcUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${restApiKey}`,
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    const message = err instanceof Error ? err.message : String(err);
+    logStep("Sync: RC REST fetch failed", { message }, correlationId);
+    captureWarning("revenuecat_sync_rc_fetch_failed", {
+      function: "revenuecat_webhook",
+      error: message,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "rc_fetch_failed" }, 500);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  // RC docs: 404 on unknown subscriber. Treat as "user has no purchases"
+  // and downgrade the row to free if it was somehow active.
+  if (rcResponse.status === 404) {
+    logStep("Sync: RC subscriber not found", { userId }, correlationId);
+    return jsonResponse({ ok: false, reason: "rc_subscriber_not_found" }, 404);
+  }
+  if (rcResponse.status >= 500) {
+    const text = await rcResponse.text().catch(() => "");
+    logStep("Sync: RC REST 5xx", { status: rcResponse.status, body: text.slice(0, 200) }, correlationId);
+    captureWarning("revenuecat_sync_rc_5xx", {
+      function: "revenuecat_webhook",
+      status: rcResponse.status,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "rc_upstream_5xx" }, 500);
+  }
+  if (!rcResponse.ok) {
+    // 401/403 from RC = our REST key is bad/revoked. 4xx other than 404 are
+    // also operator-fix errors (and not the user's fault). Treat as
+    // misconfiguration so the client falls back to restored_pending without
+    // a noisy alert.
+    const text = await rcResponse.text().catch(() => "");
+    logStep("Sync: RC REST 4xx", { status: rcResponse.status, body: text.slice(0, 200) }, correlationId);
+    captureWarning("revenuecat_sync_rc_4xx", {
+      function: "revenuecat_webhook",
+      status: rcResponse.status,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "sync_unconfigured" }, 503);
+  }
+
+  let payload: RcSubscriberResponse;
+  try {
+    payload = (await rcResponse.json()) as RcSubscriberResponse;
+  } catch (err) {
+    logStep("Sync: RC response was not JSON", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    captureWarning("revenuecat_sync_bad_response", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "rc_bad_response" }, 500);
+  }
+
+  const active = pickLatestActiveEntitlement(payload.subscriber?.entitlements);
+  // Use a stable allowance key derived from the user + the entitlement
+  // expiration so a single sync request doesn't double-credit if the
+  // client retries within the same period. Mirrors how webhook events
+  // key allowance updates by event id.
+  const periodTag = active ? String(active.expiresMs) : "none";
+  const allowanceKey = `rc_sync_${userId}_${periodTag}`;
+
+  if (active) {
+    // Mirror upsertSubscriptionActive — RC says active premium.
+    const periodEnd = active.expiresAt;
+    const nowIso = new Date().toISOString();
+    const row: Partial<SubscriptionsTable> & { user_id: string; stripe_mode?: string } = {
+      user_id: userId,
+      status: "active",
+      plan: "premium",
+      price_id: active.productId,
+      current_period_end: periodEnd,
+      stripe_mode: RC_STRIPE_MODE_MARKER,
+      updated_at: nowIso,
+    };
+    const { error } = await serviceClient
+      .from("subscriptions")
+      .upsert(row, { onConflict: "user_id" });
+    if (error) {
+      logStep("Sync: subscriptions upsert failed", { userId, error: error.message, code: error.code }, correlationId);
+      const cls = classifyError(error);
+      // Permanent → 500 with a distinct reason so the client can avoid a
+      // pointless retry; transient → also 500, the client falls back to
+      // restored_pending either way (best-effort sync semantics).
+      return jsonResponse({ ok: false, reason: cls === "permanent" ? "db_permanent" : "db_transient" }, 500);
+    }
+    await serviceClient
+      .from("user_subscriptions")
+      .update({ plan: row.plan, updated_at: nowIso })
+      .eq("user_id", userId);
+    const allowanceResult = await setMonthlyAllowance(
+      serviceClient,
+      userId,
+      PREMIUM_MONTHLY_ALLOWANCE,
+      allowanceKey,
+    );
+    if (!allowanceResult.ok && !allowanceResult.duplicate) {
+      logStep(
+        "Sync: failed to set monthly allowance (continuing)",
+        { userId, reason: allowanceResult.reason },
+        correlationId,
+      );
+    }
+    logStep("Sync: reconciled active entitlement", { userId, periodEnd }, correlationId);
+    return jsonResponse({
+      ok: true,
+      action: "sync",
+      state: { plan: "premium", status: "active", current_period_end: periodEnd },
+    }, 200);
+  }
+
+  // No active entitlement — RC's source-of-truth says the user is not a
+  // paying subscriber. Mirror EXPIRATION semantics (status='canceled',
+  // plan='free', allowance reset). Best-effort downgrade — if the row
+  // doesn't exist the UPDATE is a no-op, which matches markSubscriptionEnded.
+  const nowIso = new Date().toISOString();
+  const { error: updErr } = await serviceClient
+    .from("subscriptions")
+    .update({
+      status: "canceled",
+      plan: "free",
+      stripe_mode: RC_STRIPE_MODE_MARKER,
+      updated_at: nowIso,
+    })
+    .eq("user_id", userId);
+  if (updErr) {
+    logStep("Sync: subscriptions downgrade failed", { userId, error: updErr.message, code: updErr.code }, correlationId);
+    // Non-fatal — the client treats inactive sync as no_purchases regardless.
+  }
+  await serviceClient
+    .from("user_subscriptions")
+    .update({ plan: "free", updated_at: nowIso })
+    .eq("user_id", userId);
+  const allowanceResult = await setMonthlyAllowance(serviceClient, userId, 0, allowanceKey);
+  if (!allowanceResult.ok && !allowanceResult.duplicate) {
+    logStep(
+      "Sync: failed to zero monthly allowance (continuing)",
+      { userId, reason: allowanceResult.reason },
+      correlationId,
+    );
+  }
+  logStep("Sync: no active entitlements — downgraded", { userId }, correlationId);
+  return jsonResponse({
+    ok: true,
+    action: "sync",
+    state: { plan: "free", status: "canceled", current_period_end: null },
+  }, 200);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -734,6 +1117,22 @@ serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  // Sync path dispatch — `?action=sync` switches to the authenticated
+  // client-triggered reconciliation flow. Done before the HMAC check so
+  // sync requests aren't rejected for missing the webhook signature header.
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action");
+  if (action === "sync") {
+    const supabaseUrlSync = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKeySync = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrlSync || !supabaseServiceKeySync) {
+      logStep("Sync: missing supabase env (early)");
+      return jsonResponse({ ok: false, reason: "server_misconfigured" }, 500);
+    }
+    const serviceClient = createClient(supabaseUrlSync, supabaseServiceKeySync);
+    return handleSyncRequest(req, serviceClient);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

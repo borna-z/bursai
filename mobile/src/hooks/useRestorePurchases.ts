@@ -46,6 +46,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError, Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import { restorePurchases } from '../lib/revenuecat';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+} from '../lib/edgeFunctionClient';
 
 export type RestorePurchasesResult =
   | { status: 'restored' }
@@ -85,6 +89,90 @@ function isPremiumActiveRow(row: {
 // every false as 'restored_pending', which let the success path fire
 // for a tap whose user already changed mid-poll.
 type PollOutcome = 'synced' | 'timeout' | 'cancelled';
+
+// Server-side reconciliation outcome — the result of calling
+// `revenuecat_webhook?action=sync` after the local poll times out.
+// Mapped from the edge function's response codes / shapes:
+//   'active'     → 200 with state.plan === 'premium' (RC says active)
+//   'inactive'   → 200 with state.plan === 'free'    (RC says inactive)
+//                  ALSO 404 (rc_subscriber_not_found) — RC has no record
+//                  of this app_user_id, so they're definitively not active.
+//   'pending'    → 503 (sync_unconfigured) — REST API key not provisioned
+//                  yet (M44). Client falls back to existing
+//                  'restored_pending' UX with no regression.
+//                  ALSO any 5xx / network failure — best-effort sync.
+//                  ALSO transient errors thrown out of callEdgeFunction.
+type SyncOutcome = 'active' | 'inactive' | 'pending';
+
+type SyncResponseBody = {
+  ok?: boolean;
+  reason?: string;
+  state?: { plan?: string | null; status?: string | null };
+};
+
+/**
+ * Best-effort server-side reconciliation against RevenueCat. Called when
+ * the local `subscriptions` poll times out — the SDK said the user has
+ * active entitlements but the webhook hasn't materialised the row.
+ *
+ * Never throws — every failure mode collapses to 'pending', preserving
+ * the pre-sync `restored_pending` UX.
+ *
+ * Codex review on PR #768 surfaced this gap: relying solely on a future
+ * webhook delivery means a misconfigured / down RC webhook leaves the
+ * user locked indefinitely. The sync path queries RC's REST API
+ * server-side and upserts the row directly.
+ */
+async function syncSubscriptionWithRevenueCat(): Promise<SyncOutcome> {
+  try {
+    const data = await callEdgeFunction<SyncResponseBody>(
+      'revenuecat_webhook?action=sync',
+      {
+        body: {},
+        // No retries — sync is best-effort. A transient failure should
+        // resolve to 'pending' and let the user try again later rather
+        // than burning the circuit breaker.
+        retries: 0,
+      },
+    );
+    if (data && data.ok === true && data.state) {
+      const plan = data.state.plan ?? null;
+      const status = data.state.status ?? null;
+      if (
+        (plan === 'premium' || plan === 'monthly' || plan === 'yearly') &&
+        (status === 'active' || status === 'trialing')
+      ) {
+        return 'active';
+      }
+      // ok=true with inactive state means RC genuinely says they're not
+      // active — surface as no_purchases at the call site.
+      return 'inactive';
+    }
+    // Unexpected ok=false body without a thrown error — treat as pending.
+    return 'pending';
+  } catch (err) {
+    // 404 from the edge function = RC has no record of this app_user_id.
+    // Definitively not active.
+    if (err instanceof EdgeFunctionHttpError && err.status === 404) {
+      return 'inactive';
+    }
+    // 503 (sync_unconfigured) and 5xx (rc_fetch_failed / rc_upstream_5xx /
+    // rc_bad_response / db_*) all degrade gracefully to 'pending'.
+    // Same for the client-side EdgeFunctionTimeoutError /
+    // EdgeFunctionCircuitOpenError / EdgeFunctionRateLimitError /
+    // generic transport failures. Best-effort contract.
+    Sentry.addBreadcrumb({
+      category: 'subscription',
+      level: 'warning',
+      message: 'restore_sync_fallback',
+      data: {
+        name: err instanceof Error ? err.name : 'unknown',
+        status: err instanceof EdgeFunctionHttpError ? err.status : null,
+      },
+    });
+    return 'pending';
+  }
+}
 
 async function pollForRestoredEntitlement(
   userId: string,
@@ -209,9 +297,35 @@ export function useRestorePurchases() {
         return { status: 'unsupported' };
       }
       // pollResult === 'timeout' — RC said yes; webhook hasn't landed
-      // within the window. Caller surfaces an "activating" alert
-      // (mirrors the purchase 'pending' path) so the user isn't told
-      // "restored" while still locked.
+      // within the window. Before falling back to the `restored_pending`
+      // UX, escalate to the server-side sync path
+      // (`revenuecat_webhook?action=sync`) which queries RC's REST API
+      // and upserts the `subscriptions` row directly. Closes the failure
+      // mode where the webhook never delivers (RC outage, dashboard
+      // misconfig, exhausted retries) — see findings-log 2026-05-08
+      // Codex round 2 on PR #768.
+      //
+      // After a successful sync, re-check the AuthContext user — a
+      // sign-out-during-sync race must not surface either the success
+      // alert or the cache invalidation for the new session.
+      const syncOutcome = await syncSubscriptionWithRevenueCat();
+      if (currentUserIdRef.current !== startUserId) {
+        return { status: 'unsupported' };
+      }
+      if (syncOutcome === 'active') {
+        return { status: 'restored' };
+      }
+      if (syncOutcome === 'inactive') {
+        // RC's source of truth says no active entitlements. The SDK's
+        // earlier `active` reading was stale (cached CustomerInfo);
+        // surface as no_purchases so the screen shows the empty-state
+        // alert rather than an activating-in-background message that
+        // will never resolve.
+        return { status: 'no_purchases' };
+      }
+      // syncOutcome === 'pending' — sync was unavailable (503
+      // sync_unconfigured pre-M44) or transient-failed. Fall back to
+      // the existing pre-sync UX so nothing regresses.
       return { status: 'restored_pending' };
     },
     onSuccess: (result, _vars, context) => {
