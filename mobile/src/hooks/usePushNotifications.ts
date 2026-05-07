@@ -148,13 +148,26 @@ export function useRegisterPushToken() {
       }
 
       // Permission negotiation — read first, prompt only when undetermined.
+      // PROVISIONAL (iOS quiet-delivery) is a terminal granted-equivalent
+      // state per the expo-notifications docs: the OS will deliver pushes
+      // silently to Notification Center without an alert prompt. Treating
+      // it as `denied` here would short-circuit token registration for
+      // every user who landed in iOS's quiet-delivery flow, leaving them
+      // unable to receive any pushes at all.
+      const isAllowed = (s: Notifications.PermissionStatus): boolean =>
+        s === Notifications.PermissionStatus.GRANTED ||
+        // Some SDK builds don't ship the PROVISIONAL enum member; fall
+        // back to a string-equality check so a missing enum doesn't
+        // false-negative legitimate provisional grants.
+        (Notifications.PermissionStatus as Record<string, string>).PROVISIONAL === s ||
+        String(s) === 'provisional';
       const existing = await Notifications.getPermissionsAsync();
       let finalStatus = existing.status;
-      if (existing.status !== Notifications.PermissionStatus.GRANTED) {
+      if (!isAllowed(existing.status)) {
         const requested = await Notifications.requestPermissionsAsync();
         finalStatus = requested.status;
       }
-      if (finalStatus !== Notifications.PermissionStatus.GRANTED) {
+      if (!isAllowed(finalStatus)) {
         return { registered: false, token: null, status: finalStatus, reason: 'denied' };
       }
 

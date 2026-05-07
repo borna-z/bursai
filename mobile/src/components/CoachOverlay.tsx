@@ -226,10 +226,16 @@ export function CoachOverlay({
   }, [targetRect, windowSize]);
 
   // Decide whether the caption block sits ABOVE or BELOW the target.
-  // Below by default; flip to above only if there isn't enough room
-  // beneath the cutout for the estimated block height. Keeps the caption
-  // visible on screens where the target is pinned to the bottom of the
-  // viewport (e.g. the FAB on MainTabs).
+  // Below by default; flip to above only when below doesn't fit AND above
+  // does. If neither side has room, fall through to the centered fallback
+  // (top/bottom both undefined → JSX site centers via `top: '50%'`).
+  //
+  // Field-report fix (2026-05-07): the prior heuristic picked ABOVE
+  // whenever `spaceAbove > spaceBelow`, even if `spaceAbove` was less than
+  // the estimated block height. On Dynamic-Island devices that pushed the
+  // captionWrap's TOP edge behind the notch, hiding the Skip / Next
+  // buttons that sit at the top of the card. The clamp below requires the
+  // chosen side to actually fit the estimated block within the safe area.
   const captionPlacement = React.useMemo<{
     top: number | undefined;
     bottom: number | undefined;
@@ -239,11 +245,21 @@ export function CoachOverlay({
     }
     const spaceBelow = windowSize.height - cutout.bottom - insets.bottom;
     const spaceAbove = cutout.top - insets.top;
-    if (spaceBelow >= CAPTION_BLOCK_ESTIMATED_HEIGHT || spaceBelow >= spaceAbove) {
+    if (spaceBelow >= CAPTION_BLOCK_ESTIMATED_HEIGHT) {
+      return { top: cutout.bottom + CAPTION_GAP, bottom: undefined };
+    }
+    if (spaceAbove >= CAPTION_BLOCK_ESTIMATED_HEIGHT) {
       return {
-        top: cutout.bottom + CAPTION_GAP,
-        bottom: undefined,
+        top: undefined,
+        bottom: windowSize.height - cutout.top + CAPTION_GAP,
       };
+    }
+    // Neither side fits — pick the larger one and clamp to the safe-area
+    // boundary so the block stays fully reachable even if it visually
+    // covers part of the cutout. Better to obscure the highlight than to
+    // strand the user with unreachable controls.
+    if (spaceBelow >= spaceAbove) {
+      return { top: cutout.bottom + CAPTION_GAP, bottom: undefined };
     }
     return {
       top: undefined,

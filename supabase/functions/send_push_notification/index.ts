@@ -27,6 +27,21 @@ import {
   checkOverload,
   overloadResponse,
 } from "../_shared/scale-guard.ts";
+import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
+import { logger } from "../_shared/logger.ts";
+
+const log = logger("send_push_notification");
+
+// Build a JSON Response with CORS headers — used for every successful exit
+// path so the idempotency store sees a consistent shape and the caller
+// always gets the right CORS surface. Status defaults to 200; error paths
+// pass their own status.
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
 
 type PushSubscriptionRow = {
   id: string;
@@ -99,6 +114,16 @@ Deno.serve(async (req) => {
 
     await enforceRateLimit(serviceClient, userId, "send_push_notification");
 
+    // Idempotency — scoped per (function, user, raw header key) so retried
+    // sends (network blip, client timeout) don't double-fan-out. Server-
+    // side analytics functions, cron jobs, and reliable callers should
+    // pass `x-idempotency-key`; absent header → behavior unchanged.
+    const idemScope = { functionName: "send_push_notification", userId };
+    const cached = await checkIdempotency(req, serviceClient, idemScope);
+    if (cached) return cached;
+
+    const startedAt = Date.now();
+
     const requestBody = await req.json().catch(() => ({}));
     const {
       title,
@@ -130,15 +155,19 @@ Deno.serve(async (req) => {
         .eq("id", userId)
         .maybeSingle();
       if (profileErr) {
-        console.warn(
-          "send_push_notification: profile read failed, defaulting prefs on:",
-          profileErr.message,
-        );
+        log.warn("profile read failed, defaulting prefs on", {
+          userId,
+          pref_key: prefKey,
+          error: profileErr.message,
+        });
       } else if (!isPrefOn(profileRow?.notification_prefs, prefKey)) {
-        return new Response(
-          JSON.stringify({ sent: 0, skipped: "pref_off", pref_key: prefKey }),
-          { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-        );
+        const response = jsonResponse({
+          sent: 0,
+          skipped: "pref_off",
+          pref_key: prefKey,
+        });
+        await storeIdempotencyResult(req, response, serviceClient, idemScope);
+        return response;
       }
     }
 
@@ -151,6 +180,10 @@ Deno.serve(async (req) => {
       .eq("user_id", userId);
 
     if (subErr) {
+      log.error("push_subscriptions read failed", {
+        userId,
+        error: subErr.message,
+      });
       return new Response(
         JSON.stringify({ error: "Failed to read push subscriptions" }),
         { status: 500, headers: CORS_HEADERS },
@@ -158,10 +191,9 @@ Deno.serve(async (req) => {
     }
 
     if (!subs || subs.length === 0) {
-      return new Response(
-        JSON.stringify({ sent: 0, message: "No subscriptions found" }),
-        { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-      );
+      const response = jsonResponse({ sent: 0, message: "No subscriptions found" });
+      await storeIdempotencyResult(req, response, serviceClient, idemScope);
+      return response;
     }
 
     const rows = subs as PushSubscriptionRow[];
@@ -208,28 +240,55 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         const reason = e instanceof Error ? e.message : String(e);
-        console.error(
-          `send_push_notification: ${provider} send failed for sub ${sub.id}:`,
-          reason,
-        );
+        log.exception("send threw outside SendResult shape", e, {
+          userId,
+          subId: sub.id,
+          provider,
+        });
         failures.push({ id: sub.id, provider, reason });
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        sent: sentExpo + sentWeb,
-        sent_expo: sentExpo,
-        sent_web: sentWeb,
-        failures: failures.length,
-      }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
+    const response = jsonResponse({
+      sent: sentExpo + sentWeb,
+      sent_expo: sentExpo,
+      sent_web: sentWeb,
+      failures: failures.length,
+    });
+
+    // Fire-and-forget analytics — captures per-send detail (counts,
+    // failures, pref bucket) that scale-guard's `logTelemetry` shape
+    // can't express (its event is AI-call-shaped). Direct insert mirrors
+    // the same `analytics_events` table + `metadata` blob pattern used
+    // internally by `logTelemetry`. Intentionally not awaited — a
+    // telemetry write failure must never block the user-visible
+    // response. The .then(noop, noop) tail consumes the PromiseLike
+    // builder so an unhandled-rejection never reaches the runtime.
+    serviceClient
+      .from("analytics_events")
+      .insert({
+        event_type: "push_send",
+        user_id: userId,
+        metadata: {
+          fn: "send_push_notification",
+          latency_ms: Date.now() - startedAt,
+          status: failures.length === 0 ? "ok" : "partial",
+          sent_expo: sentExpo,
+          sent_web: sentWeb,
+          failures: failures.length,
+          sub_count: rows.length,
+          pref_key: prefKey,
+        },
+      })
+      .then(() => {}, () => {});
+
+    await storeIdempotencyResult(req, response, serviceClient, idemScope);
+    return response;
   } catch (e) {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
     }
-    console.error("send_push_notification error:", e);
+    log.exception("unhandled error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }), {
       status: 500,
       headers: CORS_HEADERS,
@@ -289,9 +348,10 @@ async function sendExpoPush(
   // from Expo's perspective; we'd retry forever). Skip + warn instead.
   const serialized = JSON.stringify(message);
   if (serialized.length > 3500) {
-    console.warn(
-      `send_push_notification: expo payload too large (${serialized.length} bytes) for sub ${sub.id}`,
-    );
+    log.warn("expo payload too large", {
+      subId: sub.id,
+      bytes: serialized.length,
+    });
     return { delivered: false, reason: "expo_payload_too_large", cleanup: false };
   }
 

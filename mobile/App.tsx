@@ -378,9 +378,29 @@ const ALLOWED_DEEP_LINK_ROUTES: ReadonlySet<string> = new Set<string>([
   'Search',
 ]);
 
+// M30 review fix (2026-05-07) — bound the cold-launch retry loop. The
+// navigation container becomes ready a handful of ticks after mount; if a
+// pathological mount delay or an unmounted container kept us looping, the
+// previous unbounded recursion would burn CPU forever on a corner-case
+// payload. 20 attempts × 50 ms = ~1s upper bound — generous for any real
+// mount, decisive on a stuck one.
+const DEEP_LINK_MAX_RETRIES = 20;
+const DEEP_LINK_RETRY_DELAY_MS = 50;
+
+// Cap the JSON-serialized size of params before passing them to
+// `navigate`. React Navigation serializes params into route state; a
+// pathological push payload (`params: { x: <huge array> }`) could pin the
+// JS thread or OOM the state cache. 4 KB matches Expo's own push payload
+// ceiling, so any params surviving the wire are already inside this
+// bound — but a misconfigured server send shouldn't be load-bearing.
+const DEEP_LINK_PARAMS_MAX_BYTES = 4096;
+
 function useNotificationDeepLink(): void {
   useEffect(() => {
-    const handle = (response: Notifications.NotificationResponse | null): void => {
+    const handle = (
+      response: Notifications.NotificationResponse | null,
+      attempt = 0,
+    ): void => {
       if (!response) return;
       const data = response.notification.request.content.data as
         | Record<string, unknown>
@@ -396,19 +416,53 @@ function useNotificationDeepLink(): void {
         return;
       }
       // Wait for the navigation container to be ready — on cold launch the
-      // listener can fire before NavigationContainer mounts.
+      // listener can fire before NavigationContainer mounts. Capped retry
+      // (DEEP_LINK_MAX_RETRIES × DEEP_LINK_RETRY_DELAY_MS) so a stuck
+      // navigator can't loop indefinitely.
       if (!navigationRef.isReady()) {
-        // Retry on next tick. `setTimeout` is fine here; the navigation
-        // container becomes ready synchronously after the mount completes.
-        setTimeout(() => handle(response), 50);
+        if (attempt >= DEEP_LINK_MAX_RETRIES) {
+          Sentry.withScope((scope) => {
+            scope.setTag('source', 'push_deep_link');
+            scope.setContext('deep_link', { route, attempts: attempt });
+            Sentry.captureMessage(
+              'navigationRef never became ready for push deep link',
+              'warning',
+            );
+          });
+          return;
+        }
+        setTimeout(() => handle(response, attempt + 1), DEEP_LINK_RETRY_DELAY_MS);
         return;
+      }
+      // Validate params size before navigating — a misconfigured server
+      // push that ships an oversized blob would otherwise pin the JS
+      // thread serializing it into route state. Drops the params (still
+      // navigates) when over budget so the user lands on the route
+      // without the payload.
+      let paramsForNav: unknown = data?.params ?? undefined;
+      if (paramsForNav !== undefined) {
+        try {
+          const serializedSize = JSON.stringify(paramsForNav).length;
+          if (serializedSize > DEEP_LINK_PARAMS_MAX_BYTES) {
+            Sentry.addBreadcrumb({
+              category: 'push',
+              message: 'oversized_params_dropped',
+              data: { route, size: serializedSize },
+            });
+            paramsForNav = undefined;
+          }
+        } catch {
+          // JSON.stringify can throw on circular refs — drop the
+          // params and continue rather than block navigation.
+          paramsForNav = undefined;
+        }
       }
       // `navigate` is generic over the param list; the runtime check above
       // gates string routes only. We type-assert to the loose shape because
       // notification payloads carry untyped JSON.
       try {
         // @ts-expect-error — route name is dynamic; runtime-validated above.
-        navigationRef.navigate(route, data?.params);
+        navigationRef.navigate(route, paramsForNav);
       } catch (err) {
         // Silent catches in production = invisible failures. Surface to
         // Sentry with the route/params context so a regression in the
@@ -416,7 +470,7 @@ function useNotificationDeepLink(): void {
         // disappear into stdout.
         Sentry.withScope((scope) => {
           scope.setTag('source', 'push_deep_link');
-          scope.setContext('deep_link', { route, params: data?.params ?? null });
+          scope.setContext('deep_link', { route, params: paramsForNav ?? null });
           // Wrap non-Error throws so Sentry still gets a usable stack
           // trace. navigationRef.navigate normally throws Error, but the
           // ts-expect-error annotation above means the type system isn't
