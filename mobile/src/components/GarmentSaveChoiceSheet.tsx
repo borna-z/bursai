@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
+import { t as tr } from '../lib/i18n';
 import { Eyebrow } from './Eyebrow';
 import { SparklesIcon, ImageIcon } from './icons';
 
@@ -76,7 +77,7 @@ export function GarmentSaveChoiceSheet({
         ]}>
         <View style={[s.handle, { backgroundColor: t.border }]} />
 
-        <Eyebrow style={{ marginBottom: 6 }}>How to save</Eyebrow>
+        <Eyebrow style={{ marginBottom: 6 }}>{tr('addpiece.save.eyebrow')}</Eyebrow>
         <Text
           style={{
             fontFamily: fonts.displayMedium,
@@ -87,7 +88,7 @@ export function GarmentSaveChoiceSheet({
             letterSpacing: -0.22,
             marginBottom: 6,
           }}>
-          Save this garment
+          {tr('addpiece.save.title')}
         </Text>
         <Text
           style={{
@@ -97,14 +98,14 @@ export function GarmentSaveChoiceSheet({
             color: t.fg2,
             marginBottom: 18,
           }}>
-          Choose the version you want to save. Both options save right away.
+          {tr('addpiece.save.body')}
         </Text>
 
         {/* Studio quality — primary path; the renderer needs ~30-60s but the row is in
             the wardrobe immediately. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Save with studio quality — render finishes in the background"
+          accessibilityLabel={tr('addpiece.save.studio.aria')}
           accessibilityState={{ disabled: isSaving }}
           disabled={isSaving}
           onPress={onSelectStudio}
@@ -131,7 +132,7 @@ export function GarmentSaveChoiceSheet({
                 color: t.fg,
                 letterSpacing: -0.14,
               }}>
-              Studio quality
+              {tr('addpiece.save.studio.label')}
             </Text>
             <Text
               style={{
@@ -141,7 +142,7 @@ export function GarmentSaveChoiceSheet({
                 lineHeight: 17,
                 color: t.fg2,
               }}>
-              Save now and let the studio version finish in the background.
+              {tr('addpiece.save.studio.body')}
             </Text>
           </View>
         </Pressable>
@@ -150,7 +151,7 @@ export function GarmentSaveChoiceSheet({
             `render_status: 'none'` so the worker skips it permanently. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Save with the original photo — no studio render"
+          accessibilityLabel={tr('addpiece.save.original.aria')}
           accessibilityState={{ disabled: isSaving }}
           disabled={isSaving}
           onPress={onSelectOriginal}
@@ -178,7 +179,7 @@ export function GarmentSaveChoiceSheet({
                 color: t.fg,
                 letterSpacing: -0.14,
               }}>
-              Original photo
+              {tr('addpiece.save.original.label')}
             </Text>
             <Text
               style={{
@@ -188,14 +189,14 @@ export function GarmentSaveChoiceSheet({
                 lineHeight: 17,
                 color: t.fg2,
               }}>
-              Save the photo as it is with no studio processing.
+              {tr('addpiece.save.original.body')}
             </Text>
           </View>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Cancel"
+          accessibilityLabel={tr('common.cancel')}
           accessibilityState={{ disabled: isSaving }}
           disabled={isSaving}
           onPress={onClose}
@@ -211,7 +212,7 @@ export function GarmentSaveChoiceSheet({
               textTransform: 'uppercase',
               color: t.fg2,
             }}>
-            Cancel
+            {tr('common.cancel')}
           </Text>
         </Pressable>
       </View>

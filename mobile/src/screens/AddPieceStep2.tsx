@@ -42,6 +42,7 @@ import { IconBtn } from '../components/IconBtn';
 import { CloseIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyzeGarment } from '../hooks/useAnalyzeGarment';
+import { t as tr } from '../lib/i18n';
 import {
   resizeForGarment,
   uploadManipulatedImage,
@@ -59,12 +60,15 @@ type Route = RouteProp<RootStackParamList, 'AddPieceStep2'>;
 
 // Cycled every PHASE_INTERVAL_MS so the user sees apparent progress while the AI thinks.
 // The trailing "Still working" line keeps cycling so a slow analyze doesn't look hung.
-const PHASE_COPY = [
-  'Reading fabric…',
-  'Detecting colors…',
-  'Identifying category…',
-  'Almost there…',
-  'Still working — almost there…',
+// Resolved via tr() at render time so locale switches at runtime cycle the
+// translated copy on the next interval tick rather than capturing the
+// resolved-at-mount English values.
+const PHASE_KEYS = [
+  'addpiece.step2.phase.fabric',
+  'addpiece.step2.phase.colors',
+  'addpiece.step2.phase.category',
+  'addpiece.step2.phase.almost',
+  'addpiece.step2.phase.stillWorking',
 ];
 const PHASE_INTERVAL_MS = 1500;
 
@@ -106,11 +110,11 @@ export function AddPieceStep2() {
 
   const runAnalyzeAndUpload = useCallback(async () => {
     if (!photoUri) {
-      if (mountedRef.current) setErrorMsg('No photo to analyze');
+      if (mountedRef.current) setErrorMsg(tr('addpiece.step2.error.noPhoto'));
       return;
     }
     if (!user) {
-      if (mountedRef.current) setErrorMsg('Not signed in');
+      if (mountedRef.current) setErrorMsg(tr('addpiece.step2.error.notSignedIn'));
       return;
     }
     if (inFlightRef.current) return;
@@ -201,7 +205,7 @@ export function AddPieceStep2() {
         const fallbackAnalysis = await analyze({ storagePath: upRes.storagePath });
         if (!mountedRef.current) return;
         if (!fallbackAnalysis) {
-          setErrorMsg('Could not analyze photo');
+          setErrorMsg(tr('addpiece.step2.error.couldNotAnalyze'));
           return;
         }
         // Storage is already on disk; pass the path directly so Step 3 doesn't have
@@ -221,7 +225,7 @@ export function AddPieceStep2() {
       const analysis = await analyze({ base64 });
       if (!mountedRef.current) return;
       if (!analysis) {
-        setErrorMsg('Could not analyze photo');
+        setErrorMsg(tr('addpiece.step2.error.couldNotAnalyze'));
         return;
       }
 
@@ -244,7 +248,7 @@ export function AddPieceStep2() {
       });
     } catch (err) {
       if (!mountedRef.current) return;
-      const msg = err instanceof Error ? err.message : 'Upload failed';
+      const msg = err instanceof Error ? err.message : tr('addpiece.step2.error.uploadFailed');
       setErrorMsg(msg);
     } finally {
       inFlightRef.current = false;
@@ -285,7 +289,7 @@ export function AddPieceStep2() {
   useEffect(() => {
     if (errorMsg) return;
     const id = setInterval(() => {
-      setPhase((p) => Math.min(p + 1, PHASE_COPY.length - 1));
+      setPhase((p) => Math.min(p + 1, PHASE_KEYS.length - 1));
     }, PHASE_INTERVAL_MS);
     return () => clearInterval(id);
   }, [errorMsg]);
@@ -329,26 +333,26 @@ export function AddPieceStep2() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
       {/* ============ HEADER ============ */}
       <View style={[s.header, { borderBottomColor: t.border }]}>
-        <IconBtn variant="ghost" onPress={handleSkip} ariaLabel="Close">
+        <IconBtn variant="ghost" onPress={handleSkip} ariaLabel={tr('addpiece.step2.close')}>
           <CloseIcon color={t.fg} />
         </IconBtn>
         <View style={{ flex: 1 }}>
-          <Eyebrow style={{ marginBottom: 2 }}>Step 2 of 3</Eyebrow>
-          <PageTitle size={26}>Analyzing</PageTitle>
+          <Eyebrow style={{ marginBottom: 2 }}>{tr('addpiece.step2.headerEyebrow', { current: 2, total: 3 })}</Eyebrow>
+          <PageTitle size={26}>{tr('addpiece.step2.headerTitle')}</PageTitle>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Skip"
+          accessibilityLabel={tr('addpiece.step2.skip')}
           onPress={handleSkip}
           style={{ paddingHorizontal: 6, paddingVertical: 8 }}>
-          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2, fontWeight: '500' }}>Skip</Text>
+          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2, fontWeight: '500' }}>{tr('addpiece.step2.skip')}</Text>
         </Pressable>
       </View>
 
       {isError ? (
         <ErrorState
-          title="Couldn't analyze your photo"
-          body={errorMsg ?? 'Try again or pick a different photo.'}
+          title={tr('addpiece.step2.error.title')}
+          body={errorMsg ?? tr('addpiece.step2.error.body')}
           onRetry={() => void runAnalyzeAndUpload()}
         />
       ) : (
@@ -357,10 +361,10 @@ export function AddPieceStep2() {
               doesn't read awkwardly for the common single-piece flow. */}
           {hasExtras ? (
             <Eyebrow style={{ marginBottom: 12 }}>
-              Photo {currentIndex} of {totalCount}
+              {tr('addpiece.step2.progress.batch', { current: currentIndex, total: totalCount })}
             </Eyebrow>
           ) : (
-            <Eyebrow style={{ marginBottom: 12 }}>Working on it</Eyebrow>
+            <Eyebrow style={{ marginBottom: 12 }}>{tr('addpiece.step2.progress.single')}</Eyebrow>
           )}
 
           <ActivityIndicator size="large" color={t.accent} />
@@ -376,19 +380,18 @@ export function AddPieceStep2() {
               letterSpacing: -0.24,
               textAlign: 'center',
             }}>
-            {PHASE_COPY[phase]}
+            {tr(PHASE_KEYS[phase])}
           </Text>
 
           <Caption style={{ textAlign: 'center', marginTop: 8, maxWidth: 280 }}>
-            We'll have your garment ready in a moment.
+            {tr('addpiece.step2.progress.body')}
           </Caption>
 
           {/* Honest UX about W5's single-photo limit so the user isn't surprised when
               their other staged photos vanish after Save. */}
           {hasExtras ? (
             <Caption style={{ textAlign: 'center', marginTop: 14, opacity: 0.75, maxWidth: 280 }}>
-              Multi-photo batch is coming soon — only the first photo is being analyzed in this
-              version. The rest will need to be re-added.
+              {tr('addpiece.step2.progress.batchNote')}
             </Caption>
           ) : null}
         </View>

@@ -14,7 +14,8 @@
 import React from 'react';
 import * as Localization from 'expo-localization';
 
-import { en } from '../i18n/en';
+import { en } from '../i18n/locales/en';
+import { sv } from '../i18n/locales/sv';
 
 export type Locale =
   | 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
@@ -70,8 +71,11 @@ function interpolate(template: string, params?: TranslationParams): string {
 
 const DICTIONARIES: Record<Locale, Record<string, string>> = {
   en,
+  sv,
   // Other locales fall back to English until their dictionaries land.
-  sv: en, fr: en, de: en, es: en, it: en, ar: en, fa: en, pl: en, pt: en,
+  // The resolver `dict[key] ?? en[key] ?? key` means partial dictionaries
+  // are safe — any unset Swedish key resolves to its English value.
+  fr: en, de: en, es: en, it: en, ar: en, fa: en, pl: en, pt: en,
 };
 
 export function t(key: string, params?: TranslationParams): string {

@@ -22,7 +22,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { useStyleDNA } from '../hooks/useStyleDNA';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
-import { t as tr } from '../lib/i18n';
+import { t as tr, getLocale, type Locale } from '../lib/i18n';
 import {
   GlobeIcon,
   PaletteIcon,
@@ -43,6 +43,23 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // the displayed version in lock-step with the binary that ships, so we don't
 // drift back into hardcoded mismatches when the version bumps.
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+// Endonyms for the language row's value column. Showing each language in its
+// own script + capitalisation matches platform conventions (iOS Settings ▸
+// Language uses the same convention) and avoids the "Swedish" label appearing
+// for a user who has the device set to Swedish.
+const LOCALE_LABELS: Record<Locale, string> = {
+  en: 'English',
+  sv: 'Svenska',
+  fr: 'Français',
+  de: 'Deutsch',
+  es: 'Español',
+  it: 'Italiano',
+  ar: 'العربية',
+  fa: 'فارسی',
+  pl: 'Polski',
+  pt: 'Português',
+};
 
 export function SettingsScreen() {
   const t = useTokens();
@@ -68,7 +85,7 @@ export function SettingsScreen() {
     return joined.length > 0 ? joined : undefined;
   })();
 
-  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Your profile';
+  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? tr('settings.profile.fallbackName');
   const accountEmail = user?.email ?? '';
   const initial = (displayName.trim().charAt(0) || 'U').toUpperCase();
 
@@ -92,10 +109,10 @@ export function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(tr('settings.signOut.confirm.title'), tr('settings.signOut.confirm.body'), [
+      { text: tr('common.cancel'), style: 'cancel' },
       {
-        text: 'Sign out',
+        text: tr('settings.signOut.label'),
         style: 'destructive',
         onPress: async () => {
           await signOut();
@@ -115,22 +132,19 @@ export function SettingsScreen() {
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Account</Eyebrow>
-            <PageTitle>Settings</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{tr('settings.header.eyebrow')}</Eyebrow>
+            <PageTitle>{tr('settings.header.title')}</PageTitle>
             {/* M29 — wardrobe-count badge. Quiet caption below the title;
                 hidden until the count resolves (no skeleton in this slot
                 because the page itself doesn't block on the query). */}
             {wardrobeStats && wardrobeStats.garmentCount > 0 ? (
               <Caption style={{ marginTop: 4 }}>
-                {tr('settings.wardrobeBadgeTemplate').replace(
-                  '{count}',
-                  String(wardrobeStats.garmentCount),
-                )}
+                {tr('settings.wardrobeBadgeTemplate', { count: wardrobeStats.garmentCount })}
               </Caption>
             ) : null}
           </View>
           <IconBtn
-            ariaLabel="Profile"
+            ariaLabel={tr('settings.profile.aria')}
             onPress={() => nav.navigate('Profile')}
             style={{ backgroundColor: t.accent, borderColor: 'transparent' }}>
             <Text style={{ color: t.accentFg, fontFamily: fonts.uiSemi, fontSize: 14, fontWeight: '600' }}>
@@ -148,7 +162,7 @@ export function SettingsScreen() {
             real entitlement state from the RC customer info. */}
 
         {/* ============ PROFILE SECTION ============ */}
-        <Section title="Profile">
+        <Section title={tr('settings.section.profile')}>
           <SettingsRow
             icon={
               <View
@@ -171,27 +185,27 @@ export function SettingsScreen() {
           />
           <SettingsRow
             icon={<GlobeIcon size={18} color={t.accent} />}
-            title="Language"
-            value="English"
+            title={tr('settings.row.language')}
+            value={LOCALE_LABELS[getLocale()] ?? LOCALE_LABELS.en}
             last
             onPress={() =>
-              Alert.alert('Language', 'Change language in your style profile.')
+              Alert.alert(tr('settings.languageAlert.title'), tr('settings.languageAlert.body'))
             }
           />
         </Section>
 
         {/* ============ STYLE SECTION ============ */}
-        <Section title="Style">
+        <Section title={tr('settings.section.style')}>
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}
-            title="Style profile"
+            title={tr('settings.row.styleProfile')}
             caption={styleProfileCaption}
             onPress={() => nav.navigate('SettingsStyle')}
           />
           <SettingsRow
             icon={<TrashIcon size={18} color={t.destructive} />}
-            title="Reset style memory"
-            caption="Clears learned preferences only"
+            title={tr('settings.row.resetMemory')}
+            caption={tr('settings.row.resetMemory.caption')}
             destructive
             last
             onPress={() => setResetOpen(true)}
@@ -199,54 +213,54 @@ export function SettingsScreen() {
         </Section>
 
         {/* ============ APP SECTION ============ */}
-        <Section title="App">
+        <Section title={tr('settings.section.app')}>
           <SettingsRow
             icon={<PaletteIcon size={18} color={t.accent} />}
-            title="Appearance"
-            value="System"
+            title={tr('settings.row.appearance')}
+            value={tr('settings.row.appearance.value')}
             onPress={() => nav.navigate('SettingsAppearance')}
           />
           <SettingsRow
             icon={<BellIcon size={18} color={t.accent} />}
-            title="Notifications"
-            caption="Daily looks · weather · stylist"
+            title={tr('settings.row.notifications')}
+            caption={tr('settings.row.notifications.caption')}
             last
             onPress={() => nav.navigate('SettingsNotifications')}
           />
         </Section>
 
         {/* ============ ACCOUNT & DATA ============ */}
-        <Section title="Account & data">
+        <Section title={tr('settings.section.accountData')}>
           <SettingsRow
             icon={<GearIcon size={18} color={t.accent} />}
-            title="Account"
-            caption="Email, password, connected accounts"
+            title={tr('settings.row.account')}
+            caption={tr('settings.row.account.caption')}
             onPress={() => nav.navigate('SettingsAccount')}
           />
           <SettingsRow
             icon={<LockIcon size={18} color={t.accent} />}
-            title="Privacy & data"
-            caption="Export, reset memory, delete account"
+            title={tr('settings.row.privacy')}
+            caption={tr('settings.row.privacy.caption')}
             last
             onPress={() => nav.navigate('SettingsPrivacy')}
           />
         </Section>
 
         {/* ============ LEGAL SECTION ============ */}
-        <Section title="Legal">
+        <Section title={tr('settings.section.legal')}>
           <SettingsRow
             icon={<ShieldIcon size={18} color={t.accent} />}
-            title="Privacy policy"
+            title={tr('settings.row.privacyPolicy')}
             onPress={() => Linking.openURL('https://burs.me/privacy')}
           />
           <SettingsRow
             icon={<FileIcon size={18} color={t.accent} />}
-            title="Terms of service"
+            title={tr('settings.row.terms')}
             onPress={() => Linking.openURL('https://burs.me/terms')}
           />
           <SettingsRow
             icon={<MailIcon size={18} color={t.accent} />}
-            title="App version"
+            title={tr('settings.row.appVersion')}
             value={APP_VERSION}
             hideChevron
             last
@@ -257,7 +271,7 @@ export function SettingsScreen() {
         <View style={{ marginTop: 6 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Sign out"
+            accessibilityLabel={tr('settings.signOut.label')}
             onPress={handleSignOut}
             style={({ pressed }) => [
               {
@@ -271,7 +285,7 @@ export function SettingsScreen() {
               },
             ]}>
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: t.destructive, fontWeight: '600', letterSpacing: -0.13 }}>
-              Sign out
+              {tr('settings.signOut.label')}
             </Text>
           </Pressable>
           <Text
@@ -283,7 +297,7 @@ export function SettingsScreen() {
               marginTop: 12,
               letterSpacing: 0.4,
             }}>
-            BURS · {APP_VERSION}
+            {tr('settings.footer', { version: APP_VERSION })}
           </Text>
         </View>
       </ScrollView>
