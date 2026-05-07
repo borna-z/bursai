@@ -5,7 +5,7 @@
 // Why not @react-navigation/bottom-tabs? The design's center FAB pushes onto the parent stack,
 // not "switches tab," so a custom container is simpler than a custom tabBar component.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type RouteProp, useRoute } from '@react-navigation/native';
@@ -13,6 +13,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { BottomNav, type TabId } from '../components/BottomNav';
 import { OfflineBanner } from '../components/OfflineBanner';
+import { CoachOverlay } from '../components/CoachOverlay';
+import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
+import { t as tr } from '../lib/i18n';
 import { HomeScreen } from './HomeScreen';
 import { WardrobeScreen } from './WardrobeScreen';
 import { PlanScreen } from './PlanScreen';
@@ -36,6 +39,17 @@ export function MainTabsScreen() {
   useEffect(() => {
     if (paramTab) setTab(paramTab);
   }, [paramTab]);
+
+  // M27 — first-run coach overlay step 3 (FAB on the BottomNav). The
+  // FAB is the gold (+) button between Wardrobe and Plan. We wrap the
+  // entire BottomNav in a measurable View ref; CoachOverlay's cutout
+  // ends up highlighting the whole capsule pill. Targeting just the
+  // FAB would require threading a ref into BottomNav — the wider
+  // highlight reads cleanly and the caption ("Tap (+) to add a piece")
+  // makes the intent unambiguous.
+  const coach = useFirstRunCoach();
+  const fabRef = useRef<View | null>(null);
+  const showFabCoach = coach.shouldShow && coach.currentStep === 2;
 
   return (
     <View style={{ flex: 1 }}>
@@ -64,10 +78,26 @@ export function MainTabsScreen() {
         style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
         <OfflineBanner />
       </View>
-      <BottomNav
-        active={tab}
-        onTab={setTab}
-        onAdd={() => nav.navigate('AddPieceStep1')}
+      <View ref={fabRef} collapsable={false}>
+        <BottomNav
+          active={tab}
+          onTab={setTab}
+          onAdd={() => nav.navigate('AddPieceStep1')}
+        />
+      </View>
+
+      {/* M27 — first-run coach overlay step 3 (FAB / Add). Surfaced from
+          the tab container so it always lives above whichever tab is
+          active; cutout pinpoints the BottomNav capsule. */}
+      <CoachOverlay
+        visible={showFabCoach}
+        targetRef={fabRef}
+        caption={tr('coachTour.step.add')}
+        ctaLabel={tr('coachTour.next')}
+        onNext={coach.advance}
+        onSkip={coach.skip}
+        step={3}
+        total={COACH_TOUR_TOTAL}
       />
     </View>
   );

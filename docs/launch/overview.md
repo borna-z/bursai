@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M27 — Coach tour |
-| **CURRENT WAVE FILE** | [`waves/m27-coach-tour.md`](waves/m27-coach-tour.md) |
+| **CURRENT WAVE** | M28 — Travel capsule end-to-end |
+| **CURRENT WAVE FILE** | [`waves/m28-travel-capsule.md`](waves/m28-travel-capsule.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -134,7 +134,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 |---|---|---|---|
 | ) | V0 |
 | ) | V0 |
-| M27 | [Coach tour](waves/m27-coach-tour.md) | TODO | V0 |
+| M27 | [Coach tour](waves/m27-coach-tour.md) | DONE (PR #TBD) | V0 |
 
 ### Existing baseline depth (ported from prior M0–M14 plan)
 | Wave | File | Status | Depends on |

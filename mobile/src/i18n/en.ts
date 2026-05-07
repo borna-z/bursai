@@ -833,4 +833,49 @@ export const en: Record<string, string> = {
   'onboarding.accentColor.swatch.amber': 'Amber',
   'onboarding.accentColor.swatch.plum': 'Plum',
   'onboarding.accentColor.swatch.charcoal': 'Charcoal',
+
+  // ─── M27 — PhotoTutorialStep (onboarding) ──────────────────────────────
+  // Single-screen "how to scan a garment" tutorial inserted between
+  // AccentColorStep and StudioSelectionStep. Other 9 locales fall back
+  // to en until M33 ports the dictionary.
+  'onboarding.photoTutorial.eyebrow': 'How to scan',
+  'onboarding.photoTutorial.title': 'Take a great garment photo',
+  'onboarding.photoTutorial.intro':
+    'A minute here saves hours later. A few quick rules and we’re off.',
+  'onboarding.photoTutorial.good.title': 'Flat, well-lit, full garment',
+  'onboarding.photoTutorial.good.bullets.0':
+    'Bright, even light — daylight near a window works best.',
+  'onboarding.photoTutorial.good.bullets.1':
+    'Plain background — lay the piece flat on a bed, floor, or wall.',
+  'onboarding.photoTutorial.good.bullets.2':
+    'Whole garment in frame — show the full piece edge to edge.',
+  'onboarding.photoTutorial.good.bullets.3':
+    'No people — keep hands, mirrors, and faces out of the shot.',
+  'onboarding.photoTutorial.bad.title': 'Dim, cluttered, or cropped',
+  'onboarding.photoTutorial.bad.bullets.0':
+    'Avoid harsh shadows, moody side-light, or low-light corners.',
+  'onboarding.photoTutorial.bad.bullets.1':
+    'Skip busy patterned backgrounds — they confuse the AI.',
+  'onboarding.photoTutorial.bad.bullets.2':
+    'Don’t crop sleeves, hems, or hardware out of frame.',
+  'onboarding.photoTutorial.bad.bullets.3':
+    'Don’t photograph the garment on a person or mannequin.',
+  'onboarding.photoTutorial.continue': 'Continue',
+  'onboarding.photoTutorial.skip': 'Skip',
+
+  // ─── M27 — Coach tour (post-onboarding overlay sequence) ───────────────
+  // 4-step Home → Wardrobe → Add → Outfits walk-through. State persists
+  // to `profiles.preferences.coach_tour_completed_at` (ISO timestamp).
+  'coachTour.step.home':
+    "Today's outfit goes here — your daily plan starts on this card.",
+  'coachTour.step.wardrobe':
+    'Your garments live here — every piece you scan lands in this grid.',
+  'coachTour.step.add':
+    'Tap (+) to add a piece — the gold button is your fastest path in.',
+  'coachTour.step.outfits':
+    'Saved outfits land here — the looks you generate or save show up in this list.',
+  'coachTour.next': 'Next',
+  'coachTour.skip': 'Skip',
+  'coachTour.done': 'Done',
+  'coachTour.progressTemplate': '{current} of {total}',
 };
