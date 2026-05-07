@@ -397,6 +397,14 @@ const DEEP_LINK_PARAMS_MAX_BYTES = 4096;
 
 function useNotificationDeepLink(): void {
   useEffect(() => {
+    // Concurrent-tap race (Reviewer D 2nd-pass on PR #763): if the user
+    // taps push A, navigationRef isn't ready, retry loop fires, then
+    // they tap push B mid-loop, both `handle` invocations recurse
+    // independently with their own `attempt` counters. Both eventually
+    // call `navigate` and last-write-wins for the visible route.
+    // Acceptable — no CPU / memory hazard (each capped at
+    // DEEP_LINK_MAX_RETRIES) and the user-visible outcome is "the push
+    // you tapped most recently is where you land" almost always.
     const handle = (
       response: Notifications.NotificationResponse | null,
       attempt = 0,

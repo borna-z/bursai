@@ -27,7 +27,6 @@ import {
   checkOverload,
   overloadResponse,
 } from "../_shared/scale-guard.ts";
-import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
 import { logger } from "../_shared/logger.ts";
 
 const log = logger("send_push_notification");
@@ -112,19 +111,18 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
 
-    // Idempotency BEFORE rate-limit — canonical pattern per
-    // `_shared/idempotency.ts:9-20` and the `delete_user_account` shape.
-    // A legitimate retry of a successful send (network blip, client
-    // timeout) carrying the same `x-idempotency-key` MUST replay from
-    // cache rather than burn a rate-limit token and 429. Both reviewers
-    // (A + B) on PR #763 flagged the prior ordering as breaking the
-    // retry contract for clients on the rate-limit boundary.
-    const idemScope = { functionName: "send_push_notification", userId };
-    const cached = await checkIdempotency(req, serviceClient, idemScope);
-    if (cached) return cached;
-
     await enforceRateLimit(serviceClient, userId, "send_push_notification");
 
+    // Idempotency intentionally DEFERRED (Reviewer D on PR #763): no
+    // current caller passes `x-idempotency-key`, AND the shared
+    // `_shared/idempotency.ts` helpers key on the raw header without
+    // body-hashing. Adopting them here without a body-aware key would
+    // ship a feature that's simultaneously inert (no current consumers)
+    // AND landmined (a future date-keyed caller, e.g.
+    // `daily-${userId}-${YYYY-MM-DD}`, would have request B replay
+    // request A's cached counts). Re-add when (a) a real caller exists
+    // and (b) the key includes a body hash — see memory_ingest's
+    // sha256(body) fallback for the canonical defensive pattern.
     const startedAt = Date.now();
 
     const requestBody = await req.json().catch(() => ({}));
@@ -164,13 +162,11 @@ Deno.serve(async (req) => {
           error: profileErr.message,
         });
       } else if (!isPrefOn(profileRow?.notification_prefs, prefKey)) {
-        const response = jsonResponse({
+        return jsonResponse({
           sent: 0,
           skipped: "pref_off",
           pref_key: prefKey,
         });
-        await storeIdempotencyResult(req, response, serviceClient, idemScope);
-        return response;
       }
     }
 
@@ -183,20 +179,15 @@ Deno.serve(async (req) => {
       .eq("user_id", userId);
 
     if (subErr) {
-      log.error("push_subscriptions read failed", {
-        userId,
-        error: subErr.message,
-      });
-      // 500 path intentionally NOT cached via storeIdempotencyResult —
-      // transient DB errors should be retryable rather than poisoning
-      // the cache with a failure for the next 5 minutes.
+      // log.exception (not log.error) so the structured exception path
+      // surfaces to Sentry alongside the catch-all at the bottom of the
+      // function — Reviewer C 2nd-pass observability nit.
+      log.exception("push_subscriptions read failed", subErr, { userId });
       return jsonResponse({ error: "Failed to read push subscriptions" }, 500);
     }
 
     if (!subs || subs.length === 0) {
-      const response = jsonResponse({ sent: 0, message: "No subscriptions found" });
-      await storeIdempotencyResult(req, response, serviceClient, idemScope);
-      return response;
+      return jsonResponse({ sent: 0, message: "No subscriptions found" });
     }
 
     const rows = subs as PushSubscriptionRow[];
@@ -252,8 +243,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    const sentTotal = sentExpo + sentWeb;
     const response = jsonResponse({
-      sent: sentExpo + sentWeb,
+      sent: sentTotal,
       sent_expo: sentExpo,
       sent_web: sentWeb,
       failures: failures.length,
@@ -264,9 +256,19 @@ Deno.serve(async (req) => {
     // can't express (its event is AI-call-shaped). Direct insert mirrors
     // the same `analytics_events` table + `metadata` blob pattern used
     // internally by `logTelemetry`. Intentionally not awaited — a
-    // telemetry write failure must never block the user-visible
-    // response. The .then(noop, noop) tail consumes the PromiseLike
-    // builder so an unhandled-rejection never reaches the runtime.
+    // telemetry write failure must never block the user-visible response.
+    //
+    // Status taxonomy (Reviewer D 2nd-pass on PR #763):
+    //   "ok"      — every row delivered
+    //   "partial" — some rows delivered, some failed (degraded)
+    //   "fail"    — zero rows delivered (full outage for this user)
+    // Distinguishing "fail" from "partial" lets dashboards surface
+    // total-failure spikes that "partial" alone would smear over.
+    let telemetryStatus: "ok" | "partial" | "fail";
+    if (failures.length === 0) telemetryStatus = "ok";
+    else if (sentTotal === 0) telemetryStatus = "fail";
+    else telemetryStatus = "partial";
+
     serviceClient
       .from("analytics_events")
       .insert({
@@ -275,7 +277,7 @@ Deno.serve(async (req) => {
         metadata: {
           fn: "send_push_notification",
           latency_ms: Date.now() - startedAt,
-          status: failures.length === 0 ? "ok" : "partial",
+          status: telemetryStatus,
           sent_expo: sentExpo,
           sent_web: sentWeb,
           failures: failures.length,
@@ -283,9 +285,20 @@ Deno.serve(async (req) => {
           pref_key: prefKey,
         },
       })
-      .then(() => {}, () => {});
+      .then(
+        () => {},
+        // Surface analytics-write failures to logs (and Sentry via
+        // `log.warn`'s structured emit) instead of silently swallowing —
+        // Reviewer D 2nd-pass nit. If `analytics_events` writes start
+        // failing (column drift, RLS regression), we'd otherwise lose
+        // the signal entirely.
+        (err) =>
+          log.warn("analytics_events insert failed", {
+            userId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+      );
 
-    await storeIdempotencyResult(req, response, serviceClient, idemScope);
     return response;
   } catch (e) {
     if (e instanceof RateLimitError) {
