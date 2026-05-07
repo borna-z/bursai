@@ -24,8 +24,8 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { ListRow } from '../components/ListRow';
 import { ErrorState } from '../components/ErrorState';
-import { ConditionBadge } from '../components/ConditionBadge';
-import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
+import { ConditionBadge, tierForScore } from '../components/ConditionBadge';
+import { BackIcon, CloseIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
@@ -158,6 +158,20 @@ export function GarmentDetailScreen() {
   // free tier; route to PaywallScreen once per screen lifetime so a
   // dismiss + retap doesn't re-pop the modal in a loop. Same pattern as
   // M17 / M18 / M19. Released on focus regain (returning from Paywall).
+  //
+  // The latch is reset from TWO sources by design and the duplication is
+  // deliberate (Codex P2 on PR #747):
+  //   1. The effect's "error transitioned away from sentinel" branch
+  //      releases when the hook itself moves to a non-paywall state — e.g.
+  //      a successful re-assess after the user upgrades, or a network
+  //      error replacing the sentinel. The user is still on this screen.
+  //   2. The `useFocusEffect` releases on focus regain — covers the
+  //      Paywall → back-to-detail navigation case where the error string
+  //      may not have changed (the user dismissed without subscribing) but
+  //      the screen lifecycle has crossed a boundary that should re-arm
+  //      the modal for an explicit retap.
+  // Both are needed: lifecycle-only would miss in-place transitions;
+  // effect-only would miss the dismiss-without-change path.
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
     if (assessError === 'subscription_required' && !paywallShownRef.current) {
@@ -200,15 +214,51 @@ export function GarmentDetailScreen() {
     };
   }, [garment?.condition_score, garment?.condition_notes]);
 
-  // The freshly-returned assessment from the hook wins over the persisted
-  // shape until `useGarment` refetches and the persisted view catches up.
-  // Once both reflect the same score, persistedAssessment takes over (it
-  // also survives screen unmounts).
-  const activeAssessment = liveAssessment ?? persistedAssessment;
+  // Merge live (in-memory hook result) and persisted (server scalars on
+  // the garment row) into a single render-time view.
+  //
+  // Mobile is intentionally tolerant of forward-compat arrays: today the
+  // server only persists `condition_score` + `condition_notes`, but the
+  // hook reserves `wear_signals` / `repair_recommendations` so a future
+  // server enrichment lights up the sheet without a hook bump. Until
+  // those columns exist server-side, the freshly-returned `liveAssessment`
+  // is the only place those arrays can ever be non-empty for a given
+  // garment, even after the garment query refetches.
+  //
+  // Strategy: prefer `persistedAssessment` for the canonical score (it
+  // survives unmount and matches what the AI just persisted), but fold in
+  // the live arrays when both sides describe the same garment. If only
+  // one side exists, use it as-is. Codex P2 on PR #747.
+  const activeAssessment = React.useMemo<ConditionAssessment | null>(() => {
+    if (!liveAssessment && !persistedAssessment) return null;
+    if (!persistedAssessment) return liveAssessment;
+    if (!liveAssessment) return persistedAssessment;
+    return {
+      ...persistedAssessment,
+      // Preserve forward-compat tags from the live response — the
+      // persisted shape never carries them today.
+      wear_signals: liveAssessment.wear_signals.length > 0
+        ? liveAssessment.wear_signals
+        : persistedAssessment.wear_signals,
+      repair_recommendations: liveAssessment.repair_recommendations.length > 0
+        ? liveAssessment.repair_recommendations
+        : persistedAssessment.repair_recommendations,
+      // Prefer the live summary while it's around (most recent run); fall
+      // back to the persisted note otherwise.
+      summary: liveAssessment.summary ?? persistedAssessment.summary ?? null,
+      assessed_at: liveAssessment.assessed_at ?? persistedAssessment.assessed_at ?? null,
+    };
+  }, [liveAssessment, persistedAssessment]);
 
   const handleCheckCondition = React.useCallback(() => {
     if (!id) return;
     hapticLight();
+    // Symmetric with `handleReassess`: release the paywall latch before
+    // re-firing so an explicit user-initiated check on the free tier can
+    // re-route to the paywall even if the hook's previous error is still
+    // the `'subscription_required'` sentinel (the focus-regain reset is
+    // the safety net for the back-from-Paywall path). Codex P2 on PR #747.
+    paywallShownRef.current = false;
     void assessCondition(id);
   }, [id, assessCondition]);
 
@@ -523,6 +573,10 @@ export function GarmentDetailScreen() {
                 size="sm"
                 disabled={isAssessing}
                 onPress={handleCheckCondition}
+                accessibilityState={{ disabled: isAssessing, busy: isAssessing }}
+                leadingIcon={
+                  isAssessing ? <ActivityIndicator size="small" color={t.fg} /> : undefined
+                }
               />
             </View>
             <View style={[s.fieldGroup, { backgroundColor: t.card, borderColor: t.border }]}>
@@ -627,7 +681,10 @@ function ConditionDetailSheet({
   const score = Number.isFinite(assessment.condition_score)
     ? Math.max(0, Math.min(100, Math.round(assessment.condition_score)))
     : 0;
-  const tier: 'good' | 'fair' | 'poor' = score >= 80 ? 'good' : score >= 50 ? 'fair' : 'poor';
+  // Single source of truth for tier classification — shared with the
+  // ConditionBadge so the sheet's large numeral and the inline pill can
+  // never drift out of sync. (Codex P3 on PR #747.)
+  const tier = tierForScore(score);
   const tierColor = tier === 'good' ? t.accent : tier === 'poor' ? t.destructive : t.fg;
 
   return (
@@ -650,8 +707,32 @@ function ConditionDetailSheet({
         ]}>
         <View style={[sheetStyles.handle, { backgroundColor: t.border }]} />
 
+        {/* P1.2 — explicit close affordance. The backdrop tap also dismisses,
+            but VoiceOver / TalkBack users need a discoverable button inside
+            the sheet card. Top-right placement matches platform convention
+            for modal close. (Codex P1 on PR #747.) */}
+        <View style={sheetStyles.closeBtnWrap}>
+          <IconBtn
+            ariaLabel={tr('condition.closeSheet')}
+            variant="ghost"
+            onPress={onClose}>
+            <CloseIcon color={t.fg} />
+          </IconBtn>
+        </View>
+
         <Eyebrow style={{ marginBottom: 6 }}>Condition</Eyebrow>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 14 }}>
+        {/* P1.1 — score block dims while a re-assessment is in flight so
+            the surface communicates that the displayed score is stale.
+            Paired with the inline ActivityIndicator on the disabled
+            Re-assess button below. (Codex P1 on PR #747.) */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'baseline',
+            gap: 10,
+            marginBottom: 14,
+            opacity: isAssessing ? 0.4 : 1,
+          }}>
           <Text
             style={{
               fontFamily: fonts.displayMedium,
@@ -732,6 +813,10 @@ function ConditionDetailSheet({
           block
           disabled={isAssessing}
           onPress={onReassess}
+          accessibilityState={{ disabled: isAssessing, busy: isAssessing }}
+          leadingIcon={
+            isAssessing ? <ActivityIndicator size="small" color={t.fg} /> : undefined
+          }
         />
       </View>
     </Modal>
@@ -757,6 +842,12 @@ const sheetStyles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginBottom: 16,
+  },
+  closeBtnWrap: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
   },
 });
 

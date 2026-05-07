@@ -55,7 +55,11 @@ export function ConditionBadge({ assessment, onTap, style }: ConditionBadgeProps
       case 'good':
         return { bg: t.accentSoft, fg: t.accent, border: 'transparent' as const };
       case 'fair':
-        return { bg: t.card, fg: t.fg, border: t.border };
+        // Background uses `bg2` (not `card`) so the fair-tier badge stays
+        // distinct from adjacent `card`-backed surfaces — most notably the
+        // GarmentDetail Info-tab fieldGroup, which renders on `t.card` and
+        // would otherwise visually swallow the badge. (Codex P2 on PR #747.)
+        return { bg: t.bg2, fg: t.fg, border: t.border };
       case 'poor':
       default:
         return { bg: t.destructiveSoft, fg: t.destructive, border: 'transparent' as const };

@@ -84,14 +84,20 @@ type AssessConditionResponse = {
 /** Coerces an arbitrary `unknown` into `string[]`, dropping anything that
  *  isn't a non-empty string after trimming. Used so a future server
  *  enrichment can hand the hook structured arrays without breaking
- *  consumers when those arrays are missing today. */
+ *  consumers when those arrays are missing today. Duplicates are dropped
+ *  (case-sensitive trimmed equality) so consumers can safely use the
+ *  string itself as a React key without collision. (Codex P3 on PR #747.) */
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const out: string[] = [];
+  const seen = new Set<string>();
   for (const v of value) {
     if (typeof v !== 'string') continue;
     const trimmed = v.trim();
-    if (trimmed.length > 0) out.push(trimmed);
+    if (trimmed.length === 0) continue;
+    if (seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
   }
   return out;
 }

@@ -487,4 +487,5 @@ export const en: Record<string, string> = {
   'condition.error.network': "Couldn't reach the assessor. Try again in a moment.",
   'condition.openHint': 'Opens the full condition breakdown',
   'condition.empty': 'No assessment yet.',
+  'condition.closeSheet': 'Close condition details',
 };
