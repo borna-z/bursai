@@ -9,10 +9,10 @@
 // in wired screens" rule.
 
 import React from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -24,13 +24,16 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { ListRow } from '../components/ListRow';
 import { ErrorState } from '../components/ErrorState';
+import { ConditionBadge } from '../components/ConditionBadge';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
+import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { localISODate } from '../lib/outfitDisplay';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
+import { t as tr } from '../lib/i18n';
 import type { Garment } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -142,7 +145,101 @@ export function GarmentDetailScreen() {
   const markLaundry = useMarkLaundry();
   const deleteGarment = useDeleteGarment();
 
+  const {
+    assessment: liveAssessment,
+    isAssessing,
+    error: assessError,
+    assess: assessCondition,
+    reset: resetAssessCondition,
+  } = useAssessCondition();
+
+  // M21 — paywall sticky-ref. The hook surfaces the
+  // `'subscription_required'` sentinel via `error` when the user is on the
+  // free tier; route to PaywallScreen once per screen lifetime so a
+  // dismiss + retap doesn't re-pop the modal in a loop. Same pattern as
+  // M17 / M18 / M19. Released on focus regain (returning from Paywall).
+  const paywallShownRef = React.useRef(false);
+  React.useEffect(() => {
+    if (assessError === 'subscription_required' && !paywallShownRef.current) {
+      paywallShownRef.current = true;
+      nav.navigate('Paywall');
+    }
+    if (assessError !== 'subscription_required' && paywallShownRef.current) {
+      paywallShownRef.current = false;
+    }
+  }, [assessError, nav]);
+  useFocusEffect(
+    React.useCallback(() => {
+      paywallShownRef.current = false;
+      return undefined;
+    }, []),
+  );
+
   const [tab, setTab] = React.useState<Tab>('info');
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+
+  // Persisted assessment derived from `garment.condition_score` /
+  // `condition_notes`. The function persists those scalars server-side, so
+  // a re-open of GarmentDetail (or the post-assess invalidate-and-refetch)
+  // hydrates this without a fresh AI call. `wear_signals` and
+  // `repair_recommendations` are the hook's reserved forward-compat
+  // arrays — empty until the server returns structured tags. Score is
+  // promoted from the schema's 1-10 range to 0-100 to match the badge's
+  // tier breakpoints.
+  const persistedAssessment: ConditionAssessment | null = React.useMemo(() => {
+    const raw = garment?.condition_score;
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+    const scaled = Math.max(0, Math.min(100, Math.round(raw * 10)));
+    const notes = garment?.condition_notes?.trim();
+    return {
+      condition_score: scaled,
+      wear_signals: [],
+      repair_recommendations: [],
+      summary: notes && notes.length > 0 ? notes : null,
+      assessed_at: null,
+    };
+  }, [garment?.condition_score, garment?.condition_notes]);
+
+  // The freshly-returned assessment from the hook wins over the persisted
+  // shape until `useGarment` refetches and the persisted view catches up.
+  // Once both reflect the same score, persistedAssessment takes over (it
+  // also survives screen unmounts).
+  const activeAssessment = liveAssessment ?? persistedAssessment;
+
+  const handleCheckCondition = React.useCallback(() => {
+    if (!id) return;
+    hapticLight();
+    void assessCondition(id);
+  }, [id, assessCondition]);
+
+  const handleOpenSheet = React.useCallback(() => {
+    hapticLight();
+    setSheetOpen(true);
+  }, []);
+
+  const handleCloseSheet = React.useCallback(() => {
+    setSheetOpen(false);
+  }, []);
+
+  const handleReassess = React.useCallback(() => {
+    if (!id) return;
+    hapticLight();
+    // Release the paywall latch so an explicit re-assess on the free tier
+    // re-routes to the paywall instead of being suppressed by the
+    // sentinel guard.
+    paywallShownRef.current = false;
+    void assessCondition(id);
+  }, [id, assessCondition]);
+
+  // Reset the hook on unmount so a torn-down screen doesn't leave a
+  // residual `error` / `isAssessing` state that the next mount would
+  // observe through the same hook instance. (Hook instances per-screen
+  // already reset, but this also closes any in-flight controller cleanly.)
+  React.useEffect(() => {
+    return () => {
+      resetAssessCondition();
+    };
+  }, [resetAssessCondition]);
 
   // Day-level idempotency gate for the "Wear today" CTA. The mutation
   // itself is read-modify-write on `wear_count`, so a tap that lands while
@@ -403,6 +500,31 @@ export function GarmentDetailScreen() {
 
         {tab === 'info' ? (
           <View style={{ gap: 12 }}>
+            {/* M21 — condition assessment block. Badge appears once the
+                garment row has a persisted score OR the hook has just
+                returned one. The "Check condition" CTA sits adjacent so a
+                user without a prior assessment can trigger one inline; an
+                accessibility hint surfaces the bottom-sheet target. */}
+            <View style={{ gap: 10 }}>
+              <Eyebrow>Condition</Eyebrow>
+              {activeAssessment ? (
+                <ConditionBadge assessment={activeAssessment} onTap={handleOpenSheet} />
+              ) : (
+                <Caption>{tr('condition.empty')}</Caption>
+              )}
+              {assessError && assessError !== 'subscription_required' ? (
+                <Caption style={{ color: t.destructive }}>
+                  {tr('condition.error.network')}
+                </Caption>
+              ) : null}
+              <Button
+                label={isAssessing ? tr('condition.assessing') : tr('condition.checkAction')}
+                variant="outline"
+                size="sm"
+                disabled={isAssessing}
+                onPress={handleCheckCondition}
+              />
+            </View>
             <View style={[s.fieldGroup, { backgroundColor: t.card, borderColor: t.border }]}>
               {fields.map((f, i) => (
                 <ListRow
@@ -467,9 +589,176 @@ export function GarmentDetailScreen() {
           onPress={handleWearToday}
         />
       </View>
+
+      {/* M21 — condition detail bottom sheet. Surfaces the full breakdown
+          (score, wear signals, repair recommendations) plus a Re-assess
+          action that re-runs the AI call. RN's stock Modal handles the
+          slide-up transition; same pattern as GarmentSaveChoiceSheet so
+          mobile doesn't pull in another sheet library. */}
+      {activeAssessment ? (
+        <ConditionDetailSheet
+          visible={sheetOpen}
+          assessment={activeAssessment}
+          isAssessing={isAssessing}
+          onClose={handleCloseSheet}
+          onReassess={handleReassess}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
+
+interface ConditionDetailSheetProps {
+  visible: boolean;
+  assessment: ConditionAssessment;
+  isAssessing: boolean;
+  onClose: () => void;
+  onReassess: () => void;
+}
+
+function ConditionDetailSheet({
+  visible,
+  assessment,
+  isAssessing,
+  onClose,
+  onReassess,
+}: ConditionDetailSheetProps) {
+  const t = useTokens();
+  const score = Number.isFinite(assessment.condition_score)
+    ? Math.max(0, Math.min(100, Math.round(assessment.condition_score)))
+    : 0;
+  const tier: 'good' | 'fair' | 'poor' = score >= 80 ? 'good' : score >= 50 ? 'fair' : 'poor';
+  const tierColor = tier === 'good' ? t.accent : tier === 'poor' ? t.destructive : t.fg;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      accessibilityViewIsModal>
+      <Pressable
+        accessible={false}
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: t.scrimBg }]}
+        onPress={onClose}
+      />
+      <View
+        accessibilityRole="none"
+        style={[
+          sheetStyles.sheet,
+          { backgroundColor: t.bg, borderTopColor: t.border },
+        ]}>
+        <View style={[sheetStyles.handle, { backgroundColor: t.border }]} />
+
+        <Eyebrow style={{ marginBottom: 6 }}>Condition</Eyebrow>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 14 }}>
+          <Text
+            style={{
+              fontFamily: fonts.displayMedium,
+              fontStyle: 'italic',
+              fontSize: 48,
+              lineHeight: 52,
+              color: tierColor,
+              letterSpacing: -1.2,
+            }}>
+            {score}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 11,
+              letterSpacing: 1.6,
+              textTransform: 'uppercase',
+              color: tierColor,
+            }}>
+            {tr(`condition.tier.${tier}`)}
+          </Text>
+        </View>
+
+        {assessment.summary ? (
+          <Text
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13.5,
+              lineHeight: 19,
+              color: t.fg,
+              marginBottom: 18,
+            }}>
+            {assessment.summary}
+          </Text>
+        ) : null}
+
+        {assessment.wear_signals.length > 0 ? (
+          <View style={{ marginBottom: 14 }}>
+            <Eyebrow style={{ marginBottom: 8 }}>{tr('condition.wearSignals')}</Eyebrow>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {assessment.wear_signals.map((signal) => (
+                <View
+                  key={signal}
+                  style={[s.tagChip, { backgroundColor: t.bg2, borderColor: t.border }]}>
+                  <Text style={[s.tagChipText, { color: t.fg2 }]}>{signal}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {assessment.repair_recommendations.length > 0 ? (
+          <View style={{ marginBottom: 14 }}>
+            <Eyebrow style={{ marginBottom: 8 }}>{tr('condition.repairTitle')}</Eyebrow>
+            <View style={{ gap: 6 }}>
+              {assessment.repair_recommendations.map((rec) => (
+                <View key={rec} style={{ flexDirection: 'row', gap: 8 }}>
+                  <Text style={{ color: t.fg2, fontFamily: fonts.ui, fontSize: 13 }}>•</Text>
+                  <Text
+                    style={{
+                      flex: 1,
+                      color: t.fg,
+                      fontFamily: fonts.ui,
+                      fontSize: 13,
+                      lineHeight: 18,
+                    }}>
+                    {rec}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <Button
+          label={isAssessing ? tr('condition.assessing') : tr('condition.reassessAction')}
+          variant="outline"
+          block
+          disabled={isAssessing}
+          onPress={onReassess}
+        />
+      </View>
+    </Modal>
+  );
+}
+
+const sheetStyles = StyleSheet.create({
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 16,
+  },
+});
 
 function EmptyTab({ title, body }: { title: string; body: string }) {
   return (
