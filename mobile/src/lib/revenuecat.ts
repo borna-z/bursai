@@ -318,10 +318,14 @@ export async function purchasePackage(
  *                       `entitlements.active` to distinguish actual
  *                       restore vs. fresh / never-purchased Apple ID.
  *   * `null`          — unsupported environment (web / simulator /
- *                       missing API key / module load failure). Wrapper
- *                       has emitted a Sentry breadcrumb; this is NOT an
- *                       error path — caller should surface "no purchases"
- *                       UX rather than a transport-error alert.
+ *                       missing API key / module load failure) OR the
+ *                       user dismissed the App Store / Play Store sign-
+ *                       in prompt mid-restore (RevenueCat surfaces this
+ *                       as a `userCancelled` purchase-error shape). All
+ *                       three collapse to the empty-state UX — caller
+ *                       surfaces "no purchases" rather than a transport
+ *                       error. No Sentry capture for the cancel path
+ *                       (matches `purchasePackage`'s precedent).
  *   * `throw`         — real SDK error (network failure, StoreKit
  *                       timeout, auth issue). Caller's mutation hook
  *                       routes this through `captureMutationError` and
@@ -338,6 +342,20 @@ export async function restorePurchases(): Promise<CustomerInfo | null> {
   try {
     return await Purchases.restorePurchases();
   } catch (err) {
+    // User dismissed the App Store / Play Store prompt mid-restore.
+    // Mirror `purchasePackage`'s precedent: collapse to a clean null
+    // (caller treats as the empty-state UX) without Sentry capture.
+    // Without this branch, every cancelled restore would land in the
+    // re-throw below and surface as a "We couldn't reach the App Store"
+    // transport-error alert, which is misleading.
+    if (isUserCancelled(err)) {
+      Sentry.addBreadcrumb({
+        category: 'revenuecat',
+        level: 'info',
+        message: 'restore_user_cancelled',
+      });
+      return null;
+    }
     // Capture for visibility, then re-throw so the caller can distinguish
     // a transient SDK / network failure from the genuinely-unsupported
     // null-return path above.

@@ -78,21 +78,28 @@ function isPremiumActiveRow(row: {
   return PREMIUM_PLAN_VALUES.has(row.plan);
 }
 
+// Tri-state poll result so the caller can distinguish webhook-delay
+// (acceptable, surface as 'restored_pending') from a stale-tap race
+// (cancellation / sign-out, must NOT show the success-pending alert).
+// Codex M33 review B2 — pre-fix the poll returned boolean and treated
+// every false as 'restored_pending', which let the success path fire
+// for a tap whose user already changed mid-poll.
+type PollOutcome = 'synced' | 'timeout' | 'cancelled';
+
 async function pollForRestoredEntitlement(
   userId: string,
   signal: AbortSignal,
   getCurrentUserId: () => string | null,
-): Promise<boolean> {
+): Promise<PollOutcome> {
   const start = Date.now();
   while (Date.now() - start < POLL_MAX_MS) {
-    if (signal.aborted) return false;
+    if (signal.aborted) return 'cancelled';
     await delay(POLL_INTERVAL_MS);
-    if (signal.aborted) return false;
-    // Sign-out mid-poll race — if the user signed out while we were
-    // waiting, treat the poll as cancelled. The mutationFn surfaces this
-    // as 'unsupported' so the screen doesn't show "restored" for a
-    // session that no longer exists.
-    if (getCurrentUserId() !== userId) return false;
+    if (signal.aborted) return 'cancelled';
+    // Sign-out / sign-in-different-user mid-poll — treat as a stale
+    // restore. Caller surfaces 'unsupported' so neither the success
+    // alert nor the cache invalidation fires for the new session.
+    if (getCurrentUserId() !== userId) return 'cancelled';
     const { data, error } = await supabase
       .from('subscriptions')
       .select('plan, status')
@@ -114,10 +121,10 @@ async function pollForRestoredEntitlement(
       data &&
       isPremiumActiveRow(data as { plan: string | null; status: string | null })
     ) {
-      return true;
+      return 'synced';
     }
   }
-  return false;
+  return 'timeout';
 }
 
 export function useRestorePurchases() {
@@ -187,15 +194,24 @@ export function useRestorePurchases() {
       // immediately would leave the user back in the app still locked
       // with no later refetch tied to the webhook. Poll the row until
       // it reflects the entitlement, mirroring usePurchaseSubscription.
-      const synced = await pollForRestoredEntitlement(
+      const pollResult = await pollForRestoredEntitlement(
         startUserId,
         controller.signal,
         () => currentUserIdRef.current,
       );
-      if (synced) return { status: 'restored' };
-      // RC said yes; webhook hasn't landed within the window. Caller
-      // surfaces an "activating" alert (mirrors the purchase 'pending'
-      // path) so the user isn't told "restored" while still locked.
+      if (pollResult === 'synced') return { status: 'restored' };
+      if (pollResult === 'cancelled') {
+        // User changed (sign-out / sign-in-different-user) or the abort
+        // signal fired during the poll. Skip both invalidation and the
+        // success alert so a stale restore doesn't surface as "activating"
+        // for the new session. Mirrors the pre-poll user-change short-
+        // circuit above.
+        return { status: 'unsupported' };
+      }
+      // pollResult === 'timeout' — RC said yes; webhook hasn't landed
+      // within the window. Caller surfaces an "activating" alert
+      // (mirrors the purchase 'pending' path) so the user isn't told
+      // "restored" while still locked.
       return { status: 'restored_pending' };
     },
     onSuccess: (result, _vars, context) => {
