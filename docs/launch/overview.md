@@ -127,7 +127,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | M21 | [Assess condition → GarmentDetail](waves/m21-assess-condition.md) | DONE (PR #747) | V0, M9 |
 | M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | DONE (PR #748) | V0, M9 |
 | ) | V0, M14 |
-| M24 | [Pick Must-Haves → WardrobeGaps follow-up](waves/m24-pick-must-haves.md) | DONE (PR #TBD) | V0 |
+| ) | V0 |
 
 ### Onboarding parity
 | Wave | File | Status | Depends on |

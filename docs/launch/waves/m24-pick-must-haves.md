@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | After gap analysis runs, surface a "Pick your must-haves" follow-up that converts gaps into a prioritized purchase shortlist. |
-| Status | DONE (PR #TBD) |
+| Status | DONE (PR #750) |
 | Branch | `mobile-m24-pick-must-haves` |
 | PR count | 1 |
 | Depends on | V0 |
