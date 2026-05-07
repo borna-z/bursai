@@ -603,7 +603,9 @@ export function clampScore(value: number): number {
 
 export function getStylePrefs(prefs: Record<string, any> | null): Record<string, any> {
   // Theme 7 (post-launch audit): unified V3-vocab view with V4 canonical
-  // fallbacks for slots the V3 mirror leaves empty / missing. See
+  // fallbacks for slots the V3 mirror leaves empty / missing. Hardens
+  // every preference read this function gates (style alignment, body fit,
+  // formality submode, etc.) — not just cold-start. See
   // `_shared/style-prefs-reader.ts` for the full rationale — short version:
   // (1) `migrateV4ToV3Compat` writes `workFormality: ''` for backfilled
   // pre-M25 users, which used to silently default to neutral 50 here;

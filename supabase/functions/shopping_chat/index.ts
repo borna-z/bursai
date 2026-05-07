@@ -5,7 +5,7 @@ import { VOICE_SHOPPING } from "../_shared/burs-voice.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
-import { readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
+import { isNonEmptyObject, readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
 
 // ---------- i18n ----------
 
@@ -197,9 +197,12 @@ serve(async (req) => {
     // users in the cold-start race window used to fall into the v2 branch
     // below, which reads keys (`fitPreference`, `styleVibe`) that V4
     // doesn't populate, leaving the shopping prompt with no style signal.
-    const hasStructuredPrefs =
-      !!preferences.styleProfile || !!preferences.style_profile_v4_jsonb;
-    const sp = hasStructuredPrefs
+    // Empty-object guard prevents a stub `{}` profile from displacing the
+    // legacy v2 fallback for very-old users.
+    const hasV3OrV4Profile =
+      isNonEmptyObject(preferences.styleProfile) ||
+      isNonEmptyObject(preferences.style_profile_v4_jsonb);
+    const sp = hasV3OrV4Profile
       ? (readUnifiedStylePrefs(preferences) as Record<string, any>)
       : undefined;
     let styleLines = "";

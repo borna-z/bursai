@@ -16,7 +16,7 @@
 //   • Empty / null preferences → `{}`.
 
 import { describe, expect, it } from "vitest";
-import { readUnifiedStylePrefs } from "../style-prefs-reader";
+import { isNonEmptyObject, readUnifiedStylePrefs } from "../style-prefs-reader";
 
 describe("readUnifiedStylePrefs — legacy contracts preserved", () => {
   it("null / undefined input → empty object", () => {
@@ -82,7 +82,7 @@ describe("readUnifiedStylePrefs — legacy contracts preserved", () => {
 });
 
 describe("readUnifiedStylePrefs — V4 fallback for empty V3 slots", () => {
-  it("workFormality '' (post-backfill skip) → V4 floor/ceiling midpoint", () => {
+  it("workFormality '' (V3 backfill skip-semantics) → V4 floor/ceiling midpoint", () => {
     // The exact production shape: `migrateV4ToV3Compat` writes '' into the
     // V3 mirror because V3 vocab can't represent V4's continuous bounds.
     // Pre-fix the engine type-checked this and defaulted to neutral 50;
@@ -178,19 +178,110 @@ describe("readUnifiedStylePrefs — defensive type guards", () => {
   it("non-object styleProfile is ignored (treats prefs as flat record)", () => {
     // A historically-malformed jsonb row could carry styleProfile as a
     // string / array / number. Don't crash; fall through to flat-record
-    // semantics (same as the legacy `prefs?.styleProfile || prefs` ||).
+    // semantics (same as the legacy `prefs?.styleProfile || prefs` ||) AND
+    // strip the spurious `styleProfile` key from the unified output so it
+    // doesn't leak the malformed value to engine readers.
     const outArr = readUnifiedStylePrefs({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       styleProfile: ["not", "an", "object"] as any,
       formalityCeiling: 80,
     });
     expect(outArr.formalityCeiling).toBe(80);
+    expect(outArr.styleProfile).toBeUndefined();
     const outStr = readUnifiedStylePrefs({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       styleProfile: "garbage" as any,
       formalityCeiling: 80,
     });
     expect(outStr.formalityCeiling).toBe(80);
+    expect(outStr.styleProfile).toBeUndefined();
+    const outNull = readUnifiedStylePrefs({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      styleProfile: null as any,
+      formalityCeiling: 80,
+    });
+    expect(outNull.formalityCeiling).toBe(80);
+    expect(outNull.styleProfile).toBeUndefined();
+  });
+
+  it("V3 mirror with NaN formality bound is sanitized (delete-then-set)", () => {
+    // A historically-malformed V3 mirror row could carry NaN as a
+    // formality bound. The legacy `typeof === 'number'` guard in
+    // resolveOccasionSubmode would silently accept NaN and propagate it
+    // through midpoint arithmetic. The reader now sanitizes the V3 spread
+    // and either pulls a finite V4 value in, or leaves the slot absent.
+    const outV4Restored = readUnifiedStylePrefs({
+      styleProfile: { formalityCeiling: NaN, formalityFloor: NaN },
+      style_profile_v4_jsonb: { formalityCeiling: 80, formalityFloor: 30 },
+    });
+    expect(outV4Restored.formalityCeiling).toBe(80);
+    expect(outV4Restored.formalityFloor).toBe(30);
+    const outNoFallback = readUnifiedStylePrefs({
+      styleProfile: { formalityCeiling: NaN, formalityFloor: NaN },
+    });
+    expect(outNoFallback.formalityCeiling).toBeUndefined();
+    expect(outNoFallback.formalityFloor).toBeUndefined();
+  });
+
+  it("Infinity / -Infinity formality bounds rejected", () => {
+    // `typeof Infinity === 'number'` is true; `Number.isFinite` rejects.
+    const out = readUnifiedStylePrefs({
+      styleProfile: { workFormality: "" },
+      style_profile_v4_jsonb: {
+        formalityCeiling: Infinity,
+        formalityFloor: -Infinity,
+      },
+    });
+    expect(out.workFormality).toBeUndefined();
+  });
+
+  it("literal-null style_profile_v4_jsonb behaves like absent key", () => {
+    // Distinguish from key-absent: pinning the contract.
+    const out = readUnifiedStylePrefs({
+      styleProfile: { workFormality: "" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      style_profile_v4_jsonb: null as any,
+    });
+    expect(out.workFormality).toBeUndefined();
+  });
+
+  it("partial V4 record (archetypes only, no formality bounds)", () => {
+    // V4 row that has some fields and not others — each slot should fall
+    // back independently.
+    const out = readUnifiedStylePrefs({
+      styleProfile: { workFormality: "" },
+      style_profile_v4_jsonb: { archetypes: ["minimal"] },
+    });
+    expect(out.styleWords).toEqual(["minimal"]);
+    expect(out.workFormality).toBeUndefined();
+    expect(out.formalityCeiling).toBeUndefined();
+    expect(out.formalityFloor).toBeUndefined();
+  });
+
+  it("style_profile_v4_jsonb is not echoed onto the unified output", () => {
+    // The raw V4 record is a private input to the reader; engine
+    // consumers shouldn't see it leaking through the V3-vocab view.
+    const out = readUnifiedStylePrefs({
+      style_profile_v4_jsonb: { archetypes: ["minimal"], formalityCeiling: 80 },
+    });
+    expect(out.style_profile_v4_jsonb).toBeUndefined();
+    // But the translated values it produced are still on the output.
+    expect(out.styleWords).toEqual(["minimal"]);
+    expect(out.formalityCeiling).toBe(80);
+  });
+});
+
+describe("isNonEmptyObject — branch-condition helper", () => {
+  it("returns true only for plain objects with at least one key", () => {
+    expect(isNonEmptyObject({ a: 1 })).toBe(true);
+    expect(isNonEmptyObject({})).toBe(false);
+    expect(isNonEmptyObject(null)).toBe(false);
+    expect(isNonEmptyObject(undefined)).toBe(false);
+    expect(isNonEmptyObject([])).toBe(false);
+    expect(isNonEmptyObject(["a"])).toBe(false);
+    expect(isNonEmptyObject("string")).toBe(false);
+    expect(isNonEmptyObject(42)).toBe(false);
+    expect(isNonEmptyObject(0)).toBe(false);
   });
 
   it("non-object style_profile_v4_jsonb is ignored", () => {

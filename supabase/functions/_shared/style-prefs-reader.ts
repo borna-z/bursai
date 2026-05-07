@@ -66,8 +66,8 @@ export function readUnifiedStylePrefs(
 
   // V3 mirror at preferences.styleProfile when present; otherwise treat
   // the prefs object itself as the V3 record (legacy flat-form contract
-  // from `outfit-scoring.ts:603` — used by unit tests and any caller
-  // passing the V3 mirror directly).
+  // from `outfit-scoring.ts:getStylePrefs` — used by unit tests and any
+  // caller passing the V3 mirror directly).
   const v3Mirror = isObject(prefs.styleProfile)
     ? (prefs.styleProfile as Record<string, unknown>)
     : null;
@@ -79,6 +79,21 @@ export function readUnifiedStylePrefs(
     : null;
 
   const out: Record<string, unknown> = { ...v3 };
+
+  // If we fell back to flat-form (v3 = prefs) AND the prefs row carries a
+  // non-object `styleProfile` key (a malformed historical jsonb write —
+  // e.g. styleProfile: null / "garbage" / array), don't leak that key into
+  // the unified record. Engine readers ignore an unknown styleProfile key
+  // either way, but a clean output is easier to reason about.
+  if (v3Mirror === null && "styleProfile" in out) {
+    delete out.styleProfile;
+  }
+  // Same scrub for `style_profile_v4_jsonb` — pass-through of the raw V4
+  // record on the unified output would be confusing and isn't read by
+  // any engine consumer.
+  if ("style_profile_v4_jsonb" in out) {
+    delete out.style_profile_v4_jsonb;
+  }
 
   // styleWords (V3 vocab) ← archetypes (V4 canonical).
   if (!nonEmptyStringArray(out.styleWords)) {
@@ -104,8 +119,11 @@ export function readUnifiedStylePrefs(
 
   // paletteVibe — V3 mirror has translated value, V4 has raw V4 vocab.
   // Engine readers do `String(sp.paletteVibe || '').toLowerCase().includes(
-  // 'neutral'|'tonal')` which works for either vocab, so pass V4 through
-  // verbatim without translation.
+  // 'neutral'|'tonal')`. V4 vibes that overlap on those substrings ('neutral',
+  // 'tonal') hit the same scoring branches as V3; V4 vibes that don't (e.g.
+  // 'bright', 'muted') simply skip those branches — which is the right
+  // outcome since the user explicitly prefers a non-neutral palette. Pass
+  // V4 through verbatim without translation.
   if (!nonEmptyString(out.paletteVibe)) {
     const v4Palette = v4?.paletteVibe;
     if (typeof v4Palette === "string" && v4Palette.length > 0) {
@@ -158,17 +176,24 @@ export function readUnifiedStylePrefs(
   // because they ride along in `v4OnlyFields` (mobile/src/lib/styleProfileV4.ts
   // lines 656–670 destructure-rest), but a V4-native user with no mirror
   // would otherwise lose them.
-  if (
-    !isFiniteNumberInRange(out.formalityCeiling, 0, 100) &&
-    isFiniteNumberInRange(v4?.formalityCeiling, 0, 100)
-  ) {
-    out.formalityCeiling = v4!.formalityCeiling;
+  //
+  // Sanitization: a malformed historical jsonb row could carry NaN /
+  // Infinity / out-of-range / string-typed bounds on the V3 mirror.
+  // The legacy `typeof === 'number'` guard in `resolveOccasionSubmode`
+  // accepts NaN, which then propagates silently through the midpoint
+  // arithmetic. Delete-then-set ensures the output carries only finite
+  // in-range numbers (or no key at all).
+  if (!isFiniteNumberInRange(out.formalityCeiling, 0, 100)) {
+    delete out.formalityCeiling;
+    if (isFiniteNumberInRange(v4?.formalityCeiling, 0, 100)) {
+      out.formalityCeiling = v4!.formalityCeiling;
+    }
   }
-  if (
-    !isFiniteNumberInRange(out.formalityFloor, 0, 100) &&
-    isFiniteNumberInRange(v4?.formalityFloor, 0, 100)
-  ) {
-    out.formalityFloor = v4!.formalityFloor;
+  if (!isFiniteNumberInRange(out.formalityFloor, 0, 100)) {
+    delete out.formalityFloor;
+    if (isFiniteNumberInRange(v4?.formalityFloor, 0, 100)) {
+      out.formalityFloor = v4!.formalityFloor;
+    }
   }
 
   return out;
@@ -176,6 +201,16 @@ export function readUnifiedStylePrefs(
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+// Exported branch-condition helper for prompt builders that need to decide
+// between the unified V3-vocab path and the legacy v2 fallback. Returns
+// true only when the input is a plain object with at least one own key —
+// a stub `{}` (e.g. partial migration leftover) returns false so the v2
+// fallback still fires for very-old users that have only top-level v2
+// keys (`fitPreference`, `styleVibe`).
+export function isNonEmptyObject(v: unknown): v is Record<string, unknown> {
+  return isObject(v) && Object.keys(v as Record<string, unknown>).length > 0;
 }
 
 function stringArray(v: unknown): string[] {
