@@ -58,6 +58,7 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { FiltersScreen } from '../screens/FiltersScreen';
 import { UsedGarmentsScreen } from '../screens/UsedGarmentsScreen';
 import { UnusedOutfitsScreen } from '../screens/UnusedOutfitsScreen';
+import { UnusedGarmentsScreen } from '../screens/UnusedGarmentsScreen';
 
 // Stylist / mood / occasion
 import { StyleChatScreen } from '../screens/StyleChatScreen';
@@ -215,6 +216,10 @@ export type RootStackParamList = {
   WardrobeGaps: undefined;
   UsedGarments: undefined;
   UnusedOutfits: undefined;
+  // M22 — Wardrobe Aging panel bucket-detail. `bucketId` is one of
+  // 'aged' | 'unworn' | 'retire_candidates'; the screen guards against
+  // unrecognised values defensively.
+  UnusedGarments: { bucketId: string };
 
   // Settings
   Settings: undefined;
@@ -450,6 +455,7 @@ export function RootNavigator() {
       <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />
       <Stack.Screen name="UsedGarments" component={UsedGarmentsScreen} />
       <Stack.Screen name="UnusedOutfits" component={UnusedOutfitsScreen} />
+      <Stack.Screen name="UnusedGarments" component={UnusedGarmentsScreen} />
 
       {/* Settings */}
       <Stack.Screen name="Settings" component={SettingsScreen} />

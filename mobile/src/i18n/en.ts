@@ -488,4 +488,22 @@ export const en: Record<string, string> = {
   'condition.openHint': 'Opens the full condition breakdown',
   'condition.empty': 'No assessment yet.',
   'condition.closeSheet': 'Close condition details',
+
+  // ─── M22 — Wardrobe aging panel (Insights) ─────────────────────────────
+  'wardrobeAging.title': 'Wardrobe aging',
+  'wardrobeAging.eyebrow': 'Rediscover',
+  'wardrobeAging.bucket.aged': 'Showing wear',
+  'wardrobeAging.bucket.unworn': 'Never worn',
+  'wardrobeAging.bucket.retire': 'Retire candidates',
+  'wardrobeAging.empty.title': 'Wardrobe is in great shape',
+  'wardrobeAging.empty.body': 'Nothing flagged for retirement and every piece is in rotation.',
+  'wardrobeAging.error.network': "Couldn't refresh aging insights. Pull to retry.",
+  'wardrobeAging.openHint': 'Opens the full list of garments in this bucket',
+  'wardrobeAging.countLabel': 'garments in bucket',
+
+  // ─── M22 — UnusedGarmentsScreen (bucket detail) ────────────────────────
+  'unusedGarments.title.aged': 'Showing wear',
+  'unusedGarments.title.unworn': 'Never worn',
+  'unusedGarments.title.retire': 'Retire candidates',
+  'unusedGarments.empty': 'Nothing here yet',
 };
