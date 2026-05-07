@@ -140,7 +140,7 @@ describe("readUnifiedStylePrefs — V4 fallback for empty V3 slots", () => {
         favoriteColors: ["white", "navy"],
         dislikedColors: ["neon"],
         fitOverall: "regular",
-        paletteVibe: "neutral",
+        paletteVibe: "neutrals",
         formalityCeiling: 70,
         formalityFloor: 30,
       },
@@ -148,12 +148,106 @@ describe("readUnifiedStylePrefs — V4 fallback for empty V3 slots", () => {
     expect(out.styleWords).toEqual(["scandinavian"]);
     expect(out.favoriteColors).toEqual(["white", "navy"]);
     expect(out.dislikedColors).toEqual(["neon"]);
+    // `fitOverall: 'regular'` translates to V3 `'regular'` (identity).
     expect(out.fit).toBe("regular");
+    // `paletteVibe: 'neutrals'` translates to V3 `'neutral'` (mapped).
     expect(out.paletteVibe).toBe("neutral");
     expect(out.workFormality).toBe(50); // (30 + 70) / 2
     expect(out.comfortVsStyle).toBe(50); // 100 - 50
     expect(out.formalityCeiling).toBe(70);
     expect(out.formalityFloor).toBe(30);
+  });
+
+  it("V4 fit / paletteVibe vocab translated to V3 for prompt consistency", () => {
+    // Mirror of the mobile-side translators in
+    // `mobile/src/lib/styleProfileV4.ts:520, 567`. Without translation the
+    // V4-native cold-start user would see `Fit: fitted` / `Palette vibe:
+    // pastels` in the AI prompt while a backfilled user sees `Fit: slim` /
+    // `Palette vibe: muted` — inconsistent vocab to the LLM across the
+    // same user's sessions.
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { fitOverall: "fitted" },
+      }).fit,
+    ).toBe("slim");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { fitOverall: "relaxed" },
+      }).fit,
+    ).toBe("loose");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { fitOverall: "mixed" },
+      }).fit,
+    ).toBe("regular");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { fitOverall: "oversized" },
+      }).fit,
+    ).toBe("oversized");
+
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "neutrals" },
+      }).paletteVibe,
+    ).toBe("neutral");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "pastels" },
+      }).paletteVibe,
+    ).toBe("muted");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "earth" },
+      }).paletteVibe,
+    ).toBe("muted");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "dark" },
+      }).paletteVibe,
+    ).toBe("monochrome");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "mixed" },
+      }).paletteVibe,
+    ).toBe("monochrome");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "bold" },
+      }).paletteVibe,
+    ).toBe("bold");
+  });
+
+  it("unknown V4 vocab passes through verbatim (forward-compat)", () => {
+    // A future V4 enum extension shouldn't crash the engine. Translators
+    // fall through to the input value when no case matches, so prompt
+    // builders get the raw string.
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { fitOverall: "slouchy" },
+      }).fit,
+    ).toBe("slouchy");
+    expect(
+      readUnifiedStylePrefs({
+        style_profile_v4_jsonb: { paletteVibe: "vibrant" },
+      }).paletteVibe,
+    ).toBe("vibrant");
+  });
+
+  it("V3 mirror fit / paletteVibe with empty-string skip → V4 fallback", () => {
+    // Mirror of the workFormality skip-semantics test, but for string-
+    // shaped slots. Pre-fix `if (!nonEmptyString(out.fit))` would have
+    // accepted '' as the V3 value; the reader correctly treats it as
+    // missing and falls back to translated V4.
+    const out = readUnifiedStylePrefs({
+      styleProfile: { fit: "", paletteVibe: "" },
+      style_profile_v4_jsonb: {
+        fitOverall: "fitted",
+        paletteVibe: "earth",
+      },
+    });
+    expect(out.fit).toBe("slim");
+    expect(out.paletteVibe).toBe("muted");
   });
 
   it("non-string entries in V4 archetypes are filtered", () => {
@@ -268,6 +362,50 @@ describe("readUnifiedStylePrefs — defensive type guards", () => {
     // But the translated values it produced are still on the output.
     expect(out.styleWords).toEqual(["minimal"]);
     expect(out.formalityCeiling).toBe(80);
+  });
+});
+
+describe("readUnifiedStylePrefs — non-object inputs + memoization", () => {
+  it("non-object preferences (array / string / number) → empty record", () => {
+    // A typescript any-cast or malformed jsonb shape could pass an
+    // unexpected type. The reader rejects defensively at the entry rather
+    // than silently spreading numeric character keys (string) or array
+    // indices.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(readUnifiedStylePrefs([] as any)).toEqual({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(readUnifiedStylePrefs(["styleProfile"] as any)).toEqual({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(readUnifiedStylePrefs("garbage" as any)).toEqual({});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(readUnifiedStylePrefs(42 as any)).toEqual({});
+  });
+
+  it("repeat calls with the same reference return the cached object", () => {
+    // Memoization: readUnifiedStylePrefs is called per-garment in
+    // styleAlignmentScore + per-combo in scoreCombo, hundreds of times
+    // per request. Caching by reference saves the spread + fallback work.
+    // Behavior contract: cache hit returns the EXACT same object (===),
+    // so consumers that close over a slot don't observe a stale snapshot
+    // when called again.
+    const prefs = {
+      styleProfile: { styleWords: ["minimal"] },
+      style_profile_v4_jsonb: { archetypes: ["minimal"] },
+    };
+    const first = readUnifiedStylePrefs(prefs);
+    const second = readUnifiedStylePrefs(prefs);
+    expect(first).toBe(second);
+  });
+
+  it("different input references produce independent records", () => {
+    // The cache must not collapse two distinct preference objects with
+    // the same shape. Two different rows in the DB end up as two
+    // different references in the engine.
+    const a = readUnifiedStylePrefs({ styleProfile: { fit: "slim" } });
+    const b = readUnifiedStylePrefs({ styleProfile: { fit: "loose" } });
+    expect(a).not.toBe(b);
+    expect(a.fit).toBe("slim");
+    expect(b.fit).toBe("loose");
   });
 });
 

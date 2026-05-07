@@ -1,5 +1,15 @@
 // Theme 7 (post-launch audit) — unified V3-vocab view of profile.preferences.
 //
+// Exports
+// -------
+//   • `readUnifiedStylePrefs(preferences)` — the canonical reader. Returns
+//     a V3-vocab record with V4 canonical fallbacks. Memoized via WeakMap
+//     keyed on the input reference so repeated calls in the same request
+//     pay the spread + fallback cost once.
+//   • `isNonEmptyObject(v)` — branch-condition helper for prompt builders
+//     that need to decide between the unified V3-vocab path and a legacy
+//     v2 fallback.
+//
 // Why this exists
 // ---------------
 // The AI engine reads style preferences in V3 vocab (`styleWords`,
@@ -48,20 +58,48 @@
 //     `resolveOccasionSubmode` (which reads them by V4 name) finds them on
 //     the unified record without re-reaching into preferences.
 //
+// Vocab translation
+// -----------------
+// Engine scoring branches use substring matchers (`String(sp.paletteVibe).
+// includes('neutral'|'tonal')`) where V4 vocab overlaps V3 closely enough
+// to work without translation. **But** prompt builders in style_chat /
+// shopping_chat / burs_style_engine emit `Fit: ${sp.fit}` and
+// `Palette vibe: ${sp.paletteVibe}` directly into the LLM context. Passing
+// V4 vocab through unchanged would mean a V4-native cold-start user sees
+// `Fit: fitted` while a backfilled user sees `Fit: slim` — inconsistent
+// vocab to the LLM across users (and across sessions for the same user
+// before vs after the V3 backfill writes). This helper applies the same
+// V4→V3 translators `migrateV4ToV3Compat` uses (`fitOverall → fit`,
+// `paletteVibe → paletteVibe` enum-mapped) so the unified output speaks
+// V3 vocab end-to-end.
+//
 // Non-goals
 // ---------
-//   • Do not translate V4 paletteVibe vocab to V3 vocab. V4 vibes
-//     (`muted`, `bright`, `tonal`, …) and V3 vibes overlap in the strings
-//     downstream substring-matchers care about (`'neutral'`, `'tonal'`),
-//     so passing V4 through verbatim works for the engine reads.
 //   • Do not change `migrateV4ToV3Compat` on the mobile side. The empty-
 //     string skip-semantics there are intentional for V3-only consumers
 //     and matched byte-for-byte against the web. Fixing on the server
 //     side via this helper is non-invasive and self-contained.
 
+// WeakMap memoization — `getStylePrefs` is called per-garment + per-combo
+// inside `burs_style_engine` (≥250 calls per request for a 200-garment
+// wardrobe × 50 combos). The reader is a pure function of its single
+// reference argument, so caching by reference is safe — and saves the
+// spread + delete + 8 fallback checks on every repeat call. WeakMap GCs
+// the entry once `preferences` is unreachable, so there's no leak.
+const memo = new WeakMap<Record<string, unknown>, Record<string, unknown>>();
+
 export function readUnifiedStylePrefs(
   preferences: Record<string, unknown> | null | undefined,
 ): Record<string, unknown> {
+  // Defensive against being passed non-object inputs through a typescript
+  // any-cast or a malformed jsonb shape (array, string, number).
+  if (preferences != null && !isObject(preferences)) {
+    return {};
+  }
+  if (preferences != null) {
+    const cached = memo.get(preferences as Record<string, unknown>);
+    if (cached) return cached;
+  }
   const prefs = (preferences ?? {}) as Record<string, unknown>;
 
   // V3 mirror at preferences.styleProfile when present; otherwise treat
@@ -111,23 +149,23 @@ export function readUnifiedStylePrefs(
     if (v4Dis.length > 0) out.dislikedColors = v4Dis;
   }
 
-  // fit (V3 vocab) ← fitOverall (V4 canonical).
+  // fit (V3 vocab) ← fitOverall (V4 canonical), translated via
+  // `v4FitToV3` (mirrors mobile/src/lib/styleProfileV4.ts).
   if (!nonEmptyString(out.fit)) {
     const v4Fit = v4?.fitOverall;
-    if (typeof v4Fit === "string" && v4Fit.length > 0) out.fit = v4Fit;
+    if (typeof v4Fit === "string" && v4Fit.length > 0) {
+      out.fit = v4FitToV3(v4Fit);
+    }
   }
 
-  // paletteVibe — V3 mirror has translated value, V4 has raw V4 vocab.
-  // Engine readers do `String(sp.paletteVibe || '').toLowerCase().includes(
-  // 'neutral'|'tonal')`. V4 vibes that overlap on those substrings ('neutral',
-  // 'tonal') hit the same scoring branches as V3; V4 vibes that don't (e.g.
-  // 'bright', 'muted') simply skip those branches — which is the right
-  // outcome since the user explicitly prefers a non-neutral palette. Pass
-  // V4 through verbatim without translation.
+  // paletteVibe (V3 vocab) ← paletteVibe (V4 canonical), translated via
+  // `v4PaletteVibeToV3` so prompt builders emit V3-vocab strings (`Palette
+  // vibe: muted`) consistent with backfilled users instead of raw V4
+  // (`Palette vibe: pastels`).
   if (!nonEmptyString(out.paletteVibe)) {
     const v4Palette = v4?.paletteVibe;
     if (typeof v4Palette === "string" && v4Palette.length > 0) {
-      out.paletteVibe = v4Palette;
+      out.paletteVibe = v4PaletteVibeToV3(v4Palette);
     }
   }
 
@@ -196,7 +234,49 @@ export function readUnifiedStylePrefs(
     }
   }
 
+  if (preferences != null) {
+    memo.set(preferences as Record<string, unknown>, out);
+  }
   return out;
+}
+
+// V4 → V3 vocab translators. Mirror `mobile/src/lib/styleProfileV4.ts`
+// `v4FitToV3` / `v4PaletteVibeToV3` — keep these in sync if the V4 enum
+// gains new values. Unknown values pass through verbatim so a future V4
+// vocab extension doesn't crash the engine; downstream prompt readers
+// just see the raw value, same as today's pre-translation behavior.
+function v4FitToV3(fit: string): string {
+  switch (fit) {
+    case "fitted":
+      return "slim";
+    case "relaxed":
+      return "loose";
+    case "mixed":
+      return "regular";
+    case "oversized":
+      return "oversized";
+    case "regular":
+      return "regular";
+    default:
+      return fit;
+  }
+}
+
+function v4PaletteVibeToV3(vibe: string): string {
+  switch (vibe) {
+    case "neutrals":
+      return "neutral";
+    case "pastels":
+    case "earth":
+      return "muted";
+    case "dark":
+    case "mixed":
+      return "monochrome";
+    case "bold":
+      return "bold";
+    default:
+      return vibe;
+  }
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
