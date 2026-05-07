@@ -26,6 +26,8 @@
 
 import React from 'react';
 import {
+  AccessibilityInfo,
+  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -64,6 +66,14 @@ const CAPTION_GAP = 18;
 // only to decide above-vs-below layout; the actual block lays out with
 // `position: 'absolute'` and shrinks/grows as needed.
 const CAPTION_BLOCK_ESTIMATED_HEIGHT = 200;
+
+// M27 R1 — re-measure cadence for the target rect. The HomeScreen hero
+// lives inside a ScrollView; if the user scrolls before tapping Next, the
+// cutout would otherwise stay pinned to the original window-coords. We
+// also re-measure on the wrapper's onLayout (covers reflows), but a cheap
+// 250ms interval is the belt-and-suspenders that catches programmatic
+// scroll / FlatList virtualization shuffles too.
+const REMEASURE_INTERVAL_MS = 250;
 
 export interface CoachOverlayProps {
   /** Toggles the modal. When false the modal is unmounted entirely so
@@ -111,6 +121,12 @@ export function CoachOverlay({
   // window-coordinate {x, y, w, h}. We retry once on the next animation
   // frame because Modal's mount can race the parent layout — the first
   // measure occasionally returns 0×0 before the ref fully settles.
+  //
+  // M27 R1 — also re-measure on a 250ms interval so a scroll / FlatList
+  // reflow / keyboard show that moves the target updates the cutout.
+  // measureInWindow is a ~free native call; the interval clears the
+  // moment the modal hides.
+  const tryMeasureRef = React.useRef<() => void>(() => {});
   React.useEffect(() => {
     if (!visible) {
       setTargetRect(null);
@@ -122,18 +138,74 @@ export function CoachOverlay({
       return;
     }
     const tryMeasure = () => {
-      // Measurements can be off until layout settles; we retry inside an
-      // RAF so the modal's fade-in animation has a frame to land first.
       node.measureInWindow((x, y, width, height) => {
         if (width > 0 && height > 0) {
-          setTargetRect({ x, y, width, height });
+          setTargetRect((prev) => {
+            // Skip the state update if the rect hasn't moved — keeps the
+            // 250ms interval from forcing a re-render every tick.
+            if (
+              prev &&
+              prev.x === x &&
+              prev.y === y &&
+              prev.width === width &&
+              prev.height === height
+            ) {
+              return prev;
+            }
+            return { x, y, width, height };
+          });
         }
       });
     };
+    tryMeasureRef.current = tryMeasure;
     tryMeasure();
     const raf = requestAnimationFrame(tryMeasure);
-    return () => cancelAnimationFrame(raf);
+    const interval = setInterval(tryMeasure, REMEASURE_INTERVAL_MS);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(interval);
+    };
   }, [visible, targetRef]);
+
+  // M27 R1 — Reduce Motion. Respects the OS-level toggle so the modal's
+  // fade-in collapses to an instant render for users who've opted into
+  // reduced animation. Listener stays subscribed for the modal lifetime
+  // so a toggle change mid-tour applies to the next step.
+  const [reduceMotion, setReduceMotion] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (!cancelled) setReduceMotion(enabled);
+    });
+    const sub = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (enabled) => setReduceMotion(enabled),
+    );
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
+  // M27 R1 — Skip-confirm. Skip is irreversible (no replay surface yet,
+  // tracked in findings-log); a one-tap exit on step 1 was killing the
+  // tour for users who fat-fingered the button. The destructive style
+  // gives a clear visual cue that the action is final.
+  const handleSkipPress = React.useCallback(() => {
+    Alert.alert(
+      tr('coachTour.skipConfirm.title'),
+      tr('coachTour.skipConfirm.body'),
+      [
+        { text: tr('coachTour.skipConfirm.cancel'), style: 'cancel' },
+        {
+          text: tr('coachTour.skipConfirm.confirm'),
+          style: 'destructive',
+          onPress: onSkip,
+        },
+      ],
+      { cancelable: true },
+    );
+  }, [onSkip]);
 
   // Padded rect that the four scrim quadrants surround. Computed inline
   // so the cutout updates if the target moves between renders (e.g. a
@@ -184,8 +256,8 @@ export function CoachOverlay({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
-      onRequestClose={onSkip}
+      animationType={reduceMotion ? 'none' : 'fade'}
+      onRequestClose={handleSkipPress}
       statusBarTranslucent>
       <View
         style={StyleSheet.absoluteFill}
@@ -337,17 +409,19 @@ export function CoachOverlay({
               {caption}
             </Caption>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              {/* M27 R1 — size="md" lifts the tap targets from 36pt to 44pt,
+                  meeting Apple HIG and WCAG 2.5.5 minimums for primary CTAs. */}
               <Button
                 label={tr('coachTour.skip')}
                 variant="quiet"
-                size="sm"
-                onPress={onSkip}
+                size="md"
+                onPress={handleSkipPress}
               />
               <View style={{ flex: 1 }}>
                 <Button
                   label={ctaLabel}
                   variant="accent"
-                  size="sm"
+                  size="md"
                   block
                   onPress={onNext}
                 />

@@ -872,10 +872,18 @@ export const en: Record<string, string> = {
     'Your garments live here — every piece you scan lands in this grid.',
   'coachTour.step.add':
     'Tap (+) to add a piece — the gold button is your fastest path in.',
-  'coachTour.step.outfits':
-    'Saved outfits land here — the looks you generate or save show up in this list.',
+  'coachTour.step.outfits': 'Saved looks live here.',
   'coachTour.next': 'Next',
   'coachTour.skip': 'Skip',
   'coachTour.done': 'Done',
   'coachTour.progressTemplate': '{current} of {total}',
+  // M27 R1 — Skip-confirm dialog (post-review fix). Skip is a destructive
+  // affordance (the tour can't be replayed today, see findings-log entry
+  // for "Settings → Replay tour"), so an Alert.alert prompt prevents an
+  // accidental tap on step 1 from killing the tour forever.
+  'coachTour.skipConfirm.title': 'Skip the tour?',
+  'coachTour.skipConfirm.body':
+    "You won't see these tips again. You can always poke around — the app will guide you when it can.",
+  'coachTour.skipConfirm.cancel': 'Keep going',
+  'coachTour.skipConfirm.confirm': 'Skip',
 };

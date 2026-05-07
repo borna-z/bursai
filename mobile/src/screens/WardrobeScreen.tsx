@@ -124,7 +124,16 @@ function compareForSort(a: Garment, b: Garment, sort: string): number {
   }
 }
 
-export function WardrobeScreen() {
+export function WardrobeScreen({
+  isActive = true,
+}: {
+  /** True when this screen is the active MainTabs tab. M27 R1 gate — see
+   * HomeScreen for the rationale; without this the coach overlay would
+   * surface against a display:'none' sibling and the cutout would
+   * collapse to 0×0. Defaults to true so callers unaware of the tab
+   * system (tests, future direct-route mounts) keep the prior behavior. */
+  isActive?: boolean;
+} = {}) {
   const t = useTokens();
   const nav = useNavigation<Nav>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('garments');
@@ -135,7 +144,7 @@ export function WardrobeScreen() {
   // virtualization.
   const coach = useFirstRunCoach();
   const gridRef = React.useRef<View | null>(null);
-  const showWardrobeCoach = coach.shouldShow && coach.currentStep === 1;
+  const showWardrobeCoach = isActive && coach.shouldShow && coach.currentStep === 1;
   // Filter state lives at the WardrobeScreen scope. FiltersScreen receives the current filters
   // as `initial` (so re-opening preserves picks) and writes back via `onApply`.
   const [filters, setFilters] = React.useState<WardrobeFilters | null>(null);

@@ -20,13 +20,31 @@
 // (preserves sibling keys — `onboarding.*`, `style_profile_v4_jsonb`,
 // `accent_color`, `shopping_list_jsonb`, etc.) — mirrors the canonical merge
 // in OnboardingScreen.tsx and usePickMustHaves.ts.
+//
+// M27 R1 review additions (2026-05-07):
+//   1. Retroactive trigger gate. Pre-M27 users have no
+//      `coach_tour_completed_at` so on next launch they'd see the tour even
+//      after weeks of usage. We gate on `profiles.created_at` — accounts
+//      older than RETRO_THRESHOLD_DAYS get a fire-and-forget seed write of
+//      `coach_tour_completed_at = now()` so the tour stays dormant for them.
+//      Why `created_at` over a garment-count probe: it's a single column on
+//      the profile row we already fetch, no extra round-trip; counts are
+//      eventually-consistent under pagination and would race the gate.
+//   2. AsyncStorage persistence of `currentStep` keyed on user.id. A
+//      force-quit mid-tour previously dropped the user back to step 1; we
+//      hydrate from disk on mount and clear on completion / skip.
+//   3. Mutation rollback resets `currentStep` to 0 on error so a failed
+//      completion write doesn't leave the user stranded on step 4.
+//   4. Status query errors → Sentry (the prior `useQuery` errors were
+//      silently swallowed).
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { captureMutationError } from '../lib/sentry';
+import { captureMutationError, Sentry } from '../lib/sentry';
 
 /** Total number of coach overlay steps. Used by both the gating logic and
  * the "1 of 4" progress indicator inside CoachOverlay. */
@@ -43,23 +61,38 @@ export type CoachStep = 0 | 1 | 2 | 3;
 const STEP_QUERY_KEY = (userId: string | undefined) => ['coachTour:step', userId];
 const STATUS_QUERY_KEY = (userId: string | undefined) => ['coachTour:status', userId];
 
+// AsyncStorage key prefix — per-user so a sign-out / sign-in to a different
+// account on the same device doesn't resurrect a stale step value.
+const STEP_STORAGE_KEY = (userId: string) => `burs.coachTour.step.${userId}`;
+
+// Retroactive trigger threshold. Profiles created longer ago than this are
+// considered "existing users" and get a fire-and-forget seed write so the
+// tour never surfaces. 7 days picked as a reasonable launch threshold — any
+// account older than the M27 ship date should already be past this.
+const RETRO_THRESHOLD_DAYS = 7;
+const RETRO_THRESHOLD_MS = RETRO_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+
 interface CoachTourStatus {
   /** ISO timestamp when the user finished (or skipped) the tour, or null if
    * the tour is still pending. */
   completedAt: string | null;
+  /** ISO timestamp from `profiles.created_at`. Used by the retroactive
+   * gate — accounts older than RETRO_THRESHOLD_DAYS get the seed write. */
+  profileCreatedAt: string | null;
 }
 
 /**
- * Defensive parser — accepts the raw `preferences.coach_tour_completed_at`
- * value and returns a strictly-typed CoachTourStatus. Anything else
- * downgrades to `completedAt: null` so a malformed JSONB column doesn't
- * crash the consumer.
+ * Defensive parser — accepts the raw row and returns a strictly-typed
+ * CoachTourStatus. Anything else downgrades to `completedAt: null` so a
+ * malformed JSONB column doesn't crash the consumer.
  */
-function parseStatus(value: unknown): CoachTourStatus {
-  if (typeof value === 'string' && value.length > 0) {
-    return { completedAt: value };
-  }
-  return { completedAt: null };
+function parseStatus(
+  prefsValue: unknown,
+  createdAt: string | null,
+): CoachTourStatus {
+  const completedAt =
+    typeof prefsValue === 'string' && prefsValue.length > 0 ? prefsValue : null;
+  return { completedAt, profileCreatedAt: createdAt };
 }
 
 /**
@@ -78,28 +111,40 @@ export function useFirstRunCoach(): {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Status query — reads `profiles.preferences.coach_tour_completed_at`.
-  // Defensive: any read error falls through to `completedAt = null` which
-  // would normally show the tour, BUT we gate `shouldShow` on
-  // `status.isSuccess` AND `!completedAt` so an in-flight or errored profile
-  // load defaults to "don't show" rather than racing the user with an
-  // overlay before we know whether it should appear at all.
+  // Status query — reads `profiles.preferences.coach_tour_completed_at` AND
+  // `profiles.created_at` so the retroactive gate can decide whether the
+  // tour applies to this account at all. A read error reports to Sentry
+  // (was previously swallowed) and is gated to "don't show" by `isSuccess`.
   const status = useQuery<CoachTourStatus, Error>({
     queryKey: STATUS_QUERY_KEY(user?.id),
     enabled: !!user,
     staleTime: Infinity, // one-shot read; the mutation below sets the cache directly.
     queryFn: async () => {
-      if (!user) return { completedAt: null };
+      if (!user) return { completedAt: null, profileCreatedAt: null };
       const { data, error } = await supabase
         .from('profiles')
-        .select('preferences')
+        .select('preferences, created_at')
         .eq('id', user.id)
         .maybeSingle();
       if (error) throw error;
       const prefs = (data?.preferences ?? null) as Record<string, unknown> | null;
-      return parseStatus(prefs?.coach_tour_completed_at ?? null);
+      const createdAt = (data?.created_at ?? null) as string | null;
+      return parseStatus(prefs?.coach_tour_completed_at ?? null, createdAt);
     },
   });
+
+  // M27 R1 — capture status read failures. React Query v5 removed the
+  // `onError` option from useQuery; an effect watching `status.error` is
+  // the canonical replacement and only fires once per error transition.
+  // Without this, transient profile read failures were silently swallowed.
+  useEffect(() => {
+    if (status.error) {
+      Sentry.withScope((s) => {
+        s.setTag('hook', 'useFirstRunCoach.status');
+        Sentry.captureException(status.error);
+      });
+    }
+  }, [status.error]);
 
   // Local-but-shared step counter. Stored in the React Query cache so every
   // screen with a coachmark sees the same value and re-renders together
@@ -115,7 +160,93 @@ export function useFirstRunCoach(): {
   });
   const currentStep: CoachStep = stepQuery.data ?? 0;
 
-  const completeMutation = useMutation<void, Error, void>({
+  // M27 R1 — hydrate `currentStep` from AsyncStorage on first mount per
+  // user.id so a force-quit mid-tour doesn't reset the user back to step 1.
+  // The seeder runs once per user; subsequent renders are cheap (the effect
+  // body short-circuits on the loaded ref).
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STEP_STORAGE_KEY(user.id));
+        if (cancelled || raw === null) return;
+        const parsed = parseInt(raw, 10);
+        if (
+          !Number.isFinite(parsed) ||
+          parsed < 0 ||
+          parsed >= COACH_TOUR_TOTAL
+        ) {
+          return;
+        }
+        const current = queryClient.getQueryData<CoachStep>(
+          STEP_QUERY_KEY(user.id),
+        );
+        // Only hydrate if the cache hasn't already been advanced past the
+        // persisted value (e.g. a fast Next tap mid-hydration).
+        if ((current ?? 0) < parsed) {
+          queryClient.setQueryData<CoachStep>(
+            STEP_QUERY_KEY(user.id),
+            parsed as CoachStep,
+          );
+        }
+      } catch {
+        // Best-effort: failure to hydrate just falls through to step 0.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, queryClient]);
+
+  // M27 R1 — retroactive trigger gate. When the profile resolves and shows
+  // the user has been around longer than the threshold (and hasn't yet got
+  // a `coach_tour_completed_at` value), fire-and-forget seed the timestamp
+  // so the tour stays dormant. We DO NOT use the mutation hook here — that
+  // would optimistic-flip the cached status anyway, and we want a single
+  // direct write that doesn't double up with the user-driven completion
+  // path. Errors silently fall through (the gate is best-effort; the worst
+  // case is the user briefly sees the tour, which is no worse than before
+  // this fix).
+  useEffect(() => {
+    if (!user || !status.isSuccess) return;
+    const data = status.data;
+    if (!data || data.completedAt !== null) return;
+    if (!data.profileCreatedAt) return;
+    const createdMs = new Date(data.profileCreatedAt).getTime();
+    if (!Number.isFinite(createdMs)) return;
+    if (Date.now() - createdMs < RETRO_THRESHOLD_MS) return;
+
+    let cancelled = false;
+    (async () => {
+      const { data: existing, error: readError } = await supabase
+        .from('profiles')
+        .select('preferences')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (cancelled || readError) return;
+      const prevPrefs = (existing?.preferences ?? {}) as Record<string, unknown>;
+      const completedAt = new Date().toISOString();
+      const mergedPrefs = {
+        ...prevPrefs,
+        coach_tour_completed_at: completedAt,
+      };
+      const { error: writeError } = await supabase
+        .from('profiles')
+        .update({ preferences: mergedPrefs })
+        .eq('id', user.id);
+      if (cancelled || writeError) return;
+      queryClient.setQueryData<CoachTourStatus>(STATUS_QUERY_KEY(user.id), {
+        completedAt,
+        profileCreatedAt: data.profileCreatedAt,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, status.isSuccess, status.data, queryClient]);
+
+  const completeMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
       // Read-modify-write merge — preserve every sibling preferences key
@@ -150,15 +281,37 @@ export function useFirstRunCoach(): {
       const prev = queryClient.getQueryData<CoachTourStatus>(
         STATUS_QUERY_KEY(user?.id),
       );
+      const prevStep =
+        queryClient.getQueryData<CoachStep>(STEP_QUERY_KEY(user?.id)) ?? 0;
       queryClient.setQueryData<CoachTourStatus>(STATUS_QUERY_KEY(user?.id), {
         completedAt: new Date().toISOString(),
+        profileCreatedAt: prev?.profileCreatedAt ?? null,
       });
-      return { prev };
+      return { prev, prevStep: prevStep as CoachStep };
+    },
+    onSuccess: () => {
+      // Tour completed — clear the persisted step so a future re-trigger
+      // (e.g. a hypothetical Settings → Replay) wouldn't carry over stale
+      // state. Best-effort: failure to remove the key is non-blocking.
+      if (user) {
+        AsyncStorage.removeItem(STEP_STORAGE_KEY(user.id)).catch(() => {});
+      }
     },
     onError: (err, _vars, context) => {
-      const ctx = context as { prev: CoachTourStatus | undefined } | undefined;
+      const ctx = context as { prev: CoachTourStatus | undefined; prevStep: CoachStep } | undefined;
       if (ctx?.prev !== undefined) {
         queryClient.setQueryData(STATUS_QUERY_KEY(user?.id), ctx.prev);
+      }
+      // M27 R1 — also reset currentStep to 0 so the user doesn't get
+      // stranded on step 4 (Outfits "Done") with the tour re-surfaced
+      // because the rollback flipped `shouldShow` back to true. Resetting
+      // to 0 lands them on Home where the rest of the sequence can replay
+      // cleanly. We deliberately reset to 0 rather than ctx.prevStep —
+      // prevStep would be the final step (3) which would loop the user
+      // straight back into the same failing mutation on the next Next tap.
+      queryClient.setQueryData<CoachStep>(STEP_QUERY_KEY(user?.id), 0 as CoachStep);
+      if (user) {
+        AsyncStorage.setItem(STEP_STORAGE_KEY(user.id), '0').catch(() => {});
       }
       captureMutationError('useFirstRunCoach.complete')(err);
     },
@@ -173,11 +326,16 @@ export function useFirstRunCoach(): {
       return;
     }
     queryClient.setQueryData<CoachStep>(STEP_QUERY_KEY(user?.id), next as CoachStep);
-  }, [currentStep, completeMutation, queryClient, user?.id]);
+    if (user) {
+      AsyncStorage.setItem(STEP_STORAGE_KEY(user.id), String(next)).catch(() => {});
+    }
+  }, [currentStep, completeMutation, queryClient, user]);
 
   const skip = useCallback(() => {
     // Skip jumps directly to completion, same persistence path as the
     // final advance(). Mirrors the wave brief: "skip = mark done now".
+    // The Skip-confirm dialog lives in CoachOverlay so this hook stays
+    // free of UI concerns.
     completeMutation.mutate();
   }, [completeMutation]);
 

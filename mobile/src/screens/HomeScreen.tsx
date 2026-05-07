@@ -83,7 +83,19 @@ function buildMiniWeek(today: Date, plannedDates: Set<string>): WeekDay[] {
   return out;
 }
 
-export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
+export function HomeScreen({
+  goTab,
+  isActive = true,
+}: {
+  goTab: (id: TabName) => void;
+  /** True when this screen is the active MainTabs tab. M27 R1 gate — the
+   * coach overlay only renders when the tab is visible so a hidden
+   * (display:'none') sibling can't measure 0×0 and surface the cutout
+   * over the wrong screen. Defaults to true so callers that aren't aware
+   * of the tab system (tests, future direct-route mounts) keep the prior
+   * always-on behavior. */
+  isActive?: boolean;
+}) {
   const t = useTokens();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<HomeNav>();
@@ -231,7 +243,13 @@ export function HomeScreen({ goTab }: { goTab: (id: TabName) => void }) {
   // re-fire the coachmark on a user who's already past Home.
   const coach = useFirstRunCoach();
   const heroRef = React.useRef<View | null>(null);
-  const showHeroCoach = coach.shouldShow && coach.currentStep === 0;
+  // M27 R1 — also gate on `isActive` so a hidden (display:'none') Home
+  // tab sibling can't surface a stale cutout while the user is on
+  // another tab. measureInWindow on a hidden node returns 0×0 which
+  // collapses the cutout into a single full-bleed scrim with the caption
+  // floating over whatever IS visible — the dominant orchestration bug
+  // surfaced in PR #753 review.
+  const showHeroCoach = isActive && coach.shouldShow && coach.currentStep === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>

@@ -73,6 +73,17 @@ const GOOD_BULLETS: readonly BulletDef[] = [
   },
 ];
 
+// M27 R1 — bad-bullets wired to the bad ExampleTile after Codex flagged
+// the dead i18n keys (`onboarding.photoTutorial.bad.bullets.0..3`). Same
+// shape / order as GOOD_BULLETS so the contrast reads cleanly: each rule
+// in the good column has a matching anti-rule in the bad column.
+const BAD_BULLETS: readonly { key: string }[] = [
+  { key: 'onboarding.photoTutorial.bad.bullets.0' },
+  { key: 'onboarding.photoTutorial.bad.bullets.1' },
+  { key: 'onboarding.photoTutorial.bad.bullets.2' },
+  { key: 'onboarding.photoTutorial.bad.bullets.3' },
+];
+
 export function PhotoTutorialStep({
   onComplete,
   onSkip,
@@ -135,6 +146,44 @@ export function PhotoTutorialStep({
                   { backgroundColor: t.accentSoft },
                 ]}>
                 {bullet.icon(t.accent)}
+              </View>
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: fonts.uiMed,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  color: t.fg,
+                  letterSpacing: -0.1,
+                }}>
+                {tr(bullet.key)}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* M27 R1 — bad-bullets card. The matching dictionary keys were
+            previously orphaned; rendering them here gives the tutorial a
+            balanced good vs bad story. CloseIcon swatches in destructive
+            tinting so the semantic reading flips from "do" to "don't" at
+            a glance. */}
+        <View
+          style={[
+            styles.bulletCard,
+            {
+              backgroundColor: t.card,
+              borderColor: t.border,
+              marginTop: 12,
+            },
+          ]}>
+          {BAD_BULLETS.map((bullet) => (
+            <View key={bullet.key} style={styles.bulletRow}>
+              <View
+                style={[
+                  styles.bulletIconWrap,
+                  { backgroundColor: t.destructiveSoft },
+                ]}>
+                <CloseIcon color={t.destructive} size={16} />
               </View>
               <Text
                 style={{
