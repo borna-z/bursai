@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M26 — AccentColorStep |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m26-accent-color-step.md` |
+| **CURRENT WAVE** | M27 — Coach tour |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m27-coach-tour.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

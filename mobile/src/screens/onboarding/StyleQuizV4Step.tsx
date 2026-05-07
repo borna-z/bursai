@@ -34,6 +34,7 @@ import { Chip } from '../../components/Chip';
 import { Eyebrow } from '../../components/Eyebrow';
 import { PageTitle } from '../../components/PageTitle';
 import { CheckIcon, MinusIcon, PlusIcon } from '../../components/icons';
+import { isLightSwatch } from '../../lib/color';
 import { hapticLight, hapticSelection } from '../../lib/haptics';
 import { t as tr } from '../../lib/i18n';
 import { useTokens } from '../../theme/ThemeProvider';
@@ -1212,20 +1213,8 @@ function QColors({
   );
 }
 
-// Perceptual-luminance threshold for "is this swatch light enough that a
-// dark check icon reads better than a light one?" (Codex P3 — replaces a
-// hardcoded id allowlist that broke whenever a new swatch was added).
-// Coefficients are the standard Rec. 601 weights. Threshold 200/255 picked
-// empirically against the M25 18-swatch palette.
-function isLightSwatch(hex: string): boolean {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return false;
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
-  return r * 0.299 + g * 0.587 + b * 0.114 > 200;
-}
+// `isLightSwatch` (perceptual-luminance threshold for picking a contrasting
+// check-icon color) is shared with AccentColorStep — see `../../lib/color`.
 
 function ColorGrid({
   selected,

@@ -1,10 +1,12 @@
-// OnboardingScreen — container that walks the user through 6 steps.
+// OnboardingScreen — container that walks the user through 7 steps.
 // Each step is a self-contained sub-screen under ./onboarding/.
 //
 // Header layout:
 //   • Back button left (hidden on step 1)
-//   • Skip button right (steps 2-4 only — value prop / quiz / studio)
-//   • Progress bar (shows current step / 6)
+//   • Skip button right (steps 2-5 only — value prop / quiz / accent color
+//     / studio; language and the post-quiz reveal/achievement steps are not
+//     skippable)
+//   • Progress bar (shows current step / 7)
 //
 // Step transitions are coordinated by `step` state. Each sub-step's onComplete
 // fires with a typed payload that we accumulate into `draft`. Once the final
@@ -40,6 +42,7 @@ import {
 import { StudioSelectionStep, type Studio } from './onboarding/StudioSelectionStep';
 import { AchievementStep } from './onboarding/AchievementStep';
 import { RevealStep } from './onboarding/RevealStep';
+import { AccentColorStep } from './onboarding/AccentColorStep';
 
 import { migrateV4ToV3Compat, type StyleProfileV4 } from '../lib/styleProfileV4';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -64,6 +67,14 @@ type OnboardingDraft = {
    * the final state) or backs out. Without this, force-quitting on Q5 drops
    * the user back at Q1 with empty answers (M25 Codex P1). */
   quizDraft?: QuizV4Progress;
+  /** Accent color picked in M26's AccentColorStep. We carry BOTH the
+   * swatch id (web-key, mirrors `src/contexts/ThemeContext.tsx`) and the
+   * hex (mobile-spec). At finish time both are written:
+   *   - `preferences.accentColor` = id  (web ThemeContext reads this)
+   *   - `preferences.accent_color` = hex (mobile-side metadata slot)
+   * so a value picked on either platform round-trips on the other.
+   * Metadata only — the live UI accent stays the warm-gold token. */
+  accentColor?: { id: string; hex: string };
   studio?: Studio;
 };
 
@@ -74,9 +85,12 @@ type PersistedState = {
   v: 1;
 };
 
-const STEP_COUNT = 6;
-// Steps 2, 3, 4 (1-indexed) are skippable per spec — that's 0-indexed 1, 2, 3.
-const SKIPPABLE = [1, 2, 3];
+// Step order (0-indexed):
+//   0 Language · 1 ValueProposition · 2 StyleQuizV4 · 3 AccentColor (M26)
+//   4 StudioSelection · 5 Achievement · 6 Reveal
+const STEP_COUNT = 7;
+// Skippable: ValueProposition, StyleQuizV4, AccentColor, StudioSelection.
+const SKIPPABLE = [1, 2, 3, 4];
 
 // AsyncStorage key — namespaced so it can't collide with future onboarding
 // flavors. (P1-23.) Cleared once the user reaches MainTabs.
@@ -88,6 +102,14 @@ async function loadDraft(): Promise<PersistedState | null> {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedState;
     if (parsed.v !== 1 || typeof parsed.step !== 'number') return null;
+    // M26 review fix: pre-fix drafts stored `accentColor` as a hex string;
+    // the new shape is `{ id, hex }`. If we see the old shape, drop it
+    // rather than pass a string where AccentColorStep expects an object —
+    // the user re-picks (the default 'amber' pre-selection makes that a
+    // single-tap action) instead of crashing.
+    if (parsed.draft && typeof parsed.draft.accentColor === 'string') {
+      parsed.draft = { ...parsed.draft, accentColor: undefined };
+    }
     return parsed;
   } catch {
     return null;
@@ -234,6 +256,22 @@ export function OnboardingScreen() {
           ? touchedToCompatTouched(draft.quizTouched)
           : undefined;
         mergedPrefs.styleProfile = migrateV4ToV3Compat(draft.quiz, compatTouched);
+      }
+      // M26 — AccentColorStep. Metadata only (memory + future
+      // personalization); the live UI accent stays the warm-gold token.
+      // Dual-write so values round-trip across platforms:
+      //   - `accentColor` (camelCase, swatch id) is the shape web's
+      //     `src/contexts/ThemeContext.tsx` reads on sign-in to restore the
+      //     stored accent. Mobile-saved values must use this shape so a
+      //     mobile-onboarded user's pick shows up when they open the web app.
+      //   - `accent_color` (snake_case, hex) is the mobile-spec literal
+      //     kept for any future mobile-only consumer that wants raw hex
+      //     without re-resolving the id.
+      // Skipped steps OMIT both keys (read-modify-write merge preserves any
+      // previously-stored value, including ones written by the web).
+      if (draft.accentColor) {
+        mergedPrefs.accent_color = draft.accentColor.hex;
+        mergedPrefs.accentColor = draft.accentColor.id;
       }
       try {
         const { error: prefsError } = await supabase
@@ -444,6 +482,15 @@ export function OnboardingScreen() {
           />
         )}
         {step === 3 && (
+          <AccentColorStep
+            initial={draft.accentColor}
+            onComplete={({ id, hex }) => {
+              setDraft((d) => ({ ...d, accentColor: { id, hex } }));
+              advance();
+            }}
+          />
+        )}
+        {step === 4 && (
           <StudioSelectionStep
             initial={draft.studio}
             onComplete={(studio) => {
@@ -452,8 +499,8 @@ export function OnboardingScreen() {
             }}
           />
         )}
-        {step === 4 && <AchievementStep onComplete={advance} />}
-        {step === 5 && <RevealStep onComplete={finish} />}
+        {step === 5 && <AchievementStep onComplete={advance} />}
+        {step === 6 && <RevealStep onComplete={finish} />}
       </FadeUp>
     </SafeAreaView>
   );

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Port AccentColorStep so the user picks a personal accent color during onboarding (drives a subtle UI tint + memory signal). |
-| Status | TODO |
+| Status | DONE (PR #752) |
 | Branch | `mobile-m26-accent-color-step` |
 | PR count | 1 |
 | Depends on | V0 |
