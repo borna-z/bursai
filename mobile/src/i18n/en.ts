@@ -1057,4 +1057,40 @@ export const en: Record<string, string> = {
   'settingsNotifications.permissionsDenied.body':
     'BURS needs notification permission to send you outfit reminders. Enable it in iOS Settings to start receiving pings.',
   'settingsNotifications.permissionsDenied.openSettings': 'Open Settings',
+
+  // ─── M31 — Paywall (RevenueCat) ─────────────────────────────────────────
+  // Append-only additions to the existing paywall.* namespace. The pre-M31
+  // keys (paywall.title / paywall.feature.*.* / paywall.plan.* /
+  // paywall.price.* / paywall.cta / paywall.trial.* / paywall.terms /
+  // paywall.privacy etc.) are reused directly by PaywallScreen and not
+  // duplicated here. These keys cover only the new surfaces introduced by
+  // PR A: subtitle / bullet shorthand / per-plan IAP labels / processing +
+  // success / pending / error states / dedicated restore-purchases label /
+  // legal-link external-target labels.
+  'paywall.subtitle': 'Unlimited outfits, AI styling, and ghost-mannequin renders.',
+  'paywall.bullet.1': 'Unlimited outfit generation',
+  'paywall.bullet.2': 'AI style chat in context',
+  'paywall.bullet.3': 'Ghost mannequin studio rendering',
+  'paywall.bullet.4': 'Travel capsule + wardrobe gaps',
+  'paywall.monthly.title': 'Monthly',
+  'paywall.monthly.priceLabel': '119 SEK / month',
+  'paywall.monthly.cta': 'Start monthly',
+  'paywall.yearly.title': 'Yearly',
+  'paywall.yearly.priceLabel': '899 SEK / year',
+  'paywall.yearly.cta': 'Start yearly',
+  'paywall.yearly.savingsBadge': 'Save 35%',
+  'paywall.processing': 'Processing…',
+  'paywall.activated': 'Subscription active',
+  'paywall.activating':
+    "Activating your subscription… you'll see it within a minute.",
+  'paywall.restorePurchases': 'Restore Purchases',
+  'paywall.restored': 'Purchases restored',
+  'paywall.error.generic':
+    "Something went wrong. We couldn't complete the purchase — please try again.",
+  // Cancellation is a silent-dismiss UX. The key exists so engineers
+  // searching the locale file see the intentional silence; the screen
+  // never renders this string.
+  'paywall.error.cancelled': '',
+  'paywall.termsLink': 'https://burs.me/terms',
+  'paywall.privacyLink': 'https://burs.me/privacy',
 };

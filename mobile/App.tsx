@@ -65,6 +65,7 @@ import {
   type RootStackParamList,
 } from './src/navigation/RootNavigator';
 import { useRegisterPushToken } from './src/hooks/usePushNotifications';
+import { configureRevenueCat, resetRevenueCat } from './src/lib/revenuecat';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this
 // synchronously at module load — before the first React render — is what the
@@ -195,6 +196,44 @@ function useRecoveryDeepLink(): void {
       sub.remove();
     };
   }, []);
+}
+
+// M31 — configure the RevenueCat SDK once auth resolves. Mounted ahead of
+// push-token registration so the IAP surface is ready before the paywall
+// can be presented (deep link / push-driven entry to Paywall would
+// otherwise race the configure call).
+//
+// Three transitions to handle:
+//   * sign-in (null → user)         → configureRevenueCat(user.id)
+//   * sign-out (user → null)        → resetRevenueCat()
+//   * user-swap (userA → userB)     → resetRevenueCat() then configure(B)
+//
+// The configure/reset helpers are idempotent (de-duped on the cached
+// `configuredFor`) so a re-fire from a TOKEN_REFRESHED event is a no-op.
+// Errors are swallowed inside the SDK wrapper (Sentry breadcrumbs only)
+// — RevenueCat misconfiguration must never block app boot.
+function useRevenueCatLifecycle(): void {
+  const { user, isLoading } = useAuth();
+  const lastUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const nextId = user?.id ?? null;
+    const prevId = lastUserId.current;
+    if (nextId === prevId) return;
+
+    if (!nextId) {
+      // sign-out
+      lastUserId.current = null;
+      void resetRevenueCat();
+      return;
+    }
+
+    // sign-in or user-swap. configureRevenueCat handles the swap case
+    // internally (logOut + reconfigure when `configuredFor !== nextId`).
+    lastUserId.current = nextId;
+    void configureRevenueCat(nextId);
+  }, [user, isLoading]);
 }
 
 // M30 — register the device's Expo push token once auth resolves. Mounted
@@ -374,6 +413,9 @@ function ThemedShell() {
   const { resolved } = useTheme();
   const t = themes[resolved];
   useRecoveryDeepLink();
+  // RevenueCat must be configured before push so the paywall is ready
+  // even if the user opens it immediately after auth resolves.
+  useRevenueCatLifecycle();
   usePushTokenRegistration();
   useNotificationDeepLink();
   // Map BURS tokens onto React Navigation's theme contract — the only thing it cares about

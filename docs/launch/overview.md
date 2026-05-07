@@ -142,7 +142,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | ) | V0 |
 | ) | V0 |
 | ) | V0 |
-| M31 | [RevenueCat + paywall + webhook](waves/m31-revenuecat.md) | TODO | V0 |
+| M31 | [RevenueCat + paywall + webhook](waves/m31-revenuecat.md) | IN PROGRESS (PR A: #TBD, PR B: pending) | V0 |
 | M32 | [Restore Purchases](waves/m32-restore-purchases.md) | TODO | V0, M31 |
 | M33 | [i18n Swedish + English baseline](waves/m33-i18n.md) | TODO | V0 |
 | M34 | [App.json metadata + Universal Links + privacy manifest](waves/m34-appjson.md) | TODO | V0 |
