@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Optional Google Calendar sync so M15 day intelligence reads real upcoming events for occasion classification. |
-| Status | DONE (PR #PR_NUM) |
+| Status | DONE (PR #772) |
 | Branch | `mobile-m36-calendar-sync` |
 | PR count | 1 |
 | Depends on | V0 |
