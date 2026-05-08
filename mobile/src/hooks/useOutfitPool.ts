@@ -133,12 +133,13 @@ function makeDraftId(): string {
 
 export function useOutfitPool(): UseOutfitPoolResult {
   const { session } = useAuth();
-  // Subscribe to weather here so the hook re-renders when it lands. The
-  // request itself is awaited inside `generatePool` via React Query's
-  // `ensureQueryData` against the same cache entry, so OutfitPoolScreen's
-  // mount-effect kick doesn't race the cold-start fetch and silently send
-  // `FALLBACK_WEATHER`. (Codex P2 round 1 on PR #775.)
-  const { weather: liveWeather } = useWeather();
+  // Pre-warm the React Query weather cache by mounting the subscription
+  // here. The actual weather value is read by `awaitFreshWeather` inside
+  // `generatePool()`, but mounting `useWeather()` at hook level kicks
+  // the fetch at screen mount instead of waiting for the user to tap
+  // Generate. We don't destructure `weather` because the callback awaits
+  // the cached value directly. (Codex P2 round 1 + lint follow-up.)
+  useWeather();
   const queryClient = useQueryClient();
   const [pool, setPool] = useState<ScoredOutfitDraft[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -343,7 +344,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
         setIsGenerating(false);
       }
     },
-    [session?.access_token, liveWeather, queryClient],
+    [session?.access_token, queryClient],
   );
 
   const reset = useCallback(() => {

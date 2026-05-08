@@ -160,13 +160,16 @@ function adaptItems(items: EngineResponseItem[] | undefined): GeneratedOutfitIte
 
 export function useGenerateOutfit() {
   const { session } = useAuth();
-  // Subscribe to weather here so the hook re-renders when it lands. The
-  // request itself is awaited inside `generate` via React Query's
-  // `ensureQueryData` against the same cache entry, so a screen that
-  // auto-generates from a mount effect (OutfitGenerateScreen does) doesn't
-  // race the cold-start fetch and silently send `FALLBACK_WEATHER`.
-  // (Codex P2 round 1 on PR #775.)
-  const { weather: liveWeather } = useWeather();
+  // Pre-warm the React Query weather cache by mounting the subscription
+  // here. The actual weather value is read by `awaitFreshWeather` inside
+  // `generate()`, but mounting `useWeather()` at hook level means the
+  // Open-Meteo fetch kicks at screen mount rather than waiting for the
+  // user to tap Generate — by the time generate runs, the cache is
+  // typically warm and `awaitFreshWeather` returns immediately. We don't
+  // destructure `weather` because the callback awaits the cached/in-flight
+  // value directly, so adding `liveWeather` to the useCallback deps would
+  // be an unused-dependency warning. (Codex P2 round 1 + lint follow-up.)
+  useWeather();
   const queryClient = useQueryClient();
   const [result, setResult] = useState<GeneratedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -434,7 +437,7 @@ export function useGenerateOutfit() {
         }
       }
     },
-    [session?.access_token, liveWeather, queryClient],
+    [session?.access_token, queryClient],
   );
 
   const reset = useCallback(() => {
