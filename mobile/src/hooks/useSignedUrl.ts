@@ -43,9 +43,11 @@
 // rows mid-fetch doesn't wedge the inflight Promise — `supabase-js`'s
 // `createSignedUrl` accepts `AbortSignal` via the underlying `fetch`.
 
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import React from 'react';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
+import { Sentry } from '../lib/sentry';
 
 const BUCKET = 'garments';
 const EXPIRES_IN_SECONDS = 60 * 60; // signed URL TTL — 1 hour
@@ -377,4 +379,169 @@ function bulkSignedUrlsStaleTimeFor(paths: readonly string[]): number {
   }
   if (!Number.isFinite(soonest)) return TTL_MS;
   return Math.max(MIN_STALE_MS, soonest - Date.now() - STALE_PAD_MS);
+}
+
+// `useGarmentImage` — shared hook for every component that renders a garment
+// image on top of a gradient placeholder (GarmentCard, OutfitSlotRow,
+// OutfitsScreen, OutfitDetailScreen). Encapsulates three behaviours that were
+// previously duplicated (and silently broken) at every call site:
+//
+//   1. <Image> `onError` was a no-op `setBroken(true)` — failures were
+//      invisible, so a stale signed URL could leave every garment thumbnail
+//      stuck on a coloured gradient with no telemetry. Now: a Sentry
+//      breadcrumb is logged on every load failure so dashboards can spot the
+//      systemic-failure case (RLS denial after re-auth, region outage,
+//      mass-401 on token refresh) instead of hearing about it through user
+//      reports of "everything's a colour card."
+//   2. No retry. A 401/404 on a stale signed URL stayed broken until the
+//      consumer scrolled the row out and back in (forcing a remount). Now:
+//      the first failure busts the per-path module cache via
+//      `bustSignedUrlCache`, which invalidates React Query and forces a
+//      fresh `createSignedUrl` mint — the new URL replaces the stale one in
+//      the same mount cycle.
+//   3. No retry budget. A genuinely-permanently-broken path (object deleted
+//      from storage, RLS rejecting after an account move) would loop forever
+//      under (2) without a budget. Now: one retry per garment, then we
+//      surrender and the consumer renders the gradient placeholder.
+//
+// Cap on own-initiated cache busts per garment. After this many failures we
+// stop busting from inside this hook — further attempts have to come from
+// outside (render-complete bust, sign-in refresh, TTL refetch). This caps
+// the bust → remint → fail → bust loop on a genuinely-broken path.
+//
+// We do NOT use this as a "give up forever" counter — that would lock the
+// gradient on permanently even after an external event mints a genuinely-
+// different URL that might work. Instead we track *which URLs have failed*
+// and only suppress those specific URLs; any fresh URL from outside still
+// gets one shot. (Codex P2 round 2 on PR #774.)
+const RETRY_BUDGET = 1;
+
+// FIFO cap on the per-mount failed-URL ledger. The hook accepts unbounded
+// fresh URLs from external busts — over a long-lived screen mount that
+// could grow without bound on a permanently-broken path (TTL refetches +
+// render-complete busts each minting a new URL). Cap the ledger so the
+// per-render `includes` check stays O(1)-ish and React state doesn't carry
+// arbitrarily long arrays. 8 is plenty: the only realistic way to fill it
+// is N consecutive minted-and-failed URLs, which already implies the
+// thumbnail is broken — at that point dropping the oldest entry just
+// retries it, and either it works (good) or fails again (we record it
+// again). 8 strikes a balance between bounded memory and not so small
+// that we constantly re-test the same handful of failed URLs.
+const FAILED_URL_CAP = 8;
+
+// Hoisted empty array reused as initial state across every cell mount, so
+// we don't allocate a fresh `[]` per <Image>. (Self-review P2 on PR #774.)
+const EMPTY_FAILED_URLS: readonly string[] = [];
+
+export interface UseGarmentImageResult {
+  /** Pass to `<Image source={{ uri }}>`. `null` while loading, when the
+   *  current signed URL is one that has already failed for this garment,
+   *  or when no `imagePath` was provided. Consumers MUST render a gradient
+   *  placeholder underneath so this null state stays visually graceful. */
+  uri: string | null;
+  /** Pass to `<Image onError>`. Logs a Sentry breadcrumb and busts the
+   *  signed-URL cache for up to `RETRY_BUDGET` re-mint attempts. Identity
+   *  is NOT stable — `useCallback` deps include `failedUrls` and `signedUrl`
+   *  so a fresh function lands on every re-render where either changes.
+   *  RN's `<Image>` doesn't remount on `onError` prop identity changes, so
+   *  this isn't a perf concern, but a downstream memoiser MUST NOT rely on
+   *  reference equality. */
+  onError: () => void;
+}
+
+export function useGarmentImage(
+  imagePath: string | null | undefined,
+): UseGarmentImageResult {
+  const queryClient = useQueryClient();
+  const { data: signedUrl } = useSignedUrl(imagePath);
+  // URLs that have failed to load in this mount cycle for this garment.
+  // Suppresses any of these URLs from being handed back to <Image> if React
+  // Query happens to serve the same value again (which it does between an
+  // onError and the post-bust refetch completing — TanStack keeps `data`
+  // populated during refetch). Cleared only on `imagePath` change. Storing
+  // an array rather than a Set keeps state value-equal across renders so
+  // React's structural sharing skips unnecessary re-renders.
+  const [failedUrls, setFailedUrls] = React.useState<readonly string[]>(
+    EMPTY_FAILED_URLS,
+  );
+  // Synchronous in-tick dedupe ledger. State updates batch, so the closure-
+  // captured `failedUrls.includes(signedUrl)` check is render-stale: RN can
+  // fire onError twice in the same tick (the comment below documents this)
+  // and both invocations would see the same captured array, both pass the
+  // inclusion gate, both log a Sentry breadcrumb, and both call
+  // `bustSignedUrlCache` — defeating the dedupe. The ref is updated
+  // synchronously inside onError BEFORE any side effects, so the second
+  // invocation in the same tick bails. Mirrored to `failedUrls` state so
+  // `isKnownFailed` recomputes after the commit. (Self-review round 2 on
+  // PR #774.)
+  const failedUrlsRef = React.useRef<Set<string>>(new Set());
+  // Track which `imagePath` the ledger belongs to so a late onError fired
+  // by a recycled FlatList cell after the parent re-bound to a different
+  // garment can't write into the new garment's ledger or bust the new
+  // garment's cache. (Self-review round 2 on PR #774.)
+  const ledgerImagePathRef = React.useRef<string | null | undefined>(imagePath);
+
+  // Reset the failed-URL set only when the user navigates to a different
+  // garment. Resetting on `signedUrl` change too would un-suppress the URL
+  // we just recorded as failed — TanStack still serves it during the post-
+  // bust refetch window — and <Image> would re-fire onError on an unchanged
+  // source, growing the set without progress.
+  React.useEffect(() => {
+    failedUrlsRef.current = new Set();
+    ledgerImagePathRef.current = imagePath;
+    setFailedUrls(EMPTY_FAILED_URLS);
+  }, [imagePath]);
+
+  const isKnownFailed = signedUrl != null && failedUrls.includes(signedUrl);
+  const uri = isKnownFailed ? null : (signedUrl ?? null);
+
+  const onError = React.useCallback(() => {
+    if (!signedUrl) return;
+    // Bail if a FlatList recycle has rebound this hook to a different
+    // garment while an old <Image> request is still in flight. Without
+    // this, the in-flight load's late onError would (a) grow the new
+    // garment's ledger with an unrelated URL and (b) bust the new
+    // imagePath's cache wastefully.
+    if (ledgerImagePathRef.current !== imagePath) return;
+    // In-tick dedupe via ref. Returns synchronously so a same-tick repeat
+    // doesn't run side effects twice; the ref is mirrored to state below
+    // so `isKnownFailed` updates render-time on the next commit.
+    if (failedUrlsRef.current.has(signedUrl)) return;
+    failedUrlsRef.current.add(signedUrl);
+    const attempts = failedUrlsRef.current.size - 1;
+    if (__DEV__) {
+      console.warn('[useGarmentImage] image load failed', { imagePath, attempts });
+    }
+    Sentry.addBreadcrumb({
+      category: 'image',
+      level: 'warning',
+      message: 'garment image load failed',
+      data: { imagePath: imagePath ?? null, attempts },
+    });
+    // Cap own-initiated cache busts at RETRY_BUDGET. After that we stop
+    // busting from inside the hook — but we keep the per-URL failed set
+    // active, so any fresh signed URL minted by external means (render-
+    // complete bust, sign-in refresh, TTL refetch) still gets one shot
+    // through `isKnownFailed === false`.
+    if (attempts < RETRY_BUDGET && imagePath) {
+      // Invalidate the cached signed URL so the next observe re-mints.
+      // `bustSignedUrlCache` clears the module Map, bumps the per-path
+      // generation counter (so any in-flight mint started before this
+      // bust is dropped), and invalidates React Query — that triple-step
+      // is what makes the new URL actually arrive on the next render
+      // rather than serving the stale entry.
+      bustSignedUrlCache(queryClient, imagePath);
+    }
+    // Append, capped FIFO at FAILED_URL_CAP so external busts on a
+    // permanently-broken path can't grow the ledger unbounded over a
+    // long-lived screen mount. (Self-review P1 round 1 on PR #774.)
+    // The state update only drives `isKnownFailed`; the authoritative
+    // dedupe ledger is the ref above.
+    setFailedUrls((prev) => {
+      const next = [...prev, signedUrl];
+      return next.length > FAILED_URL_CAP ? next.slice(-FAILED_URL_CAP) : next;
+    });
+  }, [imagePath, queryClient, signedUrl]);
+
+  return { uri, onError };
 }

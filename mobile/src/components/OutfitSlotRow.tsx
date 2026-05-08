@@ -19,7 +19,7 @@ import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from './Eyebrow';
 import { Button } from './Button';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useGarmentImage } from '../hooks/useSignedUrl';
 import { outfitGradientHue } from '../lib/outfitDisplay';
 import { t as tr } from '../lib/i18n';
 import type { OutfitItemWithGarment } from '../types/outfit';
@@ -74,10 +74,8 @@ export function OutfitSlotRow({
   const garment = item.garment;
   const imagePath =
     garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  const [broken, setBroken] = React.useState(false);
-  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
-  const showImage = signedUrl && !broken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
   const hue = garment?.id
     ? outfitGradientHue(garment.id)
     : outfitGradientHue(item.id);
@@ -120,8 +118,8 @@ export function OutfitSlotRow({
           />
           {showImage ? (
             <Image
-              source={{ uri: signedUrl }}
-              onError={() => setBroken(true)}
+              source={{ uri: imageUri }}
+              onError={onImageError}
               style={{ width: '100%', height: '100%' }}
               resizeMode="cover"
             />
