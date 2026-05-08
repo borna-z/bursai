@@ -66,7 +66,7 @@ function greetingFor(d: Date): string {
   return 'Good night';
 }
 
-type WeekDay = { dow: string; n: number; active: boolean; dot: boolean };
+type WeekDay = { dow: string; n: number; active: boolean; dot: boolean; iso: string };
 
 // 7-day rolling window starting from today. `plannedDates` is a Set of ISO yyyy-mm-dd strings
 // pulled from the live `planned_outfits` query — empty set falls through to "no dot anywhere".
@@ -78,11 +78,13 @@ function buildMiniWeek(today: Date, plannedDates: Set<string>): WeekDay[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
+    const iso = localISODate(d);
     out.push({
       dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
       n: d.getDate(),
       active: i === 0,
-      dot: plannedDates.has(localISODate(d)),
+      dot: plannedDates.has(iso),
+      iso,
     });
   }
   return out;
@@ -559,10 +561,10 @@ export function HomeScreen({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13.5, fontWeight: '600', color: t.fg, fontFamily: fonts.uiSemi, letterSpacing: -0.13 }}>
-                What goes with my linen trousers?
+                {tr('home.askStylist.exampleSeed')}
               </Text>
               <Text style={{ fontSize: 11.5, color: t.fg2, marginTop: 1, fontFamily: fonts.ui }}>
-                Tap to chat — context-aware
+                {tr('home.askStylist.tapHint')}
               </Text>
             </View>
             <ChevronIcon color={t.fg3} />
@@ -639,6 +641,8 @@ function HubTile({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}. ${sub}`}
       style={({ pressed }) => [
         s.hubTile,
         {
@@ -724,12 +728,14 @@ function MiniWeek({ days, onPress }: { days: WeekDay[]; onPress: () => void }) {
   const t = useTokens();
   return (
     <View style={{ flexDirection: 'row', gap: 5 }}>
-      {days.map((day, i) => {
+      {days.map((day) => {
         const dotColor = day.dot ? t.accent : day.active ? t.bg : t.fg3;
         return (
           <Pressable
-            key={i}
+            key={day.iso}
             onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={`${day.dow} ${day.n}${day.dot ? ', planned' : ''}`}
             style={[
               s.miniDay,
               {

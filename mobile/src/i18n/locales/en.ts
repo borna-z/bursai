@@ -1357,4 +1357,10 @@ export const en: Record<string, string> = {
   'settings.calendar.disconnect.body':
     "We'll stop syncing your events and remove what's already saved.",
   'settings.calendar.disconnect.confirm': 'Disconnect',
+
+  // Home — "Ask the stylist" affordance seed copy. The seed renders as the
+  // visible suggestion text on the row before the user has any chat history;
+  // pulling it through i18n lets us localize the example for non-English users.
+  'home.askStylist.exampleSeed': 'What goes with my linen trousers?',
+  'home.askStylist.tapHint': 'Tap to chat — context-aware',
 };
