@@ -99,21 +99,36 @@ interface SyncResponse {
 }
 
 /** Convert standard base64 to base64url (RFC 4648 §5): `+` → `-`, `/` → `_`,
- *  strip trailing `=` padding. Required by Google's PKCE spec for both the
- *  verifier (random bytes) and the challenge (SHA-256 hash of the verifier). */
+ *  strip trailing `=` padding. The challenge is base64url-encoded per
+ *  Google's PKCE spec (RFC 7636 §4.2). */
 function toBase64Url(b64: string): string {
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** Generate a 32-byte cryptographically random PKCE code verifier
- *  (RFC 7636 §4.1) and its SHA-256 challenge. The verifier is the secret
- *  that proves to Google that the same client requesting the auth URL is
- *  the one redeeming the code; the challenge is what we send up-front. */
+/** Hex-encode random bytes. RFC 7636 §4.1 says the verifier is "high-entropy
+ *  cryptographic-random string using the unreserved characters
+ *  [A-Z] / [a-z] / [0-9] / "-" / "." / "_" / "~", with a minimum length of
+ *  43 characters and a maximum length of 128 characters" — hex (0-9 a-f) is
+ *  inside that set. We deliberately avoid `btoa(String.fromCharCode(...bytes))`
+ *  because `btoa` isn't reliably present on every RN runtime (Hermes
+ *  versions before the polyfill landed throw `ReferenceError`); hex is
+ *  bulletproof and uses only `Uint8Array.toString(16)`. 32 random bytes →
+ *  64 hex chars, well above the 43-char floor. */
+function bytesToHex(bytes: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) {
+    s += bytes[i].toString(16).padStart(2, '0');
+  }
+  return s;
+}
+
+/** Generate a 32-byte cryptographically random PKCE code verifier and its
+ *  SHA-256 challenge. The verifier is the secret that proves to Google
+ *  that the same client requesting the auth URL is the one redeeming the
+ *  code; the challenge is what we send up-front. */
 async function generatePkcePair(): Promise<{ verifier: string; challenge: string }> {
   const randomBytes = await Crypto.getRandomBytesAsync(32);
-  const verifier = toBase64Url(
-    btoa(String.fromCharCode(...randomBytes)),
-  );
+  const verifier = bytesToHex(randomBytes);
   const challengeB64 = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     verifier,

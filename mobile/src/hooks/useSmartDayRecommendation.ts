@@ -21,9 +21,6 @@ import { useMemo } from 'react';
 
 import { useFlatGarments } from './useGarments';
 import { useOutfits } from './useOutfits';
-import { useCalendarEvents } from './useCalendarSync';
-import { useNow } from './useNow';
-import { localISODate } from '../lib/outfitDisplay';
 import {
   buildDayIntelligence,
   type DayContext,
@@ -73,30 +70,18 @@ export function useSmartDayRecommendation(
   const overrideEvents = overrides?.events;
   const overrideWeather = overrides?.weather;
 
-  // M36 — fall back to today's synced calendar events when no override is
-  // passed AND when the override is an empty array (the M35 OccasionPicker's
-  // "Casual" pill emits `[]` to mean "no synthetic event"). The calendar
-  // events query stays harmless when the user hasn't connected — it returns
-  // `[]` and the engine falls back to its casual baseline same as before.
-  //
-  // `useNow()` is the reactive `now` ticker (foreground / midnight) the M14
-  // sweep introduced; `localISODate(now)` rolls over the day key when the
-  // user keeps the app mounted across midnight. A `useMemo([])` cache of
-  // `new Date()` would freeze the date for the lifetime of the hook and
-  // serve yesterday's events to the engine. Codex P2 on PR #772.
-  const now = useNow();
-  const todayDate = useMemo(() => localISODate(now), [now]);
-  const calendarEventsQ = useCalendarEvents(todayDate);
-
-  const events = useMemo<DayEventInput[]>(() => {
-    if (overrideEvents && overrideEvents.length > 0) return overrideEvents;
-    return (calendarEventsQ.data ?? []).map((e) => ({
-      title: e.title,
-      location: e.location,
-      start_time: e.start_time,
-      end_time: e.end_time,
-    }));
-  }, [overrideEvents, calendarEventsQ.data]);
+  // Stabilise the optional-override into a memo-safe value. Without this,
+  // `overrideEvents ?? []` would mint a fresh array reference every render,
+  // churning every downstream useMemo on this hook. Calendar events flow
+  // in via `overrides` from HomeScreen (M36) — the screen merges its
+  // `useCalendarEvents(today)` query with the M35 occasion picker before
+  // forwarding so both the recommendation engine here AND the AI day
+  // summary (`useDaySummary`, sibling consumer in SmartDayBanner) see the
+  // same merged context.
+  const events = useMemo<DayEventInput[]>(
+    () => overrideEvents ?? [],
+    [overrideEvents],
+  );
   const weather = useMemo<DayWeatherInput | null>(
     () => (overrideWeather === undefined ? FALLBACK_WEATHER : overrideWeather),
     [overrideWeather],
