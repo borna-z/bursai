@@ -311,12 +311,17 @@ function runItem(batch: Batch, item: BatchItem): void {
   item.status = 'in_flight';
   batch.inFlightCount += 1;
   const work = (async (): Promise<BatchItem> => {
+    // Hoisted out of the try so the catch path can re-await it for orphan
+    // cleanup (Codex P2 round 1 on PR #777). Initialised inside the try
+    // because the resize step runs first and we don't want to start an
+    // upload until resize succeeds.
+    let uploadP: ReturnType<typeof uploadManipulatedImage> | null = null;
     try {
       // Single resize, base64 + bytes both consumed downstream.
       const resized = await resizeForGarment(item.uri, { wantBase64: true });
 
       // Upload + analyze in parallel.
-      const uploadP = uploadManipulatedImage(resized, batch.userId).then((res) => {
+      uploadP = uploadManipulatedImage(resized, batch.userId).then((res) => {
         // Stash storagePath as soon as it lands so cleanup paths can find it.
         item.storagePath = res.storagePath;
         return res;
@@ -370,8 +375,27 @@ function runItem(batch: Batch, item: BatchItem): void {
       return item;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Pipeline failed';
-      // Storage object may have landed before analyze rejected — keep it
-      // on the item so retry can clean it up in one shot.
+      // analyzeFn rejected (or another step before it). The upload promise
+      // may still be in flight — await it so a successful upload either
+      // stamps its storagePath onto the item (retry / cleanup paths need
+      // it) or, if the user already skipped/dropped the batch while we
+      // were waiting, gets actively deleted to avoid an orphan object.
+      // `uploadP` is null only when resize itself rejected before we
+      // started the upload. Don't rethrow on upload failure here — the
+      // analyze error already drives the item's failed state.
+      // (Codex P2 round 1 on PR #777.)
+      if (uploadP) {
+        try {
+          const upRes = await uploadP;
+          if (item.status === 'in_flight' && batches.has(batch.id)) {
+            item.storagePath = upRes.storagePath;
+          } else {
+            void deleteUpload(upRes.storagePath);
+          }
+        } catch {
+          // Upload also failed — nothing to clean up.
+        }
+      }
       if (item.status === 'in_flight') {
         item.status = 'failed';
         item.errorMessage = msg;
