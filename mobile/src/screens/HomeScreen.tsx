@@ -38,7 +38,7 @@ import { useMarkOutfitWorn, useOutfits } from '../hooks/useOutfits';
 import { useWeather } from '../hooks/useWeather';
 import { useCalendarEvents } from '../hooks/useCalendarSync';
 import type { DayEventInput } from '../lib/dayIntelligence';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useGarmentImage } from '../hooks/useSignedUrl';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
 import { t as tr } from '../lib/i18n';
@@ -689,10 +689,8 @@ function OutfitThumb({
   const t = useTokens();
   const garment = item?.garment ?? null;
   const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  const [broken, setBroken] = React.useState(false);
-  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
-  const showImage = signedUrl && !broken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
   // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
   // as the empty string `''` rather than null, and `??` would still pick
   // that empty value over the garment's category. Codex P2 on PR #738.
@@ -709,8 +707,8 @@ function OutfitThumb({
       />
       {showImage ? (
         <Image
-          source={{ uri: signedUrl }}
-          onError={() => setBroken(true)}
+          source={{ uri: imageUri }}
+          onError={onImageError}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
         />

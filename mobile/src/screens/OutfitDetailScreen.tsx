@@ -56,7 +56,7 @@ import { supabase } from '../lib/supabase';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useGarmentImage } from '../hooks/useSignedUrl';
 import { useNow } from '../hooks/useNow';
 import {
   groupGarmentsBySlot,
@@ -1221,10 +1221,8 @@ function AccessoryCard({
   onAdd: () => void;
 }) {
   const t = useTokens();
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  const [broken, setBroken] = React.useState(false);
-  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
-  const showImage = signedUrl && !broken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
   const hue = outfitGradientHue(title);
 
   return (
@@ -1246,8 +1244,8 @@ function AccessoryCard({
         />
         {showImage ? (
           <Image
-            source={{ uri: signedUrl }}
-            onError={() => setBroken(true)}
+            source={{ uri: imageUri }}
+            onError={onImageError}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
@@ -1342,10 +1340,8 @@ function DetailThumbCell({
   const t = useTokens();
   const garment = item?.garment ?? null;
   const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  const [broken, setBroken] = React.useState(false);
-  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
-  const showImage = signedUrl && !broken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
   const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
   const label = (item?.slot ?? garment?.category ?? '').toString().toUpperCase();
 
@@ -1359,8 +1355,8 @@ function DetailThumbCell({
       />
       {showImage ? (
         <Image
-          source={{ uri: signedUrl }}
-          onError={() => setBroken(true)}
+          source={{ uri: imageUri }}
+          onError={onImageError}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
         />
@@ -1479,10 +1475,8 @@ function SwapCandidateRow({
   const t = useTokens();
   const garment = candidate.garment;
   const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  const [broken, setBroken] = React.useState(false);
-  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
-  const showImage = signedUrl && !broken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
   const hue = outfitGradientHue(garment.id);
   const sub = [garment.color_primary, garment.category].filter(Boolean).join(' · ').toUpperCase();
 
@@ -1509,8 +1503,8 @@ function SwapCandidateRow({
         />
         {showImage ? (
           <Image
-            source={{ uri: signedUrl }}
-            onError={() => setBroken(true)}
+            source={{ uri: imageUri }}
+            onError={onImageError}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />

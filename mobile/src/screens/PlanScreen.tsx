@@ -30,7 +30,7 @@ import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/useP
 import { useWeekGenerator } from '../hooks/useWeekGenerator';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useNow } from '../hooks/useNow';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useGarmentImage } from '../hooks/useSignedUrl';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems, PlannedOutfitWithOutfit } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -593,10 +593,8 @@ function PlanOutfitThumb({
   const t = useTokens();
   const garment = item?.garment ?? null;
   const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  const [broken, setBroken] = React.useState(false);
-  React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
-  const showImage = signedUrl && !broken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
   // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
   // as the empty string `''` rather than null, so `??` would still pick
   // the empty value over the garment's category. Codex P2 on PR #738.
@@ -622,8 +620,8 @@ function PlanOutfitThumb({
       />
       {showImage ? (
         <Image
-          source={{ uri: signedUrl }}
-          onError={() => setBroken(true)}
+          source={{ uri: imageUri }}
+          onError={onImageError}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
         />

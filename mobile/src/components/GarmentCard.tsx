@@ -30,7 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useGarmentImage } from '../hooks/useSignedUrl';
 
 export type GarmentCardData = {
   id: string;
@@ -82,19 +82,8 @@ export function GarmentCard({
   // the user-facing showpiece. Falls through to original on the AddPiece flow's
   // pre-render window.
   const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
-  const { data: signedUrl } = useSignedUrl(imagePath);
-  // Track image-load failure separately from URL absence: a signed URL can
-  // resolve fine but the underlying object can be 404 (deleted from storage)
-  // or the JWT can have expired before render. Without the onError flip, the
-  // <Image> stays mounted-but-invisible over the gradient — looks like a
-  // photo "loaded" but rendered transparent. Resetting on path change is
-  // essential or scrolling a recycled FlatList cell would inherit the
-  // failure state from a previous garment.
-  const [imageBroken, setImageBroken] = React.useState(false);
-  React.useEffect(() => {
-    setImageBroken(false);
-  }, [imagePath, signedUrl]);
-  const showImage = signedUrl && !imageBroken;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
 
   const baseHue = garment.hue ?? hueFromId(garment.id);
   const hueA = baseHue;
@@ -135,13 +124,12 @@ export function GarmentCard({
         />
         {showImage ? (
           <Image
-            source={{ uri: signedUrl }}
-            // Image sits on top of the gradient. onError flips imageBroken,
-            // which short-circuits the next render to gradient-only — so a
-            // 404 on a stale signed URL doesn't leave an invisible <Image>
-            // on top of the gradient (RN composites both even when the
-            // source fails to load).
-            onError={() => setImageBroken(true)}
+            source={{ uri: imageUri }}
+            // `useGarmentImage` handles the failure side-effects (Sentry
+            // breadcrumb + one signed-URL re-mint via `bustSignedUrlCache`).
+            // After the retry budget is spent the hook returns `uri: null`
+            // and the gradient takes over.
+            onError={onImageError}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
