@@ -150,7 +150,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Path B extra screens
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M35 | [Home depth (smart day banner + weather)](waves/m35-home-depth.md) | DONE (PR #PR_NUM) | V0, M15 |
+| M35 | [Home depth (smart day banner + weather)](waves/m35-home-depth.md) | DONE (PR #771) | V0, M15 |
 | M36 | [Calendar sync (Google OAuth)](waves/m36-calendar-sync.md) | TODO | V0 |
 | M37 | [Outfit detail slots (full composition + anchor UI)](waves/m37-outfit-detail-slots.md) | TODO | V0, M13 |
 | M38 | [SettingsStyle 8-section editor](waves/m38-settings-style.md) | TODO | V0, M29 |
