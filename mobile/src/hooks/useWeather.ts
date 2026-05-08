@@ -17,7 +17,7 @@
 // React Query's de-dupe keeps us at one fetch per 30-min window per active
 // city.
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 export interface WeatherData {
   /** Whole-degree Celsius reading rounded from Open-Meteo's hourly value. */
@@ -43,6 +43,78 @@ export interface UseWeatherOptions {
 
 const DEFAULT_COORDS = { lat: 59.3293, lon: 18.0686 } as const;
 const STALE_MS = 30 * 60 * 1000;
+export const WEATHER_QUERY_STALE_MS = STALE_MS;
+
+/** Stable query key for the weather fetch. Exported so generator hooks can
+ *  call `queryClient.ensureQueryData(...)` against the SAME cache entry the
+ *  `useWeather` hook subscribes to — guaranteeing a single in-flight fetch
+ *  when the hook is mounted in a sibling screen and the generator is kicked
+ *  before that fetch resolves. (Codex P2 round 1 on PR #775.) */
+export function weatherQueryKey(city: string | null | undefined) {
+  return ['weather', city ?? null] as const;
+}
+
+/** Maximum time `awaitFreshWeather` will wait for a cold-cache fetch before
+ *  resolving to `null` so the caller can fall back to a placeholder. Open-
+ *  Meteo typically responds in 200–500 ms; 1500 ms gives flaky / captive
+ *  networks two retry windows before we surrender. Weather is contextual
+ *  for outfit generation — blocking the engine call indefinitely on a
+ *  slow weather request would leave the user staring at a spinner.
+ *  (Codex P2 round 2 on PR #775.) */
+export const WEATHER_AWAIT_TIMEOUT_MS = 1500;
+
+/** Resolve weather for a generator that's about to fire. Returns the
+ *  cached value when warm, otherwise races the in-flight fetch (kicking
+ *  one when nothing's running) against `timeoutMs`. Resolves to `null` on
+ *  timeout or fetch error so the caller can fall back to a placeholder
+ *  weather payload — never throws. The fetch itself keeps running on
+ *  timeout (it'll populate the cache for a follow-up generate), so this
+ *  is a soft deadline, not a cancellation. */
+export async function awaitFreshWeather(
+  queryClient: QueryClient,
+  city: string | null = null,
+  timeoutMs: number = WEATHER_AWAIT_TIMEOUT_MS,
+): Promise<WeatherData | null> {
+  // Honor staleTime — React Query keeps stale entries in the cache until an
+  // unrelated refetch trigger fires, so a screen left open >30 min would
+  // otherwise feed outdated rain/temperature into Generate / Pool. When the
+  // cached entry is fresh (`dataUpdatedAt` within `STALE_MS`), return it
+  // immediately. When stale, force a real refetch via `fetchQuery` —
+  // `ensureQueryData` would short-circuit and return the stale cached value
+  // because the entry exists, defeating the staleness check.
+  // (Codex P2 round 3 on PR #775.)
+  const queryKey = weatherQueryKey(city);
+  const cached = queryClient.getQueryData<WeatherData>(queryKey);
+  if (cached) {
+    const state = queryClient.getQueryState<WeatherData>(queryKey);
+    const dataUpdatedAt = state?.dataUpdatedAt ?? 0;
+    if (dataUpdatedAt > 0 && Date.now() - dataUpdatedAt < STALE_MS) {
+      return cached;
+    }
+  }
+  // `fetchQuery` invokes `queryFn` whenever the entry is stale relative to
+  // its `staleTime` arg. We pass `staleTime: 0` because we've already gated
+  // on freshness above — at this point the cache is either absent or stale,
+  // and we explicitly want a network refetch in both cases. The result is
+  // written back into the same cache entry `useWeather` subscribes to, so a
+  // slow refresh still propagates to active subscribers when it lands.
+  const fetchPromise = queryClient
+    .fetchQuery({
+      queryKey,
+      queryFn: () => fetchWeather(city),
+      staleTime: 0,
+    })
+    .catch((): WeatherData | null => null);
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    return await Promise.race<WeatherData | null>([fetchPromise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+  }
+}
 
 function getConditionFromCode(code: number): string {
   if (code === 0) return 'weather.condition.clear';
@@ -94,7 +166,7 @@ export async function getCoordinatesFromCity(
   }
 }
 
-async function fetchWeather(city: string | null | undefined): Promise<WeatherData> {
+export async function fetchWeather(city: string | null | undefined): Promise<WeatherData> {
   let coords: { lat: number; lon: number } = DEFAULT_COORDS;
   if (city) {
     const resolved = await getCoordinatesFromCity(city);
@@ -132,7 +204,7 @@ export function useWeather(options?: UseWeatherOptions) {
   const enabled = options?.enabled !== false;
 
   const query = useQuery({
-    queryKey: ['weather', city],
+    queryKey: weatherQueryKey(city),
     queryFn: () => fetchWeather(city),
     enabled,
     staleTime: STALE_MS,

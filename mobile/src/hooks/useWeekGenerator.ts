@@ -9,22 +9,26 @@
 // doesn't drop the rest of the week.
 //
 // Day context (M15): each call carries `day_context` derived from
-// `buildDayIntelligence(events, weather)`. Until the calendar (M36) and
-// weather (M35) hooks ship, events default to `[]` and weather to the
-// same mild placeholder used by `useSmartDayRecommendation` so the
-// engine produces a sane composition rather than refusing to score.
-// Recently-worn garment IDs come from a dedicated id-only Supabase
-// query (id + last_worn_at indexed) and are passed to the engine as
-// `exclude_garment_ids` to bias against repetition across the week. The
-// query is independent of the paginated `useFlatGarments` cache so we
-// never under-count repeats just because a wardrobe page hasn't loaded.
+// `buildDayIntelligence(events, weather)`. M35 wired `useWeather` and M36
+// wired `useCalendarSync`; this hook now consumes `useWeather` directly so
+// the engine sees real rain/snow/heat/cold context across the whole week
+// instead of the mild-day placeholder it shipped with. Calendar events
+// remain empty per-day because `useCalendarEvents` is single-date and a
+// 7-day fan-out would issue 7 extra queries per generate; wiring a range
+// query is deferred to keep this PR focused on the worst regression
+// (weather affecting every recommendation). Recently-worn garment IDs
+// come from a dedicated id-only Supabase query (id + last_worn_at
+// indexed) and are passed to the engine as `exclude_garment_ids` to bias
+// against repetition across the week. The query is independent of the
+// paginated `useFlatGarments` cache so we never under-count repeats just
+// because a wardrobe page hasn't loaded.
 //
 // Subscription gating: a 402 / `subscription_required` from any single
 // day short-circuits the loop and surfaces the same sentinel error
 // `useGenerateOutfit` raises so the screen can route to the paywall.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -43,15 +47,16 @@ import { localISODate } from '../lib/outfitDisplay';
 import { Sentry } from '../lib/sentry';
 import { validateOutfitItems } from '../lib/outfitRules';
 import type { ScoredOutfitDraft } from './useOutfitPool';
+import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
 
 const RECENTLY_WORN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Mild placeholder weather. Matches `useGenerateOutfit` and `useOutfitPool`
-// so the engine's `normalizeWeather` reads the same baseline shape across
-// every mobile entry-point. `precipitation: 'unknown'` would otherwise
-// trip the engine's wet-weather branch (treats unknown as "potentially
-// raining" → biases toward waterproof outerwear and away from suede),
-// silently skewing the whole week.
+// Fallback weather used while `useWeather` is loading or has errored. Matches
+// `useGenerateOutfit` and `useOutfitPool` so the engine's `normalizeWeather`
+// reads the same baseline shape across every mobile entry-point.
+// `precipitation: 'unknown'` would otherwise trip the engine's wet-weather
+// branch (treats unknown as "potentially raining" → biases toward waterproof
+// outerwear and away from suede), silently skewing the whole week.
 const FALLBACK_WEATHER: DayWeatherInput = {
   temperature: 18,
   precipitation: 'none',
@@ -128,6 +133,20 @@ function computeWeekIsos(startDate: Date): string[] {
 
 export function useWeekGenerator(): UseWeekGeneratorResult {
   const { session, user } = useAuth();
+  const queryClient = useQueryClient();
+  // Pre-warm the React Query weather cache by mounting the subscription
+  // here. The actual weather value is read by `awaitFreshWeather` inside
+  // `generateWeek` / `regenerateDay`, not via this hook's return value —
+  // mounting `useWeather()` at hook level kicks the Open-Meteo fetch at
+  // screen mount instead of waiting for the user to tap Generate. By the
+  // time generation runs, the cache is typically warm. We resolve weather
+  // ONCE at the top of `generateWeek` and reuse that snapshot across all
+  // 7 sequential calls (matches the intent that "this week's" outfits are
+  // generated from one moment in time, not a 7-day forecast slice). The
+  // closure-frozen `liveWeather` value would otherwise stay null for the
+  // whole loop on cold mount because React state updates don't propagate
+  // into an in-flight async closure. (Codex P2 round 2 on PR #775.)
+  useWeather();
 
   // Dedicated id-only query for recently-worn garments. Independent of the
   // paginated wardrobe cache so the exclude set is complete even when the
@@ -174,19 +193,26 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
       date,
       locale,
       recentlyWornIds,
+      weather,
       signal,
     }: {
       date: string;
       locale: string;
       recentlyWornIds: string[];
+      /** Resolved weather snapshot, captured ONCE at the top of the calling
+       *  loop so all 7 days share the same context. Null when the upstream
+       *  `awaitFreshWeather` resolved to null (cold cache + slow network) —
+       *  caller has already substituted `FALLBACK_WEATHER` in that case. */
+      weather: DayWeatherInput;
       signal: AbortSignal;
     }): Promise<WeekGeneratorEntry> => {
-      // Build per-day context. Until M35/M36 land, events are empty and
-      // weather is the placeholder; the engine still produces a sane
-      // composition (no rain → no umbrella bias, mild temp → no thermal
-      // gating, no event tags → defaults to dominant 'casual').
+      // Build per-day context. Calendar events stay empty until a date-range
+      // calendar query lands (single-date `useCalendarEvents` × 7 days is
+      // not worth the extra queries here); weather is the resolved snapshot
+      // passed in from `generateWeek` / `regenerateDay`.
       const events: DayEventInput[] = [];
-      const intelligence = buildDayIntelligence(events, FALLBACK_WEATHER);
+      const effectiveWeather: DayWeatherInput = weather;
+      const intelligence = buildDayIntelligence(events, effectiveWeather);
 
       try {
         const data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
@@ -198,7 +224,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
             // Engine reads `body.weather` as a flat WeatherInput sibling
             // of `body.day_context` (see supabase/functions/burs_style_engine
             // index.ts:806 + _shared/outfit-scoring.ts:74-78).
-            weather: FALLBACK_WEATHER,
+            weather: effectiveWeather,
             locale,
             // Engine destructures `body.day_context` as a flat
             // DayContextInput (`dominant_occasion`, `anchor_event`,
@@ -313,6 +339,25 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
       );
 
       try {
+        // Resolve weather ONCE before the loop and reuse the snapshot across
+        // all 7 days. Reading `liveWeather` per-day inside the loop closure
+        // would freeze at whatever value React state held when `generateWeek`
+        // was kicked (closures don't see future state updates), which is null
+        // on cold mount → all 7 days would silently fall back to the mild-day
+        // placeholder even if `useWeather` resolved mid-loop.
+        // `awaitFreshWeather` joins the in-flight fetch when one's running
+        // and races a 1.5 s timeout so a slow / captive / offline network
+        // can't strand the whole week. (Codex P2 round 2 on PR #775.)
+        const weatherForWeek: WeatherData | null = await awaitFreshWeather(queryClient);
+        if (controller.signal.aborted) return;
+        const effectiveWeather: DayWeatherInput = weatherForWeek
+          ? {
+              temperature: weatherForWeek.temperature,
+              precipitation: weatherForWeek.precipitation,
+              wind: weatherForWeek.wind,
+            }
+          : FALLBACK_WEATHER;
+
         for (const date of isos) {
           if (controller.signal.aborted) return;
           try {
@@ -320,6 +365,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
               date,
               locale,
               recentlyWornIds,
+              weather: effectiveWeather,
               signal: controller.signal,
             });
             if (controller.signal.aborted) return;
@@ -345,7 +391,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
         }
       }
     },
-    [session?.access_token, recentlyWornQ.data, callOneDay],
+    [session?.access_token, recentlyWornQ.data, callOneDay, queryClient],
   );
 
   const regenerateDay = useCallback(
@@ -392,10 +438,25 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
       const recentlyWornIds = Array.from(recentlyWornQ.data ?? []);
 
       try {
+        // Resolve weather for this single-day regeneration. Same rationale
+        // as `generateWeek` — the closure can't see post-mount `useWeather`
+        // resolutions, and `awaitFreshWeather` returns the cached value when
+        // warm or races the in-flight fetch against a 1.5 s timeout.
+        const weatherForCall: WeatherData | null = await awaitFreshWeather(queryClient);
+        if (controller.signal.aborted) return;
+        const effectiveWeather: DayWeatherInput = weatherForCall
+          ? {
+              temperature: weatherForCall.temperature,
+              precipitation: weatherForCall.precipitation,
+              wind: weatherForCall.wind,
+            }
+          : FALLBACK_WEATHER;
+
         const entry = await callOneDay({
           date,
           locale: params.locale,
           recentlyWornIds,
+          weather: effectiveWeather,
           signal: controller.signal,
         });
         if (controller.signal.aborted) return;
@@ -434,7 +495,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
         });
       }
     },
-    [session?.access_token, recentlyWornQ.data, callOneDay],
+    [session?.access_token, recentlyWornQ.data, callOneDay, queryClient],
   );
 
   const reset = useCallback(() => {

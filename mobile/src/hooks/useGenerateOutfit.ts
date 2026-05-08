@@ -14,6 +14,7 @@
 //     wardrobe_insights?: string[], confidence_*?, error? }
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -26,6 +27,17 @@ import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
+import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
+
+// Fallback weather payload used while `useWeather` is loading or has errored.
+// Mild 18°C, no precipitation, calm wind — same shape `useWeekGenerator` and
+// `useOutfitPool` fall back to so every mobile entry-point looks identical
+// to the engine's `normalizeWeather` when live weather is unavailable.
+const FALLBACK_WEATHER = {
+  temperature: 18,
+  precipitation: 'none' as const,
+  wind: 'none' as const,
+};
 
 /**
  * Sentinel `error` value the hook raises when the engine returns a complete
@@ -148,6 +160,17 @@ function adaptItems(items: EngineResponseItem[] | undefined): GeneratedOutfitIte
 
 export function useGenerateOutfit() {
   const { session } = useAuth();
+  // Pre-warm the React Query weather cache by mounting the subscription
+  // here. The actual weather value is read by `awaitFreshWeather` inside
+  // `generate()`, but mounting `useWeather()` at hook level means the
+  // Open-Meteo fetch kicks at screen mount rather than waiting for the
+  // user to tap Generate — by the time generate runs, the cache is
+  // typically warm and `awaitFreshWeather` returns immediately. We don't
+  // destructure `weather` because the callback awaits the cached/in-flight
+  // value directly, so adding `liveWeather` to the useCallback deps would
+  // be an unused-dependency warning. (Codex P2 round 1 + lint follow-up.)
+  useWeather();
+  const queryClient = useQueryClient();
   const [result, setResult] = useState<GeneratedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,6 +224,25 @@ export function useGenerateOutfit() {
       pushUnique(anchorId);
       for (const id of seedIds) pushUnique(id);
 
+      // Resolve weather BEFORE issuing the engine call. `liveWeather` is
+      // null on the first render after a cold cache, so a screen that fires
+      // generate() from a mount effect would otherwise always send
+      // FALLBACK_WEATHER on first launch. `awaitFreshWeather` reads the
+      // same React Query cache `useWeather` populates, joins the in-flight
+      // fetch when one's running, kicks a fresh fetch when nothing's been
+      // requested, AND races the wait against a 1.5 s timeout so a slow /
+      // captive / offline network can't strand the engine call —
+      // `FALLBACK_WEATHER` is the safety net on null. (Codex P2 round 2
+      // on PR #775.)
+      const weatherForCall: WeatherData | null = await awaitFreshWeather(queryClient);
+      const effectiveWeather = weatherForCall
+        ? {
+            temperature: weatherForCall.temperature,
+            precipitation: weatherForCall.precipitation,
+            wind: weatherForCall.wind,
+          }
+        : FALLBACK_WEATHER;
+
       try {
         let data: EngineResponse;
         try {
@@ -210,10 +252,7 @@ export function useGenerateOutfit() {
               generator_mode: 'standard',
               occasion: params.occasion ?? 'Everyday',
               style: params.mood ?? null,
-              // Default weather satisfies normalizeWeather in the engine —
-              // the screens don't yet collect a weather signal in W4. W9+
-              // wires weather context via useWeather().
-              weather: { precipitation: 'none', wind: 'none' },
+              weather: effectiveWeather,
               locale: 'en',
               prefer_garment_ids: preferList,
             },
@@ -398,7 +437,7 @@ export function useGenerateOutfit() {
         }
       }
     },
-    [session?.access_token],
+    [session?.access_token, queryClient],
   );
 
   const reset = useCallback(() => {

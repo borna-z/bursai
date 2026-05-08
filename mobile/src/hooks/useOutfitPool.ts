@@ -24,6 +24,7 @@
 // anchor" affordance.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -35,6 +36,16 @@ import {
 import { isAnchorPresent } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
+import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
+
+// Fallback weather used while `useWeather` is loading or has errored. Same
+// shape as the other generators so the engine sees a consistent baseline
+// across mobile entry-points.
+const FALLBACK_WEATHER = {
+  temperature: 18,
+  precipitation: 'none' as const,
+  wind: 'none' as const,
+};
 
 /** A draft outfit returned by the engine — not yet persisted to `outfits`.
  *  The pool screen renders these as preview tiles; saving turns each draft
@@ -122,6 +133,14 @@ function makeDraftId(): string {
 
 export function useOutfitPool(): UseOutfitPoolResult {
   const { session } = useAuth();
+  // Pre-warm the React Query weather cache by mounting the subscription
+  // here. The actual weather value is read by `awaitFreshWeather` inside
+  // `generatePool()`, but mounting `useWeather()` at hook level kicks
+  // the fetch at screen mount instead of waiting for the user to tap
+  // Generate. We don't destructure `weather` because the callback awaits
+  // the cached value directly. (Codex P2 round 1 + lint follow-up.)
+  useWeather();
+  const queryClient = useQueryClient();
   const [pool, setPool] = useState<ScoredOutfitDraft[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +182,23 @@ export function useOutfitPool(): UseOutfitPoolResult {
 
       const anchorId = anchorGarmentId?.trim() || undefined;
       const safeOccasion = occasion?.trim() || 'Everyday';
+      // Resolve weather BEFORE the parallel fan-out. `liveWeather` is null
+      // on cold start so a screen that auto-generates from a mount effect
+      // would otherwise snapshot FALLBACK_WEATHER for the whole batch.
+      // `awaitFreshWeather` returns the cached value when warm, joins or
+      // kicks the fetch otherwise, AND races the wait against a 1.5 s
+      // timeout so a slow / captive / offline network can't strand the
+      // pool. All N parallel calls then see the same resolved snapshot
+      // (or `FALLBACK_WEATHER` when the timeout fires). (Codex P2 round 2
+      // on PR #775.)
+      const weatherForBatch: WeatherData | null = await awaitFreshWeather(queryClient);
+      const effectiveWeather = weatherForBatch
+        ? {
+            temperature: weatherForBatch.temperature,
+            precipitation: weatherForBatch.precipitation,
+            wind: weatherForBatch.wind,
+          }
+        : FALLBACK_WEATHER;
 
       const callOne = async (): Promise<CallOneResult> => {
         const data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
@@ -171,11 +207,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
             generator_mode: 'standard',
             occasion: safeOccasion,
             style: null,
-            // Mild placeholder weather — same as `useGenerateOutfit` and
-            // `useWeekGenerator`. M35 will wire a real weather provider;
-            // until then the engine's `normalizeWeather` accepts this
-            // shape cleanly.
-            weather: { temperature: 18, precipitation: 'none', wind: 'none' },
+            weather: effectiveWeather,
             locale: 'en',
             // Only include the field when an anchor exists — keeps the
             // body terse and avoids sending an empty array the engine
@@ -312,7 +344,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
         setIsGenerating(false);
       }
     },
-    [session?.access_token],
+    [session?.access_token, queryClient],
   );
 
   const reset = useCallback(() => {
