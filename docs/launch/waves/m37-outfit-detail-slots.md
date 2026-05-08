@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | OutfitDetail shows the full slot composition (TOP / BOTTOM / LAYER / SHOES / OUTERWEAR / ACCESSORY) with per-slot swap + anchor lock UI, matching web's outfit detail panel. |
-| Status | TODO |
+| Status | DONE (PR #773) |
 | Branch | `mobile-m37-outfit-detail-slots` |
 | PR count | 1 |
 | Depends on | V0, M13 |

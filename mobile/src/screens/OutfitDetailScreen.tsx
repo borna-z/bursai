@@ -11,8 +11,10 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -21,6 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -55,12 +58,31 @@ import { t as tr } from '../lib/i18n';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { useNow } from '../hooks/useNow';
-import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import {
+  groupGarmentsBySlot,
+  localISODate,
+  outfitDisplayName,
+  outfitGradientHue,
+} from '../lib/outfitDisplay';
+import { OutfitSlotRow } from '../components/OutfitSlotRow';
+import { useSwapGarment, type SwapCandidate } from '../hooks/useSwapGarment';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'OutfitDetail'>;
+
+// M37 — anchor persistence. The `outfits` table has no `anchor_garment_id`
+// column and the per-PR rules forbid running a migration without explicit
+// user direction, so the lock state lives in AsyncStorage keyed by user +
+// outfit. The anchor is fundamentally a regeneration-time concept (passed
+// to the engine via `prefer_garment_ids`); persisting locally is enough to
+// satisfy the wave's "reopen → anchor still shown" gate while keeping the
+// surface migration-free.
+const ANCHOR_STORAGE_PREFIX = 'm37:outfitAnchor:';
+function anchorStorageKey(userId: string, outfitId: string): string {
+  return `${ANCHOR_STORAGE_PREFIX}${userId}:${outfitId}`;
+}
 
 export function OutfitDetailScreen() {
   const t = useTokens();
@@ -289,6 +311,172 @@ export function OutfitDetailScreen() {
 
   const [rating, setRating] = React.useState(0);
   const [notes, setNotes] = React.useState('');
+
+  // M37 — slot composition state.
+  const [anchorGarmentId, setAnchorGarmentId] = React.useState<string | null>(null);
+  const [swapTarget, setSwapTarget] = React.useState<{
+    outfitItemId: string;
+    slot: string;
+    garmentId: string | null;
+  } | null>(null);
+
+  // Hydrate the anchor from AsyncStorage when the outfit id resolves. Best-
+  // effort — a missing key is the common case (no anchor set yet) and is
+  // not an error. The set-anchor path below writes the same key.
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!user || !outfit?.id) {
+      setAnchorGarmentId(null);
+      return;
+    }
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(anchorStorageKey(user.id, outfit.id));
+        if (cancelled) return;
+        setAnchorGarmentId(stored && stored.length > 0 ? stored : null);
+      } catch {
+        // AsyncStorage outages shouldn't break the screen — the slot rows
+        // simply render without a lock pill until the next read succeeds.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, outfit?.id]);
+
+  const persistAnchor = React.useCallback(
+    async (garmentId: string | null) => {
+      if (!user || !outfit?.id) return;
+      const key = anchorStorageKey(user.id, outfit.id);
+      try {
+        if (garmentId) {
+          await AsyncStorage.setItem(key, garmentId);
+        } else {
+          await AsyncStorage.removeItem(key);
+        }
+        setAnchorGarmentId(garmentId);
+      } catch (err) {
+        Alert.alert(
+          'Could not save anchor',
+          err instanceof Error ? err.message : 'Please try again.',
+        );
+      }
+    },
+    [user, outfit?.id],
+  );
+
+  const swapGarmentIds = React.useMemo(() => {
+    if (!outfit) return [] as string[];
+    return (outfit.outfit_items ?? [])
+      .map((it) => it.garment?.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  }, [outfit]);
+
+  const swapHook = useSwapGarment({
+    outfitId: outfit?.id ?? null,
+    slot: swapTarget?.slot ?? null,
+    outfitItemId: swapTarget?.outfitItemId ?? null,
+    excludeGarmentIds: swapGarmentIds,
+    enabled: !!swapTarget,
+  });
+
+  const slotGroups = React.useMemo(
+    () => groupGarmentsBySlot(outfit?.outfit_items ?? []),
+    [outfit?.outfit_items],
+  );
+
+  const handleOpenSwap = React.useCallback(
+    (slot: string, item: OutfitItemWithGarment) => {
+      setSwapTarget({
+        outfitItemId: item.id,
+        slot,
+        garmentId: item.garment?.id ?? null,
+      });
+    },
+    [],
+  );
+
+  const handleCloseSwap = React.useCallback(() => {
+    setSwapTarget(null);
+  }, []);
+
+  const handleSelectSwap = React.useCallback(
+    async (newGarmentId: string) => {
+      if (!swapTarget) return;
+      try {
+        await swapHook.swap({ newGarmentId });
+        // If the swapped-out garment was the anchor, clear the lock — the
+        // anchored piece is no longer in the outfit.
+        if (swapTarget.garmentId && anchorGarmentId === swapTarget.garmentId) {
+          await persistAnchor(null);
+        }
+        setSwapTarget(null);
+      } catch (err) {
+        Alert.alert(
+          'Could not swap',
+          err instanceof Error ? err.message : 'Please try again.',
+        );
+      }
+    },
+    [swapTarget, swapHook, anchorGarmentId, persistAnchor],
+  );
+
+  const handleAnchor = React.useCallback(
+    async (garmentId: string) => {
+      if (anchorGarmentId === garmentId) {
+        await persistAnchor(null);
+        return;
+      }
+      await persistAnchor(garmentId);
+    },
+    [anchorGarmentId, persistAnchor],
+  );
+
+  const handleRemoveItem = React.useCallback(
+    async (item: OutfitItemWithGarment) => {
+      if (!outfit || !user) return;
+      const garmentTitle = item.garment?.title ?? 'this piece';
+      Alert.alert(
+        tr('outfitDetail.remove.title'),
+        tr('outfitDetail.remove.body', { title: garmentTitle }),
+        [
+          { text: tr('outfitDetail.remove.cancel'), style: 'cancel' },
+          {
+            text: tr('outfitDetail.remove.confirm'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const { error: deleteErr } = await supabase
+                  .from('outfit_items')
+                  .delete()
+                  .eq('id', item.id);
+                if (deleteErr) throw deleteErr;
+                if (item.garment?.id && anchorGarmentId === item.garment.id) {
+                  await persistAnchor(null);
+                }
+                queryClient.invalidateQueries({
+                  queryKey: ['outfit', user.id, outfit.id],
+                });
+                queryClient.invalidateQueries({ queryKey: ['outfits'] });
+              } catch (err) {
+                Sentry.withScope((s) => {
+                  s.setTag('mutation', 'OutfitDetailScreen.removeItem');
+                  Sentry.captureException(
+                    err instanceof Error ? err : new Error(String(err)),
+                  );
+                });
+                Alert.alert(
+                  'Could not remove',
+                  err instanceof Error ? err.message : 'Please try again.',
+                );
+              }
+            },
+          },
+        ],
+      );
+    },
+    [outfit, user, anchorGarmentId, persistAnchor, queryClient],
+  );
 
   // Hydrate rating + notes from outfit + outfit_feedback so a returning user
   // sees their prior values instead of an empty 5-star row + empty note that
@@ -857,6 +1045,11 @@ export function OutfitDetailScreen() {
             ) : null}
           </View>
 
+          {/* M37 — slot composition. Replaces the prior flat horizontal
+              piece strip with a vertical slotted list. Each slot exposes
+              Swap / Anchor / Remove. The anchored slot renders a lock
+              pill alongside its eyebrow; the lock state persists across
+              reopens via AsyncStorage (see anchorStorageKey above). */}
           <View>
             <View style={s.sectionHead}>
               <Eyebrow>Garments in this outfit</Eyebrow>
@@ -864,50 +1057,56 @@ export function OutfitDetailScreen() {
                 {outfit.outfit_items?.length ?? 0}
               </Text>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
-              {(outfit.outfit_items ?? []).map((item) => (
-                <PieceCard
-                  key={item.id}
-                  item={item}
-                  // `push` not `navigate` — drill-down across detail routes. In a flow like
-                  // GarmentDetail → OutfitDetail → tap piece, `navigate('GarmentDetail', …)`
-                  // would collapse onto the existing GarmentDetail entry earlier in the stack,
-                  // mutating its params and shortening the back stack. `push` always adds a
-                  // fresh entry.
-                  onPress={() => {
-                    if (item.garment?.id) nav.push('GarmentDetail', { id: item.garment.id });
-                  }}
-                  // M13 — long-press → "Make this the anchor" prompt. Confirms,
-                  // then routes to OutfitGenerate with the chosen anchor;
-                  // the screen's anchor pill + anchor-missed signal then
-                  // surface the lock state across regenerations.
-                  onLongPress={() => {
-                    const garmentId = item.garment?.id;
-                    if (!garmentId) return;
-                    const title = item.garment?.title;
-                    Alert.alert(
-                      tr('anchor.makeAnchor.title'),
-                      title
-                        ? tr('anchor.makeAnchor.body', { title })
-                        : tr('anchor.makeAnchor.bodyFallback'),
-                      [
-                        { text: tr('anchor.makeAnchor.cancel'), style: 'cancel' },
-                        {
-                          text: tr('anchor.makeAnchor.confirm'),
-                          onPress: () => nav.navigate('OutfitGenerate', { garmentId }),
-                        },
-                      ],
-                    );
-                  }}
-                />
-              ))}
-            </ScrollView>
+            <View style={{ gap: 10 }}>
+              {slotGroups.map((group) =>
+                group.items.map((item) => {
+                  const garmentId = item.garment?.id ?? null;
+                  const isAnchored =
+                    !!garmentId && anchorGarmentId === garmentId;
+                  return (
+                    <OutfitSlotRow
+                      key={item.id}
+                      slot={group.slot}
+                      item={item}
+                      isAnchored={isAnchored}
+                      onPress={() => {
+                        if (garmentId) {
+                          // `push` not `navigate` — drill-down across detail
+                          // routes; navigate would collapse onto an existing
+                          // GarmentDetail entry earlier in the stack and
+                          // shorten the back stack.
+                          nav.push('GarmentDetail', { id: garmentId });
+                        }
+                      }}
+                      onSwap={() => handleOpenSwap(group.slot, item)}
+                      onAnchor={() => {
+                        if (!garmentId) return;
+                        void handleAnchor(garmentId);
+                      }}
+                      onRemove={() => {
+                        void handleRemoveItem(item);
+                      }}
+                      swapDisabled={!!swapTarget && swapTarget.outfitItemId !== item.id}
+                    />
+                  );
+                }),
+              )}
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {swapTarget ? (
+        <SwapCandidateSheet
+          slotLabelKey={swapTarget.slot}
+          isLoading={swapHook.isLoadingCandidates}
+          isSwapping={swapHook.isSwapping}
+          candidates={swapHook.candidates}
+          error={swapHook.candidatesError}
+          onClose={handleCloseSwap}
+          onSelect={handleSelectSwap}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1160,55 +1359,138 @@ function DetailThumbCell({
   );
 }
 
-function PieceCard({
-  item,
-  onPress,
-  onLongPress,
+// M37 — Swap candidate bottom sheet. Modal-based to stay consistent with the
+// rest of the screen (Alert.alert + inline Modal); a more elaborate
+// @gorhom/bottom-sheet wasn't in deps when this wave shipped and isn't
+// justified for a single picker. The sheet renders a list of garments whose
+// canonical slot matches the row being swapped — already-attached garments
+// are excluded by useSwapGarment.
+function SwapCandidateSheet({
+  slotLabelKey,
+  isLoading,
+  isSwapping,
+  candidates,
+  error,
+  onClose,
+  onSelect,
 }: {
-  item: OutfitItemWithGarment;
-  onPress: () => void;
-  onLongPress?: () => void;
+  slotLabelKey: string;
+  isLoading: boolean;
+  isSwapping: boolean;
+  candidates: SwapCandidate[];
+  error: string | null;
+  onClose: () => void;
+  onSelect: (garmentId: string) => void;
 }) {
   const t = useTokens();
-  const garment = item.garment;
-  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const labelKey = `outfitDetail.slot.${slotLabelKey}`;
+  const localized = tr(labelKey);
+  const slotLabel =
+    localized && localized !== labelKey
+      ? localized
+      : slotLabelKey.toUpperCase();
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}>
+      <Pressable style={[s.sheetBackdrop]} onPress={onClose} accessible={false}>
+        <View />
+      </Pressable>
+      <View style={[s.sheetContainer, { backgroundColor: t.card, borderColor: t.border }]}>
+        <View style={[s.sheetHandle, { backgroundColor: t.border }]} />
+        <View style={s.sheetHeader}>
+          <Eyebrow>{tr('outfitDetail.swap.title', { slot: slotLabel })}</Eyebrow>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={tr('outfitDetail.swap.cancel')}
+            hitSlop={6}>
+            <Text
+              style={{
+                fontFamily: fonts.uiSemi,
+                fontSize: 11,
+                letterSpacing: 1.4,
+                color: t.fg2,
+                textTransform: 'uppercase',
+              }}>
+              {tr('outfitDetail.swap.cancel')}
+            </Text>
+          </Pressable>
+        </View>
+        {isLoading ? (
+          <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+            <ActivityIndicator color={t.accent} />
+            <Text style={[s.sectionEmpty, { color: t.fg2, marginTop: 8 }]}>
+              {tr('outfitDetail.swap.loading')}
+            </Text>
+          </View>
+        ) : error ? (
+          <Text style={[s.sectionEmpty, { color: t.fg2 }]}>{error}</Text>
+        ) : candidates.length === 0 ? (
+          <Text style={[s.sectionEmpty, { color: t.fg2 }]}>
+            {tr('outfitDetail.swap.empty')}
+          </Text>
+        ) : (
+          <FlatList
+            data={candidates}
+            keyExtractor={(c) => c.garment.id}
+            contentContainerStyle={{ paddingBottom: 24, gap: 8 }}
+            renderItem={({ item }) => (
+              <SwapCandidateRow
+                candidate={item}
+                disabled={isSwapping}
+                onPress={() => onSelect(item.garment.id)}
+              />
+            )}
+          />
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+function SwapCandidateRow({
+  candidate,
+  disabled,
+  onPress,
+}: {
+  candidate: SwapCandidate;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const t = useTokens();
+  const garment = candidate.garment;
+  const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
   const { data: signedUrl } = useSignedUrl(imagePath);
   const [broken, setBroken] = React.useState(false);
   React.useEffect(() => setBroken(false), [imagePath, signedUrl]);
   const showImage = signedUrl && !broken;
-  const hue = garment?.id ? outfitGradientHue(garment.id) : outfitGradientHue(item.id);
-  // Surface "Removed" rather than masquerading the missing garment as a real
-  // piece named "Garment" — the card visually looks tappable but the press is
-  // disabled, which without this label is just confusing. Audit Q on PR #718.
-  const isOrphan = !garment?.id;
-  const title = isOrphan ? 'Removed piece' : (garment?.title ?? item.slot ?? 'Garment').toString();
-  const sub = isOrphan
-    ? (item.slot ?? '').toString().toUpperCase()
-    : [garment?.category, garment?.material].filter(Boolean).join(' · ').toUpperCase();
+  const hue = outfitGradientHue(garment.id);
+  const sub = [garment.color_primary, garment.category].filter(Boolean).join(' · ').toUpperCase();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}${sub ? `, ${sub}` : ''}`}
+      accessibilityLabel={garment.title ?? 'Garment'}
       onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={350}
-      disabled={!garment?.id}
+      disabled={disabled}
       style={({ pressed }) => [
-        s.pieceCard,
+        s.candidateRow,
         {
-          backgroundColor: t.card,
+          backgroundColor: t.bg2,
           borderColor: t.border,
-          transform: pressed ? [{ scale: 0.97 }] : [],
-          opacity: garment?.id ? 1 : 0.6,
+          opacity: disabled ? 0.6 : pressed ? 0.85 : 1,
         },
       ]}>
-      <View style={[s.pieceCardThumb, { overflow: 'hidden' }]}>
+      <View style={[s.candidateThumb, { borderColor: t.border }]}>
         <LinearGradient
           colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          style={StyleSheet.absoluteFill}
         />
         {showImage ? (
           <Image
@@ -1219,17 +1501,16 @@ function PieceCard({
           />
         ) : null}
       </View>
-      <View style={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           numberOfLines={1}
           style={{
             fontFamily: fonts.uiSemi,
-            fontSize: 12.5,
-            fontWeight: '600',
+            fontSize: 13,
             color: t.fg,
             letterSpacing: -0.13,
           }}>
-          {title}
+          {garment.title ?? 'Garment'}
         </Text>
         {sub ? (
           <Text
@@ -1310,16 +1591,6 @@ const s = StyleSheet.create({
     alignItems: 'baseline',
     marginBottom: 10,
   },
-  pieceCard: {
-    width: 140,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  pieceCardThumb: {
-    width: '100%',
-    height: 100,
-  },
   sectionEmpty: {
     fontFamily: fonts.ui,
     fontSize: 13,
@@ -1336,5 +1607,58 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     alignSelf: 'flex-start',
+  },
+  sheetBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheetContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: '72%',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    gap: 12,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  candidateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    borderRadius: radii.md,
+    borderWidth: 1,
+  },
+  candidateThumb: {
+    width: 48,
+    height: 60,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
 });
