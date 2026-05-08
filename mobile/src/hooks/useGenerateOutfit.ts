@@ -14,6 +14,7 @@
 //     wardrobe_insights?: string[], confidence_*?, error? }
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -26,7 +27,13 @@ import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
-import { useWeather } from './useWeather';
+import {
+  fetchWeather,
+  useWeather,
+  WEATHER_QUERY_STALE_MS,
+  weatherQueryKey,
+  type WeatherData,
+} from './useWeather';
 
 // Fallback weather payload used while `useWeather` is loading or has errored.
 // Mild 18°C, no precipitation, calm wind — same shape `useWeekGenerator` and
@@ -159,13 +166,14 @@ function adaptItems(items: EngineResponseItem[] | undefined): GeneratedOutfitIte
 
 export function useGenerateOutfit() {
   const { session } = useAuth();
-  // Live weather feeds the engine so outfits get rain/snow/heat/cold context
-  // instead of the placeholder mild-day shape the hook used while M35's
-  // weather hook hadn't been wired through. `useWeather` defaults to the
-  // launch market (Stockholm) when no city is supplied; React Query dedupes
-  // the fetch across every screen that observes it. (PR-B on PR #774
-  // follow-up: wire real weather into all generators.)
+  // Subscribe to weather here so the hook re-renders when it lands. The
+  // request itself is awaited inside `generate` via React Query's
+  // `ensureQueryData` against the same cache entry, so a screen that
+  // auto-generates from a mount effect (OutfitGenerateScreen does) doesn't
+  // race the cold-start fetch and silently send `FALLBACK_WEATHER`.
+  // (Codex P2 round 1 on PR #775.)
   const { weather: liveWeather } = useWeather();
+  const queryClient = useQueryClient();
   const [result, setResult] = useState<GeneratedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,16 +227,31 @@ export function useGenerateOutfit() {
       pushUnique(anchorId);
       for (const id of seedIds) pushUnique(id);
 
-      // Hand the engine real weather when `useWeather` has resolved, fall
-      // back to the mild-day placeholder otherwise (loading window, fetch
-      // error, or location resolution failure). Forward only the engine-
-      // relevant fields so a future change to `WeatherData` doesn't leak
-      // unrelated keys into the request body.
-      const effectiveWeather = liveWeather
+      // Resolve weather BEFORE issuing the engine call. `liveWeather` is
+      // null on the first render after a cold cache, so a screen that fires
+      // generate() from a mount effect would otherwise always send
+      // FALLBACK_WEATHER on first launch. `ensureQueryData` reads the same
+      // React Query cache `useWeather` populates: it returns immediately
+      // when warm, joins the in-flight fetch when one's running, or kicks
+      // a fresh fetch when nothing's been requested yet. Catch the error
+      // path so a transient Open-Meteo failure doesn't block generation —
+      // we fall back to the mild-day placeholder only when we couldn't get
+      // real weather inside the timeout window.
+      let weatherForCall: WeatherData | null = null;
+      try {
+        weatherForCall = await queryClient.ensureQueryData({
+          queryKey: weatherQueryKey(null),
+          queryFn: () => fetchWeather(null),
+          staleTime: WEATHER_QUERY_STALE_MS,
+        });
+      } catch {
+        weatherForCall = liveWeather;
+      }
+      const effectiveWeather = weatherForCall
         ? {
-            temperature: liveWeather.temperature,
-            precipitation: liveWeather.precipitation,
-            wind: liveWeather.wind,
+            temperature: weatherForCall.temperature,
+            precipitation: weatherForCall.precipitation,
+            wind: weatherForCall.wind,
           }
         : FALLBACK_WEATHER;
 
@@ -426,7 +449,7 @@ export function useGenerateOutfit() {
         }
       }
     },
-    [session?.access_token, liveWeather],
+    [session?.access_token, liveWeather, queryClient],
   );
 
   const reset = useCallback(() => {

@@ -43,6 +43,16 @@ export interface UseWeatherOptions {
 
 const DEFAULT_COORDS = { lat: 59.3293, lon: 18.0686 } as const;
 const STALE_MS = 30 * 60 * 1000;
+export const WEATHER_QUERY_STALE_MS = STALE_MS;
+
+/** Stable query key for the weather fetch. Exported so generator hooks can
+ *  call `queryClient.ensureQueryData(...)` against the SAME cache entry the
+ *  `useWeather` hook subscribes to — guaranteeing a single in-flight fetch
+ *  when the hook is mounted in a sibling screen and the generator is kicked
+ *  before that fetch resolves. (Codex P2 round 1 on PR #775.) */
+export function weatherQueryKey(city: string | null | undefined) {
+  return ['weather', city ?? null] as const;
+}
 
 function getConditionFromCode(code: number): string {
   if (code === 0) return 'weather.condition.clear';
@@ -94,7 +104,7 @@ export async function getCoordinatesFromCity(
   }
 }
 
-async function fetchWeather(city: string | null | undefined): Promise<WeatherData> {
+export async function fetchWeather(city: string | null | undefined): Promise<WeatherData> {
   let coords: { lat: number; lon: number } = DEFAULT_COORDS;
   if (city) {
     const resolved = await getCoordinatesFromCity(city);
@@ -132,7 +142,7 @@ export function useWeather(options?: UseWeatherOptions) {
   const enabled = options?.enabled !== false;
 
   const query = useQuery({
-    queryKey: ['weather', city],
+    queryKey: weatherQueryKey(city),
     queryFn: () => fetchWeather(city),
     enabled,
     staleTime: STALE_MS,

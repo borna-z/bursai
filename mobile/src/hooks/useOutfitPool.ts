@@ -24,6 +24,7 @@
 // anchor" affordance.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -35,7 +36,13 @@ import {
 import { isAnchorPresent } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
-import { useWeather } from './useWeather';
+import {
+  fetchWeather,
+  useWeather,
+  WEATHER_QUERY_STALE_MS,
+  weatherQueryKey,
+  type WeatherData,
+} from './useWeather';
 
 // Fallback weather used while `useWeather` is loading or has errored. Same
 // shape as the other generators so the engine sees a consistent baseline
@@ -132,10 +139,13 @@ function makeDraftId(): string {
 
 export function useOutfitPool(): UseOutfitPoolResult {
   const { session } = useAuth();
-  // Live weather feeds every parallel call so the pool reflects today's
-  // actual conditions, not the mild-day placeholder this hook shipped with.
-  // PR-B follow-up to PR #774.
+  // Subscribe to weather here so the hook re-renders when it lands. The
+  // request itself is awaited inside `generatePool` via React Query's
+  // `ensureQueryData` against the same cache entry, so OutfitPoolScreen's
+  // mount-effect kick doesn't race the cold-start fetch and silently send
+  // `FALLBACK_WEATHER`. (Codex P2 round 1 on PR #775.)
   const { weather: liveWeather } = useWeather();
+  const queryClient = useQueryClient();
   const [pool, setPool] = useState<ScoredOutfitDraft[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,15 +187,27 @@ export function useOutfitPool(): UseOutfitPoolResult {
 
       const anchorId = anchorGarmentId?.trim() || undefined;
       const safeOccasion = occasion?.trim() || 'Everyday';
-      // Snapshot live weather once for the whole batch so all N parallel
-      // calls see the same conditions. Re-reading `liveWeather` per-call
-      // would be a no-op (React Query dedupes), but the snapshot makes the
-      // batch's "moment in time" explicit.
-      const effectiveWeather = liveWeather
+      // Resolve weather BEFORE the parallel fan-out. `liveWeather` is null
+      // on cold start so a screen that auto-generates from a mount effect
+      // would otherwise snapshot FALLBACK_WEATHER for the whole batch.
+      // `ensureQueryData` returns immediately when cache is warm, joins
+      // the in-flight fetch when one's running, or kicks a fresh fetch.
+      // All N parallel calls then see the same resolved snapshot.
+      let weatherForBatch: WeatherData | null = null;
+      try {
+        weatherForBatch = await queryClient.ensureQueryData({
+          queryKey: weatherQueryKey(null),
+          queryFn: () => fetchWeather(null),
+          staleTime: WEATHER_QUERY_STALE_MS,
+        });
+      } catch {
+        weatherForBatch = liveWeather;
+      }
+      const effectiveWeather = weatherForBatch
         ? {
-            temperature: liveWeather.temperature,
-            precipitation: liveWeather.precipitation,
-            wind: liveWeather.wind,
+            temperature: weatherForBatch.temperature,
+            precipitation: weatherForBatch.precipitation,
+            wind: weatherForBatch.wind,
           }
         : FALLBACK_WEATHER;
 
@@ -333,7 +355,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
         setIsGenerating(false);
       }
     },
-    [session?.access_token, liveWeather],
+    [session?.access_token, liveWeather, queryClient],
   );
 
   const reset = useCallback(() => {
