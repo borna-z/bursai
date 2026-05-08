@@ -1009,6 +1009,7 @@ export const sv: Record<string, string> = {
   'home.occasion.dinner': 'Middag',
   'home.recent.eyebrow': 'Senaste outfits',
   'home.recent.empty': 'Sparade looks landar här.',
+  'home.recent.savedFallback': 'Sparad',
   'weather.condition.clear': 'Klart',
   'weather.condition.cloudy': 'Molnigt',
   'weather.condition.fog': 'Dimma',

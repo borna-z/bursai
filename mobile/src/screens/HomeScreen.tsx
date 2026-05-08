@@ -772,7 +772,7 @@ function RecentOutfitTile({
             textTransform: 'uppercase',
           }}
           numberOfLines={1}>
-          {(outfit.occasion || outfit.style_vibe || 'Saved').toUpperCase()}
+          {(outfit.occasion || outfit.style_vibe || tr('home.recent.savedFallback')).toUpperCase()}
         </Text>
         <Text
           style={{

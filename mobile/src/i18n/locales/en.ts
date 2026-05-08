@@ -329,6 +329,7 @@ export const en: Record<string, string> = {
   'home.occasion.dinner': 'Dinner',
   'home.recent.eyebrow': 'Recent outfits',
   'home.recent.empty': 'Saved looks land here.',
+  'home.recent.savedFallback': 'Saved',
   'weather.condition.clear': 'Clear',
   'weather.condition.cloudy': 'Cloudy',
   'weather.condition.fog': 'Fog',
