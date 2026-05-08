@@ -28,11 +28,18 @@ export function ErrorState({
   title = 'Something went wrong',
   body = 'Pull down to try again.',
   onRetry,
+  secondaryActionLabel,
+  onSecondaryAction,
   style,
 }: {
   title?: string;
   body?: string;
   onRetry?: () => void;
+  // Optional second action — surfaced as a quiet button below Retry. The
+  // batch Add-piece flow uses this to offer "Skip this photo" alongside
+  // Retry so a single bad photo doesn't sink the whole multi-photo session.
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useTokens();
@@ -56,8 +63,11 @@ export function ErrorState({
       </Text>
       <Caption style={{ textAlign: 'center', marginTop: 6, maxWidth: 240 }}>{body}</Caption>
       {onRetry ? (
-        <View style={{ marginTop: 18 }}>
+        <View style={{ marginTop: 18, gap: 8, alignItems: 'center' }}>
           <Button label="Retry" variant="outline" onPress={onRetry} />
+          {secondaryActionLabel && onSecondaryAction ? (
+            <Button label={secondaryActionLabel} variant="quiet" onPress={onSecondaryAction} />
+          ) : null}
         </View>
       ) : null}
     </View>

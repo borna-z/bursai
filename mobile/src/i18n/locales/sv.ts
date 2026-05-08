@@ -174,6 +174,13 @@ export const sv: Record<string, string> = {
   'addpiece.step2.error.notSignedIn': 'Inte inloggad',
   'addpiece.step2.error.couldNotAnalyze': 'Kunde inte analysera fotot',
   'addpiece.step2.error.uploadFailed': 'Uppladdningen misslyckades',
+  // Flerbildsbatch (M-batch wave). 'activeNote' ersätter den äldre 'batchNote'
+  // kopian, som varnade om att endast det första fotot analyserades — den
+  // nya pipelinen analyserar alla foton.
+  'addpiece.step2.batch.activeNote':
+    'Vi guidar dig genom varje foto. Nästa förbereds i bakgrunden.',
+  'addpiece.step2.batch.skip': 'Hoppa över detta foto',
+  'addpiece.step2.batch.retry': 'Försök igen',
 
   // Step 3 (review + save)
   'addpiece.step3.headerEyebrow': 'Steg 3 av 3',

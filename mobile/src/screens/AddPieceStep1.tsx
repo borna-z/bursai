@@ -28,7 +28,10 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CameraIcon, ImageIcon, LinkIcon, SearchIcon } from '../components/icons';
+import { useAuth } from '../contexts/AuthContext';
+import { useAnalyzeGarment } from '../hooks/useAnalyzeGarment';
 import { hapticLight } from '../lib/haptics';
+import { startBatch } from '../lib/batchPipeline';
 import { t as tr } from '../lib/i18n';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
@@ -47,6 +50,8 @@ type Photo = AddPiecePhoto;
 export function AddPieceStep1() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const { user } = useAuth();
+  const { analyze } = useAnalyzeGarment();
   const [photos, setPhotos] = useState<Photo[]>([]);
   // Monotonic counter so two photos added in the same millisecond don't collide on `id`
   // (Date.now() + index would dupe across batches added in rapid succession). Audit
@@ -110,19 +115,42 @@ export function AddPieceStep1() {
     setPhotos((prev) => prev.filter((p) => p.id !== id));
   };
 
-  // Continue → upload + analyze the FIRST photo. Multi-photo batch processing is W9 work
-  // (track in Findings as "Wave 9 — multi-photo Add flow"); this PR ships single-photo
-  // end-to-end so the AI + render pipelines can land cleanly first. allUris is threaded
-  // through anyway so the Step 2 → 3 → re-enter Step 2 loop can wire up later without
-  // another nav-types change.
+  // Continue → start the batch pipeline and forward to Step 2 for the first
+  // item. The pipeline kicks off resize+upload+analyze for the first
+  // MAX_PARALLEL items immediately so subsequent reviews are typically
+  // ready by the time the user lands on Step 2 for them.
+  //
+  // Single-photo case (photos.length === 1) still uses the batch path —
+  // tagging `source: 'add_photo'` keeps the existing render-queue mapping;
+  // the user-visible UX is identical to the legacy single-photo flow because
+  // there's no "next item" hop after Save.
+  //
+  // LiveScan continues to bypass this and post directly to Step 2 with no
+  // batch param, preserving its single-photo deep-link behaviour.
   const onContinue = () => {
     const first = photos[0];
     if (!first) return;
+    if (!user) {
+      // Defensive guard — every signed-in path lands here, but a token rotation
+      // mid-flow could leave user null momentarily. Step 2 has its own
+      // not-signed-in error path; failing here would lose the user's
+      // staging work.
+      return;
+    }
     hapticLight();
+    const allUris = photos.map((p) => p.uri);
+    const source = allUris.length > 1 ? 'batch_add' : 'add_photo';
+    const batchId = startBatch({
+      uris: allUris,
+      userId: user.id,
+      source,
+      analyzeFn: analyze,
+    });
     nav.navigate('AddPieceStep2', {
       photoUri: first.uri,
-      allUris: photos.map((p) => p.uri),
-      source: 'add_photo',
+      allUris,
+      source,
+      batch: { batchId, index: 0, total: allUris.length },
     });
   };
 
