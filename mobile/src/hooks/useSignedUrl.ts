@@ -464,6 +464,22 @@ export function useGarmentImage(
   const [failedUrls, setFailedUrls] = React.useState<readonly string[]>(
     EMPTY_FAILED_URLS,
   );
+  // Synchronous in-tick dedupe ledger. State updates batch, so the closure-
+  // captured `failedUrls.includes(signedUrl)` check is render-stale: RN can
+  // fire onError twice in the same tick (the comment below documents this)
+  // and both invocations would see the same captured array, both pass the
+  // inclusion gate, both log a Sentry breadcrumb, and both call
+  // `bustSignedUrlCache` — defeating the dedupe. The ref is updated
+  // synchronously inside onError BEFORE any side effects, so the second
+  // invocation in the same tick bails. Mirrored to `failedUrls` state so
+  // `isKnownFailed` recomputes after the commit. (Self-review round 2 on
+  // PR #774.)
+  const failedUrlsRef = React.useRef<Set<string>>(new Set());
+  // Track which `imagePath` the ledger belongs to so a late onError fired
+  // by a recycled FlatList cell after the parent re-bound to a different
+  // garment can't write into the new garment's ledger or bust the new
+  // garment's cache. (Self-review round 2 on PR #774.)
+  const ledgerImagePathRef = React.useRef<string | null | undefined>(imagePath);
 
   // Reset the failed-URL set only when the user navigates to a different
   // garment. Resetting on `signedUrl` change too would un-suppress the URL
@@ -471,6 +487,8 @@ export function useGarmentImage(
   // bust refetch window — and <Image> would re-fire onError on an unchanged
   // source, growing the set without progress.
   React.useEffect(() => {
+    failedUrlsRef.current = new Set();
+    ledgerImagePathRef.current = imagePath;
     setFailedUrls(EMPTY_FAILED_URLS);
   }, [imagePath]);
 
@@ -478,30 +496,34 @@ export function useGarmentImage(
   const uri = isKnownFailed ? null : (signedUrl ?? null);
 
   const onError = React.useCallback(() => {
-    // Defensive dedupe FIRST: RN can fire onError multiple times for the
-    // same source during a single load attempt. Bailing here before logging
-    // prevents duplicate Sentry breadcrumbs per failure.
-    // (Self-review P1 on PR #774.)
     if (!signedUrl) return;
-    if (failedUrls.includes(signedUrl)) return;
+    // Bail if a FlatList recycle has rebound this hook to a different
+    // garment while an old <Image> request is still in flight. Without
+    // this, the in-flight load's late onError would (a) grow the new
+    // garment's ledger with an unrelated URL and (b) bust the new
+    // imagePath's cache wastefully.
+    if (ledgerImagePathRef.current !== imagePath) return;
+    // In-tick dedupe via ref. Returns synchronously so a same-tick repeat
+    // doesn't run side effects twice; the ref is mirrored to state below
+    // so `isKnownFailed` updates render-time on the next commit.
+    if (failedUrlsRef.current.has(signedUrl)) return;
+    failedUrlsRef.current.add(signedUrl);
+    const attempts = failedUrlsRef.current.size - 1;
     if (__DEV__) {
-      console.warn('[useGarmentImage] image load failed', {
-        imagePath,
-        attempts: failedUrls.length,
-      });
+      console.warn('[useGarmentImage] image load failed', { imagePath, attempts });
     }
     Sentry.addBreadcrumb({
       category: 'image',
       level: 'warning',
       message: 'garment image load failed',
-      data: { imagePath: imagePath ?? null, attempts: failedUrls.length },
+      data: { imagePath: imagePath ?? null, attempts },
     });
     // Cap own-initiated cache busts at RETRY_BUDGET. After that we stop
     // busting from inside the hook — but we keep the per-URL failed set
     // active, so any fresh signed URL minted by external means (render-
     // complete bust, sign-in refresh, TTL refetch) still gets one shot
     // through `isKnownFailed === false`.
-    if (failedUrls.length < RETRY_BUDGET && imagePath) {
+    if (attempts < RETRY_BUDGET && imagePath) {
       // Invalidate the cached signed URL so the next observe re-mints.
       // `bustSignedUrlCache` clears the module Map, bumps the per-path
       // generation counter (so any in-flight mint started before this
@@ -512,12 +534,14 @@ export function useGarmentImage(
     }
     // Append, capped FIFO at FAILED_URL_CAP so external busts on a
     // permanently-broken path can't grow the ledger unbounded over a
-    // long-lived screen mount. (Self-review P1 on PR #774.)
+    // long-lived screen mount. (Self-review P1 round 1 on PR #774.)
+    // The state update only drives `isKnownFailed`; the authoritative
+    // dedupe ledger is the ref above.
     setFailedUrls((prev) => {
       const next = [...prev, signedUrl];
       return next.length > FAILED_URL_CAP ? next.slice(-FAILED_URL_CAP) : next;
     });
-  }, [imagePath, failedUrls, queryClient, signedUrl]);
+  }, [imagePath, queryClient, signedUrl]);
 
   return { uri, onError };
 }
