@@ -36,13 +36,7 @@ import {
 import { isAnchorPresent } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
-import {
-  fetchWeather,
-  useWeather,
-  WEATHER_QUERY_STALE_MS,
-  weatherQueryKey,
-  type WeatherData,
-} from './useWeather';
+import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
 
 // Fallback weather used while `useWeather` is loading or has errored. Same
 // shape as the other generators so the engine sees a consistent baseline
@@ -190,19 +184,13 @@ export function useOutfitPool(): UseOutfitPoolResult {
       // Resolve weather BEFORE the parallel fan-out. `liveWeather` is null
       // on cold start so a screen that auto-generates from a mount effect
       // would otherwise snapshot FALLBACK_WEATHER for the whole batch.
-      // `ensureQueryData` returns immediately when cache is warm, joins
-      // the in-flight fetch when one's running, or kicks a fresh fetch.
-      // All N parallel calls then see the same resolved snapshot.
-      let weatherForBatch: WeatherData | null = null;
-      try {
-        weatherForBatch = await queryClient.ensureQueryData({
-          queryKey: weatherQueryKey(null),
-          queryFn: () => fetchWeather(null),
-          staleTime: WEATHER_QUERY_STALE_MS,
-        });
-      } catch {
-        weatherForBatch = liveWeather;
-      }
+      // `awaitFreshWeather` returns the cached value when warm, joins or
+      // kicks the fetch otherwise, AND races the wait against a 1.5 s
+      // timeout so a slow / captive / offline network can't strand the
+      // pool. All N parallel calls then see the same resolved snapshot
+      // (or `FALLBACK_WEATHER` when the timeout fires). (Codex P2 round 2
+      // on PR #775.)
+      const weatherForBatch: WeatherData | null = await awaitFreshWeather(queryClient);
       const effectiveWeather = weatherForBatch
         ? {
             temperature: weatherForBatch.temperature,

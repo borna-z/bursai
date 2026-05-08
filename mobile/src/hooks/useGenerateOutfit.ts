@@ -27,13 +27,7 @@ import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
-import {
-  fetchWeather,
-  useWeather,
-  WEATHER_QUERY_STALE_MS,
-  weatherQueryKey,
-  type WeatherData,
-} from './useWeather';
+import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
 
 // Fallback weather payload used while `useWeather` is loading or has errored.
 // Mild 18°C, no precipitation, calm wind — same shape `useWeekGenerator` and
@@ -230,23 +224,14 @@ export function useGenerateOutfit() {
       // Resolve weather BEFORE issuing the engine call. `liveWeather` is
       // null on the first render after a cold cache, so a screen that fires
       // generate() from a mount effect would otherwise always send
-      // FALLBACK_WEATHER on first launch. `ensureQueryData` reads the same
-      // React Query cache `useWeather` populates: it returns immediately
-      // when warm, joins the in-flight fetch when one's running, or kicks
-      // a fresh fetch when nothing's been requested yet. Catch the error
-      // path so a transient Open-Meteo failure doesn't block generation —
-      // we fall back to the mild-day placeholder only when we couldn't get
-      // real weather inside the timeout window.
-      let weatherForCall: WeatherData | null = null;
-      try {
-        weatherForCall = await queryClient.ensureQueryData({
-          queryKey: weatherQueryKey(null),
-          queryFn: () => fetchWeather(null),
-          staleTime: WEATHER_QUERY_STALE_MS,
-        });
-      } catch {
-        weatherForCall = liveWeather;
-      }
+      // FALLBACK_WEATHER on first launch. `awaitFreshWeather` reads the
+      // same React Query cache `useWeather` populates, joins the in-flight
+      // fetch when one's running, kicks a fresh fetch when nothing's been
+      // requested, AND races the wait against a 1.5 s timeout so a slow /
+      // captive / offline network can't strand the engine call —
+      // `FALLBACK_WEATHER` is the safety net on null. (Codex P2 round 2
+      // on PR #775.)
+      const weatherForCall: WeatherData | null = await awaitFreshWeather(queryClient);
       const effectiveWeather = weatherForCall
         ? {
             temperature: weatherForCall.temperature,

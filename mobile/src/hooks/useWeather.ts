@@ -17,7 +17,7 @@
 // React Query's de-dupe keeps us at one fetch per 30-min window per active
 // city.
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 export interface WeatherData {
   /** Whole-degree Celsius reading rounded from Open-Meteo's hourly value. */
@@ -52,6 +52,47 @@ export const WEATHER_QUERY_STALE_MS = STALE_MS;
  *  before that fetch resolves. (Codex P2 round 1 on PR #775.) */
 export function weatherQueryKey(city: string | null | undefined) {
   return ['weather', city ?? null] as const;
+}
+
+/** Maximum time `awaitFreshWeather` will wait for a cold-cache fetch before
+ *  resolving to `null` so the caller can fall back to a placeholder. Open-
+ *  Meteo typically responds in 200–500 ms; 1500 ms gives flaky / captive
+ *  networks two retry windows before we surrender. Weather is contextual
+ *  for outfit generation — blocking the engine call indefinitely on a
+ *  slow weather request would leave the user staring at a spinner.
+ *  (Codex P2 round 2 on PR #775.) */
+export const WEATHER_AWAIT_TIMEOUT_MS = 1500;
+
+/** Resolve weather for a generator that's about to fire. Returns the
+ *  cached value when warm, otherwise races the in-flight fetch (kicking
+ *  one when nothing's running) against `timeoutMs`. Resolves to `null` on
+ *  timeout or fetch error so the caller can fall back to a placeholder
+ *  weather payload — never throws. The fetch itself keeps running on
+ *  timeout (it'll populate the cache for a follow-up generate), so this
+ *  is a soft deadline, not a cancellation. */
+export async function awaitFreshWeather(
+  queryClient: QueryClient,
+  city: string | null = null,
+  timeoutMs: number = WEATHER_AWAIT_TIMEOUT_MS,
+): Promise<WeatherData | null> {
+  const cached = queryClient.getQueryData<WeatherData>(weatherQueryKey(city));
+  if (cached) return cached;
+  const fetchPromise = queryClient
+    .ensureQueryData({
+      queryKey: weatherQueryKey(city),
+      queryFn: () => fetchWeather(city),
+      staleTime: STALE_MS,
+    })
+    .catch((): WeatherData | null => null);
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    return await Promise.race<WeatherData | null>([fetchPromise, timeoutPromise]);
+  } finally {
+    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+  }
 }
 
 function getConditionFromCode(code: number): string {
