@@ -274,37 +274,25 @@ export function useRestorePurchases() {
       }
       const activeEntitlements = customerInfo.entitlements?.active ?? {};
       if (Object.keys(activeEntitlements).length === 0) {
-        // RC says no active entitlements. We still call sync to make
-        // sure the server-side `subscriptions` row reflects that — if
-        // the webhook missed an EXPIRATION / TRANSFER and the row
-        // still says `plan='premium' / status='active'`, the
-        // post-onSuccess invalidate would refetch the same stale
-        // active row and the user would stay unlocked despite the
-        // empty-state alert. Codex round 6 surfaced the gap; round 9
-        // tightened: branch on the sync outcome so we don't claim
-        // `'no_purchases'` (which fires the empty-state alert + cache
-        // invalidate against unchanged state) when the sync endpoint
-        // is unavailable / failed and the row may still be stale-
-        // premium. Sync `'pending'` → fall back to `'restored_pending'`
-        // so the activating UX runs and the next mutation retry will
-        // reconcile.
-        const syncOutcome = await syncSubscriptionWithRevenueCat();
+        // RC says no active entitlements. That is a definitive
+        // source-of-truth answer: this Apple ID has no Apple-side
+        // purchases to restore. Best-effort sync to reconcile the
+        // server-side `subscriptions` row (downgrade a stale
+        // 'premium' / 'active' row left by a missed EXPIRATION or
+        // TRANSFER webhook) — but DON'T promote a sync transport
+        // failure into `'restored_pending'`. That would show the
+        // activating-in-the-background UX with the paywall dismiss,
+        // which is misleading when there is genuinely nothing to
+        // activate (Codex round 10). Stale-row reconciliation
+        // continues via the webhook or a subsequent sync tap; UX
+        // here stays truthful.
+        await syncSubscriptionWithRevenueCat();
         // Re-check user identity after the sync round-trip — sign-out
         // mid-sync should suppress the empty-state alert per the same
         // race-protection contract used in the timeout path below.
         if (currentUserIdRef.current !== startUserId) {
           return { status: 'unsupported' };
         }
-        if (syncOutcome === 'pending') {
-          // Sync endpoint unavailable / 5xx / network failure — we
-          // can't be sure the row is current. `'restored_pending'`
-          // surfaces the activating-in-the-background UX and the
-          // server reconciliation will eventually catch up via the
-          // webhook (or a subsequent restore tap).
-          return { status: 'restored_pending' };
-        }
-        // Sync confirmed inactive (200 ok=true) or skipped Stripe row
-        // → the user genuinely has no Apple-side purchase to restore.
         return { status: 'no_purchases' };
       }
 
