@@ -75,7 +75,14 @@ export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
   const tokens = useTokens();
   const nav = useNavigation<BannerNav>();
   const recommendation = useSmartDayRecommendation(overrides);
-  const summary = useDaySummary();
+  // Forward the same overrides into the AI summary so its queryKey hash
+  // changes when the user picks an occasion or weather loads — otherwise
+  // the summary line stayed keyed on `noevents/noweather` and the eyebrow
+  // diverged from the recommendation engine. Codex P2 on PR #771.
+  const summary = useDaySummary({
+    events: overrides?.events,
+    weather: overrides?.weather,
+  });
   // Read planned-outfit state directly so the banner self-gates: when the
   // user has a real planned look for today, the existing today's-look hero
   // owns the "today's pick" intent and a second banner above it is just
