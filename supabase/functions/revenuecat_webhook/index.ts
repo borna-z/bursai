@@ -84,10 +84,35 @@ import { CORS_HEADERS } from "../_shared/cors.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { setMonthlyAllowance } from "../_shared/render-credits.ts";
 import { captureWarning } from "../_shared/observability.ts";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  rateLimitResponse,
+} from "../_shared/scale-guard.ts";
 
 const VAULT_SECRET_NAME = "revenuecat_webhook_secret";
 const ENV_FALLBACK_SECRET = "REVENUECAT_WEBHOOK_SECRET";
 const SIGNATURE_HEADER = "x-revenuecat-signature";
+
+/**
+ * Authenticated client-triggered SYNC path (added post-M31, see findings-log
+ * 2026-05-08 / Codex round 2 on PR #768). The mobile `useRestorePurchases`
+ * hook calls `POST /functions/v1/revenuecat_webhook?action=sync` with a
+ * Supabase JWT after the local poll for the webhook-driven `subscriptions`
+ * row times out. The handler resolves the auth user, queries RevenueCat's
+ * REST API for fresh `CustomerInfo`, and reconciles the `subscriptions`
+ * row directly — closing the failure mode where RC never delivers (or
+ * already failed-and-exhausted-retries on) the inbound webhook.
+ *
+ * Secret: `REVENUECAT_REST_API_KEY` (vault `revenuecat_rest_api_key`,
+ * env fallback). When unset, the path returns 503 with
+ * `{ ok: false, reason: 'sync_unconfigured' }` — the launch-state until
+ * the user provisions the secret in M44 — and the client falls back to
+ * the existing `'restored_pending'` UX so nothing regresses.
+ */
+const VAULT_REST_API_KEY_NAME = "revenuecat_rest_api_key";
+const ENV_FALLBACK_REST_API_KEY = "REVENUECAT_REST_API_KEY";
+const RC_REST_BASE = "https://api.revenuecat.com/v1";
 
 /**
  * Replay-window for inbound events. Five minutes is wide enough to absorb
@@ -172,6 +197,13 @@ const RC_STRIPE_MODE_MARKER = "revenuecat";
 
 /** Module-scope vault secret cache. See `getCachedSecret`. */
 let cachedSecret: { value: string; fetchedAt: number } | null = null;
+
+/**
+ * Module-scope cache for the RevenueCat REST API key (sync path). Same TTL
+ * semantics as the webhook secret — rotated rarely, expensive to re-fetch
+ * on every sync request.
+ */
+let cachedRestApiKey: { value: string; fetchedAt: number } | null = null;
 
 const logStep = (step: string, details?: unknown, correlationId?: string) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
@@ -393,6 +425,32 @@ function parseExpirationMs(value: unknown): string | null {
  * event is stale and we should skip it. No-row case returns false (the
  * first event for a user wins regardless of timestamp).
  */
+/**
+ * Is the existing `subscriptions` row currently a paying Stripe
+ * subscription? Codex round 14 P1 — `stripe_mode='live'/'test'` alone
+ * is NOT sufficient: when a Stripe subscriber cancels or hits a
+ * payment failure, `stripe_webhook` sets `plan='free'` and
+ * `status='canceled'/'past_due'` but leaves `stripe_mode` intact as
+ * an audit-trail marker. If we skip RC writes purely on the historical
+ * mode marker, a user who previously paid via Stripe, cancelled, and
+ * then bought / restored via iOS would be stuck on the free row
+ * because the RC INITIAL_PURCHASE / RENEWAL upsert short-circuits.
+ *
+ * The protection we actually want: skip RC writes ONLY when Stripe is
+ * actively paying (status `active` or `trialing` on a Stripe-managed
+ * row). All other Stripe states (canceled / past_due / null) yield
+ * to RC's reconciliation, allowing the user to migrate platforms.
+ */
+function isStripeActivelyPaying(
+  row: { stripe_mode?: string | null; status?: string | null } | null,
+): boolean {
+  if (!row) return false;
+  const mode = typeof row.stripe_mode === "string" ? row.stripe_mode : null;
+  if (mode !== "live" && mode !== "test") return false;
+  const status = typeof row.status === "string" ? row.status : null;
+  return status === "active" || status === "trialing";
+}
+
 async function isStaleEvent(
   client: SupabaseClient,
   userId: string,
@@ -418,6 +476,36 @@ async function upsertSubscriptionActive(
   eventId: string,
   correlationId: string,
 ): Promise<void> {
+  // SELECT-before-write Stripe protection (mirrors the round-8/11/12
+  // hardening on every other subscription-row write path: the sync
+  // active branch, `markSubscriptionEnded`, `downgradeSubscriptionToFree`).
+  // A user paid via Stripe with an overlapping iOS purchase (re-sub, gift,
+  // promotional crossover) would otherwise have RENEWAL/INITIAL_PURCHASE
+  // / UNCANCELLATION / PRODUCT_CHANGE / NON_RENEWING_PURCHASE / TRANSFER
+  // (new-user side) clobber the Stripe row, silently re-tagging
+  // `stripe_mode='revenuecat'`. The next EXPIRATION/BILLING_ISSUE then
+  // downgrades because the protection marker is gone. Multi-agent
+  // round-13 fallback finding — the last hole in the Stripe-protection
+  // contract.
+  const { data: existingRow, error: selectErr } = await client
+    .from("subscriptions")
+    .select("stripe_mode, status")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (selectErr) {
+    logStep("Active upsert select-before-write failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
+    throw dbError("subscriptions select", selectErr);
+  }
+  if (isStripeActivelyPaying(existingRow)) {
+    logStep("Active upsert skipped — row is Stripe-managed and actively paying", { userId, existingMode: existingRow?.stripe_mode, existingStatus: existingRow?.status }, correlationId);
+    // Stripe owns this row AND is currently paying; no RC action
+    // needed. Skip the upsert + mirror + allowance write so the
+    // Stripe-managed state is preserved. If Stripe later cancels
+    // (`stripe_webhook` sets status='canceled' / 'past_due'), this
+    // gate falls through and RC can take over the row.
+    return;
+  }
+
   const periodEnd = parseExpirationMs(event.expiration_at_ms);
   const productId = typeof event.product_id === "string" ? event.product_id : null;
 
@@ -479,6 +567,30 @@ async function markSubscriptionEnded(
   eventId: string,
   correlationId: string,
 ): Promise<void> {
+  // SELECT-before-write Stripe protection (mirrors the sync-path
+  // `downgradeSubscriptionToFree` Codex round 8 hardening). A user
+  // who had an iOS sub, cancelled it, then resubscribed via Stripe
+  // (web) would otherwise have their Stripe-paid row clobbered when
+  // RC eventually emits the iOS EXPIRATION webhook. Skip ALL three
+  // writes (subscriptions, user_subscriptions mirror, render
+  // allowance) when the row is Stripe-managed.
+  const { data: existing, error: selectErr } = await client
+    .from("subscriptions")
+    .select("stripe_mode, status")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (selectErr) {
+    logStep("End-of-life select-before-update failed", { userId, status, error: selectErr.message, code: selectErr.code }, correlationId);
+    throw dbError("subscriptions select", selectErr);
+  }
+  if (isStripeActivelyPaying(existing)) {
+    logStep("End-of-life skipped — row is Stripe-managed and actively paying", { userId, status, existingMode: existing?.stripe_mode, existingStatus: existing?.status }, correlationId);
+    // Stripe is the active payer; RC's end-of-life doesn't apply.
+    // If Stripe later cancels, the gate falls through and a
+    // subsequent RC EXPIRATION can downgrade the row.
+    return;
+  }
+
   const updatedAt = new Date().toISOString();
 
   const { error } = await client
@@ -625,11 +737,18 @@ async function handleEvent(
     "RENEWAL",
     "UNCANCELLATION",
     "PRODUCT_CHANGE",
-    "TRANSFER",
     "NON_RENEWING_PURCHASE",
     "EXPIRATION",
     "BILLING_ISSUE",
   ].includes(type);
+  // NOTE — TRANSFER is intentionally NOT in the isMutation list above.
+  // TRANSFER's payload affects TWO rows (the new-user upsert + each
+  // origin's `markSubscriptionEnded`); a top-level staleness short-
+  // circuit would skip ALL of them. The TRANSFER case below applies
+  // staleness to the new-user upsert per-row and always runs the
+  // origin cleanup (which is idempotent + Stripe-protected). Codex
+  // round 12 P1 — pre-fix the global short-circuit caused delayed
+  // TRANSFER deliveries to leave origin users incorrectly premium.
   if (isMutation && (await isStaleEvent(client, userId, eventTimestampMs))) {
     logStep("Skipping stale (out-of-order) event", { userId, type, eventTimestampMs }, correlationId);
     captureWarning("revenuecat_stale_event", {
@@ -668,13 +787,34 @@ async function handleEvent(
     }
     case "TRANSFER": {
       logStep("Transfer event", { userId }, correlationId);
-      await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
+      // Per-row staleness for the new-user upsert: skip if a newer
+      // event already wrote the row. The origin cleanup below also
+      // applies per-origin staleness so a delayed A→B TRANSFER landing
+      // after a newer B→A doesn't undo the active state on A. Codex
+      // round 13 P1 — pre-fix the origin cleanup ran unconditionally
+      // and could revoke the currently valid owner.
+      const newUserStale = await isStaleEvent(client, userId, eventTimestampMs);
+      if (!newUserStale) {
+        await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
+      } else {
+        logStep("TRANSFER: new-user upsert skipped (stale)", { userId }, correlationId);
+      }
       // End the previous user's subscription. RC's contract is that
       // entitlement transferred FROM the originals TO the new user —
       // their subscription is no longer active.
       const originIds = extractTransferOriginIds(event);
       for (const originalId of originIds) {
         if (originalId === userId) continue;
+        // Per-origin staleness: if a newer event already updated this
+        // origin's row (e.g. a reverse B→A TRANSFER landed first and
+        // set A back to active), this delayed A→B TRANSFER's
+        // `markSubscriptionEnded(A)` would otherwise cancel the
+        // currently-valid owner. Skip when stale.
+        const originStale = await isStaleEvent(client, originalId, eventTimestampMs);
+        if (originStale) {
+          logStep("TRANSFER: origin end-of-life skipped (stale)", { originalId }, correlationId);
+          continue;
+        }
         try {
           await markSubscriptionEnded(client, originalId, "canceled", eventId, correlationId);
           logStep("TRANSFER: ended origin subscription", { originalId }, correlationId);
@@ -727,6 +867,557 @@ async function handleEvent(
   }
 }
 
+/**
+ * Load the RevenueCat REST API key. Mirrors `loadWebhookSecret` — vault
+ * first (production), env fallback (preview). Returns null when neither
+ * source has a non-empty value; the sync handler maps this to a 503
+ * `sync_unconfigured` response so the client can fall back to the existing
+ * `restored_pending` UX without regressing.
+ */
+async function loadRestApiKey(serviceClient: SupabaseClient): Promise<string | null> {
+  try {
+    const { data, error } = await serviceClient
+      .schema("vault")
+      .from("decrypted_secrets")
+      .select("decrypted_secret")
+      .eq("name", VAULT_REST_API_KEY_NAME)
+      .maybeSingle();
+
+    if (!error && data && typeof (data as { decrypted_secret?: unknown }).decrypted_secret === "string") {
+      const fromVault = (data as { decrypted_secret: string }).decrypted_secret;
+      if (fromVault.length > 0) return fromVault;
+    } else if (error) {
+      captureWarning("revenuecat_sync_vault_read_failed", {
+        function: "revenuecat_webhook",
+        error: error.message,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    captureWarning("revenuecat_sync_vault_read_failed", {
+      function: "revenuecat_webhook",
+      error: message,
+    });
+    logStep("Sync vault read failed; falling back to env", { message });
+  }
+
+  const fromEnv = Deno.env.get(ENV_FALLBACK_REST_API_KEY) ?? "";
+  return fromEnv.length > 0 ? fromEnv : null;
+}
+
+/**
+ * Cached wrapper around `loadRestApiKey`. 5-minute TTL parity with the
+ * webhook secret — bounds staleness during a key rotation without paying
+ * a vault round-trip per restore-poll-timeout sync request.
+ */
+async function getCachedRestApiKey(serviceClient: SupabaseClient): Promise<string | null> {
+  if (cachedRestApiKey && Date.now() - cachedRestApiKey.fetchedAt < SECRET_TTL_MS) {
+    return cachedRestApiKey.value;
+  }
+  const v = await loadRestApiKey(serviceClient);
+  if (v) cachedRestApiKey = { value: v, fetchedAt: Date.now() };
+  return v;
+}
+
+/**
+ * RC subscriber response — partial typing of the fields we consume.
+ * Reference: https://www.revenuecat.com/reference/subscribers
+ *
+ * `subscriber.entitlements` is a map keyed by entitlement identifier; each
+ * value carries `expires_date` (ISO, nullable for non-expiring grants),
+ * `purchase_date`, and `product_identifier`. An entitlement is considered
+ * active when `expires_date` is null OR > now. We pick the latest-
+ * expiring active entitlement to drive the `subscriptions` row.
+ */
+type RcEntitlement = {
+  expires_date?: string | null;
+  // Apple App Store / Google Play billing-grace-period extension. RC
+  // populates this when the subscription is in a grace period (StoreKit
+  // billing failure but the user retains access while the store retries
+  // payment). Codex round 6 — without honoring this field we'd downgrade
+  // grace-period users prematurely and zero their allowance.
+  grace_period_expires_date?: string | null;
+  purchase_date?: string | null;
+  product_identifier?: string | null;
+};
+
+type RcSubscriberResponse = {
+  subscriber?: {
+    entitlements?: Record<string, RcEntitlement>;
+  };
+};
+
+type ActiveEntitlement = {
+  expiresAt: string | null; // ISO or null (lifetime)
+  expiresMs: number; // Number.POSITIVE_INFINITY for lifetime, used for ordering
+  productId: string | null;
+};
+
+/**
+ * Pick the entitlement with the LATEST expiration as the canonical row
+ * driver. Lifetime grants (no `expires_date`) win over any time-bound
+ * grant. Ties resolve arbitrarily (Object.entries order) — acceptable
+ * because tied expirations imply the user genuinely has overlapping
+ * grants and either one is a valid reflection of "active premium".
+ */
+function pickLatestActiveEntitlement(
+  entitlements: Record<string, RcEntitlement> | undefined,
+): ActiveEntitlement | null {
+  if (!entitlements) return null;
+  const nowMs = Date.now();
+  let best: ActiveEntitlement | null = null;
+  for (const ent of Object.values(entitlements)) {
+    const expiresIso = typeof ent.expires_date === "string" ? ent.expires_date : null;
+    const graceIso =
+      typeof ent.grace_period_expires_date === "string"
+        ? ent.grace_period_expires_date
+        : null;
+    let expiresMs: number;
+    let effectiveIso: string | null = expiresIso;
+    if (expiresIso === null) {
+      // Lifetime / non-expiring grant.
+      expiresMs = Number.POSITIVE_INFINITY;
+    } else {
+      const parsed = Date.parse(expiresIso);
+      if (Number.isNaN(parsed)) continue;
+      if (parsed > nowMs) {
+        // Regular expiry still in the future — entitlement is active.
+        expiresMs = parsed;
+      } else {
+        // Regular expiry already passed. Check grace period — if RC has
+        // populated `grace_period_expires_date` and it's still in the
+        // future, the user has store-side billing-retry access and we
+        // should treat the entitlement as active until grace expiry.
+        const graceParsed = graceIso !== null ? Date.parse(graceIso) : NaN;
+        if (Number.isNaN(graceParsed) || graceParsed <= nowMs) {
+          // No grace period (or grace already passed) — genuinely expired.
+          continue;
+        }
+        expiresMs = graceParsed;
+        effectiveIso = graceIso;
+      }
+    }
+    const candidate: ActiveEntitlement = {
+      expiresAt: effectiveIso,
+      expiresMs,
+      productId: typeof ent.product_identifier === "string" ? ent.product_identifier : null,
+    };
+    if (!best || candidate.expiresMs > best.expiresMs) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+/**
+ * Authenticated SYNC handler — see comment block at the top of the file.
+ *
+ * Branches via early-return on the misconfigured / unknown-subscriber /
+ * RC-down cases so the client can apply specific fallback UX to each
+ * outcome (sync_unconfigured → keep restored_pending, rc_subscriber_not_found
+ * → no_purchases, transient → keep restored_pending).
+ */
+async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): Promise<Response> {
+  const correlationId: string = crypto.randomUUID();
+
+  // Auth — must be a valid Supabase JWT. We use an anon-keyed client only
+  // to call `getUser(token)` so RLS doesn't apply to our own identity check;
+  // the actual `subscriptions` mutation runs through `serviceClient` so
+  // the row is upserted with full privileges.
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !anonKey) {
+    logStep("Sync: missing supabase env", undefined, correlationId);
+    return jsonResponse({ ok: false, reason: "server_misconfigured" }, 500);
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return jsonResponse({ ok: false, reason: "missing_auth" }, 401);
+  }
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return jsonResponse({ ok: false, reason: "missing_auth" }, 401);
+  }
+
+  // Per supabase/functions/CLAUDE.md: never use getClaims() — use getUser().
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  let userId: string;
+  try {
+    const { data: userData, error: authErr } = await userClient.auth.getUser(token);
+    if (authErr || !userData?.user) {
+      logStep("Sync: getUser failed", { error: authErr?.message }, correlationId);
+      return jsonResponse({ ok: false, reason: "invalid_token" }, 401);
+    }
+    userId = userData.user.id;
+  } catch (err) {
+    logStep("Sync: getUser threw", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    return jsonResponse({ ok: false, reason: "invalid_token" }, 401);
+  }
+
+  if (!UUID_REGEX.test(userId)) {
+    // Defensive — Supabase auth uuids should always pass, but a non-uuid
+    // would 22P02 the upsert.
+    logStep("Sync: non-UUID user id (rejecting)", { userId }, correlationId);
+    return jsonResponse({ ok: false, reason: "invalid_user_id" }, 401);
+  }
+
+  // Rate-limit the sync path so an authenticated user can't spam the
+  // RC REST API + DB writes. The hook only fires sync after a 10s
+  // poll timeout (or on the empty-entitlements branch), so a tight cap
+  // is plenty. Mirrors the per-function `ai_rate_limits` table the
+  // rest of the AI pipeline uses; tier multipliers (free 0.5x /
+  // premium 2x) apply automatically. Tracked under the synthetic
+  // function name `revenuecat_webhook_sync` so it slots into the
+  // shared telemetry without colliding with the unauthenticated
+  // webhook path.
+  try {
+    await enforceRateLimit(serviceClient, userId, "revenuecat_webhook_sync");
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      logStep("Sync: rate limited", { userId, retryAfterSeconds: err.retryAfterSeconds }, correlationId);
+      return rateLimitResponse(err, CORS_HEADERS);
+    }
+    throw err;
+  }
+
+  const restApiKey = await getCachedRestApiKey(serviceClient);
+  if (!restApiKey) {
+    // Launch-state: the secret is provisioned later in M44. Returning 503
+    // (rather than 500) is the contract with the mobile client — it keeps
+    // the existing `restored_pending` UX instead of surfacing a transient
+    // generic-error alert. Captured as a warning so we know if the path
+    // is firing in production before M44 ships.
+    captureWarning("revenuecat_sync_unconfigured", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    logStep("Sync: REVENUECAT_REST_API_KEY not configured", undefined, correlationId);
+    return jsonResponse({ ok: false, reason: "sync_unconfigured" }, 503);
+  }
+
+  // Fetch fresh CustomerInfo from RC. We use a 10s timeout so a hung RC
+  // egress doesn't leave the client waiting past its own retry window.
+  const rcUrl = `${RC_REST_BASE}/subscribers/${encodeURIComponent(userId)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  let rcResponse: Response;
+  try {
+    rcResponse = await fetch(rcUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${restApiKey}`,
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    const message = err instanceof Error ? err.message : String(err);
+    logStep("Sync: RC REST fetch failed", { message }, correlationId);
+    captureWarning("revenuecat_sync_rc_fetch_failed", {
+      function: "revenuecat_webhook",
+      error: message,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "rc_fetch_failed" }, 500);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  // RC docs: 404 on unknown subscriber. Treat as "user has no purchases"
+  // AND run the same downgrade the inactive-entitlement branch runs — a
+  // pre-existing stale `subscriptions` row that says `plan='premium' /
+  // status='active'` would otherwise survive (the client maps 404 to
+  // `no_purchases`, invalidates queries, but the refetch reads the still-
+  // active row and the user stays unlocked despite the empty-state
+  // alert). Codex round 5 — this branch previously short-circuited
+  // before the downgrade.
+  if (rcResponse.status === 404) {
+    logStep("Sync: RC subscriber not found", { userId }, correlationId);
+    const inactiveKey = `rc_sync_${userId}_inactive_${Math.floor(Date.now() / 1000)}`;
+    const downgrade = await downgradeSubscriptionToFree(
+      serviceClient,
+      userId,
+      correlationId,
+      inactiveKey,
+    );
+    if (!downgrade.ok) {
+      // DB write failed — return 5xx so the client falls back to
+      // `restored_pending` instead of mapping to `no_purchases` against
+      // a row that may still say `plan='premium'`. Codex round 7.
+      return jsonResponse({ ok: false, reason: downgrade.reason ?? "downgrade_failed" }, 500);
+    }
+    return jsonResponse({ ok: false, reason: "rc_subscriber_not_found" }, 404);
+  }
+  if (rcResponse.status >= 500) {
+    const text = await rcResponse.text().catch(() => "");
+    logStep("Sync: RC REST 5xx", { status: rcResponse.status, body: text.slice(0, 200) }, correlationId);
+    captureWarning("revenuecat_sync_rc_5xx", {
+      function: "revenuecat_webhook",
+      status: rcResponse.status,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "rc_upstream_5xx" }, 500);
+  }
+  if (!rcResponse.ok) {
+    // 401/403 from RC = our REST key is bad/revoked. 4xx other than 404 are
+    // also operator-fix errors (and not the user's fault). Treat as
+    // misconfiguration so the client falls back to restored_pending without
+    // a noisy alert.
+    const text = await rcResponse.text().catch(() => "");
+    logStep("Sync: RC REST 4xx", { status: rcResponse.status, body: text.slice(0, 200) }, correlationId);
+    captureWarning("revenuecat_sync_rc_4xx", {
+      function: "revenuecat_webhook",
+      status: rcResponse.status,
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "sync_unconfigured" }, 503);
+  }
+
+  let payload: RcSubscriberResponse;
+  try {
+    payload = (await rcResponse.json()) as RcSubscriberResponse;
+  } catch (err) {
+    logStep("Sync: RC response was not JSON", { message: err instanceof Error ? err.message : String(err) }, correlationId);
+    captureWarning("revenuecat_sync_bad_response", {
+      function: "revenuecat_webhook",
+      correlation_id: correlationId,
+    });
+    return jsonResponse({ ok: false, reason: "rc_bad_response" }, 500);
+  }
+
+  const active = pickLatestActiveEntitlement(payload.subscriber?.entitlements);
+  // Allowance key derivation. For the active path, key on the entitlement
+  // expiration so a tight client retry within the same period dedups (no
+  // double-credit). For the inactive path, key on a 1-second timestamp
+  // bucket so each cancellation reconciliation gets a fresh key —
+  // previously this used a permanent `none` tag, which meant a
+  // subscribe → cancel → resubscribe → cancel cycle reused the same key
+  // and `set_monthly_allowance_atomic` short-circuited the second
+  // downgrade, leaving `monthly_allowance` stuck at the paid value while
+  // the subscription row showed `plan='free'`. Codex M33 review round 4
+  // surfaced the bug. The 1-second bucket preserves the original
+  // tight-retry dedup intent (replay protection within a single request
+  // lifecycle) while ensuring each genuine reconciliation transitions
+  // the allowance.
+  const periodTag = active
+    ? String(active.expiresMs)
+    : `inactive_${Math.floor(Date.now() / 1000)}`;
+  const allowanceKey = `rc_sync_${userId}_${periodTag}`;
+
+  if (active) {
+    // Stripe-mode protection (Codex round 12 P1): if the existing row
+    // is Stripe-managed (`stripe_mode='live'/'test'`), skip the upsert
+    // entirely. Overwriting with `stripe_mode='revenuecat'` would
+    // remove the marker that `markSubscriptionEnded` /
+    // `downgradeSubscriptionToFree` rely on to skip Stripe rows — a
+    // later RC EXPIRATION / BILLING_ISSUE / inactive sync could then
+    // downgrade a valid Stripe subscription. Stripe-paid users with
+    // an active Apple entitlement keep their Stripe ownership; the
+    // sync response still claims success since the user IS active
+    // (just paid via the other channel).
+    const { data: existingRow, error: selectErr } = await serviceClient
+      .from("subscriptions")
+      .select("stripe_mode, status")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (selectErr) {
+      logStep("Sync: subscriptions select-before-active-upsert failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
+      return jsonResponse({ ok: false, reason: "db_transient" }, 500);
+    }
+    if (isStripeActivelyPaying(existingRow)) {
+      logStep("Sync: skipping active upsert — row is Stripe-managed and actively paying", { userId, existingMode: existingRow?.stripe_mode, existingStatus: existingRow?.status }, correlationId);
+      // Don't write `subscriptions` / `user_subscriptions` / allowance.
+      // Stripe's webhook owns this row; we report success so the
+      // client unlocks its UI based on the existing Stripe-paid
+      // state (which the cache invalidate will re-read from the row).
+      logStep("Sync: reconciled (Stripe-preserved)", { userId }, correlationId);
+      return jsonResponse({
+        ok: true,
+        action: "sync",
+        state: { plan: "premium", status: "active", current_period_end: active.expiresAt },
+      }, 200);
+    }
+
+    // Mirror upsertSubscriptionActive — RC says active premium. Use
+    // wall-clock `now()` for `updated_at` (Codex round 12 P1 — the
+    // round-7 synthetic 5-min backdating let older webhook deliveries
+    // overwrite just-synced state). The TRANSFER staleness concern
+    // that round-7 was trying to address is now handled at the event-
+    // routing level: TRANSFER applies its own per-row staleness check
+    // for the new-user upsert and runs origin cleanup
+    // unconditionally, so a delayed TRANSFER no longer needs the
+    // sync's `updated_at` to be backdated.
+    const periodEnd = active.expiresAt;
+    const nowIso = new Date().toISOString();
+    const row: Partial<SubscriptionsTable> & { user_id: string; stripe_mode?: string } = {
+      user_id: userId,
+      status: "active",
+      plan: "premium",
+      price_id: active.productId,
+      current_period_end: periodEnd,
+      stripe_mode: RC_STRIPE_MODE_MARKER,
+      updated_at: nowIso,
+    };
+    const { error } = await serviceClient
+      .from("subscriptions")
+      .upsert(row, { onConflict: "user_id" });
+    if (error) {
+      logStep("Sync: subscriptions upsert failed", { userId, error: error.message, code: error.code }, correlationId);
+      const cls = classifyError(error);
+      // Permanent → 500 with a distinct reason so the client can avoid a
+      // pointless retry; transient → also 500, the client falls back to
+      // restored_pending either way (best-effort sync semantics).
+      return jsonResponse({ ok: false, reason: cls === "permanent" ? "db_permanent" : "db_transient" }, 500);
+    }
+    await serviceClient
+      .from("user_subscriptions")
+      .update({ plan: row.plan, updated_at: nowIso })
+      .eq("user_id", userId);
+    const allowanceResult = await setMonthlyAllowance(
+      serviceClient,
+      userId,
+      PREMIUM_MONTHLY_ALLOWANCE,
+      allowanceKey,
+    );
+    if (!allowanceResult.ok && !allowanceResult.duplicate) {
+      logStep(
+        "Sync: failed to set monthly allowance (continuing)",
+        { userId, reason: allowanceResult.reason },
+        correlationId,
+      );
+    }
+    logStep("Sync: reconciled active entitlement", { userId, periodEnd }, correlationId);
+    return jsonResponse({
+      ok: true,
+      action: "sync",
+      state: { plan: "premium", status: "active", current_period_end: periodEnd },
+    }, 200);
+  }
+
+  // No active entitlement — RC's source-of-truth says the user is not a
+  // paying subscriber. Run the shared downgrade helper.
+  const downgrade = await downgradeSubscriptionToFree(serviceClient, userId, correlationId, allowanceKey);
+  if (!downgrade.ok) {
+    // DB write failed — return 5xx so the client falls back to
+    // `restored_pending` and re-tries on next mount. Codex round 7.
+    return jsonResponse({ ok: false, reason: downgrade.reason ?? "downgrade_failed" }, 500);
+  }
+  logStep("Sync: no active entitlements — downgraded", { userId }, correlationId);
+  return jsonResponse({
+    ok: true,
+    action: "sync",
+    state: { plan: "free", status: "canceled", current_period_end: null },
+  }, 200);
+}
+
+/**
+ * Downgrade a user's subscription rows to free + zero their monthly
+ * allowance. Mirrors EXPIRATION semantics (status='canceled', plan='free',
+ * allowance reset). Used by both the inactive-entitlement branch and
+ * the RC-subscriber-not-found 404 branch of `handleSyncRequest`.
+ *
+ * IMPORTANT — Stripe-managed rows are skipped (Codex round 7). A user
+ * who is premium via Stripe (web checkout) tapping Restore on iOS
+ * causes RC to return 404 / no entitlements (no Apple-side purchase
+ * exists). Downgrading their `subscriptions` row would revoke a valid
+ * paid Stripe subscription. Filter the UPDATE by
+ * `stripe_mode='revenuecat' OR stripe_mode IS NULL` so Stripe-paid
+ * users are unaffected by RC sync.
+ *
+ * `updated_at` is set to wall-clock `now()`. The original round-7
+ * synthetic 5-min-backdate was reverted by Codex round 12 P1 — older
+ * webhook deliveries within the replay window could overwrite just-
+ * synced state. The TRANSFER staleness concern that motivated the
+ * backdate is now handled at the event-routing level: TRANSFER applies
+ * staleness to its new-user upsert per-row and always runs origin
+ * cleanup unconditionally (origin cleanup is idempotent + Stripe-
+ * protected, so re-running it is safe).
+ *
+ * Returns `{ ok }` so the caller can propagate a non-2xx when the
+ * downgrade fails — without that, the client maps a successful 200
+ * response to `'no_purchases'` while the stale `subscriptions` row
+ * stays `plan='premium'`, leaving the user unlocked.
+ */
+async function downgradeSubscriptionToFree(
+  serviceClient: SupabaseClient,
+  userId: string,
+  correlationId: string,
+  allowanceKey: string,
+): Promise<{ ok: boolean; reason?: string; skipped?: boolean }> {
+  // SELECT first to determine if the row is Stripe-managed. The previous
+  // approach used a `.or(stripe_mode.eq.revenuecat,stripe_mode.is.null)`
+  // filter on the UPDATE, which correctly skipped Stripe rows on the
+  // primary table — but the subsequent `user_subscriptions` UPDATE and
+  // `setMonthlyAllowance(..., 0, ...)` calls fired unconditionally,
+  // revoking render credits / legacy plan state for valid Stripe
+  // subscribers (Codex round 8). Read-then-decide gates ALL three
+  // writes off the same Stripe-mode check.
+  const { data: existing, error: selectErr } = await serviceClient
+    .from("subscriptions")
+    .select("stripe_mode, status")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (selectErr) {
+    logStep("Sync: subscriptions select-before-downgrade failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
+    return { ok: false, reason: "subscriptions_select_failed" };
+  }
+  // Skip the RC downgrade ONLY when Stripe is actively paying.
+  // Stripe-managed rows whose status is `canceled` / `past_due` /
+  // null fall through and let RC reconcile to free — they're no
+  // longer paying via Stripe so RC's "no purchases" answer is
+  // authoritative. Codex round 14 P1 caught the original
+  // `stripe_mode in (live,test)` predicate; without the active-
+  // payment gate, a user who cancelled Stripe and hadn't yet bought
+  // via iOS would stay on a stale row.
+  if (isStripeActivelyPaying(existing)) {
+    logStep("Sync: skipping downgrade — row is Stripe-managed and actively paying", { userId, existingMode: existing?.stripe_mode, existingStatus: existing?.status }, correlationId);
+    // Treat as success — there's nothing for us to reconcile, the user
+    // is paid via Stripe and their state is correct as-is. The caller
+    // returns the standard inactive response to the client which
+    // surfaces the "no purchases on this Apple ID" UX (accurate; their
+    // purchases are on the Stripe side).
+    return { ok: true, skipped: true };
+  }
+
+  // Wall-clock `now()` for the staleness watermark — see header
+  // doc-block. TRANSFER's per-row staleness handling decoupled the
+  // sync watermark from the staleness-comparison-against-future-
+  // webhooks concern.
+  const nowIso = new Date().toISOString();
+  const { error: updErr } = await serviceClient
+    .from("subscriptions")
+    .update({
+      status: "canceled",
+      plan: "free",
+      stripe_mode: RC_STRIPE_MODE_MARKER,
+      updated_at: nowIso,
+    })
+    .eq("user_id", userId);
+  if (updErr) {
+    logStep("Sync: subscriptions downgrade failed", { userId, error: updErr.message, code: updErr.code }, correlationId);
+    return { ok: false, reason: "subscriptions_update_failed" };
+  }
+  await serviceClient
+    .from("user_subscriptions")
+    .update({ plan: "free", updated_at: nowIso })
+    .eq("user_id", userId);
+  const allowanceResult = await setMonthlyAllowance(serviceClient, userId, 0, allowanceKey);
+  if (!allowanceResult.ok && !allowanceResult.duplicate) {
+    logStep(
+      "Sync: failed to zero monthly allowance",
+      { userId, reason: allowanceResult.reason },
+      correlationId,
+    );
+    return { ok: false, reason: "allowance_update_failed" };
+  }
+  return { ok: true };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -734,6 +1425,22 @@ serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  // Sync path dispatch — `?action=sync` switches to the authenticated
+  // client-triggered reconciliation flow. Done before the HMAC check so
+  // sync requests aren't rejected for missing the webhook signature header.
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action");
+  if (action === "sync") {
+    const supabaseUrlSync = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKeySync = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrlSync || !supabaseServiceKeySync) {
+      logStep("Sync: missing supabase env (early)");
+      return jsonResponse({ ok: false, reason: "server_misconfigured" }, 500);
+    }
+    const serviceClient = createClient(supabaseUrlSync, supabaseServiceKeySync);
+    return handleSyncRequest(req, serviceClient);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -824,13 +1531,46 @@ serve(async (req) => {
   }
   const ageMs = Date.now() - eventTimestampMs;
   if (ageMs > WEBHOOK_TIMESTAMP_TOLERANCE_MS) {
-    logStep("Event too old (replay window exceeded)", { ageMs, eventTimestampMs }, correlationId);
-    captureWarning("revenuecat_event_too_old", {
-      function: "revenuecat_webhook",
-      age_ms: ageMs,
-      correlation_id: correlationId,
-    });
-    return jsonResponse({ error: "event_too_old", reason: "outside_tolerance" }, 401);
+    // Outside the 5-minute replay window. RevenueCat's documented retry
+    // policy goes out to 80 minutes after a failed first attempt
+    // (https://www.revenuecat.com/docs/integrations/webhooks); rejecting
+    // every late event would permanently drop subscription state on any
+    // transient DB / function outage. Codex round 6 P1: distinguish
+    // "legitimate provider retry of a pending row" from "captured
+    // payload replayed by an attacker" by looking up the event_id. If a
+    // row exists with `processed_at` still NULL, this delivery is a
+    // genuine RC retry — let it through to the idempotency / processing
+    // logic below. Otherwise (no row, or already-processed row) reject
+    // as before. HMAC validation has already passed by this point so an
+    // attacker would need our shared secret to reach this branch
+    // anyway; the pending-row check doesn't materially weaken the
+    // replay surface.
+    const eventIdForReplayCheck = deriveEventId(event);
+    let isLegitimateRetry = false;
+    if (eventIdForReplayCheck) {
+      const { data: existing, error: lookupErr } = await serviceClient
+        .from("revenuecat_events")
+        .select("event_id, processed_at")
+        .eq("event_id", eventIdForReplayCheck)
+        .maybeSingle();
+      if (!lookupErr && existing && !existing.processed_at) {
+        isLegitimateRetry = true;
+      }
+    }
+    if (!isLegitimateRetry) {
+      logStep("Event too old (replay window exceeded, no pending row)", { ageMs, eventTimestampMs }, correlationId);
+      captureWarning("revenuecat_event_too_old", {
+        function: "revenuecat_webhook",
+        age_ms: ageMs,
+        correlation_id: correlationId,
+      });
+      return jsonResponse({ error: "event_too_old", reason: "outside_tolerance" }, 401);
+    }
+    logStep(
+      "Event past replay window — accepting as RC retry of pending row",
+      { ageMs, eventId: eventIdForReplayCheck },
+      correlationId,
+    );
   }
 
   // Sandbox vs production gating. Default to production unless the

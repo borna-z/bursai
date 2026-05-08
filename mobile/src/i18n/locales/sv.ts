@@ -230,4 +230,15 @@ export const sv: Record<string, string> = {
   'addpiece.save.original.label': 'Originalfoto',
   'addpiece.save.original.body': 'Spara fotot som det är, utan studiobearbetning.',
   'addpiece.save.original.aria': 'Spara med originalfotot — ingen studiorendering',
+
+  // M32 — Återställ köp. M33 lägger till SV för befintliga paywall-nycklar.
+  'settings.account.section.subscription': 'Prenumeration',
+  'settings.account.row.restorePurchases': 'Återställ köp',
+  'settings.account.row.restorePurchases.caption':
+    'Återaktivera en tidigare prenumeration på det här Apple-ID:t.',
+  'paywall.restored.body': 'Din prenumeration är aktiv igen.',
+  'paywall.restoring': 'Återställer…',
+  'paywall.restoreError.title': 'Kunde inte återställa köp',
+  'paywall.restoreError.body':
+    'Vi kunde inte nå App Store. Kontrollera anslutningen och försök igen.',
 };

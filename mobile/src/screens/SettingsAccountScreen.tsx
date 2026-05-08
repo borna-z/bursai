@@ -9,6 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
+import { hapticLight } from '../lib/haptics';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
@@ -16,9 +17,10 @@ import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { TypedConfirmModal } from '../components/TypedConfirmModal';
-import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon } from '../components/icons';
+import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon, RotateIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useDeleteAccount } from '../hooks/useDeleteAccount';
+import { useRestorePurchases } from '../hooks/useRestorePurchases';
 import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -29,6 +31,7 @@ export function SettingsAccountScreen() {
   const nav = useNavigation<Nav>();
   const { user, profile } = useAuth();
   const deleteAccount = useDeleteAccount();
+  const restore = useRestorePurchases();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? tr('settings.profile.fallbackName');
@@ -69,6 +72,58 @@ export function SettingsAccountScreen() {
         },
       ],
     );
+  };
+
+  const handleRestorePurchases = () => {
+    if (restore.isPending) return;
+    hapticLight();
+    restore.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.status === 'restored') {
+          // Settings stays mounted — no nav.goBack() (unlike the paywall
+          // path) since the user is already on a non-modal account screen
+          // and may want to verify the change in-place.
+          Alert.alert(
+            tr('paywall.restored'),
+            tr('paywall.restored.body'),
+            [{ text: tr('paywall.restore.alertOk') }],
+          );
+          return;
+        }
+        if (result.status === 'restored_pending') {
+          // RevenueCat confirmed entitlements but the webhook hasn't
+          // mirrored them into the `subscriptions` row within the 10s
+          // poll window. Mirror the purchase 'pending' UX so the user
+          // sees "activating" rather than a misleading success that
+          // leaves them still gated.
+          Alert.alert(
+            tr('paywall.activating.title'),
+            tr('paywall.activating.body'),
+            [{ text: tr('paywall.restore.alertOk') }],
+          );
+          return;
+        }
+        // 'no_purchases' (legitimate empty state) and 'unsupported'
+        // (web / simulator / missing API key, or sign-out-mid-flight
+        // short-circuit) collapse to the same alert. Real transport
+        // errors land in onError instead.
+        Alert.alert(
+          tr('paywall.restoreNoPurchases.title'),
+          tr('paywall.restoreNoPurchases.body'),
+          [{ text: tr('paywall.restore.alertOk') }],
+        );
+      },
+      onError: () => {
+        // Real SDK / network failures (revenuecat wrapper re-throws
+        // after Sentry-capture). Restore-specific copy avoids the
+        // "try again or restore previous purchases" loop that the
+        // generic purchase-error key would create here.
+        Alert.alert(
+          tr('paywall.restoreError.title'),
+          tr('paywall.restoreError.body'),
+        );
+      },
+    });
   };
 
   const handleConfirmDelete = () => {
@@ -194,6 +249,25 @@ export function SettingsAccountScreen() {
                 hideChevron
               />
             ) : null}
+          </Card>
+        </View>
+
+        {/* SUBSCRIPTION — Apple 3.1.1 mandates a restore affordance
+            discoverable outside the paywall (reinstall / device migration
+            scenarios). Re-tap during pending is gated by the handler's
+            `restore.isPending` early return; the broader subscription
+            summary card (status / renewal date / manage link) ships in a
+            post-launch hardening pass. */}
+        <View style={{ gap: 8 }}>
+          <Eyebrow>{tr('settings.account.section.subscription')}</Eyebrow>
+          <Card padding={4}>
+            <SettingsRow
+              icon={<RotateIcon size={18} color={t.accent} />}
+              title={tr('settings.account.row.restorePurchases')}
+              caption={tr('settings.account.row.restorePurchases.caption')}
+              last
+              onPress={handleRestorePurchases}
+            />
           </Card>
         </View>
 
