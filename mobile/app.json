@@ -2,7 +2,7 @@
   "expo": {
     "name": "BURS",
     "slug": "mobile",
-    "scheme": "burs",
+    "scheme": ["burs", "me.burs.app"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

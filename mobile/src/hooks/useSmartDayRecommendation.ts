@@ -70,9 +70,14 @@ export function useSmartDayRecommendation(
   const overrideEvents = overrides?.events;
   const overrideWeather = overrides?.weather;
 
-  // Stabilise the optional-overrides into memo-safe values. Without this,
-  // `overrides?.events ?? []` would mint a fresh array reference every
-  // render, churning every downstream useMemo on this hook.
+  // Stabilise the optional-override into a memo-safe value. Without this,
+  // `overrideEvents ?? []` would mint a fresh array reference every render,
+  // churning every downstream useMemo on this hook. Calendar events flow
+  // in via `overrides` from HomeScreen (M36) — the screen merges its
+  // `useCalendarEvents(today)` query with the M35 occasion picker before
+  // forwarding so both the recommendation engine here AND the AI day
+  // summary (`useDaySummary`, sibling consumer in SmartDayBanner) see the
+  // same merged context.
   const events = useMemo<DayEventInput[]>(
     () => overrideEvents ?? [],
     [overrideEvents],

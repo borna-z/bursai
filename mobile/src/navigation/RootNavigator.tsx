@@ -18,14 +18,17 @@
 //     the auth listener in AuthContext + SplashScreen completes the flow.
 
 import React, { useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   getStateFromPath as defaultGetStateFromPath,
   type LinkingOptions,
 } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
+import { exchangeCalendarCode, triggerGoogleSync } from '../hooks/useCalendarSync';
+import { t as tr } from '../lib/i18n';
 
 // Acquisition flow
 import { SplashScreen as SplashRouteScreen } from '../screens/SplashScreen';
@@ -322,6 +325,28 @@ const Placeholders = {
 // `code_verifier`) but adds attack surface for no benefit. App Links / iOS
 // universal links remain a future hardening step — the current scheme-only
 // registration is not exclusive on either platform.
+/** True for `me.burs.app://calendar/callback?code=…&state=…`. The mobile
+ *  redirect URI uses the reverse-DNS form of the app's bundle ID
+ *  (`me.burs.app`) per Google's installed-app OAuth requirement — see
+ *  `useCalendarSync.CALENDAR_REDIRECT_URI` for the rationale. Codex P1
+ *  on PR #772. Google redirects here after the user completes the
+ *  consent screen. The handler below pulls `code` + `state` from the
+ *  query and POSTs them back through `exchange_code` so the edge
+ *  function stores tokens server-side. */
+function isCalendarCallbackUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'me.burs.app:') return false;
+    const host = parsed.hostname;
+    const path = parsed.pathname;
+    if (host === 'calendar' && (path === '/callback' || path === '/callback/')) return true;
+    if (host === '' && (path === '/calendar/callback' || path === '/calendar/callback/')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function isOAuthCallbackUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -377,23 +402,94 @@ async function handleOAuthDeepLink(
   }
 }
 
+async function handleCalendarOAuthDeepLink(
+  url: string,
+  lastExchangedCodeRef: React.MutableRefObject<string | null>,
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  if (!isCalendarCallbackUrl(url)) return;
+  let code: string | null = null;
+  let state: string | null = null;
+  let oauthError: string | null = null;
+  try {
+    const parsed = new URL(url);
+    code = parsed.searchParams.get('code');
+    state = parsed.searchParams.get('state');
+    oauthError = parsed.searchParams.get('error');
+  } catch {
+    code = null;
+    state = null;
+  }
+  if (oauthError) {
+    Alert.alert(tr('settings.calendar.error.title'), tr('settings.calendar.error.body'));
+    return;
+  }
+  if (!code || !state) {
+    console.warn('[RootNavigator] Calendar callback missing code/state:', url);
+    return;
+  }
+  // Same per-launch dedupe pattern the OAuth login handler uses — iOS fires
+  // both `getInitialURL` and `'url'` for the same launch URL, so we'd hit
+  // `exchange_code` twice with the same single-use CSRF token (the second
+  // call 4xxs and shows a misleading error to the user).
+  if (lastExchangedCodeRef.current === code) return;
+  lastExchangedCodeRef.current = code;
+  // Resolve the auth user from the JWT bound to the Supabase session;
+  // `exchangeCalendarCode` needs it to look up the PKCE verifier the
+  // Connect path stored in AsyncStorage.
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id;
+  if (!userId) {
+    Alert.alert(tr('settings.calendar.error.title'), tr('settings.calendar.error.body'));
+    return;
+  }
+  const result = await exchangeCalendarCode(code, state, userId);
+  if (!result.ok) {
+    Alert.alert(
+      tr('settings.calendar.error.title'),
+      result.error ?? tr('settings.calendar.error.body'),
+    );
+    return;
+  }
+  // Refresh connection state so the Settings row + Home banner flip to
+  // "Connected" without waiting for the user to pull-to-refresh.
+  await queryClient.invalidateQueries({ queryKey: ['calendar-connection'] });
+  // Kick off the first sync so the user immediately sees their events
+  // back in the app instead of waiting for the cron-scheduled background
+  // sync. Failures here are non-fatal — connection is established, events
+  // will land on the next sync cycle.
+  try {
+    await triggerGoogleSync();
+    await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+  } catch {
+    // Silent — connection is the load-bearing state, sync can retry.
+  }
+  Alert.alert(tr('settings.calendar.connected.title'), tr('settings.calendar.connected.body'));
+}
+
 export function RootNavigator() {
   const lastExchangedCodeRef = useRef<string | null>(null);
+  const lastCalendarCodeRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
   useEffect(() => {
     let cancelled = false;
     const onUrl = ({ url }: { url: string }) => {
-      if (!cancelled) void handleOAuthDeepLink(url, lastExchangedCodeRef);
+      if (cancelled) return;
+      void handleOAuthDeepLink(url, lastExchangedCodeRef);
+      void handleCalendarOAuthDeepLink(url, lastCalendarCodeRef, queryClient);
     };
     const subscription = Linking.addEventListener('url', onUrl);
     // Cold-start: app opened FROM a deep link — pull the URL ourselves.
     void Linking.getInitialURL().then((url) => {
-      if (!cancelled && url) void handleOAuthDeepLink(url, lastExchangedCodeRef);
+      if (cancelled || !url) return;
+      void handleOAuthDeepLink(url, lastExchangedCodeRef);
+      void handleCalendarOAuthDeepLink(url, lastCalendarCodeRef, queryClient);
     });
     return () => {
       cancelled = true;
       subscription.remove();
     };
-  }, []);
+  }, [queryClient]);
 
   return (
     <Stack.Navigator

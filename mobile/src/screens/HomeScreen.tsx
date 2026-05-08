@@ -36,6 +36,8 @@ import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn, useOutfits } from '../hooks/useOutfits';
 import { useWeather } from '../hooks/useWeather';
+import { useCalendarEvents } from '../hooks/useCalendarSync';
+import type { DayEventInput } from '../lib/dayIntelligence';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
@@ -162,6 +164,30 @@ export function HomeScreen({
   );
   const [occasion, setOccasion] = React.useState<OccasionId>('casual');
   const occasionEvents = React.useMemo(() => eventsForOccasion(occasion), [occasion]);
+
+  // M36 — pull today's calendar events directly so we can merge them with
+  // the manual occasion pick before forwarding to the day-intelligence
+  // engine + Gemini summary. Both `useSmartDayRecommendation` AND
+  // `useDaySummary` (called inside SmartDayBanner) read `overrides.events`,
+  // so merging here guarantees the AI summary sees the user's actual day
+  // (calendar) PLUS their stated intent (occasion picker), not one or the
+  // other. The CalendarEvent → DayEventInput shape mapping mirrors what
+  // `useCalendarSync.useCalendarEvents` returns; the location field is
+  // preserved because `dayIntelligence.inferEventOccasion` reads it for
+  // tag generation (gym / office / outdoor classification).
+  const todayDateISO = React.useMemo(() => localISODate(now), [now]);
+  const calendarEventsQ = useCalendarEvents(todayDateISO);
+  const smartDayEvents = React.useMemo<DayEventInput[]>(() => {
+    const calendar = (calendarEventsQ.data ?? []).map((e) => ({
+      title: e.title,
+      location: e.location,
+      start_time: e.start_time,
+      end_time: e.end_time,
+    }));
+    return occasionEvents.length > 0
+      ? [...calendar, ...occasionEvents]
+      : calendar;
+  }, [calendarEventsQ.data, occasionEvents]);
 
   // M35 — Recent outfits row. Pulls saved outfits ordered by `created_at`
   // desc and renders the most recent 8 in a horizontal scroll. Distinct
@@ -348,7 +374,7 @@ export function HomeScreen({
         <SmartDayBanner
           overrides={{
             weather: smartDayWeather,
-            events: occasionEvents,
+            events: smartDayEvents,
           }}
         />
 

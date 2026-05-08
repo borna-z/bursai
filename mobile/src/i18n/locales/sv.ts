@@ -1010,6 +1010,25 @@ export const sv: Record<string, string> = {
   'home.recent.eyebrow': 'Senaste outfits',
   'home.recent.empty': 'Sparade looks landar här.',
   'home.recent.savedFallback': 'Sparad',
+
+  // ─── Calendar sync (M36) ──────────────────────────────────────────────
+  'settings.calendar.section': 'Kalender',
+  'settings.calendar.row.connect': 'Anslut Google Kalender',
+  'settings.calendar.row.connect.caption':
+    'Skarpare outfitval utifrån vad du har för dagen.',
+  'settings.calendar.row.disconnect': 'Koppla bort Google Kalender',
+  'settings.calendar.row.connected.caption':
+    'Vi läser din dag för att styla smartare.',
+  'settings.calendar.connected.title': 'Kalender ansluten',
+  'settings.calendar.connected.body':
+    'Vi tar med dina händelser i dagens förslag.',
+  'settings.calendar.error.title': 'Kunde inte ansluta kalender',
+  'settings.calendar.error.body': 'Försök igen om en stund.',
+  'settings.calendar.disconnect.title': 'Koppla bort Google Kalender?',
+  'settings.calendar.disconnect.body':
+    'Vi slutar synkronisera dina händelser och tar bort de som redan sparats.',
+  'settings.calendar.disconnect.confirm': 'Koppla bort',
+
   'weather.condition.clear': 'Klart',
   'weather.condition.cloudy': 'Molnigt',
   'weather.condition.fog': 'Dimma',
