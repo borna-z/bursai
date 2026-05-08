@@ -44,12 +44,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError, Sentry } from '../lib/sentry';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 import { restorePurchases } from '../lib/revenuecat';
-import {
-  callEdgeFunction,
-  EdgeFunctionHttpError,
-} from '../lib/edgeFunctionClient';
 
 export type RestorePurchasesResult =
   | { status: 'restored' }
@@ -123,18 +119,63 @@ type SyncResponseBody = {
  * user locked indefinitely. The sync path queries RC's REST API
  * server-side and upserts the row directly.
  */
-async function syncSubscriptionWithRevenueCat(): Promise<SyncOutcome> {
+async function syncSubscriptionWithRevenueCat(
+  startAccessToken: string | null,
+): Promise<SyncOutcome> {
+  // Bypass `callEdgeFunction` and direct-fetch with the captured token.
+  // `callEdgeFunction` always reads the CURRENT supabase session on each
+  // call — if the user dismissed the paywall and signed out (or a
+  // different user signed in) during the 10s poll, the sync would
+  // authenticate as the new user and reconcile their row using data
+  // intended for the original tapper (Codex round 13 P1 cross-user
+  // contamination). Pinning the Authorization header to the token
+  // captured at mutate-start means the sync edge function's `getUser()`
+  // resolves to the original user; if their token has been revoked
+  // (sign-out), RC sync returns 401 → we map to 'pending' and the
+  // original user's data simply isn't reconciled (acceptable best-
+  // effort behaviour).
+  if (!startAccessToken) {
+    // No token captured (e.g., session was already null at mutate-
+    // start) — skip the sync entirely. The empty-entitlements
+    // / poll-timeout caller falls back to its existing UX.
+    return 'pending';
+  }
   try {
-    const data = await callEdgeFunction<SyncResponseBody>(
-      'revenuecat_webhook?action=sync',
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/revenuecat_webhook?action=sync`,
       {
-        body: {},
-        // No retries — sync is best-effort. A transient failure should
-        // resolve to 'pending' and let the user try again later rather
-        // than burning the circuit breaker.
-        retries: 0,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${startAccessToken}`,
+        },
+        body: '{}',
       },
     );
+    // 404 from the edge function = RC has no record of this
+    // app_user_id. Definitively not active.
+    if (response.status === 404) {
+      return 'inactive';
+    }
+    // 503 (sync_unconfigured) and 5xx (rc_fetch_failed / rc_upstream_5xx
+    // / rc_bad_response / db_*) all degrade gracefully to 'pending'.
+    // 401 (revoked token) ditto — original user's session ended
+    // mid-flight, sync isn't applicable anymore.
+    if (!response.ok) {
+      Sentry.addBreadcrumb({
+        category: 'subscription',
+        level: 'warning',
+        message: 'restore_sync_fallback',
+        data: { status: response.status },
+      });
+      return 'pending';
+    }
+    let data: SyncResponseBody | null = null;
+    try {
+      data = (await response.json()) as SyncResponseBody;
+    } catch {
+      return 'pending';
+    }
     if (data && data.ok === true && data.state) {
       const plan = data.state.plan ?? null;
       const status = data.state.status ?? null;
@@ -151,24 +192,12 @@ async function syncSubscriptionWithRevenueCat(): Promise<SyncOutcome> {
     // Unexpected ok=false body without a thrown error — treat as pending.
     return 'pending';
   } catch (err) {
-    // 404 from the edge function = RC has no record of this app_user_id.
-    // Definitively not active.
-    if (err instanceof EdgeFunctionHttpError && err.status === 404) {
-      return 'inactive';
-    }
-    // 503 (sync_unconfigured) and 5xx (rc_fetch_failed / rc_upstream_5xx /
-    // rc_bad_response / db_*) all degrade gracefully to 'pending'.
-    // Same for the client-side EdgeFunctionTimeoutError /
-    // EdgeFunctionCircuitOpenError / EdgeFunctionRateLimitError /
-    // generic transport failures. Best-effort contract.
+    // Network / timeout / DNS / TLS errors — all degrade to 'pending'.
     Sentry.addBreadcrumb({
       category: 'subscription',
       level: 'warning',
       message: 'restore_sync_fallback',
-      data: {
-        name: err instanceof Error ? err.name : 'unknown',
-        status: err instanceof EdgeFunctionHttpError ? err.status : null,
-      },
+      data: { name: err instanceof Error ? err.name : 'unknown' },
     });
     return 'pending';
   }
@@ -253,6 +282,17 @@ export function useRestorePurchases() {
         return { status: 'unsupported' };
       }
 
+      // Capture the auth token at mutation start. The mutationFn is
+      // allowed to outlive the screen's mount lifetime (round 9: we
+      // intentionally don't abort on unmount so background-unlock keeps
+      // working), and the supabase client's session can flip from under
+      // us if the user signs out mid-mutation. Pinning the access token
+      // here means the eventual sync edge-function call authenticates
+      // as the user who actually tapped Restore, not whoever's session
+      // is current when the call lands. Codex round 13 P1.
+      const startSession = await supabase.auth.getSession();
+      const startAccessToken = startSession.data.session?.access_token ?? null;
+
       // Reset the abort controller for this attempt — abort any prior
       // in-flight poll, then create a fresh signal for the new one.
       abortRef.current?.abort();
@@ -286,7 +326,7 @@ export function useRestorePurchases() {
         // activate (Codex round 10). Stale-row reconciliation
         // continues via the webhook or a subsequent sync tap; UX
         // here stays truthful.
-        await syncSubscriptionWithRevenueCat();
+        await syncSubscriptionWithRevenueCat(startAccessToken);
         // Re-check user identity after the sync round-trip — sign-out
         // mid-sync should suppress the empty-state alert per the same
         // race-protection contract used in the timeout path below.
@@ -331,7 +371,7 @@ export function useRestorePurchases() {
       // After a successful sync, re-check the AuthContext user — a
       // sign-out-during-sync race must not surface either the success
       // alert or the cache invalidation for the new session.
-      const syncOutcome = await syncSubscriptionWithRevenueCat();
+      const syncOutcome = await syncSubscriptionWithRevenueCat(startAccessToken);
       if (currentUserIdRef.current !== startUserId) {
         return { status: 'unsupported' };
       }

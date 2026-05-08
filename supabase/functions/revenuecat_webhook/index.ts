@@ -734,10 +734,11 @@ async function handleEvent(
     case "TRANSFER": {
       logStep("Transfer event", { userId }, correlationId);
       // Per-row staleness for the new-user upsert: skip if a newer
-      // event already wrote the row. The origin cleanup below runs
-      // unconditionally because `markSubscriptionEnded` is idempotent
-      // (already-ended row → UPDATE matches no extra state) and the
-      // Stripe-mode SELECT-before-write protects Stripe-paid origins.
+      // event already wrote the row. The origin cleanup below also
+      // applies per-origin staleness so a delayed A→B TRANSFER landing
+      // after a newer B→A doesn't undo the active state on A. Codex
+      // round 13 P1 — pre-fix the origin cleanup ran unconditionally
+      // and could revoke the currently valid owner.
       const newUserStale = await isStaleEvent(client, userId, eventTimestampMs);
       if (!newUserStale) {
         await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
@@ -750,6 +751,16 @@ async function handleEvent(
       const originIds = extractTransferOriginIds(event);
       for (const originalId of originIds) {
         if (originalId === userId) continue;
+        // Per-origin staleness: if a newer event already updated this
+        // origin's row (e.g. a reverse B→A TRANSFER landed first and
+        // set A back to active), this delayed A→B TRANSFER's
+        // `markSubscriptionEnded(A)` would otherwise cancel the
+        // currently-valid owner. Skip when stale.
+        const originStale = await isStaleEvent(client, originalId, eventTimestampMs);
+        if (originStale) {
+          logStep("TRANSFER: origin end-of-life skipped (stale)", { originalId }, correlationId);
+          continue;
+        }
         try {
           await markSubscriptionEnded(client, originalId, "canceled", eventId, correlationId);
           logStep("TRANSFER: ended origin subscription", { originalId }, correlationId);
