@@ -1016,11 +1016,22 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
   }
 
   const active = pickLatestActiveEntitlement(payload.subscriber?.entitlements);
-  // Use a stable allowance key derived from the user + the entitlement
-  // expiration so a single sync request doesn't double-credit if the
-  // client retries within the same period. Mirrors how webhook events
-  // key allowance updates by event id.
-  const periodTag = active ? String(active.expiresMs) : "none";
+  // Allowance key derivation. For the active path, key on the entitlement
+  // expiration so a tight client retry within the same period dedups (no
+  // double-credit). For the inactive path, key on a 1-second timestamp
+  // bucket so each cancellation reconciliation gets a fresh key —
+  // previously this used a permanent `none` tag, which meant a
+  // subscribe → cancel → resubscribe → cancel cycle reused the same key
+  // and `set_monthly_allowance_atomic` short-circuited the second
+  // downgrade, leaving `monthly_allowance` stuck at the paid value while
+  // the subscription row showed `plan='free'`. Codex M33 review round 4
+  // surfaced the bug. The 1-second bucket preserves the original
+  // tight-retry dedup intent (replay protection within a single request
+  // lifecycle) while ensuring each genuine reconciliation transitions
+  // the allowance.
+  const periodTag = active
+    ? String(active.expiresMs)
+    : `inactive_${Math.floor(Date.now() / 1000)}`;
   const allowanceKey = `rc_sync_${userId}_${periodTag}`;
 
   if (active) {
