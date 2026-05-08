@@ -384,6 +384,34 @@ export const en: Record<string, string> = {
   // sections. Aria/visual label for the small icon button.
   'outfitDetail.refreshAction': 'Refresh',
 
+  // ─── M37 — outfit detail slot composition ──────────────────────────────
+  // Slot eyebrows + the per-slot Swap / Anchor / Remove actions surfaced on
+  // each OutfitSlotRow. The bottom-sheet picker shown when the user taps
+  // Swap also reads from this section.
+  'outfitDetail.slot.top': 'Top',
+  'outfitDetail.slot.layer': 'Layer',
+  'outfitDetail.slot.bottom': 'Bottom',
+  'outfitDetail.slot.dress': 'Dress',
+  'outfitDetail.slot.shoes': 'Shoes',
+  'outfitDetail.slot.outerwear': 'Outerwear',
+  'outfitDetail.slot.accessory': 'Accessory',
+  'outfitDetail.slotAction.swap': 'Swap',
+  'outfitDetail.slotAction.makeAnchor': 'Anchor',
+  'outfitDetail.slotAction.anchored': 'Anchored',
+  'outfitDetail.slotAction.remove': 'Remove',
+  'outfitDetail.removedPiece': 'Removed piece',
+  'outfitDetail.swap.title': 'Swap {slot}',
+  'outfitDetail.swap.empty':
+    "Nothing else in your wardrobe fits this slot.",
+  'outfitDetail.swap.loading': 'Looking through your wardrobe…',
+  'outfitDetail.swap.cancel': 'Cancel',
+  'outfitDetail.remove.title': 'Remove piece',
+  'outfitDetail.remove.body':
+    'Remove {title} from this outfit? You can swap it back in later.',
+  'outfitDetail.remove.confirm': 'Remove',
+  'outfitDetail.remove.cancel': 'Cancel',
+  'outfitDetail.anchor.cleared': 'Anchor cleared',
+
   // ─── Photo feedback / selfie comparison (M18) ──────────────────────────
   // Camera-first capture surface that compares a mirror selfie against an
   // outfit's garments. Entered from OutfitDetail or PlanScreen.

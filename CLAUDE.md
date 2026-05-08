@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M37 — Outfit detail slots (full composition + anchor UI) |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m37-outfit-detail-slots.md` |
+| **CURRENT WAVE** | M38 — SettingsStyle 8-section editor |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m38-settings-style.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
