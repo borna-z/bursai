@@ -79,9 +79,10 @@ export async function awaitFreshWeather(
   // unrelated refetch trigger fires, so a screen left open >30 min would
   // otherwise feed outdated rain/temperature into Generate / Pool. When the
   // cached entry is fresh (`dataUpdatedAt` within `STALE_MS`), return it
-  // immediately; when stale, fall through to the `ensureQueryData` race so
-  // the cache is refreshed (still bounded by the timeout).
-  // (Codex P2 round 2 on PR #775.)
+  // immediately. When stale, force a real refetch via `fetchQuery` —
+  // `ensureQueryData` would short-circuit and return the stale cached value
+  // because the entry exists, defeating the staleness check.
+  // (Codex P2 round 3 on PR #775.)
   const queryKey = weatherQueryKey(city);
   const cached = queryClient.getQueryData<WeatherData>(queryKey);
   if (cached) {
@@ -91,11 +92,17 @@ export async function awaitFreshWeather(
       return cached;
     }
   }
+  // `fetchQuery` invokes `queryFn` whenever the entry is stale relative to
+  // its `staleTime` arg. We pass `staleTime: 0` because we've already gated
+  // on freshness above — at this point the cache is either absent or stale,
+  // and we explicitly want a network refetch in both cases. The result is
+  // written back into the same cache entry `useWeather` subscribes to, so a
+  // slow refresh still propagates to active subscribers when it lands.
   const fetchPromise = queryClient
-    .ensureQueryData({
+    .fetchQuery({
       queryKey,
       queryFn: () => fetchWeather(city),
-      staleTime: STALE_MS,
+      staleTime: 0,
     })
     .catch((): WeatherData | null => null);
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
