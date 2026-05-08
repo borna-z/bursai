@@ -416,6 +416,23 @@ function bulkSignedUrlsStaleTimeFor(paths: readonly string[]): number {
 // gets one shot. (Codex P2 round 2 on PR #774.)
 const RETRY_BUDGET = 1;
 
+// FIFO cap on the per-mount failed-URL ledger. The hook accepts unbounded
+// fresh URLs from external busts — over a long-lived screen mount that
+// could grow without bound on a permanently-broken path (TTL refetches +
+// render-complete busts each minting a new URL). Cap the ledger so the
+// per-render `includes` check stays O(1)-ish and React state doesn't carry
+// arbitrarily long arrays. 8 is plenty: the only realistic way to fill it
+// is N consecutive minted-and-failed URLs, which already implies the
+// thumbnail is broken — at that point dropping the oldest entry just
+// retries it, and either it works (good) or fails again (we record it
+// again). 8 strikes a balance between bounded memory and not so small
+// that we constantly re-test the same handful of failed URLs.
+const FAILED_URL_CAP = 8;
+
+// Hoisted empty array reused as initial state across every cell mount, so
+// we don't allocate a fresh `[]` per <Image>. (Self-review P2 on PR #774.)
+const EMPTY_FAILED_URLS: readonly string[] = [];
+
 export interface UseGarmentImageResult {
   /** Pass to `<Image source={{ uri }}>`. `null` while loading, when the
    *  current signed URL is one that has already failed for this garment,
@@ -423,8 +440,12 @@ export interface UseGarmentImageResult {
    *  placeholder underneath so this null state stays visually graceful. */
   uri: string | null;
   /** Pass to `<Image onError>`. Logs a Sentry breadcrumb and busts the
-   *  signed-URL cache for up to `RETRY_BUDGET` re-mint attempts. Stable
-   *  identity — safe to pass directly to `<Image>` without memoising. */
+   *  signed-URL cache for up to `RETRY_BUDGET` re-mint attempts. Identity
+   *  is NOT stable — `useCallback` deps include `failedUrls` and `signedUrl`
+   *  so a fresh function lands on every re-render where either changes.
+   *  RN's `<Image>` doesn't remount on `onError` prop identity changes, so
+   *  this isn't a perf concern, but a downstream memoiser MUST NOT rely on
+   *  reference equality. */
   onError: () => void;
 }
 
@@ -440,7 +461,9 @@ export function useGarmentImage(
   // populated during refetch). Cleared only on `imagePath` change. Storing
   // an array rather than a Set keeps state value-equal across renders so
   // React's structural sharing skips unnecessary re-renders.
-  const [failedUrls, setFailedUrls] = React.useState<readonly string[]>([]);
+  const [failedUrls, setFailedUrls] = React.useState<readonly string[]>(
+    EMPTY_FAILED_URLS,
+  );
 
   // Reset the failed-URL set only when the user navigates to a different
   // garment. Resetting on `signedUrl` change too would un-suppress the URL
@@ -448,13 +471,19 @@ export function useGarmentImage(
   // bust refetch window — and <Image> would re-fire onError on an unchanged
   // source, growing the set without progress.
   React.useEffect(() => {
-    setFailedUrls([]);
+    setFailedUrls(EMPTY_FAILED_URLS);
   }, [imagePath]);
 
   const isKnownFailed = signedUrl != null && failedUrls.includes(signedUrl);
   const uri = isKnownFailed ? null : (signedUrl ?? null);
 
   const onError = React.useCallback(() => {
+    // Defensive dedupe FIRST: RN can fire onError multiple times for the
+    // same source during a single load attempt. Bailing here before logging
+    // prevents duplicate Sentry breadcrumbs per failure.
+    // (Self-review P1 on PR #774.)
+    if (!signedUrl) return;
+    if (failedUrls.includes(signedUrl)) return;
     if (__DEV__) {
       console.warn('[useGarmentImage] image load failed', {
         imagePath,
@@ -467,10 +496,6 @@ export function useGarmentImage(
       message: 'garment image load failed',
       data: { imagePath: imagePath ?? null, attempts: failedUrls.length },
     });
-    if (!signedUrl) return;
-    // Defensive dedupe: RN can fire onError multiple times for the same
-    // source during a single load attempt. Only act on the first.
-    if (failedUrls.includes(signedUrl)) return;
     // Cap own-initiated cache busts at RETRY_BUDGET. After that we stop
     // busting from inside the hook — but we keep the per-URL failed set
     // active, so any fresh signed URL minted by external means (render-
@@ -485,7 +510,13 @@ export function useGarmentImage(
       // rather than serving the stale entry.
       bustSignedUrlCache(queryClient, imagePath);
     }
-    setFailedUrls((prev) => [...prev, signedUrl]);
+    // Append, capped FIFO at FAILED_URL_CAP so external busts on a
+    // permanently-broken path can't grow the ledger unbounded over a
+    // long-lived screen mount. (Self-review P1 on PR #774.)
+    setFailedUrls((prev) => {
+      const next = [...prev, signedUrl];
+      return next.length > FAILED_URL_CAP ? next.slice(-FAILED_URL_CAP) : next;
+    });
   }, [imagePath, failedUrls, queryClient, signedUrl]);
 
   return { uri, onError };
