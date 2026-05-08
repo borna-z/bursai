@@ -84,6 +84,11 @@ import { CORS_HEADERS } from "../_shared/cors.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { setMonthlyAllowance } from "../_shared/render-credits.ts";
 import { captureWarning } from "../_shared/observability.ts";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  rateLimitResponse,
+} from "../_shared/scale-guard.ts";
 
 const VAULT_SECRET_NAME = "revenuecat_webhook_secret";
 const ENV_FALLBACK_SECRET = "REVENUECAT_WEBHOOK_SECRET";
@@ -506,6 +511,32 @@ async function markSubscriptionEnded(
   eventId: string,
   correlationId: string,
 ): Promise<void> {
+  // SELECT-before-write Stripe protection (mirrors the sync-path
+  // `downgradeSubscriptionToFree` Codex round 8 hardening). A user
+  // who had an iOS sub, cancelled it, then resubscribed via Stripe
+  // (web) would otherwise have their Stripe-paid row clobbered when
+  // RC eventually emits the iOS EXPIRATION webhook. Skip ALL three
+  // writes (subscriptions, user_subscriptions mirror, render
+  // allowance) when the row is Stripe-managed.
+  const { data: existing, error: selectErr } = await client
+    .from("subscriptions")
+    .select("stripe_mode")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (selectErr) {
+    logStep("End-of-life select-before-update failed", { userId, status, error: selectErr.message, code: selectErr.code }, correlationId);
+    throw dbError("subscriptions select", selectErr);
+  }
+  const existingMode = existing && typeof existing.stripe_mode === "string" ? existing.stripe_mode : null;
+  const isStripeManaged = existingMode === "live" || existingMode === "test";
+  if (isStripeManaged) {
+    logStep("End-of-life skipped — row is Stripe-managed", { userId, status, existingMode }, correlationId);
+    // Treat as a successful no-op. The user is paid via Stripe, RC's
+    // event doesn't apply to their state, and the existing row is
+    // correct as-is.
+    return;
+  }
+
   const updatedAt = new Date().toISOString();
 
   const { error } = await client
@@ -950,6 +981,25 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
     // would 22P02 the upsert.
     logStep("Sync: non-UUID user id (rejecting)", { userId }, correlationId);
     return jsonResponse({ ok: false, reason: "invalid_user_id" }, 401);
+  }
+
+  // Rate-limit the sync path so an authenticated user can't spam the
+  // RC REST API + DB writes. The hook only fires sync after a 10s
+  // poll timeout (or on the empty-entitlements branch), so a tight cap
+  // is plenty. Mirrors the per-function `ai_rate_limits` table the
+  // rest of the AI pipeline uses; tier multipliers (free 0.5x /
+  // premium 2x) apply automatically. Tracked under the synthetic
+  // function name `revenuecat_webhook_sync` so it slots into the
+  // shared telemetry without colliding with the unauthenticated
+  // webhook path.
+  try {
+    await enforceRateLimit(serviceClient, userId, "revenuecat_webhook_sync");
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      logStep("Sync: rate limited", { userId, retryAfterSeconds: err.retryAfterSeconds }, correlationId);
+      return rateLimitResponse(err, CORS_HEADERS);
+    }
+    throw err;
   }
 
   const restApiKey = await getCachedRestApiKey(serviceClient);

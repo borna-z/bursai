@@ -116,8 +116,11 @@ export function PaywallScreen() {
   // only visible exit a no-op for a noticeable period (Codex round 5
   // finding). Instead we let the user close at any time and suppress any
   // stale alert / nav callbacks via `userDismissedRef`. The hook's own
-  // `mountedRef` already prevents the cache-invalidate from firing on an
-  // unmounted screen.
+  // `currentUserIdRef` short-circuit handles sign-out / different-user
+  // races server-side, and the hook deliberately does NOT abort its
+  // poll on unmount (round 9 — the cache invalidate still runs from
+  // the hook-level onSuccess so a webhook that lands after the user
+  // dismisses still propagates the unlock to gated screens).
   const userDismissedRef = useRef(false);
   const onClose = () => {
     userDismissedRef.current = true;
