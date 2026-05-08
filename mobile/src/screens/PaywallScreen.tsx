@@ -18,7 +18,7 @@
 // didn't explicitly call it out, but it ships in PR A so the screen is
 // review-ready by the time M44 runs sandbox verification.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -110,12 +110,17 @@ export function PaywallScreen() {
   // isn't trapped (P1-18 / P1-19 from review). App Store reviewers WILL test
   // this — silent dead-ends are rejection-worthy.
   //
-  // Mid-flight restore / purchase: gate dismissal so the in-flight mutation's
-  // resolution alert doesn't fire over a different screen. Both flows are
-  // sub-second on a real device; the brief "uncloseable" window is preferable
-  // to a context-less alert popping over MainTabs.
+  // Mid-flight restore / purchase: dismissal stays usable. The restore poll
+  // can run for up to 10s plus an additional sync round-trip when the
+  // webhook hasn't landed; gating close throughout that window leaves the
+  // only visible exit a no-op for a noticeable period (Codex round 5
+  // finding). Instead we let the user close at any time and suppress any
+  // stale alert / nav callbacks via `userDismissedRef`. The hook's own
+  // `mountedRef` already prevents the cache-invalidate from firing on an
+  // unmounted screen.
+  const userDismissedRef = useRef(false);
   const onClose = () => {
-    if (isPurchasing || restoring) return;
+    userDismissedRef.current = true;
     hapticLight();
     if (nav.canGoBack()) nav.goBack();
     else nav.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
@@ -128,6 +133,10 @@ export function PaywallScreen() {
       { packageType: plan },
       {
         onSuccess: (result) => {
+          // Suppress stale callbacks if the user dismissed mid-purchase.
+          // The hook still invalidates the subscription cache so a
+          // background unlock propagates to gated screens.
+          if (userDismissedRef.current) return;
           if (result.status === 'success') {
             // Dashboard / paywall consumers refetch via the invalidation
             // already wired in the hook; flash a toast-style alert and
@@ -172,6 +181,8 @@ export function PaywallScreen() {
           // silence instead of assuming a missing key.
         },
         onError: () => {
+          // Suppress stale error alert if user dismissed mid-purchase.
+          if (userDismissedRef.current) return;
           // captureMutationError already fired inside the hook. Surface a
           // user-friendly message — title + body split so the dialog
           // renders with a clear heading.
@@ -193,6 +204,13 @@ export function PaywallScreen() {
     };
     restore.mutate(undefined, {
       onSuccess: (result) => {
+        // Suppress stale callbacks if the user dismissed the paywall mid-
+        // restore — alerts popping over a different screen are
+        // disorienting (Codex round 5). The hook still invalidates the
+        // subscription cache for any non-unsupported result, so a
+        // background unlock still propagates to gated screens via
+        // `useSubscription` re-derivation.
+        if (userDismissedRef.current) return;
         if (result.status === 'restored') {
           // Mirror onSubscribe success: dismiss the paywall after the
           // user acknowledges the restore. Without this the restored
@@ -234,6 +252,8 @@ export function PaywallScreen() {
         );
       },
       onError: () => {
+        // Suppress stale error alert if the user dismissed mid-restore.
+        if (userDismissedRef.current) return;
         // Real SDK / network failures (revenuecat wrapper re-throws
         // after Sentry-capture). Restore-specific error keys avoid
         // the "try again or restore previous purchases" loop that

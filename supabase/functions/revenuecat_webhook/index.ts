@@ -973,9 +973,17 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
   }
 
   // RC docs: 404 on unknown subscriber. Treat as "user has no purchases"
-  // and downgrade the row to free if it was somehow active.
+  // AND run the same downgrade the inactive-entitlement branch runs — a
+  // pre-existing stale `subscriptions` row that says `plan='premium' /
+  // status='active'` would otherwise survive (the client maps 404 to
+  // `no_purchases`, invalidates queries, but the refetch reads the still-
+  // active row and the user stays unlocked despite the empty-state
+  // alert). Codex round 5 — this branch previously short-circuited
+  // before the downgrade.
   if (rcResponse.status === 404) {
     logStep("Sync: RC subscriber not found", { userId }, correlationId);
+    const inactiveKey = `rc_sync_${userId}_inactive_${Math.floor(Date.now() / 1000)}`;
+    await downgradeSubscriptionToFree(serviceClient, userId, correlationId, inactiveKey);
     return jsonResponse({ ok: false, reason: "rc_subscriber_not_found" }, 404);
   }
   if (rcResponse.status >= 500) {
@@ -1084,9 +1092,30 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
   }
 
   // No active entitlement — RC's source-of-truth says the user is not a
-  // paying subscriber. Mirror EXPIRATION semantics (status='canceled',
-  // plan='free', allowance reset). Best-effort downgrade — if the row
-  // doesn't exist the UPDATE is a no-op, which matches markSubscriptionEnded.
+  // paying subscriber. Run the shared downgrade helper.
+  await downgradeSubscriptionToFree(serviceClient, userId, correlationId, allowanceKey);
+  logStep("Sync: no active entitlements — downgraded", { userId }, correlationId);
+  return jsonResponse({
+    ok: true,
+    action: "sync",
+    state: { plan: "free", status: "canceled", current_period_end: null },
+  }, 200);
+}
+
+/**
+ * Downgrade a user's subscription rows to free + zero their monthly
+ * allowance. Mirrors EXPIRATION semantics (status='canceled', plan='free',
+ * allowance reset). Best-effort — if the row doesn't exist the UPDATE is
+ * a no-op, which matches `markSubscriptionEnded`. Used by both the
+ * inactive-entitlement branch and the RC-subscriber-not-found 404 branch
+ * of `handleSyncRequest`.
+ */
+async function downgradeSubscriptionToFree(
+  serviceClient: SupabaseClient,
+  userId: string,
+  correlationId: string,
+  allowanceKey: string,
+): Promise<void> {
   const nowIso = new Date().toISOString();
   const { error: updErr } = await serviceClient
     .from("subscriptions")
@@ -1113,12 +1142,6 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
       correlationId,
     );
   }
-  logStep("Sync: no active entitlements — downgraded", { userId }, correlationId);
-  return jsonResponse({
-    ok: true,
-    action: "sync",
-    state: { plan: "free", status: "canceled", current_period_end: null },
-  }, 200);
 }
 
 serve(async (req) => {
