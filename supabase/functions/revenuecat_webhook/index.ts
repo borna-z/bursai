@@ -425,6 +425,32 @@ function parseExpirationMs(value: unknown): string | null {
  * event is stale and we should skip it. No-row case returns false (the
  * first event for a user wins regardless of timestamp).
  */
+/**
+ * Is the existing `subscriptions` row currently a paying Stripe
+ * subscription? Codex round 14 P1 — `stripe_mode='live'/'test'` alone
+ * is NOT sufficient: when a Stripe subscriber cancels or hits a
+ * payment failure, `stripe_webhook` sets `plan='free'` and
+ * `status='canceled'/'past_due'` but leaves `stripe_mode` intact as
+ * an audit-trail marker. If we skip RC writes purely on the historical
+ * mode marker, a user who previously paid via Stripe, cancelled, and
+ * then bought / restored via iOS would be stuck on the free row
+ * because the RC INITIAL_PURCHASE / RENEWAL upsert short-circuits.
+ *
+ * The protection we actually want: skip RC writes ONLY when Stripe is
+ * actively paying (status `active` or `trialing` on a Stripe-managed
+ * row). All other Stripe states (canceled / past_due / null) yield
+ * to RC's reconciliation, allowing the user to migrate platforms.
+ */
+function isStripeActivelyPaying(
+  row: { stripe_mode?: string | null; status?: string | null } | null,
+): boolean {
+  if (!row) return false;
+  const mode = typeof row.stripe_mode === "string" ? row.stripe_mode : null;
+  if (mode !== "live" && mode !== "test") return false;
+  const status = typeof row.status === "string" ? row.status : null;
+  return status === "active" || status === "trialing";
+}
+
 async function isStaleEvent(
   client: SupabaseClient,
   userId: string,
@@ -463,19 +489,20 @@ async function upsertSubscriptionActive(
   // contract.
   const { data: existingRow, error: selectErr } = await client
     .from("subscriptions")
-    .select("stripe_mode")
+    .select("stripe_mode, status")
     .eq("user_id", userId)
     .maybeSingle();
   if (selectErr) {
     logStep("Active upsert select-before-write failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
     throw dbError("subscriptions select", selectErr);
   }
-  const existingMode = existingRow && typeof existingRow.stripe_mode === "string" ? existingRow.stripe_mode : null;
-  if (existingMode === "live" || existingMode === "test") {
-    logStep("Active upsert skipped — row is Stripe-managed", { userId, existingMode }, correlationId);
-    // Stripe owns this row; the user is paid, so no action needed. Skip
-    // the upsert + mirror + allowance write entirely so the Stripe-
-    // managed allowance and subscription state are preserved.
+  if (isStripeActivelyPaying(existingRow)) {
+    logStep("Active upsert skipped — row is Stripe-managed and actively paying", { userId, existingMode: existingRow?.stripe_mode, existingStatus: existingRow?.status }, correlationId);
+    // Stripe owns this row AND is currently paying; no RC action
+    // needed. Skip the upsert + mirror + allowance write so the
+    // Stripe-managed state is preserved. If Stripe later cancels
+    // (`stripe_webhook` sets status='canceled' / 'past_due'), this
+    // gate falls through and RC can take over the row.
     return;
   }
 
@@ -549,20 +576,18 @@ async function markSubscriptionEnded(
   // allowance) when the row is Stripe-managed.
   const { data: existing, error: selectErr } = await client
     .from("subscriptions")
-    .select("stripe_mode")
+    .select("stripe_mode, status")
     .eq("user_id", userId)
     .maybeSingle();
   if (selectErr) {
     logStep("End-of-life select-before-update failed", { userId, status, error: selectErr.message, code: selectErr.code }, correlationId);
     throw dbError("subscriptions select", selectErr);
   }
-  const existingMode = existing && typeof existing.stripe_mode === "string" ? existing.stripe_mode : null;
-  const isStripeManaged = existingMode === "live" || existingMode === "test";
-  if (isStripeManaged) {
-    logStep("End-of-life skipped — row is Stripe-managed", { userId, status, existingMode }, correlationId);
-    // Treat as a successful no-op. The user is paid via Stripe, RC's
-    // event doesn't apply to their state, and the existing row is
-    // correct as-is.
+  if (isStripeActivelyPaying(existing)) {
+    logStep("End-of-life skipped — row is Stripe-managed and actively paying", { userId, status, existingMode: existing?.stripe_mode, existingStatus: existing?.status }, correlationId);
+    // Stripe is the active payer; RC's end-of-life doesn't apply.
+    // If Stripe later cancels, the gate falls through and a
+    // subsequent RC EXPIRATION can downgrade the row.
     return;
   }
 
@@ -1197,16 +1222,15 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
     // (just paid via the other channel).
     const { data: existingRow, error: selectErr } = await serviceClient
       .from("subscriptions")
-      .select("stripe_mode")
+      .select("stripe_mode, status")
       .eq("user_id", userId)
       .maybeSingle();
     if (selectErr) {
       logStep("Sync: subscriptions select-before-active-upsert failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
       return jsonResponse({ ok: false, reason: "db_transient" }, 500);
     }
-    const existingMode = existingRow && typeof existingRow.stripe_mode === "string" ? existingRow.stripe_mode : null;
-    if (existingMode === "live" || existingMode === "test") {
-      logStep("Sync: skipping active upsert — row is Stripe-managed", { userId, existingMode }, correlationId);
+    if (isStripeActivelyPaying(existingRow)) {
+      logStep("Sync: skipping active upsert — row is Stripe-managed and actively paying", { userId, existingMode: existingRow?.stripe_mode, existingStatus: existingRow?.status }, correlationId);
       // Don't write `subscriptions` / `user_subscriptions` / allowance.
       // Stripe's webhook owns this row; we report success so the
       // client unlocks its UI based on the existing Stripe-paid
@@ -1335,21 +1359,23 @@ async function downgradeSubscriptionToFree(
   // writes off the same Stripe-mode check.
   const { data: existing, error: selectErr } = await serviceClient
     .from("subscriptions")
-    .select("stripe_mode")
+    .select("stripe_mode, status")
     .eq("user_id", userId)
     .maybeSingle();
   if (selectErr) {
     logStep("Sync: subscriptions select-before-downgrade failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
     return { ok: false, reason: "subscriptions_select_failed" };
   }
-  const existingMode = existing && typeof existing.stripe_mode === "string" ? existing.stripe_mode : null;
-  // `stripe_mode` is one of 'live' / 'test' / 'revenuecat' / null.
-  // Stripe-managed rows are 'live' or 'test'; anything else (including
-  // null / 'revenuecat' / new user with no row) is fair game for RC
-  // reconciliation.
-  const isStripeManaged = existingMode === "live" || existingMode === "test";
-  if (isStripeManaged) {
-    logStep("Sync: skipping downgrade — row is Stripe-managed", { userId, existingMode }, correlationId);
+  // Skip the RC downgrade ONLY when Stripe is actively paying.
+  // Stripe-managed rows whose status is `canceled` / `past_due` /
+  // null fall through and let RC reconcile to free — they're no
+  // longer paying via Stripe so RC's "no purchases" answer is
+  // authoritative. Codex round 14 P1 caught the original
+  // `stripe_mode in (live,test)` predicate; without the active-
+  // payment gate, a user who cancelled Stripe and hadn't yet bought
+  // via iOS would stay on a stale row.
+  if (isStripeActivelyPaying(existing)) {
+    logStep("Sync: skipping downgrade — row is Stripe-managed and actively paying", { userId, existingMode: existing?.stripe_mode, existingStatus: existing?.status }, correlationId);
     // Treat as success — there's nothing for us to reconcile, the user
     // is paid via Stripe and their state is correct as-is. The caller
     // returns the standard inactive response to the client which
