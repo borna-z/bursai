@@ -70,16 +70,52 @@ Deno.serve(async (req) => {
   try {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+    // Separate iOS OAuth client (installed-app type, no secret). Required
+    // because Google rejects custom-scheme redirect URIs against a web
+    // OAuth client and rejects HTTPS redirects against an iOS client —
+    // each client type has its own redirect rules. Provisioned in the
+    // Google Cloud Console at M44 alongside the web client; until the env
+    // var lands the iOS path returns a clear configuration error.
+    const iosClientId = Deno.env.get("GOOGLE_IOS_CLIENT_ID");
     if (!clientId || !clientSecret) {
       return jsonResponse({ error: "Google Calendar not configured" }, 500);
     }
+    if (isInstalledAppRedirect && !iosClientId) {
+      return jsonResponse(
+        { error: "iOS Calendar OAuth client not configured" },
+        500,
+      );
+    }
+    const effectiveClientId = isInstalledAppRedirect ? iosClientId! : clientId;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const body = await req.json();
-    const { action, code, redirect_uri, state: clientState } = body ?? {};
+    const {
+      action,
+      code,
+      redirect_uri,
+      state: clientState,
+      // PKCE (M36) — iOS OAuth client uses installed-app PKCE flow instead
+      // of the web client's `client_secret`. Mobile generates the verifier
+      // client-side, hashes it to a challenge, sends the challenge in
+      // `get_auth_url` and the verifier in `exchange_code`. Web flow ignores
+      // both fields. Codex P1 round 2 on PR #772.
+      code_challenge,
+      code_verifier,
+    } = body ?? {};
+
+    // Detect installed-app (iOS) flow from the redirect URI scheme. Anything
+    // that isn't `https:` or `http:` is treated as a custom URI scheme and
+    // routed through the iOS OAuth client + PKCE branch. The allowlist
+    // above has already accepted the value as legitimate; this only chooses
+    // which Google client to talk to.
+    const isInstalledAppRedirect =
+      typeof redirect_uri === "string" &&
+      !redirect_uri.startsWith("https://") &&
+      !redirect_uri.startsWith("http://");
 
     const allowedRedirects = buildAllowedRedirectSet();
 
@@ -126,7 +162,7 @@ Deno.serve(async (req) => {
       const state = `${user.id}.${csrfToken}`;
 
       const params = new URLSearchParams({
-        client_id: clientId,
+        client_id: effectiveClientId,
         redirect_uri: redirect_uri,
         response_type: "code",
         scope: GOOGLE_SCOPES,
@@ -134,6 +170,18 @@ Deno.serve(async (req) => {
         prompt: "consent",
         state,
       });
+
+      // PKCE for the iOS installed-app flow. Mobile passes the SHA-256
+      // challenge here; the verifier flows back through `exchange_code`.
+      // Without this, Google rejects the iOS client with
+      // `invalid_request: code_challenge required`.
+      if (isInstalledAppRedirect) {
+        if (typeof code_challenge !== "string" || code_challenge.length === 0) {
+          return jsonResponse({ error: "code_challenge required for installed-app flow" }, 400);
+        }
+        params.set("code_challenge", code_challenge);
+        params.set("code_challenge_method", "S256");
+      }
 
       const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
       return jsonResponse({ url }, 200);
@@ -208,17 +256,29 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Invalid state" }, 401);
       }
 
-      // Exchange authorization code for tokens
+      // Exchange authorization code for tokens. Web flow uses
+      // `client_secret`; iOS installed-app flow uses PKCE `code_verifier`
+      // instead — Google's installed-app clients have no secret. Selecting
+      // the wrong combination per `redirect_uri` scheme would 4xx the
+      // exchange and leave the user stuck.
+      const tokenBody = new URLSearchParams({
+        code,
+        client_id: effectiveClientId,
+        redirect_uri: redirect_uri,
+        grant_type: "authorization_code",
+      });
+      if (isInstalledAppRedirect) {
+        if (typeof code_verifier !== "string" || code_verifier.length === 0) {
+          return jsonResponse({ error: "code_verifier required for installed-app flow" }, 400);
+        }
+        tokenBody.set("code_verifier", code_verifier);
+      } else {
+        tokenBody.set("client_secret", clientSecret);
+      }
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          code,
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirect_uri,
-          grant_type: "authorization_code",
-        }),
+        body: tokenBody,
       });
 
       const tokenData = await tokenResponse.json();

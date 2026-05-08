@@ -20,6 +20,8 @@
 
 import { Alert, Linking } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -71,6 +73,19 @@ interface AuthUrlResponse {
   error?: string;
 }
 
+/** AsyncStorage key for the in-flight PKCE verifier. The verifier is
+ *  generated when the user taps Connect and consumed by the deep-link
+ *  handler when Google redirects back. Keyed by user.id so concurrent
+ *  signed-in users on the same device don't cross over (defensive — only
+ *  one user is auth'd at a time, but RootNavigator's exchange path runs
+ *  outside React state). Cleared on success or 10-min TTL expiry. */
+const VERIFIER_STORAGE_PREFIX = '@burs/oauth/calendar/verifier:';
+const VERIFIER_TTL_MS = 10 * 60 * 1000;
+interface StoredVerifier {
+  verifier: string;
+  createdAt: number;
+}
+
 interface DisconnectResponse {
   error?: string;
 }
@@ -81,6 +96,63 @@ interface SyncResponse {
   error?: string;
   syncWindowDays?: number;
   success?: boolean;
+}
+
+/** Convert standard base64 to base64url (RFC 4648 §5): `+` → `-`, `/` → `_`,
+ *  strip trailing `=` padding. Required by Google's PKCE spec for both the
+ *  verifier (random bytes) and the challenge (SHA-256 hash of the verifier). */
+function toBase64Url(b64: string): string {
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Generate a 32-byte cryptographically random PKCE code verifier
+ *  (RFC 7636 §4.1) and its SHA-256 challenge. The verifier is the secret
+ *  that proves to Google that the same client requesting the auth URL is
+ *  the one redeeming the code; the challenge is what we send up-front. */
+async function generatePkcePair(): Promise<{ verifier: string; challenge: string }> {
+  const randomBytes = await Crypto.getRandomBytesAsync(32);
+  const verifier = toBase64Url(
+    btoa(String.fromCharCode(...randomBytes)),
+  );
+  const challengeB64 = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    verifier,
+    { encoding: Crypto.CryptoEncoding.BASE64 },
+  );
+  const challenge = toBase64Url(challengeB64);
+  return { verifier, challenge };
+}
+
+async function storeVerifier(userId: string, verifier: string): Promise<void> {
+  const payload: StoredVerifier = { verifier, createdAt: Date.now() };
+  await AsyncStorage.setItem(
+    `${VERIFIER_STORAGE_PREFIX}${userId}`,
+    JSON.stringify(payload),
+  );
+}
+
+/** Pull the verifier back out for the deep-link exchange and immediately
+ *  delete it so a replay of the same callback URL can't re-use the secret.
+ *  Returns null when no verifier exists, the row is corrupt, or it's older
+ *  than the 10-minute TTL (matches the edge function's `oauth_csrf` window). */
+export async function consumeStoredVerifier(userId: string): Promise<string | null> {
+  const key = `${VERIFIER_STORAGE_PREFIX}${userId}`;
+  const raw = await AsyncStorage.getItem(key);
+  if (!raw) return null;
+  await AsyncStorage.removeItem(key);
+  try {
+    const parsed = JSON.parse(raw) as StoredVerifier;
+    if (
+      typeof parsed?.verifier !== 'string' ||
+      typeof parsed?.createdAt !== 'number'
+    ) {
+      return null;
+    }
+    if (Date.now() - parsed.createdAt > VERIFIER_TTL_MS) return null;
+    return parsed.verifier;
+  } catch {
+    return null;
+  }
 }
 
 /** Connection-state + connect/disconnect actions. Status lives in
@@ -109,15 +181,24 @@ export function useCalendarSync() {
 
   const isConnected = !!connectionQ.data;
 
-  /** Open Google's OAuth consent screen in the system browser. The auth URL
-   *  is generated server-side so the client_id / scopes / redirect URI stay
-   *  authoritative there. We bail with an Alert on edge function errors so
-   *  the user gets actionable feedback instead of a silent no-op. */
+  /** Open Google's OAuth consent screen in the system browser. PKCE verifier
+   *  is generated client-side, persisted to AsyncStorage for the deep-link
+   *  round-trip, and the SHA-256 challenge is forwarded to the edge function
+   *  so Google's installed-app client accepts the request without a secret.
+   *  See `CALENDAR_REDIRECT_URI` for the iOS scheme rationale. */
   const connectGoogle = async (): Promise<void> => {
     if (!user) return;
     try {
+      const { verifier, challenge } = await generatePkcePair();
+      // Persist BEFORE opening the URL so a fast OAuth round-trip can
+      // never beat us to AsyncStorage.
+      await storeVerifier(user.id, verifier);
       const data = await callEdgeFunction<AuthUrlResponse>('google_calendar_auth', {
-        body: { action: 'get_auth_url', redirect_uri: CALENDAR_REDIRECT_URI },
+        body: {
+          action: 'get_auth_url',
+          redirect_uri: CALENDAR_REDIRECT_URI,
+          code_challenge: challenge,
+        },
       });
       if (data?.error || !data?.url) {
         Alert.alert(
@@ -199,12 +280,19 @@ export async function triggerGoogleSync(): Promise<SyncResponse> {
 /** Exchange an OAuth `code` + `state` pair from the deep-link callback for
  *  server-side tokens. RootNavigator calls this after parsing the deep link
  *  URL; on success it kicks off `triggerGoogleSync` so the user immediately
- *  sees their events back in the app. */
+ *  sees their events back in the app. The PKCE `code_verifier` is pulled
+ *  out of AsyncStorage (where `connectGoogle` stashed it) and forwarded so
+ *  Google's installed-app client can verify the exchange without a secret. */
 export async function exchangeCalendarCode(
   code: string,
   state: string,
+  userId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    const verifier = await consumeStoredVerifier(userId);
+    if (!verifier) {
+      return { ok: false, error: 'pkce_verifier_missing' };
+    }
     const data = await callEdgeFunction<{ error?: string; success?: boolean }>(
       'google_calendar_auth',
       {
@@ -213,6 +301,7 @@ export async function exchangeCalendarCode(
           code,
           redirect_uri: CALENDAR_REDIRECT_URI,
           state,
+          code_verifier: verifier,
         },
       },
     );

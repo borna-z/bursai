@@ -434,7 +434,16 @@ async function handleCalendarOAuthDeepLink(
   // call 4xxs and shows a misleading error to the user).
   if (lastExchangedCodeRef.current === code) return;
   lastExchangedCodeRef.current = code;
-  const result = await exchangeCalendarCode(code, state);
+  // Resolve the auth user from the JWT bound to the Supabase session;
+  // `exchangeCalendarCode` needs it to look up the PKCE verifier the
+  // Connect path stored in AsyncStorage.
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id;
+  if (!userId) {
+    Alert.alert(tr('settings.calendar.error.title'), tr('settings.calendar.error.body'));
+    return;
+  }
+  const result = await exchangeCalendarCode(code, state, userId);
   if (!result.ok) {
     Alert.alert(
       tr('settings.calendar.error.title'),
