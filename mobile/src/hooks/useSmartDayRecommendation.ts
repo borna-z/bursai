@@ -22,6 +22,7 @@ import { useMemo } from 'react';
 import { useFlatGarments } from './useGarments';
 import { useOutfits } from './useOutfits';
 import { useCalendarEvents } from './useCalendarSync';
+import { useNow } from './useNow';
 import { localISODate } from '../lib/outfitDisplay';
 import {
   buildDayIntelligence,
@@ -77,7 +78,14 @@ export function useSmartDayRecommendation(
   // "Casual" pill emits `[]` to mean "no synthetic event"). The calendar
   // events query stays harmless when the user hasn't connected — it returns
   // `[]` and the engine falls back to its casual baseline same as before.
-  const todayDate = useMemo(() => localISODate(new Date()), []);
+  //
+  // `useNow()` is the reactive `now` ticker (foreground / midnight) the M14
+  // sweep introduced; `localISODate(now)` rolls over the day key when the
+  // user keeps the app mounted across midnight. A `useMemo([])` cache of
+  // `new Date()` would freeze the date for the lifetime of the hook and
+  // serve yesterday's events to the engine. Codex P2 on PR #772.
+  const now = useNow();
+  const todayDate = useMemo(() => localISODate(now), [now]);
   const calendarEventsQ = useCalendarEvents(todayDate);
 
   const events = useMemo<DayEventInput[]>(() => {

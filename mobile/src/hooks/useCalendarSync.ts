@@ -29,10 +29,25 @@ import { t as tr } from '../lib/i18n';
 
 /** Mobile redirect URI — must be present in the edge function's allowlist
  *  AND registered in the Google OAuth Console as an authorized redirect URI.
- *  Uses the same scheme (`burs:`) M12 ships for password reset and OAuth
- *  login callbacks, so RootNavigator's existing `Linking.addEventListener`
- *  can dispatch on path. */
-export const CALENDAR_REDIRECT_URI = 'burs://calendar/callback';
+ *
+ *  Google's installed-app OAuth (https://developers.google.com/identity/protocols/oauth2/native-app)
+ *  requires iOS custom URI schemes to be the reverse-DNS form of the
+ *  app's bundle identifier. The bundle is `me.burs.app` (per
+ *  `mobile/app.json` `expo.ios.bundleIdentifier`), so the OAuth scheme
+ *  matches: `me.burs.app://…`. The existing `burs://` scheme M12 ships
+ *  for password reset / Supabase OAuth login is not a valid Google
+ *  installed-app redirect (Google rejects schemes that don't match the
+ *  reverse-DNS pattern). Both schemes are registered side-by-side in
+ *  `app.json` `expo.scheme` so the M12 deep links keep working.
+ *  Codex P1 on PR #772.
+ *
+ *  Android note: Google deprecated custom-scheme redirects for new
+ *  Android OAuth clients. Android calendar connect needs HTTPS App
+ *  Links via Universal Links — that work depends on the M43 paid
+ *  Apple Developer + `apple-app-site-association` deployment and is
+ *  tracked in findings-log. iOS launches first; Android calendar
+ *  sync follows when Universal Links land. */
+export const CALENDAR_REDIRECT_URI = 'me.burs.app://calendar/callback';
 
 export interface CalendarEvent {
   id: string;

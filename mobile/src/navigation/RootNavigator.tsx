@@ -325,15 +325,18 @@ const Placeholders = {
 // `code_verifier`) but adds attack surface for no benefit. App Links / iOS
 // universal links remain a future hardening step — the current scheme-only
 // registration is not exclusive on either platform.
-/** True for `burs://calendar/callback?code=…&state=…`. The mobile redirect
- *  URI is registered in `google_calendar_auth`'s allowlist (M36); Google
- *  redirects here after the user completes the consent screen. The handler
- *  below pulls `code` + `state` from the query and POSTs them back through
- *  `exchange_code` so the edge function stores tokens server-side. */
+/** True for `me.burs.app://calendar/callback?code=…&state=…`. The mobile
+ *  redirect URI uses the reverse-DNS form of the app's bundle ID
+ *  (`me.burs.app`) per Google's installed-app OAuth requirement — see
+ *  `useCalendarSync.CALENDAR_REDIRECT_URI` for the rationale. Codex P1
+ *  on PR #772. Google redirects here after the user completes the
+ *  consent screen. The handler below pulls `code` + `state` from the
+ *  query and POSTs them back through `exchange_code` so the edge
+ *  function stores tokens server-side. */
 function isCalendarCallbackUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'burs:') return false;
+    if (parsed.protocol !== 'me.burs.app:') return false;
     const host = parsed.hostname;
     const path = parsed.pathname;
     if (host === 'calendar' && (path === '/callback' || path === '/callback/')) return true;

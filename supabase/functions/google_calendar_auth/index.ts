@@ -25,15 +25,18 @@ const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly"
 
 // Hardcoded production, canonical-domain, local-dev, and mobile-scheme
 // redirect URIs. The web callback route is mounted at `/calendar/callback`
-// in AnimatedRoutes.tsx; the mobile scheme `burs://calendar/callback` is
-// the deep-link path RootNavigator listens for (M36).
+// in AnimatedRoutes.tsx; the mobile scheme `me.burs.app://calendar/callback`
+// is the iOS deep-link RootNavigator listens for (M36). The reverse-DNS
+// scheme matches the app's bundle identifier (`me.burs.app`) per Google's
+// installed-app OAuth requirement — the original `burs://` scheme was
+// rejected by Google's redirect-URI validator. Codex P1 on PR #772.
 // Additional origins (Vercel previews, staging projects) can be layered on
 // via the `ALLOWED_CALENDAR_REDIRECT_URIS` env var (comma-separated).
 const ALLOWED_REDIRECT_URIS = [
   "https://app.burs.me/calendar/callback",
   "https://burs.me/calendar/callback",
   "http://localhost:8080/calendar/callback",
-  "burs://calendar/callback",
+  "me.burs.app://calendar/callback",
 ];
 
 function buildAllowedRedirectSet(): Set<string> {
