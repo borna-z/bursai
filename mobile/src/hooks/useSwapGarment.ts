@@ -80,35 +80,52 @@ export function useSwapGarment({
       if (!targetSlots) return [];
       const targetSet = new Set<CanonicalOutfitSlot>(targetSlots);
 
-      // Pull a broader wardrobe slice (no `.in('category', …)` filter) and
-      // run `inferOutfitSlotFromGarment` per row so case-divergent or
-      // subcategory-overridden categories still surface. The 200-row cap
-      // covers a typical launch user's wardrobe with headroom; ordered by
-      // recency so the freshest pieces win when the cap bites.
-      let query = supabase
-        .from('garments')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('in_laundry', false)
-        .order('created_at', { ascending: false })
-        .limit(200);
+      // Pull the wardrobe in pages and run `inferOutfitSlotFromGarment` per
+      // row so case-divergent or subcategory-overridden categories still
+      // surface. M37 Codex round 2 — the prior single-page `.limit(200)`
+      // could miss valid matches when the freshest 200 garments were
+      // dominated by one slot (a user with 200+ tops + accessories ahead
+      // of older shoes would see an empty Swap sheet on the shoes slot).
+      // Paginate until we collect enough inferred matches OR exhaust the
+      // wardrobe; capped at 5 pages (1000 rows) so a runaway scan can't
+      // hammer the DB.
+      const PAGE_SIZE = 200;
+      const MAX_PAGES = 5;
+      const TARGET_MATCHES = 50;
+      const matched: Garment[] = [];
 
-      if (excludeGarmentIds.length > 0) {
-        // PostgREST `not.in.(…)` requires a parenthesised list; the
-        // supabase-js builder handles escaping for us.
-        query = query.not('id', 'in', `(${excludeGarmentIds.join(',')})`);
+      for (let page = 0; page < MAX_PAGES; page++) {
+        let query = supabase
+          .from('garments')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('in_laundry', false)
+          .order('created_at', { ascending: false })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (excludeGarmentIds.length > 0) {
+          // PostgREST `not.in.(…)` requires a parenthesised list; the
+          // supabase-js builder handles escaping for us.
+          query = query.not('id', 'in', `(${excludeGarmentIds.join(',')})`);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        const rows = data ?? [];
+        for (const garment of rows) {
+          const inferred = inferOutfitSlotFromGarment(garment);
+          if (targetSet.has(inferred as CanonicalOutfitSlot)) {
+            matched.push(garment);
+            if (matched.length >= TARGET_MATCHES) break;
+          }
+        }
+        if (matched.length >= TARGET_MATCHES) break;
+        // Page returned fewer rows than the page size → we've exhausted
+        // the wardrobe, no point hitting the next range.
+        if (rows.length < PAGE_SIZE) break;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      const filtered = (data ?? []).filter((garment) => {
-        const inferred = inferOutfitSlotFromGarment(garment);
-        return targetSet.has(inferred as CanonicalOutfitSlot);
-      });
-      // Cap the displayed list at 50 — same UX budget as the prior path —
-      // after filtering so the user sees the freshest 50 matches rather
-      // than the freshest 50 raw rows that may not match the slot.
-      return filtered.slice(0, 50).map((garment) => ({ garment }));
+      return matched.map((garment) => ({ garment }));
     },
     staleTime: 30 * 1000,
   });
