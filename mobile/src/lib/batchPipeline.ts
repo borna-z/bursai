@@ -321,6 +321,13 @@ function runItem(batch: Batch, item: BatchItem): void {
         item.storagePath = res.storagePath;
         return res;
       });
+      // Defensive .catch — if analyze rejects first and we exit before
+      // re-awaiting uploadP, the upload's eventual rejection (if any) would
+      // surface as an unhandled-promise-rejection. The catch swallows it;
+      // any successful upload still resolves and the .then above stamps
+      // storagePath. The catch attaches a no-op handler — the original
+      // promise we re-await below still rejects/resolves identically.
+      uploadP.catch(() => {});
 
       const base64 = resized.base64
         ? `data:image/jpeg;base64,${resized.base64}`
