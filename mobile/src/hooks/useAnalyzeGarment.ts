@@ -118,9 +118,17 @@ export function useAnalyzeGarment() {
         // map to the existing user-facing copy below.
         let data: AnalysisResult & { error?: string };
         try {
-          data = await callEdgeFunction<AnalysisResult & { error?: string }>('analyze_garment', {
-            body,
-          });
+          const raw = await callEdgeFunction<AnalysisResult & { error?: string }>(
+            'analyze_garment',
+            { body },
+          );
+          if (!raw) {
+            // 2xx but unparseable JSON — surface as a real failure rather
+            // than crash on `data.error` access. Same UX bucket as a 5xx.
+            setStatus(502);
+            throw new Error('Our AI is having a moment. Please try again.');
+          }
+          data = raw;
           setStatus(200);
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
@@ -263,13 +271,18 @@ export async function triggerGarmentEnrichment(
     const procWrite = await writeStatus('processing');
     if (!procWrite.ok) return;
 
-    let data: { enrichment?: Record<string, unknown> | null };
+    let data: { enrichment?: Record<string, unknown> | null } | null;
     try {
       data = await callEdgeFunction<{ enrichment?: Record<string, unknown> | null }>(
         'analyze_garment',
         { body: { storagePath, mode: 'enrich' } },
       );
     } catch {
+      await writeStatus('failed');
+      return;
+    }
+    if (!data) {
+      // Unparseable JSON body — same recovery path as a thrown failure.
       await writeStatus('failed');
       return;
     }

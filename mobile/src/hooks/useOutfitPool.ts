@@ -217,7 +217,13 @@ export function useOutfitPool(): UseOutfitPoolResult {
           signal: controller.signal,
         });
 
-        if (data?.error) {
+        if (!data) {
+          // 2xx with unparseable JSON body — throw so the per-call
+          // failure path Sentry-breadcrumbs it; allFailed bookkeeping
+          // then surfaces a "Generation failed" if every call hit this.
+          throw new Error('engine_invalid_response');
+        }
+        if (data.error) {
           throw new Error(data.error);
         }
 

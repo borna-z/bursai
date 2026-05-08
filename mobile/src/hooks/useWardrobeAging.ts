@@ -226,9 +226,15 @@ async function runAgingAnalysis(userId: string): Promise<WardrobeAgingResult> {
   const [response, unwornIds] = await Promise.all([
     (async (): Promise<RawAgingResponse> => {
       try {
-        return await callEdgeFunction<RawAgingResponse>('wardrobe_aging', {
+        const raw = await callEdgeFunction<RawAgingResponse>('wardrobe_aging', {
           body: { locale: 'en' },
         });
+        if (!raw) {
+          // 2xx with unparseable JSON body — bubble up as a typed
+          // failure so the React Query consumer's error UI fires.
+          throw new WardrobeAgingError('wardrobe_aging_invalid_response');
+        }
+        return raw;
       } catch (err) {
         if (err instanceof EdgeFunctionSubscriptionLockedError) {
           throw new WardrobeAgingSubscriptionError();

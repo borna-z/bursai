@@ -82,10 +82,20 @@ export function useSuggestAccessories(): UseSuggestAccessoriesResult {
       try {
         let data: SuggestAccessoriesResponse;
         try {
-          data = await callEdgeFunction<SuggestAccessoriesResponse>('suggest_accessories', {
-            body: { outfit_id: trimmed },
-            signal: controller.signal,
-          });
+          const raw = await callEdgeFunction<SuggestAccessoriesResponse>(
+            'suggest_accessories',
+            {
+              body: { outfit_id: trimmed },
+              signal: controller.signal,
+            },
+          );
+          if (!raw) {
+            // 2xx with unparseable JSON body — surface as a real failure
+            // rather than a silent empty suggestion list.
+            setError('Suggestion failed');
+            return;
+          }
+          data = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

@@ -143,10 +143,25 @@ export function useAssessCondition(): UseAssessConditionResult {
       try {
         let data: AssessConditionResponse;
         try {
-          data = await callEdgeFunction<AssessConditionResponse>('assess_garment_condition', {
-            body: { garment_id: trimmed },
-            signal: controller.signal,
-          });
+          const raw = await callEdgeFunction<AssessConditionResponse>(
+            'assess_garment_condition',
+            {
+              body: { garment_id: trimmed },
+              signal: controller.signal,
+            },
+          );
+          if (!raw) {
+            // Unparseable 2xx body — surface the same `invalid_response`
+            // sentinel the missing-score branch raises so the screen path
+            // is identical for both protocol failures.
+            setError('invalid_response');
+            Sentry.withScope((s) => {
+              s.setTag('mutation', 'useAssessCondition.nullResponse');
+              Sentry.captureMessage('assess_condition_null_response', 'warning');
+            });
+            return;
+          }
+          data = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

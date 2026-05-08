@@ -93,9 +93,15 @@ function adapt(gap: EdgeGap): WardrobeGap {
 async function runAnalysis(): Promise<WardrobeGap[]> {
   let data: EdgeResponse;
   try {
-    data = await callEdgeFunction<EdgeResponse>('wardrobe_gap_analysis', {
+    const raw = await callEdgeFunction<EdgeResponse>('wardrobe_gap_analysis', {
       body: { locale: 'en' },
     });
+    if (!raw) {
+      // 2xx with unparseable JSON body — surface as a real failure rather
+      // than a silent empty gap list (which would render as "no gaps" UX).
+      throw new GapAnalysisError('wardrobe_gaps_invalid_response');
+    }
+    data = raw;
   } catch (callErr) {
     if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
       throw new GapAnalysisError(SUBSCRIPTION_SENTINEL, true);

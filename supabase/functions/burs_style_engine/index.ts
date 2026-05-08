@@ -1577,7 +1577,14 @@ serve(async (req) => {
       }
       const fallbackLayering = validateLayeringCompleteness(best.items);
       return new Response(JSON.stringify({
-        items: best.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
+        // Title enrichment matches the AI-refinement path below — keep
+        // mobile's `EngineResponseItem.title` populated even on the
+        // deterministic fallback.
+        items: best.items.map(i => ({
+          slot: i.slot,
+          garment_id: i.garment.id,
+          title: i.garment.title || i.garment.category || i.garment.id,
+        })),
         explanation: "",
         style_score: best.breakdown,
         layer_order: fallbackLayering.layer_order,
@@ -1654,7 +1661,15 @@ serve(async (req) => {
         degraded: Boolean(chosenNote),
       });
       return new Response(JSON.stringify({
-        items: chosen.items.map(i => ({ slot: i.slot, garment_id: i.garment.id })),
+        // Include `title` so mobile's `EngineResponseItem.title` (and
+        // `adaptItems` which defaults to '') renders the actual piece name
+        // rather than a blank label. Mirrors the title field already
+        // surfaced in `laundry.items` and `refinementDelta.swapped`.
+        items: chosen.items.map(i => ({
+          slot: i.slot,
+          garment_id: i.garment.id,
+          title: i.garment.title || i.garment.category || i.garment.id,
+        })),
         explanation: aiResult.data.explanation || "",
         style_score: chosen.breakdown,
         family_label: dc.family_label || 'classic',

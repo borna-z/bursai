@@ -80,6 +80,10 @@ export function useDetectDuplicate(input: DetectDuplicateInput | null) {
         'detect_duplicate_garment',
         { body, retries: 0 },
       );
+      // Advisory check — null means a 2xx with unparseable JSON. Surface as
+      // an empty duplicate list so the save path proceeds (matches the
+      // existing 402/429/network failure-mode contract: don't block saves).
+      if (!data) return { duplicates: [] };
       return {
         duplicates: Array.isArray(data.duplicates) ? data.duplicates : [],
       };

@@ -203,13 +203,19 @@ function randomKey(): string {
  * (paywall, rate limit, timeout, circuit open). All other non-2xx
  * statuses surface as `EdgeFunctionHttpError`.
  *
+ * Returns `T | null` for JSON consumers — `null` is yielded when the 2xx
+ * response body cannot be parsed as JSON (the wrapper swallows the parse
+ * error). Callers MUST null-check the result and surface a real error
+ * to the user; silently no-oping masks unparseable responses that point
+ * at edge-function bugs. (PR fix(mobile + edge): null-safe edge calls.)
+ *
  * For SSE consumers, pass `{ stream: true }` to get the raw `Response`
  * back so the caller can drive the byte reader.
  */
 export async function callEdgeFunction<T = unknown>(
   fnName: string,
   opts?: CallOpts & { stream?: false },
-): Promise<T>;
+): Promise<T | null>;
 export async function callEdgeFunction(
   fnName: string,
   opts: CallOpts & { stream: true },
@@ -217,7 +223,7 @@ export async function callEdgeFunction(
 export async function callEdgeFunction<T>(
   fnName: string,
   opts: CallOpts = {},
-): Promise<T | Response> {
+): Promise<T | null | Response> {
   const {
     signal,
     retries = DEFAULT_RETRIES,

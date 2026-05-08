@@ -86,10 +86,20 @@ export function useGenerateFlatlay(): UseGenerateFlatlayResult {
           // Flatlay generation runs an image model end-to-end; the wrapper's
           // 90s default timeout matches the wave's "renders within ~15s"
           // gate plus headroom for cold-start / fallback chain.
-          data = await callEdgeFunction<GenerateFlatlayResponse>('generate_flatlay', {
-            body: { outfit_id: trimmed },
-            signal: controller.signal,
-          });
+          const raw = await callEdgeFunction<GenerateFlatlayResponse>(
+            'generate_flatlay',
+            {
+              body: { outfit_id: trimmed },
+              signal: controller.signal,
+            },
+          );
+          if (!raw) {
+            // Unparseable 2xx body — surface as a generic generation
+            // failure so the screen renders the existing error state.
+            setError('Flatlay generation failed');
+            return;
+          }
+          data = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

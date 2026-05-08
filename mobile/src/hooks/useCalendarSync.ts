@@ -287,9 +287,16 @@ export function useCalendarEvents(date: string | null | undefined) {
  *  `exchange_code` lands so the first batch of events shows up without the
  *  user having to wait for the cron-scheduled background sync. */
 export async function triggerGoogleSync(): Promise<SyncResponse> {
-  return callEdgeFunction<SyncResponse>('calendar', {
+  const data = await callEdgeFunction<SyncResponse>('calendar', {
     body: { action: 'sync_google' },
   });
+  if (!data) {
+    // 2xx with unparseable JSON — treat as a sync failure so the deep-link
+    // handler's onError path can surface it instead of returning an
+    // implicit `null` masquerading as a SyncResponse.
+    throw new Error('calendar_sync_invalid_response');
+  }
+  return data;
 }
 
 /** Exchange an OAuth `code` + `state` pair from the deep-link callback for

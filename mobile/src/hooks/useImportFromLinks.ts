@@ -379,6 +379,15 @@ export function useImportFromLinks(): UseImportFromLinksResult {
 
           if (!isCurrentBatch()) return;
 
+          // 2xx with unparseable JSON body — wrapper now returns null.
+          // Treat as a batch-level failure so each row in the batch shows
+          // a clear "Could not import" error rather than the misleading
+          // "No response from importer" per-row miss in the URL→row
+          // matcher below.
+          if (batchError === null && response === null) {
+            batchError = 'Could not import this link';
+          }
+
           if (batchError !== null) {
             const failureCopy = batchError;
             setItems((prev) =>

@@ -83,8 +83,16 @@ export function AchievementStep({
           { body: {} },
         );
         if (cancelled) return;
-        if (data?.ok === false) {
-          console.warn('grant_trial_gift returned ok:false', data?.reason);
+        // Codex round 1 P3: a null body is 2xx with unparseable JSON — the
+        // grant_trial_gift edge fn applies the credits RPC BEFORE building
+        // its JSON response, so the gift may already be in `render_credits`.
+        // Skip the explicit `ok:false` short-circuit but still invalidate
+        // (web mirror behaviour: invalidate unless we see ok:false). Log so
+        // a sustained empty-body run still surfaces.
+        if (!data) {
+          console.warn('grant_trial_gift returned unparseable body — invalidating defensively');
+        } else if (data.ok === false) {
+          console.warn('grant_trial_gift returned ok:false', data.reason);
           return;
         }
         queryClient.invalidateQueries({ queryKey: ['render_credits', userId] });
