@@ -80,13 +80,6 @@ Deno.serve(async (req) => {
     if (!clientId || !clientSecret) {
       return jsonResponse({ error: "Google Calendar not configured" }, 500);
     }
-    if (isInstalledAppRedirect && !iosClientId) {
-      return jsonResponse(
-        { error: "iOS Calendar OAuth client not configured" },
-        500,
-      );
-    }
-    const effectiveClientId = isInstalledAppRedirect ? iosClientId! : clientId;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -110,12 +103,28 @@ Deno.serve(async (req) => {
     // Detect installed-app (iOS) flow from the redirect URI scheme. Anything
     // that isn't `https:` or `http:` is treated as a custom URI scheme and
     // routed through the iOS OAuth client + PKCE branch. The allowlist
-    // above has already accepted the value as legitimate; this only chooses
-    // which Google client to talk to.
+    // (built later) has already accepted the value as legitimate; this only
+    // chooses which Google client to talk to. Must be derived AFTER the
+    // body parse — Deno's TS check rejected the prior ordering as a use-
+    // before-declaration on this binding.
     const isInstalledAppRedirect =
       typeof redirect_uri === "string" &&
       !redirect_uri.startsWith("https://") &&
       !redirect_uri.startsWith("http://");
+
+    // Separate iOS OAuth client (installed-app type, no secret). Required
+    // because Google rejects custom-scheme redirect URIs against a web
+    // OAuth client and rejects HTTPS redirects against an iOS client —
+    // each client type has its own redirect rules. Provisioned in the
+    // Google Cloud Console at M44 alongside the web client; until the env
+    // var lands the iOS path returns a clear configuration error.
+    if (isInstalledAppRedirect && !iosClientId) {
+      return jsonResponse(
+        { error: "iOS Calendar OAuth client not configured" },
+        500,
+      );
+    }
+    const effectiveClientId = isInstalledAppRedirect ? iosClientId! : clientId;
 
     const allowedRedirects = buildAllowedRedirectSet();
 
