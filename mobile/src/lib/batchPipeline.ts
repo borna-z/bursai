@@ -45,12 +45,56 @@ import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../lib/garmentSave';
 import { resizeForGarment, uploadManipulatedImage, deleteUpload } from './imageUpload';
 
-// Concurrency cap. analyze_garment is rate-limited at 8/min and a typical
-// resize+upload of a 1200px JPEG runs ~1.5-3s — running 2 in parallel keeps
-// the user's "items ready" pool ahead of their review pace without spiking.
-// Bumped to 3 only when batch length ≤3 so a 3-photo batch finishes all of
-// the analyze work concurrently.
+// Concurrency cap. A typical resize+upload of a 1200px JPEG runs ~1.5-3s —
+// running 2 in parallel keeps the user's "items ready" pool ahead of their
+// review pace without spiking. Bumped to 3 only when batch length ≤3 so a
+// 3-photo batch finishes all of the analyze work concurrently. The bigger
+// constraint is per-minute throughput, enforced by the rate-window logic
+// below — concurrency alone wouldn't stop a 50-photo batch from blowing
+// past the backend's per-user limit.
 const MAX_PARALLEL_DEFAULT = 2;
+
+// Per-user analyze rate limit on the server. Mirrors the cap in
+// `supabase/functions/_shared/scale-guard.ts`. With MAX_PARALLEL_DEFAULT=2
+// and analyze times of 1.5-3 s/photo, sustained throughput would be
+// ~40-80 calls/min — well above this cap, so a 50-photo batch reliably
+// drives later items into 429s without pacing. Track analyze starts in
+// a sliding window and gate `pumpBatch` against it so we hand the
+// scheduler a soft throttle that matches the server's hard one.
+// (Codex P1 round 2 on PR #777.)
+const ANALYZE_RATE_LIMIT = 30;
+const ANALYZE_RATE_WINDOW_MS = 60 * 1000;
+// Module-scope sliding window. The backend cap is per-user and only one
+// authenticated user is signed in on the device at a time, so a single
+// shared window is the correct grain — multiple concurrent batches (rare
+// but possible if a user retries a failed batch while another is still
+// draining) share the same per-minute budget the server enforces.
+const analyzeStartTimestamps: number[] = [];
+
+function pruneAnalyzeWindow(): void {
+  const cutoff = Date.now() - ANALYZE_RATE_WINDOW_MS;
+  while (
+    analyzeStartTimestamps.length > 0 &&
+    (analyzeStartTimestamps[0] ?? Infinity) < cutoff
+  ) {
+    analyzeStartTimestamps.shift();
+  }
+}
+
+/** ms until the next analyze slot opens, or 0 if a slot is available now. */
+function nextAnalyzeSlotMs(): number {
+  pruneAnalyzeWindow();
+  if (analyzeStartTimestamps.length < ANALYZE_RATE_LIMIT) return 0;
+  const oldest = analyzeStartTimestamps[0] ?? Date.now();
+  // Pad 50 ms past the expiry to dodge the race where setTimeout fires at
+  // the exact ms the entry would expire and prune still considers it live.
+  return Math.max(0, oldest + ANALYZE_RATE_WINDOW_MS - Date.now() + 50);
+}
+
+function recordAnalyzeStart(): void {
+  pruneAnalyzeWindow();
+  analyzeStartTimestamps.push(Date.now());
+}
 
 export type BatchItemStatus =
   | 'pending'
@@ -86,6 +130,10 @@ interface Batch {
   analyzeFn: (input: { base64: string } | { storagePath: string }) => Promise<AnalysisResult | null>;
   maxParallel: number;
   inFlightCount: number;
+  // Pending pumpBatch retry scheduled by the rate-window throttle.
+  // `null` when no retry is armed. Cleared on `dropBatch` so a teardown
+  // doesn't leave a wakeup that fires `pumpBatch` on a missing batch.
+  rateLimitTimerId: ReturnType<typeof setTimeout> | null;
 }
 
 const batches = new Map<string, Batch>();
@@ -130,6 +178,7 @@ export function startBatch(opts: StartBatchOptions): string {
     analyzeFn: opts.analyzeFn,
     maxParallel,
     inFlightCount: 0,
+    rateLimitTimerId: null,
   };
   batches.set(id, batch);
   pumpBatch(batch);
@@ -277,6 +326,10 @@ export function dropBatch(batchId: string): void {
   const batch = batches.get(batchId);
   if (!batch) return;
   batches.delete(batchId);
+  if (batch.rateLimitTimerId !== null) {
+    clearTimeout(batch.rateLimitTimerId);
+    batch.rateLimitTimerId = null;
+  }
   for (const item of batch.items) {
     if (item.status !== 'saved' && item.storagePath) {
       void deleteUpload(item.storagePath);
@@ -289,27 +342,56 @@ export function dropBatch(batchId: string): void {
 /**
  * Drive the batch forward. Idempotent — safe to call repeatedly. When
  * `prioritiseIndex` is provided, that item is started ahead of others if it's
- * still pending and there's headroom under maxParallel.
+ * still pending and there's headroom under maxParallel. Gates each start on
+ * the per-user analyze rate window — when the limit would be breached,
+ * arms a single setTimeout to re-enter `pumpBatch` once a slot frees.
  */
 function pumpBatch(batch: Batch, prioritiseIndex?: number): void {
+  if (!batches.has(batch.id)) return;
+
+  const tryStart = (item: BatchItem): boolean => {
+    if (item.status !== 'pending') return false;
+    if (batch.inFlightCount >= batch.maxParallel) return false;
+    const wait = nextAnalyzeSlotMs();
+    if (wait > 0) {
+      scheduleRateLimitRetry(batch, wait);
+      return false;
+    }
+    runItem(batch, item);
+    return true;
+  };
+
   // Prioritised start: if the user is staring at a still-pending item, get
   // it moving even when other items came first in queue order.
   if (typeof prioritiseIndex === 'number') {
     const target = batch.items[prioritiseIndex];
-    if (target && target.status === 'pending' && batch.inFlightCount < batch.maxParallel) {
-      runItem(batch, target);
-    }
+    if (target) tryStart(target);
   }
-  // Backfill remaining slots in queue order.
+  // Backfill remaining slots in queue order. Stop on the first rate-limit
+  // hit — we've already armed a retry; no point churning.
   for (const item of batch.items) {
     if (batch.inFlightCount >= batch.maxParallel) break;
-    if (item.status === 'pending') runItem(batch, item);
+    if (item.status !== 'pending') continue;
+    if (!tryStart(item)) break;
   }
+}
+
+function scheduleRateLimitRetry(batch: Batch, waitMs: number): void {
+  if (batch.rateLimitTimerId !== null) return; // already armed
+  batch.rateLimitTimerId = setTimeout(() => {
+    batch.rateLimitTimerId = null;
+    if (batches.has(batch.id)) pumpBatch(batch);
+  }, waitMs);
 }
 
 function runItem(batch: Batch, item: BatchItem): void {
   item.status = 'in_flight';
   batch.inFlightCount += 1;
+  // Record the analyze-start timestamp BEFORE the resize step so a slow
+  // resize doesn't pile up parallel starts that all arrive at the analyze
+  // edge function at once. Slight overcount of actual HTTP starts is the
+  // intended bias — better to under-throttle the server than over.
+  recordAnalyzeStart();
   const work = (async (): Promise<BatchItem> => {
     // Hoisted out of the try so the catch path can re-await it for orphan
     // cleanup (Codex P2 round 1 on PR #777). Initialised inside the try

@@ -124,6 +124,15 @@ export function AddPieceStep2() {
   // calls become no-ops. Without this guard a back-button mid-analyze would teleport
   // the user into Step 3 of an aborted flow.
   const mountedRef = useRef(true);
+  // Batch path: tracks whether this Step 2 mount handed off to another batch
+  // screen via `nav.replace` (forward to Step 3 on success, or replace to the
+  // next pending Step 2 on Skip). When the user backs out of Step 2 with the
+  // hardware/gesture back button instead — bypassing the header close action
+  // that explicitly calls `dropBatch` — the cleanup needs to drop the batch
+  // itself; otherwise background uploads keep running and ready-but-unsaved
+  // storage objects orphan because no later screen owns the batchId.
+  // (Codex P2 round 2 on PR #777.)
+  const handedOffBatchRef = useRef(false);
 
   // Batch path — wait for the pipeline-owned analyze + upload, then forward
   // to Step 3 with both already populated. Re-runs on Retry.
@@ -150,6 +159,7 @@ export function AddPieceStep2() {
       // Replace (not push) so the back stack stays clean across the
       // Step 2 ↔ Step 3 oscillation: a batch of N photos shouldn't leave
       // 2N screens on the stack. Back from any batch screen lands on Step 1.
+      handedOffBatchRef.current = true;
       nav.replace('AddPieceStep3', {
         storagePath: item.storagePath,
         photoUri: item.uri,
@@ -342,6 +352,14 @@ export function AddPieceStep2() {
       // the shared ref), so the boolean transferred-or-not check on the ref's
       // owner is sufficient here.
       if (!wasTransferred && orphanStorage) void deleteUpload(orphanStorage);
+      // Batch path: if the user backed out of Step 2 without one of the
+      // explicit handoffs (Continue → Step 3, Skip → next Step 2, header
+      // close → dropBatch + nav), tear the batch down so background
+      // uploads stop and any ready-but-unsaved storage objects are deleted.
+      // (Codex P2 round 2 on PR #777.)
+      if (batch && !handedOffBatchRef.current) {
+        dropBatch(batch.batchId);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -422,6 +440,7 @@ export function AddPieceStep2() {
       nav.navigate('MainTabs');
       return;
     }
+    handedOffBatchRef.current = true;
     nav.replace('AddPieceStep2', {
       photoUri: allUris[next] ?? photoUri ?? '',
       allUris,
