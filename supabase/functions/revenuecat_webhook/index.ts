@@ -1182,7 +1182,40 @@ async function downgradeSubscriptionToFree(
   userId: string,
   correlationId: string,
   allowanceKey: string,
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<{ ok: boolean; reason?: string; skipped?: boolean }> {
+  // SELECT first to determine if the row is Stripe-managed. The previous
+  // approach used a `.or(stripe_mode.eq.revenuecat,stripe_mode.is.null)`
+  // filter on the UPDATE, which correctly skipped Stripe rows on the
+  // primary table — but the subsequent `user_subscriptions` UPDATE and
+  // `setMonthlyAllowance(..., 0, ...)` calls fired unconditionally,
+  // revoking render credits / legacy plan state for valid Stripe
+  // subscribers (Codex round 8). Read-then-decide gates ALL three
+  // writes off the same Stripe-mode check.
+  const { data: existing, error: selectErr } = await serviceClient
+    .from("subscriptions")
+    .select("stripe_mode")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (selectErr) {
+    logStep("Sync: subscriptions select-before-downgrade failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
+    return { ok: false, reason: "subscriptions_select_failed" };
+  }
+  const existingMode = existing && typeof existing.stripe_mode === "string" ? existing.stripe_mode : null;
+  // `stripe_mode` is one of 'live' / 'test' / 'revenuecat' / null.
+  // Stripe-managed rows are 'live' or 'test'; anything else (including
+  // null / 'revenuecat' / new user with no row) is fair game for RC
+  // reconciliation.
+  const isStripeManaged = existingMode === "live" || existingMode === "test";
+  if (isStripeManaged) {
+    logStep("Sync: skipping downgrade — row is Stripe-managed", { userId, existingMode }, correlationId);
+    // Treat as success — there's nothing for us to reconcile, the user
+    // is paid via Stripe and their state is correct as-is. The caller
+    // returns the standard inactive response to the client which
+    // surfaces the "no purchases on this Apple ID" UX (accurate; their
+    // purchases are on the Stripe side).
+    return { ok: true, skipped: true };
+  }
+
   // Synthetic timestamp: 5 minutes in the past. A genuine RC event will
   // have `event_timestamp_ms` close to wall-clock now, which is newer
   // than this — so the staleness guard will let it through.
@@ -1195,19 +1228,11 @@ async function downgradeSubscriptionToFree(
       stripe_mode: RC_STRIPE_MODE_MARKER,
       updated_at: syntheticIso,
     })
-    .eq("user_id", userId)
-    // Skip Stripe-managed rows entirely. `stripe_mode` is one of
-    // 'live' / 'test' / 'revenuecat' / null. Anything that isn't
-    // explicitly Stripe is fair game for RC reconciliation.
-    .or("stripe_mode.eq.revenuecat,stripe_mode.is.null");
+    .eq("user_id", userId);
   if (updErr) {
     logStep("Sync: subscriptions downgrade failed", { userId, error: updErr.message, code: updErr.code }, correlationId);
     return { ok: false, reason: "subscriptions_update_failed" };
   }
-  // Same Stripe-mode filter on user_subscriptions for consistency. The
-  // legacy table doesn't have stripe_mode, but only updating where the
-  // primary subscriptions row is RC-managed protects against revoking
-  // a Stripe user's allowance.
   await serviceClient
     .from("user_subscriptions")
     .update({ plan: "free", updated_at: syntheticIso })
