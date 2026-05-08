@@ -1007,7 +1007,18 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
   if (rcResponse.status === 404) {
     logStep("Sync: RC subscriber not found", { userId }, correlationId);
     const inactiveKey = `rc_sync_${userId}_inactive_${Math.floor(Date.now() / 1000)}`;
-    await downgradeSubscriptionToFree(serviceClient, userId, correlationId, inactiveKey);
+    const downgrade = await downgradeSubscriptionToFree(
+      serviceClient,
+      userId,
+      correlationId,
+      inactiveKey,
+    );
+    if (!downgrade.ok) {
+      // DB write failed — return 5xx so the client falls back to
+      // `restored_pending` instead of mapping to `no_purchases` against
+      // a row that may still say `plan='premium'`. Codex round 7.
+      return jsonResponse({ ok: false, reason: downgrade.reason ?? "downgrade_failed" }, 500);
+    }
     return jsonResponse({ ok: false, reason: "rc_subscriber_not_found" }, 404);
   }
   if (rcResponse.status >= 500) {
@@ -1067,9 +1078,17 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
   const allowanceKey = `rc_sync_${userId}_${periodTag}`;
 
   if (active) {
-    // Mirror upsertSubscriptionActive — RC says active premium.
+    // Mirror upsertSubscriptionActive — RC says active premium. Use a
+    // synthetic `updated_at` of `now() - WEBHOOK_TIMESTAMP_TOLERANCE_MS`
+    // (5 min ago) instead of wall-clock `now()` so a subsequent RC
+    // event (TRANSFER / RENEWAL / EXPIRATION) with `event_timestamp_ms`
+    // close to wall-clock now isn't classified as stale by
+    // `isStaleEvent`. A `now()` write would override genuine event
+    // timestamps and cause delayed webhooks to be skipped — Codex
+    // round 7. The active-state mirror table (`user_subscriptions`)
+    // gets the same synthetic stamp.
     const periodEnd = active.expiresAt;
-    const nowIso = new Date().toISOString();
+    const syntheticIso = new Date(Date.now() - WEBHOOK_TIMESTAMP_TOLERANCE_MS).toISOString();
     const row: Partial<SubscriptionsTable> & { user_id: string; stripe_mode?: string } = {
       user_id: userId,
       status: "active",
@@ -1077,7 +1096,7 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
       price_id: active.productId,
       current_period_end: periodEnd,
       stripe_mode: RC_STRIPE_MODE_MARKER,
-      updated_at: nowIso,
+      updated_at: syntheticIso,
     };
     const { error } = await serviceClient
       .from("subscriptions")
@@ -1092,7 +1111,7 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
     }
     await serviceClient
       .from("user_subscriptions")
-      .update({ plan: row.plan, updated_at: nowIso })
+      .update({ plan: row.plan, updated_at: syntheticIso })
       .eq("user_id", userId);
     const allowanceResult = await setMonthlyAllowance(
       serviceClient,
@@ -1117,7 +1136,12 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
 
   // No active entitlement — RC's source-of-truth says the user is not a
   // paying subscriber. Run the shared downgrade helper.
-  await downgradeSubscriptionToFree(serviceClient, userId, correlationId, allowanceKey);
+  const downgrade = await downgradeSubscriptionToFree(serviceClient, userId, correlationId, allowanceKey);
+  if (!downgrade.ok) {
+    // DB write failed — return 5xx so the client falls back to
+    // `restored_pending` and re-tries on next mount. Codex round 7.
+    return jsonResponse({ ok: false, reason: downgrade.reason ?? "downgrade_failed" }, 500);
+  }
   logStep("Sync: no active entitlements — downgraded", { userId }, correlationId);
   return jsonResponse({
     ok: true,
@@ -1129,43 +1153,75 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
 /**
  * Downgrade a user's subscription rows to free + zero their monthly
  * allowance. Mirrors EXPIRATION semantics (status='canceled', plan='free',
- * allowance reset). Best-effort — if the row doesn't exist the UPDATE is
- * a no-op, which matches `markSubscriptionEnded`. Used by both the
- * inactive-entitlement branch and the RC-subscriber-not-found 404 branch
- * of `handleSyncRequest`.
+ * allowance reset). Used by both the inactive-entitlement branch and
+ * the RC-subscriber-not-found 404 branch of `handleSyncRequest`.
+ *
+ * IMPORTANT — Stripe-managed rows are skipped (Codex round 7). A user
+ * who is premium via Stripe (web checkout) tapping Restore on iOS
+ * causes RC to return 404 / no entitlements (no Apple-side purchase
+ * exists). Downgrading their `subscriptions` row would revoke a valid
+ * paid Stripe subscription. Filter the UPDATE by
+ * `stripe_mode='revenuecat' OR stripe_mode IS NULL` so Stripe-paid
+ * users are unaffected by RC sync.
+ *
+ * `updated_at` is intentionally set to `Date.now() -
+ * WEBHOOK_TIMESTAMP_TOLERANCE_MS` (5 min ago) rather than wall-clock
+ * `now()` so a subsequent RC TRANSFER / RENEWAL webhook (whose
+ * `event_timestamp_ms` is "now-ish") doesn't get classified as stale
+ * by `isStaleEvent`. Wall-clock `now()` here would poison the
+ * staleness check and cause delayed webhooks to be skipped — the
+ * origin-user `markSubscriptionEnded` for a TRANSFER would never run.
+ *
+ * Returns `{ ok }` so the caller can propagate a non-2xx when the
+ * downgrade fails — without that, the client maps a successful 200
+ * response to `'no_purchases'` while the stale `subscriptions` row
+ * stays `plan='premium'`, leaving the user unlocked.
  */
 async function downgradeSubscriptionToFree(
   serviceClient: SupabaseClient,
   userId: string,
   correlationId: string,
   allowanceKey: string,
-): Promise<void> {
-  const nowIso = new Date().toISOString();
+): Promise<{ ok: boolean; reason?: string }> {
+  // Synthetic timestamp: 5 minutes in the past. A genuine RC event will
+  // have `event_timestamp_ms` close to wall-clock now, which is newer
+  // than this — so the staleness guard will let it through.
+  const syntheticIso = new Date(Date.now() - WEBHOOK_TIMESTAMP_TOLERANCE_MS).toISOString();
   const { error: updErr } = await serviceClient
     .from("subscriptions")
     .update({
       status: "canceled",
       plan: "free",
       stripe_mode: RC_STRIPE_MODE_MARKER,
-      updated_at: nowIso,
+      updated_at: syntheticIso,
     })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    // Skip Stripe-managed rows entirely. `stripe_mode` is one of
+    // 'live' / 'test' / 'revenuecat' / null. Anything that isn't
+    // explicitly Stripe is fair game for RC reconciliation.
+    .or("stripe_mode.eq.revenuecat,stripe_mode.is.null");
   if (updErr) {
     logStep("Sync: subscriptions downgrade failed", { userId, error: updErr.message, code: updErr.code }, correlationId);
-    // Non-fatal — the client treats inactive sync as no_purchases regardless.
+    return { ok: false, reason: "subscriptions_update_failed" };
   }
+  // Same Stripe-mode filter on user_subscriptions for consistency. The
+  // legacy table doesn't have stripe_mode, but only updating where the
+  // primary subscriptions row is RC-managed protects against revoking
+  // a Stripe user's allowance.
   await serviceClient
     .from("user_subscriptions")
-    .update({ plan: "free", updated_at: nowIso })
+    .update({ plan: "free", updated_at: syntheticIso })
     .eq("user_id", userId);
   const allowanceResult = await setMonthlyAllowance(serviceClient, userId, 0, allowanceKey);
   if (!allowanceResult.ok && !allowanceResult.duplicate) {
     logStep(
-      "Sync: failed to zero monthly allowance (continuing)",
+      "Sync: failed to zero monthly allowance",
       { userId, reason: allowanceResult.reason },
       correlationId,
     );
+    return { ok: false, reason: "allowance_update_failed" };
   }
+  return { ok: true };
 }
 
 serve(async (req) => {
