@@ -26,6 +26,17 @@ import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
+import { useWeather } from './useWeather';
+
+// Fallback weather payload used while `useWeather` is loading or has errored.
+// Mild 18°C, no precipitation, calm wind — same shape `useWeekGenerator` and
+// `useOutfitPool` fall back to so every mobile entry-point looks identical
+// to the engine's `normalizeWeather` when live weather is unavailable.
+const FALLBACK_WEATHER = {
+  temperature: 18,
+  precipitation: 'none' as const,
+  wind: 'none' as const,
+};
 
 /**
  * Sentinel `error` value the hook raises when the engine returns a complete
@@ -148,6 +159,13 @@ function adaptItems(items: EngineResponseItem[] | undefined): GeneratedOutfitIte
 
 export function useGenerateOutfit() {
   const { session } = useAuth();
+  // Live weather feeds the engine so outfits get rain/snow/heat/cold context
+  // instead of the placeholder mild-day shape the hook used while M35's
+  // weather hook hadn't been wired through. `useWeather` defaults to the
+  // launch market (Stockholm) when no city is supplied; React Query dedupes
+  // the fetch across every screen that observes it. (PR-B on PR #774
+  // follow-up: wire real weather into all generators.)
+  const { weather: liveWeather } = useWeather();
   const [result, setResult] = useState<GeneratedOutfit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,6 +219,19 @@ export function useGenerateOutfit() {
       pushUnique(anchorId);
       for (const id of seedIds) pushUnique(id);
 
+      // Hand the engine real weather when `useWeather` has resolved, fall
+      // back to the mild-day placeholder otherwise (loading window, fetch
+      // error, or location resolution failure). Forward only the engine-
+      // relevant fields so a future change to `WeatherData` doesn't leak
+      // unrelated keys into the request body.
+      const effectiveWeather = liveWeather
+        ? {
+            temperature: liveWeather.temperature,
+            precipitation: liveWeather.precipitation,
+            wind: liveWeather.wind,
+          }
+        : FALLBACK_WEATHER;
+
       try {
         let data: EngineResponse;
         try {
@@ -210,10 +241,7 @@ export function useGenerateOutfit() {
               generator_mode: 'standard',
               occasion: params.occasion ?? 'Everyday',
               style: params.mood ?? null,
-              // Default weather satisfies normalizeWeather in the engine —
-              // the screens don't yet collect a weather signal in W4. W9+
-              // wires weather context via useWeather().
-              weather: { precipitation: 'none', wind: 'none' },
+              weather: effectiveWeather,
               locale: 'en',
               prefer_garment_ids: preferList,
             },
@@ -398,7 +426,7 @@ export function useGenerateOutfit() {
         }
       }
     },
-    [session?.access_token],
+    [session?.access_token, liveWeather],
   );
 
   const reset = useCallback(() => {

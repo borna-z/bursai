@@ -9,15 +9,19 @@
 // doesn't drop the rest of the week.
 //
 // Day context (M15): each call carries `day_context` derived from
-// `buildDayIntelligence(events, weather)`. Until the calendar (M36) and
-// weather (M35) hooks ship, events default to `[]` and weather to the
-// same mild placeholder used by `useSmartDayRecommendation` so the
-// engine produces a sane composition rather than refusing to score.
-// Recently-worn garment IDs come from a dedicated id-only Supabase
-// query (id + last_worn_at indexed) and are passed to the engine as
-// `exclude_garment_ids` to bias against repetition across the week. The
-// query is independent of the paginated `useFlatGarments` cache so we
-// never under-count repeats just because a wardrobe page hasn't loaded.
+// `buildDayIntelligence(events, weather)`. M35 wired `useWeather` and M36
+// wired `useCalendarSync`; this hook now consumes `useWeather` directly so
+// the engine sees real rain/snow/heat/cold context across the whole week
+// instead of the mild-day placeholder it shipped with. Calendar events
+// remain empty per-day because `useCalendarEvents` is single-date and a
+// 7-day fan-out would issue 7 extra queries per generate; wiring a range
+// query is deferred to keep this PR focused on the worst regression
+// (weather affecting every recommendation). Recently-worn garment IDs
+// come from a dedicated id-only Supabase query (id + last_worn_at
+// indexed) and are passed to the engine as `exclude_garment_ids` to bias
+// against repetition across the week. The query is independent of the
+// paginated `useFlatGarments` cache so we never under-count repeats just
+// because a wardrobe page hasn't loaded.
 //
 // Subscription gating: a 402 / `subscription_required` from any single
 // day short-circuits the loop and surfaces the same sentinel error
@@ -43,15 +47,16 @@ import { localISODate } from '../lib/outfitDisplay';
 import { Sentry } from '../lib/sentry';
 import { validateOutfitItems } from '../lib/outfitRules';
 import type { ScoredOutfitDraft } from './useOutfitPool';
+import { useWeather } from './useWeather';
 
 const RECENTLY_WORN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Mild placeholder weather. Matches `useGenerateOutfit` and `useOutfitPool`
-// so the engine's `normalizeWeather` reads the same baseline shape across
-// every mobile entry-point. `precipitation: 'unknown'` would otherwise
-// trip the engine's wet-weather branch (treats unknown as "potentially
-// raining" → biases toward waterproof outerwear and away from suede),
-// silently skewing the whole week.
+// Fallback weather used while `useWeather` is loading or has errored. Matches
+// `useGenerateOutfit` and `useOutfitPool` so the engine's `normalizeWeather`
+// reads the same baseline shape across every mobile entry-point.
+// `precipitation: 'unknown'` would otherwise trip the engine's wet-weather
+// branch (treats unknown as "potentially raining" → biases toward waterproof
+// outerwear and away from suede), silently skewing the whole week.
 const FALLBACK_WEATHER: DayWeatherInput = {
   temperature: 18,
   precipitation: 'none',
@@ -128,6 +133,14 @@ function computeWeekIsos(startDate: Date): string[] {
 
 export function useWeekGenerator(): UseWeekGeneratorResult {
   const { session, user } = useAuth();
+  // Live weather feeds the engine so each day's outfit reflects real rain/
+  // snow/heat/cold conditions instead of the mild-day placeholder this hook
+  // shipped with. The 7 sequential calls all use the same `liveWeather`
+  // snapshot — current Open-Meteo response, refreshed on the React Query
+  // 30-min staleTime — because the user is generating "this week's" outfits
+  // from one moment in time, not requesting a 7-day forecast slice. PR-B
+  // follow-up to PR #774.
+  const { weather: liveWeather } = useWeather();
 
   // Dedicated id-only query for recently-worn garments. Independent of the
   // paginated wardrobe cache so the exclude set is complete even when the
@@ -181,12 +194,20 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
       recentlyWornIds: string[];
       signal: AbortSignal;
     }): Promise<WeekGeneratorEntry> => {
-      // Build per-day context. Until M35/M36 land, events are empty and
-      // weather is the placeholder; the engine still produces a sane
-      // composition (no rain → no umbrella bias, mild temp → no thermal
-      // gating, no event tags → defaults to dominant 'casual').
+      // Build per-day context. Calendar events stay empty until a date-range
+      // calendar query lands (single-date `useCalendarEvents` × 7 days is
+      // not worth the extra queries here); weather feeds in from `useWeather`
+      // when available, falling back to the mild-day placeholder while the
+      // initial query is in flight or after a fetch error.
       const events: DayEventInput[] = [];
-      const intelligence = buildDayIntelligence(events, FALLBACK_WEATHER);
+      const effectiveWeather: DayWeatherInput = liveWeather
+        ? {
+            temperature: liveWeather.temperature,
+            precipitation: liveWeather.precipitation,
+            wind: liveWeather.wind,
+          }
+        : FALLBACK_WEATHER;
+      const intelligence = buildDayIntelligence(events, effectiveWeather);
 
       try {
         const data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
@@ -198,7 +219,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
             // Engine reads `body.weather` as a flat WeatherInput sibling
             // of `body.day_context` (see supabase/functions/burs_style_engine
             // index.ts:806 + _shared/outfit-scoring.ts:74-78).
-            weather: FALLBACK_WEATHER,
+            weather: effectiveWeather,
             locale,
             // Engine destructures `body.day_context` as a flat
             // DayContextInput (`dominant_occasion`, `anchor_event`,
@@ -279,7 +300,7 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
         return { date, outfit: null, error: message };
       }
     },
-    [],
+    [liveWeather],
   );
 
   const generateWeek = useCallback(

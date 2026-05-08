@@ -35,6 +35,16 @@ import {
 import { isAnchorPresent } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
+import { useWeather } from './useWeather';
+
+// Fallback weather used while `useWeather` is loading or has errored. Same
+// shape as the other generators so the engine sees a consistent baseline
+// across mobile entry-points.
+const FALLBACK_WEATHER = {
+  temperature: 18,
+  precipitation: 'none' as const,
+  wind: 'none' as const,
+};
 
 /** A draft outfit returned by the engine — not yet persisted to `outfits`.
  *  The pool screen renders these as preview tiles; saving turns each draft
@@ -122,6 +132,10 @@ function makeDraftId(): string {
 
 export function useOutfitPool(): UseOutfitPoolResult {
   const { session } = useAuth();
+  // Live weather feeds every parallel call so the pool reflects today's
+  // actual conditions, not the mild-day placeholder this hook shipped with.
+  // PR-B follow-up to PR #774.
+  const { weather: liveWeather } = useWeather();
   const [pool, setPool] = useState<ScoredOutfitDraft[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +177,17 @@ export function useOutfitPool(): UseOutfitPoolResult {
 
       const anchorId = anchorGarmentId?.trim() || undefined;
       const safeOccasion = occasion?.trim() || 'Everyday';
+      // Snapshot live weather once for the whole batch so all N parallel
+      // calls see the same conditions. Re-reading `liveWeather` per-call
+      // would be a no-op (React Query dedupes), but the snapshot makes the
+      // batch's "moment in time" explicit.
+      const effectiveWeather = liveWeather
+        ? {
+            temperature: liveWeather.temperature,
+            precipitation: liveWeather.precipitation,
+            wind: liveWeather.wind,
+          }
+        : FALLBACK_WEATHER;
 
       const callOne = async (): Promise<CallOneResult> => {
         const data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
@@ -171,11 +196,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
             generator_mode: 'standard',
             occasion: safeOccasion,
             style: null,
-            // Mild placeholder weather — same as `useGenerateOutfit` and
-            // `useWeekGenerator`. M35 will wire a real weather provider;
-            // until then the engine's `normalizeWeather` accepts this
-            // shape cleanly.
-            weather: { temperature: 18, precipitation: 'none', wind: 'none' },
+            weather: effectiveWeather,
             locale: 'en',
             // Only include the field when an anchor exists — keeps the
             // body terse and avoids sending an empty array the engine
@@ -312,7 +333,7 @@ export function useOutfitPool(): UseOutfitPoolResult {
         setIsGenerating(false);
       }
     },
-    [session?.access_token],
+    [session?.access_token, liveWeather],
   );
 
   const reset = useCallback(() => {
