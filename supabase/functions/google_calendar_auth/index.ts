@@ -23,14 +23,17 @@ import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, ove
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
 
-// Hardcoded production, canonical-domain, and local-dev redirect URIs. The
-// callback route is mounted at `/calendar/callback` in AnimatedRoutes.tsx.
+// Hardcoded production, canonical-domain, local-dev, and mobile-scheme
+// redirect URIs. The web callback route is mounted at `/calendar/callback`
+// in AnimatedRoutes.tsx; the mobile scheme `burs://calendar/callback` is
+// the deep-link path RootNavigator listens for (M36).
 // Additional origins (Vercel previews, staging projects) can be layered on
 // via the `ALLOWED_CALENDAR_REDIRECT_URIS` env var (comma-separated).
 const ALLOWED_REDIRECT_URIS = [
   "https://app.burs.me/calendar/callback",
   "https://burs.me/calendar/callback",
   "http://localhost:8080/calendar/callback",
+  "burs://calendar/callback",
 ];
 
 function buildAllowedRedirectSet(): Set<string> {

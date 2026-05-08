@@ -1313,4 +1313,20 @@ export const en: Record<string, string> = {
   'paywall.restoreError.title': 'Could not restore purchases',
   'paywall.restoreError.body':
     "We couldn't reach the App Store. Check your connection and try again.",
+
+  // ─── Calendar sync (M36) ──────────────────────────────────────────────
+  'settings.calendar.section': 'Calendar',
+  'settings.calendar.row.connect': 'Connect Google Calendar',
+  'settings.calendar.row.connect.caption':
+    "Sharper outfit picks based on what's on your day.",
+  'settings.calendar.row.disconnect': 'Disconnect Google Calendar',
+  'settings.calendar.row.connected.caption': "We're reading your day to style smarter.",
+  'settings.calendar.connected.title': 'Calendar connected',
+  'settings.calendar.connected.body': "We'll factor your events into today's pick.",
+  'settings.calendar.error.title': "Couldn't connect calendar",
+  'settings.calendar.error.body': 'Please try again in a moment.',
+  'settings.calendar.disconnect.title': 'Disconnect Google Calendar?',
+  'settings.calendar.disconnect.body':
+    "We'll stop syncing your events and remove what's already saved.",
+  'settings.calendar.disconnect.confirm': 'Disconnect',
 };

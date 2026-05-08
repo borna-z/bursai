@@ -21,6 +21,8 @@ import { useMemo } from 'react';
 
 import { useFlatGarments } from './useGarments';
 import { useOutfits } from './useOutfits';
+import { useCalendarEvents } from './useCalendarSync';
+import { localISODate } from '../lib/outfitDisplay';
 import {
   buildDayIntelligence,
   type DayContext,
@@ -70,13 +72,23 @@ export function useSmartDayRecommendation(
   const overrideEvents = overrides?.events;
   const overrideWeather = overrides?.weather;
 
-  // Stabilise the optional-overrides into memo-safe values. Without this,
-  // `overrides?.events ?? []` would mint a fresh array reference every
-  // render, churning every downstream useMemo on this hook.
-  const events = useMemo<DayEventInput[]>(
-    () => overrideEvents ?? [],
-    [overrideEvents],
-  );
+  // M36 — fall back to today's synced calendar events when no override is
+  // passed AND when the override is an empty array (the M35 OccasionPicker's
+  // "Casual" pill emits `[]` to mean "no synthetic event"). The calendar
+  // events query stays harmless when the user hasn't connected — it returns
+  // `[]` and the engine falls back to its casual baseline same as before.
+  const todayDate = useMemo(() => localISODate(new Date()), []);
+  const calendarEventsQ = useCalendarEvents(todayDate);
+
+  const events = useMemo<DayEventInput[]>(() => {
+    if (overrideEvents && overrideEvents.length > 0) return overrideEvents;
+    return (calendarEventsQ.data ?? []).map((e) => ({
+      title: e.title,
+      location: e.location,
+      start_time: e.start_time,
+      end_time: e.end_time,
+    }));
+  }, [overrideEvents, calendarEventsQ.data]);
   const weather = useMemo<DayWeatherInput | null>(
     () => (overrideWeather === undefined ? FALLBACK_WEATHER : overrideWeather),
     [overrideWeather],

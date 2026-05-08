@@ -17,10 +17,11 @@ import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { TypedConfirmModal } from '../components/TypedConfirmModal';
-import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon, RotateIcon } from '../components/icons';
+import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon, RotateIcon, CalendarIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useDeleteAccount } from '../hooks/useDeleteAccount';
 import { useRestorePurchases } from '../hooks/useRestorePurchases';
+import { useCalendarSync } from '../hooks/useCalendarSync';
 import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -32,7 +33,41 @@ export function SettingsAccountScreen() {
   const { user, profile } = useAuth();
   const deleteAccount = useDeleteAccount();
   const restore = useRestorePurchases();
+  const calendar = useCalendarSync();
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // M36 — Connect / Disconnect Google Calendar. Connect opens the Google
+  // consent screen in the system browser; the deep-link callback finishes
+  // the exchange in RootNavigator. Disconnect prompts for confirmation
+  // because losing the token also wipes synced `calendar_events` server-
+  // side, which the user cannot recover without re-authorizing.
+  const handleCalendarPress = () => {
+    if (calendar.isLoadingConnection || calendar.isDisconnecting) return;
+    hapticLight();
+    if (calendar.isConnected) {
+      Alert.alert(
+        tr('settings.calendar.disconnect.title'),
+        tr('settings.calendar.disconnect.body'),
+        [
+          { text: tr('common.cancel'), style: 'cancel' },
+          {
+            text: tr('settings.calendar.disconnect.confirm'),
+            style: 'destructive',
+            onPress: () => {
+              calendar.disconnectGoogle().catch(() => {
+                Alert.alert(
+                  tr('settings.calendar.error.title'),
+                  tr('settings.calendar.error.body'),
+                );
+              });
+            },
+          },
+        ],
+      );
+      return;
+    }
+    void calendar.connectGoogle();
+  };
 
   const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? tr('settings.profile.fallbackName');
   const email = user?.email ?? '';
@@ -249,6 +284,33 @@ export function SettingsAccountScreen() {
                 hideChevron
               />
             ) : null}
+          </Card>
+        </View>
+
+        {/* ============ CALENDAR (M36) ============ */}
+        {/* Single Connect / Disconnect row that flips its label + caption
+            based on the `calendar_connections` row. Connecting opens the
+            Google consent screen in the system browser; the deep-link
+            callback (`burs://calendar/callback`) hands the auth code back
+            to `google_calendar_auth` for the server-side token exchange. */}
+        <View style={{ gap: 8 }}>
+          <Eyebrow>{tr('settings.calendar.section')}</Eyebrow>
+          <Card padding={4}>
+            <SettingsRow
+              icon={<CalendarIcon size={18} color={t.accent} />}
+              title={
+                calendar.isConnected
+                  ? tr('settings.calendar.row.disconnect')
+                  : tr('settings.calendar.row.connect')
+              }
+              caption={
+                calendar.isConnected
+                  ? tr('settings.calendar.row.connected.caption')
+                  : tr('settings.calendar.row.connect.caption')
+              }
+              last
+              onPress={handleCalendarPress}
+            />
           </Card>
         </View>
 
