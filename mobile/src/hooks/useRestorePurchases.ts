@@ -39,7 +39,7 @@
 // start and SDK resolve, suppressing both invalidation and the success
 // alert for a stale tap.
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -224,14 +224,18 @@ export function useRestorePurchases() {
   const currentUserIdRef = useRef<string | null>(user?.id ?? null);
   currentUserIdRef.current = user?.id ?? null;
   // AbortController for the in-flight poll — created on each mutation
-  // start, aborted on unmount and on a fresh mutation start so a rapid
-  // re-tap during the 10s poll window doesn't end up with two concurrent
-  // polls writing the same cache.
+  // start and aborted only when a fresh mutation starts (so a rapid
+  // re-tap during the poll window doesn't run two concurrent polls).
+  // Intentionally NOT aborted on unmount: TanStack Query mutations
+  // continue past the source component's unmount, and the hook-level
+  // `onSuccess` still fires when the poll resolves. Aborting on unmount
+  // (Codex round 9 finding) caused the poll to return 'cancelled' →
+  // mutation 'unsupported' → no cache invalidation, so a webhook that
+  // landed seconds after the user dismissed the paywall left the
+  // subscription cache stale until a manual refresh. Letting the poll
+  // run to completion preserves the documented background-unlock
+  // behaviour.
   const abortRef = useRef<AbortController | null>(null);
-
-  // Unmount cleanup — abort any in-flight poll so an orphan poll doesn't
-  // keep ticking after the screen unmounts. Idempotent.
-  useEffect(() => () => abortRef.current?.abort(), []);
 
   return useMutation<RestorePurchasesResult, unknown, void, RestoreContext>({
     onMutate: async (): Promise<RestoreContext> => {
@@ -276,18 +280,31 @@ export function useRestorePurchases() {
         // still says `plan='premium' / status='active'`, the
         // post-onSuccess invalidate would refetch the same stale
         // active row and the user would stay unlocked despite the
-        // empty-state alert. Codex round 6 surfaced the gap. The sync
-        // endpoint runs the same `downgradeSubscriptionToFree` helper
-        // the inactive / 404 branches use; result intentionally
-        // ignored here because regardless of sync outcome the user-
-        // facing UX for empty entitlements is `'no_purchases'`.
-        await syncSubscriptionWithRevenueCat();
+        // empty-state alert. Codex round 6 surfaced the gap; round 9
+        // tightened: branch on the sync outcome so we don't claim
+        // `'no_purchases'` (which fires the empty-state alert + cache
+        // invalidate against unchanged state) when the sync endpoint
+        // is unavailable / failed and the row may still be stale-
+        // premium. Sync `'pending'` → fall back to `'restored_pending'`
+        // so the activating UX runs and the next mutation retry will
+        // reconcile.
+        const syncOutcome = await syncSubscriptionWithRevenueCat();
         // Re-check user identity after the sync round-trip — sign-out
         // mid-sync should suppress the empty-state alert per the same
         // race-protection contract used in the timeout path below.
         if (currentUserIdRef.current !== startUserId) {
           return { status: 'unsupported' };
         }
+        if (syncOutcome === 'pending') {
+          // Sync endpoint unavailable / 5xx / network failure — we
+          // can't be sure the row is current. `'restored_pending'`
+          // surfaces the activating-in-the-background UX and the
+          // server reconciliation will eventually catch up via the
+          // webhook (or a subsequent restore tap).
+          return { status: 'restored_pending' };
+        }
+        // Sync confirmed inactive (200 ok=true) or skipped Stripe row
+        // → the user genuinely has no Apple-side purchase to restore.
         return { status: 'no_purchases' };
       }
 
