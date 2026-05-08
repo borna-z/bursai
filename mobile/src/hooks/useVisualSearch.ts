@@ -325,7 +325,7 @@ export function useVisualSearch(): UseVisualSearchResult {
       try {
         let response: DeployedVisualSearchResponse;
         try {
-          response = await callEdgeFunction<DeployedVisualSearchResponse>('visual_search', {
+          const raw = await callEdgeFunction<DeployedVisualSearchResponse>('visual_search', {
             body: {
               image_base64: imageBase64Payload,
               // `getLocale()` is non-nullable (returns the active `Locale`
@@ -334,6 +334,13 @@ export function useVisualSearch(): UseVisualSearchResult {
             },
             signal: controller.signal,
           });
+          if (!raw) {
+            // 2xx with unparseable JSON body — surface as a real failure
+            // rather than a silent empty match list.
+            setError('Visual search failed');
+            return;
+          }
+          response = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

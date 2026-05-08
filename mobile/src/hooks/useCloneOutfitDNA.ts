@@ -106,10 +106,21 @@ export function useCloneOutfitDNA(): UseCloneOutfitDNAResult {
       try {
         let data: CloneOutfitDNAResponse;
         try {
-          data = await callEdgeFunction<CloneOutfitDNAResponse>('clone_outfit_dna', {
-            body: { outfit_id: trimmed, locale: getLocale() ?? 'en' },
-            signal: controller.signal,
-          });
+          const raw = await callEdgeFunction<CloneOutfitDNAResponse>(
+            'clone_outfit_dna',
+            {
+              body: { outfit_id: trimmed, locale: getLocale() ?? 'en' },
+              signal: controller.signal,
+            },
+          );
+          if (!raw) {
+            // Unparseable 2xx body — surface as a real failure rather than
+            // masquerading as an empty `variations` array (which would render
+            // a silent no-op against a bug we should see).
+            setError('clone_invalid_response');
+            return;
+          }
+          data = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

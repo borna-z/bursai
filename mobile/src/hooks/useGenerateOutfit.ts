@@ -246,7 +246,7 @@ export function useGenerateOutfit() {
       try {
         let data: EngineResponse;
         try {
-          data = await callEdgeFunction<EngineResponse>('burs_style_engine', {
+          const raw = await callEdgeFunction<EngineResponse>('burs_style_engine', {
             body: {
               mode: 'generate',
               generator_mode: 'standard',
@@ -258,6 +258,19 @@ export function useGenerateOutfit() {
             },
             signal: controller.signal,
           });
+          if (!raw) {
+            // 2xx with unparseable JSON body — surface as a real failure.
+            // Reuse INVALID_OUTFIT_ERROR so the screen renders the existing
+            // "we couldn't build a complete outfit" copy rather than
+            // crashing on `data.error` / `data.items` access.
+            setError(INVALID_OUTFIT_ERROR);
+            Sentry.withScope((s) => {
+              s.setTag('mutation', 'useGenerateOutfit.nullResponse');
+              Sentry.captureMessage('engine_returned_null_response', 'warning');
+            });
+            return;
+          }
+          data = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

@@ -242,7 +242,13 @@ export function useWeekGenerator(): UseWeekGeneratorResult {
           signal,
         });
 
-        if (data?.error) {
+        if (!data) {
+          // 2xx with unparseable JSON body — surface as a per-day error
+          // rather than silently returning a "no_items" empty outfit
+          // (which the screen treats as a successful but empty day).
+          return { date, outfit: null, error: 'invalid_response' };
+        }
+        if (data.error) {
           return { date, outfit: null, error: data.error };
         }
 

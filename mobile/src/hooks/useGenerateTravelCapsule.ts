@@ -278,7 +278,7 @@ export function useGenerateTravelCapsule() {
 
       let data: EdgeTravelCapsuleResponse;
       try {
-        data = await callEdgeFunction<EdgeTravelCapsuleResponse>('travel_capsule', {
+        const raw = await callEdgeFunction<EdgeTravelCapsuleResponse>('travel_capsule', {
           body,
           // travel_capsule is slow — Gemini tool-use over the user's full
           // wardrobe routinely takes 25-45s. Bump the wrapper's timeout
@@ -287,6 +287,12 @@ export function useGenerateTravelCapsule() {
           retries: 1,
           signal: controller.signal,
         });
+        if (!raw) {
+          // 2xx with unparseable JSON body — surface as a real failure;
+          // the persistence path below would fan out into broken inserts.
+          throw new Error('travel_capsule_invalid_response');
+        }
+        data = raw;
       } catch (err) {
         if (err instanceof EdgeFunctionSubscriptionLockedError) {
           throw new Error(TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL);

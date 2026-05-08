@@ -386,13 +386,19 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
       try {
         let row: DeployedOutfitFeedbackRow;
         try {
-          row = await callEdgeFunction<DeployedOutfitFeedbackRow>(
+          const raw = await callEdgeFunction<DeployedOutfitFeedbackRow>(
             'outfit_photo_feedback',
             {
               body: { outfit_id: trimmedOutfitId, selfie_path: selfiePath },
               signal: controller.signal,
             },
           );
+          if (!raw) {
+            // 2xx with unparseable JSON body — same UX bucket as a 5xx.
+            setError('Photo feedback failed');
+            return;
+          }
+          row = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

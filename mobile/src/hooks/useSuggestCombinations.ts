@@ -88,13 +88,20 @@ export function useSuggestCombinations(): UseSuggestCombinationsResult {
       try {
         let data: SuggestCombinationsResponse;
         try {
-          data = await callEdgeFunction<SuggestCombinationsResponse>(
+          const raw = await callEdgeFunction<SuggestCombinationsResponse>(
             'suggest_outfit_combinations',
             {
               body: { locale: getLocale() ?? 'en' },
               signal: controller.signal,
             },
           );
+          if (!raw) {
+            // 2xx with unparseable JSON body — surface as a real failure
+            // rather than a silent empty suggestion list.
+            setError('Suggestion failed');
+            return;
+          }
+          data = raw;
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);

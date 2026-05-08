@@ -83,8 +83,14 @@ export function AchievementStep({
           { body: {} },
         );
         if (cancelled) return;
-        if (data?.ok === false) {
-          console.warn('grant_trial_gift returned ok:false', data?.reason);
+        // Null = 2xx with unparseable JSON body. Don't invalidate credits
+        // — we have no signal the gift actually landed.
+        if (!data) {
+          console.warn('grant_trial_gift returned unparseable body');
+          return;
+        }
+        if (data.ok === false) {
+          console.warn('grant_trial_gift returned ok:false', data.reason);
           return;
         }
         queryClient.invalidateQueries({ queryKey: ['render_credits', userId] });
