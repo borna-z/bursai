@@ -555,6 +555,8 @@ export function HomeScreen({
           </View>
           <Pressable
             onPress={push('StyleChat')}
+            accessibilityRole="button"
+            accessibilityLabel={`${tr('home.askStylist.exampleSeed')}. ${tr('home.askStylist.tapHint')}`}
             style={[s.stylistRow, { borderColor: t.border, backgroundColor: t.card }]}>
             <View style={[s.stylistIcon, { backgroundColor: t.accentSoft }]}>
               <SparklesIcon color={t.accent} />
