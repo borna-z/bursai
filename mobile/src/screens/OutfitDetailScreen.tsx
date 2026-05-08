@@ -746,7 +746,22 @@ export function OutfitDetailScreen() {
               onPress={handleWear}
               disabled={wornToday || markWorn.isPending}
             />
-            <Button label="Restyle" variant="outline" onPress={() => nav.navigate('OutfitGenerate')} />
+            <Button
+              label="Restyle"
+              variant="outline"
+              // M37 Codex P1 — pass the persisted anchor into the regen route.
+              // Without this the lock pill is decorative: the engine receives
+              // no `prefer_garment_ids` so the anchored piece can drop out of
+              // the next outfit. The previous long-press path already routed
+              // with `{ garmentId }`; now the explicit Anchor button + the
+              // persisted AsyncStorage value flow through the same channel.
+              onPress={() =>
+                nav.navigate(
+                  'OutfitGenerate',
+                  anchorGarmentId ? { garmentId: anchorGarmentId } : undefined,
+                )
+              }
+            />
             <Button
               label={isSaved ? 'Saved' : 'Save'}
               variant={isSaved ? 'accent' : 'outline'}

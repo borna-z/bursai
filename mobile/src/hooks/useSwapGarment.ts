@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
 import { inferOutfitSlotFromGarment } from '../lib/outfitValidation';
+import type { CanonicalOutfitSlot } from '../lib/outfitRules';
 import type { Garment } from '../types/garment';
 
 export interface SwapCandidate {
@@ -36,7 +37,17 @@ export interface UseSwapGarmentArgs {
   enabled: boolean;
 }
 
-const SLOT_TO_CATEGORIES: Record<string, string[]> = {
+// M37 Codex P2 — display slot → canonical inference targets. Earlier this
+// hook ran a `.in('category', [...])` filter against exact lowercase strings,
+// which missed wardrobe rows whose `category` column stored the value in a
+// different case (`EditGarmentScreen`'s chips write `Top` / `Bottom` /
+// `Shoes` / `Outer` / `Dress` / `Accessory`) AND missed garments where the
+// canonical slot is decided by `subcategory` rather than `category` alone
+// (a `category=top, subcategory=dress` row classifies as `dress` under
+// `inferCanonicalOutfitSlot`). The fix: pull a broader candidate set and
+// apply M13's canonical inference client-side. `layer` is a display sub-
+// bucket of `top`, so both display slots target the same canonical slot.
+const DISPLAY_SLOT_TO_CANONICAL: Record<string, CanonicalOutfitSlot[]> = {
   top: ['top'],
   layer: ['top'],
   bottom: ['bottom'],
@@ -65,16 +76,22 @@ export function useSwapGarment({
     enabled: enabled && !!user && !!slot,
     queryFn: async (): Promise<SwapCandidate[]> => {
       if (!user || !slot) return [];
-      const categories = SLOT_TO_CATEGORIES[slot] ?? [slot];
+      const targetSlots = DISPLAY_SLOT_TO_CANONICAL[slot];
+      if (!targetSlots) return [];
+      const targetSet = new Set<CanonicalOutfitSlot>(targetSlots);
 
+      // Pull a broader wardrobe slice (no `.in('category', …)` filter) and
+      // run `inferOutfitSlotFromGarment` per row so case-divergent or
+      // subcategory-overridden categories still surface. The 200-row cap
+      // covers a typical launch user's wardrobe with headroom; ordered by
+      // recency so the freshest pieces win when the cap bites.
       let query = supabase
         .from('garments')
         .select('*')
         .eq('user_id', user.id)
         .eq('in_laundry', false)
-        .in('category', categories)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(200);
 
       if (excludeGarmentIds.length > 0) {
         // PostgREST `not.in.(…)` requires a parenthesised list; the
@@ -84,7 +101,14 @@ export function useSwapGarment({
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []).map((garment) => ({ garment }));
+      const filtered = (data ?? []).filter((garment) => {
+        const inferred = inferOutfitSlotFromGarment(garment);
+        return targetSet.has(inferred as CanonicalOutfitSlot);
+      });
+      // Cap the displayed list at 50 — same UX budget as the prior path —
+      // after filtering so the user sees the freshest 50 matches rather
+      // than the freshest 50 raw rows that may not match the slot.
+      return filtered.slice(0, 50).map((garment) => ({ garment }));
     },
     staleTime: 30 * 1000,
   });
