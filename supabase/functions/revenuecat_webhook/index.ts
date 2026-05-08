@@ -818,6 +818,12 @@ async function getCachedRestApiKey(serviceClient: SupabaseClient): Promise<strin
  */
 type RcEntitlement = {
   expires_date?: string | null;
+  // Apple App Store / Google Play billing-grace-period extension. RC
+  // populates this when the subscription is in a grace period (StoreKit
+  // billing failure but the user retains access while the store retries
+  // payment). Codex round 6 — without honoring this field we'd downgrade
+  // grace-period users prematurely and zero their allowance.
+  grace_period_expires_date?: string | null;
   purchase_date?: string | null;
   product_identifier?: string | null;
 };
@@ -849,19 +855,37 @@ function pickLatestActiveEntitlement(
   let best: ActiveEntitlement | null = null;
   for (const ent of Object.values(entitlements)) {
     const expiresIso = typeof ent.expires_date === "string" ? ent.expires_date : null;
+    const graceIso =
+      typeof ent.grace_period_expires_date === "string"
+        ? ent.grace_period_expires_date
+        : null;
     let expiresMs: number;
+    let effectiveIso: string | null = expiresIso;
     if (expiresIso === null) {
       // Lifetime / non-expiring grant.
       expiresMs = Number.POSITIVE_INFINITY;
     } else {
       const parsed = Date.parse(expiresIso);
       if (Number.isNaN(parsed)) continue;
-      // Past expiry — skip.
-      if (parsed <= nowMs) continue;
-      expiresMs = parsed;
+      if (parsed > nowMs) {
+        // Regular expiry still in the future — entitlement is active.
+        expiresMs = parsed;
+      } else {
+        // Regular expiry already passed. Check grace period — if RC has
+        // populated `grace_period_expires_date` and it's still in the
+        // future, the user has store-side billing-retry access and we
+        // should treat the entitlement as active until grace expiry.
+        const graceParsed = graceIso !== null ? Date.parse(graceIso) : NaN;
+        if (Number.isNaN(graceParsed) || graceParsed <= nowMs) {
+          // No grace period (or grace already passed) — genuinely expired.
+          continue;
+        }
+        expiresMs = graceParsed;
+        effectiveIso = graceIso;
+      }
     }
     const candidate: ActiveEntitlement = {
-      expiresAt: expiresIso,
+      expiresAt: effectiveIso,
       expiresMs,
       productId: typeof ent.product_identifier === "string" ? ent.product_identifier : null,
     };
@@ -1257,13 +1281,46 @@ serve(async (req) => {
   }
   const ageMs = Date.now() - eventTimestampMs;
   if (ageMs > WEBHOOK_TIMESTAMP_TOLERANCE_MS) {
-    logStep("Event too old (replay window exceeded)", { ageMs, eventTimestampMs }, correlationId);
-    captureWarning("revenuecat_event_too_old", {
-      function: "revenuecat_webhook",
-      age_ms: ageMs,
-      correlation_id: correlationId,
-    });
-    return jsonResponse({ error: "event_too_old", reason: "outside_tolerance" }, 401);
+    // Outside the 5-minute replay window. RevenueCat's documented retry
+    // policy goes out to 80 minutes after a failed first attempt
+    // (https://www.revenuecat.com/docs/integrations/webhooks); rejecting
+    // every late event would permanently drop subscription state on any
+    // transient DB / function outage. Codex round 6 P1: distinguish
+    // "legitimate provider retry of a pending row" from "captured
+    // payload replayed by an attacker" by looking up the event_id. If a
+    // row exists with `processed_at` still NULL, this delivery is a
+    // genuine RC retry — let it through to the idempotency / processing
+    // logic below. Otherwise (no row, or already-processed row) reject
+    // as before. HMAC validation has already passed by this point so an
+    // attacker would need our shared secret to reach this branch
+    // anyway; the pending-row check doesn't materially weaken the
+    // replay surface.
+    const eventIdForReplayCheck = deriveEventId(event);
+    let isLegitimateRetry = false;
+    if (eventIdForReplayCheck) {
+      const { data: existing, error: lookupErr } = await serviceClient
+        .from("revenuecat_events")
+        .select("event_id, processed_at")
+        .eq("event_id", eventIdForReplayCheck)
+        .maybeSingle();
+      if (!lookupErr && existing && !existing.processed_at) {
+        isLegitimateRetry = true;
+      }
+    }
+    if (!isLegitimateRetry) {
+      logStep("Event too old (replay window exceeded, no pending row)", { ageMs, eventTimestampMs }, correlationId);
+      captureWarning("revenuecat_event_too_old", {
+        function: "revenuecat_webhook",
+        age_ms: ageMs,
+        correlation_id: correlationId,
+      });
+      return jsonResponse({ error: "event_too_old", reason: "outside_tolerance" }, 401);
+    }
+    logStep(
+      "Event past replay window — accepting as RC retry of pending row",
+      { ageMs, eventId: eventIdForReplayCheck },
+      correlationId,
+    );
   }
 
   // Sandbox vs production gating. Default to production unless the

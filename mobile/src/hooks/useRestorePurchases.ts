@@ -270,6 +270,24 @@ export function useRestorePurchases() {
       }
       const activeEntitlements = customerInfo.entitlements?.active ?? {};
       if (Object.keys(activeEntitlements).length === 0) {
+        // RC says no active entitlements. We still call sync to make
+        // sure the server-side `subscriptions` row reflects that — if
+        // the webhook missed an EXPIRATION / TRANSFER and the row
+        // still says `plan='premium' / status='active'`, the
+        // post-onSuccess invalidate would refetch the same stale
+        // active row and the user would stay unlocked despite the
+        // empty-state alert. Codex round 6 surfaced the gap. The sync
+        // endpoint runs the same `downgradeSubscriptionToFree` helper
+        // the inactive / 404 branches use; result intentionally
+        // ignored here because regardless of sync outcome the user-
+        // facing UX for empty entitlements is `'no_purchases'`.
+        await syncSubscriptionWithRevenueCat();
+        // Re-check user identity after the sync round-trip — sign-out
+        // mid-sync should suppress the empty-state alert per the same
+        // race-protection contract used in the timeout path below.
+        if (currentUserIdRef.current !== startUserId) {
+          return { status: 'unsupported' };
+        }
         return { status: 'no_purchases' };
       }
 
