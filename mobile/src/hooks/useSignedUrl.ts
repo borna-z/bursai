@@ -428,17 +428,32 @@ export function useGarmentImage(
   const queryClient = useQueryClient();
   const { data: signedUrl } = useSignedUrl(imagePath);
   const [retries, setRetries] = React.useState(0);
+  // Snapshot of the URL that just failed so we can suppress it from the next
+  // <Image> mount until React Query produces a genuinely different one.
+  // Without this, `useSignedUrl` keeps serving the same failed URL while the
+  // post-bust refetch is in flight (TanStack default keeps `data` populated
+  // during refetch). Handing that same URL straight back to <Image> fires
+  // onError again immediately, exhausting the retry budget before the fresh
+  // signed URL ever arrives. (Codex P2 round 1 on PR #774.)
+  const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
 
-  // Reset the retry budget only when the user navigates to a different
-  // garment. Resetting on `signedUrl` change too would re-arm the bust loop
-  // every time we successfully re-mint, defeating the budget on permanently-
-  // broken paths.
+  // Reset the retry budget AND the failed-URL latch only when the user
+  // navigates to a different garment. Resetting on `signedUrl` change too
+  // would re-arm the bust loop every time we successfully re-mint, defeating
+  // the budget on permanently-broken paths.
   React.useEffect(() => {
     setRetries(0);
+    setFailedUrl(null);
   }, [imagePath]);
 
   const giveUp = retries > RETRY_BUDGET;
-  const uri = giveUp ? null : (signedUrl ?? null);
+  // While we're between an onError and the bust → remint completing, the
+  // React Query cache still exposes the old (failed) URL on `signedUrl` —
+  // suppress it so <Image> doesn't immediately re-fire onError on an
+  // unchanged source. Once the refetch produces a different URL,
+  // `failedUrl !== signedUrl` and we hand the fresh URL to <Image>.
+  const isStillFailedUrl = failedUrl !== null && failedUrl === signedUrl;
+  const uri = giveUp || isStillFailedUrl ? null : (signedUrl ?? null);
 
   const onError = React.useCallback(() => {
     if (__DEV__) {
@@ -450,6 +465,12 @@ export function useGarmentImage(
       message: 'garment image load failed',
       data: { imagePath: imagePath ?? null, retries },
     });
+    // Latch the URL that failed so the gate above hides it from <Image>
+    // until React Query mints a different one. `signedUrl` is undefined
+    // only on the initial loading window; in that window <Image> won't
+    // mount in the first place, so onError can't fire — this branch is
+    // defensive against future code paths.
+    if (signedUrl) setFailedUrl(signedUrl);
     if (retries < RETRY_BUDGET && imagePath) {
       // First failure: invalidate the cached signed URL so the next
       // observe re-mints. `bustSignedUrlCache` clears the module Map,
@@ -460,7 +481,7 @@ export function useGarmentImage(
       bustSignedUrlCache(queryClient, imagePath);
     }
     setRetries((r) => r + 1);
-  }, [imagePath, retries, queryClient]);
+  }, [imagePath, retries, queryClient, signedUrl]);
 
   return { uri, onError };
 }
