@@ -356,13 +356,20 @@ export function HomeScreen({
         {/* Lets the user nudge the day-intelligence engine when no calendar
             event is in scope (M36 lands calendar sync). Selecting a pill
             forwards a synthetic event matching `OCCASION_RULES`; "Casual"
-            resets to the default casual baseline. */}
-        <View>
-          <View style={{ marginBottom: 10 }}>
-            <Eyebrow>{tr('home.occasion.eyebrow')}</Eyebrow>
+            resets to the default casual baseline.
+            Self-hides when there's already a planned outfit for today —
+            `SmartDayBanner` self-hides under the same condition (the hero
+            owns the slot), so leaving the picker visible would mean
+            tapping a pill has no visible effect AND would still re-key the
+            hidden `useDaySummary` query for nothing. Codex P2 on PR #771. */}
+        {!todayOutfit ? (
+          <View>
+            <View style={{ marginBottom: 10 }}>
+              <Eyebrow>{tr('home.occasion.eyebrow')}</Eyebrow>
+            </View>
+            <OccasionPicker selected={occasion} onSelect={setOccasion} />
           </View>
-          <OccasionPicker selected={occasion} onSelect={setOccasion} />
-        </View>
+        ) : null}
 
         {/* ============ TODAY'S LOOK HERO ============ */}
         {/* Wrapped in a measurable View so M27's first-run coach overlay
