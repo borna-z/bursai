@@ -144,17 +144,30 @@ export type RootStackParamList = {
   // render-queue job is tagged with where the user actually came in (gallery/camera-tile
   // → 'add_photo'; LiveScan → 'live_scan').
   AddPieceStep1: undefined;
-  AddPieceStep2: { photoUri: string; allUris: string[]; source: AddGarmentSource };
+  // `batch` (M-batch wave) wires the multi-photo path: when present, Step 2
+  // and Step 3 read the analyze + upload result from the batchPipeline module
+  // rather than running them inline, and Step 3 bounces back into Step 2 with
+  // index+1 after Save until the batch is done. Single-photo paths (LiveScan,
+  // 1-photo Step 1) leave `batch` undefined and run the original inline flow.
+  AddPieceStep2: {
+    photoUri: string;
+    allUris: string[];
+    source: AddGarmentSource;
+    batch?: { batchId: string; index: number; total: number };
+  };
   // `storagePath` is nullable so Step 2 can forward the user to Step 3 before the
   // background upload settles (parallel analyze + upload). When null, Step 3 awaits
   // the in-flight upload via `uploadId` against the pendingUpload module before
-  // calling useAddGarment.
+  // calling useAddGarment. In the batch path, `storagePath` is non-null (the
+  // pipeline ensures the upload has landed before marking the item ready) and
+  // `uploadId` is omitted.
   AddPieceStep3: {
     storagePath: string | null;
     uploadId?: string;
     photoUri: string;
     analysis: AnalysisResult;
     source: AddGarmentSource;
+    batch?: { batchId: string; index: number; total: number };
   };
   LiveScan: undefined;
   // M19 — Visual Search reachable from AddPieceStep1's third entry pill.

@@ -1265,6 +1265,13 @@ export const en: Record<string, string> = {
   'addpiece.step2.error.notSignedIn': 'Not signed in',
   'addpiece.step2.error.couldNotAnalyze': 'Could not analyze photo',
   'addpiece.step2.error.uploadFailed': 'Upload failed',
+  // Multi-photo batch (M-batch wave). Active note replaces the older
+  // 'batchNote' copy, which warned that only the first photo would be
+  // analyzed — the new pipeline analyzes every staged photo.
+  'addpiece.step2.batch.activeNote':
+    "We'll walk you through each photo. The next ones are getting ready in the background.",
+  'addpiece.step2.batch.skip': 'Skip this photo',
+  'addpiece.step2.batch.retry': 'Retry',
 
   // Step 3 (review + save)
   'addpiece.step3.headerEyebrow': 'Step 3 of 3',

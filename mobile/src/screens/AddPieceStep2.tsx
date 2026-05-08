@@ -1,30 +1,36 @@
 // Add piece — Step 2 of 3 (parallel analyze + upload).
 //
-// PR 1 changes the wiring from serial to parallel:
-//   1. ImageManipulator resizes the photo once, asking for both the resized
-//      file URI AND the base64 payload in a single pass.
-//   2. analyze({ base64 }) fires immediately — Gemini sees the image without
+// Two paths, gated on whether route.params.batch is set:
+//
+// 1. SINGLE-PHOTO (LiveScan + 1-photo direct entries):
+//    - ImageManipulator resizes the photo once, returning both the resized URI
+//      AND the base64 payload in a single pass.
+//    - analyze({ base64 }) fires immediately — Gemini sees the image without
 //      waiting for the supabase storage upload to land.
-//   3. uploadManipulatedImage(...) starts in parallel; its promise is parked in
+//    - uploadManipulatedImage(...) starts in parallel; its promise is parked in
 //      the pendingUpload module under a uploadId.
-//   4. Once analyze settles, we navigate to Step 3 carrying { uploadId,
+//    - Once analyze settles, we navigate to Step 3 carrying { uploadId,
 //      storagePath: null, analysis }. Step 3's Save handler awaits the parked
 //      promise if storagePath is still null at save time.
 //
-// The serial path used to take ~5s on a 3MB photo over throttled 4G (resize
-// 400ms + read bytes 200ms + upload 1.8s + analyze 2.5s ≈ 4.9s). Parallel cuts
-// that to ~max(upload, analyze) = ~2.5s for the user-visible "until form
-// renders" wait — the upload finishes in the background while they review fields.
+// 2. BATCH (multi-photo — Step 1 with N≥2, OR single-photo Step 1 entries
+//    that opt into the same pipeline so the post-Save flow is unified):
+//    - The batchPipeline already kicked off resize+upload+analyze for this
+//      photo (and the next ~MAX_PARALLEL ahead of it) when Step 1 hit Continue.
+//    - awaitItem() resolves once the analyze + upload pair has settled. If
+//      it landed first (the user took >2s on the previous Step 3), this
+//      resolves immediately; otherwise the loading copy cycles.
+//    - On success, navigate to Step 3 with the resolved storagePath +
+//      analysis already populated. No pendingUpload registration is needed.
+//    - On failure, render an error state with Skip / Retry inline — Skip
+//      advances to the next index (or out of the flow if last), Retry
+//      re-spawns the pipeline work for this index.
 //
 // Cancellation: mountedRef prevents navigate-after-unmount and stale setState
-// writes when the user backs out / Skips while analyze is in flight. The
-// in-flight upload promise is dropped from the pendingUpload module on unmount;
-// if the upload eventually succeeds, its row in storage is orphaned (cleaned up
-// best-effort via deleteUpload when we resolve the promise on a backed-out
-// session).
-//
-// Multi-photo: `allUris` is threaded through but only the first photo is
-// processed in this PR. PR 5 wires the batch flow.
+// writes when the user backs out / Skips while work is in flight. The single-
+// photo path additionally drops its pendingUpload registration on unmount; the
+// batch path leaves item bookkeeping to the pipeline (skipped items get their
+// storage objects best-effort deleted; saved items keep theirs).
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -53,6 +59,13 @@ import {
   makeUploadId,
   setPendingUpload,
 } from '../lib/pendingUpload';
+import {
+  awaitItem as awaitBatchItem,
+  dropBatch,
+  markItemSkipped,
+  nextPendingIndex,
+  retryItem as retryBatchItem,
+} from '../lib/batchPipeline';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -83,6 +96,10 @@ export function AddPieceStep2() {
   const allUris = route.params?.allUris ?? (photoUri ? [photoUri] : []);
   // Default to 'add_photo' for direct/deep-linked entries — Step 1 always supplies one.
   const source = route.params?.source ?? 'add_photo';
+  // Multi-photo batch coordinator state. When set, this Step 2 instance is
+  // showing the loading screen for `batch.index` of `batch.total`; the
+  // pipeline (started in Step 1) owns the resize+upload+analyze work.
+  const batch = route.params?.batch;
 
   const [phase, setPhase] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -107,8 +124,63 @@ export function AddPieceStep2() {
   // calls become no-ops. Without this guard a back-button mid-analyze would teleport
   // the user into Step 3 of an aborted flow.
   const mountedRef = useRef(true);
+  // Batch path: tracks whether this Step 2 mount handed off to another batch
+  // screen via `nav.replace` (forward to Step 3 on success, or replace to the
+  // next pending Step 2 on Skip). When the user backs out of Step 2 with the
+  // hardware/gesture back button instead — bypassing the header close action
+  // that explicitly calls `dropBatch` — the cleanup needs to drop the batch
+  // itself; otherwise background uploads keep running and ready-but-unsaved
+  // storage objects orphan because no later screen owns the batchId.
+  // (Codex P2 round 2 on PR #777.)
+  const handedOffBatchRef = useRef(false);
+
+  // Batch path — wait for the pipeline-owned analyze + upload, then forward
+  // to Step 3 with both already populated. Re-runs on Retry.
+  const runBatchItem = useCallback(async () => {
+    if (!batch) return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    if (mountedRef.current) {
+      setErrorMsg(null);
+      setPhase(0);
+    }
+    try {
+      const item = await awaitBatchItem(batch.batchId, batch.index);
+      if (!mountedRef.current) return;
+      if (!item) {
+        // Batch was dropped out from under us — treat as a discarded session.
+        setErrorMsg(tr('addpiece.step2.error.couldNotAnalyze'));
+        return;
+      }
+      if (item.status === 'failed' || !item.analysis || !item.storagePath) {
+        setErrorMsg(item.errorMessage ?? tr('addpiece.step2.error.couldNotAnalyze'));
+        return;
+      }
+      // Replace (not push) so the back stack stays clean across the
+      // Step 2 ↔ Step 3 oscillation: a batch of N photos shouldn't leave
+      // 2N screens on the stack. Back from any batch screen lands on Step 1.
+      handedOffBatchRef.current = true;
+      nav.replace('AddPieceStep3', {
+        storagePath: item.storagePath,
+        photoUri: item.uri,
+        analysis: item.analysis,
+        source,
+        batch,
+      });
+    } catch (err) {
+      if (!mountedRef.current) return;
+      const msg = err instanceof Error ? err.message : tr('addpiece.step2.error.uploadFailed');
+      setErrorMsg(msg);
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [batch, nav, source]);
 
   const runAnalyzeAndUpload = useCallback(async () => {
+    if (batch) {
+      void runBatchItem();
+      return;
+    }
     if (!photoUri) {
       if (mountedRef.current) setErrorMsg(tr('addpiece.step2.error.noPhoto'));
       return;
@@ -253,7 +325,7 @@ export function AddPieceStep2() {
     } finally {
       inFlightRef.current = false;
     }
-  }, [photoUri, user, analyze, nav, source]);
+  }, [batch, runBatchItem, photoUri, user, analyze, nav, source]);
 
   // Kick off the parallel analyze + upload on mount. Subsequent renders are gated
   // by inFlightRef. Cleanup: mark unmounted (cancellation guard for in-flight
@@ -280,6 +352,14 @@ export function AddPieceStep2() {
       // the shared ref), so the boolean transferred-or-not check on the ref's
       // owner is sufficient here.
       if (!wasTransferred && orphanStorage) void deleteUpload(orphanStorage);
+      // Batch path: if the user backed out of Step 2 without one of the
+      // explicit handoffs (Continue → Step 3, Skip → next Step 2, header
+      // close → dropBatch + nav), tear the batch down so background
+      // uploads stop and any ready-but-unsaved storage objects are deleted.
+      // (Codex P2 round 2 on PR #777.)
+      if (batch && !handedOffBatchRef.current) {
+        dropBatch(batch.batchId);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -304,29 +384,80 @@ export function AddPieceStep2() {
   // still fires correctly — `transferredUploadIdRef.current !== null` means
   // `wasTransferred = true`, so the cleanup skips the orphan-delete path
   // (Step 3 owns the storage object).
+  //
+  // Batch path: Step 2 uses nav.replace to forward to Step 3, so the only
+  // way this focus-effect re-fires is if the user re-entered the screen
+  // from a modal/OAuth round-trip. Don't treat that as abandonment —
+  // batch sequencing relies on nav.replace being authoritative.
   useFocusEffect(
     useCallback(() => {
+      if (batch) return undefined;
       if (transferredUploadIdRef.current !== null) {
         nav.navigate('AddPieceStep1');
       }
       return undefined;
-    }, [nav]),
+    }, [nav, batch]),
   );
 
   const isError = !!errorMsg;
-  const totalCount = allUris.length;
-  const currentIndex = 1; // Single-photo for now; PR 5 wires the batch loop.
+  // Batch path drives the X/Y from the route; single-photo path stays at 1/1
+  // (or 1/N for legacy LiveScan callers that thread allUris but don't run a
+  // batch — the singular copy still applies).
+  const totalCount = batch ? batch.total : allUris.length;
+  const currentIndex = batch ? batch.index + 1 : 1;
   const hasExtras = totalCount > 1;
 
   // Skip / Close — drop the upload registration before bouncing out. The in-flight
   // upload may still resolve in the background; the unmount cleanup handles
   // deletion if the storagePath becomes available before the component fully tears
   // down.
+  //
+  // Batch path: tearing out of Step 2 mid-batch drops the WHOLE batch (best-
+  // effort delete every analyzed-but-unsaved storage object). The user
+  // reviewing item 3-of-5 hitting Close is choosing to walk away from the
+  // remaining items, not just this one. Per-item skip lives on the failed
+  // state below.
   const handleSkip = () => {
+    if (batch) {
+      dropBatch(batch.batchId);
+      nav.navigate('MainTabs');
+      return;
+    }
     const orphanId = uploadIdRef.current;
     uploadIdRef.current = null;
     if (orphanId) dropPendingUpload(orphanId);
     nav.navigate('MainTabs');
+  };
+
+  // Batch-only — user dismisses a failed item and we advance to the next
+  // pending one (or out of the flow if this was the last).
+  const handleSkipFailedBatchItem = () => {
+    if (!batch) return;
+    markItemSkipped(batch.batchId, batch.index);
+    const next = nextPendingIndex(batch.batchId, batch.index);
+    if (next === -1) {
+      dropBatch(batch.batchId);
+      nav.navigate('MainTabs');
+      return;
+    }
+    handedOffBatchRef.current = true;
+    nav.replace('AddPieceStep2', {
+      photoUri: allUris[next] ?? photoUri ?? '',
+      allUris,
+      source,
+      batch: { ...batch, index: next },
+    });
+  };
+
+  // Batch-only — re-spawn the pipeline work for this index and re-await.
+  const handleRetryBatchItem = () => {
+    if (!batch) return;
+    if (!retryBatchItem(batch.batchId, batch.index)) return;
+    if (mountedRef.current) {
+      setErrorMsg(null);
+      setPhase(0);
+    }
+    void runBatchItem();
   };
 
   return (
@@ -353,7 +484,16 @@ export function AddPieceStep2() {
         <ErrorState
           title={tr('addpiece.step2.error.title')}
           body={errorMsg ?? tr('addpiece.step2.error.body')}
-          onRetry={() => void runAnalyzeAndUpload()}
+          onRetry={
+            batch
+              ? handleRetryBatchItem
+              : () => void runAnalyzeAndUpload()
+          }
+          // Batch path adds a Skip-this-photo secondary action so a single
+          // bad photo doesn't sink the whole session — the user advances
+          // to the next pending item or wraps up if this was the last.
+          secondaryActionLabel={batch ? tr('addpiece.step2.batch.skip') : undefined}
+          onSecondaryAction={batch ? handleSkipFailedBatchItem : undefined}
         />
       ) : (
         <View style={s.loadingWrap}>
@@ -387,9 +527,16 @@ export function AddPieceStep2() {
             {tr('addpiece.step2.progress.body')}
           </Caption>
 
-          {/* Honest UX about W5's single-photo limit so the user isn't surprised when
-              their other staged photos vanish after Save. */}
-          {hasExtras ? (
+          {/* Batch active: tell the user the rest are getting ready in the
+              background so they understand why the next photo loads quickly.
+              Legacy single-photo path with allUris > 1 (LiveScan never hits
+              this) falls back to the older 'batchNote' copy that warned
+              about the now-removed single-photo-only limit. */}
+          {hasExtras && batch ? (
+            <Caption style={{ textAlign: 'center', marginTop: 14, opacity: 0.75, maxWidth: 280 }}>
+              {tr('addpiece.step2.batch.activeNote')}
+            </Caption>
+          ) : hasExtras ? (
             <Caption style={{ textAlign: 'center', marginTop: 14, opacity: 0.75, maxWidth: 280 }}>
               {tr('addpiece.step2.progress.batchNote')}
             </Caption>

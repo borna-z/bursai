@@ -50,6 +50,12 @@ import {
   takePendingUpload,
   type PendingUploadPromise,
 } from '../lib/pendingUpload';
+import {
+  dropBatch,
+  markItemSaved,
+  markItemSkipped,
+  nextPendingIndex,
+} from '../lib/batchPipeline';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -156,12 +162,29 @@ export function AddPieceStep3() {
     // the cached promise references the file, so a back-out without save would
     // leak the JPEG forever. Codex round 8 P2 on PR #725.
     const directStoragePath = params?.storagePath ?? null;
+    // Batch context captured at mount (params is stable for the screen
+    // instance via React Navigation). When the user dismisses Step 3 mid-
+    // batch (gesture back, app backgrounding) without going through one of
+    // the explicit drop paths above, we still need to clean up the
+    // remaining pipeline items so they don't leak storage objects.
+    const batchOnMount = params?.batch ?? null;
+    const batchIndex = batchOnMount?.index ?? null;
     return () => {
       // Build the orphan-delete work as a closure so we can either run it now
       // (no save in flight) or defer it until the save settles. The closure
       // re-checks savedRef at invocation time so a successful save no-ops it.
       const runCleanup = () => {
         if (savedRef.current) return;
+        // Batch path: forwarding to next-item OR last-item-saved set savedRef
+        // before nav.replace fired, so this branch only runs when the user
+        // dismissed Step 3 without saving (swipe-back, app suspend mid-flow,
+        // etc). Mark the current item skipped so its storage gets cleaned,
+        // and drop the rest of the batch.
+        if (batchOnMount && batchIndex !== null) {
+          markItemSkipped(batchOnMount.batchId, batchIndex);
+          dropBatch(batchOnMount.batchId);
+          return;
+        }
         // Prefer the cached promise; fall back to taking from the registry if
         // nobody read it yet (early-exit path). takePendingUpload is idempotent
         // — a no-op if Step 2 already cleared the entry on its own unmount path
@@ -328,6 +351,13 @@ export function AddPieceStep3() {
     // pop back. Treat "View existing" as abandoning this new garment: reset
     // the stack the same way handleSave does, so Step 3 unmounts and its
     // cleanup runCleanup fires (savedRef stays false → orphan delete runs).
+    //
+    // Batch path: viewing an existing duplicate also abandons the rest of
+    // the batch. The pipeline cleanup deletes any analyzed-but-unsaved items.
+    if (params?.batch) {
+      markItemSkipped(params.batch.batchId, params.batch.index);
+      dropBatch(params.batch.batchId);
+    }
     nav.reset({
       index: 1,
       routes: [
@@ -414,6 +444,28 @@ export function AddPieceStep3() {
       // first prevents the cleanup from deleting the storage object the saved
       // garment row now references.
       savedRef.current = true;
+      // Batch path — flag the item as saved on the pipeline (so its storage
+      // object is preserved against the next dropBatch sweep) and either
+      // bounce back to Step 2 with the next pending index or wrap up.
+      if (params?.batch) {
+        markItemSaved(params.batch.batchId, params.batch.index);
+        const next = nextPendingIndex(params.batch.batchId, params.batch.index);
+        if (next !== -1) {
+          // Replace forward — back stack stays at [..., AddPieceStep1, current
+          // batch screen]. allUris is threaded through unchanged so Step 2
+          // can render its progress eyebrow.
+          nav.replace('AddPieceStep2', {
+            photoUri: '', // unused on the batch path; pipeline supplies the uri
+            allUris: [],
+            source,
+            batch: { ...params.batch, index: next },
+          });
+          return;
+        }
+        // Last item just landed — drop the pipeline (every item is terminal)
+        // and surface the freshly-saved garment, matching the single-photo UX.
+        dropBatch(params.batch.batchId);
+      }
       // index: 1 makes GarmentDetail the active screen, with MainTabs in the back stack
       // so the swipe-back gesture lands on the home tab. (index: 0 with two routes would
       // surface MainTabs and stash GarmentDetail under it — wrong UX.)
@@ -434,6 +486,16 @@ export function AddPieceStep3() {
       // queued payload owns the storagePath now).
       if (err instanceof OfflineQueuedError) {
         savedRef.current = true;
+        // Batch + offline: the queued payload owns the storagePath, so flag
+        // the item as saved on the pipeline (keeps its storage object out of
+        // the dropBatch cleanup sweep). The remaining batch items are
+        // dropped — replaying them on reconnect would require persisting the
+        // analyze results, which the offline queue doesn't model. The user's
+        // saved-item lands when the network returns; the rest can be re-added.
+        if (params?.batch) {
+          markItemSaved(params.batch.batchId, params.batch.index);
+          dropBatch(params.batch.batchId);
+        }
         Alert.alert(
           tr('addpiece.step3.offline.title'),
           tr('addpiece.step3.offline.body'),
@@ -473,8 +535,19 @@ export function AddPieceStep3() {
   // straight goBack would land the user on a "loading…" screen that never resolves.
   // Round 2 audit (P/O finding) — using nav.navigate to an existing route pops the stack
   // back to it, dropping Step 2 + Step 3 cleanly.
+  //
+  // Batch path: Re-scan abandons the entire multi-photo session — drop the
+  // pipeline so analyzed-but-unsaved items have their storage objects best-
+  // effort cleaned up. The user starts a fresh batch on Step 1.
   const handleRescan = () => {
     hapticLight();
+    if (params?.batch) {
+      // Mark this item skipped first so its analyzed-but-unsaved storage
+      // object is included in the cleanup sweep (markItemSkipped + dropBatch
+      // both invoke deleteUpload on non-saved items).
+      markItemSkipped(params.batch.batchId, params.batch.index);
+      dropBatch(params.batch.batchId);
+    }
     nav.navigate('AddPieceStep1');
   };
 
@@ -490,12 +563,26 @@ export function AddPieceStep3() {
       nav.goBack();
       return;
     }
+    // Batch path: "Discard" abandons the entire session, matching Re-scan
+    // and the Step 2 Close button. Different copy would imply per-item
+    // discard, which the user-facing model doesn't support today (you
+    // either save or skip an analyzed item; you can't "discard the analysis
+    // but keep the photo for the next pass").
+    const onDiscard = () => {
+      if (params?.batch) {
+        markItemSkipped(params.batch.batchId, params.batch.index);
+        dropBatch(params.batch.batchId);
+        nav.navigate('MainTabs');
+        return;
+      }
+      nav.goBack();
+    };
     Alert.alert(
       tr('addpiece.step3.discard.title'),
       tr('addpiece.step3.discard.body'),
       [
         { text: tr('common.cancel'), style: 'cancel' },
-        { text: tr('common.discard'), style: 'destructive', onPress: () => nav.goBack() },
+        { text: tr('common.discard'), style: 'destructive', onPress: onDiscard },
       ],
     );
   };
