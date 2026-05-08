@@ -140,6 +140,14 @@ async function syncSubscriptionWithRevenueCat(
     // / poll-timeout caller falls back to its existing UX.
     return 'pending';
   }
+  // 20s client-side timeout (server-side RC fetch is capped at 10s + a
+  // few hundred ms for the Supabase round-trip; budget extra so a slow
+  // TLS handshake doesn't hang the whole mutation forever). Mirrors
+  // callEdgeFunction's default budget; without it the direct fetch
+  // could wait the full TCP keepalive window on a wedged connection.
+  // Multi-agent round-13 fallback finding.
+  const syncAbort = new AbortController();
+  const syncTimer = setTimeout(() => syncAbort.abort(), 20_000);
   try {
     const response = await fetch(
       `${supabaseUrl}/functions/v1/revenuecat_webhook?action=sync`,
@@ -150,6 +158,7 @@ async function syncSubscriptionWithRevenueCat(
           Authorization: `Bearer ${startAccessToken}`,
         },
         body: '{}',
+        signal: syncAbort.signal,
       },
     );
     // 404 from the edge function = RC has no record of this
@@ -192,7 +201,8 @@ async function syncSubscriptionWithRevenueCat(
     // Unexpected ok=false body without a thrown error — treat as pending.
     return 'pending';
   } catch (err) {
-    // Network / timeout / DNS / TLS errors — all degrade to 'pending'.
+    // Network / timeout / DNS / TLS / abort errors — all degrade to
+    // 'pending'. The AbortError from the 20s timer lands here too.
     Sentry.addBreadcrumb({
       category: 'subscription',
       level: 'warning',
@@ -200,6 +210,8 @@ async function syncSubscriptionWithRevenueCat(
       data: { name: err instanceof Error ? err.name : 'unknown' },
     });
     return 'pending';
+  } finally {
+    clearTimeout(syncTimer);
   }
 }
 

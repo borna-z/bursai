@@ -450,6 +450,35 @@ async function upsertSubscriptionActive(
   eventId: string,
   correlationId: string,
 ): Promise<void> {
+  // SELECT-before-write Stripe protection (mirrors the round-8/11/12
+  // hardening on every other subscription-row write path: the sync
+  // active branch, `markSubscriptionEnded`, `downgradeSubscriptionToFree`).
+  // A user paid via Stripe with an overlapping iOS purchase (re-sub, gift,
+  // promotional crossover) would otherwise have RENEWAL/INITIAL_PURCHASE
+  // / UNCANCELLATION / PRODUCT_CHANGE / NON_RENEWING_PURCHASE / TRANSFER
+  // (new-user side) clobber the Stripe row, silently re-tagging
+  // `stripe_mode='revenuecat'`. The next EXPIRATION/BILLING_ISSUE then
+  // downgrades because the protection marker is gone. Multi-agent
+  // round-13 fallback finding — the last hole in the Stripe-protection
+  // contract.
+  const { data: existingRow, error: selectErr } = await client
+    .from("subscriptions")
+    .select("stripe_mode")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (selectErr) {
+    logStep("Active upsert select-before-write failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
+    throw dbError("subscriptions select", selectErr);
+  }
+  const existingMode = existingRow && typeof existingRow.stripe_mode === "string" ? existingRow.stripe_mode : null;
+  if (existingMode === "live" || existingMode === "test") {
+    logStep("Active upsert skipped — row is Stripe-managed", { userId, existingMode }, correlationId);
+    // Stripe owns this row; the user is paid, so no action needed. Skip
+    // the upsert + mirror + allowance write entirely so the Stripe-
+    // managed allowance and subscription state are preserved.
+    return;
+  }
+
   const periodEnd = parseExpirationMs(event.expiration_at_ms);
   const productId = typeof event.product_id === "string" ? event.product_id : null;
 
