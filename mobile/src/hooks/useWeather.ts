@@ -75,11 +75,25 @@ export async function awaitFreshWeather(
   city: string | null = null,
   timeoutMs: number = WEATHER_AWAIT_TIMEOUT_MS,
 ): Promise<WeatherData | null> {
-  const cached = queryClient.getQueryData<WeatherData>(weatherQueryKey(city));
-  if (cached) return cached;
+  // Honor staleTime — React Query keeps stale entries in the cache until an
+  // unrelated refetch trigger fires, so a screen left open >30 min would
+  // otherwise feed outdated rain/temperature into Generate / Pool. When the
+  // cached entry is fresh (`dataUpdatedAt` within `STALE_MS`), return it
+  // immediately; when stale, fall through to the `ensureQueryData` race so
+  // the cache is refreshed (still bounded by the timeout).
+  // (Codex P2 round 2 on PR #775.)
+  const queryKey = weatherQueryKey(city);
+  const cached = queryClient.getQueryData<WeatherData>(queryKey);
+  if (cached) {
+    const state = queryClient.getQueryState<WeatherData>(queryKey);
+    const dataUpdatedAt = state?.dataUpdatedAt ?? 0;
+    if (dataUpdatedAt > 0 && Date.now() - dataUpdatedAt < STALE_MS) {
+      return cached;
+    }
+  }
   const fetchPromise = queryClient
     .ensureQueryData({
-      queryKey: weatherQueryKey(city),
+      queryKey,
       queryFn: () => fetchWeather(city),
       staleTime: STALE_MS,
     })
