@@ -683,11 +683,18 @@ async function handleEvent(
     "RENEWAL",
     "UNCANCELLATION",
     "PRODUCT_CHANGE",
-    "TRANSFER",
     "NON_RENEWING_PURCHASE",
     "EXPIRATION",
     "BILLING_ISSUE",
   ].includes(type);
+  // NOTE — TRANSFER is intentionally NOT in the isMutation list above.
+  // TRANSFER's payload affects TWO rows (the new-user upsert + each
+  // origin's `markSubscriptionEnded`); a top-level staleness short-
+  // circuit would skip ALL of them. The TRANSFER case below applies
+  // staleness to the new-user upsert per-row and always runs the
+  // origin cleanup (which is idempotent + Stripe-protected). Codex
+  // round 12 P1 — pre-fix the global short-circuit caused delayed
+  // TRANSFER deliveries to leave origin users incorrectly premium.
   if (isMutation && (await isStaleEvent(client, userId, eventTimestampMs))) {
     logStep("Skipping stale (out-of-order) event", { userId, type, eventTimestampMs }, correlationId);
     captureWarning("revenuecat_stale_event", {
@@ -726,7 +733,17 @@ async function handleEvent(
     }
     case "TRANSFER": {
       logStep("Transfer event", { userId }, correlationId);
-      await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
+      // Per-row staleness for the new-user upsert: skip if a newer
+      // event already wrote the row. The origin cleanup below runs
+      // unconditionally because `markSubscriptionEnded` is idempotent
+      // (already-ended row → UPDATE matches no extra state) and the
+      // Stripe-mode SELECT-before-write protects Stripe-paid origins.
+      const newUserStale = await isStaleEvent(client, userId, eventTimestampMs);
+      if (!newUserStale) {
+        await upsertSubscriptionActive(client, userId, event, "active", eventId, correlationId);
+      } else {
+        logStep("TRANSFER: new-user upsert skipped (stale)", { userId }, correlationId);
+      }
       // End the previous user's subscription. RC's contract is that
       // entitlement transferred FROM the originals TO the new user —
       // their subscription is no longer active.
@@ -1128,17 +1145,51 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
   const allowanceKey = `rc_sync_${userId}_${periodTag}`;
 
   if (active) {
-    // Mirror upsertSubscriptionActive — RC says active premium. Use a
-    // synthetic `updated_at` of `now() - WEBHOOK_TIMESTAMP_TOLERANCE_MS`
-    // (5 min ago) instead of wall-clock `now()` so a subsequent RC
-    // event (TRANSFER / RENEWAL / EXPIRATION) with `event_timestamp_ms`
-    // close to wall-clock now isn't classified as stale by
-    // `isStaleEvent`. A `now()` write would override genuine event
-    // timestamps and cause delayed webhooks to be skipped — Codex
-    // round 7. The active-state mirror table (`user_subscriptions`)
-    // gets the same synthetic stamp.
+    // Stripe-mode protection (Codex round 12 P1): if the existing row
+    // is Stripe-managed (`stripe_mode='live'/'test'`), skip the upsert
+    // entirely. Overwriting with `stripe_mode='revenuecat'` would
+    // remove the marker that `markSubscriptionEnded` /
+    // `downgradeSubscriptionToFree` rely on to skip Stripe rows — a
+    // later RC EXPIRATION / BILLING_ISSUE / inactive sync could then
+    // downgrade a valid Stripe subscription. Stripe-paid users with
+    // an active Apple entitlement keep their Stripe ownership; the
+    // sync response still claims success since the user IS active
+    // (just paid via the other channel).
+    const { data: existingRow, error: selectErr } = await serviceClient
+      .from("subscriptions")
+      .select("stripe_mode")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (selectErr) {
+      logStep("Sync: subscriptions select-before-active-upsert failed", { userId, error: selectErr.message, code: selectErr.code }, correlationId);
+      return jsonResponse({ ok: false, reason: "db_transient" }, 500);
+    }
+    const existingMode = existingRow && typeof existingRow.stripe_mode === "string" ? existingRow.stripe_mode : null;
+    if (existingMode === "live" || existingMode === "test") {
+      logStep("Sync: skipping active upsert — row is Stripe-managed", { userId, existingMode }, correlationId);
+      // Don't write `subscriptions` / `user_subscriptions` / allowance.
+      // Stripe's webhook owns this row; we report success so the
+      // client unlocks its UI based on the existing Stripe-paid
+      // state (which the cache invalidate will re-read from the row).
+      logStep("Sync: reconciled (Stripe-preserved)", { userId }, correlationId);
+      return jsonResponse({
+        ok: true,
+        action: "sync",
+        state: { plan: "premium", status: "active", current_period_end: active.expiresAt },
+      }, 200);
+    }
+
+    // Mirror upsertSubscriptionActive — RC says active premium. Use
+    // wall-clock `now()` for `updated_at` (Codex round 12 P1 — the
+    // round-7 synthetic 5-min backdating let older webhook deliveries
+    // overwrite just-synced state). The TRANSFER staleness concern
+    // that round-7 was trying to address is now handled at the event-
+    // routing level: TRANSFER applies its own per-row staleness check
+    // for the new-user upsert and runs origin cleanup
+    // unconditionally, so a delayed TRANSFER no longer needs the
+    // sync's `updated_at` to be backdated.
     const periodEnd = active.expiresAt;
-    const syntheticIso = new Date(Date.now() - WEBHOOK_TIMESTAMP_TOLERANCE_MS).toISOString();
+    const nowIso = new Date().toISOString();
     const row: Partial<SubscriptionsTable> & { user_id: string; stripe_mode?: string } = {
       user_id: userId,
       status: "active",
@@ -1146,7 +1197,7 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
       price_id: active.productId,
       current_period_end: periodEnd,
       stripe_mode: RC_STRIPE_MODE_MARKER,
-      updated_at: syntheticIso,
+      updated_at: nowIso,
     };
     const { error } = await serviceClient
       .from("subscriptions")
@@ -1161,7 +1212,7 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
     }
     await serviceClient
       .from("user_subscriptions")
-      .update({ plan: row.plan, updated_at: syntheticIso })
+      .update({ plan: row.plan, updated_at: nowIso })
       .eq("user_id", userId);
     const allowanceResult = await setMonthlyAllowance(
       serviceClient,
@@ -1214,13 +1265,14 @@ async function handleSyncRequest(req: Request, serviceClient: SupabaseClient): P
  * `stripe_mode='revenuecat' OR stripe_mode IS NULL` so Stripe-paid
  * users are unaffected by RC sync.
  *
- * `updated_at` is intentionally set to `Date.now() -
- * WEBHOOK_TIMESTAMP_TOLERANCE_MS` (5 min ago) rather than wall-clock
- * `now()` so a subsequent RC TRANSFER / RENEWAL webhook (whose
- * `event_timestamp_ms` is "now-ish") doesn't get classified as stale
- * by `isStaleEvent`. Wall-clock `now()` here would poison the
- * staleness check and cause delayed webhooks to be skipped — the
- * origin-user `markSubscriptionEnded` for a TRANSFER would never run.
+ * `updated_at` is set to wall-clock `now()`. The original round-7
+ * synthetic 5-min-backdate was reverted by Codex round 12 P1 — older
+ * webhook deliveries within the replay window could overwrite just-
+ * synced state. The TRANSFER staleness concern that motivated the
+ * backdate is now handled at the event-routing level: TRANSFER applies
+ * staleness to its new-user upsert per-row and always runs origin
+ * cleanup unconditionally (origin cleanup is idempotent + Stripe-
+ * protected, so re-running it is safe).
  *
  * Returns `{ ok }` so the caller can propagate a non-2xx when the
  * downgrade fails — without that, the client maps a successful 200
@@ -1266,17 +1318,18 @@ async function downgradeSubscriptionToFree(
     return { ok: true, skipped: true };
   }
 
-  // Synthetic timestamp: 5 minutes in the past. A genuine RC event will
-  // have `event_timestamp_ms` close to wall-clock now, which is newer
-  // than this — so the staleness guard will let it through.
-  const syntheticIso = new Date(Date.now() - WEBHOOK_TIMESTAMP_TOLERANCE_MS).toISOString();
+  // Wall-clock `now()` for the staleness watermark — see header
+  // doc-block. TRANSFER's per-row staleness handling decoupled the
+  // sync watermark from the staleness-comparison-against-future-
+  // webhooks concern.
+  const nowIso = new Date().toISOString();
   const { error: updErr } = await serviceClient
     .from("subscriptions")
     .update({
       status: "canceled",
       plan: "free",
       stripe_mode: RC_STRIPE_MODE_MARKER,
-      updated_at: syntheticIso,
+      updated_at: nowIso,
     })
     .eq("user_id", userId);
   if (updErr) {
@@ -1285,7 +1338,7 @@ async function downgradeSubscriptionToFree(
   }
   await serviceClient
     .from("user_subscriptions")
-    .update({ plan: "free", updated_at: syntheticIso })
+    .update({ plan: "free", updated_at: nowIso })
     .eq("user_id", userId);
   const allowanceResult = await setMonthlyAllowance(serviceClient, userId, 0, allowanceKey);
   if (!allowanceResult.ok && !allowanceResult.duplicate) {
