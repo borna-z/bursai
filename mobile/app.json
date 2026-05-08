@@ -89,6 +89,7 @@
         "expo-camera",
         {
           "cameraPermission": "BURS uses the camera to scan and add garments to your wardrobe.",
+          "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],
