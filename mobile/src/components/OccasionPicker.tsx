@@ -9,7 +9,7 @@
 // letting the engine fall back to its default casual baseline.
 
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 
 import { Chip } from './Chip';
 import type { DayEventInput } from '../lib/dayIntelligence';
@@ -56,13 +56,12 @@ export function OccasionPicker({ selected, onSelect }: OccasionPickerProps) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
       {OPTIONS.map((opt) => (
-        <View key={opt.id}>
-          <Chip
-            label={t(opt.labelKey)}
-            active={opt.id === selected}
-            onPress={() => onSelect(opt.id)}
-          />
-        </View>
+        <Chip
+          key={opt.id}
+          label={t(opt.labelKey)}
+          active={opt.id === selected}
+          onPress={() => onSelect(opt.id)}
+        />
       ))}
     </ScrollView>
   );

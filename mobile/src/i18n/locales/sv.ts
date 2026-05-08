@@ -1039,4 +1039,17 @@ export const sv: Record<string, string> = {
   'weather.condition.snow_showers': 'Snöbyar',
   'weather.condition.thunder': 'Åska',
   'weather.condition.unknown': '—',
+
+  // Home — "Ask the stylist" affordance seed copy. The seed renders as the
+  // visible suggestion text on the row before the user has any chat history.
+  'home.askStylist.exampleSeed': 'Vad passar till mina linnebyxor?',
+  'home.askStylist.tapHint': 'Tryck för att chatta — anpassat till dig',
+
+  // Home — Smart day banner fallback strings. Used when `summarize_day`
+  // returns null and we still want a coherent, localized banner.
+  'home.smartDay.eyebrowTemplate': '{weekday} · {context}',
+  'home.smartDay.fallback.eyebrow': '{weekday}',
+  'home.smartDay.fallback.title': 'Välj det som känns rätt idag.',
+  'home.smartDay.tapHint': 'Visa outfiten',
+  'home.smartDay.openHint': 'Öppnar outfitens detaljer',
 };

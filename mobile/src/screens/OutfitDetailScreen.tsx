@@ -334,9 +334,17 @@ export function OutfitDetailScreen() {
         const stored = await AsyncStorage.getItem(anchorStorageKey(user.id, outfit.id));
         if (cancelled) return;
         setAnchorGarmentId(stored && stored.length > 0 ? stored : null);
-      } catch {
+      } catch (err) {
         // AsyncStorage outages shouldn't break the screen — the slot rows
         // simply render without a lock pill until the next read succeeds.
+        // Drop a breadcrumb so a recurring storage failure surfaces in
+        // Sentry instead of being silently swallowed.
+        Sentry.addBreadcrumb({
+          category: 'storage',
+          level: 'warning',
+          message: 'OutfitDetail: anchor read failed',
+          data: { error: err instanceof Error ? err.message : String(err) },
+        });
       }
     })();
     return () => {
@@ -356,6 +364,14 @@ export function OutfitDetailScreen() {
         }
         setAnchorGarmentId(garmentId);
       } catch (err) {
+        // The Alert below tells the user; also drop a breadcrumb so a
+        // recurring write failure shows up in Sentry traces.
+        Sentry.addBreadcrumb({
+          category: 'storage',
+          level: 'warning',
+          message: 'OutfitDetail: anchor write failed',
+          data: { error: err instanceof Error ? err.message : String(err) },
+        });
         Alert.alert(
           'Could not save anchor',
           err instanceof Error ? err.message : 'Please try again.',
