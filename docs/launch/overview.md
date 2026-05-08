@@ -12,8 +12,8 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | M35 — Home depth (smart day banner + weather) |
-| **CURRENT WAVE FILE** | [`waves/m35-home-depth.md`](waves/m35-home-depth.md) |
+| **CURRENT WAVE** | M36 — Calendar sync (Google OAuth) |
+| **CURRENT WAVE FILE** | [`waves/m36-calendar-sync.md`](waves/m36-calendar-sync.md) |
 | **STATUS** | TODO |
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
@@ -150,7 +150,7 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 ### Path B extra screens
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M35 | [Home depth (smart day banner + weather)](waves/m35-home-depth.md) | TODO | V0, M15 |
+| M35 | [Home depth (smart day banner + weather)](waves/m35-home-depth.md) | DONE (PR #771) | V0, M15 |
 | M36 | [Calendar sync (Google OAuth)](waves/m36-calendar-sync.md) | TODO | V0 |
 | M37 | [Outfit detail slots (full composition + anchor UI)](waves/m37-outfit-detail-slots.md) | TODO | V0, M13 |
 | M38 | [SettingsStyle 8-section editor](waves/m38-settings-style.md) | TODO | V0, M29 |

@@ -28,7 +28,10 @@ import { Eyebrow } from './Eyebrow';
 import { PageTitle } from './PageTitle';
 import { Caption } from './Caption';
 import { OutfitCard } from './OutfitCard';
-import { useSmartDayRecommendation } from '../hooks/useSmartDayRecommendation';
+import {
+  useSmartDayRecommendation,
+  type UseSmartDayRecommendationOverrides,
+} from '../hooks/useSmartDayRecommendation';
 import { useDaySummary } from '../hooks/useDaySummary';
 import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit } from '../hooks/usePlannedOutfits';
@@ -61,11 +64,25 @@ function buildContextLabel(occasion: string | undefined, temperature: number | u
   return parts.length === 0 ? null : parts.join(' · ');
 }
 
-export function SmartDayBanner() {
+export interface SmartDayBannerProps {
+  /** Optional overrides forwarded to `useSmartDayRecommendation` so HomeScreen
+   *  can plumb real weather (M35) and synthetic occasion events through the
+   *  scoring engine without the banner needing to know about either source. */
+  overrides?: UseSmartDayRecommendationOverrides;
+}
+
+export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
   const tokens = useTokens();
   const nav = useNavigation<BannerNav>();
-  const recommendation = useSmartDayRecommendation();
-  const summary = useDaySummary();
+  const recommendation = useSmartDayRecommendation(overrides);
+  // Forward the same overrides into the AI summary so its queryKey hash
+  // changes when the user picks an occasion or weather loads — otherwise
+  // the summary line stayed keyed on `noevents/noweather` and the eyebrow
+  // diverged from the recommendation engine. Codex P2 on PR #771.
+  const summary = useDaySummary({
+    events: overrides?.events,
+    weather: overrides?.weather,
+  });
   // Read planned-outfit state directly so the banner self-gates: when the
   // user has a real planned look for today, the existing today's-look hero
   // owns the "today's pick" intent and a second banner above it is just

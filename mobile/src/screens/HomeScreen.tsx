@@ -15,24 +15,27 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { SmartDayBanner } from '../components/SmartDayBanner';
+import { WeatherStrip } from '../components/WeatherStrip';
+import { OccasionPicker, eventsForOccasion, type OccasionId } from '../components/OccasionPicker';
 import { PlanCardSkeleton, StatRowSkeleton } from '../components/skeletons';
 import {
   ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
-  SunIcon, ChevronIcon, SparklesIcon,
+  ChevronIcon, SparklesIcon,
 } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useFlatGarments } from '../hooks/useGarments';
 import { useGarmentCount } from '../hooks/useGarmentCount';
 import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
-import { useMarkOutfitWorn } from '../hooks/useOutfits';
+import { useMarkOutfitWorn, useOutfits } from '../hooks/useOutfits';
+import { useWeather } from '../hooks/useWeather';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
@@ -133,6 +136,43 @@ export function HomeScreen({
   const week = React.useMemo(() => buildMiniWeek(now, plannedDatesSet), [now, plannedDatesSet]);
 
   const markWorn = useMarkOutfitWorn();
+
+  // M35 — weather + occasion state. Both feed `SmartDayBanner` via its M35
+  // `overrides` prop so the day-intelligence engine sees real data instead of
+  // the FALLBACK_WEATHER placeholder.
+  //
+  // `useWeather` is also called inside `WeatherStrip` below, but React Query's
+  // de-dupe means the second subscription is free — both share the same
+  // `['weather', null]` cache entry on a 30-min stale window.
+  const { weather } = useWeather();
+  const smartDayWeather = React.useMemo(
+    () =>
+      weather
+        ? {
+            temperature: weather.temperature,
+            // Day-intelligence reads precipitation / wind as free-form text
+            // and matches against substrings — passing the bucket label
+            // ('rain' / 'snow' / 'none') is enough to trigger the rain/snow
+            // rules in `dayIntelligence.normalizeText`.
+            precipitation: weather.precipitation,
+            wind: weather.wind,
+          }
+        : null,
+    [weather],
+  );
+  const [occasion, setOccasion] = React.useState<OccasionId>('casual');
+  const occasionEvents = React.useMemo(() => eventsForOccasion(occasion), [occasion]);
+
+  // M35 — Recent outfits row. Pulls saved outfits ordered by `created_at`
+  // desc and renders the most recent 8 in a horizontal scroll. Distinct
+  // surface from the today's-look hero (which is a *planned* outfit for
+  // today) — the row surfaces what the user has been building lately so
+  // they can re-wear something without going through Outfits.
+  const recentOutfitsQ = useOutfits(true);
+  const recentOutfits = React.useMemo(
+    () => (recentOutfitsQ.data ?? []).slice(0, 8),
+    [recentOutfitsQ.data],
+  );
 
   // Mirror OutfitDetail's logic: "worn today" is true iff outfit.worn_at is a
   // valid timestamp that falls on today (local date). The previous proxy of
@@ -277,13 +317,10 @@ export function HomeScreen({
             <PageTitle>{greeting}{firstName ? `, ${firstName}` : ''}</PageTitle>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 2 }}>
-            {/* M41: weather pill is non-interactive until Notifications inbox lands.
-                Render as a plain View so Pressable's press-state styling doesn't
-                fire on a no-op tap. */}
-            <View style={[s.weatherPill, { borderColor: t.border, backgroundColor: t.card }]}>
-              <SunIcon color={t.fg} />
-              <Text style={[s.weatherText, { color: t.fg, fontFamily: fonts.uiMed }]}>14°</Text>
-            </View>
+            {/* M35: the static placeholder weather pill that lived here was
+                replaced by the live `WeatherStrip` section below the header.
+                The pill's slot is left empty so the avatar still floats
+                cleanly on the right — no spacer needed. */}
             <Pressable
               accessibilityLabel="Profile"
               onPress={push('Profile')}
@@ -295,12 +332,44 @@ export function HomeScreen({
           </View>
         </View>
 
-        {/* ============ SMART DAY BANNER (M15) ============ */}
+        {/* ============ WEATHER STRIP (M35) ============ */}
+        {/* Live conditions from Open-Meteo; self-hides while loading or on
+            error so the page doesn't flash a dead slot. Forwards weather to
+            SmartDayBanner via the day-intelligence override below. */}
+        <WeatherStrip />
+
+        {/* ============ SMART DAY BANNER (M15 + M35 weather/occasion) ============ */}
         {/* Day-intelligence engine: ranks today's outfit against weather +
             calendar context. Renders above the existing today's-look hero
             card; hides itself on engine error / empty wardrobe so the hero
-            below always remains the primary surface. */}
-        <SmartDayBanner />
+            below always remains the primary surface. M35 plumbs real
+            weather + the user's occasion pick into the engine via
+            `overrides`. */}
+        <SmartDayBanner
+          overrides={{
+            weather: smartDayWeather,
+            events: occasionEvents,
+          }}
+        />
+
+        {/* ============ OCCASION PICKER (M35) ============ */}
+        {/* Lets the user nudge the day-intelligence engine when no calendar
+            event is in scope (M36 lands calendar sync). Selecting a pill
+            forwards a synthetic event matching `OCCASION_RULES`; "Casual"
+            resets to the default casual baseline.
+            Self-hides when there's already a planned outfit for today —
+            `SmartDayBanner` self-hides under the same condition (the hero
+            owns the slot), so leaving the picker visible would mean
+            tapping a pill has no visible effect AND would still re-key the
+            hidden `useDaySummary` query for nothing. Codex P2 on PR #771. */}
+        {!todayOutfit ? (
+          <View>
+            <View style={{ marginBottom: 10 }}>
+              <Eyebrow>{tr('home.occasion.eyebrow')}</Eyebrow>
+            </View>
+            <OccasionPicker selected={occasion} onSelect={setOccasion} />
+          </View>
+        ) : null}
 
         {/* ============ TODAY'S LOOK HERO ============ */}
         {/* Wrapped in a measurable View so M27's first-run coach overlay
@@ -378,6 +447,35 @@ export function HomeScreen({
           )}
         </Card>
         </View>
+
+        {/* ============ RECENT OUTFITS ROW (M35) ============ */}
+        {recentOutfits.length > 0 ? (
+          <View>
+            <View style={s.sectionHead}>
+              <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>
+                {tr('home.recent.eyebrow')}
+              </Text>
+              <Pressable
+                onPress={push('Outfits')}
+                accessibilityLabel={tr('home.recent.eyebrow')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                <ChevronIcon color={t.accent} />
+              </Pressable>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+              {recentOutfits.map((outfit) => (
+                <RecentOutfitTile
+                  key={outfit.id}
+                  outfit={outfit}
+                  onPress={() => nav.navigate('OutfitDetail', { id: outfit.id })}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* ============ YOUR STYLIST GRID ============ */}
         <Section title="Your Stylist">
@@ -630,6 +728,70 @@ function MiniWeek({ days, onPress }: { days: WeekDay[]; onPress: () => void }) {
   );
 }
 
+// M35 — single tile in the horizontal "Recent outfits" carousel below the
+// hero. Reuses the same gradient-thumb recipe as the hero (`outfitGradientHue`)
+// so the visual rhythm carries through. Width is fixed so the row scrolls
+// rather than wraps on long outfit lists.
+function RecentOutfitTile({
+  outfit,
+  onPress,
+}: {
+  outfit: OutfitWithItems;
+  onPress: () => void;
+}) {
+  const t = useTokens();
+  const hue = outfitGradientHue(outfit.id);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        s.recentTile,
+        {
+          borderColor: t.border,
+          backgroundColor: t.card,
+          transform: pressed ? [{ scale: 0.98 }] : [],
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={outfitDisplayName(outfit)}>
+      <View style={s.recentThumb}>
+        <LinearGradient
+          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+      </View>
+      <View style={{ paddingHorizontal: 10, paddingVertical: 8, gap: 2 }}>
+        <Text
+          style={{
+            fontFamily: fonts.uiSemi,
+            fontSize: 9,
+            letterSpacing: 1.5,
+            color: t.fg2,
+            textTransform: 'uppercase',
+          }}
+          numberOfLines={1}>
+          {(outfit.occasion || outfit.style_vibe || tr('home.recent.savedFallback')).toUpperCase()}
+        </Text>
+        <Text
+          style={{
+            fontFamily: fonts.displayMedium,
+            fontStyle: 'italic',
+            fontSize: 13.5,
+            lineHeight: 16,
+            fontWeight: '500',
+            letterSpacing: -0.13,
+            color: t.fg,
+          }}
+          numberOfLines={1}>
+          {outfitDisplayName(outfit)}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 function RhythmStat({ num, label, onPress }: { num: string; label: string; onPress: () => void }) {
   const t = useTokens();
   return (
@@ -648,16 +810,6 @@ function RhythmStat({ num, label, onPress }: { num: string; label: string; onPre
 
 const s = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
-  weatherPill: {
-    height: 32,
-    paddingHorizontal: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-  },
-  weatherText: { fontSize: 12, fontWeight: '500' },
   avatarWrap: { /* hit area */ },
   avatar: {
     width: 32,
@@ -739,5 +891,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
+  },
+  recentTile: {
+    width: 130,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  recentThumb: {
+    width: '100%',
+    aspectRatio: 1,
   },
 });
