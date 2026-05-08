@@ -6,8 +6,8 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M32 — Restore Purchases |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m32-restore-purchases.md` |
+| **CURRENT WAVE** | M36 — Calendar sync (Google OAuth) |
+| **CURRENT WAVE FILE** | `docs/launch/waves/m36-calendar-sync.md` |
 | **STATUS** | TODO |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.

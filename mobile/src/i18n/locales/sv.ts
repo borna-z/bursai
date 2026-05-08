@@ -997,4 +997,26 @@ export const sv: Record<string, string> = {
   'travelGarmentPicker.empty.body':
     'Lägg till plagg i din garderob innan du bygger en kapsel.',
   'travelGarmentPicker.empty.cta': 'Lägg till ett plagg',
+
+  // ─── Home — Weather strip + Occasion picker + Recent outfits (M35) ────
+  'home.weather.eyebrow': 'Idag',
+  'home.weather.tomorrowTemplate': 'Imorgon {high}° / {low}° · {condition}',
+  'home.occasion.eyebrow': 'Vad gäller dagen?',
+  'home.occasion.casual': 'Vardag',
+  'home.occasion.work': 'Jobb',
+  'home.occasion.party': 'Fest',
+  'home.occasion.workout': 'Träning',
+  'home.occasion.dinner': 'Middag',
+  'home.recent.eyebrow': 'Senaste outfits',
+  'home.recent.empty': 'Sparade looks landar här.',
+  'weather.condition.clear': 'Klart',
+  'weather.condition.cloudy': 'Molnigt',
+  'weather.condition.fog': 'Dimma',
+  'weather.condition.drizzle': 'Duggregn',
+  'weather.condition.rain': 'Regn',
+  'weather.condition.snow': 'Snö',
+  'weather.condition.rain_showers': 'Regnskurar',
+  'weather.condition.snow_showers': 'Snöbyar',
+  'weather.condition.thunder': 'Åska',
+  'weather.condition.unknown': '—',
 };

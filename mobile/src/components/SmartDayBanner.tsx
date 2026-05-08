@@ -28,7 +28,10 @@ import { Eyebrow } from './Eyebrow';
 import { PageTitle } from './PageTitle';
 import { Caption } from './Caption';
 import { OutfitCard } from './OutfitCard';
-import { useSmartDayRecommendation } from '../hooks/useSmartDayRecommendation';
+import {
+  useSmartDayRecommendation,
+  type UseSmartDayRecommendationOverrides,
+} from '../hooks/useSmartDayRecommendation';
 import { useDaySummary } from '../hooks/useDaySummary';
 import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit } from '../hooks/usePlannedOutfits';
@@ -61,10 +64,17 @@ function buildContextLabel(occasion: string | undefined, temperature: number | u
   return parts.length === 0 ? null : parts.join(' · ');
 }
 
-export function SmartDayBanner() {
+export interface SmartDayBannerProps {
+  /** Optional overrides forwarded to `useSmartDayRecommendation` so HomeScreen
+   *  can plumb real weather (M35) and synthetic occasion events through the
+   *  scoring engine without the banner needing to know about either source. */
+  overrides?: UseSmartDayRecommendationOverrides;
+}
+
+export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
   const tokens = useTokens();
   const nav = useNavigation<BannerNav>();
-  const recommendation = useSmartDayRecommendation();
+  const recommendation = useSmartDayRecommendation(overrides);
   const summary = useDaySummary();
   // Read planned-outfit state directly so the banner self-gates: when the
   // user has a real planned look for today, the existing today's-look hero

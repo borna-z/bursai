@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Bring HomeScreen up to web parity: real weather strip, occasion picker, smart day recommendation card, recent outfits row. |
-| Status | TODO |
+| Status | DONE (PR #PR_NUM) |
 | Branch | `mobile-m35-home-depth` |
 | PR count | 1 |
 | Depends on | V0, M15 |

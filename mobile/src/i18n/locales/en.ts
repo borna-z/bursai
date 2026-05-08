@@ -318,6 +318,28 @@ export const en: Record<string, string> = {
   'home.smartDay.tapHint': 'View this outfit',
   'home.smartDay.openHint': 'Opens outfit details',
 
+  // ─── Home — Weather strip + Occasion picker + Recent outfits (M35) ────
+  'home.weather.eyebrow': 'Today',
+  'home.weather.tomorrowTemplate': 'Tomorrow {high}° / {low}° · {condition}',
+  'home.occasion.eyebrow': "What's the day for?",
+  'home.occasion.casual': 'Casual',
+  'home.occasion.work': 'Work',
+  'home.occasion.party': 'Party',
+  'home.occasion.workout': 'Workout',
+  'home.occasion.dinner': 'Dinner',
+  'home.recent.eyebrow': 'Recent outfits',
+  'home.recent.empty': 'Saved looks land here.',
+  'weather.condition.clear': 'Clear',
+  'weather.condition.cloudy': 'Cloudy',
+  'weather.condition.fog': 'Fog',
+  'weather.condition.drizzle': 'Drizzle',
+  'weather.condition.rain': 'Rain',
+  'weather.condition.snow': 'Snow',
+  'weather.condition.rain_showers': 'Rain showers',
+  'weather.condition.snow_showers': 'Snow showers',
+  'weather.condition.thunder': 'Thunder',
+  'weather.condition.unknown': '—',
+
   // ─── Outfit pool + week generator (M16) ────────────────────────────────
   'outfitPool.title': 'Outfit Pool',
   'outfitPool.progressTemplate': '{n} of {total} ready',
