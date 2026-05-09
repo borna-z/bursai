@@ -151,6 +151,160 @@ export class BursAIError extends Error {
   }
 }
 
+/**
+ * Thrown by `callBursAI` when the calling user has exceeded their
+ * per-month AI token cost ceiling (`subscriptions.monthly_token_quota_micros`).
+ *
+ * N2: enforced as a HARD ceiling on cumulative `ai_token_usage.cost_micros`
+ * for the current calendar month. The check runs AFTER `enforceRateLimit`
+ * (call-count rate limiting) but BEFORE the network call to Gemini, so a
+ * user who has already burned through their budget cannot incur further
+ * cost on this isolate. Cost units are USD micros (1 micro = $0.000001) to
+ * avoid floating-point accumulation drift across many small writes.
+ *
+ * Status code 402 mirrors the existing `BursAIError("AI credits exhausted",
+ * 402)` for upstream Gemini credit exhaustion — the user-facing error
+ * message is intentionally similar so client code that already handles 402
+ * for one of the two paths handles the other automatically.
+ */
+export class AIQuotaExceededError extends Error {
+  status = 402;
+  /** USD micros consumed in the current month. */
+  spentMicros: number;
+  /** USD micros allowed per month. */
+  quotaMicros: number;
+  constructor(spentMicros: number, quotaMicros: number) {
+    super(
+      `AI usage quota exceeded for this month (${spentMicros} >= ${quotaMicros} micros). ` +
+      `Quota resets on the 1st.`,
+    );
+    this.name = "AIQuotaExceededError";
+    this.spentMicros = spentMicros;
+    this.quotaMicros = quotaMicros;
+  }
+}
+
+/**
+ * Per-model Gemini OpenAI-compat pricing (USD per 1M tokens) — N2 cost
+ * ceiling source-of-truth. Mirror of `COST_PER_MILLION` further down in
+ * this file; pulled to top-level so the pre-call quota check can use the
+ * same constants without forward-reference gymnastics. The two
+ * declarations must stay in sync — review the duplicate guard test in
+ * `__tests__/burs-ai-cost.test.ts`.
+ */
+const GEMINI_COST_PER_MILLION_TOP: Record<string, { input: number; output: number }> = {
+  "gemini-2.5-flash":      { input: 0.15, output: 0.60 },
+  "gemini-2.5-flash-lite": { input: 0.075, output: 0.30 },
+};
+
+/**
+ * Convert (inputTokens, outputTokens, model) to USD micros. Falls back to
+ * the `gemini-2.5-flash` rate when the model is unknown so we never under-
+ * count cost for an unrecognized fallback model.
+ */
+export function computeCostMicros(
+  inputTokens: number,
+  outputTokens: number,
+  model: string,
+): number {
+  const rates = GEMINI_COST_PER_MILLION_TOP[model] ?? GEMINI_COST_PER_MILLION_TOP["gemini-2.5-flash"];
+  const usd = (inputTokens * rates.input + outputTokens * rates.output) / 1_000_000;
+  // Round-half-up to integer micros. JS Math.round rounds half-to-even on
+  // some implementations of Decimal, but Math.round(x) on a float here
+  // is half-away-from-zero (which is what we want — we'd rather over-count
+  // by 1 micro than under-count and let a user squeak past the ceiling).
+  return Math.round(usd * 1_000_000);
+}
+
+/**
+ * Resolve the calling user's monthly AI token cost ceiling and the cost
+ * already incurred this calendar month. Returns null on either query
+ * error (fail-OPEN): N2 enforces the ceiling but must NEVER block a paying
+ * user because of a transient DB read failure. The post-call insert into
+ * `ai_token_usage` still records the cost, so the next request after the
+ * DB recovers correctly enforces the ceiling.
+ *
+ * Quota interpretation: NULL → no enforcement (legacy rows pre-N2 seed).
+ * `subscriptions.monthly_token_quota_micros` is set by the N2 migration
+ * (20260509190001_ai_token_usage.sql) with per-plan defaults.
+ */
+export async function readUsageBudget(
+  supabase: any,
+  userId: string,
+): Promise<{ quotaMicros: number | null; spentMicros: number } | null> {
+  if (!supabase || !userId) return null;
+  try {
+    const { data: subRow, error: subErr } = await supabase
+      .from("subscriptions")
+      .select("monthly_token_quota_micros")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (subErr) {
+      console.warn("burs-ai: quota read failed (fail-open):", subErr.message);
+      return null;
+    }
+    const quotaMicros = subRow && typeof (subRow as { monthly_token_quota_micros?: unknown }).monthly_token_quota_micros === "number"
+      ? (subRow as { monthly_token_quota_micros: number }).monthly_token_quota_micros
+      : null;
+
+    // Sum cost_micros for the current calendar month. Compute month start
+    // in UTC so users in different timezones don't get half-month grants.
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+    const { data: usageRows, error: usageErr } = await supabase
+      .from("ai_token_usage")
+      .select("cost_micros")
+      .eq("user_id", userId)
+      .gte("occurred_at", monthStart);
+    if (usageErr) {
+      console.warn("burs-ai: usage sum failed (fail-open):", usageErr.message);
+      return null;
+    }
+    let spentMicros = 0;
+    if (Array.isArray(usageRows)) {
+      for (const row of usageRows as Array<{ cost_micros?: number | null }>) {
+        const v = row?.cost_micros;
+        if (typeof v === "number" && Number.isFinite(v)) spentMicros += v;
+      }
+    }
+    return { quotaMicros, spentMicros };
+  } catch (err) {
+    console.warn("burs-ai: readUsageBudget threw (fail-open):", err);
+    return null;
+  }
+}
+
+/**
+ * Append a row to `ai_token_usage`. Fire-and-forget — observability writes
+ * must NEVER block the user-facing AI response path. Mirrors the
+ * `analytics_events` insert pattern further down in this file.
+ */
+function recordTokenUsage(
+  supabase: any,
+  userId: string | undefined,
+  functionName: string | undefined,
+  inputTokens: number,
+  outputTokens: number,
+  costMicros: number,
+): void {
+  if (!supabase || !userId) return;
+  try {
+    supabase
+      .from("ai_token_usage")
+      .insert({
+        user_id: userId,
+        function_name: functionName ?? "unknown",
+        input_tokens: Math.max(0, Math.floor(inputTokens)),
+        output_tokens: Math.max(0, Math.floor(outputTokens)),
+        cost_micros: Math.max(0, Math.floor(costMicros)),
+      })
+      .then(() => {});
+  } catch {
+    // Never block on observability.
+  }
+}
+
 // ─── Smart Token Estimation ───────────────────────────────────
 export function estimateMaxTokens(opts: {
   inputItems?: number;
@@ -677,6 +831,39 @@ export async function callBursAI(
     let gatewayHad5xxOrTimeout = false;
     const body = buildBody();
 
+    // ── N2: AI cost ceiling ───────────────────────────────────
+    // Check the user's per-month quota BEFORE issuing the network
+    // call. We only run this when both `userId` and a service client
+    // are present — anonymous calls and cache-only paths bypass.
+    // This sits AFTER the cache-hit short-circuit (a cached response
+    // is free, so don't block on quota for it) and BEFORE the dedup
+    // wrapper (an in-flight identical call has already paid the
+    // network cost — sharing it doesn't add user spend). Fail-open
+    // on DB read errors per `readUsageBudget`'s contract.
+    if (options.userId && supabaseServiceClient) {
+      const budget = await readUsageBudget(supabaseServiceClient, options.userId);
+      if (budget && budget.quotaMicros !== null && budget.spentMicros >= budget.quotaMicros) {
+        log.warn("quota.exceeded", {
+          functionName: options.functionName || "unknown",
+          userId: options.userId,
+          spentMicros: budget.spentMicros,
+          quotaMicros: budget.quotaMicros,
+        });
+        // Emit telemetry on the quota-exhausted throw path so the
+        // operations dashboard can flag users hitting the ceiling.
+        logUsage(supabaseServiceClient, {
+          functionName: options.functionName,
+          model_used: modelChain[0] || "unknown",
+          latency_ms: Date.now() - startTime,
+          from_cache: false,
+          status: "error",
+          error_message: "quota_exceeded",
+          complexity: options.complexity,
+        });
+        throw new AIQuotaExceededError(budget.spentMicros, budget.quotaMicros);
+      }
+    }
+
     // ── Phase 1: Google Gemini ──
     for (const model of modelChain) {
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -775,6 +962,18 @@ export async function callBursAI(
           complexity: options.complexity,
           retry_count: attempt,
         });
+        // N2: per-call usage ledger — feeds the next request's
+        // pre-call quota check via `readUsageBudget`. Only writes
+        // when we have an authenticated user + service client; the
+        // helper is fire-and-forget so it never blocks the response.
+        recordTokenUsage(
+          supabaseServiceClient,
+          options.userId,
+          options.functionName,
+          costInfo.inputTokens,
+          costInfo.outputTokens,
+          computeCostMicros(costInfo.inputTokens, costInfo.outputTokens, model),
+        );
         return {
           data: parsed.result,
           model_used: model,

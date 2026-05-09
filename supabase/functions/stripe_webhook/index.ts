@@ -4,29 +4,29 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { setMonthlyAllowance } from "../_shared/render-credits.ts";
+import { makeLogStep } from "../_shared/observability.ts";
+import {
+  getStripeConfig as getSharedStripeConfig,
+  type StripeWebhookConfig,
+} from "../_shared/stripe-config.ts";
 
-const logStep = (step: string, details?: unknown) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
-};
+// N2 — converged on the shared `_shared/observability.ts` `logStep`
+// helper. Identical wire format ([STRIPE-WEBHOOK] step - {json}) so
+// downstream log-querying tools don't need updating.
+const logStep = makeLogStep("STRIPE-WEBHOOK");
 
-// Inline config
-function getStripeConfig() {
-  const rawMode = (Deno.env.get('STRIPE_MODE') || 'test').toLowerCase();
-  const mode: 'test' | 'live' = rawMode === 'live' ? 'live' : 'test';
-  
-  if (mode === 'live') {
-    return {
-      secretKey: Deno.env.get('STRIPE_SECRET_KEY_LIVE') || '',
-      webhookSecret: Deno.env.get('STRIPE_WEBHOOK_SECRET_LIVE') || '',
-      mode: 'live' as const,
-    };
-  }
-  
+/**
+ * Webhook-only Stripe config. Reuses the canonical resolver in
+ * `_shared/stripe-config.ts` and narrows it to the two fields the
+ * webhook actually consumes (`secretKey` + `webhookSecret`); price IDs
+ * are checkout-session-only so we don't need them here.
+ */
+function getWebhookStripeConfig(): StripeWebhookConfig {
+  const full = getSharedStripeConfig();
   return {
-    secretKey: Deno.env.get('STRIPE_SECRET_KEY_TEST') || Deno.env.get('STRIPE_SECRET_KEY') || '',
-    webhookSecret: Deno.env.get('STRIPE_WEBHOOK_SECRET_TEST') || Deno.env.get('STRIPE_WEBHOOK_SECRET') || '',
-    mode: 'test' as const,
+    secretKey: full.secretKey,
+    webhookSecret: full.webhookSecret,
+    mode: full.mode,
   };
 }
 
@@ -42,7 +42,7 @@ serve(async (req) => {
   try {
     logStep("Webhook received");
 
-    const stripeConfig = getStripeConfig();
+    const stripeConfig = getWebhookStripeConfig();
     logStep("Stripe mode", { mode: stripeConfig.mode });
 
     if (!stripeConfig.secretKey) throw new Error("Missing Stripe secret key");

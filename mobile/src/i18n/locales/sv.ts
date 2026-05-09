@@ -1140,6 +1140,23 @@ export const sv: Record<string, string> = {
   // ─── N3.8 — G-campaign post-merge polish ─────────────────────────────────
   'travel.outfits.dateUnknown': 'Datum saknas',
 
+  // ─── Settings · Edit profile (N3.9) ────────────────────────────────────
+  // English placeholders — N8 i18n sweep will translate.
+  'settings.profileEdit.eyebrow': 'Settings',
+  'settings.profileEdit.title': 'Edit profile',
+  'settings.profileEdit.save': 'Save',
+  'settings.profileEdit.section.name': 'Name',
+  'settings.profileEdit.section.photo': 'Profile photo',
+  'settings.profileEdit.field.displayName': 'Display name',
+  'settings.profileEdit.field.displayName.placeholder': 'Your name',
+  'settings.profileEdit.field.displayName.helper':
+    'This is the name we show across the app — outfit cards, the home greeting, and your account.',
+  'settings.profileEdit.photo.deferred.title': 'Photo upload available in a future update',
+  'settings.profileEdit.photo.deferred.body':
+    'Your initial is shown for now. Photo uploads will land in a follow-up release.',
+  'settings.profileEdit.error.title': 'Could not save',
+  'settings.profileEdit.error.body': 'Please check your connection and try again.',
+
   // ─── M38 — SettingsStyle 8-section editor ────────────────────────────────
   // Append-only. English placeholders where translation needs final pass —
   // N8 wave will translate. Keys mirror the section list in
