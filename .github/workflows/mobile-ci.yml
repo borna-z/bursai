@@ -79,6 +79,62 @@ jobs:
       # warning fails the gate (expo-doctor exits non-zero on warnings).
       - run: cd mobile && npx expo-doctor
 
+  # N4 — Jest smoke tests + coverage gate.
+  #
+  # Detect-step pattern (mirrors deno-check / migration-smoke). Always
+  # registers a check; only invokes Jest when the PR touches `mobile/**`.
+  # Coverage is uploaded as an artifact so reviewers can spot uncovered
+  # branches without rerunning locally.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect mobile changes
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA=$(git rev-parse "$HEAD_SHA^" 2>/dev/null || echo "$HEAD_SHA")
+          fi
+          if git diff --name-only "$BASE_SHA...$HEAD_SHA" | grep -q '^mobile/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Mobile files changed — Jest will run."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No mobile changes — Jest skipped."
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.changed == 'true'
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+      - name: Install dependencies
+        if: steps.detect.outputs.changed == 'true'
+        run: cd mobile && npm ci
+      - name: Run Jest
+        if: steps.detect.outputs.changed == 'true'
+        # --ci stops the watch banner; --coverage emits the lcov + text
+        # report; --maxWorkers=2 keeps the GH runner from over-subscribing
+        # the 2-vCPU ubuntu-latest box. --forceExit handles the React
+        # Query notifyManager that keeps a setTimeout alive past test end.
+        run: cd mobile && npm test -- --ci --coverage --maxWorkers=2 --forceExit
+      - name: Upload coverage
+        if: steps.detect.outputs.changed == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage
+          path: mobile/coverage/
+          retention-days: 14
+
   bundle-size:
     runs-on: ubuntu-latest
     steps:
