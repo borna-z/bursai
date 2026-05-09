@@ -52,6 +52,14 @@ import { Sentry } from '../lib/sentry';
 const BUCKET = 'garments';
 const EXPIRES_IN_SECONDS = 60 * 60; // signed URL TTL — 1 hour
 const TTL_MS = 50 * 60 * 1000; // cache TTL — 10 min before signed URL expiry
+// Hard ceiling on a single `createSignedUrl` round-trip. Without this a network
+// stall on the storage endpoint could leave the inflight Promise pending
+// forever, leaving every sharing observer wedged on `data === undefined` —
+// which, before the throw-on-error contract below, was indistinguishable from
+// a permanent `null` result. 15s is well above the p99 latency we see for the
+// storage edge in eu-central-1 but short enough that the consumer's gradient
+// placeholder doesn't stay up for a noticeably long time on a flaky network.
+const FETCH_TIMEOUT_MS = 15 * 1000;
 
 type CacheEntry = {
   url: string;
@@ -100,6 +108,88 @@ function bumpPathGeneration(key: string): void {
 
 function cacheKey(bucket: string, path: string): string {
   return `${bucket}:${path}`;
+}
+
+// Hoisted response types so the queryFns can reuse them without re-deriving
+// the (3-deep) Awaited<ReturnType<...>> chain inline.
+type CreateSignedUrlResponse = Awaited<
+  ReturnType<ReturnType<typeof supabase.storage.from>['createSignedUrl']>
+>;
+type CreateSignedUrlsResponse = Awaited<
+  ReturnType<ReturnType<typeof supabase.storage.from>['createSignedUrls']>
+>;
+
+// Race a Supabase storage promise against a timeout so a stalled fetch can't
+// wedge the inflight slot indefinitely. Returns the storage result on success;
+// rejects with a SignedUrlTimeoutError on timeout so the queryFn throws and
+// React Query retries with backoff. The timer is cleared on either path so
+// the timeout can't fire after the storage call has already settled.
+//
+// Promise.race doesn't cancel the loser, so on timeout the underlying
+// storage call keeps running until Supabase's internal fetch settles. That's
+// not a leak in the GC sense (the resolved value is discarded by the race
+// once the timeout fires) but it does mean an extra HTTP round-trip
+// completes in the background. supabase-js's `createSignedUrl` doesn't
+// expose an AbortSignal in its public type signature, so we accept the
+// orphaned request as the cost of the timeout — a 15s p99-already-slow
+// fetch finishing late is invisible to the consumer at that point.
+class SignedUrlTimeoutError extends Error {
+  constructor() {
+    super('createSignedUrl timed out');
+    this.name = 'SignedUrlTimeoutError';
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new SignedUrlTimeoutError()), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// Sentry breadcrumb + dev console warn for fetch-level failures. Distinct
+// from `useGarmentImage`'s `<Image onError>` breadcrumb (which fires for
+// load-time failures on a successfully-minted URL) so dashboards can tell
+// systemic mint failures (RLS denial after re-auth, region outage, mass
+// 401 on token refresh) apart from per-asset load failures (object missing,
+// stale URL). Without this breadcrumb a permanent gradient placeholder gave
+// ops zero signal — the user-visible symptom of "everything's a colour
+// card" was invisible to telemetry. (Reported 2026-05-09.)
+function logSignedUrlFetchError(path: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  if (__DEV__) {
+    console.warn('[useSignedUrl] createSignedUrl failed', { path, error: message });
+  }
+  Sentry.addBreadcrumb({
+    category: 'image',
+    level: 'warning',
+    message: 'createSignedUrl failed',
+    data: { path, error: message },
+  });
+}
+
+// Coerce a Supabase StorageError-or-anything-else into a real Error so
+// React Query's retry policy can format it consistently. The `error`
+// parameter is the structured `error` field from a `{ data, error }`
+// envelope (which is `null` on success, `StorageError`-shaped on failure)
+// or a thrown value caught upstream. The `fallback` message is used when
+// the input is null/undefined or has no `.message` to extract.
+function coerceFetchError(error: unknown, fallback: string): Error {
+  if (error instanceof Error) return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const m = (error as { message?: unknown }).message;
+    if (typeof m === 'string' && m.length > 0) {
+      return new Error(`createSignedUrl failed: ${m}`);
+    }
+  }
+  return new Error(fallback);
 }
 
 function isFresh(entry: CacheEntry | undefined): entry is CacheEntry {
@@ -175,9 +265,21 @@ export function bustSignedUrlCache(
 /**
  * Internal helper — returns a cached URL when fresh, joins an existing
  * inflight fetch when one is racing, otherwise issues a new
- * `createSignedUrl` and writes the result into the cache. Returns `null` on
- * any error (matches the existing soft-failure contract used by GarmentCard
- * et al., which render a gradient placeholder when the URL isn't available).
+ * `createSignedUrl` and writes the result into the cache. Returns `null` only
+ * when the fetch was implicitly cancelled by `clearSignedUrlCache()` or
+ * `bustSignedUrlCache(path)` mid-flight (sign-out, render-complete bust) —
+ * in those cases the result is no longer relevant and React Query shouldn't
+ * retry. Throws on transport errors / timeouts / empty responses so React
+ * Query treats them as failed queries and applies its retry-with-backoff
+ * policy. Pre-2026-05-09 this returned `null` on every error path, which
+ * React Query stored as a successful empty result and cached for the full
+ * `staleTime` window — a single network blip during a list mount left every
+ * thumbnail stuck on a gradient placeholder until the screen unmounted and
+ * remounted. The throw-on-error contract is invisible to consumers because
+ * `useGarmentImage` and the screens that call `useSignedUrl` directly all
+ * use `data ?? null` semantics — `undefined` during retry behaves
+ * identically to today's `null` (gradient placeholder renders, <Image>
+ * stays unmounted) but unblocks React Query's retry path.
  */
 async function fetchAndCacheSignedUrl(path: string): Promise<string | null> {
   const key = cacheKey(BUCKET, path);
@@ -208,18 +310,47 @@ async function fetchAndCacheSignedUrl(path: string): Promise<string | null> {
   // observers receive the value; React Query handles per-observer abort
   // externally. (Codex P2 round 2 on PR #729.)
   const promise = (async (): Promise<string | null> => {
-    const { data, error } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(path, EXPIRES_IN_SECONDS);
-    if (error || !data?.signedUrl) return null;
+    let response: CreateSignedUrlResponse;
+    try {
+      response = await withTimeout(
+        supabase.storage.from(BUCKET).createSignedUrl(path, EXPIRES_IN_SECONDS),
+        FETCH_TIMEOUT_MS,
+      );
+    } catch (err) {
+      // Network failure / timeout. Log so ops can spot systemic outages
+      // (region down, mass 401 after token refresh, IPv6 misroute) and
+      // rethrow so React Query's retry policy kicks in. Without this
+      // throw, the queryFn would return `null` and React Query would
+      // treat the failure as a successful empty result and cache it for
+      // the full `staleTime` window.
+      logSignedUrlFetchError(path, err);
+      throw coerceFetchError(err, 'createSignedUrl failed');
+    }
+    const { data, error } = response;
+    if (error || !data?.signedUrl) {
+      // Supabase returned a structured error (RLS denial, object missing,
+      // bucket misconfigured). Surface it to telemetry and throw — same
+      // rationale as the catch above. The original soft-fail contract
+      // (return null) cached the failure indefinitely; the throw lets
+      // React Query retry with exponential backoff, and once it gives
+      // up the consumer keeps rendering its gradient placeholder.
+      logSignedUrlFetchError(path, error ?? 'createSignedUrl returned no signedUrl');
+      throw coerceFetchError(error, 'createSignedUrl returned no signedUrl');
+    }
     if (cacheGeneration !== startedAtGeneration) {
       // Sign-out happened mid-fetch — drop the result on the floor.
+      // Returning `null` (not throwing) because the fetch was implicitly
+      // cancelled by sign-out, not failed. React Query won't observe the
+      // null because the consuming hook should already be unmounted or
+      // re-rendered against a fresh user.
       return null;
     }
     if (pathGenerationFor(key) !== startedAtPathGen) {
       // This path was busted mid-fetch (e.g. render completed). The
       // URL we just minted predates the bust event; let the next
       // observe trigger a post-bust mint instead of latching this one.
+      // Same throw-vs-null rationale as the sign-out path above —
+      // implicit cancellation, not a transport failure.
       return null;
     }
     urlCache.set(key, {
@@ -239,11 +370,22 @@ async function fetchAndCacheSignedUrl(path: string): Promise<string | null> {
   // Clear the inflight latch only if it's still ours — concurrent
   // `clearSignedUrlCache()` calls (e.g. mid-fetch sign-out) will have
   // already wiped the map; we shouldn't overwrite that.
-  void promise.finally(() => {
-    if (inflight.get(key) === promise) {
-      inflight.delete(key);
-    }
-  });
+  //
+  // `.catch(() => {})` before `.finally(...)` exists to mute the derived
+  // promise we observe purely for cleanup. The original `promise` is
+  // returned to the caller (React Query's queryFn) which awaits it and
+  // routes rejections into its own retry policy. Without the catch on
+  // this derived promise we'd get an "unhandled promise rejection"
+  // warning every time `fetchAndCacheSignedUrl` throws.
+  void promise
+    .catch(() => {
+      /* rejection consumed by the caller's await; ignored here */
+    })
+    .finally(() => {
+      if (inflight.get(key) === promise) {
+        inflight.delete(key);
+      }
+    });
   return promise;
 }
 
@@ -311,14 +453,29 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
         startedAtPathGens.set(p, pathGenerationFor(cacheKey(BUCKET, p)));
       }
 
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrls(misses, EXPIRES_IN_SECONDS);
+      let response: CreateSignedUrlsResponse;
+      try {
+        response = await withTimeout(
+          supabase.storage.from(BUCKET).createSignedUrls(misses, EXPIRES_IN_SECONDS),
+          FETCH_TIMEOUT_MS,
+        );
+      } catch (err) {
+        // Same throw-on-transport-error rationale as the single-URL path.
+        // Pre-2026-05-09 this branch soft-failed every miss to `null`, which
+        // React Query cached as a successful empty result for the full
+        // `staleTime` — a flaky network on a list mount left the entire
+        // grid stuck on gradient placeholders. Throwing routes the failure
+        // through React Query's retry policy; the cache hits we already
+        // populated above into `out` are discarded with the rejection,
+        // which is correct because the next retry will re-read the cache
+        // and re-batch only the still-missing paths.
+        for (const p of misses) logSignedUrlFetchError(p, err);
+        throw coerceFetchError(err, 'createSignedUrls failed');
+      }
+      const { data, error } = response;
       if (error || !data) {
-        // Soft-fail per-path so consumers render placeholders for the
-        // missing entries instead of throwing the entire batch away.
-        for (const p of misses) out[p] = null;
-        return out;
+        for (const p of misses) logSignedUrlFetchError(p, error ?? 'createSignedUrls returned no data');
+        throw coerceFetchError(error, 'createSignedUrls returned no data');
       }
 
       const sessionStillValid = cacheGeneration === startedAtGeneration;
