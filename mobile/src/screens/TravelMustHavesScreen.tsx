@@ -43,6 +43,7 @@ import {
   type TravelCapsuleMustHave,
   type TravelCapsuleMustHaveStatus,
 } from '../hooks/useTravelCapsules';
+import { useFlatGarments } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -99,6 +100,22 @@ export function TravelMustHavesScreen() {
   const capsuleId = route.params?.capsuleId;
   const { capsule, isLoading } = useTravelCapsule(capsuleId);
   const updateMustHaves = useUpdateTravelCapsuleMustHaves();
+  // G3 sub-issue 5 — hydrate the wardrobe map so picker-source rows that
+  // were persisted without an `image_path` (legacy rows from before the
+  // M28(b) snapshot wiring) still render a thumbnail. The query is
+  // already cached by the wizard's picker step in the same session, so
+  // this is usually a free read.
+  const { data: allGarments = [] } = useFlatGarments();
+  const garmentImagePathById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of allGarments) {
+      const path = g.rendered_image_path ?? g.original_image_path ?? null;
+      if (g.id && typeof path === 'string' && path.length > 0) {
+        map.set(g.id, path);
+      }
+    }
+    return map;
+  }, [allGarments]);
 
   // Local working copy so the user can flip several toggles before the
   // optimistic write debounces. We persist on every change and let the
@@ -214,7 +231,19 @@ export function TravelMustHavesScreen() {
               </View>
             );
           }
-          return <MustHaveRow row={item.data} onToggle={() => handleToggle(item.data)} />;
+          // G3 sub-issue 5 — fall back to the wardrobe map when a picker
+          // row's persisted image_path is missing (legacy data path).
+          const fallbackPath =
+            item.data.source === 'picker' && !item.data.image_path && item.data.garment_id
+              ? garmentImagePathById.get(item.data.garment_id) ?? null
+              : null;
+          return (
+            <MustHaveRow
+              row={item.data}
+              fallbackImagePath={fallbackPath}
+              onToggle={() => handleToggle(item.data)}
+            />
+          );
         }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingBottom: 130 }}
@@ -254,9 +283,14 @@ function Header({ onBack }: { onBack: () => void }) {
 
 function MustHaveRow({
   row,
+  fallbackImagePath,
   onToggle,
 }: {
   row: TravelCapsuleMustHave;
+  /** G3 sub-issue 5 — picker-row image fallback hydrated from the
+   *  wardrobe query when the persisted `image_path` is missing (legacy
+   *  rows from before the snapshot wiring shipped). */
+  fallbackImagePath?: string | null;
   onToggle: () => void;
 }) {
   const t = useTokens();
@@ -264,8 +298,10 @@ function MustHaveRow({
   const isBuy = row.status === 'buy';
   // Picker rows carry an image_path so we can render a small thumb. Gap
   // rows have null/undefined here — useSignedUrl no-ops on null and the
-  // <Image> branch is gated on a successful URL.
-  const { data: signedUrl } = useSignedUrl(row.image_path ?? null);
+  // <Image> branch is gated on a successful URL. G3 sub-issue 5: prefer
+  // the persisted path, fall back to the hydrated wardrobe lookup.
+  const resolvedPath = row.image_path ?? fallbackImagePath ?? null;
+  const { data: signedUrl } = useSignedUrl(resolvedPath);
   const showThumb = row.source === 'picker' && !!signedUrl;
   return (
     <Pressable

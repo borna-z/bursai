@@ -277,14 +277,38 @@ export function useGenerateTravelCapsule() {
         locale: 'en',
       };
 
+      // G3 sub-issue 4 — keep-alive + observability. Drop a request-start
+      // breadcrumb so post-merge dashboards can compare timings against
+      // the success/failure breadcrumbs below. Captures the
+      // duration-days hint so we can correlate "slow generation" reports
+      // with longer trips (more outfits => more Gemini round-trips).
+      const generationStartedAt = Date.now();
+      Sentry.addBreadcrumb({
+        category: 'travel_capsule',
+        type: 'info',
+        level: 'info',
+        message: 'travel_capsule.generate.start',
+        data: {
+          destination: params.destination,
+          start_date: params.dates.start,
+          end_date: params.dates.end,
+          must_have_count: params.mustHaveItemIds?.length ?? 0,
+          occasion_count: params.occasions?.length ?? 0,
+        },
+      });
+
       let data: EdgeTravelCapsuleResponse;
       try {
         const raw = await callEdgeFunction<EdgeTravelCapsuleResponse>('travel_capsule', {
           body,
-          // travel_capsule is slow — Gemini tool-use over the user's full
-          // wardrobe routinely takes 25-45s. Bump the wrapper's timeout
-          // to 60s and retry once on transient failure.
-          timeoutMs: 60_000,
+          // G3 sub-issue 4 — Gemini tool-use over the full wardrobe
+          // routinely takes 25-45s, with spikes past 60s on long trips
+          // or large wardrobes. The previous 60s budget would abort on
+          // the long tail and surface as "generate failed" while the
+          // request was still progressing server-side. Bump to 120s to
+          // cover the 99th-percentile real-world latency without
+          // changing the user-perceived spinner copy.
+          timeoutMs: 120_000,
           retries: 1,
           signal: controller.signal,
         });
@@ -294,7 +318,29 @@ export function useGenerateTravelCapsule() {
           throw new Error('travel_capsule_invalid_response');
         }
         data = raw;
+        Sentry.addBreadcrumb({
+          category: 'travel_capsule',
+          type: 'info',
+          level: 'info',
+          message: 'travel_capsule.generate.success',
+          data: {
+            duration_ms: Date.now() - generationStartedAt,
+            outfit_count: raw.outfits?.length ?? 0,
+            packing_count: raw.packing_list?.length ?? 0,
+          },
+        });
       } catch (err) {
+        Sentry.addBreadcrumb({
+          category: 'travel_capsule',
+          type: 'error',
+          level: 'warning',
+          message: 'travel_capsule.generate.failure',
+          data: {
+            duration_ms: Date.now() - generationStartedAt,
+            error_name: err instanceof Error ? err.name : 'unknown',
+            error_message: err instanceof Error ? err.message : String(err),
+          },
+        });
         if (err instanceof EdgeFunctionSubscriptionLockedError) {
           throw new Error(TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL);
         }

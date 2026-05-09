@@ -1507,4 +1507,20 @@ export const en: Record<string, string> = {
   // ─── Style Me — weather ─────────────────────────────────────────────────
   'styleMe.weather.alert.title': 'Weather',
   'styleMe.weather.alert.body': 'Weather customisation coming soon.',
+
+  // ─── Travel — G3 (multi-select Occasions + per-day outfits) ─────────────
+  'travel.occasions.title': 'Occasions',
+  'travel.occasions.work': 'Work',
+  'travel.occasions.dinner': 'Dinner',
+  'travel.occasions.beach': 'Beach',
+  'travel.occasions.hiking': 'Hiking',
+  'travel.occasions.nightlife': 'Nightlife',
+  'travel.occasions.wedding': 'Wedding',
+  'travel.occasions.sightseeing': 'Sightseeing',
+  'travel.occasions.airport': 'Airport',
+  'travel.occasions.active': 'Active',
+  'travel.outfits.tab': 'Outfits',
+  'travel.outfits.dayLabel': 'Day {day}',
+  'travel.savedCapsules.empty': 'Build your first trip and it lands here.',
+  'travelPackingList.tabPacking': 'Packing',
 };
