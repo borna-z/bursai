@@ -9,22 +9,27 @@
 // long lists. Stops on unmount via the standard cleanup contract.
 //
 // N3.5 (2026-05-09) — cleanup hardening for long-list virtualisation:
-//   • The `Animated.loop` instance is stored in a ref so the unmount cleanup
-//     closes over the SAME loop the effect started, not a stale reference if
-//     React were to re-run the effect. (`opacity` is `useRef(...).current`,
-//     so its identity is stable and the dep array `[]` is correct under
-//     exhaustive-deps — see the eslint-disable note below.)
+//   • The cleanup arrow closes over the local `loop` const created by the
+//     same effect run, so an unmount synchronously stops the loop it
+//     started. The dep array is `[opacity]` (NOT `[]`) to satisfy
+//     `react-hooks/exhaustive-deps` without `eslint-disable` — `opacity` is
+//     `useRef(...).current` whose identity is stable for the component's
+//     lifetime, so the effect runs exactly once on mount and once on
+//     unmount even with the dep listed.
 //   • Cleanup explicitly stops the loop AND resets the opacity to MIN. RN's
 //     native animation driver doesn't always emit a final frame on `stop()`
-//     for in-flight timings, so without `setValue(MIN)` the slot can be
-//     reused with a non-zero opacity baked in by the time the cell remounts
-//     elsewhere in a recycled FlatList.
+//     for in-flight timings; without `setValue(MIN)` the underlying value
+//     can be left at the in-progress interpolation point. (Defensive
+//     against future refactors that hoist `opacity` outside the component.)
 //   • Wrapped in `React.memo` because Shimmer renders inside `OutfitCard`'s
 //     `GarmentSlot`, which is itself rendered N times per outfit row in
 //     long lists (recent-outfits carousel, outfits screen, plan grid). The
-//     component takes a single `style` prop; memoisation skips re-renders
-//     when the parent re-renders for unrelated reasons (e.g. a sibling
-//     query settling) and the style identity is stable.
+//     component takes a single optional `style` prop; both current call
+//     sites (`<Shimmer />` in OutfitCard.GarmentSlot and HomeScreen's
+//     RecentMosaicSlot) pass no style, so the default shallow-equal check
+//     short-circuits reliably. Future callers passing inline-object styles
+//     would defeat memo — pass a stable reference (`StyleSheet.create` or
+//     module-scope literal) if the perf matters at that call site.
 
 import React from 'react';
 import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
@@ -41,10 +46,6 @@ const MAX = 0.18;
 function ShimmerInner({ style }: { style?: StyleProp<ViewStyle> }) {
   const t = useTokens();
   const opacity = React.useRef(new Animated.Value(MIN)).current;
-  // Hold the loop in a ref so the unmount cleanup closes over the same
-  // instance the effect started. Without this, a future refactor that
-  // tweaked the dep array could leak a previously-started loop on re-run.
-  const loopRef = React.useRef<Animated.CompositeAnimation | null>(null);
 
   React.useEffect(() => {
     const loop = Animated.loop(
@@ -63,24 +64,22 @@ function ShimmerInner({ style }: { style?: StyleProp<ViewStyle> }) {
         }),
       ]),
     );
-    loopRef.current = loop;
     loop.start();
     return () => {
       // Stop the loop AND reset the value. `loop.stop()` halts the next
       // frame's interpolation, but on the native driver an in-flight
       // timing can still advance once before the stop propagates. Calling
-      // `setValue(MIN)` after stop guarantees the underlying Animated.Value
-      // is at MIN if the same instance is reused (it isn't here — the ref
-      // is local — but defensive against future refactors that hoist it).
+      // `setValue(MIN)` after stop snaps the value back to baseline so a
+      // future refactor that hoists `opacity` outside the component (e.g.
+      // for shared-shimmer perf) wouldn't see a stale non-zero value.
       loop.stop();
       opacity.setValue(MIN);
-      loopRef.current = null;
     };
     // `opacity` is `useRef(...).current` — identity stable for the lifetime
-    // of the component. PERIOD_MS / MIN / MAX are module-scope constants.
-    // None of them can change, so `[]` is the correct dep array; eslint's
-    // exhaustive-deps wants `opacity` listed even though it's stable, so
-    // we list it to satisfy the lint rule without needing a disable comment.
+    // of the component. PERIOD_MS / MIN / MAX are module-scope constants
+    // and don't change. We list `opacity` (not `[]`) to satisfy
+    // `react-hooks/exhaustive-deps` without an `eslint-disable`; because
+    // its identity never changes, the effect still runs exactly once.
   }, [opacity]);
 
   return (
