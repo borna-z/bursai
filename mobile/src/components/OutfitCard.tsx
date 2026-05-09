@@ -128,10 +128,17 @@ export function OutfitCard({
   const t = useTokens();
   const showActions = Boolean(onUse || onSave);
   const useGarments = garments && garments.length > 0;
-  // aspectRatio is set to the tile count so the row is always 1 tile tall
-  // (each tile renders square). Falls back to `hues.length` for the legacy
-  // path; both are guaranteed > 0 by the gate above + the default `hues`.
+  // Layout: 4 garments render as a 2×2 square grid (the canonical outfit
+  // composition — top, bottom, layer, footwear — per the G6 acceptance
+  // gate and the web reference at `src/components/outfits/OutfitComposition.tsx`).
+  // 1-3 garments fall back to a single tall row of N square tiles since a
+  // partial 2×2 would leave dead space. The legacy `hues` path keeps the
+  // single-row layout unchanged so existing callers don't shift visually.
   const tileCount = useGarments ? garments!.length : hues.length;
+  const isGrid = useGarments && garments!.length === 4;
+  // aspectRatio: row layout is N tiles wide × 1 tall (each tile square).
+  // 2×2 is 2 tiles wide × 2 tiles tall, so the wrapper is square (ratio 1).
+  const wrapperAspect = isGrid ? 1 : tileCount;
 
   const card = (
     <View
@@ -145,23 +152,41 @@ export function OutfitCard({
         },
         style,
       ]}>
-      {/* Top tile row */}
-      <View style={{ flexDirection: 'row', aspectRatio: tileCount, gap: 0 }}>
-        {useGarments
-          ? garments!.map((g, i) => <GarmentSlot key={g.id || `slot-${i}`} garment={g} />)
-          : hues.map((h, i) => {
-              const grad = hslGradient(h);
-              return (
-                <LinearGradient
-                  key={`${h}-${i}`}
-                  colors={grad}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ flex: 1 }}
-                />
-              );
-            })}
-      </View>
+      {/* Top tile area — single row OR 2×2 grid depending on garment count */}
+      {isGrid ? (
+        // 2×2 grid via two stacked rows. flexWrap on a flex-row would also
+        // work but rows give us deterministic row sizing without relying on
+        // tile width to wrap correctly under different parent widths.
+        <View style={{ aspectRatio: wrapperAspect, flexDirection: 'column' }}>
+          {[0, 2].map((rowStart) => (
+            <View key={`row-${rowStart}`} style={{ flex: 1, flexDirection: 'row' }}>
+              {garments!.slice(rowStart, rowStart + 2).map((g, i) => (
+                <GarmentSlot key={g.id || `slot-${rowStart + i}`} garment={g} />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View
+          style={{ flexDirection: 'row', aspectRatio: wrapperAspect, gap: 0 }}>
+          {useGarments
+            ? garments!.map((g, i) => (
+                <GarmentSlot key={g.id || `slot-${i}`} garment={g} />
+              ))
+            : hues.map((h, i) => {
+                const grad = hslGradient(h);
+                return (
+                  <LinearGradient
+                    key={`${h}-${i}`}
+                    colors={grad}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ flex: 1 }}
+                  />
+                );
+              })}
+        </View>
+      )}
 
       {/* Meta */}
       <View style={{ padding: 14, gap: 4 }}>
