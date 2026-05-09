@@ -227,12 +227,10 @@ export function SettingsAccountScreen() {
               <Caption>{email}</Caption>
               <Pressable
                 accessibilityRole="link"
-                onPress={() =>
-                  Alert.alert(
-                    tr('settings.account.comingSoon.title'),
-                    tr('settings.account.comingSoon.body'),
-                  )
-                }
+                onPress={() => {
+                  hapticLight();
+                  nav.navigate('SettingsProfileEdit');
+                }}
                 hitSlop={6}>
                 <Text
                   style={{
@@ -256,12 +254,12 @@ export function SettingsAccountScreen() {
             <SettingsRow
               title={tr('settings.account.row.fullName')}
               value={displayName}
-              onPress={() =>
-                Alert.alert(
-                  tr('settings.account.fullName.alert.title'),
-                  tr('settings.account.fullName.alert.body'),
-                )
-              }
+              onPress={() => {
+                // N3.9 — was Alert("Coming Soon") which App Review flagged
+                // as a launch blocker. Now routes to the real editor.
+                hapticLight();
+                nav.navigate('SettingsProfileEdit');
+              }}
             />
             <SettingsRow
               icon={<MailIcon size={18} color={t.accent} />}
