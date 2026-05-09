@@ -128,22 +128,22 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | M20 | [Import garments from links → AddPiece](waves/m20-import-from-links.md) | DONE (PR #746) | V0, M9 |
 | M21 | [Assess condition → GarmentDetail](waves/m21-assess-condition.md) | DONE (PR #747) | V0, M9 |
 | M22 | [Wardrobe Aging → Insights](waves/m22-wardrobe-aging.md) | DONE (PR #748) | V0, M9 |
-| ) | V0, M14 |
-| ) | V0 |
+| M23 | [Shopping Chat → AIChat mode](waves/m23-shopping-chat.md) | DONE (PR #749) | V0, M14 |
+| M24 | [Pick Must-Haves → WardrobeGaps follow-up](waves/m24-pick-must-haves.md) | DONE (PR #750) | V0 |
 
 ### Onboarding parity
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| ) | V0 |
-| ) | V0 |
-| ) | V0 |
+| M25 | [Onboarding quiz at full data capture](waves/m25-onboarding-quiz.md) | DONE (PR #751) | V0 |
+| M26 | [AccentColorStep](waves/m26-accent-color-step.md) | DONE (PR #752) | V0 |
+| M27 | [Coach tour](waves/m27-coach-tour.md) | DONE (PR #753) | V0 |
 
 ### Existing baseline depth (ported from prior M0–M14 plan)
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| ) | V0 |
-| ) | V0 |
-| ) | V0 |
+| M28 | [Travel capsule end-to-end](waves/m28-travel-capsule.md) | DONE (PR #754) | V0 |
+| M29 | [Style DNA + wardrobe stats](waves/m29-style-dna.md) | DONE (PR #755) | V0 |
+| M30 | [Push notifications + Expo send branch](waves/m30-push.md) | DONE (PR #757) | V0 |
 | M31 | [RevenueCat + paywall + webhook](waves/m31-revenuecat.md) | DONE (PR A: #758, PR B: #759) | V0 |
 | M32 | [Restore Purchases](waves/m32-restore-purchases.md) | DONE (PR #768) | V0, M31 |
 | M33 | [i18n Swedish + English baseline](waves/m33-i18n.md) | DONE (PR #769) | V0 |

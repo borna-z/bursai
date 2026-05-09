@@ -1,3 +1,17 @@
+// Polyfill `globalThis.WebSocket` for Node.js < 22. `@supabase/realtime-js`
+// (transitively required by `createClient` since v2.92) constructs a
+// RealtimeClient at SupabaseClient init time and reads `globalThis.WebSocket`
+// — even when no realtime channels are subscribed. CI runs Node 20 which
+// lacks native WebSocket, so install the `ws` package's WebSocket as the
+// global before `createClient` is reached. Top-level await is safe in ESM.
+if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
+  const wsModule = await import("ws");
+  const WebSocketCtor =
+    (wsModule as unknown as { WebSocket?: unknown }).WebSocket ??
+    (wsModule as unknown as { default?: unknown }).default;
+  (globalThis as { WebSocket: unknown }).WebSocket = WebSocketCtor;
+}
+
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // SMOKE_TARGET selects which Supabase the suite runs against:

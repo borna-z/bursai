@@ -40,6 +40,35 @@ module.exports = [
       ],
       'no-undef': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      // Mobile/web boundary lockdown (N5).
+      //
+      // The web `src/` tree is being deleted post-launch; runtime imports
+      // would drag web-only React-DOM / Vite globals into the RN bundle.
+      // The TS-aware `@typescript-eslint/no-restricted-imports` variant
+      // honours `import type { ... }` (those strip at build time) and only
+      // flags runtime imports — so the three documented type-only carve-outs
+      // (mobile/src/types/{garment,outfit}.ts → supabase/types.gen.ts,
+      // mobile/src/lib/memoryEvents.ts → src/types/styleMemory) keep
+      // working. Patterns cover every relative climb out of `mobile/`.
+      'no-restricted-imports': 'off',
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '../../../src/*',
+                '../../src/*',
+                '../src/*',
+                '../../../../src/*',
+              ],
+              message:
+                'Runtime imports from the web `src/` tree are forbidden in mobile/. Type-only `import type { ... }` is allowed; for shared Database types use `supabase/types.gen.ts`.',
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
       // Pragmatic disables — RN ecosystem noise.
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',

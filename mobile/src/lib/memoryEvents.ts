@@ -9,7 +9,7 @@
 // wrong field, which the server silently 400'd. Migrating to this type
 // also fixes that latent bug.
 
-import type { CanonicalStyleMemorySignal } from '../../../src/types/styleMemory';
+import type { CanonicalStyleMemorySignal } from '../types/styleMemory';
 
 export interface RecordMemoryEventInput {
   /** Canonical or legacy name; normalized server-side via the P83 helper. */

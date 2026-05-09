@@ -26,11 +26,23 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
       "no-console": ["warn", { allow: ["warn", "error"] }],
+      // N5: web `src/` is being deleted post-launch, but until it goes we
+      // don't want fresh `any` creeping into the deprecated tree. Tests +
+      // scripts override this below.
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
-  // Test files: relax strict typing rules
+  // Test files + scripts: relax strict typing rules. `any` is unavoidable
+  // when stubbing supabase chains or shelling out via Node.
   {
-    files: ["**/*.test.ts", "**/*.test.tsx", "src/test/**"],
+    files: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "src/test/**",
+      "scripts/**",
+    ],
     languageOptions: {
       globals: {
         ...globals.browser,
