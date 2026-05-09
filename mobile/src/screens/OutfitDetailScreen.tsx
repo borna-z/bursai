@@ -37,7 +37,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { OutfitCard } from '../components/OutfitCard';
-import { BackIcon, MoreIcon, StarIcon } from '../components/icons';
+import { BackIcon, MoreIcon, ShareIcon, StarIcon } from '../components/icons';
 import {
   useOutfit,
   useMarkOutfitWorn,
@@ -50,6 +50,7 @@ import {
 import { useSuggestAccessories } from '../hooks/useSuggestAccessories';
 import { useSuggestCombinations } from '../hooks/useSuggestCombinations';
 import { useCloneOutfitDNA } from '../hooks/useCloneOutfitDNA';
+import { useShareOutfit } from '../hooks/useShareOutfit';
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
@@ -109,6 +110,9 @@ export function OutfitDetailScreen() {
   const accessoriesHook = useSuggestAccessories();
   const combinationsHook = useSuggestCombinations();
   const cloneHook = useCloneOutfitDNA();
+  // M41 — share an outfit via the OS share sheet. The hook ships the
+  // text-+-deep-link variant; full image compositing is a follow-up wave.
+  const { share: shareOutfit, isSharing } = useShareOutfit();
   const [accessoriesOpen, setAccessoriesOpen] = React.useState(false);
   const [variationsOpen, setVariationsOpen] = React.useState(false);
   const [cloneOpen, setCloneOpen] = React.useState(false);
@@ -620,6 +624,25 @@ export function OutfitDetailScreen() {
     );
   }, [outfit, upsertPlanned, now]);
 
+  // M41 — fire the OS share sheet. Surfaces the outfit's display name and a
+  // burs.me deep-link; the user picks an app to share into. Errors during
+  // the share-sheet dance bubble up as a localized Alert so the user knows
+  // the action didn't silently succeed.
+  //
+  // `outfitDisplayName` is recomputed inside the handler rather than read
+  // from the `name` const further down: the handler must be declared in
+  // hook order (alongside the other useCallbacks) but `name` lives below
+  // the early-returns. Recomputing on click is cheap.
+  const handleShare = React.useCallback(async () => {
+    if (!outfit) return;
+    const displayName = outfitDisplayName(outfit);
+    try {
+      await shareOutfit({ outfitId: outfit.id, name: displayName });
+    } catch {
+      Alert.alert(tr('share.outfit.error.title'), tr('share.outfit.error.body'));
+    }
+  }, [outfit, shareOutfit]);
+
   const handleDelete = React.useCallback(() => {
     if (!outfit) return;
     Alert.alert(tr('outfit.actions.delete.title'), tr('outfit.actions.delete.body'), [
@@ -747,6 +770,16 @@ export function OutfitDetailScreen() {
             </Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 6 }}>
+            {/* M41 — Share IconBtn opens the OS share sheet. The handler is
+                a no-op while a previous share is still in flight (`isSharing`
+                guard inside `useShareOutfit`) so a double-tap can't enqueue
+                two sheets back-to-back. */}
+            <IconBtn
+              ariaLabel={tr('outfit.detail.share.aria')}
+              variant="ghost"
+              onPress={isSharing ? undefined : handleShare}>
+              <ShareIcon color={t.fg} />
+            </IconBtn>
             <IconBtn
               ariaLabel="More options"
               variant="ghost"

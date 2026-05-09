@@ -1721,4 +1721,19 @@ export const sv: Record<string, string> = {
   // 3 dagar, sedan 119 kr per månad"). Provperioden renderas i två
   // delar så att StoreKit-lokaliserade intro-strängar förblir orörda.
   'paywall.trial.thenSuffix': 'sedan {price} {period}',
+
+  // ─── M41 — Notifications inbox + ShareOutfit ───────────────────────────
+  'notifications.error.title': 'Kunde inte ladda aviseringar',
+  'notifications.error.body': 'Dra för att försöka igen, eller kom tillbaka strax.',
+  'notifications.time.justNow': 'Just nu',
+  'notifications.time.minutesAgo': '{count}m sedan',
+  'notifications.time.hoursAgo': '{count}h sedan',
+  'notifications.time.daysAgo': '{count}d sedan',
+
+  'outfit.detail.share.aria': 'Dela outfit',
+
+  'share.outfit.message': 'Kolla in min BURS-outfit "{name}": {link}',
+  'share.outfit.dialogTitle': 'Dela outfit',
+  'share.outfit.error.title': 'Kunde inte dela',
+  'share.outfit.error.body': 'Något stoppade delningsmenyn. Försök igen.',
 };
