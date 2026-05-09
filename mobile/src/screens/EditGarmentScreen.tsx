@@ -277,12 +277,14 @@ export function EditGarmentScreen() {
           <Pressable
             onPress={() => nav.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={tr('editGarment.action.cancel')}
             hitSlop={8}>
-            <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>Cancel</Text>
+            <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>
+              {tr('editGarment.action.cancel')}
+            </Text>
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Eyebrow>Edit</Eyebrow>
+            <Eyebrow>{tr('editGarment.eyebrow')}</Eyebrow>
             <Text
               style={{
                 fontFamily: fonts.displayMedium,
@@ -293,20 +295,20 @@ export function EditGarmentScreen() {
                 color: t.fg,
                 letterSpacing: -0.18,
               }}>
-              Edit piece
+              {tr('editGarment.title')}
             </Text>
           </View>
           <Pressable
             onPress={handleSave}
             disabled={saveDisabled}
-            accessibilityLabel="Save"
+            accessibilityLabel={tr('editGarment.action.save')}
             accessibilityRole="button"
             accessibilityState={{ disabled: saveDisabled, busy: submitting }}
             hitSlop={8}
             style={{ opacity: saveDisabled ? 0.5 : 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {submitting ? <ActivityIndicator size="small" color={t.accent} /> : null}
             <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: t.accent, fontWeight: '600' }}>
-              Save
+              {tr('editGarment.action.save')}
             </Text>
           </Pressable>
         </View>
@@ -327,9 +329,14 @@ export function EditGarmentScreen() {
               <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             ) : null}
             <Pressable
-              accessibilityLabel="Change photo"
+              accessibilityLabel={tr('editGarment.changePhoto')}
               accessibilityRole="button"
-              onPress={() => Alert.alert('Coming soon', 'Photo replacement lands in a future release.')}
+              onPress={() =>
+                Alert.alert(
+                  tr('editGarment.changePhoto.alert.title'),
+                  tr('editGarment.changePhoto.alert.body'),
+                )
+              }
               style={({ pressed }) => [
                 s.photoChange,
                 {
@@ -339,13 +346,13 @@ export function EditGarmentScreen() {
                 },
               ]}>
               <Text style={{ fontFamily: fonts.uiSemi, fontSize: 12, color: t.fg, letterSpacing: -0.1 }}>
-                Change photo
+                {tr('editGarment.changePhoto')}
               </Text>
             </Pressable>
           </View>
 
           {/* Details */}
-          <FormCard title="Details">
+          <FormCard title={tr('editGarment.section.details')}>
             <FieldLabel label={tr('editGarment.field.title')} />
             <TextInput
               value={title}
@@ -367,7 +374,7 @@ export function EditGarmentScreen() {
           </FormCard>
 
           {/* Style */}
-          <FormCard title="Style">
+          <FormCard title={tr('editGarment.section.style')}>
             <FieldLabel label={tr('editGarment.field.primaryColor')} />
             <ScrollView
               horizontal
@@ -406,7 +413,7 @@ export function EditGarmentScreen() {
           </FormCard>
 
           {/* Usage */}
-          <FormCard title="Usage">
+          <FormCard title={tr('editGarment.section.usage')}>
             <FieldLabel label={tr('editGarment.field.seasons')} />
             <ChipRow
               values={SEASONS}
@@ -417,7 +424,7 @@ export function EditGarmentScreen() {
             <FieldLabel label={tr('editGarment.field.wearCount')} topGap />
             <View style={s.stepperRow}>
               <Pressable
-                accessibilityLabel="Decrement wear count"
+                accessibilityLabel={tr('editGarment.a11y.decrementWear')}
                 accessibilityRole="button"
                 onPress={() => setWearCount((n) => Math.max(0, n - 1))}
                 style={({ pressed }) => [
@@ -440,7 +447,7 @@ export function EditGarmentScreen() {
                 </Text>
               </View>
               <Pressable
-                accessibilityLabel="Increment wear count"
+                accessibilityLabel={tr('editGarment.a11y.incrementWear')}
                 accessibilityRole="button"
                 onPress={() => setWearCount((n) => n + 1)}
                 style={({ pressed }) => [
@@ -464,7 +471,7 @@ export function EditGarmentScreen() {
           </FormCard>
 
           {/* Status */}
-          <FormCard title="Status">
+          <FormCard title={tr('editGarment.section.status')}>
             <View style={s.statusRow}>
               <Text
                 style={{
@@ -477,7 +484,7 @@ export function EditGarmentScreen() {
                 {tr('editGarment.field.inLaundry')}
               </Text>
               <TogglePill
-                label={inLaundry ? 'On' : 'Off'}
+                label={inLaundry ? tr('editGarment.toggle.on') : tr('editGarment.toggle.off')}
                 active={inLaundry}
                 onToggle={setInLaundry}
               />
@@ -486,7 +493,7 @@ export function EditGarmentScreen() {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Delete piece"
+            accessibilityLabel={tr('editGarment.delete')}
             onPress={handleDelete}
             disabled={deleteGarment.isPending}
             style={{ alignSelf: 'center', paddingVertical: 14, opacity: deleteGarment.isPending ? 0.5 : 1 }}>
@@ -497,7 +504,7 @@ export function EditGarmentScreen() {
                 color: t.destructive,
                 letterSpacing: -0.1,
               }}>
-              {deleteGarment.isPending ? 'Deleting…' : 'Delete piece'}
+              {deleteGarment.isPending ? tr('editGarment.deleting') : tr('editGarment.delete')}
             </Text>
           </Pressable>
         </ScrollView>
