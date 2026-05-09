@@ -1,8 +1,16 @@
 // Image resize + upload helper for the AddPiece + LiveScan flows.
 //
-// Resize: longest side capped at 1200px, JPEG @ q=0.85. Same recipe the web's
-// useStorage uses (compressImage), so the analyzer + render pipelines see the
-// same input quality across both clients.
+// Resize: longest side capped at 1024px, WebP @ q=0.85. Same recipe the web's
+// `compressImage` uses (`src/lib/imageCompression.ts`), so the analyzer +
+// render pipelines see equivalent input quality + payload size across both
+// clients. N6 (W-PERF1): switched from JPEG@1200 to WEBP@1024 to drop the
+// post-resize payload by ~40-55% on typical photos. Smaller payload =
+// faster upload AND faster analyze (the base64 round-trip to Gemini is the
+// main "scan/AI is slow on mobile" contributor, audit §4.3).
+//
+// SaveFormat.WEBP: Expo SDK 54 / expo-image-manipulator 14 supports WEBP
+// natively on iOS 14+ and Android (all RN-supported levels). Older WebP
+// quirks were resolved in SDK 53; nothing to feature-flag.
 //
 // Binary upload: SDK 54 deprecated FileSystem.readAsStringAsync (throws at
 // runtime), so we use the new `File(uri).bytes()` API which returns a
@@ -11,7 +19,7 @@
 // pattern but is unreliable under Hermes. The Uint8Array path is the
 // recommended Expo SDK 54+ way.
 //
-// Storage path scheme: `<userId>/<timestamp>-<random>.jpg`. The userId prefix
+// Storage path scheme: `<userId>/<timestamp>-<random>.webp`. The userId prefix
 // is enforced by the bucket's RLS policy (see web's useStorage) so writes
 // outside the user's own folder fail. Timestamp + random keep collisions
 // vanishingly unlikely without needing an extra DB lookup for uniqueness.
@@ -22,8 +30,24 @@ import { File as FsFile } from 'expo-file-system';
 import { supabase } from './supabase';
 
 const BUCKET = 'garments';
-const MAX_DIMENSION = 1200;
-const JPEG_QUALITY = 0.85;
+const MAX_DIMENSION = 1024;
+const COMPRESS_QUALITY = 0.85;
+
+/**
+ * MIME type emitted by `resizeForGarment`. Exported so call sites that build
+ * data URLs (`data:<mime>;base64,...`) for the analyze edge function stay in
+ * lockstep with the encoder format — switching JPEG → WebP here used to
+ * silently leave callers building `data:image/jpeg;...` URLs around WebP
+ * bytes, which Gemini happens to accept but is wrong on its face. N6.
+ */
+export const GARMENT_IMAGE_MIME = 'image/webp';
+
+/**
+ * Storage extension matching `GARMENT_IMAGE_MIME`. Kept distinct so the
+ * `<userId>/<timestamp>-<random>.<ext>` scheme stays readable on the
+ * supabase storage browser.
+ */
+const GARMENT_IMAGE_EXT = 'webp';
 
 export interface UploadResult {
   storagePath: string;
@@ -35,6 +59,10 @@ export interface UploadResult {
  * base64 payload (parallel-flow Step 2) can grab them in one shot rather than
  * paying for two manipulateAsync passes. Pass `wantBase64: true` to also get
  * `result.base64` populated — the manipulator itself reads the bytes once.
+ *
+ * N6: encodes WebP @ 1024px to match web's `compressImage`. analyze_garment
+ * forwards the data URL straight to Gemini, which accepts WebP; the storage
+ * upload writes the same bytes with the matching `image/webp` content type.
  */
 export async function resizeForGarment(
   uri: string,
@@ -44,8 +72,8 @@ export async function resizeForGarment(
     uri,
     [{ resize: { width: MAX_DIMENSION } }],
     {
-      compress: JPEG_QUALITY,
-      format: ImageManipulator.SaveFormat.JPEG,
+      compress: COMPRESS_QUALITY,
+      format: ImageManipulator.SaveFormat.WEBP,
       base64: options.wantBase64 === true,
     },
   );
@@ -65,10 +93,10 @@ export async function uploadManipulatedImage(
 
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
-  const storagePath = `${userId}/${timestamp}-${random}.jpg`;
+  const storagePath = `${userId}/${timestamp}-${random}.${GARMENT_IMAGE_EXT}`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, {
-    contentType: 'image/jpeg',
+    contentType: GARMENT_IMAGE_MIME,
     upsert: false,
   });
 
