@@ -414,6 +414,12 @@ export function PickMustHavesScreen() {
             onPriorityChange={(p) => setRowPriority(row.gapId, p)}
             onToggleNotes={() => toggleNotesOpen(row.gapId)}
             onNotesChange={(v) => setRowNotes(row.gapId, v)}
+            onFindSimilar={() =>
+              nav.navigate('StyleChat', {
+                mode: 'shopping',
+                gapContext: { category: row.category, item_name: row.item_name },
+              })
+            }
           />
         ))}
       </ScrollView>
@@ -456,12 +462,14 @@ function GapRow({
   onPriorityChange,
   onToggleNotes,
   onNotesChange,
+  onFindSimilar,
 }: {
   row: RowDraft;
   onToggle: () => void;
   onPriorityChange: (p: ShoppingListPriority) => void;
   onToggleNotes: () => void;
   onNotesChange: (value: string) => void;
+  onFindSimilar: () => void;
 }) {
   const t = useTokens();
 
@@ -561,6 +569,32 @@ function GapRow({
           ) : null}
         </View>
       ) : null}
+
+      {/* G4 — "Find similar" CTA per row routes to Shopping Chat with the
+          gap as anchored context, replacing the prior expectation that
+          users would google for the missing item externally. Visible on
+          every row regardless of selection so the user can browse first
+          before committing to the shortlist. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={tr('pickMustHaves.findSimilar')}
+        onPress={onFindSimilar}
+        style={{
+          alignSelf: 'flex-start',
+          paddingVertical: 6,
+          paddingHorizontal: 0,
+          marginTop: row.selected ? 4 : 12,
+        }}>
+        <Text
+          style={{
+            fontFamily: fonts.uiSemi,
+            fontSize: 12,
+            color: t.accent,
+            letterSpacing: -0.05,
+          }}>
+          {tr('pickMustHaves.findSimilar')}
+        </Text>
+      </Pressable>
     </Card>
   );
 }

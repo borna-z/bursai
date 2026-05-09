@@ -1092,4 +1092,7 @@ export const sv: Record<string, string> = {
   'chat.outfitCard.loading': 'Laddar outfit…',
   'chat.modeToggle.style': 'Stil',
   'chat.modeToggle.shopping': 'Köp',
+
+  // ─── G4 — Wardrobe Gaps "Find similar" CTA ──────────────────────────────
+  'pickMustHaves.findSimilar': 'Hitta liknande',
 };
