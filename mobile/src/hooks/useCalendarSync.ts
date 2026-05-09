@@ -26,7 +26,7 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
-import { captureMutationError } from '../lib/sentry';
+import { Sentry, captureMutationError } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
 
 /** Mobile redirect URI — must be present in the edge function's allowlist
@@ -228,7 +228,15 @@ export function useCalendarSync() {
         return;
       }
       await Linking.openURL(data.url);
-    } catch {
+    } catch (err) {
+      // PKCE generation, AsyncStorage, edge call, and Linking can all throw.
+      // Without telemetry the user-facing alert is identical for a transient
+      // network blip vs a malformed edge response — log the underlying error
+      // so we can spot recurring failure modes in Sentry.
+      Sentry.withScope((s) => {
+        s.setTag('mutation', 'useCalendarSync.connectGoogle');
+        Sentry.captureException(err);
+      });
       Alert.alert(tr('settings.calendar.error.title'), tr('settings.calendar.error.body'));
     }
   };
