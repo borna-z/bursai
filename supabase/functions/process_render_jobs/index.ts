@@ -99,19 +99,30 @@ serve(async (req) => {
     return overloadResponse(CORS_HEADERS);
   }
 
-  // ─── Auth: service-role only ───────────────────────────
+  // ─── Auth: shared worker bearer ───────────────────────────
+  // Decoupled from SUPABASE_SERVICE_ROLE_KEY (see findings/process-render-jobs-401.md).
+  // The auto-injected SUPABASE_SERVICE_ROLE_KEY is a snapshot baked into the
+  // function image at deploy time; it drifts when Supabase rotates the
+  // signing secret. We use a non-SUPABASE_-prefixed bearer we control.
+  //
+  // Rotation:
+  //   1. openssl rand -hex 32 → <new>
+  //   2. npx supabase secrets set RENDER_WORKER_BEARER="<new>" --project-ref ...
+  //   3. SELECT vault.update_secret(id, '<new>') WHERE name='render_worker_bearer'
+  //   4. Redeploy every function in the worker chain.
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const RENDER_WORKER_BEARER = Deno.env.get("RENDER_WORKER_BEARER") ?? "";
 
-  // Sanity: a misconfigured empty key + authHeader='Bearer ' would both
-  // pass a naive equality. Refuse to serve before timing-comparing
-  // against nothing.
+  if (!RENDER_WORKER_BEARER || RENDER_WORKER_BEARER.length < 32) {
+    return jsonResponse({ error: "worker bearer not configured" }, 503);
+  }
   if (!SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY.length < 32) {
     return jsonResponse({ error: "service role key not configured" }, 503);
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
-  const expected = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+  const expected = `Bearer ${RENDER_WORKER_BEARER}`;
   // Constant-time comparison — see _shared/timing-safe.ts for why.
   if (!timingSafeEqual(authHeader, expected)) {
     return jsonResponse({ error: "service role required" }, 401);
@@ -171,7 +182,7 @@ serve(async (req) => {
     await withConcurrencyLimit(jobs, JOB_CONCURRENCY, async (job) => {
       const startTime = Date.now();
       try {
-        const renderResult = await invokeRender(supabase, job, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const renderResult = await invokeRender(supabase, job, SUPABASE_URL, RENDER_WORKER_BEARER);
 
         if (renderResult.ok && "deferred" in renderResult && renderResult.deferred) {
           // Concurrent in-flight render detected (`garments.render_status`
@@ -801,15 +812,19 @@ serve(async (req) => {
 
 /**
  * Invoke render_garment_image internally with the claimed job's context.
- * Uses service-role auth + `internal: true` flag; render_garment_image's
- * P5 patch accepts this in place of a user JWT and skips its own reserve
- * step (reserve already happened at enqueue).
+ * Uses the decoupled RENDER_WORKER_BEARER + `internal: true` flag;
+ * render_garment_image's P5 patch accepts this in place of a user JWT
+ * and skips its own reserve step (reserve already happened at enqueue).
+ *
+ * The bearer is the same shared secret read at the top of `serve()`. It
+ * MUST byte-match the one configured in render_garment_image's env;
+ * see the rotation procedure documented at the auth block above.
  */
 async function invokeRender(
   _supabase: any,
   job: ClaimedJob,
   supabaseUrl: string,
-  serviceRoleKey: string,
+  workerBearer: string,
 ): Promise<RenderResult> {
   const url = `${supabaseUrl}/functions/v1/render_garment_image`;
   const controller = new AbortController();
@@ -841,7 +856,7 @@ async function invokeRender(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Authorization": `Bearer ${workerBearer}`,
       },
       body: JSON.stringify({
         internal: true,

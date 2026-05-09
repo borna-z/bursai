@@ -161,17 +161,32 @@ serve(async (req) => {
       });
     }
 
-    // Cron-batch mode — hard-reject non-service-role callers. This branch kicks
+    // Cron-batch mode — hard-reject non-worker-bearer callers. This branch kicks
     // off up to 100 parallel AI calls (BATCH_SIZE users × bounded CONCURRENCY),
     // so exposing it to any authenticated end-user (or anon, since
     // `verify_jwt = false` in config.toml) lets a single drive-by POST burn
     // Gemini quota and DoS the service. Use the P1 cron-only hard-reject
-    // pattern — timingSafeEqual against SERVICE_ROLE_KEY, no JWT fallback. The
-    // single-user-trigger path above (P4) handles authenticated end-users with
-    // JWT → user.id match; cron is the only legitimate caller for the batch.
+    // pattern — timingSafeEqual against RENDER_WORKER_BEARER, no JWT fallback.
+    // The single-user-trigger path above (P4) handles authenticated end-users
+    // with JWT → user.id match; cron is the only legitimate caller for the
+    // batch.
+    //
+    // Why RENDER_WORKER_BEARER instead of SUPABASE_SERVICE_ROLE_KEY: see
+    // supabase/functions/process_render_jobs/index.ts auth block — the
+    // platform-injected service-role env is a deploy-time snapshot that
+    // drifts when Supabase rotates the project signing secret. The cron
+    // command MUST send
+    //   Authorization: Bearer <vault.decrypted_secrets WHERE name='render_worker_bearer'>
+    const RENDER_WORKER_BEARER = Deno.env.get("RENDER_WORKER_BEARER") ?? "";
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "").trim() ?? "";
-    if (!token || !SUPABASE_SERVICE_ROLE_KEY || !timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)) {
+    if (!RENDER_WORKER_BEARER || RENDER_WORKER_BEARER.length < 32) {
+      return new Response(JSON.stringify({ error: "worker bearer not configured" }), {
+        status: 503,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+    if (!token || !timingSafeEqual(token, RENDER_WORKER_BEARER)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },

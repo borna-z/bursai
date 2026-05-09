@@ -16,15 +16,28 @@ serve(async (req) => {
 
   try {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Decoupled inter-function/cron bearer. See
+    // supabase/functions/process_render_jobs/index.ts for the rotation
+    // procedure and the rationale (SUPABASE_SERVICE_ROLE_KEY is a deploy-
+    // time snapshot that drifts when the platform rotates the signing
+    // secret). The corresponding cron command MUST send
+    //   Authorization: Bearer <vault.decrypted_secrets WHERE name='render_worker_bearer'>
+    const RENDER_WORKER_BEARER = Deno.env.get("RENDER_WORKER_BEARER") ?? "";
 
-    // ── Auth: cron-only endpoint — reject anything that isn't the service role.
+    // ── Auth: cron-only endpoint — reject anything that isn't the worker bearer.
     // P1 sibling: this function mass-deletes rows from ai_response_cache;
     // without this guard any anon POST could invoke it repeatedly, both
     // burning DB budget and evicting hot cache rows prematurely. Use
     // timing-safe comparison to avoid byte-by-byte key extraction.
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "") ?? "";
-    if (!token || !SUPABASE_SERVICE_ROLE_KEY || !timingSafeEqual(token, SUPABASE_SERVICE_ROLE_KEY)) {
+    if (!RENDER_WORKER_BEARER || RENDER_WORKER_BEARER.length < 32) {
+      return new Response(
+        JSON.stringify({ error: "worker bearer not configured" }),
+        { status: 503, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
+    }
+    if (!token || !timingSafeEqual(token, RENDER_WORKER_BEARER)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
