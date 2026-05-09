@@ -1700,4 +1700,25 @@ export const sv: Record<string, string> = {
   'auth.signUp.terms.label': 'Öppna användarvillkoren',
   'auth.signUp.privacy.link': 'Integritet',
   'auth.signUp.privacy.label': 'Öppna integritetspolicyn',
+
+  // ─── M39 — lokaliserade prisetiketter på paywall ────────────────────────
+  // PaywallScreen sätter nu samman priset från ../lib/localizedPricing och
+  // använder dessa korta period-suffix + mall-nycklar för planpills, prisrad
+  // och provperioden. De äldre `paywall.monthly.priceLabel` /
+  // `paywall.yearly.priceLabel` / `paywall.trial.{monthly,yearly}` /
+  // `paywall.price.{monthly,yearly}` finns kvar (append-only) men läses
+  // inte längre av skärmen.
+  'paywall.price.perMonthShort': '/ månad',
+  'paywall.price.perYearShort': '/ år',
+  'paywall.pricing.priceLabel.template': '{price} {period}',
+  'paywall.trial.template': '3 dagar gratis, sedan {price} {period}',
+  // Laddningsplatshållare som visas på planpillsen + rubrikpriset medan
+  // RC-utbud hydrerar. Acceptans #6: ingen hårdkodad SEK-literal blinkar
+  // till medan storefront-priset är på väg in.
+  'paywall.pricing.priceLabel.loading': 'Laddar pris…',
+  'paywall.pricing.loading': 'Laddar pris',
+  // Suffix som följer RC:s ordagranna intro-prisetikett (t.ex. "Gratis i
+  // 3 dagar, sedan 119 kr per månad"). Provperioden renderas i två
+  // delar så att StoreKit-lokaliserade intro-strängar förblir orörda.
+  'paywall.trial.thenSuffix': 'sedan {price} {period}',
 };

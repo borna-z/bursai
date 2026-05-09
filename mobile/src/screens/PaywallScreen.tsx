@@ -31,8 +31,13 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { CheckIcon, CloseIcon } from '../components/icons';
-import { t as tr } from '../lib/i18n';
+import { t as tr, useTranslation } from '../lib/i18n';
 import { hapticLight, hapticSelection } from '../lib/haptics';
+import {
+  formatPaywallPrice,
+  getLocalizedPricing,
+  type FormattedPaywallPrice,
+} from '../lib/localizedPricing';
 import {
   getOfferingsWithIntroOffer,
   type OfferingsWithIntro,
@@ -56,15 +61,15 @@ const FEATURES: readonly { titleKey: string; captionKey: string }[] = [
   { titleKey: 'paywall.feature.travel.title',    captionKey: 'paywall.feature.travel.caption' },
 ];
 
+// M39 — pricing is locale-derived at render time (see ../lib/localizedPricing).
+// `periodKey` / `trialKey` keep their static i18n hooks so the period suffix
+// ("per month" / "per år") is translated by the dictionary, not embedded in
+// the price string. The trial line falls back to the localized "3 days free,
+// then {price} {period}" template (see paywall.trial.fallback.* keys).
 const PRICING = {
-  monthly: { amount: 119, periodKey: 'paywall.price.perMonth' as const, trialKey: 'paywall.trial.monthly' as const },
-  yearly:  { amount: 899, periodKey: 'paywall.price.perYear'  as const, trialKey: 'paywall.trial.yearly'  as const },
+  monthly: { periodKey: 'paywall.price.perMonth' as const, trialKey: 'paywall.trial.monthly' as const },
+  yearly:  { periodKey: 'paywall.price.perYear'  as const, trialKey: 'paywall.trial.yearly'  as const },
 };
-// Computed at module init so it stays in sync if pricing changes.
-// (119 * 12 - 899) / (119 * 12) = 0.3704 → 37%.
-const YEARLY_SAVINGS_PCT = Math.round(
-  (1 - PRICING.yearly.amount / (PRICING.monthly.amount * 12)) * 100,
-);
 
 // M40 — Terms / Privacy links route to the native screens (PrivacyPolicy,
 // Terms) instead of opening the external burs.me URL. The launch decision
@@ -76,6 +81,12 @@ const YEARLY_SAVINGS_PCT = Math.round(
 export function PaywallScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  // Subscribe to locale changes so a setLocale() flips the price + savings
+  // strings without remounting the screen. `locale` is consumed below by
+  // `getLocalizedPricing` (the static fallback when RC is unavailable)
+  // and by `formatPaywallPrice` (the RC-driven path).
+  const { locale } = useTranslation();
+  const fallbackPricing = getLocalizedPricing(locale);
   const [plan, setPlan] = useState<Plan>('yearly');
   // Per-plan intro-offer presence. Determines:
   //   1. CTA copy: "Start 3-day free trial" only when an intro offer
@@ -84,14 +95,19 @@ export function PaywallScreen() {
   //      don't false-advertise a free trial that won't exist at
   //      checkout — Apple 3.1.1).
   // Loaded async on mount via getOfferingsWithIntroOffer(); null while
-  // loading and on web/simulator/missing-key paths.
+  // loading and on web/simulator/missing-key paths. `offeringsLoading`
+  // gates the skeleton on the price rows (acceptance #6) so we don't
+  // flash the SEK static fallback and then re-render with the storefront
+  // price when RC resolves.
   const [offerings, setOfferings] = useState<OfferingsWithIntro | null>(null);
+  const [offeringsLoading, setOfferingsLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const result = await getOfferingsWithIntroOffer();
       if (cancelled) return;
       setOfferings(result);
+      setOfferingsLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -283,11 +299,51 @@ export function PaywallScreen() {
   // CTA — a brief CTA-flicker is preferable to a 3.1.1 violation.
   const planIntro = plan === 'monthly' ? offerings?.monthly : offerings?.annual;
   const hasIntroOffer = planIntro?.hasIntroOffer === true;
-  // Trial price line — only rendered when the intro offer exists. Without
-  // it we show the plain price line per Apple 3.1.1 (no false advertising
-  // of a free trial that won't materialise at checkout).
-  const trialPriceLine = hasIntroOffer ? tr(PRICING[plan].trialKey) : null;
-  const plainPriceLine = `${PRICING[plan].amount} SEK ${tr(PRICING[plan].periodKey)}`;
+
+  // M39 — RC-driven price strings. When the SDK has hydrated the offering
+  // we read `package.product.priceString` directly (Sweden returns
+  // "119 kr", US "$7.99", UK "£6.99" — whichever currency the user's
+  // storefront is configured for). When RC is unavailable (web /
+  // simulator / missing key / pre-hydration) we fall back to the static
+  // locale ladder so the screen still has a readable price to render.
+  const monthlyFormatted: FormattedPaywallPrice | null = offerings?.monthly
+    ? formatPaywallPrice(offerings.monthly.pkg, locale)
+    : null;
+  const yearlyFormatted: FormattedPaywallPrice | null = offerings?.annual
+    ? formatPaywallPrice(offerings.annual.pkg, locale, {
+        partnerMonthlyPackage: offerings.monthly?.pkg ?? null,
+      })
+    : null;
+  const planFormatted = plan === 'monthly' ? monthlyFormatted : yearlyFormatted;
+
+  // Per-plan display strings — RC priceString first, static fallback
+  // second. The fallback is also what the loading skeleton swaps in
+  // when it hides (so the layout doesn't reflow once RC resolves).
+  const fallbackForPlan =
+    plan === 'monthly' ? fallbackPricing.monthly : fallbackPricing.yearly;
+  const planAmountStr = planFormatted?.priceString ?? fallbackForPlan;
+  const planPeriodStr = tr(PRICING[plan].periodKey);
+  // Savings % — RC-derived when both yearly + monthly packages are
+  // available, static-locale derived otherwise.
+  const savingsPct =
+    yearlyFormatted?.savingsLabel ?? String(fallbackPricing.savingsPercent);
+  // Trial price line — only rendered when the intro offer exists. We
+  // prefer RC's verbatim `introPriceString` (e.g. "Free for 3 days" /
+  // "Gratis i 3 dagar"); when RC doesn't expose one, we synthesise the
+  // localized "3 days free, then {price} {period}" template so the
+  // copy still ships. Without an intro offer we show the plain price
+  // line per Apple 3.1.1 (no false advertising of a free trial that
+  // won't materialise at checkout).
+  const introVerbatim = planIntro?.introPriceLabel ?? null;
+  const trialPriceLine = hasIntroOffer
+    ? introVerbatim
+      ? `${introVerbatim}, ${tr('paywall.trial.thenSuffix', {
+          price: planAmountStr,
+          period: planPeriodStr,
+        })}`
+      : tr('paywall.trial.template', { price: planAmountStr, period: planPeriodStr })
+    : null;
+  const plainPriceLine = `${planAmountStr} ${planPeriodStr}`;
   // CTA label respects the loading + intro-offer state.
   let ctaLabel: string;
   if (isPurchasing) {
@@ -397,38 +453,77 @@ export function PaywallScreen() {
             label={tr('paywall.monthly.title')}
             active={plan === 'monthly'}
             onPress={() => { hapticSelection(); setPlan('monthly'); }}
-            sub={tr('paywall.monthly.priceLabel')}
+            // M39 — RC priceString first ("$7.99 / month", "119 kr / månad"
+            // depending on storefront), static fallback while the offering
+            // loads. Acceptance #6: skeleton replaces the hardcoded amount
+            // until RC resolves.
+            sub={
+              offeringsLoading
+                ? tr('paywall.pricing.priceLabel.loading')
+                : tr('paywall.pricing.priceLabel.template', {
+                    price: monthlyFormatted?.priceString ?? fallbackPricing.monthly,
+                    period: tr('paywall.price.perMonthShort'),
+                  })
+            }
+            loading={offeringsLoading}
           />
           <PlanPill
             label={tr('paywall.yearly.title')}
             active={plan === 'yearly'}
             onPress={() => { hapticSelection(); setPlan('yearly'); }}
-            sub={tr('paywall.yearly.priceLabel')}
-            // Prefer the M31-namespaced explicit savings badge ("Save 35%")
-            // when present; fall back to the dynamically-computed value
-            // for locales / future-rev pricing where the static label
-            // would drift.
+            sub={
+              offeringsLoading
+                ? tr('paywall.pricing.priceLabel.loading')
+                : tr('paywall.pricing.priceLabel.template', {
+                    price: yearlyFormatted?.priceString ?? fallbackPricing.yearly,
+                    period: tr('paywall.price.perYearShort'),
+                  })
+            }
+            loading={offeringsLoading}
+            // M39 — savings % is derived from RC's numeric `price`
+            // fields when both packages are present (currency-neutral
+            // ratio), and from the static locale ladder otherwise. The
+            // M31 `paywall.yearly.savingsBadge` hardcoded 35% which is
+            // wrong for the sv plan (37%) and for any non-sv ratio; the
+            // dynamic template is now the canonical source.
             savingsLabel={
-              tr('paywall.yearly.savingsBadge') ||
-              tr('paywall.plan.savings', { pct: YEARLY_SAVINGS_PCT })
+              offeringsLoading
+                ? null
+                : tr('paywall.plan.savings', { pct: savingsPct })
             }
           />
         </View>
 
-        {/* Headline price */}
+        {/* Headline price. M39 — skeleton renders while RC offerings hydrate
+            so we don't flash the SEK static fallback at users on non-sv
+            storefronts and then re-render with their currency. */}
         <View style={{ marginTop: 18, alignItems: 'center', gap: 4 }}>
-          <Text
-            style={{
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 36,
-              color: t.fg,
-              letterSpacing: -0.4,
-              fontWeight: '500',
-              fontVariant: ['tabular-nums'],
-            }}>
-            {PRICING[plan].amount} SEK
-          </Text>
+          {offeringsLoading ? (
+            <View
+              accessibilityRole="progressbar"
+              accessibilityLabel={tr('paywall.pricing.loading')}
+              style={{
+                width: 140,
+                height: 40,
+                borderRadius: radii.pill,
+                backgroundColor: t.bg2,
+                opacity: 0.6,
+              }}
+            />
+          ) : (
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 36,
+                color: t.fg,
+                letterSpacing: -0.4,
+                fontWeight: '500',
+                fontVariant: ['tabular-nums'],
+              }}>
+              {planAmountStr}
+            </Text>
+          )}
           <Text
             style={{
               fontFamily: fonts.uiSemi,
@@ -547,12 +642,15 @@ function PlanPill({
   onPress,
   sub,
   savingsLabel,
+  loading = false,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   sub: string;
-  savingsLabel?: string;
+  savingsLabel?: string | null;
+  /** Replaces the savings badge with a placeholder while RC offerings load. */
+  loading?: boolean;
 }) {
   const t = useTokens();
   return (
@@ -611,6 +709,10 @@ function PlanPill({
           fontSize: 11,
           color: t.fg3,
           letterSpacing: -0.1,
+          // Subtle skeleton tint while RC offerings load — the price line
+          // is dimmed so the loading placeholder (e.g. "Loading…") reads
+          // as transient rather than an actual price string.
+          opacity: loading ? 0.5 : 1,
         }}>
         {sub}
       </Text>
