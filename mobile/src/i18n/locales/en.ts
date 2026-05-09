@@ -1791,4 +1791,30 @@ export const en: Record<string, string> = {
   'auth.signUp.terms.label': 'Open terms of service',
   'auth.signUp.privacy.link': 'Privacy',
   'auth.signUp.privacy.label': 'Open privacy policy',
+
+  // ─── M39 — locale-aware paywall pricing ─────────────────────────────────
+  // PaywallScreen now derives the displayed price from
+  // `mobile/src/lib/localizedPricing.ts` rather than the hardcoded
+  // "119 SEK" / "899 SEK" template the M31 keys use. The new keys below
+  // are the locale-templated companions: short period suffixes ("/ month")
+  // for the plan toggle pills, a price+period composition template, and a
+  // trial-line template that interpolates the localized price.
+  //
+  // The legacy `paywall.monthly.priceLabel` / `paywall.yearly.priceLabel` /
+  // `paywall.trial.monthly` / `paywall.trial.yearly` / `paywall.price.monthly`
+  // / `paywall.price.yearly` keys remain in the dictionary (append-only
+  // contract) but are no longer read by the screen.
+  'paywall.price.perMonthShort': '/ month',
+  'paywall.price.perYearShort': '/ year',
+  'paywall.pricing.priceLabel.template': '{price} {period}',
+  'paywall.trial.template': '3 days free, then {price} {period}',
+  // Loading placeholders shown on the plan pills + headline while RC
+  // offerings hydrate. Acceptance #6: no hardcoded SEK literal flashes
+  // while the storefront price is in flight.
+  'paywall.pricing.priceLabel.loading': 'Loading price…',
+  'paywall.pricing.loading': 'Loading price',
+  // Suffix used after RC's verbatim intro-price label (e.g. "Free for
+  // 3 days, then 119 kr per month"). Renders the trial line in two
+  // pieces so the StoreKit-localized intro string survives untouched.
+  'paywall.trial.thenSuffix': 'then {price} {period}',
 };
