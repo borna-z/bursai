@@ -714,6 +714,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Decoupled inter-function bearer for the worker chain. See
+    // process_render_jobs/index.ts auth block for the full rationale and
+    // rotation procedure. Used ONLY by the `internal: true` worker path
+    // below; the user-JWT path (getUser) is untouched.
+    const workerBearer = Deno.env.get('RENDER_WORKER_BEARER') ?? '';
 
     // ── Input parsing + validation (isolated from overload counter) ──
     // Parsed upfront so the internal-vs-external auth branch can inspect
@@ -787,9 +792,12 @@ serve(async (req) => {
       // call below hits the idempotency path without double-charging.
       if (bodyObj.internal === true) {
         // Constant-time compare — see _shared/timing-safe.ts for why.
-        // A misconfigured empty serviceKey is rejected at the env-load
-        // level by the length check below.
-        if (!serviceKey || serviceKey.length < 32 || !timingSafeEqual(token, serviceKey)) {
+        // We compare against RENDER_WORKER_BEARER (a shared secret we own)
+        // instead of SUPABASE_SERVICE_ROLE_KEY, which is baked into the
+        // function image at deploy time and drifts when Supabase rotates
+        // the project signing secret. See process_render_jobs/index.ts
+        // auth block for the full rationale.
+        if (!workerBearer || workerBearer.length < 32 || !timingSafeEqual(token, workerBearer)) {
           return new Response(
             JSON.stringify({ error: 'internal mode requires service role' }),
             { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },

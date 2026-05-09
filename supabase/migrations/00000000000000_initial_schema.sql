@@ -2712,8 +2712,15 @@ DROP TRIGGER IF EXISTS on_auth_user_created_render_credits ON auth.users;
 CREATE TRIGGER on_auth_user_created_render_credits AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.init_render_credits();
 
 
--- Cron: render queue retry worker. Every minute. Copied verbatim from prod
--- cron.job row (jobid=2). Vault-dependency noted in the header above.
+-- Cron: render queue retry worker. Every minute.
+--
+-- Reads the inter-function bearer from `vault.secrets WHERE name = 'render_worker_bearer'`,
+-- NOT `service_role_key`. Background: the auto-injected SUPABASE_SERVICE_ROLE_KEY
+-- in edge functions is a deploy-time snapshot that drifts when Supabase rotates
+-- the signing secret, and `npx supabase secrets set SUPABASE_*` is refused by
+-- the CLI. We use a non-SUPABASE_-prefixed bearer we control end-to-end. See
+-- docs/launch/findings/process-render-jobs-401.md for the full incident report
+-- and supabase/functions/process_render_jobs/index.ts auth block for rotation.
 SELECT cron.schedule(
   'process-render-jobs',
   '*/1 * * * *',
@@ -2727,7 +2734,7 @@ SELECT cron.schedule(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || (
         SELECT decrypted_secret FROM vault.decrypted_secrets
-        WHERE name = 'service_role_key' LIMIT 1
+        WHERE name = 'render_worker_bearer' LIMIT 1
       )
     ),
     body := '{}'::jsonb,

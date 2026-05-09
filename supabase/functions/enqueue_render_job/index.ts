@@ -131,6 +131,12 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Inter-function bearer for the worker-chain kickoff POST below. See
+    // supabase/functions/process_render_jobs/index.ts auth block for the
+    // full rationale (decoupled from SUPABASE_SERVICE_ROLE_KEY because the
+    // platform-injected env is a deploy-time snapshot that drifts when
+    // Supabase rotates the signing secret).
+    const RENDER_WORKER_BEARER = Deno.env.get("RENDER_WORKER_BEARER") ?? "";
 
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
@@ -355,24 +361,36 @@ serve(async (req) => {
 
     // ─── Low-latency path: POST process_render_jobs ────────
     // Fire-and-forget. Does NOT await — worst case, pg_cron catches the
-    // job within 60s. Service-role auth because the worker is locked
-    // down to service-role only. Uses canonicalJobId so retried-enqueue
-    // responses target the original row, not a ghost of this attempt.
-    const processorUrl = `${SUPABASE_URL}/functions/v1/process_render_jobs`;
-    fetch(processorUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({ jobId: canonicalJobId }),
-    }).catch((err) => {
-      // Non-fatal: cron will pick it up.
-      log.warn("process_render_jobs kickoff failed (cron will retry)", {
-        jobId: canonicalJobId,
-        error: err instanceof Error ? err.message : String(err),
+    // job within 60s. Worker-bearer auth because the worker is locked
+    // down to RENDER_WORKER_BEARER only (see process_render_jobs/index.ts
+    // auth block). Uses canonicalJobId so retried-enqueue responses target
+    // the original row, not a ghost of this attempt.
+    //
+    // If RENDER_WORKER_BEARER isn't configured we skip the kickoff
+    // entirely — the worker would 503 anyway, and pg_cron will catch the
+    // job on the next tick. Better to surface the misconfig via the
+    // worker's startup probe than to spin retries here.
+    if (RENDER_WORKER_BEARER && RENDER_WORKER_BEARER.length >= 32) {
+      const processorUrl = `${SUPABASE_URL}/functions/v1/process_render_jobs`;
+      fetch(processorUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${RENDER_WORKER_BEARER}`,
+        },
+        body: JSON.stringify({ jobId: canonicalJobId }),
+      }).catch((err) => {
+        // Non-fatal: cron will pick it up.
+        log.warn("process_render_jobs kickoff failed (cron will retry)", {
+          jobId: canonicalJobId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
-    });
+    } else {
+      log.warn("process_render_jobs kickoff skipped — RENDER_WORKER_BEARER not configured (cron will retry)", {
+        jobId: canonicalJobId,
+      });
+    }
 
     return jsonResponse({
       jobId: canonicalJobId,
