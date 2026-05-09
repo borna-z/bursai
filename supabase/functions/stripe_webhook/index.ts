@@ -1,3 +1,8 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: Stripe webhook handler. Subscriptions originated by Stripe (web checkout)
+// flow through here; mobile RC purchases land in `revenuecat_webhook` and the two paths
+// coexist — see `_shared/rc-event-ordering.ts` for the Stripe-vs-RC arbitration logic.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -34,6 +39,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  console.warn("[deprecated] web-only Stripe edge function called", { fn: "stripe_webhook" });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

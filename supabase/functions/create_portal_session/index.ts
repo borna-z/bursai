@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: Stripe Customer Portal session. Mobile users manage subscriptions in App Store / Play Store.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -32,6 +35,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  console.warn("[deprecated] web-only Stripe edge function called", { fn: "create_portal_session" });
 
   if (checkOverload("create_portal_session")) {
     return overloadResponse(CORS_HEADERS);

@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: SEK-denominated Stripe Price ID display strings; mobile uses RC product catalog.
 import type { Locale } from '@/i18n/types';
 
 export interface LocalizedPrice {

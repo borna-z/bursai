@@ -1,3 +1,9 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: Stripe env-mode resolver. Consumed only by stripe_webhook and the
+// other web-only Stripe edge functions (create_checkout_session, create_portal_session,
+// restore_subscription, start_trial). Safe to delete with the rest of the Stripe surface.
+//
 // Stripe environment configuration helper.
 //
 // N2 / code-quality-2026-05-08 §3.2 B3: replaced the implicit string-mode
