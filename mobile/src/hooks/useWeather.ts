@@ -1,23 +1,33 @@
-// Mobile current-weather hook (M35). Wraps the Open-Meteo `forecast` endpoint
-// (https://open-meteo.com/en/docs) — free tier, no API key, no rate-limit concerns
-// at our launch volume. Same provider the web uses (`src/hooks/useWeather.ts`)
-// so the temperature / precipitation classification stays byte-for-byte
-// consistent across surfaces.
+// Mobile current-weather hook (M35 + G5). Wraps the Open-Meteo `forecast`
+// endpoint (https://open-meteo.com/en/docs) — free tier, no API key, no
+// rate-limit concerns at our launch volume. Same provider the web uses
+// (`src/hooks/useWeather.ts`) so the temperature / precipitation
+// classification stays byte-for-byte consistent across surfaces.
 //
-// Location resolution:
+// Location resolution (G5 — auto-weather via `expo-location`):
 //   - When a city name is passed, we resolve it via Nominatim (OpenStreetMap)
 //     to lat/lon before hitting Open-Meteo. Cached for 30 min per `staleTime`.
-//   - When no city is passed, we default to Stockholm (59.3293, 18.0686). The
-//     mobile app does not yet request `expo-location` permission — geolocation
-//     is deferred to a later wave; M35's surfaces only need a sane default.
-//     Sweden is the launch market so Stockholm is the right baseline.
+//   - When no city is passed, we ask `expo-location` for foreground
+//     permission. On grant, `getCurrentPositionAsync` returns the device
+//     coordinates; we use those directly (no reverse-geocode required for
+//     the engine payload — temperature + condition are what matter). On
+//     deny / error / iOS Simulator with no fallback fix, we fall back to
+//     the existing Stockholm coordinates so the engine still gets a sane
+//     `weather` payload.
+//   - Manual override (G5 adjust UI): `useWeather().setManual({ tempC,
+//     precipitation, ... })` writes a synthetic WeatherData row directly
+//     into the React Query cache so `awaitFreshWeather` and every other
+//     subscriber pick it up without a network roundtrip. The override
+//     stays sticky for the screen's lifetime — `setManual(null)` clears it.
 //
 // Cache: `staleTime` is 30 minutes per the M35 wave plan. The hook is shared
 // across HomeScreen, the day-intelligence engine override, and PlanScreen so
 // React Query's de-dupe keeps us at one fetch per 30-min window per active
 // city.
 
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import * as Location from 'expo-location';
 
 export interface WeatherData {
   /** Whole-degree Celsius reading rounded from Open-Meteo's hourly value. */
@@ -166,11 +176,41 @@ export async function getCoordinatesFromCity(
   }
 }
 
+/** Resolve the device's current position via `expo-location`. Returns null
+ *  on permission denial, missing services, or any platform error so the
+ *  caller can fall back to the existing Stockholm default. The fallback
+ *  happens INSIDE `fetchWeather` so the React Query cache key (which is
+ *  scoped on the optional `city` arg) stays stable — a denied permission
+ *  shouldn't churn the cache identity. (G5.) */
+async function getCurrentDeviceCoords(): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return null;
+    const position = await Location.getCurrentPositionAsync({
+      // Same accuracy bucket the web uses (`enableHighAccuracy: false`) —
+      // city-level resolution is enough for outfit weather, and the lower
+      // accuracy mode ships a fix faster on a cold GPS.
+      accuracy: Location.Accuracy.Lowest,
+    });
+    const { latitude, longitude } = position.coords;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { lat: latitude, lon: longitude };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchWeather(city: string | null | undefined): Promise<WeatherData> {
   let coords: { lat: number; lon: number } = DEFAULT_COORDS;
   if (city) {
     const resolved = await getCoordinatesFromCity(city);
     if (resolved) coords = resolved;
+  } else {
+    // Auto mode (G5) — try the device's current position. On any failure
+    // (permission denied, services off, simulator with no fix) we fall
+    // through to `DEFAULT_COORDS` so the engine still receives weather.
+    const auto = await getCurrentDeviceCoords();
+    if (auto) coords = auto;
   }
 
   const response = await fetch(
@@ -199,9 +239,51 @@ export async function fetchWeather(city: string | null | undefined): Promise<Wea
   };
 }
 
+/** Subset of `WeatherData` accepted by `setManual` — the rest of the row
+ *  (`weather_code`, `is_day`, `wind`) is filled with neutral defaults so the
+ *  engine doesn't trip on a partial payload. The four manual-adjust UI
+ *  conditions map onto Open-Meteo `weather_code` values via {@link
+ *  conditionToWeatherCode} so `getPrecipitationFromCode` /
+ *  `getConditionFromCode` keep returning consistent values when the
+ *  override is in effect. (G5.) */
+export type ManualWeatherInput = {
+  /** Temperature in degrees Celsius, integer or float. */
+  tempC: number;
+  /** One of the four condition buckets the StyleMe Adjust sheet exposes. */
+  condition: 'clear' | 'cloudy' | 'rain' | 'snow';
+};
+
+function conditionToWeatherCode(condition: ManualWeatherInput['condition']): number {
+  switch (condition) {
+    case 'clear':
+      return 0;
+    case 'cloudy':
+      return 3;
+    case 'rain':
+      return 63;
+    case 'snow':
+      return 73;
+  }
+}
+
+/** Build a synthetic `WeatherData` row from a manual adjust payload. Exposed
+ *  for tests + the `setManual` writer below. */
+export function manualWeatherToData(input: ManualWeatherInput): WeatherData {
+  const code = conditionToWeatherCode(input.condition);
+  return {
+    temperature: Math.round(input.tempC),
+    precipitation: getPrecipitationFromCode(code),
+    wind: 'low',
+    condition: getConditionFromCode(code),
+    weather_code: code,
+    is_day: true,
+  };
+}
+
 export function useWeather(options?: UseWeatherOptions) {
   const city = options?.city ?? null;
   const enabled = options?.enabled !== false;
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: weatherQueryKey(city),
@@ -212,9 +294,30 @@ export function useWeather(options?: UseWeatherOptions) {
     retry: 2,
   });
 
+  /** Manual override writer (G5 adjust UI). Writes the synthesised row into
+   *  the SAME React Query entry the hook subscribes to so every consumer of
+   *  `useWeather()` and every `awaitFreshWeather()` reader sees the override
+   *  immediately. The override is sticky — `setManual({ tempC, condition })`
+   *  replaces whatever's cached and `awaitFreshWeather` will return it
+   *  (within `staleTime`) instead of triggering a network refetch. */
+  const setManual = useCallback(
+    (input: ManualWeatherInput | null) => {
+      const key = weatherQueryKey(city);
+      if (input === null) {
+        // Clear override: invalidate so the next read kicks a real fetch.
+        queryClient.invalidateQueries({ queryKey: key });
+        return;
+      }
+      const next = manualWeatherToData(input);
+      queryClient.setQueryData<WeatherData>(key, next);
+    },
+    [queryClient, city],
+  );
+
   return {
     weather: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error ? (query.error as Error).message : null,
+    setManual,
   };
 }
