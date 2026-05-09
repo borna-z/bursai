@@ -221,14 +221,18 @@ export function PickMustHavesScreen() {
   }, [initialRows, isLoadingSaved]);
 
   // Surface read-query failures inline + once-per-error to Sentry so
-  // an empty list doesn't silently mask a fetch error.
+  // an empty list doesn't silently mask a fetch error. Depend on the
+  // error identity (the Error object itself), not its message — two
+  // distinct retries that happen to produce the same `.message` would
+  // otherwise be deduped silently. React Query returns a fresh Error
+  // instance per failed fetch, so this fires once per error event.
   useEffect(() => {
     if (savedError) {
       Sentry.captureException(savedError, {
         tags: { component: 'PickMustHavesScreen' },
       });
     }
-  }, [savedError?.message]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [savedError]);
 
   const toggleRow = (gapId: string) => {
     setRows((prev) =>

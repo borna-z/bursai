@@ -106,7 +106,12 @@ export function ChatHistorySheet({
     return [...threads].sort((a, b) => {
       const ta = new Date(a.updatedAt).getTime();
       const tb = new Date(b.updatedAt).getTime();
-      return tb - ta;
+      if (tb !== ta) return tb - ta;
+      // Stable secondary sort by mode so two threads with identical
+      // updatedAt timestamps don't flicker between renders. Mode is the
+      // FlatList keyExtractor, so it's also guaranteed unique within
+      // this list.
+      return a.mode.localeCompare(b.mode);
     });
   }, [threads]);
 

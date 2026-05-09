@@ -72,8 +72,17 @@ export function OutfitSuggestionCard({
   // garment list straight through; its internal Shimmer covers the
   // signed-URL fetch per slot.
   if (isLoading || !garments) {
+    // Surface a disabled state so the card communicates that the Try
+    // CTA isn't tappable yet. Without this, a tap during hydration
+    // lands on plain View and is silently dead. The disabled
+    // accessibilityState plus dimmed opacity tells assistive tech and
+    // sighted users alike that the action will appear shortly.
     return (
       <View
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityState={{ disabled: true, busy: true }}
+        accessibilityLabel={tr('chat.outfitCard.loading')}
         style={{
           borderWidth: 1,
           borderColor: t.border,
@@ -83,6 +92,7 @@ export function OutfitSuggestionCard({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 10,
+          opacity: 0.7,
         }}>
         <ActivityIndicator size="small" color={t.accent} />
         <Text

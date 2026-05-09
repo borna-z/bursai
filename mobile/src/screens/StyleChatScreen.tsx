@@ -154,6 +154,16 @@ export function StyleChatScreen() {
   // the legacy 'stylist' mode literal so the contract aligns with web's
   // restyle naming.
   const seededRef = useRef(false);
+  // Reset the seed guard on unmount so a re-entry with fresh
+  // `route.params` (e.g. user navigates StyleMe → Restyle CTA again with
+  // a different anchor) re-runs the seed effect rather than silently
+  // ignoring the new params. The ref persists across renders within a
+  // single mount but resets between mounts.
+  useEffect(() => {
+    return () => {
+      seededRef.current = false;
+    };
+  }, []);
   useEffect(() => {
     if (seededRef.current) return;
     const params = route.params;

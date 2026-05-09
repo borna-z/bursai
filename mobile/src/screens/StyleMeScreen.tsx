@@ -423,8 +423,10 @@ export function StyleMeScreen() {
               <TextInput
                 value={customOccasion}
                 onChangeText={setCustomOccasion}
+                onBlur={() => setCustomOccasion(customOccasion.trim())}
                 placeholder={tr('styleMe.occasion.customPlaceholder')}
                 placeholderTextColor={t.fg3}
+                maxLength={50}
                 style={{
                   flex: 1,
                   color: t.fg,

@@ -1584,4 +1584,7 @@ export const en: Record<string, string> = {
   'styleMe.saved.openDetail': 'Open detail',
   'styleMe.saved.error.title': 'Could not save',
   'styleMe.preview.badge': 'Preview',
+
+  // ─── N3.8 — G-campaign post-merge polish ─────────────────────────────────
+  'travel.outfits.dateUnknown': 'Date unavailable',
 };
