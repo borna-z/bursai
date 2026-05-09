@@ -50,6 +50,7 @@ import {
 import { useSuggestAccessories } from '../hooks/useSuggestAccessories';
 import { useSuggestCombinations } from '../hooks/useSuggestCombinations';
 import { useCloneOutfitDNA } from '../hooks/useCloneOutfitDNA';
+import { useGarmentsByIds } from '../hooks/useGarments';
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
@@ -139,6 +140,30 @@ export function OutfitDetailScreen() {
   const [variationsOpen, setVariationsOpen] = React.useState(false);
   const [cloneOpen, setCloneOpen] = React.useState(false);
   const paywallShownRef = React.useRef(false);
+
+  // Codex P2 round 4 on PR #780 — `clone_outfit_dna` deliberately picks
+  // pieces that DIFFER from the source outfit (the edge function excludes
+  // the reference outfit's garment ids before generating variations). So
+  // `outfitGarmentImageMap` (built from the currently-opened outfit) is
+  // ~always a miss for cloned garment ids, leaving the cloned OutfitCard
+  // on its gradient placeholder. Hydrate via a targeted
+  // `useGarmentsByIds(...)` lookup keyed off the engine's returned ids —
+  // same pattern MoodFlowScreen / StyleMeScreen use for engine drafts.
+  const clonedGarmentIds = React.useMemo<string[]>(
+    () =>
+      (cloneHook.cloned?.items ?? [])
+        .map((it) => it.garment_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [cloneHook.cloned?.items],
+  );
+  const clonedGarmentsQ = useGarmentsByIds(clonedGarmentIds);
+  const clonedGarmentImageMap = React.useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of clonedGarmentsQ.data ?? []) {
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
+    }
+    return m;
+  }, [clonedGarmentsQ.data]);
 
   // P0.1 (Codex on PR #743) — pre-compute the set of garment ids ALREADY in
   // this outfit so the suggestion list never surfaces an accessory the
@@ -1034,10 +1059,19 @@ export function OutfitDetailScreen() {
                     const seedIds = cloned.items
                       .map((it) => it.garment_id)
                       .filter((id): id is string => typeof id === 'string' && id.length > 0);
+                    // Codex P2 round 4 on PR #780 — prefer the cloned-id
+                    // hydration map (a `useGarmentsByIds` lookup against
+                    // the engine's actual returned ids); fall back to the
+                    // current outfit's map only on the rare overlap, then
+                    // null. Without this, every cloned tile renders as a
+                    // gradient because `clone_outfit_dna` deliberately
+                    // excludes the reference outfit's garments.
                     const cardItems = cloned.items.map((it, i) => ({
                       id: it.garment_id ?? `cloned-slot-${i}`,
                       imagePath: it.garment_id
-                        ? outfitGarmentImageMap.get(it.garment_id) ?? null
+                        ? clonedGarmentImageMap.get(it.garment_id)
+                          ?? outfitGarmentImageMap.get(it.garment_id)
+                          ?? null
                         : null,
                     }));
                     return (
