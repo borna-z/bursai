@@ -130,23 +130,101 @@ export function EditGarmentScreen() {
   // Pre-fill from the loaded garment ONCE per garment.id. We key the
   // hydration on garment.id so navigating to a different garment re-fills.
   const lastHydratedIdRef = React.useRef<string | null>(null);
+  // Snapshot of the values pre-fill landed with — compared against current
+  // form state to detect unsaved edits in the cancel-with-edits guard
+  // below. Stringified seasons array because React state arrays change
+  // identity on every toggle but we only care about content. (F-015 in
+  // the N9 polish bundle.)
+  const initialFormRef = React.useRef<string>('');
   React.useEffect(() => {
     if (!garment) return;
     if (lastHydratedIdRef.current === garment.id) return;
     lastHydratedIdRef.current = garment.id;
-    setTitle(garment.title ?? '');
-    setCategory(garment.category ?? '');
-    setSubcategory(garment.subcategory ?? '');
-    setPrimaryColor(garment.color_primary ?? '');
-    setMaterial(garment.material ?? '');
-    setFit(garment.fit ?? '');
-    setPattern(garment.pattern ?? '');
+    const initialValues = {
+      title: garment.title ?? '',
+      category: garment.category ?? '',
+      subcategory: garment.subcategory ?? '',
+      primaryColor: garment.color_primary ?? '',
+      material: garment.material ?? '',
+      fit: garment.fit ?? '',
+      pattern: garment.pattern ?? '',
+      seasons: [...(garment.season_tags ?? [])].sort(),
+      wearCount: garment.wear_count ?? 0,
+      price: garment.purchase_price != null ? String(garment.purchase_price) : '',
+      inLaundry: Boolean(garment.in_laundry),
+    };
+    setTitle(initialValues.title);
+    setCategory(initialValues.category);
+    setSubcategory(initialValues.subcategory);
+    setPrimaryColor(initialValues.primaryColor);
+    setMaterial(initialValues.material);
+    setFit(initialValues.fit);
+    setPattern(initialValues.pattern);
     setSeasons(garment.season_tags ?? []);
-    setWearCount(garment.wear_count ?? 0);
-    setPrice(garment.purchase_price != null ? String(garment.purchase_price) : '');
-    setInLaundry(Boolean(garment.in_laundry));
+    setWearCount(initialValues.wearCount);
+    setPrice(initialValues.price);
+    setInLaundry(initialValues.inLaundry);
+    initialFormRef.current = JSON.stringify(initialValues);
     setHydrated(true);
   }, [garment]);
+
+  // Dirty check — recompute on every render against the snapshot ref
+  // taken at hydration time. Cheap (one JSON.stringify per render) and
+  // avoids a useState that would lag a frame behind the actual form
+  // state. (F-015 in the N9 polish bundle.)
+  const isDirty = React.useMemo(() => {
+    if (!hydrated) return false;
+    const current = JSON.stringify({
+      title,
+      category,
+      subcategory,
+      primaryColor,
+      material,
+      fit,
+      pattern,
+      seasons: [...seasons].sort(),
+      wearCount,
+      price,
+      inLaundry,
+    });
+    return current !== initialFormRef.current;
+  }, [
+    hydrated,
+    title,
+    category,
+    subcategory,
+    primaryColor,
+    material,
+    fit,
+    pattern,
+    seasons,
+    wearCount,
+    price,
+    inLaundry,
+  ]);
+
+  // Cancel handler — confirms with the user when there are unsaved edits.
+  // Without this, a stray tap on Cancel after typing into the form silently
+  // discards work. Save is gated by `isValid`, so the user can't always
+  // exit by saving — Cancel must own the discard prompt. (F-015.)
+  const handleCancel = React.useCallback(() => {
+    if (!isDirty) {
+      nav.goBack();
+      return;
+    }
+    // Literal copy here rather than new i18n keys: the N9 brief flags
+    // i18n locales as untouchable in this PR (N8 just landed an extensive
+    // sweep). A follow-up i18n bundle should fold these into the
+    // editGarment.cancel.* namespace.
+    Alert.alert('Discard changes?', 'You have unsaved edits to this piece.', [
+      { text: 'Keep editing', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: () => nav.goBack(),
+      },
+    ]);
+  }, [isDirty, nav]);
 
   const togglePick = <T,>(val: T, list: T[], setList: (xs: T[]) => void) =>
     setList(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
@@ -275,7 +353,7 @@ export function EditGarmentScreen() {
         style={{ flex: 1 }}>
         <View style={[s.headerRow, { borderBottomColor: t.border }]}>
           <Pressable
-            onPress={() => nav.goBack()}
+            onPress={handleCancel}
             accessibilityRole="button"
             accessibilityLabel={tr('editGarment.action.cancel')}
             hitSlop={8}>

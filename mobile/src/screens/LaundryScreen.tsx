@@ -149,10 +149,29 @@ export function LaundryScreen() {
     );
   };
 
+  // Single-flight latch for the mark-all-clean confirm flow. Without this,
+  // a double-tap on the bottom CTA opens two confirm Alerts, and confirming
+  // both fires the bulk mutation twice — every per-row mutation runs in
+  // parallel, the second pass's mutate calls happen while the first batch
+  // is still in flight, doubling network load and potentially causing
+  // duplicate-marking telemetry. The latch flips synchronously inside the
+  // pressable's onPress and clears in `onSettled` of the last mutation
+  // (or on Cancel). (F-026 in N9 polish bundle.)
+  const markAllInFlightRef = React.useRef(false);
+
   const markAllClean = () => {
     if (items.length === 0) return;
+    if (markAllInFlightRef.current) return;
+    markAllInFlightRef.current = true;
     Alert.alert('Mark all clean?', `${items.length} pieces will be moved out of laundry.`, [
-      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+        // Clear the latch on cancel so a follow-up tap reopens the confirm.
+        onPress: () => {
+          markAllInFlightRef.current = false;
+        },
+      },
       {
         text: 'Mark all clean',
         onPress: () => {
@@ -163,6 +182,12 @@ export function LaundryScreen() {
           // mutations.
           const ids = items.map((g) => g.id);
           const total = ids.length;
+          if (total === 0) {
+            // Items emptied between tap and confirm (e.g. background
+            // refetch). Clear the latch so a follow-up tap still works.
+            markAllInFlightRef.current = false;
+            return;
+          }
           setPendingIds((prev) => {
             const next = new Set(prev);
             for (const id of ids) next.add(id);
@@ -189,11 +214,17 @@ export function LaundryScreen() {
                     return next;
                   });
                   remaining -= 1;
-                  if (remaining === 0 && failures > 0) {
-                    Alert.alert(
-                      'Some items failed',
-                      `${failures} of ${total} couldn't be marked clean. Pull down to refresh and try the failed rows again.`,
-                    );
+                  if (remaining === 0) {
+                    // Last mutation just settled — clear the bulk latch
+                    // so a follow-up "Mark all clean" press opens the
+                    // confirm again. Must happen regardless of failures.
+                    markAllInFlightRef.current = false;
+                    if (failures > 0) {
+                      Alert.alert(
+                        'Some items failed',
+                        `${failures} of ${total} couldn't be marked clean. Pull down to refresh and try the failed rows again.`,
+                      );
+                    }
                   }
                 },
               },

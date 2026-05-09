@@ -34,6 +34,10 @@ const VF_BG = '#0c0c0c';
 const VF_FG = '#FFFFFF';
 const VF_FG2 = 'rgba(255,255,255,0.65)';
 const VF_BORDER = 'rgba(255,255,255,0.12)';
+// Warm gold tint for the active flash icon. Pulled into a top-of-file
+// constant so the camera-UI palette stays in one place rather than
+// drifting an inline hex into the JSX. (F-021 in N9 polish bundle.)
+const VF_ACCENT_FLASH = '#FFD96B';
 
 export function LiveScanScreen() {
   const nav = useNavigation<Nav>();
@@ -166,7 +170,7 @@ export function LiveScanScreen() {
             s.headerBtn,
             flash ? { backgroundColor: 'rgba(255,255,255,0.18)' } : null,
           ]}>
-          <SunIcon color={flash ? '#FFD96B' : VF_FG} size={18} />
+          <SunIcon color={flash ? VF_ACCENT_FLASH : VF_FG} size={18} />
         </Pressable>
       </View>
 

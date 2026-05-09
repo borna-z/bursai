@@ -29,8 +29,6 @@ const VALID_GARMENT_TAG_RE = /\[\[garment:([a-f0-9-]+)(?:\|([^\]]+))?\]\]/gi;
 const VALID_OUTFIT_TAG_RE = /\[\[outfit:([a-f0-9-,]+)\|([^\]]*)\]\]/gi;
 const ANY_DOUBLE_BRACKET_TAG_RE = /\[\[[\s\S]*?\]\]/g;
 const PARTIAL_TAG_START_RE = /\[\[(?:garment|outfit):/i;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const PARTIAL_TAG_CHAR_RE = /[a-z0-9,\-|]/i;
 
 const SLOT_MAP: Record<string, string> = {
   top: "top",

@@ -58,6 +58,7 @@ import {
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { hapticLight } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -112,8 +113,16 @@ export function VisualSearchScreen() {
             {
               text: tr('visualSearch.permission.openSettings'),
               onPress: () => {
-                void Linking.openSettings().catch(() => {
-                  /* swallow — best-effort */
+                void Linking.openSettings().catch((linkErr) => {
+                  // F-020: don't silently swallow. The Settings app is
+                  // installed on every iOS/Android device, so this catch
+                  // implies an OS-level issue worth reporting (corrupted
+                  // app links, locked-down enterprise device). Log via
+                  // `log.error` so Sentry captures it.
+                  log.error(linkErr, {
+                    area: 'visual_search',
+                    op: 'open_settings',
+                  });
                 });
               },
             },
@@ -152,8 +161,16 @@ export function VisualSearchScreen() {
             {
               text: tr('visualSearch.permission.openSettings'),
               onPress: () => {
-                void Linking.openSettings().catch(() => {
-                  /* swallow — best-effort */
+                void Linking.openSettings().catch((linkErr) => {
+                  // F-020: don't silently swallow. The Settings app is
+                  // installed on every iOS/Android device, so this catch
+                  // implies an OS-level issue worth reporting (corrupted
+                  // app links, locked-down enterprise device). Log via
+                  // `log.error` so Sentry captures it.
+                  log.error(linkErr, {
+                    area: 'visual_search',
+                    op: 'open_settings',
+                  });
                 });
               },
             },
