@@ -377,7 +377,30 @@ export function PlanScreen() {
               disabled={selectedIndex === 0 && (wornToday || markWorn.isPending)}
             />
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button label="Restyle" variant="outline" size="sm" block style={{ flex: 1 }} onPress={() => nav.navigate('OutfitGenerate')} />
+              <Button
+                label="Restyle"
+                variant="outline"
+                size="sm"
+                block
+                style={{ flex: 1 }}
+                // N3.10 F-012 — thread the planned outfit's garments through
+                // to the regen route as `seedGarmentIds` so the engine builds
+                // an outfit that honours those pieces. Mirrors OutfitDetail's
+                // Variation/Clone CTAs (~lines 952, 1000) which pass
+                // `seedGarmentIds`. Previously this button navigated with no
+                // params, so Restyle from Plan generated an unrelated outfit
+                // — inconsistent with how the same affordance behaves on
+                // OutfitDetail and silently broke the user's mental model.
+                onPress={() => {
+                  const seedIds = (selectedOutfit.outfit_items ?? [])
+                    .map((item) => item.garment?.id)
+                    .filter((id): id is string => Boolean(id));
+                  nav.navigate(
+                    'OutfitGenerate',
+                    seedIds.length > 0 ? { seedGarmentIds: seedIds } : undefined,
+                  );
+                }}
+              />
               <Button
                 label="Clear"
                 variant="outline"

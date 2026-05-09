@@ -7,7 +7,7 @@
 // Source: design_handoff_burs_rn/source/extra-screens.jsx FiltersScreen.
 
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Chip } from '../components/Chip';
 import { Button } from '../components/Button';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -84,6 +85,50 @@ export function FiltersScreen() {
   const activeCount =
     categories.length + colors.length + materials.length + fits.length + seasons.length;
 
+  // N3.10 F-007 — back-without-Apply guard. Compare current selections to
+  // the snapshot taken at mount; if anything changed, surface a confirm
+  // alert before popping. Without this the user loses all in-progress
+  // picks the moment they tap Cancel/back to glance at Wardrobe behind
+  // the sheet. Sort lists are sorted-compared because the togglePick
+  // helper appends in tap-order — ['black','navy'] == ['navy','black'].
+  const isDirty = React.useMemo(() => {
+    const initial = initialRef.current;
+    const sameList = (a: string[], b: string[]) => {
+      if (a.length !== b.length) return false;
+      const sa = [...a].sort();
+      const sb = [...b].sort();
+      for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;
+      return true;
+    };
+    return !(
+      sameList(categories, initial?.categories ?? [])
+      && sameList(colors, initial?.colors ?? [])
+      && sameList(materials, initial?.materials ?? [])
+      && sameList(fits, initial?.fits ?? [])
+      && sameList(seasons, initial?.seasons ?? [])
+      && sort === (initial?.sort ?? 'name_asc')
+    );
+  }, [categories, colors, materials, fits, seasons, sort]);
+
+  const handleCancel = () => {
+    if (!isDirty) {
+      nav.goBack();
+      return;
+    }
+    Alert.alert(
+      tr('filters.discardChanges.title'),
+      tr('filters.discardChanges.body'),
+      [
+        { text: tr('filters.discardChanges.keepEditing'), style: 'cancel' },
+        {
+          text: tr('filters.discardChanges.discard'),
+          style: 'destructive',
+          onPress: () => nav.goBack(),
+        },
+      ],
+    );
+  };
+
   const apply = () => {
     // Hand the chosen filters back to the caller (typically Wardrobe). If no callback was
     // supplied we still goBack so the screen remains usable as a standalone preview, but the
@@ -100,7 +145,7 @@ export function FiltersScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancel"
-          onPress={() => nav.goBack()}
+          onPress={handleCancel}
           hitSlop={8}>
           <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>Cancel</Text>
         </Pressable>

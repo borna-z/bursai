@@ -1587,4 +1587,19 @@ export const en: Record<string, string> = {
 
   // ─── N3.8 — G-campaign post-merge polish ─────────────────────────────────
   'travel.outfits.dateUnknown': 'Date unavailable',
+
+  // ─── N3.10 functional bug sweep (2026-05-09) ───────────────────────────
+  // FiltersScreen — back-without-Apply confirmation (F-007).
+  'filters.discardChanges.title': 'Discard filter changes?',
+  'filters.discardChanges.body':
+    "You haven't applied your changes yet. Going back will discard them.",
+  'filters.discardChanges.keepEditing': 'Keep editing',
+  'filters.discardChanges.discard': 'Discard',
+  // PhotoFeedbackScreen — missing outfitId guard (F-010).
+  'photoFeedback.missingOutfit.title': "Couldn't open photo feedback",
+  'photoFeedback.missingOutfit.body':
+    'No outfit was provided for this selfie. Open photo feedback from an outfit to try again.',
+  // OutfitPoolScreen — surface failed-draft names in the partial-save toast (F-009).
+  'outfitPool.partialSaveBodyWithNames':
+    "{failed} couldn't be saved — try again. Failed: {names}",
 };

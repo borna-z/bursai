@@ -99,6 +99,23 @@ export function PhotoFeedbackScreen() {
     }
   }, [permission, requestPermission]);
 
+  // N3.10 F-010 — bail early when `outfitId` is missing. Deep-link entries
+  // without the param (e.g. malformed share URL) used to land on a usable-
+  // looking camera screen but the eventual "Use this selfie" call fails the
+  // `if (!capturedUri || !outfitId) return;` guard in handleConfirm and
+  // sits forever. Surface an explicit alert + pop instead.
+  const missingOutfitAlertedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (outfitId || missingOutfitAlertedRef.current) return;
+    missingOutfitAlertedRef.current = true;
+    Alert.alert(
+      tr('photoFeedback.missingOutfit.title'),
+      tr('photoFeedback.missingOutfit.body'),
+      [{ text: 'OK', onPress: () => nav.goBack() }],
+      { cancelable: false },
+    );
+  }, [outfitId, nav]);
+
   // Sticky paywall route — fire once per screen lifetime when the
   // subscription sentinel surfaces. Same pattern OutfitDetail (M17) uses
   // for its composition helpers; keeps a paywall dismiss + retry flow

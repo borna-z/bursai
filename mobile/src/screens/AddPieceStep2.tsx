@@ -259,8 +259,14 @@ export function AddPieceStep2() {
       // Surface the upload error in dev — the user-facing flow falls through to
       // Step 3's Save handler, which surfaces a friendlier message if the await
       // there ends up rejecting.
+      // N3.10 F-005: gate behind __DEV__. The .catch fires for expected user-
+      // initiated cancels (e.g. back-button mid-analyze aborts the upload),
+      // which would otherwise spam Sentry breadcrumbs / production logs with
+      // benign rejections every time someone backs out of Step 2.
       wrapped.catch((err) => {
-        console.warn('[AddPieceStep2] upload failed:', err);
+        if (__DEV__) {
+          console.warn('[AddPieceStep2] upload failed:', err);
+        }
       });
 
       // Fire analyze with the base64 payload. Strip-and-prefix — ImageManipulator
