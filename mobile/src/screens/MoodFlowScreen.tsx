@@ -27,7 +27,7 @@ import { OutfitCard } from '../components/OutfitCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useMoodOutfit } from '../hooks/useMoodOutfit';
-import { useFlatGarments } from '../hooks/useGarments';
+import { useGarmentsByIds } from '../hooks/useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -57,19 +57,31 @@ export function MoodFlowScreen() {
   // The mood_outfit engine returns `MoodOutfitItem[]` with `garment_id` but
   // no image_path — that field doesn't exist on the engine's response shape.
   // Resolve image paths against the user's wardrobe so the OutfitCard tiles
-  // render real garment thumbnails instead of pure gradients. `useFlatGarments`
-  // is already cached when the user has scrolled the wardrobe; on a cold
-  // mount the cache populates as that infinite query loads pages, and any
-  // garment_id that hasn't loaded yet falls through `imagePath:null` to the
-  // gradient placeholder (same fallback as the rest of the app).
-  const wardrobe = useFlatGarments();
+  // render real garment thumbnails instead of pure gradients.
+  //
+  // Codex P2 round 2 on PR #780 (2026-05-09): `useFlatGarments()` is a
+  // paginated infinite query and only carries whatever pages the user has
+  // scrolled through — its first page is 30 rows. The mood engine scores
+  // against the user's full wardrobe, so for any user with more than 30
+  // garments any older selected piece would miss the cache and stay on
+  // the gradient forever. Switched to a targeted `useGarmentsByIds(...)`
+  // lookup keyed off the engine's actual returned ids; the result is a
+  // bounded fetch that always contains exactly the rows we need.
+  const moodGarmentIds = React.useMemo(
+    () =>
+      (result?.items ?? [])
+        .map((it) => it.garment_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [result?.items],
+  );
+  const wardrobeQ = useGarmentsByIds(moodGarmentIds);
   const wardrobeImageMap = React.useMemo(() => {
     const m = new Map<string, string | null>();
-    for (const g of wardrobe.data) {
+    for (const g of wardrobeQ.data ?? []) {
       m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
     }
     return m;
-  }, [wardrobe.data]);
+  }, [wardrobeQ.data]);
 
   // Reset + regenerate atomically when MOOD_LABEL / TIME_LABEL changes.
   // Splitting these into two effects (one for [mood,time] → generate, one

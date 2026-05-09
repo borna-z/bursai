@@ -31,7 +31,7 @@ import {
   type IconProps,
 } from '../components/icons';
 import { useGenerateOutfit, formatGenerateOutfitError } from '../hooks/useGenerateOutfit';
-import { useFlatGarments } from '../hooks/useGarments';
+import { useGarmentsByIds } from '../hooks/useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -72,17 +72,30 @@ export function StyleMeScreen() {
   // burs_style_engine returns `image_path` per item but it's the legacy
   // `garments.image_path` column — null for any garment that was uploaded
   // through the modern (rendered_image_path / original_image_path) pipeline.
-  // Pull the wardrobe and resolve image paths against the modern columns
-  // so OutfitCard tiles render real thumbnails for newer garments too.
-  // Same fallback story as MoodFlowScreen / OutfitDetailScreen.
-  const wardrobe = useFlatGarments();
+  // Resolve image paths against the modern columns so OutfitCard tiles
+  // render real thumbnails for newer garments too.
+  //
+  // Codex P2 round 2 on PR #780 (2026-05-09): `useFlatGarments()` only
+  // contains whatever pages the wardrobe infinite query has scrolled
+  // through (first page = 30), so the engine's selection of older
+  // garments outside that window stayed on the gradient. Targeted
+  // `useGarmentsByIds(...)` against the engine's actual returned ids
+  // covers the full wardrobe regardless of pagination state.
+  const styleGarmentIds = React.useMemo(
+    () =>
+      (result?.items ?? [])
+        .map((it) => it.garment_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [result?.items],
+  );
+  const wardrobeQ = useGarmentsByIds(styleGarmentIds);
   const wardrobeImageMap = React.useMemo(() => {
     const m = new Map<string, string | null>();
-    for (const g of wardrobe.data) {
+    for (const g of wardrobeQ.data ?? []) {
       m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
     }
     return m;
-  }, [wardrobe.data]);
+  }, [wardrobeQ.data]);
 
   const occ = OCCASIONS.find((o) => o.id === occId) ?? OCCASIONS[0];
 
