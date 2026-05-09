@@ -352,10 +352,18 @@ export function useGenerateTravelCapsule() {
         },
       };
 
+      // Project only columns that exist in the canonical migration
+      // (`supabase/migrations/00000000000000_initial_schema.sql:1255-1277`)
+      // — `travel_capsules.updated_at` is not part of the schema, and
+      // PostgREST rejects the entire insert response when the projection
+      // names an unknown column, which would throw before we ever seed
+      // the cache. Synthesize the optimistic-row timestamp locally below
+      // (the `result` JSONB optimistic-concurrency token derives from the
+      // row's own writes anyway, not from this initial insert).
       const { data: row, error: insertErr } = await supabase
         .from('travel_capsules')
         .insert(insertPayload)
-        .select('id, created_at, updated_at')
+        .select('id, created_at')
         .single();
       if (insertErr) throw insertErr;
       if (!row?.id) throw new Error('travel_capsule: insert returned no id');
@@ -404,8 +412,13 @@ export function useGenerateTravelCapsule() {
         result: insertPayload.result,
         created_at:
           typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+        // No `updated_at` column on `travel_capsules` (see select projection
+        // above). The list-read parser already falls back to `created_at`
+        // when this is missing, so mirror that here to keep the
+        // optimistic-concurrency token deterministic until the safety-net
+        // refetch replaces this row with the canonical one.
         updated_at:
-          typeof row.updated_at === 'string' ? row.updated_at : new Date().toISOString(),
+          typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
       };
       const MAX_CAPSULES_FOR_CACHE = 10;
       queryClient.setQueryData<TravelCapsuleRow[]>(
