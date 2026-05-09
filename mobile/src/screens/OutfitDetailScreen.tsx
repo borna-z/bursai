@@ -104,13 +104,18 @@ export function OutfitDetailScreen() {
   // clone explicitly seeds from this outfit; the suggestions are anchored
   // against subsets of it). When an id isn't in this map the OutfitCard tile
   // falls back to its gradient placeholder, same as today's behaviour.
+  //
+  // Codex P2 round 3 on PR #780 — also fall back to legacy `image_path`
+  // after the modern rendered/original paths so older imported garments
+  // (which only populated the legacy column) still render real thumbnails
+  // in the variations strip when the engine didn't hydrate inline.
   const outfitGarmentImageMap = React.useMemo(() => {
     const m = new Map<string, string | null>();
     if (!outfit?.outfit_items) return m;
     for (const it of outfit.outfit_items) {
       const g = it.garment;
       if (g?.id) {
-        m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
+        m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
       }
     }
     return m;

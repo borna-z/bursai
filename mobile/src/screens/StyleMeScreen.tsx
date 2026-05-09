@@ -81,6 +81,11 @@ export function StyleMeScreen() {
   // garments outside that window stayed on the gradient. Targeted
   // `useGarmentsByIds(...)` against the engine's actual returned ids
   // covers the full wardrobe regardless of pagination state.
+  //
+  // Codex P2 round 3 on PR #780 (2026-05-09): also fall back to the legacy
+  // `garments.image_path` column after the modern rendered/original paths.
+  // Older imported rows only populate the legacy column, so without this
+  // fallback those real garments would still render as gradients.
   const styleGarmentIds = React.useMemo(
     () =>
       (result?.items ?? [])
@@ -92,7 +97,7 @@ export function StyleMeScreen() {
   const wardrobeImageMap = React.useMemo(() => {
     const m = new Map<string, string | null>();
     for (const g of wardrobeQ.data ?? []) {
-      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
     }
     return m;
   }, [wardrobeQ.data]);

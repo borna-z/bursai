@@ -67,6 +67,11 @@ export function MoodFlowScreen() {
   // the gradient forever. Switched to a targeted `useGarmentsByIds(...)`
   // lookup keyed off the engine's actual returned ids; the result is a
   // bounded fetch that always contains exactly the rows we need.
+  //
+  // Codex P2 round 3 on PR #780 (2026-05-09): also fall back to the legacy
+  // `garments.image_path` column after the modern rendered/original paths.
+  // Older imported rows only populate the legacy column, so without this
+  // fallback those real garments would still render as gradients.
   const moodGarmentIds = React.useMemo(
     () =>
       (result?.items ?? [])
@@ -78,7 +83,7 @@ export function MoodFlowScreen() {
   const wardrobeImageMap = React.useMemo(() => {
     const m = new Map<string, string | null>();
     for (const g of wardrobeQ.data ?? []) {
-      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
     }
     return m;
   }, [wardrobeQ.data]);
