@@ -673,7 +673,7 @@ export function OutfitDetailScreen() {
             }}>
             {tr('outfit.detail.notFound.body')}
           </Text>
-          <Button label="Back" variant="outline" onPress={() => nav.goBack()} />
+          <Button label={tr('common.back')} variant="outline" onPress={() => nav.goBack()} />
         </View>
       </SafeAreaView>
     );
