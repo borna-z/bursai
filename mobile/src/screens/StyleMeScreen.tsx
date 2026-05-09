@@ -22,7 +22,7 @@
 // W4 wired the original engine call. Persistent saving + restyle handoff
 // land in G5 — paywall routing for `subscription_required` is unchanged.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -65,6 +65,7 @@ import { usePersistGeneratedOutfit } from '../hooks/useOutfits';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { hapticLight } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
+import { Sentry } from '../lib/sentry';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -146,6 +147,49 @@ export function StyleMeScreen() {
       reset();
     };
   }, [reset]);
+
+  // N3.7: clear all generation-related state when the user pivots to a new
+  // occasion or formality. Without this, the prior `result`, anchor garment
+  // ids, manual weather override, and any in-flight generate request would
+  // bleed into the next "Generate" — e.g. a snowy override picked while
+  // styling a Travel outfit would silently shape a follow-up Business Casual
+  // suggestion. Anchors and the saved-outfit pointer are cleared too so the
+  // next generation is unambiguously about the new mode the user picked.
+  // Per-occasion stickiness for re-renders / anchor swaps is preserved —
+  // the reset only fires on the mode-pivot transitions below.
+  const resetForModeChange = useCallback(() => {
+    reset();
+    setAnchorIds([]);
+    setSavedOutfitId(null);
+    paywallShownRef.current = false;
+    if (manualOverride !== null) {
+      setManualOverride(null);
+      setManual(null);
+      Sentry.addBreadcrumb({
+        category: 'weather',
+        message: 'manual override cleared on mode change',
+      });
+    }
+  }, [reset, manualOverride, setManual]);
+
+  const onSelectOccasion = useCallback(
+    (next: OccasionId) => {
+      hapticLight();
+      if (next === occId) return;
+      resetForModeChange();
+      setOccId(next);
+    },
+    [occId, resetForModeChange],
+  );
+
+  const onSelectFormality = useCallback(
+    (next: FormalityKey) => {
+      if (next === formality) return;
+      resetForModeChange();
+      setFormality(next);
+    },
+    [formality, resetForModeChange],
+  );
 
   useEffect(() => {
     // Route to the real PaywallScreen instead of popping an Alert each time
@@ -309,10 +353,7 @@ export function StyleMeScreen() {
               return (
                 <Pressable
                   key={o.id}
-                  onPress={() => {
-                    hapticLight();
-                    setOccId(o.id);
-                  }}
+                  onPress={() => onSelectOccasion(o.id)}
                   style={({ pressed }) => [
                     s.occTile,
                     {
@@ -346,10 +387,7 @@ export function StyleMeScreen() {
             })}
             {/* Custom… chip — taps a 7th tile to open inline TextInput. */}
             <Pressable
-              onPress={() => {
-                hapticLight();
-                setOccId('custom');
-              }}
+              onPress={() => onSelectOccasion('custom')}
               style={({ pressed }) => [
                 s.occTile,
                 {
@@ -480,7 +518,7 @@ export function StyleMeScreen() {
                 key={key}
                 label={tr(`styleMe.formality.${key}`)}
                 active={key === formality}
-                onPress={() => setFormality(key)}
+                onPress={() => onSelectFormality(key)}
               />
             ))}
           </View>
