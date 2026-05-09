@@ -40,42 +40,37 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
-import { fetchSSE } from '../lib/sse';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
-import { getLocale } from '../lib/i18n';
-import {
-  isStyleChatResponseEnvelope,
-  parseShoppingResultCards,
-  type PersistedStyleChatMessage,
-  type ShoppingResultCard,
-  type StyleChatActiveLookInput,
-  type StyleChatResponseEnvelope,
+import type {
+  StyleChatActiveLookInput,
+  StyleChatResponseEnvelope,
 } from '../lib/styleChatContract';
 import { getLatestActiveLook } from '../lib/chatActiveLook';
+import {
+  finalizeEnvelopeForMode,
+  HISTORY_TURNS,
+  HYDRATION_LIMIT,
+  parseStoredMessage,
+  persistedModeFor,
+  persistMessages,
+  ROUTE_BY_MODE,
+  type ChatMessage,
+  type StoredRow,
+  type StyleChatMode,
+} from './useStyleChat.helpers';
+import {
+  buildRequestBody,
+  fetchSSE,
+  handleStreamChunk,
+  makeAccumulator,
+} from './useStyleChat.stream';
 
-// M23 — chat-mode toggle. `style` routes to the existing `style_chat`
-// edge function (8-mode contract from M14); `shopping` routes to the
-// `shopping_chat` edge function (focuses on what to buy + where, returns
-// text + reserved `shopping_results` envelope for future product cards).
-//
-// Mirrors the StyleChatScreen segmented control. Adding a new mode here
-// means updating ROUTE_BY_MODE below + the `setMode` typing.
-export type StyleChatMode = 'style' | 'shopping';
-
-const ROUTE_BY_MODE: Record<StyleChatMode, string> = {
-  style: 'style_chat',
-  shopping: 'shopping_chat',
-};
-
-export type ChatMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  isStreaming?: boolean;
-  stylistMeta?: StyleChatResponseEnvelope | null;
-};
+export {
+  persistedModeFor,
+  type ChatMessage,
+  type StyleChatMode,
+} from './useStyleChat.helpers';
 
 export interface UseStyleChatResult {
   messages: ChatMessage[];
@@ -99,190 +94,11 @@ export interface UseStyleChatResult {
   setMode: (mode: StyleChatMode) => void;
 }
 
-type StyleChatChunk =
-  | { type: 'stylist_response'; payload: unknown }
-  | { type: 'suggestions'; chips?: unknown[] }
-  | { type: 'metadata'; truncated?: boolean }
-  // M23 — forward-compat shopping result envelope. `shopping_chat`
-  // streams text-only deltas today, so this branch is reserved for the
-  // future product-tool emission and never fires in production yet.
-  // Keeping the parser hot ensures a server upgrade flows through
-  // without a client release.
-  | { type: 'shopping_results'; results?: unknown }
-  | { choices?: { delta?: { content?: string } }[] }
-  | { text?: string };
-
-const STYLIST_MODE = 'stylist';
-const SHOPPING_MODE = 'shopping';
-// G1 — translate the chat-mode toggle into the column value persisted in
-// `chat_messages.mode`. Web's AIChat uses the same two values
-// ('stylist' / 'shopping') so mobile + web hydrate against the same row
-// set when the user moves between devices. Keeping the function exported
-// so ChatHistorySheet can normalize stored rows into the toggle's union.
-export function persistedModeFor(mode: StyleChatMode): string {
-  return mode === 'shopping' ? SHOPPING_MODE : STYLIST_MODE;
-}
-const HYDRATION_LIMIT = 100;
-const HISTORY_TURNS = 9;
-
-type StoredRow = {
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: string;
-};
-
 // Module-level monotonic counter — combined with Date.now() to keep
 // generated message ids unique even when sendMessage is called twice in
 // the same millisecond (rapid-tap, scripted retry, etc.). Previously the
 // id collided which made FlatList drop one of the two bubbles. Codex P2-10.
 let messageIdCounter = 0;
-
-// Mirror of web's `parseStoredMessage` (src/pages/AIChat.tsx) for mobile
-// strings only. JSON content with `kind: 'stylist_message'` decodes into a
-// ChatMessage carrying both the assistant text and the contract envelope;
-// anything else (including legacy plain-text rows) treats `content` as the
-// raw bubble text.
-function parseStoredMessage(row: StoredRow, index: number): ChatMessage {
-  const id = `${row.role}-hyd-${index}-${row.created_at}`;
-  const timestamp = new Date(row.created_at);
-  if (row.content.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(row.content) as PersistedStyleChatMessage;
-      if (parsed?.kind === 'stylist_message') {
-        // Web's AIChat persists `content` as either a string OR an
-        // OpenAI-style multimodal array (`[{type:'text',text}, {type:'image_url',...}]`).
-        // Coercing the array to '' would drop user-typed text on mobile
-        // hydration; instead, concatenate every text part. Non-text parts
-        // (image attachments) have no mobile-visible representation today
-        // — they're silently skipped, which is fine because the bubble
-        // still shows what the user wrote. Codex P1-3.
-        let text = '';
-        if (typeof parsed.content === 'string') {
-          text = parsed.content;
-        } else if (Array.isArray(parsed.content)) {
-          text = parsed.content
-            .filter(
-              (c): c is { type: 'text'; text: string } =>
-                !!c
-                && typeof c === 'object'
-                && (c as { type?: unknown }).type === 'text'
-                && typeof (c as { text?: unknown }).text === 'string',
-            )
-            .map((c) => c.text)
-            .join(' ');
-        }
-        return {
-          id,
-          role: row.role,
-          content: text,
-          timestamp,
-          stylistMeta: isStyleChatResponseEnvelope(parsed.stylistMeta)
-            ? parsed.stylistMeta
-            : null,
-        };
-      }
-    } catch {
-      // Fall through — legacy plain-text row.
-    }
-  }
-  return { id, role: row.role, content: row.content, timestamp };
-}
-
-// Persist a {user, assistant} pair to `chat_messages`. Assistant turns
-// carrying a stylist envelope are encoded as `PersistedStyleChatMessage`
-// JSON so a subsequent hydration round-trips the mode pill + active-look
-// state. Bare turns serialize their string content directly.
-async function persistMessages(
-  userId: string,
-  mode: StyleChatMode,
-  msgs: { role: 'user' | 'assistant'; content: string; stylistMeta?: StyleChatResponseEnvelope | null }[],
-): Promise<void> {
-  const persistedMode = persistedModeFor(mode);
-  const rows = msgs.map((m) => {
-    const content = m.stylistMeta
-      ? JSON.stringify({
-          kind: 'stylist_message',
-          content: m.content,
-          stylistMeta: m.stylistMeta,
-        } satisfies PersistedStyleChatMessage)
-      : m.content;
-    return { user_id: userId, role: m.role, content, mode: persistedMode };
-  });
-  const { error } = await supabase.from('chat_messages').insert(rows);
-  if (error) {
-    // Don't surface persistence failure as a user-visible error — the bubble
-    // already rendered. Log to Sentry so we can spot a broken RLS policy.
-    Sentry.withScope((s) => {
-      s.setTag('mutation', 'useStyleChat.persistMessages');
-      Sentry.captureException(error);
-    });
-  }
-}
-
-// M23 — merges any accumulated shopping_results into a candidate envelope
-// without mutating either input. Returns the envelope as-is when there
-// are no results to attach; returns null when both inputs are empty so
-// the bubble's stylistMeta stays a clean null in style-mode degraded
-// paths.
-function mergeShoppingResults(
-  envelope: StyleChatResponseEnvelope | null,
-  results: ShoppingResultCard[] | null,
-): StyleChatResponseEnvelope | null {
-  if (!envelope) return null;
-  if (!results || results.length === 0) return envelope;
-  return { ...envelope, shopping_results: results };
-}
-
-// M23 — Synthesize the assistant message's final envelope for the active
-// mode. Style mode returns whatever the server delivered (or null when
-// the server stayed silent — same as M14). Shopping mode synthesizes a
-// minimal envelope tagged `mode: 'SHOPPING'` so the bubble can render
-// the mode pill and any product cards even though the server doesn't
-// emit a stylist_response payload today. The synthesized envelope uses
-// neutral defaults for every other field — a future backend that DOES
-// emit a stylist_response wins (the `envelope` arg is preferred when
-// non-null).
-function finalizeEnvelopeForMode(
-  mode: StyleChatMode,
-  envelope: StyleChatResponseEnvelope | null,
-  finalText: string,
-  results: ShoppingResultCard[] | null,
-): StyleChatResponseEnvelope | null {
-  if (envelope) return mergeShoppingResults(envelope, results);
-  if (mode !== 'shopping') return null;
-  // Shopping-mode + no server envelope. Build a minimal one so the
-  // bubble can render its 'Shopping' mode pill and ShoppingResultCards
-  // (when results land). Every other field is a neutral default.
-  const synthetic: StyleChatResponseEnvelope = {
-    kind: 'stylist_response',
-    mode: 'SHOPPING',
-    response_kind: 'style_explanation',
-    card_policy: 'optional',
-    card_state: 'unavailable',
-    assistant_text: finalText,
-    outfit_ids: [],
-    outfit_explanation: '',
-    garment_mentions: [],
-    suggestion_chips: [],
-    truncated: false,
-    active_look_status: 'unavailable',
-    active_look: {
-      garment_ids: [],
-      explanation: null,
-      source: null,
-      status: 'unavailable',
-      card_state: 'unavailable',
-      anchor_garment_id: null,
-      anchor_locked: false,
-    },
-    fallback_used: false,
-    degraded_reason: null,
-    render_outfit_card: false,
-    clear_active_look: false,
-    shopping_results: results && results.length > 0 ? results : null,
-  };
-  return synthetic;
-}
 
 export function useStyleChat(): UseStyleChatResult {
   const { user, session } = useAuth();
@@ -641,17 +457,7 @@ export function useStyleChat(): UseStyleChatResult {
       // double-render or flash-then-collapse. We hold the envelope as a
       // fallback in case zero deltas arrive (degraded path); deltas, when
       // they land, overwrite the placeholder progressively.
-      let envelopeFallback = '';
-      let deltaAccumulated = '';
-      let receivedDeltas = false;
-      let envelopeMeta: StyleChatResponseEnvelope | null = null;
-      // M23 — accumulator for any product cards emitted by the
-      // `shopping_chat` SSE stream. Today the function returns text-only,
-      // so this stays null in production and the parser remains hot for
-      // a future server upgrade. When populated, the cards land on the
-      // assistant message's `stylistMeta.shopping_results` so the screen
-      // renders ShoppingResultCards beneath the bubble.
-      let shoppingResults: ShoppingResultCard[] | null = null;
+      const acc = makeAccumulator();
       // M23 — capture the active mode at send time so the route + the
       // persisted envelope reflect what the user chose, even if they
       // toggle modes mid-stream (which also fires the abort path above).
@@ -671,8 +477,11 @@ export function useStyleChat(): UseStyleChatResult {
             m.id === assistantId
               ? {
                   ...m,
-                  content: deltaAccumulated,
-                  stylistMeta: mergeShoppingResults(envelopeMeta, shoppingResults),
+                  content: acc.deltaAccumulated,
+                  stylistMeta:
+                    acc.envelopeMeta && acc.shoppingResults && acc.shoppingResults.length > 0
+                      ? { ...acc.envelopeMeta, shopping_results: acc.shoppingResults }
+                      : acc.envelopeMeta,
                 }
               : m,
           ),
@@ -686,114 +495,44 @@ export function useStyleChat(): UseStyleChatResult {
           flushBubble();
         });
       };
-
-      // M23 — request body shape diverges by mode:
-      //   • style_chat accepts { messages, locale, selected_garment_ids?,
-      //     active_look? } (M14 8-mode contract).
-      //   • shopping_chat (verified against
-      //     supabase/functions/shopping_chat/index.ts) reads only
-      //     { messages, locale } — selected_garment_ids and active_look
-      //     are no-ops there. Shipping them anyway would still work but
-      //     would also bleed style-chat anchor state into the shopping
-      //     prompt's prior turns. Strip them so each route gets its
-      //     intended payload.
-      const requestBody =
-        turnMode === 'shopping'
-          ? {
-              messages: messagesPayload,
-              locale: getLocale() ?? 'en',
-            }
-          : {
-              messages: messagesPayload,
-              locale: getLocale() ?? 'en',
-              ...(anchorRef.current ? { selected_garment_ids: [anchorRef.current] } : {}),
-              ...(activeLookPayload ? { active_look: activeLookPayload } : {}),
+      // Envelope-receipt seed — the original setMessages callback overwrites
+      // content with `deltaAccumulated || envelopeFallback || m.content` and
+      // stylistMeta with the merged envelope. Mirror that here so the chunk
+      // handler can call out via the `onAssistantBubbleUpdate` callback.
+      const onAssistantBubbleUpdate = (next: {
+        content: string;
+        stylistMeta: StyleChatResponseEnvelope | null;
+      }) => {
+        if (controller.signal.aborted) return;
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== assistantId) return m;
+            return {
+              ...m,
+              content: next.content || m.content,
+              stylistMeta: next.stylistMeta,
             };
+          }),
+        );
+      };
+
+      const requestBody = buildRequestBody({
+        mode: turnMode,
+        messagesPayload,
+        anchoredGarmentId: anchorRef.current,
+        activeLookPayload,
+      });
 
       await fetchSSE(
         turnFunctionName,
         requestBody,
         {
           onData: (raw) => {
-            let parsed: StyleChatChunk | null = null;
-            try {
-              parsed = JSON.parse(raw) as StyleChatChunk;
-            } catch {
-              // Plain-text fragment — append directly.
-              receivedDeltas = true;
-              deltaAccumulated += raw;
-              scheduleBubbleFlush();
-              return;
-            }
-
-            if (parsed && 'type' in parsed && parsed.type === 'stylist_response') {
-              if (isStyleChatResponseEnvelope(parsed.payload)) {
-                envelopeMeta = parsed.payload;
-                envelopeFallback = parsed.payload.assistant_text ?? '';
-                // M23 — if the envelope carried shopping_results inline
-                // (forward-compat with a server tool emission that fuses
-                // the response + cards into one payload), normalize them
-                // through the same defensive accessor.
-                const inlineCards = parseShoppingResultCards(parsed.payload.shopping_results);
-                if (inlineCards) shoppingResults = inlineCards;
-                // Surface the envelope on the streaming bubble immediately so
-                // the mode pill + active-look badge can render before any
-                // deltas land.
-                if (!controller.signal.aborted) {
-                  setMessages((prev) =>
-                    prev.map((m) => {
-                      if (m.id !== assistantId) return m;
-                      const nextContent = deltaAccumulated || envelopeFallback || m.content;
-                      return {
-                        ...m,
-                        content: nextContent,
-                        stylistMeta: mergeShoppingResults(envelopeMeta, shoppingResults),
-                      };
-                    }),
-                  );
-                }
-              }
-              return;
-            }
-
-            if (parsed && 'type' in parsed && parsed.type === 'suggestions') {
-              const chips = Array.isArray(parsed.chips)
-                ? parsed.chips.filter((c): c is string => typeof c === 'string')
-                : [];
-              setSuggestionChips(chips);
-              return;
-            }
-
-            if (parsed && 'type' in parsed && parsed.type === 'shopping_results') {
-              // M23 — defensive accessor drops malformed cards rather
-              // than rejecting the whole batch. The deployed
-              // shopping_chat function does not emit this event today,
-              // so this branch only activates when a future server
-              // upgrade ships the structured product-card tool.
-              const cards = parseShoppingResultCards(parsed.results);
-              if (cards) {
-                shoppingResults = cards;
-                scheduleBubbleFlush();
-              }
-              return;
-            }
-
-            if (parsed && 'choices' in parsed) {
-              const piece = parsed.choices?.[0]?.delta?.content ?? '';
-              if (!piece) return;
-              receivedDeltas = true;
-              deltaAccumulated += piece;
-              scheduleBubbleFlush();
-              return;
-            }
-
-            if (parsed && 'text' in parsed && typeof parsed.text === 'string') {
-              receivedDeltas = true;
-              deltaAccumulated += parsed.text;
-              scheduleBubbleFlush();
-            }
-            // metadata events: silently ignored — truncation is reflected in
-            // the envelope itself.
+            handleStreamChunk(raw, acc, {
+              onAssistantBubbleUpdate,
+              onSuggestionChips: setSuggestionChips,
+              scheduleBubbleFlush,
+            });
           },
           onDone: () => {
             // Always release the rapid-tap guard, even when aborted —
@@ -805,7 +544,7 @@ export function useStyleChat(): UseStyleChatResult {
             // (e.g. tool-only response). Fall back to the envelope text so
             // the bubble shows the assistant's reply rather than staying
             // empty. Codex audit P1-3.
-            const finalContent = receivedDeltas ? deltaAccumulated : envelopeFallback;
+            const finalContent = acc.receivedDeltas ? acc.deltaAccumulated : acc.envelopeFallback;
             // M23 — shopping_chat streams text-only without a
             // stylist_response envelope, so envelopeMeta stays null on
             // that path. Synthesize a minimal envelope so the assistant
@@ -814,9 +553,9 @@ export function useStyleChat(): UseStyleChatResult {
             // For style mode we keep the full server envelope verbatim.
             const finalMeta = finalizeEnvelopeForMode(
               turnMode,
-              envelopeMeta,
-              finalContent || envelopeFallback,
-              shoppingResults,
+              acc.envelopeMeta,
+              finalContent || acc.envelopeFallback,
+              acc.shoppingResults,
             );
             setMessages((prev) =>
               prev.map((m) =>
@@ -859,7 +598,7 @@ export function useStyleChat(): UseStyleChatResult {
                 { role: 'user', content: trimmed },
                 {
                   role: 'assistant',
-                  content: finalContent || envelopeFallback,
+                  content: finalContent || acc.envelopeFallback,
                   stylistMeta: finalMeta,
                 },
               ])
