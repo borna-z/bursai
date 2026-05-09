@@ -41,7 +41,7 @@ const MOBILE = resolve(ROOT, 'mobile');
 const args = process.argv.slice(2);
 const jsonOutput = args.includes('--json');
 const skipArg = args.find((a) => a.startsWith('--skip='));
-const skipped = new Set((skipArg ? skipArg.slice('--skip='.length) : '').split(',').filter(Boolean));
+const skipNames = new Set((skipArg ? skipArg.slice('--skip='.length) : '').split(',').filter(Boolean));
 
 const isWindows = process.platform === 'win32';
 
@@ -109,7 +109,7 @@ const gates = [
  * @returns {{status: 'PASS'|'FAIL'|'SKIP', durationMs: number, exitCode: number|null, reason?: string}}
  */
 function runGate(gate) {
-  if (skipped.has(gate.name)) {
+  if (skipNames.has(gate.name)) {
     return { status: 'SKIP', durationMs: 0, exitCode: null, reason: 'skipped via --skip' };
   }
   if (!existsSync(gate.cwd)) {
