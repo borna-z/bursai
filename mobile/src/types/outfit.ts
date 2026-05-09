@@ -1,7 +1,8 @@
-// Outfit + planned-outfit domain types — sourced from the canonical web Database
-// type so any schema regen propagates here. Mirrors mobile/src/types/garment.ts:
-// the type-only carve-out into ../../../src/integrations/supabase/types is the
-// only allowed reach into the web app (see mobile/CLAUDE.md "Anti-patterns").
+// Outfit + planned-outfit domain types — sourced from the canonical Supabase
+// Database type at `supabase/types.gen.ts` so any schema regen propagates
+// here. Mirrors mobile/src/types/garment.ts: type-only imports from outside
+// `mobile/` are the carve-out from the runtime-import boundary (see
+// mobile/CLAUDE.md "Anti-patterns" + mobile/eslint.config.js).
 //
 // `OutfitWithItems` shapes the joined select used by every consumer hook —
 // outfit row + outfit_items + nested garment row. Kept here (not inline in the
@@ -12,7 +13,7 @@
 // outfits, date on planned_outfits, no last_worn_at column on outfits). The
 // W3 spec uses some legacy names; the implementation uses the schema.
 
-import type { Database } from '../../../src/integrations/supabase/types';
+import type { Database } from '../../../supabase/types.gen';
 
 export type Outfit = Database['public']['Tables']['outfits']['Row'];
 export type OutfitItem = Database['public']['Tables']['outfit_items']['Row'];
