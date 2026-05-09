@@ -801,6 +801,14 @@ export function useStyleChat(): UseStyleChatResult {
             // the same conversation. Skip when we have nothing meaningful
             // to record (degraded zero-text path with no envelope).
             if (finalContent || finalMeta) {
+              // G1 — Codex P2 round 1: invalidate `chatHistory` AFTER
+              // persistMessages resolves, not in parallel. The previous
+              // `void persistMessages(...) ; queryClient.invalidate(...)`
+              // pattern raced — if the invalidation refetched while the
+              // INSERT was still in flight, the sheet would cache stale
+              // thread counts until the next manual refresh. Chain off
+              // the persist promise so the refetch always sees the new
+              // rows.
               void persistMessages(user.id, turnMode, [
                 { role: 'user', content: trimmed },
                 {
@@ -808,7 +816,11 @@ export function useStyleChat(): UseStyleChatResult {
                   content: finalContent || envelopeFallback,
                   stylistMeta: finalMeta,
                 },
-              ]);
+              ]).then(() => {
+                queryClient.invalidateQueries({
+                  queryKey: ['chatHistory', user.id],
+                });
+              });
             }
             // Refresh the per-mode buffer cache with the just-completed
             // turn pair so a mode toggle away-and-back doesn't re-fetch.
@@ -824,10 +836,6 @@ export function useStyleChat(): UseStyleChatResult {
                 );
               }
             });
-            // G1 — refresh the chat history sheet so the new turn
-            // bumps the thread's updatedAt + message count next time
-            // the user opens the sheet.
-            queryClient.invalidateQueries({ queryKey: ['chatHistory', user.id] });
           },
           onError: (err) => {
             // Same release as onDone — required so the user can retry.

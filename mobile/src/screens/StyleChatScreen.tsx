@@ -162,9 +162,14 @@ export function StyleChatScreen() {
       return;
     }
     seededRef.current = true;
-    // Mode seed. Accept the legacy 'stylist' literal as 'style' so a
-    // caller that mirrors web's vocabulary doesn't have to adapt.
-    const rawMode = params.mode as string | undefined;
+    // Mode seed. The route param is typed `StyleChatMode | undefined`
+    // ('style' | 'shopping') so a runtime guard isn't strictly needed,
+    // but the legacy 'stylist' literal is accepted defensively in case
+    // a caller mirrors web's restyle vocabulary verbatim — TS would
+    // fail to flag that mismatch at the call site since
+    // `nav.navigate('StyleChat', { mode: 'stylist' as any })` slips
+    // through, and we'd rather quietly normalize than silently drop.
+    const rawMode: string | undefined = params.mode;
     const seedMode: StyleChatMode | null =
       rawMode === 'shopping'
         ? 'shopping'

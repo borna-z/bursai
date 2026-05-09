@@ -77,14 +77,23 @@ export function useChatHistory() {
     enabled: !!user?.id,
     queryFn: async () => {
       if (!user?.id) return [];
+      // Order descending and cap at CHAT_HISTORY_LIMIT so a user with
+      // 200+ chat rows sees the latest activity per mode rather than
+      // the oldest. The original ascending+limit query (Codex P2 round
+      // 1 on PR #789) could mask a recently-active mode entirely if
+      // all 200 oldest rows were from the other mode. After the SELECT
+      // we reverse the rows so the bucketing pass walks oldest→newest
+      // within the recent window, preserving the "first user message
+      // is the preview" semantic (now interpreted as the first user
+      // message in the recent window — sufficient for a thread snippet).
       const { data, error } = await supabase
         .from('chat_messages')
         .select('role, content, created_at, mode')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(CHAT_HISTORY_LIMIT);
       if (error) throw error;
-      const rows = (data ?? []) as ChatHistoryRow[];
+      const rows = ((data ?? []) as ChatHistoryRow[]).slice().reverse();
       const buckets = new Map<StyleChatMode, ChatHistoryThreadSummary>();
       for (const row of rows) {
         const mode = normalizeMode(row.mode);
