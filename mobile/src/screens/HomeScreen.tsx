@@ -726,6 +726,42 @@ function OutfitThumb({
   );
 }
 
+// One cell of the 2×2 mosaic inside `RecentOutfitTile`. Borderless companion
+// to `OutfitThumb`: same gradient + signed-URL <Image> recipe, no border or
+// label since four of these compose the recent-tile thumb rather than each
+// reading as a standalone garment card.
+function RecentMosaicSlot({
+  item,
+  fallbackHue,
+}: {
+  item: OutfitItemWithGarment | null;
+  fallbackHue: number;
+}) {
+  const garment = item?.garment ?? null;
+  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const showImage = imageUri != null;
+  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
+  return (
+    <View style={{ flex: 1, overflow: 'hidden' }}>
+      <LinearGradient
+        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      {showImage ? (
+        <Image
+          source={{ uri: imageUri }}
+          onError={onImageError}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      ) : null}
+    </View>
+  );
+}
+
 function MiniWeek({ days, onPress }: { days: WeekDay[]; onPress: () => void }) {
   const t = useTokens();
   return (
@@ -761,9 +797,13 @@ function MiniWeek({ days, onPress }: { days: WeekDay[]; onPress: () => void }) {
 }
 
 // M35 — single tile in the horizontal "Recent outfits" carousel below the
-// hero. Reuses the same gradient-thumb recipe as the hero (`outfitGradientHue`)
-// so the visual rhythm carries through. Width is fixed so the row scrolls
-// rather than wraps on long outfit lists.
+// hero. G2 (PR follow-up to G6) — the thumb area now renders a 2×2 mosaic
+// of the outfit's first four garment photos via signed URLs, falling back
+// to a per-garment gradient hue while loading or when no image_path is set.
+// Mirrors `OutfitThumbRow` / `OutfitThumb` in this same file but borderless
+// so the four cells read as a single composed flatlay rather than four
+// stacked thumbnails. Outfits with fewer than four items get gradient
+// fillers so the visual rhythm holds.
 function RecentOutfitTile({
   outfit,
   onPress,
@@ -773,6 +813,13 @@ function RecentOutfitTile({
 }) {
   const t = useTokens();
   const hue = outfitGradientHue(outfit.id);
+  const items = (outfit.outfit_items ?? []).slice(0, 4);
+  const slots: (OutfitItemWithGarment | null)[] = [
+    items[0] ?? null,
+    items[1] ?? null,
+    items[2] ?? null,
+    items[3] ?? null,
+  ];
   return (
     <Pressable
       onPress={onPress}
@@ -787,12 +834,14 @@ function RecentOutfitTile({
       accessibilityRole="button"
       accessibilityLabel={outfitDisplayName(outfit)}>
       <View style={s.recentThumb}>
-        <LinearGradient
-          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
+        <View style={{ flexDirection: 'row', flex: 1 }}>
+          <RecentMosaicSlot item={slots[0]} fallbackHue={hue} />
+          <RecentMosaicSlot item={slots[1]} fallbackHue={hue} />
+        </View>
+        <View style={{ flexDirection: 'row', flex: 1 }}>
+          <RecentMosaicSlot item={slots[2]} fallbackHue={hue} />
+          <RecentMosaicSlot item={slots[3]} fallbackHue={hue} />
+        </View>
       </View>
       <View style={{ paddingHorizontal: 10, paddingVertical: 8, gap: 2 }}>
         <Text
