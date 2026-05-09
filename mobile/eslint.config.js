@@ -51,6 +51,36 @@ module.exports = [
     },
   },
   {
+    // Test files (Jest) — N4. Jest injects describe/it/expect/jest/beforeEach
+    // as globals; the test directories also use require() to dynamically
+    // load modules under test (so jest.mock() can install the mock factory
+    // before the module evaluates) and use `any` for typed-mock payloads.
+    // These pragmatic disables are scoped to *_tests_*/__mocks__ only.
+    files: [
+      '**/__tests__/**/*.{ts,tsx}',
+      '**/__mocks__/**/*.{ts,tsx}',
+      'jest.setup.ts',
+    ],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        jest: 'readonly',
+        beforeEach: 'readonly',
+        beforeAll: 'readonly',
+        afterEach: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-var-requires': 'off',
+    },
+  },
+  {
     ignores: [
       'node_modules/',
       'dist/',
