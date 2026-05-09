@@ -1845,4 +1845,8 @@ export const en: Record<string, string> = {
   'share.outfit.dialogTitle': 'Share outfit',
   'share.outfit.error.title': "Couldn't share",
   'share.outfit.error.body': "Something stopped the share sheet. Give it another go.",
+
+  // Bell icon in HomeScreen header — entry point to NotificationsScreen.
+  // Codex P1 follow-up on PR #809: route was wired but unreachable.
+  'home.notifications.aria': 'Open notifications',
 };

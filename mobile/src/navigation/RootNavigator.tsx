@@ -94,8 +94,7 @@ import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 import { TermsScreen } from '../screens/TermsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-// M41: NotificationsScreen route hidden until inbox stream lands
-// import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 // M12 — real ResetPasswordScreen mounted (was a placeholder pre-M12). The
 // recovery email link `burs://reset-password` deep-links here via the
 // `linking` config exported below; the screen reads the now-hydrated
@@ -305,8 +304,7 @@ export type RootStackParamList = {
 
   // Profile / account / extras
   Profile: undefined;
-  // M41: route hidden until inbox stream lands
-  // Notifications: undefined;
+  Notifications: undefined;
   ResetPassword: undefined;
   BillingSuccess: undefined;
   BillingCancel: undefined;
@@ -639,8 +637,7 @@ export function RootNavigator() {
 
       {/* Profile / account / extras */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
-      {/* M41: NotificationsScreen route hidden until inbox stream lands */}
-      {/* <Stack.Screen name="Notifications" component={NotificationsScreen} /> */}
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="BillingSuccess" component={Placeholders.BillingSuccess} />
       <Stack.Screen name="BillingCancel" component={Placeholders.BillingCancel} />

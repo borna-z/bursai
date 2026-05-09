@@ -1736,4 +1736,6 @@ export const sv: Record<string, string> = {
   'share.outfit.dialogTitle': 'Dela outfit',
   'share.outfit.error.title': 'Kunde inte dela',
   'share.outfit.error.body': 'Något stoppade delningsmenyn. Försök igen.',
+
+  'home.notifications.aria': 'Öppna aviseringar',
 };
