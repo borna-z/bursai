@@ -604,13 +604,24 @@ export interface UseGarmentImageResult {
    *  this isn't a perf concern, but a downstream memoiser MUST NOT rely on
    *  reference equality. */
   onError: () => void;
+  /** True iff a path was provided AND the signed-URL fetch has not yet
+   *  settled (no data and no error yet, OR React Query is actively retrying
+   *  in the background). False once the URL has resolved successfully, once
+   *  React Query has surrendered after its retry budget, or once the image
+   *  itself has failed to load past `RETRY_BUDGET` (in which case `uri` is
+   *  permanently `null` for this mount). Consumers use this to gate loading-
+   *  affordances like Shimmer overlays — without it, a settled-but-failed
+   *  state is indistinguishable from "still loading" because both surface as
+   *  `uri === null`, and a Shimmer keyed on `uri == null` would animate
+   *  forever on a broken path. (Codex P2 round 1 on PR #786.) */
+  isResolving: boolean;
 }
 
 export function useGarmentImage(
   imagePath: string | null | undefined,
 ): UseGarmentImageResult {
   const queryClient = useQueryClient();
-  const { data: signedUrl } = useSignedUrl(imagePath);
+  const { data: signedUrl, isError, fetchStatus } = useSignedUrl(imagePath);
   // URLs that have failed to load in this mount cycle for this garment.
   // Suppresses any of these URLs from being handed back to <Image> if React
   // Query happens to serve the same value again (which it does between an
@@ -651,6 +662,23 @@ export function useGarmentImage(
 
   const isKnownFailed = signedUrl != null && failedUrls.includes(signedUrl);
   const uri = isKnownFailed ? null : (signedUrl ?? null);
+  // `isResolving` distinguishes "fetch still in flight" from "fetch settled
+  // but no usable URI" so loading affordances (Shimmer in OutfitCard) can
+  // turn off once we've reached a terminal state on a permanently-broken
+  // path. A path is resolving when (a) we have a path at all and the query
+  // is enabled — `fetchStatus !== 'idle'` filters out the no-path case
+  // where the query is disabled — AND (b) one of: still actively fetching,
+  // or no data has arrived yet without a recorded error. Once React Query
+  // surrenders (`isError` true after retry budget), or the URL has loaded
+  // and the <Image> has reported failure past `RETRY_BUDGET`
+  // (`isKnownFailed` true), or we have a usable signed URL (`uri` non-null),
+  // the slot is settled and consumers can stop the shimmer.
+  const isResolving =
+    imagePath != null &&
+    fetchStatus !== 'idle' &&
+    !isError &&
+    !isKnownFailed &&
+    signedUrl == null;
 
   const onError = React.useCallback(() => {
     if (!signedUrl) return;
@@ -700,5 +728,5 @@ export function useGarmentImage(
     });
   }, [imagePath, queryClient, signedUrl]);
 
-  return { uri, onError };
+  return { uri, onError, isResolving };
 }

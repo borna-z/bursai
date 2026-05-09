@@ -74,15 +74,19 @@ export type OutfitCardProps = {
 // missing image.
 function GarmentSlot({ garment }: { garment: OutfitCardGarment }) {
   const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const {
+    uri: imageUri,
+    onError: onImageError,
+    isResolving,
+  } = useGarmentImage(imagePath);
   const showImage = imageUri != null;
-  // Resolving = we have a path to fetch but the hook hasn't handed back a URI
-  // yet. The hook also returns null after the retry budget is spent on a
-  // permanently-broken path, so we cap the shimmer to the case where the
-  // path was provided AND we don't have a URI — the gradient takes over
-  // afterwards either way. False when no path was ever provided (genuinely
-  // empty slot) so the gradient sits still.
-  const resolving = imagePath != null && !showImage;
+  // `isResolving` comes from the hook and turns FALSE on every settled state
+  // — URL resolved, fetch errored after retries, OR <Image> failed past the
+  // retry budget — so the shimmer stops on permanently-broken paths instead
+  // of looping forever (Codex P2 round 1 on PR #786). The gradient
+  // underneath remains visible in those terminal-failure cases. Genuine
+  // empty slots (no path) also return `isResolving === false`.
+  const resolving = isResolving && !showImage;
 
   const baseHue = garment.hue ?? hueFromId(garment.id);
   const grad = hslGradient(baseHue);
