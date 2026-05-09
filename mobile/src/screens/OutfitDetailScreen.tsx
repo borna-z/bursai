@@ -95,6 +95,27 @@ export function OutfitDetailScreen() {
   const outfitQ = useOutfit(id);
   const outfit = outfitQ.data ?? null;
 
+  // Lookup map from garment_id → preferred image storage path. Used by the
+  // variations + cloned OutfitCard rows to render real garment thumbnails:
+  // clone_outfit_dna and suggest_outfit_combinations return drafts as
+  // `{ garment_id, slot? }[]` without image paths inlined, but every garment
+  // those drafts can reference must already exist in the user's wardrobe and
+  // is overwhelmingly likely to be one of the current outfit's pieces (the
+  // clone explicitly seeds from this outfit; the suggestions are anchored
+  // against subsets of it). When an id isn't in this map the OutfitCard tile
+  // falls back to its gradient placeholder, same as today's behaviour.
+  const outfitGarmentImageMap = React.useMemo(() => {
+    const m = new Map<string, string | null>();
+    if (!outfit?.outfit_items) return m;
+    for (const it of outfit.outfit_items) {
+      const g = it.garment;
+      if (g?.id) {
+        m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
+      }
+    }
+    return m;
+  }, [outfit?.outfit_items]);
+
   const markWorn = useMarkOutfitWorn();
   const saveOutfit = useSaveOutfit();
   const deleteOutfit = useDeleteOutfit();
@@ -942,11 +963,18 @@ export function OutfitDetailScreen() {
                     const seedIds = draft.items
                       .map((it) => it.garment_id)
                       .filter((id): id is string => typeof id === 'string' && id.length > 0);
+                    const cardItems = draft.items.map((it, i) => ({
+                      id: it.garment_id ?? `${draft.draftId}-slot-${i}`,
+                      imagePath: it.garment_id
+                        ? outfitGarmentImageMap.get(it.garment_id) ?? null
+                        : null,
+                    }));
                     return (
                       <View key={draft.draftId} style={{ width: 220 }}>
                         <OutfitCard
                           name={name}
                           sub={sub}
+                          items={cardItems}
                           onPress={() =>
                             nav.navigate('OutfitGenerate', {
                               seedGarmentIds: seedIds,
@@ -991,10 +1019,17 @@ export function OutfitDetailScreen() {
                     const seedIds = cloned.items
                       .map((it) => it.garment_id)
                       .filter((id): id is string => typeof id === 'string' && id.length > 0);
+                    const cardItems = cloned.items.map((it, i) => ({
+                      id: it.garment_id ?? `cloned-slot-${i}`,
+                      imagePath: it.garment_id
+                        ? outfitGarmentImageMap.get(it.garment_id) ?? null
+                        : null,
+                    }));
                     return (
                       <OutfitCard
                         name={cloned.family_label?.trim() || 'Cloned look'}
                         sub={`${cloned.items.length} PIECE${cloned.items.length === 1 ? '' : 'S'}`}
+                        items={cardItems}
                         onPress={() =>
                           nav.navigate('OutfitGenerate', {
                             seedGarmentIds: seedIds,

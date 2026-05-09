@@ -27,6 +27,7 @@ import { OutfitCard } from '../components/OutfitCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useMoodOutfit } from '../hooks/useMoodOutfit';
+import { useFlatGarments } from '../hooks/useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -36,9 +37,11 @@ type Route = RouteProp<RootStackParamList, 'MoodFlow'>;
 const DEFAULT_MOOD = 'Confident';
 const DEFAULT_TIME = 'Day';
 
-// Visual hue ramp for the OutfitCard placeholder thumbs — the engine
-// returns garment_ids but no images yet (W9 wires real photos), so we
-// pick a stable neutral palette and let the slot count drive width.
+// Visual hue ramp for the OutfitCard placeholder thumbs — used as the
+// gradient under each tile while the signed URL is loading or for any
+// garment_id whose image hasn't yet been resolved against the wardrobe
+// cache. A stable neutral palette so empty / mid-load tiles read as
+// editorial rather than glitchy.
 const PLACEHOLDER_HUES: number[] = [32, 28, 200, 18];
 
 export function MoodFlowScreen() {
@@ -50,6 +53,23 @@ export function MoodFlowScreen() {
 
   const { result, isLoading, error, generate, reset } = useMoodOutfit();
   const paywallShownRef = useRef(false);
+
+  // The mood_outfit engine returns `MoodOutfitItem[]` with `garment_id` but
+  // no image_path — that field doesn't exist on the engine's response shape.
+  // Resolve image paths against the user's wardrobe so the OutfitCard tiles
+  // render real garment thumbnails instead of pure gradients. `useFlatGarments`
+  // is already cached when the user has scrolled the wardrobe; on a cold
+  // mount the cache populates as that infinite query loads pages, and any
+  // garment_id that hasn't loaded yet falls through `imagePath:null` to the
+  // gradient placeholder (same fallback as the rest of the app).
+  const wardrobe = useFlatGarments();
+  const wardrobeImageMap = React.useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of wardrobe.data) {
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? null);
+    }
+    return m;
+  }, [wardrobe.data]);
 
   // Reset + regenerate atomically when MOOD_LABEL / TIME_LABEL changes.
   // Splitting these into two effects (one for [mood,time] → generate, one
@@ -223,6 +243,12 @@ export function MoodFlowScreen() {
             name={result.outfit_name}
             sub={subLine}
             hues={PLACEHOLDER_HUES}
+            items={result.items.map((it, i) => ({
+              id: it.garment_id ?? `mood-slot-${i}`,
+              imagePath: it.garment_id
+                ? wardrobeImageMap.get(it.garment_id) ?? null
+                : null,
+            }))}
           />
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
