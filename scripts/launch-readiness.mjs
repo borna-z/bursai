@@ -52,7 +52,7 @@ const isWindows = process.platform === 'win32';
  * @property {string} command
  * @property {string[]} args
  * @property {string} cwd
- * @property {boolean} [optional]  // tool may not be installed; FAIL becomes SKIP
+ * @property {boolean} [optional]  // tool may not be installed; SKIP only when ENOENT — non-zero exit always FAILs
  * @property {string} [missingHint] // shown when optional skipped
  */
 
@@ -145,15 +145,12 @@ function runGate(gate) {
     return { status: 'PASS', durationMs, exitCode: 0 };
   }
 
-  if (gate.optional) {
-    return {
-      status: 'SKIP',
-      durationMs,
-      exitCode: result.status,
-      reason: gate.missingHint ?? `optional gate exited ${result.status}`,
-    };
-  }
-
+  // Codex P2 on PR #810: a non-zero exit means the tool RAN and reported an
+  // error (e.g. supabase db diff connected to the shadow DB and detected drift,
+  // or expo-doctor found a config issue). Treat that as FAIL even for optional
+  // gates — SKIP is reserved for the tool-truly-missing case handled above by
+  // the ENOENT branch. Otherwise launch-readiness can green-light a broken
+  // drift check or doctor failure.
   return { status: 'FAIL', durationMs, exitCode: result.status, reason: `exit ${result.status}` };
 }
 
