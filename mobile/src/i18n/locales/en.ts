@@ -1523,4 +1523,21 @@ export const en: Record<string, string> = {
   'travel.outfits.dayLabel': 'Day {day}',
   'travel.savedCapsules.empty': 'Build your first trip and it lands here.',
   'travelPackingList.tabPacking': 'Packing',
+
+  // ─── G1 — Chat history sheet, mode toggle, outfit suggestion card ────────
+  'chat.history.title': 'Past chats',
+  'chat.history.eyebrow': 'History',
+  'chat.history.empty': 'No past chats yet',
+  'chat.history.previewEmpty': 'No messages yet',
+  'chat.history.loading': 'Loading…',
+  'chat.history.openLabel': 'Open chat history',
+  'chat.history.close': 'Close history',
+  'chat.history.messageCount.template': '{n} messages',
+  'chat.outfitCard.try': 'Try this outfit',
+  'chat.outfitCard.eyebrow': 'Suggestion',
+  'chat.outfitCard.name.suggestion': 'Today’s pick',
+  'chat.outfitCard.name.saved': 'Saved outfit',
+  'chat.outfitCard.loading': 'Loading outfit…',
+  'chat.modeToggle.style': 'Style',
+  'chat.modeToggle.shopping': 'Shop',
 };

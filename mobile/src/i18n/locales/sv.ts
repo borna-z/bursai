@@ -1075,4 +1075,21 @@ export const sv: Record<string, string> = {
   'travel.outfits.dayLabel': 'Dag {day}',
   'travel.savedCapsules.empty': 'Skapa din första resa så hamnar den här.',
   'travelPackingList.tabPacking': 'Packlista',
+
+  // ─── G1 — Chat history sheet, mode toggle, outfit suggestion card ────────
+  'chat.history.title': 'Tidigare samtal',
+  'chat.history.eyebrow': 'Historik',
+  'chat.history.empty': 'Inga tidigare samtal ännu',
+  'chat.history.previewEmpty': 'Inga meddelanden ännu',
+  'chat.history.loading': 'Laddar…',
+  'chat.history.openLabel': 'Öppna samtalshistorik',
+  'chat.history.close': 'Stäng historik',
+  'chat.history.messageCount.template': '{n} meddelanden',
+  'chat.outfitCard.try': 'Prova denna outfit',
+  'chat.outfitCard.eyebrow': 'Förslag',
+  'chat.outfitCard.name.suggestion': 'Dagens val',
+  'chat.outfitCard.name.saved': 'Sparad outfit',
+  'chat.outfitCard.loading': 'Laddar outfit…',
+  'chat.modeToggle.style': 'Stil',
+  'chat.modeToggle.shopping': 'Köp',
 };

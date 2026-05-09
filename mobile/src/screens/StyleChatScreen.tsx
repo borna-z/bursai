@@ -35,7 +35,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
@@ -46,8 +46,11 @@ import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { ShoppingResultCard } from '../components/ShoppingResultCard';
+import { OutfitSuggestionCard } from '../components/chat/OutfitSuggestionCard';
+import { ChatHistorySheet } from '../components/chat/ChatHistorySheet';
 import { BackIcon, ChevronIcon } from '../components/icons';
-import { useStyleChat, type ChatMessage } from '../hooks/useStyleChat';
+import { useStyleChat, type ChatMessage, type StyleChatMode } from '../hooks/useStyleChat';
+import { useChatHistory } from '../hooks/useChatHistory';
 import { useStyleMemoryFacts, type StyleMemoryFact } from '../hooks/useStyleMemoryFacts';
 import { useRecordMemoryEvent } from '../hooks/useRecordMemoryEvent';
 import { useAuth } from '../contexts/AuthContext';
@@ -60,6 +63,7 @@ import type { StylistChatMode } from '../lib/styleChatContract';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'StyleChat'>;
 
 const STATIC_SUGGESTIONS = [
   'What to wear today?',
@@ -87,9 +91,14 @@ function modeLabel(mode: StylistChatMode | undefined | null): string | null {
 export function StyleChatScreen() {
   const t = useTokens();
   const nav = useNavigation<Nav>();
+  const route = useRoute<Route>();
   const { user } = useAuth();
   const [draft, setDraft] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(true);
+  // G1 — chat history sheet visibility. Lifted to local state rather
+  // than baked into the hook so the sheet can stay closed while the
+  // hook still owns the (mode-aware) message buffer.
+  const [historyOpen, setHistoryOpen] = useState(false);
   const {
     messages,
     isStreaming,
@@ -134,6 +143,93 @@ export function StyleChatScreen() {
       stopStreaming();
     };
   }, [stopStreaming]);
+
+  // G1 — seed chat state from nav params on mount. Three entry points
+  // call StyleChat with seed params today:
+  //   • Style Me Restyle CTA: { mode: 'stylist'/'style', anchorGarmentIds, sourceOutfitId }
+  //   • Wardrobe Gaps "Find similar": { mode: 'shopping', gapContext }
+  //   • Generic deep links / navigation: undefined
+  // We read the params once via a ref so a re-render doesn't re-seed
+  // (which would clobber any user typing in the composer) and tolerate
+  // the legacy 'stylist' mode literal so the contract aligns with web's
+  // restyle naming.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    const params = route.params;
+    if (!params) {
+      seededRef.current = true;
+      return;
+    }
+    seededRef.current = true;
+    // Mode seed. The route param is typed `StyleChatMode | undefined`
+    // ('style' | 'shopping') so a runtime guard isn't strictly needed,
+    // but the legacy 'stylist' literal is accepted defensively in case
+    // a caller mirrors web's restyle vocabulary verbatim — TS would
+    // fail to flag that mismatch at the call site since
+    // `nav.navigate('StyleChat', { mode: 'stylist' as any })` slips
+    // through, and we'd rather quietly normalize than silently drop.
+    const rawMode: string | undefined = params.mode;
+    const seedMode: StyleChatMode | null =
+      rawMode === 'shopping'
+        ? 'shopping'
+        : rawMode === 'style' || rawMode === 'stylist'
+          ? 'style'
+          : null;
+    // gapContext implies shopping-mode; let it win over an explicit mode
+    // param mismatch since the gap handoff is the more specific intent.
+    if (params.gapContext) {
+      setMode('shopping');
+      const itemName = params.gapContext.item_name;
+      if (typeof itemName === 'string' && itemName.trim()) {
+        setDraft(itemName.trim());
+      }
+    } else if (seedMode) {
+      setMode(seedMode);
+    }
+    // Anchor seed. Only the first id binds today (the screen's anchor
+    // row is single-piece); the array shape preserves a future
+    // multi-anchor expansion without a param breaking change.
+    if (Array.isArray(params.anchorGarmentIds) && params.anchorGarmentIds.length > 0) {
+      const first = params.anchorGarmentIds.find(
+        (id): id is string => typeof id === 'string' && !!id,
+      );
+      if (first) setAnchoredGarmentId(first);
+    }
+    // sourceOutfitId is captured for telemetry parity with web but not
+    // consumed by the screen yet — leaving the param in the contract
+    // so future surfaces can read it without a re-typing sweep.
+  }, [route.params, setMode, setAnchoredGarmentId]);
+
+  // G1 — chat history thread summaries. Loaded lazily by React Query;
+  // ChatHistorySheet shows a loading skeleton while the SELECT is in
+  // flight. The query is keyed on the user id so a sign-in/sign-out
+  // cycle re-runs against the new identity.
+  const { data: historyThreads, isLoading: historyLoading } = useChatHistory();
+
+  const handleSelectHistoryThread = React.useCallback(
+    (mode: StyleChatMode) => {
+      setHistoryOpen(false);
+      setMode(mode);
+    },
+    [setMode],
+  );
+
+  // G1 — Try-this-outfit handler. The chat assistant's outfit
+  // suggestion gets piped into the anchor row so the next user turn
+  // refines around the chosen look (matches the web behaviour where
+  // the outfit's first garment becomes the anchor). The screen already
+  // owns single-anchor semantics, so we anchor the first garment id;
+  // a future multi-anchor expansion lands inline here.
+  const handleTryOutfit = React.useCallback(
+    (garmentIds: string[]) => {
+      const first = garmentIds.find(
+        (id): id is string => typeof id === 'string' && !!id,
+      );
+      if (first) setAnchoredGarmentId(first);
+    },
+    [setAnchoredGarmentId],
+  );
 
   // Track the suggestion-chip auto-send timer so we can cancel it on unmount.
   const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -318,9 +414,10 @@ export function StyleChatScreen() {
         msg={item}
         onLongPress={handleSetAnchorFromMessage}
         onOpenProductLink={handleOpenProductLink}
+        onTryOutfit={handleTryOutfit}
       />
     ),
-    [handleSetAnchorFromMessage, handleOpenProductLink],
+    [handleSetAnchorFromMessage, handleOpenProductLink, handleTryOutfit],
   );
 
   // Suggestion chips: server-provided takes precedence over the static fallback.
@@ -346,6 +443,49 @@ export function StyleChatScreen() {
               {tr('chat.title')}
             </Text>
           </View>
+          {/* G1 — history affordance. Opens a side-sheet listing past
+              chat threads grouped by mode. Glyph: three stacked dots
+              + a leading bar (clock-without-hands feel) drawn inline so
+              we don't pull a fresh icon dependency. */}
+          <IconBtn
+            variant="ghost"
+            onPress={() => setHistoryOpen(true)}
+            ariaLabel={tr('chat.history.openLabel')}>
+            <View
+              style={{
+                width: 18,
+                height: 14,
+                justifyContent: 'space-between',
+              }}>
+              {[0, 1, 2].map((i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 3,
+                  }}>
+                  <View
+                    style={{
+                      width: 3,
+                      height: 1.6,
+                      backgroundColor: t.fg,
+                      borderRadius: 1,
+                    }}
+                  />
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 1.6,
+                      backgroundColor: t.fg,
+                      borderRadius: 1,
+                      opacity: 0.55,
+                    }}
+                  />
+                </View>
+              ))}
+            </View>
+          </IconBtn>
           <IconBtn variant="ghost" onPress={handleClear} ariaLabel="New chat">
             {/* Hamburger glyph repurposed as "new chat" — clears the active
                 conversation (now persisted; the delete cascades to the row set). */}
@@ -590,6 +730,17 @@ export function StyleChatScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {/* G1 — chat history side sheet. Mounted outside the
+          KeyboardAvoidingView so it covers the full safe-area surface
+          and isn't visually compressed when the keyboard is up. */}
+      <ChatHistorySheet
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        threads={historyThreads ?? []}
+        activeMode={currentMode}
+        isLoading={historyLoading}
+        onSelect={handleSelectHistoryThread}
+      />
     </SafeAreaView>
   );
 }
@@ -678,17 +829,46 @@ const MessageItem = React.memo(
     msg,
     onLongPress,
     onOpenProductLink,
+    onTryOutfit,
   }: {
     msg: ChatMessage;
     onLongPress: (msg: ChatMessage) => void;
     // M23 — invoked when the user taps the Open button on any
     // ShoppingResultCard rendered beneath this assistant bubble.
     onOpenProductLink: (url: string) => void;
+    // G1 — invoked when the user taps "Try this outfit" on the inline
+    // OutfitSuggestionCard. Receives the (possibly post-swap) garment
+    // id list — today the screen anchors the first id so the next
+    // user turn refines around the chosen look.
+    onTryOutfit: (garmentIds: string[]) => void;
   }) {
     const t = useTokens();
     const isUser = msg.role === 'user';
     const showTypingDots = msg.isStreaming && !msg.content;
     const mode = !isUser ? modeLabel(msg.stylistMeta?.mode) : null;
+    // G1 — outfit suggestion card surfaced when the assistant explicitly
+    // asks for one (`render_outfit_card === true`) AND the envelope
+    // carries at least one garment id. The active_look's garment_ids
+    // override outfit_ids when present (matches web's preference order)
+    // so a "preserve_if_exists" turn renders the same outfit the user
+    // is already iterating on.
+    const meta = msg.stylistMeta ?? null;
+    const outfitGarmentIds: string[] = !isUser && meta?.render_outfit_card === true
+      ? (meta.active_look?.garment_ids?.length
+          ? meta.active_look.garment_ids
+          : meta.outfit_ids ?? [])
+      : [];
+    // Codex P3 round 3 on PR #789: the style_chat envelope's
+    // `outfit_ids` is the resolved GARMENT id list (per the edge
+    // function contract), NOT a saved outfit row id. Picking
+    // outfit_ids[0] as a saved-outfit reference made every generated
+    // suggestion render with the "Saved outfit" title. Until the
+    // contract carries an explicit saved-outfit row id field, leave
+    // this null so OutfitSuggestionCard always uses the suggestion
+    // title.
+    const outfitId: string | null = null;
+    const outfitExplanation = meta?.outfit_explanation || '';
+    const showOutfitCard = !isUser && outfitGarmentIds.length > 0;
     // Synthesized SHOPPING envelopes carry a non-null `active_look` with
     // an empty `garment_ids: []`, so a Boolean() check alone returns true
     // and the screen-reader announces the long-press anchor hint even
@@ -770,6 +950,19 @@ const MessageItem = React.memo(
             ))}
           </View>
         ) : null}
+        {/* G1 — render an outfit suggestion card beneath the bubble
+            when the assistant flagged `render_outfit_card`. Keyed on
+            the joined id list so a refine turn that swaps a garment
+            forces a fresh hydration cycle rather than reusing the
+            stale grid. */}
+        {showOutfitCard ? (
+          <OutfitSuggestionCard
+            outfitId={outfitId}
+            garmentIds={outfitGarmentIds}
+            explanation={outfitExplanation}
+            onTry={onTryOutfit}
+          />
+        ) : null}
       </View>
     );
   },
@@ -783,8 +976,18 @@ const MessageItem = React.memo(
     // changes when new cards land, the count comparison is a fast
     // shallow check before falling back to ref equality).
     && a.msg.stylistMeta?.shopping_results === b.msg.stylistMeta?.shopping_results
+    // G1 — re-render when the outfit-card payload's identity changes:
+    // either the render flag flips or the underlying id arrays mutate.
+    // Using ref equality on the arrays is sufficient because the
+    // envelope object is replaced wholesale by the SSE pipeline (no
+    // in-place array splices), and the active_look has the same
+    // contract.
+    && a.msg.stylistMeta?.render_outfit_card === b.msg.stylistMeta?.render_outfit_card
+    && a.msg.stylistMeta?.outfit_ids === b.msg.stylistMeta?.outfit_ids
+    && a.msg.stylistMeta?.active_look?.garment_ids === b.msg.stylistMeta?.active_look?.garment_ids
     && a.onLongPress === b.onLongPress
-    && a.onOpenProductLink === b.onOpenProductLink,
+    && a.onOpenProductLink === b.onOpenProductLink
+    && a.onTryOutfit === b.onTryOutfit,
 );
 
 // M23 — Mode toggle segment. Mirrors the Chip primitive's active palette

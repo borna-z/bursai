@@ -102,6 +102,7 @@ import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../hooks/useAddGarment';
 import type { WardrobeAgingBucketId } from '../hooks/useWardrobeAging';
 import type { WardrobeGap } from '../hooks/useWardrobeGaps';
+import type { StyleChatMode } from '../hooks/useStyleChat';
 
 export type TabName = TabId;
 
@@ -213,7 +214,27 @@ export type RootStackParamList = {
   Laundry: undefined;
 
   // Stylist / mood / occasion
-  StyleChat: undefined;
+  // G1 — accept seed nav params from Style Me's Restyle CTA and Wardrobe
+  // Gaps' "Find similar" CTA. All optional so existing entry points (Home
+  // tile, Smart day banner, etc.) keep navigating with `undefined`.
+  //   • mode — pre-select 'style' or 'shopping' before any user input.
+  //   • anchorGarmentIds — seed StyleChatScreen's anchored garment row;
+  //     today only the first id binds (the screen anchors a single piece),
+  //     but the array shape preserves a future N-anchor expansion without a
+  //     param breaking change.
+  //   • gapContext — Wardrobe Gaps handoff; flips mode to 'shopping' and
+  //     prefills the composer with `item_name`.
+  //   • sourceOutfitId — provenance hint for restyle flows; not consumed
+  //     by the screen yet but part of the contract for telemetry parity
+  //     with web's restyle path.
+  StyleChat:
+    | {
+        mode?: StyleChatMode;
+        anchorGarmentIds?: string[];
+        gapContext?: { category: string; item_name: string };
+        sourceOutfitId?: string;
+      }
+    | undefined;
   StyleMe: undefined;
   MoodOutfit: undefined;
   // moodId / time flow through from MoodOutfitScreen so MoodFlow renders the user's
