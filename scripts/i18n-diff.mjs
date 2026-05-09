@@ -46,19 +46,25 @@ function extractKeys(filePath) {
   src = src.replace(/^\s*\/\/.*$/gm, '');
 
   const keys = new Set();
+  const dupes = [];
   // Match a quoted string immediately followed by optional whitespace + `:`
   // The string can be 'single', "double", or `backtick` quoted. We don't
   // attempt to escape — these locale files don't use embedded quotes in keys.
   const re = /(['"`])((?:\\.|(?!\1)[^\\])*)\1\s*:/g;
   let m;
   while ((m = re.exec(src)) !== null) {
-    keys.add(m[2]);
+    const key = m[2];
+    if (keys.has(key)) {
+      dupes.push(key);
+    } else {
+      keys.add(key);
+    }
   }
-  return keys;
+  return { keys, dupes };
 }
 
-const enKeys = extractKeys(EN_PATH);
-const svKeys = extractKeys(SV_PATH);
+const { keys: enKeys, dupes: enDupes } = extractKeys(EN_PATH);
+const { keys: svKeys, dupes: svDupes } = extractKeys(SV_PATH);
 
 const missingInSv = [...enKeys].filter((k) => !svKeys.has(k)).sort();
 const orphanInSv = [...svKeys].filter((k) => !enKeys.has(k)).sort();
@@ -66,7 +72,9 @@ const orphanInSv = [...svKeys].filter((k) => !enKeys.has(k)).sort();
 const flag = process.argv[2];
 
 if (flag === '--json') {
-  process.stdout.write(JSON.stringify({ missingInSv, orphanInSv }, null, 2) + '\n');
+  process.stdout.write(
+    JSON.stringify({ missingInSv, orphanInSv, enDupes, svDupes }, null, 2) + '\n',
+  );
 } else if (flag === '--missing') {
   for (const k of missingInSv) process.stdout.write(k + '\n');
 } else if (flag === '--orphans') {
@@ -76,6 +84,16 @@ if (flag === '--json') {
   process.stdout.write(`sv keys: ${svKeys.size}\n`);
   process.stdout.write(`missing in sv: ${missingInSv.length}\n`);
   process.stdout.write(`orphan in sv (sv-only): ${orphanInSv.length}\n`);
+  process.stdout.write(`duplicates in en: ${enDupes.length}\n`);
+  process.stdout.write(`duplicates in sv: ${svDupes.length}\n`);
+  if (enDupes.length) {
+    process.stdout.write('\n--- duplicates in en (first 10) ---\n');
+    for (const k of enDupes.slice(0, 10)) process.stdout.write(k + '\n');
+  }
+  if (svDupes.length) {
+    process.stdout.write('\n--- duplicates in sv (first 10) ---\n');
+    for (const k of svDupes.slice(0, 10)) process.stdout.write(k + '\n');
+  }
   if (missingInSv.length) {
     process.stdout.write('\n--- missing in sv (first 20) ---\n');
     for (const k of missingInSv.slice(0, 20)) process.stdout.write(k + '\n');
@@ -92,5 +110,9 @@ if (flag === '--json') {
   }
 }
 
-if (missingInSv.length > 0) process.exit(1);
+// Treat both untranslated keys and duplicate-key drift as failures so a
+// stale rebase or an unintentional double-add can't sneak through CI.
+if (missingInSv.length > 0 || enDupes.length > 0 || svDupes.length > 0) {
+  process.exit(1);
+}
 process.exit(0);

@@ -89,8 +89,10 @@ export function SettingsAccountScreen() {
 
   // Support contact lives at support@<project domain>. Compose a mailto so the
   // dead-end "contact support" Alert at least surfaces the address (and opens
-  // the user's mail client when possible).
-  const SUPPORT_EMAIL = 'support@burs.me';
+  // the user's mail client when possible). Sourced from i18n so a future
+  // per-market support inbox (e.g. support-se@burs.me) is a translation
+  // change rather than a code change.
+  const SUPPORT_EMAIL = tr('settings.account.supportEmail');
   const handleEmailRowPress = () => {
     Alert.alert(
       tr('settings.account.email.alert.title'),

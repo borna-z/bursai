@@ -59,24 +59,24 @@ export function SettingsAppearanceScreen() {
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>
-          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+          <IconBtn ariaLabel={tr('common.back')} onPress={() => nav.goBack()} variant="ghost">
             <BackIcon color={t.fg} />
           </IconBtn>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Settings</Eyebrow>
-            <PageTitle>Appearance</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{tr('settings.appearance.headerEyebrow')}</Eyebrow>
+            <PageTitle>{tr('settings.appearance.headerTitle')}</PageTitle>
           </View>
         </View>
 
         {/* ============ THEME OPTIONS ============ */}
         <View style={{ gap: 10 }}>
-          <Eyebrow>Theme</Eyebrow>
+          <Eyebrow>{tr('settings.appearance.theme.eyebrow')}</Eyebrow>
           {/* radiogroup role lets VoiceOver/TalkBack announce position ("1 of 3").
               Codex audit P2.5. */}
           <View
             style={{ gap: 8 }}
             accessibilityRole="radiogroup"
-            accessibilityLabel="Theme">
+            accessibilityLabel={tr('settings.appearance.theme.eyebrow')}>
             {OPTIONS.map((option) => {
               const isActive = mode === option.id;
               return (

@@ -21,6 +21,7 @@ import { IconBtn } from '../components/IconBtn';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { hapticLight } from '../lib/haptics';
 import { usePlannedOutfitsForRange } from '../hooks/usePlannedOutfits';
+import { t as tr } from '../lib/i18n';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { PlannedOutfitWithOutfit } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -297,11 +298,11 @@ export function MonthCalendarScreen() {
                   color: t.fg,
                   letterSpacing: -0.22,
                 }}>
-                {outfitDisplayName(selectedPlanned.outfit, 'Planned outfit')}
+                {outfitDisplayName(selectedPlanned.outfit, tr('monthCalendar.planned.fallbackName'))}
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Button
-                  label="View outfit"
+                  label={tr('monthCalendar.planned.view')}
                   onPress={() => {
                     hapticLight();
                     if (selectedPlanned.outfit?.id) {
@@ -313,7 +314,7 @@ export function MonthCalendarScreen() {
                   disabled={!selectedPlanned.outfit?.id}
                 />
                 <Button
-                  label="Change"
+                  label={tr('monthCalendar.planned.change')}
                   variant="outline"
                   onPress={() => { hapticLight(); nav.navigate('OutfitGenerate'); }}
                   block
@@ -331,13 +332,13 @@ export function MonthCalendarScreen() {
                   color: t.fg,
                   letterSpacing: -0.22,
                 }}>
-                Nothing planned
+                {tr('monthCalendar.empty.title')}
               </Text>
               <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
-                Generate an outfit or plan one manually.
+                {tr('monthCalendar.empty.body')}
               </Text>
               <Button
-                label="Generate outfit"
+                label={tr('monthCalendar.empty.cta')}
                 variant="accent"
                 onPress={() => { hapticLight(); nav.navigate('OutfitGenerate'); }}
                 block

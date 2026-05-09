@@ -28,11 +28,23 @@ export function IconBtn({
       default:      return { bg: t.card, border: t.border };
     }
   })();
+  // N8 a11y — IconBtn defaults to 36pt which is below Apple's 44pt + Google's
+  // 48dp touch-target guidelines. Pad the press area by 8pt on every side
+  // so smaller circular buttons (Settings header back chevron, OutfitDetail
+  // close, AddPiece bottom-sheet dismiss, etc.) are reliably tappable
+  // without growing the visual chrome.
+  const hitSlopPad = Math.max(0, 8 - Math.max(0, (44 - size) / 2));
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={ariaLabel}
       onPress={onPress}
+      hitSlop={{
+        top: hitSlopPad,
+        bottom: hitSlopPad,
+        left: hitSlopPad,
+        right: hitSlopPad,
+      }}
       style={({ pressed }) => [
         {
           width: size,

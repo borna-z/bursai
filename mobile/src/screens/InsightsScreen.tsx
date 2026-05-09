@@ -50,6 +50,7 @@ import {
 } from '../hooks/useInsightsDashboard';
 import { useSignedUrls } from '../hooks/useSignedUrl';
 import { useNow } from '../hooks/useNow';
+import { t as tr } from '../lib/i18n';
 import {
   useWardrobeAging,
   WardrobeAgingSubscriptionError,
@@ -247,7 +248,7 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
   const headerBlock = (
     <View style={s.header}>
       <Eyebrow style={{ marginBottom: 4 }}>{headerEyebrow}</Eyebrow>
-      <PageTitle>Insights</PageTitle>
+      <PageTitle>{tr('insights.title')}</PageTitle>
     </View>
   );
 
@@ -346,13 +347,13 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
                 letterSpacing: -0.24,
                 textAlign: 'center',
               }}>
-              Add garments to see insights
+              {tr('insights.empty.title')}
             </Text>
             <Caption style={{ textAlign: 'center', marginTop: 8, maxWidth: 260 }}>
-              Scan your first piece to start building your wardrobe profile.
+              {tr('insights.empty.body')}
             </Caption>
             <View style={{ marginTop: 18 }}>
-              <Button label="Add a piece" onPress={() => nav.navigate('AddPieceStep1')} />
+              <Button label={tr('insights.empty.cta')} onPress={() => nav.navigate('AddPieceStep1')} />
             </View>
           </View>
         </ScrollView>
@@ -384,10 +385,10 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
 
         {/* ============ STATS — 2 col ============ */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <StatBlock num={data.totalWears} label="Outfits worn" style={{ flex: 1 }} />
+          <StatBlock num={data.totalWears} label={tr('insights.stat.outfitsWorn')} style={{ flex: 1 }} />
           <StatBlock
             num={`${data.wardrobeUsagePct}%`}
-            label="Wardrobe used"
+            label={tr('insights.stat.wardrobeUsed')}
             style={{ flex: 1 }}
           />
         </View>
@@ -431,8 +432,8 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
         {/* ============ PALETTE CARD ============ */}
         <Card>
           <View style={[s.sectionHead, { marginBottom: 12 }]}>
-            <Eyebrow>Your palette</Eyebrow>
-            <Caption>Share by colour</Caption>
+            <Eyebrow>{tr('insights.palette.title')}</Eyebrow>
+            <Caption>{tr('insights.palette.caption')}</Caption>
           </View>
           <PaletteBar entries={data.palette} />
         </Card>
@@ -440,13 +441,13 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
         {/* ============ WEAR FREQUENCY CARD ============ */}
         <Card>
           <View style={[s.sectionHead, { marginBottom: 12 }]}>
-            <Eyebrow>Wear frequency</Eyebrow>
-            <Caption>Last 7 days</Caption>
+            <Eyebrow>{tr('insights.wearFrequency.title')}</Eyebrow>
+            <Caption>{tr('insights.wearFrequency.caption')}</Caption>
           </View>
           {data.weeklyBars.length > 0 ? (
             <BarViz bars={data.weeklyBars} />
           ) : (
-            <Caption>No wears logged in the last week.</Caption>
+            <Caption>{tr('insights.wearFrequency.empty')}</Caption>
           )}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
             <Caption>{rangeStart}</Caption>
@@ -479,7 +480,7 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
         {/* ============ MOST WORN LIST ============ */}
         {data.mostWorn.length > 0 ? (
           <View>
-            <Eyebrow style={{ marginBottom: 10 }}>Most worn</Eyebrow>
+            <Eyebrow style={{ marginBottom: 10 }}>{tr('insights.mostWorn.title')}</Eyebrow>
             <View>
               {data.mostWorn.map((item, i) => (
                 <MostWornRow
@@ -497,7 +498,7 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
         {/* ============ QUIET WIN — card hero quote ============ */}
         {data.avgCostPerWear !== null ? (
           <Card hero padding={18}>
-            <Eyebrow style={{ marginBottom: 8 }}>Quiet win</Eyebrow>
+            <Eyebrow style={{ marginBottom: 8 }}>{tr('insights.quietWin.title')}</Eyebrow>
             <Text
               style={{
                 fontFamily: fonts.displayMedium,
@@ -508,11 +509,11 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
                 color: t.fg,
                 letterSpacing: -0.19,
               }}>
-              Average cost-per-wear is{' '}
+              {tr('insights.quietWin.prefix')}{' '}
               <Text style={{ color: t.accent }}>
                 {formatMoney(data.avgCostPerWear, data.avgCostPerWearCurrency)}
               </Text>{' '}
-              across your priced pieces.
+              {tr('insights.quietWin.suffix')}
             </Text>
           </Card>
         ) : null}

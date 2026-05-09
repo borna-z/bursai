@@ -108,12 +108,12 @@ export function SettingsNotificationsScreen() {
         showsVerticalScrollIndicator={false}>
         {/* ============ HEADER ============ */}
         <View style={s.headerRow}>
-          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+          <IconBtn ariaLabel={translate('common.back')} onPress={() => nav.goBack()} variant="ghost">
             <BackIcon color={tokens.fg} />
           </IconBtn>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Settings</Eyebrow>
-            <PageTitle>Notifications</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{translate('settings.notifications.headerEyebrow')}</Eyebrow>
+            <PageTitle>{translate('settings.notifications.headerTitle')}</PageTitle>
           </View>
         </View>
 

@@ -31,6 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { useGarmentImage } from '../hooks/useSignedUrl';
+import { t as tr } from '../lib/i18n';
 
 export type GarmentCardData = {
   id: string;
@@ -98,10 +99,39 @@ export function GarmentCard({
   const showNew = !showWear && isRecent(garment.created_at);
   const showLaundry = Boolean(garment.in_laundry);
 
+  // Build a locale-aware accessibility label so VoiceOver / TalkBack
+  // announce a meaningful description (e.g. "Crew tee, navy Top") instead
+  // of the truncated title alone. The four template variants cover the
+  // missing-color / missing-category cases without leaving stray commas.
+  const a11yColor = (garment.color_primary ?? '').toString().trim();
+  const a11yCategory = (garment.category ?? '').toString().trim();
+  const a11yLabel = (() => {
+    if (a11yColor && a11yCategory) {
+      return tr('a11y.garmentCard', {
+        name: garment.title,
+        color: a11yColor,
+        category: a11yCategory,
+      });
+    }
+    if (a11yColor) {
+      return tr('a11y.garmentCard.noCategory', {
+        name: garment.title,
+        color: a11yColor,
+      });
+    }
+    if (a11yCategory) {
+      return tr('a11y.garmentCard.noColor', {
+        name: garment.title,
+        category: a11yCategory,
+      });
+    }
+    return tr('a11y.garmentCard.nameOnly', { name: garment.title });
+  })();
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${garment.title}${garment.category ? `, ${garment.category}` : ''}`}
+      accessibilityLabel={a11yLabel}
       onPress={onPress}
       style={({ pressed }) => [
         {
