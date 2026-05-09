@@ -47,6 +47,7 @@ import type {
   TravelCapsuleMustHave,
   TravelCapsuleOutfit,
   TravelCapsulePackingItem,
+  TravelCapsuleRow,
 } from './useTravelCapsules';
 
 /** Re-export of the canonical sentinel under the historic name —
@@ -351,13 +352,82 @@ export function useGenerateTravelCapsule() {
         },
       };
 
+      // Project only columns that exist in the canonical migration
+      // (`supabase/migrations/00000000000000_initial_schema.sql:1255-1277`)
+      // — `travel_capsules.updated_at` is not part of the schema, and
+      // PostgREST rejects the entire insert response when the projection
+      // names an unknown column, which would throw before we ever seed
+      // the cache. Synthesize the optimistic-row timestamp locally below
+      // (the `result` JSONB optimistic-concurrency token derives from the
+      // row's own writes anyway, not from this initial insert).
       const { data: row, error: insertErr } = await supabase
         .from('travel_capsules')
         .insert(insertPayload)
-        .select('id')
+        .select('id, created_at')
         .single();
       if (insertErr) throw insertErr;
       if (!row?.id) throw new Error('travel_capsule: insert returned no id');
+
+      // Optimistically seed the React Query cache with the row we just
+      // wrote. Without this, the subsequent `nav.navigate('TravelMustHaves',
+      // { capsuleId })` from the consumer screen mounts TravelMustHavesScreen
+      // → its `useTravelCapsule(capsuleId)` reads from the cached
+      // `['travelCapsules', user.id]` list (already populated from a prior
+      // visit), `capsules.find((c) => c.id === capsuleId)` returns
+      // `undefined`, and the screen renders an empty state until the
+      // `onSuccess` invalidate-then-refetch round-trips back from the
+      // server. That round-trip is racy — frequently the user sees a blank
+      // must-haves list for hundreds of ms (sometimes longer when the
+      // 60-second `staleTime` debounces a second observer subscribing
+      // before the refetch settles), reported 2026-05-09 as "travel
+      // capsule generates then nothing shows." Inject the new row at the
+      // head of the cached list, capped to MAX_CAPSULES (mirrors the
+      // server-side trim above), and let the existing `onSuccess`
+      // invalidate refresh the canonical row from the DB as a safety net
+      // for cross-device sync. The optimistic row is built from the same
+      // payload we just inserted so it carries the must_haves the screen
+      // depends on; loose-shape fields (capsule_items / outfits) match
+      // what the cache parser would have produced for an immediate
+      // refetch, which is good enough until the safety-net invalidate
+      // replaces it with the canonical row.
+      const optimisticRow: TravelCapsuleRow = {
+        id: row.id as string,
+        destination: insertPayload.destination,
+        start_date: insertPayload.start_date,
+        end_date: insertPayload.end_date,
+        trip_type: insertPayload.trip_type,
+        duration_days: insertPayload.duration_days,
+        occasions: insertPayload.occasions,
+        luggage_type: insertPayload.luggage_type,
+        companions: insertPayload.companions,
+        style_preference: insertPayload.style_preference,
+        capsule_items: capsuleItems,
+        outfits: outfits as TravelCapsuleOutfit[],
+        packing_list: packingList as TravelCapsulePackingItem[],
+        packing_tips: insertPayload.packing_tips,
+        total_combinations: insertPayload.total_combinations,
+        reasoning: insertPayload.reasoning,
+        must_haves: mustHaves,
+        packed_state: {},
+        result: insertPayload.result,
+        created_at:
+          typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+        // No `updated_at` column on `travel_capsules` (see select projection
+        // above). The list-read parser already falls back to `created_at`
+        // when this is missing, so mirror that here to keep the
+        // optimistic-concurrency token deterministic until the safety-net
+        // refetch replaces this row with the canonical one.
+        updated_at:
+          typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+      };
+      const MAX_CAPSULES_FOR_CACHE = 10;
+      queryClient.setQueryData<TravelCapsuleRow[]>(
+        ['travelCapsules', user.id],
+        (old) => {
+          const filtered = (old ?? []).filter((r) => r.id !== optimisticRow.id);
+          return [optimisticRow, ...filtered].slice(0, MAX_CAPSULES_FOR_CACHE);
+        },
+      );
 
       // Match web's MAX_CAPSULES = 10 cap (`src/hooks/useTravelCapsules.ts`).
       // After insert, trim the oldest rows so the user's saved-trips list
