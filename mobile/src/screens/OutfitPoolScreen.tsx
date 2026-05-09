@@ -172,6 +172,18 @@ export function OutfitPoolScreen() {
       const savedCount = results.filter(Boolean).length;
       const failedCount = results.length - savedCount;
 
+      // N3.10 F-009 — name the failed drafts in the toast so the user knows
+      // which looks didn't land instead of a bare "X couldn't be saved".
+      // Falls back to "Look {n}" when a draft has no family_label/occasion.
+      const failedNames = drafts
+        .map((d, i) => ({ draft: d, ok: results[i], idx: i }))
+        .filter(({ ok }) => !ok)
+        .map(({ draft, idx }) =>
+          draft.family_label?.trim()
+            || draft.occasion?.trim()
+            || `Look ${idx + 1}`,
+        );
+
       // Only invalidate if at least one save landed — invalidating on
       // total failure would force a needless refetch with no new rows.
       if (savedCount > 0) {
@@ -180,14 +192,19 @@ export function OutfitPoolScreen() {
 
       if (savedCount > 0) hapticSuccess();
       // Title swaps to a failure framing when nothing landed; the body
-      // surfaces the partial-save count so the user knows whether to
-      // retry. Empty title-only alert ("0 saved") was misleading on
-      // total failure.
+      // surfaces the partial-save count + names so the user knows which
+      // looks didn't land. Empty title-only alert ("0 saved") was
+      // misleading on total failure.
       const title = savedCount === 0
         ? tr('outfitPool.saveFailedTitle')
         : tr('outfitPool.savedTemplate', { n: savedCount });
       const body = failedCount > 0
-        ? tr('outfitPool.partialSaveBody', { failed: failedCount })
+        ? failedNames.length > 0
+          ? tr('outfitPool.partialSaveBodyWithNames', {
+              failed: failedCount,
+              names: failedNames.join(', '),
+            })
+          : tr('outfitPool.partialSaveBody', { failed: failedCount })
         : '';
       Alert.alert(title, body);
 

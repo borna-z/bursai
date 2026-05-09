@@ -273,9 +273,15 @@ export function AddPieceStep3() {
     600,
   );
 
+  // N3.10 F-006: disable the duplicate query while a save is in flight.
+  // Without this gate, every keystroke or input change during the save
+  // window re-fires `detect_duplicate_garment` — wasted edge calls (which
+  // also burn the 8/min rate limit) and wasted UX (the result is irrelevant
+  // once the user has committed). Passing null short-circuits the hook's
+  // own `enabled` gate (`!!input?.category`).
   const duplicateInput = useMemo(
     () =>
-      params?.analysis
+      params?.analysis && !isSaving && !addGarment.isPending
         ? {
             image_path: resolvedStoragePath,
             category: params.analysis.category ?? null,
@@ -289,6 +295,8 @@ export function AddPieceStep3() {
       resolvedStoragePath,
       params?.analysis,
       debouncedDuplicateTitle,
+      isSaving,
+      addGarment.isPending,
     ],
   );
   const duplicateQuery = useDetectDuplicate(duplicateInput);

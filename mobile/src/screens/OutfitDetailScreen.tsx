@@ -167,25 +167,60 @@ export function OutfitDetailScreen() {
   // Route to PaywallScreen when any helper surfaces the subscription
   // sentinel. Sticky ref so a back-and-forth doesn't re-pop the modal —
   // BUT (Codex P1.7 on PR #743) we must release the latch when ALL three
-  // helpers' errors are no longer the sentinel. Without this, a user who
-  // dismisses the paywall, upgrades, and retriggers a helper would never
-  // re-route to the paywall again from this screen even if a later
-  // entitlement check fails. Reset when every error is either null or a
-  // non-sentinel value.
+  // helpers' errors are no longer the sentinel.
+  //
+  // N3.10 F-011 — track three INDEPENDENT per-helper latches. The previous
+  // shared `paywallShownRef` released as soon as `subLocked` flipped false,
+  // i.e. once every helper's error left the sentinel state. But helpers
+  // transition through non-sentinel error states during retries (network
+  // hiccup, transient 5xx), and the shared latch could prematurely release
+  // even while the *user-facing* paywall path was still active for another
+  // helper that hadn't yet retried. With three independent flags the latch
+  // for helper A only releases when A's own error transitions to a non-
+  // sentinel state, so a later sentinel from A re-routes to the paywall
+  // independently of B/C's lifecycles.
+  const accessoriesPaywallRef = React.useRef(false);
+  const combinationsPaywallRef = React.useRef(false);
+  const clonePaywallRef = React.useRef(false);
   React.useEffect(() => {
-    const subLocked =
-      accessoriesHook.error === SUBSCRIPTION_SENTINEL
-      || combinationsHook.error === SUBSCRIPTION_SENTINEL
-      || cloneHook.error === SUBSCRIPTION_SENTINEL;
-    if (subLocked && !paywallShownRef.current) {
+    const accSentinel = accessoriesHook.error === SUBSCRIPTION_SENTINEL;
+    const combSentinel = combinationsHook.error === SUBSCRIPTION_SENTINEL;
+    const cloneSentinel = cloneHook.error === SUBSCRIPTION_SENTINEL;
+
+    // Per-helper release: a non-sentinel error (or null) releases ONLY
+    // that helper's latch — the others stay locked until their own error
+    // clears the sentinel.
+    if (!accSentinel) accessoriesPaywallRef.current = false;
+    if (!combSentinel) combinationsPaywallRef.current = false;
+    if (!cloneSentinel) clonePaywallRef.current = false;
+
+    // Detect a NEW sentinel — fire the paywall once per helper per latch
+    // cycle. The aggregate `paywallShownRef` keeps the navigation idempotent
+    // across the same render pass so two helpers transitioning to sentinel
+    // simultaneously don't push two Paywall screens.
+    const newSentinel =
+      (accSentinel && !accessoriesPaywallRef.current)
+      || (combSentinel && !combinationsPaywallRef.current)
+      || (cloneSentinel && !clonePaywallRef.current);
+    if (newSentinel && !paywallShownRef.current) {
+      if (accSentinel) accessoriesPaywallRef.current = true;
+      if (combSentinel) combinationsPaywallRef.current = true;
+      if (cloneSentinel) clonePaywallRef.current = true;
       paywallShownRef.current = true;
       nav.navigate('Paywall');
       return;
     }
-    if (!subLocked && paywallShownRef.current) {
-      // None of the helpers are reporting the sentinel any more — release
-      // the latch so a future failure can re-route. Reads as "back to
-      // ground state".
+
+    // Aggregate latch release: only when NO helper has the sentinel AND
+    // none of the per-helper latches are still set. Without this the
+    // outer `paywallShownRef` could stay sticky after every helper has
+    // recovered, blocking a future re-route.
+    if (
+      !accSentinel
+      && !combSentinel
+      && !cloneSentinel
+      && paywallShownRef.current
+    ) {
       paywallShownRef.current = false;
     }
   }, [accessoriesHook.error, combinationsHook.error, cloneHook.error, nav]);

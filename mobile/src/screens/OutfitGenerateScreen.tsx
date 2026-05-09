@@ -310,20 +310,25 @@ export function OutfitGenerateScreen() {
     );
   }
 
-  return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-      <View style={s.header}>
-        <IconBtn ariaLabel="Close" onPress={() => { hapticLight(); nav.goBack(); }}>
-          <CloseIcon color={t.fg} />
-        </IconBtn>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Eyebrow>{isLoading || !result ? 'Generating' : 'Your new look'}</Eyebrow>
-          <PageTitle style={{ marginTop: 4 }}>New look</PageTitle>
+  // N3.10 F-008 — explicit null-result guard. The existing nested ternary
+  // below technically narrows correctly (`isLoading || !result` is the
+  // first branch), but a future edit could reorder the conditions and
+  // surface the success branch with `result === null` — the
+  // `result.outfit_name` access would crash. This early return makes the
+  // contract obvious: nothing past here renders without a non-null result.
+  if (!result || isLoading) {
+    return (
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={s.header}>
+          <IconBtn ariaLabel="Close" onPress={() => { hapticLight(); nav.goBack(); }}>
+            <CloseIcon color={t.fg} />
+          </IconBtn>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Eyebrow>Generating</Eyebrow>
+            <PageTitle style={{ marginTop: 4 }}>New look</PageTitle>
+          </View>
+          <View style={{ width: 36 }} />
         </View>
-        <View style={{ width: 36 }} />
-      </View>
-
-      {isLoading || !result ? (
         <View style={s.loadingShell}>
           <Animated.View
             style={[
@@ -353,7 +358,24 @@ export function OutfitGenerateScreen() {
             />
           </View>
         </View>
-      ) : anchorId && (anchorMissed || itemCount === 0) ? (
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
+      <View style={s.header}>
+        <IconBtn ariaLabel="Close" onPress={() => { hapticLight(); nav.goBack(); }}>
+          <CloseIcon color={t.fg} />
+        </IconBtn>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Eyebrow>Your new look</Eyebrow>
+          <PageTitle style={{ marginTop: 4 }}>New look</PageTitle>
+        </View>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {anchorId && (anchorMissed || itemCount === 0) ? (
         // Anchor-missed UX takes precedence over the generic empty state.
         // Two cases land here:
         //   • `anchorMissed` flipped true after the hook validated the
