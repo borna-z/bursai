@@ -1441,4 +1441,38 @@ export const en: Record<string, string> = {
   // ─── Plan ───────────────────────────────────────────────────────────────
   'plan.empty.title': 'Nothing planned',
   'plan.empty.body': 'Generate an outfit or pick from your saved looks.',
+  'plan.empty.cta': 'Generate outfit',
+
+  // ─── EditGarment (extended) ─────────────────────────────────────────────
+  'editGarment.action.cancel': 'Cancel',
+  'editGarment.action.save': 'Save',
+  'editGarment.eyebrow': 'Edit',
+  'editGarment.title': 'Edit piece',
+  'editGarment.changePhoto': 'Change photo',
+  'editGarment.changePhoto.alert.title': 'Coming soon',
+  'editGarment.changePhoto.alert.body': 'Photo replacement lands in a future release.',
+  'editGarment.section.details': 'Details',
+  'editGarment.section.style': 'Style',
+  'editGarment.section.usage': 'Usage',
+  'editGarment.section.status': 'Status',
+  'editGarment.toggle.on': 'On',
+  'editGarment.toggle.off': 'Off',
+  'editGarment.delete': 'Delete piece',
+  'editGarment.deleting': 'Deleting…',
+  'editGarment.a11y.decrementWear': 'Decrement wear count',
+  'editGarment.a11y.incrementWear': 'Increment wear count',
+
+  // ─── Home (extended) ────────────────────────────────────────────────────
+  'home.greeting.night': 'Good night',
+  'home.greeting.morning': 'Good morning',
+  'home.greeting.afternoon': 'Good afternoon',
+  'home.greeting.evening': 'Good evening',
+  'home.alert.markedWorn.title': 'Marked worn',
+  'home.alert.markedWorn.body': "Today's look saved to your wear log.",
+  'home.alert.markWornError.title': 'Could not mark worn',
+  'home.alert.markWornError.fallback': 'Please try again.',
+  // Distinct from `home.todaysLook.restyle` so non-English locales can pick a
+  // different verb when the destination is StyleMe (occasion-driven) vs
+  // OutfitGenerate (full restyle of the planned look).
+  'home.thisWeek.restyle': 'Restyle',
 };
