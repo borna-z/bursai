@@ -1,7 +1,12 @@
 // Sentry init for React Native via Expo. Called once from App.tsx, before any
 // React tree mounts. DSN comes from EXPO_PUBLIC_SENTRY_DSN; absent in dev,
-// present in EAS production builds via eas.json secrets. Sample rate 0.2
-// matches web (src/main.tsx).
+// present in EAS production builds via eas.json secrets.
+//
+// tracesSampleRate is set to 1.0 for the launch window — we want every error
+// captured during the first month of TestFlight + initial App Store rollout
+// so a low-volume crash doesn't slip past the dashboards. Revisit after the
+// first month of stable production traffic and bring this back down to 0.2
+// (matching web `src/main.tsx`) once volume warrants the cost.
 
 import * as Sentry from '@sentry/react-native';
 
@@ -16,7 +21,9 @@ export function initSentry(): void {
   }
   Sentry.init({
     dsn,
-    tracesSampleRate: 0.2,
+    // 1.0 for the launch window. TODO: bring back to 0.2 after the first
+    // month of stable production traffic.
+    tracesSampleRate: 1.0,
     enableAutoSessionTracking: true,
     debug: __DEV__,
     // The native Sentry SDK only ships in EAS dev/prod builds. Inside Expo Go
