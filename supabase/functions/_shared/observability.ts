@@ -115,6 +115,35 @@ export function captureWarning(
 }
 
 /**
+ * Structured step logger shared across edge functions. Mirrors the
+ * inline `logStep` helper that several webhook functions
+ * (`stripe_webhook`, `revenuecat_webhook`, `restore_subscription`,
+ * `create_*_session`) defined locally — pulled here so a single
+ * format ([PREFIX] step - {json}) is queryable across functions in
+ * Supabase Logs.
+ *
+ * N2: first consumer is `stripe_webhook`. Function-local copies in
+ * `revenuecat_webhook` etc. stay until a follow-up campaign migrates
+ * them — converging callers in one PR risks a regression to the
+ * RC-specific correlation-id formatting that's load-bearing for the
+ * Codex-round-X out-of-order traces.
+ */
+export function logStep(prefix: string, step: string, details?: unknown): void {
+  const detailsStr = details === undefined ? "" : ` - ${JSON.stringify(details)}`;
+  console.log(`[${prefix}] ${step}${detailsStr}`);
+}
+
+/**
+ * Convenience factory: returns a bound `logStep` that prepends a fixed
+ * prefix. Lets callers replace `const logStep = (step, details) => ...`
+ * with `const logStep = makeLogStep("STRIPE-WEBHOOK")` while keeping
+ * the call shape identical at every call site.
+ */
+export function makeLogStep(prefix: string): (step: string, details?: unknown) => void {
+  return (step: string, details?: unknown) => logStep(prefix, step, details);
+}
+
+/**
  * Narrow reason classifier for validator failures. Keeps Sentry tags
  * queryable without exposing raw error messages (which may contain URLs
  * or PII).
