@@ -165,6 +165,33 @@ export function OutfitDetailScreen() {
     return m;
   }, [clonedGarmentsQ.data]);
 
+  // Codex P2 round 5 on PR #780 — same problem on the variations strip:
+  // `suggest_outfit_combinations` only SELECTs the legacy `image_path`
+  // column, so a modern-pipeline garment outside the current outfit
+  // arrives with `image_path: null` and falls through to
+  // `outfitGarmentImageMap`, which doesn't have it either. Hydrate the
+  // draft ids with `useGarmentsByIds` so we can fall back to the modern
+  // rendered/original paths before giving up on the gradient.
+  const variationGarmentIds = React.useMemo<string[]>(() => {
+    const ids = new Set<string>();
+    for (const draft of combinationsHook.combinations.slice(0, 3)) {
+      for (const it of draft.items) {
+        if (typeof it.garment_id === 'string' && it.garment_id.length > 0) {
+          ids.add(it.garment_id);
+        }
+      }
+    }
+    return Array.from(ids);
+  }, [combinationsHook.combinations]);
+  const variationGarmentsQ = useGarmentsByIds(variationGarmentIds);
+  const variationGarmentImageMap = React.useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of variationGarmentsQ.data ?? []) {
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
+    }
+    return m;
+  }, [variationGarmentsQ.data]);
+
   // P0.1 (Codex on PR #743) — pre-compute the set of garment ids ALREADY in
   // this outfit so the suggestion list never surfaces an accessory the
   // user already owns on this look. `outfit_items` has no UNIQUE on
@@ -996,17 +1023,21 @@ export function OutfitDetailScreen() {
                     // Codex P2 on PR #780 — variations can include garments
                     // that aren't in the currently-viewed outfit
                     // (suggest_outfit_combinations scores against the user's
-                    // full wardrobe). The hook now threads the edge
-                    // function's hydrated `image_path` per item; prefer that,
-                    // and only fall back to the current outfit's lookup map
-                    // when the engine didn't hydrate (clone-from-this drafts,
-                    // or any future variation source that omits hydration).
+                    // full wardrobe). The hook threads the edge function's
+                    // hydrated `image_path` (legacy column) per item;
+                    // round 5: when that's null (modern-pipeline rows whose
+                    // legacy column was never populated), prefer the
+                    // `useGarmentsByIds` lookup (which sees rendered /
+                    // original / legacy in that order) before the current
+                    // outfit's map, before finally giving up on a gradient.
                     const cardItems = draft.items.map((it, i) => ({
                       id: it.garment_id ?? `${draft.draftId}-slot-${i}`,
                       imagePath:
                         it.image_path
                         ?? (it.garment_id
-                          ? outfitGarmentImageMap.get(it.garment_id) ?? null
+                          ? variationGarmentImageMap.get(it.garment_id)
+                            ?? outfitGarmentImageMap.get(it.garment_id)
+                            ?? null
                           : null),
                     }));
                     return (
