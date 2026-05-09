@@ -1,3 +1,7 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: web-only Stripe trial mint endpoint. Mobile auto-trials are minted
+// by RevenueCat introductory offers attached to the StoreKit product.
 /**
  * Wave 8 P52 — start_trial edge function.
  *
@@ -89,6 +93,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  console.warn("[deprecated] web-only Stripe edge function called", { fn: "start_trial" });
 
   if (req.method !== "POST") {
     return new Response(

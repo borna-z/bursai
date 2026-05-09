@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: this file invokes the start_trial Stripe edge function on first sign-in.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';

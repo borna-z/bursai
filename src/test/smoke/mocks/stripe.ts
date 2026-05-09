@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: smoke-test mock routes for Stripe API calls used by web edge functions.
 import type { MockRoute } from "./mock-server";
 
 // Stripe mock routes. P0d-ii scaffolding — the array is empty by design.

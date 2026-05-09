@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: this modal posts to create_checkout_session + restore_subscription (Stripe).
 import { useState } from 'react';
 import { Crown, Infinity as InfinityIcon, Sparkles, Loader2, RotateCcw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';

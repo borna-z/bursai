@@ -1,3 +1,7 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively
+// (see mobile/src/hooks/useSubscriptionStatus.ts for the canonical mobile subscription hook).
+// N10 hygiene marker: web subscription hook reading the Stripe-mirrored subscriptions table.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';

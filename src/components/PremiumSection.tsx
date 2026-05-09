@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: reads stripe_mode/stripe_customer_id from subscriptions and offers a portal session.
 import { useState } from 'react';
 import { Crown, Infinity as InfinityIcon, Sparkles, Loader2, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';

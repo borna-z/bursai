@@ -1,3 +1,6 @@
+// DEPRECATED — web-only Stripe path, scheduled for deletion post-launch.
+// Retained until web app removal. Do NOT add new callers; mobile uses RevenueCat exclusively.
+// N10 hygiene marker: post-Stripe-checkout success landing page for the web app.
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Crown } from 'lucide-react';
