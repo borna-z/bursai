@@ -37,6 +37,7 @@ import { ErrorState } from '../components/ErrorState';
 import { MinusIcon, PlusIcon } from '../components/icons';
 import { useDeleteGarment, useGarment, useUpdateGarment } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
+import { t as tr } from '../lib/i18n';
 import type { GarmentUpdate } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -345,7 +346,7 @@ export function EditGarmentScreen() {
 
           {/* Details */}
           <FormCard title="Details">
-            <FieldLabel label="Title" />
+            <FieldLabel label={tr('editGarment.field.title')} />
             <TextInput
               value={title}
               onChangeText={setTitle}
@@ -353,10 +354,10 @@ export function EditGarmentScreen() {
               style={[s.input, { backgroundColor: t.bg2, borderColor: t.border, color: t.fg }]}
             />
 
-            <FieldLabel label="Category" topGap />
+            <FieldLabel label={tr('editGarment.field.category')} topGap />
             <ChipRow values={CATEGORIES} active={[category]} onTap={(v) => setCategory(v)} />
 
-            <FieldLabel label="Subcategory" topGap />
+            <FieldLabel label={tr('editGarment.field.subcategory')} topGap />
             <TextInput
               value={subcategory}
               onChangeText={setSubcategory}
@@ -367,7 +368,7 @@ export function EditGarmentScreen() {
 
           {/* Style */}
           <FormCard title="Style">
-            <FieldLabel label="Primary color" />
+            <FieldLabel label={tr('editGarment.field.primaryColor')} />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -394,26 +395,26 @@ export function EditGarmentScreen() {
               })}
             </ScrollView>
 
-            <FieldLabel label="Material" topGap />
+            <FieldLabel label={tr('editGarment.field.material')} topGap />
             <ChipRow values={MATERIALS} active={material ? [material] : []} onTap={(v) => setMaterial(material === v ? '' : v)} />
 
-            <FieldLabel label="Fit" topGap />
+            <FieldLabel label={tr('editGarment.field.fit')} topGap />
             <ChipRow values={FITS} active={fit ? [fit] : []} onTap={(v) => setFit(fit === v ? '' : v)} />
 
-            <FieldLabel label="Pattern" topGap />
+            <FieldLabel label={tr('editGarment.field.pattern')} topGap />
             <ChipRow values={PATTERNS} active={pattern ? [pattern] : []} onTap={(v) => setPattern(pattern === v ? '' : v)} />
           </FormCard>
 
           {/* Usage */}
           <FormCard title="Usage">
-            <FieldLabel label="Seasons" />
+            <FieldLabel label={tr('editGarment.field.seasons')} />
             <ChipRow
               values={SEASONS}
               active={seasons}
               onTap={(v) => togglePick(v, seasons, setSeasons)}
             />
 
-            <FieldLabel label="Wear count" topGap />
+            <FieldLabel label={tr('editGarment.field.wearCount')} topGap />
             <View style={s.stepperRow}>
               <Pressable
                 accessibilityLabel="Decrement wear count"
@@ -450,7 +451,7 @@ export function EditGarmentScreen() {
               </Pressable>
             </View>
 
-            <FieldLabel label="Price" topGap />
+            <FieldLabel label={tr('editGarment.field.price')} topGap />
             <TextInput
               value={price}
               onChangeText={setPrice}
@@ -473,7 +474,7 @@ export function EditGarmentScreen() {
                   flex: 1,
                   letterSpacing: -0.13,
                 }}>
-                In laundry
+                {tr('editGarment.field.inLaundry')}
               </Text>
               <TogglePill
                 label={inLaundry ? 'On' : 'Off'}

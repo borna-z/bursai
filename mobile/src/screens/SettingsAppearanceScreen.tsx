@@ -14,6 +14,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CheckIcon, SunRayIcon, MoonIcon, GearIcon } from '../components/icons';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -26,9 +27,24 @@ type ThemeOption = {
 };
 
 const OPTIONS: ThemeOption[] = [
-  { id: 'light', label: 'Light', caption: 'Editorial cream surface', Icon: SunRayIcon },
-  { id: 'dark', label: 'Dark', caption: 'Warm charcoal surface', Icon: MoonIcon },
-  { id: 'system', label: 'System', caption: 'Follows your device', Icon: GearIcon },
+  {
+    id: 'light',
+    label: tr('settings.appearance.theme.light.label'),
+    caption: tr('settings.appearance.theme.light.caption'),
+    Icon: SunRayIcon,
+  },
+  {
+    id: 'dark',
+    label: tr('settings.appearance.theme.dark.label'),
+    caption: tr('settings.appearance.theme.dark.caption'),
+    Icon: MoonIcon,
+  },
+  {
+    id: 'system',
+    label: tr('settings.appearance.theme.system.label'),
+    caption: tr('settings.appearance.theme.system.caption'),
+    Icon: GearIcon,
+  },
 ];
 
 export function SettingsAppearanceScreen() {

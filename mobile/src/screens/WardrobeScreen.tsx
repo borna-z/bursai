@@ -410,17 +410,17 @@ export function WardrobeScreen({
                 letterSpacing: -0.26,
                 textAlign: 'center',
               }}>
-              {isAllLaundry ? 'Everything is in laundry' : 'Your wardrobe is empty'}
+              {isAllLaundry ? tr('wardrobe.allLaundry.title') : tr('wardrobe.empty.title')}
             </Text>
             <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
               {isAllLaundry
-                ? `All ${trueTotalCount} of your pieces are marked as in laundry. Bring them back when they're clean.`
-                : 'Add your first piece to get started.'}
+                ? tr('wardrobe.allLaundry.body', { count: trueTotalCount })
+                : tr('wardrobe.empty.body')}
             </Caption>
             {isAllLaundry ? (
-              <Button label="Open laundry" onPress={() => nav.navigate('Laundry')} />
+              <Button label={tr('wardrobe.allLaundry.cta')} onPress={() => nav.navigate('Laundry')} />
             ) : (
-              <Button label="Add piece" onPress={() => nav.navigate('AddPieceStep1')} />
+              <Button label={tr('wardrobe.empty.cta')} onPress={() => nav.navigate('AddPieceStep1')} />
             )}
           </View>
         </ScrollView>
@@ -474,12 +474,12 @@ export function WardrobeScreen({
                   letterSpacing: -0.22,
                   textAlign: 'center',
                 }}>
-                No matches for these filters
+                {tr('wardrobe.filtered.empty.title')}
               </Text>
               <Caption style={{ textAlign: 'center', maxWidth: 260 }}>
-                Try a different combination, or clear filters to see your full wardrobe.
+                {tr('wardrobe.filtered.empty.body')}
               </Caption>
-              <Button label="Clear filters" variant="outline" onPress={() => setFilters(null)} />
+              <Button label={tr('wardrobe.filtered.clear')} variant="outline" onPress={() => setFilters(null)} />
             </View>
           ) : null
         }
