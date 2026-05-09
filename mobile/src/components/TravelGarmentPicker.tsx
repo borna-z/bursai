@@ -235,11 +235,20 @@ export function TravelGarmentPicker({
       </ScrollView>
 
       {/* Tile grid — 3 columns to match GarmentCard's wardrobe density.
-          Wrapped in a height-bounded inner ScrollView (G3 sub-issue 1)
-          so the grid no longer escapes the outer screen ScrollView and
-          becomes untappable below the fold. Mirrors web's `max-h-[320px]`.
-          `nestedScrollEnabled` keeps the inner scroll responsive on
-          Android even when nested inside the outer ScrollView. */}
+          The grid is rendered as a plain wrapping View (no inner
+          ScrollView, no maxHeight). The picker is composed inside the
+          screen's outer ScrollView, so the OUTER scroller handles
+          vertical overflow for the entire wizard step.
+
+          Why no nested ScrollView: a height-bounded inner ScrollView
+          inside the parent ScrollView triggers an Android gesture
+          conflict — items beyond the inner viewport's first ~320px
+          become untappable because the outer scroller wins the touch
+          arbitration even with `nestedScrollEnabled`. Removing the
+          nested scroller eliminates the conflict entirely (N3.6 audit
+          finding G-002). The picker step is dedicated (intro + picker
+          + continue button + saved capsules), so growing tall is the
+          correct mobile pattern; the user simply scrolls the screen. */}
       {filtered.length === 0 ? (
         <View style={{ marginTop: 12 }}>
           <Card padding={14}>
@@ -247,12 +256,7 @@ export function TravelGarmentPicker({
           </Card>
         </View>
       ) : (
-        <ScrollView
-          style={s.gridScroll}
-          contentContainerStyle={s.grid}
-          nestedScrollEnabled
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator>
+        <View style={s.grid}>
           {filtered.map((garment) => {
             const isSelected = selectedSet.has(garment.id);
             const dimmed = !isSelected && limitReached;
@@ -310,7 +314,7 @@ export function TravelGarmentPicker({
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       )}
 
       {/* Selection-count chip pinned at the bottom of the picker block. */}
@@ -346,19 +350,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  gridScroll: {
-    // Height-bound the picker grid so it doesn't escape the outer screen
-    // ScrollView. Without this the tiles below the fold are untappable
-    // because the parent ScrollView captures the gesture and there's
-    // nowhere for the user to scroll within the picker block. Mirrors
-    // web's `max-h-[320px]` constraint on the must-haves grid panel.
-    // G3 sub-issue 1 (audit-confirmed: TravelGarmentPicker untappable).
-    maxHeight: 320,
-    marginTop: 4,
-  },
   grid: {
+    // Plain wrapping grid — see "Why no nested ScrollView" comment in
+    // the JSX above. The outer screen ScrollView handles overflow.
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: 4,
   },
   // 3-column layout — each tile occupies ~33% width with a small gutter.
   // Matching the wardrobe grid density so the picker visually rhymes.
