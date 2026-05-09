@@ -417,8 +417,13 @@ export function useStyleChat(): UseStyleChatResult {
       const cacheKeyStr = cacheKey(userId, currentMode);
       const cachedNow = messageCacheRef.current.get(cacheKeyStr);
       const cachedCount = cachedNow?.length ?? 0;
-      if (cachedCount > parsed.length) {
-        // Stale SELECT — keep what the cache already has, don't paint.
+      const pendingPersist = pendingPersistRef.current.get(cacheKeyStr) ?? 0;
+      if (cachedCount > parsed.length && pendingPersist > 0) {
+        // Stale SELECT during an optimistic-insert race — keep cache.
+        // Outside that race window (cross-device clear / retention /
+        // legitimate remote shrink), the smaller DB result wins so
+        // deleted history doesn't ghost back. Codex P2 round 5+6 on
+        // PR #789.
         setIsHydrating(false);
         return;
       }
