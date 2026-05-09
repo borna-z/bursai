@@ -170,15 +170,27 @@ export function SearchScreen() {
   };
 
   // M42 — id-keyed press handler so the memoised cell row's `onPress`
-  // reference stays stable across parent re-renders (debounce ticks,
-  // refetch settles). Without this, every keystroke re-renders all
-  // visible cells.
+  // reference stays stable across parent re-renders. Naive deps would
+  // include `query` (which changes on every keystroke) and `submitQuery`
+  // (which changes whenever `recent` updates) — both would re-create
+  // this handler constantly and bust `SearchResultCell.memo`. We mirror
+  // those two values into refs so the handler itself stays referentially
+  // stable for the lifetime of the screen, while still reading the
+  // freshest values when actually invoked.
+  const queryRef = React.useRef(query);
+  React.useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  const submitQueryRef = React.useRef(submitQuery);
+  React.useEffect(() => {
+    submitQueryRef.current = submitQuery;
+  }, [submitQuery]);
   const handleResultPress = React.useCallback(
     (id: string) => {
-      submitQuery(query);
+      submitQueryRef.current(queryRef.current);
       nav.navigate('GarmentDetail', { id });
     },
-    [submitQuery, query, nav],
+    [nav],
   );
 
   return (
