@@ -357,12 +357,52 @@ export function AuthScreen() {
             />
           </View>
 
-          {/* Terms — sign-up only */}
+          {/* Terms — sign-up only.
+              M40: the static "By continuing you agree to our Terms" caption
+              now exposes Terms + Privacy as discrete tappable links so the
+              user can read the legal copy before completing sign-up. App
+              Review treats an unreachable Terms link as a 5.1.1 rejection
+              risk — surfacing both screens here matches the Paywall pattern
+              and keeps a single sign-up disclosure visible. */}
           {isSignUp && (
-            <View style={{ marginTop: 12, alignItems: 'center' }}>
+            <View style={{ marginTop: 12, alignItems: 'center', gap: 6 }}>
               <Caption style={{ textAlign: 'center', maxWidth: 280, letterSpacing: 0 }}>
                 {tr('auth.signUp.terms')}
               </Caption>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <Pressable
+                  onPress={() => nav.navigate('Terms')}
+                  accessibilityRole="link"
+                  accessibilityLabel={tr('auth.signUp.terms.label')}
+                  hitSlop={6}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 12.5,
+                      color: t.fg2,
+                      letterSpacing: -0.1,
+                      textDecorationLine: 'underline',
+                    }}>
+                    {tr('auth.signUp.terms.link')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => nav.navigate('PrivacyPolicy')}
+                  accessibilityRole="link"
+                  accessibilityLabel={tr('auth.signUp.privacy.label')}
+                  hitSlop={6}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 12.5,
+                      color: t.fg2,
+                      letterSpacing: -0.1,
+                      textDecorationLine: 'underline',
+                    }}>
+                    {tr('auth.signUp.privacy.link')}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           )}
 

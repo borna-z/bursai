@@ -87,6 +87,12 @@ import { SettingsNotificationsScreen } from '../screens/SettingsNotificationsScr
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
 import { SettingsProfileEditScreen } from '../screens/SettingsProfileEditScreen';
 import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
+// M40 — native Privacy Policy + Terms screens. Pre-M40 the SettingsPrivacy
+// row + PaywallScreen footer linked to https://burs.me/privacy and /terms;
+// the launch decision cuts the public marketing site, so these screens host
+// the canonical legal copy in-app to satisfy App Store guideline 5.1.1 + 3.1.2.
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { TermsScreen } from '../screens/TermsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 // M41: NotificationsScreen route hidden until inbox stream lands
 // import { NotificationsScreen } from '../screens/NotificationsScreen';
@@ -291,6 +297,11 @@ export type RootStackParamList = {
   // blocker for the launch build.
   SettingsProfileEdit: undefined;
   SettingsPrivacy: undefined;
+  // M40 — native legal screens reachable from SettingsPrivacy + PaywallScreen
+  // + AuthScreen. No params; locale is read inside the screen via
+  // useTranslation() and the body copy lives in lib/legalContent.
+  PrivacyPolicy: undefined;
+  Terms: undefined;
 
   // Profile / account / extras
   Profile: undefined;
@@ -623,6 +634,8 @@ export function RootNavigator() {
       <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
       <Stack.Screen name="SettingsProfileEdit" component={SettingsProfileEditScreen} />
       <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="Terms" component={TermsScreen} />
 
       {/* Profile / account / extras */}
       <Stack.Screen name="Profile" component={ProfileScreen} />

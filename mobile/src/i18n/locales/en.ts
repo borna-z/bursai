@@ -1768,4 +1768,27 @@ export const en: Record<string, string> = {
   'a11y.garmentCard.nameOnly': '{name}',
   'a11y.outfitCard': '{name}, {pieceCount} pieces',
   'a11y.outfitCard.nameOnly': '{name}',
+
+  // ─── M40 — native Privacy Policy + Terms screens ────────────────────────
+  // The screen chrome (eyebrows, "view web version" footer, web-fallback
+  // error alert) lives here; the long-form body copy is in
+  // mobile/src/lib/legalContent.ts so the locale file doesn't balloon.
+  // SettingsPrivacyScreen exposes a second CTA ("Read terms of service")
+  // alongside the existing privacy CTA — `settings.privacy.info.cta.terms`.
+  // AuthScreen sign-up disclosure now exposes Terms + Privacy as discrete
+  // tappable links under the existing static caption.
+  'legal.privacy.eyebrow': 'Legal',
+  'legal.terms.eyebrow': 'Legal',
+  'legal.webVersion': 'View web version',
+  'legal.webVersion.label': 'Open the web version of this document',
+  'legal.webPrivacyUrl': 'https://burs.me/privacy',
+  'legal.webTermsUrl': 'https://burs.me/terms',
+  'legal.webError.title': 'Could not open',
+  'legal.webError.body':
+    'Unable to open the web version. The native screen above is the canonical document.',
+  'settings.privacy.info.cta.terms': 'Read terms of service',
+  'auth.signUp.terms.link': 'Terms',
+  'auth.signUp.terms.label': 'Open terms of service',
+  'auth.signUp.privacy.link': 'Privacy',
+  'auth.signUp.privacy.label': 'Open privacy policy',
 };

@@ -1680,4 +1680,24 @@ export const sv: Record<string, string> = {
   'a11y.garmentCard.nameOnly': '{name}',
   'a11y.outfitCard': '{name}, {pieceCount} plagg',
   'a11y.outfitCard.nameOnly': '{name}',
+
+  // ─── M40 — native integritetspolicy + användarvillkor-skärmar ─────────
+  // Brödtexten (Privacy + Terms) ligger än så länge på engelska i
+  // mobile/src/lib/legalContent.ts; M33's översättningspass plockar upp
+  // den när det är dags. Skärmens kringtext översätts här så header,
+  // foot­note och felalerten talar svenska direkt vid lansering.
+  'legal.privacy.eyebrow': 'Juridik',
+  'legal.terms.eyebrow': 'Juridik',
+  'legal.webVersion': 'Visa webbversionen',
+  'legal.webVersion.label': 'Öppna webbversionen av detta dokument',
+  'legal.webPrivacyUrl': 'https://burs.me/privacy',
+  'legal.webTermsUrl': 'https://burs.me/terms',
+  'legal.webError.title': 'Kunde inte öppna',
+  'legal.webError.body':
+    'Webbversionen kunde inte öppnas. Skärmen ovan är det officiella dokumentet.',
+  'settings.privacy.info.cta.terms': 'Läs användarvillkoren',
+  'auth.signUp.terms.link': 'Villkor',
+  'auth.signUp.terms.label': 'Öppna användarvillkoren',
+  'auth.signUp.privacy.link': 'Integritet',
+  'auth.signUp.privacy.label': 'Öppna integritetspolicyn',
 };
