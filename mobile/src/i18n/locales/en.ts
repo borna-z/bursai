@@ -1817,4 +1817,36 @@ export const en: Record<string, string> = {
   // 3 days, then 119 kr per month"). Renders the trial line in two
   // pieces so the StoreKit-localized intro string survives untouched.
   'paywall.trial.thenSuffix': 'then {price} {period}',
+
+  // ─── M41 — Notifications inbox + ShareOutfit ───────────────────────────
+  // Append-only block for the M41 wave. NotificationsScreen now reads real
+  // rows from the `notifications` table; OutfitDetailScreen has a Share
+  // action that opens the OS share sheet with a deep-link to the outfit.
+
+  // Inbox states beyond the existing N8 keys above.
+  'notifications.error.title': "Couldn't load notifications",
+  'notifications.error.body': 'Pull to retry, or come back in a moment.',
+
+  // Relative-time labels rendered next to each row. The hook returns a
+  // bucket key ('justNow', 'minutesAgo', 'hoursAgo', 'daysAgo') and the
+  // screen renders the matching label with the count interpolated in.
+  'notifications.time.justNow': 'Just now',
+  'notifications.time.minutesAgo': '{count}m ago',
+  'notifications.time.hoursAgo': '{count}h ago',
+  'notifications.time.daysAgo': '{count}d ago',
+
+  // Header Share IconBtn a11y.
+  'outfit.detail.share.aria': 'Share outfit',
+
+  // useShareOutfit message scaffolding. The {link} placeholder is replaced
+  // with the burs.me deep-link before the OS share sheet renders, so the
+  // message reads "Check out my BURS outfit \"<name>\": https://burs.me/...".
+  'share.outfit.message': 'Check out my BURS outfit "{name}": {link}',
+  'share.outfit.dialogTitle': 'Share outfit',
+  'share.outfit.error.title': "Couldn't share",
+  'share.outfit.error.body': "Something stopped the share sheet. Give it another go.",
+
+  // Bell icon in HomeScreen header — entry point to NotificationsScreen.
+  // Codex P1 follow-up on PR #809: route was wired but unreachable.
+  'home.notifications.aria': 'Open notifications',
 };

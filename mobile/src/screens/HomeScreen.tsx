@@ -21,12 +21,14 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { IconBtn } from '../components/IconBtn';
 import { Shimmer } from '../components/Shimmer';
 import { SmartDayBanner } from '../components/SmartDayBanner';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { OccasionPicker, eventsForOccasion, type OccasionId } from '../components/OccasionPicker';
 import { PlanCardSkeleton, StatRowSkeleton } from '../components/skeletons';
 import {
+  BellIcon,
   ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
   ChevronIcon, SparklesIcon,
 } from '../components/icons';
@@ -350,6 +352,11 @@ export function HomeScreen({
                 replaced by the live `WeatherStrip` section below the header.
                 The pill's slot is left empty so the avatar still floats
                 cleanly on the right — no spacer needed. */}
+            <IconBtn
+              ariaLabel={tr('home.notifications.aria')}
+              onPress={push('Notifications')}>
+              <BellIcon size={18} color={t.fg} />
+            </IconBtn>
             <Pressable
               accessibilityLabel={tr('home.profile.aria')}
               onPress={push('Profile')}
