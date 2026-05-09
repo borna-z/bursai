@@ -33,10 +33,12 @@ export type ShareOutfitResult =
   | { kind: 'shared'; activityType: string | null }
   | { kind: 'dismissed' };
 
-// Public-facing deep-link host. The web app routes /outfit/:id back into the
-// mobile app via universal links once installed; falling back to a plain
-// burs.me URL means non-installers still get a usable share preview.
-const OUTFIT_LINK_HOST = 'https://burs.me/outfit';
+// Public-facing deep-link host. The web router registers the outfit
+// detail page at `/outfits/:id` (plural — see
+// `src/components/layout/AnimatedRoutes.tsx`), so the share URL points at
+// that route to give recipients a working preview link. Universal-link
+// handling eventually re-routes installed-app opens back into mobile.
+const OUTFIT_LINK_HOST = 'https://burs.me/outfits';
 
 /**
  * Build the deep-link string the share-sheet prefills. Pulled out so a

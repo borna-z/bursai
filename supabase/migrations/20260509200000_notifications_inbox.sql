@@ -66,6 +66,14 @@ CREATE POLICY "notifications_select_own"
 -- gates both the source row (USING) and the post-image (WITH CHECK) on
 -- ownership so a user cannot UPDATE someone else's row OR re-assign a
 -- row to a different user_id.
+--
+-- Codex P2 (2026-05-09): RLS alone doesn't restrict WHICH columns the
+-- authenticated role can rewrite — without the column-level grants
+-- below, a hand-rolled supabase-js call could overwrite `title`,
+-- `body`, `type`, or `data` on the user's own rows (rows that are
+-- supposed to be authoritative service-role-written content). The
+-- column-level GRANT/REVOKE narrows the writable surface to `read_at`
+-- only; the RLS policy still enforces row ownership on top.
 DROP POLICY IF EXISTS "notifications_update_own" ON public.notifications;
 CREATE POLICY "notifications_update_own"
   ON public.notifications
@@ -73,6 +81,15 @@ CREATE POLICY "notifications_update_own"
   TO authenticated
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- Column-level lockdown for the authenticated role: revoke the broad
+-- table-level UPDATE that ALTER … ENABLE RLS leaves available, then
+-- grant UPDATE on `read_at` only. SELECT stays open (gated by the
+-- SELECT policy above) so the client can still read every column of
+-- its own rows. INSERT / DELETE remain ungranted; service_role
+-- bypasses RLS + grants entirely.
+REVOKE UPDATE ON public.notifications FROM authenticated;
+GRANT UPDATE (read_at) ON public.notifications TO authenticated;
 
 -- No INSERT or DELETE policy for `authenticated` — service-role bypasses
 -- RLS so edge functions writing inbox rows are unaffected, and the
