@@ -29,12 +29,25 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
+import { Sentry } from './sentry';
+
 const STORAGE_KEY = 'burs.offline-queue.v1';
 
 // Hard cap on queue size — beyond this we drop the oldest items so the
 // app can't OOM AsyncStorage with a runaway queue (offline marathon, broken
-// handler repeatedly retrying, etc.). Web uses 50; mobile holds the same.
-const MAX_QUEUE_SIZE = 50;
+// handler repeatedly retrying, etc.). Bumped from 50 → 200 in N9 to absorb
+// long offline sessions (e.g. flight-mode batch garment adds) before
+// dropping; AsyncStorage's per-key limit on Android is ~6MB so the byte
+// cap below is the real ceiling. Web stayed at 50 because the analogous
+// localStorage limit is tighter.
+const MAX_QUEUE_SIZE = 200;
+// Hard cap on persisted queue byte size — the JSON.stringify length above
+// this triggers drop-oldest until we're under. Sized to leave headroom under
+// the worst-case AsyncStorage per-key limit (~6MB on Android, much higher
+// on iOS). Each typical item is ~200-1000 bytes (action + UUIDs + small
+// payload); 5MB buffers a 5000-item runaway without tripping the OS write.
+// N9 (mobile polish bundle).
+const MAX_QUEUE_BYTES = 5 * 1024 * 1024;
 
 // Retry cap before an item is dropped permanently. A handler that fails
 // 3 times in a row is unrecoverable from the queue's perspective; the
@@ -171,9 +184,11 @@ export function registerHandler<P>(action: string, fn: Handler<P>): void {
  */
 export async function enqueue<P>(action: string, payload: P): Promise<QueueItem<P>> {
   await hydrate();
+  let cappedReason: 'count' | 'bytes' | null = null;
   if (queue.length >= MAX_QUEUE_SIZE) {
     // Drop oldest — preserves the user's most recent intent.
     queue = queue.slice(-(MAX_QUEUE_SIZE - 1));
+    cappedReason = 'count';
   }
   const item: QueueItem<P> = {
     id: cryptoRandomId(),
@@ -183,6 +198,30 @@ export async function enqueue<P>(action: string, payload: P): Promise<QueueItem<
     createdAt: Date.now(),
   };
   queue.push(item as unknown as QueueItem);
+  // Byte-size cap. The count cap above is a coarse first-line guard, but
+  // a single oversized payload (e.g. a base64 image accidentally enqueued)
+  // could blow past the AsyncStorage per-key limit before count fills.
+  // Drop oldest entries until the JSON encoding fits under MAX_QUEUE_BYTES.
+  // We always preserve the just-enqueued item — it represents the user's
+  // most recent intent and is the most valuable signal in the queue.
+  let serialised = JSON.stringify(queue);
+  while (serialised.length > MAX_QUEUE_BYTES && queue.length > 1) {
+    queue.shift();
+    cappedReason = cappedReason ?? 'bytes';
+    serialised = JSON.stringify(queue);
+  }
+  if (cappedReason) {
+    Sentry.addBreadcrumb({
+      category: 'offline_queue',
+      level: 'warning',
+      message: 'queue_capped',
+      data: {
+        reason: cappedReason,
+        size: queue.length,
+        bytes: serialised.length,
+      },
+    });
+  }
   await persist();
   emitChange();
   return item;

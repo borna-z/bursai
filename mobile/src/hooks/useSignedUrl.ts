@@ -66,10 +66,39 @@ type CacheEntry = {
   expiresAt: number;
 };
 
+// LRU cap on the module-scope cache. Without a ceiling, a long-lived session
+// that scrolls through hundreds of garments + outfits accumulates entries
+// indefinitely — each entry holds a JWT-bearing URL string (~400 bytes) plus
+// the Map overhead. 200 is generous: a typical wardrobe is ~80 items, and
+// the bulk hook batches misses, so 200 covers wardrobe + outfit thumbnails
+// + planned-outfit hero images in the working set with headroom. When we
+// overflow, the OLDEST entry is evicted (insertion-order — JavaScript Maps
+// iterate in insertion order, so `urlCache.keys().next().value` returns
+// the oldest key). N9 (mobile polish bundle).
+const MAX_CACHE_ENTRIES = 200;
+
 // Module-scope map. Lives for the lifetime of the JS bundle — survives
 // navigation and remounts. Cleared explicitly on sign-out via
-// `clearSignedUrlCache` (called by AuthContext).
+// `clearSignedUrlCache` (called by AuthContext). Capped at
+// `MAX_CACHE_ENTRIES` via `setCacheEntry` — direct `urlCache.set` calls
+// elsewhere in this module bypass the cap so all writes flow through that
+// helper.
 const urlCache = new Map<string, CacheEntry>();
+
+function setCacheEntry(key: string, entry: CacheEntry): void {
+  // If the key already exists, delete first so the re-set lands at the
+  // tail of insertion order (refresh moves it to "most recently used").
+  // Without this, refreshing a hot key could leave it at the front and
+  // get evicted on the next overflow despite being actively read.
+  if (urlCache.has(key)) urlCache.delete(key);
+  urlCache.set(key, entry);
+  if (urlCache.size > MAX_CACHE_ENTRIES) {
+    // Drop the oldest key. Map insertion-order iteration guarantees the
+    // first key is the least-recently-set entry.
+    const oldest = urlCache.keys().next().value;
+    if (oldest !== undefined) urlCache.delete(oldest);
+  }
+}
 
 // Tracks in-flight fetches keyed by the same `${bucket}:${path}` shape so a
 // list rendering 50 cards with overlapping paths fires one request per
@@ -353,7 +382,7 @@ async function fetchAndCacheSignedUrl(path: string): Promise<string | null> {
       // implicit cancellation, not a transport failure.
       return null;
     }
-    urlCache.set(key, {
+    setCacheEntry(key, {
       url: data.signedUrl,
       expiresAt: Date.now() + TTL_MS,
     });
@@ -487,7 +516,7 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
           const pathStillValid =
             pathGenerationFor(cacheKey(BUCKET, p)) === startedAtPathGens.get(p);
           if (sessionStillValid && pathStillValid) {
-            urlCache.set(cacheKey(BUCKET, p), { url, expiresAt });
+            setCacheEntry(cacheKey(BUCKET, p), { url, expiresAt });
           }
           out[p] = url;
         } else {

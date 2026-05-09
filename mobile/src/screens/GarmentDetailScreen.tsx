@@ -338,7 +338,17 @@ export function GarmentDetailScreen() {
   const handleRemoveFromLaundry = () => {
     if (!id) return;
     hapticLight();
-    markLaundry.mutate({ id, inLaundry: false });
+    markLaundry.mutate(
+      { id, inLaundry: false },
+      {
+        onError: (err) => {
+          Alert.alert(
+            'Could not mark clean',
+            err instanceof Error ? err.message : 'Try again.',
+          );
+        },
+      },
+    );
   };
 
   const handleDelete = () => {
