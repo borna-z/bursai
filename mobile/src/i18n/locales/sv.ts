@@ -1140,27 +1140,23 @@ export const sv: Record<string, string> = {
   // ─── N3.8 — G-campaign post-merge polish ─────────────────────────────────
   'travel.outfits.dateUnknown': 'Datum saknas',
 
-  // ─── Settings · Edit profile (N3.9) ────────────────────────────────────
-  // English placeholders — N8 i18n sweep will translate.
-  'settings.profileEdit.eyebrow': 'Settings',
-  'settings.profileEdit.title': 'Edit profile',
-  'settings.profileEdit.save': 'Save',
-  'settings.profileEdit.section.name': 'Name',
-  'settings.profileEdit.section.photo': 'Profile photo',
-  'settings.profileEdit.field.displayName': 'Display name',
-  'settings.profileEdit.field.displayName.placeholder': 'Your name',
+  // ─── Settings · Edit profile (N3.9) — translated by N8 sweep ───────────
+  'settings.profileEdit.eyebrow': 'Inställningar',
+  'settings.profileEdit.title': 'Redigera profil',
+  'settings.profileEdit.save': 'Spara',
+  'settings.profileEdit.section.name': 'Namn',
+  'settings.profileEdit.section.photo': 'Profilbild',
+  'settings.profileEdit.field.displayName': 'Visningsnamn',
+  'settings.profileEdit.field.displayName.placeholder': 'Ditt namn',
   'settings.profileEdit.field.displayName.helper':
-    'This is the name we show across the app — outfit cards, the home greeting, and your account.',
-  'settings.profileEdit.photo.deferred.title': 'Photo upload available in a future update',
+    'Det här är namnet vi visar i hela appen — outfit-kort, hälsningen på Hem och ditt konto.',
+  'settings.profileEdit.photo.deferred.title': 'Bilduppladdning tillgänglig i en framtida uppdatering',
   'settings.profileEdit.photo.deferred.body':
-    'Your initial is shown for now. Photo uploads will land in a follow-up release.',
-  'settings.profileEdit.error.title': 'Could not save',
-  'settings.profileEdit.error.body': 'Please check your connection and try again.',
+    'Din initial visas tills vidare. Bilduppladdning kommer i en uppföljningsversion.',
+  'settings.profileEdit.error.title': 'Kunde inte spara',
+  'settings.profileEdit.error.body': 'Kontrollera din anslutning och försök igen.',
 
-  // ─── M38 — SettingsStyle 8-section editor ────────────────────────────────
-  // Append-only. English placeholders where translation needs final pass —
-  // N8 wave will translate. Keys mirror the section list in
-  // SettingsStyleScreen.tsx.
+  // ─── M38 — SettingsStyle 8-section editor (already Swedish on main) ────
   'settingsStyle.editor.section.archetype.title': 'Arketyp',
   'settingsStyle.editor.section.formality.title': 'Formalitetsspann',
   'settingsStyle.editor.section.palette.title': 'Färgpalett',
@@ -1195,4 +1191,493 @@ export const sv: Record<string, string> = {
   'settingsStyle.editor.saveError.retry': 'Försök igen',
   'settingsStyle.editor.saveError.cancel': 'Avbryt',
   'settingsStyle.editor.unsavedDot': 'Osparade ändringar',
+
+  // ─── N8 — Swedish i18n full sweep (launch-blocker) ───────────────────────
+  // Append-only batch covering every untranslated key surfaced by
+  // `node scripts/i18n-diff.mjs`. Conventions: lowercase formal "du", SEK
+  // with a non-breaking space ("119 kr / månad"), 24h time, no anglicisms
+  // (subscription → prenumeration; outfit stays). Keep labels short.
+
+  // Value props (onboarding slide deck)
+  'value.slide.wardrobe.eyebrow': 'Din garderob',
+  'value.slide.wardrobe.title': 'Lär känna varje plagg du äger',
+  'value.slide.wardrobe.body': 'Skanna och katalogisera hela din garderob med AI-taggning på minuter.',
+  'value.slide.styling.eyebrow': 'Daglig styling',
+  'value.slide.styling.title': 'Klä dig med avsikt',
+  'value.slide.styling.body': 'AI-förslag på outfits anpassade efter din stil, vädret och dina planer.',
+  'value.slide.stylist.eyebrow': 'Din stylist',
+  'value.slide.stylist.title': 'Alltid i fickan',
+  'value.slide.stylist.body': 'Chatta med din AI-stylist när som helst — den kan din garderob och din smak.',
+  'value.styling.weatherChip': '14°',
+  'value.styling.occasionChip': 'Kaffemöte',
+  'value.stylist.chatExample': 'Till brunchen i morgon — para din krämfärgade blus med marinblå chinos och bruna loafers.',
+  'value.stylist.userExample': 'Och till middagen?',
+  'value.stylist.knowsCount': 'Kan dina 64 plagg',
+  'value.cta.continue': 'Fortsätt',
+  'value.cta.begin': 'Nu kör vi',
+
+  // ─── Stylist chat (M14) — modes, memory, anchor, composer
+  'chat.mode.ACTIVE_LOOK_REFINEMENT': 'Justering',
+  'chat.mode.GARMENT_FIRST_STYLING': 'Plagg först',
+  'chat.mode.OUTFIT_GENERATION': 'Outfit',
+  'chat.mode.WARDROBE_GAP_ANALYSIS': 'Garderobsgap',
+  'chat.mode.PURCHASE_PRIORITIZATION': 'Köp härnäst',
+  'chat.mode.STYLE_IDENTITY_ANALYSIS': 'Stilidentitet',
+  'chat.mode.LOOK_EXPLANATION': 'Varför just denna look',
+  'chat.mode.PLANNING': 'Plan',
+  'chat.mode.SHOPPING': 'Shopping',
+  'chat.memory.section_title': 'Stilminne',
+  'chat.memory.forget_action': 'Glöm',
+  'chat.memory.empty': 'BURS lär sig fortfarande din stil.',
+  'chat.active_look.title': 'Aktuell look',
+  'chat.active_look.clear': 'Rensa',
+  'chat.active_look.fallback.template': '{n} plagg',
+  'chat.anchor.title': 'Ankarplagg',
+  'chat.anchor.clear': 'Rensa ankare',
+  'chat.anchor.gesture.hint': 'Håll inne för att ankra huvudplagget i looken',
+  'chat.title': 'Stilchatt',
+  'chat.eyebrow': 'AI',
+  'chat.memory.toggle.show': 'Visa',
+  'chat.memory.toggle.hide': 'Dölj',
+  'chat.error.premium.title': 'Premium-funktion',
+  'chat.error.premium.body':
+    'Outfit-chatt ingår i BURS Premium. Uppgradera för att fortsätta skapa looks.',
+  'chat.anchor.set.title': 'Sätt ankare',
+  'chat.anchor.set.body': 'Använd huvudplagget i denna look som ankare i nästa svar?',
+  'chat.anchor.set.confirm': 'Sätt',
+  'chat.anchor.set.cancel': 'Avbryt',
+  'chat.empty.title': 'Hej',
+  'chat.empty.subtitle.unauth': 'Logga in för att chatta med din stylist.',
+  'chat.empty.subtitle.auth': 'Berätta vad du ska klä dig för.',
+  'chat.error.retry': 'Försök igen',
+  'chat.composer.placeholder': 'Fråga din stylist…',
+  'chat.memory.disabled.title': 'Endast plagg-nivå går att glömma',
+  'chat.memory.disabled.body': 'Full minnesredigering kommer i en framtida version.',
+  'chat.memory.confirm.title': 'Sluta föreslå?',
+  'chat.memory.confirm.body.template': 'Sluta föreslå "{label}"?',
+
+  // ─── Anchor (M13) — outfit anchor locking
+  'anchor.makeAnchor.title': 'Gör detta till ankare',
+  'anchor.makeAnchor.body': 'Skapa en ny outfit ankrad på {title}?',
+  'anchor.makeAnchor.bodyFallback': 'Skapa en ny outfit ankrad på detta plagg?',
+  'anchor.makeAnchor.cancel': 'Avbryt',
+  'anchor.makeAnchor.confirm': 'Sätt ankare',
+  'anchor.locked.eyebrow': 'Ankare låst',
+  'anchor.missed.eyebrow': 'Ankaret kunde inte användas',
+  'anchor.locked.fallback': 'Valt plagg',
+  'anchor.missed.errorTitle': 'Kunde inte bygga runt ankaret',
+  'anchor.missed.errorBody':
+    'Vi kunde inte bygga en komplett outfit runt {title}. Försök igen eller välj ett annat ankare.',
+  'anchor.missed.errorBodyFallback':
+    'Vi kunde inte bygga en komplett outfit runt det låsta plagget. Försök igen eller välj ett annat ankare.',
+  'anchor.removeAnchor': 'Ta bort ankare',
+  'outfit.invalid.eyebrow': 'Outfiten är ofullständig',
+  'outfit.invalid.errorTitle': 'Vi kunde inte bygga en komplett outfit',
+  'outfit.invalid.errorBody':
+    'Plaggen som returnerades blev inte en bärbar look. Försök igen eller lägg till fler plagg i din garderob.',
+
+  // ─── Outfit pool + week generator (M16)
+  'outfitPool.title': 'Outfit-pool',
+  'outfitPool.progressTemplate': '{n} av {total} klara',
+  'outfitPool.saveSelectedTemplate': 'Spara valda ({n})',
+  'outfitPool.generateMore': 'Skapa fler',
+  'outfitPool.empty.title': 'Inga outfits skapade',
+  'outfitPool.empty.body':
+    'Vi kunde inte bygga några outfits den här gången. Försök igen eller justera din garderob.',
+  'outfitPool.savedTemplate': '{n} sparade',
+  'outfitPool.partialSaveBody': '{failed} kunde inte sparas — försök igen.',
+  'outfitPool.partialSaveBodyWithNames':
+    '{failed} kunde inte sparas — försök igen. Misslyckade: {names}',
+  'outfitPool.saveFailedTitle': 'Kunde inte spara outfits',
+  'weekPlan.title': 'Veckoplan',
+  'weekPlan.generate': 'Skapa vecka',
+  'weekPlan.generating': 'Skapar…',
+  'weekPlan.progressTemplate': '{n}/{total}',
+  'weekPlan.dayFailedTemplate': 'Kunde inte skapa {day} — tryck för att försöka igen',
+  'weekPlan.swap': 'Tryck för att byta',
+
+  // ─── Composition helpers + slot composition (M17 + M37)
+  'outfitDetail.suggestAccessoriesAction': 'Föreslå accessoarer',
+  'outfitDetail.tryVariationsAction': 'Prova varianter',
+  'outfitDetail.cloneDnaAction': 'Klona stil',
+  'outfitDetail.accessories.title': 'Accessoarer',
+  'outfitDetail.accessories.empty': 'Vi hittade inga accessoarer för denna outfit.',
+  'outfitDetail.accessories.addAction': 'Lägg till i outfit',
+  'outfitDetail.variations.title': 'Varianter',
+  'outfitDetail.variations.empty': 'Vi kunde inte bygga några varianter från din garderob.',
+  'outfitDetail.cloneDna.title': 'Klonad stil',
+  'outfitDetail.cloneDna.banner': 'En ny outfit i samma stil',
+  'outfitDetail.helperLoading': 'Laddar…',
+  'outfitDetail.refreshAction': 'Uppdatera',
+  'outfitDetail.slot.top': 'Överdel',
+  'outfitDetail.slot.layer': 'Lager',
+  'outfitDetail.slot.bottom': 'Underdel',
+  'outfitDetail.slot.dress': 'Klänning',
+  'outfitDetail.slot.shoes': 'Skor',
+  'outfitDetail.slot.outerwear': 'Ytterplagg',
+  'outfitDetail.slot.accessory': 'Accessoar',
+  'outfitDetail.slotAction.swap': 'Byt',
+  'outfitDetail.slotAction.makeAnchor': 'Ankra',
+  'outfitDetail.slotAction.anchored': 'Ankrad',
+  'outfitDetail.slotAction.remove': 'Ta bort',
+  'outfitDetail.removedPiece': 'Borttaget plagg',
+  'outfitDetail.swap.title': 'Byt {slot}',
+  'outfitDetail.swap.empty': 'Inget annat i din garderob passar i denna plats.',
+  'outfitDetail.swap.loading': 'Letar i din garderob…',
+  'outfitDetail.swap.cancel': 'Avbryt',
+  'outfitDetail.remove.title': 'Ta bort plagg',
+  'outfitDetail.remove.body':
+    'Ta bort {title} från denna outfit? Du kan byta tillbaka det senare.',
+  'outfitDetail.remove.confirm': 'Ta bort',
+  'outfitDetail.remove.cancel': 'Avbryt',
+  'outfitDetail.anchor.cleared': 'Ankaret rensat',
+
+  // ─── Photo feedback / selfie comparison (M18)
+  'photoFeedback.eyebrow': 'Fotofeedback',
+  'photoFeedback.title': 'Fotofeedback',
+  'photoFeedback.tryOnAction': 'Prova on',
+  'photoFeedback.captureCta': 'Ta bild',
+  'photoFeedback.retake': 'Ta om',
+  'photoFeedback.confirm': 'Använd denna selfie',
+  'photoFeedback.uploading': 'Laddar upp…',
+  'photoFeedback.analyzing': 'Analyserar…',
+  'photoFeedback.error': 'Vi kunde inte analysera selfien. Försök igen.',
+  'photoFeedback.fitNotes': 'Passform',
+  'photoFeedback.colorCallouts': 'Färgkommentarer',
+  'photoFeedback.swapSuggestions': 'Bytförslag',
+  'photoFeedback.done': 'Klar',
+  'photoFeedback.overallTemplate': 'Helhet · {score} / 10',
+  'photoFeedback.hint': 'Stå framför en spegel',
+  'photoFeedback.cameraUnavailable': 'Kameran är tillgänglig i fysisk app',
+  'photoFeedback.allowCamera': 'Tillåt kamera',
+  'photoFeedback.openSettings': 'Öppna inställningar',
+  'photoFeedback.captureFailedTitle': 'Bilden kunde inte tas',
+  'photoFeedback.captureFailedBody': 'Försök igen.',
+  'photoFeedback.close': 'Stäng',
+  'photoFeedback.switchCamera': 'Byt kamera',
+  'photoFeedback.missingOutfit.title': 'Kunde inte öppna fotofeedback',
+  'photoFeedback.missingOutfit.body':
+    'Ingen outfit angavs för denna selfie. Öppna fotofeedback från en outfit och försök igen.',
+
+  // ─── Condition (M21)
+  'condition.checkAction': 'Kontrollera skick',
+  'condition.assessing': 'Bedömer…',
+  'condition.scoreLabel': 'Skick {score} / 100',
+  'condition.tier.good': 'Bra',
+  'condition.tier.fair': 'Okej',
+  'condition.tier.poor': 'Behöver vård',
+  'condition.wearSignals': 'Slitage-signaler',
+  'condition.repairTitle': 'Reparationsförslag',
+  'condition.reassessAction': 'Bedöm igen',
+  'condition.error.network': 'Vi nådde inte bedömningsmotorn. Försök igen om en stund.',
+  'condition.openHint': 'Öppnar hela skickbedömningen',
+  'condition.empty': 'Ingen bedömning ännu.',
+  'condition.closeSheet': 'Stäng skickdetaljer',
+
+  // ─── Wardrobe aging (M22)
+  'wardrobeAging.title': 'Garderob som åldras',
+  'wardrobeAging.eyebrow': 'Återupptäck',
+  'wardrobeAging.bucket.aged': 'Tecken på slitage',
+  'wardrobeAging.bucket.unworn': 'Aldrig burna',
+  'wardrobeAging.bucket.retire': 'Kandidater för rensning',
+  'wardrobeAging.empty.title': 'Garderoben är i toppskick',
+  'wardrobeAging.empty.body': 'Inget flaggat för rensning och alla plagg roterar.',
+  'wardrobeAging.error.network': 'Kunde inte uppdatera insikterna. Dra för att försöka igen.',
+  'wardrobeAging.openHint': 'Öppnar hela listan av plagg i denna grupp',
+  'wardrobeAging.countLabel': 'plagg i gruppen',
+  'unusedGarments.title.aged': 'Tecken på slitage',
+  'unusedGarments.title.unworn': 'Aldrig burna',
+  'unusedGarments.title.retire': 'Kandidater för rensning',
+  'unusedGarments.empty': 'Inget här ännu',
+
+  // ─── Shopping chat (M23)
+  'shoppingChat.modeLabel.style': 'Stil',
+  'shoppingChat.modeLabel.shopping': 'Köp',
+  'shoppingChat.cardPriceTemplate': '{amount} {currency}',
+  'shoppingChat.invalidUrl': 'Ogiltig produktlänk',
+
+  // ─── Pick must-haves (M24)
+  'pickMustHaves.title': 'Välj måsten',
+  'pickMustHaves.eyebrow': 'Inköpslista',
+  'pickMustHaves.intro':
+    'Markera de luckor du faktiskt vill köpa och sätt prioritet. Din lista sparas i profilen.',
+  'pickMustHaves.priority.high': 'Hög',
+  'pickMustHaves.priority.medium': 'Med',
+  'pickMustHaves.priority.low': 'Låg',
+  'pickMustHaves.notesPlaceholder': 'Lägg till en notering (storlek, märke, butik…)',
+  'pickMustHaves.save': 'Spara lista',
+  'pickMustHaves.saving': 'Sparar…',
+  'pickMustHaves.saved': 'Inköpslista sparad',
+  'pickMustHaves.empty.title': 'Inget att välja ännu',
+  'pickMustHaves.empty.body':
+    'Kör en garderobsanalys först för att se vilka nyckelplagg som är värda att lägga till.',
+  'pickMustHaves.empty.cta': 'Öppna Garderobsgap',
+  'pickMustHaves.savedCountTemplate': '{count} sparade',
+  'pickMustHaves.savedCountTemplate.one': '1 sparad',
+  'pickMustHaves.savedCountTemplate.other': '{count} sparade',
+  'pickMustHaves.selectedCountTemplate.one': '1 vald',
+  'pickMustHaves.selectedCountTemplate.other': '{count} valda',
+  'pickMustHaves.loadError': 'Kunde inte ladda din sparade lista. Dra för att försöka igen.',
+  'pickMustHaves.remove': 'Ta bort',
+  'pickMustHaves.removeAriaLabel': 'Ta bort från inköpslistan',
+  'wardrobeGaps.pickMustHavesCta': 'Välj måsten',
+
+  // ─── Onboarding StyleQuizV4 (M25)
+  'settings.appearance.theme.light.label': 'Ljus',
+  'settings.appearance.theme.light.caption': 'Editorial krämfärgad yta',
+  'settings.appearance.theme.dark.label': 'Mörk',
+  'settings.appearance.theme.dark.caption': 'Varm koltyta',
+  'settings.appearance.theme.system.label': 'System',
+  'settings.appearance.theme.system.caption': 'Följer din enhet',
+  'settingsNotifications.permissionsRequest':
+    'Vad du vill att BURS pingar dig om.',
+  'settingsNotifications.daily.label': 'Daglig outfit',
+  'settingsNotifications.daily.body': 'Din morgon-look klar när du vaknar.',
+  'settingsNotifications.newOutfit.label': 'Ny outfit redo',
+  'settingsNotifications.newOutfit.body':
+    'Vi säger till när en ny kombination landar.',
+  'settingsNotifications.reminders.label': 'Påminnelser',
+  'settingsNotifications.reminders.body':
+    'Tvättpåminnelser, planerade outfits och varsamma garderobsavstämningar.',
+  'settingsNotifications.permissionsDenied.title': 'Notiser är av',
+  'settingsNotifications.permissionsDenied.body':
+    'BURS behöver notistillstånd för att skicka outfit-påminnelser. Aktivera det i iOS-inställningarna för att börja få notiser.',
+  'settingsNotifications.permissionsDenied.openSettings': 'Öppna inställningar',
+  'settingsStyle.dnaPreview.title': 'Din stil-DNA',
+  'settingsStyle.dnaPreview.empty':
+    'Gör quizen för att bygga din DNA-förhandsvisning.',
+  'settingsStyle.editStyleWords.title': 'Kommer snart',
+  'settingsStyle.editStyleWords.body': 'Redigering av stilord kommer snart.',
+  'settingsStyle.editColorPreferences.title': 'Kommer snart',
+  'settingsStyle.editColorPreferences.body':
+    'Redigering av färgpreferenser kommer snart.',
+  'settingsStyle.favoritesCountTemplate.one': '1 favorit',
+  'settingsStyle.favoritesCountTemplate': '{count} favoriter',
+
+  // ─── Style Me — weather alert
+  'styleMe.weather.alert.title': 'Väder',
+  'styleMe.weather.alert.body': 'Anpassning av väder kommer snart.',
+
+  // ─── EditGarment (extended fields, sections, actions)
+  'editGarment.field.title': 'Titel',
+  'editGarment.field.category': 'Kategori',
+  'editGarment.field.subcategory': 'Underkategori',
+  'editGarment.field.primaryColor': 'Huvudfärg',
+  'editGarment.field.material': 'Material',
+  'editGarment.field.fit': 'Passform',
+  'editGarment.field.pattern': 'Mönster',
+  'editGarment.field.seasons': 'Säsonger',
+  'editGarment.field.wearCount': 'Antal användningar',
+  'editGarment.field.price': 'Pris',
+  'editGarment.field.inLaundry': 'I tvätten',
+  'editGarment.action.cancel': 'Avbryt',
+  'editGarment.action.save': 'Spara',
+  'editGarment.eyebrow': 'Redigera',
+  'editGarment.title': 'Redigera plagg',
+  'editGarment.changePhoto': 'Byt bild',
+  'editGarment.changePhoto.alert.title': 'Kommer snart',
+  'editGarment.changePhoto.alert.body': 'Bildbyte kommer i en framtida version.',
+  'editGarment.section.details': 'Detaljer',
+  'editGarment.section.style': 'Stil',
+  'editGarment.section.usage': 'Användning',
+  'editGarment.section.status': 'Status',
+  'editGarment.toggle.on': 'På',
+  'editGarment.toggle.off': 'Av',
+  'editGarment.delete': 'Ta bort plagg',
+  'editGarment.deleting': 'Tar bort…',
+  'editGarment.a11y.decrementWear': 'Minska antal användningar',
+  'editGarment.a11y.incrementWear': 'Öka antal användningar',
+
+  // ─── Wardrobe screens
+  'wardrobe.empty.title': 'Din garderob är tom',
+  'wardrobe.empty.body': 'Lägg till ditt första plagg för att komma igång.',
+  'wardrobe.empty.cta': 'Lägg till plagg',
+  'wardrobe.filtered.empty.title': 'Inga träffar för dessa filter',
+  'wardrobe.filtered.empty.body':
+    'Pröva en annan kombination, eller rensa filter för att se hela garderoben.',
+  'wardrobe.filtered.clear': 'Rensa filter',
+  'wardrobe.allLaundry.title': 'Allt är i tvätten',
+  'wardrobe.allLaundry.body':
+    'Alla {count} av dina plagg är märkta som i tvätten. Ta tillbaka dem när de är rena.',
+  'wardrobe.allLaundry.cta': 'Öppna tvätt',
+
+  // ─── Plan screens
+  'plan.empty.title': 'Inget planerat',
+  'plan.empty.body': 'Skapa en outfit eller välj från dina sparade looks.',
+  'plan.empty.cta': 'Skapa outfit',
+  'plan.clearPlan.confirm.title': 'Rensa plan',
+  'plan.clearPlan.confirm.body': 'Detta tar bort den planerade outfiten för denna dag.',
+  'plan.clearPlan.confirm.cancel': 'Avbryt',
+  'plan.clearPlan.confirm.confirm': 'Rensa',
+  'plan.clearPlan.success.title': 'Rensad',
+  'plan.clearPlan.success.body': 'Den planerade outfiten är rensad.',
+  'plan.clearPlan.error.title': 'Kunde inte rensa',
+
+  // ─── Home (greetings, sections, tiles, this-week, today's-look)
+  'home.greeting.night': 'God natt',
+  'home.greeting.morning': 'God morgon',
+  'home.greeting.afternoon': 'God eftermiddag',
+  'home.greeting.evening': 'God kväll',
+  'home.alert.markedWorn.title': 'Markerad som buren',
+  'home.alert.markedWorn.body': 'Dagens look sparad i din användningslogg.',
+  'home.alert.markWornError.title': 'Kunde inte markera som buren',
+  'home.alert.markWornError.fallback': 'Försök igen.',
+  'home.section.stylist': 'Din stylist',
+  'home.section.discover': 'Upptäck',
+  'home.section.thisWeek': 'Denna vecka',
+  'home.section.askStylist': 'Fråga stylisten',
+  'home.section.rhythm': 'Din rytm',
+  'home.tile.styleChat.label': 'Stilchatt',
+  'home.tile.styleChat.sub': 'Fråga din AI-stylist vad som helst',
+  'home.tile.outfits.label': 'Outfits',
+  'home.tile.outfits.sub': 'Dina sparade looks och kombinationer',
+  'home.tile.styleMe.label': 'Style Me',
+  'home.tile.styleMe.sub': 'Bli stylad för alla tillfällen',
+  'home.tile.moodOutfit.label': 'Mood Outfit',
+  'home.tile.moodOutfit.sub': 'Klä dig efter känslan',
+  'home.tile.travelCapsule.label': 'Reskapsel',
+  'home.tile.travelCapsule.sub': 'Packa smart inför resan',
+  'home.tile.wardrobeGaps.label': 'Garderobsgap',
+  'home.tile.wardrobeGaps.sub': 'Vad som saknas i garderoben',
+  'home.tile.settings.label': 'Inställningar',
+  'home.tile.settings.sub': 'Preferenser och konto',
+  'home.thisWeek.calendarLink': 'Kalender →',
+  'home.thisWeek.wearToday': 'Bär idag',
+  'home.thisWeek.add': '+ Lägg till',
+  'home.thisWeek.restyle': 'Stila om',
+  'home.rhythm.insightsLink': 'Insikter →',
+  'home.rhythm.piecesLabel': 'Plagg i garderoben',
+  'home.rhythm.usedLabel': 'Garderob använd',
+  'home.todaysLook.eyebrow': 'Dagens look',
+  'home.todaysLook.view': 'Visa',
+  'home.todaysLook.wornToday': 'Buren idag',
+  'home.todaysLook.wearThis': 'Bär detta',
+  'home.todaysLook.restyle': 'Stila om',
+  'home.todaysLook.empty.title': 'Inget planerat ännu',
+  'home.todaysLook.empty.body':
+    'Skapa en outfit från din garderob eller välj bland dina sparade looks.',
+  'home.todaysLook.empty.cta': 'Skapa outfit',
+
+  // ─── Outfit actions (PlanScreen + OutfitDetailScreen)
+  'outfit.actions.markedWorn.title': 'Markerad som buren',
+  'outfit.actions.markedWorn.body': 'Sparad i din användningslogg.',
+  'outfit.actions.couldNotMarkWorn.title': 'Kunde inte markera som buren',
+  'outfit.actions.couldNotSave.title': 'Kunde inte spara',
+  'outfit.actions.added.title': 'Tillagd',
+  'outfit.actions.added.body': 'Outfiten lades till i dagens plan.',
+  'outfit.actions.couldNotAddPlan.title': 'Kunde inte lägga till i planen',
+  'outfit.actions.delete.title': 'Ta bort',
+  'outfit.actions.delete.body': 'Ta bort denna outfit? Det går inte att ångra.',
+  'outfit.actions.delete.cancel': 'Avbryt',
+  'outfit.actions.delete.confirm': 'Ta bort',
+  'outfit.actions.couldNotDelete.title': 'Kunde inte ta bort',
+  'outfit.detail.notFound.title': 'Outfiten hittades inte',
+  'outfit.detail.notFound.body':
+    'Den här looken kan ha tagits bort. Gå tillbaka och välj en annan.',
+
+  // ─── Filters discard confirmation (N3.10)
+  'filters.discardChanges.title': 'Förkasta filterändringar?',
+  'filters.discardChanges.body':
+    'Du har inte tillämpat dina ändringar ännu. Att gå tillbaka tar bort dem.',
+  'filters.discardChanges.keepEditing': 'Fortsätt redigera',
+  'filters.discardChanges.discard': 'Förkasta',
+
+  // ─── Common
+  'common.alerts.tryAgain': 'Försök igen.',
+
+  // ─── N8 — Hardcoded English strings sweep (Sweden launch blocker) ──────
+  // Append-only batch matching the new keys added at the bottom of `en.ts`
+  // for the screen-level English-string sweep done in N8.
+
+  // HomeScreen — header avatar a11y.
+  'home.profile.aria': 'Profil',
+
+  // NotificationsScreen
+  'notifications.eyebrow': 'Inkorg',
+  'notifications.title': 'Notiser',
+  'notifications.markAllRead': 'Markera alla som lästa',
+  'notifications.empty.title': 'Lugn och ro',
+  'notifications.empty.body':
+    'Inga notiser ännu. Vi pingar dig när det är något värt din tid.',
+
+  // SearchScreen
+  'search.placeholder': 'Sök i garderoben…',
+  'search.clear': 'Rensa sökning',
+  'search.cat.all': 'Alla',
+  'search.cat.tops': 'Överdelar',
+  'search.cat.bottoms': 'Underdelar',
+  'search.cat.shoes': 'Skor',
+  'search.cat.outer': 'Ytterplagg',
+  'search.cat.dress': 'Klänning',
+  'search.recent.eyebrow': 'Senaste',
+  'search.recent.clear': 'Rensa alla',
+  'search.recent.clearAria': 'Rensa senaste sökningar',
+  'search.recent.itemAria': 'Sök efter {query}',
+  'search.results.noMatches': 'Inga träffar',
+  'search.results.countOne': '{count} träff',
+  'search.results.countOther': '{count} träffar',
+  'search.empty.title': 'Inget hittat',
+  'search.empty.body': 'Pröva ett annat sökord.',
+  'search.hint.minChars': 'Skriv minst {count} tecken för att söka i garderoben.',
+
+  // InsightsScreen
+  'insights.title': 'Insikter',
+  'insights.empty.title': 'Lägg till plagg för att se insikter',
+  'insights.empty.body':
+    'Skanna ditt första plagg för att börja bygga din garderobsprofil.',
+  'insights.empty.cta': 'Lägg till plagg',
+  'insights.stat.outfitsWorn': 'Outfits burna',
+  'insights.stat.wardrobeUsed': 'Garderob använd',
+  'insights.palette.title': 'Din palett',
+  'insights.palette.caption': 'Andel per färg',
+  'insights.wearFrequency.title': 'Användningsfrekvens',
+  'insights.wearFrequency.caption': 'Senaste 7 dagarna',
+  'insights.wearFrequency.empty': 'Inga användningar loggade senaste veckan.',
+  'insights.mostWorn.title': 'Mest burna',
+  'insights.quietWin.title': 'Tyst vinst',
+  'insights.quietWin.prefix': 'Genomsnittlig kostnad per användning är',
+  'insights.quietWin.suffix': 'över dina prissatta plagg.',
+
+  // ProfileScreen — settings rows.
+  'profile.row.account.title': 'Kontoinställningar',
+  'profile.row.account.caption': 'E-post, lösenord, kopplade konton',
+  'profile.row.style.title': 'Stilprofil',
+  'profile.row.style.caption': 'Estetik, storlekar, färgpreferenser',
+
+  // MonthCalendarScreen
+  'monthCalendar.planned.fallbackName': 'Planerad outfit',
+  'monthCalendar.planned.view': 'Visa outfit',
+  'monthCalendar.planned.change': 'Byt',
+  'monthCalendar.empty.title': 'Inget planerat',
+  'monthCalendar.empty.body': 'Skapa en outfit eller planera en manuellt.',
+  'monthCalendar.empty.cta': 'Skapa outfit',
+
+  // SettingsAppearanceScreen
+  'settings.appearance.headerEyebrow': 'Inställningar',
+  'settings.appearance.headerTitle': 'Utseende',
+  'settings.appearance.theme.eyebrow': 'Tema',
+
+  // SettingsNotificationsScreen
+  'settings.notifications.headerEyebrow': 'Inställningar',
+  'settings.notifications.headerTitle': 'Notiser',
+
+  // SettingsStyleScreen
+  'settingsStyle.row.retakeQuiz.title': 'Gör om stilquizen',
+  'settingsStyle.row.retakeQuiz.caption': 'Bygg om din DNA från grunden',
+  'settingsStyle.row.editStyleWords.title': 'Redigera stilord',
+  'settingsStyle.row.editColorPreferences.title': 'Redigera färgpreferenser',
+  'settingsStyle.row.resetMemory.title': 'Återställ stilminne',
+  'settingsStyle.row.resetMemory.caption': 'Glöm det BURS har lärt sig',
+
+  // SettingsAccountScreen — support email (kept the same address; a
+  // per-market alias can replace it later without code changes).
+  'settings.account.supportEmail': 'support@burs.me',
+
+  // ─── a11y labels for cards (GarmentCard + OutfitCard).
+  'a11y.garmentCard': '{name}, {color} {category}',
+  'a11y.garmentCard.noColor': '{name}, {category}',
+  'a11y.garmentCard.noCategory': '{name}, {color}',
+  'a11y.garmentCard.nameOnly': '{name}',
+  'a11y.outfitCard': '{name}, {pieceCount} plagg',
+  'a11y.outfitCard.nameOnly': '{name}',
 };

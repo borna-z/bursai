@@ -351,7 +351,7 @@ export function HomeScreen({
                 The pill's slot is left empty so the avatar still floats
                 cleanly on the right — no spacer needed. */}
             <Pressable
-              accessibilityLabel="Profile"
+              accessibilityLabel={tr('home.profile.aria')}
               onPress={push('Profile')}
               style={s.avatarWrap}>
               <View style={[s.avatar, { backgroundColor: t.accent }]}>
@@ -721,7 +721,7 @@ function OutfitThumb({
         />
       ) : null}
       {label && !showImage ? (
-        <Text style={s.thumbLabel}>{label}</Text>
+        <Text style={[s.thumbLabel, { color: t.scrimFg }]}>{label}</Text>
       ) : null}
     </View>
   );
@@ -940,7 +940,9 @@ const s = StyleSheet.create({
     fontSize: 9,
     fontFamily: fonts.uiSemi,
     letterSpacing: 1.1,
-    color: '#fff',
+    // `color` set inline via `t.scrimFg` — the foreground token designed
+    // to be readable on top of dark/scrim surfaces (here, the colored
+    // gradient backdrop). N8 a11y sweep replaced a hardcoded '#fff'.
     opacity: 0.85,
     textTransform: 'uppercase',
   },

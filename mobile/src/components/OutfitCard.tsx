@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { useGarmentImage } from '../hooks/useSignedUrl';
+import { t as tr } from '../lib/i18n';
 import { Button } from './Button';
 import { Shimmer } from './Shimmer';
 
@@ -223,10 +224,19 @@ export function OutfitCard({
   );
 
   if (onPress && !showActions) {
+    // Synthesize a meaningful a11y label so VoiceOver/TalkBack announce
+    // the outfit's identity instead of just "button". Falls back to the
+    // bare name when piece count is unknown (legacy hues-only callers).
+    const a11yPieces = useGarments ? garments!.length : 0;
+    const a11yLabel =
+      a11yPieces > 0
+        ? tr('a11y.outfitCard', { name, pieceCount: a11yPieces })
+        : tr('a11y.outfitCard.nameOnly', { name });
     return (
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
+        accessibilityLabel={a11yLabel}
         style={({ pressed }) => [{ transform: pressed ? [{ scale: 0.98 }] : [] }]}>
         {card}
       </Pressable>

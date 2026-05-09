@@ -35,19 +35,22 @@ import { GarmentCard } from '../components/GarmentCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, CloseIcon, SearchIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
+import { t as tr } from '../lib/i18n';
 import type { GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type FilterCat = 'all' | 'tops' | 'bottoms' | 'shoes' | 'outer' | 'dress';
-const CAT_LABELS: { id: FilterCat; label: string }[] = [
-  { id: 'all',     label: 'All' },
-  { id: 'tops',    label: 'Tops' },
-  { id: 'bottoms', label: 'Bottoms' },
-  { id: 'shoes',   label: 'Shoes' },
-  { id: 'outer',   label: 'Outer' },
-  { id: 'dress',   label: 'Dress' },
+// Labels resolved through i18n at render time. The id stays a stable enum
+// so the filter ⇄ category mapping below doesn't have to follow locale.
+const CAT_LABEL_KEYS: { id: FilterCat; key: string }[] = [
+  { id: 'all',     key: 'search.cat.all' },
+  { id: 'tops',    key: 'search.cat.tops' },
+  { id: 'bottoms', key: 'search.cat.bottoms' },
+  { id: 'shoes',   key: 'search.cat.shoes' },
+  { id: 'outer',   key: 'search.cat.outer' },
+  { id: 'dress',   key: 'search.cat.dress' },
 ];
 
 // Map our filter pill ids to the canonical category enums in `garments.category`.
@@ -173,7 +176,7 @@ export function SearchScreen() {
         style={{ flex: 1 }}>
         <View style={[s.headerRow, { borderBottomColor: t.border }]}>
           <Pressable
-            accessibilityLabel="Back"
+            accessibilityLabel={tr('common.back')}
             accessibilityRole="button"
             onPress={() => nav.goBack()}
             hitSlop={8}
@@ -187,7 +190,7 @@ export function SearchScreen() {
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={() => submitQuery(query)}
-              placeholder="Search wardrobe…"
+              placeholder={tr('search.placeholder')}
               placeholderTextColor={t.fg3}
               returnKeyType="search"
               style={{
@@ -200,7 +203,7 @@ export function SearchScreen() {
             />
             {query.length > 0 ? (
               <Pressable
-                accessibilityLabel="Clear search"
+                accessibilityLabel={tr('search.clear')}
                 accessibilityRole="button"
                 onPress={() => setQuery('')}
                 hitSlop={8}>
@@ -214,10 +217,10 @@ export function SearchScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 6, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 8 }}>
-          {CAT_LABELS.map((c) => (
+          {CAT_LABEL_KEYS.map((c) => (
             <Chip
               key={c.id}
-              label={c.label}
+              label={tr(c.key)}
               active={filter === c.id}
               onPress={() => setFilter(c.id)}
             />
@@ -231,9 +234,9 @@ export function SearchScreen() {
             keyboardShouldPersistTaps="handled">
             <View>
               <View style={s.sectionHead}>
-                <Eyebrow>Recent</Eyebrow>
+                <Eyebrow>{tr('search.recent.eyebrow')}</Eyebrow>
                 <Pressable
-                  accessibilityLabel="Clear recent searches"
+                  accessibilityLabel={tr('search.recent.clearAria')}
                   accessibilityRole="button"
                   onPress={clearRecents}
                   hitSlop={6}>
@@ -244,7 +247,7 @@ export function SearchScreen() {
                       color: t.accent,
                       letterSpacing: -0.05,
                     }}>
-                    Clear all
+                    {tr('search.recent.clear')}
                   </Text>
                 </Pressable>
               </View>
@@ -253,7 +256,7 @@ export function SearchScreen() {
                   <Pressable
                     key={r}
                     accessibilityRole="button"
-                    accessibilityLabel={`Search for ${r}`}
+                    accessibilityLabel={tr('search.recent.itemAria', { query: r })}
                     onPress={() => setQuery(r)}
                     style={({ pressed }) => [
                       s.recentRow,
@@ -283,7 +286,7 @@ export function SearchScreen() {
         {!showResults && !isPendingSearch && recent.length === 0 ? (
           <View style={s.emptyHint}>
             <Caption style={{ textAlign: 'center', maxWidth: 240 }}>
-              Type at least {MIN_QUERY_LEN} characters to search your wardrobe.
+              {tr('search.hint.minChars', { count: MIN_QUERY_LEN })}
             </Caption>
           </View>
         ) : null}
@@ -322,8 +325,15 @@ export function SearchScreen() {
               <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 }}>
                 <Eyebrow>
                   {visibleResults.length === 0
-                    ? 'No matches'
-                    : `${visibleResults.length}${hasNextPage ? '+' : ''} ${visibleResults.length === 1 ? 'result' : 'results'}`}
+                    ? tr('search.results.noMatches')
+                    : tr(
+                        visibleResults.length === 1
+                          ? 'search.results.countOne'
+                          : 'search.results.countOther',
+                        {
+                          count: `${visibleResults.length}${hasNextPage ? '+' : ''}`,
+                        },
+                      )}
                 </Eyebrow>
               </View>
             }
@@ -341,10 +351,10 @@ export function SearchScreen() {
                     letterSpacing: -0.24,
                     textAlign: 'center',
                   }}>
-                  Nothing found
+                  {tr('search.empty.title')}
                 </Text>
                 <Caption style={{ marginTop: 6, textAlign: 'center' }}>
-                  Try a different search term.
+                  {tr('search.empty.body')}
                 </Caption>
               </View>
             }

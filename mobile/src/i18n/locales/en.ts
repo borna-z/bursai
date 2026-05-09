@@ -1659,4 +1659,113 @@ export const en: Record<string, string> = {
   'settingsStyle.editor.saveError.retry': 'Retry',
   'settingsStyle.editor.saveError.cancel': 'Cancel',
   'settingsStyle.editor.unsavedDot': 'Unsaved changes',
+
+  // ─── N8 — Hardcoded English strings sweep (Sweden launch blocker) ──────
+  // Append-only batch of new keys introduced by the N8 mobile-screens sweep
+  // that replaced literal English strings with `tr(...)` calls. Pairs with
+  // the matching block at the bottom of `sv.ts`.
+
+  // HomeScreen — header avatar a11y (Profile button).
+  'home.profile.aria': 'Profile',
+
+  // NotificationsScreen — header eyebrow / page title / mark-all-read CTA /
+  // empty-state title + body. Hardcoded English replaced in the N8 sweep.
+  'notifications.eyebrow': 'Inbox',
+  'notifications.title': 'Notifications',
+  'notifications.markAllRead': 'Mark all read',
+  'notifications.empty.title': 'All quiet',
+  'notifications.empty.body':
+    "No notifications yet. We'll ping you when there's something worth your eyes.",
+
+  // SearchScreen — placeholder / clear / category chips / recent block /
+  // empty + result-count strings. Replaces a CAT_LABELS array of literals
+  // and ad-hoc result-count templating.
+  'search.placeholder': 'Search wardrobe…',
+  'search.clear': 'Clear search',
+  'search.cat.all': 'All',
+  'search.cat.tops': 'Tops',
+  'search.cat.bottoms': 'Bottoms',
+  'search.cat.shoes': 'Shoes',
+  'search.cat.outer': 'Outer',
+  'search.cat.dress': 'Dress',
+  'search.recent.eyebrow': 'Recent',
+  'search.recent.clear': 'Clear all',
+  'search.recent.clearAria': 'Clear recent searches',
+  'search.recent.itemAria': 'Search for {query}',
+  'search.results.noMatches': 'No matches',
+  'search.results.countOne': '{count} result',
+  'search.results.countOther': '{count} results',
+  'search.empty.title': 'Nothing found',
+  'search.empty.body': 'Try a different search term.',
+  'search.hint.minChars': 'Type at least {count} characters to search your wardrobe.',
+
+  // InsightsScreen — title, stat labels, palette + wear-frequency cards,
+  // most-worn header, quiet-win quote, empty-state CTA.
+  'insights.title': 'Insights',
+  'insights.empty.title': 'Add garments to see insights',
+  'insights.empty.body': 'Scan your first piece to start building your wardrobe profile.',
+  'insights.empty.cta': 'Add a piece',
+  'insights.stat.outfitsWorn': 'Outfits worn',
+  'insights.stat.wardrobeUsed': 'Wardrobe used',
+  'insights.palette.title': 'Your palette',
+  'insights.palette.caption': 'Share by colour',
+  'insights.wearFrequency.title': 'Wear frequency',
+  'insights.wearFrequency.caption': 'Last 7 days',
+  'insights.wearFrequency.empty': 'No wears logged in the last week.',
+  'insights.mostWorn.title': 'Most worn',
+  'insights.quietWin.title': 'Quiet win',
+  // Quote rendered as `prefix <accent>{money}</accent> suffix` so the
+  // currency-formatted value can be coloured without breaking the
+  // sentence. Translators should keep the leading/trailing whitespace
+  // intact when localizing.
+  'insights.quietWin.prefix': 'Average cost-per-wear is',
+  'insights.quietWin.suffix': 'across your priced pieces.',
+
+  // ProfileScreen — settings rows for account + style profile.
+  'profile.row.account.title': 'Account settings',
+  'profile.row.account.caption': 'Email, password, connected accounts',
+  'profile.row.style.title': 'Style profile',
+  'profile.row.style.caption': 'Aesthetic, sizes, color preferences',
+
+  // MonthCalendarScreen — planned-day actions + empty-state copy.
+  'monthCalendar.planned.fallbackName': 'Planned outfit',
+  'monthCalendar.planned.view': 'View outfit',
+  'monthCalendar.planned.change': 'Change',
+  'monthCalendar.empty.title': 'Nothing planned',
+  'monthCalendar.empty.body': 'Generate an outfit or plan one manually.',
+  'monthCalendar.empty.cta': 'Generate outfit',
+
+  // SettingsAppearanceScreen — header eyebrow + section eyebrow keys.
+  'settings.appearance.headerEyebrow': 'Settings',
+  'settings.appearance.headerTitle': 'Appearance',
+  'settings.appearance.theme.eyebrow': 'Theme',
+
+  // SettingsNotificationsScreen — header eyebrow + page title.
+  'settings.notifications.headerEyebrow': 'Settings',
+  'settings.notifications.headerTitle': 'Notifications',
+
+  // SettingsStyleScreen — 4 row titles + 2 captions (the rest had captions
+  // that come from live data already).
+  'settingsStyle.row.retakeQuiz.title': 'Retake style quiz',
+  'settingsStyle.row.retakeQuiz.caption': 'Refresh your DNA from scratch',
+  'settingsStyle.row.editStyleWords.title': 'Edit style words',
+  'settingsStyle.row.editColorPreferences.title': 'Edit color preferences',
+  'settingsStyle.row.resetMemory.title': 'Reset style memory',
+  'settingsStyle.row.resetMemory.caption': 'Forget what BURS has learned',
+
+  // SettingsAccountScreen — support email, sourced from i18n so a future
+  // per-market inbox (e.g. support-se@burs.me) is a translation update.
+  'settings.account.supportEmail': 'support@burs.me',
+
+  // ─── N8 — accessibility a11y labels ─────────────────────────────────────
+  // GarmentCard + OutfitCard render a synthesized accessibilityLabel so
+  // VoiceOver/TalkBack announce the garment's identity instead of just
+  // "Image". Templates kept loose so the same string works for cards
+  // missing a color or category.
+  'a11y.garmentCard': '{name}, {color} {category}',
+  'a11y.garmentCard.noColor': '{name}, {category}',
+  'a11y.garmentCard.noCategory': '{name}, {color}',
+  'a11y.garmentCard.nameOnly': '{name}',
+  'a11y.outfitCard': '{name}, {pieceCount} pieces',
+  'a11y.outfitCard.nameOnly': '{name}',
 };

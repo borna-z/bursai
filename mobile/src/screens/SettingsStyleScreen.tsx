@@ -801,8 +801,8 @@ export function SettingsStyleScreen() {
         <Card padding={4}>
           <SettingsRow
             icon={<SparklesIcon size={16} color={t.accent} />}
-            title="Retake style quiz"
-            caption="Refresh your DNA from scratch"
+            title={tr('settingsStyle.row.retakeQuiz.title')}
+            caption={tr('settingsStyle.row.retakeQuiz.caption')}
             onPress={async () => {
               // Purge the persisted onboarding draft before navigating —
               // otherwise OnboardingScreen.loadDraft() would resume the user
@@ -814,8 +814,8 @@ export function SettingsStyleScreen() {
           />
           <SettingsRow
             icon={<RotateIcon size={16} color={t.destructive} />}
-            title="Reset style memory"
-            caption="Forget what BURS has learned"
+            title={tr('settingsStyle.row.resetMemory.title')}
+            caption={tr('settingsStyle.row.resetMemory.caption')}
             destructive
             last
             onPress={() => setResetOpen(true)}

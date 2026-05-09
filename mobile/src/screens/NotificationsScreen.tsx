@@ -25,6 +25,7 @@ import {
   type IconProps,
 } from '../components/icons';
 import { useMockRefresh } from '../hooks/useMockRefresh';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -73,15 +74,15 @@ export function NotificationsScreen() {
     () => (
       <View style={{ paddingHorizontal: 20, paddingBottom: 14, gap: 14 }}>
         <View style={s.headerRow}>
-          <IconBtn ariaLabel="Back" onPress={() => nav.goBack()} variant="ghost">
+          <IconBtn ariaLabel={tr('common.back')} onPress={() => nav.goBack()} variant="ghost">
             <BackIcon color={t.fg} />
           </IconBtn>
           <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 4 }}>Inbox</Eyebrow>
-            <PageTitle>Notifications</PageTitle>
+            <Eyebrow style={{ marginBottom: 4 }}>{tr('notifications.eyebrow')}</Eyebrow>
+            <PageTitle>{tr('notifications.title')}</PageTitle>
           </View>
           {hasUnread ? (
-            <Button label="Mark all read" variant="quiet" size="sm" onPress={markAllRead} />
+            <Button label={tr('notifications.markAllRead')} variant="quiet" size="sm" onPress={markAllRead} />
           ) : null}
         </View>
       </View>
@@ -171,10 +172,10 @@ export function NotificationsScreen() {
                 textAlign: 'center',
                 marginTop: 16,
               }}>
-              All quiet
+              {tr('notifications.empty.title')}
             </Text>
             <Caption style={{ textAlign: 'center', marginTop: 6, maxWidth: 240 }}>
-              No notifications yet. We'll ping you when there's something worth your eyes.
+              {tr('notifications.empty.body')}
             </Caption>
           </View>
         </ScrollView>

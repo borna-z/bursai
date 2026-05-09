@@ -257,14 +257,14 @@ export function ProfileScreen() {
         <Card padding={4}>
           <SettingsRow
             icon={<GearIcon size={18} color={t.accent} />}
-            title="Account settings"
-            caption="Email, password, connected accounts"
+            title={tr('profile.row.account.title')}
+            caption={tr('profile.row.account.caption')}
             onPress={() => nav.navigate('SettingsAccount')}
           />
           <SettingsRow
             icon={<TshirtIcon size={18} color={t.accent} />}
-            title="Style profile"
-            caption="Aesthetic, sizes, color preferences"
+            title={tr('profile.row.style.title')}
+            caption={tr('profile.row.style.caption')}
             onPress={() => nav.navigate('SettingsStyle')}
           />
           {/* M24 — Shopping list shortcut. The screen handles the empty
