@@ -36,7 +36,14 @@ interface ChatHistoryRow {
 // with 200+ rows in one mode never starves the other mode of a
 // fetched row (Codex P2 round 5 on PR #789). Lower than the prior
 // global cap because we no longer compete for the same window.
-const PER_MODE_LIMIT = 100;
+//
+// Bumped to 200 in N3.8 (G-012): the prior 100-row cap silently
+// truncated long-running conversations — the latest 100 messages are
+// usually only a handful of days for an active user, and the history
+// sheet preview/messageCount depends on the full window. 200 doubles
+// headroom without meaningfully changing the SELECT cost (chat_messages
+// is indexed on (user_id, mode, created_at desc)).
+const PER_MODE_LIMIT = 200;
 
 // Canonical persisted modes mobile renders in the sheet. Web's legacy
 // `stylist:<id>` ad-hoc rows are intentionally not in this list — the

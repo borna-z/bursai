@@ -209,7 +209,7 @@ function DayHeader({ day, dateISO }: { day: number; dateISO?: string }) {
         }}>
         {tr('travel.outfits.dayLabel', { day })}
       </Text>
-      {dateLabel ? <Caption>{dateLabel}</Caption> : null}
+      <Caption>{dateLabel ?? tr('travel.outfits.dateUnknown')}</Caption>
     </View>
   );
 }

@@ -1136,4 +1136,7 @@ export const sv: Record<string, string> = {
   'styleMe.saved.openDetail': 'Öppna detaljer',
   'styleMe.saved.error.title': 'Kunde inte spara',
   'styleMe.preview.badge': 'Förhandsgranskning',
+
+  // ─── N3.8 — G-campaign post-merge polish ─────────────────────────────────
+  'travel.outfits.dateUnknown': 'Datum saknas',
 };
