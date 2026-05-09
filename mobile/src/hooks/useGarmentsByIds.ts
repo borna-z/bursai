@@ -10,11 +10,14 @@
 // stays narrow. A future consumer that needs `category`/`color_primary`
 // can add a sibling hook rather than widening this one.
 //
-// React Query caches per-id-set so repeated chat bubbles referencing the
-// same outfit don't re-fetch. The cache key is order-stable: ids are
-// sorted before joining so [a,b] and [b,a] hit the same cache entry. RLS
-// enforces user_id matching server-side; we additionally `.eq('user_id')`
-// so a stale id from a different account never leaks.
+// React Query caches per-id-list so repeated chat bubbles referencing
+// the same outfit don't re-fetch. The cache key preserves the
+// requested order — distinct orderings get distinct cache entries
+// (Codex P2 round 2 on PR #789) so a refine turn that reorders the
+// same garments renders with the new order rather than the prior
+// card's stale ordering. RLS enforces user_id matching server-side;
+// we additionally `.eq('user_id')` so a stale id from a different
+// account never leaks.
 
 import { useQuery } from '@tanstack/react-query';
 

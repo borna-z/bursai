@@ -858,10 +858,15 @@ const MessageItem = React.memo(
           ? meta.active_look.garment_ids
           : meta.outfit_ids ?? [])
       : [];
-    const outfitId =
-      !isUser && meta?.render_outfit_card === true
-        ? meta.outfit_ids?.[0] ?? null
-        : null;
+    // Codex P3 round 3 on PR #789: the style_chat envelope's
+    // `outfit_ids` is the resolved GARMENT id list (per the edge
+    // function contract), NOT a saved outfit row id. Picking
+    // outfit_ids[0] as a saved-outfit reference made every generated
+    // suggestion render with the "Saved outfit" title. Until the
+    // contract carries an explicit saved-outfit row id field, leave
+    // this null so OutfitSuggestionCard always uses the suggestion
+    // title.
+    const outfitId: string | null = null;
     const outfitExplanation = meta?.outfit_explanation || '';
     const showOutfitCard = !isUser && outfitGarmentIds.length > 0;
     // Synthesized SHOPPING envelopes carry a non-null `active_look` with
