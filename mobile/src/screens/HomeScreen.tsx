@@ -412,7 +412,7 @@ export function HomeScreen({
             <>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Eyebrow style={{ marginBottom: 3 }}>Today's Look</Eyebrow>
+                  <Eyebrow style={{ marginBottom: 3 }}>{tr('home.todaysLook.eyebrow')}</Eyebrow>
                   <Text
                     numberOfLines={1}
                     style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontSize: 22, lineHeight: 24, fontWeight: '500', color: t.fg, letterSpacing: -0.22 }}>
@@ -420,7 +420,7 @@ export function HomeScreen({
                   </Text>
                 </View>
                 <Pressable onPress={goOutfitDetail} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>View</Text>
+                  <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>{tr('home.todaysLook.view')}</Text>
                   <ChevronIcon color={t.accent} />
                 </Pressable>
               </View>
@@ -434,19 +434,19 @@ export function HomeScreen({
               )}
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Button
-                  label={wornToday ? 'Worn today' : 'Wear this'}
+                  label={wornToday ? tr('home.todaysLook.wornToday') : tr('home.todaysLook.wearThis')}
                   onPress={handleWearToday}
                   block
                   style={{ flex: 1 }}
                   disabled={wornToday || markWorn.isPending}
                 />
-                <Button label="Restyle" variant="outline" onPress={push('OutfitGenerate')} />
-                <Button label="View" variant="quiet" onPress={goOutfitDetail} />
+                <Button label={tr('home.todaysLook.restyle')} variant="outline" onPress={push('OutfitGenerate')} />
+                <Button label={tr('home.todaysLook.view')} variant="quiet" onPress={goOutfitDetail} />
               </View>
             </>
           ) : (
             <>
-              <Eyebrow style={{ marginBottom: 6 }}>Today's Look</Eyebrow>
+              <Eyebrow style={{ marginBottom: 6 }}>{tr('home.todaysLook.eyebrow')}</Eyebrow>
               <Text
                 style={{
                   fontFamily: fonts.displayMedium,
@@ -458,7 +458,7 @@ export function HomeScreen({
                   letterSpacing: -0.22,
                   marginBottom: 6,
                 }}>
-                Nothing planned yet
+                {tr('home.todaysLook.empty.title')}
               </Text>
               <Text
                 style={{
@@ -468,9 +468,9 @@ export function HomeScreen({
                   lineHeight: 18,
                   fontFamily: fonts.ui,
                 }}>
-                Generate an outfit from your wardrobe or pick from your saved looks.
+                {tr('home.todaysLook.empty.body')}
               </Text>
-              <Button label="Generate outfit" onPress={push('OutfitGenerate')} block />
+              <Button label={tr('home.todaysLook.empty.cta')} onPress={push('OutfitGenerate')} block />
             </>
           )}
         </Card>
@@ -506,51 +506,51 @@ export function HomeScreen({
         ) : null}
 
         {/* ============ YOUR STYLIST GRID ============ */}
-        <Section title="Your Stylist">
+        <Section title={tr('home.section.stylist')}>
           <HubGrid>
-            <HubTile icon={<ChatIcon color={t.accent} />}     label="Style Chat"   sub="Ask your AI stylist anything"  onPress={push('StyleChat')} />
-            <HubTile icon={<OutfitsIcon color={t.accent} />}  label="Outfits"      sub="Your saved looks & combos"     onPress={push('Outfits')} />
-            <HubTile icon={<TshirtIcon color={t.accent} />}   label="Style Me"     sub="Get styled for any occasion"   onPress={push('StyleMe')} />
-            <HubTile icon={<SmileIcon color={t.accent} />}    label="Mood Outfit"  sub="Dress how you feel"            onPress={push('MoodOutfit')} />
+            <HubTile icon={<ChatIcon color={t.accent} />}     label={tr('home.tile.styleChat.label')}   sub={tr('home.tile.styleChat.sub')}  onPress={push('StyleChat')} />
+            <HubTile icon={<OutfitsIcon color={t.accent} />}  label={tr('home.tile.outfits.label')}      sub={tr('home.tile.outfits.sub')}     onPress={push('Outfits')} />
+            <HubTile icon={<TshirtIcon color={t.accent} />}   label={tr('home.tile.styleMe.label')}     sub={tr('home.tile.styleMe.sub')}   onPress={push('StyleMe')} />
+            <HubTile icon={<SmileIcon color={t.accent} />}    label={tr('home.tile.moodOutfit.label')}  sub={tr('home.tile.moodOutfit.sub')}            onPress={push('MoodOutfit')} />
           </HubGrid>
         </Section>
 
         {/* ============ DISCOVER GRID ============ */}
-        <Section title="Discover">
+        <Section title={tr('home.section.discover')}>
           <HubGrid>
-            <HubTile icon={<SuitcaseIcon color={t.accent} />} label="Travel Capsule" sub="Pack smart for any trip"              onPress={push('TravelCapsule')} />
-            <HubTile icon={<GapsIcon color={t.accent} />}     label="Wardrobe Gaps"  sub="What's missing from your closet"      onPress={push('WardrobeGaps')} />
-            <HubTile icon={<GearIcon color={t.accent} />}     label="Settings"       sub="Preferences & account"                onPress={push('Settings')} />
+            <HubTile icon={<SuitcaseIcon color={t.accent} />} label={tr('home.tile.travelCapsule.label')} sub={tr('home.tile.travelCapsule.sub')}              onPress={push('TravelCapsule')} />
+            <HubTile icon={<GapsIcon color={t.accent} />}     label={tr('home.tile.wardrobeGaps.label')}  sub={tr('home.tile.wardrobeGaps.sub')}      onPress={push('WardrobeGaps')} />
+            <HubTile icon={<GearIcon color={t.accent} />}     label={tr('home.tile.settings.label')}       sub={tr('home.tile.settings.sub')}                onPress={push('Settings')} />
           </HubGrid>
         </Section>
 
         {/* ============ THIS WEEK MINI-STRIP ============ */}
         <View>
           <View style={s.sectionHead}>
-            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>This week</Text>
+            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>{tr('home.section.thisWeek')}</Text>
             <Pressable onPress={() => goTab('plan')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>Calendar →</Text>
+              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>{tr('home.thisWeek.calendarLink')}</Text>
             </Pressable>
           </View>
           <MiniWeek days={week} onPress={() => goTab('plan')} />
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
             <Button
-              label="Wear today"
+              label={tr('home.thisWeek.wearToday')}
               size="sm"
               onPress={handleWearToday}
               block
               style={{ flex: 1 }}
               disabled={!todayOutfit || wornToday || markWorn.isPending}
             />
-            <Button label="Restyle" variant="outline" size="sm" onPress={push('StyleMe')} />
-            <Button label="+ Add" variant="outline" size="sm" onPress={push('AddPieceStep1')} />
+            <Button label={tr('home.todaysLook.restyle')} variant="outline" size="sm" onPress={push('StyleMe')} />
+            <Button label={tr('home.thisWeek.add')} variant="outline" size="sm" onPress={push('AddPieceStep1')} />
           </View>
         </View>
 
         {/* ============ ASK THE STYLIST ROW ============ */}
         <View>
           <View style={s.sectionHead}>
-            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>Ask the stylist</Text>
+            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>{tr('home.section.askStylist')}</Text>
             <Caption>AI</Caption>
           </View>
           <Pressable
@@ -576,9 +576,9 @@ export function HomeScreen({
         {/* ============ YOUR RHYTHM ============ */}
         <View>
           <View style={s.sectionHead}>
-            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>Your rhythm</Text>
+            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>{tr('home.section.rhythm')}</Text>
             <Pressable onPress={() => goTab('insights')}>
-              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>Insights →</Text>
+              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>{tr('home.rhythm.insightsLink')}</Text>
             </Pressable>
           </View>
           {statsLoading ? (
@@ -587,12 +587,12 @@ export function HomeScreen({
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <RhythmStat
                 num={garmentTotal}
-                label="Pieces in wardrobe"
+                label={tr('home.rhythm.piecesLabel')}
                 onPress={() => goTab('insights')}
               />
               <RhythmStat
                 num={wardrobeStatsAuthoritative ? `${wardrobeUsedPct}%` : '—'}
-                label="Wardrobe used"
+                label={tr('home.rhythm.usedLabel')}
                 onPress={() => goTab('insights')}
               />
             </View>

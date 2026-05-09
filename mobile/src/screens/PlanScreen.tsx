@@ -414,12 +414,12 @@ export function PlanScreen() {
                 color: t.fg,
                 letterSpacing: -0.22,
               }}>
-              Nothing planned
+              {tr('plan.empty.title')}
             </Text>
             <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
-              Generate an outfit or pick from your saved looks.
+              {tr('plan.empty.body')}
             </Text>
-            <Button label="Generate outfit" onPress={() => nav.navigate('OutfitGenerate')} block />
+            <Button label={tr('home.todaysLook.empty.cta')} onPress={() => nav.navigate('OutfitGenerate')} block />
           </View>
         )}
 
