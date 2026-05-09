@@ -32,21 +32,21 @@ interface ChatHistoryRow {
   mode: string | null;
 }
 
-const CHAT_HISTORY_LIMIT = 200;
+// Per-mode row cap. Each canonical mode gets its own SELECT so a user
+// with 200+ rows in one mode never starves the other mode of a
+// fetched row (Codex P2 round 5 on PR #789). Lower than the prior
+// global cap because we no longer compete for the same window.
+const PER_MODE_LIMIT = 100;
 
-function normalizeMode(rawMode: string | null): StyleChatMode | null {
-  // Codex P2 round 2 on PR #789: only canonical mobile-side modes are
-  // surfaced. Web's legacy `stylist:<id>` ad-hoc subkey rows used to
-  // collapse into the Style bucket here, but the mobile hydrator
-  // selects strictly `.eq('mode', 'stylist')` — so tapping a synthetic
-  // legacy entry would have opened an empty thread. Returning null for
-  // legacy rows hides them from the sheet entirely; users on web who
-  // created them can still resume there. A future cross-device
-  // unification pass owns the `stylist:<id>` migration.
-  if (rawMode === 'stylist') return 'style';
-  if (rawMode === 'shopping') return 'shopping';
-  return null;
-}
+// Canonical persisted modes mobile renders in the sheet. Web's legacy
+// `stylist:<id>` ad-hoc rows are intentionally not in this list — the
+// mobile hydrator selects strictly `.eq('mode', 'stylist')`, so
+// surfacing a synthetic legacy row would open an empty thread. A
+// future cross-device unification pass owns that migration.
+const HISTORY_MODES: { mode: StyleChatMode; column: string }[] = [
+  { mode: 'style', column: 'stylist' },
+  { mode: 'shopping', column: 'shopping' },
+];
 
 function extractPreview(content: string): string {
   // Stylist envelopes are persisted as JSON with kind 'stylist_message';
@@ -80,51 +80,43 @@ export function useChatHistory() {
     enabled: !!user?.id,
     queryFn: async () => {
       if (!user?.id) return [];
-      // Order descending and cap at CHAT_HISTORY_LIMIT so a user with
-      // 200+ chat rows sees the latest activity per mode rather than
-      // the oldest. The original ascending+limit query (Codex P2 round
-      // 1 on PR #789) could mask a recently-active mode entirely if
-      // all 200 oldest rows were from the other mode. After the SELECT
-      // we reverse the rows so the bucketing pass walks oldest→newest
-      // within the recent window, preserving the "first user message
-      // is the preview" semantic (now interpreted as the first user
-      // message in the recent window — sufficient for a thread snippet).
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('role, content, created_at, mode')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(CHAT_HISTORY_LIMIT);
-      if (error) throw error;
-      const rows = ((data ?? []) as ChatHistoryRow[]).slice().reverse();
-      const buckets = new Map<StyleChatMode, ChatHistoryThreadSummary>();
-      for (const row of rows) {
-        const mode = normalizeMode(row.mode);
-        if (!mode) continue;
-        const existing = buckets.get(mode);
-        const isUser = row.role === 'user';
-        if (!existing) {
-          buckets.set(mode, {
+      // Codex P2 round 5 on PR #789: query each canonical mode
+      // independently so a user with 200+ rows in one mode doesn't
+      // starve the other mode of a fetched row. The prior global
+      // query+limit could omit an active thread entirely. Each
+      // SELECT is descending+capped+reversed so the bucketing pass
+      // walks the most recent PER_MODE_LIMIT rows oldest→newest and
+      // preserves the "first user message in the recent window is
+      // the preview" semantic. Run in parallel so the round-trip is
+      // a single network wait.
+      const perMode = await Promise.all(
+        HISTORY_MODES.map(async ({ mode, column }) => {
+          const { data, error } = await supabase
+            .from('chat_messages')
+            .select('role, content, created_at, mode')
+            .eq('user_id', user.id)
+            .eq('mode', column)
+            .order('created_at', { ascending: false })
+            .limit(PER_MODE_LIMIT);
+          if (error) throw error;
+          const rows = ((data ?? []) as ChatHistoryRow[]).slice().reverse();
+          if (rows.length === 0) return null;
+          let preview = '';
+          let updatedAt = rows[0].created_at;
+          for (const row of rows) {
+            const isUser = row.role === 'user';
+            if (!preview && isUser) preview = extractPreview(row.content);
+            if (row.created_at > updatedAt) updatedAt = row.created_at;
+          }
+          return {
             mode,
-            preview: isUser ? extractPreview(row.content) : '',
-            updatedAt: row.created_at,
-            messageCount: 1,
-          });
-          continue;
-        }
-        existing.messageCount += 1;
-        // Prefer the FIRST user message as the preview line — same shape
-        // as a generic chat-list affordance. Skip subsequent updates
-        // once a preview is set.
-        if (!existing.preview && isUser) {
-          existing.preview = extractPreview(row.content);
-        }
-        // Track the latest activity stamp regardless of role.
-        if (row.created_at > existing.updatedAt) {
-          existing.updatedAt = row.created_at;
-        }
-      }
-      return Array.from(buckets.values());
+            preview,
+            updatedAt,
+            messageCount: rows.length,
+          } satisfies ChatHistoryThreadSummary;
+        }),
+      );
+      return perMode.filter((t): t is ChatHistoryThreadSummary => t !== null);
     },
     staleTime: 30_000,
   });
