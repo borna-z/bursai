@@ -36,7 +36,7 @@ import { ErrorState } from '../components/ErrorState';
 import { BackIcon, CloseIcon, SearchIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
 import { t as tr } from '../lib/i18n';
-import type { GarmentFilters } from '../types/garment';
+import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -168,6 +168,30 @@ export function SearchScreen() {
     setRecent([]);
     void saveRecents([]);
   };
+
+  // M42 — id-keyed press handler so the memoised cell row's `onPress`
+  // reference stays stable across parent re-renders. Naive deps would
+  // include `query` (which changes on every keystroke) and `submitQuery`
+  // (which changes whenever `recent` updates) — both would re-create
+  // this handler constantly and bust `SearchResultCell.memo`. We mirror
+  // those two values into refs so the handler itself stays referentially
+  // stable for the lifetime of the screen, while still reading the
+  // freshest values when actually invoked.
+  const queryRef = React.useRef(query);
+  React.useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  const submitQueryRef = React.useRef(submitQuery);
+  React.useEffect(() => {
+    submitQueryRef.current = submitQuery;
+  }, [submitQuery]);
+  const handleResultPress = React.useCallback(
+    (id: string) => {
+      submitQueryRef.current(queryRef.current);
+      nav.navigate('GarmentDetail', { id });
+    },
+    [nav],
+  );
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -359,32 +383,51 @@ export function SearchScreen() {
               </View>
             }
             renderItem={({ item }) => (
-              <View style={{ flex: 1 / 3 }}>
-                <GarmentCard
-                  garment={{
-                    id: item.id,
-                    title: item.title,
-                    category: item.category,
-                    color_primary: item.color_primary,
-                    wear_count: item.wear_count,
-                    in_laundry: item.in_laundry,
-                    rendered_image_path: item.rendered_image_path,
-                    original_image_path: item.original_image_path,
-                    created_at: item.created_at,
-                  }}
-                  onPress={() => {
-                    submitQuery(query);
-                    nav.navigate('GarmentDetail', { id: item.id });
-                  }}
-                />
-              </View>
+              <SearchResultCell item={item} onPress={handleResultPress} />
             )}
+            // M42 — virtualization tuning. See WardrobeScreen — same 3-col
+            // grid, same heavy GarmentCard rows; trim the mounted window
+            // from ~21 viewports to ~5.
+            removeClippedSubviews
+            windowSize={5}
+            initialNumToRender={12}
           />
         ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+// M42 — memoised cell. Mirrors WardrobeGarmentCell. The id-keyed
+// `onPress` from the parent keeps the prop reference stable so the
+// downstream `GarmentCard.memo` doesn't churn on every keystroke.
+const SearchResultCell = React.memo(function SearchResultCell({
+  item,
+  onPress,
+}: {
+  item: Garment;
+  onPress: (id: string) => void;
+}) {
+  const press = React.useCallback(() => onPress(item.id), [item.id, onPress]);
+  return (
+    <View style={{ flex: 1 / 3 }}>
+      <GarmentCard
+        garment={{
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          color_primary: item.color_primary,
+          wear_count: item.wear_count,
+          in_laundry: item.in_laundry,
+          rendered_image_path: item.rendered_image_path,
+          original_image_path: item.original_image_path,
+          created_at: item.created_at,
+        }}
+        onPress={press}
+      />
+    </View>
+  );
+});
 
 const s = StyleSheet.create({
   headerRow: {

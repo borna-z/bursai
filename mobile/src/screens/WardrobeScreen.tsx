@@ -211,6 +211,17 @@ export function WardrobeScreen({
     void refetch();
   }, [refetch]);
 
+  // M42 — stable id-keyed press handler so the memoised GarmentCard
+  // doesn't re-render on every parent render. An inline arrow inside
+  // `renderItem` would create a fresh function per render and defeat
+  // `React.memo` on every visible cell.
+  const handleGarmentPress = React.useCallback(
+    (id: string) => {
+      nav.navigate('GarmentDetail', { id });
+    },
+    [nav],
+  );
+
   // Smart-tile counts. These read from the loaded pages, so they're only
   // authoritative when the entire wardrobe fits in page 1 (`!hasNextPage`).
   // For larger wardrobes we render "—" instead of a misleading lower bound
@@ -484,23 +495,17 @@ export function WardrobeScreen({
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={{ flex: 1 / 3 }}>
-            <GarmentCard
-              garment={{
-                id: item.id,
-                title: item.title,
-                category: item.category,
-                color_primary: item.color_primary,
-                wear_count: item.wear_count,
-                in_laundry: item.in_laundry,
-                rendered_image_path: item.rendered_image_path,
-                original_image_path: item.original_image_path,
-                created_at: item.created_at,
-              }}
-              onPress={() => nav.navigate('GarmentDetail', { id: item.id })}
-            />
-          </View>
+          <WardrobeGarmentCell item={item} onPress={handleGarmentPress} />
         )}
+        // M42 — virtualization tuning. `removeClippedSubviews` releases
+        // off-screen native views (cheap on Android, no-op on iOS for
+        // FlatList). `windowSize=5` keeps ~2.5 viewports of cells
+        // mounted instead of the default 21 — for a 3-col image grid
+        // that's the difference between ~30 and ~270 mounted cells on
+        // a wardrobe of 100+ pieces.
+        removeClippedSubviews
+        windowSize={5}
+        initialNumToRender={12}
       />
       </View>
     </SafeAreaView>
@@ -508,6 +513,38 @@ export function WardrobeScreen({
     </>
   );
 }
+
+// M42 — memoised cell. The id-keyed `onPress` lets this component bind
+// its own `() => onPress(item.id)` arrow once per row identity, so the
+// downstream `GarmentCard.memo` doesn't churn when the parent re-renders
+// for unrelated reasons (filter sheet apply, refetch).
+const WardrobeGarmentCell = React.memo(function WardrobeGarmentCell({
+  item,
+  onPress,
+}: {
+  item: Garment;
+  onPress: (id: string) => void;
+}) {
+  const press = React.useCallback(() => onPress(item.id), [item.id, onPress]);
+  return (
+    <View style={{ flex: 1 / 3 }}>
+      <GarmentCard
+        garment={{
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          color_primary: item.color_primary,
+          wear_count: item.wear_count,
+          in_laundry: item.in_laundry,
+          rendered_image_path: item.rendered_image_path,
+          original_image_path: item.original_image_path,
+          created_at: item.created_at,
+        }}
+        onPress={press}
+      />
+    </View>
+  );
+});
 
 const s = StyleSheet.create({
   header: {

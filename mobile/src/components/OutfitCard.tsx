@@ -116,7 +116,16 @@ function GarmentSlot({ garment }: { garment: OutfitCardGarment }) {
   );
 }
 
-export function OutfitCard({
+// M42 — wrapped in `React.memo` for the same reason as GarmentCard:
+// FlatList re-invokes `renderItem` on every parent re-render. Default
+// shallow compare is correct here — `garments` and `hues` are arrays
+// derived from server data and remain referentially stable across
+// renders unless the underlying outfit changes. Callers passing inline
+// arrays (e.g. `hues={[32, 28, 200, 18]}`) will defeat the memo; the
+// default param above keeps the OutfitsScreen path stable.
+export const OutfitCard = React.memo(OutfitCardInner);
+
+function OutfitCardInner({
   name,
   sub,
   garments,
