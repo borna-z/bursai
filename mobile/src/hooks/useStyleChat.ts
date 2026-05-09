@@ -36,6 +36,7 @@
 // screen unmount effect can cancel an in-flight stream cleanly.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
@@ -112,6 +113,15 @@ type StyleChatChunk =
   | { text?: string };
 
 const STYLIST_MODE = 'stylist';
+const SHOPPING_MODE = 'shopping';
+// G1 — translate the chat-mode toggle into the column value persisted in
+// `chat_messages.mode`. Web's AIChat uses the same two values
+// ('stylist' / 'shopping') so mobile + web hydrate against the same row
+// set when the user moves between devices. Keeping the function exported
+// so ChatHistorySheet can normalize stored rows into the toggle's union.
+export function persistedModeFor(mode: StyleChatMode): string {
+  return mode === 'shopping' ? SHOPPING_MODE : STYLIST_MODE;
+}
 const HYDRATION_LIMIT = 100;
 const HISTORY_TURNS = 9;
 
@@ -184,8 +194,10 @@ function parseStoredMessage(row: StoredRow, index: number): ChatMessage {
 // state. Bare turns serialize their string content directly.
 async function persistMessages(
   userId: string,
+  mode: StyleChatMode,
   msgs: { role: 'user' | 'assistant'; content: string; stylistMeta?: StyleChatResponseEnvelope | null }[],
 ): Promise<void> {
+  const persistedMode = persistedModeFor(mode);
   const rows = msgs.map((m) => {
     const content = m.stylistMeta
       ? JSON.stringify({
@@ -194,7 +206,7 @@ async function persistMessages(
           stylistMeta: m.stylistMeta,
         } satisfies PersistedStyleChatMessage)
       : m.content;
-    return { user_id: userId, role: m.role, content, mode: STYLIST_MODE };
+    return { user_id: userId, role: m.role, content, mode: persistedMode };
   });
   const { error } = await supabase.from('chat_messages').insert(rows);
   if (error) {
@@ -274,6 +286,10 @@ function finalizeEnvelopeForMode(
 
 export function useStyleChat(): UseStyleChatResult {
   const { user, session } = useAuth();
+  // G1 — invalidate the chat history thread summary on send/clear so
+  // ChatHistorySheet's row list reflects the latest activity stamp +
+  // message count without the consumer wiring it up by hand.
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -311,8 +327,26 @@ export function useStyleChat(): UseStyleChatResult {
   const streamingRef = useRef<boolean>(false);
 
   // ─── Hydration ─────────────────────────────────────────────────────────
-  // Restore the user's prior `stylist`-mode chat on mount. Gated on user.id
-  // so a sign-out → sign-in cycle re-hydrates against the correct row set.
+  // Restore the user's prior chat for the current mode on mount and on
+  // every mode flip. Gated on user.id so a sign-out → sign-in cycle
+  // re-hydrates against the correct row set.
+  //
+  // G1 — also re-runs whenever `currentMode` changes. setMode() seeds
+  // messages from the per-mode buffer cache before this effect fires so
+  // the user sees an instant swap; the SELECT then refreshes the cached
+  // buffer with whatever the server has on file (covers cross-device or
+  // post-sign-in drift).
+  //
+  // Per-mode message buffer cache. Re-hydration on mode toggle reads from
+  // this cache first so toggling Style → Shopping → Style is instant
+  // instead of incurring two SELECTs. The cache is keyed by user.id +
+  // chat mode so a different signed-in user never sees the prior user's
+  // buffer (the auth-change cleanup wipes it explicitly).
+  const messageCacheRef = useRef<Map<string, ChatMessage[]>>(new Map());
+  const cacheKey = useCallback(
+    (uid: string, mode: StyleChatMode) => `${uid}:${persistedModeFor(mode)}`,
+    [],
+  );
   useEffect(() => {
     let cancelled = false;
     const userId = user?.id;
@@ -328,13 +362,22 @@ export function useStyleChat(): UseStyleChatResult {
         cancelled = true;
       };
     }
-    setIsHydrating(true);
+    // G1 — seed from cache so the bubble swap is instant. The SELECT
+    // below still runs to keep the cache fresh, but the user sees their
+    // prior thread immediately.
+    const cached = messageCacheRef.current.get(cacheKey(userId, currentMode));
+    if (cached) {
+      setMessages(cached);
+      setIsHydrating(false);
+    } else {
+      setIsHydrating(true);
+    }
     (async () => {
       const { data, error: hydrateError } = await supabase
         .from('chat_messages')
         .select('role, content, created_at')
         .eq('user_id', userId)
-        .eq('mode', STYLIST_MODE)
+        .eq('mode', persistedModeFor(currentMode))
         .order('created_at', { ascending: true })
         .limit(HYDRATION_LIMIT);
       if (cancelled) return;
@@ -346,30 +389,47 @@ export function useStyleChat(): UseStyleChatResult {
           s.setTag('mutation', 'useStyleChat.hydrate');
           Sentry.captureException(hydrateError);
         });
-        setMessages([]);
+        if (!cached) setMessages([]);
         setIsHydrating(false);
         return;
       }
       const rows = (data ?? []) as StoredRow[];
-      setMessages(rows.map((row, idx) => parseStoredMessage(row, idx)));
+      const parsed = rows.map((row, idx) => parseStoredMessage(row, idx));
+      messageCacheRef.current.set(cacheKey(userId, currentMode), parsed);
+      setMessages(parsed);
       setIsHydrating(false);
     })();
     return () => {
-      // Identity-change cleanup. When the user signs out (or signs in as
-      // a different user) we must:
-      //   1. mark this run as cancelled so a late-arriving SELECT result
-      //      doesn't repaint the new user's UI with the prior user's rows;
-      //   2. abort any in-flight SSE stream so its onDone won't try to
-      //      persist against the new (RLS-rejected) auth context, which
-      //      Sentry would then log as a real failure;
-      //   3. flip streamingRef.current = false so the next sendMessage
-      //      can run for the new user;
-      //   4. clear all visible state so the new user starts fresh.
-      // Codex P1-4.
+      // G1 — minimal per-run cleanup. Just cancel the in-flight SELECT so
+      // a late result doesn't repaint stale messages after a mode toggle
+      // (or user-id change). The heavier auth-change wipe lives in a
+      // separate effect keyed on user?.id alone — running it on every
+      // mode toggle would blow away the active stream and visible
+      // messages mid-flip, defeating the per-mode buffer cache.
       cancelled = true;
+    };
+  }, [user?.id, currentMode, cacheKey]);
+
+  // G1 — auth-identity cleanup. Runs only when the signed-in user
+  // changes (sign-in, sign-out, account swap). Mirrors the prior
+  // hydration cleanup that ran on every effect tick: aborts any
+  // in-flight stream, wipes per-mode caches, clears visible state so
+  // the new user starts fresh. Splitting this out from the
+  // mode-aware hydration effect lets the mode toggle reload history
+  // without nuking the screen state. Codex P1-4 invariant preserved.
+  useEffect(() => {
+    // Capture the cache ref inside the effect — eslint's
+    // react-hooks/exhaustive-deps rule warns that
+    // `messageCacheRef.current` could point to a different Map by the
+    // time the cleanup fires. The ref is module-scoped to this hook
+    // instance so the captured value is the same Map for the cleanup,
+    // but binding it locally makes the lifetime explicit.
+    const cache = messageCacheRef.current;
+    return () => {
       abortRef.current?.abort();
       abortRef.current = null;
       streamingRef.current = false;
+      cache.clear();
       setIsStreaming(false);
       setMessages([]);
       setError(null);
@@ -383,39 +443,61 @@ export function useStyleChat(): UseStyleChatResult {
     setAnchoredGarmentIdState(id);
   }, []);
 
-  // M23 — Mode toggle. Aborting any in-flight stream guarantees the next
-  // sendMessage uses the new mode cleanly: a half-streamed style_chat
-  // bubble is dropped (the assistant placeholder is filtered on abort),
-  // and the user can immediately compose a shopping prompt without a
-  // stale style_chat envelope landing late and overwriting the screen.
-  const setMode = useCallback((mode: StyleChatMode) => {
-    setCurrentModeState((prev) => {
-      if (prev === mode) return prev;
-      abortRef.current?.abort();
-      abortRef.current = null;
-      streamingRef.current = false;
-      setIsStreaming(false);
-      // Drop any actively-streaming assistant placeholder so the screen
-      // doesn't show a half-text bubble in the wrong mode. Also drop the
-      // user message that was paired with the aborted placeholder if it
-      // has no completed assistant successor — otherwise it lingers in
-      // history and the next sendMessage emits two consecutive role:'user'
-      // turns to the model.
-      setMessages((cur) => {
-        const idx = cur.findIndex((m) => m.isStreaming);
-        if (idx < 0) return cur;
-        const prior = idx > 0 ? cur[idx - 1] : null;
-        const orphanedUser =
-          prior && prior.role === 'user' ? idx - 1 : -1;
-        return cur.filter((_, i) => i !== idx && i !== orphanedUser);
+  // M23/G1 — Mode toggle. Aborting any in-flight stream guarantees the
+  // next sendMessage uses the new mode cleanly: a half-streamed
+  // style_chat bubble is dropped (the assistant placeholder is filtered
+  // on abort), and the user can immediately compose a shopping prompt
+  // without a stale style_chat envelope landing late and overwriting the
+  // screen. G1 layering: the prior mode's buffer is captured into the
+  // per-mode cache so toggling back is instant; the hydration effect
+  // (keyed on currentMode) then refreshes the new mode's thread from
+  // the database.
+  const setMode = useCallback(
+    (mode: StyleChatMode) => {
+      setCurrentModeState((prev) => {
+        if (prev === mode) return prev;
+        abortRef.current?.abort();
+        abortRef.current = null;
+        streamingRef.current = false;
+        setIsStreaming(false);
+        // Snapshot the prior mode's settled messages into the cache so
+        // toggling back is instant. We strip any in-flight streaming
+        // bubble and its orphaned user pair (the same trim sendMessage
+        // would do via setMessages below) before caching, so the cached
+        // buffer is always a clean settled history.
+        const userId = user?.id;
+        if (userId) {
+          const snapshot = messagesRef.current;
+          const streamingIdx = snapshot.findIndex((m) => m.isStreaming);
+          let cleaned = snapshot;
+          if (streamingIdx >= 0) {
+            const prior = streamingIdx > 0 ? snapshot[streamingIdx - 1] : null;
+            const orphanedUser =
+              prior && prior.role === 'user' ? streamingIdx - 1 : -1;
+            cleaned = snapshot.filter(
+              (_, i) => i !== streamingIdx && i !== orphanedUser,
+            );
+          }
+          messageCacheRef.current.set(cacheKey(userId, prev), cleaned);
+        }
+        // Clear local UI state so the hydration effect (keyed on
+        // currentMode) takes over and seeds either from cache or DB.
+        setMessages([]);
+        // Suggestion chips are mode-specific (style_chat ships them; the
+        // current shopping_chat function does not). Reset so the static
+        // fallbacks render until the next turn settles.
+        setSuggestionChips([]);
+        // The active-look derivation walks the visible message list, so
+        // a stale cleared-at from the prior mode is harmless once we
+        // wipe the messages, but resetting it keeps the badge math
+        // honest after the next mode's history hydrates.
+        setActiveLookClearedAt(null);
+        setError(null);
+        return mode;
       });
-      // Suggestion chips are mode-specific (style_chat ships them; the
-      // current shopping_chat function does not). Reset so the static
-      // fallbacks render until the next turn settles.
-      setSuggestionChips([]);
-      return mode;
-    });
-  }, []);
+    },
+    [user?.id, cacheKey],
+  );
 
   // Filter out any message whose timestamp predates the most recent local
   // Clear-active-look. Without this filter, getLatestActiveLook walks
@@ -719,7 +801,7 @@ export function useStyleChat(): UseStyleChatResult {
             // the same conversation. Skip when we have nothing meaningful
             // to record (degraded zero-text path with no envelope).
             if (finalContent || finalMeta) {
-              void persistMessages(user.id, [
+              void persistMessages(user.id, turnMode, [
                 { role: 'user', content: trimmed },
                 {
                   role: 'assistant',
@@ -728,6 +810,24 @@ export function useStyleChat(): UseStyleChatResult {
                 },
               ]);
             }
+            // Refresh the per-mode buffer cache with the just-completed
+            // turn pair so a mode toggle away-and-back doesn't re-fetch.
+            // We read the post-flush snapshot via messagesRef on the
+            // next tick — the setMessages call above commits before
+            // this microtask resolves under React 18's auto-batching,
+            // but the safer pattern is to defer one tick.
+            queueMicrotask(() => {
+              if (user?.id) {
+                messageCacheRef.current.set(
+                  cacheKey(user.id, turnMode),
+                  messagesRef.current.filter((m) => !m.isStreaming),
+                );
+              }
+            });
+            // G1 — refresh the chat history sheet so the new turn
+            // bumps the thread's updatedAt + message count next time
+            // the user opens the sheet.
+            queryClient.invalidateQueries({ queryKey: ['chatHistory', user.id] });
           },
           onError: (err) => {
             // Same release as onDone — required so the user can retry.
@@ -753,8 +853,10 @@ export function useStyleChat(): UseStyleChatResult {
     },
     // session.access_token + user.id are the stable deps — messagesRef and
     // anchorRef are read by ref so we don't churn the callback identity
-    // per chunk or per anchor change.
-    [session?.access_token, user?.id, isStreaming],
+    // per chunk or per anchor change. cacheKey + queryClient are stable
+    // refs from React (queryClient identity is constant across renders
+    // by react-query's contract; cacheKey is a useCallback with no deps).
+    [session?.access_token, user?.id, isStreaming, cacheKey, queryClient],
   );
 
   const clearChat = useCallback(async () => {
@@ -768,17 +870,26 @@ export function useStyleChat(): UseStyleChatResult {
     setAnchoredGarmentIdState(null);
     setActiveLookClearedAt(null);
     if (!user?.id) return;
+    // G1 — clear only the current mode's thread so toggling between
+    // Style and Shopping doesn't wipe the inactive thread by surprise.
+    // The web's AIChat applies the same per-mode delete semantics.
+    const persistedMode = persistedModeFor(currentModeRef.current);
+    messageCacheRef.current.delete(cacheKey(user.id, currentModeRef.current));
     const { error: deleteError } = await supabase
       .from('chat_messages')
       .delete()
       .eq('user_id', user.id)
-      .eq('mode', STYLIST_MODE);
+      .eq('mode', persistedMode);
     if (deleteError) {
       // History wipe failure shouldn't freeze the UI — the local state is
       // already cleared. Log so we can spot RLS regressions.
       console.warn('[useStyleChat] clearChat delete failed:', deleteError.message);
     }
-  }, [user?.id]);
+    // G1 — surface the cleared thread to ChatHistorySheet on the next
+    // open. We invalidate even if the DELETE returned an error: the
+    // sheet refetch will reconcile against the actual row state.
+    queryClient.invalidateQueries({ queryKey: ['chatHistory', user.id] });
+  }, [user?.id, cacheKey, queryClient]);
 
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort();
@@ -810,7 +921,7 @@ export function useStyleChat(): UseStyleChatResult {
       // Only persist when the assistant produced at least some text
       // (or attached an envelope) — empty turns are noise.
       if (userMsg && (assistantMsg.content || assistantMsg.stylistMeta)) {
-        void persistMessages(user.id, [
+        void persistMessages(user.id, currentModeRef.current, [
           { role: 'user', content: userMsg.content },
           {
             role: 'assistant',

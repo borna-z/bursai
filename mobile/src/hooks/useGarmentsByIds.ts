@@ -1,0 +1,59 @@
+// useGarmentsByIds — hydrate a list of garment ids into the minimal row
+// shape the OutfitCard's `garments` prop expects (id + image paths).
+//
+// Used by:
+//   • OutfitSuggestionCard — chat-row outfit attachment that renders the
+//     upgraded G6 OutfitCard with real garment thumbs.
+//
+// Mirrors the shape of the web hook at `src/hooks/useGarmentsByIds.ts` but
+// returns only the columns required by `OutfitCardGarment` so the SELECT
+// stays narrow. A future consumer that needs `category`/`color_primary`
+// can add a sibling hook rather than widening this one.
+//
+// React Query caches per-id-set so repeated chat bubbles referencing the
+// same outfit don't re-fetch. The cache key is order-stable: ids are
+// sorted before joining so [a,b] and [b,a] hit the same cache entry. RLS
+// enforces user_id matching server-side; we additionally `.eq('user_id')`
+// so a stale id from a different account never leaks.
+
+import { useQuery } from '@tanstack/react-query';
+
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+
+export interface GarmentBasic {
+  id: string;
+  rendered_image_path: string | null;
+  original_image_path: string | null;
+}
+
+export function useGarmentsByIds(ids: readonly string[] | null | undefined) {
+  const { user } = useAuth();
+  // Sort before joining so [a,b] and [b,a] share a cache entry. Matches
+  // the active_look cache-key pattern in StyleChatScreen.
+  const safeIds = ids ? ids.filter((id) => typeof id === 'string' && id.length > 0) : [];
+  const cacheKey = [...safeIds].sort().join(',');
+
+  return useQuery<GarmentBasic[]>({
+    queryKey: ['garmentsByIds', user?.id, cacheKey],
+    enabled: !!user?.id && safeIds.length > 0,
+    queryFn: async () => {
+      if (!user?.id || safeIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('garments')
+        .select('id, rendered_image_path, original_image_path')
+        .eq('user_id', user.id)
+        .in('id', safeIds);
+      if (error) throw error;
+      const rows = (data ?? []) as GarmentBasic[];
+      // Preserve the requested order so the OutfitCard slot grid matches
+      // the order the assistant suggested rather than the SELECT's
+      // pg-default ordering.
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      return safeIds
+        .map((id) => byId.get(id))
+        .filter((r): r is GarmentBasic => !!r);
+    },
+    staleTime: 5 * 60_000,
+  });
+}
