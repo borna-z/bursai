@@ -537,12 +537,12 @@ export function OutfitDetailScreen() {
         // day-level idempotency check (Codex P2 round 10 on PR #738).
         onSuccess: (data) => {
           if (data?.deduped) return;
-          Alert.alert('Marked worn', 'Saved to your wear log.');
+          Alert.alert(tr('outfit.actions.markedWorn.title'), tr('outfit.actions.markedWorn.body'));
         },
         onError: (err: unknown) =>
           Alert.alert(
-            'Could not mark worn',
-            err instanceof Error ? err.message : 'Please try again.',
+            tr('outfit.actions.couldNotMarkWorn.title'),
+            err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
       },
     );
@@ -562,8 +562,8 @@ export function OutfitDetailScreen() {
       {
         onError: (err: unknown) =>
           Alert.alert(
-            'Could not save',
-            err instanceof Error ? err.message : 'Please try again.',
+            tr('outfit.actions.couldNotSave.title'),
+            err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
       },
     );
@@ -574,11 +574,12 @@ export function OutfitDetailScreen() {
     upsertPlanned.mutate(
       { date: localISODate(now), outfitId: outfit.id },
       {
-        onSuccess: () => Alert.alert('Added', 'Outfit added to today\'s plan.'),
+        onSuccess: () =>
+          Alert.alert(tr('outfit.actions.added.title'), tr('outfit.actions.added.body')),
         onError: (err: unknown) =>
           Alert.alert(
-            'Could not add to plan',
-            err instanceof Error ? err.message : 'Please try again.',
+            tr('outfit.actions.couldNotAddPlan.title'),
+            err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
       },
     );
@@ -586,18 +587,18 @@ export function OutfitDetailScreen() {
 
   const handleDelete = React.useCallback(() => {
     if (!outfit) return;
-    Alert.alert('Delete', 'Delete this outfit? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(tr('outfit.actions.delete.title'), tr('outfit.actions.delete.body'), [
+      { text: tr('outfit.actions.delete.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: tr('outfit.actions.delete.confirm'),
         style: 'destructive',
         onPress: () => {
           deleteOutfit.mutate(outfit.id, {
             onSuccess: () => nav.goBack(),
             onError: (err: unknown) =>
               Alert.alert(
-                'Could not delete',
-                err instanceof Error ? err.message : 'Please try again.',
+                tr('outfit.actions.couldNotDelete.title'),
+                err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
               ),
           });
         },
@@ -660,7 +661,7 @@ export function OutfitDetailScreen() {
               textAlign: 'center',
               letterSpacing: -0.22,
             }}>
-            Outfit not found
+            {tr('outfit.detail.notFound.title')}
           </Text>
           <Text
             style={{
@@ -670,9 +671,9 @@ export function OutfitDetailScreen() {
               textAlign: 'center',
               lineHeight: 19,
             }}>
-            This look may have been removed. Go back and pick another.
+            {tr('outfit.detail.notFound.body')}
           </Text>
-          <Button label="Back" variant="outline" onPress={() => nav.goBack()} />
+          <Button label={tr('common.back')} variant="outline" onPress={() => nav.goBack()} />
         </View>
       </SafeAreaView>
     );

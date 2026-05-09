@@ -1475,4 +1475,36 @@ export const en: Record<string, string> = {
   // different verb when the destination is StyleMe (occasion-driven) vs
   // OutfitGenerate (full restyle of the planned look).
   'home.thisWeek.restyle': 'Restyle',
+
+  // ─── Outfit actions (shared by PlanScreen + OutfitDetailScreen) ─────────
+  'outfit.actions.markedWorn.title': 'Marked worn',
+  'outfit.actions.markedWorn.body': 'Saved to your wear log.',
+  'outfit.actions.couldNotMarkWorn.title': 'Could not mark worn',
+  'outfit.actions.couldNotSave.title': 'Could not save',
+  'outfit.actions.added.title': 'Added',
+  'outfit.actions.added.body': "Outfit added to today's plan.",
+  'outfit.actions.couldNotAddPlan.title': 'Could not add to plan',
+  'outfit.actions.delete.title': 'Delete',
+  'outfit.actions.delete.body': 'Delete this outfit? This cannot be undone.',
+  'outfit.actions.delete.cancel': 'Cancel',
+  'outfit.actions.delete.confirm': 'Delete',
+  'outfit.actions.couldNotDelete.title': 'Could not delete',
+  'outfit.detail.notFound.title': 'Outfit not found',
+  'outfit.detail.notFound.body': 'This look may have been removed. Go back and pick another.',
+
+  // ─── Plan — clear-plan flow ─────────────────────────────────────────────
+  'plan.clearPlan.confirm.title': 'Clear plans',
+  'plan.clearPlan.confirm.body': 'This will remove the planned outfit for this day.',
+  'plan.clearPlan.confirm.cancel': 'Cancel',
+  'plan.clearPlan.confirm.confirm': 'Clear',
+  'plan.clearPlan.success.title': 'Cleared',
+  'plan.clearPlan.success.body': 'Planned outfit cleared.',
+  'plan.clearPlan.error.title': 'Could not clear',
+
+  // ─── Common ─────────────────────────────────────────────────────────────
+  'common.alerts.tryAgain': 'Please try again.',
+
+  // ─── Style Me — weather ─────────────────────────────────────────────────
+  'styleMe.weather.alert.title': 'Weather',
+  'styleMe.weather.alert.body': 'Weather customisation coming soon.',
 };

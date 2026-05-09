@@ -220,12 +220,12 @@ export function PlanScreen() {
         // day-level idempotency check (Codex P2 round 10 on PR #738).
         onSuccess: (data) => {
           if (data?.deduped) return;
-          Alert.alert('Marked worn', 'Saved to your wear log.');
+          Alert.alert(tr('outfit.actions.markedWorn.title'), tr('outfit.actions.markedWorn.body'));
         },
         onError: (err: unknown) =>
           Alert.alert(
-            'Could not mark worn',
-            err instanceof Error ? err.message : 'Please try again.',
+            tr('outfit.actions.couldNotMarkWorn.title'),
+            err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
       },
     );
@@ -235,12 +235,12 @@ export function PlanScreen() {
     const iso = selectedDay?.iso;
     if (!iso) return;
     Alert.alert(
-      'Clear plans',
-      'This will remove the planned outfit for this day.',
+      tr('plan.clearPlan.confirm.title'),
+      tr('plan.clearPlan.confirm.body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('plan.clearPlan.confirm.cancel'), style: 'cancel' },
         {
-          text: 'Clear',
+          text: tr('plan.clearPlan.confirm.confirm'),
           style: 'destructive',
           onPress: () => {
             deletePlanned.mutate(iso, {
@@ -253,13 +253,13 @@ export function PlanScreen() {
                 try {
                   await weekPlansQ.refetch();
                 } finally {
-                  Alert.alert('Cleared', 'Planned outfit cleared.');
+                  Alert.alert(tr('plan.clearPlan.success.title'), tr('plan.clearPlan.success.body'));
                 }
               },
               onError: (err: unknown) =>
                 Alert.alert(
-                  'Could not clear',
-                  err instanceof Error ? err.message : 'Please try again.',
+                  tr('plan.clearPlan.error.title'),
+                  err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
                 ),
             });
           },

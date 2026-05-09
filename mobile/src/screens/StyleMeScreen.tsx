@@ -32,6 +32,7 @@ import {
 } from '../components/icons';
 import { useGenerateOutfit, formatGenerateOutfitError } from '../hooks/useGenerateOutfit';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -182,7 +183,7 @@ export function StyleMeScreen() {
           </View>
           <Pressable
             onPress={() =>
-              Alert.alert('Weather', 'Weather customisation coming soon.')
+              Alert.alert(tr('styleMe.weather.alert.title'), tr('styleMe.weather.alert.body'))
             }
             accessibilityRole="button"
             accessibilityLabel="Adjust weather context"
