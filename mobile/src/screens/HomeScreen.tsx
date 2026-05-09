@@ -59,11 +59,11 @@ function formatHeaderDate(d: Date): string {
 // afternoon (12:00–16:59) · evening (17:00–21:59).
 function greetingFor(d: Date): string {
   const h = d.getHours();
-  if (h < 5)  return 'Good night';
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  if (h < 22) return 'Good evening';
-  return 'Good night';
+  if (h < 5)  return tr('home.greeting.night');
+  if (h < 12) return tr('home.greeting.morning');
+  if (h < 17) return tr('home.greeting.afternoon');
+  if (h < 22) return tr('home.greeting.evening');
+  return tr('home.greeting.night');
 }
 
 type WeekDay = { dow: string; n: number; active: boolean; dot: boolean; iso: string };
@@ -288,12 +288,12 @@ export function HomeScreen({
         // confusing. Codex P2 round 10 on PR #738.
         onSuccess: (data) => {
           if (data?.deduped) return;
-          Alert.alert('Marked worn', "Today's look saved to your wear log.");
+          Alert.alert(tr('home.alert.markedWorn.title'), tr('home.alert.markedWorn.body'));
         },
         onError: (err: unknown) =>
           Alert.alert(
-            'Could not mark worn',
-            err instanceof Error ? err.message : 'Please try again.',
+            tr('home.alert.markWornError.title'),
+            err instanceof Error ? err.message : tr('home.alert.markWornError.fallback'),
           ),
       },
     );
@@ -542,7 +542,7 @@ export function HomeScreen({
               style={{ flex: 1 }}
               disabled={!todayOutfit || wornToday || markWorn.isPending}
             />
-            <Button label={tr('home.todaysLook.restyle')} variant="outline" size="sm" onPress={push('StyleMe')} />
+            <Button label={tr('home.thisWeek.restyle')} variant="outline" size="sm" onPress={push('StyleMe')} />
             <Button label={tr('home.thisWeek.add')} variant="outline" size="sm" onPress={push('AddPieceStep1')} />
           </View>
         </View>

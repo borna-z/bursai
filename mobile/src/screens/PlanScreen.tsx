@@ -419,7 +419,7 @@ export function PlanScreen() {
             <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
               {tr('plan.empty.body')}
             </Text>
-            <Button label={tr('home.todaysLook.empty.cta')} onPress={() => nav.navigate('OutfitGenerate')} block />
+            <Button label={tr('plan.empty.cta')} onPress={() => nav.navigate('OutfitGenerate')} block />
           </View>
         )}
 
