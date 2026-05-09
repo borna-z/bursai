@@ -66,6 +66,7 @@ import {
 } from './src/navigation/RootNavigator';
 import { useRegisterPushToken } from './src/hooks/usePushNotifications';
 import { configureRevenueCat, resetRevenueCat } from './src/lib/revenuecat';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this
 // synchronously at module load — before the first React render — is what the
@@ -525,7 +526,12 @@ function ThemedShell() {
     <>
       <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       <NavigationContainer ref={navigationRef} theme={navTheme} linking={linking}>
-        <RootNavigator />
+        {/* ErrorBoundary mounted INSIDE NavigationContainer so the fallback
+            still has navigation context if it ever needs it (and so a
+            broken screen tree doesn't take down the navigator itself). */}
+        <ErrorBoundary>
+          <RootNavigator />
+        </ErrorBoundary>
       </NavigationContainer>
     </>
   );

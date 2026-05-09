@@ -35,6 +35,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
 
 import { supabase } from '../lib/supabase';
+import { Sentry } from '../lib/sentry';
 import {
   callEdgeFunction,
   EdgeFunctionRateLimitError,
@@ -357,6 +358,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextUser = nextSession?.user ?? null;
       setUser(nextUser);
 
+      // Tag Sentry events with the current user so error triage can correlate
+      // crashes to specific accounts. setUser(null) on sign-out so user A's id
+      // doesn't leak into user B's error reports on the same device.
+      if (nextUser) {
+        Sentry.setUser({ id: nextUser.id });
+      } else {
+        Sentry.setUser(null);
+      }
+
       if (nextUser) {
         // Keep isLoading true while profile resolves so consumers don't see
         // a stale `isOnboarded=false` for the duration of the fetch.
@@ -398,6 +408,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(data.session);
         const u = data.session?.user ?? null;
         setUser(u);
+        // Cold-start parity with the listener branch — set Sentry user so
+        // any error captured before the next auth event is correctly tagged.
+        if (u) {
+          Sentry.setUser({ id: u.id });
+        } else {
+          Sentry.setUser(null);
+        }
         if (u) {
           setIsLoading(true);
           settleProfile(u);
