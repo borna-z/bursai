@@ -1059,4 +1059,20 @@ export const sv: Record<string, string> = {
   'home.smartDay.fallback.title': 'Välj det som känns rätt idag.',
   'home.smartDay.tapHint': 'Visa outfiten',
   'home.smartDay.openHint': 'Öppnar outfitens detaljer',
+
+  // ─── Travel — G3 (multi-select Occasions + per-day outfits) ─────────────
+  'travel.occasions.title': 'Tillfällen',
+  'travel.occasions.work': 'Jobb',
+  'travel.occasions.dinner': 'Middag',
+  'travel.occasions.beach': 'Strand',
+  'travel.occasions.hiking': 'Vandring',
+  'travel.occasions.nightlife': 'Nattliv',
+  'travel.occasions.wedding': 'Bröllop',
+  'travel.occasions.sightseeing': 'Sightseeing',
+  'travel.occasions.airport': 'Flygplats',
+  'travel.occasions.active': 'Aktivt',
+  'travel.outfits.tab': 'Outfits',
+  'travel.outfits.dayLabel': 'Dag {day}',
+  'travel.savedCapsules.empty': 'Skapa din första resa så hamnar den här.',
+  'travelPackingList.tabPacking': 'Packlista',
 };

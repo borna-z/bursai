@@ -234,7 +234,12 @@ export function TravelGarmentPicker({
         ))}
       </ScrollView>
 
-      {/* Tile grid — 3 columns to match GarmentCard's wardrobe density. */}
+      {/* Tile grid — 3 columns to match GarmentCard's wardrobe density.
+          Wrapped in a height-bounded inner ScrollView (G3 sub-issue 1)
+          so the grid no longer escapes the outer screen ScrollView and
+          becomes untappable below the fold. Mirrors web's `max-h-[320px]`.
+          `nestedScrollEnabled` keeps the inner scroll responsive on
+          Android even when nested inside the outer ScrollView. */}
       {filtered.length === 0 ? (
         <View style={{ marginTop: 12 }}>
           <Card padding={14}>
@@ -242,7 +247,12 @@ export function TravelGarmentPicker({
           </Card>
         </View>
       ) : (
-        <View style={s.grid}>
+        <ScrollView
+          style={s.gridScroll}
+          contentContainerStyle={s.grid}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator>
           {filtered.map((garment) => {
             const isSelected = selectedSet.has(garment.id);
             const dimmed = !isSelected && limitReached;
@@ -300,7 +310,7 @@ export function TravelGarmentPicker({
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
       )}
 
       {/* Selection-count chip pinned at the bottom of the picker block. */}
@@ -336,10 +346,19 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  gridScroll: {
+    // Height-bound the picker grid so it doesn't escape the outer screen
+    // ScrollView. Without this the tiles below the fold are untappable
+    // because the parent ScrollView captures the gesture and there's
+    // nowhere for the user to scroll within the picker block. Mirrors
+    // web's `max-h-[320px]` constraint on the must-haves grid panel.
+    // G3 sub-issue 1 (audit-confirmed: TravelGarmentPicker untappable).
+    maxHeight: 320,
+    marginTop: 4,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 4,
   },
   // 3-column layout — each tile occupies ~33% width with a small gutter.
   // Matching the wardrobe grid density so the picker visually rhymes.

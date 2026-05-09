@@ -240,6 +240,13 @@ export function TravelPackingListScreen() {
     Alert.alert(tr('travelPackingList.shareCta'), tr('travelPackingList.shareSoon'));
   }, []);
 
+  // G3 sub-issue 6 — surface the per-day outfits view alongside the
+  // packing checklist. Mirrors web's tab toggle in TravelResultsView.
+  const handleOpenOutfits = React.useCallback(() => {
+    if (!capsuleId) return;
+    nav.navigate('TravelOutfits', { capsuleId });
+  }, [capsuleId, nav]);
+
   const sections = React.useMemo<Section[]>(
     () => groupByCategory(capsule?.packing_list ?? []),
     [capsule?.packing_list],
@@ -374,6 +381,40 @@ export function TravelPackingListScreen() {
         title="Your capsule"
       />
 
+      {/* G3 sub-issue 6 — tab toggle. The packing list is "active" on
+          this screen; tapping Outfits navigates to TravelOutfitsScreen.
+          Mirrors web TravelResultsView lines 192-205. */}
+      <View style={[s.tabsRow, { borderColor: t.border }]}>
+        <View style={[s.tabActive, { backgroundColor: t.bg2 }]}>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+              color: t.fg,
+            }}>
+            {tr('travelPackingList.tabPacking')}
+          </Text>
+        </View>
+        <Pressable
+          onPress={handleOpenOutfits}
+          accessibilityRole="button"
+          accessibilityLabel={tr('travel.outfits.tab')}
+          style={({ pressed }) => [s.tabInactive, { opacity: pressed ? 0.7 : 1 }]}>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+              color: t.fg2,
+            }}>
+            {tr('travel.outfits.tab')}
+          </Text>
+        </Pressable>
+      </View>
+
       {/* Progress card */}
       <Card padding={16}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -496,6 +537,26 @@ function Header({
 
 const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingTop: 4 },
+  // G3 sub-issue 6 — tab toggle row.
+  tabsRow: {
+    flexDirection: 'row',
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    padding: 3,
+    gap: 4,
+  },
+  tabActive: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+  },
+  tabInactive: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+  },
   stickyBar: {
     position: 'absolute',
     left: 0,

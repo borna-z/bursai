@@ -73,6 +73,7 @@ import { MoodFlowScreen } from '../screens/MoodFlowScreen';
 import { TravelCapsuleScreen } from '../screens/TravelCapsuleScreen';
 import { TravelMustHavesScreen } from '../screens/TravelMustHavesScreen';
 import { TravelPackingListScreen } from '../screens/TravelPackingListScreen';
+import { TravelOutfitsScreen } from '../screens/TravelOutfitsScreen';
 
 // Calendar / laundry
 import { MonthCalendarScreen } from '../screens/MonthCalendarScreen';
@@ -234,6 +235,10 @@ export type RootStackParamList = {
   TravelCapsule: undefined;
   TravelMustHaves: { capsuleId?: string } | undefined;
   TravelPackingList: { capsuleId?: string; selectedIds?: string[] } | undefined;
+  // G3 sub-issue 6 — per-day outfits view, mirrors web's TravelResultsView
+  // Outfits tab. Reachable from TravelPackingListScreen via the header
+  // tab toggle.
+  TravelOutfits: { capsuleId: string };
 
   // Discover / lists
   WardrobeGaps: undefined;
@@ -574,6 +579,7 @@ export function RootNavigator() {
       <Stack.Screen name="TravelCapsule" component={TravelCapsuleScreen} />
       <Stack.Screen name="TravelMustHaves" component={TravelMustHavesScreen} />
       <Stack.Screen name="TravelPackingList" component={TravelPackingListScreen} />
+      <Stack.Screen name="TravelOutfits" component={TravelOutfitsScreen} />
 
       {/* Discover / lists */}
       <Stack.Screen name="WardrobeGaps" component={WardrobeGapsScreen} />

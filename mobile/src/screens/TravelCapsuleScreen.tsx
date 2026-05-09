@@ -59,6 +59,25 @@ const TRIP_TYPES = ['Business', 'Leisure', 'Beach', 'City', 'Outdoor', 'Winter']
 
 type TripType = (typeof TRIP_TYPES)[number];
 
+// G3 sub-issue 3 — multi-select Occasions (web parity with TravelStep2).
+// Trip type stays single-select; Occasions are an additional multi-select
+// chip grid plumbed into the edge function's `occasions: string[]` input
+// (verified at `supabase/functions/travel_capsule/index.ts:91,440,516`).
+// Order + ids match `src/components/travel/types.ts` OCCASIONS so a user
+// who plans on the web sees the same labels on mobile.
+const OCCASION_IDS = [
+  'work',
+  'dinner',
+  'beach',
+  'hiking',
+  'nightlife',
+  'wedding',
+  'sightseeing',
+  'airport',
+  'active',
+] as const;
+type OccasionId = (typeof OCCASION_IDS)[number];
+
 // Map the visible TripType chips onto the trip_type strings the edge
 // function recognises (`TRIP_TYPE_CONTEXT` dict in the function).
 const TRIP_TYPE_TO_BACKEND: Record<TripType, string> = {
@@ -213,6 +232,12 @@ export function TravelCapsuleScreen() {
   // hid the multi-select effect from the user. Match web's parity by
   // restricting to one chip at a time.
   const [tripType, setTripType] = React.useState<TripType>('City');
+  // G3 sub-issue 3 — multi-select Occasions, separate from trip-type.
+  // Trip type is the single-select shape descriptor the edge function
+  // routes on; occasions are the per-day flavour the AI uses when
+  // assigning outfit slots. Empty array is allowed — falls back to a
+  // trip-type-derived default at submit time.
+  const [occasions, setOccasions] = React.useState<OccasionId[]>([]);
   // Which date pill, if any, is showing the custom-date sheet. `null` = sheet closed.
   const [customPickerFor, setCustomPickerFor] = React.useState<'from' | 'to' | null>(null);
 
@@ -238,6 +263,13 @@ export function TravelCapsuleScreen() {
 
   // Single-select — tapping a chip selects only it, deselecting the rest.
   const selectTripType = (type: TripType) => setTripType(type);
+
+  // Multi-select Occasions — toggle behaviour matches web TravelStep2.
+  const toggleOccasion = React.useCallback((id: OccasionId) => {
+    setOccasions((prev) =>
+      prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id],
+    );
+  }, []);
 
   // Preset-pill date chooser. The first 5 buttons are quick offsets; the 6th ("Custom")
   // opens an inline mini-calendar sheet so the user can pick any specific date directly.
@@ -312,10 +344,12 @@ export function TravelCapsuleScreen() {
   const handleGenerate = React.useCallback(() => {
     if (!canContinue) return;
     const backendTripType = TRIP_TYPE_TO_BACKEND[tripType];
-    // Trip type also stands in for the single-occasion seed today (the
-    // wizard doesn't collect a separate occasion list). Lower-case
-    // matches the strings the edge function uses for occasion routing.
-    const occasions = [backendTripType];
+    // G3 sub-issue 3 — wire the multi-select Occasions chips through.
+    // Empty selection falls back to the trip-type seed (legacy behaviour
+    // pre-G3) so existing flows that never tap an occasion chip still
+    // produce sensible per-day routing on the edge function.
+    const submitOccasions: string[] =
+      occasions.length > 0 ? [...occasions] : [backendTripType];
 
     // Build the picker-garment snapshot for the hook — just the fields
     // `seedMustHaves` needs to hydrate the must_haves rows. Filtered to
@@ -338,7 +372,7 @@ export function TravelCapsuleScreen() {
       {
         destination: destination.trim(),
         dates: { start: fromDate, end: toDate },
-        occasions,
+        occasions: submitOccasions,
         weather: null,
         tripType: backendTripType,
         mustHaveItemIds,
@@ -380,6 +414,7 @@ export function TravelCapsuleScreen() {
     fromDate,
     toDate,
     tripType,
+    occasions,
     generate,
     nav,
     mustHaveItemIds,
@@ -478,37 +513,6 @@ export function TravelCapsuleScreen() {
                 block
                 onPress={handlePickerContinue}
               />
-
-              {/* Saved trips still surface on the picker sub-step so a
-                  returning user can jump straight to a prior capsule
-                  without committing to a new selection first. */}
-              <View style={{ gap: 10, marginTop: 6 }}>
-                <Eyebrow>{tr('travelCapsule.savedHeading')}</Eyebrow>
-                {capsulesLoading ? (
-                  <ActivityIndicator color={t.accent} />
-                ) : savedCapsules.length === 0 ? (
-                  <Card padding={16}>
-                    <View style={{ gap: 6 }}>
-                      <Eyebrow>{tr('travelCapsule.savedEmpty')}</Eyebrow>
-                      <Caption>{tr('travelCapsule.savedEmptyBody')}</Caption>
-                    </View>
-                  </Card>
-                ) : (
-                  <FlatList
-                    data={savedCapsules}
-                    keyExtractor={(row) => row.id}
-                    scrollEnabled={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                    renderItem={({ item }) => (
-                      <SavedCapsuleRow
-                        row={item}
-                        onOpen={() => handleOpenSaved(item)}
-                        onDelete={() => handleDeleteSaved(item)}
-                      />
-                    )}
-                  />
-                )}
-              </View>
             </View>
           ) : null}
 
@@ -608,6 +612,26 @@ export function TravelCapsuleScreen() {
             <Caption>Pick one. Shapes what we recommend packing.</Caption>
           </View>
 
+          {/* ============ OCCASIONS (multi-select) ============ */}
+          {/* G3 sub-issue 3 — multi-select chip grid mirroring web's
+              TravelStep2 occasions panel. Pipes into the edge function's
+              `occasions: string[]` input so the AI distributes outfits
+              across the actual trip flavours (work + dinner + airport
+              etc.) rather than a single trip-type seed. */}
+          <View style={{ gap: 10 }}>
+            <Eyebrow>{tr('travel.occasions.title')}</Eyebrow>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {OCCASION_IDS.map((id) => (
+                <Chip
+                  key={id}
+                  label={tr(`travel.occasions.${id}`)}
+                  active={occasions.includes(id)}
+                  onPress={() => toggleOccasion(id)}
+                />
+              ))}
+            </View>
+          </View>
+
           {/* ============ CTA ============ */}
           {/* Picker selection threads through to the hook here — see
               handleGenerate's `mustHaveItemIds` / `mustHaveGarments`
@@ -623,6 +647,40 @@ export function TravelCapsuleScreen() {
           />
             </>
           ) : null}
+
+          {/* ============ SAVED CAPSULES (always visible) ============ */}
+          {/* G3 sub-issue 2 — lifted out of the picker sub-step
+              conditional so a returning user always sees their saved
+              trips, not only on the wardrobe-picker step. Mirrors web's
+              behaviour where the saved-trips list is a constant rail
+              alongside the new-trip wizard. */}
+          <View style={{ gap: 10, marginTop: 6 }}>
+            <Eyebrow>{tr('travelCapsule.savedHeading')}</Eyebrow>
+            {capsulesLoading ? (
+              <ActivityIndicator color={t.accent} />
+            ) : savedCapsules.length === 0 ? (
+              <Card padding={16}>
+                <View style={{ gap: 6 }}>
+                  <Eyebrow>{tr('travelCapsule.savedEmpty')}</Eyebrow>
+                  <Caption>{tr('travel.savedCapsules.empty')}</Caption>
+                </View>
+              </Card>
+            ) : (
+              <FlatList
+                data={savedCapsules}
+                keyExtractor={(row) => row.id}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                renderItem={({ item }) => (
+                  <SavedCapsuleRow
+                    row={item}
+                    onOpen={() => handleOpenSaved(item)}
+                    onDelete={() => handleDeleteSaved(item)}
+                  />
+                )}
+              />
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
