@@ -128,6 +128,17 @@ export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
   const outfitName = outfitDisplayName(outfit);
   const subLabel = (outfit.occasion || outfit.style_vibe || 'Today').toUpperCase();
 
+  // Map joined outfit_items → OutfitCard tile payload. Prefer the rendered
+  // image (post-bg-removal) and fall back to the original photo so a piece
+  // mid-render still shows something. Items with no garment row attached
+  // (deletes that haven't propagated) drop to imagePath:null and stay on
+  // the gradient placeholder, matching every other thumb in the app.
+  const cardItems = outfit.outfit_items.map((it, i) => ({
+    id: it.garment?.id ?? `${outfit.id}-slot-${i}`,
+    imagePath:
+      it.garment?.rendered_image_path ?? it.garment?.original_image_path ?? null,
+  }));
+
   const handlePress = () => {
     nav.navigate('OutfitDetail', { id: outfit.id });
   };
@@ -148,6 +159,7 @@ export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
           name={outfitName}
           sub={subLabel}
           hues={hues}
+          items={cardItems}
         />
       </Pressable>
       <View style={{ marginTop: 8, alignItems: 'flex-start' }}>

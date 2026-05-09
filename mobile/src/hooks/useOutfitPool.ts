@@ -61,8 +61,16 @@ export type ScoredOutfitDraft = {
    *  PR #743). Consumers that need a slot should hydrate it from the
    *  garment row via `useGarments` / `inferCanonicalOutfitSlot`.
    *  Engine-driven sources (`useGenerateOutfit`, `useOutfitPool`) still
-   *  populate it because `burs_style_engine` returns explicit slots. */
-  items: { slot?: string; garment_id: string }[];
+   *  populate it because `burs_style_engine` returns explicit slots.
+   *
+   *  `image_path` is the legacy `garments.image_path` column when the
+   *  upstream hydrates one (suggest_outfit_combinations does; clone_dna
+   *  doesn't currently). Optional and may be null on garments uploaded
+   *  through the modern rendered_image_path / original_image_path
+   *  pipeline — consumers (OutfitDetailScreen variations) treat null
+   *  as "no hint, render gradient or hydrate against the wardrobe cache"
+   *  same as today. (Codex P2 on PR #780.) */
+  items: { slot?: string; garment_id: string; image_path?: string | null }[];
   explanation: string;
   occasion?: string;
   family_label?: string | null;

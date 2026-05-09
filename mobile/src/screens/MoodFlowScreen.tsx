@@ -27,6 +27,7 @@ import { OutfitCard } from '../components/OutfitCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useMoodOutfit } from '../hooks/useMoodOutfit';
+import { useGarmentsByIds } from '../hooks/useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -36,9 +37,11 @@ type Route = RouteProp<RootStackParamList, 'MoodFlow'>;
 const DEFAULT_MOOD = 'Confident';
 const DEFAULT_TIME = 'Day';
 
-// Visual hue ramp for the OutfitCard placeholder thumbs — the engine
-// returns garment_ids but no images yet (W9 wires real photos), so we
-// pick a stable neutral palette and let the slot count drive width.
+// Visual hue ramp for the OutfitCard placeholder thumbs — used as the
+// gradient under each tile while the signed URL is loading or for any
+// garment_id whose image hasn't yet been resolved against the wardrobe
+// cache. A stable neutral palette so empty / mid-load tiles read as
+// editorial rather than glitchy.
 const PLACEHOLDER_HUES: number[] = [32, 28, 200, 18];
 
 export function MoodFlowScreen() {
@@ -50,6 +53,40 @@ export function MoodFlowScreen() {
 
   const { result, isLoading, error, generate, reset } = useMoodOutfit();
   const paywallShownRef = useRef(false);
+
+  // The mood_outfit engine returns `MoodOutfitItem[]` with `garment_id` but
+  // no image_path — that field doesn't exist on the engine's response shape.
+  // Resolve image paths against the user's wardrobe so the OutfitCard tiles
+  // render real garment thumbnails instead of pure gradients.
+  //
+  // Codex P2 round 2 on PR #780 (2026-05-09): `useFlatGarments()` is a
+  // paginated infinite query and only carries whatever pages the user has
+  // scrolled through — its first page is 30 rows. The mood engine scores
+  // against the user's full wardrobe, so for any user with more than 30
+  // garments any older selected piece would miss the cache and stay on
+  // the gradient forever. Switched to a targeted `useGarmentsByIds(...)`
+  // lookup keyed off the engine's actual returned ids; the result is a
+  // bounded fetch that always contains exactly the rows we need.
+  //
+  // Codex P2 round 3 on PR #780 (2026-05-09): also fall back to the legacy
+  // `garments.image_path` column after the modern rendered/original paths.
+  // Older imported rows only populate the legacy column, so without this
+  // fallback those real garments would still render as gradients.
+  const moodGarmentIds = React.useMemo(
+    () =>
+      (result?.items ?? [])
+        .map((it) => it.garment_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [result?.items],
+  );
+  const wardrobeQ = useGarmentsByIds(moodGarmentIds);
+  const wardrobeImageMap = React.useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of wardrobeQ.data ?? []) {
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
+    }
+    return m;
+  }, [wardrobeQ.data]);
 
   // Reset + regenerate atomically when MOOD_LABEL / TIME_LABEL changes.
   // Splitting these into two effects (one for [mood,time] → generate, one
@@ -223,6 +260,12 @@ export function MoodFlowScreen() {
             name={result.outfit_name}
             sub={subLine}
             hues={PLACEHOLDER_HUES}
+            items={result.items.map((it, i) => ({
+              id: it.garment_id ?? `mood-slot-${i}`,
+              imagePath: it.garment_id
+                ? wardrobeImageMap.get(it.garment_id) ?? null
+                : null,
+            }))}
           />
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>

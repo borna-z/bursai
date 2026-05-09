@@ -31,6 +31,7 @@ import {
   type IconProps,
 } from '../components/icons';
 import { useGenerateOutfit, formatGenerateOutfitError } from '../hooks/useGenerateOutfit';
+import { useGarmentsByIds } from '../hooks/useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -67,6 +68,39 @@ export function StyleMeScreen() {
 
   const { result, isLoading, error, generate, reset } = useGenerateOutfit();
   const paywallShownRef = useRef(false);
+
+  // burs_style_engine returns `image_path` per item but it's the legacy
+  // `garments.image_path` column — null for any garment that was uploaded
+  // through the modern (rendered_image_path / original_image_path) pipeline.
+  // Resolve image paths against the modern columns so OutfitCard tiles
+  // render real thumbnails for newer garments too.
+  //
+  // Codex P2 round 2 on PR #780 (2026-05-09): `useFlatGarments()` only
+  // contains whatever pages the wardrobe infinite query has scrolled
+  // through (first page = 30), so the engine's selection of older
+  // garments outside that window stayed on the gradient. Targeted
+  // `useGarmentsByIds(...)` against the engine's actual returned ids
+  // covers the full wardrobe regardless of pagination state.
+  //
+  // Codex P2 round 3 on PR #780 (2026-05-09): also fall back to the legacy
+  // `garments.image_path` column after the modern rendered/original paths.
+  // Older imported rows only populate the legacy column, so without this
+  // fallback those real garments would still render as gradients.
+  const styleGarmentIds = React.useMemo(
+    () =>
+      (result?.items ?? [])
+        .map((it) => it.garment_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [result?.items],
+  );
+  const wardrobeQ = useGarmentsByIds(styleGarmentIds);
+  const wardrobeImageMap = React.useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of wardrobeQ.data ?? []) {
+      m.set(g.id, g.rendered_image_path ?? g.original_image_path ?? g.image_path ?? null);
+    }
+    return m;
+  }, [wardrobeQ.data]);
 
   const occ = OCCASIONS.find((o) => o.id === occId) ?? OCCASIONS[0];
 
@@ -247,6 +281,18 @@ export function StyleMeScreen() {
                 name={result.outfit_name}
                 sub={subLine}
                 hues={PLACEHOLDER_HUES}
+                items={result.items.map((it, i) => ({
+                  id: it.garment_id ?? `style-me-slot-${i}`,
+                  // Prefer the engine's response (legacy `image_path` from
+                  // burs_style_engine's SELECT) and fall back to the wardrobe
+                  // lookup against modern `rendered_image_path` /
+                  // `original_image_path` columns. Either yields a real
+                  // thumbnail for at least one of the two garment generations
+                  // we have on record; null on both leaves the gradient.
+                  imagePath:
+                    it.image_path
+                    ?? (it.garment_id ? wardrobeImageMap.get(it.garment_id) ?? null : null),
+                }))}
                 onUse={() => {
                   if (result.outfit_id) {
                     nav.navigate('OutfitDetail', { id: result.outfit_id });

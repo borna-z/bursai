@@ -127,6 +127,54 @@ export function useFlatGarments(filters?: GarmentFilters, enabled = true): FlatG
   return { ...query, data };
 }
 
+/**
+ * Targeted lookup of garments by id list — for AI-result screens that need
+ * to resolve image paths against arbitrary garment ids the engine returned
+ * (potentially older rows outside the wardrobe's first paginated page).
+ * `useFlatGarments()` only contains whatever pages the user has scrolled
+ * through, so for users with > 30 garments those older ids miss the cache;
+ * this hook does an in-clause fetch scoped to the exact ids the consumer
+ * needs. Codex P2 on PR #780 (2026-05-09) — MoodFlowScreen + StyleMeScreen
+ * were rendering gradients for engine-selected garments outside the first
+ * page; this hook is the supplied lookup. Returns the rows keyed nowhere
+ * special — consumers `useMemo` a Map<id, imagePath> on top.
+ *
+ * Caching: the query key is the SORTED, DEDUPED id list so two screens
+ * asking for overlapping subsets share the cache; a re-render with the
+ * same ids in different order doesn't re-fire the query. Stable across
+ * the natural lifetime of an AI result screen mount.
+ */
+export function useGarmentsByIds(ids: readonly string[]) {
+  const { user } = useAuth();
+  // Stable key — sort + dedupe so order/duplicate variation doesn't
+  // fragment the cache. `useMemo` keeps the array reference stable across
+  // renders that don't change the underlying id set.
+  const sortedIds = useMemo(() => {
+    const set = new Set(ids.filter((id) => typeof id === 'string' && id.length > 0));
+    return Array.from(set).sort();
+  }, [ids]);
+  const idsKey = sortedIds.join(',');
+
+  return useQuery({
+    queryKey: ['garments-by-ids', user?.id, idsKey],
+    queryFn: async (): Promise<Garment[]> => {
+      if (!user || sortedIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('garments')
+        .select('*')
+        .in('id', sortedIds)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return (data ?? []) as Garment[];
+    },
+    enabled: !!user && sortedIds.length > 0,
+    // 5 min — these are rarely-changing hydration lookups; the AI result
+    // screen mounts, reads imagePath once, and the row data isn't going
+    // to drift in the user's wardrobe during the screen's lifetime.
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useGarment(id: string | undefined) {
   const { user } = useAuth();
 
