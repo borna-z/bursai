@@ -222,8 +222,8 @@ export type RootStackParamList = {
   //     today only the first id binds (the screen anchors a single piece),
   //     but the array shape preserves a future N-anchor expansion without a
   //     param breaking change.
-  //   • gapContext — Wardrobe Gaps handoff; flips mode to 'shopping' and
-  //     prefills the composer with `item_name`.
+  //   • gapContext — Wardrobe Gaps handoff (G4); flips mode to 'shopping'
+  //     and prefills the composer with `item_name`.
   //   • sourceOutfitId — provenance hint for restyle flows; not consumed
   //     by the screen yet but part of the contract for telemetry parity
   //     with web's restyle path.

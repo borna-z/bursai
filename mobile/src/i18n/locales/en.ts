@@ -1540,4 +1540,7 @@ export const en: Record<string, string> = {
   'chat.outfitCard.loading': 'Loading outfit…',
   'chat.modeToggle.style': 'Style',
   'chat.modeToggle.shopping': 'Shop',
+
+  // ─── G4 — Wardrobe Gaps "Find similar" CTA ──────────────────────────────
+  'pickMustHaves.findSimilar': 'Find similar',
 };
