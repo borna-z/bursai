@@ -34,6 +34,27 @@ export interface SSECallbacks {
   onError: (error: Error) => void;
 }
 
+// Single-pass SSE parser used as the fallback when the runtime buffers the
+// whole response into a string instead of exposing `Response.body`. Mirrors
+// the streaming reader's line handling exactly (`:` comments skipped, only
+// `data: ` lines surfaced, `[DONE]` is the terminator, missing terminator
+// drains the trailing buffer). Kept inline so both code paths share a
+// single line-parsing definition.
+function replayBufferedSse(text: string, callbacks: SSECallbacks): void {
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (line.startsWith(':')) continue;
+    if (!line.startsWith('data: ')) continue;
+    const data = line.slice(6).trim();
+    if (data === '[DONE]') {
+      callbacks.onDone();
+      return;
+    }
+    if (data) callbacks.onData(data);
+  }
+  callbacks.onDone();
+}
+
 export async function fetchSSE(
   fnName: string,
   body: unknown,
@@ -51,7 +72,18 @@ export async function fetchSSE(
     });
 
     if (!response.body) {
-      callbacks.onError(new Error('No response body'));
+      // RN's fetch does not always expose `Response.body` as a ReadableStream
+      // — under some content types or platform code paths the runtime buffers
+      // the whole response and only exposes it via `.text()`. When that
+      // happens, the SSE payload still landed correctly on the wire; we just
+      // can't drive it chunk-by-chunk. Read the buffered text and replay it
+      // through the same line-parser so the caller's onData/onDone fire as if
+      // it had streamed (envelope → deltas → [DONE] arrive in one frame
+      // instead of staggered, which is fine — the bubble flushes once).
+      // Without this fallback, every chat turn errored with "No response
+      // body" while the server actually replied normally.
+      const fullText = await response.text();
+      replayBufferedSse(fullText, callbacks);
       return;
     }
 
