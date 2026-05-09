@@ -104,16 +104,24 @@ export function SettingsPrivacyScreen() {
             <View style={{ flex: 1, gap: 6 }}>
               <Eyebrow>{tr('settings.privacy.info.eyebrow')}</Eyebrow>
               <Caption>{tr('settings.privacy.info.body')}</Caption>
+              {/* M40 — replace the legacy "see burs.me/privacy" alert with a
+                  native push to PrivacyPolicyScreen. The marketing site is
+                  cut for launch, so this is the canonical surface. The Terms
+                  row sits below as a sibling so users hitting Settings →
+                  Privacy & data can reach both legal documents without
+                  bouncing back to a higher-level screen. */}
               <Button
                 label={tr('settings.privacy.info.cta')}
                 variant="quiet"
                 size="sm"
-                onPress={() =>
-                  Alert.alert(
-                    tr('settings.privacy.alert.title'),
-                    tr('settings.privacy.alert.body'),
-                  )
-                }
+                onPress={() => nav.navigate('PrivacyPolicy')}
+                style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+              />
+              <Button
+                label={tr('settings.privacy.info.cta.terms')}
+                variant="quiet"
+                size="sm"
+                onPress={() => nav.navigate('Terms')}
                 style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
               />
             </View>

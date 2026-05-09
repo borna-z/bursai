@@ -19,7 +19,7 @@
 // review-ready by the time M44 runs sandbox verification.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -66,14 +66,12 @@ const YEARLY_SAVINGS_PCT = Math.round(
   (1 - PRICING.yearly.amount / (PRICING.monthly.amount * 12)) * 100,
 );
 
-// External-link targets for the legal links — open in the system browser
-// rather than dead-ending on a no-op press (P1-16 from review). The
-// `paywall.termsLink` / `paywall.privacyLink` i18n keys are the canonical
-// URL source so locale variants can swap to a region-specific landing
-// page (e.g. SE-localised legal copy) without a code change. Constants
-// remain only as a documentation pointer for the canonical EN target.
-const TERMS_URL = 'https://burs.me/terms';
-const PRIVACY_URL = 'https://burs.me/privacy';
+// M40 — Terms / Privacy links route to the native screens (PrivacyPolicy,
+// Terms) instead of opening the external burs.me URL. The launch decision
+// cut the public marketing site, so the in-app screens are now the canonical
+// legal surface. The `paywall.termsLink` / `paywall.privacyLink` i18n keys
+// remain in the locale dictionaries as a documentation pointer for the
+// eventual web mirror but are no longer consumed by this screen.
 
 export function PaywallScreen() {
   const t = useTokens();
@@ -269,15 +267,12 @@ export function PaywallScreen() {
     });
   };
 
-  const openExternal = (url: string, label: string) => () => {
+  // M40 — legal links navigate to native PrivacyPolicy / Terms screens.
+  // Wrapped in a haptic so the tap feels responsive in line with the
+  // surrounding paywall affordances (Restore, plan toggle).
+  const openLegal = (route: 'PrivacyPolicy' | 'Terms') => () => {
     hapticLight();
-    Linking.openURL(url).catch(() => {
-      // Failed to open (no browser? offline?) — surface a graceful fallback
-      // with the action context so the user sees "Could not open Terms"
-      // instead of the raw URL string. Inline strings (not i18n) — paywall
-      // locale pass is M33 per existing code comments above.
-      Alert.alert(tr('paywall.linkError.title'), `Could not open ${label}`);
-    });
+    nav.navigate(route);
   };
 
   // Per-plan intro-offer presence drives both copy paths. Defensive
@@ -522,7 +517,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(tr('paywall.termsLink') || TERMS_URL, 'Terms')}
+            onPress={openLegal('Terms')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.terms.label')}
             hitSlop={6}>
@@ -532,7 +527,7 @@ export function PaywallScreen() {
           </Pressable>
           <View style={{ width: 3, height: 3, borderRadius: radii.pill, backgroundColor: t.fg3 }} />
           <Pressable
-            onPress={openExternal(tr('paywall.privacyLink') || PRIVACY_URL, 'Privacy Policy')}
+            onPress={openLegal('PrivacyPolicy')}
             accessibilityRole="link"
             accessibilityLabel={tr('paywall.privacy.label')}
             hitSlop={6}>
