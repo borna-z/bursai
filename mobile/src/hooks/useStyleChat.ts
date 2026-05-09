@@ -343,6 +343,14 @@ export function useStyleChat(): UseStyleChatResult {
   // chat mode so a different signed-in user never sees the prior user's
   // buffer (the auth-change cleanup wipes it explicitly).
   const messageCacheRef = useRef<Map<string, ChatMessage[]>>(new Map());
+  // Codex P2 round 5 on PR #789: track in-flight persistMessages
+  // INSERTs per cacheKey so the hydration effect can distinguish a
+  // legitimate remote shrink (clearChat on web, retention) from the
+  // optimistic-insert race the round-4 fix targeted. Incremented on
+  // sendMessage onDone before kicking off the persist; decremented in
+  // the persist promise's then(). When zero, a smaller DB row count is
+  // trusted as the source of truth and the cache + UI are refreshed.
+  const pendingPersistRef = useRef<Map<string, number>>(new Map());
   const cacheKey = useCallback(
     (uid: string, mode: StyleChatMode) => `${uid}:${persistedModeFor(mode)}`,
     [],
@@ -444,11 +452,13 @@ export function useStyleChat(): UseStyleChatResult {
     // instance so the captured value is the same Map for the cleanup,
     // but binding it locally makes the lifetime explicit.
     const cache = messageCacheRef.current;
+    const pending = pendingPersistRef.current;
     return () => {
       abortRef.current?.abort();
       abortRef.current = null;
       streamingRef.current = false;
       cache.clear();
+      pending.clear();
       setIsStreaming(false);
       setMessages([]);
       setError(null);
@@ -828,6 +838,18 @@ export function useStyleChat(): UseStyleChatResult {
               // thread counts until the next manual refresh. Chain off
               // the persist promise so the refetch always sees the new
               // rows.
+              //
+              // G1 — Codex P2 round 5: also bookkeep the per-cacheKey
+              // pendingPersist counter so the hydration effect can
+              // distinguish this in-flight INSERT from a legitimate
+              // remote shrink. Increment before await, decrement in
+              // finally so a transient INSERT failure doesn't leak the
+              // pending count.
+              const persistKey = cacheKey(user.id, turnMode);
+              pendingPersistRef.current.set(
+                persistKey,
+                (pendingPersistRef.current.get(persistKey) ?? 0) + 1,
+              );
               void persistMessages(user.id, turnMode, [
                 { role: 'user', content: trimmed },
                 {
@@ -835,11 +857,17 @@ export function useStyleChat(): UseStyleChatResult {
                   content: finalContent || envelopeFallback,
                   stylistMeta: finalMeta,
                 },
-              ]).then(() => {
-                queryClient.invalidateQueries({
-                  queryKey: ['chatHistory', user.id],
+              ])
+                .then(() => {
+                  queryClient.invalidateQueries({
+                    queryKey: ['chatHistory', user.id],
+                  });
+                })
+                .finally(() => {
+                  const next = (pendingPersistRef.current.get(persistKey) ?? 1) - 1;
+                  if (next <= 0) pendingPersistRef.current.delete(persistKey);
+                  else pendingPersistRef.current.set(persistKey, next);
                 });
-              });
             }
             // Refresh the per-mode buffer cache with the just-completed
             // turn pair so a mode toggle away-and-back doesn't re-fetch.
