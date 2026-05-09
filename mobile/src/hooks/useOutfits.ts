@@ -329,6 +329,81 @@ export function useSaveOutfit() {
   });
 }
 
+/**
+ * G5: persist a freshly-generated outfit (StyleMe / MoodFlow) that has not
+ * been written to the DB yet. The web's `useOutfitGenerator` performs the
+ * outfits + outfit_items insert dance internally; mobile's
+ * `useGenerateOutfit` deliberately stays a "preview" hook (no persist),
+ * so this mutation is the persistence step screens call from their Save
+ * handler. Returns the new `outfit_id` so the screen can deep-link to
+ * `OutfitDetail` and stamp a `savedOutfitId` for "Saved ✓" state.
+ *
+ * Insert pattern mirrors `OutfitPoolScreen.persistDraft` (lines 124–142):
+ * single insert into `outfits` with `saved: true`, then bulk insert into
+ * `outfit_items` keyed on the new `outfit.id`. RLS scopes everything to
+ * the authenticated user; `user_id` is set explicitly for clarity.
+ *
+ * Cache invalidations match `useSaveOutfit` so the new row appears in the
+ * Outfits list, the wardrobe stats counter ticks, and the recent-outfits
+ * surfaces (G2) refresh.
+ */
+export function usePersistGeneratedOutfit() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation<
+    { outfitId: string },
+    Error,
+    {
+      occasion?: string | null;
+      explanation?: string | null;
+      familyLabel?: string | null;
+      items: { garment_id: string; slot: string }[];
+    }
+  >({
+    mutationFn: async ({ occasion, explanation, familyLabel, items }) => {
+      if (!user) throw new Error('Not authenticated');
+      if (items.length === 0) {
+        throw new Error('Cannot save an empty outfit');
+      }
+      const { data: outfit, error: insertErr } = await supabase
+        .from('outfits')
+        .insert({
+          user_id: user.id,
+          occasion: occasion ?? null,
+          explanation: explanation ?? '',
+          family_label: familyLabel ?? null,
+          saved: true,
+        })
+        .select('id')
+        .single();
+      if (insertErr) throw insertErr;
+      const outfitId = outfit.id;
+      const itemRows = items.map((item) => ({
+        outfit_id: outfitId,
+        garment_id: item.garment_id,
+        slot: item.slot,
+      }));
+      const { error: itemsErr } = await supabase.from('outfit_items').insert(itemRows);
+      if (itemsErr) throw itemsErr;
+      return { outfitId };
+    },
+    onSuccess: ({ outfitId }, { items }) => {
+      queryClient.invalidateQueries({ queryKey: ['outfits'] });
+      queryClient.invalidateQueries({ queryKey: ['outfit'] });
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      // Style Memory — same signal `useSaveOutfit` fires for the existing
+      // toggle path, so a freshly-saved generated outfit produces the same
+      // pair-memory bump as one saved from OutfitDetail.
+      const garmentIds = items.map((it) => it.garment_id).filter(Boolean);
+      void recordMemoryEvent(
+        saveOutfitEvent(outfitId, garmentIds, 'mobile/usePersistGeneratedOutfit'),
+      );
+    },
+    onError: captureMutationError('usePersistGeneratedOutfit'),
+  });
+}
+
 export function useDeleteOutfit() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
