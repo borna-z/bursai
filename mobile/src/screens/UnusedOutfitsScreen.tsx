@@ -66,6 +66,15 @@ export function UnusedOutfitsScreen() {
 
   const onRefresh = React.useCallback(() => void refetch(), [refetch]);
 
+  // M42 — id-keyed press handler (stable across parent re-renders) so
+  // the memoised cell row keeps its prop reference identity.
+  const handleGarmentPress = React.useCallback(
+    (id: string) => {
+      nav.navigate('GarmentDetail', { id });
+    },
+    [nav],
+  );
+
   const visible = React.useMemo(
     () => items.filter((g) => matchesFilter(g, filter)),
     [items, filter],
@@ -151,23 +160,12 @@ export function UnusedOutfitsScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
         renderItem={({ item }) => (
-          <View style={{ flex: 1 / 3 }}>
-            <GarmentCard
-              garment={{
-                id: item.id,
-                title: item.title,
-                category: item.category,
-                color_primary: item.color_primary,
-                wear_count: item.wear_count,
-                in_laundry: item.in_laundry,
-                rendered_image_path: item.rendered_image_path,
-                original_image_path: item.original_image_path,
-                created_at: item.created_at,
-              }}
-              onPress={() => nav.navigate('GarmentDetail', { id: item.id })}
-            />
-          </View>
+          <UnusedOutfitGarmentCell item={item} onPress={handleGarmentPress} />
         )}
+        // M42 — virtualization tuning. See WardrobeScreen.
+        removeClippedSubviews
+        windowSize={5}
+        initialNumToRender={12}
       />
       <View
         style={[
@@ -187,6 +185,35 @@ export function UnusedOutfitsScreen() {
     </SafeAreaView>
   );
 }
+
+// M42 — memoised cell. Same shape as WardrobeGarmentCell.
+const UnusedOutfitGarmentCell = React.memo(function UnusedOutfitGarmentCell({
+  item,
+  onPress,
+}: {
+  item: Garment;
+  onPress: (id: string) => void;
+}) {
+  const press = React.useCallback(() => onPress(item.id), [item.id, onPress]);
+  return (
+    <View style={{ flex: 1 / 3 }}>
+      <GarmentCard
+        garment={{
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          color_primary: item.color_primary,
+          wear_count: item.wear_count,
+          in_laundry: item.in_laundry,
+          rendered_image_path: item.rendered_image_path,
+          original_image_path: item.original_image_path,
+          created_at: item.created_at,
+        }}
+        onPress={press}
+      />
+    </View>
+  );
+});
 
 const s = StyleSheet.create({
   headerRow: {

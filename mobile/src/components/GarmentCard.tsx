@@ -68,7 +68,16 @@ function isRecent(createdAt: string | null | undefined): boolean {
   return Date.now() - ms < NEW_WINDOW_MS;
 }
 
-export function GarmentCard({
+// M42 — wrapped in `React.memo` so a parent re-render with stable
+// `garment` + `onPress` props doesn't re-render every visible card.
+// FlatList recycles items but still re-invokes `renderItem` on parent
+// re-renders (filter chip toggles, refetches) — without memo each visible
+// row pays the full layout/style cost. Caller responsibility: pass a
+// stable `onPress` (use `useCallback` with `id`-keyed parent handler;
+// see WardrobeScreen for the pattern).
+export const GarmentCard = React.memo(GarmentCardInner);
+
+function GarmentCardInner({
   garment,
   onPress,
   style,

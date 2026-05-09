@@ -127,11 +127,20 @@ export function OutfitsScreen() {
     </View>
   );
 
-  const renderCard = ({ item }: { item: OutfitWithItems }) => (
-    <OutfitListCard
-      outfit={item}
-      onPress={() => nav.navigate('OutfitDetail', { id: item.id })}
-    />
+  // M42 — id-keyed handler hoisted so the memoised OutfitListCard row
+  // doesn't see a fresh `onPress` reference on every parent re-render.
+  const handleOutfitPress = React.useCallback(
+    (id: string) => {
+      nav.navigate('OutfitDetail', { id });
+    },
+    [nav],
+  );
+
+  const renderCard = React.useCallback(
+    ({ item }: { item: OutfitWithItems }) => (
+      <OutfitListCard outfit={item} onPress={handleOutfitPress} />
+    ),
+    [handleOutfitPress],
   );
 
   // M27 — single overlay element shared across every return path so
@@ -253,6 +262,13 @@ export function OutfitsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} />
         }
         renderItem={renderCard}
+        // M42 — virtualization tuning. See WardrobeScreen for the
+        // rationale; outfit cards are heavier than garment cards (4
+        // signed-URL fetches per card) so trimming the mounted window
+        // matters more here.
+        removeClippedSubviews
+        windowSize={5}
+        initialNumToRender={6}
       />
     </SafeAreaView>
     {coachOverlay}
@@ -260,8 +276,18 @@ export function OutfitsScreen() {
   );
 }
 
-function OutfitListCard({ outfit, onPress }: { outfit: OutfitWithItems; onPress: () => void }) {
+// M42 — memoised so a parent re-render (filter chip toggle, refetch
+// settling) doesn't redraw every visible outfit card. The id-keyed
+// `onPress` keeps the prop reference stable across renders.
+const OutfitListCard = React.memo(function OutfitListCard({
+  outfit,
+  onPress,
+}: {
+  outfit: OutfitWithItems;
+  onPress: (id: string) => void;
+}) {
   const t = useTokens();
+  const handlePress = React.useCallback(() => onPress(outfit.id), [outfit.id, onPress]);
   const items = (outfit.outfit_items ?? []).slice(0, 4);
   const fillerCount = Math.max(0, 4 - items.length);
   const fallbackHue = outfitGradientHue(outfit.id);
@@ -278,7 +304,7 @@ function OutfitListCard({ outfit, onPress }: { outfit: OutfitWithItems; onPress:
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${name}${occasion ? `, ${occasion}` : ''}`}
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         s.card,
         {
@@ -335,7 +361,7 @@ function OutfitListCard({ outfit, onPress }: { outfit: OutfitWithItems; onPress:
       </View>
     </Pressable>
   );
-}
+});
 
 function CardThumb({
   item,
