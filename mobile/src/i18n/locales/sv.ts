@@ -1156,4 +1156,43 @@ export const sv: Record<string, string> = {
     'Your initial is shown for now. Photo uploads will land in a follow-up release.',
   'settings.profileEdit.error.title': 'Could not save',
   'settings.profileEdit.error.body': 'Please check your connection and try again.',
+
+  // ─── M38 — SettingsStyle 8-section editor ────────────────────────────────
+  // Append-only. English placeholders where translation needs final pass —
+  // N8 wave will translate. Keys mirror the section list in
+  // SettingsStyleScreen.tsx.
+  'settingsStyle.editor.section.archetype.title': 'Arketyp',
+  'settingsStyle.editor.section.formality.title': 'Formalitetsspann',
+  'settingsStyle.editor.section.palette.title': 'Färgpalett',
+  'settingsStyle.editor.section.fits.title': 'Passform',
+  'settingsStyle.editor.section.occasions.title': 'Tillfällen',
+  'settingsStyle.editor.section.vibes.title': 'Vibe',
+  'settingsStyle.editor.section.pattern.title': 'Mönster',
+  'settingsStyle.editor.section.disliked.title': 'Färger att undvika',
+  'settingsStyle.editor.archetype.help': 'Välj {min}-{max} arketyper som förankrar din stil.',
+  'settingsStyle.editor.formality.help':
+    'Ställ in den vardagliga lägstanivån och den uppklädda högstanivån för din garderob.',
+  'settingsStyle.editor.formality.floor': 'Lägstanivå',
+  'settingsStyle.editor.formality.ceiling': 'Högstanivå',
+  'settingsStyle.editor.formality.summaryTemplate': '{floor}% – {ceiling}%',
+  'settingsStyle.editor.palette.help': 'Välj upp till {max} färger du bär mest.',
+  'settingsStyle.editor.fits.help': 'Välj passformen du oftast väljer.',
+  'settingsStyle.editor.occasions.help': 'Markera alla tillfällen du klär dig för.',
+  'settingsStyle.editor.vibes.help': 'Välj tonen som bäst matchar din färgpalett.',
+  'settingsStyle.editor.pattern.help': 'Hur mycket mönster bär du faktiskt?',
+  'settingsStyle.editor.pattern.choice.love': 'Älskar mönster',
+  'settingsStyle.editor.pattern.choice.some': 'Lite mönster',
+  'settingsStyle.editor.pattern.choice.minimal': 'Minimalt',
+  'settingsStyle.editor.pattern.choice.solids_only': 'Endast enfärgat',
+  'settingsStyle.editor.disliked.help': 'Välj upp till {max} färger att undvika.',
+  'settingsStyle.editor.disliked.summaryTemplate': '{count} undvikna',
+  'settingsStyle.editor.apply.label': 'Tillämpa',
+  'settingsStyle.editor.apply.busy': 'Sparar…',
+  'settingsStyle.editor.saveAll.label': 'Spara alla',
+  'settingsStyle.editor.saveAll.busy': 'Sparar…',
+  'settingsStyle.editor.saveError.title': 'Kunde inte spara',
+  'settingsStyle.editor.saveError.body': 'Kunde inte spara dina ändringar. Försök igen.',
+  'settingsStyle.editor.saveError.retry': 'Försök igen',
+  'settingsStyle.editor.saveError.cancel': 'Avbryt',
+  'settingsStyle.editor.unsavedDot': 'Osparade ändringar',
 };

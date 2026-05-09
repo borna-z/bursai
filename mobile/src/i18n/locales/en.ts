@@ -1620,4 +1620,43 @@ export const en: Record<string, string> = {
     'Your initial is shown for now. Photo uploads will land in a follow-up release.',
   'settings.profileEdit.error.title': 'Could not save',
   'settings.profileEdit.error.body': 'Please check your connection and try again.',
+
+  // ─── M38 — SettingsStyle 8-section editor ────────────────────────────────
+  // Append-only. Each section heading + help copy + summary template. Apply
+  // / Save-all action labels. Keys mirror the SECTION_IDS literal-union in
+  // SettingsStyleScreen.tsx.
+  'settingsStyle.editor.section.archetype.title': 'Archetype',
+  'settingsStyle.editor.section.formality.title': 'Formality range',
+  'settingsStyle.editor.section.palette.title': 'Color palette',
+  'settingsStyle.editor.section.fits.title': 'Fits',
+  'settingsStyle.editor.section.occasions.title': 'Occasions',
+  'settingsStyle.editor.section.vibes.title': 'Vibes',
+  'settingsStyle.editor.section.pattern.title': 'Pattern comfort',
+  'settingsStyle.editor.section.disliked.title': 'Disliked colors',
+  'settingsStyle.editor.archetype.help': 'Pick {min}-{max} archetypes that anchor your style.',
+  'settingsStyle.editor.formality.help':
+    'Set the dressed-down floor and dressed-up ceiling for your wardrobe.',
+  'settingsStyle.editor.formality.floor': 'Floor',
+  'settingsStyle.editor.formality.ceiling': 'Ceiling',
+  'settingsStyle.editor.formality.summaryTemplate': '{floor}% – {ceiling}%',
+  'settingsStyle.editor.palette.help': 'Pick up to {max} colors you wear most.',
+  'settingsStyle.editor.fits.help': 'Choose the cut you reach for most often.',
+  'settingsStyle.editor.occasions.help': 'Tag every occasion you dress for.',
+  'settingsStyle.editor.vibes.help': 'Pick the tone that best fits your color palette.',
+  'settingsStyle.editor.pattern.help': 'How much pattern do you actually wear?',
+  'settingsStyle.editor.pattern.choice.love': 'Love patterns',
+  'settingsStyle.editor.pattern.choice.some': 'Some patterns',
+  'settingsStyle.editor.pattern.choice.minimal': 'Minimal',
+  'settingsStyle.editor.pattern.choice.solids_only': 'Solids only',
+  'settingsStyle.editor.disliked.help': 'Pick up to {max} colors to avoid.',
+  'settingsStyle.editor.disliked.summaryTemplate': '{count} avoided',
+  'settingsStyle.editor.apply.label': 'Apply',
+  'settingsStyle.editor.apply.busy': 'Saving…',
+  'settingsStyle.editor.saveAll.label': 'Save all',
+  'settingsStyle.editor.saveAll.busy': 'Saving…',
+  'settingsStyle.editor.saveError.title': "Couldn't save",
+  'settingsStyle.editor.saveError.body': "Couldn't save your changes. Try again.",
+  'settingsStyle.editor.saveError.retry': 'Retry',
+  'settingsStyle.editor.saveError.cancel': 'Cancel',
+  'settingsStyle.editor.unsavedDot': 'Unsaved changes',
 };
