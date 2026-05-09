@@ -29,11 +29,13 @@ export function IconBtn({
     }
   })();
   // N8 a11y — IconBtn defaults to 36pt which is below Apple's 44pt + Google's
-  // 48dp touch-target guidelines. Pad the press area by 8pt on every side
-  // so smaller circular buttons (Settings header back chevron, OutfitDetail
-  // close, AddPiece bottom-sheet dismiss, etc.) are reliably tappable
-  // without growing the visual chrome.
-  const hitSlopPad = Math.max(0, 8 - Math.max(0, (44 - size) / 2));
+  // 48dp touch-target guidelines. Pad the press area so the effective touch
+  // target reaches ≥ 44pt regardless of the visual size, with a baseline 8pt
+  // slop for buttons that already meet the threshold (so a 44pt button still
+  // gets 60pt of generous tap area). Smaller buttons (Settings header back
+  // chevron, OutfitDetail close, AddPiece bottom-sheet dismiss, etc.) become
+  // reliably tappable without growing the visual chrome.
+  const hitSlopPad = Math.max(8, Math.ceil((44 - size) / 2));
   return (
     <Pressable
       accessibilityRole="button"
