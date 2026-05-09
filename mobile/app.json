@@ -99,6 +99,12 @@
           "photosPermission": "BURS reads photos from your library so you can add garments to your wardrobe.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BURS uses your location to tailor outfits to local weather."
+        }
       ]
     ],
     "extra": {
