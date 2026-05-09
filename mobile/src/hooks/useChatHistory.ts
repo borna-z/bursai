@@ -35,13 +35,16 @@ interface ChatHistoryRow {
 const CHAT_HISTORY_LIMIT = 200;
 
 function normalizeMode(rawMode: string | null): StyleChatMode | null {
-  if (!rawMode) return 'style';
+  // Codex P2 round 2 on PR #789: only canonical mobile-side modes are
+  // surfaced. Web's legacy `stylist:<id>` ad-hoc subkey rows used to
+  // collapse into the Style bucket here, but the mobile hydrator
+  // selects strictly `.eq('mode', 'stylist')` — so tapping a synthetic
+  // legacy entry would have opened an empty thread. Returning null for
+  // legacy rows hides them from the sheet entirely; users on web who
+  // created them can still resume there. A future cross-device
+  // unification pass owns the `stylist:<id>` migration.
+  if (rawMode === 'stylist') return 'style';
   if (rawMode === 'shopping') return 'shopping';
-  // Web persists legacy threads under `stylist` and ad-hoc subkeys like
-  // `stylist:<id>`. Collapse anything stylist-shaped into the 'style'
-  // bucket so a cross-device user sees a single Style thread instead of
-  // a row per legacy session id.
-  if (rawMode === 'stylist' || rawMode.startsWith('stylist')) return 'style';
   return null;
 }
 

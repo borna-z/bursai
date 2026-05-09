@@ -29,10 +29,15 @@ export interface GarmentBasic {
 
 export function useGarmentsByIds(ids: readonly string[] | null | undefined) {
   const { user } = useAuth();
-  // Sort before joining so [a,b] and [b,a] share a cache entry. Matches
-  // the active_look cache-key pattern in StyleChatScreen.
+  // Codex P2 round 2 on PR #789: cache key preserves the requested
+  // order. Sorting collapsed [a,b] and [b,a] into one entry, which
+  // meant the second card rendered with the first card's ordering —
+  // breaking refine turns where the assistant reorders the same
+  // pieces. Order-preserving keys cost a separate cache entry per
+  // permutation but the wardrobe is small enough that the overhead is
+  // negligible.
   const safeIds = ids ? ids.filter((id) => typeof id === 'string' && id.length > 0) : [];
-  const cacheKey = [...safeIds].sort().join(',');
+  const cacheKey = safeIds.join(',');
 
   return useQuery<GarmentBasic[]>({
     queryKey: ['garmentsByIds', user?.id, cacheKey],
