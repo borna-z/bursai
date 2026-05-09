@@ -7,6 +7,29 @@
 // Animated.Value drives a sine-ish opacity loop between MIN and MAX over
 // PERIOD ms. native driver flag is on so the JS thread isn't taxed during
 // long lists. Stops on unmount via the standard cleanup contract.
+//
+// N3.5 (2026-05-09) — cleanup hardening for long-list virtualisation:
+//   • The cleanup arrow closes over the local `loop` const created by the
+//     same effect run, so an unmount synchronously stops the loop it
+//     started. The dep array is `[opacity]` (NOT `[]`) to satisfy
+//     `react-hooks/exhaustive-deps` without `eslint-disable` — `opacity` is
+//     `useRef(...).current` whose identity is stable for the component's
+//     lifetime, so the effect runs exactly once on mount and once on
+//     unmount even with the dep listed.
+//   • Cleanup explicitly stops the loop AND resets the opacity to MIN. RN's
+//     native animation driver doesn't always emit a final frame on `stop()`
+//     for in-flight timings; without `setValue(MIN)` the underlying value
+//     can be left at the in-progress interpolation point. (Defensive
+//     against future refactors that hoist `opacity` outside the component.)
+//   • Wrapped in `React.memo` because Shimmer renders inside `OutfitCard`'s
+//     `GarmentSlot`, which is itself rendered N times per outfit row in
+//     long lists (recent-outfits carousel, outfits screen, plan grid). The
+//     component takes a single optional `style` prop; both current call
+//     sites (`<Shimmer />` in OutfitCard.GarmentSlot and HomeScreen's
+//     RecentMosaicSlot) pass no style, so the default shallow-equal check
+//     short-circuits reliably. Future callers passing inline-object styles
+//     would defeat memo — pass a stable reference (`StyleSheet.create` or
+//     module-scope literal) if the perf matters at that call site.
 
 import React from 'react';
 import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
@@ -20,7 +43,7 @@ const MIN = 0.0;
 // fighting the photo that lands when the URL resolves.
 const MAX = 0.18;
 
-export function Shimmer({ style }: { style?: StyleProp<ViewStyle> }) {
+function ShimmerInner({ style }: { style?: StyleProp<ViewStyle> }) {
   const t = useTokens();
   const opacity = React.useRef(new Animated.Value(MIN)).current;
 
@@ -42,7 +65,21 @@ export function Shimmer({ style }: { style?: StyleProp<ViewStyle> }) {
       ]),
     );
     loop.start();
-    return () => loop.stop();
+    return () => {
+      // Stop the loop AND reset the value. `loop.stop()` halts the next
+      // frame's interpolation, but on the native driver an in-flight
+      // timing can still advance once before the stop propagates. Calling
+      // `setValue(MIN)` after stop snaps the value back to baseline so a
+      // future refactor that hoists `opacity` outside the component (e.g.
+      // for shared-shimmer perf) wouldn't see a stale non-zero value.
+      loop.stop();
+      opacity.setValue(MIN);
+    };
+    // `opacity` is `useRef(...).current` — identity stable for the lifetime
+    // of the component. PERIOD_MS / MIN / MAX are module-scope constants
+    // and don't change. We list `opacity` (not `[]`) to satisfy
+    // `react-hooks/exhaustive-deps` without an `eslint-disable`; because
+    // its identity never changes, the effect still runs exactly once.
   }, [opacity]);
 
   return (
@@ -63,3 +100,10 @@ export function Shimmer({ style }: { style?: StyleProp<ViewStyle> }) {
     />
   );
 }
+
+// Memoised so a parent re-render that doesn't change `style` identity
+// (the common case in long lists where the parent re-renders because a
+// sibling query settled) skips the Shimmer reconciliation. The default
+// shallow-equal check on `style` is correct here because callers pass
+// either `undefined` or a stable style object.
+export const Shimmer = React.memo(ShimmerInner);

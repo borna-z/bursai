@@ -21,6 +21,7 @@ import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { Shimmer } from '../components/Shimmer';
 import { SmartDayBanner } from '../components/SmartDayBanner';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { OccasionPicker, eventsForOccasion, type OccasionId } from '../components/OccasionPicker';
@@ -730,6 +731,15 @@ function OutfitThumb({
 // to `OutfitThumb`: same gradient + signed-URL <Image> recipe, no border or
 // label since four of these compose the recent-tile thumb rather than each
 // reading as a standalone garment card.
+//
+// G-008 (2026-05-09) — parity with `OutfitCard.GarmentSlot`: while the signed
+// URL is resolving we overlay a Shimmer pulse so a loading mosaic cell reads
+// differently from a permanently-broken one. Without this, a slow signed-URL
+// fetch (or transient 401 mid-retry) presented as a flat coloured tile
+// indistinguishable from a terminal failure. `useGarmentImage`'s `isResolving`
+// flag turns FALSE on every settled state (URL resolved, fetch errored after
+// retries, <Image> failed past retry budget) so the shimmer doesn't loop on
+// permanently-broken paths.
 function RecentMosaicSlot({
   item,
   fallbackHue,
@@ -739,8 +749,17 @@ function RecentMosaicSlot({
 }) {
   const garment = item?.garment ?? null;
   const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
+  const {
+    uri: imageUri,
+    onError: onImageError,
+    isResolving,
+  } = useGarmentImage(imagePath);
   const showImage = imageUri != null;
+  // Same gating as `OutfitCard.GarmentSlot`: only animate while the URL is
+  // actually in flight AND we don't yet have an image to show. An empty
+  // mosaic cell (no `item`, hence no `imagePath`) returns
+  // `isResolving === false` so it stays a plain gradient.
+  const resolving = isResolving && !showImage;
   const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
   return (
     <View style={{ flex: 1, overflow: 'hidden' }}>
@@ -758,6 +777,7 @@ function RecentMosaicSlot({
           resizeMode="cover"
         />
       ) : null}
+      {resolving ? <Shimmer /> : null}
     </View>
   );
 }
