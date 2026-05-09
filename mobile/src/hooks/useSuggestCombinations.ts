@@ -29,13 +29,25 @@ type SuggestCombinationsResponse = {
     garment_ids?: string[];
     explanation?: string;
     occasion?: string;
-    // `garments[]` hydrated rows are returned by the function but no
-    // longer consumed client-side (Codex P1.3 on PR #743 dropped the
-    // local slot taxonomy in favour of `slot: 'unknown'`). Kept untyped
-    // here so we don't fall out of sync with the function if it grows
-    // a wider hydration shape; consumers can switch to a typed accessor
-    // later if needed.
-    garments?: unknown[];
+    // Hydrated garment rows the edge function returns alongside ids.
+    // suggest_outfit_combinations selects:
+    //   id, title, category, subcategory, color_primary, material,
+    //   formality, last_worn_at, wear_count, image_path
+    // Codex P1.3 on PR #743 dropped the slot-taxonomy reading from these
+    // rows but still preserved the field server-side. PR #780 picks up
+    // `image_path` so OutfitDetailScreen can render real thumbnails for
+    // variations whose garments aren't in the currently-viewed outfit
+    // (Codex P2 on PR #780). Other fields stay unconsumed for now;
+    // a typed accessor can land when consumers need them.
+    garments?: {
+      id?: string;
+      // Legacy `garments.image_path` column. May be null for garments
+      // uploaded through the modern rendered_image_path / original_image_path
+      // pipeline — the edge function doesn't (yet) select those. Consumers
+      // that need a modern fallback should hydrate against the wardrobe
+      // cache (useFlatGarments) after this hint exhausts.
+      image_path?: string | null;
+    }[];
   }[];
   message?: string;
   error?: string;
@@ -145,9 +157,22 @@ export function useSuggestCombinations(): UseSuggestCombinationsResult {
           // `slot: 'unknown'` so consumers know to hydrate from the garment
           // row when slot context is needed (mirrors the optional-slot
           // contract `useCloneOutfitDNA` adopted alongside this fix).
+          //
+          // Codex P2 on PR #780 — also thread the hydrated `image_path`
+          // through so OutfitDetailScreen variations render real thumbnails
+          // even when the suggested garment isn't in the currently-viewed
+          // outfit's items. Build a map once per suggestion; each item
+          // looks up its own image_path or falls back to null (gradient).
+          const garmentImageMap = new Map<string, string | null>();
+          for (const g of sugg?.garments ?? []) {
+            if (typeof g?.id === 'string' && g.id.length > 0) {
+              garmentImageMap.set(g.id, g?.image_path ?? null);
+            }
+          }
           const items = ids.map((id) => ({
             slot: 'unknown',
             garment_id: id,
+            image_path: garmentImageMap.get(id) ?? null,
           }));
           drafts.push({
             draftId: makeDraftId(),

@@ -963,11 +963,21 @@ export function OutfitDetailScreen() {
                     const seedIds = draft.items
                       .map((it) => it.garment_id)
                       .filter((id): id is string => typeof id === 'string' && id.length > 0);
+                    // Codex P2 on PR #780 — variations can include garments
+                    // that aren't in the currently-viewed outfit
+                    // (suggest_outfit_combinations scores against the user's
+                    // full wardrobe). The hook now threads the edge
+                    // function's hydrated `image_path` per item; prefer that,
+                    // and only fall back to the current outfit's lookup map
+                    // when the engine didn't hydrate (clone-from-this drafts,
+                    // or any future variation source that omits hydration).
                     const cardItems = draft.items.map((it, i) => ({
                       id: it.garment_id ?? `${draft.draftId}-slot-${i}`,
-                      imagePath: it.garment_id
-                        ? outfitGarmentImageMap.get(it.garment_id) ?? null
-                        : null,
+                      imagePath:
+                        it.image_path
+                        ?? (it.garment_id
+                          ? outfitGarmentImageMap.get(it.garment_id) ?? null
+                          : null),
                     }));
                     return (
                       <View key={draft.draftId} style={{ width: 220 }}>
