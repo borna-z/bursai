@@ -1602,4 +1602,22 @@ export const en: Record<string, string> = {
   // OutfitPoolScreen — surface failed-draft names in the partial-save toast (F-009).
   'outfitPool.partialSaveBodyWithNames':
     "{failed} couldn't be saved — try again. Failed: {names}",
+
+  // ─── Settings · Edit profile (N3.9) ────────────────────────────────────
+  // Reached from SettingsAccount's Full Name row + avatar Edit Photo link.
+  // Pre-N3.9 those CTAs popped Coming Soon alerts — App Review blocker.
+  'settings.profileEdit.eyebrow': 'Settings',
+  'settings.profileEdit.title': 'Edit profile',
+  'settings.profileEdit.save': 'Save',
+  'settings.profileEdit.section.name': 'Name',
+  'settings.profileEdit.section.photo': 'Profile photo',
+  'settings.profileEdit.field.displayName': 'Display name',
+  'settings.profileEdit.field.displayName.placeholder': 'Your name',
+  'settings.profileEdit.field.displayName.helper':
+    'This is the name we show across the app — outfit cards, the home greeting, and your account.',
+  'settings.profileEdit.photo.deferred.title': 'Photo upload available in a future update',
+  'settings.profileEdit.photo.deferred.body':
+    'Your initial is shown for now. Photo uploads will land in a follow-up release.',
+  'settings.profileEdit.error.title': 'Could not save',
+  'settings.profileEdit.error.body': 'Please check your connection and try again.',
 };

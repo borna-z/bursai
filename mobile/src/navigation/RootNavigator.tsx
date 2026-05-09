@@ -85,6 +85,7 @@ import { SettingsAppearanceScreen } from '../screens/SettingsAppearanceScreen';
 import { SettingsStyleScreen } from '../screens/SettingsStyleScreen';
 import { SettingsNotificationsScreen } from '../screens/SettingsNotificationsScreen';
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen';
+import { SettingsProfileEditScreen } from '../screens/SettingsProfileEditScreen';
 import { SettingsPrivacyScreen } from '../screens/SettingsPrivacyScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 // M41: NotificationsScreen route hidden until inbox stream lands
@@ -284,6 +285,11 @@ export type RootStackParamList = {
   SettingsStyle: undefined;
   SettingsNotifications: undefined;
   SettingsAccount: undefined;
+  // N3.9 — display-name editor reachable from SettingsAccount's Full Name
+  // row + the avatar Edit Photo link. Pre-N3.9 those rows popped a
+  // "Coming Soon" alert, which Apple App Review flagged as a hard
+  // blocker for the launch build.
+  SettingsProfileEdit: undefined;
   SettingsPrivacy: undefined;
 
   // Profile / account / extras
@@ -615,6 +621,7 @@ export function RootNavigator() {
       <Stack.Screen name="SettingsStyle" component={SettingsStyleScreen} />
       <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsScreen} />
       <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
+      <Stack.Screen name="SettingsProfileEdit" component={SettingsProfileEditScreen} />
       <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
 
       {/* Profile / account / extras */}
