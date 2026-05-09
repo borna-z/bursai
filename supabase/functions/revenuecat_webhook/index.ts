@@ -84,6 +84,7 @@ import { CORS_HEADERS } from "../_shared/cors.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { setMonthlyAllowance } from "../_shared/render-credits.ts";
 import { captureWarning } from "../_shared/observability.ts";
+import { isRevenueCatEventStale } from "../_shared/rc-event-ordering.ts";
 import {
   enforceRateLimit,
   RateLimitError,
@@ -153,6 +154,20 @@ type SubscriptionsTable = {
   price_id: string | null;
   current_period_end: string | null;
   updated_at: string;
+  /**
+   * N2: id of the RC event that produced this row's most recent successful
+   * write. Set on every upsert/end-of-life from this webhook so the
+   * out-of-order guard can compare against authoritative event identity
+   * instead of `updated_at` (which is also rewritten by the CANCELLATION
+   * touch + sync path and so isn't a reliable ordering signal).
+   */
+  latest_revenuecat_event_id?: string | null;
+  /**
+   * N2: event_timestamp_ms of the RC event that produced the most recent
+   * successful write. Replaces `updated_at` as the staleness comparator
+   * inside `isStaleEvent`.
+   */
+  latest_revenuecat_event_timestamp_ms?: number | null;
 };
 
 type RevenueCatEvent = {
@@ -401,9 +416,21 @@ function classifyError(err: unknown): ErrorClassification {
  * re-throw. supabase-js returns `{ data, error }`; the error object has
  * `.code` (sqlstate or PGRSTxxx) and `.status` (HTTP). We need to round-
  * trip these through the throw boundary.
+ *
+ * N2: the raw `error.message` from PostgREST/Postgres can leak schema
+ * details (FK constraint names, conflicting row values, table/column
+ * identifiers) — see code-quality-2026-05-08 §3.2 B3 / FK-enumeration
+ * leak vector. The sanitized error message contains only the prefix and
+ * the SQLSTATE code; the original message is intentionally NOT preserved
+ * even on the synthetic Error so downstream `console.log`/`logStep`
+ * calls that stringify the thrown error can't surface it. Detailed
+ * diagnostics still flow to the structured `logStep("... failed", { ...
+ * code: error.code, error: error.message })` calls at each call site —
+ * those run BEFORE the `throw` and emit to Supabase Logs only.
  */
 function dbError(prefix: string, error: { message?: string; code?: string; status?: number }): Error {
-  const e = new Error(`${prefix}: ${error.message ?? "unknown"}`);
+  const codeStr = typeof error.code === "string" && error.code.length > 0 ? error.code : "unknown";
+  const e = new Error(`${prefix}: ${codeStr}`);
   // deno-lint-ignore no-explicit-any
   (e as any).code = error.code;
   // deno-lint-ignore no-explicit-any
@@ -451,21 +478,27 @@ function isStripeActivelyPaying(
   return status === "active" || status === "trialing";
 }
 
+/**
+ * Out-of-order guard. Thin wrapper over `isRevenueCatEventStale` from
+ * `_shared/rc-event-ordering.ts` — the comparator was extracted to a
+ * shared module so the unit tests (`__tests__/revenuecat-event-
+ * ordering.test.ts`) can import it without pulling in this file's
+ * `serve()` entrypoint.
+ *
+ * Compares the inbound `eventTimestampMs` against the row's
+ * `latest_revenuecat_event_timestamp_ms` (N2 — N1 used `updated_at`,
+ * which is also rewritten by CANCELLATION's touch path and the sync
+ * handler, so it's not a reliable ordering signal). Only RC-origin
+ * writes set this column, so a row last touched by Stripe has
+ * `latest_revenuecat_event_timestamp_ms IS NULL` and the inbound RC
+ * event always wins on the first crossover.
+ */
 async function isStaleEvent(
   client: SupabaseClient,
   userId: string,
   eventTimestampMs: number | null,
 ): Promise<boolean> {
-  if (eventTimestampMs === null) return false;
-  const { data } = await client
-    .from("subscriptions")
-    .select("updated_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!data || !data.updated_at) return false;
-  const currentMs = Date.parse(data.updated_at);
-  if (Number.isNaN(currentMs)) return false;
-  return eventTimestampMs < currentMs;
+  return await isRevenueCatEventStale(client, userId, eventTimestampMs);
 }
 
 async function upsertSubscriptionActive(
@@ -508,6 +541,13 @@ async function upsertSubscriptionActive(
 
   const periodEnd = parseExpirationMs(event.expiration_at_ms);
   const productId = typeof event.product_id === "string" ? event.product_id : null;
+  // N2: stamp the originating RC event id + timestamp so the
+  // out-of-order guard can compare against authoritative event identity
+  // on the next inbound mutation. `eventTimestampMs` may be null when
+  // the RC payload omits `event_timestamp_ms` — in that case we leave
+  // the column as-is (don't downgrade a previous valid timestamp to
+  // null) by omitting it from the partial.
+  const eventTimestampMs = deriveEventTimestampMs(event);
 
   // The codebase's `subscriptions.plan` column is 'free' | 'premium' (see
   // stripe_webhook). Granular monthly/yearly tracking lives in `price_id`,
@@ -520,7 +560,11 @@ async function upsertSubscriptionActive(
     current_period_end: periodEnd,
     stripe_mode: RC_STRIPE_MODE_MARKER,
     updated_at: new Date().toISOString(),
+    latest_revenuecat_event_id: eventId,
   };
+  if (eventTimestampMs !== null) {
+    row.latest_revenuecat_event_timestamp_ms = eventTimestampMs;
+  }
 
   const { error } = await client
     .from("subscriptions")
@@ -565,6 +609,7 @@ async function markSubscriptionEnded(
   userId: string,
   status: "canceled" | "past_due",
   eventId: string,
+  eventTimestampMs: number | null,
   correlationId: string,
 ): Promise<void> {
   // SELECT-before-write Stripe protection (mirrors the sync-path
@@ -592,15 +637,26 @@ async function markSubscriptionEnded(
   }
 
   const updatedAt = new Date().toISOString();
+  // N2: stamp event identity on every RC-origin write so the
+  // staleness guard on the next inbound mutation has an authoritative
+  // comparator. EXPIRATION/BILLING_ISSUE without a timestamp is
+  // accepted (legacy fixtures); we just leave the column unchanged in
+  // that case so we don't downgrade a previously-set valid timestamp
+  // to NULL.
+  const update: Partial<SubscriptionsTable> & { stripe_mode: string; updated_at: string } = {
+    status,
+    plan: "free",
+    stripe_mode: RC_STRIPE_MODE_MARKER,
+    updated_at: updatedAt,
+    latest_revenuecat_event_id: eventId,
+  };
+  if (eventTimestampMs !== null) {
+    update.latest_revenuecat_event_timestamp_ms = eventTimestampMs;
+  }
 
   const { error } = await client
     .from("subscriptions")
-    .update({
-      status,
-      plan: "free",
-      stripe_mode: RC_STRIPE_MODE_MARKER,
-      updated_at: updatedAt,
-    })
+    .update(update)
     .eq("user_id", userId);
 
   if (error) {
@@ -816,7 +872,7 @@ async function handleEvent(
           continue;
         }
         try {
-          await markSubscriptionEnded(client, originalId, "canceled", eventId, correlationId);
+          await markSubscriptionEnded(client, originalId, "canceled", eventId, eventTimestampMs, correlationId);
           logStep("TRANSFER: ended origin subscription", { originalId }, correlationId);
         } catch (err) {
           // Don't fail the whole event if the origin row doesn't exist
@@ -837,10 +893,20 @@ async function handleEvent(
       // We DO NOT downgrade plan here. RevenueCat sends EXPIRATION when
       // the entitlement actually lapses.
       logStep("Cancellation received — keeping active until expiration", { userId }, correlationId);
-      // Touch updated_at so observers see the event landed.
+      // Touch updated_at so observers see the event landed. N2: also
+      // stamp event identity so the staleness guard sees this as the
+      // most-recent RC mutation; without it a delayed RENEWAL with an
+      // earlier event_timestamp_ms could re-activate after a TRANSFER.
+      const cancellationTouch: Partial<SubscriptionsTable> & { updated_at: string } = {
+        updated_at: new Date().toISOString(),
+        latest_revenuecat_event_id: eventId,
+      };
+      if (eventTimestampMs !== null) {
+        cancellationTouch.latest_revenuecat_event_timestamp_ms = eventTimestampMs;
+      }
       const { error } = await client
         .from("subscriptions")
-        .update({ updated_at: new Date().toISOString() })
+        .update(cancellationTouch)
         .eq("user_id", userId);
       if (error) {
         logStep("Cancellation touch failed", { userId, error: error.message, code: error.code }, correlationId);
@@ -850,12 +916,12 @@ async function handleEvent(
     }
     case "EXPIRATION": {
       logStep("Expiration event", { userId }, correlationId);
-      await markSubscriptionEnded(client, userId, "canceled", eventId, correlationId);
+      await markSubscriptionEnded(client, userId, "canceled", eventId, eventTimestampMs, correlationId);
       break;
     }
     case "BILLING_ISSUE": {
       logStep("Billing issue event", { userId }, correlationId);
-      await markSubscriptionEnded(client, userId, "past_due", eventId, correlationId);
+      await markSubscriptionEnded(client, userId, "past_due", eventId, eventTimestampMs, correlationId);
       break;
     }
     case "TEST":
