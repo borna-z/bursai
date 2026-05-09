@@ -395,7 +395,26 @@ export function useStyleChat(): UseStyleChatResult {
       }
       const rows = (data ?? []) as StoredRow[];
       const parsed = rows.map((row, idx) => parseStoredMessage(row, idx));
-      messageCacheRef.current.set(cacheKey(userId, currentMode), parsed);
+      // Codex P2 round 4 on PR #789: don't overwrite a fresher cached
+      // buffer with a stale SELECT. After sendMessage settles we
+      // optimistically update the cache while the persistMessages
+      // INSERT is still in flight; if the user toggles modes quickly
+      // (away → back) before the INSERT lands, this SELECT returns the
+      // pre-turn row set and would otherwise wipe the just-completed
+      // assistant reply until a manual refresh. The cache only ever
+      // grows monotonically per turn, so a "cache has more settled
+      // messages than DB returned" comparison reliably detects this
+      // race. We still update the cache + visible state when the DB
+      // wins on count (cross-device append, explicit refetch, etc.).
+      const cacheKeyStr = cacheKey(userId, currentMode);
+      const cachedNow = messageCacheRef.current.get(cacheKeyStr);
+      const cachedCount = cachedNow?.length ?? 0;
+      if (cachedCount > parsed.length) {
+        // Stale SELECT — keep what the cache already has, don't paint.
+        setIsHydrating(false);
+        return;
+      }
+      messageCacheRef.current.set(cacheKeyStr, parsed);
       setMessages(parsed);
       setIsHydrating(false);
     })();
