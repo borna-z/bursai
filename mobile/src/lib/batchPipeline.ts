@@ -22,7 +22,7 @@
 //
 // Concurrency guard: MAX_PARALLEL = 2. Higher would overwhelm the
 // analyze_garment 8/min rate limit on a quick batch of 5+ photos and stress
-// the device's bandwidth + memory (each resize allocates a fresh JPEG buffer).
+// the device's bandwidth + memory (each resize allocates a fresh WebP buffer).
 //
 // Per-item state machine:
 //   pending → in_flight (resize+upload+analyze running) →
@@ -43,9 +43,14 @@
 
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../lib/garmentSave';
-import { resizeForGarment, uploadManipulatedImage, deleteUpload } from './imageUpload';
+import {
+  resizeForGarment,
+  uploadManipulatedImage,
+  deleteUpload,
+  GARMENT_IMAGE_MIME,
+} from './imageUpload';
 
-// Concurrency cap. A typical resize+upload of a 1200px JPEG runs ~1.5-3s —
+// Concurrency cap. A typical resize+upload of a 1024px WebP runs ~1-2s —
 // running 2 in parallel keeps the user's "items ready" pool ahead of their
 // review pace without spiking. Bumped to 3 only when batch length ≤3 so a
 // 3-photo batch finishes all of the analyze work concurrently. The bigger
@@ -416,8 +421,10 @@ function runItem(batch: Batch, item: BatchItem): void {
       // promise we re-await below still rejects/resolves identically.
       uploadP.catch(() => {});
 
+      // MIME prefix tracks `GARMENT_IMAGE_MIME` so analyze sees the actual
+      // encoded format (N6 switched the encoder to WebP).
       const base64 = resized.base64
-        ? `data:image/jpeg;base64,${resized.base64}`
+        ? `data:${GARMENT_IMAGE_MIME};base64,${resized.base64}`
         : null;
 
       let analysis: AnalysisResult | null = null;

@@ -53,6 +53,7 @@ import {
   resizeForGarment,
   uploadManipulatedImage,
   deleteUpload,
+  GARMENT_IMAGE_MIME,
 } from '../lib/imageUpload';
 import {
   dropPendingUpload,
@@ -266,8 +267,10 @@ export function AddPieceStep2() {
       // returns just the raw base64 string, but the edge function's image_url
       // contract takes a data URL. Web sends the FileReader.readAsDataURL output
       // directly so it includes the prefix; we replicate that for parity.
+      // The MIME prefix tracks `GARMENT_IMAGE_MIME` so analyze sees the same
+      // format the encoder actually produced (N6 switched from JPEG to WebP).
       const base64 = resized.base64
-        ? `data:image/jpeg;base64,${resized.base64}`
+        ? `data:${GARMENT_IMAGE_MIME};base64,${resized.base64}`
         : null;
       if (!base64) {
         // ImageManipulator promised a base64 — if it's missing, fall back to the

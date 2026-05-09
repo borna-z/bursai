@@ -77,10 +77,11 @@ export type AnalyzeStatus = number | null;
  * - storagePath: file already uploaded to the garments bucket — slower path
  *   (edge function generates a signed URL before forwarding to Gemini) but works
  *   for re-analyze flows where the file already lives on the server.
- * - base64: raw data URL (`data:image/jpeg;base64,...`). Lets the analyze call
+ * - base64: raw data URL (`data:image/webp;base64,...`). Lets the analyze call
  *   start before upload completes — main parallel-flow optimisation in PR 1.
- *   Edge function caps incoming base64 at 5MB; mobile resizer (1200px JPEG q=0.85)
- *   stays comfortably under that.
+ *   Edge function caps incoming base64 at 5MB; mobile resizer (1024px WebP q=0.85,
+ *   matching web's `compressImage`) stays comfortably under that — typical photo
+ *   lands ~150-300 KB versus ~400-700 KB on the prior 1200px JPEG. N6 (W-PERF1).
  */
 export type AnalyzeInput = { storagePath: string } | { base64: string };
 
