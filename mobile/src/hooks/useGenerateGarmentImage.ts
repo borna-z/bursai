@@ -73,9 +73,15 @@ export function useGenerateGarmentImage() {
       // query and leaves the screen showing the stale row until manual
       // refetch / remount. Mirror useAssessCondition (line 229) and
       // useRenderJobStatus (lines 155, 216).
+      //
+      // Self-review round 1 — the prior `['signedUrl', garmentId]`
+      // invalidate was a no-op: useSignedUrl keys with
+      // ['signed-url', BUCKET, path] (useSignedUrl.ts:83). Once the
+      // garment refetch lands the new image_path, useSignedUrl picks a
+      // fresh query key and the previous null-path cache entry is
+      // unreachable. No explicit signed-url invalidate needed.
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
-      queryClient.invalidateQueries({ queryKey: ['signedUrl', garmentId] });
     },
     onError: (err: unknown) => {
       // Don't ship the paywall sentinel to Sentry — it's a controlled flow
