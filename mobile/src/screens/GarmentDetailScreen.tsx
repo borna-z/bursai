@@ -118,7 +118,20 @@ export function GarmentDetailScreen() {
   const id = route.params?.id;
 
   const { data: garment, isLoading, isError, refetch } = useGarment(id);
-  const heroPath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  // Codex P1 round 1 on PR #816 — N12's `generate_garment_images` writes
+  // the new asset to `garments.image_path` (see edge function line ~110),
+  // distinct from the studio render's `rendered_image_path` and the
+  // original-photo `original_image_path`. Without `image_path` in the
+  // resolution chain, a successful AI generation lands the row update
+  // but the hero stays on the gradient placeholder and the "Generate
+  // image" CTA never disappears. Order: studio render wins (post-N1
+  // pipeline output), then user's original photo, then the AI-generated
+  // catalog fallback for manual-entry rescue.
+  const heroPath =
+    garment?.rendered_image_path ??
+    garment?.original_image_path ??
+    garment?.image_path ??
+    null;
   const { data: heroUrl } = useSignedUrl(heroPath);
 
   // Studio-render polling. The hook only ticks while `render_status` is active
@@ -182,16 +195,28 @@ export function GarmentDetailScreen() {
   //      the modal for an explicit retap.
   // Both are needed: lifecycle-only would miss in-place transitions;
   // effect-only would miss the dismiss-without-change path.
+  // Codex P2 round 1 on PR #816 — the latch tracks the paywall sentinel
+  // from BOTH AI surfaces on this screen: condition assessment AND the
+  // N12 generate-image rescue. Either hook hitting a 402 surfaces
+  // SUBSCRIPTION_SENTINEL, and the latch routes to PaywallScreen once
+  // per screen lifetime (released on focus regain or when both hooks
+  // move off the sentinel). Without the second source, locked-tier users
+  // tapping "Generate image" got a silent mutation failure.
+  const generateImageError =
+    generateImage.error instanceof Error ? generateImage.error.message : null;
+  const paywallSentinelHit =
+    assessError === SUBSCRIPTION_SENTINEL ||
+    generateImageError === SUBSCRIPTION_SENTINEL;
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
-    if (assessError === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
+    if (paywallSentinelHit && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
-    if (assessError !== SUBSCRIPTION_SENTINEL && paywallShownRef.current) {
+    if (!paywallSentinelHit && paywallShownRef.current) {
       paywallShownRef.current = false;
     }
-  }, [assessError, nav]);
+  }, [paywallSentinelHit, nav]);
   useFocusEffect(
     React.useCallback(() => {
       paywallShownRef.current = false;

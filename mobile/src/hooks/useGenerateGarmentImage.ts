@@ -19,8 +19,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
-import { callEdgeFunction } from '../lib/edgeFunctionClient';
-import { captureMutationError } from '../lib/sentry';
+import {
+  callEdgeFunction,
+  EdgeFunctionSubscriptionLockedError,
+  SUBSCRIPTION_SENTINEL,
+} from '../lib/edgeFunctionClient';
+import { Sentry } from '../lib/sentry';
 
 type GenerateGarmentImageResult = {
   id: string;
@@ -40,24 +44,49 @@ export function useGenerateGarmentImage() {
   return useMutation({
     mutationFn: async (garmentId: string) => {
       if (!user) throw new Error('Not authenticated');
-      const data = await callEdgeFunction<GenerateGarmentImagesResponse>(
-        'generate_garment_images',
-        { body: { garment_ids: [garmentId] } },
-      );
-      const result = data?.results?.[0];
-      if (!result?.success) {
-        throw new Error(result?.error || data?.error || 'Image generation failed');
+      try {
+        const data = await callEdgeFunction<GenerateGarmentImagesResponse>(
+          'generate_garment_images',
+          { body: { garment_ids: [garmentId] } },
+        );
+        const result = data?.results?.[0];
+        if (!result?.success) {
+          throw new Error(result?.error || data?.error || 'Image generation failed');
+        }
+        return result;
+      } catch (err) {
+        // Codex P2 round 1 on PR #816 — the wrapper raises
+        // EdgeFunctionSubscriptionLockedError on a 402; surface it as the
+        // shared SUBSCRIPTION_SENTINEL so GarmentDetailScreen's existing
+        // paywall effect can route to PaywallScreen instead of leaving the
+        // mutation to fail silently. Mirrors useAssessCondition's pattern.
+        if (err instanceof EdgeFunctionSubscriptionLockedError) {
+          throw new Error(SUBSCRIPTION_SENTINEL);
+        }
+        throw err;
       }
-      return result;
     },
     onSuccess: (_data, garmentId) => {
-      // Same invalidation set as useAddGarment — the new path lives on the
-      // garment row, and any cached signed URL for the previous (empty)
-      // path needs to fall through to the next signed-URL fetch.
+      // Codex P2 round 1 on PR #816 — useGarment keys rows as
+      // ['garment', user?.id, id] (see useGarments.ts:138), not
+      // ['garment', id]; an unscoped invalidation misses the active detail
+      // query and leaves the screen showing the stale row until manual
+      // refetch / remount. Mirror useAssessCondition (line 229) and
+      // useRenderJobStatus (lines 155, 216).
       queryClient.invalidateQueries({ queryKey: ['garments'] });
-      queryClient.invalidateQueries({ queryKey: ['garment', garmentId] });
+      queryClient.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
       queryClient.invalidateQueries({ queryKey: ['signedUrl', garmentId] });
     },
-    onError: captureMutationError('useGenerateGarmentImage'),
+    onError: (err: unknown) => {
+      // Don't ship the paywall sentinel to Sentry — it's a controlled flow
+      // signal, not a real failure. Same shape as useAddGarment's
+      // OfflineQueuedError swallow.
+      const message = err instanceof Error ? err.message : '';
+      if (message === SUBSCRIPTION_SENTINEL) return;
+      Sentry.withScope((s) => {
+        s.setTag('mutation', 'useGenerateGarmentImage');
+        Sentry.captureException(err);
+      });
+    },
   });
 }
