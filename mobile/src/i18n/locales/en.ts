@@ -1849,4 +1849,38 @@ export const en: Record<string, string> = {
   // Bell icon in HomeScreen header — entry point to NotificationsScreen.
   // Codex P1 follow-up on PR #809: route was wired but unreachable.
   'home.notifications.aria': 'Open notifications',
+
+  // ============ N3b — Alert→toast sweep + EditGarment cancel-confirm i18n ============
+  // New keys appended below; existing keys above are unchanged. Append-only.
+
+  // OutfitDetail toast copy (transient errors that previously rendered as
+  // English-literal Alert.alert dialogs).
+  'outfitDetail.toast.couldNotAddAccessory': 'Could not add accessory',
+  'outfitDetail.toast.couldNotSaveAnchor': 'Could not save anchor',
+  'outfitDetail.toast.couldNotSwap': 'Could not swap',
+  'outfitDetail.toast.couldNotRemove': 'Could not remove',
+  'outfitDetail.toast.couldNotSaveNote': 'Could not save note',
+
+  // OutfitGenerate — informational placeholder ("real saving lands later").
+  'outfitGenerate.toast.savedAsPreview.title': 'Saved as preview',
+  'outfitGenerate.toast.savedAsPreview.body':
+    'Persistent saving lands in a future update. For now this is a preview.',
+
+  // Wardrobe wishlist tile — informational placeholder.
+  'wardrobe.wishlist.comingSoon.title': 'Coming soon',
+  'wardrobe.wishlist.comingSoon.body': 'Wishlist feature coming soon.',
+
+  // EditGarment cancel-confirm (N9 deferral folded in here per the N3b
+  // brief). KEEP as Alert.alert: discard-vs-keep is a destructive choice.
+  'editGarment.cancel.confirm.title': 'Discard changes?',
+  'editGarment.cancel.confirm.body': 'You have unsaved edits to this piece.',
+  'editGarment.cancel.confirm.keep': 'Keep editing',
+  'editGarment.cancel.confirm.discard': 'Discard',
+
+  // EditGarment validation + transient errors (toasts).
+  'editGarment.invalidPrice.title': 'Invalid price',
+  'editGarment.invalidPrice.body': 'Price must be a non-negative number.',
+  'editGarment.saveFailed.title': 'Save failed',
+  'editGarment.saveFailed.fallback': 'Could not save changes. Try again.',
+  'editGarment.deleteFailed.title': 'Delete failed',
 };

@@ -23,6 +23,7 @@ import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { useStyleDNA } from '../hooks/useStyleDNA';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
 import { t as tr, useTranslation, type Locale } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import {
   GlobeIcon,
   PaletteIcon,
@@ -98,14 +99,18 @@ export function SettingsScreen() {
     resetMemory.mutate(undefined, {
       onSuccess: () => {
         setResetOpen(false);
-        Alert.alert(
+        // N3b — TypedConfirmModal already gated entry; success is a
+        // non-blocking confirmation toast.
+        showToast(
+          'success',
           tr('settings.reset_memory.success.title'),
           tr('settings.reset_memory.success.body'),
         );
       },
       onError: (err) => {
         setResetOpen(false);
-        Alert.alert(
+        showToast(
+          'error',
           tr('settings.reset_memory.title'),
           err instanceof Error ? err.message : tr('settings.reset_memory.error'),
         );
@@ -194,7 +199,13 @@ export function SettingsScreen() {
             value={LOCALE_LABELS[locale] ?? LOCALE_LABELS.en}
             last
             onPress={() =>
-              Alert.alert(tr('settings.languageAlert.title'), tr('settings.languageAlert.body'))
+              // N3b — purely informational ("locale follows system");
+              // toast lets the user keep navigating.
+              showToast(
+                'info',
+                tr('settings.languageAlert.title'),
+                tr('settings.languageAlert.body'),
+              )
             }
           />
         </Section>

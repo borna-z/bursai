@@ -1738,4 +1738,31 @@ export const sv: Record<string, string> = {
   'share.outfit.error.body': 'Något stoppade delningsmenyn. Försök igen.',
 
   'home.notifications.aria': 'Öppna aviseringar',
+
+  // ============ N3b — Alert→toast sweep + EditGarment cancel-confirm i18n ============
+  // Nya nycklar tillagda nedan; befintliga nycklar ovan är oförändrade. Append-only.
+
+  'outfitDetail.toast.couldNotAddAccessory': 'Kunde inte lägga till accessoar',
+  'outfitDetail.toast.couldNotSaveAnchor': 'Kunde inte spara ankare',
+  'outfitDetail.toast.couldNotSwap': 'Kunde inte byta',
+  'outfitDetail.toast.couldNotRemove': 'Kunde inte ta bort',
+  'outfitDetail.toast.couldNotSaveNote': 'Kunde inte spara anteckning',
+
+  'outfitGenerate.toast.savedAsPreview.title': 'Sparad som förhandsvisning',
+  'outfitGenerate.toast.savedAsPreview.body':
+    'Permanent sparning kommer i en framtida uppdatering. Tills vidare är detta en förhandsvisning.',
+
+  'wardrobe.wishlist.comingSoon.title': 'Kommer snart',
+  'wardrobe.wishlist.comingSoon.body': 'Önskelistan kommer snart.',
+
+  'editGarment.cancel.confirm.title': 'Vill du kasta ändringarna?',
+  'editGarment.cancel.confirm.body': 'Du har osparade ändringar för det här plagget.',
+  'editGarment.cancel.confirm.keep': 'Fortsätt redigera',
+  'editGarment.cancel.confirm.discard': 'Kasta',
+
+  'editGarment.invalidPrice.title': 'Ogiltigt pris',
+  'editGarment.invalidPrice.body': 'Priset måste vara ett icke-negativt tal.',
+  'editGarment.saveFailed.title': 'Sparning misslyckades',
+  'editGarment.saveFailed.fallback': 'Kunde inte spara ändringarna. Försök igen.',
+  'editGarment.deleteFailed.title': 'Radering misslyckades',
 };

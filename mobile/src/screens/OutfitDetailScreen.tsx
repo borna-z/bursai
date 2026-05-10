@@ -56,6 +56,7 @@ import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import { useUpsertPlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useGarmentImage } from '../hooks/useSignedUrl';
 import { useNow } from '../hooks/useNow';
@@ -337,9 +338,11 @@ export function OutfitDetailScreen() {
           s.setTag('mutation', 'OutfitDetailScreen.addAccessory');
           Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
         });
-        Alert.alert(
-          'Could not add accessory',
-          err instanceof Error ? err.message : 'Please try again.',
+        // N3b — transient error, user can retry the same gesture; toast.
+        showToast(
+          'error',
+          tr('outfitDetail.toast.couldNotAddAccessory'),
+          err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
         );
       } finally {
         setAddingAccessoryId(null);
@@ -411,9 +414,11 @@ export function OutfitDetailScreen() {
           message: 'OutfitDetail: anchor write failed',
           data: { error: err instanceof Error ? err.message : String(err) },
         });
-        Alert.alert(
-          'Could not save anchor',
-          err instanceof Error ? err.message : 'Please try again.',
+        // N3b — non-blocking; user can re-pick the anchor.
+        showToast(
+          'error',
+          tr('outfitDetail.toast.couldNotSaveAnchor'),
+          err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
         );
       }
     },
@@ -467,9 +472,11 @@ export function OutfitDetailScreen() {
         }
         setSwapTarget(null);
       } catch (err) {
-        Alert.alert(
-          'Could not swap',
-          err instanceof Error ? err.message : 'Please try again.',
+        // N3b — non-blocking; user can re-attempt the swap.
+        showToast(
+          'error',
+          tr('outfitDetail.toast.couldNotSwap'),
+          err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
         );
       }
     },
@@ -520,9 +527,12 @@ export function OutfitDetailScreen() {
                     err instanceof Error ? err : new Error(String(err)),
                   );
                 });
-                Alert.alert(
-                  'Could not remove',
-                  err instanceof Error ? err.message : 'Please try again.',
+                // N3b — non-blocking error; the destructive confirm
+                // already gated entry. User can retry.
+                showToast(
+                  'error',
+                  tr('outfitDetail.toast.couldNotRemove'),
+                  err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
                 );
               }
             },
@@ -576,10 +586,16 @@ export function OutfitDetailScreen() {
         // day-level idempotency check (Codex P2 round 10 on PR #738).
         onSuccess: (data) => {
           if (data?.deduped) return;
-          Alert.alert(tr('outfit.actions.markedWorn.title'), tr('outfit.actions.markedWorn.body'));
+          // N3b — non-blocking confirmation.
+          showToast(
+            'success',
+            tr('outfit.actions.markedWorn.title'),
+            tr('outfit.actions.markedWorn.body'),
+          );
         },
         onError: (err: unknown) =>
-          Alert.alert(
+          showToast(
+            'error',
             tr('outfit.actions.couldNotMarkWorn.title'),
             err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
@@ -600,7 +616,8 @@ export function OutfitDetailScreen() {
       { outfitId: outfit.id, garmentIds },
       {
         onError: (err: unknown) =>
-          Alert.alert(
+          showToast(
+            'error',
             tr('outfit.actions.couldNotSave.title'),
             err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
@@ -614,9 +631,15 @@ export function OutfitDetailScreen() {
       { date: localISODate(now), outfitId: outfit.id },
       {
         onSuccess: () =>
-          Alert.alert(tr('outfit.actions.added.title'), tr('outfit.actions.added.body')),
+          // N3b — non-blocking confirmation.
+          showToast(
+            'success',
+            tr('outfit.actions.added.title'),
+            tr('outfit.actions.added.body'),
+          ),
         onError: (err: unknown) =>
-          Alert.alert(
+          showToast(
+            'error',
             tr('outfit.actions.couldNotAddPlan.title'),
             err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
@@ -639,7 +662,8 @@ export function OutfitDetailScreen() {
     try {
       await shareOutfit({ outfitId: outfit.id, name: displayName });
     } catch {
-      Alert.alert(tr('share.outfit.error.title'), tr('share.outfit.error.body'));
+      // N3b — non-blocking; user can re-tap share.
+      showToast('error', tr('share.outfit.error.title'), tr('share.outfit.error.body'));
     }
   }, [outfit, shareOutfit]);
 
@@ -653,8 +677,11 @@ export function OutfitDetailScreen() {
         onPress: () => {
           deleteOutfit.mutate(outfit.id, {
             onSuccess: () => nav.goBack(),
+            // N3b — confirm dialog above is the action choice; failure
+            // becomes a non-blocking toast so the user can retry.
             onError: (err: unknown) =>
-              Alert.alert(
+              showToast(
+                'error',
                 tr('outfit.actions.couldNotDelete.title'),
                 err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
               ),
@@ -1125,9 +1152,14 @@ export function OutfitDetailScreen() {
                       { outfitId: outfit.id, note: notes },
                       {
                         onError: (err: unknown) =>
-                          Alert.alert(
-                            'Could not save note',
-                            err instanceof Error ? err.message : 'Please try again.',
+                          // N3b — non-blocking; the note input stays
+                          // visible so the user can retry the save.
+                          showToast(
+                            'error',
+                            tr('outfitDetail.toast.couldNotSaveNote'),
+                            err instanceof Error
+                              ? err.message
+                              : tr('common.alerts.tryAgain'),
                           ),
                       },
                     );

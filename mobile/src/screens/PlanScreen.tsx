@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
@@ -220,10 +221,16 @@ export function PlanScreen() {
         // day-level idempotency check (Codex P2 round 10 on PR #738).
         onSuccess: (data) => {
           if (data?.deduped) return;
-          Alert.alert(tr('outfit.actions.markedWorn.title'), tr('outfit.actions.markedWorn.body'));
+          // N3b — non-blocking confirmation.
+          showToast(
+            'success',
+            tr('outfit.actions.markedWorn.title'),
+            tr('outfit.actions.markedWorn.body'),
+          );
         },
         onError: (err: unknown) =>
-          Alert.alert(
+          showToast(
+            'error',
             tr('outfit.actions.couldNotMarkWorn.title'),
             err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
           ),
@@ -253,11 +260,18 @@ export function PlanScreen() {
                 try {
                   await weekPlansQ.refetch();
                 } finally {
-                  Alert.alert(tr('plan.clearPlan.success.title'), tr('plan.clearPlan.success.body'));
+                  // N3b — confirm dialog above is the action gate;
+                  // success here is non-blocking confirmation.
+                  showToast(
+                    'success',
+                    tr('plan.clearPlan.success.title'),
+                    tr('plan.clearPlan.success.body'),
+                  );
                 }
               },
               onError: (err: unknown) =>
-                Alert.alert(
+                showToast(
+                  'error',
                   tr('plan.clearPlan.error.title'),
                   err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
                 ),

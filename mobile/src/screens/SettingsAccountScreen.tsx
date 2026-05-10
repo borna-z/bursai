@@ -23,6 +23,7 @@ import { useDeleteAccount } from '../hooks/useDeleteAccount';
 import { useRestorePurchases } from '../hooks/useRestorePurchases';
 import { useCalendarSync } from '../hooks/useCalendarSync';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -55,7 +56,9 @@ export function SettingsAccountScreen() {
             style: 'destructive',
             onPress: () => {
               calendar.disconnectGoogle().catch(() => {
-                Alert.alert(
+                // N3b — confirmation above gated entry; failure is a toast.
+                showToast(
+                  'error',
                   tr('settings.calendar.error.title'),
                   tr('settings.calendar.error.body'),
                 );
@@ -117,13 +120,11 @@ export function SettingsAccountScreen() {
     restore.mutate(undefined, {
       onSuccess: (result) => {
         if (result.status === 'restored') {
-          // Settings stays mounted — no nav.goBack() (unlike the paywall
-          // path) since the user is already on a non-modal account screen
-          // and may want to verify the change in-place.
-          Alert.alert(
+          // N3b — Settings stays mounted; non-blocking confirmation toast.
+          showToast(
+            'success',
             tr('paywall.restored'),
             tr('paywall.restored.body'),
-            [{ text: tr('paywall.restore.alertOk') }],
           );
           return;
         }
@@ -133,21 +134,21 @@ export function SettingsAccountScreen() {
           // poll window. Mirror the purchase 'pending' UX so the user
           // sees "activating" rather than a misleading success that
           // leaves them still gated.
-          Alert.alert(
+          showToast(
+            'info',
             tr('paywall.activating.title'),
             tr('paywall.activating.body'),
-            [{ text: tr('paywall.restore.alertOk') }],
           );
           return;
         }
         // 'no_purchases' (legitimate empty state) and 'unsupported'
         // (web / simulator / missing API key, or sign-out-mid-flight
-        // short-circuit) collapse to the same alert. Real transport
+        // short-circuit) collapse to the same toast. Real transport
         // errors land in onError instead.
-        Alert.alert(
+        showToast(
+          'info',
           tr('paywall.restoreNoPurchases.title'),
           tr('paywall.restoreNoPurchases.body'),
-          [{ text: tr('paywall.restore.alertOk') }],
         );
       },
       onError: () => {
@@ -155,7 +156,8 @@ export function SettingsAccountScreen() {
         // after Sentry-capture). Restore-specific copy avoids the
         // "try again or restore previous purchases" loop that the
         // generic purchase-error key would create here.
-        Alert.alert(
+        showToast(
+          'error',
           tr('paywall.restoreError.title'),
           tr('paywall.restoreError.body'),
         );
@@ -176,7 +178,10 @@ export function SettingsAccountScreen() {
       },
       onError: (err) => {
         setDeleteOpen(false);
-        Alert.alert(
+        // N3b — typed-confirm modal already gated entry; failure becomes a
+        // toast so the user can re-attempt without re-typing.
+        showToast(
+          'error',
           tr('settings.delete_account.title'),
           err instanceof Error
             ? err.message
@@ -342,7 +347,9 @@ export function SettingsAccountScreen() {
               title={tr('settings.account.row.export')}
               caption={tr('settings.account.row.export.caption')}
               onPress={() =>
-                Alert.alert(
+                // N3b — informational ("export coming soon"); toast.
+                showToast(
+                  'info',
                   tr('settings.account.export.alert.title'),
                   tr('settings.account.export.alert.body'),
                 )

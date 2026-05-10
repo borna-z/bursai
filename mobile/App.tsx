@@ -67,6 +67,10 @@ import {
 import { useRegisterPushToken } from './src/hooks/usePushNotifications';
 import { configureRevenueCat, resetRevenueCat } from './src/lib/revenuecat';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+// N3b — Toast host. Mounted at the bottom of the tree (after
+// NavigationContainer) so toast-message paints above every screen including
+// modal/native-stack headers. Calls funnel through `src/lib/toast.ts`.
+import Toast from 'react-native-toast-message';
 
 // Keep the native splash screen visible while we wait for fonts. Calling this
 // synchronously at module load — before the first React render — is what the
@@ -533,6 +537,10 @@ function ThemedShell() {
           <RootNavigator />
         </ErrorBoundary>
       </NavigationContainer>
+      {/* N3b — Toast host sits OUTSIDE NavigationContainer so a broken
+          navigator state can't hide the toast layer; see
+          `src/lib/toast.ts` for the call-site wrapper. */}
+      <Toast />
     </>
   );
 }
