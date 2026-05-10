@@ -73,7 +73,10 @@ export function OutfitSlotRow({
   const t = useTokens();
   const garment = item.garment;
   const imagePath =
-    garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+    garment?.rendered_image_path ??
+    garment?.original_image_path ??
+    garment?.image_path ??
+    null;
   const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
   const showImage = imageUri != null;
   const hue = garment?.id

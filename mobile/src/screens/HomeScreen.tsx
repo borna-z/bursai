@@ -711,7 +711,11 @@ function OutfitThumb({
 }) {
   const t = useTokens();
   const garment = item?.garment ?? null;
-  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const imagePath =
+    garment?.rendered_image_path ??
+    garment?.original_image_path ??
+    garment?.image_path ??
+    null;
   const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
   const showImage = imageUri != null;
   // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
@@ -764,7 +768,11 @@ function RecentMosaicSlot({
   fallbackHue: number;
 }) {
   const garment = item?.garment ?? null;
-  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  const imagePath =
+    garment?.rendered_image_path ??
+    garment?.original_image_path ??
+    garment?.image_path ??
+    null;
   const {
     uri: imageUri,
     onError: onImageError,
