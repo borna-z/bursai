@@ -9,7 +9,6 @@
 
 import React from 'react';
 import {
-  Alert,
   FlatList,
   RefreshControl,
   ScrollView,
@@ -40,6 +39,7 @@ import { useGarmentCount } from '../hooks/useGarmentCount';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavigator';
 
@@ -325,7 +325,15 @@ export function WardrobeScreen({
         <SmartTile
           num="—"
           label="Wishlist"
-          onPress={() => Alert.alert('Coming soon', 'Wishlist feature coming soon.')}
+          // N3b — Wishlist tile is a placeholder; "coming soon" is purely
+          // informational so a toast suffices.
+          onPress={() =>
+            showToast(
+              'info',
+              tr('wardrobe.wishlist.comingSoon.title'),
+              tr('wardrobe.wishlist.comingSoon.body'),
+            )
+          }
         />
         <SmartTile num="—" label="Gaps" onPress={() => nav.navigate('WardrobeGaps')} />
       </View>

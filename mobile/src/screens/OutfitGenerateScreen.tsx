@@ -8,7 +8,7 @@
 // to 90% then held until isLoading flips false).
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,6 +32,7 @@ import { useGarment } from '../hooks/useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { applyAnchor } from '../lib/outfitAnchoring';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -538,9 +539,11 @@ export function OutfitGenerateScreen() {
                 succeededRef.current = true;
                 nav.navigate('OutfitDetail', { id: result.outfit_id });
               } else {
-                Alert.alert(
-                  'Saved as preview',
-                  'Persistent saving lands in a future update. For now this is a preview.',
+                // N3b — informational placeholder; toast is non-blocking.
+                showToast(
+                  'info',
+                  tr('outfitGenerate.toast.savedAsPreview.title'),
+                  tr('outfitGenerate.toast.savedAsPreview.body'),
                 );
               }
             }}
@@ -551,9 +554,11 @@ export function OutfitGenerateScreen() {
             label="Save outfit"
             variant="outline"
             onPress={() =>
-              Alert.alert(
-                'Saved as preview',
-                'Persistent saving lands in a future update. For now this is a preview.',
+              // N3b — informational placeholder; toast is non-blocking.
+              showToast(
+                'info',
+                tr('outfitGenerate.toast.savedAsPreview.title'),
+                tr('outfitGenerate.toast.savedAsPreview.body'),
               )
             }
             block

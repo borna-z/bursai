@@ -8,7 +8,7 @@
 // Codex P2 #4 on PR #699 — the original prototype hardcoded "Sat · Apr 26 / SAT 26 → FRI 2".
 
 import React from 'react';
-import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -45,6 +45,7 @@ import { useGarmentImage } from '../hooks/useSignedUrl';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
@@ -291,10 +292,18 @@ export function HomeScreen({
         // confusing. Codex P2 round 10 on PR #738.
         onSuccess: (data) => {
           if (data?.deduped) return;
-          Alert.alert(tr('home.alert.markedWorn.title'), tr('home.alert.markedWorn.body'));
+          // N3b — non-blocking confirmation, user can keep using the app.
+          showToast(
+            'success',
+            tr('home.alert.markedWorn.title'),
+            tr('home.alert.markedWorn.body'),
+          );
         },
         onError: (err: unknown) =>
-          Alert.alert(
+          // N3b — transient error; user retries the same gesture rather
+          // than acknowledging a modal.
+          showToast(
+            'error',
             tr('home.alert.markWornError.title'),
             err instanceof Error ? err.message : tr('home.alert.markWornError.fallback'),
           ),

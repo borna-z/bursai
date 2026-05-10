@@ -18,7 +18,6 @@
 
 import React from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -47,6 +46,7 @@ import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { Sentry } from '../lib/sentry';
 import { outfitGradientHue } from '../lib/outfitDisplay';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -206,7 +206,9 @@ export function OutfitPoolScreen() {
             })
           : tr('outfitPool.partialSaveBody', { failed: failedCount })
         : '';
-      Alert.alert(title, body);
+      // N3b — non-blocking save summary; the user can keep generating /
+      // saving so don't block them with a modal.
+      showToast(savedCount === 0 ? 'error' : 'success', title, body || undefined);
 
       // Clear selection but keep the pool around so the user can save more.
       setSelectedIds(new Set());

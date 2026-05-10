@@ -29,6 +29,20 @@ jest.mock('@sentry/react-native', () =>
   require('./src/__mocks__/sentry-react-native'),
 );
 
+// N3b — Toast lib pulls native-only animation code on import. Mocked at
+// the boundary so toast call sites are exercised but the RN bridge isn't.
+// Inline factory rather than `require('./src/__mocks__/...')` because the
+// mock factory must be self-contained — pulling a sibling module here ran
+// into a recursive resolve loop when the test file itself imported the
+// real module path.
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+}));
+
 // NetInfo is rare in the spec-listed hooks but `offlineQueue.ts` reads it
 // during deferred replay scheduling. A minimal in-memory mock keeps the
 // queue tests deterministic without pulling the native bridge.

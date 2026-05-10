@@ -16,7 +16,10 @@ export function initSentry(): void {
   if (initialized) return;
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   if (!dsn) {
-    if (__DEV__) console.log('[sentry] no DSN — skipping init');
+    // N3b — `no-console` allows `warn`. `log.debug` from `lib/log.ts` would
+    // be circular here: log.ts imports Sentry from this module to forward
+    // errors. Plain console.warn keeps init order simple.
+    if (__DEV__) console.warn('[sentry] no DSN — skipping init');
     return;
   }
   Sentry.init({

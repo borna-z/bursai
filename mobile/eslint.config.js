@@ -40,6 +40,13 @@ module.exports = [
       ],
       'no-undef': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      // N3b — no bare `console.log` in src/. Use `log.debug()` from
+      // `src/lib/log.ts` so the call is __DEV__-stripped in production
+      // (Hermes still serialises the args). `console.warn`/`console.error`
+      // remain allowed as a quick escape hatch for one-off non-Sentry
+      // logging; prefer `log.warn`/`log.error` at new call sites so the
+      // Sentry capture (and Sentry breadcrumbs in the warn case) lands.
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
       // Mobile/web boundary lockdown (N5).
       //
       // The web `src/` tree is being deleted post-launch; runtime imports

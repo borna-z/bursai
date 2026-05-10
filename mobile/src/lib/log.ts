@@ -28,6 +28,10 @@ function toError(err: unknown): Error {
   }
 }
 
+// N3b — this file is the canonical wrapper for `console.*`; the no-console
+// ESLint rule is intentionally bypassed here so that everywhere ELSE has to
+// route through these helpers.
+/* eslint-disable no-console */
 export const log = {
   debug: (...args: unknown[]): void => {
     if (__DEV__) console.log(...args);

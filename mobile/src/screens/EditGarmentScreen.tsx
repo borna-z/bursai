@@ -38,6 +38,7 @@ import { MinusIcon, PlusIcon } from '../components/icons';
 import { useDeleteGarment, useGarment, useUpdateGarment } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
+import { showToast } from '../lib/toast';
 import type { GarmentUpdate } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -212,18 +213,21 @@ export function EditGarmentScreen() {
       nav.goBack();
       return;
     }
-    // Literal copy here rather than new i18n keys: the N9 brief flags
-    // i18n locales as untouchable in this PR (N8 just landed an extensive
-    // sweep). A follow-up i18n bundle should fold these into the
-    // editGarment.cancel.* namespace.
-    Alert.alert('Discard changes?', 'You have unsaved edits to this piece.', [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: () => nav.goBack(),
-      },
-    ]);
+    // N3b — folded the N9-deferred copy into i18n keys (editGarment.cancel.*).
+    // KEEP as Alert.alert — destructive choice with two outcomes ("Keep
+    // editing" vs "Discard") needs an explicit acknowledge.
+    Alert.alert(
+      tr('editGarment.cancel.confirm.title'),
+      tr('editGarment.cancel.confirm.body'),
+      [
+        { text: tr('editGarment.cancel.confirm.keep'), style: 'cancel' },
+        {
+          text: tr('editGarment.cancel.confirm.discard'),
+          style: 'destructive',
+          onPress: () => nav.goBack(),
+        },
+      ],
+    );
   }, [isDirty, nav]);
 
   const togglePick = <T,>(val: T, list: T[], setList: (xs: T[]) => void) =>
@@ -244,7 +248,13 @@ export function EditGarmentScreen() {
       // like "12,50" parse to NaN here; users get the same alert as "abc"
       // and can re-type with a period — TODO: locale-aware parser.)
       if (parsedPrice != null && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
-        Alert.alert('Invalid price', 'Price must be a non-negative number.');
+        // N3b — validation feedback; user retypes inline rather than
+        // acknowledging a modal.
+        showToast(
+          'error',
+          tr('editGarment.invalidPrice.title'),
+          tr('editGarment.invalidPrice.body'),
+        );
         return;
       }
 
@@ -265,9 +275,11 @@ export function EditGarmentScreen() {
       await updateGarment.mutateAsync({ id: garment.id, updates });
       nav.goBack();
     } catch (err) {
-      Alert.alert(
-        'Save failed',
-        err instanceof Error ? err.message : 'Could not save changes. Try again.',
+      // N3b — non-blocking; the form is still on screen so the user can retry.
+      showToast(
+        'error',
+        tr('editGarment.saveFailed.title'),
+        err instanceof Error ? err.message : tr('editGarment.saveFailed.fallback'),
       );
     } finally {
       setSubmitting(false);
@@ -305,9 +317,12 @@ export function EditGarmentScreen() {
                 nav.goBack();
               }
             } catch (err) {
-              Alert.alert(
-                'Delete failed',
-                err instanceof Error ? err.message : 'Try again.',
+              // N3b — confirmation above is the action gate; failure
+              // becomes a toast so the user can retry without re-confirming.
+              showToast(
+                'error',
+                tr('editGarment.deleteFailed.title'),
+                err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
               );
             }
           },
@@ -410,7 +425,9 @@ export function EditGarmentScreen() {
               accessibilityLabel={tr('editGarment.changePhoto')}
               accessibilityRole="button"
               onPress={() =>
-                Alert.alert(
+                // N3b — informational ("photo upload coming soon"); toast.
+                showToast(
+                  'info',
                   tr('editGarment.changePhoto.alert.title'),
                   tr('editGarment.changePhoto.alert.body'),
                 )
