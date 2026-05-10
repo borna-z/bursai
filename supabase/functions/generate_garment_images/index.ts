@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, AIQuotaExceededError } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
@@ -125,6 +125,16 @@ serve(async (req) => {
         results.push({ id: garment.id, success: true });
         console.log(`✅ Generated image for ${garment.id}`);
       } catch (itemErr) {
+        // Codex P2 round 4 on PR #816 — let quota-class failures escape
+        // the per-item loop. AIQuotaExceededError signals the N2 monthly
+        // ceiling is hit; swallowing it into `success: false` returns 200
+        // and the mobile hook's 402 paywall route never fires. Outer
+        // catch maps it back to a 402 response so the
+        // EdgeFunctionSubscriptionLockedError branch in
+        // edgeFunctionClient surfaces SUBSCRIPTION_SENTINEL upstream.
+        if (itemErr instanceof AIQuotaExceededError) {
+          throw itemErr;
+        }
         results.push({
           id: garment.id,
           success: false,
@@ -139,6 +149,15 @@ serve(async (req) => {
   } catch (e) {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
+    }
+    if (e instanceof AIQuotaExceededError) {
+      // Match `subscriptionLockedResponse` body shape so the mobile
+      // wrapper's existing 402 handler flips it to
+      // EdgeFunctionSubscriptionLockedError without a special-case branch.
+      return new Response(
+        JSON.stringify({ error: "subscription_required", reason: "quota_exceeded" }),
+        { status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
     }
     console.error("generate_garment_images error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);

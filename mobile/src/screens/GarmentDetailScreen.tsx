@@ -175,6 +175,22 @@ export function GarmentDetailScreen() {
   // and rate-limit error surfacing piggybacks on the existing PaywallScreen
   // route used by `useAssessCondition`.
   const generateImage = useGenerateGarmentImage();
+  // Codex P2 round 4 on PR #816 — synchronous in-flight guard. A rapid
+  // double-tap can fire two `mutate()` calls before React re-renders
+  // with `isPending=true` and the Button disables; image generation is
+  // expensive and the second call would overwrite the first upload at
+  // the same `<userId>/<garmentId>.png` path. Mirrors
+  // `useGenerateFlatlay`'s `lastOutfitIdRef` guard. Cleared on settle.
+  const generateImageInFlightRef = React.useRef(false);
+  const handleGenerateImage = React.useCallback(() => {
+    if (generateImageInFlightRef.current || !garment) return;
+    generateImageInFlightRef.current = true;
+    generateImage.mutate(garment.id, {
+      onSettled: () => {
+        generateImageInFlightRef.current = false;
+      },
+    });
+  }, [garment, generateImage]);
 
   // M21 — paywall sticky-ref. The hook surfaces the
   // `'subscription_required'` sentinel via `error` when the user is on the
@@ -615,7 +631,7 @@ export function GarmentDetailScreen() {
                   variant="outline"
                   size="sm"
                   disabled={generateImage.isPending}
-                  onPress={() => generateImage.mutate(garment.id)}
+                  onPress={handleGenerateImage}
                   accessibilityState={{
                     disabled: generateImage.isPending,
                     busy: generateImage.isPending,
