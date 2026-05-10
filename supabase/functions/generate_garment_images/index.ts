@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
+import { callBursAI, bursAIErrorResponse, AIQuotaExceededError } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
@@ -74,13 +74,30 @@ serve(async (req) => {
 
         console.log(`Generating image for ${garment.id}: ${prompt}`);
 
+        // Codex P1 round 3 on PR #816 — pass `userId` + the service
+        // client so callBursAI's N2 monthly cost ceiling check runs and
+        // ai_token_usage gets the per-user attribution. Surfacing this
+        // CTA from mobile would otherwise let a subscribed user keep
+        // burning the expensive image model up to the per-hour rate
+        // limit while bypassing the monthly quota/accounting.
+        //
+        // Codex P1 round 6 on PR #816 — pin the bare image-capable
+        // model id. The previous override `google/gemini-2.5-flash-image`
+        // was OpenRouter-style and returned 404 against Google's direct
+        // endpoint; the round-5 fix dropped the override entirely, but
+        // the shared `image-gen` MODEL_CHAINS entry is the text chain
+        // (`gemini-2.5-flash` / `-flash-lite`), which has no image
+        // payload — falling through to "No image in AI response". The
+        // image-capable model id used by `_shared/gemini-image-client.ts`
+        // (and Google's docs) is bare `gemini-2.5-flash-image`.
         const { data: aiResult } = await callBursAI({
           messages: [{ role: "user", content: prompt }],
           modelType: "image-gen",
           extraBody: { modalities: ["image", "text"] },
-          models: ["google/gemini-2.5-flash-image"],
+          models: ["gemini-2.5-flash-image"],
           functionName: "generate_garment_images",
-        });
+          userId: user.id,
+        }, supabase);
 
         const imageData = aiResult?.images?.[0]?.image_url?.url
           || aiResult?.__raw?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
@@ -118,6 +135,16 @@ serve(async (req) => {
         results.push({ id: garment.id, success: true });
         console.log(`✅ Generated image for ${garment.id}`);
       } catch (itemErr) {
+        // Codex P2 round 4 on PR #816 — let quota-class failures escape
+        // the per-item loop. AIQuotaExceededError signals the N2 monthly
+        // ceiling is hit; swallowing it into `success: false` returns 200
+        // and the mobile hook's 402 paywall route never fires. Outer
+        // catch maps it back to a 402 response so the
+        // EdgeFunctionSubscriptionLockedError branch in
+        // edgeFunctionClient surfaces SUBSCRIPTION_SENTINEL upstream.
+        if (itemErr instanceof AIQuotaExceededError) {
+          throw itemErr;
+        }
         results.push({
           id: garment.id,
           success: false,
@@ -132,6 +159,15 @@ serve(async (req) => {
   } catch (e) {
     if (e instanceof RateLimitError) {
       return rateLimitResponse(e, CORS_HEADERS);
+    }
+    if (e instanceof AIQuotaExceededError) {
+      // Match `subscriptionLockedResponse` body shape so the mobile
+      // wrapper's existing 402 handler flips it to
+      // EdgeFunctionSubscriptionLockedError without a special-case branch.
+      return new Response(
+        JSON.stringify({ error: "subscription_required", reason: "quota_exceeded" }),
+        { status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
     }
     console.error("generate_garment_images error:", e);
     return bursAIErrorResponse(e, CORS_HEADERS);

@@ -157,7 +157,6 @@ Base limits are defined in `RATE_LIMIT_TIERS` in `scale-guard.ts`. Subscription 
 | `assess_garment_condition` | 30 | 5 | Light AI |
 | `wardrobe_gap_analysis` | 15 | 3 | Light AI |
 | `wardrobe_aging` | 15 | 3 | Light AI |
-| `style_twin` | 15 | 3 | Light AI |
 | `__default` | 60 | 12 | Unlisted |
 
 ### Client-Side Protection

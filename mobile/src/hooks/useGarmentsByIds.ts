@@ -28,6 +28,7 @@ export interface GarmentBasic {
   id: string;
   rendered_image_path: string | null;
   original_image_path: string | null;
+  image_path: string | null;
 }
 
 export function useGarmentsByIds(ids: readonly string[] | null | undefined) {
@@ -49,7 +50,7 @@ export function useGarmentsByIds(ids: readonly string[] | null | undefined) {
       if (!user?.id || safeIds.length === 0) return [];
       const { data, error } = await supabase
         .from('garments')
-        .select('id, rendered_image_path, original_image_path')
+        .select('id, rendered_image_path, original_image_path, image_path')
         .eq('user_id', user.id)
         .in('id', safeIds);
       if (error) throw error;

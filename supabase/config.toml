@@ -56,8 +56,6 @@ project_id = "khvkwojtlkcvxjxztduj"
     verify_jwt = false
   [functions.style_chat]
     verify_jwt = false
-  [functions.style_twin]
-    verify_jwt = false
   [functions.suggest_accessories]
     verify_jwt = false
   [functions.suggest_outfit_combinations]

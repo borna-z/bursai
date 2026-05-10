@@ -48,6 +48,11 @@ export type OutfitCardGarment = {
   id: string;
   rendered_image_path?: string | null;
   original_image_path?: string | null;
+  /** AI-generated catalog image for manual-entry garments — written by
+   *  `generate_garment_images`. Distinct from the studio render and the
+   *  user's original photo; sits last in the resolution chain so studio +
+   *  original always win when present. */
+  image_path?: string | null;
   /** Optional explicit hue 0-360 for the slot's gradient fallback; otherwise
    *  derived from `id` so distinct garments still get distinct colours. */
   hue?: number;
@@ -74,7 +79,11 @@ export type OutfitCardProps = {
 // still loading so the loading state is visually distinct from a permanently
 // missing image.
 function GarmentSlot({ garment }: { garment: OutfitCardGarment }) {
-  const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
+  const imagePath =
+    garment.rendered_image_path ??
+    garment.original_image_path ??
+    garment.image_path ??
+    null;
   const {
     uri: imageUri,
     onError: onImageError,

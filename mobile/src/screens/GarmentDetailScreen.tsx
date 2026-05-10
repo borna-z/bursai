@@ -29,6 +29,7 @@ import { BackIcon, CloseIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
+import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
@@ -117,7 +118,20 @@ export function GarmentDetailScreen() {
   const id = route.params?.id;
 
   const { data: garment, isLoading, isError, refetch } = useGarment(id);
-  const heroPath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
+  // Codex P1 round 1 on PR #816 — N12's `generate_garment_images` writes
+  // the new asset to `garments.image_path` (see edge function line ~110),
+  // distinct from the studio render's `rendered_image_path` and the
+  // original-photo `original_image_path`. Without `image_path` in the
+  // resolution chain, a successful AI generation lands the row update
+  // but the hero stays on the gradient placeholder and the "Generate
+  // image" CTA never disappears. Order: studio render wins (post-N1
+  // pipeline output), then user's original photo, then the AI-generated
+  // catalog fallback for manual-entry rescue.
+  const heroPath =
+    garment?.rendered_image_path ??
+    garment?.original_image_path ??
+    garment?.image_path ??
+    null;
   const { data: heroUrl } = useSignedUrl(heroPath);
 
   // Studio-render polling. The hook only ticks while `render_status` is active
@@ -154,6 +168,30 @@ export function GarmentDetailScreen() {
     reset: resetAssessCondition,
   } = useAssessCondition();
 
+  // N12 — surfaces an in-place "Generate image" action for garments added
+  // without a photo (manual entry path). Only relevant when the garment row
+  // has neither an `original_image_path` nor a `rendered_image_path` AND
+  // the studio render pipeline isn't already mid-flight. Subscription-locked
+  // and rate-limit error surfacing piggybacks on the existing PaywallScreen
+  // route used by `useAssessCondition`.
+  const generateImage = useGenerateGarmentImage();
+  // Codex P2 round 4 on PR #816 — synchronous in-flight guard. A rapid
+  // double-tap can fire two `mutate()` calls before React re-renders
+  // with `isPending=true` and the Button disables; image generation is
+  // expensive and the second call would overwrite the first upload at
+  // the same `<userId>/<garmentId>.png` path. Mirrors
+  // `useGenerateFlatlay`'s `lastOutfitIdRef` guard. Cleared on settle.
+  const generateImageInFlightRef = React.useRef(false);
+  const handleGenerateImage = React.useCallback(() => {
+    if (generateImageInFlightRef.current || !garment) return;
+    generateImageInFlightRef.current = true;
+    generateImage.mutate(garment.id, {
+      onSettled: () => {
+        generateImageInFlightRef.current = false;
+      },
+    });
+  }, [garment, generateImage]);
+
   // M21 — paywall sticky-ref. The hook surfaces the
   // `'subscription_required'` sentinel via `error` when the user is on the
   // free tier; route to PaywallScreen once per screen lifetime so a
@@ -173,16 +211,28 @@ export function GarmentDetailScreen() {
   //      the modal for an explicit retap.
   // Both are needed: lifecycle-only would miss in-place transitions;
   // effect-only would miss the dismiss-without-change path.
+  // Codex P2 round 1 on PR #816 — the latch tracks the paywall sentinel
+  // from BOTH AI surfaces on this screen: condition assessment AND the
+  // N12 generate-image rescue. Either hook hitting a 402 surfaces
+  // SUBSCRIPTION_SENTINEL, and the latch routes to PaywallScreen once
+  // per screen lifetime (released on focus regain or when both hooks
+  // move off the sentinel). Without the second source, locked-tier users
+  // tapping "Generate image" got a silent mutation failure.
+  const generateImageError =
+    generateImage.error instanceof Error ? generateImage.error.message : null;
+  const paywallSentinelHit =
+    assessError === SUBSCRIPTION_SENTINEL ||
+    generateImageError === SUBSCRIPTION_SENTINEL;
   const paywallShownRef = React.useRef(false);
   React.useEffect(() => {
-    if (assessError === SUBSCRIPTION_SENTINEL && !paywallShownRef.current) {
+    if (paywallSentinelHit && !paywallShownRef.current) {
       paywallShownRef.current = true;
       nav.navigate('Paywall');
     }
-    if (assessError !== SUBSCRIPTION_SENTINEL && paywallShownRef.current) {
+    if (!paywallSentinelHit && paywallShownRef.current) {
       paywallShownRef.current = false;
     }
-  }, [assessError, nav]);
+  }, [paywallSentinelHit, nav]);
   useFocusEffect(
     React.useCallback(() => {
       paywallShownRef.current = false;
@@ -561,6 +611,52 @@ export function GarmentDetailScreen() {
 
         {tab === 'info' ? (
           <View style={{ gap: 12 }}>
+            {/* N12 — manual-entry garments arrive with no image_path. Until
+                a photo is attached, the hero falls back to the gradient
+                placeholder. Offer a single-tap AI catalog-image generator
+                here so the wardrobe doesn't fill up with colored squares.
+                Hidden once an image (original or rendered) lands, and
+                while a studio render is mid-flight (the existing pipeline
+                will produce the rendered image any moment). */}
+            {!heroPath && !isStudioRendering ? (
+              <View style={{ gap: 10 }}>
+                <Eyebrow>Image</Eyebrow>
+                <Caption>{tr('garment.generateImage.empty')}</Caption>
+                <Button
+                  label={
+                    generateImage.isPending
+                      ? tr('garment.generateImage.busy')
+                      : tr('garment.generateImage.action')
+                  }
+                  variant="outline"
+                  size="sm"
+                  disabled={generateImage.isPending}
+                  onPress={handleGenerateImage}
+                  accessibilityState={{
+                    disabled: generateImage.isPending,
+                    busy: generateImage.isPending,
+                  }}
+                  leadingIcon={
+                    generateImage.isPending ? (
+                      <ActivityIndicator size="small" color={t.fg} />
+                    ) : undefined
+                  }
+                />
+                {/* Codex P2 round 2 on PR #816 — surface non-paywall
+                    failures (rate limit, network, function returning
+                    success: false) so the user sees something more than
+                    the button reverting to its idle label. The paywall
+                    sentinel is filtered because it routes via the
+                    paywall latch above, not as an error caption. Same
+                    shape as the condition-assessment error caption. */}
+                {generateImageError &&
+                generateImageError !== SUBSCRIPTION_SENTINEL ? (
+                  <Caption style={{ color: t.destructive }}>
+                    {tr('garment.generateImage.error')}
+                  </Caption>
+                ) : null}
+              </View>
+            ) : null}
             {/* M21 — condition assessment block. Badge appears once the
                 garment row has a persisted score OR the hook has just
                 returned one. The "Check condition" CTA sits adjacent so a

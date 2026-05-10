@@ -98,6 +98,7 @@ export function TravelOutfitsScreen() {
         id: g.id,
         rendered_image_path: g.rendered_image_path ?? null,
         original_image_path: g.original_image_path ?? null,
+        image_path: g.image_path ?? null,
       });
     }
     return map;
