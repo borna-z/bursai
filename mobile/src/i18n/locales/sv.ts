@@ -1769,4 +1769,5 @@ export const sv: Record<string, string> = {
   'garment.generateImage.empty': 'Inget foto än – generera en katalogbild utifrån plaggets detaljer.',
   'garment.generateImage.action': 'Generera bild',
   'garment.generateImage.busy': 'Genererar…',
+  'garment.generateImage.error': 'Kunde inte generera en bild just nu. Försök igen om en stund.',
 };

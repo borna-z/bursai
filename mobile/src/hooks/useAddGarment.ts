@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import { supabase } from '../lib/supabase';
 import {
   OfflineQueuedError,
   persistGarmentWithOfflineFallback,
@@ -43,21 +44,32 @@ export function useAddGarment() {
 
       // Mirror web's `useAddGarment.ts:493-497` behavior — when the user
       // crosses 5 garments for the first time, warm prefetch_suggestions so
-      // the next AI feature open finds cached daily picks. Pre-invalidation
-      // count + 1 = post-save projection; queryClient.getQueryData reads the
-      // stale value the count cache held before this onSuccess invalidate
-      // pass marked it dirty (TanStack invalidates lazily — the entry isn't
-      // refetched yet at this point in the tick). Fire-and-forget — failure
-      // is non-critical, the cache will warm itself on the next user fetch.
-      const cachedCount = queryClient.getQueryData<number>([
-        'garments-count',
-        user?.id,
-      ]);
-      const newCount = (cachedCount ?? 0) + 1;
-      if (newCount === 5 && user?.id) {
-        callEdgeFunction('prefetch_suggestions', {
-          body: { user_id: user.id, trigger: 'first_5_garments' },
-        }).catch(() => {});
+      // the next AI feature open finds cached daily picks. Fire-and-forget
+      // — failure is non-critical, the cache warms on the next user fetch.
+      //
+      // Codex P2 round 2 on PR #816 — read the count authoritatively from
+      // Supabase rather than the optional TanStack cache entry. A
+      // cold/deep-linked add flow or a GC'd `['garments-count']` entry
+      // leaves `getQueryData` undefined, which previously defaulted to 0
+      // and silently skipped the warm-cache fire on the actual 5th save.
+      // Light query (`head: true` + `count: 'exact'`) — no row payload.
+      if (user?.id) {
+        void (async () => {
+          try {
+            const { count } = await supabase
+              .from('garments')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', user.id);
+            if (count === 5) {
+              callEdgeFunction('prefetch_suggestions', {
+                body: { user_id: user.id, trigger: 'first_5_garments' },
+              }).catch(() => {});
+            }
+          } catch {
+            // Count probe failure is non-critical; the prefetch is a
+            // performance warm-up, not a correctness gate.
+          }
+        })();
       }
     },
     onError: (err: unknown) => {

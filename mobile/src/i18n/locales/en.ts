@@ -1888,4 +1888,5 @@ export const en: Record<string, string> = {
   'garment.generateImage.empty': 'No photo yet — generate a catalog-style image from the garment details.',
   'garment.generateImage.action': 'Generate image',
   'garment.generateImage.busy': 'Generating…',
+  'garment.generateImage.error': "Couldn't generate an image right now. Try again in a moment.",
 };

@@ -626,6 +626,19 @@ export function GarmentDetailScreen() {
                     ) : undefined
                   }
                 />
+                {/* Codex P2 round 2 on PR #816 — surface non-paywall
+                    failures (rate limit, network, function returning
+                    success: false) so the user sees something more than
+                    the button reverting to its idle label. The paywall
+                    sentinel is filtered because it routes via the
+                    paywall latch above, not as an error caption. Same
+                    shape as the condition-assessment error caption. */}
+                {generateImageError &&
+                generateImageError !== SUBSCRIPTION_SENTINEL ? (
+                  <Caption style={{ color: t.destructive }}>
+                    {tr('garment.generateImage.error')}
+                  </Caption>
+                ) : null}
               </View>
             ) : null}
             {/* M21 — condition assessment block. Badge appears once the
