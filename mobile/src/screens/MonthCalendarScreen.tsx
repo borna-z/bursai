@@ -1,9 +1,8 @@
 // Month-grid calendar with day picker + selected-day panel.
 // Source: design_handoff_burs_rn/source/more-screens.jsx PlanMonthScreen (lines 439-519).
 //
-// Mock-data only: a small set of "planned" outfits scattered around today so the gold-dot
-// indicator and selected-day panel both have something to render. Real planned_outfits
-// query lands in a future PR.
+// Data is real — `usePlannedOutfitsForRange` reads `planned_outfits` for the
+// visible month range, drives the gold-dot indicator and the selected-day panel.
 
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

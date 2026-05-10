@@ -41,6 +41,15 @@ export type ThemeTokens = {
    */
   scrimBg: string;
   scrimFg: string;
+  /**
+   * Theme-invariant near-black scrims for surfaces that need to read cleanly
+   * over both light and dark targets (full-bleed coach overlays, side drawers).
+   * `scrim` is the lighter wash for side / contextual overlays; `scrimStrong`
+   * is the heavier wash for full-modal coach moments. Use these instead of
+   * inlining `rgba(0,0,0,X)` in component code.
+   */
+  scrim: string;
+  scrimStrong: string;
   shadowSm: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
   shadow: { color: string; offset: { width: number; height: number }; radius: number; opacity: number };
 };
@@ -63,6 +72,8 @@ export const light: ThemeTokens = {
   destructiveSoft: 'rgba(181,67,42,0.12)',
   scrimBg:         'rgba(17,16,14,0.58)', // bg-dark @ 58% — backdrop behind sheets
   scrimFg:         '#FBF7EF',             // matches `card` from the dark theme
+  scrim:           'rgba(0,0,0,0.35)',    // theme-invariant — side drawers / contextual overlays
+  scrimStrong:     'rgba(0,0,0,0.62)',    // theme-invariant — full-modal coach overlays
   shadowSm: { color: '#1C1917', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.04 },
   shadow:   { color: '#1C1917', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.08 },
 };
@@ -85,6 +96,8 @@ export const dark: ThemeTokens = {
   destructiveSoft: 'rgba(216,106,82,0.16)',
   scrimBg:         'rgba(0,0,0,0.72)',    // deeper scrim on dark — fg under it stays readable
   scrimFg:         '#F4ECDD',             // matches `fg` from the dark theme
+  scrim:           'rgba(0,0,0,0.35)',    // theme-invariant — side drawers / contextual overlays
+  scrimStrong:     'rgba(0,0,0,0.62)',    // theme-invariant — full-modal coach overlays
   shadowSm: { color: '#000000', offset: { width: 0, height: 1 }, radius: 2, opacity: 0.4 },
   shadow:   { color: '#000000', offset: { width: 0, height: 8 }, radius: 24, opacity: 0.4 },
 };

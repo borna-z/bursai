@@ -278,9 +278,9 @@ serve(async (req) => {
 
     // P24: gate on enrichment when the wardrobe is mostly enriched. Below the
     // threshold we send what we have — graceful degrade instead of an empty
-    // payload that would force Gemini to hallucinate. Uses isEnrichmentReady
-    // so we accept both 'complete' (frontend writers) and 'completed' (job
-    // queue) — the canonical P24 dual-spelling handling.
+    // payload that would force Gemini to hallucinate. `isEnrichmentReady`
+    // matches the canonical `'completed'` terminal state (the legacy
+    // `'complete'` spelling was backfilled by migration 20260424004047).
     const enrichedCount = wardrobe.filter((g) => isEnrichmentReady(g.enrichment_status)).length;
     const enrichmentRatio = wardrobe.length > 0 ? enrichedCount / wardrobe.length : 0;
     const gatedWardrobe = enrichmentRatio >= ENRICHMENT_FILTER_THRESHOLD
