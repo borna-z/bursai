@@ -80,11 +80,20 @@ serve(async (req) => {
         // CTA from mobile would otherwise let a subscribed user keep
         // burning the expensive image model up to the per-hour rate
         // limit while bypassing the monthly quota/accounting.
+        //
+        // Codex P1 round 5 on PR #816 — drop the `models:` override.
+        // The previous pin was `google/gemini-2.5-flash-image`, an
+        // OpenRouter-style provider-prefixed id; callBursAI hits
+        // Google's OpenAI-compat endpoint directly (`GEMINI_URL`),
+        // which only accepts bare `gemini-*` ids. The prefixed id
+        // returned a 404 / model-not-found, which is the failure
+        // class that surfaced as "No image in AI response" in the
+        // existing code path. Match `generate_flatlay`: rely on the
+        // shared `image-gen` MODEL_CHAINS entry.
         const { data: aiResult } = await callBursAI({
           messages: [{ role: "user", content: prompt }],
           modelType: "image-gen",
           extraBody: { modalities: ["image", "text"] },
-          models: ["google/gemini-2.5-flash-image"],
           functionName: "generate_garment_images",
           userId: user.id,
         }, supabase);
