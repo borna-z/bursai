@@ -49,7 +49,7 @@ The 2026-05-10 audit found 4 unused / empty function directories and 2 orphan fu
 After merge:
 - Edge function removal: this is a remote-only delete. From main, run `npx supabase functions delete style_twin --project-ref khvkwojtlkcvxjxztduj`, repeat for `process_garment_image`, `seed_wardrobe`, `smart_shopping_list`. Confirm absence with `npx supabase functions list --linked`.
 - No migrations.
-- No new edge function deploy required (the wiring uses existing `prefetch_suggestions` and `generate_garment_images`).
+- Edge function deploy: `generate_garment_images` was patched (Codex P1 round 3) to thread `userId` + the service client into `callBursAI` so the N2 monthly cost ceiling and `ai_token_usage` ledger run. Deploy with `npx supabase functions deploy generate_garment_images --project-ref khvkwojtlkcvxjxztduj --no-verify-jwt` after merge.
 
 ## PR template
 

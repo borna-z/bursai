@@ -74,13 +74,20 @@ serve(async (req) => {
 
         console.log(`Generating image for ${garment.id}: ${prompt}`);
 
+        // Codex P1 round 3 on PR #816 — pass `userId` + the service
+        // client so callBursAI's N2 monthly cost ceiling check runs and
+        // ai_token_usage gets the per-user attribution. Surfacing this
+        // CTA from mobile would otherwise let a subscribed user keep
+        // burning the expensive image model up to the per-hour rate
+        // limit while bypassing the monthly quota/accounting.
         const { data: aiResult } = await callBursAI({
           messages: [{ role: "user", content: prompt }],
           modelType: "image-gen",
           extraBody: { modalities: ["image", "text"] },
           models: ["google/gemini-2.5-flash-image"],
           functionName: "generate_garment_images",
-        });
+          userId: user.id,
+        }, supabase);
 
         const imageData = aiResult?.images?.[0]?.image_url?.url
           || aiResult?.__raw?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
