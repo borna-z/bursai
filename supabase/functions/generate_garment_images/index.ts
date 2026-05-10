@@ -81,19 +81,20 @@ serve(async (req) => {
         // burning the expensive image model up to the per-hour rate
         // limit while bypassing the monthly quota/accounting.
         //
-        // Codex P1 round 5 on PR #816 — drop the `models:` override.
-        // The previous pin was `google/gemini-2.5-flash-image`, an
-        // OpenRouter-style provider-prefixed id; callBursAI hits
-        // Google's OpenAI-compat endpoint directly (`GEMINI_URL`),
-        // which only accepts bare `gemini-*` ids. The prefixed id
-        // returned a 404 / model-not-found, which is the failure
-        // class that surfaced as "No image in AI response" in the
-        // existing code path. Match `generate_flatlay`: rely on the
-        // shared `image-gen` MODEL_CHAINS entry.
+        // Codex P1 round 6 on PR #816 — pin the bare image-capable
+        // model id. The previous override `google/gemini-2.5-flash-image`
+        // was OpenRouter-style and returned 404 against Google's direct
+        // endpoint; the round-5 fix dropped the override entirely, but
+        // the shared `image-gen` MODEL_CHAINS entry is the text chain
+        // (`gemini-2.5-flash` / `-flash-lite`), which has no image
+        // payload — falling through to "No image in AI response". The
+        // image-capable model id used by `_shared/gemini-image-client.ts`
+        // (and Google's docs) is bare `gemini-2.5-flash-image`.
         const { data: aiResult } = await callBursAI({
           messages: [{ role: "user", content: prompt }],
           modelType: "image-gen",
           extraBody: { modalities: ["image", "text"] },
+          models: ["gemini-2.5-flash-image"],
           functionName: "generate_garment_images",
           userId: user.id,
         }, supabase);

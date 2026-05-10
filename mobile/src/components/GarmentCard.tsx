@@ -42,6 +42,14 @@ export type GarmentCardData = {
   in_laundry?: boolean | null;
   rendered_image_path?: string | null;
   original_image_path?: string | null;
+  /**
+   * N12 — `image_path` is the column the `generate_garment_images` edge
+   * function writes for AI-generated catalog images on manual-entry
+   * garments. Distinct from the studio render's `rendered_image_path`
+   * and the user's original photo `original_image_path`. Resolution
+   * priority below mirrors GarmentDetailScreen.
+   */
+  image_path?: string | null;
   created_at?: string | null;
   /**
    * 0-360. Optional fallback for the gradient placeholder when no image path
@@ -90,8 +98,14 @@ function GarmentCardInner({
 
   // Prefer the rendered (ghost-mannequin) photo over the raw original — that's
   // the user-facing showpiece. Falls through to original on the AddPiece flow's
-  // pre-render window.
-  const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
+  // pre-render window. N12: `image_path` (Codex P2 round 6 on PR #816) is
+  // the AI-generated catalog fallback for manual-entry garments — last
+  // step in the chain so studio + original always win when present.
+  const imagePath =
+    garment.rendered_image_path ??
+    garment.original_image_path ??
+    garment.image_path ??
+    null;
   const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
   const showImage = imageUri != null;
 
