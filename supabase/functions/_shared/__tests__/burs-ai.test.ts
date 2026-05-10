@@ -199,10 +199,10 @@ describe("compactGarment (P23)", () => {
 });
 
 describe("filterEnrichedGarments (P24)", () => {
-  it("keeps rows marked ready (accepts BOTH 'complete' and 'completed')", () => {
+  it("keeps rows marked 'completed' and drops every other terminal/non-terminal value", () => {
     const rows = [
       { id: "a", enrichment_status: "completed" as const },
-      { id: "b", enrichment_status: "complete" as const },
+      { id: "b", enrichment_status: "complete" as const }, // legacy spelling — backfilled to 'completed' by migration 20260424004047
       { id: "c", enrichment_status: "pending" as const },
       { id: "d", enrichment_status: "in_progress" as const },
       { id: "e", enrichment_status: "processing" as const },
@@ -210,7 +210,7 @@ describe("filterEnrichedGarments (P24)", () => {
       { id: "g", enrichment_status: null },
       { id: "h" },
     ];
-    expect(filterEnrichedGarments(rows).map((r) => r.id).sort()).toEqual(["a", "b"]);
+    expect(filterEnrichedGarments(rows).map((r) => r.id)).toEqual(["a"]);
   });
 
   it("returns [] on empty input", () => {
@@ -220,12 +220,12 @@ describe("filterEnrichedGarments (P24)", () => {
   it("preserves additional fields on the row (generic)", () => {
     const rows = [
       { id: "a", title: "tee", enrichment_status: "completed" },
-      { id: "b", title: "oxford", enrichment_status: "complete" },
-      { id: "c", title: "jeans", enrichment_status: "pending" },
+      { id: "b", title: "oxford", enrichment_status: "pending" },
+      { id: "c", title: "jeans", enrichment_status: "failed" },
     ];
     const out = filterEnrichedGarments(rows);
-    expect(out).toHaveLength(2);
-    expect(out.map((r) => r.title).sort()).toEqual(["oxford", "tee"]);
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toBe("tee");
   });
 });
 
@@ -302,17 +302,17 @@ describe("waitForEnrichment (P24)", () => {
     expect(result.pending).toEqual([]);
   });
 
-  it("accepts both 'complete' and 'completed' as ready (spelling divergence between frontend + job-queue writers)", async () => {
+  it("treats only canonical 'completed' as ready (legacy 'complete' is migrated DB-side, not at the predicate)", async () => {
     const supabase = mockSupabaseReturning([
-      { id: "frontend", enrichment_status: "complete" },
-      { id: "jobqueue", enrichment_status: "completed" },
+      { id: "legacy", enrichment_status: "complete" },
+      { id: "current", enrichment_status: "completed" },
     ]);
-    const result = await waitForEnrichment(supabase, ["frontend", "jobqueue"], {
-      timeoutMs: 100,
+    const result = await waitForEnrichment(supabase, ["legacy", "current"], {
+      timeoutMs: 50,
       pollIntervalMs: 10,
     });
-    expect(result.ready.sort()).toEqual(["frontend", "jobqueue"]);
-    expect(result.pending).toEqual([]);
+    expect(result.ready).toEqual(["current"]);
+    expect(result.pending).toEqual(["legacy"]);
     expect(result.failed).toEqual([]);
   });
 

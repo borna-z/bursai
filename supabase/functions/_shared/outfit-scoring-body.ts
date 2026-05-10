@@ -470,7 +470,7 @@ export function garmentReadinessSignals(garment: GarmentRow): GarmentReadinessSi
           : null;
 
   const analysisConfidence = analysisConfidenceRaw == null ? null : clamp01(analysisConfidenceRaw);
-  const enrichmentReady = garment.enrichment_status === 'complete' || garment.enrichment_status === 'completed';
+  const enrichmentReady = garment.enrichment_status === 'completed';
   const createdAt = garment.created_at ? new Date(garment.created_at).getTime() : null;
   const ageHours = createdAt == null ? Number.POSITIVE_INFINITY : (Date.now() - createdAt) / 36e5;
   const isRecentlyAdded = Number.isFinite(ageHours) && ageHours <= 72;

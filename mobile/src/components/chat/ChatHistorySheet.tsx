@@ -201,7 +201,7 @@ export function ChatHistorySheet({
       transparent
       animationType="none"
       onRequestClose={onClose}>
-      <View style={s.scrim}>
+      <View style={[s.scrim, { backgroundColor: t.scrim }]}>
         {/* Tappable backdrop — closes the sheet without committing a
             selection. Pressable rather than Pressable.opacity so VoiceOver
             announces the dismiss target. */}
@@ -281,7 +281,6 @@ const s = StyleSheet.create({
   scrim: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   scrimBackdrop: {
     flex: 1,

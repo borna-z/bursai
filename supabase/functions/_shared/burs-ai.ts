@@ -353,21 +353,16 @@ export function compactGarment(g: {
 // ─── Enrichment helpers (P24) ─────────────────────────────────
 
 /**
- * Two enrichment paths coexist in the codebase and historically persist
- * different terminal values to `garments.enrichment_status`:
- *   - frontend direct-enrich path (`src/lib/garmentIntelligence.ts`,
- *     `src/pages/GarmentDetail.tsx`, `src/components/onboarding/QuickUploadStep.tsx`)
- *     writes `'complete'`
- *   - backend job-queue path (`supabase/functions/process_job_queue/index.ts`
- *     handler) writes `'completed'`
- *
- * Readers MUST treat both as ready — collapsing to one spelling requires a
- * schema-cleanup migration (logged in Findings Log, 2026-04-22). Until then,
- * these helpers accept both. Failed spelling `'failed'` is consistent across
- * writers, no divergence there.
+ * `garments.enrichment_status` canonical terminal values: `'completed'`
+ * (success) and `'failed'` (terminal error). The historical `'complete'`
+ * spelling was backfilled to `'completed'` by migration
+ * `20260424004047_backfill_enrichment_status.sql` and all current writers
+ * (`mobile/src/hooks/useAnalyzeGarment.ts`, `src/lib/garmentIntelligence.ts`,
+ * `src/pages/GarmentDetail.tsx`, `supabase/functions/process_job_queue`) emit
+ * `'completed'`.
  */
 export function isEnrichmentReady(status: string | null | undefined): boolean {
-  return status === "complete" || status === "completed";
+  return status === "completed";
 }
 
 export function isEnrichmentFailed(status: string | null | undefined): boolean {
@@ -375,10 +370,10 @@ export function isEnrichmentFailed(status: string | null | undefined): boolean {
 }
 
 /**
- * Returns only garments whose `enrichment_status` is a terminal "ready" value
- * (accepts both `'complete'` and `'completed'` — see isEnrichmentReady). Use
- * when an AI call depends on `ai_raw` fields (style_archetype, occasion_tags,
- * versatility_score, etc.) that the garment_enrichment job populates.
+ * Returns only garments whose `enrichment_status` has reached the canonical
+ * `'completed'` terminal state. Use when an AI call depends on `ai_raw` fields
+ * (style_archetype, occasion_tags, versatility_score, etc.) that the
+ * garment_enrichment job populates.
  */
 export function filterEnrichedGarments<T extends { enrichment_status?: string | null }>(
   garments: T[],

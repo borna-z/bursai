@@ -19,9 +19,8 @@
 //   - The target rect cutout exposes `accessibilityLabel` reading the
 //     caption so screen-reader users get the same context.
 //
-// Tokens: every color reads from `useTokens()`. The scrim transparency
-// uses an inline rgba which is OK per wave brief (the rest of the
-// codebase already uses inline rgba for scrim overlays — see SmartTile).
+// Tokens: every color reads from `useTokens()`. The scrim uses
+// `t.scrimStrong` — theme-invariant by design (see comment in tokens.ts).
 
 import React from 'react';
 import {
@@ -43,11 +42,9 @@ import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { t as tr } from '../lib/i18n';
 
-// Single source of truth for the dim. Inline rgba is intentional — the
-// scrim color does not vary with theme (a near-black wash reads cleanly
-// over both light and dark surfaces). Mirrors the precedent set by
-// `tokens.scrimBg` which is also rgba-typed.
-const SCRIM_COLOR = 'rgba(0,0,0,0.62)';
+// Theme-invariant near-black wash reads cleanly over both light and dark
+// targets, so we use the dedicated `t.scrimStrong` token rather than the
+// theme-aware `t.scrimBg`. Single source of truth lives in `theme/tokens.ts`.
 
 // Pad applied around the measured target rect so the cutout has visual
 // breathing room and the highlighted element doesn't touch the dimmed
@@ -111,6 +108,7 @@ export function CoachOverlay({
   total,
 }: CoachOverlayProps) {
   const t = useTokens();
+  const scrimFill = { backgroundColor: t.scrimStrong };
   const insets = useSafeAreaInsets();
   const [windowSize, setWindowSize] = React.useState<LayoutRectangle | null>(null);
   const [targetRect, setTargetRect] = React.useState<LayoutRectangle | null>(null);
@@ -300,18 +298,21 @@ export function CoachOverlay({
             <View
               style={[
                 styles.scrim,
+                scrimFill,
                 { top: 0, left: 0, right: 0, height: cutout.top },
               ]}
             />
             <View
               style={[
                 styles.scrim,
+                scrimFill,
                 { top: cutout.bottom, left: 0, right: 0, bottom: 0 },
               ]}
             />
             <View
               style={[
                 styles.scrim,
+                scrimFill,
                 {
                   top: cutout.top,
                   left: 0,
@@ -323,6 +324,7 @@ export function CoachOverlay({
             <View
               style={[
                 styles.scrim,
+                scrimFill,
                 {
                   top: cutout.top,
                   left: cutout.right,
@@ -361,7 +363,7 @@ export function CoachOverlay({
             // can't accidentally advance by hitting the dim outside the
             // CTA.
             onPress={onNext}
-            style={[styles.scrim, StyleSheet.absoluteFill]}
+            style={[styles.scrim, scrimFill, StyleSheet.absoluteFill]}
             accessibilityRole="button"
             accessibilityLabel={caption}
           />
@@ -452,7 +454,6 @@ export function CoachOverlay({
 const styles = StyleSheet.create({
   scrim: {
     position: 'absolute',
-    backgroundColor: SCRIM_COLOR,
   },
   progressWrap: {
     position: 'absolute',
