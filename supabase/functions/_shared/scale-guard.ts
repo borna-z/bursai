@@ -47,7 +47,6 @@ const RATE_LIMIT_TIERS: Record<string, RateLimitTier> = {
   summarize_day:               { maxPerHour: 40, maxPerMinute: 8 },
   wardrobe_gap_analysis:       { maxPerHour: 15, maxPerMinute: 3 },
   wardrobe_aging:              { maxPerHour: 15, maxPerMinute: 3 },
-  style_twin:                  { maxPerHour: 15, maxPerMinute: 3 },
   assess_garment_condition:    { maxPerHour: 30, maxPerMinute: 5 },
   detect_duplicate_garment:    { maxPerHour: 40, maxPerMinute: 8 },
 

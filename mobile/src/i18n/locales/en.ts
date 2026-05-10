@@ -1883,4 +1883,9 @@ export const en: Record<string, string> = {
   'editGarment.saveFailed.title': 'Save failed',
   'editGarment.saveFailed.fallback': 'Could not save changes. Try again.',
   'editGarment.deleteFailed.title': 'Delete failed',
+
+  // ─── N12 — Generate garment image (manual-entry rescue) ────────────
+  'garment.generateImage.empty': 'No photo yet — generate a catalog-style image from the garment details.',
+  'garment.generateImage.action': 'Generate image',
+  'garment.generateImage.busy': 'Generating…',
 };

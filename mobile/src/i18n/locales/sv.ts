@@ -1765,4 +1765,8 @@ export const sv: Record<string, string> = {
   'editGarment.saveFailed.title': 'Sparning misslyckades',
   'editGarment.saveFailed.fallback': 'Kunde inte spara ändringarna. Försök igen.',
   'editGarment.deleteFailed.title': 'Radering misslyckades',
+
+  'garment.generateImage.empty': 'Inget foto än – generera en katalogbild utifrån plaggets detaljer.',
+  'garment.generateImage.action': 'Generera bild',
+  'garment.generateImage.busy': 'Genererar…',
 };

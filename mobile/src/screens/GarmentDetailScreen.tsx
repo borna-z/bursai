@@ -29,6 +29,7 @@ import { BackIcon, CloseIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
+import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
@@ -153,6 +154,14 @@ export function GarmentDetailScreen() {
     assess: assessCondition,
     reset: resetAssessCondition,
   } = useAssessCondition();
+
+  // N12 — surfaces an in-place "Generate image" action for garments added
+  // without a photo (manual entry path). Only relevant when the garment row
+  // has neither an `original_image_path` nor a `rendered_image_path` AND
+  // the studio render pipeline isn't already mid-flight. Subscription-locked
+  // and rate-limit error surfacing piggybacks on the existing PaywallScreen
+  // route used by `useAssessCondition`.
+  const generateImage = useGenerateGarmentImage();
 
   // M21 — paywall sticky-ref. The hook surfaces the
   // `'subscription_required'` sentinel via `error` when the user is on the
@@ -561,6 +570,39 @@ export function GarmentDetailScreen() {
 
         {tab === 'info' ? (
           <View style={{ gap: 12 }}>
+            {/* N12 — manual-entry garments arrive with no image_path. Until
+                a photo is attached, the hero falls back to the gradient
+                placeholder. Offer a single-tap AI catalog-image generator
+                here so the wardrobe doesn't fill up with colored squares.
+                Hidden once an image (original or rendered) lands, and
+                while a studio render is mid-flight (the existing pipeline
+                will produce the rendered image any moment). */}
+            {!heroPath && !isStudioRendering ? (
+              <View style={{ gap: 10 }}>
+                <Eyebrow>Image</Eyebrow>
+                <Caption>{tr('garment.generateImage.empty')}</Caption>
+                <Button
+                  label={
+                    generateImage.isPending
+                      ? tr('garment.generateImage.busy')
+                      : tr('garment.generateImage.action')
+                  }
+                  variant="outline"
+                  size="sm"
+                  disabled={generateImage.isPending}
+                  onPress={() => generateImage.mutate(garment.id)}
+                  accessibilityState={{
+                    disabled: generateImage.isPending,
+                    busy: generateImage.isPending,
+                  }}
+                  leadingIcon={
+                    generateImage.isPending ? (
+                      <ActivityIndicator size="small" color={t.fg} />
+                    ) : undefined
+                  }
+                />
+              </View>
+            ) : null}
             {/* M21 — condition assessment block. Badge appears once the
                 garment row has a persisted score OR the hook has just
                 returned one. The "Check condition" CTA sits adjacent so a

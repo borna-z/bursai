@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
+import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import {
   OfflineQueuedError,
   persistGarmentWithOfflineFallback,
@@ -39,6 +40,25 @@ export function useAddGarment() {
       // Insights derives totals + palette + utilisation from garments — refresh
       // so the new piece is reflected next time the user opens the tab.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+
+      // Mirror web's `useAddGarment.ts:493-497` behavior — when the user
+      // crosses 5 garments for the first time, warm prefetch_suggestions so
+      // the next AI feature open finds cached daily picks. Pre-invalidation
+      // count + 1 = post-save projection; queryClient.getQueryData reads the
+      // stale value the count cache held before this onSuccess invalidate
+      // pass marked it dirty (TanStack invalidates lazily — the entry isn't
+      // refetched yet at this point in the tick). Fire-and-forget — failure
+      // is non-critical, the cache will warm itself on the next user fetch.
+      const cachedCount = queryClient.getQueryData<number>([
+        'garments-count',
+        user?.id,
+      ]);
+      const newCount = (cachedCount ?? 0) + 1;
+      if (newCount === 5 && user?.id) {
+        callEdgeFunction('prefetch_suggestions', {
+          body: { user_id: user.id, trigger: 'first_5_garments' },
+        }).catch(() => {});
+      }
     },
     onError: (err: unknown) => {
       // OfflineQueuedError is a controlled flow signal, not a failure — the
