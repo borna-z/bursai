@@ -46,6 +46,21 @@ export interface OutfitSuggestionCardProps {
    *  garment id list. Today the screen wires this through to the
    *  anchor row so the next chat turn refines around the chosen look. */
   onTry: (garmentIds: string[]) => void;
+  /** Parity-D — Save CTA. Caller wires this to `usePersistGeneratedOutfit`
+   *  so the user can pin a chat-suggested outfit to their saved Outfits
+   *  list without first tapping Try. Mirrors web's
+   *  `src/components/chat/OutfitSuggestionCard.tsx` save affordance. */
+  onSave?: (
+    garmentIds: string[],
+    context: { explanation: string },
+  ) => Promise<void> | void;
+  /** When true the Save button renders as "Saved" + accent variant and
+   *  disables tap so a quick double-tap doesn't double-save. The parent
+   *  flips this once `onSave` resolves. */
+  saved?: boolean;
+  /** While the persistence mutation is in flight, surface "Saving…" so
+   *  the user sees the action registered. */
+  saving?: boolean;
 }
 
 export function OutfitSuggestionCard({
@@ -53,6 +68,9 @@ export function OutfitSuggestionCard({
   garmentIds,
   explanation,
   onTry,
+  onSave,
+  saved,
+  saving,
 }: OutfitSuggestionCardProps) {
   const t = useTokens();
   const safeIds = useMemo(
@@ -154,6 +172,23 @@ export function OutfitSuggestionCard({
           style={{ flex: 1 }}
           onPress={() => onTry(garments.map((g) => g.id))}
         />
+        {onSave ? (
+          <Button
+            label={
+              saved
+                ? tr('chat.outfitCard.saved')
+                : saving
+                  ? tr('chat.outfitCard.saving')
+                  : tr('chat.outfitCard.save')
+            }
+            size="sm"
+            variant={saved ? 'accent' : 'outline'}
+            onPress={() => {
+              if (saved || saving) return;
+              void onSave(garments.map((g) => g.id), { explanation: explanation ?? '' });
+            }}
+          />
+        ) : null}
       </View>
     </View>
   );

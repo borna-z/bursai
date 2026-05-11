@@ -34,6 +34,18 @@ export type MessageItemProps = {
   // list — today the screen anchors the first id so the next user turn
   // refines around the chosen look.
   onTryOutfit: (garmentIds: string[]) => void;
+  // Parity-D — Save handler on the inline OutfitSuggestionCard. The
+  // screen owns the in-flight state + the saved-id stamp so the same
+  // garment list isn't double-persisted across re-renders.
+  onSaveOutfit: (
+    messageId: string,
+    garmentIds: string[],
+    context: { explanation: string },
+  ) => Promise<void>;
+  /** True when the persist mutation for THIS message is in flight. */
+  isSavingOutfit?: boolean;
+  /** True when this message's outfit has already been persisted. */
+  isOutfitSaved?: boolean;
 };
 
 export const MessageItem = React.memo(
@@ -42,6 +54,9 @@ export const MessageItem = React.memo(
     onLongPress,
     onOpenProductLink,
     onTryOutfit,
+    onSaveOutfit,
+    isSavingOutfit,
+    isOutfitSaved,
   }: MessageItemProps) {
     const t = useTokens();
     const isUser = msg.role === 'user';
@@ -150,6 +165,9 @@ export const MessageItem = React.memo(
             garmentIds={outfitGarmentIds}
             explanation={outfitExplanation}
             onTry={onTryOutfit}
+            onSave={(ids, ctx) => onSaveOutfit(msg.id, ids, ctx)}
+            saved={isOutfitSaved}
+            saving={isSavingOutfit}
           />
         ) : null}
       </View>
@@ -166,7 +184,10 @@ export const MessageItem = React.memo(
     && a.msg.stylistMeta?.active_look?.garment_ids === b.msg.stylistMeta?.active_look?.garment_ids
     && a.onLongPress === b.onLongPress
     && a.onOpenProductLink === b.onOpenProductLink
-    && a.onTryOutfit === b.onTryOutfit,
+    && a.onTryOutfit === b.onTryOutfit
+    && a.onSaveOutfit === b.onSaveOutfit
+    && a.isSavingOutfit === b.isSavingOutfit
+    && a.isOutfitSaved === b.isOutfitSaved,
 );
 
 // Three-dot typing indicator. Uses simple opacity cycling rather than a

@@ -1550,6 +1550,16 @@ export const en: Record<string, string> = {
   'chat.outfitCard.name.suggestion': 'Today’s pick',
   'chat.outfitCard.name.saved': 'Saved outfit',
   'chat.outfitCard.loading': 'Loading outfit…',
+  // Parity-D — Save CTA on the inline OutfitSuggestionCard + wardrobe→chat push.
+  'chat.outfitCard.save': 'Save',
+  'chat.outfitCard.saving': 'Saving…',
+  'chat.outfitCard.saved': 'Saved',
+  'chat.outfitCard.saveSuccess.title': 'Saved',
+  'chat.outfitCard.saveSuccess.body': 'This look lives in Outfits now.',
+  'chat.outfitCard.saveFailed.title': 'Couldn’t save',
+  'chat.outfitCard.saveEmpty.title': 'Nothing to save',
+  'chat.outfitCard.saveEmpty.body': 'This suggestion has no garments to save.',
+  'garmentDetail.styleInChat.action': 'Style this in chat',
   'chat.modeToggle.style': 'Style',
   'chat.modeToggle.shopping': 'Shop',
 
