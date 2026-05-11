@@ -268,10 +268,17 @@ export function OutfitGenerateScreen() {
       return;
     }
     hapticLight();
+    // Mark success BEFORE firing the mutation so a back-swipe during the
+    // in-flight window doesn't let the cleanup `reset()` wipe `result`.
+    // Same contract as `navigateToWornOutfit` and the M17 precedent that
+    // guarded against unmount-mid-save losing the user's work. If the
+    // mutation fails the toast surfaces the error and the user can retry —
+    // leaving succeededRef true is benign because the screen still holds
+    // the (un-persisted) result.
+    succeededRef.current = true;
     persistOutfit.mutate(persistArgs, {
       onSuccess: ({ outfitId }) => {
         hapticSuccess();
-        succeededRef.current = true;
         setSavedOutfitId(outfitId);
         showToast(
           'success',
