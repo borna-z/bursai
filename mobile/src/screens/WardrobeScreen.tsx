@@ -260,11 +260,7 @@ export function WardrobeScreen({
   //     in. Drives the "Filtered · N of …" client-side count (which is
   //     derived from `visibleGarments.length` over the loaded pages —
   //     partial pagination would show a misleading lower bound).
-  // Kept `countsAuthoritative` as an alias for `filteredCountReady` so any
-  // residual reader (search placeholder fallback below) still gets the
-  // honest gate for whatever it consumes.
   const filteredCountReady = !hasNextPage;
-  const countsAuthoritative = filteredCountReady;
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route.
@@ -319,7 +315,13 @@ export function WardrobeScreen({
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <SearchBar
           placeholder={
-            countsAuthoritative
+            // Q-C1 — read `totalCountReady` (server count) not the legacy
+            // `!hasNextPage` gate. The server total resolves the moment
+            // `useGarmentCount` returns, regardless of pagination state,
+            // so the placeholder can show the real total mid-pagination
+            // instead of falling back to "Search your wardrobe…". Codex
+            // P3 round 4 on PR #830.
+            totalCountReady
               ? `Search ${totalCount} garments…`
               : 'Search your wardrobe…'
           }
