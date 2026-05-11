@@ -7,11 +7,12 @@
 // ChipRow — generic single-select chip row used by Q6 / Q8 / Q10.
 // ColorGrid — swatch picker used by QColors.
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   PanResponder,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -88,31 +89,45 @@ export function PercentSlider({
   widthRef.current = trackWidth;
   onChangeRef.current = onChange;
 
+  // N14/F3 round 2 — split tap from drag.
+  // Round 1 (`onStartShouldSetPanResponder: () => true`) regressed vertical
+  // scrolling: claiming the responder on touch-start meant the parent
+  // ScrollView in `StyleQuizV4Step.tsx` couldn't scroll any gesture that
+  // started over a slider. Codex round 2 on PR #819 flagged this.
+  //
+  // Two-handler split:
+  //   • PanResponder handles drags — `onStartShouldSetPanResponder: false`
+  //     leaves the touch-start unclaimed, then `onMoveShouldSetPanResponder`
+  //     only claims when the gesture is horizontally biased. Vertical
+  //     scrolls fall through to ScrollView, horizontal drags commit
+  //     position via grant + move (unchanged from pre-N14).
+  //   • Pressable-overlay handles bare taps — `onPress` only fires on a
+  //     clean tap (Pressability cancels on significant movement), so
+  //     vertical scroll gestures that start over the slider don't trigger
+  //     it. The overlay's `locationX` is relative to the absoluteFill,
+  //     which matches the outer View's bounds.
+  const commitFromLocationX = useCallback((locationX: number) => {
+    const w = widthRef.current;
+    if (w <= 0) return;
+    const x = Math.max(0, Math.min(w, locationX));
+    onChangeRef.current(Math.round((x / w) * 100));
+  }, []);
+
   const pan = useMemo(
     () =>
       PanResponder.create({
-        // N14/F3 — claim the gesture on touch-start so a single tap commits
-        // the position via `onPanResponderGrant`. Without this, taps fall
-        // through to the parent ScrollView and the slider only responded to
-        // drags. (Web `PercentSlider` already treats a click as set-position.)
-        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_e, gestureState) =>
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderGrant: (e) => {
-          const w = widthRef.current;
-          if (w <= 0) return;
-          const x = Math.max(0, Math.min(w, e.nativeEvent.locationX));
-          onChangeRef.current(Math.round((x / w) * 100));
+          commitFromLocationX(e.nativeEvent.locationX);
           hapticSelection();
         },
         onPanResponderMove: (e) => {
-          const w = widthRef.current;
-          if (w <= 0) return;
-          const x = Math.max(0, Math.min(w, e.nativeEvent.locationX));
-          onChangeRef.current(Math.round((x / w) * 100));
+          commitFromLocationX(e.nativeEvent.locationX);
         },
       }),
-    [],
+    [commitFromLocationX],
   );
 
   return (
@@ -168,6 +183,7 @@ export function PercentSlider({
           justifyContent: 'center',
         }}>
         <View
+          pointerEvents="none"
           style={{
             height: 10,
             borderRadius: radii.pill,
@@ -183,6 +199,19 @@ export function PercentSlider({
             }}
           />
         </View>
+        {/* N14/F3 round 2 — Pressable overlay handles bare taps without
+            claiming the responder on touch-start. Pressability cancels on
+            significant movement, so vertical scroll gestures pass through
+            to the parent ScrollView and horizontal drags get claimed by
+            the outer View's PanResponder via onMoveShouldSetPanResponder. */}
+        <Pressable
+          accessible={false}
+          onPress={(e) => {
+            commitFromLocationX(e.nativeEvent.locationX);
+            hapticSelection();
+          }}
+          style={StyleSheet.absoluteFill}
+        />
       </View>
     </View>
   );
