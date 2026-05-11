@@ -41,7 +41,7 @@ import { Caption } from '../components/Caption';
 import { IconBtn } from '../components/IconBtn';
 import { ChatHistorySheet } from '../components/chat/ChatHistorySheet';
 import { useStyleChat, type ChatMessage, type StyleChatMode } from '../hooks/useStyleChat';
-import { useChatHistory } from '../hooks/useChatHistory';
+import { useChatHistory, useDeleteChatThread } from '../hooks/useChatHistory';
 import { useStyleMemoryFacts, type StyleMemoryFact } from '../hooks/useStyleMemoryFacts';
 import { useRecordMemoryEvent } from '../hooks/useRecordMemoryEvent';
 import { useAuth } from '../contexts/AuthContext';
@@ -166,6 +166,12 @@ export function StyleChatScreen() {
 
   // G1 — chat history thread summaries.
   const { data: historyThreads, isLoading: historyLoading } = useChatHistory();
+  // Parity-C — per-row delete from the history sheet. We track the set of
+  // modes with an in-flight delete so the sheet can dim their trash icons.
+  const deleteThreadMutation = useDeleteChatThread();
+  const [deletingModes, setDeletingModes] = useState<Set<StyleChatMode>>(
+    () => new Set(),
+  );
 
   const handleSelectHistoryThread = React.useCallback(
     (mode: StyleChatMode) => {
@@ -173,6 +179,35 @@ export function StyleChatScreen() {
       setMode(mode);
     },
     [setMode],
+  );
+
+  const handleDeleteHistoryThread = React.useCallback(
+    async (mode: StyleChatMode) => {
+      setDeletingModes((prev) => {
+        if (prev.has(mode)) return prev;
+        const next = new Set(prev);
+        next.add(mode);
+        return next;
+      });
+      try {
+        await deleteThreadMutation.mutateAsync(mode);
+        // Mirror the local-state effect `clearChat` performs for the active
+        // mode: if the user just deleted the thread they're currently in,
+        // wipe the visible messages too. Otherwise the screen would keep
+        // rendering the deleted history until the next mode toggle.
+        if (mode === currentMode) {
+          await clearChat();
+        }
+      } finally {
+        setDeletingModes((prev) => {
+          if (!prev.has(mode)) return prev;
+          const next = new Set(prev);
+          next.delete(mode);
+          return next;
+        });
+      }
+    },
+    [deleteThreadMutation, currentMode, clearChat],
   );
 
   const handleTryOutfit = React.useCallback(
@@ -381,7 +416,7 @@ export function StyleChatScreen() {
         <ChatHeader
           onBack={() => nav.goBack()}
           onOpenHistory={() => setHistoryOpen(true)}
-          onClearChat={handleClear}
+          onNewChat={handleClear}
         />
 
         {/* ============ MODE TOGGLE (M23) ============ */}
@@ -520,6 +555,8 @@ export function StyleChatScreen() {
         activeMode={currentMode}
         isLoading={historyLoading}
         onSelect={handleSelectHistoryThread}
+        onDeleteThread={handleDeleteHistoryThread}
+        deletingModes={deletingModes}
       />
     </SafeAreaView>
   );

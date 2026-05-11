@@ -12,10 +12,11 @@
 // queryClient passed in by the consumer). Pulling that wiring into a
 // dedicated hook keeps StyleChatScreen's effects readable.
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { captureMutationError } from '../lib/sentry';
 import type { StyleChatMode } from './useStyleChat';
 
 export interface ChatHistoryThreadSummary {
@@ -126,5 +127,34 @@ export function useChatHistory() {
       return perMode.filter((t): t is ChatHistoryThreadSummary => t !== null);
     },
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Parity-C — delete every chat_messages row for one mode. Used by
+ * `ChatHistorySheet`'s per-row trash button so users can scrub past
+ * threads without first navigating into them. Cache invalidation
+ * mirrors `clearChat` in `useStyleChat` so the sheet's preview list
+ * refreshes immediately.
+ */
+export function useDeleteChatThread() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mode: StyleChatMode) => {
+      if (!user?.id) throw new Error('Not authenticated');
+      const entry = HISTORY_MODES.find((m) => m.mode === mode);
+      const column = entry?.column ?? mode;
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('mode', column);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatHistory', user?.id] });
+    },
+    onError: captureMutationError('useDeleteChatThread'),
   });
 }

@@ -1533,6 +1533,18 @@ export const en: Record<string, string> = {
   'chat.history.openLabel': 'Open chat history',
   'chat.history.close': 'Close history',
   'chat.history.messageCount.template': '{n} messages',
+  // Parity-C — single header menu replaces the old two-icon header.
+  'chat.menu.openLabel': 'Chat menu',
+  'chat.menu.history': 'Open history',
+  'chat.menu.newChat': 'Start new chat',
+  // Parity-C — per-row delete inside ChatHistorySheet.
+  'chat.history.delete.action': 'Delete',
+  'chat.history.delete.confirm.title': 'Delete this chat?',
+  'chat.history.delete.confirm.body':
+    'This removes every message in this thread. You can’t undo this.',
+  'chat.history.delete.confirm.cancel': 'Keep',
+  'chat.history.delete.confirm.delete': 'Delete',
+  'chat.history.delete.failed.title': 'Couldn’t delete',
   'chat.outfitCard.try': 'Try this outfit',
   'chat.outfitCard.eyebrow': 'Suggestion',
   'chat.outfitCard.name.suggestion': 'Today’s pick',
