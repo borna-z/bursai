@@ -323,19 +323,40 @@ function usePushTokenRegistration(): void {
   // N14/F5 — Expo push tokens are long-lived in practice but can rotate
   // server-side (rarer on APNs, more common on FCM). Without a listener the
   // app would only catch a rotation on next launch, leaving the row in
-  // `push_subscriptions` stale until then. `addPushTokenListener` fires for
-  // every rotation with the new ExpoPushToken in its event payload.
+  // `push_subscriptions` stale until then.
   //
-  // Codex round 1 on PR #819: pass the listener-emitted token through to
-  // the registration mutation via the `prefetchedToken` path. Re-calling
-  // `getExpoPushTokenAsync` from inside the listener would (per Expo docs)
-  // re-trigger the listener and risk an infinite loop on flaky transports.
+  // Codex round 2 on PR #819: `addPushTokenListener` emits a
+  // `DevicePushToken` (raw APNs/FCM token), NOT an ExpoPushToken — storing
+  // its `.data` straight into `push_subscriptions.expo_token` would persist
+  // a malformed token (the `send_push_notification` edge function deletes
+  // rows whose `expo_token` doesn't start with `ExponentPushToken[`).
+  //
+  // Correct path: re-run the full registration mutation, which calls
+  // `getExpoPushTokenAsync` to mint a fresh Expo token backed by the
+  // rotated device token. Expo docs warn that calling `getDevicePushToken
+  // Async` (and by extension `getExpoPushTokenAsync`) from inside the
+  // listener can re-trigger it; `rotatingRef` short-circuits any re-entry
+  // until the in-flight fetch settles. Defer the work to a microtask so we
+  // unwind the listener's call stack before kicking the fetch.
+  const rotatingRef = useRef(false);
   useEffect(() => {
     if (!user) return;
-    const sub = Notifications.addPushTokenListener((tokenEvent) => {
-      const next = tokenEvent?.data;
-      if (typeof next !== 'string' || next.length === 0) return;
-      mutateRef.current({ prefetchedToken: next });
+    const sub = Notifications.addPushTokenListener(() => {
+      if (rotatingRef.current) return;
+      rotatingRef.current = true;
+      // Microtask break — the registration fetch runs after the listener
+      // returns so any re-emission from `getDevicePushTokenAsync` (which
+      // `getExpoPushTokenAsync` calls internally) lands against the
+      // active `rotatingRef` guard and is dropped. Release the latch on
+      // mutation settle, so a real second rotation later still triggers
+      // a fresh fetch.
+      Promise.resolve().then(() => {
+        mutateRef.current(undefined, {
+          onSettled: () => {
+            rotatingRef.current = false;
+          },
+        });
+      });
     });
     return () => {
       sub.remove();
