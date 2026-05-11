@@ -509,10 +509,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // N16-4: call analyze_garment with the downloaded bytes BEFORE the
-        // storage upload so we don't burn storage on a row we might fail to
-        // insert. The call is best-effort — failure falls through to the
-        // metadata-only path with enrichment_status='failed'.
+        // N16-4: classify the downloaded bytes via analyze_garment so the
+        // insert below can populate real category/color/material instead of
+        // the prior hardcoded 'top' / 'grey' stubs. The call is best-effort
+        // — on any failure (rate-limit, AI error, oversize image) we still
+        // upload + insert with enrichment_status='failed' so the import
+        // never silently drops a URL.
         const analysis = await classifyGarmentImage({
           supabaseUrl,
           authHeader,
