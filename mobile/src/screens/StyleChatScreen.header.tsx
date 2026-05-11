@@ -82,7 +82,11 @@ export function ChatHeader({
           accessible={false}>
           <View />
         </Pressable>
-        <SafeAreaView edges={['bottom']} style={s.menuAnchor} pointerEvents="box-none">
+        {/* Include the top edge so the menu sits below the status-bar/notch inset
+            on every device. Without 'top' the absolute-positioned anchor measured
+            marginTop:56 from the physical top of the window, which on notched
+            devices put the menu under the status bar (Codex P2). */}
+        <SafeAreaView edges={['top', 'bottom']} style={s.menuAnchor} pointerEvents="box-none">
           <View
             style={[
               s.menuCard,
