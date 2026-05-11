@@ -1272,6 +1272,9 @@ export const sv: Record<string, string> = {
   'chat.empty.subtitle.unauth': 'Logga in för att chatta med din stylist.',
   'chat.empty.subtitle.auth': 'Berätta vad du ska klä dig för.',
   'chat.error.retry': 'Försök igen',
+  // Q-D1 — silent-failure guard keys (mirror EN; append-only).
+  'chat.error.generic': 'Något gick fel. Försök igen.',
+  'chat.error.inlineFallback': 'Kunde inte generera ett svar. Tryck på Försök igen ovan.',
   'chat.composer.placeholder': 'Fråga din stylist…',
   'chat.memory.disabled.title': 'Endast plagg-nivå går att glömma',
   'chat.memory.disabled.body': 'Full minnesredigering kommer i en framtida version.',

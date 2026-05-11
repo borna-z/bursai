@@ -40,6 +40,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
+import { t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import type {
@@ -402,9 +403,12 @@ export function useStyleChat(): UseStyleChatResult {
       // Build the history payload from the PRIOR snapshot so the new turn
       // doesn't poison the request body. messagesRef holds the last-rendered
       // state — see edge contract (supabase/functions/style_chat/index.ts:933-946)
-      // for the strict shape.
+      // for the strict shape. Q-D1 also strips `isErrored` placeholders so
+      // the localized UI fallback (e.g. "Couldn't generate a reply…") never
+      // leaks into the AI's view of the conversation as if the assistant
+      // actually said it. Codex P2 round 1 on PR #827.
       const priorHistory = messagesRef.current
-        .filter((m) => !m.isStreaming)
+        .filter((m) => !m.isStreaming && !m.isErrored)
         .slice(-HISTORY_TURNS)
         .map((m) => ({ role: m.role, content: m.content }));
       const messagesPayload = [
@@ -420,10 +424,14 @@ export function useStyleChat(): UseStyleChatResult {
       // Clear-active-look so the next turn doesn't ship a stale look.
       // Codex P1-1.
       const clearedAt = activeLookClearedAtRef.current;
-      const lookSourceMessages =
-        clearedAt === null
-          ? messagesRef.current
-          : messagesRef.current.filter((m) => m.timestamp.getTime() >= clearedAt);
+      // Q-D1 — also strip `isErrored` messages so a failed turn's partial
+      // envelope (if any landed before the stream errored) can't become
+      // the active look the next turn refines around. Codex P2 round 1
+      // on PR #827.
+      const lookSourceMessages = (clearedAt === null
+        ? messagesRef.current
+        : messagesRef.current.filter((m) => m.timestamp.getTime() >= clearedAt)
+      ).filter((m) => !m.isErrored);
       const latestLook = getLatestActiveLook(lookSourceMessages);
       const activeLookPayload: StyleChatActiveLookInput | undefined = latestLook
         ? {
@@ -634,17 +642,69 @@ export function useStyleChat(): UseStyleChatResult {
             if (controller.signal.aborted) return;
             // Don't burn Sentry quota on the expected paywall sentinel —
             // those are subscription gating, not real failures.
-            if (err.message !== SUBSCRIPTION_SENTINEL) {
+            const isPaywall = err.message === SUBSCRIPTION_SENTINEL;
+            if (!isPaywall) {
               Sentry.withScope((s) => {
                 s.setTag('mutation', 'useStyleChat');
+                // Q-D1 — extra context so we can pinpoint which turn / mode
+                // surfaced an error when investigating the silent-failure
+                // path. `errorName` distinguishes `EdgeFunctionTimeoutError`
+                // / `EdgeFunctionRateLimitError` / `AbortError` / `TypeError`
+                // (network) etc; `turnMode` lets us see if shopping vs style
+                // routes diverge.
+                s.setTag('chatTurnMode', turnMode);
+                s.setTag('errorName', err.name || 'Error');
+                if (err.message) s.setExtra('errorMessage', err.message);
                 Sentry.captureException(err);
               });
             }
-            setError(err.message);
+            // Empty err.message would have left both the banner suppressed
+            // (`error && error !== SUBSCRIPTION_SENTINEL` is `'' && …` →
+            // null) AND the inline bubble removed below — net result was
+            // pure silence after the user's question. Set a non-empty
+            // fallback so the banner always renders. Codex Q-D1.
+            const surfacedError = isPaywall
+              ? err.message
+              : err.message || tr('chat.error.generic');
+            setError(surfacedError);
             setIsStreaming(false);
-            // Drop the empty assistant placeholder on failure; the user
-            // message stays so they can retry without retyping.
-            setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+            // Q-D1 — keep the assistant placeholder around, even on error.
+            // The previous filter-out path produced "user message → silence"
+            // when the stream failed because the inline bubble disappeared
+            // alongside the banner suppression above. Now the placeholder
+            // stays with an explanatory body so the user always sees that
+            // the turn happened and can spot the Retry pill. Paywall path
+            // gets a tailored body so the user knows it's a subscription
+            // gate rather than a transient failure.
+            // Paywall path reuses the existing `chat.error.premium.body`
+            // copy so the inline bubble matches the Alert wording exactly
+            // (one source of truth for the subscription gate). Codex P2-2
+            // round 1 review on Q-D1.
+            const fallbackContent = isPaywall
+              ? tr('chat.error.premium.body')
+              : tr('chat.error.inlineFallback');
+            // Q-D1 — also drop any partial `stylistMeta` the placeholder
+            // picked up before the stream errored. A `stylist_response`
+            // envelope can land before deltas start flowing, so the
+            // placeholder's `stylistMeta` may already carry
+            // `render_outfit_card`, `outfit_ids`, `active_look`, or
+            // `shopping_results`. Without nulling it, `MessageItem` would
+            // still render the outfit/shopping cards and the long-press
+            // anchor gesture would stay live on a turn the UI itself says
+            // failed. Codex P2 round 2 on PR #827.
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: fallbackContent,
+                      isStreaming: false,
+                      isErrored: true,
+                      stylistMeta: null,
+                    }
+                  : m,
+              ),
+            );
           },
         },
         controller.signal,

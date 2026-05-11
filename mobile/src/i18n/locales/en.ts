@@ -303,6 +303,12 @@ export const en: Record<string, string> = {
   'chat.empty.subtitle.unauth': 'Sign in to chat with your stylist.',
   'chat.empty.subtitle.auth': "Tell me what you're dressing for.",
   'chat.error.retry': 'Retry',
+  // Q-D1 — surfaces inline on the assistant bubble when a stream fails so
+  // the user always sees that their turn was acknowledged. Without it the
+  // bubble was filtered out and the banner suppressed (empty err.message)
+  // produced pure silence — see Q-D1 spec.
+  'chat.error.generic': "Something went wrong. Please try again.",
+  'chat.error.inlineFallback': "Couldn't generate a reply. Tap Retry above to try again.",
   'chat.composer.placeholder': 'Ask your stylist…',
   'chat.memory.disabled.title': 'Garment-level forget only',
   'chat.memory.disabled.body': 'Full memory edit lands in a future release.',
