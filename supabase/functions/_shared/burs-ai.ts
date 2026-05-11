@@ -1226,10 +1226,14 @@ export async function checkRateLimit(
     );
   }
 
-  // Record this call
+  // Record this call. Include `endpoint` so the NOT NULL constraint in
+  // the initial schema is satisfied (the N15 migration relaxes it, but
+  // populating defensively keeps this helper safe even on a DB that
+  // hasn't picked up the migration). Endpoint = function_name is the
+  // only meaningful value at the rate-limit layer.
   await supabaseAdmin
     .from("ai_rate_limits")
-    .insert({ user_id: userId, function_name: functionName });
+    .insert({ user_id: userId, function_name: functionName, endpoint: functionName });
 
   // Periodic cleanup (1% chance per request)
   if (Math.random() < 0.01) {

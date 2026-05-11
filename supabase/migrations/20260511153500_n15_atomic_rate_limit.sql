@@ -22,6 +22,20 @@
 --   minute_count  integer      — count IN the last 60s BEFORE insert
 --   hour_count    integer      — count IN the last 3600s BEFORE insert
 --   reason        text | null  — 'minute' or 'hour' on denial, null on allow
+--
+-- Side fix (Codex round 2): `ai_rate_limits.endpoint` is `text NOT NULL`
+-- in the initial schema (00000000000000_initial_schema.sql:720) with no
+-- default. Every existing `INSERT INTO ai_rate_limits (user_id,
+-- function_name)` call site has been omitting it — they either fail
+-- silently because the inserts were fire-and-forget, or production
+-- drift has dropped the constraint. Either way: relax the column to
+-- nullable with default '' so legacy callers stop tripping the
+-- constraint, and have the new RPC always populate it with the
+-- function name (the only meaningful value at the rate-limit layer).
+
+ALTER TABLE public.ai_rate_limits
+  ALTER COLUMN endpoint DROP NOT NULL,
+  ALTER COLUMN endpoint SET DEFAULT '';
 
 CREATE OR REPLACE FUNCTION public.record_and_check_rate_limit(
   p_user_id uuid,
@@ -78,8 +92,8 @@ BEGIN
     RETURN;
   END IF;
 
-  INSERT INTO public.ai_rate_limits (user_id, function_name)
-  VALUES (p_user_id, p_function_name);
+  INSERT INTO public.ai_rate_limits (user_id, function_name, endpoint)
+  VALUES (p_user_id, p_function_name, p_function_name);
 
   RETURN QUERY SELECT true, v_minute, v_hour, NULL::text;
 END;

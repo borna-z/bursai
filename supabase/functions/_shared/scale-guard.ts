@@ -252,7 +252,7 @@ export async function enforceRateLimit(
     tier = applyTierMultiplier(baseTier, plan);
   }
 
-  // N15 Codex round 1 — atomic count+check+insert via the
+  // N15 Codex round 1+2 — atomic count+check+insert via the
   // record_and_check_rate_limit RPC (migration 20260511153500). The
   // previous shape was two SELECT counts followed by an awaited INSERT,
   // which only closed the burst-slip window for SERIAL concurrent
@@ -263,12 +263,14 @@ export async function enforceRateLimit(
   // (user, function) via a transaction-scoped advisory lock and
   // returns the pre-insert counts in the same transaction.
   //
-  // Graceful-degrade fallback (legacy path) retained for the window
-  // between this code deploying and the migration applying on the
-  // linked DB. The fallback runs the OLD two-count+insert sequence
-  // but is otherwise identical to pre-N15 behaviour; it fails CLOSED
-  // on DB errors (B9). Once the migration is applied, every call
-  // takes the RPC path.
+  // Fail-closed on every error / unexpected shape (Codex round 2):
+  // the previous version retained a legacy SELECT+INSERT fallback for
+  // the migration window, but that fallback re-introduced the same
+  // burst race the RPC was meant to close. Removing the fallback means
+  // operators MUST apply the migration before deploying this code; if
+  // they don't, AI calls 429 until the function exists. That's the
+  // correct trade-off for a bill-shielding gate — degraded UX is
+  // strictly safer than uncapped Gemini spend.
   const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc(
     "record_and_check_rate_limit",
     {
@@ -279,92 +281,10 @@ export async function enforceRateLimit(
     },
   );
 
-  if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
-    const row = rpcData[0] as {
-      allowed: boolean;
-      minute_count: number;
-      hour_count: number;
-      reason: string | null;
-    };
-    if (!row.allowed) {
-      if (row.reason === "minute") {
-        throw new RateLimitError(
-          `Too many requests. Please wait a moment before trying again.`,
-          functionName,
-          "minute",
-          tier.maxPerMinute,
-        );
-      }
-      throw new RateLimitError(
-        `Hourly limit reached for this feature. Please try again later.`,
-        functionName,
-        "hour",
-        tier.maxPerHour,
-      );
-    }
-
-    // Periodic cleanup (1% chance) — same fire-and-forget as before.
-    if (Math.random() < 0.01) {
-      supabaseAdmin.rpc("cleanup_old_rate_limits").then(() => {}, () => {});
-    }
-
-    return {
-      allowed: true,
-      remaining: {
-        hour: Math.max(0, tier.maxPerHour - row.hour_count - 1),
-        minute: Math.max(0, tier.maxPerMinute - row.minute_count - 1),
-      },
-    };
-  }
-
-  if (rpcErr) {
-    // RPC-level error is a real DB failure (the function exists but
-    // something broke). Fail CLOSED per B9 — pre-launch bill-shielding
-    // is the priority; users see a temporary 429 instead of unbounded
-    // AI spend.
-    //
-    // Function-missing (404) presents as a PostgREST error too; that
-    // path is the migration-window scenario. We can't reliably
-    // distinguish "function missing" from "function broken" via the
-    // error code (PostgREST returns PGRST202 for both no-route and
-    // ambiguous-route cases), so we fall through to the legacy SELECT
-    // path below — same shape as the BE-P0-B2 readUsageBudget RPC
-    // fallback. This means the legacy fallback is only reached when
-    // the RPC literally doesn't exist or returns nothing; once the
-    // migration is applied, this branch is dead.
+  if (rpcErr || !Array.isArray(rpcData) || rpcData.length === 0) {
     console.warn(
-      "Atomic rate-limit RPC failed, falling back to legacy path:",
-      rpcErr.message,
-    );
-  }
-
-  // ── Legacy graceful-degrade fallback ──
-  // Only reached during the migration window before
-  // record_and_check_rate_limit exists on the linked DB. Same shape as
-  // pre-N15 except B9/BE-P0-B5 (fail-closed + awaited insert) remain.
-  const now = Date.now();
-  const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
-  const oneMinuteAgo = new Date(now - 60 * 1000).toISOString();
-
-  const [hourResult, minuteResult] = await Promise.all([
-    supabaseAdmin
-      .from("ai_rate_limits")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("function_name", functionName)
-      .gte("called_at", oneHourAgo),
-    supabaseAdmin
-      .from("ai_rate_limits")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("function_name", functionName)
-      .gte("called_at", oneMinuteAgo),
-  ]);
-
-  if (hourResult.error || minuteResult.error) {
-    console.warn(
-      "Rate limit check failed:",
-      hourResult.error?.message || minuteResult.error?.message,
+      "Atomic rate-limit RPC failed (fail-closed):",
+      rpcErr?.message ?? "empty response",
     );
     throw new RateLimitError(
       `Rate limit check unavailable. Please retry in a moment.`,
@@ -374,19 +294,22 @@ export async function enforceRateLimit(
     );
   }
 
-  const hourCount = hourResult.count ?? 0;
-  const minuteCount = minuteResult.count ?? 0;
+  const row = rpcData[0] as {
+    allowed: boolean;
+    minute_count: number;
+    hour_count: number;
+    reason: string | null;
+  };
 
-  if (minuteCount >= tier.maxPerMinute) {
-    throw new RateLimitError(
-      `Too many requests. Please wait a moment before trying again.`,
-      functionName,
-      "minute",
-      tier.maxPerMinute,
-    );
-  }
-
-  if (hourCount >= tier.maxPerHour) {
+  if (!row.allowed) {
+    if (row.reason === "minute") {
+      throw new RateLimitError(
+        `Too many requests. Please wait a moment before trying again.`,
+        functionName,
+        "minute",
+        tier.maxPerMinute,
+      );
+    }
     throw new RateLimitError(
       `Hourly limit reached for this feature. Please try again later.`,
       functionName,
@@ -395,13 +318,7 @@ export async function enforceRateLimit(
     );
   }
 
-  const { error: insertErr } = await supabaseAdmin
-    .from("ai_rate_limits")
-    .insert({ user_id: userId, function_name: functionName });
-  if (insertErr) {
-    console.warn("Rate limit record failed:", insertErr.message);
-  }
-
+  // Periodic cleanup (1% chance) — fire-and-forget.
   if (Math.random() < 0.01) {
     supabaseAdmin.rpc("cleanup_old_rate_limits").then(() => {}, () => {});
   }
@@ -409,8 +326,8 @@ export async function enforceRateLimit(
   return {
     allowed: true,
     remaining: {
-      hour: tier.maxPerHour - hourCount - 1,
-      minute: tier.maxPerMinute - minuteCount - 1,
+      hour: Math.max(0, tier.maxPerHour - row.hour_count - 1),
+      minute: Math.max(0, tier.maxPerMinute - row.minute_count - 1),
     },
   };
 }
