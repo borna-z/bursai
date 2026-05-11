@@ -260,19 +260,17 @@ export async function readUsageBudget(
     // linearly with usage. Returning one bigint cuts the wire payload to
     // a constant and removes the JS-side accumulation loop.
     //
-    // Graceful degrade window: if the RPC errors (function not yet
-    // applied on the linked DB, transient DB blip), fall back to the
-    // legacy SELECT path so this commit is safe to deploy ahead of the
-    // migration push.
     // Scalar-returning RPC: supabase-js returns `data` as the bigint
     // directly (no row wrapper, no `.single()` needed). Postgres bigint
     // arrives as a JS `number` for small magnitudes and a `string` when
     // it exceeds Number.MAX_SAFE_INTEGER — we accept both.
     //
-    // The inner try/catch isolates ANY RPC-side failure (function missing
-    // on the linked DB during the migration window, mock supabase clients
-    // in tests that don't define `.rpc()`, transient network error) so
-    // the SELECT-path fallback below stays reachable.
+    // Graceful-degrade fallback: the inner try/catch + typeof guard
+    // isolate ANY RPC-side failure (function not yet applied on the
+    // linked DB during the migration window, mock supabase clients in
+    // tests that don't define `.rpc()`, transient network error) so the
+    // legacy SELECT path below stays reachable. Once the migration
+    // lands, every call takes the RPC path.
     try {
       if (typeof (supabase as { rpc?: unknown }).rpc === "function") {
         const { data: sumValue, error: rpcErr } = await supabase.rpc(

@@ -19,8 +19,8 @@
 -- matches the project's standing rule for SECURITY DEFINER functions.
 --
 -- Backfill: bring any free-tier rows whose quota is somehow still NULL
--- back up to the launch default (200000 micros = $0.20 onboarding /
--- $2.00 free per `20260509190001_ai_token_usage.sql` comments).
+-- back up to the free-tier default — 2_000_000 micros ($2.00 at
+-- 1 micro = $0.000001) per `20260509190001_ai_token_usage.sql`.
 
 -- IMPORTANT: this CREATE OR REPLACE must preserve every behaviour added
 -- to handle_new_user by prior migrations. As of 2026-05-11 those are:
