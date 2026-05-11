@@ -22,6 +22,18 @@
 -- back up to the launch default (200000 micros = $0.20 onboarding /
 -- $2.00 free per `20260509190001_ai_token_usage.sql` comments).
 
+-- IMPORTANT: this CREATE OR REPLACE must preserve every behaviour added
+-- to handle_new_user by prior migrations. As of 2026-05-11 those are:
+--   * `20260429120000_trial_pending_for_new_users.sql` — Wave 8 P52: sets
+--     `auth.users.raw_user_meta_data ||= { trial_pending: true }` so the
+--     `start_trial` gate (which checks the DB flag) mints a 3-day Stripe
+--     trial for OAuth signups (Google/Apple cannot pass signup metadata
+--     client-side).
+-- N15 additions:
+--   * `monthly_token_quota_micros = 2000000` on the new subscriptions row
+--     so N2 enforcement isn't bypassed.
+--   * `SET search_path = public, auth` pinning.
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -36,6 +48,18 @@ BEGIN
   INSERT INTO public.subscriptions (user_id, plan, status, garments_count, monthly_token_quota_micros)
   VALUES (NEW.id, 'free', 'active', 0, 2000000)
   ON CONFLICT (user_id) DO NOTHING;
+
+  -- Preserved from `20260429120000_trial_pending_for_new_users.sql`
+  -- (Wave 8 P52 / Codex round 6 P1). The `start_trial` server-side gate
+  -- reads this DB flag rather than the JWT, so OAuth signups (which
+  -- can't pass signup metadata) need this trigger update to be
+  -- eligible for the launch trial. jsonb merge is idempotent — re-runs
+  -- don't double-write and existing keys (full_name, avatar_url, etc.)
+  -- survive the merge.
+  UPDATE auth.users
+     SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb)
+                              || jsonb_build_object('trial_pending', true)
+   WHERE id = NEW.id;
 
   RETURN NEW;
 END;

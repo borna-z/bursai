@@ -792,7 +792,6 @@ export async function callBursAI(
 
   // ── Build cache key ──
   let cacheKey = "";
-  let inflightKey = "";
 
   if ((cacheTtlSeconds > 0 || !stream) && !stream) {
     cacheKey = await createBursAICacheKey({
@@ -801,9 +800,6 @@ export async function callBursAI(
       maxTokens,
       temperature,
     });
-    // Per-user inflight key (Codex P1 round 1 on PR #820). When userId is
-    // absent (system/cron flows), falls back to the bare cacheKey.
-    inflightKey = options.userId ? `${cacheKey}|${options.userId}` : cacheKey;
 
     // Tier 1: in-memory cache removed — Edge Function isolates are
     // stateless, so in-memory Maps reset on every cold start.
@@ -829,13 +825,18 @@ export async function callBursAI(
     }
 
     // ── Request deduplication ──
-    // N15 Codex round 1 — scope the IN_FLIGHT key by userId when present.
-    // Without this, a typo'd `cacheNamespace` that produces the same
-    // cacheKey for two users would have user B's call return user A's
-    // in-flight Promise (the DB-cache filter we added in BE-P0-B4 would
-    // be bypassed because no DB row has been written yet). cacheKey is a
-    // SHA-256 hex hash with no `|`, so the separator is unambiguous.
     if (cacheTtlSeconds > 0) {
+      // Per-user dedup key (Codex P1 rounds 1-3 on PR #820). cacheKey
+      // alone is unsafe: if a caller forgot to interpolate `userId`
+      // into `cacheNamespace` (the exact typo BE-P0-B4 defends
+      // against), two users would produce the same cacheKey and the
+      // second's call would receive the first's in-flight Promise
+      // before any DB row was written. Appending userId to the in-
+      // flight key keeps the two users on separate Promises.
+      // cacheKey is SHA-256 hex (no `|`), so the separator is
+      // unambiguous. Falls back to bare cacheKey for system/cron
+      // flows that have no userId.
+      const inflightKey = options.userId ? `${cacheKey}|${options.userId}` : cacheKey;
       const existing = IN_FLIGHT.get(inflightKey);
       if (existing) {
         return existing;
@@ -1075,10 +1076,12 @@ export async function callBursAI(
     throw lastError || new BursAIError("All AI models failed", 503);
   };
 
-  // Dedup wrapper. Per the N15 Codex round 1 fix, the in-flight key is
-  // scoped by userId when present so cross-user typo'd namespaces can't
-  // share a Promise.
+  // Dedup wrapper. The in-flight key is scoped by userId when present
+  // (see the matching derivation at the IN_FLIGHT.get site above) so a
+  // typo'd `cacheNamespace` that produces the same cacheKey for two
+  // users can't have user B receive user A's in-flight Promise.
   if (cacheKey && cacheTtlSeconds > 0) {
+    const inflightKey = options.userId ? `${cacheKey}|${options.userId}` : cacheKey;
     const promise = executeCall();
     IN_FLIGHT.set(inflightKey, promise);
     try {
