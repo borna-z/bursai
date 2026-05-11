@@ -745,9 +745,10 @@ export function GarmentDetailScreen() {
           },
         ]}>
         <View style={{ flexDirection: 'row', gap: 8 }}>
+          {/* Both children flex 1 — `block` hard-codes width:100% on the
+              first button and pushes the Style-in-chat sibling off-screen. */}
           <Button
             label={wornToday ? 'Worn today' : markWorn.isPending ? 'Logging…' : 'Wear today'}
-            block
             style={{ flex: 1 }}
             disabled={wornToday || markWorn.isPending}
             onPress={handleWearToday}
@@ -755,6 +756,7 @@ export function GarmentDetailScreen() {
           <Button
             label={tr('garmentDetail.styleInChat.action')}
             variant="outline"
+            style={{ flex: 1 }}
             onPress={() =>
               nav.navigate('StyleChat', {
                 mode: 'style',

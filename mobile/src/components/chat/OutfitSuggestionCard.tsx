@@ -165,10 +165,11 @@ export function OutfitSuggestionCard({
         </Text>
       ) : null}
       <View style={{ flexDirection: 'row', gap: 8 }}>
+        {/* Both children get flex:1 (no `block` — that hard-codes width:100%
+            and would clip the Save sibling inside the 82%-wide chat bubble). */}
         <Button
           label={tr('chat.outfitCard.try')}
           size="sm"
-          block
           style={{ flex: 1 }}
           onPress={() => onTry(garments.map((g) => g.id))}
         />
@@ -183,6 +184,7 @@ export function OutfitSuggestionCard({
             }
             size="sm"
             variant={saved ? 'accent' : 'outline'}
+            style={{ flex: 1 }}
             onPress={() => {
               if (saved || saving) return;
               void onSave(garments.map((g) => g.id), { explanation: explanation ?? '' });
