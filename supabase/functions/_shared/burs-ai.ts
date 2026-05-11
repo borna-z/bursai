@@ -792,6 +792,7 @@ export async function callBursAI(
 
   // ── Build cache key ──
   let cacheKey = "";
+  let inflightKey = "";
 
   if ((cacheTtlSeconds > 0 || !stream) && !stream) {
     cacheKey = await createBursAICacheKey({
@@ -800,6 +801,9 @@ export async function callBursAI(
       maxTokens,
       temperature,
     });
+    // Per-user inflight key (Codex P1 round 1 on PR #820). When userId is
+    // absent (system/cron flows), falls back to the bare cacheKey.
+    inflightKey = options.userId ? `${cacheKey}|${options.userId}` : cacheKey;
 
     // Tier 1: in-memory cache removed — Edge Function isolates are
     // stateless, so in-memory Maps reset on every cold start.
@@ -825,8 +829,14 @@ export async function callBursAI(
     }
 
     // ── Request deduplication ──
+    // N15 Codex round 1 — scope the IN_FLIGHT key by userId when present.
+    // Without this, a typo'd `cacheNamespace` that produces the same
+    // cacheKey for two users would have user B's call return user A's
+    // in-flight Promise (the DB-cache filter we added in BE-P0-B4 would
+    // be bypassed because no DB row has been written yet). cacheKey is a
+    // SHA-256 hex hash with no `|`, so the separator is unambiguous.
     if (cacheTtlSeconds > 0) {
-      const existing = IN_FLIGHT.get(cacheKey);
+      const existing = IN_FLIGHT.get(inflightKey);
       if (existing) {
         return existing;
       }
@@ -1065,15 +1075,17 @@ export async function callBursAI(
     throw lastError || new BursAIError("All AI models failed", 503);
   };
 
-  // Dedup wrapper
+  // Dedup wrapper. Per the N15 Codex round 1 fix, the in-flight key is
+  // scoped by userId when present so cross-user typo'd namespaces can't
+  // share a Promise.
   if (cacheKey && cacheTtlSeconds > 0) {
     const promise = executeCall();
-    IN_FLIGHT.set(cacheKey, promise);
+    IN_FLIGHT.set(inflightKey, promise);
     try {
       const result = await promise;
       return result;
     } finally {
-      IN_FLIGHT.delete(cacheKey);
+      IN_FLIGHT.delete(inflightKey);
     }
   }
 
