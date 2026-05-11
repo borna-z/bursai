@@ -149,11 +149,12 @@ export function GarmentDetailScreen() {
   // etc. — `isActiveGarmentRenderStatus` is the shared predicate.)
   const isStudioRendering = isActiveGarmentRenderStatus(garment?.render_status);
   const renderJobGarmentId = isStudioRendering ? (garment?.id ?? null) : null;
-  // N14/F7 — read the snapshot so a terminal `failed` status can surface a
-  // dedicated badge. Without this, the original "Studio render…" pill simply
-  // disappeared on failure and the user saw the original photo with no
-  // explanation. The hook's own terminal-state effect still handles cache
-  // invalidation; we only consume the status to drive the badge variant.
+  // N14/F7 — surface a failure badge when the worker terminally fails so
+  // the original "Studio render…" pill doesn't silently disappear, leaving
+  // the user staring at the original photo with no explanation. The hook
+  // remains side-effecting (its terminal-state effect invalidates the
+  // garment cache); we read `garment.render_status === 'failed'` straight
+  // off the (now-fresh) garment row to drive the badge variant.
   useRenderJobStatus(renderJobGarmentId);
   const hasRenderedImage = !!garment?.rendered_image_path;
   const isStudioFailed = garment?.render_status === 'failed';
