@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Four themed PRs that close visible-to-user mobile gaps surfaced post-launch: Home SmartDayBanner garment thumbs, chat outfit-card render+refine parity, Plan/Generate flow with date-aware planning, Wardrobe filters wired with server counts + new personal flags (Lingerie / Wishlist / In Laundry). |
-| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D1 DONE (PR #827); Q-D2 DONE (PR #828 refine parity); Q-B (this branch); Q-C1 / Q-C2 TODO |
+| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D1 DONE (PR #827); Q-D2 DONE (PR #828); Q-B DONE (PR #829, scoped-back); Q-C1 (this branch); Q-C2 TODO |
 | Branch base | `main` |
 | PR count | 4 (Q-A, Q-D, Q-B, Q-C) — Q-C internally split into Q-C1 (server counts) + Q-C2 (schema flags) for review-ability |
 | Migrations | One — `garments` adds three personal-flag booleans (Q-C2 only) |
@@ -236,25 +236,29 @@ Three (Recently / Most / Unworn) need server-counted hooks; three (Lingerie / Wi
 
 ### Q-C1 · Server-counted Recently / Most Worn / Rarely Worn (code-only)
 
+**Scope refinement (2026-05-12 mid-PR):** the original spec called for a new `WardrobeFilteredListScreen` + new route. Inspection during Q-C1 implementation found mobile already has **`UsedGarmentsScreen`** (uses `GarmentFilters.smartFilter = 'most_worn'`, sorts by `wear_count desc`) and **`UnusedOutfitsScreen`** (despite the file name it's a GARMENT list using `GarmentFilters.smartFilter = 'rarely_worn'` with the same 30-day cutoff). Both screens already match the predicates web ships. Building a generic `WardrobeFilteredListScreen` would duplicate behaviour; Q-C1 therefore reuses the existing screens. The smart-tile tap handlers in `WardrobeScreen.tsx` were already routing to these correctly and are left untouched. Q-C1 scope narrows to: server-counted hook + chip count fix + "Rarely Worn" rename.
+
 **Fix:**
 
-- Port web's `useSmartFilterCounts` hook (`src/hooks/useGarments.ts:451-463`) to mobile. Three Supabase queries with `{ head: true, count: 'exact' }` for the three predicates:
-  - Recently Added: total garments (or restrict to `created_at > now - 30d` if web does)
+- Port web's `useSmartFilterCounts` hook (`src/hooks/useGarments.ts:443-469`) to mobile. Three Supabase queries with `{ head: true, count: 'exact' }` for the three predicates:
+  - Recently Added: total garments (mobile reuses existing `useGarmentCount` for the inventory total + Recently-added tile; the new hook's `new` field is hook-shape parity only and exported but unused on mobile to keep the port byte-for-byte with web).
   - Most Worn: `wear_count > 0`
   - Rarely Worn: `last_worn_at IS NULL OR last_worn_at < now - 30 days` (`RARELY_WORN_CUTOFF_MS = 30 * 24 * 60 * 60 * 1000`)
-- Rename "Unworn this season" → "Rarely Worn" for web parity. **`mobile/src/i18n/locales/*` is append-only** per CLAUDE.md — add new key `wardrobe.smartFilter.rarelyWorn` and switch the JSX to read it; leave the old key intact.
-- Wire each chip's `onPress` to a filtered-list view. Add new screen `WardrobeFilteredListScreen` accepting `route.params.filter: 'recently' | 'mostWorn' | 'rarelyWorn'` that renders a sorted `useGarments` query result with the same predicate.
+- Rename the inline label "Unworn this season" → "Rarely Worn" to match web. Mobile wardrobe smart-tile labels are pre-existing hardcoded English (not i18n'd) — Q-C1 doesn't widen scope to i18n the labels; that's a separate polish PR.
+- Chip tap handlers unchanged — already route to `UsedGarmentsScreen` / `UnusedOutfitsScreen` / `Search` which render the matching predicates.
 
 **Files touched (Q-C1):**
 
 #### Modified
-- `mobile/src/screens/WardrobeScreen.tsx` — replace client-side filter counts with `useSmartFilterCounts` reads, wire onPress
-- `mobile/src/i18n/locales/en.ts` + `sv.ts` — append keys for "Rarely Worn", filter-list titles
-- `mobile/src/navigation/RootNavigator.tsx` — new route type for `WardrobeFilteredList`
+- `mobile/src/screens/WardrobeScreen.tsx` — replace client-side filter counts with `useSmartFilterCounts` reads + `trueTotalCount` for the total. Rename inline "Unworn this season" → "Rarely Worn".
 
 #### New
-- `mobile/src/hooks/useSmartFilterCounts.ts` — server-counted counts hook (ported from web pattern)
-- `mobile/src/screens/WardrobeFilteredListScreen.tsx` — read-only filtered garment list screen
+- `mobile/src/hooks/useSmartFilterCounts.ts` — server-counted counts hook (ported from web pattern).
+
+#### Deferred to a future polish PR (out of Q-C1 scope)
+- Standalone `WardrobeFilteredListScreen` + `WardrobeFilteredList` route — would duplicate `UsedGarmentsScreen` / `UnusedOutfitsScreen` (which already match web's predicates). Re-evaluate if product wants a single unified list view.
+- i18n-ing the wardrobe smart-tile labels — pre-existing hardcoded English; widen separately.
+- New i18n keys for filter-list titles — covered by the existing UsedGarments / UnusedOutfits screen titles.
 
 ### Q-C2 · Personal flags schema + Lingerie / Wishlist / In Laundry wiring
 

@@ -35,6 +35,7 @@ import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useSmartFilterCounts } from '../hooks/useSmartFilterCounts';
 import { useGarmentCount } from '../hooks/useGarmentCount';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
@@ -222,18 +223,34 @@ export function WardrobeScreen({
     [nav],
   );
 
-  // Smart-tile counts. These read from the loaded pages, so they're only
-  // authoritative when the entire wardrobe fits in page 1 (`!hasNextPage`).
-  // For larger wardrobes we render "—" instead of a misleading lower bound
-  // — the audit flagged "In laundry: 1" rendering when the user actually
-  // has 4+ as actively misleading. A real server-side counts hook
-  // (parallel HEAD count queries) lands in W9.
-  const totalCount = garments.length;
-  const countsAuthoritative = !hasNextPage;
-  const mostWornCount = garments.filter((g) => (g.wear_count ?? 0) > 3).length;
-  const unwornCount = garments.filter((g) => !g.last_worn_at).length;
+  // Q-C1 — server-counted Smart Access tile totals (parallel HEAD count
+  // queries via `useSmartFilterCounts`, ported from web). Replaces the
+  // client-side `garments.filter(...).length` derivation that collapsed
+  // to "—" on paginated wardrobes.
+  //
+  // Totals split:
+  //   • The "Recently added" tile + inventory eyebrow + search placeholder
+  //     + empty-state check all read `trueTotalCount` (from the existing
+  //     `useGarmentCount` hook — authoritative server count that already
+  //     exists in this file). Avoids the redundancy of two server-side
+  //     total-count queries.
+  //   • The new `useSmartFilterCounts` hook supplies the OTHER two
+  //     numbers — Most Worn (`wear_count > 0`) and Rarely Worn
+  //     (`last_worn_at IS NULL OR last_worn_at < now - 30d`). Its `new`
+  //     field is hook-shape parity with web and stays unused on mobile.
+  const smartCounts = useSmartFilterCounts();
+  const smartCountsReady = smartCounts.data !== undefined && !smartCounts.isError;
+  const totalCount = trueTotalCount;
+  const totalCountReady = !garmentCountQ.isLoading && !garmentCountQ.isError;
+  const mostWornCount = smartCounts.data?.most_worn ?? 0;
+  const rarelyWornCount = smartCounts.data?.rarely_worn ?? 0;
   // In-laundry count intentionally not derived here — see the tile below.
-  const fmtCount = (n: number) => (countsAuthoritative ? String(n) : '—');
+  const fmtCount = (n: number, ready = smartCountsReady) =>
+    ready ? String(n) : '—';
+  // Legacy gate drives the search-bar's "Search N garments…" placeholder
+  // + the inventory eyebrow's filtered/total split. Aliased to the new
+  // total-count ready flag so existing call sites read the right gate.
+  const countsAuthoritative = totalCountReady;
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route.
@@ -266,8 +283,8 @@ export function WardrobeScreen({
                 "Inventory · 30" or a filtered total against the same
                 undercount. Codex P2 round 9 on PR #738. */}
             {activeFilterCount > 0
-              ? `Filtered · ${countsAuthoritative ? visibleGarments.length : '—'} of ${fmtCount(totalCount)}`
-              : `Inventory · ${fmtCount(totalCount)}`}
+              ? `Filtered · ${countsAuthoritative ? visibleGarments.length : '—'} of ${fmtCount(totalCount, totalCountReady)}`
+              : `Inventory · ${fmtCount(totalCount, totalCountReady)}`}
           </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
         </View>
@@ -308,11 +325,16 @@ export function WardrobeScreen({
       </View>
 
       <View style={s.tileRow}>
-        <SmartTile num={fmtCount(totalCount)} label="Recently added" onPress={() => nav.navigate('Search')} />
+        <SmartTile num={fmtCount(totalCount, totalCountReady)} label="Recently added" onPress={() => nav.navigate('Search')} />
         <SmartTile num={fmtCount(mostWornCount)} label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
       </View>
       <View style={s.tileRow}>
-        <SmartTile num={fmtCount(unwornCount)} label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
+        {/* Q-C1 — renamed "Unworn this season" → "Rarely Worn" to match
+            web (`useSmartFilterCounts.rarely_worn`). Predicate is
+            `last_worn_at IS NULL OR last_worn_at < now - 30d` rather
+            than the prior strict null-only — a piece worn 4 months ago
+            now correctly counts as rarely worn. */}
+        <SmartTile num={fmtCount(rarelyWornCount)} label="Rarely Worn" onPress={() => nav.navigate('UnusedOutfits')} />
         {/* In-laundry count can't be derived from the wardrobe page set
             (which is filtered to inLaundry=false), so the tile is purely
             navigational — tap to jump to LaundryScreen which has the real
