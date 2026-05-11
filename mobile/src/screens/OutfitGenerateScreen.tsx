@@ -29,6 +29,7 @@ import {
   INVALID_OUTFIT_ERROR,
 } from '../hooks/useGenerateOutfit';
 import { useGarment } from '../hooks/useGarments';
+import { useMarkOutfitWorn, usePersistGeneratedOutfit } from '../hooks/useOutfits';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { applyAnchor } from '../lib/outfitAnchoring';
 import { t as tr } from '../lib/i18n';
@@ -57,8 +58,17 @@ export function OutfitGenerateScreen() {
   const route = useRoute<Route>();
 
   const { result, isLoading, error, anchorMissed, generate, reset } = useGenerateOutfit();
+  const persistOutfit = usePersistGeneratedOutfit();
+  const markWorn = useMarkOutfitWorn();
+  const [savedOutfitId, setSavedOutfitId] = useState<string | null>(null);
   const [messageIdx, setMessageIdx] = useState(0);
   const paywallShownRef = useRef(false);
+
+  // Re-arm Save when a fresh result lands (Try again replaces the in-memory
+  // outfit, so the previous savedOutfitId no longer maps).
+  useEffect(() => {
+    if (result?.outfit_name) setSavedOutfitId(null);
+  }, [result?.outfit_name]);
   // Tracks whether the screen produced a usable result before unmount. The
   // cleanup `reset()` only fires when this is false — i.e. on real abandon
   // paths (close button, back swipe before result, anchor change). When
@@ -220,6 +230,123 @@ export function OutfitGenerateScreen() {
     hapticLight();
     reset();
     nav.setParams({ garmentId: undefined });
+  };
+
+  // Items shape persistence accepts. Drops anything missing garment_id (the
+  // engine occasionally returns a partial slot); saving an empty outfit
+  // would just error inside the hook.
+  const persistableItems = useMemo(
+    () =>
+      (result?.items ?? [])
+        .filter((it): it is { garment_id: string; slot: string; title: string; image_path?: string; color?: string } =>
+          typeof it.garment_id === 'string' && it.garment_id.length > 0,
+        )
+        .map((it) => ({ garment_id: it.garment_id, slot: it.slot ?? '' })),
+    [result?.items],
+  );
+
+  const persistPending = persistOutfit.isPending;
+  const wearPending = markWorn.isPending;
+
+  const persistArgs = result
+    ? {
+        occasion: result.occasion ?? null,
+        explanation: result.description ?? '',
+        familyLabel: result.outfit_name ?? null,
+        items: persistableItems,
+      }
+    : null;
+
+  const handleSave = () => {
+    if (!result || !persistArgs || persistPending || savedOutfitId) return;
+    if (persistableItems.length === 0) {
+      showToast(
+        'error',
+        tr('outfitGenerate.save.empty.title'),
+        tr('outfitGenerate.save.empty.body'),
+      );
+      return;
+    }
+    hapticLight();
+    // Mark success BEFORE firing the mutation so a back-swipe during the
+    // in-flight window doesn't let the cleanup `reset()` wipe `result`.
+    // Same contract as `navigateToWornOutfit` and the M17 precedent that
+    // guarded against unmount-mid-save losing the user's work. If the
+    // mutation fails the toast surfaces the error and the user can retry —
+    // leaving succeededRef true is benign because the screen still holds
+    // the (un-persisted) result.
+    succeededRef.current = true;
+    persistOutfit.mutate(persistArgs, {
+      onSuccess: ({ outfitId }) => {
+        hapticSuccess();
+        setSavedOutfitId(outfitId);
+        showToast(
+          'success',
+          tr('outfitGenerate.save.success.title'),
+          tr('outfitGenerate.save.success.body'),
+        );
+      },
+      onError: (err) => {
+        showToast(
+          'error',
+          tr('outfitGenerate.save.failed.title'),
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    });
+  };
+
+  const navigateToWornOutfit = (outfitId: string) => {
+    succeededRef.current = true;
+    const garmentIds = persistableItems.map((it) => it.garment_id);
+    markWorn.mutate(
+      { outfitId, garmentIds },
+      {
+        onSuccess: () => {
+          hapticSuccess();
+          nav.navigate('OutfitDetail', { id: outfitId });
+        },
+        onError: (err) => {
+          showToast(
+            'error',
+            tr('outfitGenerate.wear.failed.title'),
+            err instanceof Error ? err.message : String(err),
+          );
+        },
+      },
+    );
+  };
+
+  const handleWear = () => {
+    if (!result || persistPending || wearPending) return;
+    const existing = savedOutfitId ?? result.outfit_id ?? null;
+    if (existing) {
+      hapticLight();
+      navigateToWornOutfit(existing);
+      return;
+    }
+    if (!persistArgs || persistableItems.length === 0) {
+      showToast(
+        'error',
+        tr('outfitGenerate.save.empty.title'),
+        tr('outfitGenerate.save.empty.body'),
+      );
+      return;
+    }
+    hapticLight();
+    persistOutfit.mutate(persistArgs, {
+      onSuccess: ({ outfitId }) => {
+        setSavedOutfitId(outfitId);
+        navigateToWornOutfit(outfitId);
+      },
+      onError: (err) => {
+        showToast(
+          'error',
+          tr('outfitGenerate.wear.failed.title'),
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    });
   };
 
   if (error === SUBSCRIPTION_SENTINEL) {
@@ -529,38 +656,23 @@ export function OutfitGenerateScreen() {
           ) : null}
 
           <Button
-            label="Wear today"
-            onPress={() => {
-              hapticLight();
-              if (result.outfit_id) {
-                // Mark success BEFORE nav so the cleanup effect (fired on
-                // unmount when the new screen mounts) keeps the result
-                // intact for the back-swipe return path. Codex P2 on PR #738.
-                succeededRef.current = true;
-                nav.navigate('OutfitDetail', { id: result.outfit_id });
-              } else {
-                // N3b — informational placeholder; toast is non-blocking.
-                showToast(
-                  'info',
-                  tr('outfitGenerate.toast.savedAsPreview.title'),
-                  tr('outfitGenerate.toast.savedAsPreview.body'),
-                );
-              }
-            }}
+            label={wearPending ? tr('outfitGenerate.wear.busy') : tr('outfitGenerate.wear.action')}
+            onPress={handleWear}
+            disabled={persistPending || wearPending || persistableItems.length === 0}
             block
             style={{ marginTop: 8 }}
           />
           <Button
-            label="Save outfit"
-            variant="outline"
-            onPress={() =>
-              // N3b — informational placeholder; toast is non-blocking.
-              showToast(
-                'info',
-                tr('outfitGenerate.toast.savedAsPreview.title'),
-                tr('outfitGenerate.toast.savedAsPreview.body'),
-              )
+            label={
+              savedOutfitId
+                ? tr('outfitGenerate.save.saved')
+                : persistPending
+                  ? tr('outfitGenerate.save.busy')
+                  : tr('outfitGenerate.save.action')
             }
+            variant={savedOutfitId ? 'accent' : 'outline'}
+            onPress={handleSave}
+            disabled={persistPending || Boolean(savedOutfitId) || persistableItems.length === 0}
             block
           />
           <Button label="Try again" variant="quiet" onPress={tryAgain} block />

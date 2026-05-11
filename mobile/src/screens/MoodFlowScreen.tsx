@@ -9,8 +9,8 @@
 // mood/context chips + editorial copy + "Wear this" / "Restyle" / "Save"
 // actions) OR error state (subscription paywall or retryable banner).
 
-import React, { useEffect, useRef } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,7 +27,11 @@ import { OutfitCard } from '../components/OutfitCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useMoodOutfit } from '../hooks/useMoodOutfit';
+import { useMarkOutfitWorn, usePersistGeneratedOutfit } from '../hooks/useOutfits';
+import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
+import { showToast } from '../lib/toast';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -49,7 +53,113 @@ export function MoodFlowScreen() {
   const TIME_LABEL = route.params?.time ?? DEFAULT_TIME;
 
   const { result, isLoading, error, generate, reset } = useMoodOutfit();
+  const persistOutfit = usePersistGeneratedOutfit();
+  const markWorn = useMarkOutfitWorn();
+  const [savedOutfitId, setSavedOutfitId] = useState<string | null>(null);
   const paywallShownRef = useRef(false);
+
+  // Reset the saved-state ref whenever a fresh result lands — Restyle should
+  // un-stamp "Saved ✓" so the user can save the new outfit too.
+  useEffect(() => {
+    if (result?.outfit_name) setSavedOutfitId(null);
+  }, [result?.outfit_name]);
+
+  // Items shape the persistence hook accepts. Drops any item missing a
+  // garment_id (the mood engine occasionally returns a partial slot) — saving
+  // an empty/invalid outfit would just error inside the hook.
+  const persistableItems = useMemo(
+    () =>
+      (result?.items ?? [])
+        .filter((it): it is { garment_id: string; slot: string; title: string; color?: string } =>
+          typeof it.garment_id === 'string' && it.garment_id.length > 0,
+        )
+        .map((it) => ({ garment_id: it.garment_id, slot: it.slot ?? '' })),
+    [result?.items],
+  );
+
+  const canSaveOrWear = result !== null && persistableItems.length > 0 && !savedOutfitId;
+  const persistPending = persistOutfit.isPending;
+  const wearPending = markWorn.isPending;
+
+  const persistArgs = result
+    ? {
+        occasion: TIME_LABEL,
+        explanation: result.description ?? '',
+        familyLabel: result.outfit_name,
+        items: persistableItems,
+      }
+    : null;
+
+  const handleSave = () => {
+    if (!result || !persistArgs || persistPending || savedOutfitId) return;
+    if (persistableItems.length === 0) {
+      showToast('error', tr('moodFlow.save.empty.title'), tr('moodFlow.save.empty.body'));
+      return;
+    }
+    hapticLight();
+    persistOutfit.mutate(persistArgs, {
+      onSuccess: ({ outfitId }) => {
+        hapticSuccess();
+        setSavedOutfitId(outfitId);
+        showToast('success', tr('moodFlow.save.success.title'), tr('moodFlow.save.success.body'));
+      },
+      onError: (err) => {
+        showToast(
+          'error',
+          tr('moodFlow.save.failed.title'),
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    });
+  };
+
+  const navigateToWornOutfit = (outfitId: string) => {
+    const garmentIds = persistableItems.map((it) => it.garment_id);
+    markWorn.mutate(
+      { outfitId, garmentIds },
+      {
+        onSuccess: () => {
+          hapticSuccess();
+          nav.navigate('OutfitDetail', { id: outfitId });
+        },
+        onError: (err) => {
+          showToast(
+            'error',
+            tr('moodFlow.wear.failed.title'),
+            err instanceof Error ? err.message : String(err),
+          );
+        },
+      },
+    );
+  };
+
+  const handleWear = () => {
+    if (!result || persistPending || wearPending) return;
+    const existing = savedOutfitId ?? result.outfit_id ?? null;
+    if (existing) {
+      hapticLight();
+      navigateToWornOutfit(existing);
+      return;
+    }
+    if (!persistArgs || persistableItems.length === 0) {
+      showToast('error', tr('moodFlow.save.empty.title'), tr('moodFlow.save.empty.body'));
+      return;
+    }
+    hapticLight();
+    persistOutfit.mutate(persistArgs, {
+      onSuccess: ({ outfitId }) => {
+        setSavedOutfitId(outfitId);
+        navigateToWornOutfit(outfitId);
+      },
+      onError: (err) => {
+        showToast(
+          'error',
+          tr('moodFlow.wear.failed.title'),
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    });
+  };
 
   // Reset + regenerate atomically when MOOD_LABEL / TIME_LABEL changes.
   // Splitting these into two effects (one for [mood,time] → generate, one
@@ -233,34 +343,30 @@ export function MoodFlowScreen() {
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button
-              label="Wear this"
-              onPress={() => {
-                if (result.outfit_id) {
-                  nav.navigate('OutfitDetail', { id: result.outfit_id });
-                } else {
-                  // W4 doesn't persist generated outfits — that lands in W9
-                  // alongside real photos. Surface a notice rather than
-                  // dead-end on the OutfitDetail "Outfit not found" empty.
-                  Alert.alert(
-                    'Saved as preview',
-                    'Persistent saving lands in a future update. For now this is a preview.',
-                  );
-                }
-              }}
+              label={wearPending ? tr('moodFlow.wear.busy') : tr('moodFlow.wear.action')}
+              onPress={handleWear}
+              disabled={persistPending || wearPending || persistableItems.length === 0}
               block
               style={{ flex: 1 }}
             />
-            <Button label="Restyle" variant="outline" onPress={restyle} />
+            <Button
+              label={tr('moodFlow.restyle.action')}
+              variant="outline"
+              onPress={restyle}
+              disabled={persistPending || wearPending}
+            />
           </View>
           <Button
-            label="Save look"
-            variant="outline"
-            onPress={() =>
-              Alert.alert(
-                'Saved as preview',
-                'Persistent saving lands in a future update. For now this is a preview.',
-              )
+            label={
+              savedOutfitId
+                ? tr('moodFlow.save.saved')
+                : persistPending
+                  ? tr('moodFlow.save.busy')
+                  : tr('moodFlow.save.action')
             }
+            variant={savedOutfitId ? 'accent' : 'outline'}
+            onPress={handleSave}
+            disabled={!canSaveOrWear || persistPending}
             block
           />
         </ScrollView>
