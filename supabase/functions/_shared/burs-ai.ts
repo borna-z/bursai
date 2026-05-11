@@ -252,6 +252,37 @@ export async function readUsageBudget(
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
+    // N15/BE-P0-B2 — Server-side SUM via the sum_ai_token_usage_for_month
+    // RPC (defined in 20260511153400_n15_sum_ai_token_usage.sql). The
+    // previous implementation selected every row of the user's monthly
+    // history and iterated client-side — for a power user firing
+    // thousands of AI calls/month, the per-call response payload grew
+    // linearly with usage. Returning one bigint cuts the wire payload to
+    // a constant and removes the JS-side accumulation loop.
+    //
+    // Graceful degrade window: if the RPC errors (function not yet
+    // applied on the linked DB, transient DB blip), fall back to the
+    // legacy SELECT path so this commit is safe to deploy ahead of the
+    // migration push.
+    // Scalar-returning RPC: supabase-js returns `data` as the bigint
+    // directly (no row wrapper, no `.single()` needed). Postgres bigint
+    // arrives as a JS `number` for small magnitudes and a `string` when
+    // it exceeds Number.MAX_SAFE_INTEGER — we accept both.
+    const { data: sumValue, error: rpcErr } = await supabase.rpc(
+      "sum_ai_token_usage_for_month",
+      { p_user_id: userId, p_month_start: monthStart },
+    );
+    if (!rpcErr && (typeof sumValue === "number" || typeof sumValue === "string")) {
+      const spentMicros = Number(sumValue);
+      return {
+        quotaMicros,
+        spentMicros: Number.isFinite(spentMicros) ? spentMicros : 0,
+      };
+    }
+    if (rpcErr) {
+      console.warn("burs-ai: sum RPC failed, falling back to SELECT:", rpcErr.message);
+    }
+
     const { data: usageRows, error: usageErr } = await supabase
       .from("ai_token_usage")
       .select("cost_micros")
@@ -515,27 +546,49 @@ export async function createBursAICacheKey(params: {
 }
 
 // ─── DB Cache (Tier 2) ────────────────────────────────────────
-async function checkCache(supabase: any, cacheKey: string): Promise<any | null> {
+//
+// N15/BE-P0-B4 — When `userId` is supplied, scope the cache lookup with
+// `.eq("user_id", userId)` as defense-in-depth against cross-user leaks
+// from a typo'd `cacheNamespace`. Today the namespace string is the only
+// thing keeping users' cache entries apart (e.g. `"mood_happy_${userId}"`)
+// — a single dev forgetting to interpolate would silently serve one user's
+// cached AI response to another. `storeCache` already records `user_id`;
+// reading with the same filter makes the boundary structural.
+//
+// Callers without a userId (system/cron entries) still pass `undefined`
+// and get the legacy unscoped lookup, matching pre-N15 behaviour.
+async function checkCache(
+  supabase: any,
+  cacheKey: string,
+  userId?: string,
+): Promise<any | null> {
   try {
-    const { data } = await supabase
+    let query = supabase
       .from("ai_response_cache")
       .select("response, model_used, hit_count")
       .eq("cache_key", cacheKey)
-      .gt("expires_at", new Date().toISOString())
+      .gt("expires_at", new Date().toISOString());
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
     if (data) {
       // Bump hit_count and extend TTL (sliding window) — fire and forget
-      supabase
+      let update = supabase
         .from("ai_response_cache")
         .update({
           hit_count: data.hit_count ? data.hit_count + 1 : 1,
           expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
         })
-        .eq("cache_key", cacheKey)
-        .then(() => {});
+        .eq("cache_key", cacheKey);
+      if (userId) update = update.eq("user_id", userId);
+      update.then(() => {});
     }
     return data;
   } catch {
@@ -739,7 +792,10 @@ export async function callBursAI(
 
     // DB cache
     if (cacheTtlSeconds > 0 && supabaseServiceClient) {
-      const cached = await checkCache(supabaseServiceClient, cacheKey);
+      // N15/BE-P0-B4 — pass userId so the lookup is scoped to the caller
+      // when known. Defense-in-depth against a typo'd cacheNamespace
+      // serving cross-user content.
+      const cached = await checkCache(supabaseServiceClient, cacheKey, options.userId);
       if (cached) {
         logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: cached.model_used,

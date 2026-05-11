@@ -272,10 +272,20 @@ export async function enforceRateLimit(
       .gte("called_at", oneMinuteAgo),
   ]);
 
-  // Fail open on DB errors
+  // N15/B9 — Fail CLOSED on rate-limit DB errors. The previous fail-OPEN
+  // branch unlocked unlimited expensive AI calls any time the ai_rate_limits
+  // window-count query errored (transient DB blip, table-locked-during-purge,
+  // statement timeout). Throwing forces the standard rate-limit response
+  // path so the client backs off — a temporary user-visible degrade is the
+  // safe trade vs. an uncapped Gemini bill.
   if (hourResult.error || minuteResult.error) {
     console.warn("Rate limit check failed:", hourResult.error?.message || minuteResult.error?.message);
-    return { allowed: true, remaining: { hour: tier.maxPerHour, minute: tier.maxPerMinute } };
+    throw new RateLimitError(
+      `Rate limit check unavailable. Please retry in a moment.`,
+      functionName,
+      "minute",
+      tier.maxPerMinute,
+    );
   }
 
   const hourCount = hourResult.count ?? 0;
@@ -299,11 +309,19 @@ export async function enforceRateLimit(
     );
   }
 
-  // Record this call — fire-and-forget
-  supabaseAdmin
+  // N15/BE-P0-B5 — Await the INSERT instead of firing-and-forgetting.
+  // Concurrent isolates that pass the count check before the row is
+  // committed could each slip an extra call through, briefly doubling
+  // the configured burst. Awaiting closes the window. Insert-failures
+  // are logged but don't propagate — the call already passed the gate
+  // and the missing-row only affects FUTURE counts (worst case: the
+  // user gets one extra call in their window).
+  const { error: insertErr } = await supabaseAdmin
     .from("ai_rate_limits")
-    .insert({ user_id: userId, function_name: functionName })
-    .then(() => {});
+    .insert({ user_id: userId, function_name: functionName });
+  if (insertErr) {
+    console.warn("Rate limit record failed:", insertErr.message);
+  }
 
   // Periodic cleanup (1% chance)
   if (Math.random() < 0.01) {
