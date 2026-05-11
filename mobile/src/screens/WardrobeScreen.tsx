@@ -35,6 +35,7 @@ import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { FilterIcon, GridIcon, PlusIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
+import { useSmartFilterCounts } from '../hooks/useSmartFilterCounts';
 import { useGarmentCount } from '../hooks/useGarmentCount';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
@@ -171,6 +172,11 @@ export function WardrobeScreen({
   const garmentCountQ = useGarmentCount();
   const trueTotalCount = garmentCountQ.data ?? 0;
   const allInLaundry = trueTotalCount > 0 && garments.length === 0 && !hasNextPage;
+  // Q-C1 — hoisted next to `useGarmentCount` (above `onRefresh` and
+  // related effects) so the pull-to-refresh handler can reach
+  // `smartCounts.refetch()` and the Smart Access tiles below stay
+  // server-authoritative without prop-drilling. Codex P2 round 5 on PR #830.
+  const smartCounts = useSmartFilterCounts();
 
   const visibleGarments = React.useMemo(() => {
     if (!filters) return garments;
@@ -209,7 +215,15 @@ export function WardrobeScreen({
 
   const onRefresh = React.useCallback(() => {
     void refetch();
-  }, [refetch]);
+    // Q-C1 — pull-to-refresh has to fan out across the THREE wardrobe
+    // queries that feed this screen, not just the paginated grid. Without
+    // these, a cross-device add / wear on another client would refresh
+    // the grid (via `refetch`) but leave the tile counts + inventory
+    // eyebrow / search placeholder showing stale numbers until the
+    // 2-min / 60s staleTime expires — Codex P2 round 5 on PR #830.
+    void smartCounts.refetch();
+    void garmentCountQ.refetch();
+  }, [refetch, smartCounts, garmentCountQ]);
 
   // M42 — stable id-keyed press handler so the memoised GarmentCard
   // doesn't re-render on every parent render. An inline arrow inside
@@ -222,18 +236,43 @@ export function WardrobeScreen({
     [nav],
   );
 
-  // Smart-tile counts. These read from the loaded pages, so they're only
-  // authoritative when the entire wardrobe fits in page 1 (`!hasNextPage`).
-  // For larger wardrobes we render "—" instead of a misleading lower bound
-  // — the audit flagged "In laundry: 1" rendering when the user actually
-  // has 4+ as actively misleading. A real server-side counts hook
-  // (parallel HEAD count queries) lands in W9.
-  const totalCount = garments.length;
-  const countsAuthoritative = !hasNextPage;
-  const mostWornCount = garments.filter((g) => (g.wear_count ?? 0) > 3).length;
-  const unwornCount = garments.filter((g) => !g.last_worn_at).length;
+  // Q-C1 — server-counted Smart Access tile totals (parallel HEAD count
+  // queries via `useSmartFilterCounts`, ported from web). Replaces the
+  // client-side `garments.filter(...).length` derivation that collapsed
+  // to "—" on paginated wardrobes.
+  //
+  // Totals split:
+  //   • The "Recently added" tile + inventory eyebrow + search placeholder
+  //     display `trueTotalCount` (from the existing `useGarmentCount` hook
+  //     — authoritative server count that already exists in this file).
+  //   • The new `useSmartFilterCounts` hook supplies the OTHER two
+  //     numbers — Most Worn (`wear_count > 0`) and Rarely Worn
+  //     (`last_worn_at IS NULL OR last_worn_at < now - 30d`). Its `new`
+  //     field is hook-shape parity with web and stays unused on mobile.
+  //   • `loadedGarmentCount` (the count of rows actually returned by the
+  //     filtered `useFlatGarments(WARDROBE_FILTERS)` query, which excludes
+  //     in-laundry rows) drives the EMPTY-STATE branch + filtered-empty
+  //     state. `trueTotalCount` would hide the all-in-laundry empty state
+  //     because it counts every garment regardless of laundry status —
+  //     Codex P2 round 2 on PR #830.
+  const smartCountsReady = smartCounts.data !== undefined && !smartCounts.isError;
+  const loadedGarmentCount = garments.length;
+  const totalCount = trueTotalCount;
+  const totalCountReady = !garmentCountQ.isLoading && !garmentCountQ.isError;
+  const mostWornCount = smartCounts.data?.most_worn ?? 0;
+  const rarelyWornCount = smartCounts.data?.rarely_worn ?? 0;
   // In-laundry count intentionally not derived here — see the tile below.
-  const fmtCount = (n: number) => (countsAuthoritative ? String(n) : '—');
+  const fmtCount = (n: number, ready = smartCountsReady) =>
+    ready ? String(n) : '—';
+  // Q-C1 — two distinct authority flags now, not the single legacy
+  // `countsAuthoritative = !hasNextPage` gate. Codex P2 round 3 on PR #830:
+  //   • `totalCountReady` — server-counted total query has resolved. Drives
+  //     the inventory eyebrow total + Recently-added tile + search placeholder.
+  //   • `filteredCountReady` — every page of the filtered query has streamed
+  //     in. Drives the "Filtered · N of …" client-side count (which is
+  //     derived from `visibleGarments.length` over the loaded pages —
+  //     partial pagination would show a misleading lower bound).
+  const filteredCountReady = !hasNextPage;
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route.
@@ -266,8 +305,8 @@ export function WardrobeScreen({
                 "Inventory · 30" or a filtered total against the same
                 undercount. Codex P2 round 9 on PR #738. */}
             {activeFilterCount > 0
-              ? `Filtered · ${countsAuthoritative ? visibleGarments.length : '—'} of ${fmtCount(totalCount)}`
-              : `Inventory · ${fmtCount(totalCount)}`}
+              ? `Filtered · ${filteredCountReady ? visibleGarments.length : '—'} of ${fmtCount(totalCount, totalCountReady)}`
+              : `Inventory · ${fmtCount(totalCount, totalCountReady)}`}
           </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
         </View>
@@ -288,7 +327,13 @@ export function WardrobeScreen({
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <SearchBar
           placeholder={
-            countsAuthoritative
+            // Q-C1 — read `totalCountReady` (server count) not the legacy
+            // `!hasNextPage` gate. The server total resolves the moment
+            // `useGarmentCount` returns, regardless of pagination state,
+            // so the placeholder can show the real total mid-pagination
+            // instead of falling back to "Search your wardrobe…". Codex
+            // P3 round 4 on PR #830.
+            totalCountReady
               ? `Search ${totalCount} garments…`
               : 'Search your wardrobe…'
           }
@@ -308,11 +353,16 @@ export function WardrobeScreen({
       </View>
 
       <View style={s.tileRow}>
-        <SmartTile num={fmtCount(totalCount)} label="Recently added" onPress={() => nav.navigate('Search')} />
+        <SmartTile num={fmtCount(totalCount, totalCountReady)} label="Recently added" onPress={() => nav.navigate('Search')} />
         <SmartTile num={fmtCount(mostWornCount)} label="Most worn" onPress={() => nav.navigate('UsedGarments')} />
       </View>
       <View style={s.tileRow}>
-        <SmartTile num={fmtCount(unwornCount)} label="Unworn this season" onPress={() => nav.navigate('UnusedOutfits')} />
+        {/* Q-C1 — renamed "Unworn this season" → "Rarely Worn" to match
+            web (`useSmartFilterCounts.rarely_worn`). Predicate is
+            `last_worn_at IS NULL OR last_worn_at < now - 30d` rather
+            than the prior strict null-only — a piece worn 4 months ago
+            now correctly counts as rarely worn. */}
+        <SmartTile num={fmtCount(rarelyWornCount)} label="Rarely Worn" onPress={() => nav.navigate('UnusedOutfits')} />
         {/* In-laundry count can't be derived from the wardrobe page set
             (which is filtered to inLaundry=false), so the tile is purely
             navigational — tap to jump to LaundryScreen which has the real
@@ -406,7 +456,7 @@ export function WardrobeScreen({
   //                              "Add your first piece" CTA they don't need.
   // The "filters narrow it to zero" case is handled below via filteredEmpty
   // — it keeps the filter chips visible and just renders the no-matches state.
-  if (totalCount === 0 && !hasNextPage) {
+  if (loadedGarmentCount === 0 && !hasNextPage) {
     const isAllLaundry = allInLaundry;
     return (
       <>
@@ -452,7 +502,12 @@ export function WardrobeScreen({
   // Filtered to zero — when filters narrow `visibleGarments` to nothing but the
   // wardrobe itself isn't empty. Distinct from the new-user empty state above:
   // here we show what to do (clear filters), not a "get started" CTA.
-  const filteredEmpty = totalCount > 0 && visibleGarments.length === 0 && activeFilterCount > 0;
+  // Q-C1 — uses `loadedGarmentCount` (non-laundry rows actually returned)
+  // not `totalCount` (server-side all-garments count) so the
+  // "filters → zero matches" empty state fires correctly when the
+  // wardrobe has rows BUT they're all in laundry (the underlying query
+  // already excludes in-laundry items via WARDROBE_FILTERS).
+  const filteredEmpty = loadedGarmentCount > 0 && visibleGarments.length === 0 && activeFilterCount > 0;
 
   return (
     <>

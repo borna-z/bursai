@@ -35,6 +35,11 @@ export function useAddGarment() {
       // garments-count is a sibling cache key; ['garments'] prefix-match
       // does not cover it, so the count would stay stale until staleTime.
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      // Q-C1 — `garments-smart-counts` is also a sibling key (separate
+      // from `garments-count`); without explicit invalidation the
+      // Wardrobe smart-tile Most Worn / Rarely Worn counts stay stale
+      // up to 2 min after add. Codex P2 on PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       // Profile stats bundle (M29) — sibling key, not covered by the
       // ['garments'] prefix invalidation above.
       queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
