@@ -252,10 +252,19 @@ export function WardrobeScreen({
   // In-laundry count intentionally not derived here — see the tile below.
   const fmtCount = (n: number, ready = smartCountsReady) =>
     ready ? String(n) : '—';
-  // Legacy gate drives the search-bar's "Search N garments…" placeholder
-  // + the inventory eyebrow's filtered/total split. Aliased to the new
-  // total-count ready flag so existing call sites read the right gate.
-  const countsAuthoritative = totalCountReady;
+  // Q-C1 — two distinct authority flags now, not the single legacy
+  // `countsAuthoritative = !hasNextPage` gate. Codex P2 round 3 on PR #830:
+  //   • `totalCountReady` — server-counted total query has resolved. Drives
+  //     the inventory eyebrow total + Recently-added tile + search placeholder.
+  //   • `filteredCountReady` — every page of the filtered query has streamed
+  //     in. Drives the "Filtered · N of …" client-side count (which is
+  //     derived from `visibleGarments.length` over the loaded pages —
+  //     partial pagination would show a misleading lower bound).
+  // Kept `countsAuthoritative` as an alias for `filteredCountReady` so any
+  // residual reader (search placeholder fallback below) still gets the
+  // honest gate for whatever it consumes.
+  const filteredCountReady = !hasNextPage;
+  const countsAuthoritative = filteredCountReady;
 
   // Tab chips that target a real route push onto the parent stack instead of swapping
   // local state — Outfits is its own screen, Laundry now has its own LaundryScreen route.
@@ -288,7 +297,7 @@ export function WardrobeScreen({
                 "Inventory · 30" or a filtered total against the same
                 undercount. Codex P2 round 9 on PR #738. */}
             {activeFilterCount > 0
-              ? `Filtered · ${countsAuthoritative ? visibleGarments.length : '—'} of ${fmtCount(totalCount, totalCountReady)}`
+              ? `Filtered · ${filteredCountReady ? visibleGarments.length : '—'} of ${fmtCount(totalCount, totalCountReady)}`
               : `Inventory · ${fmtCount(totalCount, totalCountReady)}`}
           </Eyebrow>
           <PageTitle>Your wardrobe</PageTitle>
