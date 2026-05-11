@@ -1111,6 +1111,12 @@ export const sv: Record<string, string> = {
   'chat.outfitCard.saveFailed.title': 'Kunde inte spara',
   'chat.outfitCard.saveEmpty.title': 'Inget att spara',
   'chat.outfitCard.saveEmpty.body': 'Förslaget har inga plagg att spara.',
+  // Q-D2 — chat refine-mode UX (mirror EN; append-only).
+  'chat.outfitCard.refine': 'Förfina',
+  'chat.outfitCard.refine.cancel': 'Avbryt',
+  'chat.refine.hint': 'Tryck på plagg för att låsa dem, skriv sedan en förfining.',
+  'a11y.outfitCard.tile.locked': 'Låst plagg — tryck för att låsa upp',
+  'a11y.outfitCard.tile.lockable': 'Tryck för att låsa detta plagg',
   'garmentDetail.styleInChat.action': 'Stila i chatten',
   'chat.modeToggle.style': 'Stil',
   'chat.modeToggle.shopping': 'Köp',

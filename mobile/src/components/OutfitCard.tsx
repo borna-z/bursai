@@ -23,6 +23,7 @@ import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-nat
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { GarmentImageTile } from './GarmentImageTile';
+import { LockIcon } from './icons';
 import { t as tr } from '../lib/i18n';
 import { Button } from './Button';
 
@@ -52,6 +53,16 @@ export type OutfitCardProps = {
   onSave?: () => void;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
+  /** Q-D2 — chat refine mode: tap handler invoked when the user taps a
+   *  garment tile. Mirrors web's per-tile lock toggle. When provided,
+   *  each tile is wrapped in a `Pressable` so the toggle fires; the
+   *  outer card's `onPress` is unaffected. */
+  onTilePress?: (garmentId: string) => void;
+  /** Q-D2 — set of garment ids currently locked in chat refine mode.
+   *  Locked tiles render an accent-tinted lock badge overlay so the user
+   *  can see which slots will stay fixed when they send their next turn
+   *  (matches web `OutfitSuggestionCard` lock pill at lines 199-212). */
+  lockedIds?: Set<string>;
 };
 
 // M42 — wrapped in `React.memo` for the same reason as GarmentCard:
@@ -72,6 +83,8 @@ function OutfitCardInner({
   onSave,
   onPress,
   style,
+  onTilePress,
+  lockedIds,
 }: OutfitCardProps) {
   const t = useTokens();
   const showActions = Boolean(onUse || onSave);
@@ -109,7 +122,12 @@ function OutfitCardInner({
           {[0, 2].map((rowStart) => (
             <View key={`row-${rowStart}`} style={{ flex: 1, flexDirection: 'row' }}>
               {garments!.slice(rowStart, rowStart + 2).map((g, i) => (
-                <GarmentImageTile key={g.id || `slot-${rowStart + i}`} garment={g} />
+                <TileSlot
+                  key={g.id || `slot-${rowStart + i}`}
+                  garment={g}
+                  locked={!!(lockedIds && g.id && lockedIds.has(g.id))}
+                  onPress={onTilePress && g.id ? () => onTilePress(g.id!) : undefined}
+                />
               ))}
             </View>
           ))}
@@ -119,7 +137,12 @@ function OutfitCardInner({
           style={{ flexDirection: 'row', aspectRatio: wrapperAspect, gap: 0 }}>
           {useGarments
             ? garments!.map((g, i) => (
-                <GarmentImageTile key={g.id || `slot-${i}`} garment={g} />
+                <TileSlot
+                  key={g.id || `slot-${i}`}
+                  garment={g}
+                  locked={!!(lockedIds && g.id && lockedIds.has(g.id))}
+                  onPress={onTilePress && g.id ? () => onTilePress(g.id!) : undefined}
+                />
               ))
             : hues.map((_, i) => (
                 <GarmentImageTile key={`empty-${i}`} garment={null} />
@@ -161,6 +184,7 @@ function OutfitCardInner({
     </View>
   );
 
+  // (helpers below)
   if (onPress && !showActions) {
     // Synthesize a meaningful a11y label so VoiceOver/TalkBack announce
     // the outfit's identity instead of just "button". Falls back to the
@@ -181,4 +205,66 @@ function OutfitCardInner({
     );
   }
   return card;
+}
+
+// Q-D2 — tile + optional press wrapper + optional lock-badge overlay.
+// Kept private to this file so the rest of the app keeps using
+// `GarmentImageTile` directly. The Pressable only mounts when a tap
+// handler is provided so the non-refine path is identical to the
+// pre-Q-D2 baseline (no extra view, no accessibility chrome).
+function TileSlot({
+  garment,
+  locked,
+  onPress,
+}: {
+  garment: OutfitCardGarment;
+  locked: boolean;
+  onPress?: () => void;
+}) {
+  const t = useTokens();
+  const lockBadge = locked ? (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: t.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+      <LockIcon size={12} color={t.accentFg} />
+    </View>
+  ) : null;
+  // Pressable styling keeps the tile flex behaviour identical (flex: 1
+  // via GarmentImageTile's own style) — we wrap, we don't override the
+  // sizing rules.
+  const tile = <GarmentImageTile garment={garment} />;
+  if (!onPress) {
+    if (!lockBadge) return tile;
+    return (
+      <View style={{ flex: 1, position: 'relative' }}>
+        {tile}
+        {lockBadge}
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: locked }}
+      accessibilityLabel={locked
+        ? tr('a11y.outfitCard.tile.locked')
+        : tr('a11y.outfitCard.tile.lockable')}
+      style={({ pressed }) => [
+        { flex: 1, position: 'relative', opacity: pressed ? 0.85 : 1 },
+      ]}>
+      {tile}
+      {lockBadge}
+    </Pressable>
+  );
 }

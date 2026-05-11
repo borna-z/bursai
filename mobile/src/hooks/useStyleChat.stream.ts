@@ -25,6 +25,12 @@ export type StyleChatRequestBody =
       locale: string;
       selected_garment_ids?: string[];
       active_look?: StyleChatActiveLookInput;
+      /** Q-D2 — garment ids the user has locked in refine mode. `style_chat`
+       *  reads this at supabase/functions/style_chat/index.ts:1556-1565 +
+       *  injects a system-prompt directive ("LOCKED these garments (do NOT
+       *  swap them)…") so the engine regenerates only the unlocked slots.
+       *  Omitted when the user isn't refining or has unlocked everything. */
+      locked_slots?: string[];
     };
 
 // M23 — request body shape diverges by mode:
@@ -42,8 +48,11 @@ export function buildRequestBody(args: {
   messagesPayload: StreamMessagePayload[];
   anchoredGarmentId: string | null;
   activeLookPayload: StyleChatActiveLookInput | undefined;
+  /** Q-D2 — locked garment ids from refine mode. Inlined as
+   *  `locked_slots` on the request only when non-empty. */
+  lockedSlots?: string[];
 }): StyleChatRequestBody {
-  const { mode, messagesPayload, anchoredGarmentId, activeLookPayload } = args;
+  const { mode, messagesPayload, anchoredGarmentId, activeLookPayload, lockedSlots } = args;
   if (mode === 'shopping') {
     return {
       messages: messagesPayload,
@@ -55,6 +64,7 @@ export function buildRequestBody(args: {
     locale: getLocale() ?? 'en',
     ...(anchoredGarmentId ? { selected_garment_ids: [anchoredGarmentId] } : {}),
     ...(activeLookPayload ? { active_look: activeLookPayload } : {}),
+    ...(lockedSlots && lockedSlots.length > 0 ? { locked_slots: lockedSlots } : {}),
   };
 }
 

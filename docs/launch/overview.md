@@ -12,7 +12,7 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | Q — Mobile parity sweep #2 (Q-A DONE PR #826; Q-D · Q-B · Q-C1 · Q-C2 TODO) |
+| **CURRENT WAVE** | Q — Mobile parity sweep #2 (Q-A DONE PR #826; Q-D1 DONE PR #827; Q-D2 · Q-B · Q-C1 · Q-C2 TODO) |
 | **CURRENT WAVE FILE** | `docs/launch/waves/q-mobile-parity-2.md` |
 | **STATUS** | IN PROGRESS |
 
