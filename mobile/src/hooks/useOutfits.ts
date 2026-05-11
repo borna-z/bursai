@@ -137,6 +137,12 @@ export function useMarkOutfitWorn() {
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment'] });
+      // Q-C1 — marking an outfit worn bumps wear_count + last_worn_at on
+      // every garment in the outfit, flipping pieces between Most Worn
+      // and Rarely Worn smart-tile buckets. Without this invalidation the
+      // tile counts lag up to 2 min behind the actual data. Codex P2 on
+      // PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       // Profile stats bundle (M29) — wear_logs row count moves on every
       // non-deduped wear, and outfits.worn_at flips affect the saved
       // outfit count over time when filtered by saved=true.

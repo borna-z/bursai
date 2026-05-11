@@ -226,6 +226,10 @@ export function useUpdateGarment() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
+      // Q-C1 — generic update can touch any field including wear_count
+      // / last_worn_at on direct-patch paths; invalidate smart counts
+      // alongside garments to keep the tiles honest. Codex P2 on PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
     onSuccess: (data) => {
@@ -253,6 +257,8 @@ export function useDeleteGarment() {
       // garments-count is a sibling cache key; ['garments'] prefix-match
       // does not cover it, so the count would stay stale until staleTime.
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      // Q-C1 — `garments-smart-counts` is also a sibling key. Codex P2 on PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       // Profile stats bundle (M29) — Profile + SettingsScreen counters
       // both read this key; without the explicit invalidation the badge
       // stays stale up to staleTime (60s).
@@ -297,6 +303,11 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
     onSettled: (_data, _err, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      // Q-C1 — `in_laundry` doesn't feed the smart-count predicates today
+      // (they read `wear_count` + `last_worn_at`), but invalidate anyway
+      // so a future predicate addition (e.g. "Available to wear" tile)
+      // doesn't go stale on laundry toggles. Codex P2 on PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       // Insights derives every metric from garments + wear_logs — refetch so
       // the gauges, palette, weekly bars, and most-worn list don't lie for up
       // to staleTime (5min) after a wear / laundry / update.
@@ -378,6 +389,12 @@ export function useMarkWorn() {
     onSettled: (_data, _err, id) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      // Q-C1 — wear bumps `wear_count` (crossing 0→1 flips a garment
+      // from rarely_worn → most_worn) AND `last_worn_at` (removes it
+      // from rarely_worn entirely), so both Smart Access tile counts
+      // need to refresh. Without this invalidation they'd stay stale
+      // up to 2 min. Codex P2 on PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       // Profile stats bundle (M29). useMarkWorn doesn't insert into
       // wear_logs today (that's the per-outfit wear path), but listing
       // it here keeps the invalidation contract uniform — when the

@@ -255,6 +255,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await persistGarment(payload);
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      // Q-C1 — keep smart-tile Most Worn / Rarely Worn counts in sync
+      // with the just-replayed add. Codex P2 on PR #830.
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     });
 

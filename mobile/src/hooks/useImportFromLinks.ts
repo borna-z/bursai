@@ -474,6 +474,9 @@ export function useImportFromLinks(): UseImportFromLinksResult {
         // surface picks up the new rows immediately.
         queryClient.invalidateQueries({ queryKey: ['garments'] });
         queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+        // Q-C1 — bulk import lands new rows that immediately count toward
+        // the Wardrobe smart-tile totals. Codex P2 on PR #830.
+        queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
         queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
       }
     },
