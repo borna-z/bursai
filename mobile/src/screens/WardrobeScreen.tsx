@@ -172,6 +172,11 @@ export function WardrobeScreen({
   const garmentCountQ = useGarmentCount();
   const trueTotalCount = garmentCountQ.data ?? 0;
   const allInLaundry = trueTotalCount > 0 && garments.length === 0 && !hasNextPage;
+  // Q-C1 — hoisted next to `useGarmentCount` (above `onRefresh` and
+  // related effects) so the pull-to-refresh handler can reach
+  // `smartCounts.refetch()` and the Smart Access tiles below stay
+  // server-authoritative without prop-drilling. Codex P2 round 5 on PR #830.
+  const smartCounts = useSmartFilterCounts();
 
   const visibleGarments = React.useMemo(() => {
     if (!filters) return garments;
@@ -210,7 +215,15 @@ export function WardrobeScreen({
 
   const onRefresh = React.useCallback(() => {
     void refetch();
-  }, [refetch]);
+    // Q-C1 — pull-to-refresh has to fan out across the THREE wardrobe
+    // queries that feed this screen, not just the paginated grid. Without
+    // these, a cross-device add / wear on another client would refresh
+    // the grid (via `refetch`) but leave the tile counts + inventory
+    // eyebrow / search placeholder showing stale numbers until the
+    // 2-min / 60s staleTime expires — Codex P2 round 5 on PR #830.
+    void smartCounts.refetch();
+    void garmentCountQ.refetch();
+  }, [refetch, smartCounts, garmentCountQ]);
 
   // M42 — stable id-keyed press handler so the memoised GarmentCard
   // doesn't re-render on every parent render. An inline arrow inside
@@ -242,7 +255,6 @@ export function WardrobeScreen({
   //     state. `trueTotalCount` would hide the all-in-laundry empty state
   //     because it counts every garment regardless of laundry status —
   //     Codex P2 round 2 on PR #830.
-  const smartCounts = useSmartFilterCounts();
   const smartCountsReady = smartCounts.data !== undefined && !smartCounts.isError;
   const loadedGarmentCount = garments.length;
   const totalCount = trueTotalCount;
