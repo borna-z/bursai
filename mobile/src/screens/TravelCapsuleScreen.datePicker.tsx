@@ -31,6 +31,11 @@ import {
 export function DatePickerSheet({
   visible,
   title,
+  /** Q-B — optional eyebrow override. Defaults to "Pick a date" for the
+   *  Travel Capsule consumer; the OutfitDetail planner sheet passes
+   *  `tr('plannerSheet.eyebrow')` so the same primitive reads "Plan
+   *  this outfit" when reused for outfit planning. */
+  eyebrowText,
   initialISO,
   minISO,
   onClose,
@@ -38,6 +43,7 @@ export function DatePickerSheet({
 }: {
   visible: boolean;
   title: string;
+  eyebrowText?: string;
   initialISO?: string;
   minISO?: string;
   onClose: () => void;
@@ -107,7 +113,7 @@ export function DatePickerSheet({
           {/* Header */}
           <View style={ds.header}>
             <View style={{ flex: 1 }}>
-              <Eyebrow>Pick a date</Eyebrow>
+              <Eyebrow>{eyebrowText ?? 'Pick a date'}</Eyebrow>
               <Text
                 style={{
                   marginTop: 2,

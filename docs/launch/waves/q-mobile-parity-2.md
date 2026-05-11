@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Four themed PRs that close visible-to-user mobile gaps surfaced post-launch: Home SmartDayBanner garment thumbs, chat outfit-card render+refine parity, Plan/Generate flow with date-aware planning, Wardrobe filters wired with server counts + new personal flags (Lingerie / Wishlist / In Laundry). |
-| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D1 DONE (PR #827 silent-failure guard); Q-D2 (refine parity, this branch); Q-B / Q-C1 / Q-C2 TODO |
+| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D1 DONE (PR #827); Q-D2 DONE (PR #828 refine parity); Q-B (this branch); Q-C1 / Q-C2 TODO |
 | Branch base | `main` |
 | PR count | 4 (Q-A, Q-D, Q-B, Q-C) — Q-C internally split into Q-C1 (server counts) + Q-C2 (schema flags) for review-ability |
 | Migrations | One — `garments` adds three personal-flag booleans (Q-C2 only) |
@@ -163,68 +163,57 @@ TS · ESLint · expo-doctor · expo export · manual EAS-dev verification (Visio
 
 ---
 
-## Q-B · Plan/Generate flow — kill intermediate result page, date-aware planning
+## Q-B · Plan/Generate flow — date-aware planning (scoped-back per user direction 2026-05-12)
 
-### Bugs
-- `mobile/src/screens/OutfitGenerateScreen.tsx:609-636` renders four placeholder colored squares with `PLACEHOLDER_HUES` — no garment images. Original W9 wave that was supposed to wire real images never shipped.
-- `mobile/src/screens/PlanScreen.tsx:458` "Create Outfit" navigates `nav.navigate('OutfitGenerate')` with no date param — the selected Plan date is lost.
-- `OutfitGenerateScreen.tsx:320-350` "Wear today" handler always calls `markWorn` for today via `navigateToWornOutfit` — no date is plumbed through.
-- No date-picker UI exists anywhere on mobile. Web `src/pages/Plan.tsx:62-66` has `PlanningSheet` / `QuickPlanSheet` / `PreselectDateSheet`. Web `src/pages/OutfitGenerate.tsx:360-368` navigates to `OutfitDetail` with `state: { openPlanner: true }` for the plan flow.
+### Scope decision (2026-05-12)
 
-### Fix
+The original spec called for "skip the intermediate result page entirely" with auto-save. After implementation began the user explicitly chose the **scoped-back option**: keep the result page but FIX it (real garment images via `useGarmentsByIds`, add a "Plan for a date" button alongside Save/Wear-today) and ship the date picker as a sheet that auto-mounts on `OutfitDetail` when the user enters via the new Plan action. Auto-save behaviour change was deferred — a generated outfit is still persisted via the user's explicit Save / Wear today / Plan tap, not on result arrival. Avoids polluting the wardrobe with un-confirmed outfits.
 
-**B-1 — Remove the placeholder result UI.** Delete the four-hue grid block (`OutfitGenerateScreen.tsx:609-636`) and the surrounding result page entirely. After `persistOutfit.mutate` resolves with `{ outfitId }`, immediately `nav.replace('OutfitDetail', { id: outfitId, openPlanner: true, preselectDate })`. The user lands on the real outfit card with images.
+### Shipped
 
-**B-2 — Thread `initialDate` from Plan to Generate.** `PlanScreen.tsx:458`:
-```ts
-<Button
-  label={tr('plan.empty.cta')}
-  onPress={() => nav.navigate('OutfitGenerate', { initialDate: selectedDate.toISOString() })}
-  block
-/>
-```
-Add `initialDate?: string` to `OutfitGenerate` route params in `RootNavigator.tsx`. Read it in `OutfitGenerateScreen`, pass through as `preselectDate` to the `OutfitDetail` navigation on submit.
-
-**B-3 — `PlannerSheet` component (new).** Bottom-sheet modal with:
-- Date picker (use `@react-native-community/datetimepicker` if already in deps; otherwise a minimal week-strip picker matching the visual language of `ThisWeekSection`)
-- "Wear today" quick-select button
-- "Save without planning" secondary action
-- Confirm button — writes to `planned_outfits` for the chosen date; if date === today, also fires `markWorn`
-
-**B-4 — OutfitDetail auto-mount sheet.** Read `route.params.openPlanner` (boolean) and `route.params.preselectDate` (ISO string). When `openPlanner === true`, mount `PlannerSheet` open on first render. Sheet dismiss clears the param so back-nav doesn't re-open it.
-
-**B-5 — `planForDate` mutation.** If `usePlannedOutfits.ts` doesn't already export a mutation for `(outfitId, date) → upsert planned_outfits row`, add one mirroring the web equivalent. Single Supabase `.upsert({ user_id, outfit_id, planned_date }, { onConflict: 'user_id,planned_date' })`.
+- `RootNavigator.tsx` — `OutfitDetail` route gains optional `openPlanner?: boolean` + `preselectDate?: string`. `OutfitGenerate` gains optional `initialDate?: string`. All existing callers pass undefined / no params and are unaffected.
+- `PlanScreen.tsx:458` — empty-state "Create Outfit" CTA threads `{ initialDate: selectedDay?.iso ?? effectiveSelectedIso }` so the day the user picked back on the Plan tab carries forward into the planner sheet later.
+- `OutfitGenerateScreen.tsx`:
+  - Imports `useGarmentsByIds` + `GarmentImageTile`; hydrates `previewGarments` from `persistableItems` so the 2×2 preview grid renders real signed-URL garment thumbnails instead of the deprecated hue swatches. Empty/unhydrated slots fall back to the neutral Tshirt-icon tile (existing `GarmentImageTile` behaviour).
+  - Slot caption (TOP / BOTTOM / etc) stays as a small bottom-left pill so the user knows which slot each tile fills.
+  - New `handlePlan` handler — persists outfit if it isn't yet saved, then `nav.navigate('OutfitDetail', { id, openPlanner: true, preselectDate: route.params?.initialDate })`. `succeededRef` mirrors the existing `handleSave` / `handleWear` pattern (prevents cleanup-on-back-swipe wiping `result`).
+  - New "Plan for a date" outline button in the action stack between Wear today and Save.
+  - `PLACEHOLDER_HUES` constant removed; `SLOT_LABELS` retained for the fallback tile captions.
+- `OutfitDetailScreen.tsx`:
+  - Imports `DatePickerSheet` from `TravelCapsuleScreen.datePicker` (reused primitive; one new optional `eyebrowText` prop added so the same primitive reads "Plan this outfit" via `tr('plannerSheet.eyebrow')` in the outfit-planning context vs the existing "Pick a date" default for Travel Capsule).
+  - `plannerOpen` state init from `route.params?.openPlanner === true` (read once). Mount-effect calls `nav.setParams({ openPlanner: undefined, preselectDate: undefined })` so back-nav onto this screen doesn't re-open the sheet.
+  - New `handlePlannerConfirm(iso)` — writes `planned_outfits` via existing `useUpsertPlannedOutfit({ date, outfitId })`; when `iso === localISODate(now)` (i.e. user picked today) also fires `markWorn` so a single sheet covers both wear-today and plan-future without a separate quick-action button (the date selection itself is the action choice).
+- i18n — appended `outfitGenerate.plan.action`, `outfitGenerate.plan.failed.title`, `plannerSheet.{eyebrow,title,confirm,success.title,success.body,failed.title}` to en.ts + sv.ts. Locales append-only.
 
 ### Files touched
 
 #### Modified
-- `mobile/src/screens/OutfitGenerateScreen.tsx` — delete placeholder result UI, rewire submit→detail navigation, accept `initialDate` route param, pass `preselectDate` through
-- `mobile/src/screens/PlanScreen.tsx` — pass `initialDate` when navigating to OutfitGenerate
-- `mobile/src/screens/OutfitDetailScreen.tsx` — read `openPlanner` + `preselectDate` route params, mount `PlannerSheet` open
-- `mobile/src/navigation/RootNavigator.tsx` — route param types for `OutfitGenerate.initialDate` + `OutfitDetail.openPlanner` + `OutfitDetail.preselectDate`
-- `mobile/src/hooks/usePlannedOutfits.ts` — add `usePlanOutfitForDate` mutation if not present
-- `mobile/src/i18n/locales/en.ts` + `sv.ts` — keys for planner sheet titles, actions, hints (append only)
+- `mobile/src/navigation/RootNavigator.tsx`
+- `mobile/src/screens/PlanScreen.tsx`
+- `mobile/src/screens/OutfitGenerateScreen.tsx`
+- `mobile/src/screens/OutfitDetailScreen.tsx`
+- `mobile/src/screens/TravelCapsuleScreen.datePicker.tsx` (one optional prop added)
+- `mobile/src/i18n/locales/en.ts` + `sv.ts`
 
 #### New
-- `mobile/src/components/PlannerSheet.tsx` — new bottom-sheet primitive (modal + Animated + date picker + actions)
+None — Q-B reuses the existing `DatePickerSheet` primitive and `useUpsertPlannedOutfit` hook rather than building a separate PlannerSheet/PlannerHook.
 
 ### Acceptance
 
-- Generating an outfit from a tab (StyleMe / Home StyleChat / Plan empty state) persists the outfit and lands the user on `OutfitDetail` with the `PlannerSheet` open.
-- From Plan empty state: the sheet's date defaults to the Plan-screen-selected date.
-- From elsewhere: the sheet's date defaults to today.
-- Tapping "Wear today" in the sheet writes today's `planned_outfits` row AND marks the outfit worn (existing `markWorn` mutation) AND dismisses the sheet.
-- Tapping a future date and confirming writes a `planned_outfits` row for that date; outfit is NOT marked worn.
-- The placeholder-hue result page no longer appears anywhere.
-- TodaysLookHero "Wear today" path is unchanged (already correctly today-only for the hero on Home).
+- Tapping "Create Outfit" from PlanScreen's empty state opens OutfitGenerate; the date the user selected on the Plan tab is preserved through to the planner sheet when they tap "Plan for a date".
+- Generated outfit's preview grid shows 4 real garment thumbnails (not the 4-hue placeholder).
+- "Plan for a date" button: persists outfit if needed, then auto-opens the date-picker sheet on OutfitDetail with the date pre-selected.
+- Confirming a date writes a `planned_outfits` row; if the chosen date is today, the outfit is also marked worn.
+- Closing the sheet without confirming leaves the outfit saved (from the persist step) but unplanned.
+- Existing Save / Wear today buttons work exactly as before.
+- All other navigations to OutfitGenerate (HomeScreen, MonthCalendarScreen, OutfitDetail Restyle, UnusedOutfits Restyle) pass no `initialDate` and are unaffected.
+- All other navigations to OutfitDetail (Outfits list tap, recent-outfits home strip, swap success path, etc.) pass no `openPlanner` and are unaffected.
 
-### Gates
-TS · ESLint · expo-doctor · expo export · manual flow check on EAS dev build.
+### Deferred (out of scope for Q-B)
 
-### Out of scope
-- No web-side changes.
-- No new edge function.
-- No changes to `markWorn` / `useMarkOutfitWorn` semantics — Q-B only adds date-aware *planning*, not date-aware wearing.
+- Auto-save on result arrival + result-page deletion (the original spec called for this but the user explicitly chose the scoped-back option). Future PR if user changes their mind.
+- Threading `initialDate` through MonthCalendarScreen's tap-a-day → generate flow. Future PR — non-blocking; today the user can plan from the result page.
+- Custom planner sheet with a separate "Wear today" prominent quick-action button. The reused `DatePickerSheet` covers this via the date selection itself (today is highlighted on the grid).
 
 ---
 
