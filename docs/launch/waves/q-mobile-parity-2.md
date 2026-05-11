@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Four themed PRs that close visible-to-user mobile gaps surfaced post-launch: Home SmartDayBanner garment thumbs, chat outfit-card render+refine parity, Plan/Generate flow with date-aware planning, Wardrobe filters wired with server counts + new personal flags (Lingerie / Wishlist / In Laundry). |
-| Status | TODO |
+| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D split into Q-D1 (silent-failure guard, this branch) + Q-D2 (refine parity, follows); Q-B / Q-C1 / Q-C2 TODO |
 | Branch base | `main` |
 | PR count | 4 (Q-A, Q-D, Q-B, Q-C) — Q-C internally split into Q-C1 (server counts) + Q-C2 (schema flags) for review-ability |
 | Migrations | One — `garments` adds three personal-flag booleans (Q-C2 only) |
@@ -33,7 +33,7 @@ Sequenced smallest-blast-radius first; migration last so it lands after the bulk
 
 ---
 
-## Q-A · Home SmartDayBanner garment thumbnails
+## Q-A · Home SmartDayBanner garment thumbnails — DONE (PR #826, merged 2026-05-11)
 
 ### Bug
 `mobile/src/components/SmartDayBanner.tsx:147-151` passes only `hues={[…]}` to `OutfitCard`. The `OutfitCard` component (`mobile/src/components/OutfitCard.tsx:46`) accepts a `garments?: OutfitCardGarment[]` prop that renders real signed-URL `GarmentImageTile`s when present; the banner has the data (`top1.outfit.outfit_items`) but never extracts and forwards it.
@@ -75,13 +75,38 @@ TS 0 · ESLint `"src/**/*.{ts,tsx}"` 0 warnings · expo-doctor pass · expo expo
 
 ---
 
-## Q-D · Chat outfit card render + refine parity
+## Q-D · Chat outfit card render + refine parity — split into Q-D1 + Q-D2
 
-### Bugs
+### Diagnosis (2026-05-11)
 
-**D-1 (blocker):** Assistant outfit messages on mobile render *nothing at all* — no explanation text, no card, no images. Web shows the full card. Diagnose-first: confirm whether the streamed assistant message persists into chat state at all (mobile-side bug in `useStyleChat.stream.ts`), or whether `MessageItem` is short-circuiting the render (gate on `stylistMeta` shape).
+The reported symptom "nothing renders — no bubble, no card, no text, just my user message and then silence" was traced to `useStyleChat.ts:647`: the SSE `onError` handler **silently filtered the assistant placeholder out of `messages`**, AND in some failure paths the user-facing banner was also suppressed:
 
-**D-2 (parity):** Once D-1 is fixed, mobile `OutfitSuggestionCard.tsx:66-197` still lacks:
+- Banner gate: `error && error !== SUBSCRIPTION_SENTINEL ? error : null` (`StyleChatScreen.tsx:459`). Empty-string `err.message` is falsy → banner suppressed.
+- Paywall path: `error === SUBSCRIPTION_SENTINEL` → banner suppressed by design (Alert fires elsewhere) but the assistant placeholder was ALSO filtered out → if the Alert was dismissed quickly or missed, the user saw silence.
+- Generic stream failure (timeout / network blip / RLS): if `err.message` came through empty, both surfaces hid → silence.
+
+Q-D therefore splits into:
+
+- **Q-D1 (this branch, silent-failure guard + diagnostics):** stop dropping the assistant placeholder on error; fill it with a localized fallback so the user always sees that their turn happened. Always set a non-empty `error` string so the banner renders. Add Sentry tags for `chatTurnMode` + `errorName` + extra `errorMessage` so the underlying root cause is observable next time. Pure mobile-side fix; no edge-function changes.
+- **Q-D2 (follows, refine parity):** full multi-item lock + Refine button + `locked_slots[]` request payload + refine-mode hint. Waits until Q-D1 lands and we confirm assistant messages reliably render.
+
+### Q-D1 — Silent-failure guard
+
+**Files touched:**
+- `mobile/src/hooks/useStyleChat.ts` — `onError` keeps the assistant placeholder with a localized fallback content, always surfaces a non-empty error string, emits Sentry tags for diagnosis.
+- `mobile/src/i18n/locales/en.ts` + `sv.ts` — three new keys appended (`chat.error.generic`, `chat.error.inlineFallback`, `chat.error.inlineFallback.premium`). Append-only.
+
+**Acceptance:**
+- A stream error never leaves the user staring at silence — the failed assistant bubble shows a fallback explanation, AND the inline banner renders with a non-empty error message AND the Retry pill works to re-fire the turn.
+- Paywall failures keep their existing premium Alert flow but the inline bubble now carries premium-flavoured copy so the user knows it's a gate, not a bug.
+- Sentry captures `errorName` and `chatTurnMode` tags + `errorMessage` extra on every non-paywall failure so the underlying root cause is observable.
+- No regression to the success path: a normal turn still streams text + outfit card exactly as before.
+
+### Q-D2 — Refine parity (deferred)
+
+### Q-D2 bugs (out of scope for Q-D1)
+
+**D-2 (parity):** Once Q-D1 lands, mobile `OutfitSuggestionCard.tsx:66-197` still lacks:
 - Multi-item lock UI (per-tile lock badge in refine mode). Web `src/components/chat/OutfitSuggestionCard.tsx:199-212`.
 - "Refine" CTA alongside Try / Save. Web `src/components/chat/OutfitSuggestionCard.tsx:328-336`.
 - Refine-mode hint Caption ("Tap garments to lock them"). Web `src/components/chat/OutfitSuggestionCard.tsx:388-405`.

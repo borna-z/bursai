@@ -40,6 +40,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
+import { t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import type {
@@ -634,17 +635,54 @@ export function useStyleChat(): UseStyleChatResult {
             if (controller.signal.aborted) return;
             // Don't burn Sentry quota on the expected paywall sentinel —
             // those are subscription gating, not real failures.
-            if (err.message !== SUBSCRIPTION_SENTINEL) {
+            const isPaywall = err.message === SUBSCRIPTION_SENTINEL;
+            if (!isPaywall) {
               Sentry.withScope((s) => {
                 s.setTag('mutation', 'useStyleChat');
+                // Q-D1 — extra context so we can pinpoint which turn / mode
+                // surfaced an error when investigating the silent-failure
+                // path. `errorName` distinguishes `EdgeFunctionTimeoutError`
+                // / `EdgeFunctionRateLimitError` / `AbortError` / `TypeError`
+                // (network) etc; `turnMode` lets us see if shopping vs style
+                // routes diverge.
+                s.setTag('chatTurnMode', turnMode);
+                s.setTag('errorName', err.name || 'Error');
+                if (err.message) s.setExtra('errorMessage', err.message);
                 Sentry.captureException(err);
               });
             }
-            setError(err.message);
+            // Empty err.message would have left both the banner suppressed
+            // (`error && error !== SUBSCRIPTION_SENTINEL` is `'' && …` →
+            // null) AND the inline bubble removed below — net result was
+            // pure silence after the user's question. Set a non-empty
+            // fallback so the banner always renders. Codex Q-D1.
+            const surfacedError = isPaywall
+              ? err.message
+              : err.message || tr('chat.error.generic');
+            setError(surfacedError);
             setIsStreaming(false);
-            // Drop the empty assistant placeholder on failure; the user
-            // message stays so they can retry without retyping.
-            setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+            // Q-D1 — keep the assistant placeholder around, even on error.
+            // The previous filter-out path produced "user message → silence"
+            // when the stream failed because the inline bubble disappeared
+            // alongside the banner suppression above. Now the placeholder
+            // stays with an explanatory body so the user always sees that
+            // the turn happened and can spot the Retry pill. Paywall path
+            // gets a tailored body so the user knows it's a subscription
+            // gate rather than a transient failure.
+            // Paywall path reuses the existing `chat.error.premium.body`
+            // copy so the inline bubble matches the Alert wording exactly
+            // (one source of truth for the subscription gate). Codex P2-2
+            // round 1 review on Q-D1.
+            const fallbackContent = isPaywall
+              ? tr('chat.error.premium.body')
+              : tr('chat.error.inlineFallback');
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: fallbackContent, isStreaming: false }
+                  : m,
+              ),
+            );
           },
         },
         controller.signal,
