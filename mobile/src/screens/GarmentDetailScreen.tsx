@@ -9,8 +9,7 @@
 // in wired screens" rule.
 
 import React from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,6 +22,7 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { ListRow } from '../components/ListRow';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
 import { ConditionBadge, tierForScore } from '../components/ConditionBadge';
 import { BackIcon, CloseIcon, EditIcon, MoreIcon } from '../components/icons';
@@ -31,7 +31,6 @@ import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
 import { isActiveGarmentRenderStatus, useRenderJobStatus } from '../hooks/useRenderJobStatus';
-import { useSignedUrl } from '../hooks/useSignedUrl';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { localISODate } from '../lib/outfitDisplay';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
@@ -42,14 +41,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'GarmentDetail'>;
 type Tab = 'info' | 'outfits' | 'similar';
-
-// djb2-ish — same as GarmentCard's fallback so an unloaded photo and the
-// hero gradient share a colour family.
-function hueFromId(id: string): number {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
 
 // Calendar-day diff via `localISODate` rather than ms-subtraction. The old
 // `(Date.now() - ms) / 86400000 | 0` shape mis-counts on DST transition days
@@ -122,17 +113,10 @@ export function GarmentDetailScreen() {
   // the new asset to `garments.image_path` (see edge function line ~110),
   // distinct from the studio render's `rendered_image_path` and the
   // original-photo `original_image_path`. Without `image_path` in the
-  // resolution chain, a successful AI generation lands the row update
-  // but the hero stays on the gradient placeholder and the "Generate
-  // image" CTA never disappears. Order: studio render wins (post-N1
-  // pipeline output), then user's original photo, then the AI-generated
-  // catalog fallback for manual-entry rescue.
-  const heroPath =
-    garment?.rendered_image_path ??
-    garment?.original_image_path ??
-    garment?.image_path ??
-    null;
-  const { data: heroUrl } = useSignedUrl(heroPath);
+  // resolution chain happens inside `lib/garmentImage.ts` (mirrors web) — the
+  // shared `GarmentImageTile` consumes the garment row and renders the right
+  // photo automatically. The detail screen no longer needs its own path
+  // selection logic.
 
   // Studio-render polling. The hook only ticks while `render_status` is active
   // (`pending` = enqueued, `rendering` = worker claimed). Once the worker
@@ -492,7 +476,10 @@ export function GarmentDetailScreen() {
   }
 
   const fields = buildInfoFields(garment);
-  const hue = hueFromId(garment.id);
+  // Used only to gate the "Generate image" CTA below — true when the garment
+  // has no photo at all. Image rendering itself lives in `GarmentImageTile`.
+  const heroPath =
+    garment.rendered_image_path || garment.original_image_path || garment.image_path || null;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -538,21 +525,10 @@ export function GarmentDetailScreen() {
         }}
         showsVerticalScrollIndicator={false}>
         <View style={[s.hero, { borderColor: t.border }]}>
-          {/* Gradient placeholder behind the image — visible until the signed
-              URL resolves AND when the image fails to load. */}
-          <LinearGradient
-            colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {heroUrl ? (
-            <Image
-              source={{ uri: heroUrl }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-          ) : null}
+          {/* Photo — render_status-aware path selection + faded Tshirt icon
+              fallback live in GarmentImageTile (mirrors web). Studio badge,
+              wear-count badge etc. layer on top below. */}
+          <GarmentImageTile garment={garment} iconSize={64} />
           {/* Studio badge — four states:
               • pending render → "Studio render…" with an inline spinner
               • rendered image present → "Studio"

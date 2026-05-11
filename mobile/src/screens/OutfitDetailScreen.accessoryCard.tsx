@@ -1,19 +1,19 @@
 // OutfitDetailScreen — AccessoryCard tile (N13 split).
 //
-// Rendered inside the accessories collapsible section. Shows a 110×150
-// gradient + image thumbnail, title, subtitle (eyebrow-style fallback OR
-// AI reason narrative), and an Add button.
+// Rendered inside the accessories collapsible section. Shows a 110×150 neutral
+// thumbnail (signed-URL photo or faded Tshirt fallback — same recipe as the
+// shared GarmentImageTile), title, subtitle (eyebrow-style fallback OR AI
+// reason narrative), and an Add button.
 
 import React from 'react';
 import { Image, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Button } from '../components/Button';
+import { TshirtIcon } from '../components/icons';
 import { useGarmentImage } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
-import { outfitGradientHue } from '../lib/outfitDisplay';
 
 export function AccessoryCard({
   title,
@@ -38,7 +38,6 @@ export function AccessoryCard({
   const t = useTokens();
   const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
   const showImage = imageUri != null;
-  const hue = outfitGradientHue(title);
 
   return (
     <View
@@ -50,13 +49,15 @@ export function AccessoryCard({
         backgroundColor: t.card,
         overflow: 'hidden',
       }}>
-      <View style={{ width: '100%', height: 110, position: 'relative' }}>
-        <LinearGradient
-          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
+      <View
+        style={{
+          width: '100%',
+          height: 110,
+          backgroundColor: t.bg2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
         {showImage ? (
           <Image
             source={{ uri: imageUri }}
@@ -64,7 +65,11 @@ export function AccessoryCard({
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
-        ) : null}
+        ) : (
+          <View style={{ opacity: 0.35 }}>
+            <TshirtIcon size={28} color={t.fg2} />
+          </View>
+        )}
       </View>
       <View style={{ padding: 10, gap: 4 }}>
         <Text

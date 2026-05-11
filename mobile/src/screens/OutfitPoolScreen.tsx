@@ -24,7 +24,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -36,6 +35,7 @@ import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
 import { CloseIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,7 +44,6 @@ import { supabase } from '../lib/supabase';
 import { useOutfitPool, type ScoredOutfitDraft } from '../hooks/useOutfitPool';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { Sentry } from '../lib/sentry';
-import { outfitGradientHue } from '../lib/outfitDisplay';
 import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -345,7 +344,6 @@ function PoolCell({
   onPress: () => void;
 }) {
   const t = useTokens();
-  const hue = outfitGradientHue(draft.draftId);
   const itemCount = draft.items.length;
   const sub = `${itemCount} PIECE${itemCount === 1 ? '' : 'S'}`;
   const name = draft.family_label?.trim() || draft.occasion?.trim() || 'Look';
@@ -365,13 +363,8 @@ function PoolCell({
           transform: pressed ? [{ scale: 0.98 }] : [],
         },
       ]}>
-      <View style={{ aspectRatio: 1, position: 'relative' }}>
-        <LinearGradient
-          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
+      <View style={{ aspectRatio: 1, position: 'relative', overflow: 'hidden' }}>
+        <GarmentImageTile garment={null} iconSize={36} />
         {selected ? (
           <View style={[s.checkBadge, { backgroundColor: t.accent }]}>
             <Text style={{ color: t.accentFg, fontFamily: fonts.uiSemi, fontSize: 11 }}>✓</Text>

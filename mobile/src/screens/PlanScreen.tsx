@@ -8,8 +8,7 @@
 // `new Date()` at render so the screen stays accurate as days roll forward.
 
 import React from 'react';
-import { Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,13 +25,13 @@ import { WeekStrip, type WeekDay } from '../components/WeekStrip';
 import { WeekPlanPreview } from '../components/WeekPlanPreview';
 import { PlanCardSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { CalendarIcon, ChevronIcon } from '../components/icons';
 import { usePlannedOutfitsForRange, useDeletePlannedOutfit } from '../hooks/usePlannedOutfits';
 import { useWeekGenerator } from '../hooks/useWeekGenerator';
 import { useMarkOutfitWorn } from '../hooks/useOutfits';
 import { useNow } from '../hooks/useNow';
-import { useGarmentImage } from '../hooks/useSignedUrl';
-import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import { localISODate, outfitDisplayName } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems, PlannedOutfitWithOutfit } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -607,36 +606,21 @@ function EyebrowChip({ label }: { label: string }) {
 function PlanThumbRow({ outfit }: { outfit: OutfitWithItems }) {
   const items = (outfit.outfit_items ?? []).slice(0, 4);
   const fillerCount = Math.max(0, 4 - items.length);
-  const fallbackHue = outfitGradientHue(outfit.id);
   return (
     <View style={s.outfitRow}>
       {items.map((item) => (
-        <PlanOutfitThumb key={item.id} item={item} fallbackHue={fallbackHue} />
+        <PlanOutfitThumb key={item.id} item={item} />
       ))}
       {Array.from({ length: fillerCount }).map((_, i) => (
-        <PlanOutfitThumb key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
+        <PlanOutfitThumb key={`filler-${i}`} item={null} />
       ))}
     </View>
   );
 }
 
-function PlanOutfitThumb({
-  item,
-  fallbackHue,
-}: {
-  item: OutfitItemWithGarment | null;
-  fallbackHue: number;
-}) {
+function PlanOutfitThumb({ item }: { item: OutfitItemWithGarment | null }) {
   const t = useTokens();
   const garment = item?.garment ?? null;
-  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
-  // as the empty string `''` rather than null, so `??` would still pick
-  // the empty value over the garment's category. Codex P2 on PR #738.
-  const label = (item?.slot || garment?.category || '').toString().toUpperCase();
-  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
 
   return (
     <View
@@ -646,39 +630,9 @@ function PlanOutfitThumb({
         borderRadius: radii.lg,
         borderWidth: 1,
         borderColor: t.border,
-        backgroundColor: t.bg2,
         overflow: 'hidden',
       }}>
-      <LinearGradient
-        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
-      {label && !showImage ? (
-        <Text
-          style={{
-            position: 'absolute',
-            bottom: 8,
-            left: 8,
-            fontFamily: fonts.uiSemi,
-            fontSize: 9,
-            letterSpacing: 1.1,
-            color: '#fff',
-            opacity: 0.85,
-            textTransform: 'uppercase',
-          }}>
-          {label}
-        </Text>
-      ) : null}
+      <GarmentImageTile garment={garment} iconSize={22} />
     </View>
   );
 }

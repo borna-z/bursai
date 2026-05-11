@@ -7,8 +7,7 @@
 // once a backend hook lands. The fixed fixture below visually rhymes with the handoff prototype.
 
 import React from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,15 +20,15 @@ import { Caption } from '../components/Caption';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { Button } from '../components/Button';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { OutfitGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, GridIcon, ListIcon } from '../components/icons';
 import { useOutfits } from '../hooks/useOutfits';
-import { useGarmentImage } from '../hooks/useSignedUrl';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
 import { t as tr } from '../lib/i18n';
-import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import { localISODate, outfitDisplayName } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -290,7 +289,6 @@ const OutfitListCard = React.memo(function OutfitListCard({
   const handlePress = React.useCallback(() => onPress(outfit.id), [outfit.id, onPress]);
   const items = (outfit.outfit_items ?? []).slice(0, 4);
   const fillerCount = Math.max(0, 4 - items.length);
-  const fallbackHue = outfitGradientHue(outfit.id);
   // Schema has no per-outfit wear-count column. The closest signal we have is
   // `worn_at` (last wear timestamp). Showing "1 wear" after 50 actual wears is
   // misleading, so collapse to a binary "Worn"/"Never worn" until wear_logs
@@ -315,10 +313,10 @@ const OutfitListCard = React.memo(function OutfitListCard({
       ]}>
       <View style={s.cardThumbWrap}>
         {items.map((item) => (
-          <CardThumb key={item.id} item={item} fallbackHue={fallbackHue} />
+          <CardThumb key={item.id} item={item} />
         ))}
         {Array.from({ length: fillerCount }).map((_, i) => (
-          <CardThumb key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
+          <CardThumb key={`filler-${i}`} item={null} />
         ))}
       </View>
       <View style={{ padding: 12, gap: 8 }}>
@@ -363,35 +361,11 @@ const OutfitListCard = React.memo(function OutfitListCard({
   );
 });
 
-function CardThumb({
-  item,
-  fallbackHue,
-}: {
-  item: OutfitItemWithGarment | null;
-  fallbackHue: number;
-}) {
+function CardThumb({ item }: { item: OutfitItemWithGarment | null }) {
   const garment = item?.garment ?? null;
-  const imagePath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
-
   return (
     <View style={[s.cardThumbCell, { overflow: 'hidden' }]}>
-      <LinearGradient
-        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
+      <GarmentImageTile garment={garment} iconSize={22} />
     </View>
   );
 }

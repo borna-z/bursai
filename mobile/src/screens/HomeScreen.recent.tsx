@@ -2,20 +2,18 @@
 //
 // Horizontal carousel of saved outfits below the hero. Each tile renders a
 // 2×2 mosaic of the outfit's first four garment photos via signed URLs,
-// falling back to per-garment gradient hues while loading or when no
-// image_path is set.
+// falling back to the shared `GarmentImageTile` neutral surface (faded
+// Tshirt icon on `t.bg2`) when a garment has no resolvable photo.
 
 import React from 'react';
-import { Image, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
-import { Shimmer } from '../components/Shimmer';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ChevronIcon } from '../components/icons';
-import { useGarmentImage } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
-import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import { outfitDisplayName } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 
 export type RecentOutfitsRowProps = {
@@ -57,55 +55,12 @@ export function RecentOutfitsRow({ outfits, onSeeAll, onPressOutfit }: RecentOut
 }
 
 // One cell of the 2×2 mosaic inside `RecentOutfitTile`. Borderless companion
-// to `OutfitThumb`: same gradient + signed-URL <Image> recipe, no border or
-// label since four of these compose the recent-tile thumb rather than each
-// reading as a standalone garment card.
-//
-// G-008 (2026-05-09) — parity with `OutfitCard.GarmentSlot`: while the signed
-// URL is resolving we overlay a Shimmer pulse so a loading mosaic cell reads
-// differently from a permanently-broken one.
-function RecentMosaicSlot({
-  item,
-  fallbackHue,
-}: {
-  item: OutfitItemWithGarment | null;
-  fallbackHue: number;
-}) {
+// to `OutfitThumb`: renders the shared GarmentImageTile (neutral bg + signed-URL
+// photo + faded Tshirt icon fallback). No border or label since four of these
+// compose the recent-tile thumb rather than each reading as a standalone card.
+function RecentMosaicSlot({ item }: { item: OutfitItemWithGarment | null }) {
   const garment = item?.garment ?? null;
-  const imagePath =
-    garment?.rendered_image_path ??
-    garment?.original_image_path ??
-    garment?.image_path ??
-    null;
-  const {
-    uri: imageUri,
-    onError: onImageError,
-    isResolving,
-  } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  // Same gating as `OutfitCard.GarmentSlot`: only animate while the URL is
-  // actually in flight AND we don't yet have an image to show.
-  const resolving = isResolving && !showImage;
-  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
-  return (
-    <View style={{ flex: 1, overflow: 'hidden' }}>
-      <LinearGradient
-        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
-      {resolving ? <Shimmer /> : null}
-    </View>
-  );
+  return <GarmentImageTile garment={garment} iconSize={18} />;
 }
 
 function RecentOutfitTile({
@@ -116,7 +71,6 @@ function RecentOutfitTile({
   onPress: () => void;
 }) {
   const t = useTokens();
-  const hue = outfitGradientHue(outfit.id);
   const items = (outfit.outfit_items ?? []).slice(0, 4);
   const slots: (OutfitItemWithGarment | null)[] = [
     items[0] ?? null,
@@ -139,12 +93,12 @@ function RecentOutfitTile({
       accessibilityLabel={outfitDisplayName(outfit)}>
       <View style={s.recentThumb}>
         <View style={{ flexDirection: 'row', flex: 1 }}>
-          <RecentMosaicSlot item={slots[0]} fallbackHue={hue} />
-          <RecentMosaicSlot item={slots[1]} fallbackHue={hue} />
+          <RecentMosaicSlot item={slots[0]} />
+          <RecentMosaicSlot item={slots[1]} />
         </View>
         <View style={{ flexDirection: 'row', flex: 1 }}>
-          <RecentMosaicSlot item={slots[2]} fallbackHue={hue} />
-          <RecentMosaicSlot item={slots[3]} fallbackHue={hue} />
+          <RecentMosaicSlot item={slots[2]} />
+          <RecentMosaicSlot item={slots[3]} />
         </View>
       </View>
       <View style={{ paddingHorizontal: 10, paddingVertical: 8, gap: 2 }}>

@@ -13,7 +13,6 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -23,7 +22,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,10 +31,10 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Chip } from '../components/Chip';
 import { TogglePill } from '../components/TogglePill';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
 import { MinusIcon, PlusIcon } from '../components/icons';
 import { useDeleteGarment, useGarment, useUpdateGarment } from '../hooks/useGarments';
-import { useSignedUrl } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import type { GarmentUpdate } from '../types/garment';
@@ -44,14 +42,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'EditGarment'>;
-
-// Hue from id, same recipe as GarmentCard / GarmentDetail. Used for the photo
-// gradient placeholder when no rendered/original image is available.
-function hueFromId(id: string): number {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
 
 // 30 named colors with hex values. Same swatch palette the legacy form used —
 // keeping it as a data constant satisfies the "no hardcoded hex outside data
@@ -104,11 +94,6 @@ export function EditGarmentScreen() {
   const { data: garment, isLoading, isError, refetch } = useGarment(editingId);
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
-
-  // Photo preview — uses the same rendered/original priority as GarmentCard
-  // and GarmentDetail so the user sees the same hero across surfaces.
-  const photoPath = garment?.rendered_image_path ?? garment?.original_image_path ?? null;
-  const { data: photoUrl } = useSignedUrl(photoPath);
 
   // Form state — initialised once garment loads. We avoid mirroring the
   // garment columns into state until the row is actually fetched, so a stale
@@ -358,7 +343,6 @@ export function EditGarmentScreen() {
     );
   }
 
-  const hue = hueFromId(garment.id);
   const saveDisabled = !isValid || submitting || !hydrated;
 
   return (
@@ -412,15 +396,7 @@ export function EditGarmentScreen() {
           showsVerticalScrollIndicator={false}>
           {/* Photo + Change photo overlay */}
           <View style={[s.photoWrap, { borderColor: t.border }]}>
-            <LinearGradient
-              colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            {photoUrl ? (
-              <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            ) : null}
+            <GarmentImageTile garment={garment} iconSize={48} />
             <Pressable
               accessibilityLabel={tr('editGarment.changePhoto')}
               accessibilityRole="button"
