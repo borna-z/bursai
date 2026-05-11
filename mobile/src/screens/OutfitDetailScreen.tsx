@@ -691,6 +691,7 @@ export function OutfitDetailScreen() {
         visible={plannerOpen}
         title={tr('plannerSheet.title')}
         eyebrowText={tr('plannerSheet.eyebrow')}
+        confirmLabel={tr('plannerSheet.confirm')}
         initialISO={plannerInitialISO}
         onClose={() => setPlannerOpen(false)}
         onConfirm={handlePlannerConfirm}

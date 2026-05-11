@@ -36,6 +36,12 @@ export function DatePickerSheet({
    *  `tr('plannerSheet.eyebrow')` so the same primitive reads "Plan
    *  this outfit" when reused for outfit planning. */
   eyebrowText,
+  /** Q-B — optional confirm-button label. Defaults to "Done" for the
+   *  Travel Capsule consumer; the OutfitDetail planner sheet passes
+   *  `tr('plannerSheet.confirm')` so Swedish users see "Bekräfta"
+   *  instead of a hardcoded English "Done" inside an otherwise
+   *  localised sheet. Codex P3 round 2 on Q-B PR #829. */
+  confirmLabel,
   initialISO,
   minISO,
   onClose,
@@ -44,6 +50,7 @@ export function DatePickerSheet({
   visible: boolean;
   title: string;
   eyebrowText?: string;
+  confirmLabel?: string;
   initialISO?: string;
   minISO?: string;
   onClose: () => void;
@@ -231,7 +238,11 @@ export function DatePickerSheet({
 
           {/* Confirm */}
           <View style={{ marginTop: 14 }}>
-            <Button label="Done" block onPress={() => onConfirm(localISO(staged))} />
+            <Button
+              label={confirmLabel ?? 'Done'}
+              block
+              onPress={() => onConfirm(localISO(staged))}
+            />
           </View>
         </View>
       </Pressable>
