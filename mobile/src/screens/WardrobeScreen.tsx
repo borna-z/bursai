@@ -230,16 +230,21 @@ export function WardrobeScreen({
   //
   // Totals split:
   //   • The "Recently added" tile + inventory eyebrow + search placeholder
-  //     + empty-state check all read `trueTotalCount` (from the existing
-  //     `useGarmentCount` hook — authoritative server count that already
-  //     exists in this file). Avoids the redundancy of two server-side
-  //     total-count queries.
+  //     display `trueTotalCount` (from the existing `useGarmentCount` hook
+  //     — authoritative server count that already exists in this file).
   //   • The new `useSmartFilterCounts` hook supplies the OTHER two
   //     numbers — Most Worn (`wear_count > 0`) and Rarely Worn
   //     (`last_worn_at IS NULL OR last_worn_at < now - 30d`). Its `new`
   //     field is hook-shape parity with web and stays unused on mobile.
+  //   • `loadedGarmentCount` (the count of rows actually returned by the
+  //     filtered `useFlatGarments(WARDROBE_FILTERS)` query, which excludes
+  //     in-laundry rows) drives the EMPTY-STATE branch + filtered-empty
+  //     state. `trueTotalCount` would hide the all-in-laundry empty state
+  //     because it counts every garment regardless of laundry status —
+  //     Codex P2 round 2 on PR #830.
   const smartCounts = useSmartFilterCounts();
   const smartCountsReady = smartCounts.data !== undefined && !smartCounts.isError;
+  const loadedGarmentCount = garments.length;
   const totalCount = trueTotalCount;
   const totalCountReady = !garmentCountQ.isLoading && !garmentCountQ.isError;
   const mostWornCount = smartCounts.data?.most_worn ?? 0;
@@ -428,7 +433,7 @@ export function WardrobeScreen({
   //                              "Add your first piece" CTA they don't need.
   // The "filters narrow it to zero" case is handled below via filteredEmpty
   // — it keeps the filter chips visible and just renders the no-matches state.
-  if (totalCount === 0 && !hasNextPage) {
+  if (loadedGarmentCount === 0 && !hasNextPage) {
     const isAllLaundry = allInLaundry;
     return (
       <>
@@ -474,7 +479,12 @@ export function WardrobeScreen({
   // Filtered to zero — when filters narrow `visibleGarments` to nothing but the
   // wardrobe itself isn't empty. Distinct from the new-user empty state above:
   // here we show what to do (clear filters), not a "get started" CTA.
-  const filteredEmpty = totalCount > 0 && visibleGarments.length === 0 && activeFilterCount > 0;
+  // Q-C1 — uses `loadedGarmentCount` (non-laundry rows actually returned)
+  // not `totalCount` (server-side all-garments count) so the
+  // "filters → zero matches" empty state fires correctly when the
+  // wardrobe has rows BUT they're all in laundry (the underlying query
+  // already excludes in-laundry items via WARDROBE_FILTERS).
+  const filteredEmpty = loadedGarmentCount > 0 && visibleGarments.length === 0 && activeFilterCount > 0;
 
   return (
     <>
