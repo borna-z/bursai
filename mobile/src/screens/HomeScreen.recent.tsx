@@ -2,8 +2,8 @@
 //
 // Horizontal carousel of saved outfits below the hero. Each tile renders a
 // 2×2 mosaic of the outfit's first four garment photos via signed URLs,
-// falling back to per-garment gradient hues while loading or when no
-// image_path is set.
+// falling back to the shared `GarmentImageTile` neutral surface (faded
+// Tshirt icon on `t.bg2`) when a garment has no resolvable photo.
 
 import React from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
