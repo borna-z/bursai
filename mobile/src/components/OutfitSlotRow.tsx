@@ -7,20 +7,17 @@
 
 import React from 'react';
 import {
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from './Eyebrow';
 import { Button } from './Button';
-import { useGarmentImage } from '../hooks/useSignedUrl';
-import { outfitGradientHue } from '../lib/outfitDisplay';
+import { GarmentImageTile } from './GarmentImageTile';
 import { t as tr } from '../lib/i18n';
 import type { OutfitItemWithGarment } from '../types/outfit';
 
@@ -72,17 +69,6 @@ export function OutfitSlotRow({
 }: OutfitSlotRowProps) {
   const t = useTokens();
   const garment = item.garment;
-  const imagePath =
-    garment?.rendered_image_path ??
-    garment?.original_image_path ??
-    garment?.image_path ??
-    null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  const hue = garment?.id
-    ? outfitGradientHue(garment.id)
-    : outfitGradientHue(item.id);
-
   const isOrphan = !garment?.id;
   const title = isOrphan
     ? tr('outfitDetail.removedPiece')
@@ -110,23 +96,7 @@ export function OutfitSlotRow({
           { opacity: pressed && onPress ? 0.85 : 1 },
         ]}>
         <View style={[s.thumb, { borderColor: t.border }]}>
-          <LinearGradient
-            colors={[
-              `hsl(${hue}, 38%, 78%)`,
-              `hsl(${(hue + 30) % 360}, 30%, 62%)`,
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {showImage ? (
-            <Image
-              source={{ uri: imageUri }}
-              onError={onImageError}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
-          ) : null}
+          <GarmentImageTile garment={garment ?? null} iconSize={28} />
         </View>
 
         <View style={{ flex: 1, minWidth: 0 }}>

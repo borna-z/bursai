@@ -6,19 +6,18 @@
 // parent (HomeScreen); this file is presentational.
 
 import React from 'react';
-import { Image, Pressable, Text, View, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { PlanCardSkeleton } from '../components/skeletons';
 import { ChevronIcon } from '../components/icons';
-import { useGarmentImage } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
-import { outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
+import { outfitDisplayName } from '../lib/outfitDisplay';
 import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
 
 export type TodaysLookHeroProps = {
@@ -124,66 +123,31 @@ export function TodaysLookHero({
 }
 
 // Builds the 4-tile garment row inside Today's Look. Up to 4 of the
-// outfit_items render as signed-URL <Image>s; remaining slots fall through
-// to gradient placeholders so the row's visual rhythm holds even on a
-// 2-piece outfit.
+// outfit_items render via the shared GarmentImageTile (neutral bg + signed-URL
+// photo + faded Tshirt icon fallback). Remaining slots get an empty tile so
+// the row's visual rhythm holds even on a 2-piece outfit.
 function OutfitThumbRow({ outfit }: { outfit: OutfitWithItems }) {
   const items = (outfit.outfit_items ?? []).slice(0, 4);
   const fillerCount = Math.max(0, 4 - items.length);
-  const fallbackHue = outfitGradientHue(outfit.id);
   return (
     <View style={s.outfitRow}>
       {items.map((item) => (
-        <OutfitThumb key={item.id} item={item} fallbackHue={fallbackHue} />
+        <OutfitThumb key={item.id} item={item} />
       ))}
       {Array.from({ length: fillerCount }).map((_, i) => (
-        <OutfitThumb key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
+        <OutfitThumb key={`filler-${i}`} item={null} />
       ))}
     </View>
   );
 }
 
-function OutfitThumb({
-  item,
-  fallbackHue,
-}: {
-  item: OutfitItemWithGarment | null;
-  fallbackHue: number;
-}) {
+function OutfitThumb({ item }: { item: OutfitItemWithGarment | null }) {
   const t = useTokens();
   const garment = item?.garment ?? null;
-  const imagePath =
-    garment?.rendered_image_path ??
-    garment?.original_image_path ??
-    garment?.image_path ??
-    null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
-  // as the empty string `''` rather than null, and `??` would still pick
-  // that empty value over the garment's category. Codex P2 on PR #738.
-  const label = (item?.slot || garment?.category || '').toString().toUpperCase();
-  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
 
   return (
-    <View style={[s.thumb, { borderColor: t.border, backgroundColor: t.bg2 }]}>
-      <LinearGradient
-        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
-      {label && !showImage ? (
-        <Text style={[s.thumbLabel, { color: t.scrimFg }]}>{label}</Text>
-      ) : null}
+    <View style={[s.thumb, { borderColor: t.border }]}>
+      <GarmentImageTile garment={garment} iconSize={22} />
     </View>
   );
 }
@@ -200,20 +164,5 @@ const s = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  thumbLabel: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    fontSize: 9,
-    fontFamily: fonts.uiSemi,
-    letterSpacing: 1.1,
-    // `color` set inline via `t.scrimFg` — the foreground token designed
-    // to be readable on top of dark/scrim surfaces (here, the colored
-    // gradient backdrop). N8 a11y sweep replaced a hardcoded '#fff'.
-    opacity: 0.85,
-    textTransform: 'uppercase',
   },
 });

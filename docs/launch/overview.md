@@ -12,11 +12,13 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | G6 — Cross-cutting card primitive (mobile gap remediation campaign) |
-| **CURRENT WAVE FILE** | [`waves/g6-card-primitive.md`](waves/g6-card-primitive.md) |
+| **CURRENT WAVE** | P — Mobile parity sweep (4 themed PRs) |
+| **CURRENT WAVE FILE** | none — post-launch standing CEO authority |
 | **STATUS** | IN PROGRESS |
 
-> **Campaign preemption (2026-05-09):** M38 is paused. The user reported six concrete mobile UX defects (style chat outfit cards / history / mode-toggle, Home recent-outfit thumbs, Travel Capsule end-to-end, Wardrobe Gaps Google bounce, Style Me weather/occasions/restyle/save, cross-cutting OutfitCard). They take precedence over M38 settings-editor polish. The campaign decomposes into six themed PRs (G6 → G2 → G1 → G5 → G4 → G3) executed sequentially under standing CEO overnight authority. Spec: [`docs/launch/g-campaign.md`](g-campaign.md). Resume M38 when G campaign merged.
+> **Parity sweep (2026-05-11):** All M-waves M0–M42 shipped; G campaign closed; N0–N16 hardening cycles merged. Outstanding: M43/M44 (external — user-managed Apple Developer + RevenueCat sandbox), and M6/M7/M8 (deferred for hardware testing on Vision Camera EAS dev build, per the user). New round of user-reported parity defects against web: (A) colored gradient garment fallbacks → neutral + Tshirt icon (mirrors web); (B) stub Save/Wear buttons → real mutations; (C) Stylist chat header + outfit-card loading skeleton; (D) Stylist chat Refine mode + wardrobe→chat garment anchor + swap popover (full web parity). Executed sequentially under standing CEO post-launch authority.
+
+> **Campaign preemption (2026-05-09, retained for history):** M38 was paused for the six-defect G campaign (G6 → G2 → G1 → G5 → G4 → G3). All six PRs merged; M38–M42 resumed and shipped.
 
 > **Wave skip note (overnight, 2026-05-06):** M6 + M7 stay TODO but are deferred for the user — both require physical Vision Camera testing on an EAS dev build (Vision Camera doesn't run in Expo Go, and the wave's acceptance gate is "lay 4 garments side by side, confirm app detects each in turn"). M8 depends on M7 so it stays TODO too. Pointer skipped past them to the next agent-doable wave per the same precedent set on M9 (PR #733). The user will run M6/M7/M8 on hardware.
 

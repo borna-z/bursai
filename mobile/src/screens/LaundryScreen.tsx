@@ -6,8 +6,7 @@
 // Pull-to-refresh calls refetch().
 
 import React from 'react';
-import { Alert, FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,13 +17,13 @@ import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { BackIcon, CheckIcon } from '../components/icons';
 import { ErrorState } from '../components/ErrorState';
 import { GarmentListSkeleton } from '../components/skeletons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
 import { useFlatGarments, useMarkLaundry } from '../hooks/useGarments';
-import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -34,12 +33,6 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // re-renders so React Query doesn't deep-equal-compare the filter on every
 // FlatList scroll event.
 const LAUNDRY_FILTERS: GarmentFilters = { inLaundry: true };
-
-function hueFromId(id: string): number {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
 
 function LaundryRow({
   garment,
@@ -51,21 +44,12 @@ function LaundryRow({
   pending: boolean;
 }) {
   const t = useTokens();
-  const path = garment.rendered_image_path ?? garment.original_image_path ?? null;
-  const { data: url } = useSignedUrl(path);
-  const hue = hueFromId(garment.id);
   const subtitle = [garment.category, garment.material].filter(Boolean).join(' · ');
 
   return (
     <View style={s.row}>
       <View style={[s.thumb, { borderColor: t.border, overflow: 'hidden' }]}>
-        <LinearGradient
-          colors={[`hsl(${hue}, 22%, 78%)`, `hsl(${(hue + 30) % 360}, 22%, 70%)`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {url ? <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+        <GarmentImageTile garment={garment} iconSize={22} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text

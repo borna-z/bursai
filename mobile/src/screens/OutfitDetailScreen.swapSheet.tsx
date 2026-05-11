@@ -11,21 +11,18 @@ import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
-import { useGarmentImage } from '../hooks/useSignedUrl';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { t as tr } from '../lib/i18n';
-import { outfitGradientHue } from '../lib/outfitDisplay';
 import type { SwapCandidate } from '../hooks/useSwapGarment';
 
 export function SwapCandidateSheet({
@@ -126,10 +123,6 @@ function SwapCandidateRow({
 }) {
   const t = useTokens();
   const garment = candidate.garment;
-  const imagePath = garment.rendered_image_path ?? garment.original_image_path ?? null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  const hue = outfitGradientHue(garment.id);
   const sub = [garment.color_primary, garment.category].filter(Boolean).join(' · ').toUpperCase();
 
   return (
@@ -147,20 +140,7 @@ function SwapCandidateRow({
         },
       ]}>
       <View style={[s.candidateThumb, { borderColor: t.border }]}>
-        <LinearGradient
-          colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {showImage ? (
-          <Image
-            source={{ uri: imageUri }}
-            onError={onImageError}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        ) : null}
+        <GarmentImageTile garment={garment} iconSize={24} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text

@@ -6,43 +6,25 @@
 // italic Playfair name. Optional action row (Wear this / Save) when handlers
 // are passed.
 //
-// Tile content comes from one of two props:
-//   • `garments` — array of garment row shapes. Each tile fetches the
-//     garment's signed URL via `useGarmentImage` and renders the photo on
-//     top of a stable per-id gradient. While the URL resolves a Shimmer
-//     overlay pulses so the slot reads as "loading" rather than "empty."
-//     This is what every consumer should pass when the outfit's actual
-//     garments are known (StyleMe results, recent outfits, travel per-day).
-//   • `hues` — legacy fallback, plain coloured gradient tiles. Kept so
-//     callers that don't have garment data yet (e.g. MoodFlow placeholder
-//     cards) keep rendering. Default seeds match the design prototype's
-//     `hsl(${h} 38% 78%) → hsl(${(h+30)%360} 30% 62%)` recipe.
-// When both are passed, `garments` wins. Empty `garments` falls back to `hues`.
+// Tile content:
+//   • `garments` — array of garment row shapes. Each tile renders via the
+//     shared `GarmentImageTile` (neutral bg + signed-URL Image + faded
+//     Tshirt icon fallback). This is the preferred shape — pass it whenever
+//     the outfit's garments are known.
+//   • `hues` — legacy slot-count signal kept so callers without garment data
+//     (MoodFlow placeholder, RevealStep onboarding mock, SmartDayBanner) keep
+//     rendering. Hue values themselves are ignored as of the mobile parity
+//     sweep — only the array length matters; tiles render neutral.
+// When both are passed, `garments` wins. Empty `garments` falls back to `hues.length`
+// (default 4) neutral tiles so the row's visual rhythm holds.
 
 import React from 'react';
-import { Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
-import { useGarmentImage } from '../hooks/useSignedUrl';
+import { GarmentImageTile } from './GarmentImageTile';
 import { t as tr } from '../lib/i18n';
 import { Button } from './Button';
-import { Shimmer } from './Shimmer';
-
-// Approximate the design prototype's `hsl(${h} 38% 78%) → hsl(${(h+30)%360} 30% 62%)` recipe.
-// RN doesn't take HSL strings in StyleSheet, but expo-linear-gradient happily accepts CSS-style
-// `hsl()` strings in the `colors` array. Same recipe as the Add piece flow's photo placeholders.
-function hslGradient(h: number): [string, string] {
-  return [`hsl(${h}, 38%, 78%)`, `hsl(${(h + 30) % 360}, 30%, 62%)`];
-}
-
-// Stable hue from id — matches GarmentCard's hueFromId so a garment renders
-// the same colour family whether it's shown solo or as one tile in an outfit.
-function hueFromId(id: string): number {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
 
 export type OutfitCardGarment = {
   id: string;
@@ -50,80 +32,27 @@ export type OutfitCardGarment = {
   original_image_path?: string | null;
   /** AI-generated catalog image for manual-entry garments — written by
    *  `generate_garment_images`. Distinct from the studio render and the
-   *  user's original photo; sits last in the resolution chain so studio +
-   *  original always win when present. */
+   *  user's original photo; resolution priority lives in
+   *  `lib/garmentImage.ts` (mirrors web). */
   image_path?: string | null;
-  /** Optional explicit hue 0-360 for the slot's gradient fallback; otherwise
-   *  derived from `id` so distinct garments still get distinct colours. */
-  hue?: number;
+  render_status?: string | null;
 };
 
 export type OutfitCardProps = {
   name: string;
   sub: string;
-  /** Real garment data — each tile shows the photo when its signed URL
-   *  resolves, gradient placeholder underneath. Preferred over `hues`. */
+  /** Real garment data — each tile shows the photo via signed-URL lookup,
+   *  falling back to the shared neutral + Tshirt-icon placeholder. */
   garments?: OutfitCardGarment[];
-  /** Legacy gradient seeds (0-359). Used when `garments` is absent or empty. */
+  /** Legacy tile-count signal (0-359 values are no longer rendered as
+   *  gradients — only `.length` is read). Used by callers that don't have
+   *  garment data yet. */
   hues?: number[];
   onUse?: () => void;
   onSave?: () => void;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 };
-
-// One tile of the top row. Pulled out as a child component so each slot can
-// own its `useGarmentImage` call (hooks can't run inside a map without one
-// component per iteration). The tile renders the gradient first, the image
-// on top when the URL resolves, and a Shimmer overlay while the URL is
-// still loading so the loading state is visually distinct from a permanently
-// missing image.
-function GarmentSlot({ garment }: { garment: OutfitCardGarment }) {
-  const imagePath =
-    garment.rendered_image_path ??
-    garment.original_image_path ??
-    garment.image_path ??
-    null;
-  const {
-    uri: imageUri,
-    onError: onImageError,
-    isResolving,
-  } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  // `isResolving` comes from the hook and turns FALSE on every settled state
-  // — URL resolved, fetch errored after retries, OR <Image> failed past the
-  // retry budget — so the shimmer stops on permanently-broken paths instead
-  // of looping forever (Codex P2 round 1 on PR #786). The gradient
-  // underneath remains visible in those terminal-failure cases. Genuine
-  // empty slots (no path) also return `isResolving === false`.
-  const resolving = isResolving && !showImage;
-
-  const baseHue = garment.hue ?? hueFromId(garment.id);
-  const grad = hslGradient(baseHue);
-
-  return (
-    <View style={{ flex: 1, overflow: 'hidden' }}>
-      <LinearGradient
-        colors={grad}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          // Same retry contract as GarmentCard: `useGarmentImage` logs a
-          // Sentry breadcrumb and busts the signed-URL cache once before
-          // surrendering to the gradient.
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
-      {resolving ? <Shimmer /> : null}
-    </View>
-  );
-}
 
 // M42 — wrapped in `React.memo` for the same reason as GarmentCard:
 // FlatList re-invokes `renderItem` on every parent re-render. Default
@@ -138,7 +67,7 @@ function OutfitCardInner({
   name,
   sub,
   garments,
-  hues = [32, 28, 200, 18],
+  hues = [0, 0, 0, 0],
   onUse,
   onSave,
   onPress,
@@ -151,7 +80,7 @@ function OutfitCardInner({
   // composition — top, bottom, layer, footwear — per the G6 acceptance
   // gate and the web reference at `src/components/outfits/OutfitComposition.tsx`).
   // 1-3 garments fall back to a single tall row of N square tiles since a
-  // partial 2×2 would leave dead space. The legacy `hues` path keeps the
+  // partial 2×2 would leave dead space. The hues-fallback path keeps the
   // single-row layout unchanged so existing callers don't shift visually.
   const tileCount = useGarments ? garments!.length : hues.length;
   const isGrid = useGarments && garments!.length === 4;
@@ -180,7 +109,7 @@ function OutfitCardInner({
           {[0, 2].map((rowStart) => (
             <View key={`row-${rowStart}`} style={{ flex: 1, flexDirection: 'row' }}>
               {garments!.slice(rowStart, rowStart + 2).map((g, i) => (
-                <GarmentSlot key={g.id || `slot-${rowStart + i}`} garment={g} />
+                <GarmentImageTile key={g.id || `slot-${rowStart + i}`} garment={g} />
               ))}
             </View>
           ))}
@@ -190,20 +119,11 @@ function OutfitCardInner({
           style={{ flexDirection: 'row', aspectRatio: wrapperAspect, gap: 0 }}>
           {useGarments
             ? garments!.map((g, i) => (
-                <GarmentSlot key={g.id || `slot-${i}`} garment={g} />
+                <GarmentImageTile key={g.id || `slot-${i}`} garment={g} />
               ))
-            : hues.map((h, i) => {
-                const grad = hslGradient(h);
-                return (
-                  <LinearGradient
-                    key={`${h}-${i}`}
-                    colors={grad}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ flex: 1 }}
-                  />
-                );
-              })}
+            : hues.map((_, i) => (
+                <GarmentImageTile key={`empty-${i}`} garment={null} />
+              ))}
         </View>
       )}
 

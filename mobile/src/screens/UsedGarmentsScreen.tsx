@@ -7,8 +7,7 @@
 // outgrows a single page.
 
 import React from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,11 +18,11 @@ import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { IconBtn } from '../components/IconBtn';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { GarmentListSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, ChevronIcon } from '../components/icons';
 import { useFlatGarments } from '../hooks/useGarments';
-import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Garment, GarmentFilters } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -33,17 +32,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // referentially stable across re-renders.
 const USED_FILTERS: GarmentFilters = { smartFilter: 'most_worn', sortBy: 'wear_count' };
 
-function hueFromId(id: string): number {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
-
 function UsedRow({ item, onPress }: { item: Garment; onPress: () => void }) {
   const t = useTokens();
-  const path = item.rendered_image_path ?? item.original_image_path ?? null;
-  const { data: url } = useSignedUrl(path);
-  const hue = hueFromId(item.id);
   const subtitle = [item.category, item.material].filter(Boolean).join(' · ');
   const wearCount = item.wear_count ?? 0;
 
@@ -55,13 +45,7 @@ function UsedRow({ item, onPress }: { item: Garment; onPress: () => void }) {
       style={({ pressed }) => [s.rowWrap, { opacity: pressed ? 0.7 : 1 }]}>
       <View style={s.rowInner}>
         <View style={[s.thumb, { overflow: 'hidden' }]}>
-          <LinearGradient
-            colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {url ? <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+          <GarmentImageTile garment={item} iconSize={20} />
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
           <Text

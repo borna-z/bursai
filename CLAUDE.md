@@ -6,9 +6,9 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | M38 — SettingsStyle 8-section editor |
-| **CURRENT WAVE FILE** | `docs/launch/waves/m38-settings-style.md` |
-| **STATUS** | TODO |
+| **CURRENT WAVE** | P — Mobile parity sweep (4 themed PRs: A neutral garment fallback · B persist Save/Wear · C chat header + loading · D chat Refine + wardrobe anchor + swap) |
+| **CURRENT WAVE FILE** | none — post-launch standing CEO authority |
+| **STATUS** | IN PROGRESS |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
 
