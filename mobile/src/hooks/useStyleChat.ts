@@ -93,6 +93,26 @@ export interface UseStyleChatResult {
   // bleeding across modes.
   currentMode: StyleChatMode;
   setMode: (mode: StyleChatMode) => void;
+  /** Q-D2 — refine-mode state. `null` when not refining. When non-null,
+   *  the user has tapped Refine on a chat outfit suggestion: `messageId`
+   *  identifies which assistant bubble owns the look being refined,
+   *  `garmentIds` + `explanation` are snapshots of that card's outfit at
+   *  refine-entry (so a stale active_look from a NEWER turn never gets
+   *  paired with these `lockedIds` — Codex P2 round 1 on Q-D2), and
+   *  `lockedIds` is the set of garment ids the user has tapped to lock
+   *  for the next generation (mirrors web `useRefineMode.lockedSlots`).
+   *  The next `sendMessage` call attaches `locked_slots: [...]` to the
+   *  `style_chat` request body so the engine swaps only the unlocked
+   *  slots, with `active_look` rebuilt from the refine snapshot. */
+  refineMode: {
+    messageId: string;
+    garmentIds: string[];
+    explanation: string;
+    lockedIds: Set<string>;
+  } | null;
+  enterRefineMode: (messageId: string, garmentIds: string[], explanation: string) => void;
+  exitRefineMode: () => void;
+  toggleLockedSlot: (garmentId: string) => void;
 }
 
 // Module-level monotonic counter — combined with Date.now() to keep
@@ -142,6 +162,30 @@ export function useStyleChat(): UseStyleChatResult {
   // the state check alone races when the user taps Send twice in <16ms.
   // Codex P2-7.
   const streamingRef = useRef<boolean>(false);
+
+  // Q-D2 — refine-mode state. The synchronous ref lets `sendMessage`
+  // attach `locked_slots: [...]` to the request body without re-binding
+  // the callback per toggle (matches the `streamingRef` / `currentModeRef`
+  // / `anchorRef` pattern used elsewhere in this hook).
+  const [refineMode, setRefineMode] = useState<
+    | {
+        messageId: string;
+        garmentIds: string[];
+        explanation: string;
+        lockedIds: Set<string>;
+      }
+    | null
+  >(null);
+  const refineModeRef = useRef<
+    | {
+        messageId: string;
+        garmentIds: string[];
+        explanation: string;
+        lockedIds: Set<string>;
+      }
+    | null
+  >(null);
+  refineModeRef.current = refineMode;
 
   // ─── Hydration ─────────────────────────────────────────────────────────
   // Restore the user's prior chat for the current mode on mount and on
@@ -287,6 +331,15 @@ export function useStyleChat(): UseStyleChatResult {
       setSuggestionChips([]);
       setActiveLookClearedAt(null);
       setIsHydrating(true);
+      // Q-D2 — refine state is scoped to the current user's thread. If the
+      // user signs out (or switches account) `refineMode.messageId` still
+      // points at a bubble id from the prior user's history and
+      // `lockedIds` would ride into the new user's first send via
+      // `refineModeRef.current`. Clear both the React state and the
+      // synchronous ref so the next `sendMessage` starts clean. Codex
+      // P1 round 1 on PR (Q-D2 — refine-mode parity).
+      setRefineMode(null);
+      refineModeRef.current = null;
     };
   }, [user?.id]);
 
@@ -344,6 +397,12 @@ export function useStyleChat(): UseStyleChatResult {
         // honest after the next mode's history hydrates.
         setActiveLookClearedAt(null);
         setError(null);
+        // Q-D2 — refine state is per-thread and per-mode (refine targets a
+        // message id in the current thread). A mode flip wipes messages,
+        // so the refine target is gone too; drop refine state so the
+        // hidden `locked_slots` payload doesn't ride into a different
+        // mode's first turn.
+        setRefineMode(null);
         return mode;
       });
     },
@@ -368,6 +427,42 @@ export function useStyleChat(): UseStyleChatResult {
   const clearActiveLook = useCallback(() => {
     setActiveLookClearedAt(Date.now());
     setAnchoredGarmentIdState(null);
+  }, []);
+
+  // Q-D2 — Refine-mode transitions. Pulled out as `useCallback`s so the
+  // OutfitSuggestionCard's `onPress` props stay referentially stable
+  // (the card is memoized).
+  const enterRefineMode = useCallback(
+    (messageId: string, garmentIds: string[], explanation: string) => {
+      // Fresh lock set — entering refine mode never inherits state from a
+      // previous refine session, matching web `useRefineMode.enterRefineMode`.
+      // Snapshot the card's garment ids + explanation so the next refine
+      // send can rebuild `active_look` against THIS card (rather than the
+      // last assistant envelope's, which `getLatestActiveLook` returns and
+      // could belong to a newer turn). Codex P2 round 1 on Q-D2.
+      setRefineMode({
+        messageId,
+        garmentIds: garmentIds.slice(),
+        explanation,
+        lockedIds: new Set<string>(),
+      });
+    },
+    [],
+  );
+  const exitRefineMode = useCallback(() => {
+    setRefineMode(null);
+  }, []);
+  const toggleLockedSlot = useCallback((garmentId: string) => {
+    setRefineMode((prev) => {
+      if (!prev) return prev;
+      const nextLocked = new Set(prev.lockedIds);
+      if (nextLocked.has(garmentId)) {
+        nextLocked.delete(garmentId);
+      } else {
+        nextLocked.add(garmentId);
+      }
+      return { ...prev, lockedIds: nextLocked };
+    });
   }, []);
 
   const sendMessage = useCallback(
@@ -524,11 +619,39 @@ export function useStyleChat(): UseStyleChatResult {
         );
       };
 
+      // Q-D2 — when the user is in refine mode, attach the locked garment
+      // ids so `style_chat`'s engine swaps only the unlocked slots. Read
+      // from the ref so a toggle that lands mid-render before this send
+      // still rides along (matches the `anchorRef` / `currentModeRef` pattern).
+      const refineSnapshot = refineModeRef.current;
+      const lockedSlotsForRequest =
+        refineSnapshot && refineSnapshot.lockedIds.size > 0
+          ? Array.from(refineSnapshot.lockedIds)
+          : undefined;
+
+      // Q-D2 — override `active_look` with the refine-mode snapshot when
+      // refining. Without this, refining an OLDER card after a NEWER
+      // outfit was suggested would pair `getLatestActiveLook`'s active_look
+      // (= the newer outfit) with `locked_slots` from the OLDER card —
+      // the engine would refine the wrong look or ignore the locks
+      // entirely. Codex P2 round 1 on Q-D2.
+      const refineActiveLookPayload: StyleChatActiveLookInput | undefined = refineSnapshot
+        ? {
+            garment_ids: refineSnapshot.garmentIds,
+            explanation: refineSnapshot.explanation || null,
+            source: 'mobile_chat_refine',
+            anchor_garment_id: anchorRef.current,
+            anchor_locked: Boolean(anchorRef.current),
+          }
+        : undefined;
+      const finalActiveLookPayload = refineActiveLookPayload ?? activeLookPayload;
+
       const requestBody = buildRequestBody({
         mode: turnMode,
         messagesPayload,
         anchoredGarmentId: anchorRef.current,
-        activeLookPayload,
+        activeLookPayload: finalActiveLookPayload,
+        lockedSlots: lockedSlotsForRequest,
       });
 
       await fetchSSE(
@@ -578,6 +701,49 @@ export function useStyleChat(): UseStyleChatResult {
               ),
             );
             setIsStreaming(false);
+            // Q-D2 — advance refine state with the just-generated outfit
+            // so the NEXT refine turn targets the new look (matching web
+            // `useRefineMode.pushRefinement` at AIChat.tsx:972-976). If
+            // we skipped this, a second "make it dressier" inside the
+            // same refine session would still send the original card's
+            // `active_look` + lockedIds, undoing or ignoring the look the
+            // engine just produced. Codex P2 round 2 on PR #828. Locked
+            // ids are filtered to those that survived into the new
+            // outfit — items the engine swapped out are unlockable.
+            //
+            // Codex P2 round 3 on PR #828: a `clear_active_look` envelope
+            // (server-side "start over / forget the current outfit"
+            // classification) must EXIT refine mode entirely — otherwise
+            // the next send would keep building a `mobile_chat_refine`
+            // `active_look` and resend stale `locked_slots` from a
+            // session the server already discarded. Guard the advance
+            // branch on `!clear_active_look` and clear refineMode when
+            // the envelope requests it.
+            if (refineModeRef.current && finalMeta) {
+              if (finalMeta.clear_active_look) {
+                setRefineMode(null);
+              } else {
+                const nextIds = (finalMeta.active_look?.garment_ids?.length
+                  ? finalMeta.active_look.garment_ids
+                  : finalMeta.outfit_ids ?? []) as string[];
+                if (nextIds.length > 0) {
+                  const nextExplanation =
+                    (finalMeta.active_look?.explanation as string | undefined)
+                    ?? (finalMeta.outfit_explanation as string | undefined)
+                    ?? refineModeRef.current.explanation;
+                  const survivingLocks = new Set<string>();
+                  for (const id of refineModeRef.current.lockedIds) {
+                    if (nextIds.includes(id)) survivingLocks.add(id);
+                  }
+                  setRefineMode({
+                    messageId: refineModeRef.current.messageId,
+                    garmentIds: nextIds.slice(),
+                    explanation: nextExplanation,
+                    lockedIds: survivingLocks,
+                  });
+                }
+              }
+            }
             // Persist the just-completed turn pair so a refresh resumes
             // the same conversation. Skip when we have nothing meaningful
             // to record (degraded zero-text path with no envelope).
@@ -728,6 +894,10 @@ export function useStyleChat(): UseStyleChatResult {
     setSuggestionChips([]);
     setAnchoredGarmentIdState(null);
     setActiveLookClearedAt(null);
+    // Q-D2 — clearing the thread also drops refine state; otherwise the
+    // hidden `locked_slots` payload would ride into the very next turn
+    // (which is starting from a clean slate by the user's explicit intent).
+    setRefineMode(null);
     if (!user?.id) return;
     // G1 — clear only the current mode's thread so toggling between
     // Style and Shopping doesn't wipe the inactive thread by surprise.
@@ -819,5 +989,9 @@ export function useStyleChat(): UseStyleChatResult {
     clearActiveLook,
     currentMode,
     setMode,
+    refineMode,
+    enterRefineMode,
+    exitRefineMode,
+    toggleLockedSlot,
   };
 }

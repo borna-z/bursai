@@ -24,6 +24,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 
 import { OutfitCard } from '../OutfitCard';
 import { Button } from '../Button';
+import { Caption } from '../Caption';
 import { useTokens } from '../../theme/ThemeProvider';
 import { fonts, radii } from '../../theme/tokens';
 import { useGarmentsByIds } from '../../hooks/useGarmentsByIds';
@@ -61,6 +62,24 @@ export interface OutfitSuggestionCardProps {
   /** While the persistence mutation is in flight, surface "Saving…" so
    *  the user sees the action registered. */
   saving?: boolean;
+  /** Q-D2 — refine-mode props. When `isRefining` is true the card hides
+   *  Try/Save, surfaces a Cancel button, attaches per-tile lock badges,
+   *  and renders the "tap pieces to lock" Caption above the action row.
+   *  Mirrors web `src/components/chat/OutfitSuggestionCard.tsx:289-405`. */
+  isRefining?: boolean;
+  /** Set of garment ids currently locked. Each tile in the grid reads
+   *  this via `OutfitCard.lockedIds` to render a lock badge. */
+  lockedIds?: Set<string>;
+  /** Tap-to-lock handler. Wired through to `OutfitCard.onTilePress`
+   *  exactly when `isRefining` is true so non-refine taps stay inert. */
+  onToggleLock?: (garmentId: string) => void;
+  /** Tapping "Refine" enters refine mode for this card's message. The
+   *  card itself does not own the refine state — the screen does — so
+   *  this callback signals "user wants to refine THIS suggestion".
+   *  Mirrors web `onRefine(garmentIds, explanation)`. */
+  onEnterRefine?: (garmentIds: string[], explanation: string) => void;
+  /** Tapping "Cancel" exits refine mode. */
+  onCancelRefine?: () => void;
 }
 
 export function OutfitSuggestionCard({
@@ -71,6 +90,11 @@ export function OutfitSuggestionCard({
   onSave,
   saved,
   saving,
+  isRefining,
+  lockedIds,
+  onToggleLock,
+  onEnterRefine,
+  onCancelRefine,
 }: OutfitSuggestionCardProps) {
   const t = useTokens();
   const safeIds = useMemo(
@@ -140,6 +164,11 @@ export function OutfitSuggestionCard({
     ? tr('chat.outfitCard.name.saved')
     : tr('chat.outfitCard.name.suggestion');
 
+  // Q-D2 — refine-mode tile interaction is wired through OutfitCard's
+  // new tile-press hook. Outside refine mode we leave the tile handler
+  // unset so the visual is byte-identical to the pre-Q-D2 card.
+  const handleTilePress = isRefining && onToggleLock ? onToggleLock : undefined;
+
   return (
     <View style={{ gap: 8 }}>
       <OutfitCard
@@ -150,6 +179,8 @@ export function OutfitSuggestionCard({
           rendered_image_path: g.rendered_image_path,
           original_image_path: g.original_image_path,
         }))}
+        onTilePress={handleTilePress}
+        lockedIds={isRefining ? lockedIds : undefined}
       />
       {explanation ? (
         <Text
@@ -164,33 +195,68 @@ export function OutfitSuggestionCard({
           {explanation}
         </Text>
       ) : null}
+      {/* Q-D2 — refine-mode hint Caption mirrors web's "Tap garments to
+          lock them" prompt at OutfitSuggestionCard.tsx:388-405. */}
+      {isRefining ? (
+        <Caption style={{ color: t.accent, paddingHorizontal: 4 }}>
+          {tr('chat.refine.hint')}
+        </Caption>
+      ) : null}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {/* Both children get flex:1 (no `block` — that hard-codes width:100%
-            and would clip the Save sibling inside the 82%-wide chat bubble). */}
-        <Button
-          label={tr('chat.outfitCard.try')}
-          size="sm"
-          style={{ flex: 1 }}
-          onPress={() => onTry(garments.map((g) => g.id))}
-        />
-        {onSave ? (
+            and would clip the Save sibling inside the 82%-wide chat bubble).
+            Q-D2 swaps in (Cancel) when refining so the composer is the
+            submit surface; matches web's RefineBanner X-to-cancel pattern. */}
+        {isRefining ? (
           <Button
-            label={
-              saved
-                ? tr('chat.outfitCard.saved')
-                : saving
-                  ? tr('chat.outfitCard.saving')
-                  : tr('chat.outfitCard.save')
-            }
+            label={tr('chat.outfitCard.refine.cancel')}
             size="sm"
-            variant={saved ? 'accent' : 'outline'}
+            variant="outline"
             style={{ flex: 1 }}
-            onPress={() => {
-              if (saved || saving) return;
-              void onSave(garments.map((g) => g.id), { explanation: explanation ?? '' });
-            }}
+            onPress={() => onCancelRefine?.()}
           />
-        ) : null}
+        ) : (
+          <>
+            <Button
+              label={tr('chat.outfitCard.try')}
+              size="sm"
+              style={{ flex: 1 }}
+              onPress={() => onTry(garments.map((g) => g.id))}
+            />
+            {onEnterRefine ? (
+              <Button
+                label={tr('chat.outfitCard.refine')}
+                size="sm"
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() =>
+                  onEnterRefine(
+                    garments.map((g) => g.id),
+                    explanation ?? '',
+                  )
+                }
+              />
+            ) : null}
+            {onSave ? (
+              <Button
+                label={
+                  saved
+                    ? tr('chat.outfitCard.saved')
+                    : saving
+                      ? tr('chat.outfitCard.saving')
+                      : tr('chat.outfitCard.save')
+                }
+                size="sm"
+                variant={saved ? 'accent' : 'outline'}
+                style={{ flex: 1 }}
+                onPress={() => {
+                  if (saved || saving) return;
+                  void onSave(garments.map((g) => g.id), { explanation: explanation ?? '' });
+                }}
+              />
+            ) : null}
+          </>
+        )}
       </View>
     </View>
   );

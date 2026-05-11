@@ -1565,6 +1565,12 @@ export const en: Record<string, string> = {
   'chat.outfitCard.saveFailed.title': 'Couldn’t save',
   'chat.outfitCard.saveEmpty.title': 'Nothing to save',
   'chat.outfitCard.saveEmpty.body': 'This suggestion has no garments to save.',
+  // Q-D2 — chat refine mode UX (lock-a-piece-then-restyle parity with web).
+  'chat.outfitCard.refine': 'Refine',
+  'chat.outfitCard.refine.cancel': 'Cancel',
+  'chat.refine.hint': 'Tap pieces to lock them, then send a refine prompt.',
+  'a11y.outfitCard.tile.locked': 'Locked piece — tap to unlock',
+  'a11y.outfitCard.tile.lockable': 'Tap to lock this piece',
   'garmentDetail.styleInChat.action': 'Style this in chat',
   'chat.modeToggle.style': 'Style',
   'chat.modeToggle.shopping': 'Shop',

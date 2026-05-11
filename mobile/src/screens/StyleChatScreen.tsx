@@ -95,6 +95,10 @@ export function StyleChatScreen() {
     clearActiveLook,
     currentMode,
     setMode,
+    refineMode,
+    enterRefineMode,
+    exitRefineMode,
+    toggleLockedSlot,
   } = useStyleChat();
   const { facts } = useStyleMemoryFacts();
   const forgetMutation = useRecordMemoryEvent();
@@ -458,20 +462,47 @@ export function StyleChatScreen() {
   const showInlineError =
     error && error !== SUBSCRIPTION_SENTINEL ? error : null;
 
+  // Q-D2 — refine entry handler. The card emits `(messageId, ids, exp)`;
+  // we snapshot all three into refine state so the next refine send can
+  // rebuild `active_look` against THIS card rather than the latest
+  // assistant envelope (which `getLatestActiveLook` returns and may
+  // belong to a NEWER turn). Codex P2 round 1 on Q-D2.
+  const handleEnterRefine = React.useCallback(
+    (messageId: string, garmentIds: string[], explanation: string) => {
+      enterRefineMode(messageId, garmentIds, explanation);
+    },
+    [enterRefineMode],
+  );
+
+  // Q-D2 — derive refine state per row. Identity-stable per message via
+  // useCallback. `activeRefineId` lifted out so the per-message branch
+  // doesn't read the closed-over refineMode object on every row render
+  // (only the matched row reads `lockedIds`).
+  const activeRefineId = refineMode?.messageId ?? null;
+  const activeLockedIds = refineMode?.lockedIds;
+
   // P2-4: stable renderItem reference. Inline arrows would re-create the
   // function on every keystroke and force FlatList to re-mount every row.
   const renderMessageItem = React.useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <MessageItem
-        msg={item}
-        onLongPress={handleSetAnchorFromMessage}
-        onOpenProductLink={handleOpenProductLink}
-        onTryOutfit={handleTryOutfit}
-        onSaveOutfit={handleSaveChatOutfit}
-        isSavingOutfit={savingOutfitMessages.has(item.id)}
-        isOutfitSaved={savedOutfitByMessage.has(item.id)}
-      />
-    ),
+    ({ item }: { item: ChatMessage }) => {
+      const isRefiningThisRow = activeRefineId === item.id;
+      return (
+        <MessageItem
+          msg={item}
+          onLongPress={handleSetAnchorFromMessage}
+          onOpenProductLink={handleOpenProductLink}
+          onTryOutfit={handleTryOutfit}
+          onSaveOutfit={handleSaveChatOutfit}
+          isSavingOutfit={savingOutfitMessages.has(item.id)}
+          isOutfitSaved={savedOutfitByMessage.has(item.id)}
+          isRefining={isRefiningThisRow}
+          lockedIds={isRefiningThisRow ? activeLockedIds : undefined}
+          onToggleLock={isRefiningThisRow ? toggleLockedSlot : undefined}
+          onEnterRefine={handleEnterRefine}
+          onCancelRefine={exitRefineMode}
+        />
+      );
+    },
     [
       handleSetAnchorFromMessage,
       handleOpenProductLink,
@@ -479,6 +510,11 @@ export function StyleChatScreen() {
       handleSaveChatOutfit,
       savingOutfitMessages,
       savedOutfitByMessage,
+      activeRefineId,
+      activeLockedIds,
+      toggleLockedSlot,
+      handleEnterRefine,
+      exitRefineMode,
     ],
   );
 

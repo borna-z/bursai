@@ -46,6 +46,15 @@ export type MessageItemProps = {
   isSavingOutfit?: boolean;
   /** True when this message's outfit has already been persisted. */
   isOutfitSaved?: boolean;
+  // Q-D2 — refine-mode props. Only THIS message's card surfaces refine
+  // chrome (the screen's `refineMode.messageId` matches `msg.id`). All
+  // other cards pass `isRefining=false` so simultaneous taps don't
+  // confuse the chat surface.
+  isRefining?: boolean;
+  lockedIds?: Set<string>;
+  onToggleLock?: (garmentId: string) => void;
+  onEnterRefine?: (messageId: string, garmentIds: string[], explanation: string) => void;
+  onCancelRefine?: () => void;
 };
 
 export const MessageItem = React.memo(
@@ -57,6 +66,11 @@ export const MessageItem = React.memo(
     onSaveOutfit,
     isSavingOutfit,
     isOutfitSaved,
+    isRefining,
+    lockedIds,
+    onToggleLock,
+    onEnterRefine,
+    onCancelRefine,
   }: MessageItemProps) {
     const t = useTokens();
     const isUser = msg.role === 'user';
@@ -168,6 +182,15 @@ export const MessageItem = React.memo(
             onSave={(ids, ctx) => onSaveOutfit(msg.id, ids, ctx)}
             saved={isOutfitSaved}
             saving={isSavingOutfit}
+            isRefining={isRefining}
+            lockedIds={lockedIds}
+            onToggleLock={onToggleLock}
+            onEnterRefine={
+              onEnterRefine
+                ? (ids, exp) => onEnterRefine(msg.id, ids, exp)
+                : undefined
+            }
+            onCancelRefine={onCancelRefine}
           />
         ) : null}
       </View>
@@ -187,7 +210,18 @@ export const MessageItem = React.memo(
     && a.onTryOutfit === b.onTryOutfit
     && a.onSaveOutfit === b.onSaveOutfit
     && a.isSavingOutfit === b.isSavingOutfit
-    && a.isOutfitSaved === b.isOutfitSaved,
+    && a.isOutfitSaved === b.isOutfitSaved
+    // Q-D2 — refine props. `isRefining` is `false` for every non-active
+    // card so toggling refine on one card doesn't re-render the entire
+    // FlatList; only the active card and its previous-active sibling
+    // see a referential change. `lockedIds` identity changes whenever
+    // a tile is tapped (new Set each toggle) so the active card always
+    // re-renders to surface the latest badge state.
+    && a.isRefining === b.isRefining
+    && a.lockedIds === b.lockedIds
+    && a.onToggleLock === b.onToggleLock
+    && a.onEnterRefine === b.onEnterRefine
+    && a.onCancelRefine === b.onCancelRefine,
 );
 
 // Three-dot typing indicator. Uses simple opacity cycling rather than a
