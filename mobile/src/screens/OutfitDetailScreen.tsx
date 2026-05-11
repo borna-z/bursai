@@ -82,19 +82,25 @@ export function OutfitDetailScreen() {
   // OutfitGenerate's "Plan for a date" action (or any future caller that
   // passes `openPlanner: true`). `preselectDate` (YYYY-MM-DD) seeds the
   // staged date inside `DatePickerSheet`; falls through to today via
-  // the sheet's own initialISO default when undefined. The init reads
-  // route.params ONCE — subsequent re-renders that don't carry the
-  // param don't re-open the sheet.
+  // the sheet's own initialISO default when undefined.
+  //
+  // Both values are snapshotted via lazy `useState` init so they survive
+  // the mount-effect's `nav.setParams({ … undefined })` clear below.
+  // `DatePickerSheet` re-anchors whenever its `initialISO` prop changes,
+  // so reading `route.params.preselectDate` directly would flip back to
+  // today the instant the param-clear lands — Codex P2 round 1 on Q-B.
   const [plannerOpen, setPlannerOpen] = React.useState<boolean>(
     () => route.params?.openPlanner === true,
   );
-  const plannerInitialISO = route.params?.preselectDate;
-  // Clear the trigger param after first mount so a back-nav onto this
+  const [plannerInitialISO] = React.useState<string | undefined>(
+    () => route.params?.preselectDate,
+  );
+  // Clear the trigger params after first mount so a back-nav onto this
   // screen doesn't re-open the planner — React Navigation persists
   // params unless we explicitly null them. `setParams` lands on the
   // SAME route entry, which is what we want.
   React.useEffect(() => {
-    if (route.params?.openPlanner) {
+    if (route.params?.openPlanner || route.params?.preselectDate) {
       nav.setParams({ openPlanner: undefined, preselectDate: undefined });
     }
     // We only want the param-clear to happen once at mount, not on
