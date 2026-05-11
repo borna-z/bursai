@@ -710,25 +710,38 @@ export function useStyleChat(): UseStyleChatResult {
             // engine just produced. Codex P2 round 2 on PR #828. Locked
             // ids are filtered to those that survived into the new
             // outfit — items the engine swapped out are unlockable.
+            //
+            // Codex P2 round 3 on PR #828: a `clear_active_look` envelope
+            // (server-side "start over / forget the current outfit"
+            // classification) must EXIT refine mode entirely — otherwise
+            // the next send would keep building a `mobile_chat_refine`
+            // `active_look` and resend stale `locked_slots` from a
+            // session the server already discarded. Guard the advance
+            // branch on `!clear_active_look` and clear refineMode when
+            // the envelope requests it.
             if (refineModeRef.current && finalMeta) {
-              const nextIds = (finalMeta.active_look?.garment_ids?.length
-                ? finalMeta.active_look.garment_ids
-                : finalMeta.outfit_ids ?? []) as string[];
-              if (nextIds.length > 0) {
-                const nextExplanation =
-                  (finalMeta.active_look?.explanation as string | undefined)
-                  ?? (finalMeta.outfit_explanation as string | undefined)
-                  ?? refineModeRef.current.explanation;
-                const survivingLocks = new Set<string>();
-                for (const id of refineModeRef.current.lockedIds) {
-                  if (nextIds.includes(id)) survivingLocks.add(id);
+              if (finalMeta.clear_active_look) {
+                setRefineMode(null);
+              } else {
+                const nextIds = (finalMeta.active_look?.garment_ids?.length
+                  ? finalMeta.active_look.garment_ids
+                  : finalMeta.outfit_ids ?? []) as string[];
+                if (nextIds.length > 0) {
+                  const nextExplanation =
+                    (finalMeta.active_look?.explanation as string | undefined)
+                    ?? (finalMeta.outfit_explanation as string | undefined)
+                    ?? refineModeRef.current.explanation;
+                  const survivingLocks = new Set<string>();
+                  for (const id of refineModeRef.current.lockedIds) {
+                    if (nextIds.includes(id)) survivingLocks.add(id);
+                  }
+                  setRefineMode({
+                    messageId: refineModeRef.current.messageId,
+                    garmentIds: nextIds.slice(),
+                    explanation: nextExplanation,
+                    lockedIds: survivingLocks,
+                  });
                 }
-                setRefineMode({
-                  messageId: refineModeRef.current.messageId,
-                  garmentIds: nextIds.slice(),
-                  explanation: nextExplanation,
-                  lockedIds: survivingLocks,
-                });
               }
             }
             // Persist the just-completed turn pair so a refresh resumes
