@@ -121,6 +121,17 @@ export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
   const titleText = summary.summaryText ?? t('home.smartDay.fallback.title');
 
   const outfit = top1.outfit;
+  // Pull real garment rows off the joined `outfit_items.garment` shape so the
+  // banner's OutfitCard renders signed-URL thumbnails instead of neutral
+  // placeholders. Cap at 4 to match OutfitCard's 2×2 grid layout (mirrors
+  // RecentOutfitTile). `filter` strips items whose garment is null (deleted /
+  // RLS-blocked), so the count → layout switch inside OutfitCard reflects only
+  // garments we can actually render. Empty result falls back to `hues.length`
+  // neutral tiles inside OutfitCard.
+  const cardGarments = (outfit.outfit_items ?? [])
+    .slice(0, 4)
+    .map((it) => it.garment)
+    .filter((g): g is NonNullable<typeof g> => g !== null);
   const hueSeed = outfitGradientHue(outfit.id);
   const hues = [hueSeed, (hueSeed + 30) % 360, (hueSeed + 60) % 360, (hueSeed + 90) % 360];
   // `||` (not `??`) so a legacy empty-string `occasion` falls through to
@@ -147,6 +158,7 @@ export function SmartDayBanner({ overrides }: SmartDayBannerProps = {}) {
         <OutfitCard
           name={outfitName}
           sub={subLabel}
+          garments={cardGarments}
           hues={hues}
         />
       </Pressable>

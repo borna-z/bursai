@@ -12,11 +12,13 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | P — Mobile parity sweep (4 themed PRs) |
-| **CURRENT WAVE FILE** | none — post-launch standing CEO authority |
+| **CURRENT WAVE** | Q — Mobile parity sweep #2 (5 themed PRs: Q-A SmartDayBanner garment thumbs · Q-D chat outfit render + refine · Q-B Plan/Generate flow with date-picker · Q-C1 wardrobe server counts · Q-C2 personal-flags schema) |
+| **CURRENT WAVE FILE** | `docs/launch/waves/q-mobile-parity-2.md` |
 | **STATUS** | IN PROGRESS |
 
-> **Parity sweep (2026-05-11):** All M-waves M0–M42 shipped; G campaign closed; N0–N16 hardening cycles merged. Outstanding: M43/M44 (external — user-managed Apple Developer + RevenueCat sandbox), and M6/M7/M8 (deferred for hardware testing on Vision Camera EAS dev build, per the user). New round of user-reported parity defects against web: (A) colored gradient garment fallbacks → neutral + Tshirt icon (mirrors web); (B) stub Save/Wear buttons → real mutations; (C) Stylist chat header + outfit-card loading skeleton; (D) Stylist chat Refine mode + wardrobe→chat garment anchor + swap popover (full web parity). Executed sequentially under standing CEO post-launch authority.
+> **Parity sweep #2 (2026-05-11):** Wave P closed (PRs #822 #823 #824 #825 #826). Manual QA surfaced four new user-visible gaps: Home SmartDayBanner cards render hue placeholders not garments; mobile chat assistant outfit messages don't render at all; Plan/Generate ships a placeholder result page with no real images and no date picker; wardrobe filter chips show "—" on paginated wardrobes and three of them have no backend at all. Wave Q sequences smallest-blast-radius first (Q-A → Q-D → Q-B → Q-C1 → Q-C2) and closes the gaps. One migration (Q-C2: `garments.is_lingerie/is_wishlist/is_in_laundry` partial-indexed). Executed under standing CEO post-launch authority.
+
+> **Parity sweep #1 (2026-05-11, retained for history):** All M-waves M0–M42 shipped; G campaign closed; N0–N16 hardening cycles merged. Outstanding: M43/M44 (external — user-managed Apple Developer + RevenueCat sandbox), and M6/M7/M8 (deferred for hardware testing on Vision Camera EAS dev build, per the user). Wave P round: (A) neutral garment-image fallback; (B) Save/Wear real mutations; (C) chat header + per-thread delete; (D) chat outfit Save + wardrobe→chat anchor push.
 
 > **Campaign preemption (2026-05-09, retained for history):** M38 was paused for the six-defect G campaign (G6 → G2 → G1 → G5 → G4 → G3). All six PRs merged; M38–M42 resumed and shipped.
 
