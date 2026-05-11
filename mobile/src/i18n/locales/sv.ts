@@ -1102,6 +1102,16 @@ export const sv: Record<string, string> = {
   'chat.outfitCard.name.suggestion': 'Dagens val',
   'chat.outfitCard.name.saved': 'Sparad outfit',
   'chat.outfitCard.loading': 'Laddar outfit…',
+  // Parity-D — Save CTA on the inline OutfitSuggestionCard + wardrobe→chat push.
+  'chat.outfitCard.save': 'Spara',
+  'chat.outfitCard.saving': 'Sparar…',
+  'chat.outfitCard.saved': 'Sparad',
+  'chat.outfitCard.saveSuccess.title': 'Sparad',
+  'chat.outfitCard.saveSuccess.body': 'Looken finns nu i Outfits.',
+  'chat.outfitCard.saveFailed.title': 'Kunde inte spara',
+  'chat.outfitCard.saveEmpty.title': 'Inget att spara',
+  'chat.outfitCard.saveEmpty.body': 'Förslaget har inga plagg att spara.',
+  'garmentDetail.styleInChat.action': 'Stila i chatten',
   'chat.modeToggle.style': 'Stil',
   'chat.modeToggle.shopping': 'Köp',
 

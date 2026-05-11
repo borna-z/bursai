@@ -744,12 +744,27 @@ export function GarmentDetailScreen() {
             paddingBottom: insets.bottom + 12,
           },
         ]}>
-        <Button
-          label={wornToday ? 'Worn today' : markWorn.isPending ? 'Logging…' : 'Wear today'}
-          block
-          disabled={wornToday || markWorn.isPending}
-          onPress={handleWearToday}
-        />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {/* Both children flex 1 — `block` hard-codes width:100% on the
+              first button and pushes the Style-in-chat sibling off-screen. */}
+          <Button
+            label={wornToday ? 'Worn today' : markWorn.isPending ? 'Logging…' : 'Wear today'}
+            style={{ flex: 1 }}
+            disabled={wornToday || markWorn.isPending}
+            onPress={handleWearToday}
+          />
+          <Button
+            label={tr('garmentDetail.styleInChat.action')}
+            variant="outline"
+            style={{ flex: 1 }}
+            onPress={() =>
+              nav.navigate('StyleChat', {
+                mode: 'style',
+                anchorGarmentIds: [garment.id],
+              })
+            }
+          />
+        </View>
       </View>
 
       {/* M21 — condition detail bottom sheet. Surfaces the full breakdown

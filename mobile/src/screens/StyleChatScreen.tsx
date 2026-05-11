@@ -42,6 +42,8 @@ import { IconBtn } from '../components/IconBtn';
 import { ChatHistorySheet } from '../components/chat/ChatHistorySheet';
 import { useStyleChat, type ChatMessage, type StyleChatMode } from '../hooks/useStyleChat';
 import { useChatHistory, useDeleteChatThread } from '../hooks/useChatHistory';
+import { usePersistGeneratedOutfit } from '../hooks/useOutfits';
+import { showToast } from '../lib/toast';
 import { useStyleMemoryFacts, type StyleMemoryFact } from '../hooks/useStyleMemoryFacts';
 import { useRecordMemoryEvent } from '../hooks/useRecordMemoryEvent';
 import { useAuth } from '../contexts/AuthContext';
@@ -220,6 +222,76 @@ export function StyleChatScreen() {
     [setAnchoredGarmentId],
   );
 
+  // Parity-D — Save handler on the inline OutfitSuggestionCard. Each message
+  // tracks its own saved-state stamp + in-flight flag keyed by message id so
+  // the same suggestion bubble doesn't double-persist across re-renders.
+  const persistChatOutfit = usePersistGeneratedOutfit();
+  const [savedOutfitByMessage, setSavedOutfitByMessage] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const [savingOutfitMessages, setSavingOutfitMessages] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const handleSaveChatOutfit = React.useCallback(
+    async (
+      messageId: string,
+      garmentIds: string[],
+      ctx: { explanation: string },
+    ) => {
+      if (savedOutfitByMessage.has(messageId)) return;
+      const items = garmentIds
+        .filter((id): id is string => typeof id === 'string' && !!id)
+        .map((id) => ({ garment_id: id, slot: '' }));
+      if (items.length === 0) {
+        showToast(
+          'error',
+          tr('chat.outfitCard.saveEmpty.title'),
+          tr('chat.outfitCard.saveEmpty.body'),
+        );
+        return;
+      }
+      setSavingOutfitMessages((prev) => {
+        if (prev.has(messageId)) return prev;
+        const next = new Set(prev);
+        next.add(messageId);
+        return next;
+      });
+      try {
+        const { outfitId } = await persistChatOutfit.mutateAsync({
+          occasion: null,
+          explanation: ctx.explanation,
+          familyLabel: null,
+          items,
+        });
+        setSavedOutfitByMessage((prev) => {
+          const next = new Map(prev);
+          next.set(messageId, outfitId);
+          return next;
+        });
+        showToast(
+          'success',
+          tr('chat.outfitCard.saveSuccess.title'),
+          tr('chat.outfitCard.saveSuccess.body'),
+        );
+      } catch (err) {
+        showToast(
+          'error',
+          tr('chat.outfitCard.saveFailed.title'),
+          err instanceof Error ? err.message : String(err),
+        );
+      } finally {
+        setSavingOutfitMessages((prev) => {
+          if (!prev.has(messageId)) return prev;
+          const next = new Set(prev);
+          next.delete(messageId);
+          return next;
+        });
+      }
+    },
+    [persistChatOutfit, savedOutfitByMessage],
+  );
+
   // Track the suggestion-chip auto-send timer so we can cancel it on unmount.
   const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -395,9 +467,19 @@ export function StyleChatScreen() {
         onLongPress={handleSetAnchorFromMessage}
         onOpenProductLink={handleOpenProductLink}
         onTryOutfit={handleTryOutfit}
+        onSaveOutfit={handleSaveChatOutfit}
+        isSavingOutfit={savingOutfitMessages.has(item.id)}
+        isOutfitSaved={savedOutfitByMessage.has(item.id)}
       />
     ),
-    [handleSetAnchorFromMessage, handleOpenProductLink, handleTryOutfit],
+    [
+      handleSetAnchorFromMessage,
+      handleOpenProductLink,
+      handleTryOutfit,
+      handleSaveChatOutfit,
+      savingOutfitMessages,
+      savedOutfitByMessage,
+    ],
   );
 
   // Suggestion chips: server-provided takes precedence over the static fallback.
