@@ -566,7 +566,14 @@ Deno.serve(async (req) => {
             formality: analysis?.formality ?? null,
             source_url: trimmedUrl,
             imported_via: 'link',
-            enrichment_status: analysis ? 'completed' : 'failed',
+            // Fast-mode analyze_garment populates the surface fields above
+            // but does NOT run the deep `mode: 'enrich'` payload that fills
+            // ai_raw.enrichment + silhouette + occasion_tags + ...
+            // Mirror the `garmentSave.ts` convention: leave the row at
+            // 'pending' so the existing enrichment job queue picks it up
+            // and runs the deep pass. 'failed' on AI miss still lets the
+            // mobile retry UX surface, same as batch-capture / live-scan.
+            enrichment_status: analysis ? 'pending' : 'failed',
           });
 
         if (insertError) {
