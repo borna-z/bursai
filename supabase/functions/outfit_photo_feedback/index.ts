@@ -39,6 +39,42 @@ serve(async (req) => {
     const { outfit_id, selfie_path } = await req.json();
     if (!outfit_id || !selfie_path) throw new Error("Missing outfit_id or selfie_path");
 
+    // N15/B2 — Ownership gate. The function uses a service-role client for the
+    // outfit_items query and storage signing below, which bypasses RLS. Without
+    // these checks, an authenticated user could pass another user's outfit_id
+    // (UUIDs are guessable from public/shared surfaces) and have the AI
+    // response echo the victim's wardrobe metadata, or hand `selfie_path` as
+    // another user's storage path and get a signed URL minted for them.
+    //
+    // 404 (not 403) on the outfit branch avoids leaking outfit-existence to
+    // enumerators.
+    const { data: outfitOwner } = await supabase
+      .from("outfits")
+      .select("user_id")
+      .eq("id", outfit_id)
+      .maybeSingle();
+    if (!outfitOwner || outfitOwner.user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: "Outfit not found" }),
+        { status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
+    }
+    if (
+      typeof selfie_path !== "string" ||
+      !selfie_path.startsWith(`${user.id}/`) ||
+      selfie_path.includes("..")
+    ) {
+      // Path-traversal defense in depth — Supabase Storage keys are
+      // literal strings (no normalization), so `<uid>/../<victim>/x.jpg`
+      // can't actually traverse server-side, but rejecting it here keeps
+      // the boundary explicit and survives any future storage-driver
+      // change that DOES normalize.
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
+    }
+
     const { data: outfitItems, error: itemsErr } = await supabase
       .from("outfit_items")
       .select("slot, garment_id, garments:garment_id(title, color_primary, category, material, image_path)")

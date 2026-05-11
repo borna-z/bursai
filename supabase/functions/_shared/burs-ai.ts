@@ -252,6 +252,49 @@ export async function readUsageBudget(
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
+    // N15/BE-P0-B2 — Server-side SUM via the sum_ai_token_usage_for_month
+    // RPC (defined in 20260511153400_n15_sum_ai_token_usage.sql). The
+    // previous implementation selected every row of the user's monthly
+    // history and iterated client-side — for a power user firing
+    // thousands of AI calls/month, the per-call response payload grew
+    // linearly with usage. Returning one bigint cuts the wire payload to
+    // a constant and removes the JS-side accumulation loop.
+    //
+    // Scalar-returning RPC: supabase-js returns `data` as the bigint
+    // directly (no row wrapper, no `.single()` needed). Postgres bigint
+    // arrives as a JS `number` for small magnitudes and a `string` when
+    // it exceeds Number.MAX_SAFE_INTEGER — we accept both.
+    //
+    // Graceful-degrade fallback: the inner try/catch + typeof guard
+    // isolate ANY RPC-side failure (function not yet applied on the
+    // linked DB during the migration window, mock supabase clients in
+    // tests that don't define `.rpc()`, transient network error) so the
+    // legacy SELECT path below stays reachable. Once the migration
+    // lands, every call takes the RPC path.
+    try {
+      if (typeof (supabase as { rpc?: unknown }).rpc === "function") {
+        const { data: sumValue, error: rpcErr } = await supabase.rpc(
+          "sum_ai_token_usage_for_month",
+          { p_user_id: userId, p_month_start: monthStart },
+        );
+        if (!rpcErr && (typeof sumValue === "number" || typeof sumValue === "string")) {
+          const spentMicros = Number(sumValue);
+          return {
+            quotaMicros,
+            spentMicros: Number.isFinite(spentMicros) ? spentMicros : 0,
+          };
+        }
+        if (rpcErr) {
+          console.warn("burs-ai: sum RPC failed, falling back to SELECT:", rpcErr.message);
+        }
+      }
+    } catch (rpcThrow) {
+      console.warn(
+        "burs-ai: sum RPC threw, falling back to SELECT:",
+        rpcThrow instanceof Error ? rpcThrow.message : String(rpcThrow),
+      );
+    }
+
     const { data: usageRows, error: usageErr } = await supabase
       .from("ai_token_usage")
       .select("cost_micros")
@@ -515,27 +558,49 @@ export async function createBursAICacheKey(params: {
 }
 
 // ─── DB Cache (Tier 2) ────────────────────────────────────────
-async function checkCache(supabase: any, cacheKey: string): Promise<any | null> {
+//
+// N15/BE-P0-B4 — When `userId` is supplied, scope the cache lookup with
+// `.eq("user_id", userId)` as defense-in-depth against cross-user leaks
+// from a typo'd `cacheNamespace`. Today the namespace string is the only
+// thing keeping users' cache entries apart (e.g. `"mood_happy_${userId}"`)
+// — a single dev forgetting to interpolate would silently serve one user's
+// cached AI response to another. `storeCache` already records `user_id`;
+// reading with the same filter makes the boundary structural.
+//
+// Callers without a userId (system/cron entries) still pass `undefined`
+// and get the legacy unscoped lookup, matching pre-N15 behaviour.
+async function checkCache(
+  supabase: any,
+  cacheKey: string,
+  userId?: string,
+): Promise<any | null> {
   try {
-    const { data } = await supabase
+    let query = supabase
       .from("ai_response_cache")
       .select("response, model_used, hit_count")
       .eq("cache_key", cacheKey)
-      .gt("expires_at", new Date().toISOString())
+      .gt("expires_at", new Date().toISOString());
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
     if (data) {
       // Bump hit_count and extend TTL (sliding window) — fire and forget
-      supabase
+      let update = supabase
         .from("ai_response_cache")
         .update({
           hit_count: data.hit_count ? data.hit_count + 1 : 1,
           expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
         })
-        .eq("cache_key", cacheKey)
-        .then(() => {});
+        .eq("cache_key", cacheKey);
+      if (userId) update = update.eq("user_id", userId);
+      update.then(() => {});
     }
     return data;
   } catch {
@@ -739,7 +804,10 @@ export async function callBursAI(
 
     // DB cache
     if (cacheTtlSeconds > 0 && supabaseServiceClient) {
-      const cached = await checkCache(supabaseServiceClient, cacheKey);
+      // N15/BE-P0-B4 — pass userId so the lookup is scoped to the caller
+      // when known. Defense-in-depth against a typo'd cacheNamespace
+      // serving cross-user content.
+      const cached = await checkCache(supabaseServiceClient, cacheKey, options.userId);
       if (cached) {
         logUsage(supabaseServiceClient, {
           functionName: options.functionName, model_used: cached.model_used,
@@ -756,7 +824,18 @@ export async function callBursAI(
 
     // ── Request deduplication ──
     if (cacheTtlSeconds > 0) {
-      const existing = IN_FLIGHT.get(cacheKey);
+      // Per-user dedup key (Codex P1 rounds 1-3 on PR #820). cacheKey
+      // alone is unsafe: if a caller forgot to interpolate `userId`
+      // into `cacheNamespace` (the exact typo BE-P0-B4 defends
+      // against), two users would produce the same cacheKey and the
+      // second's call would receive the first's in-flight Promise
+      // before any DB row was written. Appending userId to the in-
+      // flight key keeps the two users on separate Promises.
+      // cacheKey is SHA-256 hex (no `|`), so the separator is
+      // unambiguous. Falls back to bare cacheKey for system/cron
+      // flows that have no userId.
+      const inflightKey = options.userId ? `${cacheKey}|${options.userId}` : cacheKey;
+      const existing = IN_FLIGHT.get(inflightKey);
       if (existing) {
         return existing;
       }
@@ -995,15 +1074,19 @@ export async function callBursAI(
     throw lastError || new BursAIError("All AI models failed", 503);
   };
 
-  // Dedup wrapper
+  // Dedup wrapper. The in-flight key is scoped by userId when present
+  // (see the matching derivation at the IN_FLIGHT.get site above) so a
+  // typo'd `cacheNamespace` that produces the same cacheKey for two
+  // users can't have user B receive user A's in-flight Promise.
   if (cacheKey && cacheTtlSeconds > 0) {
+    const inflightKey = options.userId ? `${cacheKey}|${options.userId}` : cacheKey;
     const promise = executeCall();
-    IN_FLIGHT.set(cacheKey, promise);
+    IN_FLIGHT.set(inflightKey, promise);
     try {
       const result = await promise;
       return result;
     } finally {
-      IN_FLIGHT.delete(cacheKey);
+      IN_FLIGHT.delete(inflightKey);
     }
   }
 
@@ -1144,10 +1227,14 @@ export async function checkRateLimit(
     );
   }
 
-  // Record this call
+  // Record this call. Include `endpoint` so the NOT NULL constraint in
+  // the initial schema is satisfied (the N15 migration relaxes it, but
+  // populating defensively keeps this helper safe even on a DB that
+  // hasn't picked up the migration). Endpoint = function_name is the
+  // only meaningful value at the rate-limit layer.
   await supabaseAdmin
     .from("ai_rate_limits")
-    .insert({ user_id: userId, function_name: functionName });
+    .insert({ user_id: userId, function_name: functionName, endpoint: functionName });
 
   // Periodic cleanup (1% chance per request)
   if (Math.random() < 0.01) {

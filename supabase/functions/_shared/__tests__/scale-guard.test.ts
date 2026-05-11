@@ -434,7 +434,10 @@ function createEnforceRateLimitMock(opts: RateLimitMockOptions) {
         eq: () => typeof builder;
         gte: () => Promise<{ count: number; error: null }>;
         single: () => Promise<{ data: unknown; error: null }>;
-        insert: () => { then: (cb: () => void) => void };
+        // N15/BE-P0-B5 — insert is now awaited in enforceRateLimit. The mock
+        // must resolve to a {data, error} shape; the previous fire-and-forget
+        // thenable would hang an awaited call indefinitely.
+        insert: () => Promise<{ data: null; error: null }>;
       } = {
         select: () => builder,
         eq: () => builder,
@@ -458,11 +461,41 @@ function createEnforceRateLimitMock(opts: RateLimitMockOptions) {
           }
           return { data: null, error: null };
         },
-        insert: () => ({ then: (_cb: () => void) => void 0 }),
+        insert: async () => ({ data: null, error: null }),
       };
       return builder;
     },
-    rpc: () => ({ then: (_a: () => void, _b: () => void) => void 0 }),
+    // N15 Codex round 1 — enforceRateLimit now calls the atomic
+    // record_and_check_rate_limit RPC first (with a legacy SELECT
+    // fallback when the RPC errors). Stub the RPC so it returns the
+    // pre-insert counts derived from `opts.minuteCount` / `opts.hourCount`
+    // — same numbers the legacy fallback would compute.
+    rpc: async (name: string, params?: Record<string, unknown>) => {
+      if (name === "record_and_check_rate_limit") {
+        const minute = (opts.minuteCount ?? 0) as number;
+        const hour = (opts.hourCount ?? 0) as number;
+        const maxMin = Number(params?.p_max_per_minute ?? 0);
+        const maxHr = Number(params?.p_max_per_hour ?? 0);
+        if (minute >= maxMin) {
+          return {
+            data: [{ allowed: false, minute_count: minute, hour_count: hour, reason: "minute" }],
+            error: null,
+          };
+        }
+        if (hour >= maxHr) {
+          return {
+            data: [{ allowed: false, minute_count: minute, hour_count: hour, reason: "hour" }],
+            error: null,
+          };
+        }
+        return {
+          data: [{ allowed: true, minute_count: minute, hour_count: hour, reason: null }],
+          error: null,
+        };
+      }
+      // cleanup_old_rate_limits — fire-and-forget; resolve to no-op.
+      return { data: null, error: null };
+    },
   };
 }
 

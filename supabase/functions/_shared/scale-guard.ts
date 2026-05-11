@@ -252,45 +252,64 @@ export async function enforceRateLimit(
     tier = applyTierMultiplier(baseTier, plan);
   }
 
-  const now = Date.now();
-  const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
-  const oneMinuteAgo = new Date(now - 60 * 1000).toISOString();
+  // N15 Codex round 1+2 — atomic count+check+insert via the
+  // record_and_check_rate_limit RPC (migration 20260511153500). The
+  // previous shape was two SELECT counts followed by an awaited INSERT,
+  // which only closed the burst-slip window for SERIAL concurrent
+  // isolates. PARALLEL isolates serving the same (user, function) could
+  // all complete the counts before any insert committed, all observe
+  // the same below-limit count, and each pass the gate — leaving the
+  // N15 bill-shielding gate ineffective. The RPC serializes per
+  // (user, function) via a transaction-scoped advisory lock and
+  // returns the pre-insert counts in the same transaction.
+  //
+  // Fail-closed on every error / unexpected shape (Codex round 2):
+  // the previous version retained a legacy SELECT+INSERT fallback for
+  // the migration window, but that fallback re-introduced the same
+  // burst race the RPC was meant to close. Removing the fallback means
+  // operators MUST apply the migration before deploying this code; if
+  // they don't, AI calls 429 until the function exists. That's the
+  // correct trade-off for a bill-shielding gate — degraded UX is
+  // strictly safer than uncapped Gemini spend.
+  const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc(
+    "record_and_check_rate_limit",
+    {
+      p_user_id: userId,
+      p_function_name: functionName,
+      p_max_per_minute: tier.maxPerMinute,
+      p_max_per_hour: tier.maxPerHour,
+    },
+  );
 
-  // Batch both counts in parallel
-  const [hourResult, minuteResult] = await Promise.all([
-    supabaseAdmin
-      .from("ai_rate_limits")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("function_name", functionName)
-      .gte("called_at", oneHourAgo),
-    supabaseAdmin
-      .from("ai_rate_limits")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("function_name", functionName)
-      .gte("called_at", oneMinuteAgo),
-  ]);
-
-  // Fail open on DB errors
-  if (hourResult.error || minuteResult.error) {
-    console.warn("Rate limit check failed:", hourResult.error?.message || minuteResult.error?.message);
-    return { allowed: true, remaining: { hour: tier.maxPerHour, minute: tier.maxPerMinute } };
-  }
-
-  const hourCount = hourResult.count ?? 0;
-  const minuteCount = minuteResult.count ?? 0;
-
-  if (minuteCount >= tier.maxPerMinute) {
+  if (rpcErr || !Array.isArray(rpcData) || rpcData.length === 0) {
+    console.warn(
+      "Atomic rate-limit RPC failed (fail-closed):",
+      rpcErr?.message ?? "empty response",
+    );
     throw new RateLimitError(
-      `Too many requests. Please wait a moment before trying again.`,
+      `Rate limit check unavailable. Please retry in a moment.`,
       functionName,
       "minute",
       tier.maxPerMinute,
     );
   }
 
-  if (hourCount >= tier.maxPerHour) {
+  const row = rpcData[0] as {
+    allowed: boolean;
+    minute_count: number;
+    hour_count: number;
+    reason: string | null;
+  };
+
+  if (!row.allowed) {
+    if (row.reason === "minute") {
+      throw new RateLimitError(
+        `Too many requests. Please wait a moment before trying again.`,
+        functionName,
+        "minute",
+        tier.maxPerMinute,
+      );
+    }
     throw new RateLimitError(
       `Hourly limit reached for this feature. Please try again later.`,
       functionName,
@@ -299,25 +318,16 @@ export async function enforceRateLimit(
     );
   }
 
-  // Record this call — fire-and-forget
-  supabaseAdmin
-    .from("ai_rate_limits")
-    .insert({ user_id: userId, function_name: functionName })
-    .then(() => {});
-
-  // Periodic cleanup (1% chance)
+  // Periodic cleanup (1% chance) — fire-and-forget.
   if (Math.random() < 0.01) {
-    // `.then(_, _)` instead of `.catch` — newer supabase-js typings model
-    // the rpc builder as a thenable, not a full Promise, so `.catch` is
-    // missing on the type. Fire-and-forget: ignore both paths.
     supabaseAdmin.rpc("cleanup_old_rate_limits").then(() => {}, () => {});
   }
 
   return {
     allowed: true,
     remaining: {
-      hour: tier.maxPerHour - hourCount - 1,
-      minute: tier.maxPerMinute - minuteCount - 1,
+      hour: Math.max(0, tier.maxPerHour - row.hour_count - 1),
+      minute: Math.max(0, tier.maxPerMinute - row.minute_count - 1),
     },
   };
 }
