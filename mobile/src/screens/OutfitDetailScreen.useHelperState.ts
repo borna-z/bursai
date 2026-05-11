@@ -238,6 +238,5 @@ export function useOutfitDetailHelperState({
     handleRefreshCombinations,
     handleRefreshClone,
     addAccessory,
-    existingItemGarmentIds,
   };
 }
