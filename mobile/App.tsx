@@ -319,6 +319,26 @@ function usePushTokenRegistration(): void {
       sub.remove();
     };
   }, [user]);
+
+  // N14/F5 — Expo push tokens are long-lived in practice but can rotate
+  // server-side (rarer on APNs, more common on FCM). Without a listener the
+  // app would only catch a rotation on next launch, leaving the row in
+  // `push_subscriptions` stale until then. `addPushTokenListener` fires for
+  // every rotation; we re-call the registration mutation so the new token is
+  // upserted via the same path as the initial registration.
+  useEffect(() => {
+    if (!user) return;
+    const sub = Notifications.addPushTokenListener(() => {
+      // Re-run the full registration flow so the upsert lands with the
+      // fresh token. The mutation is keyed on (user_id, endpoint) — a
+      // rotation produces a new row; the previous one stays until the
+      // server-side stale-token cleanup catches it.
+      mutateRef.current();
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [user]);
 }
 
 // M30 — notification deep-link handler. When the user taps a push, the OS

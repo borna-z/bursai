@@ -149,12 +149,14 @@ export function GarmentDetailScreen() {
   // etc. — `isActiveGarmentRenderStatus` is the shared predicate.)
   const isStudioRendering = isActiveGarmentRenderStatus(garment?.render_status);
   const renderJobGarmentId = isStudioRendering ? (garment?.id ?? null) : null;
-  // Side-effecting hook — the snapshot itself is unused on this surface. The
-  // hook's own terminal-state effect invalidates the garment cache, which is
-  // the only behaviour we need here. The pill below reads `render_status`
-  // straight off the (now-fresh) garment row.
+  // N14/F7 — read the snapshot so a terminal `failed` status can surface a
+  // dedicated badge. Without this, the original "Studio render…" pill simply
+  // disappeared on failure and the user saw the original photo with no
+  // explanation. The hook's own terminal-state effect still handles cache
+  // invalidation; we only consume the status to drive the badge variant.
   useRenderJobStatus(renderJobGarmentId);
   const hasRenderedImage = !!garment?.rendered_image_path;
+  const isStudioFailed = garment?.render_status === 'failed';
 
   const markWorn = useMarkWorn();
   const markLaundry = useMarkLaundry();
@@ -537,11 +539,14 @@ export function GarmentDetailScreen() {
               resizeMode="cover"
             />
           ) : null}
-          {/* Studio badge — three states:
+          {/* Studio badge — four states:
               • pending render → "Studio render…" with an inline spinner
               • rendered image present → "Studio"
-              • otherwise (render_status='none' / 'failed') → hidden, the
-                original photo stands on its own without a misleading label. */}
+              • render_status='failed' → "Render unavailable" (N14/F7 — was
+                previously hidden, leaving the user staring at the original
+                photo with no explanation when a worker run failed)
+              • render_status='none' → hidden, the original photo stands
+                on its own without a misleading label. */}
           {isStudioRendering ? (
             <View
               accessibilityLiveRegion="polite"
@@ -553,6 +558,12 @@ export function GarmentDetailScreen() {
           ) : hasRenderedImage ? (
             <View style={[s.heroBadge, { backgroundColor: t.accentSoft }]}>
               <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio</Text>
+            </View>
+          ) : isStudioFailed ? (
+            <View
+              accessibilityLabel="Studio render unavailable"
+              style={[s.heroBadge, { backgroundColor: t.destructiveSoft }]}>
+              <Text style={[s.heroBadgeText, { color: t.destructive }]}>Render unavailable</Text>
             </View>
           ) : null}
           <View style={[s.heroBadgeRight, { backgroundColor: t.card, borderColor: t.border }]}>

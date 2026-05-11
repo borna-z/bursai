@@ -91,7 +91,11 @@ export function PercentSlider({
   const pan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
+        // N14/F3 — claim the gesture on touch-start so a single tap commits
+        // the position via `onPanResponderGrant`. Without this, taps fall
+        // through to the parent ScrollView and the slider only responded to
+        // drags. (Web `PercentSlider` already treats a click as set-position.)
+        onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_e, gestureState) =>
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderGrant: (e) => {
@@ -271,7 +275,9 @@ export function ColorGrid({
 }) {
   const t = useTokens();
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+    // N14/F4 — gap 12→16 so 44 pt swatches keep ≥4 px inter-target padding
+    // on the cross-axis when the row wraps.
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
       {COLOR_SWATCHES.map((color) => {
         const isSelected = selected.includes(color.id);
         const checkColor = isLightSwatch(color.hex) ? t.fg : t.bg;

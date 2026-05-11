@@ -8,6 +8,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { getConditionFromCode } from '../lib/weatherCodes';
 import { getCoordinatesFromCity } from './useWeather';
 
 export interface ForecastDay {
@@ -28,19 +29,6 @@ export interface UseForecastOptions {
 
 const DEFAULT_COORDS = { lat: 59.3293, lon: 18.0686 } as const;
 const STALE_MS = 30 * 60 * 1000;
-
-function getConditionFromCode(code: number): string {
-  if (code === 0) return 'weather.condition.clear';
-  if (code <= 3) return 'weather.condition.cloudy';
-  if (code === 45 || code === 48) return 'weather.condition.fog';
-  if (code >= 51 && code <= 57) return 'weather.condition.drizzle';
-  if (code >= 61 && code <= 67) return 'weather.condition.rain';
-  if (code >= 71 && code <= 77) return 'weather.condition.snow';
-  if (code >= 80 && code <= 82) return 'weather.condition.rain_showers';
-  if (code >= 85 && code <= 86) return 'weather.condition.snow_showers';
-  if (code >= 95 && code <= 99) return 'weather.condition.thunder';
-  return 'weather.condition.unknown';
-}
 
 async function fetchForecast(city: string | null | undefined): Promise<ForecastDay[]> {
   let coords: { lat: number; lon: number } = DEFAULT_COORDS;
