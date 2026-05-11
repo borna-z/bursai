@@ -118,13 +118,29 @@ export interface RegisterPushTokenResult {
  *
  * Simulator / web fallback: `Device.isDevice` is false in iOS simulator and
  * web; `getExpoPushTokenAsync` would throw. Short-circuit with `unsupported`.
+ *
+ * N14/F5 follow-up (Codex round 1) — the mutation accepts an optional
+ * `prefetchedToken` argument. When provided, we skip the permission +
+ * project-id + `getExpoPushTokenAsync` steps and only run the upsert. This
+ * path is invoked by the `Notifications.addPushTokenListener` callback in
+ * `App.tsx`'s rotation handler: per Expo docs, calling
+ * `getExpoPushTokenAsync` / `getDevicePushTokenAsync` from inside the
+ * listener can recursively re-trigger it. The listener already hands us the
+ * fresh token in its event payload, so re-fetching would be both redundant
+ * and risk an infinite-loop on flaky transports.
  */
+export interface RegisterPushTokenInput {
+  /** Skip the permission + token-fetch path and upsert this Expo push token
+   *  directly. Used by the addPushTokenListener rotation handler. */
+  prefetchedToken?: string;
+}
+
 export function useRegisterPushToken() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  return useMutation<RegisterPushTokenResult, Error, void>({
-    mutationFn: async (): Promise<RegisterPushTokenResult> => {
+  return useMutation<RegisterPushTokenResult, Error, RegisterPushTokenInput | void>({
+    mutationFn: async (input): Promise<RegisterPushTokenResult> => {
       if (!user) {
         return {
           registered: false,
@@ -132,6 +148,25 @@ export function useRegisterPushToken() {
           status: Notifications.PermissionStatus.UNDETERMINED,
           reason: 'no_user',
         };
+      }
+
+      // N14/F5 follow-up — rotation path: token already emitted by the
+      // `addPushTokenListener` callback in App.tsx. Skip permission /
+      // projectId / getExpoPushTokenAsync and run the upsert only.
+      const prefetchedToken = input?.prefetchedToken;
+      if (prefetchedToken) {
+        const { error: upsertError } = await supabase.from('push_subscriptions').upsert(
+          {
+            user_id: user.id,
+            provider: 'expo',
+            expo_token: prefetchedToken,
+            endpoint: prefetchedToken,
+          },
+          { onConflict: 'user_id,endpoint' },
+        );
+        if (upsertError) throw upsertError;
+        const status = (await Notifications.getPermissionsAsync()).status;
+        return { registered: true, token: prefetchedToken, status };
       }
 
       // Push only works on a physical device — simulator + web bail. We

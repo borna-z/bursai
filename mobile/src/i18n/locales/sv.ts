@@ -1770,4 +1770,7 @@ export const sv: Record<string, string> = {
   'garment.generateImage.action': 'Generera bild',
   'garment.generateImage.busy': 'Genererar…',
   'garment.generateImage.error': 'Kunde inte generera en bild just nu. Försök igen om en stund.',
+
+  'garment.render.failed': 'Rendering otillgänglig',
+  'garment.render.failed.a11y': 'Studiorendering otillgänglig',
 };

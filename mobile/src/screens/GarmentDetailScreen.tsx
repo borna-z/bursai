@@ -561,9 +561,9 @@ export function GarmentDetailScreen() {
             </View>
           ) : isStudioFailed ? (
             <View
-              accessibilityLabel="Studio render unavailable"
+              accessibilityLabel={tr('garment.render.failed.a11y')}
               style={[s.heroBadge, { backgroundColor: t.destructiveSoft }]}>
-              <Text style={[s.heroBadgeText, { color: t.destructive }]}>Render unavailable</Text>
+              <Text style={[s.heroBadgeText, { color: t.destructive }]}>{tr('garment.render.failed')}</Text>
             </View>
           ) : null}
           <View style={[s.heroBadgeRight, { backgroundColor: t.card, borderColor: t.border }]}>

@@ -324,16 +324,18 @@ function usePushTokenRegistration(): void {
   // server-side (rarer on APNs, more common on FCM). Without a listener the
   // app would only catch a rotation on next launch, leaving the row in
   // `push_subscriptions` stale until then. `addPushTokenListener` fires for
-  // every rotation; we re-call the registration mutation so the new token is
-  // upserted via the same path as the initial registration.
+  // every rotation with the new ExpoPushToken in its event payload.
+  //
+  // Codex round 1 on PR #819: pass the listener-emitted token through to
+  // the registration mutation via the `prefetchedToken` path. Re-calling
+  // `getExpoPushTokenAsync` from inside the listener would (per Expo docs)
+  // re-trigger the listener and risk an infinite loop on flaky transports.
   useEffect(() => {
     if (!user) return;
-    const sub = Notifications.addPushTokenListener(() => {
-      // Re-run the full registration flow so the upsert lands with the
-      // fresh token. The mutation is keyed on (user_id, endpoint) — a
-      // rotation produces a new row; the previous one stays until the
-      // server-side stale-token cleanup catches it.
-      mutateRef.current();
+    const sub = Notifications.addPushTokenListener((tokenEvent) => {
+      const next = tokenEvent?.data;
+      if (typeof next !== 'string' || next.length === 0) return;
+      mutateRef.current({ prefetchedToken: next });
     });
     return () => {
       sub.remove();

@@ -1889,4 +1889,8 @@ export const en: Record<string, string> = {
   'garment.generateImage.action': 'Generate image',
   'garment.generateImage.busy': 'Generating…',
   'garment.generateImage.error': "Couldn't generate an image right now. Try again in a moment.",
+
+  // ─── N14 — Studio render failure badge ─────────────────────────────
+  'garment.render.failed': 'Render unavailable',
+  'garment.render.failed.a11y': 'Studio render unavailable',
 };
