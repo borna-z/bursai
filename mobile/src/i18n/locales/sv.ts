@@ -1085,6 +1085,18 @@ export const sv: Record<string, string> = {
   'chat.history.openLabel': 'Öppna samtalshistorik',
   'chat.history.close': 'Stäng historik',
   'chat.history.messageCount.template': '{n} meddelanden',
+  // Parity-C — single header menu replaces the old two-icon header.
+  'chat.menu.openLabel': 'Chattmeny',
+  'chat.menu.history': 'Öppna historik',
+  'chat.menu.newChat': 'Starta ny chatt',
+  // Parity-C — per-row delete inside ChatHistorySheet.
+  'chat.history.delete.action': 'Ta bort',
+  'chat.history.delete.confirm.title': 'Ta bort denna chatt?',
+  'chat.history.delete.confirm.body':
+    'Detta tar bort varje meddelande i tråden. Du kan inte ångra detta.',
+  'chat.history.delete.confirm.cancel': 'Behåll',
+  'chat.history.delete.confirm.delete': 'Ta bort',
+  'chat.history.delete.failed.title': 'Kunde inte ta bort',
   'chat.outfitCard.try': 'Prova denna outfit',
   'chat.outfitCard.eyebrow': 'Förslag',
   'chat.outfitCard.name.suggestion': 'Dagens val',

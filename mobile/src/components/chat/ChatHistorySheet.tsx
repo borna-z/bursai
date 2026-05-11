@@ -16,6 +16,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
+  Alert,
   Animated,
   FlatList,
   Modal,
@@ -29,10 +30,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eyebrow } from '../Eyebrow';
 import { Caption } from '../Caption';
 import { IconBtn } from '../IconBtn';
+import { TrashIcon } from '../icons';
 import { useTokens } from '../../theme/ThemeProvider';
 import { fonts, radii } from '../../theme/tokens';
 import type { StyleChatMode } from '../../hooks/useStyleChat';
 import { t as tr } from '../../lib/i18n';
+import { showToast } from '../../lib/toast';
 
 export interface ChatHistoryThread {
   /** Persisted mode value — drives both the visible badge label and the
@@ -57,6 +60,15 @@ interface ChatHistorySheetProps {
   activeMode: StyleChatMode;
   isLoading: boolean;
   onSelect: (mode: StyleChatMode) => void;
+  /** Parity-C — invoked when the user confirms a trash-tap on a row.
+   *  Caller wires this to `useDeleteChatThread` + clears the in-memory
+   *  message cache so the parent screen reflects the deletion. The sheet
+   *  itself handles the confirm Alert; the caller only needs to perform
+   *  the actual delete. */
+  onDeleteThread?: (mode: StyleChatMode) => Promise<void>;
+  /** Set of modes with in-flight delete mutations; rows in this set
+   *  disable their trash button + go semi-transparent. */
+  deletingModes?: Set<StyleChatMode>;
 }
 
 const MODE_LABELS: Record<StyleChatMode, () => string> = {
@@ -89,6 +101,8 @@ export function ChatHistorySheet({
   activeMode,
   isLoading,
   onSelect,
+  onDeleteThread,
+  deletingModes,
 }: ChatHistorySheetProps) {
   const t = useTokens();
   // Slide-in animation from the right. Same pattern the share sheet
@@ -115,74 +129,112 @@ export function ChatHistorySheet({
     });
   }, [threads]);
 
+  const handleDeletePress = (mode: StyleChatMode) => {
+    if (!onDeleteThread) return;
+    Alert.alert(
+      tr('chat.history.delete.confirm.title'),
+      tr('chat.history.delete.confirm.body'),
+      [
+        { text: tr('chat.history.delete.confirm.cancel'), style: 'cancel' },
+        {
+          text: tr('chat.history.delete.confirm.delete'),
+          style: 'destructive',
+          onPress: () => {
+            onDeleteThread(mode).catch((err) => {
+              showToast(
+                'error',
+                tr('chat.history.delete.failed.title'),
+                err instanceof Error ? err.message : String(err),
+              );
+            });
+          },
+        },
+      ],
+    );
+  };
+
   const renderItem = ({ item }: { item: ChatHistoryThread }) => {
     const selected = item.mode === activeMode;
     const modeLabel = MODE_LABELS[item.mode]?.() ?? item.mode;
+    const deleting = deletingModes?.has(item.mode) ?? false;
     return (
-      <Pressable
-        onPress={() => onSelect(item.mode)}
-        accessibilityRole="button"
-        accessibilityState={{ selected }}
-        accessibilityLabel={`${modeLabel} chat — ${item.messageCount} messages`}
-        style={({ pressed }) => [
-          s.row,
-          {
-            backgroundColor: selected ? t.bg2 : 'transparent',
-            opacity: pressed ? 0.7 : 1,
-            borderColor: t.border,
-          },
-        ]}>
-        <View style={{ flex: 1, gap: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View
-              style={[
-                s.modeBadge,
-                {
-                  borderColor: selected ? t.accent : t.border,
-                  backgroundColor: selected ? t.accentSoft : t.card,
-                },
-              ]}>
+      <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 6 }}>
+        <Pressable
+          onPress={() => onSelect(item.mode)}
+          accessibilityRole="button"
+          accessibilityState={{ selected, disabled: deleting }}
+          accessibilityLabel={`${modeLabel} chat — ${item.messageCount} messages`}
+          disabled={deleting}
+          style={({ pressed }) => [
+            s.row,
+            {
+              flex: 1,
+              backgroundColor: selected ? t.bg2 : 'transparent',
+              opacity: deleting ? 0.5 : pressed ? 0.7 : 1,
+              borderColor: t.border,
+            },
+          ]}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View
+                style={[
+                  s.modeBadge,
+                  {
+                    borderColor: selected ? t.accent : t.border,
+                    backgroundColor: selected ? t.accentSoft : t.card,
+                  },
+                ]}>
+                <Text
+                  style={{
+                    fontFamily: fonts.uiSemi,
+                    fontSize: 9.5,
+                    letterSpacing: 0.6,
+                    textTransform: 'uppercase',
+                    color: selected ? t.accent : t.fg2,
+                  }}>
+                  {modeLabel}
+                </Text>
+              </View>
               <Text
                 style={{
-                  fontFamily: fonts.uiSemi,
-                  fontSize: 9.5,
-                  letterSpacing: 0.6,
-                  textTransform: 'uppercase',
-                  color: selected ? t.accent : t.fg2,
+                  fontFamily: fonts.uiMed,
+                  fontSize: 11,
+                  color: t.fg3,
                 }}>
-                {modeLabel}
+                {formatThreadDate(item.updatedAt)}
               </Text>
             </View>
             <Text
+              numberOfLines={2}
               style={{
-                fontFamily: fonts.uiMed,
+                fontFamily: fonts.ui,
+                fontSize: 13,
+                lineHeight: 18,
+                color: t.fg,
+                letterSpacing: -0.1,
+              }}>
+              {item.preview || tr('chat.history.previewEmpty')}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.ui,
                 fontSize: 11,
                 color: t.fg3,
               }}>
-              {formatThreadDate(item.updatedAt)}
+              {tr('chat.history.messageCount.template', { n: item.messageCount })}
             </Text>
           </View>
-          <Text
-            numberOfLines={2}
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 13,
-              lineHeight: 18,
-              color: t.fg,
-              letterSpacing: -0.1,
-            }}>
-            {item.preview || tr('chat.history.previewEmpty')}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 11,
-              color: t.fg3,
-            }}>
-            {tr('chat.history.messageCount.template', { n: item.messageCount })}
-          </Text>
-        </View>
-      </Pressable>
+        </Pressable>
+        {onDeleteThread ? (
+          <IconBtn
+            variant="ghost"
+            onPress={deleting ? undefined : () => handleDeletePress(item.mode)}
+            ariaLabel={tr('chat.history.delete.action')}
+            style={{ opacity: deleting ? 0.5 : 1 }}>
+            <TrashIcon color={t.fg2} size={18} />
+          </IconBtn>
+        ) : null}
+      </View>
     );
   };
 
