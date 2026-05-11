@@ -3,35 +3,25 @@
 // This week mini-strip · Ask the stylist row · Your rhythm stat blocks · BottomNav.
 // Source of truth for visual values: styles.css (`.card-hero`, `.hub-tile`, `.mini-day`, `.stat-block`).
 //
-// All time-dependent values (header eyebrow date, time-of-day greeting, MiniWeek 7-day window)
-// derive from `new Date()` at render time so the UI stays accurate as days roll forward.
-// Codex P2 #4 on PR #699 — the original prototype hardcoded "Sat · Apr 26 / SAT 26 → FRI 2".
+// N13 split — sub-components live in sibling files (HomeScreen.hero.tsx,
+// HomeScreen.recent.tsx, HomeScreen.hubs.tsx, HomeScreen.miniWeek.tsx,
+// HomeScreen.rhythm.tsx) and pure helpers in HomeScreen.helpers.ts. This
+// file is the orchestrator: query/state derivation + layout.
 
 import React from 'react';
-import { Image, Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, RefreshControl, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
-import { Caption } from '../components/Caption';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
-import { Shimmer } from '../components/Shimmer';
 import { SmartDayBanner } from '../components/SmartDayBanner';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { OccasionPicker, eventsForOccasion, type OccasionId } from '../components/OccasionPicker';
-import { PlanCardSkeleton, StatRowSkeleton } from '../components/skeletons';
-import {
-  BellIcon,
-  ChatIcon, OutfitsIcon, TshirtIcon, SmileIcon, SuitcaseIcon, GapsIcon, GearIcon,
-  ChevronIcon, SparklesIcon,
-} from '../components/icons';
+import { BellIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useFlatGarments } from '../hooks/useGarments';
 import { useGarmentCount } from '../hooks/useGarmentCount';
@@ -41,58 +31,21 @@ import { useMarkOutfitWorn, useOutfits } from '../hooks/useOutfits';
 import { useWeather } from '../hooks/useWeather';
 import { useCalendarEvents } from '../hooks/useCalendarSync';
 import type { DayEventInput } from '../lib/dayIntelligence';
-import { useGarmentImage } from '../hooks/useSignedUrl';
 import { useFirstRunCoach, COACH_TOUR_TOTAL } from '../hooks/useFirstRunCoach';
 import { CoachOverlay } from '../components/CoachOverlay';
 import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
-import { localISODate, outfitDisplayName, outfitGradientHue } from '../lib/outfitDisplay';
-import type { OutfitItemWithGarment, OutfitWithItems } from '../types/outfit';
+import { localISODate } from '../lib/outfitDisplay';
 import type { RootStackParamList, TabName } from '../navigation/RootNavigator';
 
+import { buildMiniWeek, formatHeaderDate, greetingFor } from './HomeScreen.helpers';
+import { TodaysLookHero } from './HomeScreen.hero';
+import { RecentOutfitsRow } from './HomeScreen.recent';
+import { StylistHubsSection, DiscoverHubsSection, AskStylistRow } from './HomeScreen.hubs';
+import { ThisWeekSection } from './HomeScreen.miniWeek';
+import { RhythmSection } from './HomeScreen.rhythm';
+
 type HomeNav = NativeStackNavigationProp<RootStackParamList>;
-
-// "Sat · Apr 26" — short weekday + dot separator + short month + day-of-month.
-function formatHeaderDate(d: Date): string {
-  const dow = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const mon = d.toLocaleDateString('en-US', { month: 'short' });
-  return `${dow} · ${mon} ${d.getDate()}`;
-}
-
-// Time-of-day greeting buckets: night (22:00–04:59) · morning (05:00–11:59) ·
-// afternoon (12:00–16:59) · evening (17:00–21:59).
-function greetingFor(d: Date): string {
-  const h = d.getHours();
-  if (h < 5)  return tr('home.greeting.night');
-  if (h < 12) return tr('home.greeting.morning');
-  if (h < 17) return tr('home.greeting.afternoon');
-  if (h < 22) return tr('home.greeting.evening');
-  return tr('home.greeting.night');
-}
-
-type WeekDay = { dow: string; n: number; active: boolean; dot: boolean; iso: string };
-
-// 7-day rolling window starting from today. `plannedDates` is a Set of ISO yyyy-mm-dd strings
-// pulled from the live `planned_outfits` query — empty set falls through to "no dot anywhere".
-//
-// Iteration uses `setDate(getDate() + i)` rather than fixed-ms arithmetic so a DST transition
-// inside the window doesn't skip or duplicate a local calendar day. Codex P2 #5 on PR #699.
-function buildMiniWeek(today: Date, plannedDates: Set<string>): WeekDay[] {
-  const out: WeekDay[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const iso = localISODate(d);
-    out.push({
-      dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-      n: d.getDate(),
-      active: i === 0,
-      dot: plannedDates.has(iso),
-      iso,
-    });
-  }
-  return out;
-}
 
 export function HomeScreen({
   goTab,
@@ -125,8 +78,7 @@ export function HomeScreen({
 
   // Real today's plan + 7-day window for the MiniWeek dots. Loading is true until the
   // plan query settles so the user sees a skeleton hero card instead of an empty state
-  // flashing into a populated state. Codex re-runs of HomeScreen rely on this transition
-  // staying smooth.
+  // flashing into a populated state.
   const todayPlanQ = useTodayPlannedOutfit();
   const weekPlansQ = usePlannedOutfitsForWeek();
   const garmentsQ = useFlatGarments();
@@ -146,22 +98,14 @@ export function HomeScreen({
   const markWorn = useMarkOutfitWorn();
 
   // M35 — weather + occasion state. Both feed `SmartDayBanner` via its M35
-  // `overrides` prop so the day-intelligence engine sees real data instead of
-  // the FALLBACK_WEATHER placeholder.
-  //
-  // `useWeather` is also called inside `WeatherStrip` below, but React Query's
-  // de-dupe means the second subscription is free — both share the same
-  // `['weather', null]` cache entry on a 30-min stale window.
+  // `overrides` prop so the day-intelligence engine sees real data instead
+  // of the FALLBACK_WEATHER placeholder.
   const { weather } = useWeather();
   const smartDayWeather = React.useMemo(
     () =>
       weather
         ? {
             temperature: weather.temperature,
-            // Day-intelligence reads precipitation / wind as free-form text
-            // and matches against substrings — passing the bucket label
-            // ('rain' / 'snow' / 'none') is enough to trigger the rain/snow
-            // rules in `dayIntelligence.normalizeText`.
             precipitation: weather.precipitation,
             wind: weather.wind,
           }
@@ -177,10 +121,7 @@ export function HomeScreen({
   // `useDaySummary` (called inside SmartDayBanner) read `overrides.events`,
   // so merging here guarantees the AI summary sees the user's actual day
   // (calendar) PLUS their stated intent (occasion picker), not one or the
-  // other. The CalendarEvent → DayEventInput shape mapping mirrors what
-  // `useCalendarSync.useCalendarEvents` returns; the location field is
-  // preserved because `dayIntelligence.inferEventOccasion` reads it for
-  // tag generation (gym / office / outdoor classification).
+  // other.
   const todayDateISO = React.useMemo(() => localISODate(now), [now]);
   const calendarEventsQ = useCalendarEvents(todayDateISO);
   const smartDayEvents = React.useMemo<DayEventInput[]>(() => {
@@ -198,8 +139,7 @@ export function HomeScreen({
   // M35 — Recent outfits row. Pulls saved outfits ordered by `created_at`
   // desc and renders the most recent 8 in a horizontal scroll. Distinct
   // surface from the today's-look hero (which is a *planned* outfit for
-  // today) — the row surfaces what the user has been building lately so
-  // they can re-wear something without going through Outfits.
+  // today).
   const recentOutfitsQ = useOutfits(true);
   const recentOutfits = React.useMemo(
     () => (recentOutfitsQ.data ?? []).slice(0, 8),
@@ -220,8 +160,7 @@ export function HomeScreen({
   // Total pieces — server-side count is the only authoritative source
   // (paginated `garmentsQ.data?.length` would silently undercount once the
   // user crosses the 30-row PAGE_SIZE). When the count query errors or
-  // hasn't settled yet, render `'—'` instead of a wrong number — same gate
-  // shape as `wardrobeStatsAuthoritative` below. Codex P2 on PR #738.
+  // hasn't settled yet, render `'—'` instead of a wrong number.
   const garmentCountReady = garmentCountQ.isSuccess;
   const garmentTotal = garmentCountReady
     ? String(garmentCountQ.data ?? 0)
@@ -232,8 +171,7 @@ export function HomeScreen({
   // wardrobe of 200 garments on a partial-load would compute against just the
   // first page — the % would silently undercount. We auto-paginate when the
   // user lands on Home so the stat is correct, AND only render the % once all
-  // pages are in. Otherwise we render `—` (matches WardrobeScreen's
-  // `countsAuthoritative` pattern). Codex P2 on PR #738.
+  // pages are in.
   const {
     hasNextPage: garmentsHasNextPage,
     isFetchingNextPage: garmentsFetchingNext,
@@ -286,13 +224,12 @@ export function HomeScreen({
     markWorn.mutate(
       { outfitId: todayOutfit.id, garmentIds },
       {
-        // Skip the success alert when the mutation deduped (already worn
+        // Skip the success toast when the mutation deduped (already worn
         // today / synchronous in-flight). The first real write's alert
         // already covered the user; a second toast for a no-op write is
         // confusing. Codex P2 round 10 on PR #738.
         onSuccess: (data) => {
           if (data?.deduped) return;
-          // N3b — non-blocking confirmation, user can keep using the app.
           showToast(
             'success',
             tr('home.alert.markedWorn.title'),
@@ -300,8 +237,6 @@ export function HomeScreen({
           );
         },
         onError: (err: unknown) =>
-          // N3b — transient error; user retries the same gesture rather
-          // than acknowledging a modal.
           showToast(
             'error',
             tr('home.alert.markWornError.title'),
@@ -325,10 +260,7 @@ export function HomeScreen({
   const heroRef = React.useRef<View | null>(null);
   // M27 R1 — also gate on `isActive` so a hidden (display:'none') Home
   // tab sibling can't surface a stale cutout while the user is on
-  // another tab. measureInWindow on a hidden node returns 0×0 which
-  // collapses the cutout into a single full-bleed scrim with the caption
-  // floating over whatever IS visible — the dominant orchestration bug
-  // surfaced in PR #753 review.
+  // another tab.
   const showHeroCoach = isActive && coach.shouldShow && coach.currentStep === 0;
 
   return (
@@ -357,10 +289,6 @@ export function HomeScreen({
             <PageTitle>{greeting}{firstName ? `, ${firstName}` : ''}</PageTitle>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 2 }}>
-            {/* M35: the static placeholder weather pill that lived here was
-                replaced by the live `WeatherStrip` section below the header.
-                The pill's slot is left empty so the avatar still floats
-                cleanly on the right — no spacer needed. */}
             <IconBtn
               ariaLabel={tr('home.notifications.aria')}
               onPress={push('Notifications')}>
@@ -378,18 +306,9 @@ export function HomeScreen({
         </View>
 
         {/* ============ WEATHER STRIP (M35) ============ */}
-        {/* Live conditions from Open-Meteo; self-hides while loading or on
-            error so the page doesn't flash a dead slot. Forwards weather to
-            SmartDayBanner via the day-intelligence override below. */}
         <WeatherStrip />
 
-        {/* ============ SMART DAY BANNER (M15 + M35 weather/occasion) ============ */}
-        {/* Day-intelligence engine: ranks today's outfit against weather +
-            calendar context. Renders above the existing today's-look hero
-            card; hides itself on engine error / empty wardrobe so the hero
-            below always remains the primary surface. M35 plumbs real
-            weather + the user's occasion pick into the engine via
-            `overrides`. */}
+        {/* ============ SMART DAY BANNER (M15 + M35) ============ */}
         <SmartDayBanner
           overrides={{
             weather: smartDayWeather,
@@ -398,15 +317,6 @@ export function HomeScreen({
         />
 
         {/* ============ OCCASION PICKER (M35) ============ */}
-        {/* Lets the user nudge the day-intelligence engine when no calendar
-            event is in scope (M36 lands calendar sync). Selecting a pill
-            forwards a synthetic event matching `OCCASION_RULES`; "Casual"
-            resets to the default casual baseline.
-            Self-hides when there's already a planned outfit for today —
-            `SmartDayBanner` self-hides under the same condition (the hero
-            owns the slot), so leaving the picker visible would mean
-            tapping a pill has no visible effect AND would still re-key the
-            hidden `useDaySummary` query for nothing. Codex P2 on PR #771. */}
         {!todayOutfit ? (
           <View>
             <View style={{ marginBottom: 10 }}>
@@ -417,211 +327,58 @@ export function HomeScreen({
         ) : null}
 
         {/* ============ TODAY'S LOOK HERO ============ */}
-        {/* Wrapped in a measurable View so M27's first-run coach overlay
-            can highlight the hero card via measureInWindow. The wrapper
-            is a no-op visually (no padding / borders) — it exists purely
-            as a ref target. */}
-        <View ref={heroRef} collapsable={false}>
-        <Card hero padding={18}>
-          {heroLoading ? (
-            <PlanCardSkeleton />
-          ) : todayOutfit ? (
-            <>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Eyebrow style={{ marginBottom: 3 }}>{tr('home.todaysLook.eyebrow')}</Eyebrow>
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontSize: 22, lineHeight: 24, fontWeight: '500', color: t.fg, letterSpacing: -0.22 }}>
-                    {outfitDisplayName(todayOutfit)}
-                  </Text>
-                </View>
-                <Pressable onPress={goOutfitDetail} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>{tr('home.todaysLook.view')}</Text>
-                  <ChevronIcon color={t.accent} />
-                </Pressable>
-              </View>
-              <OutfitThumbRow outfit={todayOutfit} />
-              {todayOutfit.explanation ? (
-                <Text style={{ fontSize: 12.5, color: t.fg2, marginVertical: 14, lineHeight: 18, fontFamily: fonts.ui }} numberOfLines={3}>
-                  {todayOutfit.explanation}
-                </Text>
-              ) : (
-                <View style={{ height: 14 }} />
-              )}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button
-                  label={wornToday ? tr('home.todaysLook.wornToday') : tr('home.todaysLook.wearThis')}
-                  onPress={handleWearToday}
-                  block
-                  style={{ flex: 1 }}
-                  disabled={wornToday || markWorn.isPending}
-                />
-                <Button label={tr('home.todaysLook.restyle')} variant="outline" onPress={push('OutfitGenerate')} />
-                <Button label={tr('home.todaysLook.view')} variant="quiet" onPress={goOutfitDetail} />
-              </View>
-            </>
-          ) : (
-            <>
-              <Eyebrow style={{ marginBottom: 6 }}>{tr('home.todaysLook.eyebrow')}</Eyebrow>
-              <Text
-                style={{
-                  fontFamily: fonts.displayMedium,
-                  fontStyle: 'italic',
-                  fontSize: 22,
-                  lineHeight: 26,
-                  fontWeight: '500',
-                  color: t.fg,
-                  letterSpacing: -0.22,
-                  marginBottom: 6,
-                }}>
-                {tr('home.todaysLook.empty.title')}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 12.5,
-                  color: t.fg2,
-                  marginBottom: 14,
-                  lineHeight: 18,
-                  fontFamily: fonts.ui,
-                }}>
-                {tr('home.todaysLook.empty.body')}
-              </Text>
-              <Button label={tr('home.todaysLook.empty.cta')} onPress={push('OutfitGenerate')} block />
-            </>
-          )}
-        </Card>
-        </View>
+        <TodaysLookHero
+          heroRef={heroRef}
+          heroLoading={heroLoading}
+          todayOutfit={todayOutfit}
+          wornToday={wornToday}
+          markWornPending={markWorn.isPending}
+          onWearToday={handleWearToday}
+          onRestyle={push('OutfitGenerate')}
+          onView={goOutfitDetail}
+          onEmptyCta={push('OutfitGenerate')}
+        />
 
         {/* ============ RECENT OUTFITS ROW (M35) ============ */}
-        {recentOutfits.length > 0 ? (
-          <View>
-            <View style={s.sectionHead}>
-              <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>
-                {tr('home.recent.eyebrow')}
-              </Text>
-              <Pressable
-                onPress={push('Outfits')}
-                accessibilityLabel={tr('home.recent.eyebrow')}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                <ChevronIcon color={t.accent} />
-              </Pressable>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
-              {recentOutfits.map((outfit) => (
-                <RecentOutfitTile
-                  key={outfit.id}
-                  outfit={outfit}
-                  onPress={() => nav.navigate('OutfitDetail', { id: outfit.id })}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
+        <RecentOutfitsRow
+          outfits={recentOutfits}
+          onSeeAll={push('Outfits')}
+          onPressOutfit={(id) => nav.navigate('OutfitDetail', { id })}
+        />
 
         {/* ============ YOUR STYLIST GRID ============ */}
-        <Section title={tr('home.section.stylist')}>
-          <HubGrid>
-            <HubTile icon={<ChatIcon color={t.accent} />}     label={tr('home.tile.styleChat.label')}   sub={tr('home.tile.styleChat.sub')}  onPress={push('StyleChat')} />
-            <HubTile icon={<OutfitsIcon color={t.accent} />}  label={tr('home.tile.outfits.label')}      sub={tr('home.tile.outfits.sub')}     onPress={push('Outfits')} />
-            <HubTile icon={<TshirtIcon color={t.accent} />}   label={tr('home.tile.styleMe.label')}     sub={tr('home.tile.styleMe.sub')}   onPress={push('StyleMe')} />
-            <HubTile icon={<SmileIcon color={t.accent} />}    label={tr('home.tile.moodOutfit.label')}  sub={tr('home.tile.moodOutfit.sub')}            onPress={push('MoodOutfit')} />
-          </HubGrid>
-        </Section>
+        <StylistHubsSection goRoute={push} />
 
         {/* ============ DISCOVER GRID ============ */}
-        <Section title={tr('home.section.discover')}>
-          <HubGrid>
-            <HubTile icon={<SuitcaseIcon color={t.accent} />} label={tr('home.tile.travelCapsule.label')} sub={tr('home.tile.travelCapsule.sub')}              onPress={push('TravelCapsule')} />
-            <HubTile icon={<GapsIcon color={t.accent} />}     label={tr('home.tile.wardrobeGaps.label')}  sub={tr('home.tile.wardrobeGaps.sub')}      onPress={push('WardrobeGaps')} />
-            <HubTile icon={<GearIcon color={t.accent} />}     label={tr('home.tile.settings.label')}       sub={tr('home.tile.settings.sub')}                onPress={push('Settings')} />
-          </HubGrid>
-        </Section>
+        <DiscoverHubsSection goRoute={push} />
 
         {/* ============ THIS WEEK MINI-STRIP ============ */}
-        <View>
-          <View style={s.sectionHead}>
-            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>{tr('home.section.thisWeek')}</Text>
-            <Pressable onPress={() => goTab('plan')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>{tr('home.thisWeek.calendarLink')}</Text>
-            </Pressable>
-          </View>
-          <MiniWeek days={week} onPress={() => goTab('plan')} />
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
-            <Button
-              label={tr('home.thisWeek.wearToday')}
-              size="sm"
-              onPress={handleWearToday}
-              block
-              style={{ flex: 1 }}
-              disabled={!todayOutfit || wornToday || markWorn.isPending}
-            />
-            <Button label={tr('home.thisWeek.restyle')} variant="outline" size="sm" onPress={push('StyleMe')} />
-            <Button label={tr('home.thisWeek.add')} variant="outline" size="sm" onPress={push('AddPieceStep1')} />
-          </View>
-        </View>
+        <ThisWeekSection
+          days={week}
+          canWearToday={!!todayOutfit && !wornToday}
+          wearTodayPending={markWorn.isPending}
+          onPlanTap={() => goTab('plan')}
+          onWearToday={handleWearToday}
+          onRestyle={push('StyleMe')}
+          onAdd={push('AddPieceStep1')}
+        />
 
         {/* ============ ASK THE STYLIST ROW ============ */}
-        <View>
-          <View style={s.sectionHead}>
-            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>{tr('home.section.askStylist')}</Text>
-            <Caption>AI</Caption>
-          </View>
-          <Pressable
-            onPress={push('StyleChat')}
-            accessibilityRole="button"
-            accessibilityLabel={`${tr('home.askStylist.exampleSeed')}. ${tr('home.askStylist.tapHint')}`}
-            style={[s.stylistRow, { borderColor: t.border, backgroundColor: t.card }]}>
-            <View style={[s.stylistIcon, { backgroundColor: t.accentSoft }]}>
-              <SparklesIcon color={t.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: '600', color: t.fg, fontFamily: fonts.uiSemi, letterSpacing: -0.13 }}>
-                {tr('home.askStylist.exampleSeed')}
-              </Text>
-              <Text style={{ fontSize: 11.5, color: t.fg2, marginTop: 1, fontFamily: fonts.ui }}>
-                {tr('home.askStylist.tapHint')}
-              </Text>
-            </View>
-            <ChevronIcon color={t.fg3} />
-          </Pressable>
-        </View>
+        <AskStylistRow onPress={push('StyleChat')} />
 
         {/* ============ YOUR RHYTHM ============ */}
-        <View>
-          <View style={s.sectionHead}>
-            <Text style={[s.sectionTitle, { color: t.fg, fontFamily: fonts.displayMedium }]}>{tr('home.section.rhythm')}</Text>
-            <Pressable onPress={() => goTab('insights')}>
-              <Text style={{ color: t.accent, fontSize: 12, fontWeight: '500', fontFamily: fonts.uiMed }}>{tr('home.rhythm.insightsLink')}</Text>
-            </Pressable>
-          </View>
-          {statsLoading ? (
-            <StatRowSkeleton count={2} />
-          ) : (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <RhythmStat
-                num={garmentTotal}
-                label={tr('home.rhythm.piecesLabel')}
-                onPress={() => goTab('insights')}
-              />
-              <RhythmStat
-                num={wardrobeStatsAuthoritative ? `${wardrobeUsedPct}%` : '—'}
-                label={tr('home.rhythm.usedLabel')}
-                onPress={() => goTab('insights')}
-              />
-            </View>
-          )}
-        </View>
+        <RhythmSection
+          loading={statsLoading}
+          garmentTotal={garmentTotal}
+          wardrobeStatsAuthoritative={wardrobeStatsAuthoritative}
+          wardrobeUsedPct={wardrobeUsedPct}
+          onSeeInsights={() => goTab('insights')}
+        />
       </ScrollView>
 
       {/* M27 — first-run coach overlay step 1. Lives at the screen root
           (sibling to ScrollView) so the modal scrim covers the whole
-          viewport, not just the scrollable area. The hook handles the
-          shouldShow gate; this only mounts the overlay when both
-          shouldShow and currentStep===0 are true. */}
+          viewport, not just the scrollable area. */}
       <CoachOverlay
         visible={showHeroCoach}
         targetRef={heroRef}
@@ -636,303 +393,6 @@ export function HomeScreen({
   );
 }
 
-// ====== Sub-components (private to HomeScreen — promote to /components/ if reused) ======
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View>
-      <View style={{ marginBottom: 10 }}>
-        <Eyebrow>{title}</Eyebrow>
-      </View>
-      {children}
-    </View>
-  );
-}
-
-function HubGrid({ children }: { children: React.ReactNode }) {
-  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{children}</View>;
-}
-
-function HubTile({
-  icon, label, sub, onPress,
-}: { icon: React.ReactNode; label: string; sub: string; onPress?: () => void }) {
-  const t = useTokens();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}. ${sub}`}
-      style={({ pressed }) => [
-        s.hubTile,
-        {
-          backgroundColor: t.card,
-          borderColor: t.border,
-          transform: pressed ? [{ scale: 0.98 }] : [],
-        },
-      ]}>
-      <View style={[s.hubTileIcon, { backgroundColor: t.accentSoft }]}>{icon}</View>
-      <View style={{ gap: 1 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: '600', color: t.fg, fontFamily: fonts.uiSemi, letterSpacing: -0.15 }}>
-          {label}
-        </Text>
-        <Text numberOfLines={2} style={{ fontSize: 11.5, color: t.fg2, lineHeight: 16, fontFamily: fonts.ui }}>
-          {sub}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-// Builds the 4-tile garment row inside Today's Look. Up to 4 of the outfit_items
-// render as signed-URL <Image>s; remaining slots fall through to gradient
-// placeholders so the row's visual rhythm holds even on a 2-piece outfit.
-function OutfitThumbRow({ outfit }: { outfit: OutfitWithItems }) {
-  const items = (outfit.outfit_items ?? []).slice(0, 4);
-  const fillerCount = Math.max(0, 4 - items.length);
-  const fallbackHue = outfitGradientHue(outfit.id);
-  return (
-    <View style={s.outfitRow}>
-      {items.map((item) => (
-        <OutfitThumb key={item.id} item={item} fallbackHue={fallbackHue} />
-      ))}
-      {Array.from({ length: fillerCount }).map((_, i) => (
-        <OutfitThumb key={`filler-${i}`} item={null} fallbackHue={fallbackHue} />
-      ))}
-    </View>
-  );
-}
-
-function OutfitThumb({
-  item,
-  fallbackHue,
-}: {
-  item: OutfitItemWithGarment | null;
-  fallbackHue: number;
-}) {
-  const t = useTokens();
-  const garment = item?.garment ?? null;
-  const imagePath =
-    garment?.rendered_image_path ??
-    garment?.original_image_path ??
-    garment?.image_path ??
-    null;
-  const { uri: imageUri, onError: onImageError } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  // Truthy fallback (`||` not `??`) — legacy outfit_items rows have `slot`
-  // as the empty string `''` rather than null, and `??` would still pick
-  // that empty value over the garment's category. Codex P2 on PR #738.
-  const label = (item?.slot || garment?.category || '').toString().toUpperCase();
-  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
-
-  return (
-    <View style={[s.thumb, { borderColor: t.border, backgroundColor: t.bg2 }]}>
-      <LinearGradient
-        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
-      {label && !showImage ? (
-        <Text style={[s.thumbLabel, { color: t.scrimFg }]}>{label}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-// One cell of the 2×2 mosaic inside `RecentOutfitTile`. Borderless companion
-// to `OutfitThumb`: same gradient + signed-URL <Image> recipe, no border or
-// label since four of these compose the recent-tile thumb rather than each
-// reading as a standalone garment card.
-//
-// G-008 (2026-05-09) — parity with `OutfitCard.GarmentSlot`: while the signed
-// URL is resolving we overlay a Shimmer pulse so a loading mosaic cell reads
-// differently from a permanently-broken one. Without this, a slow signed-URL
-// fetch (or transient 401 mid-retry) presented as a flat coloured tile
-// indistinguishable from a terminal failure. `useGarmentImage`'s `isResolving`
-// flag turns FALSE on every settled state (URL resolved, fetch errored after
-// retries, <Image> failed past retry budget) so the shimmer doesn't loop on
-// permanently-broken paths.
-function RecentMosaicSlot({
-  item,
-  fallbackHue,
-}: {
-  item: OutfitItemWithGarment | null;
-  fallbackHue: number;
-}) {
-  const garment = item?.garment ?? null;
-  const imagePath =
-    garment?.rendered_image_path ??
-    garment?.original_image_path ??
-    garment?.image_path ??
-    null;
-  const {
-    uri: imageUri,
-    onError: onImageError,
-    isResolving,
-  } = useGarmentImage(imagePath);
-  const showImage = imageUri != null;
-  // Same gating as `OutfitCard.GarmentSlot`: only animate while the URL is
-  // actually in flight AND we don't yet have an image to show. An empty
-  // mosaic cell (no `item`, hence no `imagePath`) returns
-  // `isResolving === false` so it stays a plain gradient.
-  const resolving = isResolving && !showImage;
-  const hue = garment?.id ? outfitGradientHue(garment.id) : fallbackHue;
-  return (
-    <View style={{ flex: 1, overflow: 'hidden' }}>
-      <LinearGradient
-        colors={[`hsl(${hue}, 38%, 78%)`, `hsl(${(hue + 30) % 360}, 30%, 62%)`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-      {showImage ? (
-        <Image
-          source={{ uri: imageUri }}
-          onError={onImageError}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      ) : null}
-      {resolving ? <Shimmer /> : null}
-    </View>
-  );
-}
-
-function MiniWeek({ days, onPress }: { days: WeekDay[]; onPress: () => void }) {
-  const t = useTokens();
-  return (
-    <View style={{ flexDirection: 'row', gap: 5 }}>
-      {days.map((day) => {
-        const dotColor = day.dot ? t.accent : day.active ? t.bg : t.fg3;
-        return (
-          <Pressable
-            key={day.iso}
-            onPress={onPress}
-            accessibilityRole="button"
-            accessibilityLabel={`${day.dow} ${day.n}${day.dot ? ', planned' : ''}`}
-            style={[
-              s.miniDay,
-              {
-                backgroundColor: day.active ? t.fg : t.card,
-                borderColor: day.active ? t.fg : t.border,
-                flex: 1,
-              },
-            ]}>
-            <Text style={{ fontSize: 9, letterSpacing: 1.3, color: day.active ? t.bg : t.fg2, fontFamily: fonts.uiSemi, opacity: day.active ? 0.75 : 1 }}>
-              {day.dow}
-            </Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', fontFamily: fonts.uiSemi, color: day.active ? t.bg : t.fg }}>
-              {day.n}
-            </Text>
-            <View style={{ width: 4, height: 4, borderRadius: 4, backgroundColor: dotColor, opacity: day.dot ? 1 : 0.25 }} />
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-// M35 — single tile in the horizontal "Recent outfits" carousel below the
-// hero. G2 (PR follow-up to G6) — the thumb area now renders a 2×2 mosaic
-// of the outfit's first four garment photos via signed URLs, falling back
-// to a per-garment gradient hue while loading or when no image_path is set.
-// Mirrors `OutfitThumbRow` / `OutfitThumb` in this same file but borderless
-// so the four cells read as a single composed flatlay rather than four
-// stacked thumbnails. Outfits with fewer than four items get gradient
-// fillers so the visual rhythm holds.
-function RecentOutfitTile({
-  outfit,
-  onPress,
-}: {
-  outfit: OutfitWithItems;
-  onPress: () => void;
-}) {
-  const t = useTokens();
-  const hue = outfitGradientHue(outfit.id);
-  const items = (outfit.outfit_items ?? []).slice(0, 4);
-  const slots: (OutfitItemWithGarment | null)[] = [
-    items[0] ?? null,
-    items[1] ?? null,
-    items[2] ?? null,
-    items[3] ?? null,
-  ];
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.recentTile,
-        {
-          borderColor: t.border,
-          backgroundColor: t.card,
-          transform: pressed ? [{ scale: 0.98 }] : [],
-        },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={outfitDisplayName(outfit)}>
-      <View style={s.recentThumb}>
-        <View style={{ flexDirection: 'row', flex: 1 }}>
-          <RecentMosaicSlot item={slots[0]} fallbackHue={hue} />
-          <RecentMosaicSlot item={slots[1]} fallbackHue={hue} />
-        </View>
-        <View style={{ flexDirection: 'row', flex: 1 }}>
-          <RecentMosaicSlot item={slots[2]} fallbackHue={hue} />
-          <RecentMosaicSlot item={slots[3]} fallbackHue={hue} />
-        </View>
-      </View>
-      <View style={{ paddingHorizontal: 10, paddingVertical: 8, gap: 2 }}>
-        <Text
-          style={{
-            fontFamily: fonts.uiSemi,
-            fontSize: 9,
-            letterSpacing: 1.5,
-            color: t.fg2,
-            textTransform: 'uppercase',
-          }}
-          numberOfLines={1}>
-          {(outfit.occasion || outfit.style_vibe || tr('home.recent.savedFallback')).toUpperCase()}
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.displayMedium,
-            fontStyle: 'italic',
-            fontSize: 13.5,
-            lineHeight: 16,
-            fontWeight: '500',
-            letterSpacing: -0.13,
-            color: t.fg,
-          }}
-          numberOfLines={1}>
-          {outfitDisplayName(outfit)}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-function RhythmStat({ num, label, onPress }: { num: string; label: string; onPress: () => void }) {
-  const t = useTokens();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[s.rhythmStat, { backgroundColor: t.card, borderColor: t.border }]}>
-      <Text style={{ fontFamily: fonts.displayMedium, fontStyle: 'italic', fontSize: 28, lineHeight: 28, fontWeight: '500', color: t.fg }}>
-        {num}
-      </Text>
-      <Text style={{ fontSize: 10.5, marginTop: 6, textTransform: 'uppercase', letterSpacing: 1.7, color: t.fg2, fontFamily: fonts.uiSemi }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const s = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
   avatarWrap: { /* hit area */ },
@@ -942,91 +402,5 @@ const s = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  outfitRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 0,
-  },
-  thumb: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  thumbLabel: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    fontSize: 9,
-    fontFamily: fonts.uiSemi,
-    letterSpacing: 1.1,
-    // `color` set inline via `t.scrimFg` — the foreground token designed
-    // to be readable on top of dark/scrim surfaces (here, the colored
-    // gradient backdrop). N8 a11y sweep replaced a hardcoded '#fff'.
-    opacity: 0.85,
-    textTransform: 'uppercase',
-  },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  sectionTitle: { fontSize: 19, fontStyle: 'italic', fontWeight: '500', letterSpacing: -0.19 },
-  hubTile: {
-    width: '48%',
-    flexGrow: 1,
-    flexBasis: '48%',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 10,
-  },
-  hubTileIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniDay: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  stylistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-  },
-  stylistIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rhythmStat: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  recentTile: {
-    width: 130,
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  recentThumb: {
-    width: '100%',
-    aspectRatio: 1,
   },
 });
