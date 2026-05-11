@@ -1752,6 +1752,31 @@ export const sv: Record<string, string> = {
   'outfitGenerate.toast.savedAsPreview.body':
     'Permanent sparning kommer i en framtida uppdatering. Tills vidare är detta en förhandsvisning.',
 
+  // MoodFlow + OutfitGenerate — real Save/Wear persistence (parity sweep B).
+  'moodFlow.save.action': 'Spara look',
+  'moodFlow.save.busy': 'Sparar…',
+  'moodFlow.save.saved': 'Sparad',
+  'moodFlow.save.success.title': 'Sparad',
+  'moodFlow.save.success.body': 'Looken finns nu i Outfits.',
+  'moodFlow.save.failed.title': 'Kunde inte spara',
+  'moodFlow.save.empty.title': 'Inget att spara än',
+  'moodFlow.save.empty.body': 'Looken har inga plagg att spara.',
+  'moodFlow.wear.action': 'Bär den här',
+  'moodFlow.wear.busy': 'Arbetar…',
+  'moodFlow.wear.failed.title': 'Kunde inte markera buren',
+  'moodFlow.restyle.action': 'Stila om',
+  'outfitGenerate.save.action': 'Spara outfit',
+  'outfitGenerate.save.busy': 'Sparar…',
+  'outfitGenerate.save.saved': 'Sparad',
+  'outfitGenerate.save.success.title': 'Sparad',
+  'outfitGenerate.save.success.body': 'Din outfit finns nu i Outfits.',
+  'outfitGenerate.save.failed.title': 'Kunde inte spara',
+  'outfitGenerate.save.empty.title': 'Inget att spara än',
+  'outfitGenerate.save.empty.body': 'Outfiten har inga plagg att spara.',
+  'outfitGenerate.wear.action': 'Bär idag',
+  'outfitGenerate.wear.busy': 'Arbetar…',
+  'outfitGenerate.wear.failed.title': 'Kunde inte markera buren',
+
   'wardrobe.wishlist.comingSoon.title': 'Kommer snart',
   'wardrobe.wishlist.comingSoon.body': 'Önskelistan kommer snart.',
 

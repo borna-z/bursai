@@ -1862,9 +1862,35 @@ export const en: Record<string, string> = {
   'outfitDetail.toast.couldNotSaveNote': 'Could not save note',
 
   // OutfitGenerate — informational placeholder ("real saving lands later").
+  // Kept for any legacy callers; the persist flow uses the keys below.
   'outfitGenerate.toast.savedAsPreview.title': 'Saved as preview',
   'outfitGenerate.toast.savedAsPreview.body':
     'Persistent saving lands in a future update. For now this is a preview.',
+
+  // MoodFlow + OutfitGenerate — real Save/Wear persistence (parity sweep B).
+  'moodFlow.save.action': 'Save look',
+  'moodFlow.save.busy': 'Saving…',
+  'moodFlow.save.saved': 'Saved',
+  'moodFlow.save.success.title': 'Saved',
+  'moodFlow.save.success.body': 'Your look lives in Outfits now.',
+  'moodFlow.save.failed.title': 'Couldn’t save',
+  'moodFlow.save.empty.title': 'Nothing to save yet',
+  'moodFlow.save.empty.body': 'The look has no garments to save.',
+  'moodFlow.wear.action': 'Wear this',
+  'moodFlow.wear.busy': 'Working…',
+  'moodFlow.wear.failed.title': 'Couldn’t mark worn',
+  'moodFlow.restyle.action': 'Restyle',
+  'outfitGenerate.save.action': 'Save outfit',
+  'outfitGenerate.save.busy': 'Saving…',
+  'outfitGenerate.save.saved': 'Saved',
+  'outfitGenerate.save.success.title': 'Saved',
+  'outfitGenerate.save.success.body': 'Your outfit lives in Outfits now.',
+  'outfitGenerate.save.failed.title': 'Couldn’t save',
+  'outfitGenerate.save.empty.title': 'Nothing to save yet',
+  'outfitGenerate.save.empty.body': 'The outfit has no garments to save.',
+  'outfitGenerate.wear.action': 'Wear today',
+  'outfitGenerate.wear.busy': 'Working…',
+  'outfitGenerate.wear.failed.title': 'Couldn’t mark worn',
 
   // Wardrobe wishlist tile — informational placeholder.
   'wardrobe.wishlist.comingSoon.title': 'Coming soon',
