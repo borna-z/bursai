@@ -268,19 +268,33 @@ export async function readUsageBudget(
     // directly (no row wrapper, no `.single()` needed). Postgres bigint
     // arrives as a JS `number` for small magnitudes and a `string` when
     // it exceeds Number.MAX_SAFE_INTEGER — we accept both.
-    const { data: sumValue, error: rpcErr } = await supabase.rpc(
-      "sum_ai_token_usage_for_month",
-      { p_user_id: userId, p_month_start: monthStart },
-    );
-    if (!rpcErr && (typeof sumValue === "number" || typeof sumValue === "string")) {
-      const spentMicros = Number(sumValue);
-      return {
-        quotaMicros,
-        spentMicros: Number.isFinite(spentMicros) ? spentMicros : 0,
-      };
-    }
-    if (rpcErr) {
-      console.warn("burs-ai: sum RPC failed, falling back to SELECT:", rpcErr.message);
+    //
+    // The inner try/catch isolates ANY RPC-side failure (function missing
+    // on the linked DB during the migration window, mock supabase clients
+    // in tests that don't define `.rpc()`, transient network error) so
+    // the SELECT-path fallback below stays reachable.
+    try {
+      if (typeof (supabase as { rpc?: unknown }).rpc === "function") {
+        const { data: sumValue, error: rpcErr } = await supabase.rpc(
+          "sum_ai_token_usage_for_month",
+          { p_user_id: userId, p_month_start: monthStart },
+        );
+        if (!rpcErr && (typeof sumValue === "number" || typeof sumValue === "string")) {
+          const spentMicros = Number(sumValue);
+          return {
+            quotaMicros,
+            spentMicros: Number.isFinite(spentMicros) ? spentMicros : 0,
+          };
+        }
+        if (rpcErr) {
+          console.warn("burs-ai: sum RPC failed, falling back to SELECT:", rpcErr.message);
+        }
+      }
+    } catch (rpcThrow) {
+      console.warn(
+        "burs-ai: sum RPC threw, falling back to SELECT:",
+        rpcThrow instanceof Error ? rpcThrow.message : String(rpcThrow),
+      );
     }
 
     const { data: usageRows, error: usageErr } = await supabase

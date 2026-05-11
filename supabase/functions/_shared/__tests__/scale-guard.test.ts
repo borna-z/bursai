@@ -434,7 +434,10 @@ function createEnforceRateLimitMock(opts: RateLimitMockOptions) {
         eq: () => typeof builder;
         gte: () => Promise<{ count: number; error: null }>;
         single: () => Promise<{ data: unknown; error: null }>;
-        insert: () => { then: (cb: () => void) => void };
+        // N15/BE-P0-B5 — insert is now awaited in enforceRateLimit. The mock
+        // must resolve to a {data, error} shape; the previous fire-and-forget
+        // thenable would hang an awaited call indefinitely.
+        insert: () => Promise<{ data: null; error: null }>;
       } = {
         select: () => builder,
         eq: () => builder,
@@ -458,7 +461,7 @@ function createEnforceRateLimitMock(opts: RateLimitMockOptions) {
           }
           return { data: null, error: null };
         },
-        insert: () => ({ then: (_cb: () => void) => void 0 }),
+        insert: async () => ({ data: null, error: null }),
       };
       return builder;
     },
