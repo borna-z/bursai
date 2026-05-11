@@ -17,7 +17,7 @@ import { Card } from '../components/Card';
 import { IconBtn } from '../components/IconBtn';
 import { SettingsRow } from '../components/SettingsRow';
 import { TypedConfirmModal } from '../components/TypedConfirmModal';
-import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon, RotateIcon, CalendarIcon } from '../components/icons';
+import { BackIcon, MailIcon, KeyIcon, GlobeIcon, FileIcon, TrashIcon, ReceiptIcon, CalendarIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
 import { useDeleteAccount } from '../hooks/useDeleteAccount';
 import { useRestorePurchases } from '../hooks/useRestorePurchases';
@@ -329,7 +329,7 @@ export function SettingsAccountScreen() {
           <Eyebrow>{tr('settings.account.section.subscription')}</Eyebrow>
           <Card padding={4}>
             <SettingsRow
-              icon={<RotateIcon size={18} color={t.accent} />}
+              icon={<ReceiptIcon size={18} color={t.accent} />}
               title={tr('settings.account.row.restorePurchases')}
               caption={tr('settings.account.row.restorePurchases.caption')}
               last

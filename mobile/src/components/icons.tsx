@@ -401,3 +401,17 @@ export const LinkIcon = ({ size = 22, color = '#000' }: IconProps) => (
     <Path d="M8 12h8" />
   </Svg>
 );
+
+// N14/F8 — receipt-shaped glyph for the Restore Purchases row in Settings.
+// Replaces RotateIcon there so that the circular-arrow glyph is reserved
+// for reset/refresh semantics (SettingsPrivacy reset memory, LiveScan torch).
+// Lucide-derived `Receipt` shape, simplified to two horizontal line items so
+// it reads at 18 pt.
+export const ReceiptIcon = ({ size = 18, color = '#000' }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M5 3v18l2.5-1.5L10 21l2.5-1.5L15 21l2.5-1.5L20 21V3H5Z" />
+    <Path d="M9 8h7" />
+    <Path d="M9 12h7" />
+    <Path d="M9 16h4" />
+  </Svg>
+);

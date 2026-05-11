@@ -104,17 +104,27 @@ export function OutfitDetailScreen() {
     garmentId: string | null;
   } | null>(null);
 
+  // N14/F1 — guards the AsyncStorage read against a fast tap. The original
+  // hydration effect only used a `cancelled` ref to drop a late `setState`
+  // after unmount, but a user tapping Anchor before the read resolved could
+  // have their tap clobbered by the hydrated value milliseconds later.
+  // `hydratedRef` flips true after the read resolves; `persistAnchor` flips
+  // it on a user write so any in-flight hydration is short-circuited.
+  const hydratedRef = React.useRef(false);
+
   // Hydrate the anchor from AsyncStorage when the outfit id resolves.
   React.useEffect(() => {
     let cancelled = false;
     if (!user || !outfit?.id) {
       setAnchorGarmentId(null);
+      hydratedRef.current = false;
       return;
     }
+    hydratedRef.current = false;
     (async () => {
       try {
         const stored = await AsyncStorage.getItem(anchorStorageKey(user.id, outfit.id));
-        if (cancelled) return;
+        if (cancelled || hydratedRef.current) return;
         setAnchorGarmentId(stored && stored.length > 0 ? stored : null);
       } catch (err) {
         Sentry.addBreadcrumb({
@@ -123,6 +133,8 @@ export function OutfitDetailScreen() {
           message: 'OutfitDetail: anchor read failed',
           data: { error: err instanceof Error ? err.message : String(err) },
         });
+      } finally {
+        if (!cancelled) hydratedRef.current = true;
       }
     })();
     return () => {
@@ -134,6 +146,9 @@ export function OutfitDetailScreen() {
     async (garmentId: string | null) => {
       if (!user || !outfit?.id) return;
       const key = anchorStorageKey(user.id, outfit.id);
+      // N14/F1 — claim hydration so a still-in-flight AsyncStorage read
+      // can't clobber the user's just-written value.
+      hydratedRef.current = true;
       try {
         if (garmentId) {
           await AsyncStorage.setItem(key, garmentId);

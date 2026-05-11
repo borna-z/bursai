@@ -125,7 +125,10 @@ export function useRenderJobStatus(
   const emptyPollsRef = useRef<number>(0);
 
   const query = useQuery<RenderJobSnapshot | null>({
-    queryKey: ['render_job', garmentId],
+    // N14/F6 — user-scoped key for consistency with the rest of the mobile
+    // cache (`['garment', user?.id, id]`). No callers read this key directly,
+    // so the rename is internal-only.
+    queryKey: ['render_job', user?.id, garmentId],
     queryFn: async () => {
       if (!garmentId) return null;
 

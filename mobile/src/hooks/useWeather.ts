@@ -29,6 +29,12 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 
+import {
+  getConditionFromCode,
+  getPrecipitationFromCode,
+  getWindCategory,
+} from '../lib/weatherCodes';
+
 export interface WeatherData {
   /** Whole-degree Celsius reading rounded from Open-Meteo's hourly value. */
   temperature: number;
@@ -124,34 +130,6 @@ export async function awaitFreshWeather(
   } finally {
     if (timeoutHandle !== null) clearTimeout(timeoutHandle);
   }
-}
-
-function getConditionFromCode(code: number): string {
-  if (code === 0) return 'weather.condition.clear';
-  if (code <= 3) return 'weather.condition.cloudy';
-  if (code === 45 || code === 48) return 'weather.condition.fog';
-  if (code >= 51 && code <= 57) return 'weather.condition.drizzle';
-  if (code >= 61 && code <= 67) return 'weather.condition.rain';
-  if (code >= 71 && code <= 77) return 'weather.condition.snow';
-  if (code >= 80 && code <= 82) return 'weather.condition.rain_showers';
-  if (code >= 85 && code <= 86) return 'weather.condition.snow_showers';
-  if (code >= 95 && code <= 99) return 'weather.condition.thunder';
-  return 'weather.condition.unknown';
-}
-
-function getPrecipitationFromCode(code: number): 'none' | 'rain' | 'snow' {
-  if (code >= 71 && code <= 77) return 'snow';
-  if (code >= 85 && code <= 86) return 'snow';
-  if (code >= 51 && code <= 67) return 'rain';
-  if (code >= 80 && code <= 82) return 'rain';
-  if (code >= 95 && code <= 99) return 'rain';
-  return 'none';
-}
-
-function getWindCategory(windSpeed: number): 'low' | 'medium' | 'high' {
-  if (windSpeed < 15) return 'low';
-  if (windSpeed < 30) return 'medium';
-  return 'high';
 }
 
 /** Resolve `city` → lat/lon via Nominatim. Returns null when the lookup fails
