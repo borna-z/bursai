@@ -28,6 +28,11 @@ export type ChatMessage = {
   timestamp: Date;
   isStreaming?: boolean;
   stylistMeta?: StyleChatResponseEnvelope | null;
+  /** Q-D1 — true when this message is a localized error fallback (the
+   *  stream failed before producing real assistant content). Set so the
+   *  fallback copy never leaks into the next turn's `priorHistory`
+   *  payload to the edge function — Codex P2 round 1 review. */
+  isErrored?: boolean;
 };
 
 export type StyleChatChunk =

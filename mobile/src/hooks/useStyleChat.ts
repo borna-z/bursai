@@ -403,9 +403,12 @@ export function useStyleChat(): UseStyleChatResult {
       // Build the history payload from the PRIOR snapshot so the new turn
       // doesn't poison the request body. messagesRef holds the last-rendered
       // state — see edge contract (supabase/functions/style_chat/index.ts:933-946)
-      // for the strict shape.
+      // for the strict shape. Q-D1 also strips `isErrored` placeholders so
+      // the localized UI fallback (e.g. "Couldn't generate a reply…") never
+      // leaks into the AI's view of the conversation as if the assistant
+      // actually said it. Codex P2 round 1 on PR #827.
       const priorHistory = messagesRef.current
-        .filter((m) => !m.isStreaming)
+        .filter((m) => !m.isStreaming && !m.isErrored)
         .slice(-HISTORY_TURNS)
         .map((m) => ({ role: m.role, content: m.content }));
       const messagesPayload = [
@@ -421,10 +424,14 @@ export function useStyleChat(): UseStyleChatResult {
       // Clear-active-look so the next turn doesn't ship a stale look.
       // Codex P1-1.
       const clearedAt = activeLookClearedAtRef.current;
-      const lookSourceMessages =
-        clearedAt === null
-          ? messagesRef.current
-          : messagesRef.current.filter((m) => m.timestamp.getTime() >= clearedAt);
+      // Q-D1 — also strip `isErrored` messages so a failed turn's partial
+      // envelope (if any landed before the stream errored) can't become
+      // the active look the next turn refines around. Codex P2 round 1
+      // on PR #827.
+      const lookSourceMessages = (clearedAt === null
+        ? messagesRef.current
+        : messagesRef.current.filter((m) => m.timestamp.getTime() >= clearedAt)
+      ).filter((m) => !m.isErrored);
       const latestLook = getLatestActiveLook(lookSourceMessages);
       const activeLookPayload: StyleChatActiveLookInput | undefined = latestLook
         ? {
@@ -679,7 +686,7 @@ export function useStyleChat(): UseStyleChatResult {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: fallbackContent, isStreaming: false }
+                  ? { ...m, content: fallbackContent, isStreaming: false, isErrored: true }
                   : m,
               ),
             );
