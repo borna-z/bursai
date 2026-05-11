@@ -117,6 +117,17 @@ export function PercentSlider({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
+        // N14/F3 round 3 — capture-phase claim. The Pressable overlay below
+        // is the deepest touch target and would otherwise hold the responder
+        // for its press lifecycle, swallowing horizontal drags before the
+        // parent View's bubble-phase `onMoveShouldSetPanResponder` ever
+        // fires. By claiming on capture when the gesture is horizontally
+        // biased, the parent wins the responder transfer mid-drag, the
+        // Pressable's press is cancelled (Pressability releases on responder
+        // takeover), and `onPanResponderGrant` / `onPanResponderMove`
+        // commit the slider position as before.
+        onMoveShouldSetPanResponderCapture: (_e, gestureState) =>
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onMoveShouldSetPanResponder: (_e, gestureState) =>
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderGrant: (e) => {
