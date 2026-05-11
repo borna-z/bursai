@@ -701,6 +701,36 @@ export function useStyleChat(): UseStyleChatResult {
               ),
             );
             setIsStreaming(false);
+            // Q-D2 — advance refine state with the just-generated outfit
+            // so the NEXT refine turn targets the new look (matching web
+            // `useRefineMode.pushRefinement` at AIChat.tsx:972-976). If
+            // we skipped this, a second "make it dressier" inside the
+            // same refine session would still send the original card's
+            // `active_look` + lockedIds, undoing or ignoring the look the
+            // engine just produced. Codex P2 round 2 on PR #828. Locked
+            // ids are filtered to those that survived into the new
+            // outfit — items the engine swapped out are unlockable.
+            if (refineModeRef.current && finalMeta) {
+              const nextIds = (finalMeta.active_look?.garment_ids?.length
+                ? finalMeta.active_look.garment_ids
+                : finalMeta.outfit_ids ?? []) as string[];
+              if (nextIds.length > 0) {
+                const nextExplanation =
+                  (finalMeta.active_look?.explanation as string | undefined)
+                  ?? (finalMeta.outfit_explanation as string | undefined)
+                  ?? refineModeRef.current.explanation;
+                const survivingLocks = new Set<string>();
+                for (const id of refineModeRef.current.lockedIds) {
+                  if (nextIds.includes(id)) survivingLocks.add(id);
+                }
+                setRefineMode({
+                  messageId: refineModeRef.current.messageId,
+                  garmentIds: nextIds.slice(),
+                  explanation: nextExplanation,
+                  lockedIds: survivingLocks,
+                });
+              }
+            }
             // Persist the just-completed turn pair so a refresh resumes
             // the same conversation. Skip when we have nothing meaningful
             // to record (degraded zero-text path with no envelope).
