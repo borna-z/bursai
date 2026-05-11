@@ -95,14 +95,22 @@ export interface UseStyleChatResult {
   setMode: (mode: StyleChatMode) => void;
   /** Q-D2 — refine-mode state. `null` when not refining. When non-null,
    *  the user has tapped Refine on a chat outfit suggestion: `messageId`
-   *  identifies which assistant bubble owns the look being refined, and
+   *  identifies which assistant bubble owns the look being refined,
+   *  `garmentIds` + `explanation` are snapshots of that card's outfit at
+   *  refine-entry (so a stale active_look from a NEWER turn never gets
+   *  paired with these `lockedIds` — Codex P2 round 1 on Q-D2), and
    *  `lockedIds` is the set of garment ids the user has tapped to lock
    *  for the next generation (mirrors web `useRefineMode.lockedSlots`).
    *  The next `sendMessage` call attaches `locked_slots: [...]` to the
    *  `style_chat` request body so the engine swaps only the unlocked
-   *  slots. */
-  refineMode: { messageId: string; lockedIds: Set<string> } | null;
-  enterRefineMode: (messageId: string) => void;
+   *  slots, with `active_look` rebuilt from the refine snapshot. */
+  refineMode: {
+    messageId: string;
+    garmentIds: string[];
+    explanation: string;
+    lockedIds: Set<string>;
+  } | null;
+  enterRefineMode: (messageId: string, garmentIds: string[], explanation: string) => void;
   exitRefineMode: () => void;
   toggleLockedSlot: (garmentId: string) => void;
 }
@@ -160,9 +168,23 @@ export function useStyleChat(): UseStyleChatResult {
   // the callback per toggle (matches the `streamingRef` / `currentModeRef`
   // / `anchorRef` pattern used elsewhere in this hook).
   const [refineMode, setRefineMode] = useState<
-    { messageId: string; lockedIds: Set<string> } | null
+    | {
+        messageId: string;
+        garmentIds: string[];
+        explanation: string;
+        lockedIds: Set<string>;
+      }
+    | null
   >(null);
-  const refineModeRef = useRef<{ messageId: string; lockedIds: Set<string> } | null>(null);
+  const refineModeRef = useRef<
+    | {
+        messageId: string;
+        garmentIds: string[];
+        explanation: string;
+        lockedIds: Set<string>;
+      }
+    | null
+  >(null);
   refineModeRef.current = refineMode;
 
   // ─── Hydration ─────────────────────────────────────────────────────────
@@ -410,11 +432,23 @@ export function useStyleChat(): UseStyleChatResult {
   // Q-D2 — Refine-mode transitions. Pulled out as `useCallback`s so the
   // OutfitSuggestionCard's `onPress` props stay referentially stable
   // (the card is memoized).
-  const enterRefineMode = useCallback((messageId: string) => {
-    // Fresh lock set — entering refine mode never inherits state from a
-    // previous refine session, matching web `useRefineMode.enterRefineMode`.
-    setRefineMode({ messageId, lockedIds: new Set<string>() });
-  }, []);
+  const enterRefineMode = useCallback(
+    (messageId: string, garmentIds: string[], explanation: string) => {
+      // Fresh lock set — entering refine mode never inherits state from a
+      // previous refine session, matching web `useRefineMode.enterRefineMode`.
+      // Snapshot the card's garment ids + explanation so the next refine
+      // send can rebuild `active_look` against THIS card (rather than the
+      // last assistant envelope's, which `getLatestActiveLook` returns and
+      // could belong to a newer turn). Codex P2 round 1 on Q-D2.
+      setRefineMode({
+        messageId,
+        garmentIds: garmentIds.slice(),
+        explanation,
+        lockedIds: new Set<string>(),
+      });
+    },
+    [],
+  );
   const exitRefineMode = useCallback(() => {
     setRefineMode(null);
   }, []);
@@ -595,11 +629,28 @@ export function useStyleChat(): UseStyleChatResult {
           ? Array.from(refineSnapshot.lockedIds)
           : undefined;
 
+      // Q-D2 — override `active_look` with the refine-mode snapshot when
+      // refining. Without this, refining an OLDER card after a NEWER
+      // outfit was suggested would pair `getLatestActiveLook`'s active_look
+      // (= the newer outfit) with `locked_slots` from the OLDER card —
+      // the engine would refine the wrong look or ignore the locks
+      // entirely. Codex P2 round 1 on Q-D2.
+      const refineActiveLookPayload: StyleChatActiveLookInput | undefined = refineSnapshot
+        ? {
+            garment_ids: refineSnapshot.garmentIds,
+            explanation: refineSnapshot.explanation || null,
+            source: 'mobile_chat_refine',
+            anchor_garment_id: anchorRef.current,
+            anchor_locked: Boolean(anchorRef.current),
+          }
+        : undefined;
+      const finalActiveLookPayload = refineActiveLookPayload ?? activeLookPayload;
+
       const requestBody = buildRequestBody({
         mode: turnMode,
         messagesPayload,
         anchoredGarmentId: anchorRef.current,
-        activeLookPayload,
+        activeLookPayload: finalActiveLookPayload,
         lockedSlots: lockedSlotsForRequest,
       });
 

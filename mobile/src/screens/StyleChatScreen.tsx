@@ -463,14 +463,13 @@ export function StyleChatScreen() {
     error && error !== SUBSCRIPTION_SENTINEL ? error : null;
 
   // Q-D2 — refine entry handler. The card emits `(messageId, ids, exp)`;
-  // the screen only needs the messageId to mark which bubble is being
-  // refined. Garment ids + explanation are already carried inside that
-  // bubble's `stylistMeta`, so passing them again would duplicate state.
-  // useCallback so MessageItem's memo doesn't re-render every row when
-  // refineMode flips.
+  // we snapshot all three into refine state so the next refine send can
+  // rebuild `active_look` against THIS card rather than the latest
+  // assistant envelope (which `getLatestActiveLook` returns and may
+  // belong to a NEWER turn). Codex P2 round 1 on Q-D2.
   const handleEnterRefine = React.useCallback(
-    (messageId: string) => {
-      enterRefineMode(messageId);
+    (messageId: string, garmentIds: string[], explanation: string) => {
+      enterRefineMode(messageId, garmentIds, explanation);
     },
     [enterRefineMode],
   );
