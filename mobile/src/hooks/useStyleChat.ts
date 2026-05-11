@@ -683,10 +683,25 @@ export function useStyleChat(): UseStyleChatResult {
             const fallbackContent = isPaywall
               ? tr('chat.error.premium.body')
               : tr('chat.error.inlineFallback');
+            // Q-D1 — also drop any partial `stylistMeta` the placeholder
+            // picked up before the stream errored. A `stylist_response`
+            // envelope can land before deltas start flowing, so the
+            // placeholder's `stylistMeta` may already carry
+            // `render_outfit_card`, `outfit_ids`, `active_look`, or
+            // `shopping_results`. Without nulling it, `MessageItem` would
+            // still render the outfit/shopping cards and the long-press
+            // anchor gesture would stay live on a turn the UI itself says
+            // failed. Codex P2 round 2 on PR #827.
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: fallbackContent, isStreaming: false, isErrored: true }
+                  ? {
+                      ...m,
+                      content: fallbackContent,
+                      isStreaming: false,
+                      isErrored: true,
+                      stylistMeta: null,
+                    }
                   : m,
               ),
             );
