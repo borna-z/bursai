@@ -1925,6 +1925,15 @@ export const en: Record<string, string> = {
   'outfitGenerate.wear.action': 'Wear today',
   'outfitGenerate.wear.busy': 'Working…',
   'outfitGenerate.wear.failed.title': 'Couldn’t mark worn',
+  // Q-B — Plan for a date CTA + planner sheet copy.
+  'outfitGenerate.plan.action': 'Plan for a date',
+  'outfitGenerate.plan.failed.title': 'Couldn’t save outfit',
+  'plannerSheet.eyebrow': 'Plan this outfit',
+  'plannerSheet.title': 'Pick a day',
+  'plannerSheet.confirm': 'Confirm',
+  'plannerSheet.success.title': 'Planned',
+  'plannerSheet.success.body': 'This outfit is on your plan now.',
+  'plannerSheet.failed.title': 'Couldn’t save plan',
 
   // Wardrobe wishlist tile — informational placeholder.
   'wardrobe.wishlist.comingSoon.title': 'Coming soon',

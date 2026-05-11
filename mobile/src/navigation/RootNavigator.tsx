@@ -193,7 +193,16 @@ export type RootStackParamList = {
 
   // Outfit / garment / sharing
   Outfits: undefined;
-  OutfitDetail: { id?: string } | undefined;
+  // Q-B — `openPlanner` triggers the date-picker sheet to mount open on
+  // first render (used by the OutfitGenerate "Plan for a date" flow);
+  // `preselectDate` pre-selects a YYYY-MM-DD inside the sheet (used when
+  // the user came from PlanScreen with a date already chosen). Both
+  // optional and ignored on the regular outfit-detail navigation path.
+  OutfitDetail: {
+    id?: string;
+    openPlanner?: boolean;
+    preselectDate?: string;
+  } | undefined;
   // Outfit-generation flow (loading → result). garmentId optional for "Wear today" /
   // "Restyle from this piece" entry points that anchor on a specific item.
   // seedGarmentIds (M17 Codex P1.4) optional for variation/clone entry
@@ -201,7 +210,15 @@ export type RootStackParamList = {
   // entire seed into `prefer_garment_ids` so the engine builds in-style
   // alternatives, not just an anchor-around-one-piece. Earlier code threaded
   // only `draft.items[0].garment_id` and lost N-1 of the source pieces.
-  OutfitGenerate: { garmentId?: string; seedGarmentIds?: string[] } | undefined;
+  // Q-B — `initialDate` (YYYY-MM-DD) carries forward the date the user
+  // selected on PlanScreen when they tapped "Create Outfit"; the result
+  // page threads it into `OutfitDetail.preselectDate` when the user taps
+  // "Plan for a date" so the sheet opens on the right date.
+  OutfitGenerate: {
+    garmentId?: string;
+    seedGarmentIds?: string[];
+    initialDate?: string;
+  } | undefined;
   // M16 — outfit pool. anchorGarmentId / occasion mirror the single-outfit
   // generator's params (so a Restyle-from-piece tap can fan out to a pool of
   // 5–10 candidates). `count` defaults to 5 in the screen when omitted.

@@ -59,6 +59,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 import { anchorStorageKey } from './OutfitDetailScreen.helpers';
 import { DetailThumbGrid, MetaChip } from './OutfitDetailScreen.thumbGrid';
 import { SwapCandidateSheet } from './OutfitDetailScreen.swapSheet';
+import { DatePickerSheet } from './TravelCapsuleScreen.datePicker';
 import { HelperSections } from './OutfitDetailScreen.helperSections';
 import { FeedbackSection } from './OutfitDetailScreen.feedback';
 import { OutfitDetailHeader } from './OutfitDetailScreen.header';
@@ -76,6 +77,37 @@ export function OutfitDetailScreen() {
   const id = route.params?.id;
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Q-B — planner sheet auto-mounts open when the screen is reached via
+  // OutfitGenerate's "Plan for a date" action (or any future caller that
+  // passes `openPlanner: true`). `preselectDate` (YYYY-MM-DD) seeds the
+  // staged date inside `DatePickerSheet`; falls through to today via
+  // the sheet's own initialISO default when undefined.
+  //
+  // Both values are snapshotted via lazy `useState` init so they survive
+  // the mount-effect's `nav.setParams({ … undefined })` clear below.
+  // `DatePickerSheet` re-anchors whenever its `initialISO` prop changes,
+  // so reading `route.params.preselectDate` directly would flip back to
+  // today the instant the param-clear lands — Codex P2 round 1 on Q-B.
+  const [plannerOpen, setPlannerOpen] = React.useState<boolean>(
+    () => route.params?.openPlanner === true,
+  );
+  const [plannerInitialISO] = React.useState<string | undefined>(
+    () => route.params?.preselectDate,
+  );
+  // Clear the trigger params after first mount so a back-nav onto this
+  // screen doesn't re-open the planner — React Navigation persists
+  // params unless we explicitly null them. `setParams` lands on the
+  // SAME route entry, which is what we want.
+  React.useEffect(() => {
+    if (route.params?.openPlanner || route.params?.preselectDate) {
+      nav.setParams({ openPlanner: undefined, preselectDate: undefined });
+    }
+    // We only want the param-clear to happen once at mount, not on
+    // every re-render that happens to see openPlanner true (which
+    // would be empty after the first setParams). Empty deps is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const outfitQ = useOutfit(id);
   const outfit = outfitQ.data ?? null;
@@ -381,6 +413,56 @@ export function OutfitDetailScreen() {
     );
   }, [outfit, upsertPlanned, now]);
 
+  // Q-B — planner sheet confirm. Writes a planned_outfits row for the
+  // chosen date; when the user picked TODAY we also fire `markWorn` so
+  // the "Wear today" semantics ride along (matches the spec's "single
+  // sheet, the date decides the action" UX). Sheet dismisses on confirm
+  // either way. Garment ids forwarded to `markWorn` so each piece's
+  // wear_count + last_worn_at land.
+  const handlePlannerConfirm = React.useCallback(
+    (iso: string) => {
+      if (!outfit) return;
+      const todayIso = localISODate(now);
+      const isToday = iso === todayIso;
+      const garmentIds = (outfit.outfit_items ?? [])
+        .map((it: OutfitItemWithGarment) => it.garment?.id)
+        .filter((g): g is string => typeof g === 'string' && g.length > 0);
+      upsertPlanned.mutate(
+        { date: iso, outfitId: outfit.id },
+        {
+          onSuccess: () => {
+            setPlannerOpen(false);
+            if (isToday) {
+              markWorn.mutate(
+                { outfitId: outfit.id, garmentIds },
+                {
+                  onError: (err: unknown) =>
+                    showToast(
+                      'error',
+                      tr('outfit.actions.couldNotWear.title'),
+                      err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
+                    ),
+                },
+              );
+            }
+            showToast(
+              'success',
+              tr('plannerSheet.success.title'),
+              tr('plannerSheet.success.body'),
+            );
+          },
+          onError: (err: unknown) =>
+            showToast(
+              'error',
+              tr('plannerSheet.failed.title'),
+              err instanceof Error ? err.message : tr('common.alerts.tryAgain'),
+            ),
+        },
+      );
+    },
+    [outfit, upsertPlanned, markWorn, now],
+  );
+
   const handleShare = React.useCallback(async () => {
     if (!outfit) return;
     const displayName = outfitDisplayName(outfit);
@@ -598,6 +680,22 @@ export function OutfitDetailScreen() {
           onSelect={handleSelectSwap}
         />
       ) : null}
+
+      {/* Q-B — planner sheet (reuses TravelCapsule's DatePickerSheet for
+          the month-grid primitive). Mounts always (Modal manages its own
+          visibility) so the `visible` toggle drives the open animation.
+          On confirm, writes `planned_outfits` for the picked date and —
+          when picked === today — also marks the outfit worn so the
+          "Wear today" semantics ride along. */}
+      <DatePickerSheet
+        visible={plannerOpen}
+        title={tr('plannerSheet.title')}
+        eyebrowText={tr('plannerSheet.eyebrow')}
+        confirmLabel={tr('plannerSheet.confirm')}
+        initialISO={plannerInitialISO}
+        onClose={() => setPlannerOpen(false)}
+        onConfirm={handlePlannerConfirm}
+      />
     </SafeAreaView>
   );
 }

@@ -1807,6 +1807,15 @@ export const sv: Record<string, string> = {
   'outfitGenerate.wear.action': 'Bär idag',
   'outfitGenerate.wear.busy': 'Arbetar…',
   'outfitGenerate.wear.failed.title': 'Kunde inte markera buren',
+  // Q-B — Plan for a date (mirror EN; append-only).
+  'outfitGenerate.plan.action': 'Planera ett datum',
+  'outfitGenerate.plan.failed.title': 'Kunde inte spara outfiten',
+  'plannerSheet.eyebrow': 'Planera denna outfit',
+  'plannerSheet.title': 'Välj en dag',
+  'plannerSheet.confirm': 'Bekräfta',
+  'plannerSheet.success.title': 'Planerad',
+  'plannerSheet.success.body': 'Outfiten ligger i din plan nu.',
+  'plannerSheet.failed.title': 'Kunde inte spara planen',
 
   'wardrobe.wishlist.comingSoon.title': 'Kommer snart',
   'wardrobe.wishlist.comingSoon.body': 'Önskelistan kommer snart.',

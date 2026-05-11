@@ -455,7 +455,21 @@ export function PlanScreen() {
             <Text style={{ fontFamily: fonts.ui, fontSize: 13, lineHeight: 19.5, color: t.fg2 }}>
               {tr('plan.empty.body')}
             </Text>
-            <Button label={tr('plan.empty.cta')} onPress={() => nav.navigate('OutfitGenerate')} block />
+            {/* Q-B — thread the Plan-tab-selected date forward as
+                `initialDate` so the generated outfit's "Plan for a date"
+                action lands the planner sheet pre-selected on the right
+                day. Falls back to today when no day is selected (defensive
+                — `selectedDay` is derived from `effectiveSelectedIso`
+                which is always present). */}
+            <Button
+              label={tr('plan.empty.cta')}
+              onPress={() =>
+                nav.navigate('OutfitGenerate', {
+                  initialDate: selectedDay?.iso ?? effectiveSelectedIso,
+                })
+              }
+              block
+            />
           </View>
         )}
 

@@ -29,7 +29,9 @@ import {
   INVALID_OUTFIT_ERROR,
 } from '../hooks/useGenerateOutfit';
 import { useGarment } from '../hooks/useGarments';
+import { useGarmentsByIds, type GarmentBasic } from '../hooks/useGarmentsByIds';
 import { useMarkOutfitWorn, usePersistGeneratedOutfit } from '../hooks/useOutfits';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { applyAnchor } from '../lib/outfitAnchoring';
 import { t as tr } from '../lib/i18n';
@@ -46,9 +48,11 @@ const LOADING_MESSAGES = [
   'Almost there…',
 ] as const;
 
-// Stable visual hue ramp for the 4-cell preview grid. Real garment images
-// land in W9 — for now we render a neutral palette keyed off slot.
-const PLACEHOLDER_HUES: [number, number, number, number] = [32, 18, 200, 45];
+// Q-B — preview grid slot labels (rendered as a small caption overlay
+// on each tile). The hue ramp that previously backed each cell was
+// dropped in Q-B; real garment thumbnails now sit behind the labels via
+// `useGarmentsByIds` + `GarmentImageTile` (same image-resolution chain
+// the rest of the app uses).
 const SLOT_LABELS = ['OUTER', 'TOP', 'BOTTOM', 'SHOES'];
 
 export function OutfitGenerateScreen() {
@@ -245,6 +249,28 @@ export function OutfitGenerateScreen() {
     [result?.items],
   );
 
+  // Q-B — hydrate the result's garment ids so the 2×2 preview tiles can
+  // surface real signed-URL photos instead of the deprecated hue swatch.
+  // Mirrors `OutfitSuggestionCard`'s pattern: pass the raw ids to
+  // `useGarmentsByIds` and read the resolved rows back in render order.
+  // The result-tile garment is found by index against `persistableItems`,
+  // so a deleted-out-from-under-us piece falls back to the neutral
+  // tile (GarmentImageTile renders an empty-bg Tshirt-icon when
+  // `garment` is null).
+  const previewIds = useMemo(
+    () => persistableItems.map((it) => it.garment_id),
+    [persistableItems],
+  );
+  const { data: previewGarments } = useGarmentsByIds(previewIds);
+  const previewGarmentBySlot = useMemo(() => {
+    const map = new Map<string, GarmentBasic>();
+    if (!previewGarments) return map;
+    for (const g of previewGarments) {
+      map.set(g.id, g);
+    }
+    return map;
+  }, [previewGarments]);
+
   const persistPending = persistOutfit.isPending;
   const wearPending = markWorn.isPending;
 
@@ -315,6 +341,56 @@ export function OutfitGenerateScreen() {
         },
       },
     );
+  };
+
+  // Q-B — "Plan for a date" handler. Persists the outfit if it isn't
+  // already saved, then navigates to OutfitDetail with `openPlanner: true`
+  // so the date-picker sheet auto-mounts. `preselectDate` carries the
+  // route-level `initialDate` through so the sheet opens on the date the
+  // user picked back on PlanScreen (when entering via the empty-state
+  // CTA). When `initialDate` is undefined, the sheet defaults to today
+  // inside `DatePickerSheet`.
+  const handlePlan = () => {
+    if (!result || persistPending) return;
+    const existing = savedOutfitId ?? result.outfit_id ?? null;
+    const preselectDate = route.params?.initialDate;
+    if (existing) {
+      hapticLight();
+      succeededRef.current = true;
+      nav.navigate('OutfitDetail', {
+        id: existing,
+        openPlanner: true,
+        preselectDate,
+      });
+      return;
+    }
+    if (!persistArgs || persistableItems.length === 0) {
+      showToast(
+        'error',
+        tr('outfitGenerate.save.empty.title'),
+        tr('outfitGenerate.save.empty.body'),
+      );
+      return;
+    }
+    hapticLight();
+    persistOutfit.mutate(persistArgs, {
+      onSuccess: ({ outfitId }) => {
+        setSavedOutfitId(outfitId);
+        succeededRef.current = true;
+        nav.navigate('OutfitDetail', {
+          id: outfitId,
+          openPlanner: true,
+          preselectDate,
+        });
+      },
+      onError: (err) => {
+        showToast(
+          'error',
+          tr('outfitGenerate.plan.failed.title'),
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    });
   };
 
   const handleWear = () => {
@@ -606,33 +682,49 @@ export function OutfitGenerateScreen() {
             </View>
           ) : null}
 
-          {/* 2x2 grid — placeholder hues until real garment images land. */}
+          {/* Q-B — 2×2 preview grid with real garment thumbnails.
+              `GarmentImageTile` resolves the canonical image chain
+              (rendered_image_path → original_image_path → image_path)
+              and falls back to the neutral Tshirt-icon tile when a
+              piece is unhydrated or deleted, so the visual rhythm
+              holds while data is in flight. Slot caption stays as a
+              small bottom-left label so the user knows which slot is
+              which without hovering. */}
           <View style={s.grid}>
-            {[0, 1, 2, 3].map((i) => (
-              <View
-                key={i}
-                style={[
-                  s.gridCell,
-                  {
-                    backgroundColor: `hsl(${PLACEHOLDER_HUES[i]}, 22%, 78%)`,
-                    borderColor: t.border,
-                  },
-                ]}>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 9,
-                    letterSpacing: 1.2,
-                    color: t.fg,
-                    opacity: 0.55,
-                    position: 'absolute',
-                    bottom: 10,
-                    left: 10,
-                  }}>
-                  {result.items[i]?.slot?.toUpperCase() ?? SLOT_LABELS[i]}
-                </Text>
-              </View>
-            ))}
+            {[0, 1, 2, 3].map((i) => {
+              const item = result.items[i];
+              const garmentId = item?.garment_id;
+              const garment = garmentId ? previewGarmentBySlot.get(garmentId) ?? null : null;
+              return (
+                <View
+                  key={i}
+                  style={[
+                    s.gridCell,
+                    {
+                      borderColor: t.border,
+                    },
+                  ]}>
+                  <GarmentImageTile garment={garment} iconSize={26} />
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 9,
+                      letterSpacing: 1.2,
+                      color: t.fg,
+                      opacity: 0.7,
+                      position: 'absolute',
+                      bottom: 10,
+                      left: 10,
+                      backgroundColor: t.card,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: radii.pill,
+                    }}>
+                    {item?.slot?.toUpperCase() ?? SLOT_LABELS[i]}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
 
           <View style={s.chipRow}>
@@ -661,6 +753,17 @@ export function OutfitGenerateScreen() {
             disabled={persistPending || wearPending || persistableItems.length === 0}
             block
             style={{ marginTop: 8 }}
+          />
+          {/* Q-B — Plan for a date. Persists the outfit if needed then
+              navigates to OutfitDetail with the planner sheet auto-open,
+              pre-selected on `initialDate` (carried forward from
+              PlanScreen's empty-state CTA when applicable). */}
+          <Button
+            label={tr('outfitGenerate.plan.action')}
+            variant="outline"
+            onPress={handlePlan}
+            disabled={persistPending || wearPending || persistableItems.length === 0}
+            block
           />
           <Button
             label={
