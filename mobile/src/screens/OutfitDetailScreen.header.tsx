@@ -60,10 +60,10 @@ export function OutfitDetailHeader({
           ariaLabel="More options"
           variant="ghost"
           onPress={() =>
-            Alert.alert('Options', undefined, [
-              { text: 'Add to plan', onPress: onAddToPlan },
-              { text: 'Delete outfit', style: 'destructive', onPress: onDelete },
-              { text: 'Cancel', style: 'cancel' },
+            Alert.alert(tr('outfitDetail.menu.options'), undefined, [
+              { text: tr('outfitDetail.menu.addToPlan'), onPress: onAddToPlan },
+              { text: tr('outfitDetail.menu.deleteOutfit'), style: 'destructive', onPress: onDelete },
+              { text: tr('common.cancel'), style: 'cancel' },
             ])
           }>
           <MoreIcon color={t.fg} />

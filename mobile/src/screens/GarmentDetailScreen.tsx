@@ -366,7 +366,10 @@ export function GarmentDetailScreen() {
     hapticSuccess();
     markWorn.mutate(id, {
       onError: (err) => {
-        Alert.alert('Could not log wear', err instanceof Error ? err.message : 'Try again.');
+        Alert.alert(
+          tr('garmentDetail.alerts.couldNotLogWear.title'),
+          err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+        );
       },
     });
   };
@@ -382,7 +385,10 @@ export function GarmentDetailScreen() {
       { id, inLaundry: true },
       {
         onError: (err) => {
-          Alert.alert('Could not move', err instanceof Error ? err.message : 'Try again.');
+          Alert.alert(
+            tr('garmentDetail.alerts.couldNotMove.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+          );
         },
       },
     );
@@ -396,8 +402,8 @@ export function GarmentDetailScreen() {
       {
         onError: (err) => {
           Alert.alert(
-            'Could not mark clean',
-            err instanceof Error ? err.message : 'Try again.',
+            tr('garmentDetail.alerts.couldNotMarkClean.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
           );
         },
       },
@@ -406,33 +412,40 @@ export function GarmentDetailScreen() {
 
   const handleDelete = () => {
     if (!id) return;
-    Alert.alert('Delete', 'Delete this garment? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteGarment.mutate(id, {
-            onSuccess: () => nav.goBack(),
-            onError: (err) =>
-              Alert.alert('Delete failed', err instanceof Error ? err.message : 'Try again.'),
-          });
+    Alert.alert(
+      tr('garmentDetail.alerts.delete.title'),
+      tr('garmentDetail.alerts.delete.body'),
+      [
+        { text: tr('common.cancel'), style: 'cancel' },
+        {
+          text: tr('garmentDetail.alerts.delete.title'),
+          style: 'destructive',
+          onPress: () => {
+            deleteGarment.mutate(id, {
+              onSuccess: () => nav.goBack(),
+              onError: (err) =>
+                Alert.alert(
+                  tr('garmentDetail.alerts.deleteFailed.title'),
+                  err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+                ),
+            });
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const onMoreOptions = () => {
     if (!garment) return;
     const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (garment.in_laundry) {
-      buttons.push({ text: 'Mark clean', onPress: handleRemoveFromLaundry });
+      buttons.push({ text: tr('garmentDetail.menu.markClean'), onPress: handleRemoveFromLaundry });
     } else {
-      buttons.push({ text: 'Add to laundry', onPress: handleAddToLaundry });
+      buttons.push({ text: tr('garmentDetail.menu.addToLaundry'), onPress: handleAddToLaundry });
     }
-    buttons.push({ text: 'Delete garment', style: 'destructive', onPress: handleDelete });
-    buttons.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('Options', undefined, buttons);
+    buttons.push({ text: tr('garmentDetail.menu.deleteGarment'), style: 'destructive', onPress: handleDelete });
+    buttons.push({ text: tr('common.cancel'), style: 'cancel' });
+    Alert.alert(tr('garmentDetail.alerts.options.title'), undefined, buttons);
   };
 
   // Loading: show a quiet header skeleton + spinner block. Detail-screen
@@ -551,14 +564,14 @@ export function GarmentDetailScreen() {
           {isStudioRendering ? (
             <View
               accessibilityLiveRegion="polite"
-              accessibilityLabel="Studio render in progress"
+              accessibilityLabel={tr('garmentDetail.badge.studioRendering.a11y')}
               style={[s.heroBadge, s.heroBadgePending, { backgroundColor: t.accentSoft }]}>
               <ActivityIndicator size="small" color={t.accent} style={{ marginRight: 6 }} />
-              <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio render…</Text>
+              <Text style={[s.heroBadgeText, { color: t.accent }]}>{tr('garmentDetail.badge.studioRendering')}</Text>
             </View>
           ) : hasRenderedImage ? (
             <View style={[s.heroBadge, { backgroundColor: t.accentSoft }]}>
-              <Text style={[s.heroBadgeText, { color: t.accent }]}>Studio</Text>
+              <Text style={[s.heroBadgeText, { color: t.accent }]}>{tr('garmentDetail.badge.studio')}</Text>
             </View>
           ) : isStudioFailed ? (
             <View

@@ -7,6 +7,21 @@ import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, ove
 interface ImportRequest {
   userId: string;
   urls: string[];
+  locale?: string;
+}
+
+interface AnalyzeGarmentResponse {
+  title?: string;
+  category?: string;
+  subcategory?: string | null;
+  color_primary?: string;
+  color_secondary?: string | null;
+  pattern?: string | null;
+  material?: string | null;
+  fit?: string | null;
+  season_tags?: string[];
+  formality?: number;
+  error?: string;
 }
 
 interface ImportResult {
@@ -197,6 +212,67 @@ function getExtensionFromContentType(contentType: string | null): string {
   }
 }
 
+// Convert image bytes to a base64 data URL — analyze_garment expects either a
+// signed storagePath URL or a base64 data URL it can pass to Gemini's vision
+// endpoint. Chunked encoding avoids `String.fromCharCode(...arr)` stack-blow
+// for ~10MB inputs.
+function bytesToBase64DataUrl(data: Uint8Array, contentType: string): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < data.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(data.subarray(i, i + chunk)) as unknown as number[]);
+  }
+  return `data:${contentType};base64,${btoa(binary)}`;
+}
+
+// N16-4: call analyze_garment with the downloaded image to populate real
+// category/color/material/etc. Falls back to null on any failure so the
+// caller can stamp enrichment_status='failed' and keep the import flowing.
+// Skips outright when the image is larger than analyze_garment's 5 MiB hard
+// limit (the function 400s on oversize payloads).
+async function classifyGarmentImage(args: {
+  supabaseUrl: string;
+  authHeader: string;
+  data: Uint8Array;
+  contentType: string;
+  locale: string;
+}): Promise<AnalyzeGarmentResponse | null> {
+  const { supabaseUrl, authHeader, data, contentType, locale } = args;
+
+  // Pre-cap at analyze_garment's 5 MiB base64 limit. base64 inflates by 4/3,
+  // so cap the source bytes at ~3.7 MiB.
+  if (data.length > 3.7 * 1024 * 1024) {
+    console.warn(`Image ${data.length} bytes > analyze_garment base64 budget, skipping classification`);
+    return null;
+  }
+
+  const dataUrl = bytesToBase64DataUrl(data, contentType);
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/analyze_garment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
+      body: JSON.stringify({ base64Image: dataUrl, locale, mode: "fast" }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      console.warn(`analyze_garment returned ${res.status} for imported garment`);
+      return null;
+    }
+    const parsed = (await res.json()) as AnalyzeGarmentResponse;
+    if (!parsed.category || !parsed.color_primary) {
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.warn("analyze_garment call failed:", err);
+    return null;
+  }
+}
+
 async function downloadImage(url: string): Promise<{ data: Uint8Array; contentType: string } | null> {
   try {
     const controller = new AbortController();
@@ -297,6 +373,12 @@ Deno.serve(async (req) => {
     // Parse and validate request
     const body: ImportRequest = await req.json();
     const { urls } = body;
+    // N16-4: locale picks the analyze_garment title language. Validate the
+    // tag before passing through; analyze_garment falls back to 'en' on
+    // unknown tags anyway, but bounding it here keeps logs clean.
+    const userLocale = typeof body.locale === "string" && /^[a-z]{2}(-[A-Z]{2})?$/.test(body.locale)
+      ? body.locale
+      : "en";
 
     // Validate urls array
     if (!urls || !Array.isArray(urls)) {
@@ -427,6 +509,18 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // N16-4: call analyze_garment with the downloaded bytes BEFORE the
+        // storage upload so we don't burn storage on a row we might fail to
+        // insert. The call is best-effort — failure falls through to the
+        // metadata-only path with enrichment_status='failed'.
+        const analysis = await classifyGarmentImage({
+          supabaseUrl,
+          authHeader,
+          data: imageResult.data,
+          contentType: imageResult.contentType,
+          locale: userLocale,
+        });
+
         // Generate garment ID and path
         const garmentId = crypto.randomUUID();
         const ext = getExtensionFromContentType(imageResult.contentType);
@@ -450,20 +544,29 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Create garment record with minimal required fields
-        const title = metadata.title || 'Imported garment';
-        
+        // N16-4: prefer the AI-classified title when available so a Swedish
+        // user gets a Swedish title even if the source page was English.
+        const title = (analysis?.title || metadata.title || 'Imported garment').substring(0, 200);
+
         const { error: insertError } = await supabaseAdmin
           .from('garments')
           .insert({
             id: garmentId,
             user_id: user.id,
             image_path: imagePath,
-            title: title.substring(0, 200), // Limit title length
-            category: 'top', // Default category, user can edit
-            color_primary: 'grey', // Default, user can edit
+            title,
+            category: analysis?.category ?? 'top',
+            subcategory: analysis?.subcategory ?? null,
+            color_primary: analysis?.color_primary ?? 'grey',
+            color_secondary: analysis?.color_secondary ?? null,
+            pattern: analysis?.pattern ?? null,
+            material: analysis?.material ?? null,
+            fit: analysis?.fit ?? null,
+            season_tags: analysis?.season_tags ?? [],
+            formality: analysis?.formality ?? null,
             source_url: trimmedUrl,
             imported_via: 'link',
+            enrichment_status: analysis ? 'completed' : 'failed',
           });
 
         if (insertError) {
