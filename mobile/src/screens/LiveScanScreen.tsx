@@ -25,6 +25,7 @@ import { fonts, radii } from '../theme/tokens';
 import { Button } from '../components/Button';
 import { CloseIcon, RotateIcon, SunIcon, CameraIcon } from '../components/icons';
 import { hapticLight, hapticMedium } from '../lib/haptics';
+import { t as tr } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -68,10 +69,10 @@ export function LiveScanScreen() {
       if (photo?.uri) {
         setCapturedUri(photo.uri);
       } else {
-        Alert.alert('Capture failed', 'Try again.');
+        Alert.alert(tr('livescan.alerts.captureFailed.title'), tr('livescan.alerts.captureFailed.body'));
       }
     } catch {
-      Alert.alert('Capture failed', 'Try again.');
+      Alert.alert(tr('livescan.alerts.captureFailed.title'), tr('livescan.alerts.captureFailed.body'));
     }
   };
 
@@ -108,7 +109,7 @@ export function LiveScanScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission needed', 'Grant photo access to import from your gallery.');
+        Alert.alert(tr('livescan.alerts.permission.title'), tr('livescan.alerts.permission.body'));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -123,7 +124,7 @@ export function LiveScanScreen() {
       // not the underlying capture mechanism.
       nav.navigate('AddPieceStep2', { photoUri: uri, allUris: [uri], source: 'live_scan' });
     } catch {
-      Alert.alert('Gallery unavailable', 'Could not open the photo library.');
+      Alert.alert(tr('livescan.alerts.galleryUnavailable.title'), tr('livescan.alerts.galleryUnavailable.body'));
     }
   };
 

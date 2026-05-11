@@ -144,10 +144,10 @@ export function FiltersScreen() {
       <View style={[s.headerRow, { borderBottomColor: t.border }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Cancel"
+          accessibilityLabel={tr('common.cancel')}
           onPress={handleCancel}
           hitSlop={8}>
-          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>Cancel</Text>
+          <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>{tr('common.cancel')}</Text>
         </Pressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text

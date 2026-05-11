@@ -60,6 +60,7 @@ import {
   EdgeFunctionSubscriptionLockedError,
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
+import { getLocale } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
 /** Per-batch ceiling. Server enforces the same limit (`urls.length > 30`
  * → 400) at `import_garments_from_links/index.ts:316`. We surface a
@@ -328,6 +329,9 @@ export function useImportFromLinks(): UseImportFromLinksResult {
                   // server-side honest.
                   userId: user.id,
                   urls: batchUrls,
+                  // N16-4: locale picks the analyze_garment title language
+                  // so a Swedish device gets a Swedish garment title.
+                  locale: getLocale(),
                 },
                 signal: controller.signal,
               },

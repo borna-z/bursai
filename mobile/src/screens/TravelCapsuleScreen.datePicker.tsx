@@ -17,6 +17,7 @@ import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Button } from '../components/Button';
 import { ChevronIcon } from '../components/icons';
+import { t as tr } from '../lib/i18n';
 import {
   buildMonthGrid,
   buildWeekdayHeaders,
@@ -119,8 +120,8 @@ export function DatePickerSheet({
                 {title}
               </Text>
             </View>
-            <Pressable onPress={onClose} accessibilityLabel="Cancel" hitSlop={8}>
-              <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>Cancel</Text>
+            <Pressable onPress={onClose} accessibilityLabel={tr('common.cancel')} hitSlop={8}>
+              <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg2 }}>{tr('common.cancel')}</Text>
             </Pressable>
           </View>
 

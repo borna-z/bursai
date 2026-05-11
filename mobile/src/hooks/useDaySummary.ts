@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import { getLocale } from '../lib/i18n';
 import { localISODate } from '../lib/outfitDisplay';
 import type { DayEventInput, DayWeatherInput } from '../lib/dayIntelligence';
 
@@ -78,11 +79,17 @@ export function useDaySummary(args?: UseDaySummaryArgs): UseDaySummaryResult {
     ? `${weather.temperature ?? '?'}-${weather.precipitation ?? '?'}-${weather.wind ?? '?'}`
     : 'noweather';
 
+  // N16-2: thread device locale through so the edge function returns the
+  // summary in the user's language. Folded into the queryKey so flipping
+  // device locale invalidates the cached English summary instead of serving
+  // stale text.
+  const locale = getLocale();
+
   const query = useQuery<SummarizeDayResponse, Error>({
-    queryKey: ['daySummary', user?.id, dayKey, eventsHash, weatherHash],
+    queryKey: ['daySummary', user?.id, dayKey, locale, eventsHash, weatherHash],
     queryFn: async () => {
       const result = await callEdgeFunction<SummarizeDayResponse>('summarize_day', {
-        body: { events, weather },
+        body: { events, weather, locale },
         // summarize_day is light AI but server-cached for 1h — a single
         // shot per day per user is plenty; retry once for transient
         // network blips, keep the timeout short so the banner isn't

@@ -230,7 +230,7 @@ function GarmentCardInner({
         {/* Bottom-left badge — laundry. */}
         {showLaundry ? (
           <View style={[s.badge, s.badgeBottomLeft, { backgroundColor: t.bg, borderColor: t.border, borderWidth: 1 }]}>
-            <Text style={[s.badgeText, { color: t.fg2 }]}>Laundry</Text>
+            <Text style={[s.badgeText, { color: t.fg2 }]}>{tr('garmentCard.badge.laundry')}</Text>
           </View>
         ) : null}
       </View>

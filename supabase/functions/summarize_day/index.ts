@@ -40,7 +40,20 @@ serve(async (req) => {
       );
     }
 
-    const { events, weather } = await req.json();
+    const { events, weather, locale } = await req.json();
+
+    // Validate locale tag (BCP-47 style: `en`, `sv`, `pt-BR`). Anything else
+    // falls back to `en`. The regex bounds what lands in the cache namespace,
+    // so a malformed value can't poison the cache key.
+    const userLocale = typeof locale === "string" && /^[a-z]{2}(-[A-Z]{2})?$/.test(locale)
+      ? locale
+      : "en";
+    const LOCALE_NAMES: Record<string, string> = {
+      en: "English", sv: "Swedish", no: "Norwegian", da: "Danish", fi: "Finnish",
+      de: "German", fr: "French", es: "Spanish", pt: "Portuguese", it: "Italian",
+      nl: "Dutch", pl: "Polish", ar: "Arabic", fa: "Persian", ja: "Japanese",
+    };
+    const localeName = LOCALE_NAMES[userLocale.split("-")[0]] ?? "English";
 
     if (!events || events.length === 0) {
       return new Response(
@@ -76,7 +89,7 @@ serve(async (req) => {
 
     const isMultiEvent = events.length >= 2;
 
-    const systemPrompt = `${VOICE_DAY_SUMMARY}\n\nAlways respond in English regardless of the language of the calendar event titles. Event titles may be in Swedish, Finnish, or any other language — interpret them but always write your output in English.`;
+    const systemPrompt = `${VOICE_DAY_SUMMARY}\n\nRespond in ${localeName}. Event titles may be in any language — interpret them but always write your output in ${localeName}.`;
 
     const eventsCacheKey = events.map((e: any) => e.title).sort().join(",").slice(0, 40);
 
@@ -106,7 +119,7 @@ serve(async (req) => {
         // identical calendar content (e.g. "Standup" + "Lunch") would
         // cross-leak each other's personalised day summary. userId also
         // populates ai_response_cache.user_id for the GDPR cascade delete.
-        cacheNamespace: `summarize_day_${user.id}_${eventsCacheKey}`,
+        cacheNamespace: `summarize_day_${user.id}_${userLocale}_${eventsCacheKey}`,
         userId: user.id,
         messages: [
           { role: "system", content: systemPrompt },

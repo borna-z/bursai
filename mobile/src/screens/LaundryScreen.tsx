@@ -22,6 +22,7 @@ import { BackIcon, CheckIcon } from '../components/icons';
 import { ErrorState } from '../components/ErrorState';
 import { GarmentListSkeleton } from '../components/skeletons';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
+import { t as tr } from '../lib/i18n';
 import { useFlatGarments, useMarkLaundry } from '../hooks/useGarments';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Garment, GarmentFilters } from '../types/garment';
@@ -141,8 +142,8 @@ export function LaundryScreen() {
         },
         onError: (err) => {
           Alert.alert(
-            'Could not mark clean',
-            err instanceof Error ? err.message : 'Try again.',
+            tr('laundry.alerts.couldNotMarkClean.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
           );
         },
       },
@@ -163,9 +164,12 @@ export function LaundryScreen() {
     if (items.length === 0) return;
     if (markAllInFlightRef.current) return;
     markAllInFlightRef.current = true;
-    Alert.alert('Mark all clean?', `${items.length} pieces will be moved out of laundry.`, [
+    Alert.alert(
+      tr('laundry.alerts.markAllClean.title'),
+      tr('laundry.alerts.markAllClean.body', { count: items.length }),
+      [
       {
-        text: 'Cancel',
+        text: tr('common.cancel'),
         style: 'cancel',
         // Clear the latch on cancel so a follow-up tap reopens the confirm.
         onPress: () => {
@@ -173,7 +177,7 @@ export function LaundryScreen() {
         },
       },
       {
-        text: 'Mark all clean',
+        text: tr('laundry.alerts.markAllClean.cta'),
         onPress: () => {
           hapticSuccess();
           // Update pendingIds in a single batch so each row's per-item button
@@ -221,8 +225,8 @@ export function LaundryScreen() {
                     markAllInFlightRef.current = false;
                     if (failures > 0) {
                       Alert.alert(
-                        'Some items failed',
-                        `${failures} of ${total} couldn't be marked clean. Pull down to refresh and try the failed rows again.`,
+                        tr('laundry.alerts.partialFailure.title'),
+                        tr('laundry.alerts.partialFailure.body', { failures, total }),
                       );
                     }
                   }
@@ -232,7 +236,8 @@ export function LaundryScreen() {
           }
         },
       },
-    ]);
+      ],
+    );
   };
 
   const header = (
