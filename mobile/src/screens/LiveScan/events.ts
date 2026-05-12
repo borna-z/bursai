@@ -16,6 +16,7 @@ export interface ScanLifecycleEvents {
   saved: { sessionId: ScanSessionId; garmentId: string };
   queued: { sessionId: ScanSessionId };
   failed: { sessionId: ScanSessionId; errorClass: PipelineErrorClass };
+  discard: { sessionId: ScanSessionId };
 }
 
 export class LiveScanEvents {

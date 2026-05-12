@@ -319,7 +319,9 @@ export function LiveScanScreen() {
       if (tile.stage !== 'failed') return;
       hapticLight();
       Alert.alert(tr(`livescan.error.${tile.errorClass ?? 'unknown'}`), undefined, [
-        { text: tr('livescan.tile.discard'), style: 'destructive' },
+        { text: tr('livescan.tile.discard'), style: 'destructive', onPress: () => {
+            events.emit('discard', { sessionId: tile.sessionId });
+          } },
         {
           text: tr('livescan.tile.retry'),
           onPress: () => {

@@ -68,8 +68,11 @@ export function Filmstrip({ events, onTilePress }: Props) {
         ),
       );
     });
+    const offDiscard = events.on('discard', ({ sessionId }) => {
+      setTiles((prev) => prev.filter((t) => t.sessionId !== sessionId));
+    });
     return () => {
-      offStart(); offStage(); offSaved(); offQueued(); offFailed();
+      offStart(); offStage(); offSaved(); offQueued(); offFailed(); offDiscard();
     };
   }, [events]);
 
