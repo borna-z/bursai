@@ -136,6 +136,7 @@ async function invokeProcessorWithRetry(
 ): Promise<void> {
   let lastError: unknown = null;
   let lastStatus: number | null = null;
+  let abortCount = 0;
 
   for (let attempt = 0; attempt < PROCESSOR_MAX_ATTEMPTS; attempt++) {
     if (attempt > 0) {
@@ -170,15 +171,14 @@ async function invokeProcessorWithRetry(
       }
     } catch (err) {
       if (isAbortError(err)) {
-        // The worker doesn't ack the kickoff — process_render_jobs awaits
-        // the full render (up to 300 s) before responding. If our fetch
-        // aborted before any error fired, the request bytes were on the
-        // wire and the worker is processing (or processing has already
-        // started and the response just won't land within our window).
-        // Either way, the job has been kicked off. Treat as success and
-        // exit the retry loop. The cron 60 s tick is the safety net for
-        // the rare TCP-delivered-but-not-claimed case.
-        return;
+        // Per Codex round 3 on PR #834: abort doesn't guarantee request bytes
+        // reached the worker — the timeout can fire during DNS / TLS setup
+        // or a cold start before the POST is accepted. Treat AbortError as
+        // a retryable transient instead of assuming success. The retry RE-
+        // sends the request; the worker's claim_render_job uses SELECT FOR
+        // UPDATE so a duplicate POST is safely idempotent (already-claimed
+        // jobs short-circuit).
+        abortCount++;
       }
       lastError = err;
     } finally {
@@ -186,10 +186,26 @@ async function invokeProcessorWithRetry(
     }
   }
 
+  // All attempts aborted with no HTTP status ever observed: the worker was
+  // reachable enough for the request to enter the connection pool but never
+  // responded within the kickoff window. That's typically "worker is
+  // processing slowly" (the desired outcome) — but it can also be
+  // "connection-pool exhausted, never got accepted". Log as info so triage
+  // still has a trail without paging on-call. cron is the safety net.
+  if (abortCount === PROCESSOR_MAX_ATTEMPTS && lastStatus === null) {
+    log.info("process_render_jobs kickoff timed out on all attempts (assumed in flight; cron is safety net)", {
+      event: "process_render_jobs_invoke_all_aborts",
+      jobId,
+      attempts: PROCESSOR_MAX_ATTEMPTS,
+    });
+    return;
+  }
+
   log.warn("process_render_jobs kickoff failed after retries (cron will retry)", {
     event: "process_render_jobs_invoke_failed",
     jobId,
     attempts: PROCESSOR_MAX_ATTEMPTS,
+    abortCount,
     lastStatus,
     error: lastError instanceof Error ? lastError.message : lastError ? String(lastError) : null,
   });
