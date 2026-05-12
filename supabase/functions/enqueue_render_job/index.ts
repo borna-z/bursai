@@ -85,12 +85,21 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 // Retry budget for the worker kickoff. 4 attempts (initial + 3 retries) with
-// 250/750/2000 ms backoff between them caps total in-flight wall clock at
-// ~3 s. Bigger budgets risk holding the connection open past Supabase's
-// edge-function timeout; smaller budgets miss the typical cold-start window
-// for process_render_jobs.
-const PROCESSOR_RETRY_BACKOFFS_MS = [250, 750, 2000] as const;
+// 250/500/1000 ms backoff between them, each fetch capped at
+// KICKOFF_FETCH_TIMEOUT_MS (1500 ms). Worst-case wall clock ~7.75 s; typical
+// path exits on attempt 1 abort at ~1.5 s. The fetch timeout is essential
+// because process_render_jobs does NOT ack the kickoff before doing the
+// real render — it awaits invokeRender (300 s budget) inside
+// withConcurrencyLimit and only responds at the very end. Without the
+// abort, EdgeRuntime.waitUntil would keep this isolate alive for the full
+// render duration, defeating the "fire-and-forget" intent. An abort fired
+// after the request bytes are on the wire means the worker received the
+// job (TCP-level delivery is the success criterion for a kickoff) — we
+// treat it as success and do NOT retry, since a fresh request would
+// double-claim the same job_id via the cron path anyway.
+const PROCESSOR_RETRY_BACKOFFS_MS = [250, 500, 1000] as const;
 const PROCESSOR_MAX_ATTEMPTS = PROCESSOR_RETRY_BACKOFFS_MS.length + 1;
+const KICKOFF_FETCH_TIMEOUT_MS = 1500;
 
 function isRetryableProcessorStatus(status: number): boolean {
   // 5xx (server transient, cold start, overload) is retryable; 4xx is a real
@@ -107,6 +116,12 @@ async function drainBody(res: Response): Promise<void> {
   } catch {
     // ignore — cancel on already-consumed/cancelled streams is harmless
   }
+}
+
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = (err as { name?: unknown }).name;
+  return name === "AbortError";
 }
 
 /**
@@ -126,6 +141,8 @@ async function invokeProcessorWithRetry(
     if (attempt > 0) {
       await new Promise((r) => setTimeout(r, PROCESSOR_RETRY_BACKOFFS_MS[attempt - 1]));
     }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), KICKOFF_FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(processorUrl, {
         method: "POST",
@@ -134,6 +151,7 @@ async function invokeProcessorWithRetry(
           "Authorization": `Bearer ${bearer}`,
         },
         body: JSON.stringify({ jobId }),
+        signal: controller.signal,
       });
       if (res.ok) {
         await drainBody(res);
@@ -151,7 +169,20 @@ async function invokeProcessorWithRetry(
         return;
       }
     } catch (err) {
+      if (isAbortError(err)) {
+        // The worker doesn't ack the kickoff — process_render_jobs awaits
+        // the full render (up to 300 s) before responding. If our fetch
+        // aborted before any error fired, the request bytes were on the
+        // wire and the worker is processing (or processing has already
+        // started and the response just won't land within our window).
+        // Either way, the job has been kicked off. Treat as success and
+        // exit the retry loop. The cron 60 s tick is the safety net for
+        // the rare TCP-delivered-but-not-claimed case.
+        return;
+      }
       lastError = err;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -451,9 +482,12 @@ serve(async (req) => {
     // (network blip, worker cold-start that 503's, transient DNS hiccup)
     // used to mean the job sat at status='pending' until the 60s cron
     // tick — and if the cron was misconfigured, forever. Up to 4 attempts
-    // with 250/750/2000 ms backoff covers the common transient cases
-    // while staying within a ~3 s budget; persistent failures still fall
-    // through to cron without blocking the response.
+    // with 250/500/1000 ms backoff covers the common transient cases.
+    // Each fetch attempt is bounded by an AbortController at 1500 ms
+    // because the worker doesn't ack the kickoff (it awaits the full
+    // render before responding); without that bound, the EdgeRuntime
+    // would stay alive for the full render duration. Persistent failures
+    // still fall through to cron without blocking the response.
     //
     // If RENDER_WORKER_BEARER isn't configured we skip the kickoff
     // entirely — the worker would 503 anyway, and pg_cron will catch the
