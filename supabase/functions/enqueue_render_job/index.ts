@@ -84,6 +84,86 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+// Retry budget for the worker kickoff. 4 attempts (initial + 3 retries) with
+// 250/750/2000 ms backoff between them caps total in-flight wall clock at
+// ~3 s. Bigger budgets risk holding the connection open past Supabase's
+// edge-function timeout; smaller budgets miss the typical cold-start window
+// for process_render_jobs.
+const PROCESSOR_RETRY_BACKOFFS_MS = [250, 750, 2000] as const;
+const PROCESSOR_MAX_ATTEMPTS = PROCESSOR_RETRY_BACKOFFS_MS.length + 1;
+
+function isRetryableProcessorStatus(status: number): boolean {
+  // 5xx (server transient, cold start, overload) is retryable; 4xx is a real
+  // misconfiguration (auth, body shape) that a retry will not fix.
+  return status >= 500 && status < 600;
+}
+
+// Drain a response body without buffering it so the underlying HTTP/1.1
+// connection releases cleanly. Deno keeps the socket pinned until the body
+// stream is consumed or cancelled.
+async function drainBody(res: Response): Promise<void> {
+  try {
+    await res.body?.cancel();
+  } catch {
+    // ignore — cancel on already-consumed/cancelled streams is harmless
+  }
+}
+
+/**
+ * POST to process_render_jobs with bounded retry. Pure background work — the
+ * caller treats this as fire-and-forget (no await on the response path).
+ * Always resolves; never throws.
+ */
+async function invokeProcessorWithRetry(
+  processorUrl: string,
+  bearer: string,
+  jobId: string,
+): Promise<void> {
+  let lastError: unknown = null;
+  let lastStatus: number | null = null;
+
+  for (let attempt = 0; attempt < PROCESSOR_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, PROCESSOR_RETRY_BACKOFFS_MS[attempt - 1]));
+    }
+    try {
+      const res = await fetch(processorUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${bearer}`,
+        },
+        body: JSON.stringify({ jobId }),
+      });
+      if (res.ok) {
+        await drainBody(res);
+        return;
+      }
+      lastStatus = res.status;
+      // Drain even on non-2xx — an unread body holds the socket open on
+      // Deno's HTTP/1.1 path regardless of status code.
+      await drainBody(res);
+      if (!isRetryableProcessorStatus(res.status)) {
+        log.warn("process_render_jobs kickoff non-retryable status (cron will retry)", {
+          jobId,
+          status: res.status,
+        });
+        return;
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  log.warn("process_render_jobs kickoff failed after retries (cron will retry)", {
+    event: "process_render_jobs_invoke_failed",
+    jobId,
+    attempts: PROCESSOR_MAX_ATTEMPTS,
+    lastStatus,
+    error: lastError instanceof Error ? lastError.message : lastError ? String(lastError) : null,
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -360,11 +440,20 @@ serve(async (req) => {
     }
 
     // ─── Low-latency path: POST process_render_jobs ────────
-    // Fire-and-forget. Does NOT await — worst case, pg_cron catches the
-    // job within 60s. Worker-bearer auth because the worker is locked
-    // down to RENDER_WORKER_BEARER only (see process_render_jobs/index.ts
-    // auth block). Uses canonicalJobId so retried-enqueue responses target
-    // the original row, not a ghost of this attempt.
+    // Fire-and-forget at the response level. Does NOT await the kickoff
+    // before responding — worst case, pg_cron catches the job within 60s.
+    // Worker-bearer auth because the worker is locked down to
+    // RENDER_WORKER_BEARER only (see process_render_jobs/index.ts auth
+    // block). Uses canonicalJobId so retried-enqueue responses target the
+    // original row, not a ghost of this attempt.
+    //
+    // Inside this background promise we DO retry: a single dropped POST
+    // (network blip, worker cold-start that 503's, transient DNS hiccup)
+    // used to mean the job sat at status='pending' until the 60s cron
+    // tick — and if the cron was misconfigured, forever. Up to 4 attempts
+    // with 250/750/2000 ms backoff covers the common transient cases
+    // while staying within a ~3 s budget; persistent failures still fall
+    // through to cron without blocking the response.
     //
     // If RENDER_WORKER_BEARER isn't configured we skip the kickoff
     // entirely — the worker would 503 anyway, and pg_cron will catch the
@@ -372,20 +461,11 @@ serve(async (req) => {
     // worker's startup probe than to spin retries here.
     if (RENDER_WORKER_BEARER && RENDER_WORKER_BEARER.length >= 32) {
       const processorUrl = `${SUPABASE_URL}/functions/v1/process_render_jobs`;
-      fetch(processorUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${RENDER_WORKER_BEARER}`,
-        },
-        body: JSON.stringify({ jobId: canonicalJobId }),
-      }).catch((err) => {
-        // Non-fatal: cron will pick it up.
-        log.warn("process_render_jobs kickoff failed (cron will retry)", {
-          jobId: canonicalJobId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      void invokeProcessorWithRetry(
+        processorUrl,
+        RENDER_WORKER_BEARER,
+        canonicalJobId,
+      );
     } else {
       log.warn("process_render_jobs kickoff skipped — RENDER_WORKER_BEARER not configured (cron will retry)", {
         jobId: canonicalJobId,
