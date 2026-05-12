@@ -22,11 +22,18 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { ListRow } from '../components/ListRow';
+import { SettingsRow } from '../components/SettingsRow';
 import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
 import { ConditionBadge, tierForScore } from '../components/ConditionBadge';
 import { BackIcon, CloseIcon, EditIcon, MoreIcon } from '../components/icons';
-import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
+import {
+  useGarment,
+  useMarkLaundry,
+  useMarkWorn,
+  useDeleteGarment,
+  useUpdateGarment,
+} from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
@@ -145,6 +152,7 @@ export function GarmentDetailScreen() {
 
   const markWorn = useMarkWorn();
   const markLaundry = useMarkLaundry();
+  const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
 
   const {
@@ -419,6 +427,56 @@ export function GarmentDetailScreen() {
     );
   };
 
+  // Q-C2 — toggle handlers for the new personal flags. Both ride the
+  // existing `useUpdateGarment` generic mutation so the cache patching +
+  // smart-counts invalidation (Q-C1) come along for free. The
+  // `unknown as GarmentUpdate` cast is a temporary bridge until
+  // `supabase/types.gen.ts` is regenerated after the
+  // `20260512000000_garment_personal_flags` migration applies — the new
+  // columns aren't in the auto-generated `GarmentUpdate` type yet.
+  // PostgREST tolerates extra columns (the field is real server-side
+  // post-migration), so the cast is a TS-only bridge.
+  // Q-C2 — wired to SettingsRow.toggle.onValueChange (single-arg
+  // `(next: boolean) => void`). Originally curried for the Alert menu;
+  // refactored to plain handlers after that path moved to inline
+  // toggles — Codex P2 round 1 on Q-C2 PR #831.
+  const handleToggleWishlist = (next: boolean) => {
+    if (!id) return;
+    hapticLight();
+    updateGarment.mutate(
+      {
+        id,
+        updates: { is_wishlist: next } as unknown as Parameters<typeof updateGarment.mutate>[0]['updates'],
+      },
+      {
+        onError: (err) => {
+          Alert.alert(
+            tr('garmentDetail.alerts.couldNotUpdate.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+          );
+        },
+      },
+    );
+  };
+  const handleToggleLingerie = (next: boolean) => {
+    if (!id) return;
+    hapticLight();
+    updateGarment.mutate(
+      {
+        id,
+        updates: { is_lingerie: next } as unknown as Parameters<typeof updateGarment.mutate>[0]['updates'],
+      },
+      {
+        onError: (err) => {
+          Alert.alert(
+            tr('garmentDetail.alerts.couldNotUpdate.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+          );
+        },
+      },
+    );
+  };
+
   const onMoreOptions = () => {
     if (!garment) return;
     const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [];
@@ -427,10 +485,25 @@ export function GarmentDetailScreen() {
     } else {
       buttons.push({ text: tr('garmentDetail.menu.addToLaundry'), onPress: handleAddToLaundry });
     }
+    // Q-C2 — Wishlist + Lingerie were initially added here, but
+    // `Alert.alert` on Android only keeps the first three buttons (RN's
+    // `Alert.js` slices to `buttons.slice(0, 3)` on the native module
+    // boundary). Adding two more would silently drop Delete + Cancel on
+    // Android, breaking critical paths. Toggles moved to inline
+    // SettingsRows below — Codex P2 round 1 on Q-C2 PR #831.
     buttons.push({ text: tr('garmentDetail.menu.deleteGarment'), style: 'destructive', onPress: handleDelete });
     buttons.push({ text: tr('common.cancel'), style: 'cancel' });
     Alert.alert(tr('garmentDetail.alerts.options.title'), undefined, buttons);
   };
+
+  // Q-C2 — personal-flag toggle state. Cast bridges until
+  // `supabase/types.gen.ts` is regenerated post-migration.
+  const garmentFlagsView = garment as unknown as {
+    is_wishlist?: boolean | null;
+    is_lingerie?: boolean | null;
+  } | null;
+  const isWishlist = garmentFlagsView?.is_wishlist === true;
+  const isLingerie = garmentFlagsView?.is_lingerie === true;
 
   // Loading: show a quiet header skeleton + spinner block. Detail-screen
   // skeletons aren't part of the existing skeleton kit, so use the spinner
@@ -708,6 +781,27 @@ export function GarmentDetailScreen() {
                   style={{ paddingHorizontal: 14 }}
                 />
               ))}
+            </View>
+            {/* Q-C2 — personal-flag toggles (Lingerie + Wishlist). Moved
+                here from the Alert.alert menu so Android's 3-button cap
+                doesn't drop Delete + Cancel. Each ride
+                `useUpdateGarment` so the cache patches + Q-C1's
+                `garments-smart-counts` invalidation come along for
+                free. Codex P2 round 1 on Q-C2 PR #831. */}
+            <View style={[s.fieldGroup, { backgroundColor: t.card, borderColor: t.border }]}>
+              <SettingsRow
+                title={tr('garmentDetail.flag.wishlist.label')}
+                caption={tr('garmentDetail.flag.wishlist.hint')}
+                toggle={{ value: isWishlist, onValueChange: handleToggleWishlist }}
+                style={{ paddingHorizontal: 14 }}
+              />
+              <SettingsRow
+                title={tr('garmentDetail.flag.lingerie.label')}
+                caption={tr('garmentDetail.flag.lingerie.hint')}
+                toggle={{ value: isLingerie, onValueChange: handleToggleLingerie }}
+                last
+                style={{ paddingHorizontal: 14 }}
+              />
             </View>
             {garment.occasion_tags && garment.occasion_tags.length > 0 ? (
               <View>

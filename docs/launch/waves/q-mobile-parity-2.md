@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Four themed PRs that close visible-to-user mobile gaps surfaced post-launch: Home SmartDayBanner garment thumbs, chat outfit-card render+refine parity, Plan/Generate flow with date-aware planning, Wardrobe filters wired with server counts + new personal flags (Lingerie / Wishlist / In Laundry). |
-| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D1 DONE (PR #827); Q-D2 DONE (PR #828); Q-B DONE (PR #829, scoped-back); Q-C1 (this branch); Q-C2 TODO |
+| Status | IN PROGRESS — Q-A DONE (PR #826); Q-D1 DONE (PR #827); Q-D2 DONE (PR #828); Q-B DONE (PR #829); Q-C1 DONE (PR #830); Q-C2 (this branch — migration + flag wiring) |
 | Branch base | `main` |
 | PR count | 4 (Q-A, Q-D, Q-B, Q-C) — Q-C internally split into Q-C1 (server counts) + Q-C2 (schema flags) for review-ability |
 | Migrations | One — `garments` adds three personal-flag booleans (Q-C2 only) |

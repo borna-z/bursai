@@ -1938,6 +1938,17 @@ export const en: Record<string, string> = {
   // Wardrobe wishlist tile — informational placeholder.
   'wardrobe.wishlist.comingSoon.title': 'Coming soon',
   'wardrobe.wishlist.comingSoon.body': 'Wishlist feature coming soon.',
+  // Q-C2 — Wishlist + Lingerie tile tap-toasts (filtered list view
+  // deferred). Plus the GarmentDetail toggle labels that let the user
+  // flip the new personal flags on a per-garment basis.
+  'wardrobe.wishlist.title': 'On your wishlist',
+  'wardrobe.wishlist.body.template': '{count} pieces flagged. Filter view arrives in a future update.',
+  'wardrobe.lingerie.title': 'Lingerie',
+  'wardrobe.lingerie.body.template': '{count} pieces flagged. Filter view arrives in a future update.',
+  'garmentDetail.flag.wishlist.label': 'Wishlist',
+  'garmentDetail.flag.wishlist.hint': 'Track pieces you want to buy.',
+  'garmentDetail.flag.lingerie.label': 'Lingerie',
+  'garmentDetail.flag.lingerie.hint': 'Organize delicates separately in your wardrobe.',
 
   // EditGarment cancel-confirm (N9 deferral folded in here per the N3b
   // brief). KEEP as Alert.alert: discard-vs-keep is a destructive choice.
@@ -1974,6 +1985,12 @@ export const en: Record<string, string> = {
   'garmentDetail.alerts.options.title': 'Options',
   'garmentDetail.menu.markClean': 'Mark clean',
   'garmentDetail.menu.addToLaundry': 'Add to laundry',
+  // Q-C2 — personal-flag menu items.
+  'garmentDetail.menu.addToWishlist': 'Add to wishlist',
+  'garmentDetail.menu.removeFromWishlist': 'Remove from wishlist',
+  'garmentDetail.menu.markLingerie': 'Mark as lingerie',
+  'garmentDetail.menu.unmarkLingerie': 'Unmark as lingerie',
+  'garmentDetail.alerts.couldNotUpdate.title': 'Could not update',
   'garmentDetail.menu.deleteGarment': 'Delete garment',
   'garmentDetail.badge.studio': 'Studio',
   'garmentDetail.badge.studioRendering': 'Studio render…',
