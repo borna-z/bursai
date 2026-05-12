@@ -175,6 +175,14 @@ export function LiveScanScreen() {
     runOnJS(setQualityState)(quality.value);
   }, [quality]);
 
+  // Mirror shutterOpacity into React state so `pointerEvents` is only 'auto'
+  // when the shutter is actually visible. The invisible wrapper (opacity 0)
+  // would otherwise intercept taps during the 3-second detector warm-up.
+  const [shutterVisible, setShutterVisible] = useState(false);
+  useDerivedValue(() => {
+    runOnJS(setShutterVisible)(shutterOpacity.value > 0.3);
+  }, [shutterOpacity]);
+
   // Mirror `hasDetectorPlugin` into React state. On platforms / builds where
   // the native object output is unavailable (e.g. Android v5 today, or a
   // failed `CameraObjectOutput` init), the frame processor pins `score` to 0
@@ -420,11 +428,13 @@ export function LiveScanScreen() {
       </View>
 
       {/* Manual shutter — fades in after 3 s of low score. `pointerEvents`
-          toggles off in the 'ready' state because the auto-snap is about
-          to fire; we don't want a double-tap to capture twice. */}
+          is 'auto' only when the shutter is actually visible (opacity > 0.3)
+          AND not in the 'ready' state (auto-snap about to fire). This prevents
+          the invisible wrapper from intercepting taps during the detector
+          warm-up window. */}
       <Animated.View
         style={[s.shutterWrap, shutterStyle]}
-        pointerEvents={qualityState === 'ready' ? 'none' : 'auto'}>
+        pointerEvents={shutterVisible && qualityState !== 'ready' ? 'auto' : 'none'}>
         <Pressable
           onPress={handleManualShutter}
           accessibilityRole="button"

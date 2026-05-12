@@ -38,6 +38,9 @@ jest.mock('../../../lib/garmentSave', () => ({
   persistGarmentWithOfflineFallback: jest.fn(),
   OfflineQueuedError: class extends Error {},
 }));
+jest.mock('../../../lib/i18n', () => ({
+  getLocale: () => 'en',
+}));
 
 const mockedResize = resizeForGarment as jest.MockedFunction<typeof resizeForGarment>;
 const mockedUpload = uploadManipulatedImage as jest.MockedFunction<typeof uploadManipulatedImage>;

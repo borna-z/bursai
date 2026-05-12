@@ -20,6 +20,7 @@
 
 import { resizeForGarment, uploadManipulatedImage, deleteUpload, type UploadResult } from '../../lib/imageUpload';
 import { callEdgeFunction } from '../../lib/edgeFunctionClient';
+import { getLocale } from '../../lib/i18n';
 import {
   persistGarmentWithOfflineFallback,
   OfflineQueuedError,
@@ -59,7 +60,7 @@ export async function ingestScan(
       body: {
         storagePath: uploaded.storagePath,
         mode: 'fast',
-        locale: 'en',
+        locale: getLocale(),
       },
     });
     if (!analysis) {
