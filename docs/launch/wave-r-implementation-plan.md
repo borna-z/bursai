@@ -25,14 +25,18 @@
 
 ## PR R-A · Android LiveScan auto-detect via Nitro + MLKit + Expo config plugin (L)
 
+> **R-A.1 findings are authoritative.** Before executing R-A.2 onward, read `docs/launch/wave-r-a1-preflight-findings.md`. Where this plan and the findings file disagree, the findings file wins. Headline corrections from R-A.1: (1) codegen is the separate `nitrogen@0.35.6` npm package (devDep), invoked as `npx nitrogen`; (2) **`useFrameProcessor` does not exist in vision-camera v5 — use `useFrameOutput` from `react-native-vision-camera` + install `react-native-vision-camera-worklets`**; (3) `Frame.orientation` is a string enum (`'up'|'right'|'left'|'down'`), not a Java enum; (4) `react-native-worklets@0.5.1` is pinned by Expo SDK 54 — do not bump; (5) current shared values are `score` / `quality` / `hasDetectorPlugin` (not `detectionScore` / `detectionBox`).
+
 **Files:**
 - Create: `mobile/plugins/with-garment-detector/index.js` (config plugin entry)
 - Create: `mobile/plugins/with-garment-detector/android/HybridGarmentDetector.kt`
 - Create: `mobile/plugins/with-garment-detector/android/GarmentDetectorPackage.kt`
 - Create: `mobile/specs/GarmentDetector.nitro.ts` (Nitro TS spec — codegen input)
-- Create or modify: `mobile/nitro.json` (nitrogen config)
-- Modify: `mobile/app.json` (register plugin in `expo.plugins`)
-- Modify: `mobile/src/screens/LiveScan/frameProcessor.ts` (Android branch using `useFrameProcessor` + Nitro)
+- Create: `mobile/nitro.json` (nitrogen config; modelled on `node_modules/react-native-vision-camera/nitro.json`)
+- Create: `mobile/nitrogen/generated/**` (committed codegen output — vision-camera precedent)
+- Modify: `mobile/app.json` (register `./plugins/with-garment-detector` plus `react-native-nitro-modules` in `expo.plugins` if not already wired)
+- Modify: `mobile/package.json` (add devDep `nitrogen@0.35.6`; add dep `react-native-vision-camera-worklets@^5`)
+- Modify: `mobile/src/screens/LiveScan/frameProcessor.ts` (Android branch using **`useFrameOutput`** + Nitro detector)
 - Create: `mobile/src/screens/LiveScan/garmentDetector.ts` (JS wrapper around the generated Nitro hybrid)
 - Modify: `CLAUDE.md` (CURRENT WAVE pointer)
 - Modify: `docs/launch/overview.md` (CURRENT WAVE pointer)
@@ -237,19 +241,22 @@ export interface GarmentDetector
 }
 ```
 
-- [ ] **Step 3: Run nitrogen**
+- [ ] **Step 3: Install nitrogen and run codegen**
+
+`react-native-nitro-modules` does NOT ship the codegen binary — it's a separate npm package, `nitrogen`, version-locked to nitro-modules. Install it as a devDep and invoke via npx:
 
 ```bash
-cd mobile && npx nitro-codegen  # or whatever binary R-A.1 Step 2 reported
+cd mobile && npm i -D nitrogen@0.35.6 --no-audit --no-fund
+cd mobile && npx nitrogen
 ```
 
-Expected: generates `mobile/specs/generated/` with Kotlin scaffolding + JS bindings.
+Expected: generates `mobile/nitrogen/generated/` with Kotlin abstract spec class (`HybridGarmentDetectorSpec.kt`), data classes (`DetectedBox`), and JS bindings. The vision-camera package commits its own generated tree as precedent — do the same here.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add mobile/specs/ mobile/nitro.json
-git commit -m "R-A: Nitro spec + codegen artifacts for GarmentDetector"
+git add mobile/specs/ mobile/nitro.json mobile/nitrogen/ mobile/package.json mobile/package-lock.json
+git commit -m "R-A: Nitro spec + nitrogen codegen artifacts for GarmentDetector"
 ```
 
 ### Task R-A.4: Implement the Kotlin Nitro module
@@ -282,9 +289,12 @@ class HybridGarmentDetector : HybridGarmentDetectorSpec() {
     )
 
     override fun detect(frame: Frame): GarmentDetectionResult {
-        val image = frame.image
-        val rotation = frame.orientation.toDegrees()
-        val input = InputImage.fromMediaImage(image, rotation)
+        // NOTE per R-A.1 findings: v5 Frame.orientation is a String enum ('up'|'right'|'left'|'down').
+        // With useFrameOutput pixelFormat 'yuv', read planes via frame.getPlanes() and build
+        // InputImage.fromByteArray (NV21 packing) or convert to Camera2 Image for fromMediaImage.
+        // Frame.dispose() is called from the JS worklet side after detect() returns.
+        val rotation = orientationToDegrees(frame.orientation)
+        val input = buildInputImage(frame, rotation)
 
         val results: List<DetectedObject> = try {
             Tasks.await(detector.process(input), 50, TimeUnit.MILLISECONDS)
@@ -319,21 +329,32 @@ class HybridGarmentDetector : HybridGarmentDetectorSpec() {
         )
     }
 
-    private fun com.mrousavy.camera.core.types.Orientation.toDegrees(): Int = when (this.name) {
-        "PORTRAIT" -> 0
-        "LANDSCAPE_LEFT" -> 270
-        "PORTRAIT_UPSIDE_DOWN" -> 180
-        "LANDSCAPE_RIGHT" -> 90
+    private fun orientationToDegrees(orientation: String): Int = when (orientation) {
+        "up" -> 0
+        "right" -> 90
+        "down" -> 180
+        "left" -> 270
         else -> 0
+    }
+
+    private fun buildInputImage(frame: Frame, rotation: Int): InputImage {
+        // Implementer: pick one of two approaches at execution time:
+        //   (a) frame.getPlanes() -> NV21 byte array -> InputImage.fromByteArray(bytes, w, h, rotation, NV21)
+        //   (b) Access the underlying android.media.Image via vision-camera v5 platform API and use
+        //       InputImage.fromMediaImage(image, rotation)
+        // Cross-reference the v5 Frame.nitro.d.ts and any vision-camera + MLKit example repos.
+        TODO("R-A.4 implementer: implement YUV -> InputImage. See docs/launch/wave-r-a1-preflight-findings.md §6 confidence flag 2.")
     }
 }
 ```
 
-**Implementer notes:**
-- `HybridGarmentDetectorSpec` is generated by nitrogen in Task R-A.3 — the exact import path will be visible after codegen runs. Adjust the `import` line accordingly.
-- The `GarmentDetectionResult` and `GarmentDetectionBox` data classes are also generated by nitrogen — do NOT redeclare them.
-- `frame.image` and `frame.orientation` are vision-camera v5 Frame properties — verify these names against R-A.1 Step 3's Frame.d.ts inventory.
-- `Tasks.await` is from Google Play Services Tasks API — already a transitive dep of MLKit. If the exact import differs in the installed MLKit version, adjust.
+**Implementer notes (per R-A.1 findings, file `docs/launch/wave-r-a1-preflight-findings.md`):**
+- `HybridGarmentDetectorSpec` is generated by nitrogen under `mobile/nitrogen/generated/android/` — exact import path appears after R-A.3 codegen runs. Adjust the `import` line accordingly.
+- `DetectedBox` data class is also generated by nitrogen — do NOT redeclare it. Return type is `List<DetectedBox>` (the example used `GarmentDetectionResult` — adapt to the actually-generated names).
+- `Frame.orientation` in vision-camera v5 is a `String` ('up'|'right'|'left'|'down'), NOT the v4 `com.mrousavy.camera.core.types.Orientation` enum. Do not import the v4 enum.
+- `frame.image` is the v4 property. **v5 exposes pixel data via `frame.getPlanes()` / `frame.getPixelBuffer()` / `frame.getNativeBuffer()`.** Pick the appropriate conversion path (see `buildInputImage` TODO).
+- `Tasks.await` from Google Play Services Tasks API: fine to call synchronously from the frame-processor thread (NativeThread, not main thread).
+- Reference Nitro module layout: `mobile/node_modules/react-native-nitro-image/` shows a real-world Nitro Kotlin module with codegen output committed.
 
 - [ ] **Step 2: Create the package registration**
 
@@ -381,9 +402,19 @@ git add mobile/plugins/with-garment-detector/
 git commit -m "R-A: Kotlin Nitro module wrapping MLKit Object Detection"
 ```
 
-### Task R-A.5: Wire the worklet frame processor (JS)
+### Task R-A.5: Wire the Android frame output (JS)
 
-- [ ] **Step 1: Create the JS wrapper**
+> **Important — per R-A.1 findings:** vision-camera v5 removed `useFrameProcessor`. The v5 hook is **`useFrameOutput`** (returns a `CameraFrameOutput` which is attached to `<Camera outputs={[…]} />`). This task uses `useFrameOutput`, not `useFrameProcessor`. Requires `react-native-vision-camera-worklets` (install in this task if R-A.2 didn't already).
+
+- [ ] **Step 1: Install vision-camera worklets companion (if not already installed in R-A.2)**
+
+```bash
+cd mobile && npm i react-native-vision-camera-worklets@^5 --no-audit --no-fund
+```
+
+Also verify `mobile/babel.config.js` registers `react-native-worklets/plugin`. Reanimated 4 typically wires it; if absent, add it (last in the plugin list).
+
+- [ ] **Step 2: Create the JS wrapper around the Nitro hybrid**
 
 `mobile/src/screens/LiveScan/garmentDetector.ts`:
 
@@ -391,54 +422,60 @@ git commit -m "R-A: Kotlin Nitro module wrapping MLKit Object Detection"
 import { NitroModules } from 'react-native-nitro-modules';
 import type { GarmentDetector } from '../../../specs/GarmentDetector.nitro';
 
-export const garmentDetector = NitroModules.createHybridObject<GarmentDetector>('GarmentDetector');
+export const garmentDetector =
+  NitroModules.createHybridObject<GarmentDetector>('GarmentDetector');
 ```
 
-- [ ] **Step 2: Branch the frame processor on platform**
+- [ ] **Step 3: Add Android `useFrameOutput` branch in `frameProcessor.ts`**
 
-In `mobile/src/screens/LiveScan/frameProcessor.ts`, add an Android path that uses `useFrameProcessor` + `garmentDetector.detect(frame)` and writes the same shared values (`score`, `quality`, `hasDetectorPlugin`) the iOS path writes. Keep iOS path using `useObjectOutput` unchanged.
+In `mobile/src/screens/LiveScan/frameProcessor.ts`, add an Android path that returns a `CameraFrameOutput` via `useFrameOutput` and writes the same shared values (`score`, `quality`, `hasDetectorPlugin`) the iOS path writes. Keep iOS `useObjectOutput` unchanged.
 
-Concrete shape (adapt to existing patterns reported in R-A.1 Step 4):
+Concrete shape (adapt to the existing iOS hook structure reported in `docs/launch/wave-r-a1-preflight-findings.md` §4):
 
 ```typescript
 import { Platform } from 'react-native';
-import { useFrameProcessor } from 'react-native-vision-camera';
+import { useFrameOutput, type CameraFrameOutput } from 'react-native-vision-camera';
 import { garmentDetector } from './garmentDetector';
 import { scoreFrame } from './scoring';
 
 // ... existing iOS hook unchanged ...
 
-export function useAndroidFrameProcessor(shared: FrameProcessorSharedValues) {
+export function useAndroidFrameOutput(
+  shared: FrameProcessorSharedValues,
+): CameraFrameOutput {
   shared.hasDetectorPlugin.value = true;
-  return useFrameProcessor((frame) => {
-    'worklet';
-    const r = garmentDetector.detect(frame);
-    if (!r.valid || r.box == null) {
-      shared.score.value = 0;
-      shared.quality.value = 'searching';
-      return;
-    }
-    const detected = [{ x: r.box.x, y: r.box.y, width: r.box.width, height: r.box.height, confidence: r.score }];
-    const { score, quality } = scoreFrame(detected, { exposure: 0.5, sharpness: 0.7 });
-    shared.score.value = score;
-    shared.quality.value = quality;
-  }, []);
+  return useFrameOutput({
+    pixelFormat: 'yuv',
+    onFrame(frame) {
+      'worklet';
+      const boxes = garmentDetector.detect(frame);
+      const { score, quality } = scoreFrame(boxes, {
+        exposure: 0.5,
+        sharpness: 0.7,
+      });
+      shared.score.value = score;
+      shared.quality.value = quality;
+      frame.dispose();
+    },
+  });
 }
 
 export function useLiveScanFrameProcessor(shared: FrameProcessorSharedValues) {
-  // existing iOS impl returns { objectOutput, markStaleIfNoRecentScan }
-  // add a parallel `frameProcessor` field that's null on iOS, defined on Android
+  // Make the return shape a single union so LiveScanScreen.tsx doesn't need a platform check:
+  //   { output: CameraOutput | null; markStaleIfNoRecentScan }
   if (Platform.OS === 'android') {
-    const frameProcessor = useAndroidFrameProcessor(shared);
-    return { objectOutput: null, frameProcessor, markStaleIfNoRecentScan: () => {} };
+    const output = useAndroidFrameOutput(shared);
+    return { output, markStaleIfNoRecentScan: () => {} };
   }
-  // ... existing iOS impl ...
+  // ... existing iOS impl returns { output: objectOutput, markStaleIfNoRecentScan } ...
 }
 ```
 
-- [ ] **Step 3: Wire the Android `frameProcessor` into `<Camera />`**
+`scoreFrame` must be `'worklet'`-callable. Read `mobile/src/screens/LiveScan/scoring.ts` first — if it's pure (no React/platform imports) it should already compile under the worklets Babel plugin; add a top-of-file `'worklet'` directive if typecheck/lint flags an issue.
 
-In `mobile/src/screens/LiveScanScreen.tsx`, where `outputs` is currently passed to `<Camera>`, also pass `frameProcessor` when Platform is Android. Reference vision-camera v5 docs for the exact prop shape.
+- [ ] **Step 4: Wire the union return into `<Camera outputs />`**
+
+In `mobile/src/screens/LiveScanScreen.tsx`, the existing `useMemo` that builds `outputs` currently reads `objectOutput`. Switch it to read the new union `output` field so a single platform-agnostic memo builds `[photoOutput, output]` (or `[photoOutput]` when `output == null`).
 
 - [ ] **Step 4: Run lint + typecheck**
 
