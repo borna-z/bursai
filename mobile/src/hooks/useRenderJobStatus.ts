@@ -59,7 +59,7 @@
 // directly here.
 
 import { useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -67,6 +67,72 @@ import { bustSignedUrlCache } from './useSignedUrl';
 
 export type RenderJobTerminalStatus = 'succeeded' | 'failed';
 export type RenderJobStatus = 'pending' | 'in_progress' | RenderJobTerminalStatus;
+
+// Sentinel `errorClass` value emitted by the synthetic-failed code path
+// (cross-window empty-poll cutoff). Distinguishes a client-side give-up
+// from a real worker-side failure so the terminal useEffect can skip the
+// "refetch the garment row from server" step that would otherwise undo the
+// local cache patch with the stuck-pending server state.
+const SYNTHETIC_ENQUEUE_LOST = 'enqueue_lost';
+
+// Minimal garment-row shape we touch when patching the cache locally. Matches
+// the columns GarmentDetailScreen reads to derive `isStudioRendering` /
+// `isStudioFailed`. Cast through `unknown` at the setQueryData boundary so
+// we don't have to import the full Garment type just to write two fields.
+interface GarmentRenderPatch {
+  render_status: 'failed';
+  render_error: string;
+}
+
+// Flip the local garment cache so the consumer's gate (which reads
+// `garment.render_status`, NOT the hook's return) actually disables this
+// hook. We intentionally do NOT invalidate the garment query afterwards —
+// the server row is stuck at 'pending' (that's the whole reason we ended up
+// here), so refetching would just overwrite this patch with the stale
+// state. A future legitimate render attempt or pull-to-refresh resyncs.
+function patchGarmentToEnqueueLost(
+  qc: QueryClient,
+  userId: string | undefined,
+  garmentId: string,
+): void {
+  const patch: GarmentRenderPatch = {
+    render_status: 'failed',
+    render_error: 'enqueue_lost',
+  };
+  qc.setQueryData(
+    ['garment', userId, garmentId],
+    (prev: unknown) =>
+      prev && typeof prev === 'object'
+        ? { ...(prev as Record<string, unknown>), ...patch }
+        : prev,
+  );
+  // List caches (wardrobe / laundry / search): patch the matching row in any
+  // currently-cached page so the badge flips on remount. Structure mirrors
+  // useGarments.patchGarmentInCaches.
+  qc.setQueriesData<unknown>(
+    { queryKey: ['garments', userId] },
+    (prev: unknown) => {
+      if (!prev || typeof prev !== 'object') return prev;
+      const root = prev as { pages?: { items?: { id?: string }[] }[] };
+      const pages = root.pages;
+      if (!Array.isArray(pages)) return prev;
+      let mutated = false;
+      const nextPages = pages.map((page) => {
+        const items = page?.items;
+        if (!Array.isArray(items)) return page;
+        let pageChanged = false;
+        const nextItems = items.map((g) => {
+          if (g?.id !== garmentId) return g;
+          pageChanged = true;
+          mutated = true;
+          return { ...(g as Record<string, unknown>), ...patch };
+        });
+        return pageChanged ? { ...page, items: nextItems } : page;
+      });
+      return mutated ? { ...root, pages: nextPages } : prev;
+    },
+  );
+}
 
 export interface RenderJobSnapshot {
   jobId: string | null;
@@ -189,10 +255,18 @@ export function useRenderJobStatus(
             qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
           }
           if (emptyPollWindowsRef.current >= maxEmptyPollWindows) {
+            // The consumer (GarmentDetailScreen) gates the spinner off
+            // `garment.render_status`, not this hook's return value. Patch
+            // the local garment cache so the gate actually flips — without
+            // this the poller halts but the spinner stays visible (Codex
+            // P2 on PR #835).
+            if (garmentId) {
+              patchGarmentToEnqueueLost(qc, user?.id, garmentId);
+            }
             return {
               jobId: null,
               status: 'failed',
-              errorClass: 'enqueue_lost',
+              errorClass: SYNTHETIC_ENQUEUE_LOST,
               resultPath: null,
               attempts: 0,
             };
@@ -255,11 +329,25 @@ export function useRenderJobStatus(
       bustSignedUrlCache(qc, resultPath);
     }
 
-    qc.invalidateQueries({ queryKey: ['garments'] });
-    if (garmentId) {
-      qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+    // Synthetic-failed (errorClass === 'enqueue_lost') already patched the
+    // garment caches locally in queryFn. Refetching them here would just
+    // overwrite the patch with the stuck-pending server row — exactly the
+    // state we're giving up on. Real worker-side terminals still invalidate
+    // so the rendered_image_path / render_error fields land on the row.
+    if (query.data?.errorClass !== SYNTHETIC_ENQUEUE_LOST) {
+      qc.invalidateQueries({ queryKey: ['garments'] });
+      if (garmentId) {
+        qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+      }
     }
-  }, [query.data?.status, query.data?.resultPath, qc, user?.id, garmentId]);
+  }, [
+    query.data?.status,
+    query.data?.resultPath,
+    query.data?.errorClass,
+    qc,
+    user?.id,
+    garmentId,
+  ]);
 
   // Reset the terminal + empty-poll latches whenever we switch garments so a
   // subsequent success / no-row on a different garmentId still triggers the
