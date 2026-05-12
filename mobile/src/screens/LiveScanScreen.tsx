@@ -158,7 +158,7 @@ export function LiveScanScreen() {
   // no React render dependency.
   const lowScoreSinceRef = useRef<number>(Date.now());
 
-  const { objectOutput } = useLiveScanFrameProcessor({
+  const { objectOutput, markStaleIfNoRecentScan } = useLiveScanFrameProcessor({
     score,
     quality,
     hasDetectorPlugin,
@@ -285,16 +285,30 @@ export function LiveScanScreen() {
 
   // VisionCamera's `onObjectsScanned` callback only fires when the detector
   // reports one or more objects, so on an empty viewfinder `score` never
-  // changes and the score-driven `useDerivedValue` above never re-runs. That
-  // would strand users with no manual shutter when the detector sees nothing.
+  // changes and the score-driven `useDerivedValue` above never re-runs. Two
+  // problems flow from that:
+  //   1. Users would be stranded with no manual shutter when the detector
+  //      sees nothing.
+  //   2. After an auto-snap, the previous garment's high `score.value`
+  //      lingers — the stability lock's "disarmed-until-reset" gate
+  //      requires a below-floor sample before re-arming, so the next
+  //      well-framed garment never auto-snaps.
+  //
   // Heartbeat the lock with the current shared value every 250 ms while the
-  // detector is available; reading `.value` here picks up the latest worklet
-  // write (no stale-closure risk) and `tickLock` is stable via useCallback.
+  // detector is available. Each tick first calls `markStaleIfNoRecentScan`,
+  // which resets `score.value` (and `quality`) when the detector has been
+  // silent for >500 ms — that synthesises the empty-frame state the lock
+  // needs to re-arm. Reading `.value` afterwards picks up the latest
+  // worklet write (no stale-closure risk) and `tickLock` is stable via
+  // useCallback.
   useEffect(() => {
     if (!detectorAvailable) return;
-    const id = setInterval(() => tickLock(score.value), 250);
+    const id = setInterval(() => {
+      markStaleIfNoRecentScan();
+      tickLock(score.value);
+    }, 250);
     return () => clearInterval(id);
-  }, [detectorAvailable, tickLock, score]);
+  }, [detectorAvailable, tickLock, score, markStaleIfNoRecentScan]);
 
   const handleManualShutter = useCallback(() => {
     hapticMedium();

@@ -8,11 +8,11 @@
 // fires `onObjectsScanned` on the JS thread with bounding boxes already
 // normalized to camera space (0..1).
 //
-// `react-native-vision-camera-mlkit@1.0.0` was built against vision-camera
-// v4 and currently only ships a text-recognition wrapper, so we drive the
-// vision-camera v5 native object output directly. We pass `'salient-object'`
-// to surface the most prominent foreground subject — that maps well to a
-// hand-held garment in the LiveScan flow.
+// We drive the vision-camera v5 native object output directly. We pass
+// `'salient-object'` to surface the most prominent foreground subject —
+// that maps well to a hand-held garment in the LiveScan flow. Android is
+// not yet supported by v5's CameraObjectOutput; the screen falls back to
+// manual-shutter-only mode when `hasDetectorPlugin` is false.
 //
 // Each scanned batch:
 //   1. Convert ScannedObject[] -> DetectedObject[] (already 0..1 coords).
@@ -58,7 +58,19 @@ export interface LiveScanFrameProcessor {
    * platform / build (screen should fall back to manual shutter only).
    */
   objectOutput: CameraObjectOutput | null;
+  /**
+   * Drop stale detector state when `onObjectsScanned` hasn't fired in
+   * `staleMs`. Vision Camera only emits the callback when at least one
+   * object is detected — between garments the viewfinder may be empty for
+   * hundreds of ms, during which `score.value` would otherwise hold the
+   * last well-framed garment's value and prevent the stability lock from
+   * re-arming. Call this from the screen's heartbeat tick before reading
+   * `score.value`.
+   */
+  markStaleIfNoRecentScan: (staleMs?: number) => void;
 }
+
+const DEFAULT_STALE_MS = 500;
 
 function toDetectedObjects(objects: ScannedObject[]): DetectedObject[] {
   const out: DetectedObject[] = [];
@@ -113,6 +125,13 @@ export function useLiveScanFrameProcessor(
   const sharedRef = useRef(shared);
   sharedRef.current = shared;
 
+  // Wall-clock timestamp of the last `onObjectsScanned` callback. Used by
+  // `markStaleIfNoRecentScan` to detect empty-viewfinder gaps and force
+  // the score back to 0 so the stability lock can re-arm for the next
+  // garment. `0` means "never scanned yet" — also treated as stale once
+  // the detector hook has confirmed it's available.
+  const lastScannedAtRef = useRef<number>(0);
+
   const objectOutput = useMemo<CameraObjectOutput | null>(() => {
     try {
       return VisionCamera.createObjectOutput({
@@ -133,6 +152,10 @@ export function useLiveScanFrameProcessor(
     shared.hasDetectorPlugin.value = true;
 
     const callback = (objects: ScannedObject[]): void => {
+      // Record fire timestamp first — even an empty / malformed batch
+      // counts as "the detector is alive", which keeps the staleness
+      // reset from clobbering a legitimate low-score frame.
+      lastScannedAtRef.current = Date.now();
       const s = sharedRef.current;
       try {
         const boxes = toDetectedObjects(objects);
@@ -168,5 +191,31 @@ export function useLiveScanFrameProcessor(
     };
   }, [objectOutput, shared.hasDetectorPlugin, shared.score, shared.quality]);
 
-  return { objectOutput };
+  // Stable reference (via useRef) so the screen can include this in
+  // `useEffect` / `useCallback` dep arrays without retriggering on every
+  // render. The underlying behaviour reads the latest shared values out
+  // of `sharedRef`, so the snapshot taken at hook init stays correct.
+  const markStaleIfNoRecentScanRef = useRef<(staleMs?: number) => void>(
+    (staleMs?: number) => {
+      const last = lastScannedAtRef.current;
+      // First-tick guard: if we haven't received any callback yet, don't
+      // reset. Two reasons: (1) the detector hook may not have wired the
+      // callback up at all (Android in v5, or a failed init) — in which
+      // case the `detectorAvailable === false` path on the screen pins
+      // score/quality directly. (2) On a fresh cold start the detector
+      // may legitimately need a few hundred ms to spin up its first
+      // scan; we don't want to fight that warmup.
+      if (last === 0) return;
+      const ms = staleMs ?? DEFAULT_STALE_MS;
+      if (Date.now() - last <= ms) return;
+      const s = sharedRef.current;
+      s.score.value = 0;
+      s.quality.value = 'too_far';
+    },
+  );
+
+  return {
+    objectOutput,
+    markStaleIfNoRecentScan: markStaleIfNoRecentScanRef.current,
+  };
 }
