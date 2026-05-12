@@ -250,16 +250,18 @@ export function useRenderJobStatus(
         if (emptyPollsRef.current >= maxEmptyPolls) {
           emptyPollsRef.current = 0;
           emptyPollWindowsRef.current += 1;
-          qc.invalidateQueries({ queryKey: ['garments'] });
-          if (garmentId) {
-            qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
-          }
-          if (emptyPollWindowsRef.current >= maxEmptyPollWindows) {
+          const isFinalWindow = emptyPollWindowsRef.current >= maxEmptyPollWindows;
+          if (isFinalWindow) {
+            // SYNTHETIC-FAILED PATH — skip the per-window invalidation here.
+            // invalidateQueries refetches active queries by default, and the
+            // stuck-pending server row would overwrite the local patch we
+            // are about to apply, leaving the spinner stuck while the poller
+            // has already halted (Codex P1 round 2 on PR #835). The patch
+            // below is the authoritative cache update for this terminal.
+            //
             // The consumer (GarmentDetailScreen) gates the spinner off
-            // `garment.render_status`, not this hook's return value. Patch
-            // the local garment cache so the gate actually flips — without
-            // this the poller halts but the spinner stays visible (Codex
-            // P2 on PR #835).
+            // `garment.render_status`, not this hook's return value, so
+            // the patch must hit BEFORE we return the synthetic snapshot.
             if (garmentId) {
               patchGarmentToEnqueueLost(qc, user?.id, garmentId);
             }
@@ -270,6 +272,15 @@ export function useRenderJobStatus(
               resultPath: null,
               attempts: 0,
             };
+          }
+          // Non-final empty windows: keep the original behavior of
+          // invalidating the garment caches so a server-side
+          // `render_status='none'` reset (slow-enqueue failure path) gets
+          // picked up by `useGarment` and the screen's gate disables this
+          // hook on its own. (Codex round 7.)
+          qc.invalidateQueries({ queryKey: ['garments'] });
+          if (garmentId) {
+            qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
           }
         }
         return null;
