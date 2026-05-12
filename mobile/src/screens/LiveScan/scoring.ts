@@ -5,6 +5,14 @@
 // Output: a 0–1 score and a quality enum the UI consumes.
 //
 // Tuning constants live at the top so a one-line edit moves thresholds.
+//
+// Worklet contract: `scoreFrame` and every helper it calls carry the
+// `'worklet'` directive. On the iOS path scoring runs on the JS thread (from
+// `onObjectsScanned`) where the directive is a no-op; on the Android path it
+// runs inside a `useFrameOutput` worklet on the frame-processor thread, where
+// the directive is required so the react-native-worklets babel plugin can
+// compile the function into the worklet runtime. The functions only use
+// `Math.*` and primitive ops, both of which are worklet-safe.
 
 import type { DetectedObject, FrameMetrics, FrameScore, Quality } from './types';
 
@@ -34,10 +42,14 @@ const READY_THRESHOLD = 0.85;
 // Helpers
 // ---------------------------------------------------------------------------
 
-const clamp = (v: number): number => Math.max(0, Math.min(1, v));
+const clamp = (v: number): number => {
+  'worklet';
+  return Math.max(0, Math.min(1, v));
+};
 
 /** Return the box with the largest area, or null for an empty array. */
 function pickLargest(boxes: DetectedObject[]): DetectedObject | null {
+  'worklet';
   if (boxes.length === 0) return null;
   let best = boxes[0];
   let bestArea = best.width * best.height;
@@ -57,6 +69,7 @@ function pickLargest(boxes: DetectedObject[]): DetectedObject | null {
  * ≈ 0.707).
  */
 function centerednessOf(box: DetectedObject): number {
+  'worklet';
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const dx = cx - 0.5;
@@ -71,6 +84,7 @@ function centerednessOf(box: DetectedObject): number {
  * ramps outside.
  */
 function sizeFitOf(box: DetectedObject): number {
+  'worklet';
   const area = box.width * box.height;
   if (area >= SIZE_IDEAL_MIN && area <= SIZE_IDEAL_MAX) return 1;
   if (area < SIZE_IDEAL_MIN) return clamp(area / SIZE_IDEAL_MIN);
@@ -80,6 +94,7 @@ function sizeFitOf(box: DetectedObject): number {
 
 /** Sharpness sub-score: already 0–1, just clamped defensively. */
 function sharpnessScore(m: FrameMetrics): number {
+  'worklet';
   return clamp(m.sharpness);
 }
 
@@ -88,6 +103,7 @@ function sharpnessScore(m: FrameMetrics): number {
  * 1.0 (pure black / pure white).
  */
 function exposureScore(m: FrameMetrics): number {
+  'worklet';
   return clamp(1 - Math.abs(m.exposure - 0.5) * 2);
 }
 
@@ -118,6 +134,7 @@ export interface DerivationInput {
  * function uses the raw area value for that distinction.
  */
 export function deriveQuality(input: DerivationInput): Quality {
+  'worklet';
   if (input.exposure < EXPOSURE_LOW) return 'low_light';
   if (input.sizeFit > 0.85) return 'too_close';
   if (input.centeredness < CENTERED_THRESHOLD) return 'not_centered';
@@ -134,6 +151,7 @@ export function deriveQuality(input: DerivationInput): Quality {
  *   immediately shows a "move closer" hint on an empty frame.
  */
 export function scoreFrame(boxes: DetectedObject[], metrics: FrameMetrics): FrameScore {
+  'worklet';
   const box = pickLargest(boxes);
   if (!box) {
     return { score: 0, quality: 'too_far' };
