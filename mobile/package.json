@@ -78,6 +78,13 @@
       "exclude": [
         "@sentry/react-native"
       ]
+    },
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-nitro-image"
+        ]
+      }
     }
   },
   "private": true
