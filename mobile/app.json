@@ -106,7 +106,6 @@
           "locationWhenInUsePermission": "BURS uses your location to tailor outfits to local weather."
         }
       ],
-      "react-native-nitro-modules",
       "./plugins/with-garment-detector"
     ],
     "extra": {

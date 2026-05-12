@@ -6,17 +6,50 @@ const {
 const fs = require('fs');
 const path = require('path');
 
-const MLKIT_DEP_LINE =
-  `    implementation 'com.google.mlkit:object-detection:17.0.1'`;
-const MLKIT_DEP_MARKER = 'com.google.mlkit:object-detection';
+// Wave R-A garment detector dependencies. CameraX version must track
+// react-native-vision-camera's pin (see node_modules/.../android/build.gradle).
+const APP_DEPS = [
+  `    // Wave R-A garment detector`,
+  `    implementation 'com.google.mlkit:object-detection:17.0.1'`,
+  // ImageProxy + @ExperimentalGetImage live in camera-core. vision-camera
+  // already pulls camera-core in, but as 'implementation' — invisible to
+  // :app — so we need a direct dep here for the Kotlin Nitro module.
+  `    implementation 'androidx.camera:camera-core:1.7.0-alpha01'`,
+];
+const APP_DEPS_MARKER = 'com.google.mlkit:object-detection';
+
+// Nitrogen autolinking: pulls the generated Kotlin sources (HybridGarmentDetectorSpec,
+// DetectedBox, BursGarmentDetectorOnLoad) into the :app sourceSet. We inline the
+// equivalent of `BursGarmentDetector+autolinking.gradle` here because that file
+// resolves its srcDir against `${project.projectDir}/../nitrogen/...` which, when
+// applied from :app, lands at `android/nitrogen/...` (wrong — nitrogen lives at
+// `mobile/nitrogen/`). Pointing at `rootProject.projectDir/../nitrogen/...` is
+// the right anchor.
+const NITROGEN_APPLY_BLOCK = `
+// Wave R-A: register nitrogen-generated Kotlin sources for GarmentDetector
+android {
+    sourceSets {
+        main {
+            java.srcDirs += [
+                "\${rootProject.projectDir}/../nitrogen/generated/android/kotlin"
+            ]
+        }
+    }
+}
+`;
+const NITROGEN_APPLY_MARKER = 'nitrogen/generated/android/kotlin';
 
 function withMlkitGradleDep(config) {
   return withAppBuildGradle(config, (cfg) => {
-    if (cfg.modResults.contents.includes(MLKIT_DEP_MARKER)) return cfg;
-    cfg.modResults.contents = cfg.modResults.contents.replace(
-      /dependencies\s*\{/,
-      (match) => `${match}\n${MLKIT_DEP_LINE}\n    // ^ Wave R-A garment detector`,
-    );
+    if (!cfg.modResults.contents.includes(APP_DEPS_MARKER)) {
+      cfg.modResults.contents = cfg.modResults.contents.replace(
+        /dependencies\s*\{/,
+        (match) => `${match}\n${APP_DEPS.join('\n')}`,
+      );
+    }
+    if (!cfg.modResults.contents.includes(NITROGEN_APPLY_MARKER)) {
+      cfg.modResults.contents = `${cfg.modResults.contents.trimEnd()}\n${NITROGEN_APPLY_BLOCK}`;
+    }
     return cfg;
   });
 }
