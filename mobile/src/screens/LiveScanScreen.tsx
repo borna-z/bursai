@@ -123,27 +123,18 @@ export function LiveScanScreen() {
     };
   }, [events]);
 
-  // The pipeline calls `persistGarmentWithOfflineFallback` directly (bypassing
-  // `useAddGarment`), so React Query has no way to know a new garment row
-  // exists until staleTime expires. Mirror the invalidation set from
-  // `useAddGarment.onSuccess` so wardrobe / count / smart-counts / profile
-  // stats / insights all refresh as soon as the save (or offline queue) lands.
-  // Codex P2 on PR #837.
-  useEffect(() => {
-    const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
-      queryClient.invalidateQueries({ queryKey: ['garments-count'] });
-      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
-    };
-    const offSaved = events.on('saved', invalidate);
-    const offQueued = events.on('queued', invalidate);
-    return () => {
-      offSaved();
-      offQueued();
-    };
-  }, [events, queryClient, user?.id]);
+  // Stable React Query invalidation callback passed directly into the pipeline
+  // so cache invalidation runs even after this screen has unmounted (the user
+  // closed LiveScan with scans still in-flight). The queryClient is the
+  // app-root singleton — it stays valid long after the screen is gone.
+  // Mirrors the invalidation set from `useAddGarment.onSuccess`.
+  const invalidateWardrobe = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['garments'] });
+    queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+    queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+  }, [queryClient, user?.id]);
 
   // Shared values driving the overlays + the JS-thread stability lock.
   const score = useSharedValue(0);
@@ -237,12 +228,12 @@ export function LiveScanScreen() {
       const sessionId = Crypto.randomUUID();
       // Fire-and-forget — pipeline owns error classification and emits via
       // the events bus, which the Filmstrip subscribes to.
-      void queue.enqueue(() => ingestScan(uri, sessionId, user.id, events));
+      void queue.enqueue(() => ingestScan(uri, sessionId, user.id, events, invalidateWardrobe));
     } catch {
       // Capture-loop errors must never crash the screen. The next stable
       // window will retry automatically.
     }
-  }, [user, photoOutput, flashOpacity, queue, events]);
+  }, [user, photoOutput, flashOpacity, queue, events, invalidateWardrobe]);
 
   // JS-thread tick driven by the worklet `score` shared value. Drives the
   // stability-lock fire, the shutter reveal timer, and the lock-progress
@@ -327,14 +318,14 @@ export function LiveScanScreen() {
             if (!user) return;
             const sessionId = Crypto.randomUUID();
             void queue.enqueue(() =>
-              ingestScan(tile.photoUri, sessionId, user.id, events),
+              ingestScan(tile.photoUri, sessionId, user.id, events, invalidateWardrobe),
             );
           },
         },
         { text: tr('livescan.tile.cancel'), style: 'cancel' },
       ]);
     },
-    [user, queue, events],
+    [user, queue, events, invalidateWardrobe],
   );
 
   const handleClose = useCallback(() => {
@@ -372,11 +363,11 @@ export function LiveScanScreen() {
       const asset = result.assets[0];
       const sessionId = Crypto.randomUUID();
       setScanCount((c) => c + 1);
-      void queue.enqueue(() => ingestScan(asset.uri, sessionId, user.id, events));
+      void queue.enqueue(() => ingestScan(asset.uri, sessionId, user.id, events, invalidateWardrobe));
     } catch {
       // Gallery fallback errors are non-fatal — user can retry.
     }
-  }, [user, queue, events]);
+  }, [user, queue, events, invalidateWardrobe]);
 
   const flashStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
   const shutterStyle = useAnimatedStyle(() => ({
