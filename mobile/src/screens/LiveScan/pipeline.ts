@@ -15,7 +15,7 @@
 //      queueRender and triggerGarmentEnrichment internally per
 //      mobile/src/lib/garmentSave.ts.
 
-import { resizeAndUpload } from '../../lib/imageUpload';
+import { resizeAndUpload, deleteUpload, type UploadResult } from '../../lib/imageUpload';
 import { callEdgeFunction } from '../../lib/edgeFunctionClient';
 import {
   persistGarmentWithOfflineFallback,
@@ -33,11 +33,14 @@ export async function ingestScan(
   events: LiveScanEvents,
 ): Promise<void> {
   let stage: PipelineStage = 'compress';
+  // Declared outside the try so the catch can reference it when cleaning up
+  // an orphaned upload after a later-stage failure (analyze / persist).
+  let uploaded: UploadResult | null = null;
   events.emit('start', { sessionId, photoUri });
   try {
     // 1. compress + upload (single call — resizeAndUpload does both).
     events.emit('stage', { sessionId, stage });
-    const uploaded = await resizeAndUpload(photoUri, userId);
+    uploaded = await resizeAndUpload(photoUri, userId);
     stage = 'upload';
     events.emit('stage', { sessionId, stage });
 
@@ -68,8 +71,16 @@ export async function ingestScan(
     events.emit('saved', { sessionId, garmentId: garment.id });
   } catch (err) {
     if (err instanceof OfflineQueuedError) {
+      // Do NOT delete the uploaded object here — the queued replay will
+      // reuse the storage path when it eventually runs.
       events.emit('queued', { sessionId });
       return;
+    }
+    // Clean up orphaned upload if analyze/persist failed after upload
+    // succeeded. Best-effort; we never want cleanup to mask the original
+    // error or block the 'failed' event.
+    if (uploaded?.storagePath) {
+      void deleteUpload(uploaded.storagePath).catch(() => {});
     }
     events.emit('failed', {
       sessionId,

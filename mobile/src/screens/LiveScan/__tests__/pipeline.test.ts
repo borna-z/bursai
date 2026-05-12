@@ -1,4 +1,4 @@
-import { resizeAndUpload } from '../../../lib/imageUpload';
+import { resizeAndUpload, deleteUpload } from '../../../lib/imageUpload';
 import { callEdgeFunction } from '../../../lib/edgeFunctionClient';
 import { persistGarmentWithOfflineFallback, OfflineQueuedError } from '../../../lib/garmentSave';
 import { LiveScanEvents } from '../events';
@@ -6,6 +6,7 @@ import { ingestScan } from '../pipeline';
 
 jest.mock('../../../lib/imageUpload', () => ({
   resizeAndUpload: jest.fn(),
+  deleteUpload: jest.fn().mockResolvedValue(undefined),
   GARMENT_IMAGE_MIME: 'image/webp',
 }));
 jest.mock('../../../lib/edgeFunctionClient', () => ({
@@ -40,6 +41,7 @@ jest.mock('../../../lib/garmentSave', () => ({
 const mockedResize = resizeAndUpload as jest.MockedFunction<typeof resizeAndUpload>;
 const mockedCall = callEdgeFunction as jest.MockedFunction<typeof callEdgeFunction>;
 const mockedPersist = persistGarmentWithOfflineFallback as jest.MockedFunction<typeof persistGarmentWithOfflineFallback>;
+const mockedDelete = deleteUpload as jest.MockedFunction<typeof deleteUpload>;
 
 describe('ingestScan', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -101,5 +103,41 @@ describe('ingestScan', () => {
     // Classification maps stage 'compress' → 'compress_failed'.
     expect(failedClass).toBe('compress_failed');
     expect(mockedCall).not.toHaveBeenCalled();
+    // Nothing was uploaded yet, so no cleanup call.
+    expect(mockedDelete).not.toHaveBeenCalled();
+  });
+
+  it('cleans up orphaned upload when analyze fails', async () => {
+    const { EdgeFunctionRateLimitError } = require('../../../lib/edgeFunctionClient');
+    mockedResize.mockResolvedValue({ storagePath: 'u/orphan.webp', publicUrl: null } as any);
+    mockedCall.mockRejectedValue(new EdgeFunctionRateLimitError('analyze_garment', 30));
+
+    const events = new LiveScanEvents();
+    await ingestScan('file://photo.jpg', 'session-5', 'user-1', events);
+
+    expect(mockedDelete).toHaveBeenCalledTimes(1);
+    expect(mockedDelete).toHaveBeenCalledWith('u/orphan.webp');
+  });
+
+  it('cleans up orphaned upload when persist fails (non-offline)', async () => {
+    mockedResize.mockResolvedValue({ storagePath: 'u/orphan2.webp', publicUrl: null } as any);
+    mockedCall.mockResolvedValue({ title: 'Shirt' } as any);
+    mockedPersist.mockRejectedValue(new Error('persist boom'));
+
+    const events = new LiveScanEvents();
+    await ingestScan('file://photo.jpg', 'session-6', 'user-1', events);
+
+    expect(mockedDelete).toHaveBeenCalledWith('u/orphan2.webp');
+  });
+
+  it('does NOT delete upload on OfflineQueuedError (replay reuses path)', async () => {
+    mockedResize.mockResolvedValue({ storagePath: 'u/queued.webp', publicUrl: null } as any);
+    mockedCall.mockResolvedValue({ title: 'Shirt' } as any);
+    mockedPersist.mockRejectedValue(new OfflineQueuedError());
+
+    const events = new LiveScanEvents();
+    await ingestScan('file://photo.jpg', 'session-7', 'user-1', events);
+
+    expect(mockedDelete).not.toHaveBeenCalled();
   });
 });
