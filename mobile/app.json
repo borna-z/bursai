@@ -105,6 +105,14 @@
         {
           "locationWhenInUsePermission": "BURS uses your location to tailor outfits to local weather."
         }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "BURS needs camera access to scan your wardrobe.",
+          "enableCodeScanner": false,
+          "enableLocation": false
+        }
       ]
     ],
     "extra": {
