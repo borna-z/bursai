@@ -84,6 +84,133 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+// Retry budget for the worker kickoff. 4 attempts (initial + 3 retries) with
+// 250/500/1000 ms backoff between them, each fetch capped at
+// KICKOFF_FETCH_TIMEOUT_MS (1500 ms). Worst-case wall clock ~7.75 s; typical
+// path exits on attempt 1 abort at ~1.5 s. The fetch timeout is essential
+// because process_render_jobs does NOT ack the kickoff before doing the
+// real render — it awaits invokeRender (300 s budget) inside
+// withConcurrencyLimit and only responds at the very end. Without the
+// abort, EdgeRuntime.waitUntil would keep this isolate alive for the full
+// render duration, defeating the "fire-and-forget" intent. An abort fired
+// after the request bytes are on the wire means the worker received the
+// job (TCP-level delivery is the success criterion for a kickoff) — we
+// treat it as success and do NOT retry, since a fresh request would
+// double-claim the same job_id via the cron path anyway.
+const PROCESSOR_RETRY_BACKOFFS_MS = [250, 500, 1000] as const;
+const PROCESSOR_MAX_ATTEMPTS = PROCESSOR_RETRY_BACKOFFS_MS.length + 1;
+const KICKOFF_FETCH_TIMEOUT_MS = 1500;
+
+function isRetryableProcessorStatus(status: number): boolean {
+  // 5xx (server transient, cold start, overload) is retryable; 4xx is a real
+  // misconfiguration (auth, body shape) that a retry will not fix.
+  return status >= 500 && status < 600;
+}
+
+// Drain a response body without buffering it so the underlying HTTP/1.1
+// connection releases cleanly. Deno keeps the socket pinned until the body
+// stream is consumed or cancelled.
+async function drainBody(res: Response): Promise<void> {
+  try {
+    await res.body?.cancel();
+  } catch {
+    // ignore — cancel on already-consumed/cancelled streams is harmless
+  }
+}
+
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = (err as { name?: unknown }).name;
+  return name === "AbortError";
+}
+
+/**
+ * POST to process_render_jobs with bounded retry. Pure background work — the
+ * caller treats this as fire-and-forget (no await on the response path).
+ * Always resolves; never throws.
+ */
+async function invokeProcessorWithRetry(
+  processorUrl: string,
+  bearer: string,
+  jobId: string,
+): Promise<void> {
+  let lastError: unknown = null;
+  let lastStatus: number | null = null;
+  let abortCount = 0;
+
+  for (let attempt = 0; attempt < PROCESSOR_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, PROCESSOR_RETRY_BACKOFFS_MS[attempt - 1]));
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), KICKOFF_FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(processorUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${bearer}`,
+        },
+        body: JSON.stringify({ jobId }),
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        await drainBody(res);
+        return;
+      }
+      lastStatus = res.status;
+      // Drain even on non-2xx — an unread body holds the socket open on
+      // Deno's HTTP/1.1 path regardless of status code.
+      await drainBody(res);
+      if (!isRetryableProcessorStatus(res.status)) {
+        log.warn("process_render_jobs kickoff non-retryable status (cron will retry)", {
+          jobId,
+          status: res.status,
+        });
+        return;
+      }
+    } catch (err) {
+      if (isAbortError(err)) {
+        // Per Codex round 3 on PR #834: abort doesn't guarantee request bytes
+        // reached the worker — the timeout can fire during DNS / TLS setup
+        // or a cold start before the POST is accepted. Treat AbortError as
+        // a retryable transient instead of assuming success. The retry RE-
+        // sends the request; the worker's claim_render_job uses SELECT FOR
+        // UPDATE so a duplicate POST is safely idempotent (already-claimed
+        // jobs short-circuit).
+        abortCount++;
+      }
+      lastError = err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // All attempts aborted with no HTTP status ever observed: the worker was
+  // reachable enough for the request to enter the connection pool but never
+  // responded within the kickoff window. That's typically "worker is
+  // processing slowly" (the desired outcome) — but it can also be
+  // "connection-pool exhausted, never got accepted". Log as info so triage
+  // still has a trail without paging on-call. cron is the safety net.
+  if (abortCount === PROCESSOR_MAX_ATTEMPTS && lastStatus === null) {
+    log.info("process_render_jobs kickoff timed out on all attempts (assumed in flight; cron is safety net)", {
+      event: "process_render_jobs_invoke_all_aborts",
+      jobId,
+      attempts: PROCESSOR_MAX_ATTEMPTS,
+    });
+    return;
+  }
+
+  log.warn("process_render_jobs kickoff failed after retries (cron will retry)", {
+    event: "process_render_jobs_invoke_failed",
+    jobId,
+    attempts: PROCESSOR_MAX_ATTEMPTS,
+    abortCount,
+    lastStatus,
+    error: lastError instanceof Error ? lastError.message : lastError ? String(lastError) : null,
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -360,11 +487,23 @@ serve(async (req) => {
     }
 
     // ─── Low-latency path: POST process_render_jobs ────────
-    // Fire-and-forget. Does NOT await — worst case, pg_cron catches the
-    // job within 60s. Worker-bearer auth because the worker is locked
-    // down to RENDER_WORKER_BEARER only (see process_render_jobs/index.ts
-    // auth block). Uses canonicalJobId so retried-enqueue responses target
-    // the original row, not a ghost of this attempt.
+    // Fire-and-forget at the response level. Does NOT await the kickoff
+    // before responding — worst case, pg_cron catches the job within 60s.
+    // Worker-bearer auth because the worker is locked down to
+    // RENDER_WORKER_BEARER only (see process_render_jobs/index.ts auth
+    // block). Uses canonicalJobId so retried-enqueue responses target the
+    // original row, not a ghost of this attempt.
+    //
+    // Inside this background promise we DO retry: a single dropped POST
+    // (network blip, worker cold-start that 503's, transient DNS hiccup)
+    // used to mean the job sat at status='pending' until the 60s cron
+    // tick — and if the cron was misconfigured, forever. Up to 4 attempts
+    // with 250/500/1000 ms backoff covers the common transient cases.
+    // Each fetch attempt is bounded by an AbortController at 1500 ms
+    // because the worker doesn't ack the kickoff (it awaits the full
+    // render before responding); without that bound, the EdgeRuntime
+    // would stay alive for the full render duration. Persistent failures
+    // still fall through to cron without blocking the response.
     //
     // If RENDER_WORKER_BEARER isn't configured we skip the kickoff
     // entirely — the worker would 503 anyway, and pg_cron will catch the
@@ -372,20 +511,26 @@ serve(async (req) => {
     // worker's startup probe than to spin retries here.
     if (RENDER_WORKER_BEARER && RENDER_WORKER_BEARER.length >= 32) {
       const processorUrl = `${SUPABASE_URL}/functions/v1/process_render_jobs`;
-      fetch(processorUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${RENDER_WORKER_BEARER}`,
-        },
-        body: JSON.stringify({ jobId: canonicalJobId }),
-      }).catch((err) => {
-        // Non-fatal: cron will pick it up.
-        log.warn("process_render_jobs kickoff failed (cron will retry)", {
-          jobId: canonicalJobId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      const kickoff = invokeProcessorWithRetry(
+        processorUrl,
+        RENDER_WORKER_BEARER,
+        canonicalJobId,
+      );
+      // Supabase's Edge runtime can terminate the isolate as soon as the
+      // response is returned, which would abort the retry loop before its
+      // 250/750/2000 ms sleeps fire — exactly the transient case the
+      // retry exists for. Register with EdgeRuntime.waitUntil when
+      // available so the runtime keeps the isolate alive until the
+      // promise settles. Falls back to plain `void` on Deno Deploy /
+      // local Deno where the runtime keeps the loop alive naturally.
+      // Same pattern as supabase/functions/style_chat/index.ts:1078.
+      // deno-lint-ignore no-explicit-any
+      const runtime = (globalThis as any).EdgeRuntime;
+      if (runtime && typeof runtime.waitUntil === "function") {
+        runtime.waitUntil(kickoff);
+      } else {
+        void kickoff;
+      }
     } else {
       log.warn("process_render_jobs kickoff skipped — RENDER_WORKER_BEARER not configured (cron will retry)", {
         jobId: canonicalJobId,
