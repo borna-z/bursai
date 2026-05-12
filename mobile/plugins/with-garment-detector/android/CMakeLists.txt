@@ -28,3 +28,16 @@ add_library(${PACKAGE_NAME} SHARED cpp-adapter.cpp)
 # `target_link_libraries` for fbjni / ReactAndroid / nitro-modules. Paths
 # inside this file are relative to `CMAKE_SOURCE_DIR` (= this file's dir).
 include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/BursGarmentDetector+autolinking.cmake)
+
+# Link the VisionCamera prefab so the generated `JHybridGarmentDetectorSpec`
+# C++ shim — which includes `<VisionCamera/HybridFrameSpec.hpp>` and
+# `<VisionCamera/JHybridFrameSpec.hpp>` for the `Frame` parameter type —
+# can find both headers and the .so symbols at link time. Without this,
+# the Android C++ compile fails the moment nitrogen generates any spec
+# that takes a `Frame`. Mirrors the wiring documented in
+# `node_modules/react-native-vision-camera/docs/.../FRAME_PROCESSORS_NITRO.mdx`.
+find_package(react-native-vision-camera REQUIRED)
+target_link_libraries(
+    ${PACKAGE_NAME}
+    react-native-vision-camera::VisionCamera
+)
