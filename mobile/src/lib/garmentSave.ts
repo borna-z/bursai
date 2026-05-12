@@ -12,8 +12,15 @@
 import NetInfo from '@react-native-community/netinfo';
 
 import { supabase } from './supabase';
-import { callEdgeFunction } from './edgeFunctionClient';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionRateLimitError,
+  EdgeFunctionSubscriptionLockedError,
+} from './edgeFunctionClient';
 import { enqueue as enqueueOffline } from './offlineQueue';
+import { showToast } from './toast';
+import { t } from './i18n';
 import type { Garment, GarmentInsert } from '../types/garment';
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import { triggerGarmentEnrichment } from '../hooks/useAnalyzeGarment';
@@ -254,6 +261,43 @@ async function resetRenderStatusOnEnqueueFailure(
   }
 }
 
+// Toast classification for queueRender failures. Without this, every failure
+// (rate-limit, expired token, out-of-credits, generic 5xx) collapses to a
+// silent reset of `render_status` to 'none' and the user has no idea the
+// render didn't go through. Each branch maps to a distinct i18n key so the
+// surfaced copy matches the actual cause.
+function surfaceEnqueueFailureToast(err: unknown): void {
+  if (err instanceof EdgeFunctionRateLimitError) {
+    showToast(
+      'error',
+      t('studio.enqueueFailed.rateLimit.title'),
+      t('studio.enqueueFailed.rateLimit.body', { seconds: err.retryAfter }),
+    );
+    return;
+  }
+  if (err instanceof EdgeFunctionSubscriptionLockedError) {
+    showToast(
+      'error',
+      t('studio.enqueueFailed.credits.title'),
+      t('studio.enqueueFailed.credits.body'),
+    );
+    return;
+  }
+  if (err instanceof EdgeFunctionHttpError && err.status === 401) {
+    showToast(
+      'error',
+      t('studio.enqueueFailed.auth.title'),
+      t('studio.enqueueFailed.auth.body'),
+    );
+    return;
+  }
+  showToast(
+    'error',
+    t('studio.enqueueFailed.generic.title'),
+    t('studio.enqueueFailed.generic.body'),
+  );
+}
+
 async function queueRender(
   garmentId: string,
   source: AddGarmentSource,
@@ -272,5 +316,6 @@ async function queueRender(
   } catch (err) {
     console.warn('[garmentSave] enqueue_render_job failed:', err);
     await resetRenderStatusOnEnqueueFailure(garmentId, source, err);
+    surfaceEnqueueFailureToast(err);
   }
 }

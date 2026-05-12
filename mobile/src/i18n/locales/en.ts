@@ -2011,4 +2011,12 @@ export const en: Record<string, string> = {
   'outfitDetail.menu.addToPlan': 'Add to plan',
   'outfitDetail.menu.deleteOutfit': 'Delete outfit',
   'garmentCard.badge.laundry': 'Laundry',
+  'studio.enqueueFailed.rateLimit.title': 'Too many renders right now',
+  'studio.enqueueFailed.rateLimit.body': 'Try again in {seconds}s.',
+  'studio.enqueueFailed.credits.title': 'No render credits left',
+  'studio.enqueueFailed.credits.body': 'Upgrade or wait for your monthly refresh to keep using studio quality.',
+  'studio.enqueueFailed.auth.title': 'Sign in to render',
+  'studio.enqueueFailed.auth.body': 'Your session expired. Sign in again and retry.',
+  'studio.enqueueFailed.generic.title': "Couldn't start studio render",
+  'studio.enqueueFailed.generic.body': 'The photo was saved. Try the render again from the garment screen.',
 };
