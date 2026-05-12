@@ -1,12 +1,10 @@
-package me.burs.app.livescan
+package com.margelo.nitro.burs
 
 import androidx.camera.core.ExperimentalGetImage
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import com.margelo.nitro.burs.DetectedBox
-import com.margelo.nitro.burs.HybridGarmentDetectorSpec
 import com.margelo.nitro.camera.HybridFrameSpec
 import com.margelo.nitro.camera.extensions.degrees
 import com.margelo.nitro.camera.public.NativeFrame
@@ -16,6 +14,12 @@ import java.util.concurrent.TimeUnit
  * Wave R-A Android Nitro module: wraps Google MLKit Object Detection so a
  * vision-camera v5 `useFrameOutput` worklet can call `detect(frame)` synchronously
  * from a JS worklet runtime and get back normalized [DetectedBox]es.
+ *
+ * Lives in `com.margelo.nitro.burs` to match the JNI class descriptor baked
+ * into the nitrogen-generated `BursGarmentDetectorOnLoad.cpp` — the autolink
+ * resolves `NitroModules.createHybridObject('GarmentDetector')` by looking up
+ * `Lcom/margelo/nitro/burs/HybridGarmentDetector;` so the package name here
+ * is load-bearing, not a convention.
  *
  * Lifecycle: created once per HybridObject lookup on the JS side
  * (`NitroModules.createHybridObject<GarmentDetector>('GarmentDetector')`).

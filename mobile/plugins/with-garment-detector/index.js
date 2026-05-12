@@ -70,29 +70,53 @@ function withGarmentDetectorPackageRegistration(config) {
   });
 }
 
+// Kotlin sources under `plugins/with-garment-detector/android/` are organised
+// in package-mirrored subdirs (`com/margelo/nitro/burs/...` for the Nitro
+// hybrid — its package is dictated by the JNI descriptor in the nitrogen-
+// generated `BursGarmentDetectorOnLoad.cpp` — and `me/burs/app/livescan/...`
+// for the placeholder ReactPackage). We mirror that tree verbatim into the
+// app's `src/main/java/` root, preserving every `.kt` file's package path.
 function withKotlinSourceCopy(config) {
   return withDangerousMod(config, [
     'android',
     async (cfg) => {
       const root = cfg.modRequest.projectRoot;
       const src = path.join(root, 'plugins', 'with-garment-detector', 'android');
-      const destBase = path.join(
+      const destRoot = path.join(
         cfg.modRequest.platformProjectRoot,
-        'app', 'src', 'main', 'java', 'me', 'burs', 'app', 'livescan',
+        'app', 'src', 'main', 'java',
       );
-      fs.mkdirSync(destBase, { recursive: true });
       if (!fs.existsSync(src)) return cfg;
-      for (const file of fs.readdirSync(src)) {
-        if (file.endsWith('.kt')) {
-          fs.copyFileSync(
-            path.join(src, file),
-            path.join(destBase, file),
-          );
-        }
-      }
+      copyKotlinTree(src, destRoot);
       return cfg;
     },
   ]);
+}
+
+function copyKotlinTree(srcDir, destRoot) {
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    if (entry.isDirectory()) {
+      // Recurse with the same destRoot so package subdirs accumulate under it.
+      const nestedDest = path.join(destRoot, entry.name);
+      fs.mkdirSync(nestedDest, { recursive: true });
+      copyKotlinSubtree(srcPath, nestedDest);
+    }
+    // Top-level non-.kt files (e.g. `.gitkeep`) are intentionally skipped.
+  }
+}
+
+function copyKotlinSubtree(srcDir, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyKotlinSubtree(srcPath, destPath);
+    } else if (entry.name.endsWith('.kt')) {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
 }
 
 module.exports = function withGarmentDetector(config) {
