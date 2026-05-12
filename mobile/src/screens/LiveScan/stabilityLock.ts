@@ -28,11 +28,14 @@ export interface StabilityLock {
 export function createStabilityLock(opts: StabilityLockOptions = {}): StabilityLock {
   const now = opts.now ?? Date.now;
   const buffer: number[] = [];
-  // Initialised to 0 so that any real-clock timestamp (ms since epoch ≫ 700)
-  // passes the cooldown check immediately.  Mock clocks that start at t=0 will
-  // be blocked on the first evaluation of a full window; the decay step below
-  // then advances the window so the very next call can fire.
-  let lockedAt = 0;
+  // `null` means "never fired" — distinguishes a fresh detector from one
+  // that fired at t=0 (mock clock).  Without this, the cooldown gate has to
+  // do a "decay on block" hack to escape; that hack lets a stable garment
+  // re-fire on the very next frame after a real auto-snap, enqueueing
+  // duplicate uploads.  Skipping the cooldown check entirely while
+  // `lockedAt === null` keeps the first fire clean and the cooldown honest
+  // for every subsequent fire.
+  let lockedAt: number | null = null;
 
   return {
     update(score: number): boolean {
@@ -46,13 +49,7 @@ export function createStabilityLock(opts: StabilityLockOptions = {}): StabilityL
       const median = sorted[Math.floor(BUFFER_SIZE / 2)];
       if (median < MEDIAN_THRESHOLD) return false;
       const t = now();
-      if (t - lockedAt < COOLDOWN_MS) {
-        // Window is already stable but we are inside the cooldown window.
-        // Slide lockedAt backward so the very next stable evaluation can fire,
-        // preventing an indefinite block when the clock is frozen (e.g. tests).
-        lockedAt = t - COOLDOWN_MS;
-        return false;
-      }
+      if (lockedAt !== null && t - lockedAt < COOLDOWN_MS) return false;
       lockedAt = t;
       return true;
     },

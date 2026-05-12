@@ -143,6 +143,27 @@ export function LiveScanScreen() {
     runOnJS(setQualityState)(quality.value);
   }, [quality]);
 
+  // Mirror `hasDetectorPlugin` into React state. On platforms / builds where
+  // the native object output is unavailable (e.g. Android v5 today, or a
+  // failed `CameraObjectOutput` init), the frame processor pins `score` to 0
+  // and never publishes again. The shutter-reveal timer downstream is driven
+  // by score changes via `useDerivedValue`, so without this signal the
+  // manual shutter would never fade in and the user would be stuck with a
+  // camera preview and no way to capture.
+  const [detectorAvailable, setDetectorAvailable] = useState(true);
+  useDerivedValue(() => {
+    runOnJS(setDetectorAvailable)(hasDetectorPlugin.value);
+  }, [hasDetectorPlugin]);
+
+  // When the detector is unavailable, reveal the manual shutter immediately
+  // (no 3 s wait — that timer never fires without score updates) and keep
+  // any in-flight progress animation parked at 0.
+  useEffect(() => {
+    if (detectorAvailable) return;
+    shutterOpacity.value = withTiming(1, { duration: 240 });
+    lockProgress.value = withTiming(0, { duration: 120 });
+  }, [detectorAvailable, shutterOpacity, lockProgress]);
+
   // capture() is declared before `tickLock` because `tickLock` calls it via
   // `void capture()` on lock fire. Hoisting it via function declarations
   // would also work, but ordering keeps the read-once flow explicit.
@@ -185,8 +206,14 @@ export function LiveScanScreen() {
   // JS-thread tick driven by the worklet `score` shared value. Drives the
   // stability-lock fire, the shutter reveal timer, and the lock-progress
   // animation that BracketOverlay reads.
+  //
+  // No-op when the detector is unavailable: without object callbacks the
+  // score is pinned to 0 and the score-driven timer below would incorrectly
+  // accumulate "low-score" time. The detectorAvailable effect above handles
+  // the shutter reveal directly in that case.
   const tickLock = useCallback(
     (s: number) => {
+      if (!detectorAvailable) return;
       // Lock progress is a soft visual cue; it only animates once the score
       // crosses the "stable enough to be locking" threshold.
       if (s >= 0.7) {
@@ -208,7 +235,7 @@ export function LiveScanScreen() {
         void capture();
       }
     },
-    [lock, capture, lockProgress, shutterOpacity],
+    [detectorAvailable, lock, capture, lockProgress, shutterOpacity],
   );
 
   useDerivedValue(() => {

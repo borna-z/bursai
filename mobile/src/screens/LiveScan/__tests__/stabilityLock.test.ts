@@ -37,12 +37,18 @@ describe('stabilityLock', () => {
     let t = 0;
     const now = jest.fn(() => t);
     const lock = createStabilityLock({ now });
-    for (let i = 0; i < 8; i++) lock.update(0.95);
-    expect(lock.update(0.95)).toBe(true);
+    // First fire happens on the 8th update (buffer just filled, no prior lock).
+    let firstFireSeen = false;
+    for (let i = 0; i < 8; i++) {
+      if (lock.update(0.95)) firstFireSeen = true;
+    }
+    expect(firstFireSeen).toBe(true);
+    // Still within the 700 ms cooldown — must not fire again.
+    expect(lock.update(0.95)).toBe(false);
     t = 500;
     expect(lock.update(0.95)).toBe(false);
+    // After the cooldown elapses, the very next stable sample fires again.
     t = 1500;
-    for (let i = 0; i < 8; i++) lock.update(0.95);
     expect(lock.update(0.95)).toBe(true);
   });
 });
