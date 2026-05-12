@@ -66,6 +66,15 @@ export async function ingestScan(
       throw new Error('analyze_garment returned empty payload');
     }
 
+    // Multi-garment short-circuit: do not persist an ambiguous photo. Clean
+    // up the orphan upload and surface the amber tile state so the user can
+    // retake. The filmstrip's AMBER_CLASSES set handles the visual.
+    if (analysis.image_contains_multiple_garments) {
+      await deleteUpload(uploaded.storagePath).catch(() => {});
+      events.emit('failed', { sessionId, errorClass: 'multi_garment' });
+      return;
+    }
+
     // 3. persist (kicks off queueRender + triggerGarmentEnrichment internally)
     stage = 'persist';
     events.emit('stage', { sessionId, stage });

@@ -178,4 +178,26 @@ describe('ingestScan', () => {
 
     expect(mockedDelete).not.toHaveBeenCalled();
   });
+
+  it('emits multi_garment failed when analyze flags multiple garments', async () => {
+    mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
+    mockedUpload.mockResolvedValue({ storagePath: 'u/1.webp' });
+    mockedCall.mockResolvedValue({
+      title: 'Multiple',
+      image_contains_multiple_garments: true,
+    } as any);
+
+    const events = new LiveScanEvents();
+    let failedClass = '';
+    events.on('failed', (p) => { failedClass = p.errorClass; });
+    const invalidate = jest.fn();
+
+    await ingestScan('file://photo.jpg', 'session-mg', 'user-1', events, invalidate);
+
+    expect(failedClass).toBe('multi_garment');
+    expect(mockedPersist).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(mockedDelete).toHaveBeenCalledTimes(1);
+    expect(mockedDelete).toHaveBeenCalledWith('u/1.webp');
+  });
 });
