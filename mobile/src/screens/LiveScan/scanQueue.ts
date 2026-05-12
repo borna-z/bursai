@@ -13,7 +13,7 @@ export interface ScanQueue {
 
 export function createScanQueue(opts: ScanQueueOptions): ScanQueue {
   let active = 0;
-  const waiters: Array<() => void> = [];
+  const waiters: (() => void)[] = [];
 
   const acquire = (): Promise<void> => {
     if (active < opts.maxConcurrent) {
