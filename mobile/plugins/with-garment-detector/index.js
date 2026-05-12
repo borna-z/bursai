@@ -18,21 +18,44 @@ const APP_DEPS = [
 ];
 const APP_DEPS_MARKER = 'com.google.mlkit:object-detection';
 
-// Nitrogen autolinking: pulls the generated Kotlin sources (HybridGarmentDetectorSpec,
-// DetectedBox, BursGarmentDetectorOnLoad) into the :app sourceSet. We inline the
-// equivalent of `BursGarmentDetector+autolinking.gradle` here because that file
-// resolves its srcDir against `${project.projectDir}/../nitrogen/...` which, when
-// applied from :app, lands at `android/nitrogen/...` (wrong — nitrogen lives at
-// `mobile/nitrogen/`). Pointing at `rootProject.projectDir/../nitrogen/...` is
-// the right anchor.
+// Nitrogen autolinking: pulls the generated Kotlin sources
+// (HybridGarmentDetectorSpec, DetectedBox, BursGarmentDetectorOnLoad) into
+// the :app sourceSet AND wires the BursGarmentDetector C++ shared library
+// build so `System.loadLibrary("BursGarmentDetector")` resolves at runtime.
+//
+// We inline the equivalent of `BursGarmentDetector+autolinking.gradle` here
+// because that file resolves its srcDir against
+// `${project.projectDir}/../nitrogen/...` which, when applied from :app,
+// lands at `android/nitrogen/...` (wrong — nitrogen lives at
+// `mobile/nitrogen/`). Pointing at `rootProject.projectDir/../nitrogen/...`
+// is the right anchor.
+//
+// The externalNativeBuild config points at `../CMakeLists.txt` so the file
+// lives at `android/CMakeLists.txt` rather than `android/app/CMakeLists.txt`;
+// this matters because the nitrogen-generated autolinking.cmake's
+// `../nitrogen/...` paths only resolve to `mobile/nitrogen/` when the
+// CMakeLists.txt sits at `android/` (one level above `:app`).
 const NITROGEN_APPLY_BLOCK = `
-// Wave R-A: register nitrogen-generated Kotlin sources for GarmentDetector
+// Wave R-A: nitrogen-generated GarmentDetector sources + native build wiring
 android {
     sourceSets {
         main {
             java.srcDirs += [
                 "\${rootProject.projectDir}/../nitrogen/generated/android/kotlin"
             ]
+        }
+    }
+    defaultConfig {
+        externalNativeBuild {
+            cmake {
+                cppFlags "-frtti -fexceptions -Wall -Wextra"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "../CMakeLists.txt"
         }
     }
 }
@@ -76,18 +99,36 @@ function withGarmentDetectorPackageRegistration(config) {
 // generated `BursGarmentDetectorOnLoad.cpp` — and `me/burs/app/livescan/...`
 // for the placeholder ReactPackage). We mirror that tree verbatim into the
 // app's `src/main/java/` root, preserving every `.kt` file's package path.
+//
+// CMakeLists.txt + placeholder.cpp are copied to `android/` (one level
+// above `:app`) so the nitrogen autolinking.cmake's `../nitrogen/...` paths
+// resolve correctly — see the NITROGEN_APPLY_BLOCK comment above.
 function withKotlinSourceCopy(config) {
   return withDangerousMod(config, [
     'android',
     async (cfg) => {
       const root = cfg.modRequest.projectRoot;
       const src = path.join(root, 'plugins', 'with-garment-detector', 'android');
-      const destRoot = path.join(
+      const destJavaRoot = path.join(
         cfg.modRequest.platformProjectRoot,
         'app', 'src', 'main', 'java',
       );
       if (!fs.existsSync(src)) return cfg;
-      copyKotlinTree(src, destRoot);
+      copyKotlinTree(src, destJavaRoot);
+
+      // Native-build files: CMakeLists.txt + placeholder.cpp land at
+      // `android/CMakeLists.txt` and `android/placeholder.cpp`. The
+      // externalNativeBuild block injected by `withMlkitGradleDep` references
+      // these via `path "../CMakeLists.txt"` from `:app/build.gradle`.
+      for (const name of ['CMakeLists.txt', 'placeholder.cpp']) {
+        const srcFile = path.join(src, name);
+        if (fs.existsSync(srcFile)) {
+          fs.copyFileSync(
+            srcFile,
+            path.join(cfg.modRequest.platformProjectRoot, name),
+          );
+        }
+      }
       return cfg;
     },
   ]);
