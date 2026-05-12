@@ -6,9 +6,9 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | P — Mobile parity sweep (4 themed PRs: A neutral garment fallback · B persist Save/Wear · C chat header + loading · D chat Refine + wardrobe anchor + swap) |
-| **CURRENT WAVE FILE** | none — post-launch standing CEO authority |
-| **STATUS** | IN PROGRESS |
+| **CURRENT WAVE** | R — Android platform parity + on-device background removal (4 themed PRs: R-A Android LiveScan Nitro · R-B BG removal + Gemini · R-C single-photo polish · R-D batch parity) |
+| **CURRENT WAVE FILE** | `docs/launch/waves/r-android-parity-and-on-device-bg.md` |
+| **STATUS** | IN PROGRESS — R-A |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
 
