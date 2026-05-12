@@ -1,16 +1,18 @@
-# R — Android platform parity + on-device background removal
+# R — On-device background removal + add-garment flow polish
+
+> **Revision 2026-05-12 (post-investigation):** Android LiveScan auto-detect parity is **deferred** from this wave. The original R-A scope was based on the assumption that `react-native-vision-camera` v5 still exposes the v4 `FrameProcessorPlugin` registry — it does not. v5 ships Nitro-based `CameraObjectOutput`, iOS-only; the comment at `mobile/src/screens/LiveScan/frameProcessor.ts:13-14` confirms Android cannot use it yet. Realistic alternatives (parallel-snapshot loop, vision-camera fork, custom Nitro module) were evaluated and rejected as out of proportion to the wave's value. **Android LiveScan stays manual-shutter-only until upstream v5 ships Android `CameraObjectOutput`** — at that point we open a follow-up wave. R-A is reduced to a small iOS quality-prio fix. Additionally, all native R-B code now ships via an **Expo config plugin** (`mobile/plugins/with-background-removal/`) because `mobile/android/` and `mobile/ios/` are gitignored under Expo managed workflow — direct commits to those directories would be blown away on the next `expo prebuild`.
 
 | Field | Value |
 |---|---|
-| Goal | Bring Android LiveScan to full iOS feature parity; introduce on-device garment segmentation as a free "Save Original" output AND as preprocessed input to Gemini Studio renders; close residual single-photo and batch add-garment flow gaps. |
-| Status | **TODO** — spec drafted 2026-05-12 |
+| Goal | Introduce on-device garment segmentation as a free "Save Original" output AND as preprocessed input to Gemini Studio renders; close residual single-photo and batch add-garment flow gaps; small iOS LiveScan quality fix. |
+| Status | **TODO** — spec revised 2026-05-12 |
 | Branch base | `main` |
 | PR count | 4 (R-A, R-B, R-C, R-D) |
 | Migrations | One — `garments.mask_status` (R-B only) |
 | Edge function changes | One — `process_render_jobs` prompt branch (R-B only) |
-| Native modules | Three new (Android frame processor R-A; iOS Vision wrapper + Android MLKit Subject Seg wrapper R-B) |
-| Bundle impact | Android +~13.5 MB (MLKit Object Detection 3.5 MB + MLKit Subject Seg 10 MB module). iOS no change. |
-| Complexity | L (R-A, R-B), M (R-C, R-D) |
+| Native modules | Two new (iOS Vision wrapper + Android MLKit Subject Seg wrapper) — both shipped via **Expo config plugin** (R-B) |
+| Bundle impact | Android +~10 MB (MLKit Subject Seg module). iOS no change. |
+| Complexity | XS (R-A), L (R-B), M (R-C, R-D) |
 | Authority | Standing CEO post-launch theme-PR authority |
 
 ## Background
@@ -49,40 +51,23 @@ Historical garments (with flat-path storage paths) are not migrated. Wardrobe di
 
 ---
 
-## R-A · Android LiveScan auto-detect parity
+## R-A · iOS LiveScan quality prioritization fix (XS)
 
-### Root cause
-`react-native-vision-camera@5.0.9` has no Android `useObjectOutput` implementation. `frameProcessor.ts:181-189` already detects this and disables auto-snap, leaving only manual shutter.
+### Scope (revised 2026-05-12)
+Android LiveScan auto-detect is deferred (see top-of-document revision note). R-A is now just the iOS quality-prio fix.
 
-### Approach
-Custom Kotlin Vision Camera frame processor plugin using MLKit Object Detection (`com.google.mlkit:object-detection:17.0.1`). Returns the same `{ box, score, valid }` shape iOS produces, so all downstream code (`stabilityLock.ts`, `BracketOverlay`, auto-snap, scoring) consumes shared values unchanged.
-
-**Why MLKit Object Detection over alternatives:**
-- Subject Segmentation has no stream mode (200–400 ms/frame; can't run 30 fps)
-- TFLite YOLO would need model packaging (+~6 MB) and training/calibration; MLKit object detection's fashion-goods class ships with the bundle
-- Object Detection's per-frame latency on Pixel 6: 15–30 ms; matches iOS perf envelope
-
-### Detection wiring
-- MLKit `STREAM_MODE`, `enableClassification = false` — we use the bounding box + score only; the existing `scoring.ts` worklet handles its own framing/aspect scoring
-- Detector created once on plugin init, reused per-frame
-- Worklet detects platform → on Android, calls `frame.detectGarment()` plugin; on iOS, keeps `useObjectOutput`
-- Frame throttling: process every 2nd frame (effective 15 fps detection on a 30 fps preview) to absorb worklet overhead
-
-### iOS quality prioritization fix (folded in)
-`LiveScanScreen.tsx:161` currently falls back to `'balanced'` if `supportsSpeedQualityPrioritization` is missing. Replace with a `device.formats` capability check — pick `'speed'` when the format supports 30 fps. Recovers crispness on Pixels and recent Samsungs.
+### Fix
+`mobile/src/screens/LiveScanScreen.tsx:~161` currently falls back to `'balanced'` whenever `device.supportsSpeedQualityPrioritization` is missing. Many recent Android devices (Pixel 6, Samsung S22) and some iPhones expose 30 fps formats but not the support flag. Replace the blanket fallback with a `device.formats` capability check — pick `'speed'` when the active format supports 30 fps, else `'balanced'`.
 
 ### Files touched
-- `mobile/android/app/src/main/java/com/burs/livescan/GarmentDetectorPlugin.kt` (new)
-- `mobile/android/app/src/main/java/com/burs/livescan/GarmentDetectorPackage.kt` (new)
-- `mobile/android/app/src/main/java/.../MainApplication.kt` (register package)
-- `mobile/android/app/build.gradle` (+1 MLKit dependency)
-- `mobile/src/screens/LiveScan/frameProcessor.ts` (Android branch)
-- `mobile/src/screens/LiveScanScreen.tsx` (quality prio fix)
+- `mobile/src/screens/LiveScanScreen.tsx` (one logic change, ~5 lines)
+- `CLAUDE.md` (current wave pointer)
+- `docs/launch/overview.md` (current wave pointer)
 
 ### Acceptance
-- Real-device EAS dev build on Pixel 6 / Samsung S22: stability lock fires within 1.5 s on a clearly-framed garment, auto-snap captures at score ≥ 0.6
-- No FPS drop below 22 fps during continuous detection
-- iOS path unchanged (regression-checked against PR #837 baseline)
+- Devices that previously got `'balanced'` due to missing `supportsSpeedQualityPrioritization` but offer 30 fps formats now pick `'speed'`
+- iOS LiveScan behavior unchanged vs PR #837 baseline (regression-checked)
+- No native code touched, no EAS build required for this PR's CI
 
 ---
 
@@ -162,13 +147,17 @@ New garment-detail-card button (icon + label). Tapping opens a full-screen modal
 - Button placement: garment detail screen action row, after existing "Wear" / "Save outfit" actions
 - i18n: en `"Check condition"`, sv `"Inspektera skick"` (final SV string to be confirmed by user before merge)
 
+### Native source delivery: Expo config plugin
+**Revision 2026-05-12:** `mobile/android/` and `mobile/ios/` are gitignored under Expo managed workflow — direct commits get blown away on `expo prebuild`. All native source ships via a config plugin under `mobile/plugins/with-background-removal/` that copies sources + injects Gradle deps + adds Swift module entries during prebuild. The plugin is registered in `mobile/app.json`'s `expo.plugins` array.
+
 ### Files touched
-- `mobile/ios/BURS/BackgroundRemoval.swift` (new)
-- `mobile/ios/BURS/BackgroundRemoval.m` (new — RCT bridge header)
-- `mobile/android/app/src/main/java/com/burs/bg/BackgroundRemovalModule.kt` (new)
-- `mobile/android/app/src/main/java/com/burs/bg/BackgroundRemovalPackage.kt` (new)
-- `mobile/android/app/build.gradle` (+1 MLKit dependency)
-- `mobile/src/lib/backgroundRemoval.ts` (new)
+- `mobile/plugins/with-background-removal/index.js` (new — Expo config plugin entry point)
+- `mobile/plugins/with-background-removal/ios/BackgroundRemoval.swift` (new — Vision framework wrapper)
+- `mobile/plugins/with-background-removal/ios/BackgroundRemoval.m` (new — RCT bridge)
+- `mobile/plugins/with-background-removal/android/BackgroundRemovalModule.kt` (new — MLKit Subject Seg wrapper)
+- `mobile/plugins/with-background-removal/android/BackgroundRemovalPackage.kt` (new)
+- `mobile/app.json` (register plugin in `expo.plugins`)
+- `mobile/src/lib/backgroundRemoval.ts` (new — JS wrapper)
 - `mobile/src/lib/imageUpload.ts` (storage path change to `{garmentId}/` folder)
 - `mobile/src/lib/garmentSave.ts` (write `original_image_path` + `mask_status`)
 - `mobile/src/screens/LiveScan/pipeline.ts` (segmentation insertion)

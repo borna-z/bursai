@@ -2,13 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Bring Android LiveScan to iOS auto-detect/auto-snap parity, introduce on-device subject segmentation as a free product output AND as preprocessed input to Gemini Studio renders, and close residual mobile add-garment flow gaps.
+**Goal:** Introduce on-device subject segmentation as a free product output AND as preprocessed input to Gemini Studio renders, close residual mobile add-garment flow gaps, and apply a small iOS LiveScan quality fix. Android LiveScan auto-detect parity is deferred (see spec revision note 2026-05-12).
 
 **Architecture:**
-- **R-A:** Custom Kotlin Vision Camera frame processor plugin using MLKit Object Detection. Returns same `{ box, score, valid }` shape iOS produces. Existing JS stability-lock + auto-snap logic unchanged.
-- **R-B:** Two new native modules (iOS Swift / Android Kotlin) exposing identical `BackgroundRemoval.maskImage(uri)` API. Single JS wrapper. Pipeline insertion at every capture path. Gemini prompt branch on `garments.mask_status` enum.
+- **R-A:** Tiny iOS quality-prioritization fix (`'speed'` vs `'balanced'` capability check). Pure JS, no native code.
+- **R-B:** Two new native modules (iOS Swift Vision wrapper / Android Kotlin MLKit Subject Segmentation wrapper) shipped via a single **Expo config plugin** under `mobile/plugins/with-background-removal/`. JS wrapper. Pipeline insertion at every capture path. Gemini prompt branch on `garments.mask_status` enum.
 - **R-C:** Defensive imageUpload + interactive Step 3 pickers. Pure JS.
 - **R-D:** `batchPipeline.ts` state machine refactor + `expo-task-manager` background processing + AsyncStorage checkpoint persistence.
+
+**Why no direct commits to `mobile/android/` or `mobile/ios/`:** Both dirs are gitignored (`mobile/.gitignore:41 = /android`; same for ios). Expo managed workflow regenerates them from `app.json` + config plugins on every prebuild. Any hand-edits get blown away. R-B uses the standard Expo "local config plugin" pattern.
 
 **Tech stack:** React Native + Expo SDK 54, `react-native-vision-camera@5.0.9` (Nitro), Kotlin (Android frame processor + MLKit), Swift (iOS Vision framework), `expo-image-manipulator`, `expo-task-manager`, Supabase Postgres + Edge Functions (Deno).
 
@@ -21,50 +23,62 @@
 
 ---
 
-## PR R-A · Android LiveScan auto-detect parity
+## PR R-A · iOS LiveScan quality prioritization fix (XS)
 
 **Files:**
-- Create: `mobile/android/app/src/main/java/com/burs/livescan/GarmentDetectorPlugin.kt`
-- Create: `mobile/android/app/src/main/java/com/burs/livescan/GarmentDetectorPackage.kt`
-- Modify: `mobile/android/app/src/main/java/com/burs/MainApplication.kt` (register package)
-- Modify: `mobile/android/app/build.gradle` (add MLKit dependency)
-- Modify: `mobile/src/screens/LiveScan/frameProcessor.ts` (Android branch)
-- Modify: `mobile/src/screens/LiveScanScreen.tsx` (quality prioritization fix)
+- Modify: `mobile/src/screens/LiveScanScreen.tsx` (quality prioritization capability check, ~5 lines)
+- Modify: `CLAUDE.md` (CURRENT WAVE pointer flip to R)
+- Modify: `docs/launch/overview.md` (CURRENT WAVE pointer flip to R)
 
-### Task R-A.1: Add MLKit Object Detection dependency
+**No native code. No EAS build required to validate. CI lint + typecheck is enough.**
 
-- [ ] **Step 1: Locate MainApplication.kt to confirm exact package path**
+### Task R-A.1: Fix iOS quality prioritization fallback
+
+- [ ] **Step 1: Read the current logic at `mobile/src/screens/LiveScanScreen.tsx` around line 161**
+
+Use the Read tool. Identify the variable name for the camera device (likely `device`), the type import for `PhotoOutputQualityPrioritization`, and the existing fallback expression.
+
+- [ ] **Step 2: Replace blanket `'balanced'` fallback with capability-based check**
+
+Change the existing logic that picks `'balanced'` when `device.supportsSpeedQualityPrioritization` is missing. New logic:
+
+```typescript
+const qualityPrioritization: PhotoOutputQualityPrioritization = (() => {
+  if (device?.supportsSpeedQualityPrioritization) return 'speed';
+  // Many devices lack the explicit support flag but can still handle 'speed'
+  // if the active format reports 30fps capability. Check formats:
+  const has30fpsFormat = device?.formats?.some(
+    (f) => f.maxFps >= 30 && f.minFps <= 30
+  );
+  return has30fpsFormat ? 'speed' : 'balanced';
+})();
+```
+
+Adapt `device` variable name + `PhotoOutputQualityPrioritization` type import name to match what's already in the file. If the existing fallback is expressed differently (ternary inline, or computed inside a useMemo), preserve the surrounding shape — only change the decision logic.
+
+- [ ] **Step 3: Run lint + typecheck**
 
 ```bash
-ls mobile/android/app/src/main/java/com/burs/
+cd mobile && npm run lint -- "src/**/*.{ts,tsx}" --max-warnings 0
+npm run typecheck
 ```
 
-If the actual path differs (e.g. nested differently), adjust all subsequent Kotlin file paths in this plan to match. Note the discovered package name (likely `com.burs.bursai` or similar) — use that as `<APP_PACKAGE>` in plugin files.
-
-- [ ] **Step 2: Add MLKit dependency**
-
-In `mobile/android/app/build.gradle`, locate the `dependencies { ... }` block and add:
-
-```gradle
-implementation 'com.google.mlkit:object-detection:17.0.1'
-```
-
-- [ ] **Step 3: Verify Gradle sync**
-
-```bash
-cd mobile/android && ./gradlew :app:dependencies | grep object-detection
-```
-
-Expected output: line containing `com.google.mlkit:object-detection:17.0.1`.
+Expected: both pass.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add mobile/android/app/build.gradle
-git commit -m "R-A: add MLKit Object Detection dependency for Android LiveScan"
+git add mobile/src/screens/LiveScanScreen.tsx
+git commit -m "R-A: prefer 'speed' quality prioritization when device formats support 30fps"
 ```
 
-### Task R-A.2: Implement Kotlin frame processor plugin
+### Task R-A.2 [DELETED — Android Kotlin frame processor deferred per 2026-05-12 spec revision]
+
+### Task R-A.3 [DELETED — Android JS frameProcessor branch deferred per 2026-05-12 spec revision]
+
+### Task R-A.4 [SUPERSEDED by R-A.1]
+
+### Task R-A.OLD [historical reference only — not executed]
 
 - [ ] **Step 1: Create `GarmentDetectorPlugin.kt`**
 
