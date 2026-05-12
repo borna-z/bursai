@@ -26,7 +26,13 @@ import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
 import { ConditionBadge, tierForScore } from '../components/ConditionBadge';
 import { BackIcon, CloseIcon, EditIcon, MoreIcon } from '../components/icons';
-import { useGarment, useMarkLaundry, useMarkWorn, useDeleteGarment } from '../hooks/useGarments';
+import {
+  useGarment,
+  useMarkLaundry,
+  useMarkWorn,
+  useDeleteGarment,
+  useUpdateGarment,
+} from '../hooks/useGarments';
 import { useNow } from '../hooks/useNow';
 import { useAssessCondition, type ConditionAssessment } from '../hooks/useAssessCondition';
 import { useGenerateGarmentImage } from '../hooks/useGenerateGarmentImage';
@@ -145,6 +151,7 @@ export function GarmentDetailScreen() {
 
   const markWorn = useMarkWorn();
   const markLaundry = useMarkLaundry();
+  const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
 
   const {
@@ -419,6 +426,52 @@ export function GarmentDetailScreen() {
     );
   };
 
+  // Q-C2 — toggle handlers for the new personal flags. Both ride the
+  // existing `useUpdateGarment` generic mutation so the cache patching +
+  // smart-counts invalidation (Q-C1) come along for free. The
+  // `unknown as GarmentUpdate` cast is a temporary bridge until
+  // `supabase/types.gen.ts` is regenerated after the
+  // `20260512000000_garment_personal_flags` migration applies — the new
+  // columns aren't in the auto-generated `GarmentUpdate` type yet.
+  // PostgREST tolerates extra columns (the field is real server-side
+  // post-migration), so the cast is a TS-only bridge.
+  const handleToggleWishlist = (next: boolean) => () => {
+    if (!id) return;
+    hapticLight();
+    updateGarment.mutate(
+      {
+        id,
+        updates: { is_wishlist: next } as unknown as Parameters<typeof updateGarment.mutate>[0]['updates'],
+      },
+      {
+        onError: (err) => {
+          Alert.alert(
+            tr('garmentDetail.alerts.couldNotUpdate.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+          );
+        },
+      },
+    );
+  };
+  const handleToggleLingerie = (next: boolean) => () => {
+    if (!id) return;
+    hapticLight();
+    updateGarment.mutate(
+      {
+        id,
+        updates: { is_lingerie: next } as unknown as Parameters<typeof updateGarment.mutate>[0]['updates'],
+      },
+      {
+        onError: (err) => {
+          Alert.alert(
+            tr('garmentDetail.alerts.couldNotUpdate.title'),
+            err instanceof Error ? err.message : tr('garmentDetail.alerts.tryAgain'),
+          );
+        },
+      },
+    );
+  };
+
   const onMoreOptions = () => {
     if (!garment) return;
     const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [];
@@ -427,6 +480,20 @@ export function GarmentDetailScreen() {
     } else {
       buttons.push({ text: tr('garmentDetail.menu.addToLaundry'), onPress: handleAddToLaundry });
     }
+    // Q-C2 — Wishlist + Lingerie toggle entries. Read off the garment row
+    // through a cast since `supabase/types.gen.ts` hasn't been regenerated
+    // post-migration yet; once that happens the casts can be dropped.
+    const gFlags = garment as unknown as { is_wishlist?: boolean | null; is_lingerie?: boolean | null };
+    const isWishlist = gFlags.is_wishlist === true;
+    const isLingerie = gFlags.is_lingerie === true;
+    buttons.push({
+      text: tr(isWishlist ? 'garmentDetail.menu.removeFromWishlist' : 'garmentDetail.menu.addToWishlist'),
+      onPress: handleToggleWishlist(!isWishlist),
+    });
+    buttons.push({
+      text: tr(isLingerie ? 'garmentDetail.menu.unmarkLingerie' : 'garmentDetail.menu.markLingerie'),
+      onPress: handleToggleLingerie(!isLingerie),
+    });
     buttons.push({ text: tr('garmentDetail.menu.deleteGarment'), style: 'destructive', onPress: handleDelete });
     buttons.push({ text: tr('common.cancel'), style: 'cancel' });
     Alert.alert(tr('garmentDetail.alerts.options.title'), undefined, buttons);

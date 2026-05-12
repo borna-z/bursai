@@ -1819,6 +1819,15 @@ export const sv: Record<string, string> = {
 
   'wardrobe.wishlist.comingSoon.title': 'Kommer snart',
   'wardrobe.wishlist.comingSoon.body': 'Önskelistan kommer snart.',
+  // Q-C2 — Wishlist + Lingerie tile toasts + GarmentDetail toggle copy.
+  'wardrobe.wishlist.title': 'På din önskelista',
+  'wardrobe.wishlist.body.template': '{count} plagg markerade. Filtrerad lista kommer snart.',
+  'wardrobe.lingerie.title': 'Underkläder',
+  'wardrobe.lingerie.body.template': '{count} plagg markerade. Filtrerad lista kommer snart.',
+  'garmentDetail.flag.wishlist.label': 'Önskelista',
+  'garmentDetail.flag.wishlist.hint': 'Spåra plagg du vill köpa.',
+  'garmentDetail.flag.lingerie.label': 'Underkläder',
+  'garmentDetail.flag.lingerie.hint': 'Håll plagget borta från offentliga outfit-delningar.',
 
   'editGarment.cancel.confirm.title': 'Vill du kasta ändringarna?',
   'editGarment.cancel.confirm.body': 'Du har osparade ändringar för det här plagget.',
@@ -1850,6 +1859,12 @@ export const sv: Record<string, string> = {
   'garmentDetail.alerts.options.title': 'Alternativ',
   'garmentDetail.menu.markClean': 'Markera som ren',
   'garmentDetail.menu.addToLaundry': 'Lägg i tvätten',
+  // Q-C2 — personal-flag menu items (mirror EN; append-only).
+  'garmentDetail.menu.addToWishlist': 'Lägg till på önskelistan',
+  'garmentDetail.menu.removeFromWishlist': 'Ta bort från önskelistan',
+  'garmentDetail.menu.markLingerie': 'Markera som underkläder',
+  'garmentDetail.menu.unmarkLingerie': 'Avmarkera underkläder',
+  'garmentDetail.alerts.couldNotUpdate.title': 'Kunde inte uppdatera',
   'garmentDetail.menu.deleteGarment': 'Ta bort plagg',
   'garmentDetail.badge.studio': 'Studio',
   'garmentDetail.badge.studioRendering': 'Studio-rendering…',

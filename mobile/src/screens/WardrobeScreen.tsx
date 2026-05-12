@@ -261,6 +261,13 @@ export function WardrobeScreen({
   const totalCountReady = !garmentCountQ.isLoading && !garmentCountQ.isError;
   const mostWornCount = smartCounts.data?.most_worn ?? 0;
   const rarelyWornCount = smartCounts.data?.rarely_worn ?? 0;
+  // Q-C2 — personal-flag counts. `lingerie` + `wishlist` ride the new
+  // partial indexes from `20260512000000_garment_personal_flags`;
+  // `in_laundry` reuses the existing `idx_garments_user_available`
+  // partial index.
+  const lingerieCount = smartCounts.data?.lingerie ?? 0;
+  const wishlistCount = smartCounts.data?.wishlist ?? 0;
+  const inLaundryCount = smartCounts.data?.in_laundry ?? 0;
   // In-laundry count intentionally not derived here — see the tile below.
   const fmtCount = (n: number, ready = smartCountsReady) =>
     ready ? String(n) : '—';
@@ -363,28 +370,47 @@ export function WardrobeScreen({
             than the prior strict null-only — a piece worn 4 months ago
             now correctly counts as rarely worn. */}
         <SmartTile num={fmtCount(rarelyWornCount)} label="Rarely Worn" onPress={() => nav.navigate('UnusedOutfits')} />
-        {/* In-laundry count can't be derived from the wardrobe page set
-            (which is filtered to inLaundry=false), so the tile is purely
-            navigational — tap to jump to LaundryScreen which has the real
-            number. Showing "—" is more honest than rendering "0" when the
-            user might have 5 items in the wash. */}
-        <SmartTile num="—" label="In laundry" onPress={() => nav.navigate('Laundry')} />
+        {/* Q-C2 — In Laundry tile now reads the real count via the new
+            `useSmartFilterCounts.in_laundry` field (HEAD count over
+            `in_laundry = true`, rides the existing
+            `idx_garments_user_available` partial index). Tap still
+            jumps to LaundryScreen for the actual list. */}
+        <SmartTile num={fmtCount(inLaundryCount)} label="In laundry" onPress={() => nav.navigate('Laundry')} />
       </View>
 
       <View style={s.tileRow}>
+        {/* Q-C2 — Wishlist tile now reads the real count via the new
+            `useSmartFilterCounts.wishlist` field (`is_wishlist = true`).
+            Tap surfaces a toast acknowledging the count; a dedicated
+            filtered-list screen is intentionally deferred to a future
+            polish PR — Q-C2 spec deferred. */}
         <SmartTile
-          num="—"
+          num={fmtCount(wishlistCount)}
           label="Wishlist"
-          // N3b — Wishlist tile is a placeholder; "coming soon" is purely
-          // informational so a toast suffices.
           onPress={() =>
             showToast(
               'info',
-              tr('wardrobe.wishlist.comingSoon.title'),
-              tr('wardrobe.wishlist.comingSoon.body'),
+              tr('wardrobe.wishlist.title'),
+              tr('wardrobe.wishlist.body.template', { count: wishlistCount }),
             )
           }
         />
+        {/* Q-C2 — new Lingerie tile, hidden flag, real count via
+            `useSmartFilterCounts.lingerie` (`is_lingerie = true`). Same
+            UX as Wishlist (toast with count, filtered list deferred). */}
+        <SmartTile
+          num={fmtCount(lingerieCount)}
+          label="Lingerie"
+          onPress={() =>
+            showToast(
+              'info',
+              tr('wardrobe.lingerie.title'),
+              tr('wardrobe.lingerie.body.template', { count: lingerieCount }),
+            )
+          }
+        />
+      </View>
+      <View style={s.tileRow}>
         <SmartTile num="—" label="Gaps" onPress={() => nav.navigate('WardrobeGaps')} />
       </View>
 
