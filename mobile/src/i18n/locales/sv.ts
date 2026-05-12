@@ -1917,4 +1917,8 @@ export const sv: Record<string, string> = {
   'livescan.error.persist_failed': 'Kunde inte spara plagget',
   'livescan.error.auth_failed': 'Logga in för att fortsätta skanna',
   'livescan.error.unknown': 'Något gick fel',
+  'livescan.permission.title': 'Kameraåtkomst krävs',
+  'livescan.permission.allow': 'Tillåt kamera',
+  'livescan.permission.gallery': 'Välj från galleri',
+  'livescan.tile.cancel': 'Avbryt',
 };

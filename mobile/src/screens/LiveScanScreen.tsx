@@ -102,7 +102,24 @@ export function LiveScanScreen() {
   const events = useMemo(() => new LiveScanEvents(), []);
   const queue = useMemo(() => createScanQueue({ maxConcurrent: 3 }), []);
   const lock = useMemo(() => createStabilityLock(), []);
+  // `scanCount` tracks every capture attempt (header badge — instant feedback
+  // so users know rapid-fire snaps fired). `savedCount` only increments when
+  // the pipeline emits `saved` or `queued`, so the exit toast reports the
+  // truthful count and a pre-save failure doesn't claim a piece was added.
   const [scanCount, setScanCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+
+  // Subscribe to pipeline lifecycle events for accurate save accounting. The
+  // `queued` event covers offline retries (treated as "we'll save it") and
+  // `saved` covers the happy path. Both should bump the exit-toast count.
+  useEffect(() => {
+    const offSaved = events.on('saved', () => setSavedCount((c) => c + 1));
+    const offQueued = events.on('queued', () => setSavedCount((c) => c + 1));
+    return () => {
+      offSaved();
+      offQueued();
+    };
+  }, [events]);
 
   // Shared values driving the overlays + the JS-thread stability lock.
   const score = useSharedValue(0);
@@ -242,6 +259,19 @@ export function LiveScanScreen() {
     runOnJS(tickLock)(score.value);
   }, [score, tickLock]);
 
+  // VisionCamera's `onObjectsScanned` callback only fires when the detector
+  // reports one or more objects, so on an empty viewfinder `score` never
+  // changes and the score-driven `useDerivedValue` above never re-runs. That
+  // would strand users with no manual shutter when the detector sees nothing.
+  // Heartbeat the lock with the current shared value every 250 ms while the
+  // detector is available; reading `.value` here picks up the latest worklet
+  // write (no stale-closure risk) and `tickLock` is stable via useCallback.
+  useEffect(() => {
+    if (!detectorAvailable) return;
+    const id = setInterval(() => tickLock(score.value), 250);
+    return () => clearInterval(id);
+  }, [detectorAvailable, tickLock, score]);
+
   const handleManualShutter = useCallback(() => {
     hapticMedium();
     void capture();
@@ -263,7 +293,7 @@ export function LiveScanScreen() {
             );
           },
         },
-        { text: 'Cancel', style: 'cancel' },
+        { text: tr('livescan.tile.cancel'), style: 'cancel' },
       ]);
     },
     [user, queue, events],
@@ -271,11 +301,13 @@ export function LiveScanScreen() {
 
   const handleClose = useCallback(() => {
     hapticLight();
-    if (scanCount > 0) {
-      showToast('info', tr('livescan.toast.exit', { count: scanCount }));
+    // Report the truthful saved/queued count, not total captures — a 429 on
+    // the first snap should not claim '1 pieces added'.
+    if (savedCount > 0) {
+      showToast('info', tr('livescan.toast.exit', { count: savedCount }));
     }
     nav.goBack();
-  }, [nav, scanCount]);
+  }, [nav, savedCount]);
 
   // Cancel any in-flight reanimated timings when the screen unmounts so the
   // worklet runtime doesn't keep ticking after we're gone.
@@ -386,17 +418,17 @@ interface PermissionFallbackProps {
 function PermissionFallback({ onGallery, requestPermission }: PermissionFallbackProps) {
   return (
     <View style={s.permissionFallback}>
-      <Text style={s.fallbackTitle}>Camera access needed</Text>
+      <Text style={s.fallbackTitle}>{tr('livescan.permission.title')}</Text>
       <Pressable
         onPress={async () => {
           const ok = await requestPermission();
           if (!ok) void Linking.openSettings();
         }}
         style={s.permBtn}>
-        <Text style={s.permBtnText}>Allow camera</Text>
+        <Text style={s.permBtnText}>{tr('livescan.permission.allow')}</Text>
       </Pressable>
       <Pressable onPress={onGallery} style={s.permBtn}>
-        <Text style={s.permBtnText}>Pick from gallery</Text>
+        <Text style={s.permBtnText}>{tr('livescan.permission.gallery')}</Text>
       </Pressable>
     </View>
   );

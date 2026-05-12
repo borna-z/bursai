@@ -2043,4 +2043,8 @@ export const en: Record<string, string> = {
   'livescan.error.persist_failed': "Couldn't save the garment",
   'livescan.error.auth_failed': 'Sign in to keep scanning',
   'livescan.error.unknown': 'Something went wrong',
+  'livescan.permission.title': 'Camera access needed',
+  'livescan.permission.allow': 'Allow camera',
+  'livescan.permission.gallery': 'Pick from gallery',
+  'livescan.tile.cancel': 'Cancel',
 };
