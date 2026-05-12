@@ -64,11 +64,17 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
   // Filter-active sentinel for the silent-empty guard: a filtered query
   // returning empty is a legitimate "no matches" state and must NOT trigger
   // the refresh-and-retry path.
+  //
+  // `inLaundry: false` is treated as the DEFAULT wardrobe scope, not a
+  // narrowing filter — WardrobeScreen hoists `WARDROBE_FILTERS = { inLaundry:
+  // false }` as the primary view. Excluding it would skip the recovery on
+  // the exact surface the user reported as flaky (Codex P1 on PR #836). Only
+  // `inLaundry: true` (the laundry tab) is genuinely narrowing.
   const hasActiveFilters = Boolean(
     filters?.category ||
       filters?.color ||
       filters?.season ||
-      filters?.inLaundry !== undefined ||
+      filters?.inLaundry === true ||
       filters?.search?.trim() ||
       filters?.smartFilter,
   );
