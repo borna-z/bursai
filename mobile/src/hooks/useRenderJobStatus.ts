@@ -41,15 +41,25 @@
 //     and the next 30 s window may catch the inserted row normally.
 //
 // Cross-window terminal: after `maxEmptyPollWindows` consecutive full
-// empty-poll windows (default 3 → ~90 s past `enqueue_render_job`), we DO
-// emit a synthetic `'failed'` snapshot. By that point pg_cron's 60 s safety
-// net AND the worker-kickoff retry budget have both passed; the row will
-// not materialize. Without this, a rare server-side inconsistency (garments
-// row stuck at `render_status='pending'` AND no render_jobs row) leaves the
-// "Studio render…" pill spinning forever because the consumer's gate never
-// flips off. The synthetic snapshot trips the existing terminal-status
-// invalidation effect and reports `errorClass: 'enqueue_lost'` so consumers
-// can show distinct copy from a worker-side failure.
+// empty-poll windows (default 12 → ~360 s past `enqueue_render_job`), we
+// DO emit a synthetic `'failed'` snapshot. By that point:
+//   • pg_cron's 60 s safety net has tripped multiple times
+//   • the worker-kickoff retry budget (PR #834, ~7 s) has settled
+//   • `callEdgeFunction`'s 3-attempt × 90 s retry envelope (~285 s) has
+//     fully resolved — so either the row landed (we'd have observed it),
+//     OR `queueRender` already wrote `render_status='none'` server-side
+//     (the consumer's gate flipped off and disabled this hook on its own).
+//     Codex round 3 on PR #835 caught that a shorter window raced
+//     callEdgeFunction's retry: a row landing at ~200 s after enqueue
+//     would arrive AFTER the synthetic had already patched the garment
+//     cache to 'failed' and halted polling.
+// Without the synthetic, a rare server-side inconsistency (garments row
+// stuck at `render_status='pending'` AND no render_jobs row AND no reset)
+// would leave the "Studio render…" pill spinning forever. The synthetic
+// patches the local garment cache to `render_status='failed'` (the
+// consumer reads that, not this hook's return) and reports
+// `errorClass: 'enqueue_lost'` so consumers can show distinct copy from a
+// worker-side failure.
 //
 // `render_jobs.status` enum is `pending | in_progress | succeeded | failed`;
 // `garments.render_status` is the parallel column on the garment row that web
@@ -154,10 +164,15 @@ interface Options {
   maxEmptyPolls?: number;
   /** Consecutive empty-poll WINDOWS (each of `maxEmptyPolls` reads) before the
    *  hook emits a synthetic `'failed'` snapshot so the spinner doesn't stick
-   *  forever. Default 3 — i.e. ~90 s of no `render_jobs` row past
-   *  `enqueue_render_job`, which is past both pg_cron's 60 s safety net and
-   *  the worker-kickoff retry budget. Test callers can lower this to force
-   *  the synthetic-terminal path. */
+   *  forever. Default 12 — i.e. ~360 s of no `render_jobs` row past
+   *  `enqueue_render_job`, which is past:
+   *  - pg_cron's 60 s safety net
+   *  - the worker-kickoff retry budget (PR #834, ~7 s)
+   *  - `callEdgeFunction`'s full retry envelope (3 attempts × 90 s + backoffs
+   *    = ~285 s; per Codex round 3 on PR #835, firing the synthetic earlier
+   *    races a slow-enqueue retry that lands the row right after we patch).
+   *
+   *  Test callers can lower this to force the synthetic-terminal path. */
   maxEmptyPollWindows?: number;
 }
 
@@ -198,7 +213,7 @@ export function useRenderJobStatus(
   const qc = useQueryClient();
   const pollIntervalMs = options.pollIntervalMs ?? 3000;
   const maxEmptyPolls = options.maxEmptyPolls ?? 10;
-  const maxEmptyPollWindows = options.maxEmptyPollWindows ?? 3;
+  const maxEmptyPollWindows = options.maxEmptyPollWindows ?? 12;
 
   // Track the previous terminal state so the invalidation effect only fires
   // once per success — not on every render after the snapshot lands.
