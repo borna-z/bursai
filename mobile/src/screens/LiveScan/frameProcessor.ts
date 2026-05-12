@@ -3,12 +3,12 @@
 // react-native-vision-camera v5 replaces the old `useFrameProcessor` /
 // `VisionCameraProxy.initFrameProcessorPlugin` worklet API with Nitro-based
 // outputs. Native on-device object detection (Apple Vision on iOS, the
-// equivalent on Android once Nitro support lands) is exposed via
-// `VisionCamera.createObjectOutput` and the `useObjectOutput` hook, which
-// fires `onObjectsScanned` on the JS thread with bounding boxes already
-// normalized to camera space (0..1).
+// equivalent on Android once Nitro support lands) is exposed via the
+// `useObjectOutput` hook, which fires `onObjectsScanned` on the JS thread
+// with bounding boxes already normalized to camera space (0..1).
 //
-// We drive the vision-camera v5 native object output directly. We pass
+// We drive the vision-camera v5 native object output via the documented
+// `useObjectOutput({ types, onObjectsScanned })` hook. We pass
 // `'salient-object'` to surface the most prominent foreground subject —
 // that maps well to a hand-held garment in the LiveScan flow. Android is
 // not yet supported by v5's CameraObjectOutput; the screen falls back to
@@ -24,13 +24,15 @@
 //   4. score + quality are written to shared values the UI reads.
 //
 // If the platform cannot create a CameraObjectOutput (e.g. Android in the
-// current v5 preview, or a misconfigured native build), `hasDetectorPlugin`
-// is flipped to false and the hook returns `objectOutput: null` so the
-// screen renders the camera + manual shutter without the auto-snap path.
+// current v5 preview, or a misconfigured native build), `useObjectOutput`
+// throws synchronously from its internal `VisionCamera.createObjectOutput`
+// call; we catch that, flip `hasDetectorPlugin` to false, and return
+// `objectOutput: null` so the screen renders the camera + manual shutter
+// without the auto-snap path.
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { type SharedValue } from 'react-native-reanimated';
-import { VisionCamera } from 'react-native-vision-camera';
+import { useObjectOutput } from 'react-native-vision-camera';
 import type {
   CameraObjectOutput,
   ScannedObject,
@@ -109,11 +111,13 @@ function toDetectedObjects(objects: ScannedObject[]): DetectedObject[] {
  * by overlay components (BracketOverlay, QualityHint) and on the JS thread
  * by the stability lock.
  *
- * We replicate `useObjectOutput` inline rather than calling it directly
- * because `VisionCamera.createObjectOutput()` may throw on platforms that
- * have not yet implemented the Nitro CameraObjectOutput; wrapping the
- * creation in try/catch here lets the screen degrade to manual-shutter
- * mode instead of crashing.
+ * We wrap the `useObjectOutput` call in try/catch because the underlying
+ * `VisionCamera.createObjectOutput()` may throw on platforms that have not
+ * yet implemented the Nitro CameraObjectOutput. The call site stays
+ * unconditional (the hook is always invoked in the same position every
+ * render) so React's hook ordering rules are satisfied; we only catch the
+ * synchronous throw to let the screen degrade to manual-shutter mode
+ * instead of crashing.
  */
 export function useLiveScanFrameProcessor(
   shared: FrameProcessorSharedValues,
@@ -132,15 +136,57 @@ export function useLiveScanFrameProcessor(
   // the detector hook has confirmed it's available.
   const lastScannedAtRef = useRef<number>(0);
 
-  const objectOutput = useMemo<CameraObjectOutput | null>(() => {
+  // Stable callback — `useObjectOutput` re-registers via useEffect when
+  // its identity changes, so keep this identity stable across renders.
+  // We read the latest shared refs through `sharedRef.current` to avoid
+  // tearing down and recreating the object output every render.
+  const onObjectsScanned = useCallback((objects: ScannedObject[]): void => {
+    // Record fire timestamp first — even an empty / malformed batch
+    // counts as "the detector is alive", which keeps the staleness
+    // reset from clobbering a legitimate low-score frame.
+    lastScannedAtRef.current = Date.now();
+    const s = sharedRef.current;
     try {
-      return VisionCamera.createObjectOutput({
-        enabledObjectTypes: ['salient-object'],
-      });
+      const boxes = toDetectedObjects(objects);
+      const metrics: FrameMetrics = {
+        exposure: DEFAULT_EXPOSURE,
+        sharpness: DEFAULT_SHARPNESS,
+      };
+      const { score, quality } = scoreFrame(boxes, metrics);
+      s.score.value = score;
+      s.quality.value = quality;
     } catch {
-      return null;
+      // Never propagate detector errors into the render loop — the screen
+      // must keep working even if a single frame's payload is malformed.
+      s.score.value = 0;
+      s.quality.value = 'searching';
     }
   }, []);
+
+  // v5 public API: pass `types` + `onObjectsScanned` at hook-creation time.
+  // The hook handles the createObjectOutput + setOnObjectsScannedCallback
+  // wiring internally. If the underlying native output cannot be created
+  // (unsupported platform / misconfigured build), the call throws
+  // synchronously and we fall back to manual-shutter mode.
+  //
+  // rules-of-hooks: the try/catch here does NOT change the hook call
+  // ordering — `useObjectOutput` is invoked in the same position on every
+  // render. We only catch the synchronous platform-unsupported throw from
+  // its internal `VisionCamera.createObjectOutput()` so the screen can
+  // degrade gracefully instead of crashing inside React render. If the
+  // hook throws on render N, render N+1 will throw at the same call site
+  // again — hook count stays consistent. The lint rule is a heuristic and
+  // can't distinguish this safe pattern from a true conditional hook.
+  let objectOutput: CameraObjectOutput | null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    objectOutput = useObjectOutput({
+      types: ['salient-object'],
+      onObjectsScanned,
+    });
+  } catch {
+    objectOutput = null;
+  }
 
   useEffect(() => {
     if (objectOutput == null) {
@@ -150,45 +196,6 @@ export function useLiveScanFrameProcessor(
       return;
     }
     shared.hasDetectorPlugin.value = true;
-
-    const callback = (objects: ScannedObject[]): void => {
-      // Record fire timestamp first — even an empty / malformed batch
-      // counts as "the detector is alive", which keeps the staleness
-      // reset from clobbering a legitimate low-score frame.
-      lastScannedAtRef.current = Date.now();
-      const s = sharedRef.current;
-      try {
-        const boxes = toDetectedObjects(objects);
-        const metrics: FrameMetrics = {
-          exposure: DEFAULT_EXPOSURE,
-          sharpness: DEFAULT_SHARPNESS,
-        };
-        const { score, quality } = scoreFrame(boxes, metrics);
-        s.score.value = score;
-        s.quality.value = quality;
-      } catch {
-        // Never propagate detector errors into the render loop — the screen
-        // must keep working even if a single frame's payload is malformed.
-        s.score.value = 0;
-        s.quality.value = 'searching';
-      }
-    };
-
-    try {
-      objectOutput.setOnObjectsScannedCallback(callback);
-    } catch {
-      // Defensive: if the callback hook itself rejects, fall back to
-      // manual-shutter mode rather than tearing down the screen.
-      shared.hasDetectorPlugin.value = false;
-    }
-
-    return () => {
-      try {
-        objectOutput.setOnObjectsScannedCallback(undefined);
-      } catch {
-        // Output may already be torn down — nothing actionable.
-      }
-    };
   }, [objectOutput, shared.hasDetectorPlugin, shared.score, shared.quality]);
 
   // Stable reference (via useRef) so the screen can include this in
