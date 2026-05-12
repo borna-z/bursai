@@ -21,7 +21,7 @@ import {
   type UseInfiniteQueryResult,
   type UseMutationResult,
 } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +30,15 @@ import type { Garment, GarmentFilters, GarmentUpdate } from '../types/garment';
 
 const PAGE_SIZE = 30;
 const RARELY_WORN_CUTOFF_MS = 30 * 24 * 60 * 60 * 1000;
+
+// When a garments query returns an empty array on page 0 with no error AND
+// the user is authenticated AND no filters narrow the result, the most likely
+// cause is a silently-failed token refresh: Supabase RLS denied the read but
+// supabase-js returns `{ data: [], error: null }` instead of throwing. This
+// constant gates a single forced session-refresh + retry on that path. Wider
+// recovery (e.g. retry on every empty page) would mask real "user owns zero
+// garments" cases.
+const RLS_SILENT_EMPTY_RETRY_LIMIT = 1;
 
 // PostgREST treats `%` and `_` as ilike wildcards; an unsanitized search term
 // containing those characters lets a user accidentally match anything. The
@@ -43,7 +52,26 @@ function sanitizeIlikeTerm(value: string): string {
 type GarmentPage = { items: Garment[]; nextPage: number | undefined };
 
 export function useGarments(filters?: GarmentFilters, enabled = true) {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
+
+  // Per-instance count of RLS-silent-empty refresh+retries the hook has
+  // already attempted. Bound at RLS_SILENT_EMPTY_RETRY_LIMIT so a genuinely
+  // empty wardrobe (or a persistently-denied RLS read) doesn't loop. Tied to
+  // useRef (not state) so refetches don't reset between renders within the
+  // same hook lifetime, while remounts (logout → login) start fresh.
+  const rlsRetryCountRef = useRef(0);
+
+  // Filter-active sentinel for the silent-empty guard: a filtered query
+  // returning empty is a legitimate "no matches" state and must NOT trigger
+  // the refresh-and-retry path.
+  const hasActiveFilters = Boolean(
+    filters?.category ||
+      filters?.color ||
+      filters?.season ||
+      filters?.inLaundry !== undefined ||
+      filters?.search?.trim() ||
+      filters?.smartFilter,
+  );
 
   return useInfiniteQuery<GarmentPage, Error, InfiniteData<GarmentPage>, readonly unknown[], number>({
     queryKey: ['garments', user?.id, filters],
@@ -84,7 +112,36 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
       const { data, error } = await query;
       if (error) throw error;
 
-      const items = (data ?? []) as Garment[];
+      let items = (data ?? []) as Garment[];
+
+      // RLS silent-empty recovery (wardrobe-intermittence root cause):
+      // supabase-js does NOT throw when RLS denies a row read after a
+      // silently-failed token refresh — it returns `{ data: [], error: null }`
+      // and the screen renders "No garments" until the user pulls to refresh.
+      // When the empty result lands on page 0 with no filters and a known
+      // user, force one session refresh + re-issue the same query. The retry
+      // budget is bound by rlsRetryCountRef so a genuinely empty wardrobe
+      // never loops.
+      if (
+        items.length === 0 &&
+        pageParam === 0 &&
+        !hasActiveFilters &&
+        rlsRetryCountRef.current < RLS_SILENT_EMPTY_RETRY_LIMIT
+      ) {
+        rlsRetryCountRef.current += 1;
+        try {
+          await supabase.auth.refreshSession();
+        } catch {
+          // refreshSession may throw if the refresh token is invalid — the
+          // retry below will surface the same empty result, the hook tops out,
+          // and the user sees the empty state. AuthContext's onAuthStateChange
+          // handles the SIGNED_OUT side effect.
+        }
+        const { data: retryData, error: retryError } = await query;
+        if (retryError) throw retryError;
+        items = (retryData ?? []) as Garment[];
+      }
+
       return {
         items,
         nextPage: items.length === PAGE_SIZE ? pageParam + 1 : undefined,
@@ -92,7 +149,13 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
     },
     getNextPageParam: (last) => last.nextPage,
     initialPageParam: 0,
-    enabled: !!user && enabled,
+    // `!isAuthLoading` waits for AuthContext to finish the cold-start
+    // session + profile resolve before firing the query. Without this, the
+    // wardrobe screen mounts during the auth-hydration window with
+    // `user=null`, the query short-circuits to an empty result, and the
+    // screen flashes "no garments" before SIGNED_IN fires. See M0 / wardrobe
+    // intermittence audit.
+    enabled: !!user?.id && !isAuthLoading && enabled,
     // 30s gcTime keeps mid-typing search results from accumulating in memory,
     // but applying that to non-search browsing was wrong: Wardrobe → push
     // GarmentDetail → goBack with reading-time > 30s caused the infinite
