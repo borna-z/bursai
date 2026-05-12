@@ -28,16 +28,38 @@
 // error, etc.) and `useAddGarment.resetRenderStatusOnEnqueueFailure` has
 // since rewritten `garments.render_status` to `'none'` server-side — but the
 // cached row may still hold the original `'pending'` write. We invalidate
-// the garment caches as a SIDE EFFECT and reset the budget; we do NOT mark
-// the snapshot terminal. (Codex P2 round 5 + round 7 on PR #728: an earlier
-// revision used a `'not_found'` terminal snapshot, but that latched the
+// the garment caches as a SIDE EFFECT and reset the per-window budget; we
+// do NOT mark the snapshot terminal on the first window. (Codex P2 round 5
+// + round 7 on PR #728: an earlier revision used a `'not_found'` terminal
+// snapshot on the very first window, but that latched the
 // `['render_job', garmentId]` cache on a slow-but-not-failed enqueue — once
 // the row finally appeared, refetchInterval was already false for that key
-// and polling never resumed.) After invalidation:
+// and polling never resumed.) After the first-window invalidation:
 //   • If the server has reset to `'none'`, `useGarment` refetches, the
 //     screen's gate flips off, and the hook is disabled by the caller.
 //   • If the server is still `'pending'` (slow enqueue), polling continues
 //     and the next 30 s window may catch the inserted row normally.
+//
+// Cross-window terminal: after `maxEmptyPollWindows` consecutive full
+// empty-poll windows (default 12 → ~360 s past `enqueue_render_job`), we
+// DO emit a synthetic `'failed'` snapshot. By that point:
+//   • pg_cron's 60 s safety net has tripped multiple times
+//   • the worker-kickoff retry budget (PR #834, ~7 s) has settled
+//   • `callEdgeFunction`'s 3-attempt × 90 s retry envelope (~285 s) has
+//     fully resolved — so either the row landed (we'd have observed it),
+//     OR `queueRender` already wrote `render_status='none'` server-side
+//     (the consumer's gate flipped off and disabled this hook on its own).
+//     Codex round 3 on PR #835 caught that a shorter window raced
+//     callEdgeFunction's retry: a row landing at ~200 s after enqueue
+//     would arrive AFTER the synthetic had already patched the garment
+//     cache to 'failed' and halted polling.
+// Without the synthetic, a rare server-side inconsistency (garments row
+// stuck at `render_status='pending'` AND no render_jobs row AND no reset)
+// would leave the "Studio render…" pill spinning forever. The synthetic
+// patches the local garment cache to `render_status='failed'` (the
+// consumer reads that, not this hook's return) and reports
+// `errorClass: 'enqueue_lost'` so consumers can show distinct copy from a
+// worker-side failure.
 //
 // `render_jobs.status` enum is `pending | in_progress | succeeded | failed`;
 // `garments.render_status` is the parallel column on the garment row that web
@@ -47,7 +69,7 @@
 // directly here.
 
 import { useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -55,6 +77,72 @@ import { bustSignedUrlCache } from './useSignedUrl';
 
 export type RenderJobTerminalStatus = 'succeeded' | 'failed';
 export type RenderJobStatus = 'pending' | 'in_progress' | RenderJobTerminalStatus;
+
+// Sentinel `errorClass` value emitted by the synthetic-failed code path
+// (cross-window empty-poll cutoff). Distinguishes a client-side give-up
+// from a real worker-side failure so the terminal useEffect can skip the
+// "refetch the garment row from server" step that would otherwise undo the
+// local cache patch with the stuck-pending server state.
+const SYNTHETIC_ENQUEUE_LOST = 'enqueue_lost';
+
+// Minimal garment-row shape we touch when patching the cache locally. Matches
+// the columns GarmentDetailScreen reads to derive `isStudioRendering` /
+// `isStudioFailed`. Cast through `unknown` at the setQueryData boundary so
+// we don't have to import the full Garment type just to write two fields.
+interface GarmentRenderPatch {
+  render_status: 'failed';
+  render_error: string;
+}
+
+// Flip the local garment cache so the consumer's gate (which reads
+// `garment.render_status`, NOT the hook's return) actually disables this
+// hook. We intentionally do NOT invalidate the garment query afterwards —
+// the server row is stuck at 'pending' (that's the whole reason we ended up
+// here), so refetching would just overwrite this patch with the stale
+// state. A future legitimate render attempt or pull-to-refresh resyncs.
+function patchGarmentToEnqueueLost(
+  qc: QueryClient,
+  userId: string | undefined,
+  garmentId: string,
+): void {
+  const patch: GarmentRenderPatch = {
+    render_status: 'failed',
+    render_error: 'enqueue_lost',
+  };
+  qc.setQueryData(
+    ['garment', userId, garmentId],
+    (prev: unknown) =>
+      prev && typeof prev === 'object'
+        ? { ...(prev as Record<string, unknown>), ...patch }
+        : prev,
+  );
+  // List caches (wardrobe / laundry / search): patch the matching row in any
+  // currently-cached page so the badge flips on remount. Structure mirrors
+  // useGarments.patchGarmentInCaches.
+  qc.setQueriesData<unknown>(
+    { queryKey: ['garments', userId] },
+    (prev: unknown) => {
+      if (!prev || typeof prev !== 'object') return prev;
+      const root = prev as { pages?: { items?: { id?: string }[] }[] };
+      const pages = root.pages;
+      if (!Array.isArray(pages)) return prev;
+      let mutated = false;
+      const nextPages = pages.map((page) => {
+        const items = page?.items;
+        if (!Array.isArray(items)) return page;
+        let pageChanged = false;
+        const nextItems = items.map((g) => {
+          if (g?.id !== garmentId) return g;
+          pageChanged = true;
+          mutated = true;
+          return { ...(g as Record<string, unknown>), ...patch };
+        });
+        return pageChanged ? { ...page, items: nextItems } : page;
+      });
+      return mutated ? { ...root, pages: nextPages } : prev;
+    },
+  );
+}
 
 export interface RenderJobSnapshot {
   jobId: string | null;
@@ -74,6 +162,18 @@ interface Options {
    *  `render_status='none'` reset (slow-enqueue failure path) without
    *  latching the local poller against a row that lands a few seconds later. */
   maxEmptyPolls?: number;
+  /** Consecutive empty-poll WINDOWS (each of `maxEmptyPolls` reads) before the
+   *  hook emits a synthetic `'failed'` snapshot so the spinner doesn't stick
+   *  forever. Default 12 — i.e. ~360 s of no `render_jobs` row past
+   *  `enqueue_render_job`, which is past:
+   *  - pg_cron's 60 s safety net
+   *  - the worker-kickoff retry budget (PR #834, ~7 s)
+   *  - `callEdgeFunction`'s full retry envelope (3 attempts × 90 s + backoffs
+   *    = ~285 s; per Codex round 3 on PR #835, firing the synthetic earlier
+   *    races a slow-enqueue retry that lands the row right after we patch).
+   *
+   *  Test callers can lower this to force the synthetic-terminal path. */
+  maxEmptyPollWindows?: number;
 }
 
 const TERMINAL_STATUSES: ReadonlySet<RenderJobStatus> = new Set<RenderJobStatus>([
@@ -113,16 +213,23 @@ export function useRenderJobStatus(
   const qc = useQueryClient();
   const pollIntervalMs = options.pollIntervalMs ?? 3000;
   const maxEmptyPolls = options.maxEmptyPolls ?? 10;
+  const maxEmptyPollWindows = options.maxEmptyPollWindows ?? 12;
 
   // Track the previous terminal state so the invalidation effect only fires
   // once per success — not on every render after the snapshot lands.
   const lastTerminalRef = useRef<RenderJobStatus | null>(null);
 
-  // Count consecutive empty polls so we can give up if the enqueue failed
-  // before the row could commit. Reset on garmentId change AND on the first
-  // sighting of a row (so a brief read-your-own-writes lag doesn't poison
-  // the count for a row that does eventually appear).
+  // Count consecutive empty polls within the current window so we can side-
+  // effect-invalidate the garment cache. Reset on garmentId change AND on
+  // the first sighting of a row (so a brief read-your-own-writes lag doesn't
+  // poison the count for a row that does eventually appear).
   const emptyPollsRef = useRef<number>(0);
+
+  // Count completed empty-poll windows so we can give up entirely after
+  // `maxEmptyPollWindows` of them (~90 s by default). Past that point the
+  // row truly will not appear and the consumer's gate needs a terminal
+  // snapshot to flip off.
+  const emptyPollWindowsRef = useRef<number>(0);
 
   const query = useQuery<RenderJobSnapshot | null>({
     // N14/F6 — user-scoped key for consistency with the rest of the mobile
@@ -148,11 +255,44 @@ export function useRenderJobStatus(
         // invalidate the garment cache so a server-side
         // `render_status='none'` reset (slow-enqueue failure path) gets
         // picked up by `useGarment` and the screen's gate disables this
-        // hook. Reset the budget so polling continues — if the row simply
-        // landed late, the next window catches it normally. (Codex round 7.)
+        // hook. Reset the per-window budget so polling continues — if the
+        // row simply landed late, the next window catches it normally.
+        // (Codex round 7.) After `maxEmptyPollWindows` such windows
+        // (~90 s past pg_cron's 60 s safety net + the worker-kickoff retry
+        // budget), give up: emit a synthetic `'failed'` snapshot so the
+        // consumer's gate flips off and the spinner stops.
         emptyPollsRef.current += 1;
         if (emptyPollsRef.current >= maxEmptyPolls) {
           emptyPollsRef.current = 0;
+          emptyPollWindowsRef.current += 1;
+          const isFinalWindow = emptyPollWindowsRef.current >= maxEmptyPollWindows;
+          if (isFinalWindow) {
+            // SYNTHETIC-FAILED PATH — skip the per-window invalidation here.
+            // invalidateQueries refetches active queries by default, and the
+            // stuck-pending server row would overwrite the local patch we
+            // are about to apply, leaving the spinner stuck while the poller
+            // has already halted (Codex P1 round 2 on PR #835). The patch
+            // below is the authoritative cache update for this terminal.
+            //
+            // The consumer (GarmentDetailScreen) gates the spinner off
+            // `garment.render_status`, not this hook's return value, so
+            // the patch must hit BEFORE we return the synthetic snapshot.
+            if (garmentId) {
+              patchGarmentToEnqueueLost(qc, user?.id, garmentId);
+            }
+            return {
+              jobId: null,
+              status: 'failed',
+              errorClass: SYNTHETIC_ENQUEUE_LOST,
+              resultPath: null,
+              attempts: 0,
+            };
+          }
+          // Non-final empty windows: keep the original behavior of
+          // invalidating the garment caches so a server-side
+          // `render_status='none'` reset (slow-enqueue failure path) gets
+          // picked up by `useGarment` and the screen's gate disables this
+          // hook on its own. (Codex round 7.)
           qc.invalidateQueries({ queryKey: ['garments'] });
           if (garmentId) {
             qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
@@ -161,10 +301,11 @@ export function useRenderJobStatus(
         return null;
       }
 
-      // Row exists — clear the empty-poll latch so a transient mid-run blip
-      // (impossible today, since rows aren't deleted, but defensive) wouldn't
-      // count toward the budget for the rest of the session.
+      // Row exists — clear both empty-poll latches so a transient mid-run
+      // blip (impossible today, since rows aren't deleted, but defensive)
+      // wouldn't count toward either budget for the rest of the session.
       emptyPollsRef.current = 0;
+      emptyPollWindowsRef.current = 0;
 
       return {
         jobId: data.id,
@@ -214,19 +355,35 @@ export function useRenderJobStatus(
       bustSignedUrlCache(qc, resultPath);
     }
 
-    qc.invalidateQueries({ queryKey: ['garments'] });
-    if (garmentId) {
-      qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+    // Synthetic-failed (errorClass === 'enqueue_lost') already patched the
+    // garment caches locally in queryFn. Refetching them here would just
+    // overwrite the patch with the stuck-pending server row — exactly the
+    // state we're giving up on. Real worker-side terminals still invalidate
+    // so the rendered_image_path / render_error fields land on the row.
+    if (query.data?.errorClass !== SYNTHETIC_ENQUEUE_LOST) {
+      qc.invalidateQueries({ queryKey: ['garments'] });
+      if (garmentId) {
+        qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+      }
     }
-  }, [query.data?.status, query.data?.resultPath, qc, user?.id, garmentId]);
+  }, [
+    query.data?.status,
+    query.data?.resultPath,
+    query.data?.errorClass,
+    qc,
+    user?.id,
+    garmentId,
+  ]);
 
   // Reset the terminal + empty-poll latches whenever we switch garments so a
   // subsequent success / no-row on a different garmentId still triggers the
   // right branch. Without this, navigating between two pending garments in
-  // the same hook instance would inherit the prior garment's empty count.
+  // the same hook instance would inherit the prior garment's empty count
+  // (or windows count) and trip the synthetic-failed path prematurely.
   useEffect(() => {
     lastTerminalRef.current = null;
     emptyPollsRef.current = 0;
+    emptyPollWindowsRef.current = 0;
   }, [garmentId]);
 
   return query.data ?? null;
