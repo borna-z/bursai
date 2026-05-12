@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce on-device subject segmentation as a free product output AND as preprocessed input to Gemini Studio renders, close residual mobile add-garment flow gaps, and apply a small iOS LiveScan quality fix. Android LiveScan auto-detect parity is deferred (see spec revision note 2026-05-12).
+**Goal:** Bring Android LiveScan to feature parity with iOS via a Nitro module wrapping MLKit Object Detection; introduce on-device subject segmentation as a free product output AND as preprocessed input to Gemini Studio renders; close residual mobile add-garment flow gaps.
 
 **Architecture:**
-- **R-A:** Tiny iOS quality-prioritization fix (`'speed'` vs `'balanced'` capability check). Pure JS, no native code.
+- **R-A:** Android LiveScan auto-detect parity via a **Kotlin Nitro module** wrapping MLKit Object Detection, consumed from a `useFrameProcessor` worklet. All native source ships via a local **Expo config plugin** under `mobile/plugins/with-garment-detector/`. (Previously-floated iOS quality-prioritization fix dropped — vision-camera v5's `CameraDevice` type does not expose `formats`.)
 - **R-B:** Two new native modules (iOS Swift Vision wrapper / Android Kotlin MLKit Subject Segmentation wrapper) shipped via a single **Expo config plugin** under `mobile/plugins/with-background-removal/`. JS wrapper. Pipeline insertion at every capture path. Gemini prompt branch on `garments.mask_status` enum.
 - **R-C:** Defensive imageUpload + interactive Step 3 pickers. Pure JS.
 - **R-D:** `batchPipeline.ts` state machine refactor + `expo-task-manager` background processing + AsyncStorage checkpoint persistence.
 
-**Why no direct commits to `mobile/android/` or `mobile/ios/`:** Both dirs are gitignored (`mobile/.gitignore:41 = /android`; same for ios). Expo managed workflow regenerates them from `app.json` + config plugins on every prebuild. Any hand-edits get blown away. R-B uses the standard Expo "local config plugin" pattern.
+**Why no direct commits to `mobile/android/` or `mobile/ios/`:** Both dirs are gitignored (`mobile/.gitignore:41 = /android`; same for ios). Expo managed workflow regenerates them from `app.json` + config plugins on every prebuild. Any hand-edits get blown away. Both R-A and R-B use the standard Expo "local config plugin" pattern.
 
 **Tech stack:** React Native + Expo SDK 54, `react-native-vision-camera@5.0.9` (Nitro), Kotlin (Android frame processor + MLKit), Swift (iOS Vision framework), `expo-image-manipulator`, `expo-task-manager`, Supabase Postgres + Edge Functions (Deno).
 
@@ -799,13 +799,13 @@ User merges when CI green + Codex gate met + self-review clean + manual device t
 
 ## PR R-B · On-device BG removal + Gemini integration
 
-**Files:**
-- Create: `mobile/ios/BURS/BackgroundRemoval.swift`
-- Create: `mobile/ios/BURS/BackgroundRemoval.m`
-- Create: `mobile/android/app/src/main/java/com/burs/bg/BackgroundRemovalModule.kt`
-- Create: `mobile/android/app/src/main/java/com/burs/bg/BackgroundRemovalPackage.kt`
-- Modify: `mobile/android/app/build.gradle` (+1 dep)
-- Modify: `mobile/android/app/src/main/java/com/burs/.../MainApplication.kt` (register package)
+**Files (new layout under local Expo config plugin — mirrors R-A.2's pattern):**
+- Create: `mobile/plugins/with-background-removal/index.js` (config plugin entry — handles iOS + Android mods)
+- Create: `mobile/plugins/with-background-removal/ios/BackgroundRemoval.swift`
+- Create: `mobile/plugins/with-background-removal/ios/BackgroundRemoval.m`
+- Create: `mobile/plugins/with-background-removal/android/BackgroundRemovalModule.kt`
+- Create: `mobile/plugins/with-background-removal/android/BackgroundRemovalPackage.kt`
+- Modify: `mobile/app.json` (register plugin in `expo.plugins` array)
 - Create: `mobile/src/lib/backgroundRemoval.ts`
 - Modify: `mobile/src/lib/imageUpload.ts` (storage path → `{garmentId}/` folder)
 - Modify: `mobile/src/lib/garmentSave.ts` (write `original_image_path` + `mask_status`)
@@ -816,6 +816,8 @@ User merges when CI green + Codex gate met + self-review clean + manual device t
 - Modify: `mobile/src/i18n/locales/en.ts`, `sv.ts` (append-only)
 - Create: `supabase/migrations/{ts}_add_mask_status.sql`
 - Modify: `supabase/functions/process_render_jobs/index.ts` (prompt branch)
+
+**Why config plugin (not direct edits to `mobile/ios/` or `mobile/android/`):** both dirs are gitignored under Expo managed workflow — `expo prebuild` regenerates them on every clean build and any hand-edits get blown away. R-A.2 established the plugin pattern (`mobile/plugins/with-garment-detector/`); R-B mirrors it for two platforms in a single plugin.
 
 ### Task R-B.1: Schema migration
 
@@ -849,11 +851,162 @@ git add supabase/migrations/
 git commit -m "R-B: migration — garments.mask_status enum column"
 ```
 
-### Task R-B.2: iOS native module (Swift)
+### Task R-B.2: Scaffold the Expo config plugin
+
+**Files to create:**
+- `mobile/plugins/with-background-removal/index.js`
+- `mobile/plugins/with-background-removal/ios/` (empty dir — Swift + Obj-C land in R-B.3)
+- `mobile/plugins/with-background-removal/android/` (empty dir — Kotlin lands in R-B.4)
+- Modify `mobile/app.json` to register plugin
+
+- [ ] **Step 1: Create the plugin entry**
+
+`mobile/plugins/with-background-removal/index.js`:
+
+```javascript
+const {
+  withAppBuildGradle,
+  withMainApplication,
+  withDangerousMod,
+  withXcodeProject,
+} = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
+
+const MLKIT_DEP_LINE =
+  `    implementation 'com.google.mlkit:subject-segmentation:16.0.0-beta1'`;
+const MLKIT_DEP_MARKER = 'com.google.mlkit:subject-segmentation';
+
+function withMlkitSegGradleDep(config) {
+  return withAppBuildGradle(config, (cfg) => {
+    if (cfg.modResults.contents.includes(MLKIT_DEP_MARKER)) return cfg;
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /dependencies\s*\{/,
+      (match) => `${match}\n${MLKIT_DEP_LINE}\n    // ^ Wave R-B background removal`,
+    );
+    return cfg;
+  });
+}
+
+function withBgRemovalPackageRegistration(config) {
+  return withMainApplication(config, (cfg) => {
+    if (cfg.modResults.contents.includes('BackgroundRemovalPackage')) return cfg;
+    const importLine = 'import me.burs.app.bg.BackgroundRemovalPackage';
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /^(package .+\n)/m,
+      `$1\n${importLine}\n`,
+    );
+    // Expo SDK 54 default: `PackageList(this).packages` — splice in.
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /(PackageList\(this\)\.packages)/,
+      `$1.toMutableList().apply { add(BackgroundRemovalPackage()) }`,
+    );
+    return cfg;
+  });
+}
+
+function withAndroidKotlinSourceCopy(config) {
+  return withDangerousMod(config, [
+    'android',
+    async (cfg) => {
+      const root = cfg.modRequest.projectRoot;
+      const src = path.join(root, 'plugins', 'with-background-removal', 'android');
+      const destBase = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'app', 'src', 'main', 'java', 'me', 'burs', 'app', 'bg',
+      );
+      fs.mkdirSync(destBase, { recursive: true });
+      for (const file of fs.readdirSync(src)) {
+        if (file.endsWith('.kt')) {
+          fs.copyFileSync(path.join(src, file), path.join(destBase, file));
+        }
+      }
+      return cfg;
+    },
+  ]);
+}
+
+function withIosSourceCopy(config) {
+  return withDangerousMod(config, [
+    'ios',
+    async (cfg) => {
+      const root = cfg.modRequest.projectRoot;
+      const src = path.join(root, 'plugins', 'with-background-removal', 'ios');
+      const projectName = cfg.modRequest.projectName; // e.g. "BURS"
+      const dest = path.join(cfg.modRequest.platformProjectRoot, projectName);
+      fs.mkdirSync(dest, { recursive: true });
+      for (const file of fs.readdirSync(src)) {
+        if (file.endsWith('.swift') || file.endsWith('.m') || file.endsWith('.h')) {
+          fs.copyFileSync(path.join(src, file), path.join(dest, file));
+        }
+      }
+      return cfg;
+    },
+  ]);
+}
+
+function withIosXcodeMembership(config) {
+  // Register copied Swift + Obj-C files with the Xcode project's main target.
+  return withXcodeProject(config, (cfg) => {
+    const project = cfg.modResults;
+    const projectName = cfg.modRequest.projectName;
+    const targetUUID = project.getFirstTarget().uuid;
+    const groupKey =
+      project.findPBXGroupKey({ name: projectName }) ||
+      project.findPBXGroupKey({ path: projectName });
+    if (!groupKey) return cfg;
+    for (const file of ['BackgroundRemoval.swift', 'BackgroundRemoval.m']) {
+      if (project.hasFile(`${projectName}/${file}`)) continue;
+      project.addSourceFile(
+        `${projectName}/${file}`,
+        { target: targetUUID },
+        groupKey,
+      );
+    }
+    return cfg;
+  });
+}
+
+module.exports = function withBackgroundRemoval(config) {
+  config = withMlkitSegGradleDep(config);
+  config = withBgRemovalPackageRegistration(config);
+  config = withAndroidKotlinSourceCopy(config);
+  config = withIosSourceCopy(config);
+  config = withIosXcodeMembership(config);
+  return config;
+};
+```
+
+**Caveats for implementer:**
+- The `withBgRemovalPackageRegistration` regex assumes the Expo SDK 54 default `PackageList(this).packages` pattern in `MainApplication.kt`. After the first `npx expo prebuild --platform android` run, inspect the generated file and adjust the regex if the pattern differs. (Same caveat as R-A.2.)
+- The Xcode-membership mod uses the `xcode` library re-exposed via `@expo/config-plugins`. Exact API surface (`getFirstTarget`, `findPBXGroupKey`, `addSourceFile`, `hasFile`) varies slightly between `@expo/config-plugins` versions — verify against the installed version before relying on it. If `hasFile` shape differs, fall back to inspecting `cfg.modResults.hash.project.objects.PBXFileReference` for an existing match.
+- Expo prebuild's iOS bridging-header is auto-generated (`<ProjectName>-Bridging-Header.h`) — Swift classes annotated with `@objc` are picked up without manual bridging-header edits.
+- The Android namespace `me.burs.app.bg` mirrors R-A's `me.burs.app.livescan`. If the installed Expo project uses a different root package (check `mobile/app.json` `expo.android.package`), substitute throughout this plugin and in R-B.4's Kotlin files.
+
+- [ ] **Step 2: Register the plugin in `mobile/app.json`**
+
+In the `expo.plugins` array, append:
+
+```json
+"./plugins/with-background-removal"
+```
+
+- [ ] **Step 3: Commit (sources land in R-B.3 and R-B.4)**
+
+```bash
+git add mobile/plugins/with-background-removal/ mobile/app.json
+git commit -m "R-B: scaffold Expo config plugin for on-device background removal"
+```
+
+### Task R-B.3: iOS native module (Swift + Vision framework)
+
+**Files to create (under the plugin's `ios/` source dir; the plugin copies them into the regenerated Xcode tree at prebuild):**
+- `mobile/plugins/with-background-removal/ios/BackgroundRemoval.swift`
+- `mobile/plugins/with-background-removal/ios/BackgroundRemoval.m`
 
 - [ ] **Step 1: Create `BackgroundRemoval.swift`**
 
-`mobile/ios/BURS/BackgroundRemoval.swift`:
+`mobile/plugins/with-background-removal/ios/BackgroundRemoval.swift`:
 
 ```swift
 import Foundation
@@ -973,7 +1126,7 @@ class BackgroundRemoval: NSObject {
 
 - [ ] **Step 2: Create `BackgroundRemoval.m` (Obj-C bridge)**
 
-`mobile/ios/BURS/BackgroundRemoval.m`:
+`mobile/plugins/with-background-removal/ios/BackgroundRemoval.m`:
 
 ```objective-c
 #import <React/RCTBridgeModule.h>
@@ -990,56 +1143,44 @@ RCT_EXTERN_METHOD(maskImage:(NSString *)uri
 @end
 ```
 
-- [ ] **Step 3: Ensure Xcode picks up the new files**
-
-If Expo prebuild is in use, the next `npx expo prebuild --clean` will regenerate the `ios/` tree. To preserve the files, add them via a config plugin in `mobile/plugins/with-background-removal-ios.js`:
-
-```javascript
-const { withDangerousMod } = require('@expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
-
-module.exports = function withBackgroundRemovalIOS(config) {
-  return withDangerousMod(config, [
-    'ios',
-    async (cfg) => {
-      const root = cfg.modRequest.projectRoot;
-      const src = path.join(root, 'plugins', 'BackgroundRemoval');
-      const dest = path.join(cfg.modRequest.platformProjectRoot, 'BURS');
-      for (const file of ['BackgroundRemoval.swift', 'BackgroundRemoval.m']) {
-        fs.copyFileSync(path.join(src, file), path.join(dest, file));
-      }
-      return cfg;
-    },
-  ]);
-};
-```
-
-And register it in `mobile/app.json` `expo.plugins` array. Move the Swift/m files into `mobile/plugins/BackgroundRemoval/` as the source-of-truth.
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Run prebuild on iOS to validate the plugin copies + registers files**
 
 ```bash
-git add mobile/plugins/BackgroundRemoval/ mobile/plugins/with-background-removal-ios.js mobile/app.json
-git commit -m "R-B: iOS native module for Vision subject lifting (iOS 17+)"
+cd mobile && npx expo prebuild --platform ios --clean
 ```
 
-### Task R-B.3: Android native module (Kotlin MLKit Subject Segmentation)
+Expected: regenerates `mobile/ios/`, R-B.2's plugin copies `BackgroundRemoval.swift` + `.m` into the main target group, and `withIosXcodeMembership` adds both files as source members of the main target inside `project.pbxproj`. Inspect the regenerated `mobile/ios/<ProjectName>.xcodeproj/project.pbxproj` to confirm both filenames appear under the target's sources build phase.
 
-- [ ] **Step 1: Add MLKit Subject Segmentation dependency**
+If file membership doesn't take, iterate the `withIosXcodeMembership` mod. The fallback is to fall back to inspecting `project.objects.PBXFileReference` for an existing match before calling `addSourceFile`.
 
-In `mobile/android/app/build.gradle`, add to `dependencies`:
+- [ ] **Step 4: macOS-only — Pod install + Xcode build (skip on Windows)**
 
-```gradle
-implementation 'com.google.mlkit:subject-segmentation:16.0.0-beta1'
+```bash
+cd mobile/ios && pod install
+# Open mobile/ios/<ProjectName>.xcworkspace in Xcode, or run `xcodebuild -workspace ... build` and confirm Swift compiles clean.
 ```
 
-- [ ] **Step 2: Create `BackgroundRemovalModule.kt`**
+On Windows, this step is deferred to the first EAS development build — that's the first real-device validation point.
 
-`mobile/android/app/src/main/java/com/burs/bg/BackgroundRemovalModule.kt`:
+- [ ] **Step 5: Commit**
+
+```bash
+git add mobile/plugins/with-background-removal/ios/
+git commit -m "R-B: iOS Swift Vision module for subject lifting (iOS 17+)"
+```
+
+### Task R-B.4: Android native module (Kotlin + MLKit Subject Segmentation)
+
+**Files to create (under the plugin's `android/` source dir; the plugin copies them into the regenerated `mobile/android/.../me/burs/app/bg/` tree at prebuild, AND injects the MLKit gradle dep + registers the package in `MainApplication.kt`):**
+- `mobile/plugins/with-background-removal/android/BackgroundRemovalModule.kt`
+- `mobile/plugins/with-background-removal/android/BackgroundRemovalPackage.kt`
+
+- [ ] **Step 1: Create `BackgroundRemovalModule.kt`**
+
+`mobile/plugins/with-background-removal/android/BackgroundRemovalModule.kt`:
 
 ```kotlin
-package com.burs.bg
+package me.burs.app.bg
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -1147,12 +1288,12 @@ class BackgroundRemovalModule(reactContext: ReactApplicationContext) :
 }
 ```
 
-- [ ] **Step 3: Create `BackgroundRemovalPackage.kt`**
+- [ ] **Step 2: Create `BackgroundRemovalPackage.kt`**
 
-`mobile/android/app/src/main/java/com/burs/bg/BackgroundRemovalPackage.kt`:
+`mobile/plugins/with-background-removal/android/BackgroundRemovalPackage.kt`:
 
 ```kotlin
-package com.burs.bg
+package me.burs.app.bg
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
@@ -1168,18 +1309,30 @@ class BackgroundRemovalPackage : ReactPackage {
 }
 ```
 
-- [ ] **Step 4: Register in `MainApplication.kt`**
+- [ ] **Step 3: Run prebuild on Android to validate the plugin pipeline**
 
-Add `BackgroundRemovalPackage()` to the package list (same pattern as R-A.2.Step3).
+```bash
+cd mobile && npx expo prebuild --platform android --clean
+```
+
+Expected: regenerates `mobile/android/`, the plugin copies both Kotlin files into the generated `app/src/main/java/me/burs/app/bg/` tree, MLKit Subject Seg dep injected into `app/build.gradle`, package registered in `MainApplication.kt`. Iterate the `withBgRemovalPackageRegistration` regex (or the source-copy logic) until prebuild + the package registration both succeed.
+
+- [ ] **Step 4: Compile Kotlin**
+
+```bash
+cd mobile/android && ./gradlew compileDebugKotlin
+```
+
+Expected: exit 0. Fix any imports / type mismatches.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add mobile/android/app/src/main/java/com/burs/bg/ mobile/android/app/build.gradle mobile/android/app/src/main/java/com/burs/*/MainApplication.kt
-git commit -m "R-B: Android MLKit Subject Segmentation native module"
+git add mobile/plugins/with-background-removal/android/
+git commit -m "R-B: Android MLKit Subject Segmentation native module via config plugin"
 ```
 
-### Task R-B.4: JS wrapper `backgroundRemoval.ts`
+### Task R-B.5: JS wrapper `backgroundRemoval.ts`
 
 - [ ] **Step 1: Create the wrapper**
 
@@ -1277,7 +1430,7 @@ git add mobile/src/lib/backgroundRemoval.ts mobile/App.tsx
 git commit -m "R-B: JS wrapper + app-startup warm-up for on-device BG removal"
 ```
 
-### Task R-B.5: Pipeline insertion at capture paths
+### Task R-B.6: Pipeline insertion at capture paths
 
 - [ ] **Step 1: LiveScan pipeline**
 
@@ -1327,7 +1480,7 @@ git add mobile/src/screens/LiveScan/pipeline.ts mobile/src/screens/AddPieceStep1
 git commit -m "R-B: insert on-device segmentation at every capture path; per-garment storage folders"
 ```
 
-### Task R-B.6: Edge function prompt branch
+### Task R-B.7: Edge function prompt branch
 
 - [ ] **Step 1: Read current `process_render_jobs/index.ts` to locate the Gemini prompt**
 
@@ -1366,7 +1519,7 @@ git add supabase/functions/process_render_jobs/index.ts
 git commit -m "R-B: branch Gemini prompt on garments.mask_status"
 ```
 
-### Task R-B.7: Check Condition UI
+### Task R-B.8: Check Condition UI
 
 - [ ] **Step 1: Create `ConditionCheckSheet.tsx`**
 
@@ -1471,7 +1624,7 @@ git add mobile/src/components/garment/ConditionCheckSheet.tsx mobile/src/screens
 git commit -m "R-B: Check Condition viewer on garment detail (raw image_path access)"
 ```
 
-### Task R-B.8: PR + post-merge deploys
+### Task R-B.9: PR + post-merge deploys
 
 - [ ] **Step 1: Open PR**
 
@@ -1501,7 +1654,7 @@ EOF
 )"
 ```
 
-- [ ] **Step 2: Codex + self-review loops, manual device tests** (same as R-A.6 Steps 4-5)
+- [ ] **Step 2: Codex + self-review loops, manual device tests** (same as R-A.7 Steps 4-5)
 
 - [ ] **Step 3: After user merge — run db push**
 
@@ -2093,16 +2246,21 @@ EOF
 
 | Spec section | Plan task | Covered |
 |---|---|---|
-| R-A Android frame processor plugin | R-A.2 | ✓ |
-| R-A JS frameProcessor branch | R-A.3 | ✓ |
-| R-A iOS quality prio fix | R-A.4 | ✓ |
-| R-B iOS Vision module | R-B.2 | ✓ |
-| R-B Android MLKit module | R-B.3 | ✓ |
-| R-B JS wrapper | R-B.4 | ✓ |
-| R-B pipeline insertions | R-B.5 | ✓ |
+| R-A Expo config plugin scaffold | R-A.2 | ✓ |
+| R-A Nitro TS spec + codegen | R-A.3 | ✓ |
+| R-A Kotlin Nitro impl (MLKit Object Detection) | R-A.4 | ✓ |
+| R-A JS frameProcessor wire-up | R-A.5 | ✓ |
+| R-A wave pointer flip | R-A.6 | ✓ |
+| R-A PR + EAS dev build + device test | R-A.7 | ✓ |
 | R-B migration | R-B.1 | ✓ |
-| R-B edge function branch | R-B.6 | ✓ |
-| R-B Check Condition UI | R-B.7 | ✓ |
+| R-B Expo config plugin scaffold | R-B.2 | ✓ |
+| R-B iOS Vision module | R-B.3 | ✓ |
+| R-B Android MLKit module | R-B.4 | ✓ |
+| R-B JS wrapper | R-B.5 | ✓ |
+| R-B pipeline insertions | R-B.6 | ✓ |
+| R-B edge function branch | R-B.7 | ✓ |
+| R-B Check Condition UI | R-B.8 | ✓ |
+| R-B PR + post-merge deploys | R-B.9 | ✓ |
 | R-C HEIC transcode | R-C.1 | ✓ |
 | R-C content:// defense | R-C.2 | ✓ |
 | R-C Step 3 pickers | R-C.3 | ✓ |
