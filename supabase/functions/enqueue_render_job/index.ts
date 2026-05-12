@@ -461,11 +461,26 @@ serve(async (req) => {
     // worker's startup probe than to spin retries here.
     if (RENDER_WORKER_BEARER && RENDER_WORKER_BEARER.length >= 32) {
       const processorUrl = `${SUPABASE_URL}/functions/v1/process_render_jobs`;
-      void invokeProcessorWithRetry(
+      const kickoff = invokeProcessorWithRetry(
         processorUrl,
         RENDER_WORKER_BEARER,
         canonicalJobId,
       );
+      // Supabase's Edge runtime can terminate the isolate as soon as the
+      // response is returned, which would abort the retry loop before its
+      // 250/750/2000 ms sleeps fire — exactly the transient case the
+      // retry exists for. Register with EdgeRuntime.waitUntil when
+      // available so the runtime keeps the isolate alive until the
+      // promise settles. Falls back to plain `void` on Deno Deploy /
+      // local Deno where the runtime keeps the loop alive naturally.
+      // Same pattern as supabase/functions/style_chat/index.ts:1078.
+      // deno-lint-ignore no-explicit-any
+      const runtime = (globalThis as any).EdgeRuntime;
+      if (runtime && typeof runtime.waitUntil === "function") {
+        runtime.waitUntil(kickoff);
+      } else {
+        void kickoff;
+      }
     } else {
       log.warn("process_render_jobs kickoff skipped — RENDER_WORKER_BEARER not configured (cron will retry)", {
         jobId: canonicalJobId,
