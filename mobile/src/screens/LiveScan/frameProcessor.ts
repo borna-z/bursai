@@ -219,15 +219,34 @@ function useAndroidFrameProcessor(
   // side. Inside an `android` Platform.OS branch this is safe; bundlers keep
   // the require call but `Platform.OS` is constant per platform so the iOS
   // build can tree-shake / never reach this line.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { garmentDetector } = require('./garmentDetector') as typeof import('./garmentDetector');
+  //
+  // Both the `require` AND the inner `createHybridObject` call (which fires at
+  // garmentDetector.ts module load) can throw synchronously: stale dev client
+  // without the native module rebuilt, Expo Go (no custom native), or a
+  // failed prebuild that didn't wire the .so. Catch both so the screen falls
+  // back to manual shutter instead of redboxing during render.
+  //
+  // Resolve to a `const` once so the worklet below captures a stable value
+  // (the react-native-worklets babel plugin snapshots closure references at
+  // worklet creation time; a const avoids any ambiguity about which value
+  // the worklet sees on subsequent renders).
+  const garmentDetector = (
+    (): typeof import('./garmentDetector')['garmentDetector'] | null => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        return (require('./garmentDetector') as typeof import('./garmentDetector')).garmentDetector;
+      } catch {
+        return null;
+      }
+    }
+  )();
 
   // Capture once at hook init: the detector is registered at native module
   // load. If the require above succeeded, the Nitro hybrid is callable.
   // This mirrors the iOS path's `hasDetectorPlugin = true` semantics.
   useEffect(() => {
-    shared.hasDetectorPlugin.value = true;
-  }, [shared.hasDetectorPlugin]);
+    shared.hasDetectorPlugin.value = garmentDetector != null;
+  }, [shared.hasDetectorPlugin, garmentDetector]);
 
   let frameOutput: CameraFrameOutput | null;
   try {
@@ -241,6 +260,9 @@ function useAndroidFrameProcessor(
         // already — the shape exactly matches `DetectedObject` (the
         // scoring layer's input contract).
         try {
+          // If the hybrid failed to load at hook init, skip detection and
+          // let the manual-shutter fallback drive capture instead.
+          if (garmentDetector == null) return;
           const boxes = garmentDetector.detect(frame);
           const metrics: FrameMetrics = {
             exposure: DEFAULT_EXPOSURE,
@@ -266,12 +288,18 @@ function useAndroidFrameProcessor(
   }
 
   useEffect(() => {
-    if (frameOutput == null) {
+    if (frameOutput == null || garmentDetector == null) {
       shared.hasDetectorPlugin.value = false;
       shared.score.value = 0;
       shared.quality.value = 'searching';
     }
-  }, [frameOutput, shared.hasDetectorPlugin, shared.score, shared.quality]);
+  }, [
+    frameOutput,
+    garmentDetector,
+    shared.hasDetectorPlugin,
+    shared.score,
+    shared.quality,
+  ]);
 
   // The Android worklet fires on every frame (not just when objects are
   // present), so staleness has no useful meaning here — the shared values
