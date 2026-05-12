@@ -116,11 +116,15 @@ function withKotlinSourceCopy(config) {
       if (!fs.existsSync(src)) return cfg;
       copyKotlinTree(src, destJavaRoot);
 
-      // Native-build files: CMakeLists.txt + placeholder.cpp land at
-      // `android/CMakeLists.txt` and `android/placeholder.cpp`. The
+      // Native-build files: CMakeLists.txt + cpp-adapter.cpp land at
+      // `android/CMakeLists.txt` and `android/cpp-adapter.cpp`. The
       // externalNativeBuild block injected by `withMlkitGradleDep` references
       // these via `path "../CMakeLists.txt"` from `:app/build.gradle`.
-      for (const name of ['CMakeLists.txt', 'placeholder.cpp']) {
+      // cpp-adapter.cpp contains `JNI_OnLoad` which calls
+      // `margelo::nitro::burs::registerAllNatives()` — without that, the
+      // `BursGarmentDetector` lib would load but no HybridObject constructor
+      // would register.
+      for (const name of ['CMakeLists.txt', 'cpp-adapter.cpp']) {
         const srcFile = path.join(src, name);
         if (fs.existsSync(srcFile)) {
           fs.copyFileSync(

@@ -17,10 +17,12 @@ cmake_minimum_required(VERSION 3.9.0)
 set(PACKAGE_NAME BursGarmentDetector)
 set(CMAKE_CXX_STANDARD 20)
 
-# Placeholder source so `add_library` has something to compile. All real
-# sources (`BursGarmentDetectorOnLoad.cpp`, the spec C++ shims) are added by
-# the nitrogen-generated autolinking.cmake via `target_sources(...)` below.
-add_library(${PACKAGE_NAME} SHARED placeholder.cpp)
+# Seed source: cpp-adapter.cpp defines `JNI_OnLoad` which calls
+# `margelo::nitro::burs::registerAllNatives()` to install the
+# `GarmentDetector` HybridObject constructor in Nitro's registry. The
+# nitrogen-generated autolinking.cmake below appends the rest of the .cpp
+# files (BursGarmentDetectorOnLoad.cpp, spec shims) to the same target.
+add_library(${PACKAGE_NAME} SHARED cpp-adapter.cpp)
 
 # Apply nitrogen-generated wiring: include dirs, source list, prefab finds,
 # `target_link_libraries` for fbjni / ReactAndroid / nitro-modules. Paths
