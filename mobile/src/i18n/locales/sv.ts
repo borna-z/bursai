@@ -1827,7 +1827,7 @@ export const sv: Record<string, string> = {
   'garmentDetail.flag.wishlist.label': 'Önskelista',
   'garmentDetail.flag.wishlist.hint': 'Spåra plagg du vill köpa.',
   'garmentDetail.flag.lingerie.label': 'Underkläder',
-  'garmentDetail.flag.lingerie.hint': 'Håll plagget borta från offentliga outfit-delningar.',
+  'garmentDetail.flag.lingerie.hint': 'Organisera underkläder separat i garderoben.',
 
   'editGarment.cancel.confirm.title': 'Vill du kasta ändringarna?',
   'editGarment.cancel.confirm.body': 'Du har osparade ändringar för det här plagget.',

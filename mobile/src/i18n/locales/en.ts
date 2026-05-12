@@ -1948,7 +1948,7 @@ export const en: Record<string, string> = {
   'garmentDetail.flag.wishlist.label': 'Wishlist',
   'garmentDetail.flag.wishlist.hint': 'Track pieces you want to buy.',
   'garmentDetail.flag.lingerie.label': 'Lingerie',
-  'garmentDetail.flag.lingerie.hint': 'Keep this piece off public outfit shares.',
+  'garmentDetail.flag.lingerie.hint': 'Organize delicates separately in your wardrobe.',
 
   // EditGarment cancel-confirm (N9 deferral folded in here per the N3b
   // brief). KEEP as Alert.alert: discard-vs-keep is a destructive choice.
