@@ -1,0 +1,20 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["burs"],
+  "ios": {
+    "iosModuleName": "BursGarmentDetector"
+  },
+  "android": {
+    "androidNamespace": ["burs"],
+    "androidCxxLibName": "BursGarmentDetector"
+  },
+  "autolinking": {
+    "GarmentDetector": {
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridGarmentDetector"
+      }
+    }
+  },
+  "ignorePaths": ["**/node_modules", "**/android", "**/ios"]
+}
