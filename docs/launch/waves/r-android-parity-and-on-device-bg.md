@@ -1,18 +1,18 @@
-# R — On-device background removal + add-garment flow polish
+# R — Android LiveScan parity + on-device background removal + add-garment flow polish
 
-> **Revision 2026-05-12 (post-investigation):** Android LiveScan auto-detect parity is **deferred** from this wave. The original R-A scope was based on the assumption that `react-native-vision-camera` v5 still exposes the v4 `FrameProcessorPlugin` registry — it does not. v5 ships Nitro-based `CameraObjectOutput`, iOS-only; the comment at `mobile/src/screens/LiveScan/frameProcessor.ts:13-14` confirms Android cannot use it yet. Realistic alternatives (parallel-snapshot loop, vision-camera fork, custom Nitro module) were evaluated and rejected as out of proportion to the wave's value. **Android LiveScan stays manual-shutter-only until upstream v5 ships Android `CameraObjectOutput`** — at that point we open a follow-up wave. R-A is reduced to a small iOS quality-prio fix. Additionally, all native R-B code now ships via an **Expo config plugin** (`mobile/plugins/with-background-removal/`) because `mobile/android/` and `mobile/ios/` are gitignored under Expo managed workflow — direct commits to those directories would be blown away on the next `expo prebuild`.
+> **Revision 2026-05-12 (round 2):** Original R-A plan (custom Kotlin `FrameProcessorPlugin` registered in `MainApplication.kt` + direct edits to `mobile/android/app/build.gradle`) was wrong on two counts: (1) `react-native-vision-camera@5` ships Nitro-based `CameraObjectOutput`, not the v4 `FrameProcessorPluginRegistry` API; (2) `mobile/android/` is gitignored under Expo managed workflow — direct commits get blown away on `expo prebuild`. After investigation, the corrected R-A approach uses a **Nitro module** wrapping MLKit Object Detection, consumed from a **`useFrameProcessor`** worklet, with all native source delivered via a **local Expo config plugin** at `mobile/plugins/with-garment-detector/`. This pattern produces true 30 fps Android detection matching iOS UX. R-B uses the same Expo config plugin pattern for its iOS Vision + Android MLKit Subject Segmentation native modules. The previously-floated iOS quality-prioritization fix is dropped — v5's `CameraDevice` type does not expose `formats`, so the v4-era capability check is moot.
 
 | Field | Value |
 |---|---|
-| Goal | Introduce on-device garment segmentation as a free "Save Original" output AND as preprocessed input to Gemini Studio renders; close residual single-photo and batch add-garment flow gaps; small iOS LiveScan quality fix. |
-| Status | **TODO** — spec revised 2026-05-12 |
+| Goal | Bring Android LiveScan to feature parity with iOS via Nitro + MLKit; introduce on-device garment segmentation as a free "Save Original" output AND as preprocessed input to Gemini Studio renders; close residual single-photo and batch add-garment flow gaps. |
+| Status | **TODO** — spec revised 2026-05-12 (round 2 with Nitro path) |
 | Branch base | `main` |
 | PR count | 4 (R-A, R-B, R-C, R-D) |
 | Migrations | One — `garments.mask_status` (R-B only) |
 | Edge function changes | One — `process_render_jobs` prompt branch (R-B only) |
-| Native modules | Two new (iOS Vision wrapper + Android MLKit Subject Seg wrapper) — both shipped via **Expo config plugin** (R-B) |
-| Bundle impact | Android +~10 MB (MLKit Subject Seg module). iOS no change. |
-| Complexity | XS (R-A), L (R-B), M (R-C, R-D) |
+| Native modules | Three new — all shipped via **local Expo config plugins**: GarmentDetector (Nitro Kotlin, R-A), BackgroundRemoval iOS Vision (R-B), BackgroundRemoval Android MLKit Subject Seg (R-B) |
+| Bundle impact | Android +~13.5 MB (MLKit Object Detection 3.5 MB + MLKit Subject Seg 10 MB). iOS no change. |
+| Complexity | L (R-A, R-B), M (R-C, R-D) |
 | Authority | Standing CEO post-launch theme-PR authority |
 
 ## Background
@@ -51,23 +51,64 @@ Historical garments (with flat-path storage paths) are not migrated. Wardrobe di
 
 ---
 
-## R-A · iOS LiveScan quality prioritization fix (XS)
+## R-A · Android LiveScan auto-detect parity via Nitro module + Expo config plugin (L)
 
-### Scope (revised 2026-05-12)
-Android LiveScan auto-detect is deferred (see top-of-document revision note). R-A is now just the iOS quality-prio fix.
+### Scope (revised 2026-05-12, round 2)
+Android brings auto-detect / auto-snap to feature parity with iOS by writing a **Nitro module** wrapping MLKit Object Detection, consumed from a **`useFrameProcessor`** worklet. All native source ships via a **local Expo config plugin** under `mobile/plugins/with-garment-detector/` because `mobile/android/` is gitignored under Expo managed workflow.
 
-### Fix
-`mobile/src/screens/LiveScanScreen.tsx:~161` currently falls back to `'balanced'` whenever `device.supportsSpeedQualityPrioritization` is missing. Many recent Android devices (Pixel 6, Samsung S22) and some iPhones expose 30 fps formats but not the support flag. Replace the blanket fallback with a `device.formats` capability check — pick `'speed'` when the active format supports 30 fps, else `'balanced'`.
+The previously-proposed iOS quality-prioritization fix is **dropped** — vision-camera v5's `CameraDevice` type does not expose `formats` directly, so the v4-style capability check doesn't apply. The existing `supportsSpeedQualityPrioritization` flag is the v5-correct public API; no improvement to make.
 
-### Files touched
-- `mobile/src/screens/LiveScanScreen.tsx` (one logic change, ~5 lines)
-- `CLAUDE.md` (current wave pointer)
-- `docs/launch/overview.md` (current wave pointer)
+### Why Nitro over snapshot-loop
+- `react-native-nitro-modules@0.35.6` already installed (used by `react-native-nitro-image`)
+- `react-native-worklets@0.5.1` already installed
+- vision-camera v5 exposes `Frame` to Nitro modules natively — zero serialization overhead per frame
+- True 30 fps detection, same UX as iOS
+- Snapshot loop alternative: ~5 fps, disk I/O per snapshot, noticeable lag in stability lock
+
+### Architecture
+```
+Frame (native, from vision-camera v5)
+   ↓ useFrameProcessor worklet (JS thread → JSI/Nitro thread)
+   ↓ HybridGarmentDetector.detect(frame) [Kotlin, Nitro-bound]
+   ↓ MLKit ObjectDetection.process(InputImage)
+   ↓ Returns { box, score, valid } via Nitro auto-serialization
+   ↓ Worklet writes to score / detectionBox shared values
+   ↓ Existing stability-lock + scoring + auto-snap consume shared values (unchanged)
+```
+
+### Files touched (new layout under config plugin)
+- `mobile/plugins/with-garment-detector/index.js` (config plugin entry — orchestrates the mods below)
+- `mobile/plugins/with-garment-detector/android/HybridGarmentDetector.kt` (Kotlin Nitro impl)
+- `mobile/plugins/with-garment-detector/android/GarmentDetectorPackage.kt` (RN package registration)
+- `mobile/specs/GarmentDetector.nitro.ts` (Nitro TypeScript spec — input to nitrogen codegen)
+- `mobile/nitro.json` (nitrogen config; new file or amended)
+- `mobile/app.json` (register the plugin in `expo.plugins`)
+- `mobile/src/screens/LiveScan/frameProcessor.ts` (Android branch — uses `useFrameProcessor` + Nitro module)
+- `mobile/src/screens/LiveScan/garmentDetector.ts` (new — JS wrapper around generated Nitro hybrid)
+- `CLAUDE.md` (CURRENT WAVE pointer to R)
+- `docs/launch/overview.md` (CURRENT WAVE pointer to R)
+
+### Plugin mods used (from `@expo/config-plugins`)
+- `withAppBuildGradle` — inject `implementation 'com.google.mlkit:object-detection:17.0.1'`
+- `withMainApplication` — add `GarmentDetectorPackage()` to the package list
+- `withDangerousMod (android)` — copy Kotlin source files into the generated `android/app/src/main/java/...` tree at prebuild
 
 ### Acceptance
-- Devices that previously got `'balanced'` due to missing `supportsSpeedQualityPrioritization` but offer 30 fps formats now pick `'speed'`
-- iOS LiveScan behavior unchanged vs PR #837 baseline (regression-checked)
-- No native code touched, no EAS build required for this PR's CI
+- Pixel 6 / Samsung S22 EAS dev build: stability lock fires within 1.5 s on a clearly-framed garment, auto-snap captures at score ≥ 0.6
+- No FPS drop below 22 fps during continuous detection
+- iOS path unchanged (regression-checked against PR #837 baseline)
+- `npx expo prebuild --platform android --clean` cleanly regenerates `android/` with the plugin applied
+- `cd mobile/android && ./gradlew compileDebugKotlin` exits 0
+
+### Risk register
+| Risk | Mitigation |
+|---|---|
+| Nitro codegen tool name / API has moved since training cutoff | Implementer subagent must consult mrousavy.com/docs/nitro AND the actual installed `react-native-nitro-modules` package's README at execution time before writing the spec file |
+| vision-camera v5 + Nitro Frame integration import path uncertain | Implementer reads `mobile/node_modules/react-native-vision-camera/lib/typescript/Frame.d.ts` first (requires `npm install` in mobile/) |
+| Generated Nitro artifacts: commit or regenerate? | Decide at execution time. Default: commit generated specs/bindings under `mobile/specs/generated/` so CI doesn't need to run nitrogen. |
+| MLKit Object Detection on Android emulator unreliable | Acceptance test requires real device (Pixel 6 + Samsung S22). EAS dev client build + manual test gate |
+| Worklet thread safety with MLKit's async callbacks | MLKit's `process(InputImage)` returns Task<T>; we use `Tasks.await(task, 50, TimeUnit.MILLISECONDS)` synchronously inside the worklet thread to avoid callback hell |
+| Bundle size +~3.5 MB Android | Disclosed in PR description |
 
 ---
 

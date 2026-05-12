@@ -23,62 +23,444 @@
 
 ---
 
-## PR R-A · iOS LiveScan quality prioritization fix (XS)
+## PR R-A · Android LiveScan auto-detect via Nitro + MLKit + Expo config plugin (L)
 
 **Files:**
-- Modify: `mobile/src/screens/LiveScanScreen.tsx` (quality prioritization capability check, ~5 lines)
-- Modify: `CLAUDE.md` (CURRENT WAVE pointer flip to R)
-- Modify: `docs/launch/overview.md` (CURRENT WAVE pointer flip to R)
+- Create: `mobile/plugins/with-garment-detector/index.js` (config plugin entry)
+- Create: `mobile/plugins/with-garment-detector/android/HybridGarmentDetector.kt`
+- Create: `mobile/plugins/with-garment-detector/android/GarmentDetectorPackage.kt`
+- Create: `mobile/specs/GarmentDetector.nitro.ts` (Nitro TS spec — codegen input)
+- Create or modify: `mobile/nitro.json` (nitrogen config)
+- Modify: `mobile/app.json` (register plugin in `expo.plugins`)
+- Modify: `mobile/src/screens/LiveScan/frameProcessor.ts` (Android branch using `useFrameProcessor` + Nitro)
+- Create: `mobile/src/screens/LiveScan/garmentDetector.ts` (JS wrapper around the generated Nitro hybrid)
+- Modify: `CLAUDE.md` (CURRENT WAVE pointer)
+- Modify: `docs/launch/overview.md` (CURRENT WAVE pointer)
 
-**No native code. No EAS build required to validate. CI lint + typecheck is enough.**
+**Native code present.** Validation requires `npx expo prebuild --platform android --clean` + EAS dev client build + real-device test on Pixel 6 / Samsung S22.
 
-### Task R-A.1: Fix iOS quality prioritization fallback
+### Task R-A.1: Pre-flight — verify installed Nitro + vision-camera Frame API
 
-- [ ] **Step 1: Read the current logic at `mobile/src/screens/LiveScanScreen.tsx` around line 161**
+**Why:** Nitro codegen tool naming and vision-camera v5 Frame API have moved between versions. Before writing any code, the implementer subagent MUST read the current state of installed packages to anchor task R-A.4's spec file to real types.
 
-Use the Read tool. Identify the variable name for the camera device (likely `device`), the type import for `PhotoOutputQualityPrioritization`, and the existing fallback expression.
+- [ ] **Step 1: Install mobile dependencies (so node_modules is queryable)**
 
-- [ ] **Step 2: Replace blanket `'balanced'` fallback with capability-based check**
-
-Change the existing logic that picks `'balanced'` when `device.supportsSpeedQualityPrioritization` is missing. New logic:
-
-```typescript
-const qualityPrioritization: PhotoOutputQualityPrioritization = (() => {
-  if (device?.supportsSpeedQualityPrioritization) return 'speed';
-  // Many devices lack the explicit support flag but can still handle 'speed'
-  // if the active format reports 30fps capability. Check formats:
-  const has30fpsFormat = device?.formats?.some(
-    (f) => f.maxFps >= 30 && f.minFps <= 30
-  );
-  return has30fpsFormat ? 'speed' : 'balanced';
-})();
+```bash
+cd mobile && npm install --no-audit --no-fund
 ```
 
-Adapt `device` variable name + `PhotoOutputQualityPrioritization` type import name to match what's already in the file. If the existing fallback is expressed differently (ternary inline, or computed inside a useMemo), preserve the surrounding shape — only change the decision logic.
+- [ ] **Step 2: Inventory Nitro tooling**
 
-- [ ] **Step 3: Run lint + typecheck**
+```bash
+cat mobile/node_modules/react-native-nitro-modules/package.json | grep -E '"name"|"version"|bin|generator'
+ls mobile/node_modules/.bin/ | grep -i nitro
+```
+
+Document: exact codegen binary name (likely `nitro-codegen` or `nitrogen`), exact `react-native-nitro-modules` version.
+
+- [ ] **Step 3: Inventory vision-camera v5 Frame + worklets surface**
+
+```bash
+ls mobile/node_modules/react-native-vision-camera/lib/typescript/
+cat mobile/node_modules/react-native-vision-camera/lib/typescript/Frame.d.ts 2>/dev/null || find mobile/node_modules/react-native-vision-camera -name "Frame*.d.ts" -exec cat {} \;
+```
+
+Document: the exact `Frame` type signature, the `useFrameProcessor` export, and whether `Frame` is Nitro-bridgeable.
+
+- [ ] **Step 4: Inventory current LiveScan structure (existing iOS path)**
+
+Read `mobile/src/screens/LiveScan/frameProcessor.ts`, `mobile/src/screens/LiveScanScreen.tsx`, `mobile/src/screens/LiveScan/scoring.ts`, `mobile/src/screens/LiveScan/stabilityLock.ts`. Document: exact shared-value names, exact `DetectedObject` shape, where the worklet would be wired into the existing `<Camera />` `outputs` array.
+
+- [ ] **Step 5: Report findings — DO NOT commit**
+
+Output a markdown report listing: Nitro version + codegen binary name, exact Frame type, current shared values + DetectedObject shape, recommended insertion point. **Do not write code in this task.** The findings inform all subsequent R-A tasks.
+
+### Task R-A.2: Scaffold the Expo config plugin
+
+**Files to create:**
+- `mobile/plugins/with-garment-detector/index.js`
+- `mobile/plugins/with-garment-detector/android/` (empty dir, sources land in later tasks)
+- Modify `mobile/app.json` to register plugin
+
+- [ ] **Step 1: Create the plugin entry**
+
+`mobile/plugins/with-garment-detector/index.js`:
+
+```javascript
+const {
+  withAppBuildGradle,
+  withMainApplication,
+  withDangerousMod,
+} = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
+
+const MLKIT_DEP_LINE =
+  `    implementation 'com.google.mlkit:object-detection:17.0.1'`;
+const MLKIT_DEP_MARKER = 'com.google.mlkit:object-detection';
+
+function withMlkitGradleDep(config) {
+  return withAppBuildGradle(config, (cfg) => {
+    if (cfg.modResults.contents.includes(MLKIT_DEP_MARKER)) return cfg;
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /dependencies\s*\{/,
+      (match) => `${match}\n${MLKIT_DEP_LINE}\n    // ^ Wave R-A garment detector`,
+    );
+    return cfg;
+  });
+}
+
+function withGarmentDetectorPackageRegistration(config) {
+  return withMainApplication(config, (cfg) => {
+    const importLine = 'import me.burs.app.livescan.GarmentDetectorPackage';
+    if (cfg.modResults.contents.includes('GarmentDetectorPackage')) return cfg;
+    // Add import after the package declaration
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /^(package .+\n)/m,
+      `$1\n${importLine}\n`,
+    );
+    // Add to packages list — pattern depends on the file's package-list style
+    // (Expo SDK 54 default uses PackageList(this).packages). We splice in.
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /(PackageList\(this\)\.packages)/,
+      `$1.toMutableList().apply { add(GarmentDetectorPackage()) }`,
+    );
+    return cfg;
+  });
+}
+
+function withKotlinSourceCopy(config) {
+  return withDangerousMod(config, [
+    'android',
+    async (cfg) => {
+      const root = cfg.modRequest.projectRoot;
+      const src = path.join(root, 'plugins', 'with-garment-detector', 'android');
+      const destBase = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'app', 'src', 'main', 'java', 'me', 'burs', 'app', 'livescan',
+      );
+      fs.mkdirSync(destBase, { recursive: true });
+      for (const file of fs.readdirSync(src)) {
+        if (file.endsWith('.kt')) {
+          fs.copyFileSync(
+            path.join(src, file),
+            path.join(destBase, file),
+          );
+        }
+      }
+      return cfg;
+    },
+  ]);
+}
+
+module.exports = function withGarmentDetector(config) {
+  config = withMlkitGradleDep(config);
+  config = withGarmentDetectorPackageRegistration(config);
+  config = withKotlinSourceCopy(config);
+  return config;
+};
+```
+
+**Caveat for implementer:** the regex in `withGarmentDetectorPackageRegistration` is brittle — it assumes the Expo SDK 54 default `PackageList(this).packages` pattern in `MainApplication.kt`. Implementer must read the actual `MainApplication.kt` first (after `npx expo prebuild --platform android` once) to confirm the pattern, and adjust the regex if different. Iterate until prebuild + the package registration both succeed.
+
+- [ ] **Step 2: Register the plugin in `mobile/app.json`**
+
+In the `expo.plugins` array, append:
+
+```json
+"./plugins/with-garment-detector"
+```
+
+- [ ] **Step 3: Commit (sources land in later tasks)**
+
+```bash
+git add mobile/plugins/with-garment-detector/ mobile/app.json
+git commit -m "R-A: scaffold Expo config plugin for Android garment detector"
+```
+
+### Task R-A.3: Author the Nitro TypeScript spec
+
+**Files:**
+- `mobile/specs/GarmentDetector.nitro.ts` (new)
+- `mobile/nitro.json` (new or amended)
+
+- [ ] **Step 1: Define the hybrid spec**
+
+`mobile/specs/GarmentDetector.nitro.ts`:
+
+```typescript
+import type { HybridObject } from 'react-native-nitro-modules';
+import type { Frame } from 'react-native-vision-camera';
+
+export interface GarmentDetectionBox {
+  x: number;      // 0..1 normalized to frame width
+  y: number;      // 0..1 normalized to frame height
+  width: number;  // 0..1
+  height: number; // 0..1
+}
+
+export interface GarmentDetectionResult {
+  valid: boolean;
+  score: number;          // 0..1 confidence
+  box: GarmentDetectionBox | null;
+}
+
+export interface GarmentDetector
+  extends HybridObject<{ android: 'kotlin' }> {
+  /**
+   * Run MLKit Object Detection on a vision-camera Frame.
+   * Returns the single best garment-shaped detection or {valid:false}.
+   * Synchronous from the worklet thread; MLKit task awaited inline (~15-30ms on Pixel 6).
+   */
+  detect(frame: Frame): GarmentDetectionResult;
+}
+```
+
+**Implementer note:** Check the actual `HybridObject` import path against what R-A.1 Step 2 reported. If `react-native-nitro-modules` exposes it differently in the installed version, adapt accordingly.
+
+- [ ] **Step 2: Configure nitrogen**
+
+`mobile/nitro.json` (top-level keys may differ — confirm against installed nitro version's docs):
+
+```json
+{
+  "cxxNamespace": ["burs"],
+  "android": {
+    "androidNamespace": ["burs", "livescan"],
+    "androidCxxLibName": "BursGarmentDetector"
+  },
+  "autolinking": {
+    "GarmentDetector": {
+      "kotlin": "me.burs.app.livescan.HybridGarmentDetector"
+    }
+  }
+}
+```
+
+- [ ] **Step 3: Run nitrogen**
+
+```bash
+cd mobile && npx nitro-codegen  # or whatever binary R-A.1 Step 2 reported
+```
+
+Expected: generates `mobile/specs/generated/` with Kotlin scaffolding + JS bindings.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add mobile/specs/ mobile/nitro.json
+git commit -m "R-A: Nitro spec + codegen artifacts for GarmentDetector"
+```
+
+### Task R-A.4: Implement the Kotlin Nitro module
+
+- [ ] **Step 1: Create the Kotlin implementation**
+
+`mobile/plugins/with-garment-detector/android/HybridGarmentDetector.kt`:
+
+```kotlin
+package me.burs.app.livescan
+
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.objects.DetectedObject
+import com.google.mlkit.vision.objects.ObjectDetection
+import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import com.google.android.gms.tasks.Tasks
+import com.mrousavy.camera.frameprocessors.Frame
+// Generated base class — exact name will appear in mobile/specs/generated/ after Task R-A.3
+import burs.livescan.HybridGarmentDetectorSpec
+
+import java.util.concurrent.TimeUnit
+
+class HybridGarmentDetector : HybridGarmentDetectorSpec() {
+
+    private val detector = ObjectDetection.getClient(
+        ObjectDetectorOptions.Builder()
+            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
+            .enableClassification()
+            .build()
+    )
+
+    override fun detect(frame: Frame): GarmentDetectionResult {
+        val image = frame.image
+        val rotation = frame.orientation.toDegrees()
+        val input = InputImage.fromMediaImage(image, rotation)
+
+        val results: List<DetectedObject> = try {
+            Tasks.await(detector.process(input), 50, TimeUnit.MILLISECONDS)
+        } catch (t: Throwable) {
+            return GarmentDetectionResult(valid = false, score = 0.0, box = null)
+        }
+
+        val best = results
+            .filter { obj -> obj.labels.any { it.text.equals("Fashion good", ignoreCase = true) } }
+            .maxByOrNull { obj ->
+                obj.labels.maxOfOrNull { it.confidence } ?: 0f
+            } ?: results.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
+
+        if (best == null) {
+            return GarmentDetectionResult(valid = false, score = 0.0, box = null)
+        }
+
+        val w = image.width.toDouble()
+        val h = image.height.toDouble()
+        val box = best.boundingBox
+        val score = best.labels.maxOfOrNull { it.confidence } ?: 0.5f
+
+        return GarmentDetectionResult(
+            valid = true,
+            score = score.toDouble(),
+            box = GarmentDetectionBox(
+                x = box.left / w,
+                y = box.top / h,
+                width = box.width() / w,
+                height = box.height() / h
+            )
+        )
+    }
+
+    private fun com.mrousavy.camera.core.types.Orientation.toDegrees(): Int = when (this.name) {
+        "PORTRAIT" -> 0
+        "LANDSCAPE_LEFT" -> 270
+        "PORTRAIT_UPSIDE_DOWN" -> 180
+        "LANDSCAPE_RIGHT" -> 90
+        else -> 0
+    }
+}
+```
+
+**Implementer notes:**
+- `HybridGarmentDetectorSpec` is generated by nitrogen in Task R-A.3 — the exact import path will be visible after codegen runs. Adjust the `import` line accordingly.
+- The `GarmentDetectionResult` and `GarmentDetectionBox` data classes are also generated by nitrogen — do NOT redeclare them.
+- `frame.image` and `frame.orientation` are vision-camera v5 Frame properties — verify these names against R-A.1 Step 3's Frame.d.ts inventory.
+- `Tasks.await` is from Google Play Services Tasks API — already a transitive dep of MLKit. If the exact import differs in the installed MLKit version, adjust.
+
+- [ ] **Step 2: Create the package registration**
+
+`mobile/plugins/with-garment-detector/android/GarmentDetectorPackage.kt`:
+
+```kotlin
+package me.burs.app.livescan
+
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class GarmentDetectorPackage : ReactPackage {
+    override fun createNativeModules(reactContext: ReactApplicationContext): MutableList<NativeModule> =
+        mutableListOf()
+
+    override fun createViewManagers(reactContext: ReactApplicationContext): MutableList<ViewManager<*, *>> =
+        mutableListOf()
+}
+```
+
+(Nitro modules don't register as classic NativeModules; they auto-register via the `autolinking` section in `nitro.json`. The Package class exists as a placeholder for any future non-Nitro additions.)
+
+- [ ] **Step 3: Run prebuild to validate the config plugin pipeline**
+
+```bash
+cd mobile && npx expo prebuild --platform android --clean
+```
+
+Expected: regenerates `mobile/android/`, plugin copies Kotlin files into the generated tree, MLKit dep injected into `build.gradle`, package registered in `MainApplication.kt`. Iterate the plugin's regex/copy logic until this succeeds.
+
+- [ ] **Step 4: Compile Kotlin**
+
+```bash
+cd mobile/android && ./gradlew compileDebugKotlin
+```
+
+Expected: exit 0. Fix any imports / type mismatches.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add mobile/plugins/with-garment-detector/
+git commit -m "R-A: Kotlin Nitro module wrapping MLKit Object Detection"
+```
+
+### Task R-A.5: Wire the worklet frame processor (JS)
+
+- [ ] **Step 1: Create the JS wrapper**
+
+`mobile/src/screens/LiveScan/garmentDetector.ts`:
+
+```typescript
+import { NitroModules } from 'react-native-nitro-modules';
+import type { GarmentDetector } from '../../../specs/GarmentDetector.nitro';
+
+export const garmentDetector = NitroModules.createHybridObject<GarmentDetector>('GarmentDetector');
+```
+
+- [ ] **Step 2: Branch the frame processor on platform**
+
+In `mobile/src/screens/LiveScan/frameProcessor.ts`, add an Android path that uses `useFrameProcessor` + `garmentDetector.detect(frame)` and writes the same shared values (`score`, `quality`, `hasDetectorPlugin`) the iOS path writes. Keep iOS path using `useObjectOutput` unchanged.
+
+Concrete shape (adapt to existing patterns reported in R-A.1 Step 4):
+
+```typescript
+import { Platform } from 'react-native';
+import { useFrameProcessor } from 'react-native-vision-camera';
+import { garmentDetector } from './garmentDetector';
+import { scoreFrame } from './scoring';
+
+// ... existing iOS hook unchanged ...
+
+export function useAndroidFrameProcessor(shared: FrameProcessorSharedValues) {
+  shared.hasDetectorPlugin.value = true;
+  return useFrameProcessor((frame) => {
+    'worklet';
+    const r = garmentDetector.detect(frame);
+    if (!r.valid || r.box == null) {
+      shared.score.value = 0;
+      shared.quality.value = 'searching';
+      return;
+    }
+    const detected = [{ x: r.box.x, y: r.box.y, width: r.box.width, height: r.box.height, confidence: r.score }];
+    const { score, quality } = scoreFrame(detected, { exposure: 0.5, sharpness: 0.7 });
+    shared.score.value = score;
+    shared.quality.value = quality;
+  }, []);
+}
+
+export function useLiveScanFrameProcessor(shared: FrameProcessorSharedValues) {
+  // existing iOS impl returns { objectOutput, markStaleIfNoRecentScan }
+  // add a parallel `frameProcessor` field that's null on iOS, defined on Android
+  if (Platform.OS === 'android') {
+    const frameProcessor = useAndroidFrameProcessor(shared);
+    return { objectOutput: null, frameProcessor, markStaleIfNoRecentScan: () => {} };
+  }
+  // ... existing iOS impl ...
+}
+```
+
+- [ ] **Step 3: Wire the Android `frameProcessor` into `<Camera />`**
+
+In `mobile/src/screens/LiveScanScreen.tsx`, where `outputs` is currently passed to `<Camera>`, also pass `frameProcessor` when Platform is Android. Reference vision-camera v5 docs for the exact prop shape.
+
+- [ ] **Step 4: Run lint + typecheck**
 
 ```bash
 cd mobile && npm run lint -- "src/**/*.{ts,tsx}" --max-warnings 0
 npm run typecheck
 ```
 
-Expected: both pass.
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add mobile/src/screens/LiveScanScreen.tsx
-git commit -m "R-A: prefer 'speed' quality prioritization when device formats support 30fps"
+git add mobile/src/screens/LiveScan/garmentDetector.ts mobile/src/screens/LiveScan/frameProcessor.ts mobile/src/screens/LiveScanScreen.tsx
+git commit -m "R-A: Android useFrameProcessor branch driving MLKit Nitro detector"
 ```
 
-### Task R-A.2 [DELETED — Android Kotlin frame processor deferred per 2026-05-12 spec revision]
+### Task R-A.6: Update CLAUDE.md and overview.md wave pointers
 
-### Task R-A.3 [DELETED — Android JS frameProcessor branch deferred per 2026-05-12 spec revision]
+Same as the original R-A.5: flip the CURRENT WAVE pointers to R. Then commit.
 
-### Task R-A.4 [SUPERSEDED by R-A.1]
+### Task R-A.7: PR + EAS dev build + Pixel device test
 
-### Task R-A.OLD [historical reference only — not executed]
+Same as the original R-A.6: push branch, open PR, trigger EAS dev client build, test on Pixel/Samsung device, Codex review loop, self-review loop, await user merge.
 
 - [ ] **Step 1: Create `GarmentDetectorPlugin.kt`**
 
