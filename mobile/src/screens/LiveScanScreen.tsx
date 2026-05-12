@@ -30,6 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -86,6 +87,7 @@ const SCORE_REVEAL_FLOOR = 0.6;
 export function LiveScanScreen() {
   const nav = useNavigation<Nav>();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
@@ -120,6 +122,28 @@ export function LiveScanScreen() {
       offQueued();
     };
   }, [events]);
+
+  // The pipeline calls `persistGarmentWithOfflineFallback` directly (bypassing
+  // `useAddGarment`), so React Query has no way to know a new garment row
+  // exists until staleTime expires. Mirror the invalidation set from
+  // `useAddGarment.onSuccess` so wardrobe / count / smart-counts / profile
+  // stats / insights all refresh as soon as the save (or offline queue) lands.
+  // Codex P2 on PR #837.
+  useEffect(() => {
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      queryClient.invalidateQueries({ queryKey: ['garments-count'] });
+      queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
+    };
+    const offSaved = events.on('saved', invalidate);
+    const offQueued = events.on('queued', invalidate);
+    return () => {
+      offSaved();
+      offQueued();
+    };
+  }, [events, queryClient, user?.id]);
 
   // Shared values driving the overlays + the JS-thread stability lock.
   const score = useSharedValue(0);
