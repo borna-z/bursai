@@ -1885,4 +1885,12 @@ export const sv: Record<string, string> = {
   'outfitDetail.menu.addToPlan': 'Lägg till i plan',
   'outfitDetail.menu.deleteOutfit': 'Ta bort outfit',
   'garmentCard.badge.laundry': 'Tvätt',
+  'studio.enqueueFailed.rateLimit.title': 'För många renderingar just nu',
+  'studio.enqueueFailed.rateLimit.body': 'Försök igen om {seconds}s.',
+  'studio.enqueueFailed.credits.title': 'Inga renderingskrediter kvar',
+  'studio.enqueueFailed.credits.body': 'Uppgradera eller vänta tills din månadskvot förnyas för att fortsätta med studiokvalitet.',
+  'studio.enqueueFailed.auth.title': 'Logga in för att rendera',
+  'studio.enqueueFailed.auth.body': 'Din session gick ut. Logga in igen och försök på nytt.',
+  'studio.enqueueFailed.generic.title': 'Kunde inte starta studiorendering',
+  'studio.enqueueFailed.generic.body': 'Bilden sparades. Försök rendera igen från plagg-sidan.',
 };
