@@ -100,7 +100,7 @@ React Native `Modal` + `Animated`, OR `@gorhom/bottom-sheet` if already in deps 
 - **Avatar feature deprecated 2026-04-21.** `avatars` bucket dropped. Don't wire avatar UI without checking with the user first.
 - **Sentry pinned at `@sentry/react-native@6.x`.** `package.json` `expo.install.exclude` prevents expo-doctor from auto-bumping. Don't bump pre-launch.
 - **Studio render flow.** `enqueue_render_job` is fire-and-forget; UI polls `render_jobs` via `useRenderJobStatus` (M1) and swaps in `rendered_image_path` on success.
-- **LiveScan continuous-scan (M6) uses `react-native-vision-camera`** — Vision Camera doesn't run in Expo Go. Test on EAS dev build.
+- **LiveScan uses `react-native-vision-camera` + on-device ML** (MLKit on Android, Apple Vision on iOS) for auto-detect / auto-snap. Does NOT run in Expo Go — test on EAS dev build.
 - **Web type imports allowed.** `import type { Database } from '../../../src/integrations/supabase/types'` is fine — type-only imports strip at build time. Runtime imports of web code are forbidden.
 - **No new design primitives without checking.** Reuse `Eyebrow`, `PageTitle`, `Caption`, `Button`, `IconBtn`, `Chip`, `Card`, `SettingsRow`, `ListRow`, `BottomNav`, `OutfitCard`, `GarmentCard`.
 
