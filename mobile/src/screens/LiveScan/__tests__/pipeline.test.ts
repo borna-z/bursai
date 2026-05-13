@@ -252,8 +252,10 @@ describe('ingestScan', () => {
       'garment-uuid-fixed',
       'masked',
     );
-    // Persist receives the full masked-path triple.
+    // Persist receives the full masked-path triple AND the pre-generated
+    // garmentId so the row's primary key matches the storage folder name.
     expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
+      garmentId: 'garment-uuid-fixed',
       storagePath: 'u/g/raw.webp',
       maskedStoragePath: 'u/g/masked.webp',
       maskStatus: 'masked',

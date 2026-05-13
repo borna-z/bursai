@@ -41,6 +41,21 @@ export type AddGarmentSource =
 
 export interface AddGarmentParams {
   /**
+   * Wave R-B — client-pre-generated row UUID. When the caller uploads
+   * raw + masked variants under `garments/{userId}/{garmentId}/...`
+   * BEFORE the row exists (LiveScan does this so segmentation and the
+   * raw upload can run in parallel), we MUST stamp the same UUID onto
+   * the row insert. Otherwise Postgres assigns its own UUID via the
+   * default `gen_random_uuid()` and the storage folder becomes an
+   * orphan — render jobs and signed-URL paths would look up
+   * `{userId}/<row.id>/...` and find nothing.
+   *
+   * Optional for callers that don't pre-allocate a folder (the
+   * legacy AddPiece flat-path flow + offline-replay of pre-R-B
+   * queued saves). When omitted, Postgres assigns the id as before.
+   */
+  garmentId?: string;
+  /**
    * Storage path of the raw user capture (unaltered after resize). Becomes
    * `original_image_path` on the garment row and is used by AI condition
    * assessment + studio render as the unmodified source.
@@ -147,6 +162,11 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
 
   const insert: GarmentInsert = {
     user_id: user.id,
+    // Wave R-B — stamp the client-pre-generated UUID so the row id
+    // matches the storage folder path the LiveScan pipeline already
+    // uploaded raw + masked variants into. Without this the column
+    // default fires and the row id diverges from the folder name.
+    ...(params.garmentId ? { id: params.garmentId } : {}),
     title: params.title?.trim() || params.analysis.title || 'Untitled',
     category: params.category || params.analysis.category || 'top',
     subcategory: params.analysis.subcategory,

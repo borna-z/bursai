@@ -196,6 +196,11 @@ export async function ingestScan(
     stage = 'persist';
     events.emit('stage', { sessionId, stage });
     const garment = await persistGarmentWithOfflineFallback({
+      // Pre-generated row UUID — must match the folder name we
+      // uploaded raw + masked variants into, otherwise the row's
+      // `image_path` / `original_image_path` would point at files
+      // under a folder whose name nothing else can reconstruct.
+      garmentId,
       storagePath: rawUpload.storagePath,
       maskedStoragePath: maskedUpload?.storagePath,
       maskStatus,
