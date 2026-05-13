@@ -12,9 +12,9 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | none — Wave Q closed 2026-05-12 (all 6 PRs merged: #826 Q-A · #827 Q-D1 · #828 Q-D2 · #829 Q-B · #830 Q-C1 · #831 Q-C2 + migration applied). Post-launch standing CEO authority — next user-reported issue spawns a new wave. |
-| **CURRENT WAVE FILE** | none — last wave at `docs/launch/waves/q-mobile-parity-2.md` |
-| **STATUS** | IDLE |
+| **CURRENT WAVE** | R — Android platform parity + on-device background removal (4 themed PRs: R-A Android LiveScan Nitro · R-B BG removal + Gemini · R-C single-photo polish · R-D batch parity) |
+| **CURRENT WAVE FILE** | `docs/launch/waves/r-android-parity-and-on-device-bg.md` |
+| **STATUS** | IN PROGRESS — R-A |
 
 > **Parity sweep #2 (2026-05-11):** Wave P closed (PRs #822 #823 #824 #825). Manual QA surfaced four new user-visible gaps: Home SmartDayBanner cards render hue placeholders not garments; mobile chat assistant outfit messages don't render at all; Plan/Generate ships a placeholder result page with no real images and no date picker; wardrobe filter chips show "—" on paginated wardrobes and three of them have no backend at all. Wave Q sequences smallest-blast-radius first (Q-A → Q-D → Q-B → Q-C1 → Q-C2) and closes the gaps. **Q-A merged PR #826 2026-05-11** (SmartDayBanner now derives garments from `outfit_items` and passes via `OutfitCard.garments` — real signed-URL thumbnails replace neutral placeholders). One migration ahead (Q-C2: `garments.is_lingerie/is_wishlist/is_in_laundry` partial-indexed). Executed under standing CEO post-launch authority. Codex review gate skipped on Q-A as a one-off (quota exhausted; user authorized override); merge gate was green CI + 2nd-pass code-reviewer (clean, 1 P2 tracked in findings-log).
 

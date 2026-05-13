@@ -149,11 +149,12 @@ export function LiveScanScreen() {
   // no React render dependency.
   const lowScoreSinceRef = useRef<number>(Date.now());
 
-  const { objectOutput, markStaleIfNoRecentScan } = useLiveScanFrameProcessor({
-    score,
-    quality,
-    hasDetectorPlugin,
-  });
+  const { output: detectorOutput, markStaleIfNoRecentScan } =
+    useLiveScanFrameProcessor({
+      score,
+      quality,
+      hasDetectorPlugin,
+    });
   // `qualityPrioritization: 'speed'` throws on devices that don't support
   // it (older iPhones and many mid-tier Androids). Gate on the device flag
   // and fall back to 'balanced' when unsupported.
@@ -164,8 +165,8 @@ export function LiveScanScreen() {
     quality: 0.85,
   });
   const outputs = useMemo(
-    () => (objectOutput ? [photoOutput, objectOutput] : [photoOutput]),
-    [photoOutput, objectOutput],
+    () => (detectorOutput ? [photoOutput, detectorOutput] : [photoOutput]),
+    [photoOutput, detectorOutput],
   );
 
   // Mirror the worklet-driven quality enum into React state so we can drive

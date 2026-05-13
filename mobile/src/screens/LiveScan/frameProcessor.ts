@@ -1,40 +1,33 @@
 // On-device object detector + scoring bridge for LiveScan v2.
 //
-// react-native-vision-camera v5 replaces the old `useFrameProcessor` /
-// `VisionCameraProxy.initFrameProcessorPlugin` worklet API with Nitro-based
-// outputs. Native on-device object detection (Apple Vision on iOS, the
-// equivalent on Android once Nitro support lands) is exposed via the
-// `useObjectOutput` hook, which fires `onObjectsScanned` on the JS thread
-// with bounding boxes already normalized to camera space (0..1).
+// react-native-vision-camera v5 replaces the v4 worklet API
+// (`useFrameProcessor` / `VisionCameraProxy.initFrameProcessorPlugin`) with
+// Nitro-based outputs:
 //
-// We drive the vision-camera v5 native object output via the documented
-// `useObjectOutput({ types, onObjectsScanned })` hook. We pass
-// `'salient-object'` to surface the most prominent foreground subject —
-// that maps well to a hand-held garment in the LiveScan flow. Android is
-// not yet supported by v5's CameraObjectOutput; the screen falls back to
-// manual-shutter-only mode when `hasDetectorPlugin` is false.
+//   - iOS uses `useObjectOutput`, the native CameraObjectOutput backed by
+//     Apple Vision; it emits scanned-object batches on the JS thread.
+//   - Android has NO `CameraObjectOutput` implementation in v5, so we wrap
+//     Google MLKit Object Detection in a Kotlin Nitro module
+//     (`HybridGarmentDetector`) and call it from a `useFrameOutput` worklet
+//     on the frame-processor thread.
 //
-// Each scanned batch:
-//   1. Convert ScannedObject[] -> DetectedObject[] (already 0..1 coords).
-//   2. Synthesize FrameMetrics (the native object output does not surface
-//      luminance/sharpness — defaults of 0.5/0.7 keep the scoring math
-//      stable; a future iteration can layer a parallel useFrameOutput
-//      worklet to compute real exposure/sharpness).
-//   3. scoreFrame() computes the FrameScore.
-//   4. score + quality are written to shared values the UI reads.
+// Both paths converge on the same three shared values
+// (`score`, `quality`, `hasDetectorPlugin`) and the same `scoreFrame`
+// scoring logic, so `LiveScanScreen.tsx` is platform-agnostic.
 //
-// If the platform cannot create a CameraObjectOutput (e.g. Android in the
-// current v5 preview, or a misconfigured native build), `useObjectOutput`
-// throws synchronously from its internal `VisionCamera.createObjectOutput`
-// call; we catch that, flip `hasDetectorPlugin` to false, and return
-// `objectOutput: null` so the screen renders the camera + manual shutter
-// without the auto-snap path.
+// Returned shape — `{ output: CameraOutput | null, markStaleIfNoRecentScan }`
+// — lets `LiveScanScreen.tsx` build its `outputs` array without a
+// `Platform.OS` check. `output` is whatever output (object or frame) drives
+// the detector on this platform, or `null` if creation failed.
 
 import { useCallback, useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { type SharedValue } from 'react-native-reanimated';
-import { useObjectOutput } from 'react-native-vision-camera';
+import { useFrameOutput, useObjectOutput } from 'react-native-vision-camera';
 import type {
+  CameraFrameOutput,
   CameraObjectOutput,
+  CameraOutput,
   ScannedObject,
 } from 'react-native-vision-camera';
 
@@ -55,19 +48,20 @@ export interface FrameProcessorSharedValues {
 
 export interface LiveScanFrameProcessor {
   /**
-   * The CameraObjectOutput to attach to `<Camera outputs={[objectOutput]} />`,
-   * or `null` if native object detection could not be initialised on this
-   * platform / build (screen should fall back to manual shutter only).
+   * The CameraOutput to attach to `<Camera outputs={[…, output]} />`. On iOS
+   * this is a `CameraObjectOutput` driven by `useObjectOutput`; on Android
+   * it is a `CameraFrameOutput` driven by `useFrameOutput` that calls the
+   * Nitro MLKit detector inside a worklet. `null` when creation failed and
+   * the screen should fall back to manual-shutter-only mode.
    */
-  objectOutput: CameraObjectOutput | null;
+  output: CameraOutput | null;
   /**
-   * Drop stale detector state when `onObjectsScanned` hasn't fired in
-   * `staleMs`. Vision Camera only emits the callback when at least one
-   * object is detected — between garments the viewfinder may be empty for
-   * hundreds of ms, during which `score.value` would otherwise hold the
-   * last well-framed garment's value and prevent the stability lock from
-   * re-arming. Call this from the screen's heartbeat tick before reading
-   * `score.value`.
+   * Drop stale detector state when the detector hasn't fired in `staleMs`.
+   * Used by the JS-thread heartbeat to re-arm the stability lock between
+   * garments. The Android path is driven by `useFrameOutput` which fires
+   * every frame regardless of detection presence, so staleness is only
+   * meaningful on the iOS path (where `onObjectsScanned` only fires when
+   * objects are present). The Android implementation returns a no-op.
    */
   markStaleIfNoRecentScan: (staleMs?: number) => void;
 }
@@ -101,25 +95,11 @@ function toDetectedObjects(objects: ScannedObject[]): DetectedObject[] {
   return out;
 }
 
-/**
- * Create the LiveScan v2 frame-processing pipeline.
- *
- * Returns a `CameraObjectOutput` (or `null` on unsupported platforms) to
- * attach to the `<Camera />` view. As the native detector emits batches of
- * scanned objects, the hook writes the computed score + quality back to
- * the supplied shared values. The shared values are read on the UI thread
- * by overlay components (BracketOverlay, QualityHint) and on the JS thread
- * by the stability lock.
- *
- * We wrap the `useObjectOutput` call in try/catch because the underlying
- * `VisionCamera.createObjectOutput()` may throw on platforms that have not
- * yet implemented the Nitro CameraObjectOutput. The call site stays
- * unconditional (the hook is always invoked in the same position every
- * render) so React's hook ordering rules are satisfied; we only catch the
- * synchronous throw to let the screen degrade to manual-shutter mode
- * instead of crashing.
- */
-export function useLiveScanFrameProcessor(
+// ---------------------------------------------------------------------------
+// iOS path — `useObjectOutput` driven by Apple Vision
+// ---------------------------------------------------------------------------
+
+function useIOSFrameProcessor(
   shared: FrameProcessorSharedValues,
 ): LiveScanFrameProcessor {
   // Keep the latest shared-value refs accessible from the (long-lived)
@@ -222,7 +202,143 @@ export function useLiveScanFrameProcessor(
   );
 
   return {
-    objectOutput,
+    output: objectOutput,
     markStaleIfNoRecentScan: markStaleIfNoRecentScanRef.current,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Android path — `useFrameOutput` worklet driving the Nitro MLKit detector
+// ---------------------------------------------------------------------------
+
+function useAndroidFrameProcessor(
+  shared: FrameProcessorSharedValues,
+): LiveScanFrameProcessor {
+  // Lazy-require so iOS bundles never execute `NitroModules.createHybridObject`
+  // — the `GarmentDetector` hybrid is only registered on the Android native
+  // side. Inside an `android` Platform.OS branch this is safe; bundlers keep
+  // the require call but `Platform.OS` is constant per platform so the iOS
+  // build can tree-shake / never reach this line.
+  //
+  // Both the `require` AND the inner `createHybridObject` call (which fires at
+  // garmentDetector.ts module load) can throw synchronously: stale dev client
+  // without the native module rebuilt, Expo Go (no custom native), or a
+  // failed prebuild that didn't wire the .so. Catch both so the screen falls
+  // back to manual shutter instead of redboxing during render.
+  //
+  // Resolve to a `const` once so the worklet below captures a stable value
+  // (the react-native-worklets babel plugin snapshots closure references at
+  // worklet creation time; a const avoids any ambiguity about which value
+  // the worklet sees on subsequent renders).
+  const garmentDetector = (
+    (): typeof import('./garmentDetector')['garmentDetector'] | null => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        return (require('./garmentDetector') as typeof import('./garmentDetector')).garmentDetector;
+      } catch {
+        return null;
+      }
+    }
+  )();
+
+  // Capture once at hook init: the detector is registered at native module
+  // load. If the require above succeeded, the Nitro hybrid is callable.
+  // This mirrors the iOS path's `hasDetectorPlugin = true` semantics.
+  useEffect(() => {
+    shared.hasDetectorPlugin.value = garmentDetector != null;
+  }, [shared.hasDetectorPlugin, garmentDetector]);
+
+  let frameOutput: CameraFrameOutput | null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    frameOutput = useFrameOutput({
+      pixelFormat: 'yuv',
+      onFrame(frame) {
+        'worklet';
+        // Call the Nitro detector synchronously on the frame-processor
+        // thread. Returns `DetectedBox[]` with normalized coordinates
+        // already — the shape exactly matches `DetectedObject` (the
+        // scoring layer's input contract).
+        try {
+          // If the hybrid failed to load at hook init, skip detection and
+          // let the manual-shutter fallback drive capture instead.
+          if (garmentDetector == null) return;
+          const boxes = garmentDetector.detect(frame);
+          const metrics: FrameMetrics = {
+            exposure: DEFAULT_EXPOSURE,
+            sharpness: DEFAULT_SHARPNESS,
+          };
+          const { score, quality } = scoreFrame(boxes, metrics);
+          shared.score.value = score;
+          shared.quality.value = quality;
+        } catch {
+          // Swallow per-frame detector errors — the next frame's worklet
+          // invocation will retry. We don't reset the shared values here
+          // (a transient throw shouldn't clobber the last good frame).
+        } finally {
+          // ALWAYS dispose the frame, even on detector failure. Skipping
+          // dispose stalls the vision-camera pipeline (see Frame.dispose
+          // docstring) and frames start dropping.
+          frame.dispose();
+        }
+      },
+    });
+  } catch {
+    frameOutput = null;
+  }
+
+  useEffect(() => {
+    if (frameOutput == null || garmentDetector == null) {
+      shared.hasDetectorPlugin.value = false;
+      shared.score.value = 0;
+      shared.quality.value = 'searching';
+    }
+  }, [
+    frameOutput,
+    garmentDetector,
+    shared.hasDetectorPlugin,
+    shared.score,
+    shared.quality,
+  ]);
+
+  // The Android worklet fires on every frame (not just when objects are
+  // present), so staleness has no useful meaning here — the shared values
+  // are updated continuously. Provide a stable no-op for the union contract.
+  const markStaleIfNoRecentScanRef = useRef<(staleMs?: number) => void>(
+    () => {},
+  );
+
+  return {
+    output: frameOutput,
+    markStaleIfNoRecentScan: markStaleIfNoRecentScanRef.current,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Platform dispatcher
+// ---------------------------------------------------------------------------
+
+/**
+ * Create the LiveScan v2 frame-processing pipeline.
+ *
+ * Returns a `CameraOutput` (or `null` on unsupported platforms / failed
+ * native init) to attach to the `<Camera />` view. As the native detector
+ * emits per-frame scores, the hook writes them back to the supplied shared
+ * values. The shared values are read on the UI thread by overlay components
+ * (BracketOverlay, QualityHint) and on the JS thread by the stability lock.
+ *
+ * `Platform.OS` is constant at runtime for the lifetime of the JS bundle,
+ * so calling different hooks on different platforms does not violate React's
+ * hook ordering rules — each render on a given platform calls the same hook
+ * sequence in the same order.
+ */
+export function useLiveScanFrameProcessor(
+  shared: FrameProcessorSharedValues,
+): LiveScanFrameProcessor {
+  if (Platform.OS === 'android') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useAndroidFrameProcessor(shared);
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useIOSFrameProcessor(shared);
 }
