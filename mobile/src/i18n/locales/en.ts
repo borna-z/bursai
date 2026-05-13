@@ -2047,4 +2047,14 @@ export const en: Record<string, string> = {
   'livescan.permission.allow': 'Allow camera',
   'livescan.permission.gallery': 'Pick from gallery',
   'livescan.tile.cancel': 'Cancel',
+
+  // ─── Wave R-C.3 — Step 3 editable pickers ──────────────────────────────
+  'addpiece.step3.field.colorSecondary': 'Secondary color',
+  'addpiece.step3.field.formality': 'Formality',
+  'addpiece.step3.formality.casual': 'Casual',
+  'addpiece.step3.formality.smart': 'Smart',
+  'addpiece.step3.formality.formal': 'Formal',
+  'addpiece.step3.subcategory.placeholder': 'e.g. T-shirt, Loafers',
+  'addpiece.step3.color.none': 'No secondary color',
+  'addpiece.step3.color.none.short': 'None',
 };

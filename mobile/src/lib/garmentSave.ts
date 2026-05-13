@@ -92,6 +92,40 @@ export interface AddGarmentParams {
   title?: string;
   category?: string;
   price?: number | null;
+  /**
+   * Wave R-C.3 — Step 3 picker overrides. Optional; missing fields fall back
+   * to `analysis.*`. The corresponding `aiOverridden` keys flag which fields
+   * the user changed away from the AI's prefill so downstream analytics can
+   * measure auto-detect accuracy. `null` is meaningful for nullable columns
+   * (e.g. `color_secondary` set to "None") and is preserved over the
+   * analyzer's value; `undefined` means "no Step 3 input — keep analysis".
+   */
+  subcategory?: string | null;
+  color_primary?: string | null;
+  color_secondary?: string | null;
+  material?: string | null;
+  pattern?: string | null;
+  fit?: string | null;
+  season_tags?: string[];
+  formality?: number | null;
+  /**
+   * Wave R-C.3 — map of analyzer fields the user overrode in Step 3. Stored
+   * under `ai_raw.system_signals.ai_overridden` so the row insert preserves
+   * the per-field audit trail without touching the schema. Keys must
+   * correspond to the override fields above.
+   */
+  aiOverridden?: Partial<{
+    title: boolean;
+    category: boolean;
+    subcategory: boolean;
+    color_primary: boolean;
+    color_secondary: boolean;
+    material: boolean;
+    pattern: boolean;
+    fit: boolean;
+    season_tags: boolean;
+    formality: boolean;
+  }>;
 }
 
 /**
@@ -169,13 +203,18 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     ...(params.garmentId ? { id: params.garmentId } : {}),
     title: params.title?.trim() || params.analysis.title || 'Untitled',
     category: params.category || params.analysis.category || 'top',
-    subcategory: params.analysis.subcategory,
-    color_primary: params.analysis.color_primary,
-    color_secondary: params.analysis.color_secondary,
-    material: params.analysis.material,
-    fit: params.analysis.fit,
-    pattern: params.analysis.pattern,
-    season_tags: params.analysis.season_tags,
+    // Wave R-C.3 — Step 3 picker overrides win; `undefined` falls back to the
+    // analyzer's value. `null` (e.g. "secondary color: None") is preserved.
+    subcategory:
+      params.subcategory !== undefined ? params.subcategory : params.analysis.subcategory,
+    color_primary:
+      params.color_primary !== undefined ? params.color_primary : params.analysis.color_primary,
+    color_secondary:
+      params.color_secondary !== undefined ? params.color_secondary : params.analysis.color_secondary,
+    material: params.material !== undefined ? params.material : params.analysis.material,
+    fit: params.fit !== undefined ? params.fit : params.analysis.fit,
+    pattern: params.pattern !== undefined ? params.pattern : params.analysis.pattern,
+    season_tags: params.season_tags ?? params.analysis.season_tags,
     // occasion_tags intentionally omitted — analyze_garment in `fast`/`full` mode
     // does NOT return occasion data (only `enrich` mode prompts for it). Inserting
     // the empty array would override any later enrichment write. Audit round 2.
@@ -192,18 +231,31 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     purchase_price: params.price ?? null,
     ai_analyzed_at: new Date().toISOString(),
     ai_provider: params.analysis.ai_provider ?? null,
-    ai_raw: buildAiRawWithSystemSignals(params.analysis, params.source) as GarmentInsert['ai_raw'],
+    ai_raw: buildAiRawWithSystemSignals(
+      params.analysis,
+      params.source,
+      params.aiOverridden,
+    ) as GarmentInsert['ai_raw'],
     enrichment_status: 'pending',
     render_status: params.enableStudioQuality ? 'pending' : 'none',
     imported_via: params.source,
   };
 
-  // Only set formality when the model actually returned a number — leaving
-  // the field absent lets Postgres apply the column's schema default (3)
-  // instead of writing NULL into a NOT-NULL-defaulted column. Codex P2
-  // round on PR #738.
-  if (typeof params.analysis.formality === 'number') {
-    insert.formality = params.analysis.formality;
+  // Only set formality when we have a number — leaving the field absent lets
+  // Postgres apply the column's schema default (3) instead of writing NULL
+  // into a NOT-NULL-defaulted column. Codex P2 round on PR #738.
+  //
+  // Wave R-C.3 — Step 3 picker override wins over analyzer value. The
+  // picker can never produce `null` (the UI always picks 1/2/3 once tapped),
+  // so an `undefined` here truly means "user didn't touch it" → fall back.
+  const formalityValue =
+    typeof params.formality === 'number'
+      ? params.formality
+      : typeof params.analysis.formality === 'number'
+        ? params.analysis.formality
+        : null;
+  if (formalityValue !== null) {
+    insert.formality = formalityValue;
   }
 
   // Wave R-B — `mask_status` is the prompt-branch signal for
@@ -267,6 +319,7 @@ function deriveReviewDecision(analysis: AnalysisResult): ReviewDecision {
 function buildAiRawWithSystemSignals(
   analysis: AnalysisResult,
   source: AddGarmentSource,
+  aiOverridden?: AddGarmentParams['aiOverridden'],
 ): Record<string, unknown> {
   const review = deriveReviewDecision(analysis);
   const baseRaw =
@@ -277,6 +330,16 @@ function buildAiRawWithSystemSignals(
     baseRaw.system_signals && typeof baseRaw.system_signals === 'object' && !Array.isArray(baseRaw.system_signals)
       ? (baseRaw.system_signals as Record<string, unknown>)
       : {};
+  // Wave R-C.3 — only attach `ai_overridden` when the user actually flipped
+  // a field. An empty/undefined map writes nothing so legacy rows and rows
+  // saved without picker edits stay byte-identical to pre-R-C.3 shape.
+  const overriddenKeys = aiOverridden
+    ? Object.entries(aiOverridden).filter(([, v]) => v === true).map(([k]) => k)
+    : [];
+  const aiOverriddenSignal: Record<string, unknown> =
+    overriddenKeys.length > 0
+      ? { ai_overridden: Object.fromEntries(overriddenKeys.map((k) => [k, true])) }
+      : {};
   return {
     ...baseRaw,
     system_signals: {
@@ -285,6 +348,7 @@ function buildAiRawWithSystemSignals(
       source,
       needs_review: review.needsReview,
       review_reason: review.reason,
+      ...aiOverriddenSignal,
     },
   };
 }
