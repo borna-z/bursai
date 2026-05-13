@@ -532,6 +532,18 @@ export function AddPieceStep3() {
         formality: formalityValue !== initial.formality,
       };
 
+      // Codex P2 round 2 — when the analyzer returned an out-of-canonical
+      // value (e.g. `material: "polyester"`, `pattern: "dotted"`), the
+      // picker state defaulted to `''` and the snapshot also captured `''`,
+      // so a save-without-edit used to forward `null` for the field and
+      // `persistGarment` treated that as an explicit override — nulling
+      // analyzer metadata that the previous save path preserved.
+      //
+      // Fix: send `undefined` for any field the user did NOT touch (i.e.
+      // current state === initial snapshot). `persistGarment` falls back
+      // to `analysis.<field>` on `undefined`, so out-of-set analyzer
+      // values flow through to the row unchanged. Touched fields still
+      // emit `null` for cleared-to-empty state.
       const garment = await addGarment.mutateAsync({
         storagePath: resolvedPath,
         analysis,
@@ -541,14 +553,26 @@ export function AddPieceStep3() {
         // Category falls through analyzer → 'top' default in persistGarment
         // when neither the picker nor the AI produced a value.
         category: category || analysis.category || 'top',
-        subcategory: trimmedSub.length > 0 ? trimmedSub : null,
-        color_primary: primaryColor.length > 0 ? primaryColor : null,
-        color_secondary: secondaryColor.length > 0 ? secondaryColor : null,
-        material: material.length > 0 ? material : null,
-        fit: fit.length > 0 ? fit : null,
-        pattern: pattern.length > 0 ? pattern : null,
-        season_tags: seasons,
-        formality: formalityValue,
+        subcategory: aiOverridden.subcategory
+          ? trimmedSub.length > 0 ? trimmedSub : null
+          : undefined,
+        color_primary: aiOverridden.color_primary
+          ? primaryColor.length > 0 ? primaryColor : null
+          : undefined,
+        color_secondary: aiOverridden.color_secondary
+          ? secondaryColor.length > 0 ? secondaryColor : null
+          : undefined,
+        material: aiOverridden.material
+          ? material.length > 0 ? material : null
+          : undefined,
+        fit: aiOverridden.fit
+          ? fit.length > 0 ? fit : null
+          : undefined,
+        pattern: aiOverridden.pattern
+          ? pattern.length > 0 ? pattern : null
+          : undefined,
+        season_tags: aiOverridden.season_tags ? seasons : undefined,
+        formality: aiOverridden.formality ? formalityValue : undefined,
         aiOverridden,
       });
       hapticSuccess();
