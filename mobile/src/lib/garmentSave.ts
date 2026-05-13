@@ -40,7 +40,28 @@ export type AddGarmentSource =
   | 'retry';
 
 export interface AddGarmentParams {
+  /**
+   * Storage path of the raw user capture (unaltered after resize). Becomes
+   * `original_image_path` on the garment row and is used by AI condition
+   * assessment + studio render as the unmodified source.
+   */
   storagePath: string;
+  /**
+   * Wave R-B — storage path of the on-device-segmented WebP (transparent
+   * background). When omitted, the masked path falls back to the raw
+   * `storagePath` so the row's `image_path` always points to something
+   * displayable. The render worker reads `mask_status` to decide whether
+   * to treat the input as pre-segmented.
+   */
+  maskedStoragePath?: string;
+  /**
+   * Wave R-B — outcome of the on-device segmentation step:
+   *   'masked'      — a real cutout WebP at `maskedStoragePath`
+   *   'unavailable' — platform has no usable segmenter (iOS 15/16, web)
+   *   'failed'      — segmenter ran but quality gate rejected the mask
+   *   undefined/null — pre-feature row, treated like 'unavailable' downstream
+   */
+  maskStatus?: 'masked' | 'unavailable' | 'failed' | null;
   analysis: AnalysisResult;
   source: AddGarmentSource;
   /**
@@ -140,7 +161,12 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     // the empty array would override any later enrichment write. Audit round 2.
     // formality is conditionally added below — sending NULL here would
     // override the column's schema default of 3. Codex P2 round on PR #738.
+    // Wave R-B — raw capture stays in `original_image_path` (sole consumer:
+    // condition assessment + render input fallback). `image_path` carries
+    // the masked WebP when segmentation succeeded; otherwise it mirrors the
+    // raw path so wardrobe display + Gemini render always have a value.
     original_image_path: params.storagePath,
+    image_path: params.maskedStoragePath ?? params.storagePath,
     wear_count: 0,
     in_laundry: false,
     purchase_price: params.price ?? null,
@@ -158,6 +184,17 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
   // round on PR #738.
   if (typeof params.analysis.formality === 'number') {
     insert.formality = params.analysis.formality;
+  }
+
+  // Wave R-B — `mask_status` is the prompt-branch signal for
+  // `render_garment_image`. Not yet in `supabase/types.gen.ts` (regenerates
+  // post-migration), so bridge via the same `as unknown` cast pattern Q-C2
+  // used for `is_lingerie` / `is_wishlist`. PostgREST tolerates extra
+  // columns post-migration. Only attach when we have a real signal —
+  // omitting NULL lets the column default apply if a future migration
+  // adds one.
+  if (params.maskStatus) {
+    (insert as unknown as Record<string, unknown>).mask_status = params.maskStatus;
   }
 
   const { data, error } = await supabase

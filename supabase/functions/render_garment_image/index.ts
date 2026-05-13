@@ -249,7 +249,7 @@ function buildGarmentRenderPrompt(garment: {
   fit: string | null;
   formality: number | null;
   ai_raw: unknown;
-}, mannequinPresentation: MannequinPresentation, variant: PromptVariant = 'primary'): string {
+}, mannequinPresentation: MannequinPresentation, variant: PromptVariant = 'primary', maskedInput: boolean = false): string {
   const categoryClass = classifyCategory(garment.category, garment.subcategory);
   const enrichment = extractPromptEnrichment(garment.ai_raw);
 
@@ -265,7 +265,13 @@ function buildGarmentRenderPrompt(garment: {
     return [
       leadLine,
       'Premium studio product photography against a pure white background.',
-      'Use the reference image as the source of truth.',
+      // Wave R-B — masked-input branch. The reference is already cut out
+      // onto a transparent background by on-device segmentation; we tell
+      // Gemini so it doesn't waste tokens / risk artifacts redoing
+      // background removal. The non-masked branch keeps today's text.
+      maskedInput
+        ? 'The reference image has been pre-segmented onto a transparent background. Use it as the source of truth and focus on lighting and product framing — do NOT re-remove the background.'
+        : 'Use the reference image as the source of truth.',
       'Hard requirements:',
       '- Produce exactly one photorealistic product image',
       '- FIDELITY FIRST: match the colors, shape, pattern, and material texture of the reference',
@@ -325,11 +331,23 @@ function buildGarmentRenderPrompt(garment: {
       ]
     : [];
 
+  // Wave R-B — masked-input swap. When the on-device segmenter has already
+  // stripped the background, the explicit "Remove the person, body..."
+  // instruction is at best wasted tokens, at worst a steering signal that
+  // pushes Gemini to over-process the (already clean) cutout. Replace with
+  // a parallel "input is already segmented" instruction so the model
+  // spends its compute budget on lighting + product framing instead.
+  const backgroundRemovalLine = maskedInput
+    ? '- The reference image is already on a transparent background. Use it as-is; do NOT re-remove background, body, or anatomy.'
+    : '- Remove the person, body, skin, hair, hands, mannequin, hanger, props, and original background completely.';
+
   return [
     // F2: anchor category first.
     leadLine,
     'Create exactly one premium studio e-commerce product photograph.',
-    'Use the reference image as the source of truth. Metadata is only a steering hint when it matches the image.',
+    maskedInput
+      ? 'The reference image has been pre-segmented onto a transparent background. Use it as the source of truth — its silhouette and color are authoritative. Metadata is only a steering hint when it matches the image.'
+      : 'Use the reference image as the source of truth. Metadata is only a steering hint when it matches the image.',
     ...tightenedEmphasis,
     metadataLines.length > 0
       ? ['Confirmed details (use when visible in the reference):', ...metadataLines].join('\n')
@@ -339,7 +357,7 @@ function buildGarmentRenderPrompt(garment: {
     '- FIDELITY IS THE HIGHEST PRIORITY. Reproduce the item EXACTLY as it appears in the reference: color, silhouette, proportion, texture, pattern, construction detail.',
     '- REPRODUCE ALL LOGOS, TEXT, GRAPHICS, AND BRAND MARKS EXACTLY. Same position, same size, same color, same font. Never remove, alter, or re-style garment branding.',
     '- Reconstruct hidden or occluded areas only as needed to complete the item naturally.',
-    '- Remove the person, body, skin, hair, hands, mannequin, hanger, props, and original background completely.',
+    backgroundRemovalLine,
     '- Center the subject with clean soft catalog lighting on a pure white background.',
     '- Make the result commercially usable and photorealistic.',
     ...hardRequirements,
@@ -898,7 +916,12 @@ serve(async (req) => {
       .from('garments')
       .select(
         'id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, ' +
-        'original_image_path, image_path, render_status, render_error, rendered_image_path, render_presentation_used, render_provider, rendered_at',
+        // Wave R-B — mask_status branches the system prompt below: 'masked'
+        // input tells Gemini the background is already transparent so it
+        // can skip the "remove background" instruction and focus on
+        // lighting + product framing. Other values fall back to today's
+        // full-removal prompt.
+        'original_image_path, image_path, mask_status, render_status, render_error, rendered_image_path, render_presentation_used, render_provider, rendered_at',
       )
       .eq('id', garmentId)
       .eq('user_id', user.id)
@@ -1025,7 +1048,19 @@ serve(async (req) => {
     // round 9). Removed to avoid confusing future readers.
 
     // ── Resolve source image ──
-    const sourceImagePath = garment.original_image_path || garment.image_path;
+    //
+    // Wave R-B — when `mask_status='masked'` the row's `image_path` is an
+    // on-device-segmented WebP with a transparent background. Feeding that
+    // to Gemini instead of the raw original lets the model focus on
+    // lighting + product framing instead of redoing background removal
+    // server-side, and it ships the cleaner cutout straight through if
+    // Gemini's vision step has trouble isolating the subject. Any other
+    // mask_status value (including NULL on legacy rows) falls back to
+    // today's behaviour: prefer the unaltered original.
+    const maskedRender = garment.mask_status === 'masked' && typeof garment.image_path === 'string' && garment.image_path.length > 0;
+    const sourceImagePath = maskedRender
+      ? garment.image_path
+      : (garment.original_image_path || garment.image_path);
 
     if (!sourceImagePath) {
       await safeMarkRenderFailed(supabase, garment.id, {
@@ -1367,7 +1402,7 @@ serve(async (req) => {
       // `.subcategory`, `.ai_raw` accesses inside the retry loop.
       const { data: freshGarment } = await supabase
         .from('garments')
-        .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path')
+        .select('id, user_id, title, category, subcategory, color_primary, color_secondary, material, pattern, fit, formality, ai_raw, original_image_path, image_path, mask_status')
         .eq('id', garment.id)
         .maybeSingle();
       const garmentForPrompt: any = freshGarment ?? garment;
@@ -1551,7 +1586,11 @@ serve(async (req) => {
 
       for (let attemptIndex = 0; attemptIndex < RETRY_VARIANTS.length; attemptIndex++) {
         const variant = RETRY_VARIANTS[attemptIndex];
-        const attemptPrompt = buildGarmentRenderPrompt(garmentForPrompt, mannequinPresentation, variant);
+        // Wave R-B — `maskedRender` was decided at source-image resolution
+        // (line ~1033). When true, the bytes we hand Gemini are an
+        // on-device-segmented WebP with a transparent background; the
+        // prompt branch below skips the "remove background" instruction.
+        const attemptPrompt = buildGarmentRenderPrompt(garmentForPrompt, mannequinPresentation, variant, maskedRender);
 
         console.log('render_garment_image Gemini attempt', {
           garmentId: garment.id,

@@ -1,14 +1,31 @@
-import { resizeForGarment, uploadManipulatedImage, deleteUpload } from '../../../lib/imageUpload';
+import { resizeForGarment, uploadGarmentVariant, deleteUpload } from '../../../lib/imageUpload';
 import { callEdgeFunction } from '../../../lib/edgeFunctionClient';
 import { persistGarmentWithOfflineFallback, OfflineQueuedError } from '../../../lib/garmentSave';
+import { removeBackground } from '../../../lib/backgroundRemoval';
 import { LiveScanEvents } from '../events';
 import { ingestScan } from '../pipeline';
 
 jest.mock('../../../lib/imageUpload', () => ({
   resizeForGarment: jest.fn(),
-  uploadManipulatedImage: jest.fn(),
+  uploadGarmentVariant: jest.fn(),
   deleteUpload: jest.fn().mockResolvedValue(undefined),
   GARMENT_IMAGE_MIME: 'image/webp',
+}));
+// Wave R-B — on-device segmentation. Default mock returns 'unavailable' so
+// every existing test sees the same single-upload (raw only) path as before
+// R-B. Tests that specifically exercise the masked branch override per-case.
+jest.mock('../../../lib/backgroundRemoval', () => ({
+  removeBackground: jest.fn(),
+  prepare: jest.fn().mockResolvedValue(undefined),
+  MASK_CONFIDENCE_THRESHOLD: 0.5,
+  MASK_SAVE_TIMEOUT_MS: 800,
+}));
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(),
+  SaveFormat: { WEBP: 'webp', JPEG: 'jpeg', PNG: 'png' },
+}));
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => 'garment-uuid-fixed',
 }));
 jest.mock('../../../lib/edgeFunctionClient', () => ({
   callEdgeFunction: jest.fn(),
@@ -43,13 +60,24 @@ jest.mock('../../../lib/i18n', () => ({
 }));
 
 const mockedResize = resizeForGarment as jest.MockedFunction<typeof resizeForGarment>;
-const mockedUpload = uploadManipulatedImage as jest.MockedFunction<typeof uploadManipulatedImage>;
+const mockedUpload = uploadGarmentVariant as jest.MockedFunction<typeof uploadGarmentVariant>;
 const mockedCall = callEdgeFunction as jest.MockedFunction<typeof callEdgeFunction>;
 const mockedPersist = persistGarmentWithOfflineFallback as jest.MockedFunction<typeof persistGarmentWithOfflineFallback>;
 const mockedDelete = deleteUpload as jest.MockedFunction<typeof deleteUpload>;
+const mockedMask = removeBackground as jest.MockedFunction<typeof removeBackground>;
 
 describe('ingestScan', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Default R-B masking: 'unavailable' — keeps tests focused on the
+    // single-upload (raw only) path. Masked-branch tests override.
+    mockedMask.mockResolvedValue({
+      uri: 'file://resized.webp',
+      status: 'unavailable',
+      confidence: 0,
+      durationMs: 0,
+    });
+  });
 
   it('emits saved on happy path and calls invalidate', async () => {
     mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
@@ -180,6 +208,113 @@ describe('ingestScan', () => {
     await ingestScan('file://photo.jpg', 'session-7', 'user-1', events, invalidate);
 
     expect(mockedDelete).not.toHaveBeenCalled();
+  });
+
+  it('uploads both raw + masked variants and persists with mask_status=masked', async () => {
+    const ImageManipulator = require('expo-image-manipulator');
+    mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
+    // Upload helper is called twice — once for raw, once for masked — both
+    // resolve to distinct storage paths.
+    mockedUpload
+      .mockResolvedValueOnce({ storagePath: 'u/g/raw.webp' })
+      .mockResolvedValueOnce({ storagePath: 'u/g/masked.webp' });
+    mockedMask.mockResolvedValue({
+      uri: 'file://native-masked.png',
+      status: 'masked',
+      confidence: 0.78,
+      durationMs: 120,
+    });
+    (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
+      uri: 'file://transcoded.webp',
+      width: 1024,
+      height: 768,
+    });
+    mockedCall.mockResolvedValue({ title: 'Shirt', category: 'top', confidence: 0.9 } as any);
+    mockedPersist.mockResolvedValue({ id: 'garment-masked' } as any);
+
+    const events = new LiveScanEvents();
+    const invalidate = jest.fn();
+    await ingestScan('file://photo.jpg', 'session-masked', 'user-1', events, invalidate);
+
+    // Two uploads — raw first, then masked.
+    expect(mockedUpload).toHaveBeenCalledTimes(2);
+    expect(mockedUpload).toHaveBeenNthCalledWith(
+      1,
+      { uri: 'file://resized.webp', width: 1024, height: 768 },
+      'user-1',
+      'garment-uuid-fixed',
+      'raw',
+    );
+    expect(mockedUpload).toHaveBeenNthCalledWith(
+      2,
+      { uri: 'file://transcoded.webp', width: 1024, height: 768 },
+      'user-1',
+      'garment-uuid-fixed',
+      'masked',
+    );
+    // Persist receives the full masked-path triple.
+    expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
+      storagePath: 'u/g/raw.webp',
+      maskedStoragePath: 'u/g/masked.webp',
+      maskStatus: 'masked',
+    }));
+    expect(invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to raw when masked transcode fails (mask_status=failed)', async () => {
+    const ImageManipulator = require('expo-image-manipulator');
+    mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
+    mockedUpload.mockResolvedValueOnce({ storagePath: 'u/g/raw.webp' });
+    mockedMask.mockResolvedValue({
+      uri: 'file://native-masked.png',
+      status: 'masked',
+      confidence: 0.78,
+      durationMs: 120,
+    });
+    (ImageManipulator.manipulateAsync as jest.Mock).mockRejectedValue(new Error('transcode boom'));
+    mockedCall.mockResolvedValue({ title: 'Shirt', category: 'top', confidence: 0.9 } as any);
+    mockedPersist.mockResolvedValue({ id: 'garment-masked' } as any);
+
+    const events = new LiveScanEvents();
+    const invalidate = jest.fn();
+    await ingestScan('file://photo.jpg', 'session-transcode-fail', 'user-1', events, invalidate);
+
+    // Only the raw upload runs; masked variant never uploads.
+    expect(mockedUpload).toHaveBeenCalledTimes(1);
+    expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
+      storagePath: 'u/g/raw.webp',
+      maskedStoragePath: undefined,
+      maskStatus: 'failed',
+    }));
+    expect(invalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleans up BOTH raw + masked orphans on later-stage failure', async () => {
+    const ImageManipulator = require('expo-image-manipulator');
+    const { EdgeFunctionRateLimitError } = require('../../../lib/edgeFunctionClient');
+    mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
+    mockedUpload
+      .mockResolvedValueOnce({ storagePath: 'u/g/raw.webp' })
+      .mockResolvedValueOnce({ storagePath: 'u/g/masked.webp' });
+    mockedMask.mockResolvedValue({
+      uri: 'file://native-masked.png',
+      status: 'masked',
+      confidence: 0.78,
+      durationMs: 120,
+    });
+    (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
+      uri: 'file://transcoded.webp',
+    });
+    mockedCall.mockRejectedValue(new EdgeFunctionRateLimitError('analyze_garment', 30));
+
+    const events = new LiveScanEvents();
+    const invalidate = jest.fn();
+    await ingestScan('file://photo.jpg', 'session-cleanup', 'user-1', events, invalidate);
+
+    expect(mockedDelete).toHaveBeenCalledTimes(2);
+    expect(mockedDelete).toHaveBeenCalledWith('u/g/raw.webp');
+    expect(mockedDelete).toHaveBeenCalledWith('u/g/masked.webp');
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it('emits multi_garment failed when analyze flags multiple garments', async () => {
