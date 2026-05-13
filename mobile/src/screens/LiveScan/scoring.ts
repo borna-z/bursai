@@ -8,11 +8,12 @@
 //
 // Worklet contract: `scoreFrame` and every helper it calls carry the
 // `'worklet'` directive. On the iOS path scoring runs on the JS thread (from
-// `onObjectsScanned`) where the directive is a no-op; on the Android path it
-// runs inside a `useFrameOutput` worklet on the frame-processor thread, where
-// the directive is required so the react-native-worklets babel plugin can
-// compile the function into the worklet runtime. The functions only use
-// `Math.*` and primitive ops, both of which are worklet-safe.
+// `onObjectsScanned`) where the directive is a no-op. The Android worklet
+// path (R-A Nitro + MLKit) is currently deferred — see frameProcessor.ts
+// header and memory `project-vc-worklets-rn-bridgeless-conflict`; the
+// directive is kept so the function stays worklet-safe for the future
+// re-introduction without churn. The functions only use `Math.*` and
+// primitive ops, both of which are worklet-safe.
 
 import type { DetectedObject, FrameMetrics, FrameScore, Quality } from './types';
 
