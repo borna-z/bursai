@@ -1057,7 +1057,25 @@ serve(async (req) => {
     // Gemini's vision step has trouble isolating the subject. Any other
     // mask_status value (including NULL on legacy rows) falls back to
     // today's behaviour: prefer the unaltered original.
-    const maskedRender = garment.mask_status === 'masked' && typeof garment.image_path === 'string' && garment.image_path.length > 0;
+    //
+    // Codex P2 round 1 — after the FIRST successful render the row's
+    // `image_path` is overwritten to the rendered output path (see lines
+    // ~638 and ~1831), but `mask_status` stays `'masked'`. A subsequent
+    // force-regenerate would then feed the previous studio render back
+    // to Gemini as the "masked source" — wrong on its face and quality-
+    // drift inducing. Guard: only treat `image_path` as the masked
+    // capture when it has NOT been overwritten by a prior render
+    // (`image_path !== rendered_image_path` AND there is no prior
+    // rendered output). When the guard fails, fall back to
+    // `original_image_path` which is preserved across renders and is
+    // always the raw user capture.
+    const imagePathIsStillMaskedCapture =
+      typeof garment.image_path === 'string' &&
+      garment.image_path.length > 0 &&
+      garment.image_path !== garment.rendered_image_path;
+    const maskedRender =
+      garment.mask_status === 'masked' &&
+      imagePathIsStillMaskedCapture;
     const sourceImagePath = maskedRender
       ? garment.image_path
       : (garment.original_image_path || garment.image_path);

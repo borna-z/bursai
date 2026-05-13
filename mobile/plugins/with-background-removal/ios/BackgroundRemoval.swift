@@ -154,9 +154,26 @@ class BackgroundRemoval: NSObject {
   }
 
   private func meanAlpha(ciImage: CIImage) -> Double {
-    // Render the alpha channel into a small bitmap and average it. Tiny
-    // 64x64 downsample keeps this cheap; alpha statistics don't need
-    // full resolution for a quality gate.
+    // Codex P2 round 1 — mask-quality metric, NOT garment-occupancy.
+    //
+    // Previously this returned mean alpha across the whole transparent
+    // canvas, which collapses to "what fraction of the frame the garment
+    // covers." A perfectly segmented item filling 30% of a frame reported
+    // confidence 0.3 and got rejected as `failed` — making on-device
+    // removal silently fall back to raw for the most common LiveScan
+    // framings. Same bug existed in the Android module; fixed in parallel.
+    //
+    // The correct signal is "how decisive is the mask over the pixels
+    // the segmenter believes are foreground?" — i.e., mean alpha over
+    // pixels with alpha above a noise floor. A clean cutout has nearly
+    // every foreground pixel at α≈255 and reports ~1.0; an uncertain mask
+    // spreads alpha across partially-transparent edges and reports lower.
+    // Independent of how much of the frame the garment fills.
+    //
+    // The foreground-fraction guard surfaces "no garment detected": if
+    // essentially no pixels cross the noise floor, the segmenter
+    // produced nothing useful and we report 0 → JS layer falls back to
+    // raw bytes.
     let downscaleSize: CGFloat = 64
     let extent = ciImage.extent
     let scale = downscaleSize / max(extent.width, extent.height)
@@ -178,19 +195,30 @@ class BackgroundRemoval: NSObject {
       bitsPerComponent: 8,
       bytesPerRow: bytesPerRow,
       space: colorSpace,
-      bitmapInfo: bitmapInfo,
+      bitmapInfo: bitmapInfo
     ) else { return 0 }
     ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
-    var sum: UInt64 = 0
-    var count: UInt64 = 0
+
+    let foregroundAlphaFloor: UInt8 = 16 // < 16 = background / edge noise
+    let minForegroundFraction: Double = 0.01 // < 1% foreground = no subject
+    var foregroundAlphaSum: UInt64 = 0
+    var foregroundCount: UInt64 = 0
+    var sampledCount: UInt64 = 0
     var i = 3
     while i < buffer.count {
-      sum += UInt64(buffer[i])
-      count += 1
+      let alpha = buffer[i]
+      sampledCount += 1
+      if alpha >= foregroundAlphaFloor {
+        foregroundAlphaSum += UInt64(alpha)
+        foregroundCount += 1
+      }
       i += 4
     }
-    if count == 0 { return 0 }
-    return min(1.0, Double(sum) / (Double(count) * 255.0))
+    if sampledCount == 0 { return 0 }
+    let foregroundFraction = Double(foregroundCount) / Double(sampledCount)
+    if foregroundFraction < minForegroundFraction { return 0 }
+    if foregroundCount == 0 { return 0 }
+    return min(1.0, Double(foregroundAlphaSum) / (Double(foregroundCount) * 255.0))
   }
 
   private func writePNG(ciImage: CIImage) -> String? {

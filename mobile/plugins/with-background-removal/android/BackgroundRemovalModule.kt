@@ -246,23 +246,47 @@ class BackgroundRemovalModule(reactContext: ReactApplicationContext) :
     }
 
     private fun meanAlpha(bitmap: Bitmap): Double {
-        // Sample every Nth pixel to keep the mean-alpha computation cheap
-        // on 1024×1024 inputs (~1M pixels would be 4MB of ARGB reads).
-        // Stride of 8 keeps it under ~16K pixel reads, still statistically
-        // representative for a quality gate.
+        // Codex P2 round 1 — mask-quality metric, NOT garment-occupancy.
+        //
+        // Previously this returned mean alpha across the whole transparent
+        // canvas, which collapses to "what fraction of the frame the garment
+        // covers." A perfectly segmented item filling 30% of a 1024² canvas
+        // reported confidence 0.3 and got rejected as `failed` — making
+        // on-device removal silently fall back to raw for the most common
+        // LiveScan framings.
+        //
+        // The correct signal is "how decisive is the mask over the pixels
+        // the segmenter believes are foreground?" — i.e., mean alpha over
+        // pixels with alpha above a noise floor. A clean cutout has nearly
+        // every foreground pixel at α≈255; a low-confidence mask spreads
+        // alpha across many partially-transparent edges and reports a lower
+        // mean. Independent of how much of the frame the garment fills.
+        //
+        // We also surface "no garment detected" by tracking the foreground
+        // fraction separately: if essentially no pixels cross the noise
+        // floor, the segmenter produced nothing useful and we report 0.
         val stride = 8
-        var total = 0L
-        var count = 0L
+        val foregroundAlphaFloor = 16 // alpha < 16 = background / fringe noise
+        val minForegroundFraction = 0.01 // < 1% non-transparent pixels = no subject
+        var foregroundAlphaSum = 0L
+        var foregroundCount = 0L
+        var sampledCount = 0L
         for (y in 0 until bitmap.height step stride) {
             for (x in 0 until bitmap.width step stride) {
                 val pixel = bitmap.getPixel(x, y)
                 val alpha = (pixel ushr 24) and 0xff
-                total += alpha
-                count += 1
+                sampledCount += 1
+                if (alpha >= foregroundAlphaFloor) {
+                    foregroundAlphaSum += alpha
+                    foregroundCount += 1
+                }
             }
         }
-        if (count == 0L) return 0.0
-        return min(1.0, total.toDouble() / (count.toDouble() * 255.0))
+        if (sampledCount == 0L) return 0.0
+        val foregroundFraction = foregroundCount.toDouble() / sampledCount.toDouble()
+        if (foregroundFraction < minForegroundFraction) return 0.0
+        if (foregroundCount == 0L) return 0.0
+        return min(1.0, foregroundAlphaSum.toDouble() / (foregroundCount.toDouble() * 255.0))
     }
 
     private fun writeWebp(bitmap: Bitmap): String? {
