@@ -24,7 +24,9 @@
  */
 
 const {
+  AndroidConfig,
   withAppBuildGradle,
+  withAndroidManifest,
   withMainApplication,
   withDangerousMod,
   withXcodeProject,
@@ -54,6 +56,44 @@ function withMLKitSubjectSegDependency(config) {
       /dependencies\s*\{/,
       (match) => `${match}\n    ${MLKIT_SUBJECT_SEG_DEP}`,
     );
+    return cfg;
+  });
+}
+
+// ─── Android: trigger Play Services install-time download for the
+//     unbundled Subject Segmentation model. Without this manifest
+//     meta-data, the model only starts downloading on the first
+//     `process()` call and any segmentation requests made before the
+//     download lands silently produce no results — first-launch LiveScan
+//     would fall back to raw uploads despite the boot warm-up. Codex P2
+//     round 5. Per Google docs:
+//     https://developers.google.com/ml-kit/vision/subject-segmentation/android#dependencies
+const MODEL_DEPS_META_NAME = 'com.google.mlkit.vision.DEPENDENCIES';
+const MODEL_DEPS_VALUE = 'subject_segment';
+
+function withModelDependencyMeta(config) {
+  return withAndroidManifest(config, (cfg) => {
+    const application = AndroidConfig.Manifest.getMainApplicationOrThrow(cfg.modResults);
+    application['meta-data'] = application['meta-data'] || [];
+    const existing = application['meta-data'].find(
+      (m) => m.$ && m.$['android:name'] === MODEL_DEPS_META_NAME,
+    );
+    if (!existing) {
+      application['meta-data'].push({
+        $: {
+          'android:name': MODEL_DEPS_META_NAME,
+          'android:value': MODEL_DEPS_VALUE,
+        },
+      });
+    } else {
+      // Merge value if another ML Kit model is already declared, so we
+      // don't clobber a sibling plugin's manifest entry.
+      const current = existing.$['android:value'] || '';
+      const parts = current.split(',').map((p) => p.trim()).filter(Boolean);
+      if (!parts.includes(MODEL_DEPS_VALUE)) {
+        existing.$['android:value'] = [...parts, MODEL_DEPS_VALUE].join(',');
+      }
+    }
     return cfg;
   });
 }
@@ -204,6 +244,7 @@ function withIOSDeploymentTargetGuard(config) {
 
 module.exports = function withBackgroundRemoval(config) {
   config = withMLKitSubjectSegDependency(config);
+  config = withModelDependencyMeta(config);
   config = withBackgroundRemovalPackage(config);
   config = withAndroidNativeSources(config);
   config = withIOSNativeSources(config);
