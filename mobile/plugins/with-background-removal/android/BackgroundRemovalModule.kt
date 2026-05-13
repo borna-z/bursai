@@ -11,10 +11,10 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Arguments
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.segmentation.subject.Subject
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenter
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.max
@@ -108,7 +108,7 @@ class BackgroundRemovalModule(reactContext: ReactApplicationContext) :
             segmenterRef.process(input)
                 .addOnSuccessListener { result ->
                     try {
-                        val output = buildMaskedBitmap(srcBitmap, result.subjects)
+                        val output = buildMaskedBitmap(result)
                         if (output == null) {
                             promise.resolve(buildResult(uriString, "failed", 0.0, started))
                             return@addOnSuccessListener
@@ -183,26 +183,21 @@ class BackgroundRemovalModule(reactContext: ReactApplicationContext) :
 
     private data class MaskOutput(val bitmap: Bitmap, val confidence: Double)
 
-    private fun buildMaskedBitmap(src: Bitmap, subjects: List<Subject>): MaskOutput? {
-        // MLKit's foreground bitmap from `SubjectSegmenterOptions.enableForegroundBitmap()`
-        // returns a single composite mask of all detected subjects against
-        // a transparent background, sized to the input. We just need to
-        // resize it down to TARGET_MAX_DIM and read the mean alpha for
-        // the confidence gate.
+    private fun buildMaskedBitmap(result: SubjectSegmentationResult): MaskOutput? {
+        // Codex P1 round 3 — MLKit's `SubjectSegmenterOptions` has two
+        // distinct output channels:
+        //   • `enableForegroundBitmap()` → aggregate `result.foregroundBitmap`
+        //     (a single composite of every detected subject on transparent
+        //     canvas, sized to the input image)
+        //   • `enableMultipleSubjects(...)` → per-subject `result.subjects[]`
+        //     (only populated when explicitly opted in)
         //
-        // If `subjects` is empty MLKit still hands back a usable
-        // (probably empty / very-low-alpha) foreground bitmap. Reading
-        // mean alpha lets us reject empty masks without special-casing.
-        if (subjects.isEmpty()) return null
-
-        // Combine all subject masks by alpha-max. We rely on the segmenter
-        // having already produced the combined `foregroundBitmap` view —
-        // but we still need to extract per-subject confidence to gate.
-        // SubjectSegmenter doesn't surface per-subject confidence in
-        // 16.0.0-beta1, so we approximate by reading mean alpha of the
-        // resized output. This is a documented limitation; tune the
-        // MIN_CONFIDENCE threshold from device tests if needed.
-        val combined = combineForegrounds(src, subjects) ?: return null
+        // The previous code requested only the aggregate channel but then
+        // iterated `result.subjects` → empty list → buildMaskedBitmap
+        // returned null → every Android segmentation resolved as `failed`.
+        // For our LiveScan use case (one garment per scan), the aggregate
+        // foreground IS exactly what we want — no need to iterate subjects.
+        val combined = result.foregroundBitmap ?: return null
 
         val scale = TARGET_MAX_DIM.toFloat() / max(combined.width, combined.height).toFloat()
         val scaled = if (scale < 1.0f) {
@@ -217,32 +212,6 @@ class BackgroundRemovalModule(reactContext: ReactApplicationContext) :
 
         val confidence = meanAlpha(scaled)
         return MaskOutput(scaled, confidence)
-    }
-
-    /**
-     * Composite every detected subject's foreground bitmap on top of
-     * a transparent canvas the size of the source. SubjectSegmenter
-     * returns one `foregroundBitmap` per subject (when enabled in
-     * options); the combined output preserves multi-subject items
-     * (e.g. a top + accessory framed together).
-     */
-    private fun combineForegrounds(src: Bitmap, subjects: List<Subject>): Bitmap? {
-        // Allocate transparent canvas sized to the source.
-        val canvas = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-        val androidCanvas = android.graphics.Canvas(canvas)
-        var anyDrawn = false
-        for (subject in subjects) {
-            val fg = subject.bitmap ?: continue
-            val left = subject.startX
-            val top = subject.startY
-            androidCanvas.drawBitmap(fg, left.toFloat(), top.toFloat(), null)
-            anyDrawn = true
-        }
-        if (!anyDrawn) {
-            canvas.recycle()
-            return null
-        }
-        return canvas
     }
 
     private fun meanAlpha(bitmap: Bitmap): Double {
