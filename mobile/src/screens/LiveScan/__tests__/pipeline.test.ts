@@ -317,6 +317,38 @@ describe('ingestScan', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
+  it('does NOT block save when segmenter is slower than MASK_SAVE_TIMEOUT_MS', async () => {
+    jest.useFakeTimers();
+    try {
+      mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
+      mockedUpload.mockResolvedValueOnce({ storagePath: 'u/g/raw.webp' });
+      // Mask never resolves — simulates a cold MLKit Play Services download.
+      mockedMask.mockReturnValue(new Promise(() => {}) as any);
+      mockedCall.mockResolvedValue({ title: 'Shirt', category: 'top', confidence: 0.9 } as any);
+      mockedPersist.mockResolvedValue({ id: 'garment-slow-mask' } as any);
+
+      const events = new LiveScanEvents();
+      const invalidate = jest.fn();
+      const scan = ingestScan('file://photo.jpg', 'session-slow-mask', 'user-1', events, invalidate);
+      // Advance past the mask save timeout; the pipeline should proceed.
+      await jest.advanceTimersByTimeAsync(900);
+      await scan;
+
+      // Only the raw upload runs — no masked variant lands.
+      expect(mockedUpload).toHaveBeenCalledTimes(1);
+      // Persist gets called with `mask_status='unavailable'` (the timeout
+      // fallback shape) so the row doesn't claim a mask that never landed.
+      expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
+        storagePath: 'u/g/raw.webp',
+        maskedStoragePath: undefined,
+        maskStatus: 'unavailable',
+      }));
+      expect(invalidate).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('emits multi_garment failed when analyze flags multiple garments', async () => {
     mockedResize.mockResolvedValue({ uri: 'file://resized.webp', width: 1024, height: 768 } as any);
     mockedUpload.mockResolvedValue({ storagePath: 'u/1.webp' });

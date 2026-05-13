@@ -38,7 +38,12 @@ import {
   deleteUpload,
   type UploadResult,
 } from '../../lib/imageUpload';
-import { removeBackground, type MaskStatus } from '../../lib/backgroundRemoval';
+import {
+  removeBackground,
+  MASK_SAVE_TIMEOUT_MS,
+  type MaskResult,
+  type MaskStatus,
+} from '../../lib/backgroundRemoval';
 import { callEdgeFunction } from '../../lib/edgeFunctionClient';
 import { getLocale } from '../../lib/i18n';
 import {
@@ -80,14 +85,48 @@ export async function ingestScan(
     //     simultaneously. Both touch the resized URI but operate on
     //     independent IO paths (segmentation reads the local file bytes;
     //     upload writes to Supabase storage). The segmenter falls back to
-    //     `status='failed'` on any error and never raises, so this branch
-    //     only awaits a single rejection path: the raw upload.
+    //     `status='failed'` on any error and never raises.
+    //
+    //     Codex P1 round 4 — `Promise.all` would let a slow mask block
+    //     the entire save path. Worst case: first-launch Android needs
+    //     to download the MLKit Subject Segmentation Play Services
+    //     module (~10 MB, multi-second). The save MUST NOT be gated by
+    //     that download. Solution: await the raw upload normally, then
+    //     race the mask result against MASK_SAVE_TIMEOUT_MS. If the
+    //     segmenter hasn't returned by then, degrade to raw-only with
+    //     `mask_status='unavailable'`. The mask may still resolve in
+    //     the background; we just discard its result. The transcode +
+    //     masked upload that come after the race are themselves fast
+    //     (< 200 ms typically) so the post-cap path stays inside
+    //     reasonable latency budgets even when masking succeeds.
     stage = 'upload';
     events.emit('stage', { sessionId, stage });
     const rawUploadP = uploadGarmentVariant(compressed, userId, garmentId, 'raw');
     const maskP = removeBackground(compressed.uri);
-    const [rawRes, maskRes] = await Promise.all([rawUploadP, maskP]);
-    rawUpload = rawRes;
+    rawUpload = await rawUploadP;
+
+    let maskTimer: ReturnType<typeof setTimeout> | null = null;
+    const maskTimeoutP = new Promise<MaskResult>((resolve) => {
+      maskTimer = setTimeout(
+        () => resolve({
+          uri: compressed.uri,
+          status: 'unavailable',
+          confidence: 0,
+          durationMs: 0,
+        }),
+        MASK_SAVE_TIMEOUT_MS,
+      );
+    });
+    let maskRes: MaskResult;
+    try {
+      maskRes = await Promise.race([maskP, maskTimeoutP]);
+    } finally {
+      if (maskTimer) clearTimeout(maskTimer);
+    }
+    // Defensive: swallow late rejections from the loser of the race so
+    // the JS engine doesn't log unhandled-promise-rejection warnings
+    // when the timeout wins and the mask later throws.
+    maskP.catch(() => {});
 
     // R-B — when the native segmenter produced a usable cutout, transcode
     // it through expo-image-manipulator to WebP (matching the storage
