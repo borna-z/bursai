@@ -105,8 +105,7 @@
         {
           "locationWhenInUsePermission": "BURS uses your location to tailor outfits to local weather."
         }
-      ],
-      "./plugins/with-garment-detector"
+      ]
     ],
     "extra": {
       "eas": {
