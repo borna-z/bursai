@@ -52,8 +52,18 @@ class HybridGarmentDetector : HybridGarmentDetectorSpec() {
 
         if (results.isEmpty()) return emptyArray()
 
-        val w = frame.width
-        val h = frame.height
+        // MLKit's `InputImage.fromMediaImage(image, rotation)` returns
+        // bounding boxes in the rotation-applied coordinate space, not the raw
+        // buffer space. For 90°/270° rotation the rotated frame's effective
+        // width/height are swapped relative to `frame.width`/`frame.height`
+        // (which VisionCamera reports as raw buffer dimensions). Normalize
+        // against the rotated dimensions so the [0,1] coords match the
+        // preview's display orientation. Mirrors CameraX's
+        // `ImageProxy.toBitmap()` rotation semantics.
+        val rotation = frame.orientation.degrees
+        val swapDims = rotation == 90 || rotation == 270
+        val w = if (swapDims) frame.height else frame.width
+        val h = if (swapDims) frame.width else frame.height
         if (w <= 0.0 || h <= 0.0) return emptyArray()
 
         val out = ArrayList<DetectedBox>(results.size)
@@ -99,7 +109,6 @@ class HybridGarmentDetector : HybridGarmentDetectorSpec() {
         val native = frame as? NativeFrame ?: return null
         val proxy = native.image
         val mediaImage = proxy.image ?: return null
-        val rotation = frame.orientation.degrees
-        return InputImage.fromMediaImage(mediaImage, rotation)
+        return InputImage.fromMediaImage(mediaImage, frame.orientation.degrees)
     }
 }
