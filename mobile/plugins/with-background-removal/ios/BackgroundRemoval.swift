@@ -22,6 +22,14 @@ import Foundation
 import UIKit
 import Vision
 import CoreImage
+// Codex P1 round 7 — `RCTPromiseResolveBlock` / `RCTPromiseRejectBlock`
+// are declared in `<React/RCTBridgeModule.h>` and exposed to Swift via
+// the React module. Without this import the file fails to compile with
+// "Cannot find type 'RCTPromiseResolveBlock' in scope" since the plugin
+// does not install a bridging header (no other Swift file in the app
+// imports React, so we can't rely on a project-wide bridging header
+// existing).
+import React
 
 @objc(BackgroundRemoval)
 class BackgroundRemoval: NSObject {
