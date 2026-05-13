@@ -933,13 +933,18 @@ export function AddPieceStep3() {
           </Eyebrow>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {FORMALITY_OPTIONS.map((opt) => (
+              // Codex P2 round 1 — non-toggleable. Tapping the already-active
+              // chip is a no-op (rather than clearing to null) because
+              // persistGarment treats `null` as "fall back to analysis", so
+              // a "clear" tap would silently restore the AI value the user
+              // just removed. The 3-stop selector has no "none" semantic.
               <Chip
                 key={opt.value}
                 label={tr(opt.key)}
                 active={formalityValue === opt.value}
-                onPress={() =>
-                  setFormalityValue(formalityValue === opt.value ? null : opt.value)
-                }
+                onPress={() => {
+                  if (formalityValue !== opt.value) setFormalityValue(opt.value);
+                }}
               />
             ))}
           </View>
