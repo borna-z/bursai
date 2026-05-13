@@ -54,6 +54,19 @@ export interface UploadResult {
 }
 
 /**
+ * Wave R-B — per-garment storage variants. New garments live under
+ * `garments/{userId}/{garmentId}/<kind>.webp` so the raw + masked +
+ * studio render co-locate under a single folder and orphan cleanup
+ * stays trivial. Pre-R-B rows keep their flat `<userId>/<ts>-<rand>.webp`
+ * layout — display + render paths read whatever the row carries.
+ */
+export type GarmentImageKind = 'raw' | 'masked';
+
+function uploadVariantPath(userId: string, garmentId: string, kind: GarmentImageKind): string {
+  return `${userId}/${garmentId}/${kind}.${GARMENT_IMAGE_EXT}`;
+}
+
+/**
  * Resize a source URI to the canonical analyze/render input format. Returns the
  * raw ImageManipulator output so callers that need both the resized URI AND a
  * base64 payload (parallel-flow Step 2) can grab them in one shot rather than
@@ -108,6 +121,32 @@ export async function uploadManipulatedImage(
 export async function resizeAndUpload(uri: string, userId: string): Promise<UploadResult> {
   const resized = await resizeForGarment(uri);
   return uploadManipulatedImage(resized, userId);
+}
+
+/**
+ * Wave R-B — upload an already-resized image into the per-garment folder
+ * layout (`{userId}/{garmentId}/<kind>.webp`). Used by the LiveScan
+ * pipeline to land raw + masked side-by-side before the row exists, so
+ * the garment insert can reference both paths.
+ *
+ * `garmentId` is the client-generated UUID stamped at capture time and
+ * later used as the row primary key. Two separate uploads (raw, masked)
+ * use the same garmentId so a folder-style storage browser groups them.
+ */
+export async function uploadGarmentVariant(
+  resized: ImageManipulator.ImageResult,
+  userId: string,
+  garmentId: string,
+  kind: GarmentImageKind,
+): Promise<UploadResult> {
+  const bytes = await new FsFile(resized.uri).bytes();
+  const storagePath = uploadVariantPath(userId, garmentId, kind);
+  const { error } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, {
+    contentType: GARMENT_IMAGE_MIME,
+    upsert: true,
+  });
+  if (error) throw error;
+  return { storagePath };
 }
 
 /**

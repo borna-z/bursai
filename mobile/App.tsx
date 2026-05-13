@@ -67,6 +67,7 @@ import {
 import { useRegisterPushToken } from './src/hooks/usePushNotifications';
 import { configureRevenueCat, resetRevenueCat } from './src/lib/revenuecat';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { prepare as prepareBackgroundRemoval } from './src/lib/backgroundRemoval';
 // N3b — Toast host. Mounted at the bottom of the tree (after
 // NavigationContainer) so toast-message paints above every screen including
 // modal/native-stack headers. Calls funnel through `src/lib/toast.ts`.
@@ -79,6 +80,12 @@ import Toast from 'react-native-toast-message';
 SplashScreen.preventAutoHideAsync().catch(() => {
   // No-op: this can race on hot-reload (already hidden) — safe to swallow.
 });
+
+// Wave R-B — warm up the on-device background-removal native module at
+// boot so the first capture doesn't pay the cold-start cost (especially
+// on Android where MLKit triggers a Play Services module download on
+// first use). Fire-and-forget; failures are swallowed inside `prepare`.
+void prepareBackgroundRemoval();
 
 // M30 — global notification handler. Configured at module scope so the OS
 // receives the foreground-presentation policy before any notification can

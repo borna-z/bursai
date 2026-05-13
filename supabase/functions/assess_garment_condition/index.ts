@@ -39,16 +39,28 @@ serve(async (req) => {
 
     const { data: garment, error: gErr } = await supabase
       .from("garments")
-      .select("id, title, category, material, wear_count, image_path")
+      .select("id, title, category, material, wear_count, original_image_path, image_path")
       .eq("id", garment_id)
       .eq("user_id", user.id)
       .single();
 
     if (gErr || !garment) throw new Error("Garment not found");
 
+    // Wave R-B — condition assessment runs against the raw user capture
+    // (`original_image_path`), NOT the on-device-segmented `image_path`.
+    // Transparent-background cutouts hide the very signals the AI is
+    // looking for: pilling on cuffs, color fading near seams, hem wear,
+    // stain context, fabric texture. Falls back to `image_path` for
+    // legacy rows without an `original_image_path` (pre-R-B captures or
+    // manual-entry garments).
+    const sourcePath = garment.original_image_path ?? garment.image_path;
+    if (!sourcePath) {
+      throw new Error("Garment has no image to assess");
+    }
+
     const { data: urlData } = await supabase.storage
       .from("garments")
-      .createSignedUrl(garment.image_path, 600);
+      .createSignedUrl(sourcePath, 600);
 
     if (!urlData?.signedUrl) throw new Error("Could not get image URL");
 
