@@ -33,14 +33,21 @@ const {
 const fs = require('fs');
 const path = require('path');
 
-const MLKIT_SUBJECT_SEG_DEP = "implementation 'com.google.mlkit:subject-segmentation:16.0.0-beta1'";
+// MLKit Subject Segmentation only ships via the Play Services artifact
+// (`com.google.android.gms:play-services-mlkit-*`) — the bundled
+// `com.google.mlkit:*` channel does not publish a `subject-segmentation`
+// module. Using the wrong coordinate fails Gradle resolution at prebuild
+// time. Per official docs:
+// https://developers.google.com/ml-kit/vision/subject-segmentation/android
+// (Codex P1 round 2.)
+const MLKIT_SUBJECT_SEG_DEP = "implementation 'com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1'";
 const PACKAGE_IMPORT = 'import me.burs.app.bgremoval.BackgroundRemovalPackage';
 const PACKAGE_ADD = 'add(BackgroundRemovalPackage())';
 
 // ─── Android: app/build.gradle dependency injection ────────────────────────
 function withMLKitSubjectSegDependency(config) {
   return withAppBuildGradle(config, (cfg) => {
-    if (cfg.modResults.contents.includes('com.google.mlkit:subject-segmentation')) {
+    if (cfg.modResults.contents.includes('play-services-mlkit-subject-segmentation')) {
       return cfg;
     }
     cfg.modResults.contents = cfg.modResults.contents.replace(
