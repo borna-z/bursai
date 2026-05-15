@@ -30,12 +30,16 @@ export type Fit = typeof FITS[number];
 export type Pattern = typeof PATTERNS[number];
 export type Season = typeof SEASONS[number];
 
-// Formality 3-stop selector. Stored as numeric 1..3 (matches the `formality`
-// column's smallint schema and the analyzer's `formality` field).
-export const FORMALITY_OPTIONS: { value: 1 | 2 | 3; key: string }[] = [
+// Formality 3-stop selector that anchors onto the canonical 1..5 scale used
+// across analyze_garment, `formalityLabel` (1→casual, 3→smart-casual, 5→formal)
+// and `formalityToBand` (1-2 low, 3 mid, 4-5 high). The chip values land on
+// the meaningful endpoints + midpoint of that scale so an explicit "Formal"
+// pick persists as 5 (high band, label "formal") rather than 3 (mid band,
+// label "smart-casual"). Codex R3 P2.
+export const FORMALITY_OPTIONS: { value: 1 | 3 | 5; key: string }[] = [
   { value: 1, key: 'addpiece.step3.formality.casual' },
-  { value: 2, key: 'addpiece.step3.formality.smart' },
-  { value: 3, key: 'addpiece.step3.formality.formal' },
+  { value: 3, key: 'addpiece.step3.formality.smart' },
+  { value: 5, key: 'addpiece.step3.formality.formal' },
 ];
 
 // Hex swatches matching `EditGarmentScreen.tsx` — the `id` is the column

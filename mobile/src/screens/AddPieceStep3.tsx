@@ -141,9 +141,16 @@ export function AddPieceStep3() {
     return typeof m === 'string' && (PATTERNS as readonly string[]).includes(m) ? m : '';
   });
   const [seasons, setSeasons] = useState<string[]>(params?.analysis.season_tags ?? []);
-  const [formalityValue, setFormalityValue] = useState<1 | 2 | 3 | null>(() => {
+  // Formality lives on the canonical 1..5 scale shared with analyze_garment /
+  // `formalityLabel` / `formalityToBand`. The 3-stop chip selector emits 1/3/5
+  // (see `FORMALITY_OPTIONS`); analyzer values 2 and 4 prefill state but render
+  // with no chip active (the user can confirm by tapping the closest stop).
+  // Codex R3 P2.
+  const [formalityValue, setFormalityValue] = useState<1 | 2 | 3 | 4 | 5 | null>(() => {
     const f = params?.analysis.formality;
-    return f === 1 || f === 2 || f === 3 ? (f as 1 | 2 | 3) : null;
+    return f === 1 || f === 2 || f === 3 || f === 4 || f === 5
+      ? (f as 1 | 2 | 3 | 4 | 5)
+      : null;
   });
 
   const [choiceOpen, setChoiceOpen] = useState(false);
@@ -348,22 +355,36 @@ export function AddPieceStep3() {
   // also burn the 8/min rate limit) and wasted UX (the result is irrelevant
   // once the user has committed). Passing null short-circuits the hook's
   // own `enabled` gate (`!!input?.category`).
+  //
+  // Codex R3 P2 — feed the live picker state (not the analyzer snapshot)
+  // into the duplicate query. If the user corrects an AI misclassification
+  // here (e.g. a blue top → black shoes), the duplicate match must look at
+  // what they're actually about to save; otherwise real duplicates of the
+  // corrected item slip through and stale warnings appear for values they
+  // no longer intend to persist. Empty picker state ('' when the analyzer
+  // value was outside the canonical chip set) falls back to the analyzer
+  // value so we don't strip useful signal on a save-without-edit.
   const duplicateInput = useMemo(
     () =>
       params?.analysis && !isSaving && !addGarment.isPending
         ? {
             image_path: resolvedStoragePath,
-            category: params.analysis.category ?? null,
-            color_primary: params.analysis.color_primary ?? null,
+            category: category || params.analysis.category || null,
+            color_primary: primaryColor || params.analysis.color_primary || null,
             title: debouncedDuplicateTitle || params.analysis.title,
-            subcategory: params.analysis.subcategory ?? null,
-            material: params.analysis.material ?? null,
+            subcategory:
+              subcategoryOverride.trim() || params.analysis.subcategory || null,
+            material: material || params.analysis.material || null,
           }
         : null,
     [
       resolvedStoragePath,
       params?.analysis,
       debouncedDuplicateTitle,
+      category,
+      primaryColor,
+      subcategoryOverride,
+      material,
       isSaving,
       addGarment.isPending,
     ],
