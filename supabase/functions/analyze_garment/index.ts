@@ -265,7 +265,12 @@ function validateBase64Image(input: string): { ok: true } | { ok: false; reason:
     return { ok: false, reason: 'malformed_data_url' };
   }
   const header = input.slice(5, commaIdx); // strip "data:" prefix
-  const mime = header.split(';')[0].trim().toLowerCase();
+  let mime = header.split(';')[0].trim().toLowerCase();
+  // Normalize the `image/jpg` alias to `image/jpeg`. `import_garments_from_links`
+  // preserves whatever Content-Type the upstream shop returned, and many CDNs
+  // serve JPEGs as `image/jpg`. Treat them as equivalent here so those imports
+  // still classify (Codex P2 on #849).
+  if (mime === 'image/jpg') mime = 'image/jpeg';
   if (!ALLOWED_IMAGE_MIMES.has(mime)) {
     return { ok: false, reason: 'unsupported_mime' };
   }
@@ -359,7 +364,7 @@ serve(async (req) => {
     } else {
       return new Response(
         JSON.stringify({ error: "unsupported_locale" }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     const titleInstruction = TITLE_LANG_MAP[resolvedLocale];
@@ -432,13 +437,17 @@ serve(async (req) => {
     if (base64Image) {
       resolvedImageUrl = base64Image;
     } else {
-      // Wave S-A.5 (2026-05-15): TTL reduced 300s → 60s. The signed URL is
-      // only consumed server-side within this same function invocation
-      // (Gemini fetches it once); 60s is ample and shrinks the blast radius
-      // if the URL leaks via logs / proxy / referer.
+      // Wave S-A.5 (2026-05-15, revised 2026-05-16): keep the 300s TTL.
+      // The initial S-A.5 pass dropped this to 60s for blast-radius reduction,
+      // but `callBursAI` runs up to 2 attempts × 2 models (≈4× the per-attempt
+      // timeout) and enrich mode can retry the whole call after a parse
+      // failure. With a 20s enrich timeout, later attempts can start at/after
+      // the 60s mark and Gemini would fetch an expired URL. 300s leaves ample
+      // slack for the full retry chain while still bounding leak risk (Codex
+      // P2 on #849).
       const { data: signedData, error: signedError } = await serviceClient.storage
         .from('garments')
-        .createSignedUrl(storagePath!, 60);
+        .createSignedUrl(storagePath!, 300);
       if (signedError || !signedData?.signedUrl) {
         return new Response(
           JSON.stringify({ error: "Could not fetch image" }),
