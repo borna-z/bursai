@@ -173,14 +173,36 @@ export default Sentry.wrap(App);
 // Navigation routes to ResetPasswordScreen. Set both initial-URL (cold
 // launch via the link) and the addEventListener path (warm launch while
 // the app is already in the background).
+// Strict host/path match for the recovery deep link — mirrors
+// RootNavigator.isOAuthCallbackUrl so a hypothetical `burs://reset-password-foo`
+// can't reach the exchange (the prior `startsWith('burs://reset-password')`
+// would have matched it). RN's URL polyfill normalizes hostname/pathname
+// differently for custom schemes, so accept both shapes.
+function isRecoveryDeepLinkUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'burs:') return false;
+    const host = parsed.hostname;
+    const path = parsed.pathname;
+    if (host === 'reset-password' && (path === '' || path === '/')) return true;
+    if (host === '' && (path === '/reset-password' || path === '/reset-password/')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function useRecoveryDeepLink(): void {
+  // Dedupe single-use PKCE codes: iOS fires both `getInitialURL`
+  // (cold-launch) and the `'url'` event for the same launch URL, and
+  // `exchangeCodeForSession` 4xxs the second call ("code already used")
+  // and pollutes Sentry. Same pattern as RootNavigator's
+  // `lastExchangedCodeRef`. setSession is idempotent so the legacy
+  // fragment path doesn't need its own ref.
+  const lastRecoveryCodeRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     const hydrate = async (url: string | null): Promise<void> => {
-      if (!url) return;
-      // Only act on the recovery route — every other deep link has its own
-      // handler (RootNavigator's OAuth, calendar, etc.).
-      const lowered = url.toLowerCase();
-      if (!lowered.startsWith('burs://reset-password')) return;
+      if (!url || !isRecoveryDeepLinkUrl(url)) return;
 
       // Try PKCE first: `?code=<code>` (with or without `&type=recovery`).
       let code: string | null = null;
@@ -191,6 +213,8 @@ function useRecoveryDeepLink(): void {
         // through to the legacy fragment path below.
       }
       if (code) {
+        if (lastRecoveryCodeRef.current === code) return;
+        lastRecoveryCodeRef.current = code;
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           console.warn('[App] Recovery exchange failed:', error.message);

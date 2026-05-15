@@ -1964,4 +1964,7 @@ export const sv: Record<string, string> = {
   'addpiece.step2.review.keep.aria': 'Behåll bilden som ett enskilt plagg',
   'addpiece.step2.review.skip.label': 'Hoppa över bilden',
   'addpiece.step2.review.skip.aria': 'Hoppa över — kasta bilden',
+
+  // Append-only — PR #844 self-review round 1.
+  'auth.google.openFailed': 'Kunde inte öppna webbläsaren. Försök igen.',
 };

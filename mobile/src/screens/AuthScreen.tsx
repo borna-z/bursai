@@ -227,7 +227,19 @@ export function AuthScreen() {
       // pins flowType, so the code is bound to a local code_verifier and
       // an intercepted URL is useless to a hostile app).
       if (data?.url) {
-        await Linking.openURL(data.url);
+        // Linking.openURL rejects on Android when no browser activity can
+        // handle the URL (rare but possible on locked-down devices). Without
+        // an explicit catch the rejection falls into the outer `finally`,
+        // resets `submitting`, and the user sees nothing. Surface a real
+        // alert so the failure isn't silent.
+        try {
+          await Linking.openURL(data.url);
+        } catch (err) {
+          Alert.alert(
+            tr('auth.google.errorTitle'),
+            err instanceof Error ? err.message : tr('auth.google.openFailed'),
+          );
+        }
       }
     } finally {
       if (isMountedRef.current) setSubmitting(false);
