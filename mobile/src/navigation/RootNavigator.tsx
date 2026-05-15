@@ -28,7 +28,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { exchangeCalendarCode, triggerGoogleSync } from '../hooks/useCalendarSync';
-import { consumeOAuthPending } from '../lib/oauthPending';
 import { t as tr } from '../lib/i18n';
 
 // Acquisition flow
@@ -442,52 +441,14 @@ async function handleOAuthDeepLink(
 ): Promise<void> {
   if (!isOAuthCallbackUrl(url)) return;
 
-  // Supabase OAuth returns one of two shapes depending on the flowType
-  // configured on the client:
-  //   - PKCE       : `burs://auth/callback?code=<one-time-code>`
-  //                  → exchangeCodeForSession(code) finalizes the session.
-  //   - implicit   : `burs://auth/callback#access_token=<jwt>&refresh_token=<rt>&...`
-  //                  → setSession({ access_token, refresh_token }) finalizes.
-  // The mobile client doesn't set `flowType`, so supabase-js v2 defaults to
-  // implicit. We support both shapes here so a future PKCE switch doesn't
-  // require touching this handler.
-
-  // Implicit-flow shape: tokens live in the URL fragment, not the query.
-  const fragment = url.includes('#') ? url.slice(url.indexOf('#') + 1) : '';
-  if (fragment) {
-    const params = new URLSearchParams(fragment);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    if (accessToken && refreshToken) {
-      if (lastExchangedCodeRef.current === accessToken) return;
-      // Codex P2 round 1: the `burs://` scheme is not exclusive on iOS or
-      // Android, so a foreign app could deep-link the app with attacker-
-      // chosen bearer tokens and force a session swap. Gate the implicit-
-      // flow path on the one-shot marker AuthScreen stashed before opening
-      // the provider URL. PKCE (below) is safe without this gate because
-      // the code is useless without the local `code_verifier`.
-      const isPending = await consumeOAuthPending();
-      if (!isPending) {
-        console.warn('[RootNavigator] OAuth fragment without pending marker — dropped.');
-        return;
-      }
-      lastExchangedCodeRef.current = accessToken;
-      try {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (error) {
-          console.warn('[RootNavigator] OAuth setSession failed:', error.message);
-        }
-      } catch (err) {
-        console.warn('[RootNavigator] OAuth setSession threw:', err);
-      }
-      return;
-    }
-  }
-
-  // PKCE-flow shape.
+  // PKCE flow only — `mobile/src/lib/supabase.ts` pins `flowType: 'pkce'`,
+  // so the callback always arrives as `burs://auth/callback?code=<code>`.
+  // We deliberately do NOT honour an implicit-flow fragment fallback
+  // (`#access_token=…`): the `burs://` scheme is not exclusive on iOS or
+  // Android, and any foreign app sharing it could intercept tokens or
+  // feed us attacker-chosen ones. PKCE binds the code to the local
+  // `code_verifier` supabase-js stashed in AsyncStorage — intercepting
+  // the URL no longer yields a usable session. Codex P1 round 2 on PR #844.
   let code: string | null = null;
   try {
     code = new URL(url).searchParams.get('code');
@@ -495,7 +456,7 @@ async function handleOAuthDeepLink(
     code = null;
   }
   if (!code) {
-    console.warn('[RootNavigator] OAuth callback URL has neither tokens nor code:', url);
+    console.warn('[RootNavigator] OAuth callback URL missing code:', url);
     return;
   }
   if (lastExchangedCodeRef.current === code) return;
