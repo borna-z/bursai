@@ -29,9 +29,12 @@ import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
 import { BackIcon, CameraIcon, ImageIcon, LinkIcon, SearchIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { useAnalyzeGarment } from '../hooks/useAnalyzeGarment';
+import { useAnalyzeGarment, type AnalysisResult } from '../hooks/useAnalyzeGarment';
 import { hapticLight } from '../lib/haptics';
 import { startBatch } from '../lib/batchPipeline';
+import { setAnalyzePrefetch } from '../lib/analyzePrefetch';
+import { trackEvent } from '../lib/analytics';
+import { resizeForGarment, GARMENT_IMAGE_MIME } from '../lib/imageUpload';
 import { t as tr } from '../lib/i18n';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
@@ -46,6 +49,48 @@ function hueGrad(h: number): [string, string] {
 }
 
 type Photo = AddPiecePhoto;
+
+// Wave S-C.1 — kick off the same resize → base64 → analyze pipeline that
+// Step 2 would otherwise wait on, the moment a single photo lands here.
+// Promises are parked in the analyzePrefetch registry keyed by photo URI.
+// Step 2's runAnalyzeAndUpload checks the registry on mount and awaits the
+// cached promise if present, otherwise starts fresh. In the common case
+// where the user spends a couple of seconds reviewing Step 1 before tapping
+// Continue, analysis is already in-flight (often resolved) by the time
+// Step 2 mounts — Step 3 lands almost immediately.
+//
+// Called from `openCameraSingle` (definitively single-photo) and from
+// `pickFromGallery` ONLY when the picked count brings the staged total to
+// exactly 1. Multi-photo selections fall through to batchPipeline which
+// owns its own coordination — a stray prefetch entry would just sit unused
+// until the 5-min TTL prunes it.
+//
+// Failure semantics: if analyze() rejects, the cached promise rejects
+// identically; Step 2's awaiter falls through to its existing error UI.
+function kickSinglePhotoPrefetch(
+  uri: string,
+  analyze: (input: { base64: string }) => Promise<AnalysisResult | null>,
+): void {
+  // Wave S-C.6 — first checkpoint in the perceived-speed funnel. We mark
+  // t_capture the moment a single photo lands in Step 1 and the prefetch
+  // fires. The `addpiece.analyze.timing` row (emitted by useAnalyzeGarment)
+  // is joinable on session/user.
+  trackEvent('addpiece.capture', { source: 'step1.single' });
+  // Resize once; the resized result is itself cached on the entry so Step 2
+  // can hand the SAME bytes to the upload path without re-running
+  // ImageManipulator on a now-known-good source.
+  const resized = resizeForGarment(uri, { wantBase64: true });
+  const promise = resized.then((r) => {
+    if (!r.base64) return null;
+    const base64 = `data:${GARMENT_IMAGE_MIME};base64,${r.base64}`;
+    return analyze({ base64 });
+  });
+  // Swallow rejections so the unobserved-promise warning doesn't fire — the
+  // cached promise itself still rejects when Step 2 awaits it, surfacing
+  // the error there.
+  promise.catch(() => {});
+  setAnalyzePrefetch(uri, { promise, resized, createdAt: Date.now() });
+}
 
 export function AddPieceStep1() {
   const t = useTokens();
@@ -78,11 +123,24 @@ export function AddPieceStep1() {
         hue: Math.floor(Math.random() * 360),
         uri: a.uri,
       }));
+      // Wave S-C.1 — prefetch analyze when the merged staged total is
+      // exactly 1 photo (single picked AND the grid was empty). Multi-photo
+      // selections fall through to batchPipeline.
+      //
+      // Read-before-update so the prefetch decision is based on the live
+      // photo count, not the state-updater closure (StrictMode in dev fires
+      // the updater twice; firing prefetch inside it would double-resize +
+      // double-analyze).
+      const shouldPrefetch = photos.length === 0 && newPhotos.length === 1;
       setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX));
+      if (shouldPrefetch) {
+        const uri = newPhotos[0]?.uri;
+        if (uri) kickSinglePhotoPrefetch(uri, analyze);
+      }
     } catch {
       Alert.alert(tr('addpiece.step1.galleryError.title'), tr('addpiece.step1.galleryError.body'));
     }
-  }, []);
+  }, [analyze, photos.length]);
 
   // Hero card → LiveScan (continuous detection + per-garment review card).
   const openLiveScan = useCallback(() => {
@@ -118,6 +176,13 @@ export function AddPieceStep1() {
       const asset = result.assets[0];
       if (!asset || !user) return;
       hapticLight();
+      // Wave S-C.1 — camera-single-shot routes through batchPipeline below
+      // (single-item batch), so the batch pipeline starts the same
+      // resize+upload+analyze work the prefetch would duplicate. We DO NOT
+      // call kickSinglePhotoPrefetch here — Step 2 takes the batch branch
+      // for this entry and awaits the batch item, never reading the
+      // prefetch registry. Adding a parallel prefetch would burn a second
+      // analyze quota slot for no UX gain.
       const batchId = startBatch({
         uris: [asset.uri],
         userId: user.id,

@@ -33,7 +33,7 @@
 // storage objects best-effort deleted; saved items keep theirs).
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -69,24 +69,18 @@ import {
   retryItem as retryBatchItem,
   type BatchItem,
 } from '../lib/batchPipeline';
+import { getAnalyzePrefetch, clearAnalyzePrefetch } from '../lib/analyzePrefetch';
+import { Step3FormSkeleton } from '../components/addpiece/Step3FormSkeleton';
+import { trackEvent } from '../lib/analytics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'AddPieceStep2'>;
 
-// Cycled every PHASE_INTERVAL_MS so the user sees apparent progress while the AI thinks.
-// The trailing "Still working" line keeps cycling so a slow analyze doesn't look hung.
-// Resolved via tr() at render time so locale switches at runtime cycle the
-// translated copy on the next interval tick rather than capturing the
-// resolved-at-mount English values.
-const PHASE_KEYS = [
-  'addpiece.step2.phase.fabric',
-  'addpiece.step2.phase.colors',
-  'addpiece.step2.phase.category',
-  'addpiece.step2.phase.almost',
-  'addpiece.step2.phase.stillWorking',
-];
-const PHASE_INTERVAL_MS = 1500;
+// Wave S-C.3 — the cycling-phase-copy loading state was replaced by a
+// skeleton form silhouette of Step 3. The phase key list + interval are
+// gone; locale entries `addpiece.step2.phase.*` remain in the i18n files
+// (append-only) but no longer have a runtime caller.
 
 export function AddPieceStep2() {
   const t = useTokens();
@@ -104,7 +98,6 @@ export function AddPieceStep2() {
   // pipeline (started in Step 1) owns the resize+upload+analyze work.
   const batch = route.params?.batch;
 
-  const [phase, setPhase] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // Wave R-D.1 — batch ambiguous-photo review gate. When the pipeline
   // returns a `needs_review` item, Step 2 surfaces the photo + AI note
@@ -152,7 +145,6 @@ export function AddPieceStep2() {
     inFlightRef.current = true;
     if (mountedRef.current) {
       setErrorMsg(null);
-      setPhase(0);
     }
     try {
       const item = await awaitBatchItem(batch.batchId, batch.index);
@@ -210,7 +202,6 @@ export function AddPieceStep2() {
     inFlightRef.current = true;
     if (mountedRef.current) {
       setErrorMsg(null);
-      setPhase(0);
     }
 
     // Clean up any prior upload registration that didn't end in a saved garment
@@ -230,8 +221,24 @@ export function AddPieceStep2() {
     if (previousStorage) void deleteUpload(previousStorage);
 
     try {
-      // Single resize, two consumers — base64 for analyze, file bytes for upload.
-      const resized = await resizeForGarment(photoUri, { wantBase64: true });
+      // Wave S-C.1 — prefer a prefetched resize from Step 1 when present.
+      // Step 1 fires `kickSinglePhotoPrefetch` the moment a single photo
+      // lands; by the time we arrive here the resize is typically done,
+      // shaving 100–400 ms off the perceived wait. On a poisoned cache
+      // entry we drop and start fresh.
+      const prefetched = getAnalyzePrefetch(photoUri);
+      let resized: Awaited<ReturnType<typeof resizeForGarment>>;
+      if (prefetched) {
+        try {
+          resized = await prefetched.resized;
+        } catch {
+          clearAnalyzePrefetch(photoUri);
+          resized = await resizeForGarment(photoUri, { wantBase64: true });
+        }
+      } else {
+        // Single resize, two consumers — base64 for analyze, file bytes for upload.
+        resized = await resizeForGarment(photoUri, { wantBase64: true });
+      }
       if (!mountedRef.current) return;
 
       // Kick the upload off in parallel. The promise is parked in the pendingUpload
@@ -319,12 +326,37 @@ export function AddPieceStep2() {
         return;
       }
 
-      const analysis = await analyze({ base64 });
+      // Wave S-C.1 — consume the prefetched analyze promise if present.
+      // Step 1 already kicked the call; here we just await its result.
+      // On rejection fall back to a fresh analyze() so a stale cache entry
+      // can't trap the user on the loading screen.
+      let analysis: Awaited<ReturnType<typeof analyze>> = null;
+      if (prefetched) {
+        try {
+          analysis = await prefetched.promise;
+        } catch {
+          analysis = null;
+        }
+        clearAnalyzePrefetch(photoUri);
+      }
+      if (!mountedRef.current) return;
+      if (!analysis) {
+        analysis = await analyze({ base64 });
+      }
       if (!mountedRef.current) return;
       if (!analysis) {
         setErrorMsg(tr('addpiece.step2.error.couldNotAnalyze'));
         return;
       }
+      // Wave S-C.6 — perceived-speed analytics. One row at analyze resolution
+      // captures the wall-clock from mount → analyze settled, segmented by
+      // whether prefetch was consumed (the typical Step 1 → Step 2 flow vs.
+      // a direct nav / re-entry without prefetch). The downstream Step 3
+      // save event lands separately so dashboards can join on session_id.
+      trackEvent('addpiece.analyze.resolved', {
+        prefetched: !!prefetched,
+        source,
+      });
 
       // Hand the upload promise off to Step 3. Storage path is null until upload
       // completes — Step 3's Save handler will await pendingUpload[uploadId] if
@@ -388,16 +420,6 @@ export function AddPieceStep2() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Cycle the phase copy every PHASE_INTERVAL_MS while loading. Stops once errorMsg
-  // is set so the ErrorState body isn't fighting a still-mounted timer.
-  useEffect(() => {
-    if (errorMsg) return;
-    const id = setInterval(() => {
-      setPhase((p) => Math.min(p + 1, PHASE_KEYS.length - 1));
-    }, PHASE_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [errorMsg]);
 
   // Codex P2 on PR #738: after a successful analyze, Step 2 navigates forward
   // without clearing local state — if the user backs out of Step 3, they'd
@@ -517,7 +539,6 @@ export function AddPieceStep2() {
     if (!retryBatchItem(batch.batchId, batch.index)) return;
     if (mountedRef.current) {
       setErrorMsg(null);
-      setPhase(0);
     }
     void runBatchItem();
   };
@@ -613,48 +634,30 @@ export function AddPieceStep2() {
           onSecondaryAction={batch ? handleSkipFailedBatchItem : undefined}
         />
       ) : (
-        <View style={s.loadingWrap}>
-          {/* Multi-photo progress hint — singular when allUris.length === 1 so the copy
-              doesn't read awkwardly for the common single-piece flow. */}
+        <View style={s.skeletonWrap}>
+          {/* Wave S-C.3 — skeleton form replaces the cycling-phase-copy loading
+              state. The user sees a faithful silhouette of the Step 3 form
+              they're about to land on (title placeholder, disabled chip rows,
+              formality stops) so the wait reads as "almost there" rather than
+              abstract progress. Multi-photo batch + LiveScan-multi callers
+              still get a "Photo X of N" eyebrow at the top so they retain the
+              progress signal. */}
           {hasExtras ? (
-            <Eyebrow style={{ marginBottom: 12 }}>
+            <Eyebrow style={{ paddingHorizontal: 20, paddingTop: 8 }}>
               {tr('addpiece.step2.progress.batch', { current: currentIndex, total: totalCount })}
             </Eyebrow>
-          ) : (
-            <Eyebrow style={{ marginBottom: 12 }}>{tr('addpiece.step2.progress.single')}</Eyebrow>
-          )}
+          ) : null}
 
-          <ActivityIndicator size="large" color={t.accent} />
-
-          <Text
-            style={{
-              marginTop: 24,
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 24,
-              fontWeight: '500',
-              color: t.fg,
-              letterSpacing: -0.24,
-              textAlign: 'center',
-            }}>
-            {tr(PHASE_KEYS[phase])}
-          </Text>
-
-          <Caption style={{ textAlign: 'center', marginTop: 8, maxWidth: 280 }}>
-            {tr('addpiece.step2.progress.body')}
-          </Caption>
+          <Step3FormSkeleton />
 
           {/* Batch active: tell the user the rest are getting ready in the
-              background so they understand why the next photo loads quickly.
-              Legacy single-photo path with allUris > 1 (LiveScan never hits
-              this) falls back to the older 'batchNote' copy that warned
-              about the now-removed single-photo-only limit. */}
+              background so they understand why the next photo loads quickly. */}
           {hasExtras && batch ? (
-            <Caption style={{ textAlign: 'center', marginTop: 14, opacity: 0.75, maxWidth: 280 }}>
+            <Caption style={{ textAlign: 'center', paddingHorizontal: 20, paddingBottom: 14, opacity: 0.75 }}>
               {tr('addpiece.step2.batch.activeNote')}
             </Caption>
           ) : hasExtras ? (
-            <Caption style={{ textAlign: 'center', marginTop: 14, opacity: 0.75, maxWidth: 280 }}>
+            <Caption style={{ textAlign: 'center', paddingHorizontal: 20, paddingBottom: 14, opacity: 0.75 }}>
               {tr('addpiece.step2.progress.batchNote')}
             </Caption>
           ) : null}
@@ -673,11 +676,8 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
-  loadingWrap: {
+  skeletonWrap: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
   },
   reviewWrap: {
     flex: 1,

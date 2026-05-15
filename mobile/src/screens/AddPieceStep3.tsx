@@ -68,6 +68,7 @@ import {
   markItemSkipped,
   nextPendingIndex,
 } from '../lib/batchPipeline';
+import { trackEvent } from '../lib/analytics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -300,6 +301,20 @@ export function AddPieceStep3() {
     // params?.uploadId / storagePath are stable for the lifetime of this screen
     // instance — React Navigation creates a new instance on re-entry, so
     // capturing once on mount is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Wave S-C.6 — t_form_ready checkpoint. Step 3 has mounted with an
+  // analysis prefill; the form is interactive. Pairs with the `addpiece.
+  // capture` event from Step 1 and the `addpiece.save` event from the save
+  // handler. Source carries through so single-photo vs batch_add can be
+  // segmented in dashboards. Mount-once: the dep array is empty intentionally.
+  useEffect(() => {
+    trackEvent('addpiece.form.ready', {
+      source: params?.source ?? 'unknown',
+      has_storage_path: !!params?.storagePath,
+      has_upload_promise: !!params?.uploadId,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -654,6 +669,13 @@ export function AddPieceStep3() {
         aiOverridden,
       });
       hapticSuccess();
+      // Wave S-C.6 — t_save checkpoint. Last in the perceived-speed funnel;
+      // dashboards subtract t_capture to surface end-to-end p50/p95.
+      trackEvent('addpiece.save', {
+        source,
+        studio: enableStudioQuality,
+        batch: !!params?.batch,
+      });
       // Mark saved BEFORE nav.reset — once the navigator unmounts this screen,
       // the cleanup effect runs synchronously and reads savedRef. Setting it true
       // first prevents the cleanup from deleting the storage object the saved
