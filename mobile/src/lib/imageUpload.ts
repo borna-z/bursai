@@ -101,6 +101,16 @@ export function getUploadMaskMetadata(storagePath: string): UploadMaskMetadata |
   return value;
 }
 
+/**
+ * Non-consuming peek — returns the metadata without dropping the map entry.
+ * Use this when a non-authoritative reader (e.g. Step 3's hero preview)
+ * needs to know whether a masked sidecar was uploaded WITHOUT taking it
+ * out from under the eventual `persistGarment` consume call.
+ */
+export function peekUploadMaskMetadata(storagePath: string): UploadMaskMetadata | null {
+  return uploadMaskMetadata.get(storagePath) ?? null;
+}
+
 function rememberUploadMaskMetadata(
   storagePath: string,
   metadata: UploadMaskMetadata,

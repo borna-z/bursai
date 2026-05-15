@@ -47,7 +47,7 @@ import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
-import { deleteUpload } from '../lib/imageUpload';
+import { deleteUpload, peekUploadMaskMetadata } from '../lib/imageUpload';
 import {
   CATEGORIES,
   MATERIALS,
@@ -322,7 +322,22 @@ export function AddPieceStep3() {
   // back to `photoUri` while the mask is in flight keeps the screen useful
   // immediately and degrades gracefully on iOS 15/16 (no Vision subject seg)
   // or when the native segmenter returns `'failed'`.
-  const [maskedStoragePath, setMaskedStoragePath] = useState<string | null>(null);
+  //
+  // Two arrival paths:
+  //   1. `params.uploadId` (single-photo) — await the pending upload promise
+  //      below, stash its `maskedStoragePath` when it resolves.
+  //   2. `params.storagePath` direct (Step 2 base64-fallback OR batch path)
+  //      — the upload already landed before we mounted, so peek the
+  //      module-scope metadata map by the raw storage path.
+  // The peek is non-consuming so the eventual `persistGarment` call's
+  // `withUploadMaskMetadata(params)` still receives the entry on the
+  // authoritative drain.
+  const [maskedStoragePath, setMaskedStoragePath] = useState<string | null>(
+    () =>
+      params?.storagePath
+        ? peekUploadMaskMetadata(params.storagePath)?.maskedStoragePath ?? null
+        : null,
+  );
   useEffect(() => {
     if (params?.storagePath || !params?.uploadId) return;
     if (!uploadPromiseRef.current) {

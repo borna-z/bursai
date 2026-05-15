@@ -107,7 +107,15 @@ export function LiveScanScreen() {
   // mount, GC'd on unmount. `useMemo` (rather than `useRef`) so that the
   // values are stable across renders without the lazy-init dance.
   const events = useMemo(() => new LiveScanEvents(), []);
-  const queue = useMemo(() => createScanQueue({ maxConcurrent: 3 }), []);
+  // Wave R-D Bug C — review card serializes per-capture, so the queue's
+  // legacy `maxConcurrent: 3` setting is no longer correct. Auto-snap can
+  // fire a follow-up capture during the small window between
+  // `tickLock`-fires-capture and the 'analyzed' event landing, but tickLock
+  // gates further fires on `reviewPayloadRef` so only one stale capture
+  // can squeak through. Capping at 1 closes the multi-in-flight race
+  // surface; the defensive cleanup in the 'analyzed' listener handles any
+  // residual stale payloads that still arrive.
+  const queue = useMemo(() => createScanQueue({ maxConcurrent: 1 }), []);
   const lock = useMemo(() => createStabilityLock(), []);
   // `scanCount` tracks every capture attempt (header badge — instant feedback
   // so users know rapid-fire snaps fired). `savedCount` only increments when
@@ -172,9 +180,18 @@ export function LiveScanScreen() {
     const offAnalyzed = events.on('analyzed', (payload) => {
       // First analyzed event arms the review card; subsequent captures
       // while the card is up are gated by the paused tickLock above so
-      // we should never see overlapping sessions in practice. Defensive
-      // guard: ignore if a card is already showing.
-      if (reviewPayloadRef.current) return;
+      // we should never see overlapping sessions in practice. But the
+      // capture-fires-before-'analyzed'-lands race (auto-snap fires
+      // capture 2 ~100 ms before capture 1 emits 'analyzed') CAN squeak
+      // a second analyze through with `maxConcurrent: 1` serializing
+      // the queue. When that happens the late payload carries
+      // already-uploaded raw + masked storage paths — silently dropping
+      // it would orphan those objects forever, so route through
+      // `discardAnalyzedScan` to clean them up.
+      if (reviewPayloadRef.current) {
+        void discardAnalyzedScan(payload, events);
+        return;
+      }
       reviewPayloadRef.current = payload;
       setReviewState({ kind: 'reviewing', payload });
     });
