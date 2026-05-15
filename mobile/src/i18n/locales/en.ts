@@ -2101,4 +2101,14 @@ export const en: Record<string, string> = {
   'chat.anchor.openLabel': 'Open anchored piece',
   'chat.anchor.loading': 'Loading anchor…',
   'chat.outfitCard.anchor': 'Anchor',
+
+  // Append-only — Wave S-C (perceived-speed). Step 2 skeleton form copy +
+  // LiveScan captured-flash overlay label.
+  'addpiece.step2.skeleton.aria': 'Loading your garment details',
+  'addpiece.step2.skeleton.titleEyebrow': 'Title',
+  'addpiece.step2.skeleton.categoryEyebrow': 'Category',
+  'addpiece.step2.skeleton.colorEyebrow': 'Colors',
+  'addpiece.step2.skeleton.seasonsEyebrow': 'Seasons',
+  'addpiece.step2.skeleton.formalityEyebrow': 'Formality',
+  'livescan.captured.label': 'Captured',
 };

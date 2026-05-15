@@ -51,6 +51,7 @@ import {
   deleteUpload,
   GARMENT_IMAGE_MIME,
 } from './imageUpload';
+import { getAnalyzePrefetch, clearAnalyzePrefetch } from './analyzePrefetch';
 
 // Concurrency cap. A typical resize+upload of a 1024px WebP runs ~1-2s —
 // running 2 in parallel keeps the user's "items ready" pool ahead of their
@@ -451,8 +452,28 @@ function runItem(batch: Batch, item: BatchItem): void {
     // upload until resize succeeds.
     let uploadP: ReturnType<typeof uploadManipulatedImage> | null = null;
     try {
-      // Single resize, base64 + bytes both consumed downstream.
-      const resized = await resizeForGarment(item.uri, { wantBase64: true });
+      // Wave S-C.1 — single-photo prefetch. If Step 1 prefetched this URI,
+      // reuse its in-flight resize + analyze instead of starting fresh. The
+      // prefetch entry caches both the resize promise (so the upload path
+      // gets the same bytes without re-running ImageManipulator) and the
+      // analyze promise (resolved or in-flight). On any prefetch failure we
+      // fall back to the fresh-work path so the batch never hangs on a
+      // poisoned cache entry.
+      const prefetched = getAnalyzePrefetch(item.uri);
+      // Single resize, base64 + bytes both consumed downstream. Prefer the
+      // prefetched resize if available; on rejection drop the cache entry
+      // and start fresh.
+      let resized: Awaited<ReturnType<typeof resizeForGarment>>;
+      if (prefetched) {
+        try {
+          resized = await prefetched.resized;
+        } catch {
+          clearAnalyzePrefetch(item.uri);
+          resized = await resizeForGarment(item.uri, { wantBase64: true });
+        }
+      } else {
+        resized = await resizeForGarment(item.uri, { wantBase64: true });
+      }
 
       // Upload + analyze in parallel.
       uploadP = uploadManipulatedImage(resized, batch.userId).then((res) => {
@@ -475,11 +496,52 @@ function runItem(batch: Batch, item: BatchItem): void {
         : null;
 
       let analysis: AnalysisResult | null = null;
-      if (base64) {
+      // Tracks whether the prefetch settled with a real backend failure
+      // (429 / 402 / 5xx) vs. a benign cache miss. `useAnalyzeGarment.analyze`
+      // swallows HTTP failures into a `null` resolution, so the promise's
+      // resolved value alone can't disambiguate; the registry now exposes
+      // `outcome` on the entry for exactly this branch. Codex P2 round 2
+      // on PR #848 — when the prefetch failed, do NOT immediately re-fire
+      // `analyzeFn` against the same image (the server has already refused
+      // and the retry will most likely 429/402/5xx again, burning another
+      // quota hit). Instead surface the failure to the catch block below so
+      // the existing failed-item retry UI takes over.
+      let prefetchFailed = false;
+      if (prefetched) {
+        // Prefer the prefetched analyze promise — it's already in flight
+        // (often resolved) from Step 1. We awaited the resize above so the
+        // upload bytes are aligned with what analyze was given. On rejection
+        // fall through to the fresh analyze call so a poisoned cache entry
+        // can't sink the batch item.
+        try {
+          analysis = await prefetched.promise;
+        } catch {
+          analysis = null;
+        }
+        // The registry's settle-tracker updates `outcome` synchronously from
+        // the same `.then` / `.catch` we're observing here, so by the time
+        // our await completes the outcome is already 'analyzed' or 'failed'.
+        // 'pending' here would be a registry bug; treat it as a cache miss
+        // (fall through to fresh analyze) rather than block the user.
+        if (prefetched.outcome === 'failed') {
+          prefetchFailed = true;
+        }
+        // Successful or not, the prefetch entry is now consumed.
+        clearAnalyzePrefetch(item.uri);
+      }
+      if (prefetchFailed && !analysis) {
+        // The prefetched analyze already failed against the server. Don't
+        // re-fire `analyzeFn` — that's another quota hit / 429 / 402 the
+        // moment after the backend told us not to. Route to the existing
+        // failed-item retry UI, which lets the user explicitly retry once
+        // the rate-limit window expires or the subscription is unlocked.
+        throw new Error('Could not analyze photo');
+      }
+      if (!analysis && base64) {
         // Fast path — analyze runs in parallel with upload via the base64
         // payload from the single-pass resize. Typical p50 is ~2-3s here.
         analysis = await batch.analyzeFn({ base64 });
-      } else {
+      } else if (!analysis) {
         // Fallback — ImageManipulator omitted the base64 string (rare; usually
         // a transient native module hiccup). Wait for upload to land, then
         // analyze via storagePath. Costs ~1-2s extra but keeps the item from

@@ -1974,4 +1974,14 @@ export const sv: Record<string, string> = {
   'chat.anchor.openLabel': 'Öppna det förankrade plagget',
   'chat.anchor.loading': 'Laddar ankaret…',
   'chat.outfitCard.anchor': 'Förankra',
+
+  // Append-only — Wave S-C (perceived-speed). Step 2 skeleton form copy +
+  // LiveScan captured-flash overlay label.
+  'addpiece.step2.skeleton.aria': 'Laddar plagginformation',
+  'addpiece.step2.skeleton.titleEyebrow': 'Titel',
+  'addpiece.step2.skeleton.categoryEyebrow': 'Kategori',
+  'addpiece.step2.skeleton.colorEyebrow': 'Färger',
+  'addpiece.step2.skeleton.seasonsEyebrow': 'Säsonger',
+  'addpiece.step2.skeleton.formalityEyebrow': 'Formalitet',
+  'livescan.captured.label': 'Tagen',
 };

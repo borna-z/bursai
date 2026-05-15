@@ -31,6 +31,7 @@ import {
 } from '../lib/edgeFunctionClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Sentry } from '../lib/sentry';
+import { trackEvent } from '../lib/analytics';
 
 export interface DetectedGarmentSummary {
   title: string;
@@ -105,6 +106,16 @@ export function useAnalyzeGarment() {
       setError(null);
       setStatus(null);
       setResult(null);
+
+      // Wave S-C.6 — client-side perceived-speed timing. We mark the moment
+      // analyze() is invoked (the user has handed us a payload and the call
+      // is about to fire) and emit `addpiece.analyze.timing` once it
+      // resolves. Dashboards join with the screen-emitted `addpiece.capture`
+      // and `addpiece.save` events on session_id (added at the call sites
+      // that own those checkpoints). Failures (rate-limit / 5xx) still emit
+      // the timing event so p99 + error-rate dashboards aren't blind.
+      const tStart = Date.now();
+      const inputKind: 'base64' | 'storagePath' = 'base64' in input ? 'base64' : 'storagePath';
 
       try {
         const body: Record<string, unknown> = {
@@ -192,6 +203,11 @@ export function useAnalyzeGarment() {
         };
 
         setResult(normalized);
+        trackEvent('addpiece.analyze.timing', {
+          input_kind: inputKind,
+          duration_ms: Date.now() - tStart,
+          ok: true,
+        });
         return normalized;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Analysis failed';
@@ -203,6 +219,12 @@ export function useAnalyzeGarment() {
           });
         }
         setError(msg);
+        trackEvent('addpiece.analyze.timing', {
+          input_kind: inputKind,
+          duration_ms: Date.now() - tStart,
+          ok: false,
+          error_class: msg.slice(0, 80),
+        });
         return null;
       } finally {
         setIsAnalyzing(false);
