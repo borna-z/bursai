@@ -57,6 +57,29 @@ export function ChatHeader({
           {tr('chat.title')}
         </Text>
       </View>
+      {/* Web parity — surface History as its own glyph next to the
+          hamburger menu so users find their past chats without first
+          opening a hidden dropdown. The hamburger keeps "New chat" so
+          the destructive action stays one tap deeper. */}
+      <IconBtn
+        variant="ghost"
+        onPress={onOpenHistory}
+        ariaLabel={tr('chat.history.openLabel')}>
+        <View style={{ width: 18, height: 14, justifyContent: 'center' }}>
+          {[0, 1, 2].map((i) => (
+            <View
+              key={i}
+              style={{
+                height: 1.6,
+                backgroundColor: t.fg,
+                borderRadius: 1,
+                marginVertical: 1.6,
+                width: i === 0 ? 18 : i === 1 ? 14 : 10,
+              }}
+            />
+          ))}
+        </View>
+      </IconBtn>
       <IconBtn
         variant="ghost"
         onPress={() => setMenuOpen(true)}

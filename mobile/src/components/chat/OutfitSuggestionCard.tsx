@@ -202,17 +202,23 @@ export function OutfitSuggestionCard({
           {tr('chat.refine.hint')}
         </Caption>
       ) : null}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {/* Both children get flex:1 (no `block` — that hard-codes width:100%
-            and would clip the Save sibling inside the 82%-wide chat bubble).
-            Q-D2 swaps in (Cancel) when refining so the composer is the
-            submit surface; matches web's RefineBanner X-to-cancel pattern. */}
+      {/* Action layout — Codex round 3 P2 on PR #845.
+          Pre-fix the row tried to fit Try + Anchor + Refine + Save as
+          four flex:1 buttons inside the 92%-wide chat bubble, which
+          clipped labels on narrow phones. Reordered into two rows:
+            row 1: Try (full width) — primary action, also anchors the
+                   first garment in the chat hook so a dedicated
+                   "Anchor" button is redundant
+            row 2: Refine + Save (split) — secondary iteration/save
+          When refining, the row collapses to a single Cancel button as
+          before (the composer is the submit surface). */}
+      <View style={{ gap: 8 }}>
         {isRefining ? (
           <Button
             label={tr('chat.outfitCard.refine.cancel')}
             size="sm"
             variant="outline"
-            style={{ flex: 1 }}
+            style={{ alignSelf: 'stretch' }}
             onPress={() => onCancelRefine?.()}
           />
         ) : (
@@ -220,40 +226,44 @@ export function OutfitSuggestionCard({
             <Button
               label={tr('chat.outfitCard.try')}
               size="sm"
-              style={{ flex: 1 }}
+              style={{ alignSelf: 'stretch' }}
               onPress={() => onTry(garments.map((g) => g.id))}
             />
-            {onEnterRefine ? (
-              <Button
-                label={tr('chat.outfitCard.refine')}
-                size="sm"
-                variant="outline"
-                style={{ flex: 1 }}
-                onPress={() =>
-                  onEnterRefine(
-                    garments.map((g) => g.id),
-                    explanation ?? '',
-                  )
-                }
-              />
-            ) : null}
-            {onSave ? (
-              <Button
-                label={
-                  saved
-                    ? tr('chat.outfitCard.saved')
-                    : saving
-                      ? tr('chat.outfitCard.saving')
-                      : tr('chat.outfitCard.save')
-                }
-                size="sm"
-                variant={saved ? 'accent' : 'outline'}
-                style={{ flex: 1 }}
-                onPress={() => {
-                  if (saved || saving) return;
-                  void onSave(garments.map((g) => g.id), { explanation: explanation ?? '' });
-                }}
-              />
+            {(onEnterRefine || onSave) ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {onEnterRefine ? (
+                  <Button
+                    label={tr('chat.outfitCard.refine')}
+                    size="sm"
+                    variant="outline"
+                    style={{ flex: 1 }}
+                    onPress={() =>
+                      onEnterRefine(
+                        garments.map((g) => g.id),
+                        explanation ?? '',
+                      )
+                    }
+                  />
+                ) : null}
+                {onSave ? (
+                  <Button
+                    label={
+                      saved
+                        ? tr('chat.outfitCard.saved')
+                        : saving
+                          ? tr('chat.outfitCard.saving')
+                          : tr('chat.outfitCard.save')
+                    }
+                    size="sm"
+                    variant={saved ? 'accent' : 'outline'}
+                    style={{ flex: 1 }}
+                    onPress={() => {
+                      if (saved || saving) return;
+                      void onSave(garments.map((g) => g.id), { explanation: explanation ?? '' });
+                    }}
+                  />
+                ) : null}
+              </View>
             ) : null}
           </>
         )}

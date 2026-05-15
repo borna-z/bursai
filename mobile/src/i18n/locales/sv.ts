@@ -1967,4 +1967,11 @@ export const sv: Record<string, string> = {
 
   // Append-only — PR #844 self-review round 1.
   'auth.google.openFailed': 'Kunde inte öppna webbläsaren. Försök igen.',
+
+  // ─── Style Chat — webparitet (plagg-chips, ankarkort med
+  //     "öppna och redigera", egen ankar-CTA, "baserat på N plagg"). ──
+  'chat.basedOn.template': 'Baserat på {n} plagg i din garderob',
+  'chat.anchor.openLabel': 'Öppna det förankrade plagget',
+  'chat.anchor.loading': 'Laddar ankaret…',
+  'chat.outfitCard.anchor': 'Förankra',
 };

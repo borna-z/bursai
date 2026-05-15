@@ -2093,4 +2093,12 @@ export const en: Record<string, string> = {
 
   // Append-only — PR #844 self-review round 1.
   'auth.google.openFailed': 'Could not open the browser. Please try again.',
+
+  // ─── Style Chat — web-parity additions (inline garment chips,
+  //     anchor card with open-to-edit, explicit anchor CTA, "based on
+  //     N pieces" header). ────────────────────────────────────────────
+  'chat.basedOn.template': 'Based on {n} pieces in your wardrobe',
+  'chat.anchor.openLabel': 'Open anchored piece',
+  'chat.anchor.loading': 'Loading anchor…',
+  'chat.outfitCard.anchor': 'Anchor',
 };

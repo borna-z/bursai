@@ -1,4 +1,5 @@
-// StyleChatScreen — assistant/user message bubble (N13 split).
+// StyleChatScreen — assistant/user message bubble (N13 split, web-parity
+// pass).
 //
 // Bubble has 18px radius with one corner squared to point toward the
 // speaker (4px radius on speaker-side). Streaming assistant bubbles with
@@ -8,10 +9,23 @@
 // envelope carries a recognised mode, and long-press triggers the anchor
 // confirm dialog when an active-look is present.
 //
-// Memoized on (id, content, isStreaming, stylistMeta.mode) so the
-// FlatList doesn't re-render every visible message on every SSE delta.
+// Chat-parity (this pass): the bubble now mirrors web's full layered
+// rendering:
+//   • outfit suggestion card (hero, when `render_outfit_card === true`)
+//   • italic "rejection" sentence under the card (parity with web's
+//     `extractRejectionSentence`)
+//   • cleaned prose (with `[[garment:…]]` / `[[outfit:…]]` markup
+//     stripped — see `lib/garmentTokens`)
+//   • inline garment-card pills for every garment id mentioned in prose
+//     OR surfaced via `stylistMeta.garment_mentions[]`. Each pill is
+//     tappable and routes to `GarmentDetail` — that's the user's
+//     "context window you can open and edit" entry.
+//
+// Memoized on the same key signals as before plus the prose text so a
+// streaming delta doesn't churn cards but the final settled prose does
+// re-evaluate inline mentions.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useTokens } from '../theme/ThemeProvider';
@@ -19,6 +33,15 @@ import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { ShoppingResultCard } from '../components/ShoppingResultCard';
 import { OutfitSuggestionCard } from '../components/chat/OutfitSuggestionCard';
+import { GarmentInlineCard } from '../components/chat/GarmentInlineCard';
+import { useGarmentsByIds, type GarmentBasic } from '../hooks/useGarmentsByIds';
+import {
+  extractRejectionSentence,
+  parseBoldSegments,
+  parseGarmentTextSegments,
+  stripOutfitTokens,
+  stripUnknownGarmentMarkup,
+} from '../lib/garmentTokens';
 import { t as tr } from '../lib/i18n';
 import type { ChatMessage } from '../hooks/useStyleChat';
 import { modeLabel } from './StyleChatScreen.helpers';
@@ -34,9 +57,7 @@ export type MessageItemProps = {
   // list — today the screen anchors the first id so the next user turn
   // refines around the chosen look.
   onTryOutfit: (garmentIds: string[]) => void;
-  // Parity-D — Save handler on the inline OutfitSuggestionCard. The
-  // screen owns the in-flight state + the saved-id stamp so the same
-  // garment list isn't double-persisted across re-renders.
+  // Parity-D — Save handler on the inline OutfitSuggestionCard.
   onSaveOutfit: (
     messageId: string,
     garmentIds: string[],
@@ -46,15 +67,16 @@ export type MessageItemProps = {
   isSavingOutfit?: boolean;
   /** True when this message's outfit has already been persisted. */
   isOutfitSaved?: boolean;
-  // Q-D2 — refine-mode props. Only THIS message's card surfaces refine
-  // chrome (the screen's `refineMode.messageId` matches `msg.id`). All
-  // other cards pass `isRefining=false` so simultaneous taps don't
-  // confuse the chat surface.
+  // Q-D2 — refine-mode props.
   isRefining?: boolean;
   lockedIds?: Set<string>;
   onToggleLock?: (garmentId: string) => void;
   onEnterRefine?: (messageId: string, garmentIds: string[], explanation: string) => void;
   onCancelRefine?: () => void;
+  // Web-parity additions:
+  /** Tapping an inline garment pill — receives the garment id so the
+   *  screen can navigate to GarmentDetail. */
+  onOpenGarment: (garmentId: string) => void;
 };
 
 export const MessageItem = React.memo(
@@ -71,31 +93,22 @@ export const MessageItem = React.memo(
     onToggleLock,
     onEnterRefine,
     onCancelRefine,
+    onOpenGarment,
   }: MessageItemProps) {
     const t = useTokens();
     const isUser = msg.role === 'user';
     const showTypingDots = msg.isStreaming && !msg.content;
     const mode = !isUser ? modeLabel(msg.stylistMeta?.mode) : null;
-    // G1 — outfit suggestion card surfaced when the assistant explicitly
-    // asks for one (`render_outfit_card === true`) AND the envelope
-    // carries at least one garment id. The active_look's garment_ids
-    // override outfit_ids when present (matches web's preference order)
-    // so a "preserve_if_exists" turn renders the same outfit the user
-    // is already iterating on.
     const meta = msg.stylistMeta ?? null;
-    const outfitGarmentIds: string[] = !isUser && meta?.render_outfit_card === true
-      ? (meta.active_look?.garment_ids?.length
-          ? meta.active_look.garment_ids
-          : meta.outfit_ids ?? [])
-      : [];
-    // Codex P3 round 3 on PR #789: the style_chat envelope's
-    // `outfit_ids` is the resolved GARMENT id list (per the edge
-    // function contract), NOT a saved outfit row id. Until the contract
-    // carries an explicit saved-outfit row id field, leave this null so
-    // OutfitSuggestionCard always uses the suggestion title.
+    const outfitGarmentIds = useMemo<string[]>(() => {
+      if (isUser || meta?.render_outfit_card !== true) return [];
+      if (meta.active_look?.garment_ids?.length) return meta.active_look.garment_ids;
+      return meta.outfit_ids ?? [];
+    }, [isUser, meta?.render_outfit_card, meta?.active_look?.garment_ids, meta?.outfit_ids]);
     const outfitId: string | null = null;
     const outfitExplanation = meta?.outfit_explanation || '';
     const showOutfitCard = !isUser && outfitGarmentIds.length > 0;
+
     // Synthesized SHOPPING envelopes carry a non-null `active_look` with
     // an empty `garment_ids: []`, so a Boolean() check alone returns
     // true and the screen-reader announces the long-press anchor hint
@@ -103,75 +116,180 @@ export const MessageItem = React.memo(
     // non-empty garment_ids list.
     const canAnchor =
       !isUser &&
-      Boolean(msg.stylistMeta?.active_look) &&
-      (msg.stylistMeta?.active_look?.garment_ids?.length ?? 0) > 0;
-    // M23 — shopping result cards rendered beneath the bubble.
+      Boolean(meta?.active_look) &&
+      (meta?.active_look?.garment_ids?.length ?? 0) > 0;
+
     const shoppingCards =
-      !isUser && msg.stylistMeta?.shopping_results
-        ? msg.stylistMeta.shopping_results
-        : null;
+      !isUser && meta?.shopping_results ? meta.shopping_results : null;
+
+    // Web parity — clean the prose text before any per-segment parsing,
+    // mirroring `ChatMessage.tsx:99`. Stripping unknown markup keeps a
+    // streaming bubble visually stable: half-arrived tags are removed
+    // until the closing `]]` lands. `stripOutfitTokens` then drops any
+    // `[[outfit:…|…]]` tags — mobile renders the outfit card from the
+    // envelope, so leaving outfit markup in the prose would leak raw
+    // tokens into the bubble (Codex P2 on PR #845).
+    const rawText = isUser
+      ? msg.content
+      : stripOutfitTokens(stripUnknownGarmentMarkup(msg.content ?? ''));
+
+    // Web parity — extract the rejection sentence ("kept the loafers
+    // over the trainers …") when an outfit card is present. The
+    // remainder feeds the inline-prose path so the card-supporting
+    // editorial line doesn't repeat.
+    const { rejectionLine, displayText } = useMemo(() => {
+      if (isUser) return { rejectionLine: null, displayText: rawText };
+      if (!showOutfitCard) return { rejectionLine: null, displayText: rawText };
+      const extracted = extractRejectionSentence(rawText);
+      if (!extracted) return { rejectionLine: null, displayText: rawText };
+      return { rejectionLine: extracted.rejection, displayText: extracted.remainder };
+    }, [isUser, showOutfitCard, rawText]);
+
+    // Web parity — collect all garment ids worth surfacing as inline
+    // pills: those mentioned via `[[garment:…]]` tokens in prose, plus
+    // any envelope-level `garment_mentions[]` that aren't already part
+    // of the outfit card. Order is preserved so the bubble reads
+    // top-to-bottom in a natural sequence (prose ids first, envelope
+    // extras after).
+    const { textSegments, inlineGarmentIds } = useMemo(() => {
+      if (isUser || !displayText) {
+        return { textSegments: null, inlineGarmentIds: [] as string[] };
+      }
+      const segs = parseGarmentTextSegments(displayText);
+      const ids: string[] = [];
+      segs.forEach((s) => {
+        if (s.type === 'garment' && s.id && !ids.includes(s.id)) ids.push(s.id);
+      });
+      const extras = (meta?.garment_mentions ?? []).filter(
+        (id) => !!id && !ids.includes(id) && !outfitGarmentIds.includes(id),
+      );
+      extras.forEach((id) => {
+        if (!ids.includes(id)) ids.push(id);
+      });
+      return { textSegments: segs, inlineGarmentIds: ids };
+    }, [isUser, displayText, meta?.garment_mentions, outfitGarmentIds]);
+
+    // Hydrate the inline garment ids. Empty list short-circuits the
+    // hook to `enabled: false`, so the SELECT only runs when there's
+    // something to render.
+    const { data: inlineGarments } = useGarmentsByIds(inlineGarmentIds);
+    const inlineGarmentMap = useMemo(() => {
+      const map = new Map<string, GarmentBasic>();
+      (inlineGarments ?? []).forEach((g) => {
+        if (g.id) map.set(g.id, g);
+      });
+      return map;
+    }, [inlineGarments]);
+    // Hydrated id set for ProseRenderer's "drop inline label when chip
+    // will render" branch. Memoized off the same hook result so we
+    // don't allocate a fresh Set per render.
+    const hydratedInlineIds = useMemo(
+      () => new Set(inlineGarmentMap.keys()),
+      [inlineGarmentMap],
+    );
 
     const handleLongPress = () => {
       if (canAnchor) onLongPress(msg);
     };
 
+    // Codex P2 round 3 on PR #845 — guard the bubble against empty
+    // prose. For assistant replies whose text was entirely consumed by
+    // structured tokens (e.g. a pure `[[outfit:…]]` envelope where
+    // `stripOutfitTokens` empties the prose, or text that decomposed
+    // into only-hydrated `[[garment:…]]` chips), rendering the bubble
+    // chrome would leave a blank rounded card above the outfit/garment
+    // cards. Compute a boolean: a bubble is worth rendering when the
+    // user is talking, OR streaming dots are due, OR there is at least
+    // one segment that will actually emit pixels (text run, or a
+    // garment segment that falls back to inline label because no chip
+    // will render for it).
+    const hasProseContent = useMemo(() => {
+      if (isUser) return !!msg.content;
+      if (showTypingDots) return true;
+      if (textSegments && textSegments.length > 0) {
+        return textSegments.some((s) => {
+          if (s.type === 'text') return !!s.value;
+          return !hydratedInlineIds.has(s.id) && !!s.label;
+        });
+      }
+      return !!displayText;
+    }, [
+      isUser,
+      msg.content,
+      showTypingDots,
+      textSegments,
+      hydratedInlineIds,
+      displayText,
+    ]);
+
+    // Inline label override map — if a [[garment:uuid|label]] segment
+    // supplied a custom label, prefer it over the garment row's title.
+    const labelById = useMemo(() => {
+      const map = new Map<string, string>();
+      (textSegments ?? []).forEach((s) => {
+        if (s.type === 'garment' && s.label && s.id && !map.has(s.id)) {
+          map.set(s.id, s.label);
+        }
+      });
+      return map;
+    }, [textSegments]);
+
     return (
       <View
         style={{
           alignSelf: isUser ? 'flex-end' : 'flex-start',
-          maxWidth: '82%',
+          maxWidth: '92%',
           gap: 8,
         }}>
-        <Pressable
-          onLongPress={handleLongPress}
-          delayLongPress={400}
-          disabled={!canAnchor}
-          accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}>
-          {mode ? (
-            <Eyebrow style={{ marginBottom: 4, marginLeft: 4 }}>{mode}</Eyebrow>
-          ) : null}
-          <View
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              backgroundColor: isUser ? t.fg : t.card,
-              borderRadius: 18,
-              borderBottomRightRadius: isUser ? 4 : 18,
-              borderBottomLeftRadius: isUser ? 18 : 4,
-              borderWidth: isUser ? 0 : 1,
-              borderColor: t.border,
-            }}>
-            {showTypingDots ? (
-              <TypingDots color={t.fg2} />
-            ) : (
-              <Text
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 13.5,
-                  lineHeight: 19,
-                  color: isUser ? t.bg : t.fg,
-                  letterSpacing: -0.13,
-                }}>
-                {msg.content}
-                {msg.isStreaming && msg.content ? (
-                  <Text style={{ color: t.fg3 }}> ▋</Text>
-                ) : null}
-              </Text>
-            )}
-          </View>
-        </Pressable>
-        {/* M23 — product cards beneath the regular text bubble. */}
-        {shoppingCards && shoppingCards.length > 0 ? (
-          <View style={{ gap: 8 }}>
-            {shoppingCards.map((card) => (
-              <ShoppingResultCard
-                key={card.id}
-                card={card}
-                onOpen={onOpenProductLink}
-              />
-            ))}
-          </View>
+        {hasProseContent ? (
+          <Pressable
+            onLongPress={handleLongPress}
+            delayLongPress={400}
+            disabled={!canAnchor}
+            accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}>
+            {mode ? (
+              <Eyebrow style={{ marginBottom: 4, marginLeft: 4 }}>{mode}</Eyebrow>
+            ) : null}
+            <View
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                backgroundColor: isUser ? t.fg : t.card,
+                borderRadius: 18,
+                borderBottomRightRadius: isUser ? 4 : 18,
+                borderBottomLeftRadius: isUser ? 18 : 4,
+                borderWidth: isUser ? 0 : 1,
+                borderColor: t.border,
+              }}>
+              {showTypingDots ? (
+                <TypingDots color={t.fg2} />
+              ) : (
+                <Text
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 13.5,
+                    lineHeight: 19,
+                    color: isUser ? t.bg : t.fg,
+                    letterSpacing: -0.13,
+                  }}>
+                  {isUser ? (
+                    msg.content
+                  ) : (
+                    <ProseRenderer
+                      segments={textSegments}
+                      fallbackText={displayText}
+                      hydratedIds={hydratedInlineIds}
+                    />
+                  )}
+                  {msg.isStreaming && msg.content ? (
+                    <Text style={{ color: t.fg3 }}> ▋</Text>
+                  ) : null}
+                </Text>
+              )}
+            </View>
+          </Pressable>
         ) : null}
+
         {/* G1 — outfit suggestion card. */}
         {showOutfitCard ? (
           <OutfitSuggestionCard
@@ -193,6 +311,74 @@ export const MessageItem = React.memo(
             onCancelRefine={onCancelRefine}
           />
         ) : null}
+
+        {/* Web parity — italic rejection line UNDER the outfit card,
+            left-bordered with the accent colour. Mirrors web's grouping
+            at `src/components/chat/ChatMessage.tsx:240-267` where the
+            "kept X over Y" copy sits as card-supporting context, NOT
+            above-and-detached from the look it explains. Codex P3 round
+            2 on PR #845. Renders only when an outfit card is present;
+            otherwise extractRejectionSentence early-returns null and
+            the rejection sentence stays in the prose. */}
+        {!isUser && rejectionLine ? (
+          <View
+            style={{
+              borderLeftWidth: 1.5,
+              borderLeftColor: t.accent + '40',
+              paddingLeft: 10,
+              marginLeft: 4,
+            }}>
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 12,
+                lineHeight: 18,
+                color: t.fg2,
+              }}>
+              {rejectionLine}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* M23 — product cards beneath the regular text bubble. */}
+        {shoppingCards && shoppingCards.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            {shoppingCards.map((card) => (
+              <ShoppingResultCard
+                key={card.id}
+                card={card}
+                onOpen={onOpenProductLink}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {/* Web parity — inline garment-card pills. Rendered last so
+            they hang under both the outfit card AND the prose, matching
+            web's `ChatMessage.tsx:305-316` ordering. */}
+        {!isUser && inlineGarmentIds.length > 0 ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 6,
+              paddingTop: 2,
+            }}>
+            {inlineGarmentIds.map((id) => {
+              const garment = inlineGarmentMap.get(id);
+              if (!garment) return null;
+              return (
+                <GarmentInlineCard
+                  key={id}
+                  garment={garment}
+                  onPress={onOpenGarment}
+                  label={labelById.get(id)}
+                />
+              );
+            })}
+          </View>
+        ) : null}
       </View>
     );
   },
@@ -205,24 +391,69 @@ export const MessageItem = React.memo(
     && a.msg.stylistMeta?.render_outfit_card === b.msg.stylistMeta?.render_outfit_card
     && a.msg.stylistMeta?.outfit_ids === b.msg.stylistMeta?.outfit_ids
     && a.msg.stylistMeta?.active_look?.garment_ids === b.msg.stylistMeta?.active_look?.garment_ids
+    && a.msg.stylistMeta?.garment_mentions === b.msg.stylistMeta?.garment_mentions
     && a.onLongPress === b.onLongPress
     && a.onOpenProductLink === b.onOpenProductLink
     && a.onTryOutfit === b.onTryOutfit
     && a.onSaveOutfit === b.onSaveOutfit
+    && a.onOpenGarment === b.onOpenGarment
     && a.isSavingOutfit === b.isSavingOutfit
     && a.isOutfitSaved === b.isOutfitSaved
-    // Q-D2 — refine props. `isRefining` is `false` for every non-active
-    // card so toggling refine on one card doesn't re-render the entire
-    // FlatList; only the active card and its previous-active sibling
-    // see a referential change. `lockedIds` identity changes whenever
-    // a tile is tapped (new Set each toggle) so the active card always
-    // re-renders to surface the latest badge state.
     && a.isRefining === b.isRefining
     && a.lockedIds === b.lockedIds
     && a.onToggleLock === b.onToggleLock
     && a.onEnterRefine === b.onEnterRefine
     && a.onCancelRefine === b.onCancelRefine,
 );
+
+// Inline prose with bold-markdown support. Garment-tag segments yield
+// to a chip below the bubble when the garment row is hydrated; when
+// hydration is still pending OR has resolved empty (RLS, deleted row),
+// the segment's `|label` fallback is rendered inline so the sentence
+// still reads naturally. Mirrors web `ChatMessage.tsx:174-180`.
+function ProseRenderer({
+  segments,
+  fallbackText,
+  hydratedIds,
+}: {
+  segments: ReturnType<typeof parseGarmentTextSegments> | null;
+  fallbackText: string;
+  hydratedIds: Set<string>;
+}) {
+  if (!segments || segments.length === 0) {
+    return <>{renderBoldRuns(fallbackText)}</>;
+  }
+  return (
+    <>
+      {segments.map((s, i) => {
+        if (s.type === 'text') {
+          return <Text key={`t-${i}`}>{renderBoldRuns(s.value + ' ')}</Text>;
+        }
+        // Hydrated → chip carries the title below; suppress inline so
+        // the title isn't duplicated.
+        if (hydratedIds.has(s.id)) return null;
+        // Not yet hydrated (or filtered) → fall back to the label so
+        // the sentence doesn't read as "Pair the with the loafers".
+        if (s.label) {
+          return <Text key={`g-${i}`}>{renderBoldRuns(s.label + ' ')}</Text>;
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
+function renderBoldRuns(text: string): React.ReactNode {
+  if (!text) return null;
+  const runs = parseBoldSegments(text);
+  return runs.map((r, i) =>
+    r.bold ? (
+      <Text key={i} style={{ fontFamily: fonts.uiSemi }}>{r.value}</Text>
+    ) : (
+      <Text key={i}>{r.value}</Text>
+    ),
+  );
+}
 
 // Three-dot typing indicator. Uses simple opacity cycling rather than a
 // full Animated.loop so the assistant bubble doesn't pay the cost of a
