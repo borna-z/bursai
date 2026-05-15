@@ -263,31 +263,6 @@ export const MessageItem = React.memo(
           </View>
         </Pressable>
 
-        {/* Web parity — italic rejection line under the outfit card,
-            left-bordered with the accent colour. Renders only when an
-            outfit card is present (otherwise the rejection sentence
-            stays in the prose). */}
-        {!isUser && rejectionLine ? (
-          <View
-            style={{
-              borderLeftWidth: 1.5,
-              borderLeftColor: t.accent + '40',
-              paddingLeft: 10,
-              marginLeft: 4,
-            }}>
-            <Text
-              style={{
-                fontFamily: fonts.displayMedium,
-                fontStyle: 'italic',
-                fontSize: 12,
-                lineHeight: 18,
-                color: t.fg2,
-              }}>
-              {rejectionLine}
-            </Text>
-          </View>
-        ) : null}
-
         {/* G1 — outfit suggestion card. */}
         {showOutfitCard ? (
           <OutfitSuggestionCard
@@ -309,6 +284,35 @@ export const MessageItem = React.memo(
             }
             onCancelRefine={onCancelRefine}
           />
+        ) : null}
+
+        {/* Web parity — italic rejection line UNDER the outfit card,
+            left-bordered with the accent colour. Mirrors web's grouping
+            at `src/components/chat/ChatMessage.tsx:240-267` where the
+            "kept X over Y" copy sits as card-supporting context, NOT
+            above-and-detached from the look it explains. Codex P3 round
+            2 on PR #845. Renders only when an outfit card is present;
+            otherwise extractRejectionSentence early-returns null and
+            the rejection sentence stays in the prose. */}
+        {!isUser && rejectionLine ? (
+          <View
+            style={{
+              borderLeftWidth: 1.5,
+              borderLeftColor: t.accent + '40',
+              paddingLeft: 10,
+              marginLeft: 4,
+            }}>
+            <Text
+              style={{
+                fontFamily: fonts.displayMedium,
+                fontStyle: 'italic',
+                fontSize: 12,
+                lineHeight: 18,
+                color: t.fg2,
+              }}>
+              {rejectionLine}
+            </Text>
+          </View>
         ) : null}
 
         {/* M23 — product cards beneath the regular text bubble. */}
