@@ -41,6 +41,8 @@
 //     memory until the user finishes or app is backgrounded long enough to
 //     be evicted by RN, which is fine.
 
+import * as Crypto from 'expo-crypto';
+
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../lib/garmentSave';
 import {
@@ -163,7 +165,10 @@ interface Batch {
 const batches = new Map<string, Batch>();
 
 export function makeBatchId(): string {
-  return `b-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  // Wave R-D.4 — collision-resistant UUIDv4 (was `b-<ts>-<6-char Math.random>`
+  // which had a ~1e-7 collision chance under rapid retries). UUIDv4 matches
+  // the garmentId generation scheme so logs are visually consistent.
+  return `b-${Crypto.randomUUID()}`;
 }
 
 export interface StartBatchOptions {
