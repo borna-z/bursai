@@ -34,6 +34,7 @@ import { hapticLight, hapticSelection } from '../lib/haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useResetPassword } from '../hooks/useResetPassword';
 import { supabase } from '../lib/supabase';
+import { markOAuthPending } from '../lib/oauthPending';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -222,9 +223,16 @@ export function AuthScreen() {
       // signInWithOAuth with skipBrowserRedirect returns the provider URL in
       // data.url but does NOT open it — the RN client has no window to
       // navigate. We open it via Linking; Google redirects back to
-      // `burs://auth/callback?code=...`, which RootNavigator catches and
-      // hands to supabase.auth.exchangeCodeForSession.
+      // `burs://auth/callback?code=...` (PKCE) or `…#access_token=…` (implicit,
+      // the supabase-js v2 default), which RootNavigator catches.
+      //
+      // Stash a one-shot pending marker BEFORE opening the URL so the
+      // implicit-flow handler can verify the callback originated from this
+      // user-initiated sign-in attempt. Without the marker a malicious app
+      // sharing the `burs://` scheme could synthesise tokens and force a
+      // session swap. See lib/oauthPending.ts for the rationale.
       if (data?.url) {
+        await markOAuthPending();
         await Linking.openURL(data.url);
       }
     } finally {

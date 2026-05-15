@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { exchangeCalendarCode, triggerGoogleSync } from '../hooks/useCalendarSync';
+import { consumeOAuthPending } from '../lib/oauthPending';
 import { t as tr } from '../lib/i18n';
 
 // Acquisition flow
@@ -459,6 +460,17 @@ async function handleOAuthDeepLink(
     const refreshToken = params.get('refresh_token');
     if (accessToken && refreshToken) {
       if (lastExchangedCodeRef.current === accessToken) return;
+      // Codex P2 round 1: the `burs://` scheme is not exclusive on iOS or
+      // Android, so a foreign app could deep-link the app with attacker-
+      // chosen bearer tokens and force a session swap. Gate the implicit-
+      // flow path on the one-shot marker AuthScreen stashed before opening
+      // the provider URL. PKCE (below) is safe without this gate because
+      // the code is useless without the local `code_verifier`.
+      const isPending = await consumeOAuthPending();
+      if (!isPending) {
+        console.warn('[RootNavigator] OAuth fragment without pending marker — dropped.');
+        return;
+      }
       lastExchangedCodeRef.current = accessToken;
       try {
         const { error } = await supabase.auth.setSession({
