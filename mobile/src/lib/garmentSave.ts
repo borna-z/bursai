@@ -270,10 +270,6 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
         : null;
   if (formalityValue !== null) {
     insert.formality = formalityValue;
-  // Only set formality when the model actually returned a number — leaving
-  // the field absent lets Postgres apply the column's schema default (3)
-  // instead of writing NULL into a NOT-NULL-defaulted column. Codex P2
-  // round on PR #738.
   }
 
   // Wave R-B — `mask_status` is the prompt-branch signal for

@@ -86,10 +86,19 @@ function uploadMaskedSidecarPath(rawStoragePath: string): string {
   );
 }
 
+// Consume-once registry. Entries are dropped on the first `getUploadMaskMetadata`
+// read so a long AddPiece session can't accumulate map entries faster than
+// `persistGarment` consumes them. `deleteUpload` derives the sidecar path
+// deterministically from the storagePath instead of reading this map, so a
+// cleanup after the entry has been consumed (or after a cold start) still
+// removes the orphaned masked sidecar.
 const uploadMaskMetadata = new Map<string, UploadMaskMetadata>();
 
 export function getUploadMaskMetadata(storagePath: string): UploadMaskMetadata | null {
-  return uploadMaskMetadata.get(storagePath) ?? null;
+  const value = uploadMaskMetadata.get(storagePath);
+  if (value === undefined) return null;
+  uploadMaskMetadata.delete(storagePath);
+  return value;
 }
 
 function rememberUploadMaskMetadata(
@@ -255,16 +264,11 @@ export async function uploadManipulatedImage(
   }
 
   try {
-    const masked = await ImageManipulator.manipulateAsync(
-      maskRes.uri,
-      [],
-      {
-        compress: 0.8,
-        format: ImageManipulator.SaveFormat.WEBP,
-      },
-    );
+    // Native module emits a WebP file (see `backgroundRemoval.ts` contract).
+    // Upload its bytes directly — re-encoding through ImageManipulator was a
+    // 50–150ms no-op that wrote a redundant temp file on every masked capture.
     const maskedStoragePath = uploadMaskedSidecarPath(storagePath);
-    const maskedBytes = await safeReadBytes(masked.uri);
+    const maskedBytes = await safeReadBytes(maskRes.uri);
     await uploadBytes(maskedStoragePath, maskedBytes, true);
     const metadata = { maskedStoragePath, maskStatus: 'masked' as const };
     rememberUploadMaskMetadata(storagePath, metadata);
@@ -313,11 +317,14 @@ export async function uploadGarmentVariant(
 export async function deleteUpload(storagePath: string): Promise<void> {
   if (!storagePath) return;
   try {
-    const metadata = uploadMaskMetadata.get(storagePath);
     uploadMaskMetadata.delete(storagePath);
-    const paths = metadata?.maskedStoragePath
-      ? [storagePath, metadata.maskedStoragePath]
-      : [storagePath];
+    // Derive the sidecar path deterministically — the in-memory map is
+    // empty after a cold start, so a metadata-based cleanup would leak the
+    // masked sidecar forever in that case. Supabase storage `remove()` is
+    // tolerant of missing keys, so passing both for legacy flat-path
+    // garments (which never had a masked sidecar) is safe.
+    const sidecar = uploadMaskedSidecarPath(storagePath);
+    const paths = sidecar !== storagePath ? [storagePath, sidecar] : [storagePath];
     await supabase.storage.from(BUCKET).remove(paths);
   } catch (err) {
     console.warn('[imageUpload] orphan cleanup failed:', err);

@@ -16,7 +16,7 @@ jest.mock('../supabase', () => ({
 
 jest.mock('../backgroundRemoval', () => ({
   removeBackground: mockRemoveBackground,
-  MASK_SAVE_TIMEOUT_MS: 800,
+  MASK_SAVE_TIMEOUT_MS: 50,
 }));
 
 jest.mock('expo-image-manipulator', () => ({
@@ -83,5 +83,59 @@ describe('imageUpload background removal sidecar', () => {
       result.storagePath,
       result.maskedStoragePath,
     ]);
+  });
+
+  it('removes the masked sidecar even after the in-memory metadata has been consumed (cold-start orphan)', async () => {
+    const { deleteUpload, getUploadMaskMetadata, uploadManipulatedImage } =
+      require('../imageUpload');
+    const result = await uploadManipulatedImage(
+      { uri: 'file://raw.webp', width: 1024, height: 768 },
+      'user-1',
+    );
+
+    // Simulate `persistGarment` having already drained the metadata, or a
+    // cold-start `deleteUpload` where the in-memory map is empty.
+    expect(getUploadMaskMetadata(result.storagePath)).not.toBeNull();
+    expect(getUploadMaskMetadata(result.storagePath)).toBeNull();
+
+    await deleteUpload(result.storagePath);
+
+    const expectedSidecar = result.storagePath.replace(/\.webp$/, '.masked.webp');
+    expect(mockRemoveStorage).toHaveBeenCalledWith([
+      result.storagePath,
+      expectedSidecar,
+    ]);
+  });
+
+  it('falls through to the raw upload (no sidecar) when the mask never resolves before MASK_SAVE_TIMEOUT_MS', async () => {
+    mockRemoveBackground.mockImplementation(
+      () => new Promise(() => {}), // never resolves
+    );
+    const { uploadManipulatedImage } = require('../imageUpload');
+
+    const result = await uploadManipulatedImage(
+      { uri: 'file://raw.webp', width: 1024, height: 768 },
+      'user-1',
+    );
+
+    expect(result.maskedStoragePath).toBeUndefined();
+    expect(result.maskStatus).toBe('unavailable');
+    // Exactly one upload — raw only. The masked sidecar branch never ran.
+    expect(mockUpload).toHaveBeenCalledTimes(1);
+    expect(mockManipulate).not.toHaveBeenCalled();
+  });
+
+  it('uploads native masked bytes directly without re-encoding through ImageManipulator', async () => {
+    const { uploadManipulatedImage } = require('../imageUpload');
+
+    await uploadManipulatedImage(
+      { uri: 'file://raw.webp', width: 1024, height: 768 },
+      'user-1',
+    );
+
+    // The native module already emits a WebP; the prior double-transcode
+    // path called `manipulateAsync(maskRes.uri, ...)` here. Verify we don't
+    // pay that cost any more.
+    expect(mockManipulate).not.toHaveBeenCalled();
   });
 });
