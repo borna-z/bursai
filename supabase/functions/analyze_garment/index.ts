@@ -4,6 +4,14 @@ import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
+import {
+  FAST_SCHEMA,
+  FULL_SCHEMA,
+  ENRICH_SCHEMA,
+  isSupportedLocale,
+  type SupportedLocale,
+} from "./schemas.ts";
+import { ensureCachedContent } from "../_shared/gemini-cache.ts";
 
 interface AnalyzeRequest {
   storagePath?: string;
@@ -12,7 +20,11 @@ interface AnalyzeRequest {
   mode?: 'fast' | 'full' | 'enrich';
 }
 
-const TITLE_LANG_MAP: Record<string, string> = {
+// S-B.4 — explicit `SupportedLocale` union keyed by `TITLE_LANG_MAP`.
+// Keys MUST be kept in sync with `SUPPORTED_LOCALES` in `./schemas.ts`;
+// `as const satisfies Record<SupportedLocale, string>` flags any drift at
+// deno-check time before it can reach production.
+const TITLE_LANG_MAP = {
   sv: 'kort beskrivande titel på svenska (max 30 tecken)',
   en: 'short descriptive title in English (max 30 characters)',
   no: 'kort beskrivende tittel på norsk (maks 30 tegn)',
@@ -27,7 +39,8 @@ const TITLE_LANG_MAP: Record<string, string> = {
   ar: 'عنوان وصفي قصير بالعربية (بحد أقصى 30 حرفًا)',
   fa: 'عنوان توصیفی کوتاه به فارسی (حداکثر ۳۰ نویسه)',
   ja: '日本語の短い説明タイトル（最大30文字）',
-};
+  pl: 'krótki opisowy tytuł po polsku (maks. 30 znaków)',
+} as const satisfies Record<SupportedLocale, string>;
 
 interface DetectedGarment {
   title: string;
@@ -139,128 +152,96 @@ function normalizeFormality(formality: number): number {
   return Math.max(1, Math.min(5, Math.round(formality)));
 }
 
-// ─── Fast mode: minimal prompt, trivial complexity, 200 tokens ───
+// ─── Prompts ──────────────────────────────────────────────────
+//
+// With Gemini structured output (S-B.1) the schema (in ./schemas.ts) is
+// the contract — the prompt no longer needs to enumerate every enum
+// value or beg "JSON only, no explanatory text". This shaves ~150-200
+// tokens off every fast-mode prompt and ~400 off enrich, the savings
+// the wave file budgets for.
+
+// Fast mode — minimal instruction, schema does the typing.
 function buildFastMessages(imageUrl: string, titleInstruction: string) {
   return [
     {
       role: 'system',
-      content: `Fashion garment analyzer. Return ONLY valid JSON: {"title":"${titleInstruction}","category":"top|bottom|shoes|outerwear|accessory|dress","subcategory":"string","color_primary":"black|white|grey|blue|navy|beige|brown|green|red|pink|purple|yellow|orange","color_secondary":"color|null","pattern":"solid|striped|checked|dotted|floral|patterned|null","material":"cotton|polyester|linen|denim|leather|wool|silk|synthetic|null","fit":"slim|regular|loose|oversized|null","season_tags":["spring","summer","autumn","winter"],"formality":3,"confidence":0.75}
-confidence rules: 0.90-1.0 only when category, color, and type are completely unambiguous. 0.65-0.89 when garment is partially visible, background is busy, or category is somewhat uncertain. Below 0.65 when dark, blurry, or multiple items visible. Never default to 0.9.`
+      content: `Fashion garment analyzer. For "title", return ${titleInstruction}. For "subcategory", give the specific garment type in English (e.g. t-shirt, jeans, sneakers, jacket).
+confidence rules: 0.90-1.0 only when category, color, and type are completely unambiguous. 0.65-0.89 when garment is partially visible, background is busy, or category is somewhat uncertain. Below 0.65 when dark, blurry, or multiple items visible. Never default to 0.9.`,
     },
     {
       role: 'user',
       content: [
-        { type: 'text', text: 'Analyze this garment. JSON only.' },
-        { type: 'image_url', image_url: { url: imageUrl } }
-      ]
-    }
+        { type: 'text', text: 'Analyze this garment.' },
+        { type: 'image_url', image_url: { url: imageUrl } },
+      ],
+    },
   ];
 }
 
-// ─── Full mode: detailed prompt ───
+// Full mode — fashion expert with multi-garment detection.
 function buildFullMessages(imageUrl: string, titleInstruction: string) {
   return [
     {
       role: 'system',
-      content: `You are a fashion expert analyzing garments from images.
-Respond ONLY with valid JSON matching this schema:
-{
-"title": "${titleInstruction}",
-"category": "EXACTLY one of: top, bottom, shoes, outerwear, accessory, dress",
-"subcategory": "specific type in English, e.g. t-shirt, jeans, sneakers, jacket",
-"color_primary": "EXACTLY one of: black, white, grey, blue, navy, beige, brown, green, red, pink, purple, yellow, orange",
-"color_secondary": "same color choices as above, or null if not applicable",
-"pattern": "one of: solid, striped, checked, dotted, floral, patterned, null",
-"material": "one of: cotton, polyester, linen, denim, leather, wool, silk, synthetic, null",
-"fit": "one of: slim, regular, loose, oversized, null",
-"season_tags": ["list from: spring, summer, autumn, winter"],
-"formality": 3,
-"confidence": 0.9,
-"image_contains_multiple_garments": false,
-"detected_garments": [{"title": "string", "category": "top|bottom|shoes|outerwear|accessory|dress", "subcategory": "string", "color_primary": "black|white|grey|blue|navy|beige|brown|green|red|pink|purple|yellow|orange", "color_secondary": "color|null", "pattern": "solid|striped|checked|dotted|floral|patterned|null", "material": "cotton|polyester|linen|denim|leather|wool|silk|synthetic|null", "fit": "slim|regular|loose|oversized|null", "season_tags": ["spring","summer","autumn","winter"], "formality": 3, "confidence": 0.9}]
-}
-Formality: 1=very casual, 5=very formal.
-confidence: 0-1 for the main garment decision.
-Set image_contains_multiple_garments=true if the photo clearly contains more than one distinct garment that could be added separately.
-When image_contains_multiple_garments=true, populate detected_garments with one entry per distinct garment. When false, omit detected_garments or return a single main garment only.
-Respond ONLY with JSON, no explanatory text.`
+      content: `You are a fashion expert analyzing garments from images. For "title", return ${titleInstruction}. For "subcategory", give the specific garment type in English (e.g. t-shirt, jeans, sneakers, jacket).
+Formality: 1=very casual, 5=very formal. Confidence: 0-1.
+Set image_contains_multiple_garments=true if the photo clearly contains more than one distinct garment that could be added separately, and populate detected_garments with one entry per distinct garment. Otherwise set image_contains_multiple_garments=false and return an empty detected_garments array.`,
     },
     {
       role: 'user',
       content: [
-        { type: 'text', text: 'Analyze this garment and return structured JSON.' },
-        { type: 'image_url', image_url: { url: imageUrl } }
-      ]
-    }
+        { type: 'text', text: 'Analyze this garment.' },
+        { type: 'image_url', image_url: { url: imageUrl } },
+      ],
+    },
   ];
 }
 
-// ─── Enrich mode: deeper metadata from stored image ───
-function buildEnrichMessages(imageUrl: string) {
+// Enrich mode — system prompt is cached server-side (S-B.2). The schema
+// in ./schemas.ts pins the response shape; the prompt focuses on
+// stylist-level interpretation guidance the schema can't encode.
+//
+// ENRICH_SYSTEM_PROMPT is exported separately so `_shared/gemini-cache.ts`
+// can warm the cache with the exact string the model will see; if the two
+// drift, Gemini's cache hash misses and the discount is lost.
+export const ENRICH_SYSTEM_PROMPT = `You are an elite fashion stylist analyzing a garment image for deep intelligence.
+
+versatility_score: 1-10 (1=very specific, 10=ultimate wardrobe staple).
+confidence: 0-1 (how confident you are in this analysis).
+
+For rise / leg_shape / waistband — leave null when the garment is not a bottom.
+For text_on_garment / logo_description / graphic_or_print_description — leave null when the garment is plain or has only a simple repeating pattern.
+For color_description — provide the precise color name beyond the basic palette (e.g. 'pale sage green', 'washed indigo', 'off-white cream', 'heather grey'); match exactly what is visible.
+For occasion_tags — choose from: work, weekend, evening, sport, date, travel, formal, lounge.
+For style_tags — up to 5 descriptors. For care_instructions — up to 3 short tips.
+For stylist_note — one sentence on how a real stylist would use this piece.
+For color_harmony_notes — what tones pair well.
+For refined_title — improved concise title (max 30 chars).`;
+
+// When `withSystemMessage` is false, the system instruction is assumed to
+// be carried by Gemini's `cached_content` payload. Sending it again per
+// request causes Gemini to reject (or ignore) the cached content — every
+// enrich call would fall through to the catch path and return
+// `{ enrichment: null }`. The cache-miss path keeps the inline system
+// message so correctness holds without the discount.
+function buildEnrichMessages(imageUrl: string, withSystemMessage = true) {
+  const userMessage = {
+    role: 'user',
+    content: [
+      { type: 'text', text: 'Provide deep garment intelligence.' },
+      { type: 'image_url', image_url: { url: imageUrl } },
+    ],
+  };
+  if (!withSystemMessage) {
+    return [userMessage];
+  }
   return [
     {
       role: 'system',
-      content: `You are an elite fashion stylist analyzing a garment image for deep intelligence. Return ONLY valid JSON:
-{
-"neckline": "crew|v-neck|scoop|collar|turtleneck|boat|hooded|off-shoulder|mock-neck|null",
-"sleeve_length": "sleeveless|cap|short|three-quarter|long|null",
-"garment_length": "cropped|regular|long|midi|maxi|null",
-"closure": "button|zip|pullover|snap|belt|tie|wrap|null",
-"fabric_weight": "sheer|lightweight|midweight|heavyweight|null",
-"silhouette": "fitted|tailored|relaxed|boxy|a-line|straight|flared|draped|null",
-"visual_weight": "light|medium|heavy — how dominant this piece is in an outfit",
-"texture_intensity": "smooth|subtle|moderate|pronounced|bold — tactile/visual texture level",
-"shoulder_structure": "natural|dropped|structured|padded|raglan|null",
-"drape": "crisp|structured|soft|fluid|null — how the fabric falls",
-"rise": "low|mid|high|null — for bottoms only",
-"leg_shape": "skinny|straight|tapered|wide|bootcut|null — for bottoms only",
-"hem_detail": "raw|finished|cuffed|frayed|asymmetric|null",
-"style_archetype": "one of: classic, minimalist, streetwear, preppy, bohemian, athleisure, romantic, edgy, avant-garde, workwear, coastal, retro",
-"style_tags": ["up to 5 style descriptors"],
-"occasion_tags": ["up to 4 occasions: work, weekend, evening, sport, date, travel, formal, lounge"],
-"layering_role": "base|mid|outer|standalone|null",
-"care_instructions": ["up to 3 short care tips"],
-"versatility_score": 7,
-"color_harmony_notes": "what colors/tones pair well (max 80 chars)",
-"stylist_note": "one-sentence styling insight — how a real stylist would use this piece (max 120 chars)",
-"text_on_garment": "exact text, words, or numbers printed, embroidered, or woven into the garment — include brand names, slogans, numbers. null if none",
-"logo_description": "detailed description of any logo or brand mark — shape, color, placement, approximate size. null if none",
-"graphic_or_print_description": "detailed description of any graphic, artwork, or distinctive print — subject, colors, placement, style. null if solid or simple pattern",
-"collar_style": "spread|button-down|band|mock-neck|cowl|peter-pan|mandarin|none — null if not applicable",
-"construction_details": "notable stitching, seam placement, paneling, pocket style, or construction details — null if standard",
-"waistband": "elasticated|drawstring|button|belt-loops|none — for bottoms only, null otherwise",
-"color_description": "precise color description beyond the basic color name — e.g. 'pale sage green', 'washed indigo', 'off-white cream', 'heather grey'. Match exactly what is visible in the image",
-"confidence": 0.9,
-"refined_title": "improved concise garment title (max 30 chars)"
-}
-versatility_score: 1-10 (1=very specific, 10=ultimate wardrobe staple).
-confidence: 0-1 (how confident you are in this analysis).
-JSON only, no explanation.`
+      content: ENRICH_SYSTEM_PROMPT,
     },
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: 'Provide deep garment intelligence. JSON only.' },
-        { type: 'image_url', image_url: { url: imageUrl } }
-      ]
-    }
+    userMessage,
   ];
-}
-
-// ─── Clean malformed JSON from AI responses ───
-function cleanJsonResponse(raw: string): string {
-  let s = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  // Remove trailing commas before } or ]
-  s = s.replace(/,\s*([\]}])/g, '$1');
-  // Repair truncated decimal numbers (e.g. 0.} → 0} or 0., → 0,)
-  s = s.replace(/(\d+)\.\s*([\]},])/g, '$1$2');
-  // Remove any text before the first { or after the last }
-  const firstBrace = s.indexOf('{');
-  const lastBrace = s.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    s = s.substring(firstBrace, lastBrace + 1);
-  }
-  return s;
 }
 
 serve(async (req) => {
@@ -296,7 +277,24 @@ serve(async (req) => {
     const userId = user.id;
 
     const { storagePath, base64Image, locale, mode = 'full' } = await req.json() as AnalyzeRequest;
-    const titleInstruction = TITLE_LANG_MAP[locale || 'en'] || TITLE_LANG_MAP['en'];
+
+    // S-B.4 — strict locale validation. Unknown locale → 400 (no silent
+    // fallback to English; a future feature could legitimately key off
+    // locale and an unchecked fallback would mask the misconfiguration).
+    // `undefined` / missing locale → default 'en' (preserves the prior
+    // contract for callers that never sent one).
+    let resolvedLocale: SupportedLocale;
+    if (locale == null) {
+      resolvedLocale = 'en';
+    } else if (isSupportedLocale(locale)) {
+      resolvedLocale = locale;
+    } else {
+      return new Response(
+        JSON.stringify({ error: "unsupported_locale" }),
+        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
+    }
+    const titleInstruction = TITLE_LANG_MAP[resolvedLocale];
 
     if (!storagePath && !base64Image) {
       return new Response(
@@ -354,38 +352,61 @@ serve(async (req) => {
 
     // ─── Enrich mode: return enrichment data only ───
     if (mode === 'enrich') {
-      const tryEnrich = async (attempt: number) => {
+      // S-B.2 — warm / reuse the explicit Gemini cache for the enrich
+      // system prompt. Returns null on any error; we then issue an un-
+      // cached request rather than 5xx the user. Lazy: first enrich call
+      // after a deploy creates the cache (adds ~300ms to that call);
+      // subsequent calls reference it.
+      //
+      // ENRICH_MODEL is pinned to `gemini-2.5-flash` because explicit
+      // `cachedContents` is documented for flash and is NOT documented
+      // for flash-lite (the default `standard` complexity chain). The
+      // pin both guarantees cache support and prevents a silent
+      // discount-disabled fallback to flash-lite. The non-cached cost
+      // of one model call on flash vs flash-lite is marginal compared
+      // to the 90% cached-token discount we get on every enrich call.
+      const ENRICH_MODEL = "gemini-2.5-flash";
+      const cacheName = await ensureCachedContent(serviceClient, {
+        purpose: "analyze_garment_enrich_v1",
+        model: ENRICH_MODEL,
+        systemInstruction: ENRICH_SYSTEM_PROMPT,
+      });
+
+      try {
         const { data } = await callBursAI({
-          complexity: "standard",
+          models: [ENRICH_MODEL],
           max_tokens: 800,
           timeout: 20000,
           functionName: "analyze_garment_enrich",
-          messages: buildEnrichMessages(resolvedImageUrl),
-          extraBody: { temperature: attempt === 0 ? 0.1 : 0.05 },
+          // When cached_content is attached, the system prompt lives in
+          // the cache itself; sending it again per-request causes Gemini
+          // to reject/ignore the cached content. See buildEnrichMessages.
+          messages: buildEnrichMessages(resolvedImageUrl, !cacheName),
+          extraBody: { temperature: 0.1 },
+          responseFormat: ENRICH_SCHEMA,
+          ...(cacheName ? { cachedContent: cacheName } : {}),
         }, serviceClient);
 
-        const content = typeof data === 'string' ? data : JSON.stringify(data);
-        return cleanJsonResponse(content);
-      };
-
-      try {
-        let enrichment: Record<string, unknown>;
-        try {
-          enrichment = JSON.parse(await tryEnrich(0));
-        } catch {
-          // Retry once with lower temperature on parse failure
-          console.warn('Enrichment JSON parse failed, retrying...');
-          enrichment = JSON.parse(await tryEnrich(1));
-        }
+        // S-B.3 — Gemini structured output guarantees schema-valid JSON,
+        // so the legacy parse-retry codepath is gone. `data` is a string
+        // (model content) whose JSON.parse yields the schema-typed shape.
+        const enrichment: Record<string, unknown> = typeof data === 'string'
+          ? JSON.parse(data)
+          : (data as Record<string, unknown>);
 
         return new Response(
           JSON.stringify({ enrichment, ai_provider: 'burs_ai' }),
           { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Enrichment error after retry:', err);
+        // Structured output makes JSON.parse failure effectively
+        // impossible, but a network / provider error still surfaces
+        // here. Preserve the prior "enrichment: null" 200 contract so
+        // the mobile client's fallback path continues to work.
+        const sample = err instanceof Error ? err.message.slice(0, 120) : String(err).slice(0, 120);
+        console.error('Enrichment error:', sample);
         return new Response(
-          JSON.stringify({ enrichment: null, error: "parse_failed", ai_provider: 'burs_ai' }),
+          JSON.stringify({ enrichment: null, error: "enrich_failed", ai_provider: 'burs_ai' }),
           { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
         );
       }
@@ -406,6 +427,11 @@ serve(async (req) => {
         functionName: "analyze_garment",
         messages,
         extraBody: isFast ? { temperature: 0 } : undefined,
+        // S-B.1 — structured output. Gemini guarantees schema-valid JSON;
+        // the legacy markdown-fence cleanup below is now dead-but-cheap
+        // and retained as belt-and-braces for the next 1-2 deploys (it
+        // can be removed once telemetry shows no fence appearances).
+        responseFormat: isFast ? FAST_SCHEMA : FULL_SCHEMA,
       }, serviceClient);
 
       content = typeof data === 'string' ? data : JSON.stringify(data);
@@ -446,6 +472,12 @@ serve(async (req) => {
 
     let rawAnalysis: GarmentAnalysis;
     try {
+      // S-B.1: structured output guarantees a JSON-parseable string with
+      // all required fields. The markdown-fence strip + missing-field
+      // throw below remain as belt-and-braces for the 1-2 deploy windows
+      // immediately after rollout, when a hypothetical Gemini-side
+      // regression could surface fenced output. Both are cheap (single
+      // regex + 3 boolean checks) so the safety margin is free.
       const cleanedContent = content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
@@ -467,8 +499,15 @@ serve(async (req) => {
     const normalizedColorPrimary = normalizeColor(rawAnalysis.color_primary);
     const normalizedSeasonTags = normalizeSeasonTags(rawAnalysis.season_tags || []);
     const normalizedFormality = normalizeFormality(rawAnalysis.formality || 3);
-    const detectedGarments = Array.isArray(rawAnalysis.detected_garments)
+    // S-B.1 — strict schema requires `detected_garments` always present
+    // (empty array when no multi-garment detection). Coerce empty arrays
+    // back to `undefined` so the response shape matches the pre-S-B
+    // contract for mobile clients that conditionally render this field.
+    const rawDetected = Array.isArray(rawAnalysis.detected_garments) && rawAnalysis.detected_garments.length > 0
       ? rawAnalysis.detected_garments
+      : null;
+    const detectedGarments = rawDetected
+      ? rawDetected
           .filter((item) => item && typeof item === 'object')
           .map((item) => {
             const garment = item as Record<string, unknown>;

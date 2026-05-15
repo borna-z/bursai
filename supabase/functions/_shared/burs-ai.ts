@@ -94,6 +94,31 @@ export interface BursAIOptions {
   cacheNamespace?: string;
   /** Extra body params like temperature, modalities */
   extraBody?: Record<string, any>;
+  /**
+   * Gemini structured-output schema (S-B.1). Forwarded as `response_format`
+   * on the OpenAI-compat chat completions request. Gemini 2.5 models accept
+   * the same `{ type: "json_schema", json_schema: { name, strict, schema } }`
+   * shape OpenAI uses. When set, the model is guaranteed to return a string
+   * whose `JSON.parse` yields a value matching the schema — the legacy
+   * `cleanJsonResponse` / parse-retry codepath in `analyze_garment` is dead
+   * once every mode opts in.
+   */
+  responseFormat?: { type: "json_schema"; json_schema: { name: string; strict: true; schema: Record<string, unknown> } };
+  /**
+   * Gemini explicit cache resource name (S-B.2). Forwarded as
+   * `extra_body.google.cached_content` on the OpenAI-compat request — the
+   * documented escape hatch for passing native Gemini features through the
+   * compatibility layer. Caller creates / refreshes the cache via
+   * `_shared/gemini-cache.ts` and passes the returned `cachedContents/...`
+   * resource name here.
+   *
+   * Only effective when the resolved model supports explicit caching.
+   * Gemini 2.5 Flash supports it (1024-token minimum). Gemini 2.5 Flash
+   * Lite is not currently documented as supporting it — to avoid a silent
+   * downgrade, callers should pin the model via `models: ["gemini-2.5-flash"]`
+   * when they pass this field.
+   */
+  cachedContent?: string;
   /** Function name for observability logging */
   functionName?: string;
   /**
@@ -133,6 +158,13 @@ export interface BursAICacheShape {
   max_tokens: number | null;
   temperature: number | null;
   extraBody: Record<string, any>;
+  // S-B.1/.2 — include the response_format schema name and the
+  // cached_content reference in the cache key. A schema change without
+  // bumping the namespace would otherwise serve a value typed against an
+  // old schema; a cached_content swap (24h TTL refresh produces a new
+  // resource name) likewise should not silently collide.
+  responseFormatName: string | null;
+  cachedContent: string | null;
 }
 
 export interface ParsedBursAIProviderResponse {
@@ -545,6 +577,8 @@ export function buildBursAICacheShape(params: {
     max_tokens: params.maxTokens ?? null,
     temperature: params.temperature ?? params.options.extraBody?.temperature ?? null,
     extraBody: params.options.extraBody || {},
+    responseFormatName: params.options.responseFormat?.json_schema?.name ?? null,
+    cachedContent: params.options.cachedContent ?? null,
   };
 }
 
@@ -897,6 +931,22 @@ export async function callBursAI(
     if (stream) body.stream = true;
     if (maxTokens) body.max_tokens = maxTokens;
     if (temperature != null && !extraBody.temperature) body.temperature = temperature;
+    // S-B.1 — structured output. Forwarded to the OpenAI-compat endpoint;
+    // Gemini 2.5 models honour this shape natively (property ordering is
+    // preserved per the schema, output is guaranteed to JSON.parse cleanly).
+    if (options.responseFormat) body.response_format = options.responseFormat;
+    // S-B.2 — explicit context cache. The OpenAI-compat layer routes
+    // Gemini-specific fields under `extra_body.google.*`. Merge with any
+    // caller-provided extra_body so unrelated google.* fields (none today
+    // but possible later) survive.
+    if (options.cachedContent) {
+      const eb = (body.extra_body && typeof body.extra_body === "object") ? body.extra_body : {};
+      const google = (eb.google && typeof eb.google === "object") ? eb.google : {};
+      body.extra_body = {
+        ...eb,
+        google: { ...google, cached_content: options.cachedContent },
+      };
+    }
     return body;
   }
 
