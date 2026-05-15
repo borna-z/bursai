@@ -29,5 +29,14 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE for native OAuth (Codex P1 round 2 on PR #844). The default
+    // 'implicit' flow returns access + refresh tokens directly to the
+    // `burs://auth/callback` deep link; because the custom scheme is not
+    // exclusive on iOS or Android, the OS may route the callback (and
+    // therefore the refresh token) to any other app that registered the
+    // same scheme. PKCE returns a one-time `code` instead, useless without
+    // the local code_verifier supabase-js stashes in AsyncStorage —
+    // intercepting the URL no longer hands the attacker a session.
+    flowType: 'pkce',
   },
 });

@@ -2090,4 +2090,7 @@ export const en: Record<string, string> = {
   'addpiece.step2.review.keep.aria': 'Keep this photo as a single garment',
   'addpiece.step2.review.skip.label': 'Skip this photo',
   'addpiece.step2.review.skip.aria': 'Skip — discard this photo',
+
+  // Append-only — PR #844 self-review round 1.
+  'auth.google.openFailed': 'Could not open the browser. Please try again.',
 };

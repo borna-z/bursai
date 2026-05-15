@@ -440,11 +440,15 @@ async function handleOAuthDeepLink(
   lastExchangedCodeRef: React.MutableRefObject<string | null>,
 ): Promise<void> {
   if (!isOAuthCallbackUrl(url)) return;
-  // supabase-auth-js's `exchangeCodeForSession` POSTs whatever string we pass
-  // as the `auth_code` param, so it expects the raw code string — not the
-  // full deep-link URL. Passing the URL would make every OAuth login fail
-  // even after the URL pattern matched. Parse the `code` query param and
-  // exchange that. Codex P1 round 9 on PR #738.
+
+  // PKCE flow only — `mobile/src/lib/supabase.ts` pins `flowType: 'pkce'`,
+  // so the callback always arrives as `burs://auth/callback?code=<code>`.
+  // We deliberately do NOT honour an implicit-flow fragment fallback
+  // (`#access_token=…`): the `burs://` scheme is not exclusive on iOS or
+  // Android, and any foreign app sharing it could intercept tokens or
+  // feed us attacker-chosen ones. PKCE binds the code to the local
+  // `code_verifier` supabase-js stashed in AsyncStorage — intercepting
+  // the URL no longer yields a usable session. Codex P1 round 2 on PR #844.
   let code: string | null = null;
   try {
     code = new URL(url).searchParams.get('code');
@@ -452,15 +456,9 @@ async function handleOAuthDeepLink(
     code = null;
   }
   if (!code) {
-    console.warn('[RootNavigator] OAuth callback URL missing `code` param:', url);
+    console.warn('[RootNavigator] OAuth callback URL missing code:', url);
     return;
   }
-  // Dedupe per-launch: on iOS both `getInitialURL` and the `'url'` event
-  // fire for the same launch URL, which would have us call
-  // `exchangeCodeForSession` twice with the same code. The second call
-  // 4xxs (PKCE codes are single-use) and pollutes Sentry with noise. Track
-  // the last-exchanged code in a ref and short-circuit on a match. Codex
-  // P2 round on PR #738.
   if (lastExchangedCodeRef.current === code) return;
   lastExchangedCodeRef.current = code;
   try {
