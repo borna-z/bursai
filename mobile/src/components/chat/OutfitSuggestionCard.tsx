@@ -47,6 +47,12 @@ export interface OutfitSuggestionCardProps {
    *  garment id list. Today the screen wires this through to the
    *  anchor row so the next chat turn refines around the chosen look. */
   onTry: (garmentIds: string[]) => void;
+  /** Tap handler for the Anchor CTA — pins the first garment as the
+   *  active anchor so the next prompt refines around it. Without this
+   *  explicit affordance the user had no visible way to anchor a piece
+   *  from a chat suggestion (the long-press gesture lived only on
+   *  bubbles, not cards). Mirrors web's tap-to-anchor entry. */
+  onAnchor?: (garmentIds: string[]) => void;
   /** Parity-D — Save CTA. Caller wires this to `usePersistGeneratedOutfit`
    *  so the user can pin a chat-suggested outfit to their saved Outfits
    *  list without first tapping Try. Mirrors web's
@@ -87,6 +93,7 @@ export function OutfitSuggestionCard({
   garmentIds,
   explanation,
   onTry,
+  onAnchor,
   onSave,
   saved,
   saving,
@@ -223,6 +230,15 @@ export function OutfitSuggestionCard({
               style={{ flex: 1 }}
               onPress={() => onTry(garments.map((g) => g.id))}
             />
+            {onAnchor ? (
+              <Button
+                label={tr('chat.outfitCard.anchor')}
+                size="sm"
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => onAnchor(garments.map((g) => g.id))}
+              />
+            ) : null}
             {onEnterRefine ? (
               <Button
                 label={tr('chat.outfitCard.refine')}

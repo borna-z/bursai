@@ -35,13 +35,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts } from '../theme/tokens';
+import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Caption } from '../components/Caption';
 import { IconBtn } from '../components/IconBtn';
+import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ChatHistorySheet } from '../components/chat/ChatHistorySheet';
 import { useStyleChat, type ChatMessage, type StyleChatMode } from '../hooks/useStyleChat';
 import { useChatHistory, useDeleteChatThread } from '../hooks/useChatHistory';
+import { useGarmentCount } from '../hooks/useGarmentCount';
 import { usePersistGeneratedOutfit } from '../hooks/useOutfits';
 import { showToast } from '../lib/toast';
 import { useStyleMemoryFacts, type StyleMemoryFact } from '../hooks/useStyleMemoryFacts';
@@ -226,6 +228,30 @@ export function StyleChatScreen() {
     [setAnchoredGarmentId],
   );
 
+  // Web parity — tapping an inline garment-card pill opens the
+  // wardrobe detail page (where the user can rename, retag, edit).
+  const handleOpenGarment = React.useCallback(
+    (garmentId: string) => {
+      if (!garmentId) return;
+      nav.navigate('GarmentDetail', { id: garmentId });
+    },
+    [nav],
+  );
+
+  // Web parity — explicit "Anchor" button on an outfit suggestion. The
+  // first id of the suggested look becomes the active anchor so the
+  // next prompt refines around it. Mirrors handleTryOutfit's anchor
+  // behaviour but skips the "try" navigation step.
+  const handleAnchorOutfit = React.useCallback(
+    (garmentIds: string[]) => {
+      const first = garmentIds.find(
+        (id): id is string => typeof id === 'string' && !!id,
+      );
+      if (first) setAnchoredGarmentId(first);
+    },
+    [setAnchoredGarmentId],
+  );
+
   // Parity-D — Save handler on the inline OutfitSuggestionCard. Each message
   // tracks its own saved-state stamp + in-flight flag keyed by message id so
   // the same suggestion bubble doesn't double-persist across re-renders.
@@ -336,9 +362,11 @@ export function StyleChatScreen() {
     enabled: !!user && titleLookupIds.length > 0,
     queryFn: async () => {
       if (!user || titleLookupIds.length === 0) return [];
+      // Web parity — pull image paths too so the anchor row can render a
+      // real garment thumbnail (the user's "open and edit" entry).
       const { data, error: titleError } = await supabase
         .from('garments')
-        .select('id, title')
+        .select('id, title, rendered_image_path, original_image_path, image_path, render_status')
         .in('id', titleLookupIds)
         .eq('user_id', user.id);
       if (titleError) throw titleError;
@@ -352,6 +380,33 @@ export function StyleChatScreen() {
     });
     return map;
   }, [garmentTitleRows]);
+  const garmentRowMap = useMemo(() => {
+    const map = new Map<string, {
+      id: string;
+      rendered_image_path: string | null;
+      original_image_path: string | null;
+      image_path: string | null;
+      render_status: string | null;
+    }>();
+    (garmentTitleRows ?? []).forEach((row) => {
+      if (row.id) {
+        map.set(row.id, {
+          id: row.id,
+          rendered_image_path: row.rendered_image_path ?? null,
+          original_image_path: row.original_image_path ?? null,
+          image_path: row.image_path ?? null,
+          render_status: row.render_status ?? null,
+        });
+      }
+    });
+    return map;
+  }, [garmentTitleRows]);
+  const anchoredGarmentRow = anchoredGarmentId
+    ? garmentRowMap.get(anchoredGarmentId) ?? null
+    : null;
+
+  // Web parity — "Based on N garments" muted line above the anchor card.
+  const { data: garmentCount } = useGarmentCount();
 
   const activeLookTitleString = useMemo(() => {
     const titles = activeLookGarmentIds
@@ -500,6 +555,8 @@ export function StyleChatScreen() {
           onToggleLock={isRefiningThisRow ? toggleLockedSlot : undefined}
           onEnterRefine={handleEnterRefine}
           onCancelRefine={exitRefineMode}
+          onOpenGarment={handleOpenGarment}
+          onAnchorOutfit={handleAnchorOutfit}
         />
       );
     },
@@ -515,6 +572,8 @@ export function StyleChatScreen() {
       toggleLockedSlot,
       handleEnterRefine,
       exitRefineMode,
+      handleOpenGarment,
+      handleAnchorOutfit,
     ],
   );
 
@@ -548,30 +607,83 @@ export function StyleChatScreen() {
           onForget={handleForgetFact}
         />
 
-        {/* ============ ANCHOR ROW ============ */}
-        {anchoredGarmentId && anchoredGarmentTitle ? (
-          <View style={[s.anchorRow, { borderBottomColor: t.border, backgroundColor: t.bg }]}>
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Eyebrow>{tr('chat.anchor.title')}</Eyebrow>
+        {/* ============ WARDROBE CONTEXT HEADER ============ */}
+        {/* Web parity (`src/pages/AIChat.tsx:1298-1337`): the muted
+            "Based on N garments" line + the anchor card live together
+            above the message scroller. The anchor card shows a real
+            garment thumbnail; tapping it opens GarmentDetail so the
+            user can edit the piece (their "context window where you
+            can open and edit"). */}
+        {(garmentCount != null && garmentCount > 0) || anchoredGarmentId ? (
+          <View style={[s.contextHeader, { backgroundColor: t.bg }]}>
+            {garmentCount != null && garmentCount > 0 ? (
               <Text
-                numberOfLines={1}
                 style={{
-                  fontFamily: fonts.uiMed,
-                  fontSize: 12.5,
-                  color: t.fg,
-                  letterSpacing: -0.1,
-                  flex: 1,
+                  textAlign: 'center',
+                  fontFamily: fonts.ui,
+                  fontSize: 11,
+                  color: t.fg3,
+                  letterSpacing: 0.2,
                 }}>
-                {anchoredGarmentTitle}
+                {tr('chat.basedOn.template', { n: garmentCount })}
               </Text>
-            </View>
-            <IconBtn
-              variant="ghost"
-              size={28}
-              onPress={() => setAnchoredGarmentId(null)}
-              ariaLabel={tr('chat.anchor.clear')}>
-              <Text style={{ fontFamily: fonts.uiMed, fontSize: 14, color: t.fg2 }}>×</Text>
-            </IconBtn>
+            ) : null}
+
+            {anchoredGarmentId ? (
+              <View
+                style={[
+                  s.anchorCard,
+                  { borderColor: t.border, backgroundColor: t.card },
+                ]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={tr('chat.anchor.openLabel')}
+                  onPress={() => {
+                    if (anchoredGarmentId) {
+                      nav.navigate('GarmentDetail', { id: anchoredGarmentId });
+                    }
+                  }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    opacity: pressed ? 0.7 : 1,
+                  })}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: radii.md,
+                      overflow: 'hidden',
+                      backgroundColor: t.bg2,
+                    }}>
+                    <GarmentImageTile garment={anchoredGarmentRow} iconSize={18} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Eyebrow>{tr('chat.anchor.title')}</Eyebrow>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: fonts.uiMed,
+                        fontSize: 13,
+                        color: t.fg,
+                        letterSpacing: -0.1,
+                        marginTop: 1,
+                      }}>
+                      {anchoredGarmentTitle ?? tr('chat.anchor.loading')}
+                    </Text>
+                  </View>
+                </Pressable>
+                <IconBtn
+                  variant="ghost"
+                  size={28}
+                  onPress={() => setAnchoredGarmentId(null)}
+                  ariaLabel={tr('chat.anchor.clear')}>
+                  <Text style={{ fontFamily: fonts.uiMed, fontSize: 16, color: t.fg2 }}>×</Text>
+                </IconBtn>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -681,13 +793,20 @@ export function StyleChatScreen() {
 }
 
 const s = StyleSheet.create({
-  anchorRow: {
+  contextHeader: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 6,
+  },
+  anchorCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    borderBottomWidth: 1,
+    borderRadius: radii.lg,
+    borderWidth: 1,
   },
   errorBanner: {
     flexDirection: 'row',
