@@ -6,13 +6,40 @@
 // pipeline tick. The emitter is local to the screen — `new LiveScanEvents()`
 // per mount, garbage-collected on unmount.
 
+import type { MaskStatus } from '../../lib/backgroundRemoval';
+import type { AnalysisResult } from '../../hooks/useAnalyzeGarment';
 import type { PipelineErrorClass, PipelineStage, ScanSessionId } from './types';
 
 type Listener<T> = (payload: T) => void;
 
+/**
+ * Wave R-D Bug C — payload emitted after the analyze phase completes and the
+ * pipeline pauses for the user's quality choice. Carries everything the
+ * review card needs to render + everything the persist phase needs to commit.
+ */
+export interface AnalyzedScan {
+  sessionId: ScanSessionId;
+  /** Pre-allocated row UUID — matches the storage folder name. */
+  garmentId: string;
+  userId: string;
+  /** Local file:// URI of the captured frame; cheap to render as fallback. */
+  photoUri: string;
+  rawStoragePath: string;
+  maskedStoragePath: string | null;
+  maskStatus: MaskStatus;
+  analysis: AnalysisResult;
+}
+
 export interface ScanLifecycleEvents {
   start: { sessionId: ScanSessionId; photoUri: string };
   stage: { sessionId: ScanSessionId; stage: PipelineStage };
+  /**
+   * Capture analyzed successfully and is awaiting the user's Save Original /
+   * Save Studio / Skip decision. The pipeline pauses here — the screen's
+   * review card consumes the payload and dispatches one of
+   * `persistAnalyzedScan` / `discardAnalyzedScan` once the user taps.
+   */
+  analyzed: AnalyzedScan;
   saved: { sessionId: ScanSessionId; garmentId: string };
   queued: { sessionId: ScanSessionId };
   failed: { sessionId: ScanSessionId; errorClass: PipelineErrorClass };
