@@ -218,19 +218,29 @@ For stylist_note — one sentence on how a real stylist would use this piece.
 For color_harmony_notes — what tones pair well.
 For refined_title — improved concise title (max 30 chars).`;
 
-function buildEnrichMessages(imageUrl: string) {
+// When `withSystemMessage` is false, the system instruction is assumed to
+// be carried by Gemini's `cached_content` payload. Sending it again per
+// request causes Gemini to reject (or ignore) the cached content — every
+// enrich call would fall through to the catch path and return
+// `{ enrichment: null }`. The cache-miss path keeps the inline system
+// message so correctness holds without the discount.
+function buildEnrichMessages(imageUrl: string, withSystemMessage = true) {
+  const userMessage = {
+    role: 'user',
+    content: [
+      { type: 'text', text: 'Provide deep garment intelligence.' },
+      { type: 'image_url', image_url: { url: imageUrl } },
+    ],
+  };
+  if (!withSystemMessage) {
+    return [userMessage];
+  }
   return [
     {
       role: 'system',
       content: ENRICH_SYSTEM_PROMPT,
     },
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: 'Provide deep garment intelligence.' },
-        { type: 'image_url', image_url: { url: imageUrl } },
-      ],
-    },
+    userMessage,
   ];
 }
 
@@ -368,7 +378,10 @@ serve(async (req) => {
           max_tokens: 800,
           timeout: 20000,
           functionName: "analyze_garment_enrich",
-          messages: buildEnrichMessages(resolvedImageUrl),
+          // When cached_content is attached, the system prompt lives in
+          // the cache itself; sending it again per-request causes Gemini
+          // to reject/ignore the cached content. See buildEnrichMessages.
+          messages: buildEnrichMessages(resolvedImageUrl, !cacheName),
           extraBody: { temperature: 0.1 },
           responseFormat: ENRICH_SCHEMA,
           ...(cacheName ? { cachedContent: cacheName } : {}),
