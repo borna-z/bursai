@@ -28,6 +28,12 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { File as FsFile, Paths } from 'expo-file-system';
 
 import { supabase } from './supabase';
+import {
+  MASK_SAVE_TIMEOUT_MS,
+  removeBackground,
+  type MaskResult,
+  type MaskStatus,
+} from './backgroundRemoval';
 
 const BUCKET = 'garments';
 const MAX_DIMENSION = 1024;
@@ -51,6 +57,13 @@ const GARMENT_IMAGE_EXT = 'webp';
 
 export interface UploadResult {
   storagePath: string;
+  maskedStoragePath?: string;
+  maskStatus?: MaskStatus;
+}
+
+export interface UploadMaskMetadata {
+  maskedStoragePath?: string;
+  maskStatus: MaskStatus;
 }
 
 /**
@@ -64,6 +77,64 @@ export type GarmentImageKind = 'raw' | 'masked';
 
 function uploadVariantPath(userId: string, garmentId: string, kind: GarmentImageKind): string {
   return `${userId}/${garmentId}/${kind}.${GARMENT_IMAGE_EXT}`;
+}
+
+function uploadMaskedSidecarPath(rawStoragePath: string): string {
+  return rawStoragePath.replace(
+    new RegExp(`\\.${GARMENT_IMAGE_EXT}$`),
+    `.masked.${GARMENT_IMAGE_EXT}`,
+  );
+}
+
+// Consume-once registry. Entries are dropped on the first `getUploadMaskMetadata`
+// read so a long AddPiece session can't accumulate map entries faster than
+// `persistGarment` consumes them. `deleteUpload` derives the sidecar path
+// deterministically from the storagePath instead of reading this map, so a
+// cleanup after the entry has been consumed (or after a cold start) still
+// removes the orphaned masked sidecar.
+const uploadMaskMetadata = new Map<string, UploadMaskMetadata>();
+
+export function getUploadMaskMetadata(storagePath: string): UploadMaskMetadata | null {
+  const value = uploadMaskMetadata.get(storagePath);
+  if (value === undefined) return null;
+  uploadMaskMetadata.delete(storagePath);
+  return value;
+}
+
+function rememberUploadMaskMetadata(
+  storagePath: string,
+  metadata: UploadMaskMetadata,
+): void {
+  uploadMaskMetadata.set(storagePath, metadata);
+}
+
+async function uploadBytes(storagePath: string, bytes: Uint8Array, upsert: boolean): Promise<void> {
+  const { error } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, {
+    contentType: GARMENT_IMAGE_MIME,
+    upsert,
+  });
+  if (error) throw error;
+}
+
+async function awaitMaskWithSaveCap(maskP: Promise<MaskResult>, rawUri: string): Promise<MaskResult> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutP = new Promise<MaskResult>((resolve) => {
+    timer = setTimeout(
+      () => resolve({
+        uri: rawUri,
+        status: 'unavailable',
+        confidence: 0,
+        durationMs: 0,
+      }),
+      MASK_SAVE_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([maskP, timeoutP]);
+  } finally {
+    if (timer) clearTimeout(timer);
+    maskP.catch(() => {});
+  }
 }
 
 /**
@@ -176,20 +247,36 @@ export async function uploadManipulatedImage(
   resized: ImageManipulator.ImageResult,
   userId: string,
 ): Promise<UploadResult> {
+  const maskP = removeBackground(resized.uri);
+  maskP.catch(() => {});
   const bytes = await safeReadBytes(resized.uri);
 
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
   const storagePath = `${userId}/${timestamp}-${random}.${GARMENT_IMAGE_EXT}`;
 
-  const { error } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, {
-    contentType: GARMENT_IMAGE_MIME,
-    upsert: false,
-  });
+  await uploadBytes(storagePath, bytes, false);
 
-  if (error) throw error;
+  const maskRes = await awaitMaskWithSaveCap(maskP, resized.uri);
+  if (maskRes.status !== 'masked') {
+    rememberUploadMaskMetadata(storagePath, { maskStatus: maskRes.status });
+    return { storagePath, maskStatus: maskRes.status };
+  }
 
-  return { storagePath };
+  try {
+    // Native module emits a WebP file (see `backgroundRemoval.ts` contract).
+    // Upload its bytes directly — re-encoding through ImageManipulator was a
+    // 50–150ms no-op that wrote a redundant temp file on every masked capture.
+    const maskedStoragePath = uploadMaskedSidecarPath(storagePath);
+    const maskedBytes = await safeReadBytes(maskRes.uri);
+    await uploadBytes(maskedStoragePath, maskedBytes, true);
+    const metadata = { maskedStoragePath, maskStatus: 'masked' as const };
+    rememberUploadMaskMetadata(storagePath, metadata);
+    return { storagePath, ...metadata };
+  } catch {
+    rememberUploadMaskMetadata(storagePath, { maskStatus: 'failed' });
+    return { storagePath, maskStatus: 'failed' };
+  }
 }
 
 export async function resizeAndUpload(uri: string, userId: string): Promise<UploadResult> {
@@ -215,11 +302,7 @@ export async function uploadGarmentVariant(
 ): Promise<UploadResult> {
   const bytes = await safeReadBytes(resized.uri);
   const storagePath = uploadVariantPath(userId, garmentId, kind);
-  const { error } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, {
-    contentType: GARMENT_IMAGE_MIME,
-    upsert: true,
-  });
-  if (error) throw error;
+  await uploadBytes(storagePath, bytes, true);
   return { storagePath };
 }
 
@@ -234,7 +317,15 @@ export async function uploadGarmentVariant(
 export async function deleteUpload(storagePath: string): Promise<void> {
   if (!storagePath) return;
   try {
-    await supabase.storage.from(BUCKET).remove([storagePath]);
+    uploadMaskMetadata.delete(storagePath);
+    // Derive the sidecar path deterministically — the in-memory map is
+    // empty after a cold start, so a metadata-based cleanup would leak the
+    // masked sidecar forever in that case. Supabase storage `remove()` is
+    // tolerant of missing keys, so passing both for legacy flat-path
+    // garments (which never had a masked sidecar) is safe.
+    const sidecar = uploadMaskedSidecarPath(storagePath);
+    const paths = sidecar !== storagePath ? [storagePath, sidecar] : [storagePath];
+    await supabase.storage.from(BUCKET).remove(paths);
   } catch (err) {
     console.warn('[imageUpload] orphan cleanup failed:', err);
   }

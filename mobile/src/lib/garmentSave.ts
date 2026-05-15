@@ -21,6 +21,7 @@ import {
 import { enqueue as enqueueOffline } from './offlineQueue';
 import { showToast } from './toast';
 import { t } from './i18n';
+import { getUploadMaskMetadata } from './imageUpload';
 import type { Garment, GarmentInsert } from '../types/garment';
 import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 import { triggerGarmentEnrichment } from '../hooks/useAnalyzeGarment';
@@ -165,23 +166,35 @@ export async function isOnlineNow(): Promise<boolean> {
 export async function persistGarmentWithOfflineFallback(
   params: AddGarmentParams,
 ): Promise<Garment> {
+  const resolvedParams = withUploadMaskMetadata(params);
   if (!(await isOnlineNow())) {
-    await enqueueOffline(ADD_GARMENT_ACTION, params);
+    await enqueueOffline(ADD_GARMENT_ACTION, resolvedParams);
     throw new OfflineQueuedError();
   }
   try {
-    return await persistGarment(params);
+    return await persistGarment(resolvedParams);
   } catch (err) {
     // Re-check connectivity — a transient drop during the call surfaces as
     // a fetch failure that's hard to distinguish from a real DB error.
     // Only treat it as offline-queueable if NetInfo confirms we lost the
     // network. A real DB error (RLS, validation) propagates as before.
     if (!(await isOnlineNow())) {
-      await enqueueOffline(ADD_GARMENT_ACTION, params);
+      await enqueueOffline(ADD_GARMENT_ACTION, resolvedParams);
       throw new OfflineQueuedError();
     }
     throw err;
   }
+}
+
+function withUploadMaskMetadata(params: AddGarmentParams): AddGarmentParams {
+  if (params.maskedStoragePath || params.maskStatus) return params;
+  const metadata = getUploadMaskMetadata(params.storagePath);
+  if (!metadata) return params;
+  return {
+    ...params,
+    maskedStoragePath: metadata.maskedStoragePath,
+    maskStatus: metadata.maskStatus,
+  };
 }
 
 /**
@@ -190,6 +203,7 @@ export async function persistGarmentWithOfflineFallback(
  * state so a token rotation between enqueue and replay still works.
  */
 export async function persistGarment(params: AddGarmentParams): Promise<Garment> {
+  const resolvedParams = withUploadMaskMetadata(params);
   const { data: sessionData } = await supabase.auth.getSession();
   const user = sessionData.session?.user;
   if (!user) throw new Error('Not authenticated');
@@ -200,21 +214,21 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     // matches the storage folder path the LiveScan pipeline already
     // uploaded raw + masked variants into. Without this the column
     // default fires and the row id diverges from the folder name.
-    ...(params.garmentId ? { id: params.garmentId } : {}),
-    title: params.title?.trim() || params.analysis.title || 'Untitled',
-    category: params.category || params.analysis.category || 'top',
+    ...(resolvedParams.garmentId ? { id: resolvedParams.garmentId } : {}),
+    title: resolvedParams.title?.trim() || resolvedParams.analysis.title || 'Untitled',
+    category: resolvedParams.category || resolvedParams.analysis.category || 'top',
     // Wave R-C.3 — Step 3 picker overrides win; `undefined` falls back to the
     // analyzer's value. `null` (e.g. "secondary color: None") is preserved.
     subcategory:
-      params.subcategory !== undefined ? params.subcategory : params.analysis.subcategory,
+      resolvedParams.subcategory !== undefined ? resolvedParams.subcategory : resolvedParams.analysis.subcategory,
     color_primary:
-      params.color_primary !== undefined ? params.color_primary : params.analysis.color_primary,
+      resolvedParams.color_primary !== undefined ? resolvedParams.color_primary : resolvedParams.analysis.color_primary,
     color_secondary:
-      params.color_secondary !== undefined ? params.color_secondary : params.analysis.color_secondary,
-    material: params.material !== undefined ? params.material : params.analysis.material,
-    fit: params.fit !== undefined ? params.fit : params.analysis.fit,
-    pattern: params.pattern !== undefined ? params.pattern : params.analysis.pattern,
-    season_tags: params.season_tags ?? params.analysis.season_tags,
+      resolvedParams.color_secondary !== undefined ? resolvedParams.color_secondary : resolvedParams.analysis.color_secondary,
+    material: resolvedParams.material !== undefined ? resolvedParams.material : resolvedParams.analysis.material,
+    fit: resolvedParams.fit !== undefined ? resolvedParams.fit : resolvedParams.analysis.fit,
+    pattern: resolvedParams.pattern !== undefined ? resolvedParams.pattern : resolvedParams.analysis.pattern,
+    season_tags: resolvedParams.season_tags ?? resolvedParams.analysis.season_tags,
     // occasion_tags intentionally omitted — analyze_garment in `fast`/`full` mode
     // does NOT return occasion data (only `enrich` mode prompts for it). Inserting
     // the empty array would override any later enrichment write. Audit round 2.
@@ -224,21 +238,21 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
     // condition assessment + render input fallback). `image_path` carries
     // the masked WebP when segmentation succeeded; otherwise it mirrors the
     // raw path so wardrobe display + Gemini render always have a value.
-    original_image_path: params.storagePath,
-    image_path: params.maskedStoragePath ?? params.storagePath,
+    original_image_path: resolvedParams.storagePath,
+    image_path: resolvedParams.maskedStoragePath ?? resolvedParams.storagePath,
     wear_count: 0,
     in_laundry: false,
-    purchase_price: params.price ?? null,
+    purchase_price: resolvedParams.price ?? null,
     ai_analyzed_at: new Date().toISOString(),
-    ai_provider: params.analysis.ai_provider ?? null,
+    ai_provider: resolvedParams.analysis.ai_provider ?? null,
     ai_raw: buildAiRawWithSystemSignals(
-      params.analysis,
-      params.source,
-      params.aiOverridden,
+      resolvedParams.analysis,
+      resolvedParams.source,
+      resolvedParams.aiOverridden,
     ) as GarmentInsert['ai_raw'],
     enrichment_status: 'pending',
-    render_status: params.enableStudioQuality ? 'pending' : 'none',
-    imported_via: params.source,
+    render_status: resolvedParams.enableStudioQuality ? 'pending' : 'none',
+    imported_via: resolvedParams.source,
   };
 
   // Only set formality when we have a number — leaving the field absent lets
@@ -249,10 +263,10 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
   // picker can never produce `null` (the UI always picks 1/2/3 once tapped),
   // so an `undefined` here truly means "user didn't touch it" → fall back.
   const formalityValue =
-    typeof params.formality === 'number'
-      ? params.formality
-      : typeof params.analysis.formality === 'number'
-        ? params.analysis.formality
+    typeof resolvedParams.formality === 'number'
+      ? resolvedParams.formality
+      : typeof resolvedParams.analysis.formality === 'number'
+        ? resolvedParams.analysis.formality
         : null;
   if (formalityValue !== null) {
     insert.formality = formalityValue;
@@ -265,8 +279,8 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
   // columns post-migration. Only attach when we have a real signal —
   // omitting NULL lets the column default apply if a future migration
   // adds one.
-  if (params.maskStatus) {
-    (insert as unknown as Record<string, unknown>).mask_status = params.maskStatus;
+  if (resolvedParams.maskStatus) {
+    (insert as unknown as Record<string, unknown>).mask_status = resolvedParams.maskStatus;
   }
 
   const { data, error } = await supabase
@@ -281,14 +295,14 @@ export async function persistGarment(params: AddGarmentParams): Promise<Garment>
   // M9: queueRender now reads its own session via callEdgeFunction so the
   // access-token plumbing is gone. triggerGarmentEnrichment still takes a
   // token until its own migration in this same wave (below).
-  if (params.enableStudioQuality) {
-    void queueRender(data.id, params.source);
+  if (resolvedParams.enableStudioQuality) {
+    void queueRender(data.id, resolvedParams.source);
   }
   // .catch() to swallow synchronous rejections — without it a throw inside
   // triggerGarmentEnrichment before its first await would surface as an
   // unhandled-promise-rejection (RN logs it; production crashlytics flags
   // it). Same shape as queueRender. Codex P2 round on PR #738.
-  void triggerGarmentEnrichment(params.storagePath, data.id, user.id).catch(() => {});
+  void triggerGarmentEnrichment(resolvedParams.storagePath, data.id, user.id).catch(() => {});
 
   return data as Garment;
 }
