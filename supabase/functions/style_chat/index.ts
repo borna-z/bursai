@@ -939,6 +939,11 @@ serve(async (req) => {
       garmentCount: _clientGarmentCount,
       archetype: _clientArchetype,
       locked_slots,
+      // T-B — optional wardrobe garment id roster from the mobile React
+      // Query cache. When length >= 5 the wardrobe SELECT switches to an
+      // indexed `.in("id", …)` scoped query instead of a user-wide
+      // ORDER BY scan. Validated downstream by `getWardrobeContext`.
+      wardrobe_garment_ids,
     } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
@@ -955,6 +960,12 @@ serve(async (req) => {
         ? [explicitActiveLook.anchor_garment_id]
         : []),
     ]));
+    // T-B — defensively narrow to string[] (rejects null/undefined and any
+    // non-string entries) before handing to `getWardrobeContext`. Empty /
+    // undefined values fall through to the legacy user-scoped path.
+    const wardrobeGarmentIdsForFetch: string[] | undefined = Array.isArray(wardrobe_garment_ids)
+      ? wardrobe_garment_ids.filter((id: unknown): id is string => typeof id === "string")
+      : undefined;
 
     // Wave 8.5 PR B (P89) — extract latest user turn for the async
     // preference-extraction dispatch fired further down. Pulled here so
@@ -1279,7 +1290,12 @@ serve(async (req) => {
       getCalendarContext(supabase as ReturnType<typeof createClient>, user.id, lang),
       getRecentOutfitsContext(supabase as ReturnType<typeof createClient>, user.id),
       getRejectionsContext(supabase as ReturnType<typeof createClient>, user.id),
-      getWardrobeContext(supabase as ReturnType<typeof createClient>, user.id, safeMessages as MessageInput[], selectedGarmentIds),
+      // T-B — pass through the mobile-cached wardrobe id roster (when
+      // present). `getWardrobeContext` switches to an indexed `.in(…)`
+      // SELECT above the 5-id threshold; below that it preserves the
+      // legacy user-wide ORDER BY scan, so empty/cold-cache callers are
+      // unaffected.
+      getWardrobeContext(supabase as ReturnType<typeof createClient>, user.id, safeMessages as MessageInput[], selectedGarmentIds, wardrobeGarmentIdsForFetch),
       supabase
         .from('garment_pair_memory')
         .select('garment_a_id, garment_b_id, positive_count, negative_count')

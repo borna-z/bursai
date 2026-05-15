@@ -39,6 +39,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useFlatGarments } from './useGarments';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
 import { t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
@@ -127,6 +128,19 @@ export function useStyleChat(): UseStyleChatResult {
   // ChatHistorySheet's row list reflects the latest activity stamp +
   // message count without the consumer wiring it up by hand.
   const queryClient = useQueryClient();
+  // T-B — pull the wardrobe garment list from React Query cache so each
+  // chat turn can ship the id roster to the server. The server uses it to
+  // skip the user-wide wardrobe scan and do an indexed `.in("id", …)`
+  // SELECT instead. Reading from the already-mounted RQ cache means we
+  // pay no extra fetch — `useFlatGarments` is also mounted by Wardrobe /
+  // Home / AddPiece, so the query is typically hydrated by the time chat
+  // sends its first turn. An empty / loading cache falls through to the
+  // legacy server path because the memoized list is empty.
+  const garmentsQuery = useFlatGarments();
+  const wardrobeIds = useMemo(
+    () => (garmentsQuery.data ?? []).map((g) => g.id),
+    [garmentsQuery.data],
+  );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -652,6 +666,9 @@ export function useStyleChat(): UseStyleChatResult {
         anchoredGarmentId: anchorRef.current,
         activeLookPayload: finalActiveLookPayload,
         lockedSlots: lockedSlotsForRequest,
+        // T-B — passthrough. `buildRequestBody` strips this on the
+        // shopping branch and clips to WARDROBE_IDS_MAX before sending.
+        wardrobeGarmentIds: wardrobeIds,
       });
 
       await fetchSSE(
@@ -881,7 +898,11 @@ export function useStyleChat(): UseStyleChatResult {
     // per chunk or per anchor change. cacheKey + queryClient are stable
     // refs from React (queryClient identity is constant across renders
     // by react-query's contract; cacheKey is a useCallback with no deps).
-    [session?.access_token, user?.id, isStreaming, cacheKey, queryClient],
+    // T-B — wardrobeIds is closed over inside buildRequestBody; add it to
+    // deps so a wardrobe add/remove between turns ships the fresh roster
+    // (without this, the IN-scoped server SELECT would miss garments
+    // added during the chat session).
+    [session?.access_token, user?.id, isStreaming, cacheKey, queryClient, wardrobeIds],
   );
 
   const clearChat = useCallback(async () => {

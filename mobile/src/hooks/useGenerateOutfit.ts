@@ -1,31 +1,35 @@
 // useGenerateOutfit — drives StyleMeScreen / OutfitGenerateScreen via the
-// `burs_style_engine` edge function in single-outfit mode.
+// `generate_outfit` edge function (Wave T-C — formerly `burs_style_engine`).
 //
-// Unlike style_chat / mood_outfit, burs_style_engine returns a plain JSON
-// response (not SSE). Mobile W4 only consumes (does not persist): the web's
+// Mobile W4 only consumes (does not persist): the web's
 // `useOutfitGenerator` does the outfits + outfit_items insert dance, but
 // per the W4 plan that's deferred to W9 alongside real outfit photos. So
 // `outfit_id` is undefined here — screens fall back to an "Alert saved"
 // path until the persistence layer lands.
 //
-// Engine response shape (per supabase/functions/_shared/outfit-combination.ts
-// and the web type EngineGenerateResponse):
+// Engine response shape (per supabase/functions/generate_outfit/index.ts —
+// shimmed over unified_stylist_engine):
 //   { items: { slot, garment_id }[], explanation: string,
-//     wardrobe_insights?: string[], confidence_*?, error? }
+//     confidence_score?, confidence_level?, family_label?, limitation_note?,
+//     wardrobe_insights?: string[], unified_engine?: true, error? }
+//
+// Wire format: single-chunk SSE (`data: {result}\n\ndata: [DONE]\n\n`).
+// Mirrors the `useMoodOutfit` pattern — the server emits the full payload
+// as one SSE frame so the screen can render progressively instead of
+// waiting for a blocking JSON response.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
-  callEdgeFunction,
-  EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
 import { Sentry } from '../lib/sentry';
+import { fetchSSE } from '../lib/sse';
 import { t as tr } from '../lib/i18n';
 import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
 
@@ -158,6 +162,96 @@ function adaptItems(items: EngineResponseItem[] | undefined): GeneratedOutfitIte
     }));
 }
 
+// T-C — request body shape sent to `generate_outfit`. Mirrors the prior
+// `burs_style_engine` payload so the unified_stylist_engine shim accepts
+// it unchanged. Note: `mode` / `generator_mode` are accepted but
+// generate_outfit reads `body.mode === 'stylist' ? 'stylist' : 'standard'`,
+// not `body.mode`/`body.generator_mode` independently — we keep both for
+// forward-compat / explicitness.
+type GenerateRequestBody = {
+  mode: string;
+  generator_mode: string;
+  occasion: string;
+  style: string | null;
+  weather: { temperature: number; precipitation: string; wind: string };
+  locale: string;
+  prefer_garment_ids: string[];
+};
+
+// T-C — consume the single-chunk SSE response from `generate_outfit`.
+// `fetchSSE` exposes the same auth + 402/429 classification +
+// circuit-breaker behaviour as the prior `callEdgeFunction` path because
+// it routes through `callEdgeFunction({ stream: true })` internally — so
+// EdgeFunctionSubscriptionLockedError / EdgeFunctionRateLimitError still
+// surface via onError. Errors are re-raised through the returned promise
+// so the caller's existing try/catch + sentinel-handling stays identical.
+async function generateOutfitViaSSE(
+  requestBody: GenerateRequestBody,
+  signal: AbortSignal,
+): Promise<EngineResponse> {
+  return await new Promise<EngineResponse>((resolve, reject) => {
+    let resolved = false;
+    let parsed: EngineResponse | null = null;
+    let textBuffer = '';
+    const finish = (
+      action: () => void,
+    ): void => {
+      if (resolved) return;
+      resolved = true;
+      action();
+    };
+    void fetchSSE(
+      'generate_outfit',
+      requestBody,
+      {
+        onData: (raw) => {
+          try {
+            const obj = JSON.parse(raw) as EngineResponse;
+            if (obj && typeof obj === 'object') {
+              // Accept any payload that looks like the engine envelope —
+              // either an `items` array (success), an `outfits` array
+              // (suggest-mode passthrough), or an `error` field. The
+              // `useGenerateOutfit` caller below handles all three.
+              if ('items' in obj || 'outfits' in obj || 'error' in obj) {
+                parsed = obj;
+              }
+            }
+          } catch {
+            // Partial JSON or non-JSON keepalive — buffer for end-of-
+            // stream fallback parse. The server currently emits a single
+            // JSON chunk, but a future multi-frame stream that splits
+            // mid-payload would still recover here.
+            textBuffer += raw;
+          }
+        },
+        onDone: () => {
+          finish(() => {
+            if (parsed) {
+              resolve(parsed);
+              return;
+            }
+            if (textBuffer) {
+              try {
+                resolve(JSON.parse(textBuffer) as EngineResponse);
+                return;
+              } catch {
+                // fall through to the empty-stream rejection
+              }
+            }
+            reject(new Error('generate_outfit: stream closed with no payload'));
+          });
+        },
+        onError: (err) => {
+          finish(() => reject(err));
+        },
+      },
+      signal,
+    ).catch((err) => {
+      finish(() => reject(err));
+    });
+  });
+}
+
 export function useGenerateOutfit() {
   const { session } = useAuth();
   // Pre-warm the React Query weather cache by mounting the subscription
@@ -246,8 +340,19 @@ export function useGenerateOutfit() {
       try {
         let data: EngineResponse;
         try {
-          const raw = await callEdgeFunction<EngineResponse>('burs_style_engine', {
-            body: {
+          // T-C — switched from blocking `callEdgeFunction('burs_style_engine')`
+          // to the SSE-ified `generate_outfit` shim (mirrors the
+          // `useMoodOutfit` single-chunk SSE pattern). The shim's response
+          // shape is compatible with `EngineResponse` — both surface
+          // `items: [{ slot, garment_id }]` and `explanation` at the top
+          // level (generate_outfit adds `confidence_*`, `family_label`,
+          // `unified_engine`, `limitation_note`, `wardrobe_insights`
+          // which `EngineResponse` either ignores or carries optionally).
+          // Subscription / rate-limit errors still raise typed errors via
+          // the `fetchSSE` -> `callEdgeFunction({ stream: true })` path,
+          // so the existing catch branches below stay valid.
+          data = await generateOutfitViaSSE(
+            {
               mode: 'generate',
               generator_mode: 'standard',
               occasion: params.occasion ?? 'Everyday',
@@ -256,35 +361,41 @@ export function useGenerateOutfit() {
               locale: 'en',
               prefer_garment_ids: preferList,
             },
-            signal: controller.signal,
-          });
-          if (!raw) {
-            // 2xx with unparseable JSON body — surface as a real failure.
-            // Reuse INVALID_OUTFIT_ERROR so the screen renders the existing
-            // "we couldn't build a complete outfit" copy rather than
-            // crashing on `data.error` / `data.items` access.
-            setError(INVALID_OUTFIT_ERROR);
-            Sentry.withScope((s) => {
-              s.setTag('mutation', 'useGenerateOutfit.nullResponse');
-              Sentry.captureMessage('engine_returned_null_response', 'warning');
-            });
-            return;
-          }
-          data = raw;
+            controller.signal,
+          );
         } catch (callErr) {
           if (callErr instanceof EdgeFunctionSubscriptionLockedError) {
             setError(SUBSCRIPTION_SENTINEL);
             return;
           }
-          if (callErr instanceof EdgeFunctionHttpError) {
-            const parsed = (() => {
-              try {
-                return JSON.parse(callErr.bodyText) as { error?: string };
-              } catch {
-                return null;
-              }
-            })();
-            setError(parsed?.error ?? `HTTP ${callErr.status}`);
+          // Surface SUBSCRIPTION_SENTINEL errors raised through onError as
+          // string-message Errors (fetchSSE's edgeFunctionClient surface
+          // throws the typed error, but the SSE path may re-wrap it).
+          if (callErr instanceof Error && callErr.message === SUBSCRIPTION_SENTINEL) {
+            setError(SUBSCRIPTION_SENTINEL);
+            return;
+          }
+          // T-C — A stream that closed without a parseable payload maps to
+          // the same INVALID_OUTFIT_ERROR sentinel the previous JSON path
+          // raised on a null body, so the screen renders the existing
+          // "we couldn't build a complete outfit" copy instead of a raw
+          // technical message.
+          if (callErr instanceof Error && /stream closed with no payload/i.test(callErr.message)) {
+            setError(INVALID_OUTFIT_ERROR);
+            Sentry.withScope((s) => {
+              s.setTag('mutation', 'useGenerateOutfit.emptyStream');
+              Sentry.captureMessage('engine_returned_empty_stream', 'warning');
+            });
+            return;
+          }
+          // HTTP error paths still arrive as plain JSON from
+          // `generate_outfit` (error 400/401/402/429/500 responses are
+          // unchanged by the SSE conversion). `fetchSSE` surfaces those
+          // as Error instances with the server's `error` text in
+          // `.message`. We keep the prior behaviour: surface
+          // `setError(message)` so the screen can render the same copy.
+          if (callErr instanceof Error) {
+            setError(callErr.message);
             return;
           }
           throw callErr;

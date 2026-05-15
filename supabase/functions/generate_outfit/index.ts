@@ -90,7 +90,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({
+    const result = {
       items: selected.garment_ids.map((garment_id) => ({
         slot: slotByGarment.get(garment_id) || "unknown",
         garment_id,
@@ -102,8 +102,38 @@ serve(async (req) => {
       limitation_note: selected.limitations[0] || null,
       wardrobe_insights: selected.wardrobe_gaps,
       unified_engine: true,
-    }), {
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    };
+
+    // T-C — SSE-ify the success path so mobile can render progressively
+    // (single-chunk SSE, same shape as `mood_outfit`). The result object
+    // is identical to the previous JSON body — only the wire format
+    // changes. `?stream=false` opt-out preserves the legacy JSON path
+    // for any non-mobile consumer (notably the web smoke test that uses
+    // `client.functions.invoke()`, which expects JSON). Error paths
+    // (400/401/402/429/500) keep their plain JSON responses.
+    const url = new URL(req.url);
+    const wantsJson = url.searchParams.get("stream") === "false";
+    if (wantsJson) {
+      return new Response(JSON.stringify(result), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(result)}\n\n`));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+      },
     });
   } catch (e) {
     if (e instanceof RateLimitError) {
