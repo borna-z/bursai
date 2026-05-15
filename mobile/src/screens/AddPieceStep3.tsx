@@ -873,6 +873,7 @@ export function AddPieceStep3() {
               values={CATEGORIES as readonly string[]}
               active={category ? [category] : []}
               onTap={(v) => setCategory(category === v ? '' : v)}
+              getLabel={titleCase}
             />
           </View>
 
@@ -921,6 +922,7 @@ export function AddPieceStep3() {
               values={MATERIALS as readonly string[]}
               active={material ? [material] : []}
               onTap={(v) => setMaterial(material === v ? '' : v)}
+              getLabel={titleCase}
             />
           </View>
 
@@ -932,6 +934,7 @@ export function AddPieceStep3() {
               values={FITS as readonly string[]}
               active={fit ? [fit] : []}
               onTap={(v) => setFit(fit === v ? '' : v)}
+              getLabel={titleCase}
             />
           </View>
 
@@ -943,6 +946,7 @@ export function AddPieceStep3() {
               values={PATTERNS as readonly string[]}
               active={pattern ? [pattern] : []}
               onTap={(v) => setPattern(pattern === v ? '' : v)}
+              getLabel={titleCase}
             />
           </View>
         </View>
@@ -1149,16 +1153,22 @@ function ChipRow({
   active,
   onTap,
   style,
+  // Codex R3 P2 — values are canonical lowercase ids (matching analyze_garment
+  // + DB column contracts); display labels are titleCased at render so the UX
+  // reads "Outerwear" / "Synthetic" while saves stay canonical. Falls back to
+  // the raw value if no transformer is provided.
+  getLabel = (v) => v,
 }: {
   values: readonly string[];
   active: string[];
   onTap: (v: string) => void;
   style?: StyleProp<ViewStyle>;
+  getLabel?: (v: string) => string;
 }) {
   return (
     <View style={[{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, style]}>
       {values.map((v) => (
-        <Chip key={v} label={v} active={active.includes(v)} onPress={() => onTap(v)} />
+        <Chip key={v} label={getLabel(v)} active={active.includes(v)} onPress={() => onTap(v)} />
       ))}
     </View>
   );

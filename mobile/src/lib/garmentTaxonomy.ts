@@ -4,24 +4,27 @@
 // radius (refactoring it is scope creep on this PR). When EditGarmentScreen
 // migrates next, this module is the single source of truth.
 //
-// Values are TitleCase to match what users see and what the row insert writes
-// (analyzer output normalizes to lowercase via the case-insensitive match
-// below; on save we emit the TitleCase chip value so wardrobe filters stay
-// consistent with EditGarmentScreen-saved rows).
+// Codex R3 P2 — values are canonical lowercase ids matching what
+// `analyze_garment` emits and what existing rows store. The downstream
+// duplicate edge function does exact string compare on `garment.category`,
+// and `outfit-rules.ts` / coverage code spell outerwear as `outerwear` (not
+// `outer`). Step 3 renders display labels via `titleCase()` at the chip
+// site, so the UX still shows "Top" / "Outerwear" without breaking the
+// canonical store-side contract.
 
-export const CATEGORIES = ['Top', 'Bottom', 'Shoes', 'Outer', 'Dress', 'Accessory'] as const;
+export const CATEGORIES = ['top', 'bottom', 'shoes', 'outerwear', 'dress', 'accessory'] as const;
 export const MATERIALS = [
-  'Cotton',
-  'Linen',
-  'Wool',
-  'Cashmere',
-  'Silk',
-  'Leather',
-  'Denim',
-  'Synthetic',
+  'cotton',
+  'linen',
+  'wool',
+  'cashmere',
+  'silk',
+  'leather',
+  'denim',
+  'synthetic',
 ] as const;
-export const FITS = ['Slim', 'Regular', 'Loose', 'Oversized'] as const;
-export const PATTERNS = ['Solid', 'Striped', 'Checked', 'Floral', 'Other'] as const;
+export const FITS = ['slim', 'regular', 'loose', 'oversized'] as const;
+export const PATTERNS = ['solid', 'striped', 'checked', 'floral', 'other'] as const;
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
 
 export type Category = typeof CATEGORIES[number];
