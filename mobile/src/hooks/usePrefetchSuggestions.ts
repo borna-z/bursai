@@ -29,13 +29,20 @@ import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
 
 export function usePrefetchSuggestions(): { prefetch: () => Promise<void> } {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
 
   const prefetch = useCallback(async (): Promise<void> => {
-    if (!session?.access_token) return;
+    // Need both a live session AND a known user id — the edge function's
+    // client-accessible branch requires `{ user_id, trigger: 'first_5_garments' }`
+    // in the body. Without those keys the request falls through to the
+    // cron-batch branch which hard-rejects any non-worker-bearer caller
+    // (401), so the mount-only prefetch never warms the cache. Bail
+    // silently if either is missing — the screen has no UI for this and
+    // the next mount will retry naturally.
+    if (!session?.access_token || !user?.id) return;
     try {
       await callEdgeFunction('prefetch_suggestions', {
-        body: {},
+        body: { user_id: user.id, trigger: 'first_5_garments' },
         retries: 0,
         timeoutMs: 15_000,
       });
@@ -51,7 +58,7 @@ export function usePrefetchSuggestions(): { prefetch: () => Promise<void> } {
         Sentry.captureException(err);
       });
     }
-  }, [session?.access_token]);
+  }, [session?.access_token, user?.id]);
 
   return { prefetch };
 }

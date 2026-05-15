@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
+  EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
@@ -390,10 +391,29 @@ export function useGenerateOutfit() {
           }
           // HTTP error paths still arrive as plain JSON from
           // `generate_outfit` (error 400/401/402/429/500 responses are
-          // unchanged by the SSE conversion). `fetchSSE` surfaces those
-          // as Error instances with the server's `error` text in
-          // `.message`. We keep the prior behaviour: surface
-          // `setError(message)` so the screen can render the same copy.
+          // unchanged by the SSE conversion). `fetchSSE` re-raises a
+          // typed `EdgeFunctionHttpError` carrying the raw response body
+          // in `.bodyText`; its `.message` is the wrapper
+          // (`Edge function "..." failed: <status> <bodyText>`) which is
+          // too technical for the screen. Match the pre-T blocking JSON
+          // path: parse `bodyText` as `{ error: string }` and surface
+          // that field; fall back to the wrapper message if the body
+          // isn't the expected JSON envelope.
+          if (callErr instanceof EdgeFunctionHttpError) {
+            let parsedMessage: string | null = null;
+            if (callErr.bodyText) {
+              try {
+                const parsed = JSON.parse(callErr.bodyText) as { error?: unknown };
+                if (parsed && typeof parsed.error === 'string' && parsed.error.length > 0) {
+                  parsedMessage = parsed.error;
+                }
+              } catch {
+                // Body wasn't JSON — fall back to the wrapper message below.
+              }
+            }
+            setError(parsedMessage ?? callErr.message);
+            return;
+          }
           if (callErr instanceof Error) {
             setError(callErr.message);
             return;
