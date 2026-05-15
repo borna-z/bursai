@@ -77,10 +77,6 @@ export type MessageItemProps = {
   /** Tapping an inline garment pill — receives the garment id so the
    *  screen can navigate to GarmentDetail. */
   onOpenGarment: (garmentId: string) => void;
-  /** Tapping the new explicit "Anchor" affordance on an outfit card —
-   *  pins the first garment of the suggested look so the next prompt
-   *  refines around it. Mirrors web's tap-to-anchor entry. */
-  onAnchorOutfit: (garmentIds: string[]) => void;
 };
 
 export const MessageItem = React.memo(
@@ -98,7 +94,6 @@ export const MessageItem = React.memo(
     onEnterRefine,
     onCancelRefine,
     onOpenGarment,
-    onAnchorOutfit,
   }: MessageItemProps) {
     const t = useTokens();
     const isUser = msg.role === 'user';
@@ -197,6 +192,36 @@ export const MessageItem = React.memo(
       if (canAnchor) onLongPress(msg);
     };
 
+    // Codex P2 round 3 on PR #845 — guard the bubble against empty
+    // prose. For assistant replies whose text was entirely consumed by
+    // structured tokens (e.g. a pure `[[outfit:…]]` envelope where
+    // `stripOutfitTokens` empties the prose, or text that decomposed
+    // into only-hydrated `[[garment:…]]` chips), rendering the bubble
+    // chrome would leave a blank rounded card above the outfit/garment
+    // cards. Compute a boolean: a bubble is worth rendering when the
+    // user is talking, OR streaming dots are due, OR there is at least
+    // one segment that will actually emit pixels (text run, or a
+    // garment segment that falls back to inline label because no chip
+    // will render for it).
+    const hasProseContent = useMemo(() => {
+      if (isUser) return !!msg.content;
+      if (showTypingDots) return true;
+      if (textSegments && textSegments.length > 0) {
+        return textSegments.some((s) => {
+          if (s.type === 'text') return !!s.value;
+          return !hydratedInlineIds.has(s.id) && !!s.label;
+        });
+      }
+      return !!displayText;
+    }, [
+      isUser,
+      msg.content,
+      showTypingDots,
+      textSegments,
+      hydratedInlineIds,
+      displayText,
+    ]);
+
     // Inline label override map — if a [[garment:uuid|label]] segment
     // supplied a custom label, prefer it over the garment row's title.
     const labelById = useMemo(() => {
@@ -216,52 +241,54 @@ export const MessageItem = React.memo(
           maxWidth: '92%',
           gap: 8,
         }}>
-        <Pressable
-          onLongPress={handleLongPress}
-          delayLongPress={400}
-          disabled={!canAnchor}
-          accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}>
-          {mode ? (
-            <Eyebrow style={{ marginBottom: 4, marginLeft: 4 }}>{mode}</Eyebrow>
-          ) : null}
-          <View
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              backgroundColor: isUser ? t.fg : t.card,
-              borderRadius: 18,
-              borderBottomRightRadius: isUser ? 4 : 18,
-              borderBottomLeftRadius: isUser ? 18 : 4,
-              borderWidth: isUser ? 0 : 1,
-              borderColor: t.border,
-            }}>
-            {showTypingDots ? (
-              <TypingDots color={t.fg2} />
-            ) : (
-              <Text
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 13.5,
-                  lineHeight: 19,
-                  color: isUser ? t.bg : t.fg,
-                  letterSpacing: -0.13,
-                }}>
-                {isUser ? (
-                  msg.content
-                ) : (
-                  <ProseRenderer
-                    segments={textSegments}
-                    fallbackText={displayText}
-                    hydratedIds={hydratedInlineIds}
-                  />
-                )}
-                {msg.isStreaming && msg.content ? (
-                  <Text style={{ color: t.fg3 }}> ▋</Text>
-                ) : null}
-              </Text>
-            )}
-          </View>
-        </Pressable>
+        {hasProseContent ? (
+          <Pressable
+            onLongPress={handleLongPress}
+            delayLongPress={400}
+            disabled={!canAnchor}
+            accessibilityHint={canAnchor ? tr('chat.anchor.gesture.hint') : undefined}>
+            {mode ? (
+              <Eyebrow style={{ marginBottom: 4, marginLeft: 4 }}>{mode}</Eyebrow>
+            ) : null}
+            <View
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                backgroundColor: isUser ? t.fg : t.card,
+                borderRadius: 18,
+                borderBottomRightRadius: isUser ? 4 : 18,
+                borderBottomLeftRadius: isUser ? 18 : 4,
+                borderWidth: isUser ? 0 : 1,
+                borderColor: t.border,
+              }}>
+              {showTypingDots ? (
+                <TypingDots color={t.fg2} />
+              ) : (
+                <Text
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 13.5,
+                    lineHeight: 19,
+                    color: isUser ? t.bg : t.fg,
+                    letterSpacing: -0.13,
+                  }}>
+                  {isUser ? (
+                    msg.content
+                  ) : (
+                    <ProseRenderer
+                      segments={textSegments}
+                      fallbackText={displayText}
+                      hydratedIds={hydratedInlineIds}
+                    />
+                  )}
+                  {msg.isStreaming && msg.content ? (
+                    <Text style={{ color: t.fg3 }}> ▋</Text>
+                  ) : null}
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        ) : null}
 
         {/* G1 — outfit suggestion card. */}
         {showOutfitCard ? (
@@ -270,7 +297,6 @@ export const MessageItem = React.memo(
             garmentIds={outfitGarmentIds}
             explanation={outfitExplanation}
             onTry={onTryOutfit}
-            onAnchor={onAnchorOutfit}
             onSave={(ids, ctx) => onSaveOutfit(msg.id, ids, ctx)}
             saved={isOutfitSaved}
             saving={isSavingOutfit}
@@ -371,7 +397,6 @@ export const MessageItem = React.memo(
     && a.onTryOutfit === b.onTryOutfit
     && a.onSaveOutfit === b.onSaveOutfit
     && a.onOpenGarment === b.onOpenGarment
-    && a.onAnchorOutfit === b.onAnchorOutfit
     && a.isSavingOutfit === b.isSavingOutfit
     && a.isOutfitSaved === b.isOutfitSaved
     && a.isRefining === b.isRefining

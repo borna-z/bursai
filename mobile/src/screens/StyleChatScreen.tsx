@@ -238,20 +238,6 @@ export function StyleChatScreen() {
     [nav],
   );
 
-  // Web parity — explicit "Anchor" button on an outfit suggestion. The
-  // first id of the suggested look becomes the active anchor so the
-  // next prompt refines around it. Mirrors handleTryOutfit's anchor
-  // behaviour but skips the "try" navigation step.
-  const handleAnchorOutfit = React.useCallback(
-    (garmentIds: string[]) => {
-      const first = garmentIds.find(
-        (id): id is string => typeof id === 'string' && !!id,
-      );
-      if (first) setAnchoredGarmentId(first);
-    },
-    [setAnchoredGarmentId],
-  );
-
   // Parity-D — Save handler on the inline OutfitSuggestionCard. Each message
   // tracks its own saved-state stamp + in-flight flag keyed by message id so
   // the same suggestion bubble doesn't double-persist across re-renders.
@@ -556,7 +542,6 @@ export function StyleChatScreen() {
           onEnterRefine={handleEnterRefine}
           onCancelRefine={exitRefineMode}
           onOpenGarment={handleOpenGarment}
-          onAnchorOutfit={handleAnchorOutfit}
         />
       );
     },
@@ -573,7 +558,6 @@ export function StyleChatScreen() {
       handleEnterRefine,
       exitRefineMode,
       handleOpenGarment,
-      handleAnchorOutfit,
     ],
   );
 
