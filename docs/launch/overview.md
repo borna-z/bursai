@@ -12,9 +12,9 @@ Single source of truth for the mobile launch. Wave files in `waves/` are self-co
 
 | Field | Value |
 |-------|-------|
-| **CURRENT WAVE** | R — Android platform parity + on-device background removal (4 themed PRs: R-A Android LiveScan Nitro · R-B BG removal + Gemini · R-C single-photo polish · R-D batch parity) |
-| **CURRENT WAVE FILE** | `docs/launch/waves/r-android-parity-and-on-device-bg.md` |
-| **STATUS** | R-A deferred 2026-05-13 (vc-worklets bridgeless conflict on Android; iOS auto-detect shipped via #838 + revert PR #839). R-B merged 2026-05-13 (PR #840: on-device BG removal, Gemini mask-aware prompt branch, condition-check fix on raw photo, migration applied, edge functions deployed). **R-C IN PROGRESS** — single-photo polish (HEIC defense, content:// fallback, Step 3 pickers). |
+| **CURRENT WAVE** | S + T — AI-pipeline security + smartness + perceived-speed, plus T's atomic 4-task speed PR. Running in parallel as 4 PRs. |
+| **CURRENT WAVE FILES** | `docs/launch/waves/s-fast-smart-secure-ai.md` · `docs/launch/waves/t-ai-speed-prefetch-streaming.md` |
+| **STATUS** | Wave R closed 2026-05-15 (R-A deferred for Android vc-worklets bridgeless conflict; R-B #840, R-C #841 + #842, R-D #843; chat-parity follow-up #845 awaiting merge). Wave S + Wave T opened in parallel 2026-05-15 under CEO standing post-launch authority — S-A security (branch `wave-s-a-security`), S-B smartness (`wave-s-b-smartness`), S-C speed (`wave-s-c-speed`), T atomic (`prompt-ai-speed-four-improvements`). Each PR: V0 CI gates + code-reviewer subagent + self-review loop pre-push; user runs Codex + merges per device-test memory. |
 
 > **Wave T queued (2026-05-15):** Four-task AI-speed PR queued AFTER Wave S as [`docs/launch/waves/t-ai-speed-prefetch-streaming.md`](waves/t-ai-speed-prefetch-streaming.md). Single atomic commit on branch `prompt-ai-speed-four-improvements`. T-A wires `prefetch_suggestions` on Home mount; T-B passes client-side garment ID list to `style_chat` so the server's per-turn user-scan becomes an indexed `IN` lookup; T-C converts `generate_outfit` to single-chunk SSE; T-D corrects two `callBursAI` complexity tiers (`detect_duplicate_garment` → trivial; `assess_garment_condition` complex→trivial). No migrations, no native work. User direction: push branch only, do not open PR (override of `feedback-pr-gate-workflow` — confirm at execution time). Status: TODO.
 
@@ -163,23 +163,31 @@ Status legend: `TODO` → `WIP` → `DONE` (PR #N). `BLOCKED` only for true exte
 | M35 | [Home depth (smart day banner + weather)](waves/m35-home-depth.md) | DONE (PR #771) | V0, M15 |
 | M36 | [Calendar sync (Google OAuth)](waves/m36-calendar-sync.md) | DONE (PR #772) | V0 |
 | M37 | [Outfit detail slots (full composition + anchor UI)](waves/m37-outfit-detail-slots.md) | DONE (PR #773) | V0, M13 |
-| M38 | [SettingsStyle 8-section editor](waves/m38-settings-style.md) | TODO | V0, M29 |
+| M38 | [SettingsStyle 8-section editor](waves/m38-settings-style.md) | DONE (PR #804) | V0, M29 |
 
 ### Pricing & legal
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M39 | [Localized pricing](waves/m39-localized-pricing.md) | TODO | V0, M33 |
-| M40 | [Privacy + Terms native renders](waves/m40-privacy-terms-native.md) | TODO | V0 |
+| M39 | [Localized pricing](waves/m39-localized-pricing.md) | DONE (PR #811) | V0, M33 |
+| M40 | [Privacy + Terms native renders](waves/m40-privacy-terms-native.md) | DONE (PR #807) | V0 |
 
 ### Inbox + share
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M41 | [Notifications inbox + ShareOutfit image-share](waves/m41-inbox-share.md) | TODO | V0, M30 |
+| M41 | [Notifications inbox + ShareOutfit image-share](waves/m41-inbox-share.md) | DONE (PR #809) | V0, M30 |
 
 ### Performance
 | Wave | File | Status | Depends on |
 |---|---|---|---|
-| M42 | [Performance optimization pass](waves/m42-performance.md) | TODO | V0, all functional waves |
+| M42 | [Performance optimization pass](waves/m42-performance.md) | DONE (PR #812) | V0, all functional waves |
+
+### Post-launch parity sweeps + AI quality
+| Wave | File | Status | Depends on |
+|---|---|---|---|
+| Q | [Mobile parity sweep #2 (5 sub-PRs)](waves/q-mobile-parity-2.md) | DONE (PRs #826 #827 #828 #829 #830 #831, closed via #832) | post-launch |
+| R | [Android parity + on-device BG removal (4 sub-PRs)](waves/r-android-parity-and-on-device-bg.md) | DONE — R-A deferred 2026-05-13 (vc-worklets bridgeless conflict; iOS shipped via #838); R-B #840; R-C #841 + #842; R-D #843; chat-parity follow-up PR #845 | post-launch |
+| S | [Fast/smart/secure AI (3 sub-PRs)](waves/s-fast-smart-secure-ai.md) | IN PROGRESS (S-A security, S-B smartness, S-C speed — opened together) | post-launch |
+| T | [AI speed: prefetch + passthrough + SSE + model routing](waves/t-ai-speed-prefetch-streaming.md) | IN PROGRESS (atomic PR) | post-launch |
 
 ### External setup (final two — sequential, user runs the dashboard work)
 | Wave | File | Status | Depends on |
