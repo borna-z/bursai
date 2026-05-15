@@ -361,22 +361,53 @@ export function AddPieceStep3() {
   // here (e.g. a blue top → black shoes), the duplicate match must look at
   // what they're actually about to save; otherwise real duplicates of the
   // corrected item slip through and stale warnings appear for values they
-  // no longer intend to persist. Empty picker state ('' when the analyzer
-  // value was outside the canonical chip set) falls back to the analyzer
-  // value so we don't strip useful signal on a save-without-edit.
+  // no longer intend to persist.
+  //
+  // Codex R5 P2 — mirror handleSave's aiOverridden gate here so the duplicate
+  // probe sees exactly what will persist. Three cases per field:
+  //   1) untouched (current === initial snapshot) → analyzer value
+  //      (matches persistGarment's `params.X !== undefined ? ... : analysis.X`
+  //      fallthrough on the undefined we send from handleSave)
+  //   2) touched + non-empty → the picker value (matches save)
+  //   3) touched + cleared to '' → null (matches save's explicit clear)
+  // Previously case (3) leaked the analyzer value via `picker || analysis.X`,
+  // so duplicate detection ran against fields the row would not actually
+  // store — stale warnings and missed real duplicates.
   const duplicateInput = useMemo(
-    () =>
-      params?.analysis && !isSaving && !addGarment.isPending
-        ? {
-            image_path: resolvedStoragePath,
-            category: category || params.analysis.category || null,
-            color_primary: primaryColor || params.analysis.color_primary || null,
-            title: debouncedDuplicateTitle || params.analysis.title,
-            subcategory:
-              subcategoryOverride.trim() || params.analysis.subcategory || null,
-            material: material || params.analysis.material || null,
-          }
-        : null,
+    () => {
+      if (!params?.analysis || isSaving || addGarment.isPending) return null;
+      const initial = initialPickersRef.current;
+      const trimmedSub = subcategoryOverride.trim();
+      const trimmedInitialSub = initial.subcategory.trim();
+      const effective = <T extends string | null | undefined>(
+        touched: boolean,
+        value: string,
+        fallback: T,
+      ) => (touched ? (value.length > 0 ? value : null) : fallback ?? null);
+      return {
+        image_path: resolvedStoragePath,
+        // Category has no clear path (chips never set it to ''), so the
+        // simple OR fallback continues to mirror handleSave's
+        // `category || analysis.category || 'top'`.
+        category: category || params.analysis.category || null,
+        color_primary: effective(
+          primaryColor !== initial.primaryColor,
+          primaryColor,
+          params.analysis.color_primary,
+        ),
+        title: debouncedDuplicateTitle || params.analysis.title,
+        subcategory: effective(
+          trimmedSub !== trimmedInitialSub,
+          trimmedSub,
+          params.analysis.subcategory,
+        ),
+        material: effective(
+          material !== initial.material,
+          material,
+          params.analysis.material,
+        ),
+      };
+    },
     [
       resolvedStoragePath,
       params?.analysis,
