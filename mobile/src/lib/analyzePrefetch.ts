@@ -32,6 +32,21 @@
 //     can offer Retry. We intentionally do NOT delete failed entries on
 //     reject; if Step 2 retries via `clearAnalyzePrefetch(uri)` first, the
 //     next prefetch lands cleanly.
+//   - Because `useAnalyzeGarment.analyze()` catches every HTTP failure and
+//     resolves `null` (rather than rejecting), the stored promise *also*
+//     resolves `null` on a real backend failure (429 rate limit, 402
+//     subscription lock, 5xx). Callers that fall through to a fresh
+//     `analyze({ base64 })` on `null` would then burn another quota hit
+//     immediately after the server already refused — exactly when the
+//     request is most likely to fail again. Codex P2 round 2 on PR #848.
+//     The registry now tracks an `outcome` alongside the promise so the
+//     batch / Step 2 paths can distinguish:
+//       'analyzed' — promise settled with a real AnalysisResult
+//       'failed'   — promise resolved to `null` (analyze() ate a 4xx/5xx)
+//                    or rejected (resize threw / analyze somehow rejected).
+//                    Callers should route to the existing failed-item retry
+//                    UI rather than auto-retrying.
+//       'pending'  — settlement hasn't landed yet; callers should await.
 //
 // Module-scope state: Single Map per JS isolate. Hot-reload in dev clears it.
 // No persistence — prefetches are an in-session-only optimization.
@@ -43,6 +58,8 @@ import type { AnalysisResult } from '../hooks/useAnalyzeGarment';
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_ENTRIES = 16;
 
+export type PrefetchOutcome = 'pending' | 'analyzed' | 'failed';
+
 export interface PrefetchEntry {
   /** Promise resolving to the analyze() result (or null on failure). */
   promise: Promise<AnalysisResult | null>;
@@ -50,6 +67,15 @@ export interface PrefetchEntry {
   resized: Promise<ImageManipulator.ImageResult>;
   /** Wall-clock timestamp the entry was registered. Used for TTL pruning. */
   createdAt: number;
+  /**
+   * Tracks how the analyze prefetch settled. Updated synchronously from a
+   * `.then` / `.catch` attached at registration time. Readers can poll this
+   * after `await entry.promise` to learn whether the resolution represents
+   * a successful analysis or a backend failure — `useAnalyzeGarment.analyze`
+   * swallows HTTP failures into a `null` resolution rather than rejecting,
+   * so the promise's resolved value alone cannot disambiguate the two.
+   */
+  outcome: PrefetchOutcome;
 }
 
 const registry = new Map<string, PrefetchEntry>();
@@ -75,9 +101,38 @@ function prune(now: number = Date.now()): void {
  * off the underlying resize + analyze work; this module only memoizes. If an
  * entry already exists for this URI it is replaced — useful for explicit
  * "refresh on retry" flows where the previous attempt failed.
+ *
+ * Accepts the input WITHOUT an `outcome` field; the registry installs its own
+ * `.then` / `.catch` to track settlement state on the stored entry. This keeps
+ * the registration call sites simple (Step 1 just hands us the in-flight
+ * promises) while giving consumers a reliable read of whether the analyze
+ * prefetch produced a usable result or a failure that should NOT be retried.
  */
-export function setAnalyzePrefetch(uri: string, entry: PrefetchEntry): void {
-  registry.set(uri, entry);
+export function setAnalyzePrefetch(
+  uri: string,
+  entry: Omit<PrefetchEntry, 'outcome'>,
+): void {
+  const stored: PrefetchEntry = { ...entry, outcome: 'pending' };
+  // Track settlement on the stored entry without observing the original
+  // promise from the caller's perspective — `entry.promise` is what consumers
+  // await; we only need to know how IT settles. Attach to the existing
+  // promise rather than wrapping/replacing it so any consumer holding a
+  // reference to `entry.promise` (e.g. via `getAnalyzePrefetch`) sees the
+  // exact same settlement timing.
+  entry.promise
+    .then((result) => {
+      // analyze() resolves null on every backend failure path (402/429/5xx);
+      // treat that as a failure rather than a usable cache hit. A genuine
+      // analysis always carries at least a non-empty title or category.
+      stored.outcome = result == null ? 'failed' : 'analyzed';
+    })
+    .catch(() => {
+      // Rejection means the resize step (or analyze in some future world)
+      // threw outright. Same routing as a `null` resolution from our
+      // consumers' point of view: don't auto-retry, surface the retry UI.
+      stored.outcome = 'failed';
+    });
+  registry.set(uri, stored);
   prune();
 }
 

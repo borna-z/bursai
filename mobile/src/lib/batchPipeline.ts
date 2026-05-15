@@ -496,6 +496,17 @@ function runItem(batch: Batch, item: BatchItem): void {
         : null;
 
       let analysis: AnalysisResult | null = null;
+      // Tracks whether the prefetch settled with a real backend failure
+      // (429 / 402 / 5xx) vs. a benign cache miss. `useAnalyzeGarment.analyze`
+      // swallows HTTP failures into a `null` resolution, so the promise's
+      // resolved value alone can't disambiguate; the registry now exposes
+      // `outcome` on the entry for exactly this branch. Codex P2 round 2
+      // on PR #848 — when the prefetch failed, do NOT immediately re-fire
+      // `analyzeFn` against the same image (the server has already refused
+      // and the retry will most likely 429/402/5xx again, burning another
+      // quota hit). Instead surface the failure to the catch block below so
+      // the existing failed-item retry UI takes over.
+      let prefetchFailed = false;
       if (prefetched) {
         // Prefer the prefetched analyze promise — it's already in flight
         // (often resolved) from Step 1. We awaited the resize above so the
@@ -507,8 +518,24 @@ function runItem(batch: Batch, item: BatchItem): void {
         } catch {
           analysis = null;
         }
+        // The registry's settle-tracker updates `outcome` synchronously from
+        // the same `.then` / `.catch` we're observing here, so by the time
+        // our await completes the outcome is already 'analyzed' or 'failed'.
+        // 'pending' here would be a registry bug; treat it as a cache miss
+        // (fall through to fresh analyze) rather than block the user.
+        if (prefetched.outcome === 'failed') {
+          prefetchFailed = true;
+        }
         // Successful or not, the prefetch entry is now consumed.
         clearAnalyzePrefetch(item.uri);
+      }
+      if (prefetchFailed && !analysis) {
+        // The prefetched analyze already failed against the server. Don't
+        // re-fire `analyzeFn` — that's another quota hit / 429 / 402 the
+        // moment after the backend told us not to. Route to the existing
+        // failed-item retry UI, which lets the user explicitly retry once
+        // the rate-limit window expires or the subscription is unlocked.
+        throw new Error('Could not analyze photo');
       }
       if (!analysis && base64) {
         // Fast path — analyze runs in parallel with upload via the base64
