@@ -160,23 +160,47 @@ function App() {
 // captures crash-reporting context. No-op when Sentry is uninitialized.
 export default Sentry.wrap(App);
 
-// M12 — Recovery deep-link handler. The Supabase password-reset email link
-// resolves to `burs://reset-password#access_token=...&refresh_token=...&type=recovery`.
-// supabase.ts has `detectSessionInUrl: false` (RN doesn't have a `window.location`),
-// so we hydrate the session ourselves before React Navigation routes to
-// ResetPasswordScreen. Set both initial-URL (cold launch via the link) and the
-// addEventListener path (warm launch while the app is already in the
-// background).
+// M12 — Recovery deep-link handler. Two payload shapes are possible:
+//   • PKCE   : `burs://reset-password?code=<code>` (current — supabase.ts
+//              pins `flowType: 'pkce'` so resetPasswordForEmail sends a
+//              code_challenge and the recovery email returns a code).
+//   • legacy : `burs://reset-password#access_token=…&refresh_token=…&type=recovery`
+//              (pre-PKCE supabase-js default; kept so already-emailed
+//              recovery links don't break for users mid-flow during the
+//              PKCE rollout).
+// supabase.ts has `detectSessionInUrl: false` (RN doesn't have a
+// `window.location`), so we hydrate the session ourselves before React
+// Navigation routes to ResetPasswordScreen. Set both initial-URL (cold
+// launch via the link) and the addEventListener path (warm launch while
+// the app is already in the background).
 function useRecoveryDeepLink(): void {
   React.useEffect(() => {
-    const hydrate = (url: string | null): void => {
+    const hydrate = async (url: string | null): Promise<void> => {
       if (!url) return;
-      // Recovery tokens can land in either the `?` query string or the `#`
-      // fragment depending on how the Supabase email template is authored
-      // — the `?`-query variant would silently no-op without this handling.
-      // Try the URL parser's `searchParams` first (covers `?` and combined
-      // `?…#…` URLs), then fall back to manual fragment parsing for the
-      // legacy `#`-only format. Codex P2 round on PR #738.
+      // Only act on the recovery route — every other deep link has its own
+      // handler (RootNavigator's OAuth, calendar, etc.).
+      const lowered = url.toLowerCase();
+      if (!lowered.startsWith('burs://reset-password')) return;
+
+      // Try PKCE first: `?code=<code>` (with or without `&type=recovery`).
+      let code: string | null = null;
+      try {
+        code = new URL(url).searchParams.get('code');
+      } catch {
+        // URL constructor can throw on malformed deep-link inputs — fall
+        // through to the legacy fragment path below.
+      }
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.warn('[App] Recovery exchange failed:', error.message);
+        }
+        return;
+      }
+
+      // Legacy implicit-flow shape — pre-PKCE recovery emails carry
+      // `#access_token=…&refresh_token=…&type=recovery`. Codex P2 round on
+      // PR #738 covered the `?`-query variant of the same shape.
       let access_token: string | null = null;
       let refresh_token: string | null = null;
       let type: string | null = null;
@@ -186,8 +210,7 @@ function useRecoveryDeepLink(): void {
         refresh_token = parsed.searchParams.get('refresh_token');
         type = parsed.searchParams.get('type');
       } catch {
-        // URL constructor can throw on malformed deep-link inputs — fall
-        // through to the hash-fragment path below.
+        // see comment above
       }
       if (!access_token || !refresh_token || !type) {
         const hashIdx = url.indexOf('#');
@@ -200,10 +223,12 @@ function useRecoveryDeepLink(): void {
       }
       if (type !== 'recovery') return;
       if (!access_token || !refresh_token) return;
-      void supabase.auth.setSession({ access_token, refresh_token });
+      await supabase.auth.setSession({ access_token, refresh_token });
     };
-    void Linking.getInitialURL().then(hydrate).catch(() => {});
-    const sub = Linking.addEventListener('url', ({ url }) => hydrate(url));
+    void Linking.getInitialURL().then((u) => hydrate(u)).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      void hydrate(url);
+    });
     return () => {
       sub.remove();
     };
