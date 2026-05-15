@@ -19,7 +19,7 @@ import {
 import { classifyIntent, type ClassifierInput } from "../_shared/style-chat-classifier.ts";
 import { buildAuthoritativeOutfitTag, invokeUnifiedStylistEngine, type UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
 
-import { CORS_HEADERS } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 // Wave 8.5 PR B (P89) — canonical signal normalization + style summary loader + chat-driven preference extraction.
 import { normalizeStyleMemorySignal } from "../_shared/style-memory-signals.ts";
@@ -467,7 +467,7 @@ function normalizeAssistantReply(params: {
   };
 }
 
-function createSseTextResponse(envelope: StyleChatResponseEnvelope): Response {
+function createSseTextResponse(envelope: StyleChatResponseEnvelope, corsHeaders: Record<string, string>): Response {
   const encoder = new TextEncoder();
   const chunks = (envelope.assistant_text.match(/.{1,180}(?:\s|$)|\S+/g) || []).map((chunk) => chunk.trim()).filter(Boolean);
 
@@ -490,7 +490,7 @@ function createSseTextResponse(envelope: StyleChatResponseEnvelope): Response {
 
   return new Response(stream, {
     headers: {
-      ...CORS_HEADERS,
+      ...corsHeaders,
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
     },
@@ -902,8 +902,9 @@ function isRefinementTurn(intent: RefinementIntent, activeLook: ActiveLookContex
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: CORS_HEADERS });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -912,7 +913,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -926,7 +927,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     log.info("request.start", { requestId, userId: user.id });
@@ -942,7 +943,7 @@ serve(async (req) => {
     } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
-        status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -984,7 +985,7 @@ serve(async (req) => {
 
     // ── Scale guard: rate limit + overload protection ──
     if (checkOverload("style_chat")) {
-      return overloadResponse(CORS_HEADERS);
+      return overloadResponse(corsHeaders);
     }
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -995,7 +996,7 @@ serve(async (req) => {
     // Wave 8 P54 — paywall gate.
     const subCheck = await enforceSubscription(serviceClient, user.id);
     if (!subCheck.allowed) {
-      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+      return subscriptionLockedResponse(subCheck.reason, corsHeaders);
     }
 
     // Wave 8.5 PR B (P89) — load persistent style summary.
@@ -1160,7 +1161,7 @@ serve(async (req) => {
       };
 
       log.info("request.complete", { requestId, userId: user.id, stage: "quick_conversational", durationMs: Date.now() - requestStartedAt });
-      return createSseTextResponse(quickEnvelope);
+      return createSseTextResponse(quickEnvelope, corsHeaders);
     }
 
     // ── Intent classification (Pass 1) ──
@@ -2031,13 +2032,13 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
       truncated: truncatedByTokenLimit,
     });
 
-    return createSseTextResponse(envelope);
+    return createSseTextResponse(envelope, corsHeaders);
   } catch (e) {
     if (e instanceof RateLimitError) {
-      return rateLimitResponse(e, CORS_HEADERS);
+      return rateLimitResponse(e, corsHeaders);
     }
     recordError("style_chat");
     log.exception("request.failed", e);
-    return bursAIErrorResponse(e, CORS_HEADERS);
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });
