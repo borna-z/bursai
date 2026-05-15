@@ -69,10 +69,25 @@ function withMLKitSubjectSegDependency(config) {
 //     round 5. Per Google docs:
 //     https://developers.google.com/ml-kit/vision/subject-segmentation/android#dependencies
 const MODEL_DEPS_META_NAME = 'com.google.mlkit.vision.DEPENDENCIES';
-const MODEL_DEPS_VALUE = 'subject_segment';
+const MODEL_DEPS_VALUES = ['barcode_ui', 'subject_segment'];
+const TOOLS_NS = 'http://schemas.android.com/tools';
+
+function mergedModelDeps(current) {
+  const parts = String(current || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const value of MODEL_DEPS_VALUES) {
+    if (!parts.includes(value)) parts.push(value);
+  }
+  return parts.join(',');
+}
 
 function withModelDependencyMeta(config) {
   return withAndroidManifest(config, (cfg) => {
+    cfg.modResults.manifest.$ = cfg.modResults.manifest.$ || {};
+    cfg.modResults.manifest.$['xmlns:tools'] =
+      cfg.modResults.manifest.$['xmlns:tools'] || TOOLS_NS;
     const application = AndroidConfig.Manifest.getMainApplicationOrThrow(cfg.modResults);
     application['meta-data'] = application['meta-data'] || [];
     const existing = application['meta-data'].find(
@@ -82,17 +97,15 @@ function withModelDependencyMeta(config) {
       application['meta-data'].push({
         $: {
           'android:name': MODEL_DEPS_META_NAME,
-          'android:value': MODEL_DEPS_VALUE,
+          'android:value': mergedModelDeps(''),
+          'tools:replace': 'android:value',
         },
       });
     } else {
       // Merge value if another ML Kit model is already declared, so we
       // don't clobber a sibling plugin's manifest entry.
-      const current = existing.$['android:value'] || '';
-      const parts = current.split(',').map((p) => p.trim()).filter(Boolean);
-      if (!parts.includes(MODEL_DEPS_VALUE)) {
-        existing.$['android:value'] = [...parts, MODEL_DEPS_VALUE].join(',');
-      }
+      existing.$['android:value'] = mergedModelDeps(existing.$['android:value']);
+      existing.$['tools:replace'] = 'android:value';
     }
     return cfg;
   });
@@ -252,3 +265,5 @@ module.exports = function withBackgroundRemoval(config) {
   config = withIOSDeploymentTargetGuard(config);
   return config;
 };
+
+module.exports.withModelDependencyMeta = withModelDependencyMeta;
