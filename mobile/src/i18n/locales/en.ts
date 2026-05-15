@@ -2081,4 +2081,13 @@ export const en: Record<string, string> = {
   'livescan.review.skipped': 'Photo discarded.',
   'livescan.review.next.label': 'Scan next',
   'livescan.review.next.aria': 'Scan next garment',
+  // Wave R-D.1 — batch ambiguous-photo review gate (AddPieceStep2)
+  'addpiece.step2.review.eyebrow': 'Quick check',
+  'addpiece.step2.review.title': 'Does this photo show one garment?',
+  'addpiece.step2.review.body':
+    'It looks like there might be more than one piece in this shot. Keep it if it’s a single garment, or skip it.',
+  'addpiece.step2.review.keep.label': 'Keep — one garment',
+  'addpiece.step2.review.keep.aria': 'Keep this photo as a single garment',
+  'addpiece.step2.review.skip.label': 'Skip this photo',
+  'addpiece.step2.review.skip.aria': 'Skip — discard this photo',
 };

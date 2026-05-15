@@ -105,9 +105,28 @@ export type BatchItemStatus =
   | 'pending'
   | 'in_flight'
   | 'ready'
+  | 'needs_review'
   | 'failed'
   | 'saved'
   | 'skipped';
+
+/**
+ * Wave R-D.1 — ambiguous-photo review threshold. Photos that `analyze_garment`
+ * flags as containing multiple garments OR returns with low confidence land
+ * in `needs_review` rather than `ready`. The user gets a sheet on Step 2
+ * with the photo + AI note and chooses Keep (treat as a single garment,
+ * advance to Step 3) or Skip (discard the upload, advance to the next
+ * item). Web parity — same threshold web's batch review uses.
+ */
+const REVIEW_CONFIDENCE_FLOOR = 0.65;
+
+function shouldNeedReview(analysis: AnalysisResult): boolean {
+  if (analysis.image_contains_multiple_garments) return true;
+  if (typeof analysis.confidence === 'number' && analysis.confidence < REVIEW_CONFIDENCE_FLOOR) {
+    return true;
+  }
+  return false;
+}
 
 export interface BatchItem {
   index: number;
@@ -213,7 +232,11 @@ export function awaitItem(batchId: string, index: number): Promise<BatchItem | n
   if (!batch) return Promise.resolve(null);
   const item = batch.items[index];
   if (!item) return Promise.resolve(null);
-  if (item.status === 'ready' || item.status === 'failed') return Promise.resolve(item);
+  // Wave R-D.1 — `needs_review` is also a settled state from the pipeline's
+  // perspective; Step 2's batch handler reads it and shows the review sheet.
+  if (item.status === 'ready' || item.status === 'failed' || item.status === 'needs_review') {
+    return Promise.resolve(item);
+  }
   // If this item hasn't been started yet (the parallel cap was holding it
   // back), bump it to the head of the queue so the user isn't blocked.
   if (item.status === 'pending') pumpBatch(batch, /* prioritiseIndex */ index);
@@ -244,7 +267,11 @@ function waitForItem(batch: Batch, index: number): Promise<BatchItem | null> {
         item._settled.then(resolve);
         return;
       }
-      if (item.status === 'ready' || item.status === 'failed') {
+      if (
+        item.status === 'ready' ||
+        item.status === 'failed' ||
+        item.status === 'needs_review'
+      ) {
         resolve(item);
         return;
       }
@@ -252,6 +279,21 @@ function waitForItem(batch: Batch, index: number): Promise<BatchItem | null> {
     };
     tick();
   });
+}
+
+/**
+ * Wave R-D.1 — user reviewed an ambiguous photo and confirmed "this is one
+ * garment". Transitions `needs_review` → `ready` so Step 2 can navigate to
+ * Step 3 with the existing flow.
+ */
+export function markItemReviewedKeep(batchId: string, index: number): void {
+  const batch = batches.get(batchId);
+  if (!batch) return;
+  const item = batch.items[index];
+  if (!item) return;
+  if (item.status !== 'needs_review') return;
+  item.status = 'ready';
+  pumpBatch(batch);
 }
 
 /** Mark an item as saved — Step 3 calls this after mutateAsync succeeds. */
@@ -460,7 +502,9 @@ function runItem(batch: Batch, item: BatchItem): void {
         item.storagePath = null;
         return item;
       }
-      item.status = 'ready';
+      // Wave R-D.1 — ambiguous photos land in 'needs_review' so Step 2
+      // can surface the review sheet before the user reaches Step 3.
+      item.status = shouldNeedReview(analysis) ? 'needs_review' : 'ready';
       return item;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Pipeline failed';

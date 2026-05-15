@@ -1955,4 +1955,13 @@ export const sv: Record<string, string> = {
   'livescan.review.skipped': 'Bilden kastades.',
   'livescan.review.next.label': 'Skanna nästa',
   'livescan.review.next.aria': 'Skanna nästa plagg',
+  // Wave R-D.1 — batch ambiguous-photo review gate (AddPieceStep2)
+  'addpiece.step2.review.eyebrow': 'Snabb kontroll',
+  'addpiece.step2.review.title': 'Visar bilden ett plagg?',
+  'addpiece.step2.review.body':
+    'Det ser ut att kunna finnas fler plagg på bilden. Behåll den om det är ett enskilt plagg, eller hoppa över.',
+  'addpiece.step2.review.keep.label': 'Behåll — ett plagg',
+  'addpiece.step2.review.keep.aria': 'Behåll bilden som ett enskilt plagg',
+  'addpiece.step2.review.skip.label': 'Hoppa över bilden',
+  'addpiece.step2.review.skip.aria': 'Hoppa över — kasta bilden',
 };
