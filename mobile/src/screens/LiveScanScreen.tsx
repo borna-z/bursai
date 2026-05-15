@@ -61,9 +61,14 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 import { BracketOverlay } from './LiveScan/BracketOverlay';
 import { QualityHint } from './LiveScan/QualityHint';
 import { Filmstrip } from './LiveScan/Filmstrip';
-import { LiveScanEvents } from './LiveScan/events';
+import { LiveScanEvents, type AnalyzedScan } from './LiveScan/events';
 import { useLiveScanFrameProcessor } from './LiveScan/frameProcessor';
-import { ingestScan } from './LiveScan/pipeline';
+import {
+  analyzeFromCapture,
+  persistAnalyzedScan,
+  discardAnalyzedScan,
+} from './LiveScan/pipeline';
+import { ReviewCard, type ReviewCardState } from './LiveScan/ReviewCard';
 import { createScanQueue } from './LiveScan/scanQueue';
 import { createStabilityLock } from './LiveScan/stabilityLock';
 import type { Quality, ScanTileState } from './LiveScan/types';
@@ -102,7 +107,15 @@ export function LiveScanScreen() {
   // mount, GC'd on unmount. `useMemo` (rather than `useRef`) so that the
   // values are stable across renders without the lazy-init dance.
   const events = useMemo(() => new LiveScanEvents(), []);
-  const queue = useMemo(() => createScanQueue({ maxConcurrent: 3 }), []);
+  // Wave R-D Bug C — review card serializes per-capture, so the queue's
+  // legacy `maxConcurrent: 3` setting is no longer correct. Auto-snap can
+  // fire a follow-up capture during the small window between
+  // `tickLock`-fires-capture and the 'analyzed' event landing, but tickLock
+  // gates further fires on `reviewPayloadRef` so only one stale capture
+  // can squeak through. Capping at 1 closes the multi-in-flight race
+  // surface; the defensive cleanup in the 'analyzed' listener handles any
+  // residual stale payloads that still arrive.
+  const queue = useMemo(() => createScanQueue({ maxConcurrent: 1 }), []);
   const lock = useMemo(() => createStabilityLock(), []);
   // `scanCount` tracks every capture attempt (header badge — instant feedback
   // so users know rapid-fire snaps fired). `savedCount` only increments when
@@ -111,15 +124,82 @@ export function LiveScanScreen() {
   const [scanCount, setScanCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
 
-  // Subscribe to pipeline lifecycle events for accurate save accounting. The
-  // `queued` event covers offline retries (treated as "we'll save it") and
-  // `saved` covers the happy path. Both should bump the exit-toast count.
+  // Wave R-D Bug C — per-garment review card state machine. After the
+  // analyze phase emits `'analyzed'`, the screen shows the review card and
+  // PAUSES scanning until the user picks Save Original / Save Studio /
+  // Skip. The pipeline never auto-saves; persist runs only after a tap.
+  const [reviewState, setReviewState] = useState<ReviewCardState | null>(null);
+  // Latest payload kept in a ref so the 'saved' / 'queued' / 'failed'
+  // listeners can match incoming events against the in-flight session
+  // without stale-closure churn on every state transition.
+  const reviewPayloadRef = useRef<AnalyzedScan | null>(null);
+
+  // Subscribe to pipeline lifecycle events for accurate save accounting +
+  // review-card state transitions. The `queued` event covers offline
+  // retries (treated as "we'll save it") and `saved` covers the happy
+  // path. Both should bump the exit-toast count.
   useEffect(() => {
-    const offSaved = events.on('saved', () => setSavedCount((c) => c + 1));
-    const offQueued = events.on('queued', () => setSavedCount((c) => c + 1));
+    const offSaved = events.on('saved', (p) => {
+      setSavedCount((c) => c + 1);
+      // If the in-flight review session matches the saved event, advance
+      // the card to the saved-confirmation state. Stale events from
+      // earlier sessions are ignored.
+      const current = reviewPayloadRef.current;
+      if (current && current.sessionId === p.sessionId) {
+        setReviewState((prev) =>
+          prev && prev.kind === 'saving'
+            ? { kind: 'saved', payload: prev.payload, choice: prev.choice }
+            : prev,
+        );
+      }
+    });
+    const offQueued = events.on('queued', (p) => {
+      setSavedCount((c) => c + 1);
+      const current = reviewPayloadRef.current;
+      if (current && current.sessionId === p.sessionId) {
+        // Offline-queued reads as "saved" to the user — the row will land
+        // when the queue replays. The review card's saved confirmation
+        // copy works for both paths.
+        setReviewState((prev) =>
+          prev && prev.kind === 'saving'
+            ? { kind: 'saved', payload: prev.payload, choice: prev.choice }
+            : prev,
+        );
+      }
+    });
+    const offFailed = events.on('failed', (p) => {
+      const current = reviewPayloadRef.current;
+      if (current && current.sessionId === p.sessionId) {
+        setReviewState((prev) =>
+          prev && prev.kind === 'saving'
+            ? { kind: 'failed', payload: prev.payload, errorClass: p.errorClass }
+            : prev,
+        );
+      }
+    });
+    const offAnalyzed = events.on('analyzed', (payload) => {
+      // First analyzed event arms the review card; subsequent captures
+      // while the card is up are gated by the paused tickLock above so
+      // we should never see overlapping sessions in practice. But the
+      // capture-fires-before-'analyzed'-lands race (auto-snap fires
+      // capture 2 ~100 ms before capture 1 emits 'analyzed') CAN squeak
+      // a second analyze through with `maxConcurrent: 1` serializing
+      // the queue. When that happens the late payload carries
+      // already-uploaded raw + masked storage paths — silently dropping
+      // it would orphan those objects forever, so route through
+      // `discardAnalyzedScan` to clean them up.
+      if (reviewPayloadRef.current) {
+        void discardAnalyzedScan(payload, events);
+        return;
+      }
+      reviewPayloadRef.current = payload;
+      setReviewState({ kind: 'reviewing', payload });
+    });
     return () => {
       offSaved();
       offQueued();
+      offFailed();
+      offAnalyzed();
     };
   }, [events]);
 
@@ -235,14 +315,15 @@ export function LiveScanScreen() {
 
       setScanCount((c) => c + 1);
       const sessionId = Crypto.randomUUID();
-      // Fire-and-forget — pipeline owns error classification and emits via
-      // the events bus, which the Filmstrip subscribes to.
-      void queue.enqueue(() => ingestScan(uri, sessionId, user.id, events, invalidateWardrobe));
+      // Wave R-D Bug C — analyze only. Persist runs after the user's
+      // review-card tap. The pipeline emits 'analyzed' which the screen's
+      // event listener catches to surface the card.
+      void queue.enqueue(() => analyzeFromCapture(uri, sessionId, user.id, events));
     } catch {
       // Capture-loop errors must never crash the screen. The next stable
       // window will retry automatically.
     }
-  }, [user, photoOutput, flashOpacity, queue, events, invalidateWardrobe]);
+  }, [user, photoOutput, flashOpacity, queue, events]);
 
   // JS-thread tick driven by the worklet `score` shared value. Drives the
   // stability-lock fire, the shutter reveal timer, and the lock-progress
@@ -255,6 +336,11 @@ export function LiveScanScreen() {
   const tickLock = useCallback(
     (s: number) => {
       if (!detectorAvailable) return;
+      // Pause auto-snap while the review card is showing. The lock's
+      // internal disarmed-until-reset state re-arms on the next below-
+      // floor frame, so a tap of Next + the natural empty-frame between
+      // garments naturally re-arms detection without further wiring.
+      if (reviewPayloadRef.current) return;
       // Lock progress is a soft visual cue; it only animates once the score
       // crosses the "stable enough to be locking" threshold.
       if (s >= 0.7) {
@@ -311,9 +397,46 @@ export function LiveScanScreen() {
   }, [detectorAvailable, tickLock, score, markStaleIfNoRecentScan]);
 
   const handleManualShutter = useCallback(() => {
+    // Pause the manual shutter while the review card is up — Wave R-D Bug C
+    // gates auto-snap on the same condition.
+    if (reviewPayloadRef.current) return;
     hapticMedium();
     void capture();
   }, [capture]);
+
+  // Wave R-D Bug C — review-card handlers. Each transitions the state
+  // machine and dispatches the appropriate pipeline phase 2 call.
+  const handleSaveOriginal = useCallback(() => {
+    const payload = reviewPayloadRef.current;
+    if (!payload) return;
+    hapticLight();
+    setReviewState({ kind: 'saving', payload, choice: 'original' });
+    void persistAnalyzedScan(payload, false, events, invalidateWardrobe);
+  }, [events, invalidateWardrobe]);
+
+  const handleSaveStudio = useCallback(() => {
+    const payload = reviewPayloadRef.current;
+    if (!payload) return;
+    hapticLight();
+    setReviewState({ kind: 'saving', payload, choice: 'studio' });
+    void persistAnalyzedScan(payload, true, events, invalidateWardrobe);
+  }, [events, invalidateWardrobe]);
+
+  const handleSkip = useCallback(() => {
+    const payload = reviewPayloadRef.current;
+    if (!payload) return;
+    hapticLight();
+    setReviewState({ kind: 'skipped', payload });
+    void discardAnalyzedScan(payload, events);
+  }, [events]);
+
+  const handleNext = useCallback(() => {
+    hapticLight();
+    reviewPayloadRef.current = null;
+    setReviewState(null);
+    // The next sub-floor frame re-arms the stability lock automatically
+    // via the 250 ms tickLock heartbeat. No manual reset needed.
+  }, []);
 
   const handleTilePress = useCallback(
     (tile: ScanTileState) => {
@@ -328,15 +451,17 @@ export function LiveScanScreen() {
           onPress: () => {
             if (!user) return;
             const sessionId = Crypto.randomUUID();
+            // Retry runs analyze again — the review card surfaces on
+            // success exactly as for a fresh capture.
             void queue.enqueue(() =>
-              ingestScan(tile.photoUri, sessionId, user.id, events, invalidateWardrobe),
+              analyzeFromCapture(tile.photoUri, sessionId, user.id, events),
             );
           },
         },
         { text: tr('livescan.tile.cancel'), style: 'cancel' },
       ]);
     },
-    [user, queue, events, invalidateWardrobe],
+    [user, queue, events],
   );
 
   const handleClose = useCallback(() => {
@@ -374,11 +499,13 @@ export function LiveScanScreen() {
       const asset = result.assets[0];
       const sessionId = Crypto.randomUUID();
       setScanCount((c) => c + 1);
-      void queue.enqueue(() => ingestScan(asset.uri, sessionId, user.id, events, invalidateWardrobe));
+      // Same two-phase flow as auto-capture — analyze only; the review
+      // card handles persist after the user's quality choice.
+      void queue.enqueue(() => analyzeFromCapture(asset.uri, sessionId, user.id, events));
     } catch {
       // Gallery fallback errors are non-fatal — user can retry.
     }
-  }, [user, queue, events, invalidateWardrobe]);
+  }, [user, queue, events]);
 
   const flashStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
   const shutterStyle = useAnimatedStyle(() => ({
@@ -448,6 +575,17 @@ export function LiveScanScreen() {
       </Animated.View>
 
       <Filmstrip events={events} onTilePress={handleTilePress} />
+
+      {/* Wave R-D Bug C — per-garment review card. Mounts only while a
+          payload is in-flight; presents Save Original / Save Studio /
+          Skip then a Saved/Skipped/Failed → Next confirmation. */}
+      <ReviewCard
+        state={reviewState}
+        onSaveOriginal={handleSaveOriginal}
+        onSaveStudio={handleSaveStudio}
+        onSkip={handleSkip}
+        onNext={handleNext}
+      />
     </SafeAreaView>
   );
 }

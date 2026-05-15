@@ -33,7 +33,7 @@
 // storage objects best-effort deleted; saved items keep theirs).
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -63,9 +63,11 @@ import {
 import {
   awaitItem as awaitBatchItem,
   dropBatch,
+  markItemReviewedKeep,
   markItemSkipped,
   nextPendingIndex,
   retryItem as retryBatchItem,
+  type BatchItem,
 } from '../lib/batchPipeline';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -104,6 +106,13 @@ export function AddPieceStep2() {
 
   const [phase, setPhase] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Wave R-D.1 — batch ambiguous-photo review gate. When the pipeline
+  // returns a `needs_review` item, Step 2 surfaces the photo + AI note
+  // and lets the user pick Keep (advance to Step 3) or Skip (drop the
+  // item, advance to next pending). Single-photo path never lands here
+  // since multi-garment short-circuits in LiveScan, but the branch is
+  // defensive against future entry modes.
+  const [reviewItem, setReviewItem] = useState<BatchItem | null>(null);
   // Guards against StrictMode / re-render double-runs of the upload effect — without
   // this the same photo would upload twice on first mount, charging the user double
   // for the analyze call. Mirrors the activeGenerationRef pattern in web's useAddGarment.
@@ -155,6 +164,13 @@ export function AddPieceStep2() {
       }
       if (item.status === 'failed' || !item.analysis || !item.storagePath) {
         setErrorMsg(item.errorMessage ?? tr('addpiece.step2.error.couldNotAnalyze'));
+        return;
+      }
+      // Wave R-D.1 — ambiguous photo: pause here and show the review sheet
+      // inline. Step 3 navigation only happens once the user confirms Keep
+      // or skips through to the next index.
+      if (item.status === 'needs_review') {
+        setReviewItem(item);
         return;
       }
       // Replace (not push) so the back stack stays clean across the
@@ -458,6 +474,43 @@ export function AddPieceStep2() {
     });
   };
 
+  // Wave R-D.1 — user confirmed "this is one garment" on the review sheet.
+  // Transition the item to `ready` and forward to Step 3 with the same
+  // route shape the happy path uses.
+  const handleReviewKeep = () => {
+    if (!batch || !reviewItem || !reviewItem.analysis || !reviewItem.storagePath) return;
+    markItemReviewedKeep(batch.batchId, batch.index);
+    handedOffBatchRef.current = true;
+    nav.replace('AddPieceStep3', {
+      storagePath: reviewItem.storagePath,
+      photoUri: reviewItem.uri,
+      analysis: reviewItem.analysis,
+      source,
+      batch,
+    });
+  };
+
+  // Wave R-D.1 — user picked Skip on the review sheet. Mark the item
+  // skipped (the storage object gets best-effort deleted) and advance
+  // to the next pending index, OR wrap the batch up if this was the last.
+  const handleReviewSkip = () => {
+    if (!batch) return;
+    markItemSkipped(batch.batchId, batch.index);
+    const next = nextPendingIndex(batch.batchId, batch.index);
+    if (next === -1) {
+      dropBatch(batch.batchId);
+      nav.navigate('MainTabs');
+      return;
+    }
+    handedOffBatchRef.current = true;
+    nav.replace('AddPieceStep2', {
+      photoUri: allUris[next] ?? photoUri ?? '',
+      allUris,
+      source,
+      batch: { ...batch, index: next },
+    });
+  };
+
   // Batch-only — re-spawn the pipeline work for this index and re-await.
   const handleRetryBatchItem = () => {
     if (!batch) return;
@@ -489,7 +542,62 @@ export function AddPieceStep2() {
         </Pressable>
       </View>
 
-      {isError ? (
+      {reviewItem ? (
+        <View style={s.reviewWrap}>
+          <Eyebrow style={{ marginBottom: 12 }}>
+            {tr('addpiece.step2.review.eyebrow')}
+          </Eyebrow>
+          <View style={[s.reviewPhoto, { borderColor: t.border, backgroundColor: t.bg2 }]}>
+            <Image
+              source={{ uri: reviewItem.uri }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+            />
+          </View>
+          <Text style={[s.reviewTitle, { color: t.fg }]}>
+            {tr('addpiece.step2.review.title')}
+          </Text>
+          <Caption style={{ textAlign: 'center', marginTop: 6, maxWidth: 320 }}>
+            {tr('addpiece.step2.review.body')}
+          </Caption>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 22, width: '100%' }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={tr('addpiece.step2.review.skip.aria')}
+              onPress={handleReviewSkip}
+              style={({ pressed }) => [
+                s.reviewBtn,
+                {
+                  borderColor: t.border,
+                  backgroundColor: t.card,
+                  opacity: pressed ? 0.75 : 1,
+                  flex: 1,
+                },
+              ]}>
+              <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: t.fg2 }}>
+                {tr('addpiece.step2.review.skip.label')}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={tr('addpiece.step2.review.keep.aria')}
+              onPress={handleReviewKeep}
+              style={({ pressed }) => [
+                s.reviewBtn,
+                {
+                  borderColor: t.accent,
+                  backgroundColor: t.accentSoft,
+                  opacity: pressed ? 0.75 : 1,
+                  flex: 1,
+                },
+              ]}>
+              <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: t.accent }}>
+                {tr('addpiece.step2.review.keep.label')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : isError ? (
         <ErrorState
           title={tr('addpiece.step2.error.title')}
           body={errorMsg ?? tr('addpiece.step2.error.body')}
@@ -570,5 +678,34 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  reviewWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  reviewPhoto: {
+    width: 220,
+    aspectRatio: 4 / 5,
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+  reviewTitle: {
+    fontFamily: fonts.displayMedium,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    fontSize: 22,
+    letterSpacing: -0.22,
+    textAlign: 'center',
+  },
+  reviewBtn: {
+    height: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -84,12 +84,59 @@ export function AddPieceStep1() {
     }
   }, []);
 
-  // Camera tile → LiveScan handles permission + capture, then deep-links into Step 2 itself.
-  // No need to add anything to the staged grid here — LiveScan owns the single-piece path.
+  // Hero card → LiveScan (continuous detection + per-garment review card).
   const openLiveScan = useCallback(() => {
     hapticLight();
     nav.navigate('LiveScan');
   }, [nav]);
+
+  // Camera SourcePill → single-shot system camera, distinct from LiveScan.
+  // Wave R-D Bug A — device-test session 2026-05-15 surfaced that the Camera
+  // tile routed to LiveScan (rapid-fire continuous mode), so users who wanted
+  // to "just take one photo" got the auto-detect filmstrip UI instead of a
+  // simple snap-review-save. This handler hands off to the platform camera
+  // (which gives the user the native Retake/Use-Photo review), then routes
+  // straight into Step 2 with a single-item batch so the existing analyze +
+  // upload + BG-removal pipeline runs identically to a one-photo gallery
+  // pick. The Step 1 grid is intentionally skipped — the user explicitly
+  // wants a one-shot, no-staging flow on this entry mode.
+  const openCameraSingle = useCallback(async () => {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          tr('addpiece.step1.cameraPermission.title'),
+          tr('addpiece.step1.cameraPermission.body'),
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.85,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset || !user) return;
+      hapticLight();
+      const batchId = startBatch({
+        uris: [asset.uri],
+        userId: user.id,
+        source: 'add_photo',
+        analyzeFn: analyze,
+      });
+      nav.navigate('AddPieceStep2', {
+        photoUri: asset.uri,
+        allUris: [asset.uri],
+        source: 'add_photo',
+        batch: { batchId, index: 0, total: 1 },
+      });
+    } catch {
+      Alert.alert(
+        tr('addpiece.step1.cameraError.title'),
+        tr('addpiece.step1.cameraError.body'),
+      );
+    }
+  }, [analyze, nav, user]);
 
   // M19 — third entry mode. Visual Search routes to its own screen rather than
   // staging a photo into the grid: the user supplies a reference image (camera
@@ -229,7 +276,7 @@ export function AddPieceStep1() {
                 label={tr('addpiece.step1.source.camera.label')}
                 sub={tr('addpiece.step1.source.camera.sub')}
                 icon={<CameraIcon color={t.accent} />}
-                onPress={openLiveScan}
+                onPress={openCameraSingle}
               />
               <SourcePill
                 label={tr('addpiece.step1.source.gallery.label')}

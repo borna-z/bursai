@@ -1,24 +1,44 @@
-// Per-scan async pipeline. Fire-and-forget at the caller; the function always
-// resolves. Emits lifecycle events the screen subscribes to. Concurrency is
-// the caller's responsibility (filmstrip caps in-flight scans at 3).
+// Per-scan async pipeline. Two-phase since Wave R-D Bug C (2026-05-15):
 //
-// Stages (set BEFORE awaiting each step, so a thrown error classifies on the
-// correct stage):
-//   1. compress — set before resizeForGarment. A throw here gets `compress_failed`.
-//   2. upload   — set BEFORE the raw upload + segmentation parallel-await so a
-//                 network/storage failure on the raw path classifies as
-//                 `upload_failed`. Segmentation failures degrade silently to
-//                 `mask_status='failed'` and never raise the upload stage.
-//   3. analyze  — callEdgeFunction('analyze_garment', { mode: 'fast' }).
-//   4. persist  — persistGarmentWithOfflineFallback. This already kicks off
-//                 queueRender and triggerGarmentEnrichment internally per
-//                 mobile/src/lib/garmentSave.ts.
+//   Phase 1 — `analyzeFromCapture`: resize + upload raw + parallel mask +
+//     analyze. Emits `'analyzed'` with the full payload on success so the
+//     LiveScan screen can pause scanning and show the per-garment review
+//     card. On failure emits `'failed'` and best-effort cleans up the
+//     uploaded variants.
 //
-// invalidate callback: the caller passes a React Query invalidation function
-// that runs after a successful save OR after an OfflineQueuedError. Running it
-// inside the pipeline (rather than via event subscription in the screen) means
-// the invalidation survives screen unmount — the queryClient is the app-root
-// singleton and stays valid after the screen is gone.
+//   Phase 2 — `persistAnalyzedScan(payload, enableStudioQuality)`:
+//     called from the review card after the user picks Save Original /
+//     Save Studio. Runs `persistGarmentWithOfflineFallback` with the
+//     chosen flag, emits `'saved'` / `'queued'` / `'failed'`, and
+//     invalidates wardrobe caches on success.
+//
+//   Phase 2b — `discardAnalyzedScan(payload)`: called when the user taps
+//     Skip on the review card. Cleans up raw + masked uploads from
+//     storage and emits `'discard'` so the filmstrip clears its tile.
+//
+// Why the split: before R-D the pipeline auto-saved with
+// `enableStudioQuality: true`, bypassing the choice sheet entirely. Users
+// reported during device-test they wanted a per-garment Original / Studio
+// choice without leaving the LiveScan flow. Splitting analyze from persist
+// lets the screen own the pause and render UI between them while the
+// pipeline retains its event-emitting + error-classification contract.
+//
+// Stage classification (set BEFORE awaiting each step so a thrown error
+// classifies on the correct stage):
+//   compress — set before resizeForGarment. A throw here gets `compress_failed`.
+//   upload   — set BEFORE the raw upload + segmentation parallel-await so a
+//              network/storage failure on the raw path classifies as
+//              `upload_failed`. Segmentation failures degrade silently to
+//              `mask_status='failed'` and never raise the upload stage.
+//   analyze  — callEdgeFunction('analyze_garment', { mode: 'fast' }).
+//   persist  — set inside `persistAnalyzedScan` before
+//              persistGarmentWithOfflineFallback. Same classification rules.
+//
+// invalidate callback: passed into `persistAnalyzedScan` (not the analyze
+// phase) since it should only fire after a successful save. Running it
+// inside the pipeline (rather than via event subscription in the screen)
+// means the invalidation survives screen unmount — the queryClient is the
+// app-root singleton and stays valid after the screen is gone.
 //
 // Wave R-B — per-garment storage layout. We pre-generate a client-side UUID
 // for the garment row, then upload both the raw capture AND (when device
@@ -51,20 +71,18 @@ import {
   OfflineQueuedError,
 } from '../../lib/garmentSave';
 import type { AnalysisResult } from '../../hooks/useAnalyzeGarment';
-import type { LiveScanEvents } from './events';
+import type { AnalyzedScan, LiveScanEvents } from './events';
 import { classifyPipelineError } from './errorClassification';
 import type { PipelineStage, ScanSessionId } from './types';
 
-export async function ingestScan(
+/** Phase 1 — capture → resize → upload → segment → analyze. */
+export async function analyzeFromCapture(
   photoUri: string,
   sessionId: ScanSessionId,
   userId: string,
   events: LiveScanEvents,
-  invalidate: () => void,
 ): Promise<void> {
   let stage: PipelineStage = 'compress';
-  // Declared outside the try so the catch can reference them when cleaning up
-  // orphaned uploads after a later-stage failure (analyze / persist).
   let rawUpload: UploadResult | null = null;
   let maskedUpload: UploadResult | null = null;
   // Wave R-B — client-side UUID stamps both upload paths AND the eventual
@@ -192,40 +210,25 @@ export async function ingestScan(
       return;
     }
 
-    // 3. persist (kicks off queueRender + triggerGarmentEnrichment internally)
-    stage = 'persist';
-    events.emit('stage', { sessionId, stage });
-    const garment = await persistGarmentWithOfflineFallback({
-      // Pre-generated row UUID — must match the folder name we
-      // uploaded raw + masked variants into, otherwise the row's
-      // `image_path` / `original_image_path` would point at files
-      // under a folder whose name nothing else can reconstruct.
+    // 3. analyzed — pause for the review card. The screen subscribes to
+    //    this event, presents Save Original / Save Studio / Skip, then
+    //    dispatches `persistAnalyzedScan` or `discardAnalyzedScan` with
+    //    the payload below.
+    const payload: AnalyzedScan = {
+      sessionId,
       garmentId,
-      storagePath: rawUpload.storagePath,
-      maskedStoragePath: maskedUpload?.storagePath,
+      userId,
+      photoUri,
+      rawStoragePath: rawUpload.storagePath,
+      maskedStoragePath: maskedUpload?.storagePath ?? null,
       maskStatus,
       analysis,
-      source: 'live_scan',
-      enableStudioQuality: true,
-    });
-
-    events.emit('saved', { sessionId, garmentId: garment.id });
-    // Invalidate React Query caches directly so wardrobe/count/insights
-    // refresh even when the screen has already unmounted (background finish).
-    invalidate();
+    };
+    events.emit('analyzed', payload);
   } catch (err) {
-    if (err instanceof OfflineQueuedError) {
-      // Do NOT delete the uploaded objects here — the queued replay will
-      // reuse the storage paths when it eventually runs.
-      events.emit('queued', { sessionId });
-      // Invalidate here too — the garment will appear once the queue
-      // replays, but the count / stats should reflect the queued item now.
-      invalidate();
-      return;
-    }
-    // Clean up orphaned uploads if analyze/persist failed after upload
-    // succeeded. Best-effort; we never want cleanup to mask the original
-    // error or block the 'failed' event.
+    // Clean up orphaned uploads if analyze failed after upload succeeded.
+    // Best-effort; we never want cleanup to mask the original error or
+    // block the 'failed' event.
     if (rawUpload?.storagePath) {
       void deleteUpload(rawUpload.storagePath).catch(() => {});
     }
@@ -237,4 +240,73 @@ export async function ingestScan(
       errorClass: classifyPipelineError(err, stage),
     });
   }
+}
+
+/**
+ * Phase 2 — persist a reviewed scan with the user's quality choice. Fires
+ * after the review card's Save Original (false) / Save Studio (true) tap.
+ * Emits `'saved'` on success, `'queued'` on offline, `'failed'` otherwise.
+ * Runs the invalidation callback on success + on offline-queued (the
+ * garment will appear once the queue replays, but the count / stats
+ * should reflect the queued item now).
+ */
+export async function persistAnalyzedScan(
+  payload: AnalyzedScan,
+  enableStudioQuality: boolean,
+  events: LiveScanEvents,
+  invalidate: () => void,
+): Promise<void> {
+  events.emit('stage', { sessionId: payload.sessionId, stage: 'persist' });
+  try {
+    const garment = await persistGarmentWithOfflineFallback({
+      // Pre-generated row UUID — must match the folder name we
+      // uploaded raw + masked variants into, otherwise the row's
+      // `image_path` / `original_image_path` would point at files
+      // under a folder whose name nothing else can reconstruct.
+      garmentId: payload.garmentId,
+      storagePath: payload.rawStoragePath,
+      maskedStoragePath: payload.maskedStoragePath ?? undefined,
+      maskStatus: payload.maskStatus,
+      analysis: payload.analysis,
+      source: 'live_scan',
+      enableStudioQuality,
+    });
+    events.emit('saved', { sessionId: payload.sessionId, garmentId: garment.id });
+    invalidate();
+  } catch (err) {
+    if (err instanceof OfflineQueuedError) {
+      // Do NOT delete the uploaded objects here — the queued replay will
+      // reuse the storage paths when it eventually runs.
+      events.emit('queued', { sessionId: payload.sessionId });
+      invalidate();
+      return;
+    }
+    // Persist failed for a non-offline reason (RLS, validation, server
+    // 5xx). Clean up the storage objects so a retry doesn't accumulate
+    // orphans — the user can re-capture if they want to try again.
+    void deleteUpload(payload.rawStoragePath).catch(() => {});
+    if (payload.maskedStoragePath) {
+      void deleteUpload(payload.maskedStoragePath).catch(() => {});
+    }
+    events.emit('failed', {
+      sessionId: payload.sessionId,
+      errorClass: classifyPipelineError(err, 'persist'),
+    });
+  }
+}
+
+/**
+ * Phase 2b — user tapped Skip on the review card. Clean up raw + masked
+ * storage objects so nothing orphans, then emit `'discard'` so the
+ * filmstrip clears its tile.
+ */
+export async function discardAnalyzedScan(
+  payload: AnalyzedScan,
+  events: LiveScanEvents,
+): Promise<void> {
+  void deleteUpload(payload.rawStoragePath).catch(() => {});
+  if (payload.maskedStoragePath) {
+    void deleteUpload(payload.maskedStoragePath).catch(() => {});
+  }
+  events.emit('discard', { sessionId: payload.sessionId });
 }
