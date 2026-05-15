@@ -136,6 +136,22 @@ export function stripUnknownGarmentMarkup(text: string): string {
     .trim();
 }
 
+// Strip valid `[[outfit:…|…]]` tokens from prose. `stripUnknownGarmentMarkup`
+// intentionally PRESERVES outfit tags (web parses them out separately
+// via parseOutfitTags + `cleanText.replace(om.fullMatch, '')`), so any
+// consumer that doesn't run the outfit-tag pass would otherwise leak
+// raw markup. Mobile renders the outfit card from the envelope rather
+// than from these tokens — strip them here. Codex review P2 on PR #845.
+export function stripOutfitTokens(text: string): string {
+  if (!text) return text;
+  OUTFIT_TAG_RE.lastIndex = 0;
+  return text
+    .replace(OUTFIT_TAG_RE, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,.!?;:])/g, '$1')
+    .trim();
+}
+
 // Bold-markdown helper — used by chat surfaces to render `**bold**` runs
 // without pulling in a full markdown renderer. Returns a list of plain
 // + bold segments so callers can interleave bold styles inline.

@@ -39,6 +39,7 @@ import {
   extractRejectionSentence,
   parseBoldSegments,
   parseGarmentTextSegments,
+  stripOutfitTokens,
   stripUnknownGarmentMarkup,
 } from '../lib/garmentTokens';
 import { t as tr } from '../lib/i18n';
@@ -129,8 +130,13 @@ export const MessageItem = React.memo(
     // Web parity — clean the prose text before any per-segment parsing,
     // mirroring `ChatMessage.tsx:99`. Stripping unknown markup keeps a
     // streaming bubble visually stable: half-arrived tags are removed
-    // until the closing `]]` lands.
-    const rawText = isUser ? msg.content : stripUnknownGarmentMarkup(msg.content ?? '');
+    // until the closing `]]` lands. `stripOutfitTokens` then drops any
+    // `[[outfit:…|…]]` tags — mobile renders the outfit card from the
+    // envelope, so leaving outfit markup in the prose would leak raw
+    // tokens into the bubble (Codex P2 on PR #845).
+    const rawText = isUser
+      ? msg.content
+      : stripOutfitTokens(stripUnknownGarmentMarkup(msg.content ?? ''));
 
     // Web parity — extract the rejection sentence ("kept the loafers
     // over the trainers …") when an outfit card is present. The
