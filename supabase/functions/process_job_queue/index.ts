@@ -19,7 +19,7 @@
  */
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { CORS_HEADERS } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import {
   claimJob,
@@ -50,15 +50,25 @@ const JOB_HANDLERS: Record<string, JobHandler> = {
 const MAX_JOBS_PER_RUN = 10;
 const JOB_CONCURRENCY = 3;
 
+// Wave S-A.4 (2026-05-15): per-user per-run cap. Without this, a user
+// can churn render-job rows (create → delete-refund → repeat) and burn
+// the entire MAX_JOBS_PER_RUN budget within one cron tick, starving
+// other users and draining the attacker's own monthly image-gen quota
+// faster than the cost ceiling can react. 3 jobs per cron tick × N
+// ticks/hour is still ample for any legitimate batch, but caps the
+// abusive case at FIFO fairness.
+const MAX_JOBS_PER_USER_PER_RUN = 3;
+
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: CORS_HEADERS });
+    return new Response(null, { headers: corsHeaders });
   }
 
   // Cron-only endpoint — no per-user rate limit (service role only).
   // Overload guard still applies to short-circuit if the worker is unhealthy.
   if (checkOverload("process_job_queue")) {
-    return overloadResponse(CORS_HEADERS);
+    return overloadResponse(corsHeaders);
   }
 
   try {
@@ -81,13 +91,13 @@ serve(async (req) => {
     if (!RENDER_WORKER_BEARER || RENDER_WORKER_BEARER.length < 32) {
       return new Response(
         JSON.stringify({ error: "worker bearer not configured" }),
-        { status: 503, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     if (!token || !timingSafeEqual(token, RENDER_WORKER_BEARER)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -109,6 +119,10 @@ serve(async (req) => {
     const results: Array<{ id: string; type: string; status: string; error?: string }> = [];
     let totalProcessed = 0;
 
+    // Wave S-A.4: per-user counter for this run. Spans all job_types so a
+    // single user can't dodge the cap by spraying across job types.
+    const perUserCount = new Map<string, number>();
+
     for (const jobType of jobTypes) {
       if (totalProcessed >= MAX_JOBS_PER_RUN) break;
 
@@ -121,9 +135,50 @@ serve(async (req) => {
       // Claim and process jobs for this type
       const jobs: Array<{ id: string; payload: Record<string, unknown>; user_id: string | null; attempts: number; max_attempts: number }> = [];
 
-      for (let i = 0; i < MAX_JOBS_PER_RUN - totalProcessed; i++) {
+      // Cap how many claimJob attempts we make per type so an over-quota
+      // user can't force us to spin through every pending row. Walks the
+      // FIFO order; jobs released here roll naturally into the next cron
+      // tick when the user's per-run counter resets.
+      const MAX_CLAIM_ATTEMPTS = (MAX_JOBS_PER_RUN - totalProcessed) * 4;
+      for (let i = 0; i < MAX_CLAIM_ATTEMPTS && jobs.length < (MAX_JOBS_PER_RUN - totalProcessed); i++) {
         const job = await claimJob(supabase, jobType);
         if (!job) break;
+        const userKey = job.user_id ?? "__no_user__";
+        const currentCount = perUserCount.get(userKey) ?? 0;
+        if (job.user_id && currentCount >= MAX_JOBS_PER_USER_PER_RUN) {
+          // Over-cap for this user this run. Reset the row to `pending`
+          // with a near-future `locked_until` (30s). `claimJob`'s eligibility
+          // filter requires `locked_until IS NULL OR locked_until < now`,
+          // so the row is invisible to subsequent claims within THIS run.
+          // The stuck-job sweep at the bottom of this function also
+          // ignores it (it gates on `locked_until < now`).
+          //
+          // The next cron tick (typically ≥ 60s later) sees the lock as
+          // expired and re-claims naturally, preserving FIFO position
+          // without letting the current run loop on the same row.
+          // `claimJob` already incremented `attempts`. Roll it back here so a
+          // deferral never burns a retry — otherwise users with > 3 queued
+          // items would drain `attempts` toward `max_attempts` across cron
+          // ticks without any handler ever running (Codex P2 on #849).
+          const deferUntil = new Date(Date.now() + 30_000).toISOString();
+          const rolledBackAttempts = Math.max(0, (job.attempts ?? 1) - 1);
+          await supabase
+            .from("job_queue")
+            .update({
+              status: "pending",
+              locked_until: deferUntil,
+              attempts: rolledBackAttempts,
+            })
+            .eq("id", job.id);
+          log.info("Per-user cap reached, deferring job", {
+            jobType,
+            userId: job.user_id,
+            cap: MAX_JOBS_PER_USER_PER_RUN,
+            deferUntil,
+          });
+          continue;
+        }
+        perUserCount.set(userKey, currentCount + 1);
         jobs.push(job);
       }
 
@@ -191,13 +246,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ processed: totalProcessed, results }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     log.exception("Worker error", e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "Worker error" }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

@@ -25,6 +25,9 @@ import {
   getSlotKey,
 } from "./index.ts";
 import { formatGarmentLine } from "./prompt-builder.ts";
+// Wave S-A.2 (2026-05-15): wrap user-supplied garment titles in the
+// unworn / most-worn insight lines that flow into the chat system prompt.
+import { quoteUserField } from "../_shared/prompt-sanitizer.ts";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -127,10 +130,10 @@ export async function getWardrobeContext(supabase: ReturnType<typeof createClien
 
   let insightLines = "";
   if (unworn.length > 0) {
-    insightLines += `\nUnworn items (${unworn.length}): ${unworn.slice(0, 5).map((g) => g.title).join(", ")}`;
+    insightLines += `\nUnworn items (${unworn.length}): ${unworn.slice(0, 5).map((g) => quoteUserField(g.title, 80)).join(", ")}`;
   }
   if (overused.length > 0) {
-    insightLines += `\nMost worn: ${overused.map((g) => `${g.title} (${g.wear_count}x)`).join(", ")}`;
+    insightLines += `\nMost worn: ${overused.map((g) => `${quoteUserField(g.title, 80)} (${g.wear_count}x)`).join(", ")}`;
   }
 
   const dominantArchetype = topArchetypes.length > 0

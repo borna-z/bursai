@@ -2,18 +2,19 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, AIQuotaExceededError } from "../_shared/burs-ai.ts";
 
-import { CORS_HEADERS } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: CORS_HEADERS });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     // ── Scale guard ──
     if (checkOverload("generate_garment_images")) {
-      return overloadResponse(CORS_HEADERS);
+      return overloadResponse(corsHeaders);
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -35,7 +36,7 @@ serve(async (req) => {
     // Wave 8 P54 — paywall gate.
     const subCheck = await enforceSubscription(supabase, user.id);
     if (!subCheck.allowed) {
-      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+      return subscriptionLockedResponse(subCheck.reason, corsHeaders);
     }
 
     const { garment_ids } = await req.json();
@@ -52,7 +53,7 @@ serve(async (req) => {
     if (fetchErr) throw fetchErr;
     if (!garments || garments.length === 0) {
       return new Response(JSON.stringify({ results: [], error: "No garments found" }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -72,7 +73,12 @@ serve(async (req) => {
 
         const prompt = `Product photo of a single ${parts.join(" ")} ${itemName}, flat lay on pure white background, high-end fashion catalog style, clean minimal, no person, no model, no text, studio lighting`;
 
-        console.log(`Generating image for ${garment.id}: ${prompt}`);
+        // Wave S-A.5 (2026-05-15): scrub the full prompt + full garment ID
+        // from logs. Both leak into Supabase logs at info level; the prompt
+        // can include attacker-controlled subcategory text and the garment
+        // ID is a stable PII handle. Keep length + 8-char prefix for
+        // debuggability.
+        console.log(`Generating image for ${garment.id.slice(0, 8)}...: prompt_length=${prompt.length}`);
 
         // Codex P1 round 3 on PR #816 — pass `userId` + the service
         // client so callBursAI's N2 monthly cost ceiling check runs and
@@ -133,7 +139,8 @@ serve(async (req) => {
         }
 
         results.push({ id: garment.id, success: true });
-        console.log(`✅ Generated image for ${garment.id}`);
+        // Wave S-A.5 (2026-05-15): truncate garment ID in success log.
+        console.log(`Generated image for ${garment.id.slice(0, 8)}...`);
       } catch (itemErr) {
         // Codex P2 round 4 on PR #816 — let quota-class failures escape
         // the per-item loop. AIQuotaExceededError signals the N2 monthly
@@ -154,11 +161,11 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ results }), {
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     if (e instanceof RateLimitError) {
-      return rateLimitResponse(e, CORS_HEADERS);
+      return rateLimitResponse(e, corsHeaders);
     }
     if (e instanceof AIQuotaExceededError) {
       // Match `subscriptionLockedResponse` body shape so the mobile
@@ -166,10 +173,10 @@ serve(async (req) => {
       // EdgeFunctionSubscriptionLockedError without a special-case branch.
       return new Response(
         JSON.stringify({ error: "subscription_required", reason: "quota_exceeded" }),
-        { status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     console.error("generate_garment_images error:", e);
-    return bursAIErrorResponse(e, CORS_HEADERS);
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });

@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, BursAIError } from "../_shared/burs-ai.ts";
 
-import { CORS_HEADERS } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import {
   FAST_SCHEMA,
@@ -244,9 +244,82 @@ function buildEnrichMessages(imageUrl: string, withSystemMessage = true) {
   ];
 }
 
+// Wave S-A.3 (2026-05-15): base64 image format validator.
+//
+// Returns { ok: true } when the data URL declares an allowed MIME and the
+// decoded prefix matches its magic header. Returns { ok: false, reason }
+// otherwise. Rejection paths are concise — callers map every failure to
+// HTTP 400 invalid_image_format.
+const ALLOWED_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+function validateBase64Image(input: string): { ok: true } | { ok: false; reason: string } {
+  if (!input.startsWith('data:')) {
+    return { ok: false, reason: 'missing_data_url_prefix' };
+  }
+  const commaIdx = input.indexOf(',');
+  if (commaIdx === -1) {
+    return { ok: false, reason: 'malformed_data_url' };
+  }
+  const header = input.slice(5, commaIdx); // strip "data:" prefix
+  let mime = header.split(';')[0].trim().toLowerCase();
+  // Normalize the `image/jpg` alias to `image/jpeg`. `import_garments_from_links`
+  // preserves whatever Content-Type the upstream shop returned, and many CDNs
+  // serve JPEGs as `image/jpg`. Treat them as equivalent here so those imports
+  // still classify (Codex P2 on #849).
+  if (mime === 'image/jpg') mime = 'image/jpeg';
+  if (!ALLOWED_IMAGE_MIMES.has(mime)) {
+    return { ok: false, reason: 'unsupported_mime' };
+  }
+
+  // Decode the first ~16 bytes for magic-byte inspection. atob on a short
+  // base64 prefix is cheap; we only need 12 bytes for WebP's RIFF+WEBP
+  // signature, less for JPEG/PNG.
+  const body = input.slice(commaIdx + 1);
+  // 24 base64 chars → 18 raw bytes, enough for any of the three magic
+  // sequences below with margin.
+  const sample = body.slice(0, 24);
+  let bytes: Uint8Array;
+  try {
+    const decoded = atob(sample);
+    bytes = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+  } catch {
+    return { ok: false, reason: 'invalid_base64' };
+  }
+  if (bytes.length < 4) {
+    return { ok: false, reason: 'truncated_payload' };
+  }
+
+  // JPEG: FF D8 FF
+  if (mime === 'image/jpeg') {
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return { ok: true };
+    return { ok: false, reason: 'magic_byte_mismatch' };
+  }
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (mime === 'image/png') {
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return { ok: true };
+    return { ok: false, reason: 'magic_byte_mismatch' };
+  }
+  // WebP: "RIFF" (52 49 46 46) ... "WEBP" (57 45 42 50) at offset 8
+  if (mime === 'image/webp') {
+    if (
+      bytes.length >= 12
+      && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+    ) return { ok: true };
+    return { ok: false, reason: 'magic_byte_mismatch' };
+  }
+  return { ok: false, reason: 'unsupported_mime' };
+}
+
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: CORS_HEADERS });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -254,7 +327,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -271,7 +344,7 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     const userId = user.id;
@@ -291,7 +364,7 @@ serve(async (req) => {
     } else {
       return new Response(
         JSON.stringify({ error: "unsupported_locale" }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     const titleInstruction = TITLE_LANG_MAP[resolvedLocale];
@@ -299,27 +372,53 @@ serve(async (req) => {
     if (!storagePath && !base64Image) {
       return new Response(
         JSON.stringify({ error: "storagePath or base64Image is required" }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (storagePath && !storagePath.startsWith(`${userId}/`)) {
       return new Response(
         JSON.stringify({ error: "Access denied" }),
-        { status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (base64Image && base64Image.length > 5 * 1024 * 1024) {
       return new Response(
         JSON.stringify({ error: "Image is too large" }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Wave S-A.3 (2026-05-15): base64 MIME + magic-byte validation.
+    //
+    // Before this, the function accepted up to 5 MB of arbitrary base64
+    // with no format check, then forwarded it to Gemini as an image URL.
+    // An attacker could ship a base64-encoded PDF / SVG / arbitrary blob
+    // and burn the user's rate-limit / monthly-cost budget on a payload
+    // the model can't process anyway.
+    //
+    // Rules:
+    //   - data: prefix must be present and parseable
+    //   - declared MIME must be image/jpeg, image/png, or image/webp
+    //   - first decoded bytes must match the declared MIME's magic header
+    //
+    // Rejections return HTTP 400 invalid_image_format and short-circuit
+    // BEFORE the rate-limit / subscription / overload gates so a bad
+    // payload never spends quota.
+    if (base64Image) {
+      const validation = validateBase64Image(base64Image);
+      if (!validation.ok) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'invalid_image_format', reason: validation.reason }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // ── Scale guard ──
     if (checkOverload("analyze_garment")) {
-      return overloadResponse(CORS_HEADERS);
+      return overloadResponse(corsHeaders);
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -330,7 +429,7 @@ serve(async (req) => {
     // resolveUserPlan check inside enforceSubscription.
     const subCheck = await enforceSubscription(serviceClient, userId);
     if (!subCheck.allowed) {
-      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+      return subscriptionLockedResponse(subCheck.reason, corsHeaders);
     }
 
     // Resolve image URL
@@ -338,13 +437,21 @@ serve(async (req) => {
     if (base64Image) {
       resolvedImageUrl = base64Image;
     } else {
+      // Wave S-A.5 (2026-05-15, revised 2026-05-16): keep the 300s TTL.
+      // The initial S-A.5 pass dropped this to 60s for blast-radius reduction,
+      // but `callBursAI` runs up to 2 attempts × 2 models (≈4× the per-attempt
+      // timeout) and enrich mode can retry the whole call after a parse
+      // failure. With a 20s enrich timeout, later attempts can start at/after
+      // the 60s mark and Gemini would fetch an expired URL. 300s leaves ample
+      // slack for the full retry chain while still bounding leak risk (Codex
+      // P2 on #849).
       const { data: signedData, error: signedError } = await serviceClient.storage
         .from('garments')
         .createSignedUrl(storagePath!, 300);
       if (signedError || !signedData?.signedUrl) {
         return new Response(
           JSON.stringify({ error: "Could not fetch image" }),
-          { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       resolvedImageUrl = signedData.signedUrl;
@@ -396,7 +503,7 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ enrichment, ai_provider: 'burs_ai' }),
-          { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
         // Structured output makes JSON.parse failure effectively
@@ -407,7 +514,7 @@ serve(async (req) => {
         console.error('Enrichment error:', sample);
         return new Response(
           JSON.stringify({ enrichment: null, error: "enrich_failed", ai_provider: 'burs_ai' }),
-          { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -440,33 +547,33 @@ serve(async (req) => {
         if (aiErr.status === 429) {
           return new Response(
             JSON.stringify({ error: "Too many requests, try again later" }),
-            { status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         if (aiErr.status === 402) {
           return new Response(
             JSON.stringify({ error: "AI credits exhausted, contact support" }),
-            { status: 402, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
       }
       if (aiErr instanceof Error && aiErr.message.includes('timed out')) {
         return new Response(
           JSON.stringify({ error: "AI analysis timed out" }),
-          { status: 504, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       console.error('AI analysis error:', aiErr);
       return new Response(
         JSON.stringify({ error: "AI analysis failed" }),
-        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!content) {
       return new Response(
         JSON.stringify({ error: "No response from AI" }),
-        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -487,10 +594,18 @@ serve(async (req) => {
         throw new Error('Missing required fields');
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError, content);
+      // Wave S-A.5 (2026-05-15): scrub the full AI response body from logs.
+      // Garment images can carry text-on-garment captures, and a parse-failure
+      // log line that prints the entire AI response leaks that content into
+      // Supabase logs. Keep length + leading sample for debuggability;
+      // never the full payload.
+      console.error('Failed to parse AI response:', parseError, {
+        length: content?.length ?? 0,
+        sample: content?.slice(0, 80) ?? '',
+      });
       return new Response(
         JSON.stringify({ error: "Could not parse AI response" }),
-        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -545,16 +660,16 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ ...analysis, ai_provider: 'burs_ai', ai_raw: rawAnalysis }),
-      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     if (error instanceof RateLimitError) {
-      return rateLimitResponse(error, CORS_HEADERS);
+      return rateLimitResponse(error, corsHeaders);
     }
     console.error('Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: "An unexpected error occurred" }),
-      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

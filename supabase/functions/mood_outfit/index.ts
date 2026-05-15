@@ -3,7 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callBursAI, bursAIErrorResponse, estimateMaxTokens, filterEnrichedGarments } from "../_shared/burs-ai.ts";
 import { VOICE_MOOD_OUTFIT } from "../_shared/burs-voice.ts";
 
-import { CORS_HEADERS } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
+// Wave S-A.2 (2026-05-15): sanitize user-supplied garment titles before
+// they are JSON-serialized into the system prompt. JSON encoding alone
+// is structural protection; sanitizeUserField also strips control chars
+// and the """ delimiter sequence so a malicious title can't break out
+// even if a future caller drops JSON encoding.
+import { sanitizeUserField } from "../_shared/prompt-sanitizer.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { classifySlot } from "../_shared/burs-slots.ts";
 import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
@@ -144,6 +150,7 @@ async function generateMoodOutfitPayload(
   signal: AbortSignal,
   requestId: string,
 ): Promise<Record<string, unknown>> {
+  const corsHeaders = corsHeadersFor(req);
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return { error: "Unauthorized" };
@@ -165,7 +172,7 @@ async function generateMoodOutfitPayload(
   log.info("request.start", { requestId, userId });
 
   if (checkOverload("mood_outfit")) {
-    return await responseToPayload(overloadResponse(CORS_HEADERS));
+    return await responseToPayload(overloadResponse(corsHeaders));
   }
   await enforceRateLimit(serviceClient, userId, "mood_outfit");
   throwIfAborted(signal);
@@ -185,7 +192,7 @@ async function generateMoodOutfitPayload(
   // — see the comment in the page-level catch for the dual-path rationale.
   const subCheck = await enforceSubscription(serviceClient, userId);
   if (!subCheck.allowed) {
-    return await responseToPayload(subscriptionLockedResponse(subCheck.reason, CORS_HEADERS));
+    return await responseToPayload(subscriptionLockedResponse(subCheck.reason, corsHeaders));
   }
   throwIfAborted(signal);
 
@@ -270,7 +277,7 @@ async function generateMoodOutfitPayload(
     const archetype = aiRaw?.style_archetype || "";
     return {
       id: g.id,
-      title: g.title || "",
+      title: sanitizeUserField(g.title, 80),
       category: g.category || "",
       subcategory: g.subcategory || "",
       color: g.color_primary || "",
@@ -385,7 +392,8 @@ ${garmentList}` },
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  const corsHeaders = corsHeadersFor(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -422,11 +430,11 @@ serve(async (req) => {
       await sendData(payload);
     } catch (e) {
       if (e instanceof RateLimitError) {
-        await sendData(await responseToPayload(rateLimitResponse(e, CORS_HEADERS)));
+        await sendData(await responseToPayload(rateLimitResponse(e, corsHeaders)));
       } else {
         recordError("mood_outfit");
         log.exception("request.failed", e);
-        await sendData(await responseToPayload(bursAIErrorResponse(e, CORS_HEADERS)));
+        await sendData(await responseToPayload(bursAIErrorResponse(e, corsHeaders)));
       }
     } finally {
       cleanup(keepaliveId, timeoutId);
@@ -445,7 +453,7 @@ serve(async (req) => {
 
   return new Response(readable, {
     headers: {
-      ...CORS_HEADERS,
+      ...corsHeaders,
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",

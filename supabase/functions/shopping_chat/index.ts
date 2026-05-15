@@ -3,9 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { streamBursAI, bursAIErrorResponse } from "../_shared/burs-ai.ts";
 import { VOICE_SHOPPING } from "../_shared/burs-voice.ts";
 
-import { CORS_HEADERS } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { isNonEmptyObject, readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
+// Wave S-A.2 (2026-05-15): wrap user-supplied garment titles in delimiters
+// before interpolation into the wardrobe-context block of the shopping
+// advisor system prompt. See `_shared/prompt-sanitizer.ts`.
+import { quoteUserField } from "../_shared/prompt-sanitizer.ts";
 
 // ---------- i18n ----------
 
@@ -76,7 +80,7 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
     id: string; title: string; category: string; color_primary: string; color_secondary: string | null;
     formality: number | null; season_tags: string[] | null; material: string | null; fit: string | null; subcategory: string | null
   }) =>
-    `• ${g.title} [ID:${g.id}] (${g.category}${g.subcategory ? `/${g.subcategory}` : ""}, ${g.color_primary}${g.color_secondary ? `+${g.color_secondary}` : ""}${g.material ? `, ${g.material}` : ""}${g.fit ? `, ${g.fit}` : ""}${g.formality ? `, formality ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
+    `• ${quoteUserField(g.title, 80)} [ID:${g.id}] (${g.category}${g.subcategory ? `/${g.subcategory}` : ""}, ${g.color_primary}${g.color_secondary ? `+${g.color_secondary}` : ""}${g.material ? `, ${g.material}` : ""}${g.fit ? `, ${g.fit}` : ""}${g.formality ? `, formality ${g.formality}` : ""}${g.season_tags?.length ? `, ${g.season_tags.join("/")}` : ""})`
   ).join("\n");
 
   return {
@@ -86,19 +90,20 @@ async function getWardrobeContext(supabase: ReturnType<typeof createClient>, use
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: CORS_HEADERS });
+    return new Response(null, { headers: corsHeaders });
   }
 
   if (checkOverload("shopping_chat")) {
-    return overloadResponse(CORS_HEADERS);
+    return overloadResponse(corsHeaders);
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -116,7 +121,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -125,13 +130,13 @@ serve(async (req) => {
     // Wave 8 P54 — paywall gate.
     const subCheck = await enforceSubscription(serviceClient, user.id);
     if (!subCheck.allowed) {
-      return subscriptionLockedResponse(subCheck.reason, CORS_HEADERS);
+      return subscriptionLockedResponse(subCheck.reason, corsHeaders);
     }
 
     const { messages, locale: rawLocale } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
-        status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -167,7 +172,7 @@ serve(async (req) => {
         functionName: 'shopping_chat',
       });
       return new Response(response.body, {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
       });
     }
 
@@ -276,16 +281,16 @@ Rules:
 
     return new Response(response.body, {
       headers: {
-        ...CORS_HEADERS,
+        ...corsHeaders,
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
       },
     });
   } catch (e) {
     if (e instanceof RateLimitError) {
-      return rateLimitResponse(e, CORS_HEADERS);
+      return rateLimitResponse(e, corsHeaders);
     }
     console.error("shopping_chat error:", e);
-    return bursAIErrorResponse(e, CORS_HEADERS);
+    return bursAIErrorResponse(e, corsHeaders);
   }
 });
