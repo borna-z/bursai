@@ -42,6 +42,33 @@ describe('garmentImage', () => {
     ).toBe('legacy.jpg');
   });
 
+  it('wave R-B: prefers the masked image_path over the raw original_image_path', () => {
+    // Post-R-B user-uploaded garment — `image_path` carries the on-device-
+    // segmented WebP, `original_image_path` carries the raw user capture.
+    // The wardrobe + every other surface should display the masked cutout,
+    // not the raw photo, until the studio render lands.
+    expect(
+      getPreferredGarmentImagePath({
+        image_path: 'user/garment-uuid/masked.webp',
+        original_image_path: 'user/garment-uuid/raw.webp',
+        render_status: 'pending',
+      } as never),
+    ).toBe('user/garment-uuid/masked.webp');
+  });
+
+  it('wave R-B: falls back to original_image_path when masked sidecar is absent', () => {
+    // Legacy (pre-R-B) user-uploaded garments don't have `image_path` set —
+    // the chain must still resolve to the raw photo so the wardrobe doesn't
+    // regress to an empty tile.
+    expect(
+      getPreferredGarmentImagePath({
+        image_path: null,
+        original_image_path: 'user/legacy-raw.webp',
+        render_status: 'none',
+      } as never),
+    ).toBe('user/legacy-raw.webp');
+  });
+
   it('shows render message when render is pending', () => {
     expect(getGarmentProcessingMessage('pending')).toEqual({
       label: 'Studio-quality image is processing in the background',

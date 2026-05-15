@@ -29,7 +29,14 @@ export function getPreferredGarmentImagePath(garment: GarmentImageLike): string 
     return garment.rendered_image_path;
   }
 
-  return garment.original_image_path || garment.image_path || undefined;
+  // Wave R-B repurposed `image_path` to carry the on-device-segmented WebP
+  // for every user-uploaded garment (or a copy of the raw path when masking
+  // is unavailable). Preferring it surfaces the BG-removed output in the
+  // wardrobe; pre-R-B user rows have it NULL and fall through to the raw
+  // `original_image_path` unchanged. Pre-R-B manual-entry rows (with
+  // `image_path` = AI catalog image, `original_image_path` = NULL) still
+  // resolve to the catalog image — unchanged behavior.
+  return garment.image_path || garment.original_image_path || undefined;
 }
 
 export function getGarmentProcessingMessage(

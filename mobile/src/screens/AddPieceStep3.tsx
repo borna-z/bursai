@@ -44,6 +44,7 @@ import { BackIcon } from '../components/icons';
 import { GarmentSaveChoiceSheet } from '../components/GarmentSaveChoiceSheet';
 import { useAddGarment, OfflineQueuedError } from '../hooks/useAddGarment';
 import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
+import { useSignedUrl } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { deleteUpload } from '../lib/imageUpload';
@@ -315,6 +316,13 @@ export function AddPieceStep3() {
   const [resolvedStoragePath, setResolvedStoragePath] = useState<string | null>(
     () => params?.storagePath ?? null,
   );
+  // Wave R-B/R-D — the masked WebP sidecar lands a few hundred ms after the
+  // raw upload. Stash its storage path so the hero preview can swap from the
+  // local `photoUri` to the BG-removed cutout once it's available. Falling
+  // back to `photoUri` while the mask is in flight keeps the screen useful
+  // immediately and degrades gracefully on iOS 15/16 (no Vision subject seg)
+  // or when the native segmenter returns `'failed'`.
+  const [maskedStoragePath, setMaskedStoragePath] = useState<string | null>(null);
   useEffect(() => {
     if (params?.storagePath || !params?.uploadId) return;
     if (!uploadPromiseRef.current) {
@@ -327,6 +335,7 @@ export function AddPieceStep3() {
       .then((res) => {
         if (cancelled) return;
         setResolvedStoragePath(res.storagePath);
+        setMaskedStoragePath(res.maskedStoragePath ?? null);
       })
       // A rejected upload just leaves the duplicate query attribute-only —
       // matching handleSave's failure path. Save itself surfaces the error
@@ -336,6 +345,8 @@ export function AddPieceStep3() {
       cancelled = true;
     };
   }, [params?.uploadId, params?.storagePath]);
+
+  const { data: maskedSignedUrl } = useSignedUrl(maskedStoragePath);
 
   // Codex P2 round 3: every keystroke on the title used to refire the
   // duplicate query — `detect_duplicate_garment` is rate-limited at 8/min,
@@ -809,7 +820,7 @@ export function AddPieceStep3() {
               { borderColor: t.border, backgroundColor: t.bg2 },
             ]}>
             <Image
-              source={{ uri: photoUri }}
+              source={{ uri: maskedSignedUrl ?? photoUri }}
               style={StyleSheet.absoluteFillObject}
               resizeMode="cover"
             />
