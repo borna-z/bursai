@@ -107,13 +107,17 @@ serve(async (req) => {
     // T-C — SSE-ify the success path so mobile can render progressively
     // (single-chunk SSE, same shape as `mood_outfit`). The result object
     // is identical to the previous JSON body — only the wire format
-    // changes. `?stream=false` opt-out preserves the legacy JSON path
-    // for any non-mobile consumer (notably the web smoke test that uses
-    // `client.functions.invoke()`, which expects JSON). Error paths
-    // (400/401/402/429/500) keep their plain JSON responses.
+    // SSE is OPT-IN: callers must either send `Accept: text/event-stream`
+    // or `?stream=true` to get the streamed body. Default is JSON so
+    // existing `client.functions.invoke('generate_outfit')` callers (web
+    // smoke test, cron, other edge functions) keep working unchanged
+    // (Codex P2 on #850). Error paths (400/401/402/429/500) stay JSON.
     const url = new URL(req.url);
-    const wantsJson = url.searchParams.get("stream") === "false";
-    if (wantsJson) {
+    const accept = req.headers.get("accept") ?? "";
+    const wantsSSE =
+      accept.includes("text/event-stream") ||
+      url.searchParams.get("stream") === "true";
+    if (!wantsSSE) {
       return new Response(JSON.stringify(result), {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });

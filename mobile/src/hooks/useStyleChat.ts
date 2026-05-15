@@ -137,9 +137,14 @@ export function useStyleChat(): UseStyleChatResult {
   // sends its first turn. An empty / loading cache falls through to the
   // legacy server path because the memoized list is empty.
   const garmentsQuery = useFlatGarments();
+  // Only pass the id roster when the wardrobe is fully loaded. If pagination
+  // still has more pages, the server falls back to its user-wide ranked scan
+  // — sending a partial list would scope the prompt to whatever happens to be
+  // on the first page (Codex P1 on #850).
   const wardrobeIds = useMemo(
-    () => (garmentsQuery.data ?? []).map((g) => g.id),
-    [garmentsQuery.data],
+    () =>
+      garmentsQuery.hasNextPage ? [] : (garmentsQuery.data ?? []).map((g) => g.id),
+    [garmentsQuery.data, garmentsQuery.hasNextPage],
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
