@@ -2091,6 +2091,9 @@ export const en: Record<string, string> = {
   'addpiece.step2.review.skip.label': 'Skip this photo',
   'addpiece.step2.review.skip.aria': 'Skip — discard this photo',
 
+  // Append-only — PR #844 self-review round 1.
+  'auth.google.openFailed': 'Could not open the browser. Please try again.',
+
   // ─── Style Chat — web-parity additions (inline garment chips,
   //     anchor card with open-to-edit, explicit anchor CTA, "based on
   //     N pieces" header). ────────────────────────────────────────────

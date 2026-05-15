@@ -1965,6 +1965,9 @@ export const sv: Record<string, string> = {
   'addpiece.step2.review.skip.label': 'Hoppa över bilden',
   'addpiece.step2.review.skip.aria': 'Hoppa över — kasta bilden',
 
+  // Append-only — PR #844 self-review round 1.
+  'auth.google.openFailed': 'Kunde inte öppna webbläsaren. Försök igen.',
+
   // ─── Style Chat — webparitet (plagg-chips, ankarkort med
   //     "öppna och redigera", egen ankar-CTA, "baserat på N plagg"). ──
   'chat.basedOn.template': 'Baserat på {n} plagg i din garderob',
