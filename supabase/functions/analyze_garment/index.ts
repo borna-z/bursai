@@ -39,6 +39,7 @@ const TITLE_LANG_MAP = {
   ar: 'عنوان وصفي قصير بالعربية (بحد أقصى 30 حرفًا)',
   fa: 'عنوان توصیفی کوتاه به فارسی (حداکثر ۳۰ نویسه)',
   ja: '日本語の短い説明タイトル（最大30文字）',
+  pl: 'krótki opisowy tytuł po polsku (maks. 30 znaków)',
 } as const satisfies Record<SupportedLocale, string>;
 
 interface DetectedGarment {

@@ -410,6 +410,7 @@ export const SUPPORTED_LOCALES = [
   "ar",
   "fa",
   "ja",
+  "pl",
 ] as const;
 
 export type SupportedLocale = typeof SUPPORTED_LOCALES[number];
