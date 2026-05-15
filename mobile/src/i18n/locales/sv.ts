@@ -1931,4 +1931,9 @@ export const sv: Record<string, string> = {
   'addpiece.step3.subcategory.placeholder': 't.ex. T-shirt, Loafers',
   'addpiece.step3.color.none': 'Ingen sekundär färg',
   'addpiece.step3.color.none.short': 'Ingen',
+  // Wave R-D Bug A — single-shot camera entry (system camera)
+  'addpiece.step1.cameraPermission.title': 'Kamerabehörighet krävs',
+  'addpiece.step1.cameraPermission.body': 'Ge åtkomst till kameran för att fota plagget.',
+  'addpiece.step1.cameraError.title': 'Kunde inte öppna kameran',
+  'addpiece.step1.cameraError.body': 'Försök igen, eller välj ett foto från galleriet.',
 };

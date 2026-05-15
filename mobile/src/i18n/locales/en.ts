@@ -2057,4 +2057,9 @@ export const en: Record<string, string> = {
   'addpiece.step3.subcategory.placeholder': 'e.g. T-shirt, Loafers',
   'addpiece.step3.color.none': 'No secondary color',
   'addpiece.step3.color.none.short': 'None',
+  // Wave R-D Bug A — single-shot camera entry (system camera)
+  'addpiece.step1.cameraPermission.title': 'Camera access needed',
+  'addpiece.step1.cameraPermission.body': 'Grant camera access to take a photo of your garment.',
+  'addpiece.step1.cameraError.title': 'Couldn’t open the camera',
+  'addpiece.step1.cameraError.body': 'Try again, or pick a photo from your gallery instead.',
 };
