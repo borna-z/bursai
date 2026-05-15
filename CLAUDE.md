@@ -6,9 +6,9 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | R — Android platform parity + on-device background removal (4 themed PRs: R-A Android LiveScan Nitro · R-B BG removal + Gemini · R-C single-photo polish · R-D batch parity) |
-| **CURRENT WAVE FILE** | `docs/launch/waves/r-android-parity-and-on-device-bg.md` |
-| **STATUS** | R-A deferred (2026-05-13, vc-worklets bridgeless conflict — Android auto-detect dropped, iOS shipped via #838); R-B merged (PR #840, 2026-05-13); R-C IN PROGRESS (single-photo polish) |
+| **CURRENT WAVE** | S + T — AI-pipeline security + smartness + perceived-speed, plus T's atomic 4-task speed PR. Running in parallel as 4 PRs. |
+| **CURRENT WAVE FILES** | `docs/launch/waves/s-fast-smart-secure-ai.md` · `docs/launch/waves/t-ai-speed-prefetch-streaming.md` |
+| **STATUS** | Wave R closed 2026-05-15 (R-A deferred for Android vc-worklets bridgeless conflict; R-B #840, R-C #841 + #842, R-D #843; chat-parity follow-up #845 merged). Wave S + Wave T opened in parallel 2026-05-15 as PRs #847 #848 #849 #850 alongside tracker hygiene #846 under standing CEO post-launch authority — S-A security (#849, branch `wave-s-a-security`), S-B smartness (#847, branch `wave-s-b-smartness`), S-C speed (#848, branch `wave-s-c-speed`), T atomic (#850, branch `prompt-ai-speed-four-improvements`). Each PR: V0 CI gates + code-reviewer subagent + self-review loop pre-push; user runs Codex + merges per device-test memory. |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
 
