@@ -25,6 +25,8 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -45,6 +47,15 @@ import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
 import { t as tr } from '../lib/i18n';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { deleteUpload } from '../lib/imageUpload';
+import {
+  CATEGORIES,
+  MATERIALS,
+  FITS,
+  PATTERNS,
+  COLOR_SWATCHES,
+  FORMALITY_OPTIONS,
+  matchCanonical,
+} from '../lib/garmentTaxonomy';
 import {
   dropPendingUpload,
   takePendingUpload,
@@ -98,6 +109,50 @@ export function AddPieceStep3() {
   const params = route.params;
   const addGarment = useAddGarment();
   const [titleOverride, setTitleOverride] = useState<string>(params?.analysis.title ?? '');
+
+  // Wave R-C.3 — Step 3 picker state. Initialised from the AI's prefill via
+  // `matchCanonical` (case-insensitive match against the canonical chip set;
+  // out-of-set analyzer values default to '' so the user is gently prompted
+  // to pick something the wardrobe filters recognise).
+  //
+  // Hooks must run unconditionally above the no-params bail-out below;
+  // optional-chained reads handle the null-params first render.
+  const [category, setCategory] = useState<string>(() => {
+    const m = matchCanonical(params?.analysis.category, CATEGORIES);
+    return typeof m === 'string' && (CATEGORIES as readonly string[]).includes(m) ? m : '';
+  });
+  const [subcategoryOverride, setSubcategoryOverride] = useState<string>(
+    params?.analysis.subcategory ?? '',
+  );
+  const [primaryColor, setPrimaryColor] = useState<string>(params?.analysis.color_primary ?? '');
+  const [secondaryColor, setSecondaryColor] = useState<string>(
+    params?.analysis.color_secondary ?? '',
+  );
+  const [material, setMaterial] = useState<string>(() => {
+    const m = matchCanonical(params?.analysis.material, MATERIALS);
+    return typeof m === 'string' && (MATERIALS as readonly string[]).includes(m) ? m : '';
+  });
+  const [fit, setFit] = useState<string>(() => {
+    const m = matchCanonical(params?.analysis.fit, FITS);
+    return typeof m === 'string' && (FITS as readonly string[]).includes(m) ? m : '';
+  });
+  const [pattern, setPattern] = useState<string>(() => {
+    const m = matchCanonical(params?.analysis.pattern, PATTERNS);
+    return typeof m === 'string' && (PATTERNS as readonly string[]).includes(m) ? m : '';
+  });
+  const [seasons, setSeasons] = useState<string[]>(params?.analysis.season_tags ?? []);
+  // Formality lives on the canonical 1..5 scale shared with analyze_garment /
+  // `formalityLabel` / `formalityToBand`. The 3-stop chip selector emits 1/3/5
+  // (see `FORMALITY_OPTIONS`); analyzer values 2 and 4 prefill state but render
+  // with no chip active (the user can confirm by tapping the closest stop).
+  // Codex R3 P2.
+  const [formalityValue, setFormalityValue] = useState<1 | 2 | 3 | 4 | 5 | null>(() => {
+    const f = params?.analysis.formality;
+    return f === 1 || f === 2 || f === 3 || f === 4 || f === 5
+      ? (f as 1 | 2 | 3 | 4 | 5)
+      : null;
+  });
+
   const [choiceOpen, setChoiceOpen] = useState(false);
   // In-flight guard for the entire save flow — covers the pre-mutation upload
   // await window where `addGarment.isPending` is still false. Without this, a
@@ -129,6 +184,27 @@ export function AddPieceStep3() {
   // is internally guarded by savedRef, so a successful save no-ops it; a
   // failed save runs the orphan-delete path. Codex round 10 P2 on PR #725.
   const pendingCleanupRef = useRef<(() => void) | null>(null);
+
+  // Wave R-C.3 — snapshot of the picker state at first mount. Compared in
+  // handleSave to compute the ai_overridden map (per-field "did the user
+  // touch this away from the AI's prefill"). useRef so the snapshot stays
+  // stable across renders; the initial values mirror the useState
+  // initialisers above exactly (otherwise an AI value that's outside the
+  // canonical chip set would falsely flag as "overridden" the moment we
+  // save, because picker state defaulted to '' while the snapshot would
+  // still hold the analyzer's raw value).
+  const initialPickersRef = useRef({
+    title: titleOverride,
+    category,
+    subcategory: subcategoryOverride,
+    primaryColor,
+    secondaryColor,
+    material,
+    fit,
+    pattern,
+    seasonsKey: [...seasons].sort().join('|'),
+    formality: formalityValue,
+  });
 
   // Resolve the deferred storagePath if Step 2 navigated us here before the
   // upload landed. Idempotent — repeat calls return the cached promise.
@@ -279,22 +355,67 @@ export function AddPieceStep3() {
   // also burn the 8/min rate limit) and wasted UX (the result is irrelevant
   // once the user has committed). Passing null short-circuits the hook's
   // own `enabled` gate (`!!input?.category`).
+  //
+  // Codex R3 P2 — feed the live picker state (not the analyzer snapshot)
+  // into the duplicate query. If the user corrects an AI misclassification
+  // here (e.g. a blue top → black shoes), the duplicate match must look at
+  // what they're actually about to save; otherwise real duplicates of the
+  // corrected item slip through and stale warnings appear for values they
+  // no longer intend to persist.
+  //
+  // Codex R5 P2 — mirror handleSave's aiOverridden gate here so the duplicate
+  // probe sees exactly what will persist. Three cases per field:
+  //   1) untouched (current === initial snapshot) → analyzer value
+  //      (matches persistGarment's `params.X !== undefined ? ... : analysis.X`
+  //      fallthrough on the undefined we send from handleSave)
+  //   2) touched + non-empty → the picker value (matches save)
+  //   3) touched + cleared to '' → null (matches save's explicit clear)
+  // Previously case (3) leaked the analyzer value via `picker || analysis.X`,
+  // so duplicate detection ran against fields the row would not actually
+  // store — stale warnings and missed real duplicates.
   const duplicateInput = useMemo(
-    () =>
-      params?.analysis && !isSaving && !addGarment.isPending
-        ? {
-            image_path: resolvedStoragePath,
-            category: params.analysis.category ?? null,
-            color_primary: params.analysis.color_primary ?? null,
-            title: debouncedDuplicateTitle || params.analysis.title,
-            subcategory: params.analysis.subcategory ?? null,
-            material: params.analysis.material ?? null,
-          }
-        : null,
+    () => {
+      if (!params?.analysis || isSaving || addGarment.isPending) return null;
+      const initial = initialPickersRef.current;
+      const trimmedSub = subcategoryOverride.trim();
+      const trimmedInitialSub = initial.subcategory.trim();
+      const effective = <T extends string | null | undefined>(
+        touched: boolean,
+        value: string,
+        fallback: T,
+      ) => (touched ? (value.length > 0 ? value : null) : fallback ?? null);
+      return {
+        image_path: resolvedStoragePath,
+        // Category has no clear path (chips never set it to ''), so the
+        // simple OR fallback continues to mirror handleSave's
+        // `category || analysis.category || 'top'`.
+        category: category || params.analysis.category || null,
+        color_primary: effective(
+          primaryColor !== initial.primaryColor,
+          primaryColor,
+          params.analysis.color_primary,
+        ),
+        title: debouncedDuplicateTitle || params.analysis.title,
+        subcategory: effective(
+          trimmedSub !== trimmedInitialSub,
+          trimmedSub,
+          params.analysis.subcategory,
+        ),
+        material: effective(
+          material !== initial.material,
+          material,
+          params.analysis.material,
+        ),
+      };
+    },
     [
       resolvedStoragePath,
       params?.analysis,
       debouncedDuplicateTitle,
+      category,
+      primaryColor,
+      subcategoryOverride,
+      material,
       isSaving,
       addGarment.isPending,
     ],
@@ -340,7 +461,9 @@ export function AddPieceStep3() {
   // prompt to review fields rather than the auto-confirmed copy. Codex P2
   // round on PR #738.
   const confidenceHigh = typeof analysis.confidence === 'number' && analysis.confidence >= 0.7;
-  const seasonsLower = analysis.season_tags.map((s) => s.toLowerCase());
+  // Wave R-C.3 — derive from the form state (editable) rather than the
+  // analyzer snapshot so toggling a season chip immediately reflects.
+  const seasonsLower = seasons.map((s) => s.toLowerCase());
 
   const dismissDuplicate = (acknowledge: boolean) => {
     if (acknowledge && duplicateMatch) {
@@ -438,13 +561,71 @@ export function AddPieceStep3() {
         }
       }
 
+      // Wave R-C.3 — compute the ai_overridden audit map by comparing the
+      // current picker state to the snapshot taken at mount. A field flips
+      // to true ONLY when the user actually moved it away from the AI's
+      // prefill (or away from the empty default the prefill produced for
+      // out-of-canonical-set analyzer values).
+      const initial = initialPickersRef.current;
+      const trimmedTitle = titleOverride.trim();
+      const trimmedSub = subcategoryOverride.trim();
+      const sortedSeasonsKey = [...seasons].sort().join('|');
+      const aiOverridden = {
+        title:
+          trimmedTitle.length > 0 && trimmedTitle !== initial.title.trim(),
+        category: category !== initial.category,
+        subcategory: trimmedSub !== initial.subcategory.trim(),
+        color_primary: primaryColor !== initial.primaryColor,
+        color_secondary: secondaryColor !== initial.secondaryColor,
+        material: material !== initial.material,
+        fit: fit !== initial.fit,
+        pattern: pattern !== initial.pattern,
+        season_tags: sortedSeasonsKey !== initial.seasonsKey,
+        formality: formalityValue !== initial.formality,
+      };
+
+      // Codex P2 round 2 — when the analyzer returned an out-of-canonical
+      // value (e.g. `material: "polyester"`, `pattern: "dotted"`), the
+      // picker state defaulted to `''` and the snapshot also captured `''`,
+      // so a save-without-edit used to forward `null` for the field and
+      // `persistGarment` treated that as an explicit override — nulling
+      // analyzer metadata that the previous save path preserved.
+      //
+      // Fix: send `undefined` for any field the user did NOT touch (i.e.
+      // current state === initial snapshot). `persistGarment` falls back
+      // to `analysis.<field>` on `undefined`, so out-of-set analyzer
+      // values flow through to the row unchanged. Touched fields still
+      // emit `null` for cleared-to-empty state.
       const garment = await addGarment.mutateAsync({
         storagePath: resolvedPath,
         analysis,
         source,
         enableStudioQuality,
-        title: titleOverride.trim() || analysis.title,
-        category: analysis.category,
+        title: trimmedTitle || analysis.title,
+        // Category falls through analyzer → 'top' default in persistGarment
+        // when neither the picker nor the AI produced a value.
+        category: category || analysis.category || 'top',
+        subcategory: aiOverridden.subcategory
+          ? trimmedSub.length > 0 ? trimmedSub : null
+          : undefined,
+        color_primary: aiOverridden.color_primary
+          ? primaryColor.length > 0 ? primaryColor : null
+          : undefined,
+        color_secondary: aiOverridden.color_secondary
+          ? secondaryColor.length > 0 ? secondaryColor : null
+          : undefined,
+        material: aiOverridden.material
+          ? material.length > 0 ? material : null
+          : undefined,
+        fit: aiOverridden.fit
+          ? fit.length > 0 ? fit : null
+          : undefined,
+        pattern: aiOverridden.pattern
+          ? pattern.length > 0 ? pattern : null
+          : undefined,
+        season_tags: aiOverridden.season_tags ? seasons : undefined,
+        formality: aiOverridden.formality ? formalityValue : undefined,
+        aiOverridden,
       });
       hapticSuccess();
       // Mark saved BEFORE nav.reset — once the navigator unmounts this screen,
@@ -709,57 +890,141 @@ export function AddPieceStep3() {
           />
         </View>
 
-        {/* ============ READ-ONLY DETAIL ROWS ============ */}
-        <View style={{ gap: 8 }}>
-          {/* Display-only in W5; editing each field needs picker UIs that land in Wave 9. */}
-          {(
-            [
-              [tr('addpiece.step3.field.category'), titleCase(analysis.category)],
-              [tr('addpiece.step3.field.subcategory'), titleCase(analysis.subcategory)],
-              [tr('addpiece.step3.field.colorPrimary'), titleCase(analysis.color_primary)],
-              [tr('addpiece.step3.field.material'), titleCase(analysis.material)],
-              [tr('addpiece.step3.field.pattern'), titleCase(analysis.pattern)],
-              [tr('addpiece.step3.field.fit'), titleCase(analysis.fit)],
-            ] as [string, string][]
-          ).map(([label, value]) => (
-            <View
-              key={label}
-              style={[s.fieldRow, { borderColor: t.border, backgroundColor: t.card }]}>
-              <Text
-                style={{
-                  fontFamily: fonts.uiSemi,
-                  fontSize: 10,
-                  letterSpacing: 1.4,
-                  color: t.fg2,
-                  textTransform: 'uppercase',
-                }}>
-                {label}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.uiMed,
-                  fontSize: 13,
-                  color: t.fg,
-                  fontWeight: '500',
-                  flexShrink: 1,
-                  textAlign: 'right',
-                }}
-                numberOfLines={1}>
-                {value}
-              </Text>
-            </View>
-          ))}
+        {/* ============ EDITABLE PICKERS — Wave R-C.3 ============ */}
+        {/* Replaces the W5-era read-only display rows. Each picker prefills
+            from `analysis.*` but the user can override; the per-field
+            ai_overridden audit flag is computed in handleSave by comparing
+            current state to the initialPickersRef snapshot. */}
+        <View style={{ gap: 14 }}>
+          <View>
+            <Eyebrow style={{ marginBottom: 8 }}>
+              {tr('addpiece.step3.field.category')}
+            </Eyebrow>
+            <ChipRow
+              values={CATEGORIES as readonly string[]}
+              active={category ? [category] : []}
+              onTap={(v) => setCategory(category === v ? '' : v)}
+              getLabel={titleCase}
+            />
+          </View>
+
+          <View style={{ gap: 6 }}>
+            <Eyebrow>{tr('addpiece.step3.field.subcategory')}</Eyebrow>
+            <TextInput
+              value={subcategoryOverride}
+              onChangeText={setSubcategoryOverride}
+              placeholder={tr('addpiece.step3.subcategory.placeholder')}
+              placeholderTextColor={t.fg3}
+              style={[
+                s.titleInput,
+                { borderColor: t.border, backgroundColor: t.card, color: t.fg },
+              ]}
+              maxLength={40}
+              returnKeyType="done"
+            />
+          </View>
+
+          <View>
+            <Eyebrow style={{ marginBottom: 8 }}>
+              {tr('addpiece.step3.field.colorPrimary')}
+            </Eyebrow>
+            <SwatchRow
+              activeId={primaryColor}
+              onPick={(id) => setPrimaryColor(primaryColor === id ? '' : id)}
+            />
+          </View>
+
+          <View>
+            <Eyebrow style={{ marginBottom: 8 }}>
+              {tr('addpiece.step3.field.colorSecondary')}
+            </Eyebrow>
+            <SwatchRow
+              activeId={secondaryColor}
+              onPick={(id) => setSecondaryColor(secondaryColor === id ? '' : id)}
+              allowNone
+            />
+          </View>
+
+          <View>
+            <Eyebrow style={{ marginBottom: 8 }}>
+              {tr('addpiece.step3.field.material')}
+            </Eyebrow>
+            <ChipRow
+              values={MATERIALS as readonly string[]}
+              active={material ? [material] : []}
+              onTap={(v) => setMaterial(material === v ? '' : v)}
+              getLabel={titleCase}
+            />
+          </View>
+
+          <View>
+            <Eyebrow style={{ marginBottom: 8 }}>
+              {tr('addpiece.step3.field.fit')}
+            </Eyebrow>
+            <ChipRow
+              values={FITS as readonly string[]}
+              active={fit ? [fit] : []}
+              onTap={(v) => setFit(fit === v ? '' : v)}
+              getLabel={titleCase}
+            />
+          </View>
+
+          <View>
+            <Eyebrow style={{ marginBottom: 8 }}>
+              {tr('addpiece.step3.field.pattern')}
+            </Eyebrow>
+            <ChipRow
+              values={PATTERNS as readonly string[]}
+              active={pattern ? [pattern] : []}
+              onTap={(v) => setPattern(pattern === v ? '' : v)}
+              getLabel={titleCase}
+            />
+          </View>
         </View>
 
-        {/* ============ SEASONS ============ */}
+        {/* ============ SEASONS — multi-chip, R-C.3 makes it interactive ============ */}
         <View>
           <Eyebrow style={{ marginBottom: 8 }}>{tr('addpiece.step3.seasonsEyebrow')}</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {SEASONS.map((season) => (
+            {SEASONS.map((season) => {
+              const active = seasonsLower.includes(season);
+              return (
+                <Chip
+                  key={season}
+                  label={tr(SEASON_LABEL_KEYS[season])}
+                  active={active}
+                  onPress={() =>
+                    setSeasons((prev) =>
+                      prev.map((s) => s.toLowerCase()).includes(season)
+                        ? prev.filter((s) => s.toLowerCase() !== season)
+                        : [...prev, season],
+                    )
+                  }
+                />
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ============ FORMALITY — 3-stop selector, R-C.3 ============ */}
+        <View>
+          <Eyebrow style={{ marginBottom: 8 }}>
+            {tr('addpiece.step3.field.formality')}
+          </Eyebrow>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {FORMALITY_OPTIONS.map((opt) => (
+              // Codex P2 round 1 — non-toggleable. Tapping the already-active
+              // chip is a no-op (rather than clearing to null) because
+              // persistGarment treats `null` as "fall back to analysis", so
+              // a "clear" tap would silently restore the AI value the user
+              // just removed. The 3-stop selector has no "none" semantic.
               <Chip
-                key={season}
-                label={tr(SEASON_LABEL_KEYS[season])}
-                active={seasonsLower.includes(season)}
+                key={opt.value}
+                label={tr(opt.key)}
+                active={formalityValue === opt.value}
+                onPress={() => {
+                  if (formalityValue !== opt.value) setFormalityValue(opt.value);
+                }}
               />
             ))}
           </View>
@@ -859,16 +1124,6 @@ const s = StyleSheet.create({
     fontFamily: fonts.uiMed,
     fontSize: 14,
   },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    gap: 12,
-  },
   stickyBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -898,4 +1153,119 @@ const s = StyleSheet.create({
     borderWidth: 1,
     padding: 22,
   },
+  swatch: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    padding: 3,
+  },
+  swatchInner: {
+    flex: 1,
+    borderRadius: 999,
+  },
+  swatchNone: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
+// Wave R-C.3 — inline picker helpers. Kept local to Step 3 because the layout
+// is the only consumer; once EditGarmentScreen migrates onto this picker set,
+// the helpers move to `mobile/src/components/pickers/`. Mirrors the chip-row
+// shape EditGarmentScreen uses inline today (intentional duplication while
+// the refactor is held off as scope creep).
+
+function ChipRow({
+  values,
+  active,
+  onTap,
+  style,
+  // Codex R3 P2 — values are canonical lowercase ids (matching analyze_garment
+  // + DB column contracts); display labels are titleCased at render so the UX
+  // reads "Outerwear" / "Synthetic" while saves stay canonical. Falls back to
+  // the raw value if no transformer is provided.
+  getLabel = (v) => v,
+}: {
+  values: readonly string[];
+  active: string[];
+  onTap: (v: string) => void;
+  style?: StyleProp<ViewStyle>;
+  getLabel?: (v: string) => string;
+}) {
+  return (
+    <View style={[{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, style]}>
+      {values.map((v) => (
+        <Chip key={v} label={getLabel(v)} active={active.includes(v)} onPress={() => onTap(v)} />
+      ))}
+    </View>
+  );
+}
+
+function SwatchRow({
+  activeId,
+  onPick,
+  allowNone = false,
+}: {
+  activeId: string;
+  onPick: (id: string) => void;
+  allowNone?: boolean;
+}) {
+  const t = useTokens();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+      {allowNone ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={tr('addpiece.step3.color.none')}
+          onPress={() => onPick('')}
+          style={({ pressed }) => [
+            s.swatchNone,
+            {
+              borderColor: activeId === '' ? t.accent : t.border,
+              borderWidth: activeId === '' ? 2 : 1,
+              backgroundColor: t.card,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}>
+          <Text
+            style={{
+              fontFamily: fonts.uiSemi,
+              fontSize: 9,
+              letterSpacing: 0.8,
+              color: t.fg2,
+              textTransform: 'uppercase',
+            }}>
+            {tr('addpiece.step3.color.none.short')}
+          </Text>
+        </Pressable>
+      ) : null}
+      {COLOR_SWATCHES.map((c) => {
+        const active = c.id === activeId;
+        return (
+          <Pressable
+            key={c.id}
+            accessibilityRole="button"
+            accessibilityLabel={c.label}
+            onPress={() => onPick(c.id)}
+            style={({ pressed }) => [
+              s.swatch,
+              {
+                borderColor: active ? t.accent : t.border,
+                borderWidth: active ? 2 : 1,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}>
+            <View style={[s.swatchInner, { backgroundColor: c.color }]} />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}

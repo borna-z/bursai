@@ -25,7 +25,7 @@
 // vanishingly unlikely without needing an extra DB lookup for uniqueness.
 
 import * as ImageManipulator from 'expo-image-manipulator';
-import { File as FsFile } from 'expo-file-system';
+import { File as FsFile, Paths } from 'expo-file-system';
 
 import { supabase } from './supabase';
 
@@ -67,6 +67,42 @@ function uploadVariantPath(userId: string, garmentId: string, kind: GarmentImage
 }
 
 /**
+ * Wave R-C.1 — defensive HEIC→JPEG transcode. `expo-image-picker` on iOS 11+
+ * returns HEIC by default for camera-roll imports. `expo-image-manipulator`
+ * usually decodes HEIC fine, but trips on 10-bit HDR variants and multi-frame
+ * "Live Photo" HEIC containers — the resize call fails with an opaque codec
+ * error and the user sees the gallery import bounce with no save. The fix is
+ * a cheap intermediate transcode at near-lossless quality first, which
+ * collapses any HEIC variant to vanilla 8-bit JPEG that the WebP resize step
+ * always handles. Adds ~80ms on HEIC gallery imports; no impact on camera or
+ * LiveScan (which already write JPEG).
+ *
+ * Detection is by extension. `ph://` photo-library URIs aren't HEIC at the
+ * URI level even when the underlying asset is — but iOS resolves those into
+ * file copies before they reach this layer, so the extension check holds.
+ */
+async function transcodeHeicIfNeeded(uri: string): Promise<string> {
+  if (!/\.(heic|heif)(\?|#|$)/i.test(uri)) return uri;
+  try {
+    const transcoded = await ImageManipulator.manipulateAsync(
+      uri,
+      [],
+      {
+        compress: 0.95,
+        format: ImageManipulator.SaveFormat.JPEG,
+      },
+    );
+    return transcoded.uri;
+  } catch {
+    // Transcode failure leaves the resize step to take its own crack at the
+    // source URI — manipulateAsync handles most HEIC variants directly, and
+    // the small remainder that doesn't bubble up as a normal resize error
+    // the caller already classifies as `compress_failed`.
+    return uri;
+  }
+}
+
+/**
  * Resize a source URI to the canonical analyze/render input format. Returns the
  * raw ImageManipulator output so callers that need both the resized URI AND a
  * base64 payload (parallel-flow Step 2) can grab them in one shot rather than
@@ -76,13 +112,17 @@ function uploadVariantPath(userId: string, garmentId: string, kind: GarmentImage
  * N6: encodes WebP @ 1024px to match web's `compressImage`. analyze_garment
  * forwards the data URL straight to Gemini, which accepts WebP; the storage
  * upload writes the same bytes with the matching `image/webp` content type.
+ *
+ * Wave R-C.1: HEIC sources transcode through JPEG first via
+ * `transcodeHeicIfNeeded`. See helper above for rationale.
  */
 export async function resizeForGarment(
   uri: string,
   options: { wantBase64?: boolean } = {},
 ): Promise<ImageManipulator.ImageResult> {
+  const safeSource = await transcodeHeicIfNeeded(uri);
   return ImageManipulator.manipulateAsync(
-    uri,
+    safeSource,
     [{ resize: { width: MAX_DIMENSION } }],
     {
       compress: COMPRESS_QUALITY,
@@ -90,6 +130,40 @@ export async function resizeForGarment(
       base64: options.wantBase64 === true,
     },
   );
+}
+
+/**
+ * Wave R-C.2 — content:// URI defense. On Samsung One UI multi-window or with
+ * 3rd-party gallery providers, `expo-image-picker` and `expo-image-manipulator`
+ * can return URIs whose backing content provider revokes read access between
+ * frames. Reading the bytes directly throws a generic FileSystem error and
+ * the user's save bounces with no clear cause.
+ *
+ * The mitigation: on first read failure, copy the URI into the local cache
+ * directory (which we own and can re-read freely) and retry from there. If
+ * that also fails the original error bubbles up — at that point the source
+ * really is unreadable and the caller's friendly-error path is the right
+ * surface (Step 3 maps it to a re-scan prompt).
+ *
+ * Why both reads can fail: `File.copy()` reads the source the same way
+ * `.bytes()` does, so a fully revoked content URI fails both. But in the
+ * common multi-window case the provider is alive long enough to copy once
+ * before the parent activity reclaims the grant — the copy lands the bytes
+ * in our cache and the retry succeeds.
+ */
+async function safeReadBytes(uri: string): Promise<Uint8Array> {
+  try {
+    return await new FsFile(uri).bytes();
+  } catch (firstErr) {
+    const cacheName = `burs-fallback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.bin`;
+    const dest = new FsFile(Paths.cache, cacheName);
+    try {
+      new FsFile(uri).copy(dest);
+      return await dest.bytes();
+    } catch {
+      throw firstErr;
+    }
+  }
 }
 
 /**
@@ -102,7 +176,7 @@ export async function uploadManipulatedImage(
   resized: ImageManipulator.ImageResult,
   userId: string,
 ): Promise<UploadResult> {
-  const bytes = await new FsFile(resized.uri).bytes();
+  const bytes = await safeReadBytes(resized.uri);
 
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
@@ -139,7 +213,7 @@ export async function uploadGarmentVariant(
   garmentId: string,
   kind: GarmentImageKind,
 ): Promise<UploadResult> {
-  const bytes = await new FsFile(resized.uri).bytes();
+  const bytes = await safeReadBytes(resized.uri);
   const storagePath = uploadVariantPath(userId, garmentId, kind);
   const { error } = await supabase.storage.from(BUCKET).upload(storagePath, bytes, {
     contentType: GARMENT_IMAGE_MIME,

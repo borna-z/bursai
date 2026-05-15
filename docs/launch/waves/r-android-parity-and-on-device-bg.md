@@ -7,7 +7,7 @@
 | Field | Value |
 |---|---|
 | Goal | Bring Android LiveScan to feature parity with iOS via Nitro + MLKit; introduce on-device garment segmentation as a free "Save Original" output AND as preprocessed input to Gemini Studio renders; close residual single-photo and batch add-garment flow gaps. |
-| Status | **R-A: DEFERRED (Android)** 2026-05-13 due to vc-worklets / RN-bridgeless conflict; iOS shipped via #838. **R-B: IN PROGRESS** 2026-05-13 — branch `feat/wave-r-b-bg-removal`. R-C/R-D unchanged — TODO. |
+| Status | **R-A: DEFERRED (Android)** 2026-05-13 (vc-worklets / RN-bridgeless conflict; iOS shipped via #838). **R-B: MERGED** 2026-05-13 via PR #840 (migration applied + assess_garment_condition + render_garment_image deployed). **R-C: IN PROGRESS** 2026-05-13 — branch `feat/wave-r-c-single-photo-polish`. R-D: TODO. |
 | Branch base | `main` |
 | PR count | 4 (R-A, R-B, R-C, R-D) |
 | Migrations | One — `garments.mask_status` (R-B only) |

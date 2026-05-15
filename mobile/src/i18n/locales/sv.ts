@@ -1921,4 +1921,14 @@ export const sv: Record<string, string> = {
   'livescan.permission.allow': 'Tillåt kamera',
   'livescan.permission.gallery': 'Välj från galleri',
   'livescan.tile.cancel': 'Avbryt',
+
+  // ─── Wave R-C.3 — Step 3 redigeringspickers ───────────────────────────
+  'addpiece.step3.field.colorSecondary': 'Sekundär färg',
+  'addpiece.step3.field.formality': 'Stilnivå',
+  'addpiece.step3.formality.casual': 'Vardaglig',
+  'addpiece.step3.formality.smart': 'Smart',
+  'addpiece.step3.formality.formal': 'Formell',
+  'addpiece.step3.subcategory.placeholder': 't.ex. T-shirt, Loafers',
+  'addpiece.step3.color.none': 'Ingen sekundär färg',
+  'addpiece.step3.color.none.short': 'Ingen',
 };

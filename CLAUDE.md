@@ -8,7 +8,7 @@ Mobile is the primary product. The web `src/` tree exists but is being deleted p
 |---|---|
 | **CURRENT WAVE** | R — Android platform parity + on-device background removal (4 themed PRs: R-A Android LiveScan Nitro · R-B BG removal + Gemini · R-C single-photo polish · R-D batch parity) |
 | **CURRENT WAVE FILE** | `docs/launch/waves/r-android-parity-and-on-device-bg.md` |
-| **STATUS** | R-A deferred (2026-05-13, vc-worklets bridgeless conflict — Android auto-detect dropped, iOS shipped via #838); R-B IN PROGRESS |
+| **STATUS** | R-A deferred (2026-05-13, vc-worklets bridgeless conflict — Android auto-detect dropped, iOS shipped via #838); R-B merged (PR #840, 2026-05-13); R-C IN PROGRESS (single-photo polish) |
 
 The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
 
