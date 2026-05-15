@@ -53,11 +53,32 @@ export interface RecentOutfitsResult {
   recentGarmentSets: string[][];
 }
 
-export async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string, messages: MessageInput[], selectedGarmentIds: string[] = []): Promise<RetrievalResult> {
-  const { data: garments } = await supabase
+// T-B — minimum wardrobe-id roster size before the server switches from the
+// legacy user-wide ORDER BY scan to the indexed `.in("id", …)` SELECT. Below
+// this threshold the cost of the IN-list rewrite exceeds the marginal speedup
+// (and tiny wardrobes don't benefit), so we keep the legacy path. The number
+// is intentionally low (5) so any reasonably populated wardrobe gets the win.
+const WARDROBE_IDS_MIN_FOR_SCOPED_FETCH = 5;
+
+export async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string, messages: MessageInput[], selectedGarmentIds: string[] = [], wardrobeGarmentIds?: string[]): Promise<RetrievalResult> {
+  // T-B — when the mobile client ships the wardrobe id roster (from its
+  // React Query cache), switch to an indexed scoped SELECT instead of a
+  // user-wide ORDER BY. RLS already restricts to the caller, but the
+  // explicit `.eq("user_id", userId)` is belt-and-braces against a future
+  // RLS regression. Preserve the `.order("created_at", { ascending: false
+  // }).order("id", { ascending: true })` clause and the `.limit(120)` cap
+  // — ranking logic downstream depends on the recency-first ordering, and
+  // dropping the limit would let a 1000+-garment power user blow the
+  // prompt budget. Below the threshold (cold wardrobe), fall back to the
+  // legacy path so the optimization stays off for empty/near-empty users.
+  const useScoped = Array.isArray(wardrobeGarmentIds) && wardrobeGarmentIds.length >= WARDROBE_IDS_MIN_FOR_SCOPED_FETCH;
+  const baseQuery = supabase
     .from("garments")
-    .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path, ai_raw")
-    .eq("user_id", userId)
+    .select("id, title, category, subcategory, color_primary, color_secondary, material, fit, formality, pattern, season_tags, wear_count, last_worn_at, image_path, ai_raw");
+  const filtered = useScoped
+    ? baseQuery.in("id", wardrobeGarmentIds as string[]).eq("user_id", userId)
+    : baseQuery.eq("user_id", userId);
+  const { data: garments } = await filtered
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
     .limit(120);

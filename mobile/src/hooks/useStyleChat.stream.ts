@@ -31,6 +31,12 @@ export type StyleChatRequestBody =
        *  swap them)…") so the engine regenerates only the unlocked slots.
        *  Omitted when the user isn't refining or has unlocked everything. */
       locked_slots?: string[];
+      /** T-B — full wardrobe garment-id list from React Query cache. When
+       *  set (length ≥ 5), the server skips its user-wide wardrobe scan
+       *  and instead does an indexed `.in("id", …)` SELECT. Omitted when
+       *  empty or fewer than 5 garments (server then falls back to the
+       *  legacy ORDER BY path). Never set in `shopping` mode. */
+      wardrobe_garment_ids?: string[];
     };
 
 // M23 — request body shape diverges by mode:
@@ -43,6 +49,12 @@ export type StyleChatRequestBody =
 //     would also bleed style-chat anchor state into the shopping
 //     prompt's prior turns. Strip them so each route gets its
 //     intended payload.
+// T-B — soft client-side cap on the wardrobe-id passthrough. The server
+// caps its own SELECT at `.limit(120)` so anything beyond that is wasted
+// payload; we clip at 200 to leave a buffer for power users whose top-N
+// might shift between turns while still keeping requests light.
+const WARDROBE_IDS_MAX = 200;
+
 export function buildRequestBody(args: {
   mode: StyleChatMode;
   messagesPayload: StreamMessagePayload[];
@@ -51,20 +63,41 @@ export function buildRequestBody(args: {
   /** Q-D2 — locked garment ids from refine mode. Inlined as
    *  `locked_slots` on the request only when non-empty. */
   lockedSlots?: string[];
+  /** T-B — wardrobe garment ids (from React Query cache) to scope the
+   *  server's wardrobe SELECT. Spread into the body only on the
+   *  non-shopping branch and only when non-empty; clipped to the first
+   *  {@link WARDROBE_IDS_MAX} entries. */
+  wardrobeGarmentIds?: string[];
 }): StyleChatRequestBody {
-  const { mode, messagesPayload, anchoredGarmentId, activeLookPayload, lockedSlots } = args;
+  const {
+    mode,
+    messagesPayload,
+    anchoredGarmentId,
+    activeLookPayload,
+    lockedSlots,
+    wardrobeGarmentIds,
+  } = args;
   if (mode === 'shopping') {
+    // T-B — shopping mode MUST NOT carry `wardrobe_garment_ids`. The
+    // shopping_chat function destructures only { messages, locale } and
+    // shipping the field would leak wardrobe state into a chat route
+    // that's intentionally wardrobe-agnostic.
     return {
       messages: messagesPayload,
       locale: getLocale() ?? 'en',
     };
   }
+  const clippedWardrobeIds =
+    wardrobeGarmentIds && wardrobeGarmentIds.length > 0
+      ? wardrobeGarmentIds.slice(0, WARDROBE_IDS_MAX)
+      : null;
   return {
     messages: messagesPayload,
     locale: getLocale() ?? 'en',
     ...(anchoredGarmentId ? { selected_garment_ids: [anchoredGarmentId] } : {}),
     ...(activeLookPayload ? { active_look: activeLookPayload } : {}),
     ...(lockedSlots && lockedSlots.length > 0 ? { locked_slots: lockedSlots } : {}),
+    ...(clippedWardrobeIds ? { wardrobe_garment_ids: clippedWardrobeIds } : {}),
   };
 }
 

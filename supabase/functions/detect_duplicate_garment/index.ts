@@ -188,9 +188,16 @@ Consider: same garment photographed differently = 0.8+, very similar style/color
                 ]
               }
             ],
+            // T-D — explicit trivial routing (was implicit standard
+            // before the round of model-routing fixes), 200-token cap
+            // (down from the trivial default of 300), and temperature 0
+            // for deterministic 0.0-1.0 similarity scoring. Spot-check
+            // borderline pairs after deploy: if 0.5-band scoring
+            // degrades, raise to 0.1 (still well under the standard
+            // chain's 0.3).
             complexity: "trivial",
             max_tokens: 200,
-            extraBody: { temperature: 0.1 },
+            extraBody: { temperature: 0 },
             timeout: 20000,
             functionName: "detect_duplicate_garment",
             cacheTtlSeconds: 3600, // 1 hour

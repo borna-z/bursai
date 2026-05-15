@@ -73,8 +73,15 @@ Evaluate: fabric pilling, color fading, stretching, stains, loose threads, struc
 Consider that some materials age differently (leather improves, cotton pills, synthetics stretch).`;
 
     const { data: result } = await callBursAI({
-      complexity: "complex",
+      // T-D — was `complex` (routed to gemini-2.5-flash, the expensive
+      // primary). Condition assessment returns a tiny structured
+      // classification (1.0-10.0 score + 1-2 sentence notes +
+      // should_replace bool) and fits the trivial chain (flash-lite).
+      // `max_tokens: 200` stays; `temperature: 0` added for
+      // deterministic classification.
+      complexity: "trivial",
       max_tokens: 200,
+      extraBody: { temperature: 0 },
       messages: [
         { role: "system", content: prompt },
         {
