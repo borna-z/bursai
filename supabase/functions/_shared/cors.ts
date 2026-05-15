@@ -47,12 +47,14 @@ export function resolveAppOrigin(requestOrigin: string | null): string {
 }
 
 /**
- * Default origin used by the static `CORS_HEADERS` fallback when no request
- * context is available. Previously `"*"` (wildcard); now resolves through
- * the allowlist so unknown origins receive the production origin instead of
- * a wildcard reflection.
+ * Default origin used by the static `CORS_HEADERS` fallback. Kept as `"*"`
+ * for legacy edge functions that haven't been migrated to
+ * `corsHeadersFor(req)` yet — switching the shared constant to a non-wildcard
+ * would break browser calls from localhost dev and Vercel previews against
+ * un-migrated functions (Codex P2 on #849). Migrated AI functions use
+ * `corsHeadersFor(req)` for the proper request-aware allowlist instead.
  */
-export const allowedOrigin = resolveOrigin(null);
+export const allowedOrigin = "*";
 
 /**
  * Shared CORS headers for all edge functions.
@@ -64,8 +66,8 @@ export const allowedOrigin = resolveOrigin(null);
  *
  * Prefer `corsHeadersFor(req)` when the request context is available so
  * known allowlisted origins (Vercel previews, localhost dev) get reflected
- * correctly. The static `CORS_HEADERS` export remains for OPTIONS preflight
- * paths and legacy callers and uses the default app origin (no longer "*").
+ * correctly. The static `CORS_HEADERS` export remains wildcarded for legacy
+ * callers that have not yet migrated to the request-aware helper.
  */
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": allowedOrigin,

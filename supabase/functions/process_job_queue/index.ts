@@ -156,10 +156,19 @@ serve(async (req) => {
           // The next cron tick (typically ≥ 60s later) sees the lock as
           // expired and re-claims naturally, preserving FIFO position
           // without letting the current run loop on the same row.
+          // `claimJob` already incremented `attempts`. Roll it back here so a
+          // deferral never burns a retry — otherwise users with > 3 queued
+          // items would drain `attempts` toward `max_attempts` across cron
+          // ticks without any handler ever running (Codex P2 on #849).
           const deferUntil = new Date(Date.now() + 30_000).toISOString();
+          const rolledBackAttempts = Math.max(0, (job.attempts ?? 1) - 1);
           await supabase
             .from("job_queue")
-            .update({ status: "pending", locked_until: deferUntil })
+            .update({
+              status: "pending",
+              locked_until: deferUntil,
+              attempts: rolledBackAttempts,
+            })
             .eq("id", job.id);
           log.info("Per-user cap reached, deferring job", {
             jobType,
