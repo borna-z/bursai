@@ -71,7 +71,7 @@ import {
 } from '../lib/batchPipeline';
 import { getAnalyzePrefetch, clearAnalyzePrefetch } from '../lib/analyzePrefetch';
 import { Step3FormSkeleton } from '../components/addpiece/Step3FormSkeleton';
-import { trackEvent } from '../lib/analytics';
+import { trackEvent, markAddPieceCheckpoint } from '../lib/analytics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -357,6 +357,7 @@ export function AddPieceStep2() {
         prefetched: !!prefetched,
         source,
       });
+      if (photoUri) markAddPieceCheckpoint(photoUri, 'analyze_resolved', { source });
 
       // Hand the upload promise off to Step 3. Storage path is null until upload
       // completes — Step 3's Save handler will await pendingUpload[uploadId] if

@@ -68,7 +68,7 @@ import {
   markItemSkipped,
   nextPendingIndex,
 } from '../lib/batchPipeline';
-import { trackEvent } from '../lib/analytics';
+import { trackEvent, markAddPieceCheckpoint } from '../lib/analytics';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -315,6 +315,9 @@ export function AddPieceStep3() {
       has_storage_path: !!params?.storagePath,
       has_upload_promise: !!params?.uploadId,
     });
+    if (params?.photoUri) {
+      markAddPieceCheckpoint(params.photoUri, 'form_ready', { source: params?.source ?? null });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -676,6 +679,7 @@ export function AddPieceStep3() {
         studio: enableStudioQuality,
         batch: !!params?.batch,
       });
+      if (photoUri) markAddPieceCheckpoint(photoUri, 'save', { source });
       // Mark saved BEFORE nav.reset — once the navigator unmounts this screen,
       // the cleanup effect runs synchronously and reads savedRef. Setting it true
       // first prevents the cleanup from deleting the storage object the saved

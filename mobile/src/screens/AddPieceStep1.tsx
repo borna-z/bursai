@@ -33,7 +33,7 @@ import { useAnalyzeGarment, type AnalysisResult } from '../hooks/useAnalyzeGarme
 import { hapticLight } from '../lib/haptics';
 import { startBatch } from '../lib/batchPipeline';
 import { setAnalyzePrefetch } from '../lib/analyzePrefetch';
-import { trackEvent } from '../lib/analytics';
+import { trackEvent, markAddPieceCheckpoint } from '../lib/analytics';
 import { resizeForGarment, GARMENT_IMAGE_MIME } from '../lib/imageUpload';
 import { t as tr } from '../lib/i18n';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
@@ -76,6 +76,7 @@ function kickSinglePhotoPrefetch(
   // fires. The `addpiece.analyze.timing` row (emitted by useAnalyzeGarment)
   // is joinable on session/user.
   trackEvent('addpiece.capture', { source: 'step1.single' });
+  markAddPieceCheckpoint(uri, 'capture', { source: 'step1.single' });
   // Resize once; the resized result is itself cached on the entry so Step 2
   // can hand the SAME bytes to the upload path without re-running
   // ImageManipulator on a now-known-good source.

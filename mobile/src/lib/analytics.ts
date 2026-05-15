@@ -84,3 +84,76 @@ export function trackAddPieceTiming(timing: AddPieceTiming): void {
     source: source ?? 'unknown',
   });
 }
+
+// Wave S-C.6 — flow-id aggregator (Codex P2 on #848).
+//
+// Each AddPiece checkpoint event (`addpiece.capture` / `.analyze.resolved` /
+// `.form.ready` / `.save`) is still emitted independently for per-phase
+// debugging, but those rows have no shared correlation key, so batch /
+// back-to-back sessions can't be joined to compute the aggregate p50/p95
+// perceived-speed metric the wave wants. This helper threads a flow id
+// (typically the photo URI, stable across the three screens) and emits a
+// single `addpiece.timing` row when the save checkpoint lands.
+//
+// Singleton-style: AddPiece is sequential in the foreground (one active
+// flow at a time). A new `'capture'` checkpoint resets the in-flight flow;
+// a `'save'` flushes and clears it. Stale flows are evicted on the next
+// capture, so a back-out + retry doesn't leak.
+
+type AddPieceCheckpoint = 'capture' | 'analyze_resolved' | 'form_ready' | 'save';
+
+interface InFlightFlow {
+  flowId: string;
+  source: string | null;
+  t_capture: number | null;
+  t_analyze_resolved: number | null;
+  t_form_ready: number | null;
+}
+
+let currentFlow: InFlightFlow | null = null;
+
+export function markAddPieceCheckpoint(
+  flowId: string,
+  checkpoint: AddPieceCheckpoint,
+  meta: { source?: string | null } = {},
+): void {
+  const now = Date.now();
+  if (checkpoint === 'capture') {
+    currentFlow = {
+      flowId,
+      source: meta.source ?? null,
+      t_capture: now,
+      t_analyze_resolved: null,
+      t_form_ready: null,
+    };
+    return;
+  }
+  if (!currentFlow || currentFlow.flowId !== flowId) {
+    // Out-of-band checkpoint (e.g. user backed out then re-entered without
+    // a fresh capture). Skip the aggregator; the per-phase trackEvent at the
+    // call site still lands so dashboards aren't blind.
+    return;
+  }
+  if (checkpoint === 'analyze_resolved') {
+    currentFlow.t_analyze_resolved = now;
+    return;
+  }
+  if (checkpoint === 'form_ready') {
+    currentFlow.t_form_ready = now;
+    return;
+  }
+  // 'save' — flush the aggregate row and clear.
+  trackAddPieceTiming({
+    t_capture: currentFlow.t_capture,
+    t_analyze_resolved: currentFlow.t_analyze_resolved,
+    t_form_ready: currentFlow.t_form_ready,
+    t_save: now,
+    source: meta.source ?? currentFlow.source,
+  });
+  currentFlow = null;
+}
+
+/** Test-only: reset the in-flight flow. Exposed so unit tests don't leak state. */
+export function __resetAddPieceFlowForTest(): void {
+  currentFlow = null;
+}
