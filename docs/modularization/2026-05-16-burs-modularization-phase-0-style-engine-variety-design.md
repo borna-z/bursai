@@ -85,8 +85,8 @@ The active-look guard stays as a hard backstop.
 ## Verification before completion
 
 ```bash
-# Lint
-npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0
+# Lint (root ESLint config ignores mobile/**, so run via the mobile package)
+npm run lint --prefix mobile
 
 # Mobile tests
 npm test --prefix mobile

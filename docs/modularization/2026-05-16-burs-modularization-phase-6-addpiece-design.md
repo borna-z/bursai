@@ -87,7 +87,7 @@ Open the file. If it duplicates the picker pattern, refactor it to consume `AddP
 
 ```bash
 npm test --prefix mobile
-npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0
+npm run lint --prefix mobile
 # Manual on device: single + batch AddPiece flows, including mid-flow cancel.
 ```
 

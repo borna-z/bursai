@@ -83,7 +83,7 @@ A batch is registered on creation, unregistered on completion or component unmou
 
 ```bash
 npm test --prefix mobile
-npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0
+npm run lint --prefix mobile
 # Manual: batch capture flow + unmount mid-batch test.
 ```
 

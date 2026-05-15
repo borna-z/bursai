@@ -97,7 +97,7 @@ Pull pure derivation logic into `lib/` modules so it is tested without React.
 
 ```bash
 npm test --prefix mobile
-npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0
+npm run lint --prefix mobile
 # Manual: stylist chat round-trip, Plan generation, Photo Feedback.
 ```
 

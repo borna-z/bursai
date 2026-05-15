@@ -97,7 +97,7 @@ Toast / i18n calls are removed from the persistence layer and moved to the call 
 - No public import path changes: `import { useAuth } from '@/contexts/AuthContext'`, `import { enqueue } from '@/lib/offlineQueue'`, `import { persistGarment } from '@/lib/garmentSave'` all still work.
 - Manual smoke test: add a garment online → succeeds; toggle offline (DevTools or NetInfo mock) → garment queues; toggle online → queue replays; sign out → context clears.
 - All existing tests pass without modification beyond import path updates.
-- Lint clean: `npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0`.
+- Lint clean: `npm run lint --prefix mobile` (root ESLint config ignores `mobile/**`; run via the mobile package).
 
 ## Risks & mitigations
 
@@ -111,7 +111,7 @@ Toast / i18n calls are removed from the persistence layer and moved to the call 
 
 ```bash
 npm test --prefix mobile
-npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0
+npm run lint --prefix mobile
 # Manual: build + run mobile, exercise offline path with NetInfo mock or airplane mode.
 ```
 

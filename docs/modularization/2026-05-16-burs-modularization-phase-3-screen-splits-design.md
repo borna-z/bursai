@@ -103,7 +103,7 @@ Target orchestrator size: < 500 lines.
 
 ```bash
 npm test --prefix mobile
-npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0
+npm run lint --prefix mobile
 # Manual on device:
 #   - Open garment detail → switch tabs → tap action sheet → close.
 #   - Tap Generate on Style Me → result renders → tap regenerate.

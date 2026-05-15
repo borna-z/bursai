@@ -43,7 +43,7 @@ Sequence the work in phases so each phase is a single PR a fresh session can pic
 
 Every phase MUST:
 - Keep all existing tests green (mobile: `npm test --prefix mobile`; web: skipped if applicable).
-- Keep lint clean: `npx eslint "mobile/src/**/*.{ts,tsx}" --max-warnings 0`.
+- Keep lint clean: `npm run lint --prefix mobile` (root ESLint config ignores `mobile/**`; run via the mobile package).
 - For edge function phases (5): run Deno tests in each function dir and document redeploy list in the PR.
 - Touch `mobile/CLAUDE.md` only when a module rename changes a documented entry point.
 
