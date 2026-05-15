@@ -440,11 +440,42 @@ async function handleOAuthDeepLink(
   lastExchangedCodeRef: React.MutableRefObject<string | null>,
 ): Promise<void> {
   if (!isOAuthCallbackUrl(url)) return;
-  // supabase-auth-js's `exchangeCodeForSession` POSTs whatever string we pass
-  // as the `auth_code` param, so it expects the raw code string — not the
-  // full deep-link URL. Passing the URL would make every OAuth login fail
-  // even after the URL pattern matched. Parse the `code` query param and
-  // exchange that. Codex P1 round 9 on PR #738.
+
+  // Supabase OAuth returns one of two shapes depending on the flowType
+  // configured on the client:
+  //   - PKCE       : `burs://auth/callback?code=<one-time-code>`
+  //                  → exchangeCodeForSession(code) finalizes the session.
+  //   - implicit   : `burs://auth/callback#access_token=<jwt>&refresh_token=<rt>&...`
+  //                  → setSession({ access_token, refresh_token }) finalizes.
+  // The mobile client doesn't set `flowType`, so supabase-js v2 defaults to
+  // implicit. We support both shapes here so a future PKCE switch doesn't
+  // require touching this handler.
+
+  // Implicit-flow shape: tokens live in the URL fragment, not the query.
+  const fragment = url.includes('#') ? url.slice(url.indexOf('#') + 1) : '';
+  if (fragment) {
+    const params = new URLSearchParams(fragment);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken && refreshToken) {
+      if (lastExchangedCodeRef.current === accessToken) return;
+      lastExchangedCodeRef.current = accessToken;
+      try {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) {
+          console.warn('[RootNavigator] OAuth setSession failed:', error.message);
+        }
+      } catch (err) {
+        console.warn('[RootNavigator] OAuth setSession threw:', err);
+      }
+      return;
+    }
+  }
+
+  // PKCE-flow shape.
   let code: string | null = null;
   try {
     code = new URL(url).searchParams.get('code');
@@ -452,15 +483,9 @@ async function handleOAuthDeepLink(
     code = null;
   }
   if (!code) {
-    console.warn('[RootNavigator] OAuth callback URL missing `code` param:', url);
+    console.warn('[RootNavigator] OAuth callback URL has neither tokens nor code:', url);
     return;
   }
-  // Dedupe per-launch: on iOS both `getInitialURL` and the `'url'` event
-  // fire for the same launch URL, which would have us call
-  // `exchangeCodeForSession` twice with the same code. The second call
-  // 4xxs (PKCE codes are single-use) and pollutes Sentry with noise. Track
-  // the last-exchanged code in a ref and short-circuit on a match. Codex
-  // P2 round on PR #738.
   if (lastExchangedCodeRef.current === code) return;
   lastExchangedCodeRef.current = code;
   try {
