@@ -1646,17 +1646,50 @@ export const RECENT_SUGGESTION_WINDOW = 20;
 export const RECENT_SUGGESTION_MAX_PENALTY = 1.5;
 export const RECENT_SUGGESTION_FRESHNESS_BONUS = 0.3;
 
+/** Smaller than `RECENT_SUGGESTION_WINDOW` because the bonus only triggers
+ * once a user has at least a few logged suggestions — first one or two
+ * generates always have an empty/tiny map, and surfacing a uniform +0.3
+ * bonus to most of the wardrobe at the second generate creates a visible
+ * scoring discontinuity between the two calls. With the gate, the bonus
+ * only kicks in once recency history is established, smoothing the
+ * transition. */
+export const RECENT_SUGGESTION_BONUS_MIN_HISTORY = 3;
+
 export function recentSuggestionPenalty(
   garmentId: string,
   recencyMap: Map<string, number> | null,
 ): number {
   if (!recencyMap || recencyMap.size === 0) return 0;
   const rank = recencyMap.get(garmentId);
-  if (rank === undefined) return RECENT_SUGGESTION_FRESHNESS_BONUS;
+  if (rank === undefined) {
+    return recencyMap.size >= RECENT_SUGGESTION_BONUS_MIN_HISTORY
+      ? RECENT_SUGGESTION_FRESHNESS_BONUS
+      : 0;
+  }
   if (rank < 1) return -RECENT_SUGGESTION_MAX_PENALTY;
   const decay = Math.max(0, 1 - (rank - 1) / RECENT_SUGGESTION_WINDOW);
   if (decay === 0) return 0;
   return -RECENT_SUGGESTION_MAX_PENALTY * decay;
+}
+
+/** Returns true when at least half of the chosen item-set's garments appeared
+ * in the user's last 3 logged suggestions. Signals to the mobile UI that the
+ * wardrobe is too thin to rotate further on this occasion. Pure: deterministic
+ * given the same inputs. Shared between the AI-success path and the
+ * deterministic-fallback path so both surface the same `low_variety` signal
+ * for the same recency state. */
+export function isLowVariety(
+  recencyMap: Map<string, number> | null,
+  chosenGarmentIds: readonly string[],
+): boolean {
+  if (!recencyMap || recencyMap.size === 0 || chosenGarmentIds.length === 0) {
+    return false;
+  }
+  const recentRepeatCount = chosenGarmentIds.filter((id) => {
+    const rank = recencyMap.get(id);
+    return rank !== undefined && rank <= 3;
+  }).length;
+  return recentRepeatCount >= Math.ceil(chosenGarmentIds.length / 2);
 }
 
 // ─────────────────────────────────────────────
