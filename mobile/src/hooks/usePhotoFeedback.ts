@@ -148,7 +148,6 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
         return;
       }
       setIsAnalyzing(true);
-      let analyzeSucceeded = false;
       try {
         const result = await fetchFeedback({
           outfitId: trimmedOutfitId,
@@ -179,7 +178,6 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
           return;
         }
         setFeedback(adaptFeedback(result.row));
-        analyzeSucceeded = true;
         queryClient.invalidateQueries({
           queryKey: ['outfit_feedback', user.id, trimmedOutfitId],
         });
@@ -187,9 +185,15 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
       } finally {
         setIsAnalyzing(false);
         cleanup.sweepTemp(resizedTempUri);
-        if (analyzeSucceeded) {
-          cleanup.sweepSelfie(selfiePath);
-        } else if (controller.signal.aborted && uploaded) {
+        // Sweep the selfie blob whenever it landed in storage, regardless of
+        // analyze outcome. Every submitFeedback uploads a fresh timestamped
+        // path so the prior blob is unreachable after this point — leaving
+        // it in storage on the error / paywall branches (where
+        // analyzeSucceeded stays false and abort never fires) means the
+        // object survives until the next submit, unmount, or `reset` calls
+        // sweepTracked. Audit found the user-navigate-away path leaks the
+        // blob indefinitely.
+        if (uploaded) {
           cleanup.sweepSelfie(selfiePath);
         }
       }

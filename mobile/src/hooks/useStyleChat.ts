@@ -137,7 +137,12 @@ export function useStyleChat(): UseStyleChatResult {
 
   const sendMessage = useCallback(async (content: string) => {
     if (!session?.access_token || !user?.id || !content.trim()) return;
-    if (streamingRef.current || isStreaming) return;
+    // `streamingRef` is updated synchronously below before any await — the
+    // ref alone is sufficient to serialise concurrent calls. Reading the
+    // `isStreaming` state would force this callback's identity to churn
+    // twice per turn (state flips true→false through React's render cycle),
+    // re-creating every memoized child handler that captures sendMessage.
+    if (streamingRef.current) return;
     if (isHydratingRef.current) return;
     streamingRef.current = true;
 
@@ -199,9 +204,11 @@ export function useStyleChat(): UseStyleChatResult {
     // history methods are stable useCallback refs; isHydrating is read via
     // a synchronous ref (`isHydratingRef`) so we don't need the whole
     // `history` object in deps (it churns when `messages` updates each
-    // stream chunk).
+    // stream chunk). `isStreaming` is intentionally absent — the in-flight
+    // guard reads `streamingRef.current` instead (see above), keeping
+    // sendMessage identity stable across the turn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token, user?.id, isStreaming, queryClient, wardrobeIds, streamTurn]);
+  }, [session?.access_token, user?.id, queryClient, wardrobeIds, streamTurn]);
 
   const clearChat = useCallback(async () => {
     abortRef.current?.abort();
