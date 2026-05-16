@@ -107,14 +107,6 @@ export function pendingCount(): number {
   return queue.length;
 }
 
-export function getQueueSnapshot(): QueueItem[] {
-  return [...queue];
-}
-
-export function getQueueLength(): number {
-  return queue.length;
-}
-
 export async function commitQueueAfterReplay(
   survivors: QueueItem[],
   snapshotLength: number,

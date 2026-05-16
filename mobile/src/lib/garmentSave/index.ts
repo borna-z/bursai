@@ -9,11 +9,6 @@ export {
 } from './types';
 export { isOnlineNow } from '../offlineQueue';
 export {
-  persistGarmentRaw,
-  withUploadMaskMetadata,
-  type PersistGarmentRawResult,
-} from './persistGarmentRaw';
-export {
   persistGarmentWithMetadata,
   type PersistGarmentWithMetadataOptions,
 } from './persistGarmentWithMetadata';

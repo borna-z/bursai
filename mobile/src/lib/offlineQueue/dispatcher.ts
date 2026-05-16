@@ -2,8 +2,8 @@ import NetInfo from '@react-native-community/netinfo';
 
 import {
   hydrate,
-  getQueueSnapshot,
-  getQueueLength,
+  snapshot as getQueueSnapshot,
+  pendingCount as getQueueLength,
   commitQueueAfterReplay,
   type QueueItem,
 } from './persistence';
