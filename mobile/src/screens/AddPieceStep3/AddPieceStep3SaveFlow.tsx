@@ -103,6 +103,20 @@ export interface SaveFlowHandle {
   openSheet: () => void;
 }
 
+// Public return shape from `useAddPieceStep3SaveFlow`. The `savingRef` is the
+// SYNCHRONOUS in-flight signal — flipped to `true` inside `handleSave` BEFORE
+// any await, flipped back in `finally`. The orchestrator's unmount cleanup
+// MUST consult this ref (not a state-mirrored one) so the cleanup observes
+// the in-flight save even when the unmount lands in the same tick as the
+// user's Studio/Original tap, before any re-render mirrors the busy state
+// into a render-side ref. Codex P2 on PR #858.
+export interface SaveFlowResult {
+  saveBusy: boolean;
+  openSheet: () => void;
+  saveFlowElement: React.ReactElement;
+  savingRef: React.MutableRefObject<boolean>;
+}
+
 // Map raw exception text to user-facing copy. PostgREST and supabase-js bubble
 // up wire-format messages ("duplicate key value violates unique constraint",
 // "FetchError: Network request failed", etc.) that are noise to the end user.
@@ -131,7 +145,9 @@ function friendlySaveError(err: unknown): string {
  * `<AddPieceStep3SaveFlow />` instance (mounted by the orchestrator alongside
  * its other JSX) that renders the choice sheet.
  */
-export function useAddPieceStep3SaveFlow(input: AddPieceStep3SaveFlowInput) {
+export function useAddPieceStep3SaveFlow(
+  input: AddPieceStep3SaveFlowInput,
+): SaveFlowResult {
   const nav = useNavigation<Nav>();
   const addGarment = useAddGarment();
 
@@ -366,7 +382,7 @@ export function useAddPieceStep3SaveFlow(input: AddPieceStep3SaveFlowInput) {
     />
   );
 
-  return { saveBusy, openSheet, saveFlowElement };
+  return { saveBusy, openSheet, saveFlowElement, savingRef };
 }
 
 // Imperative-handle export for tests / future render-prop consumers. Not used

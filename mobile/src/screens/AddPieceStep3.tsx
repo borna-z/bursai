@@ -181,11 +181,13 @@ export function AddPieceStep3() {
   const uploadPromiseRef = useRef<PendingUploadPromise | null>(null);
   const savedRef = useRef(false);
   const pendingCleanupRef = useRef<(() => void) | null>(null);
-  // Saving-in-flight signal that the unmount cleanup consults. The save-flow
-  // hook updates this on every render via `saveFlow.saveBusy` (assigned below
-  // the hook call). Declared here so the unmount effect closure can read it
-  // by reference.
-  const saveFlowSavingRef = useRef(false);
+  // Holder for the save flow's SYNCHRONOUS savingRef. Populated below — see
+  // the Codex P2 fix note next to the hook call. The unmount cleanup closure
+  // captured below dereferences this holder at cleanup time so it reads the
+  // ref the hook actually flips inside handleSave (not a render-mirrored one).
+  const saveFlowSavingRefHolder = useRef<React.MutableRefObject<boolean> | null>(
+    null,
+  );
 
   // ---- Hero preview state. The masked WebP sidecar lands a few hundred ms
   // after the raw upload; stash its storage path so we can swap from the
@@ -264,7 +266,16 @@ export function AddPieceStep3() {
       // The save flow's finally consults `pendingCleanupRef` and invokes the
       // deferred closure after `savingRef` clears, so the cleanup observes
       // the final `savedRef` value.
-      if (saveFlowSavingRef.current) {
+      //
+      // Codex P2 on PR #858 — read the save-flow's SYNCHRONOUS savingRef
+      // (flipped inside handleSave before any await), not a render-mirrored
+      // copy. If the user taps Studio/Original and the parent unmounts in
+      // the same tick before re-render, a render-mirrored ref still reads
+      // `false` and the cleanup deletes the storage path under the running
+      // save. The holder is populated synchronously below the hook call so
+      // by the time any handler fires it points at the live ref.
+      const liveSavingRef = saveFlowSavingRefHolder.current;
+      if (liveSavingRef?.current) {
         pendingCleanupRef.current = runCleanup;
         return;
       }
@@ -306,9 +317,11 @@ export function AddPieceStep3() {
     savedRef,
     pendingCleanupRef,
   });
-  // Mirror the hook's busy state into the saving-in-flight ref so the
-  // unmount cleanup above can consult it without subscribing.
-  saveFlowSavingRef.current = saveFlow.saveBusy;
+  // Park the hook's synchronous savingRef on the holder so the unmount
+  // cleanup closure (captured at mount with an empty dep array) can read
+  // the live ref through one level of indirection. Assignment is
+  // idempotent — savingRef identity is stable across renders.
+  saveFlowSavingRefHolder.current = saveFlow.savingRef;
 
   // ---- Duplicate detection. Hooks must run unconditionally above the
   // no-params bail-out below; optional-chained reads handle the null-params
