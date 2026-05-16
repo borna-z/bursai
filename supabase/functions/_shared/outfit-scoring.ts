@@ -1655,6 +1655,7 @@ export function recentSuggestionPenalty(
   if (rank === undefined) return RECENT_SUGGESTION_FRESHNESS_BONUS;
   if (rank < 1) return -RECENT_SUGGESTION_MAX_PENALTY;
   const decay = Math.max(0, 1 - (rank - 1) / RECENT_SUGGESTION_WINDOW);
+  if (decay === 0) return 0;
   return -RECENT_SUGGESTION_MAX_PENALTY * decay;
 }
 
