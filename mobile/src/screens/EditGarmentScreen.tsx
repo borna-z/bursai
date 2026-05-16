@@ -332,10 +332,23 @@ export function EditGarmentScreen() {
       // CATEGORY_TO_DB lookup always returns a string here; the `??` keeps
       // GarmentUpdate's non-null `category` type happy without changing the
       // runtime contract.
+      //
+      // Preserve the row's existing casing when the user didn't actually
+      // change the category: AddPiece writes lowercase ('top'), this screen
+      // historically wrote Title-case ('Top'). detect_duplicate_garment does
+      // exact string equality on `category`, so silently re-casing on every
+      // unrelated save would break attribute-only duplicate matches for
+      // garments originally created by AddPiece. Only apply the Title-case
+      // mapping when the user picks a different category. (Codex P2 round 3.)
+      const categoryUnchanged =
+        initialForm != null && formState.category === initialForm.category;
       const mappedCategory = CATEGORY_TO_DB[formState.category];
+      const nextCategory = categoryUnchanged
+        ? garment.category
+        : (mappedCategory ?? garment.category);
       const updates: GarmentUpdate = {
         title: formState.title.trim(),
-        category: mappedCategory ?? garment.category,
+        category: nextCategory,
         subcategory: trimmedSub.length > 0 ? trimmedSub : null,
         color_primary: formState.primaryColor || null,
         color_secondary: formState.secondaryColor || null,
