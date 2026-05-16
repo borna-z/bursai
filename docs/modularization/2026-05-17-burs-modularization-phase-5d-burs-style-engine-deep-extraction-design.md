@@ -53,10 +53,11 @@ Pure module. Input: garments + context + tool-call params. Output: refined selec
 
 Extracts the wear-log preprocessing block (around line 1260):
 
-- `buildWearContext(wearLogs, garments)` — returns `{ wearPatterns, styleVector, socialMap, comfortProfile, personalUniform }`.
+- `buildWearContext(wearLogs, garments, feedbackSignals)` — returns `{ wearPatterns, styleVector, socialMap, comfortProfile, personalUniform }`.
+  - `feedbackSignals` is the third argument because the current inlined block calls `buildComfortStyleProfile(wearLogs, garments, feedbackSignals)` at `supabase/functions/burs_style_engine/index.ts:1267-1269`; dropping it would change `comfortProfile` for users with feedback history. Pass it through verbatim.
 - Seasonal-transition + formality plumbing currently colocated with that block.
 
-Pure module. Input: raw `wear_logs` rows + garment rows. Output: derived context object. The orchestrator continues to perform the DB read; `wear-context.ts` only consumes the result.
+Pure module. Input: raw `wear_logs` rows + garment rows + preloaded feedback signals. Output: derived context object. The orchestrator continues to perform the DB reads (including `feedback_signals`); `wear-context.ts` only consumes the result.
 
 ### Out
 
@@ -77,7 +78,7 @@ Pure module. Input: raw `wear_logs` rows + garment rows. Output: derived context
 | `supabase/functions/_shared/outfit-combination.ts` | Extend backwards-compat re-exports if any swap helpers were imported externally (grep first). |
 | `supabase/functions/_shared/__tests__/outfit-swap.test.ts` *(new)* | Vitest specs for swap scoring + confidence. |
 | `supabase/functions/_shared/__tests__/outfit-ai-prompts.test.ts` *(new)* | Vitest specs for prompt assembly + tool-call shapes (mocked model client). |
-| `supabase/functions/_shared/__tests__/wear-context.test.ts` *(new)* | Vitest specs for derived structures over fixture wear_logs. |
+| `supabase/functions/_shared/__tests__/wear-context.test.ts` *(new)* | Vitest specs for derived structures over fixture wear_logs, including a case where `feedbackSignals` is non-empty so `comfortProfile` reflects feedback contribution. |
 
 ## Acceptance criteria
 
