@@ -145,6 +145,7 @@ export function transitionToFailed(item: BatchItemState, message: string): Batch
 }
 
 export function transitionToSaved(item: BatchItemState): BatchItemState | null {
+  if (item.status !== 'ready') return null;
   return { ...item, status: 'saved' };
 }
 

@@ -11,6 +11,7 @@
 
 import type { AnalysisResult } from '../../hooks/useAnalyzeGarment';
 import type { AddGarmentSource } from '../garmentSave';
+import { log } from '../log';
 import {
   resizeForGarment,
   uploadManipulatedImage,
@@ -21,10 +22,15 @@ import { getAnalyzePrefetch, clearAnalyzePrefetch } from '../analyzePrefetch';
 import {
   createItems,
   isSettledStatus,
-  isTerminalStatus,
   nextPendingIndexFrom,
   selectStartCandidates,
-  shouldNeedReview,
+  transitionForRetry,
+  transitionToFailed,
+  transitionToInFlight,
+  transitionToReady,
+  transitionToReviewKept,
+  transitionToSaved,
+  transitionToSkipped,
 } from './BatchStateMachine';
 import {
   type Batch,
@@ -65,6 +71,18 @@ function nextAnalyzeSlotMs(): number {
 function recordAnalyzeStart(): void {
   pruneAnalyzeWindow();
   analyzeStartTimestamps.push(Date.now());
+}
+
+/**
+ * Test-only — clears the analyze-rate-limit window so specs that exercise
+ * `startBatch` don't inherit timestamps from earlier `describe` blocks. The
+ * window is otherwise a module-scope sliding average and intentionally
+ * survives batch lifecycle (per the original Phase 4 spec).
+ *
+ * Not exported via `./index.ts` — call directly from tests only.
+ */
+export function __resetAnalyzeRateWindowForTests(): void {
+  analyzeStartTimestamps.length = 0;
 }
 
 export type { BatchItemStatus } from './BatchStateMachine';
@@ -152,8 +170,9 @@ export function markItemReviewedKeep(batchId: string, index: number): void {
   if (!batch) return;
   const item = batch.items[index];
   if (!item) return;
-  if (item.status !== 'needs_review') return;
-  item.status = 'ready';
+  const next = transitionToReviewKept(item);
+  if (!next) return;
+  Object.assign(item, next);
   pumpBatch(batch);
 }
 
@@ -162,7 +181,9 @@ export function markItemSaved(batchId: string, index: number): void {
   if (!batch) return;
   const item = batch.items[index];
   if (!item) return;
-  item.status = 'saved';
+  const next = transitionToSaved(item);
+  if (!next) return;
+  Object.assign(item, next);
   pumpBatch(batch);
 }
 
@@ -171,10 +192,17 @@ export function markItemSkipped(batchId: string, index: number): void {
   if (!batch) return;
   const item = batch.items[index];
   if (!item) return;
-  if (isTerminalStatus(item.status)) return;
-  if (item.storagePath) void deleteUpload(item.storagePath);
-  item.status = 'skipped';
-  item.storagePath = null;
+  // The helper rejects skipping a terminal item (`saved` keeps its
+  // storagePath; `skipped` already has it null). Capture the live
+  // storagePath BEFORE Object.assign clears it, and delete the blob only
+  // after the helper confirms the transition fires — otherwise we'd orphan
+  // a saved garment's image. (Capturing pre-assign matters: a future
+  // refactor that moves the read after the assign would always see null.)
+  const next = transitionToSkipped(item);
+  if (!next) return;
+  const staleStoragePath = item.storagePath;
+  Object.assign(item, next);
+  if (staleStoragePath) void deleteUpload(staleStoragePath);
   pumpBatch(batch);
 }
 
@@ -183,14 +211,20 @@ export function retryItem(batchId: string, index: number): boolean {
   if (!batch) return false;
   const item = batch.items[index];
   if (!item) return false;
-  if (item.status !== 'failed') return false;
-  item.status = 'pending';
-  item.errorMessage = null;
+  const next = transitionForRetry(item);
+  if (!next) return false;
+  // Capture the stale upload path before the helper clears it, then apply
+  // the transition. _settled MUST be nulled AFTER Object.assign — the
+  // helper's spread carries the runtime `_settled` field (not in the
+  // BatchItemState typing but present on BatchItem), so assigning before
+  // nulling would re-stamp the stale failed promise. Consumers calling
+  // `awaitItem` while `pumpBatch` defers `runItem` (rate-limited / cap
+  // saturated) would otherwise resolve to the old failed snapshot instead
+  // of the fresh retry.
+  const staleStoragePath = item.storagePath;
+  Object.assign(item, next);
   item._settled = null;
-  if (item.storagePath) {
-    void deleteUpload(item.storagePath);
-    item.storagePath = null;
-  }
+  if (staleStoragePath) void deleteUpload(staleStoragePath);
   pumpBatch(batch, index);
   return true;
 }
@@ -240,7 +274,21 @@ function scheduleRateLimitRetry(batch: Batch, waitMs: number): void {
 }
 
 function runItem(batch: Batch, item: BatchItem): void {
-  item.status = 'in_flight';
+  const inflight = transitionToInFlight(item);
+  if (!inflight) {
+    // pumpBatch's `selectStartCandidates` should only ever return pending
+    // indexes, and the loop re-checks `status === 'pending'` before
+    // calling. If we land here the scheduler is out of sync with the
+    // helper's contract — surface it via the dev-only `log.warn` rather
+    // than silently dropping the slot (which would leave `inFlightCount`
+    // un-incremented and the item permanently stuck). `log.warn` is a
+    // no-op in production.
+    log.warn(
+      `[batchPipeline] runItem invoked with non-pending status "${item.status}" — scheduler invariant violated`,
+    );
+    return;
+  }
+  Object.assign(item, inflight);
   batch.inFlightCount += 1;
   recordAnalyzeStart();
   const work = (async (): Promise<BatchItem> => {
@@ -307,7 +355,8 @@ function runItem(batch: Batch, item: BatchItem): void {
         item.storagePath = null;
         return item;
       }
-      item.status = shouldNeedReview(analysis) ? 'needs_review' : 'ready';
+      const ready = transitionToReady(item, analysis, upRes.storagePath);
+      if (ready) Object.assign(item, ready);
       return item;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Pipeline failed';
@@ -323,10 +372,8 @@ function runItem(batch: Batch, item: BatchItem): void {
           // upload also failed — nothing to clean up
         }
       }
-      if (item.status === 'in_flight') {
-        item.status = 'failed';
-        item.errorMessage = msg;
-      }
+      const failed = transitionToFailed(item, msg);
+      if (failed) Object.assign(item, failed);
       return item;
     } finally {
       batch.inFlightCount = Math.max(0, batch.inFlightCount - 1);
