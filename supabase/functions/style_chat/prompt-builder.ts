@@ -7,16 +7,24 @@
 
 import type { StylistChatMode } from "../_shared/style-chat-contract.ts";
 import type { UnifiedStylistResponse } from "../_shared/unified_stylist_engine.ts";
+import { quoteUserField } from "../_shared/prompt-sanitizer.ts";
 import type { GarmentRecord, MessageInput, ActiveLookContext, RefinementIntent } from "./index.ts";
 import { getMessageText, getSlotKey, getLang, LANG_CONFIG, stripUnknownTagMarkup, VALID_OUTFIT_TAG_RE, VALID_GARMENT_TAG_RE } from "./index.ts";
 
 // ── formatting utilities ───────────────────────────────────────────────────
 
+// Wave S-A.2 (2026-05-15): user-supplied garment fields get wrapped in
+// explicit delimiters before interpolation into stylist system prompts.
+// See `_shared/prompt-sanitizer.ts` for the helper + threat model.
+
 export function formatGarmentLine(g: GarmentRecord): string {
   const aiRaw = g.ai_raw && typeof g.ai_raw === "object" ? g.ai_raw : {};
   const e = aiRaw.enrichment || aiRaw;
+  // Garment title is user-supplied — quote it so an attacker-controlled
+  // title can't pose as a system instruction line. ID is a UUID we
+  // assigned, safe to interpolate raw.
   const parts = [
-    `${g.title} [ID:${g.id}]`,
+    `${quoteUserField(g.title, 80)} [ID:${g.id}]`,
     `(${g.category}${g.subcategory ? "/" + g.subcategory : ""}`,
     g.color_primary ? `, ${g.color_primary}` : "",
     g.material ? `, ${g.material}` : "",
@@ -38,8 +46,12 @@ export function formatGarmentLine(g: GarmentRecord): string {
   if (typeof e.versatility_score === "number") enrichParts.push(`vers:${e.versatility_score}`);
   if (e.layering_role) enrichParts.push(`layer:${e.layering_role}`);
   if (Array.isArray(e.occasion_tags) && e.occasion_tags.length) enrichParts.push(`occ:${e.occasion_tags.slice(0, 4).join(",")}`);
-  if (e.color_harmony_notes) enrichParts.push(`color:${String(e.color_harmony_notes).slice(0, 80)}`);
-  if (e.stylist_note) enrichParts.push(`note:${String(e.stylist_note).slice(0, 120)}`);
+  // color_harmony_notes and stylist_note flow out of analyze_garment's
+  // enrich-mode response — that response derives from user-uploaded
+  // imagery and could be steered by attacker-controlled images or
+  // adversarially crafted notes. Treat as untrusted and quote.
+  if (e.color_harmony_notes) enrichParts.push(`color:${quoteUserField(e.color_harmony_notes, 80)}`);
+  if (e.stylist_note) enrichParts.push(`note:${quoteUserField(e.stylist_note, 120)}`);
   if (enrichParts.length) parts.push(` | ${enrichParts.join(", ")}`);
   parts.push(")");
 

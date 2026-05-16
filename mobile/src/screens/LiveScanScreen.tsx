@@ -86,8 +86,20 @@ const VF_BORDER = 'rgba(255,255,255,0.18)';
 // Manual-shutter reveal: when the auto-detect score has stayed below
 // SCORE_REVEAL_FLOOR for this long, fade up the manual shutter so the user
 // has an escape hatch.
-const SHUTTER_REVEAL_AFTER_MS = 3_000;
+//
+// Wave S-C.5 — dropped from 3000 → 1500 ms. On stubborn lighting / awkward
+// garments, three seconds of empty viewfinder before any escape hatch reads
+// as "the camera is broken." Halving the threshold gets the user to a usable
+// shutter faster without competing with the auto-detect path (which still
+// fires sub-500 ms on a well-framed garment).
+const SHUTTER_REVEAL_AFTER_MS = 1_500;
 const SCORE_REVEAL_FLOOR = 0.6;
+// Wave S-C.5 — "Captured ✓" confirmation overlay shown briefly after every
+// shutter tap (manual + auto). The existing white flash signals "snap" but
+// users on slow devices have reported uncertainty about whether the tap
+// registered; a 200 ms labelled flash removes the doubt without delaying
+// the analyze pipeline (the overlay is decorative and async to capture work).
+const CAPTURED_FLASH_DURATION_MS = 200;
 
 export function LiveScanScreen() {
   const nav = useNavigation<Nav>();
@@ -223,6 +235,11 @@ export function LiveScanScreen() {
   const lockProgress = useSharedValue(0);
   const flashOpacity = useSharedValue(0);
   const shutterOpacity = useSharedValue(0);
+  // Wave S-C.5 — Captured ✓ confirmation overlay. Drives both the
+  // background pill opacity and a subtle upward translation so the badge
+  // reads as a positive ack rather than a stuck label. Lives on the worklet
+  // runtime so a slow JS thread doesn't delay the feedback.
+  const capturedOpacity = useSharedValue(0);
 
   // Tracks how long the score has been below `SCORE_REVEAL_FLOOR`. Used to
   // fade the manual shutter in after `SHUTTER_REVEAL_AFTER_MS`. Plain ref —
@@ -312,6 +329,19 @@ export function LiveScanScreen() {
           flashOpacity.value = withTiming(0, { duration: 130 });
         },
       );
+      // Wave S-C.5 — Captured ✓ overlay. Fades in, sits for the bulk of
+      // the 200 ms window, then fades back out. Total ~280 ms — short
+      // enough not to feel sticky on rapid captures but long enough to
+      // register on the slowest devices we ship to.
+      capturedOpacity.value = withTiming(
+        1,
+        { duration: 80, easing: Easing.out(Easing.cubic) },
+        () => {
+          capturedOpacity.value = withTiming(0, {
+            duration: CAPTURED_FLASH_DURATION_MS,
+          });
+        },
+      );
 
       setScanCount((c) => c + 1);
       const sessionId = Crypto.randomUUID();
@@ -323,7 +353,7 @@ export function LiveScanScreen() {
       // Capture-loop errors must never crash the screen. The next stable
       // window will retry automatically.
     }
-  }, [user, photoOutput, flashOpacity, queue, events]);
+  }, [user, photoOutput, flashOpacity, capturedOpacity, queue, events]);
 
   // JS-thread tick driven by the worklet `score` shared value. Drives the
   // stability-lock fire, the shutter reveal timer, and the lock-progress
@@ -481,8 +511,9 @@ export function LiveScanScreen() {
       cancelAnimation(lockProgress);
       cancelAnimation(flashOpacity);
       cancelAnimation(shutterOpacity);
+      cancelAnimation(capturedOpacity);
     };
-  }, [lockProgress, flashOpacity, shutterOpacity]);
+  }, [lockProgress, flashOpacity, shutterOpacity, capturedOpacity]);
 
   const handleGalleryFallback = useCallback(async () => {
     hapticLight();
@@ -511,6 +542,12 @@ export function LiveScanScreen() {
   const shutterStyle = useAnimatedStyle(() => ({
     opacity: shutterOpacity.value,
     transform: [{ scale: 0.9 + 0.1 * shutterOpacity.value }],
+  }));
+  // Wave S-C.5 — Captured ✓ pill animated style. Opacity + upward drift so
+  // the badge has a "received" trajectory rather than a static blink.
+  const capturedStyle = useAnimatedStyle(() => ({
+    opacity: capturedOpacity.value,
+    transform: [{ translateY: 8 * (1 - capturedOpacity.value) }],
   }));
 
   const cameraReady = Boolean(hasPermission && device);
@@ -555,6 +592,13 @@ export function LiveScanScreen() {
         <BracketOverlay score={score} lockProgress={lockProgress} />
         <QualityHint quality={qualityState} />
         <Animated.View pointerEvents="none" style={[s.flash, flashStyle]} />
+        {/* Wave S-C.5 — Captured ✓ pill. Sits above the flash overlay so it
+            stays legible even while the white flash is at peak opacity.
+            pointerEvents: 'none' across both layers — the user keeps
+            tapping the shutter underneath. */}
+        <Animated.View pointerEvents="none" style={[s.capturedPill, capturedStyle]}>
+          <Text style={s.capturedText}>{tr('livescan.captured.label')} ✓</Text>
+        </Animated.View>
       </View>
 
       {/* Manual shutter — fades in after 3 s of low score. `pointerEvents`
@@ -663,6 +707,25 @@ const s = StyleSheet.create({
     backgroundColor: '#1a1916',
   },
   flash: { ...StyleSheet.absoluteFillObject, backgroundColor: '#FFFFFF' },
+  capturedPill: {
+    position: 'absolute',
+    top: 24,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  capturedText: {
+    fontFamily: fonts.uiSemi,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: '#FFFFFF',
+  },
   shutterWrap: {
     position: 'absolute',
     bottom: 120,

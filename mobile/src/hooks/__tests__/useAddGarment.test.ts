@@ -26,12 +26,14 @@ jest.mock('../../lib/garmentSave', () => {
     __esModule: true,
     OfflineQueuedError,
     persistGarmentWithOfflineFallback: jest.fn(),
+    surfaceRenderEnqueueFailureToast: jest.fn(),
   };
 });
 
- 
+
 const garmentSave = require('../../lib/garmentSave') as {
   persistGarmentWithOfflineFallback: jest.Mock;
+  surfaceRenderEnqueueFailureToast: jest.Mock;
   OfflineQueuedError: typeof Error;
 };
 
@@ -63,6 +65,7 @@ describe('useAddGarment', () => {
     });
     expect(garmentSave.persistGarmentWithOfflineFallback).toHaveBeenCalledWith(
       baseParams,
+      { onRenderEnqueueFailure: garmentSave.surfaceRenderEnqueueFailureToast },
     );
   });
 

@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import {
   OfflineQueuedError,
   persistGarmentWithOfflineFallback,
+  surfaceRenderEnqueueFailureToast,
   type AddGarmentParams,
   type AddGarmentSource,
 } from '../lib/garmentSave';
@@ -26,7 +27,9 @@ export function useAddGarment() {
   return useMutation({
     mutationFn: async (params: AddGarmentParams) => {
       if (!user) throw new Error('Not authenticated');
-      return persistGarmentWithOfflineFallback(params);
+      return persistGarmentWithOfflineFallback(params, {
+        onRenderEnqueueFailure: surfaceRenderEnqueueFailureToast,
+      });
     },
     onSuccess: () => {
       // Invalidate every cached garments list (filters / smart filters /

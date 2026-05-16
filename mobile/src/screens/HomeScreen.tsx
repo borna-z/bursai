@@ -28,6 +28,7 @@ import { useGarmentCount } from '../hooks/useGarmentCount';
 import { useNow } from '../hooks/useNow';
 import { useTodayPlannedOutfit, usePlannedOutfitsForWeek } from '../hooks/usePlannedOutfits';
 import { useMarkOutfitWorn, useOutfits } from '../hooks/useOutfits';
+import { usePrefetchSuggestions } from '../hooks/usePrefetchSuggestions';
 import { useWeather } from '../hooks/useWeather';
 import { useCalendarEvents } from '../hooks/useCalendarSync';
 import type { DayEventInput } from '../lib/dayIntelligence';
@@ -67,6 +68,20 @@ export function HomeScreen({
 
   const { profile } = useAuth();
   const firstName = (profile?.display_name ?? '').trim().split(/\s+/)[0] ?? '';
+
+  // T-A — fire-and-forget prefetch of the daily outfit suggestion cache on
+  // Home mount so the Generate path returns a warm result instead of
+  // blocking on a cold Gemini call. The hook swallows every error and
+  // never updates UI state, so the React tree is unaffected by a failed
+  // prefetch. AppState foreground-resume wiring is deferred.
+  const { prefetch: prefetchSuggestions } = usePrefetchSuggestions();
+  React.useEffect(() => {
+    void prefetchSuggestions();
+    // Run once on mount — the hook is idempotent server-side (cache key
+    // dedupes) and adding `prefetchSuggestions` to deps would re-fire
+    // every time auth state updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reactive `now` — RN tabs stay mounted across day boundaries so a static
   // `useMemo([])` would freeze the date and `wornToday` would compare today's
