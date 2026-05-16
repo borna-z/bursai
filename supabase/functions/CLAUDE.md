@@ -24,6 +24,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 No `deno.json` or import map exists — all imports are explicit URLs or relative paths to `_shared/`. Some older functions (e.g. `stripe_webhook`) import from `std@0.190.0` — both work but prefer `std@0.220.0` for new code.
 
+## Test file convention
+
+Test files under `supabase/functions/**/*.{test,spec}.{ts,tsx}` are picked up by the web project's `vitest` runner (see root `vitest.config.ts` include pattern). They MUST use vitest, NOT Deno-style imports:
+
+```ts
+// ✅ correct
+import { describe, expect, it } from 'vitest';
+import { foo } from '../foo'; // no .ts extension
+
+// ❌ wrong — Node's ESM loader rejects `https:` URLs and main CI goes red
+import { assertEquals } from 'https://deno.land/std@0.220.0/assert/mod.ts';
+```
+
+Location: tests typically live in `_shared/__tests__/*.test.ts` next to the module they cover. Sibling imports drop the `.ts` extension. Tests at the top level of `_shared/` (sibling of the implementation file) use `./module-name`, not `../module-name`.
+
+If you need Deno-runtime-specific tests (rare), put them in a path the vitest include pattern doesn't match — `supabase/functions/_shared/deno-tests/*.ts` is a candidate, but coordinate first because nothing currently uses it.
+
 ## Required Patterns
 
 Every AI edge function must follow this skeleton:
@@ -248,3 +265,16 @@ User Request
 ## Known Bug in This Directory
 
 **AI Stylist Truncation** — `style_chat/index.ts` has two-stage truncation: (1) ~line 1587: if `finish_reason === "length"`, cleans up partial sentence by finding last punctuation mark past 60% of text; (2) ~line 1619: non-outfit replies over 1400 chars are capped at 9 sentences, with ` …` appended if token-truncated. Previously was 6 sentences / 900 chars — already fixed but verify the limits are adequate for production responses.
+
+## Tooling gotchas
+
+**`gh pr checks <N>` can hide GitHub Actions failures.** When other apps post checks (Vercel, Claude.ai integrations), `gh pr checks` may show only their entries and not the GitHub Actions `CI` / `Mobile CI` rollups. A PR can look "all passing" in `gh` while CI is actually red.
+
+Cross-reference with the check-suite API before treating `gh pr checks` as authoritative:
+
+```bash
+gh api repos/borna-z/bursai/commits/<sha>/check-suites \
+  --jq '.check_suites[] | "\(.app.slug) \(.status) \(.conclusion)"'
+```
+
+Especially relevant after `--admin` merges: if you bypass branch protection because checks "look green" in `gh pr checks`, verify against `check-suites` first or you may merge red CI into main.
