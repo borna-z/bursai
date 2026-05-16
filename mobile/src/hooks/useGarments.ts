@@ -49,6 +49,26 @@ function sanitizeIlikeTerm(value: string): string {
   return value.trim().replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
 }
 
+// Category column has historically held multiple variants for the same slot
+// (legacy EditGarmentScreen wrote 'Outer', AddPieceStep3 writes 'outerwear',
+// the current EditGarmentScreen writes 'Outerwear'). Filter callers pass a
+// single canonical value (e.g. SearchScreen's 'Outer' pill) but the DB may
+// store any of the aliases. Expanding to all known aliases keeps filters
+// stable across the inconsistency until a backfill normalises the column.
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  outer: ['outer', 'Outer', 'outerwear', 'Outerwear'],
+  outerwear: ['outer', 'Outer', 'outerwear', 'Outerwear'],
+  top: ['top', 'Top'],
+  bottom: ['bottom', 'Bottom'],
+  shoes: ['shoes', 'Shoes'],
+  dress: ['dress', 'Dress'],
+  accessory: ['accessory', 'Accessory'],
+};
+
+function expandCategoryAliases(value: string): string[] {
+  return CATEGORY_ALIASES[value.toLowerCase()] ?? [value];
+}
+
 type GarmentPage = { items: Garment[]; nextPage: number | undefined };
 
 export function useGarments(filters?: GarmentFilters, enabled = true) {
@@ -102,7 +122,12 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
         query = query.order(sortBy, { ascending: false, nullsFirst: false });
       }
 
-      if (filters?.category) query = query.eq('category', filters.category);
+      if (filters?.category) {
+        const aliases = expandCategoryAliases(filters.category);
+        query = aliases.length > 1
+          ? query.in('category', aliases)
+          : query.eq('category', filters.category);
+      }
       if (filters?.color) query = query.eq('color_primary', filters.color);
       if (filters?.season) query = query.contains('season_tags', [filters.season]);
       if (filters?.inLaundry !== undefined) query = query.eq('in_laundry', filters.inLaundry);

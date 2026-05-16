@@ -1,13 +1,22 @@
 // Edit garment — opened from GarmentDetail's edit button.
 // Header: cancel left · italic eyebrow + title centered · save right (accent).
-// Body: photo with "Change photo" pill overlay, then four Cards — Details / Style / Usage / Status —
-// each holding a stack of fields, chip groups, color swatch row, stepper, etc. Bottom: red Delete row.
+// Body: photo with "Change photo" pill overlay, then the shared AddPieceStep3Form
+// for metadata pickers (wrapped in a "Details" FormCard) plus edit-only Cards
+// for usage (wear count, price) and status (in_laundry). Bottom: red Delete row.
 //
-// W2 wires real Supabase data: useGarment pre-fills the form, useUpdateGarment saves, useDeleteGarment
-// removes. The "Change photo" pill is a placeholder pending Wave 9 image-pick + upload.
+// W2 wires real Supabase data: useGarment pre-fills the form, useUpdateGarment saves,
+// useDeleteGarment removes. The "Change photo" pill is a placeholder pending Wave 9
+// image-pick + upload.
 //
-// KeyboardAvoidingView wraps the whole scroll body so text inputs (Title, Subcategory, Price)
+// KeyboardAvoidingView wraps the whole scroll body so text inputs (Price)
 // don't get clipped on iOS. ScrollView, not FlatList — fields are heterogenous and short.
+//
+// Phase 6 follow-up: reuses `AddPieceStep3Form` for the 11-picker metadata block. The
+// shared form's canonical contract is lowercase ids (matches `analyze_garment` + the
+// downstream duplicate / outfit-rules / coverage consumers). The boundary helpers
+// below normalise DB rows (which may be Title-cased on legacy edits) into the form's
+// lowercase shape on hydration, then map back to the legacy Title-case on save to
+// preserve the persisted DB shape exactly.
 
 import React from 'react';
 import {
@@ -29,7 +38,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
-import { Chip } from '../components/Chip';
 import { TogglePill } from '../components/TogglePill';
 import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
@@ -37,53 +45,135 @@ import { MinusIcon, PlusIcon } from '../components/icons';
 import { useDeleteGarment, useGarment, useUpdateGarment } from '../hooks/useGarments';
 import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
-import type { GarmentUpdate } from '../types/garment';
+import {
+  CATEGORIES,
+  MATERIALS,
+  FITS,
+  PATTERNS,
+  matchCanonical,
+} from '../lib/garmentTaxonomy';
+import { AddPieceStep3Form } from './AddPieceStep3/AddPieceStep3Form';
+import type {
+  GarmentFormState,
+  CategoryValue,
+  MaterialValue,
+  FitValue,
+  PatternValue,
+  FormalityValue,
+} from './AddPieceStep3/garmentMetadataForm.types';
+import type { Garment, GarmentUpdate } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'EditGarment'>;
 
-// 30 named colors with hex values. Same swatch palette the legacy form used —
-// keeping it as a data constant satisfies the "no hardcoded hex outside data
-// constants" rule. The `id` is what we persist into `color_primary`.
-const COLOR_SWATCHES: { id: string; label: string; color: string }[] = [
-  { id: 'cream',     label: 'Cream',     color: '#F5EBD8' },
-  { id: 'beige',     label: 'Beige',     color: '#D9C9A6' },
-  { id: 'camel',     label: 'Camel',     color: '#B98E5A' },
-  { id: 'rust',      label: 'Rust',      color: '#A85432' },
-  { id: 'brown',     label: 'Brown',     color: '#5C3F2C' },
-  { id: 'olive',     label: 'Olive',     color: '#6B6B3F' },
-  { id: 'forest',    label: 'Forest',    color: '#2F4F33' },
-  { id: 'sage',      label: 'Sage',      color: '#A4B89A' },
-  { id: 'mustard',   label: 'Mustard',   color: '#C9A227' },
-  { id: 'gold',      label: 'Gold',      color: '#C9A445' },
-  { id: 'terracotta',label: 'Terracotta',color: '#C25B45' },
-  { id: 'red',       label: 'Red',       color: '#9B2D26' },
-  { id: 'pink',      label: 'Pink',      color: '#E1B5B0' },
-  { id: 'rose',      label: 'Rose',      color: '#C58085' },
-  { id: 'plum',      label: 'Plum',      color: '#5A3E5C' },
-  { id: 'lavender',  label: 'Lavender',  color: '#B7A4C8' },
-  { id: 'navy',      label: 'Navy',      color: '#1F2D4A' },
-  { id: 'blue',      label: 'Blue',      color: '#3D5A80' },
-  { id: 'sky',       label: 'Sky',       color: '#9CC0DD' },
-  { id: 'teal',      label: 'Teal',      color: '#2E6E6B' },
-  { id: 'mint',      label: 'Mint',      color: '#B6D7C2' },
-  { id: 'slate',     label: 'Slate',     color: '#7A8089' },
-  { id: 'charcoal',  label: 'Charcoal',  color: '#2A2622' },
-  { id: 'black',     label: 'Black',     color: '#111111' },
-  { id: 'white',     label: 'White',     color: '#F8F4EE' },
-  { id: 'silver',    label: 'Silver',    color: '#C9C9C9' },
-  { id: 'denim',     label: 'Denim',     color: '#3A4F66' },
-  { id: 'mocha',     label: 'Mocha',     color: '#6B4F3B' },
-  { id: 'sand',      label: 'Sand',      color: '#D7C4A1' },
-  { id: 'ochre',     label: 'Ochre',     color: '#B0742F' },
-];
+// Persisted Title-case shape this screen historically wrote to the DB. The
+// canonical store-side contract is lowercase (see `garmentTaxonomy.ts`), but
+// existing rows last touched by the legacy EditGarmentScreen carry these
+// Title-case values; AddPieceStep3 already writes lowercase. We preserve the
+// legacy output here so the persisted DB shape doesn't change for edit users.
+//
+// Outerwear note: the legacy code emitted `'Outer'` here, but the outfit-slot
+// classifier in `lib/outfitRules.ts` only recognises `outerwear` / `coat` /
+// `jacket` / etc. tokens (lowercased). `'outer'` slips through to the `'top'`
+// fallback, which silently breaks outfit validation and suggestion grouping
+// after every edit-save. Write the full canonical `'Outerwear'` token so the
+// classifier picks it up; `matchCanonical` still round-trips it on hydration.
+const CATEGORY_TO_DB: Record<CategoryValue, string | null> = {
+  '': null,
+  top: 'Top',
+  bottom: 'Bottom',
+  shoes: 'Shoes',
+  outerwear: 'Outerwear',
+  dress: 'Dress',
+  accessory: 'Accessory',
+};
+const MATERIAL_TO_DB: Record<MaterialValue, string | null> = {
+  '': null,
+  cotton: 'Cotton',
+  linen: 'Linen',
+  wool: 'Wool',
+  cashmere: 'Cashmere',
+  silk: 'Silk',
+  leather: 'Leather',
+  denim: 'Denim',
+  synthetic: 'Synthetic',
+};
+const FIT_TO_DB: Record<FitValue, string | null> = {
+  '': null,
+  slim: 'Slim',
+  regular: 'Regular',
+  loose: 'Loose',
+  oversized: 'Oversized',
+};
+const PATTERN_TO_DB: Record<PatternValue, string | null> = {
+  '': null,
+  solid: 'Solid',
+  striped: 'Striped',
+  checked: 'Checked',
+  floral: 'Floral',
+  other: 'Other',
+};
+const SEASON_TO_DB: Record<string, string> = {
+  spring: 'Spring',
+  summer: 'Summer',
+  autumn: 'Autumn',
+  winter: 'Winter',
+};
 
-const CATEGORIES = ['Top', 'Bottom', 'Shoes', 'Outer', 'Dress', 'Accessory'];
-const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Cashmere', 'Silk', 'Leather', 'Denim', 'Synthetic'];
-const FITS = ['Slim', 'Regular', 'Loose', 'Oversized'];
-const PATTERNS = ['Solid', 'Striped', 'Checked', 'Floral', 'Other'];
-const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
+// DB → form normalisers. `matchCanonical` returns the canonical lowercase id
+// when the row's value matches case-insensitively; the legacy `'Outer'` value
+// has no lowercase equivalent in CATEGORIES (which uses `'outerwear'`), so a
+// targeted alias closes that gap.
+function dbToCategory(value: string | null | undefined): CategoryValue {
+  if (!value) return '';
+  if (value.toLowerCase() === 'outer') return 'outerwear';
+  const m = matchCanonical(value, CATEGORIES);
+  return typeof m === 'string' && (CATEGORIES as readonly string[]).includes(m)
+    ? (m as CategoryValue)
+    : '';
+}
+function dbToMaterial(value: string | null | undefined): MaterialValue {
+  if (!value) return '';
+  const m = matchCanonical(value, MATERIALS);
+  return typeof m === 'string' && (MATERIALS as readonly string[]).includes(m)
+    ? (m as MaterialValue)
+    : '';
+}
+function dbToFit(value: string | null | undefined): FitValue {
+  if (!value) return '';
+  const m = matchCanonical(value, FITS);
+  return typeof m === 'string' && (FITS as readonly string[]).includes(m)
+    ? (m as FitValue)
+    : '';
+}
+function dbToPattern(value: string | null | undefined): PatternValue {
+  if (!value) return '';
+  const m = matchCanonical(value, PATTERNS);
+  return typeof m === 'string' && (PATTERNS as readonly string[]).includes(m)
+    ? (m as PatternValue)
+    : '';
+}
+function dbToFormality(value: number | null | undefined): FormalityValue {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5
+    ? (value as FormalityValue)
+    : null;
+}
+
+function buildFormStateFromGarment(garment: Garment): GarmentFormState {
+  return {
+    title: garment.title ?? '',
+    category: dbToCategory(garment.category),
+    subcategory: garment.subcategory ?? '',
+    primaryColor: garment.color_primary ?? '',
+    secondaryColor: garment.color_secondary ?? '',
+    material: dbToMaterial(garment.material),
+    fit: dbToFit(garment.fit),
+    pattern: dbToPattern(garment.pattern),
+    seasons: (garment.season_tags ?? []).map((s) => s.toLowerCase()),
+    formality: dbToFormality(garment.formality),
+  };
+}
 
 export function EditGarmentScreen() {
   const t = useTokens();
@@ -95,99 +185,97 @@ export function EditGarmentScreen() {
   const updateGarment = useUpdateGarment();
   const deleteGarment = useDeleteGarment();
 
-  // Form state — initialised once garment loads. We avoid mirroring the
-  // garment columns into state until the row is actually fetched, so a stale
-  // prefill never overwrites a freshly-loaded value when the user navigates
-  // back-and-forth between two garments quickly.
+  // Hydration model: the shared form lazily initialises its reducer from
+  // `initial` once. We delay rendering the form until the garment row arrives
+  // and build the initial snapshot eagerly so re-mounting on a different
+  // garment.id rebuilds from scratch. Edit-only fields (wear count / price /
+  // in_laundry) hydrate alongside via the same effect to keep dirty-checking
+  // a single source of truth.
   const [hydrated, setHydrated] = React.useState(false);
-  const [title, setTitle] = React.useState('');
-  const [category, setCategory] = React.useState('');
-  const [subcategory, setSubcategory] = React.useState('');
-  const [primaryColor, setPrimaryColor] = React.useState<string>('');
-  const [material, setMaterial] = React.useState<string>('');
-  const [fit, setFit] = React.useState<string>('');
-  const [pattern, setPattern] = React.useState<string>('');
-  const [seasons, setSeasons] = React.useState<string[]>([]);
+  const [initialForm, setInitialForm] = React.useState<GarmentFormState | null>(null);
+  const [formState, setFormState] = React.useState<GarmentFormState | null>(null);
   const [wearCount, setWearCount] = React.useState(0);
   const [price, setPrice] = React.useState('');
   const [inLaundry, setInLaundry] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
 
-  // Pre-fill from the loaded garment ONCE per garment.id. We key the
-  // hydration on garment.id so navigating to a different garment re-fills.
   const lastHydratedIdRef = React.useRef<string | null>(null);
-  // Snapshot of the values pre-fill landed with — compared against current
-  // form state to detect unsaved edits in the cancel-with-edits guard
-  // below. Stringified seasons array because React state arrays change
-  // identity on every toggle but we only care about content. (F-015 in
-  // the N9 polish bundle.)
-  const initialFormRef = React.useRef<string>('');
+  // Snapshot the values pre-fill landed with — compared against the live form
+  // + edit-only fields below to detect unsaved edits in the cancel-with-edits
+  // guard. Stringified because nested arrays / objects change identity on
+  // every state transition but we only care about content. (F-015 in N9.)
+  const initialSnapshotRef = React.useRef<string>('');
+  // Raw DB values that hydrated to `''` because they fell outside the shared
+  // picker taxonomy (e.g. material 'polyester'). The form has no way to
+  // surface or preserve them as picker chips, so we cache the raw value here
+  // and write it back on save when the user hasn't touched that field.
+  // Otherwise a user editing only the title would silently erase the
+  // out-of-taxonomy metadata on every save. The ref is invalidated for a
+  // field as soon as its form value moves away from the hydrated `''`, so
+  // a deliberate clear (tap-the-active-chip-to-deselect) still writes null.
+  // (Codex P2 on PR #860.)
+  const unknownRawRef = React.useRef<{
+    material: string | null;
+    fit: string | null;
+    pattern: string | null;
+  }>({ material: null, fit: null, pattern: null });
   React.useEffect(() => {
     if (!garment) return;
     if (lastHydratedIdRef.current === garment.id) return;
     lastHydratedIdRef.current = garment.id;
-    const initialValues = {
-      title: garment.title ?? '',
-      category: garment.category ?? '',
-      subcategory: garment.subcategory ?? '',
-      primaryColor: garment.color_primary ?? '',
-      material: garment.material ?? '',
-      fit: garment.fit ?? '',
-      pattern: garment.pattern ?? '',
-      seasons: [...(garment.season_tags ?? [])].sort(),
-      wearCount: garment.wear_count ?? 0,
-      price: garment.purchase_price != null ? String(garment.purchase_price) : '',
-      inLaundry: Boolean(garment.in_laundry),
+    const next = buildFormStateFromGarment(garment);
+    // Track raw values that the shared picker can't represent so save doesn't
+    // erase them. A value is "unknown" when the row carries a non-null string
+    // but our normaliser collapsed it to `''` (not in the canonical chip list).
+    unknownRawRef.current = {
+      material: garment.material && next.material === '' ? garment.material : null,
+      fit: garment.fit && next.fit === '' ? garment.fit : null,
+      pattern: garment.pattern && next.pattern === '' ? garment.pattern : null,
     };
-    setTitle(initialValues.title);
-    setCategory(initialValues.category);
-    setSubcategory(initialValues.subcategory);
-    setPrimaryColor(initialValues.primaryColor);
-    setMaterial(initialValues.material);
-    setFit(initialValues.fit);
-    setPattern(initialValues.pattern);
-    setSeasons(garment.season_tags ?? []);
-    setWearCount(initialValues.wearCount);
-    setPrice(initialValues.price);
-    setInLaundry(initialValues.inLaundry);
-    initialFormRef.current = JSON.stringify(initialValues);
+    const initialPrice = garment.purchase_price != null ? String(garment.purchase_price) : '';
+    const initialWear = garment.wear_count ?? 0;
+    const initialInLaundry = Boolean(garment.in_laundry);
+    setInitialForm(next);
+    setFormState(next);
+    setWearCount(initialWear);
+    setPrice(initialPrice);
+    setInLaundry(initialInLaundry);
+    initialSnapshotRef.current = JSON.stringify({
+      form: { ...next, seasons: [...next.seasons].sort() },
+      wearCount: initialWear,
+      price: initialPrice,
+      inLaundry: initialInLaundry,
+    });
     setHydrated(true);
   }, [garment]);
 
-  // Dirty check — recompute on every render against the snapshot ref
-  // taken at hydration time. Cheap (one JSON.stringify per render) and
-  // avoids a useState that would lag a frame behind the actual form
-  // state. (F-015 in the N9 polish bundle.)
+  // Invalidate each cached raw value the first time the user picks any chip
+  // for that field. From that point on the form value is authoritative — even
+  // if the user later deselects (back to `''`) we'll write null. Without this,
+  // tap-the-active-chip-to-deselect would silently re-write the legacy value.
+  React.useEffect(() => {
+    if (!formState) return;
+    if (unknownRawRef.current.material && formState.material !== '') {
+      unknownRawRef.current.material = null;
+    }
+    if (unknownRawRef.current.fit && formState.fit !== '') {
+      unknownRawRef.current.fit = null;
+    }
+    if (unknownRawRef.current.pattern && formState.pattern !== '') {
+      unknownRawRef.current.pattern = null;
+    }
+  }, [formState]);
+
   const isDirty = React.useMemo(() => {
-    if (!hydrated) return false;
+    if (!hydrated || !formState) return false;
     const current = JSON.stringify({
-      title,
-      category,
-      subcategory,
-      primaryColor,
-      material,
-      fit,
-      pattern,
-      seasons: [...seasons].sort(),
+      form: { ...formState, seasons: [...formState.seasons].sort() },
       wearCount,
       price,
       inLaundry,
     });
-    return current !== initialFormRef.current;
-  }, [
-    hydrated,
-    title,
-    category,
-    subcategory,
-    primaryColor,
-    material,
-    fit,
-    pattern,
-    seasons,
-    wearCount,
-    price,
-    inLaundry,
-  ]);
+    return current !== initialSnapshotRef.current;
+  }, [hydrated, formState, wearCount, price, inLaundry]);
 
   // Cancel handler — confirms with the user when there are unsaved edits.
   // Without this, a stray tap on Cancel after typing into the form silently
@@ -215,13 +303,11 @@ export function EditGarmentScreen() {
     );
   }, [isDirty, nav]);
 
-  const togglePick = <T,>(val: T, list: T[], setList: (xs: T[]) => void) =>
-    setList(list.includes(val) ? list.filter((v) => v !== val) : [...list, val]);
-
-  const isValid = title.trim().length > 0 && category.length > 0;
+  const isValid =
+    !!formState && formState.title.trim().length > 0 && formState.category.length > 0;
 
   const handleSave = async () => {
-    if (!garment || !isValid) return;
+    if (!garment || !formState || !isValid) return;
     setSubmitting(true);
     try {
       const trimmedPrice = price.trim();
@@ -233,8 +319,6 @@ export function EditGarmentScreen() {
       // like "12,50" parse to NaN here; users get the same alert as "abc"
       // and can re-type with a period — TODO: locale-aware parser.)
       if (parsedPrice != null && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
-        // N3b — validation feedback; user retypes inline rather than
-        // acknowledging a modal.
         showToast(
           'error',
           tr('editGarment.invalidPrice.title'),
@@ -243,15 +327,49 @@ export function EditGarmentScreen() {
         return;
       }
 
+      const trimmedSub = formState.subcategory.trim();
+      // `isValid` above guarantees `formState.category` is non-empty, so the
+      // CATEGORY_TO_DB lookup always returns a string here; the `??` keeps
+      // GarmentUpdate's non-null `category` type happy without changing the
+      // runtime contract.
+      //
+      // Preserve the row's existing casing when the user didn't actually
+      // change the category: AddPiece writes lowercase ('top'), this screen
+      // historically wrote Title-case ('Top'). detect_duplicate_garment does
+      // exact string equality on `category`, so silently re-casing on every
+      // unrelated save would break attribute-only duplicate matches for
+      // garments originally created by AddPiece. Only apply the Title-case
+      // mapping when the user picks a different category. (Codex P2 round 3.)
+      const categoryUnchanged =
+        initialForm != null && formState.category === initialForm.category;
+      const mappedCategory = CATEGORY_TO_DB[formState.category];
+      const nextCategory = categoryUnchanged
+        ? garment.category
+        : (mappedCategory ?? garment.category);
       const updates: GarmentUpdate = {
-        title: title.trim(),
-        category,
-        subcategory: subcategory.trim() || null,
-        color_primary: primaryColor || null,
-        material: material || null,
-        fit: fit || null,
-        pattern: pattern || null,
-        season_tags: seasons,
+        title: formState.title.trim(),
+        category: nextCategory,
+        subcategory: trimmedSub.length > 0 ? trimmedSub : null,
+        color_primary: formState.primaryColor || null,
+        color_secondary: formState.secondaryColor || null,
+        // When the user hasn't picked a chip but the row hydrated from an
+        // out-of-taxonomy value, write the original raw value back so saves
+        // that touched other fields don't silently erase legacy/custom
+        // metadata. Picking any chip overrides the cache as expected.
+        material:
+          formState.material === ''
+            ? unknownRawRef.current.material
+            : (MATERIAL_TO_DB[formState.material] ?? null),
+        fit:
+          formState.fit === ''
+            ? unknownRawRef.current.fit
+            : (FIT_TO_DB[formState.fit] ?? null),
+        pattern:
+          formState.pattern === ''
+            ? unknownRawRef.current.pattern
+            : (PATTERN_TO_DB[formState.pattern] ?? null),
+        season_tags: formState.seasons.map((s) => SEASON_TO_DB[s.toLowerCase()] ?? s),
+        formality: formState.formality,
         wear_count: wearCount,
         purchase_price: parsedPrice,
         in_laundry: inLaundry,
@@ -260,7 +378,6 @@ export function EditGarmentScreen() {
       await updateGarment.mutateAsync({ id: garment.id, updates });
       nav.goBack();
     } catch (err) {
-      // N3b — non-blocking; the form is still on screen so the user can retry.
       showToast(
         'error',
         tr('editGarment.saveFailed.title'),
@@ -302,8 +419,6 @@ export function EditGarmentScreen() {
                 nav.goBack();
               }
             } catch (err) {
-              // N3b — confirmation above is the action gate; failure
-              // becomes a toast so the user can retry without re-confirming.
               showToast(
                 'error',
                 tr('editGarment.deleteFailed.title'),
@@ -401,7 +516,6 @@ export function EditGarmentScreen() {
               accessibilityLabel={tr('editGarment.changePhoto')}
               accessibilityRole="button"
               onPress={() =>
-                // N3b — informational ("photo upload coming soon"); toast.
                 showToast(
                   'info',
                   tr('editGarment.changePhoto.alert.title'),
@@ -422,77 +536,28 @@ export function EditGarmentScreen() {
             </Pressable>
           </View>
 
-          {/* Details */}
+          {/* Details — shared metadata picker form */}
           <FormCard title={tr('editGarment.section.details')}>
-            <FieldLabel label={tr('editGarment.field.title')} />
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              placeholderTextColor={t.fg3}
-              style={[s.input, { backgroundColor: t.bg2, borderColor: t.border, color: t.fg }]}
-            />
-
-            <FieldLabel label={tr('editGarment.field.category')} topGap />
-            <ChipRow values={CATEGORIES} active={[category]} onTap={(v) => setCategory(v)} />
-
-            <FieldLabel label={tr('editGarment.field.subcategory')} topGap />
-            <TextInput
-              value={subcategory}
-              onChangeText={setSubcategory}
-              placeholderTextColor={t.fg3}
-              style={[s.input, { backgroundColor: t.bg2, borderColor: t.border, color: t.fg }]}
-            />
+            {initialForm ? (
+              // Key by garment.id so a route param change (e.g. user opens
+              // another piece while this screen is already mounted) remounts
+              // the form and re-seeds its internal reducer from the new
+              // `initialForm`. Without this, the inputs would stay on the
+              // previous garment and the next save would write stale metadata
+              // to the new row. The shared form only consumes `initial` in
+              // its lazy useReducer initialiser, so a prop change alone
+              // wouldn't re-seed it.
+              <AddPieceStep3Form
+                key={garment.id}
+                initial={initialForm}
+                onChange={setFormState}
+              />
+            ) : null}
           </FormCard>
 
-          {/* Style */}
-          <FormCard title={tr('editGarment.section.style')}>
-            <FieldLabel label={tr('editGarment.field.primaryColor')} />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-              {COLOR_SWATCHES.map((c) => {
-                const active = c.id === primaryColor;
-                return (
-                  <Pressable
-                    key={c.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={c.label}
-                    onPress={() => setPrimaryColor(c.id)}
-                    style={({ pressed }) => [
-                      s.swatch,
-                      {
-                        borderColor: active ? t.accent : t.border,
-                        borderWidth: active ? 2 : 1,
-                        opacity: pressed ? 0.85 : 1,
-                      },
-                    ]}>
-                    <View style={[s.swatchInner, { backgroundColor: c.color }]} />
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <FieldLabel label={tr('editGarment.field.material')} topGap />
-            <ChipRow values={MATERIALS} active={material ? [material] : []} onTap={(v) => setMaterial(material === v ? '' : v)} />
-
-            <FieldLabel label={tr('editGarment.field.fit')} topGap />
-            <ChipRow values={FITS} active={fit ? [fit] : []} onTap={(v) => setFit(fit === v ? '' : v)} />
-
-            <FieldLabel label={tr('editGarment.field.pattern')} topGap />
-            <ChipRow values={PATTERNS} active={pattern ? [pattern] : []} onTap={(v) => setPattern(pattern === v ? '' : v)} />
-          </FormCard>
-
-          {/* Usage */}
+          {/* Usage — wear count + price (edit-only) */}
           <FormCard title={tr('editGarment.section.usage')}>
-            <FieldLabel label={tr('editGarment.field.seasons')} />
-            <ChipRow
-              values={SEASONS}
-              active={seasons}
-              onTap={(v) => togglePick(v, seasons, setSeasons)}
-            />
-
-            <FieldLabel label={tr('editGarment.field.wearCount')} topGap />
+            <FieldLabel label={tr('editGarment.field.wearCount')} />
             <View style={s.stepperRow}>
               <Pressable
                 accessibilityLabel={tr('editGarment.a11y.decrementWear')}
@@ -541,7 +606,7 @@ export function EditGarmentScreen() {
             />
           </FormCard>
 
-          {/* Status */}
+          {/* Status — in-laundry toggle (edit-only) */}
           <FormCard title={tr('editGarment.section.status')}>
             <View style={s.statusRow}>
               <Text
@@ -616,24 +681,6 @@ function FieldLabel({ label, topGap = false }: { label: string; topGap?: boolean
   return <Eyebrow style={{ marginTop: topGap ? 14 : 0, marginBottom: 8 }}>{label}</Eyebrow>;
 }
 
-function ChipRow({
-  values,
-  active,
-  onTap,
-}: {
-  values: string[];
-  active: string[];
-  onTap: (v: string) => void;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-      {values.map((v) => (
-        <Chip key={v} label={v} active={active.includes(v)} onPress={() => onTap(v)} />
-      ))}
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
@@ -672,16 +719,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     fontFamily: fonts.uiMed,
     fontSize: 13,
-  },
-  swatch: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    padding: 3,
-  },
-  swatchInner: {
-    flex: 1,
-    borderRadius: 999,
   },
   stepperRow: {
     flexDirection: 'row',
