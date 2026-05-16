@@ -96,6 +96,7 @@ import {
   socialContextPenalty,
   recentSuggestionPenalty,
   RECENT_SUGGESTION_WINDOW,
+  isLowVariety,
 } from "../_shared/outfit-scoring.ts";
 
 import {
@@ -1651,8 +1652,10 @@ serve(async (req) => {
       // generate's recency map sees this outfit too. Without it, a
       // user hitting the deterministic fallback (AI 5xx) would see the
       // same `activeCombos[0]` returned again on the next tap. Best-effort.
+      const fallbackChosenIds = best.items.map(i => i.garment.id);
+      const fallbackLowVariety = isLowVariety(recencyMap, fallbackChosenIds);
       try {
-        const bestHash = hashOutfit(best.items.map(i => i.garment.id));
+        const bestHash = hashOutfit(fallbackChosenIds);
         await serviceSupabase
           .from("style_engine_suggestion_log")
           .insert({ user_id: userId, outfit_hash: bestHash, occasion });
@@ -1673,6 +1676,10 @@ serve(async (req) => {
         layer_order: fallbackLayering.layer_order,
         needs_base_layer: fallbackLayering.needs_base_layer,
         occasion_submode: occasionSubmode,
+        // Audit P2 — surface the same variety signal the AI-success path
+        // emits so the mobile UI can hint "your wardrobe is rotation-thin
+        // on this occasion" even when the AI itself errored.
+        low_variety: fallbackLowVariety || undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -1742,14 +1749,7 @@ serve(async (req) => {
       // a logging failure must not turn a successful generate into a 500.
       const chosenIds = chosen.items.map((i) => i.garment.id);
       const outfitHash = hashOutfit(chosenIds);
-      let lowVariety = false;
-      if (recencyMap.size > 0 && chosenIds.length > 0) {
-        const recentRepeatCount = chosenIds.filter((id) => {
-          const rank = recencyMap.get(id);
-          return rank !== undefined && rank <= 3;
-        }).length;
-        lowVariety = recentRepeatCount >= Math.ceil(chosenIds.length / 2);
-      }
+      const lowVariety = isLowVariety(recencyMap, chosenIds);
       try {
         await serviceSupabase
           .from("style_engine_suggestion_log")
