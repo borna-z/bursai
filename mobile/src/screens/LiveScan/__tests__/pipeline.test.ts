@@ -57,6 +57,7 @@ jest.mock('../../../lib/edgeFunctionClient', () => ({
 }));
 jest.mock('../../../lib/garmentSave', () => ({
   persistGarmentWithOfflineFallback: jest.fn(),
+  surfaceRenderEnqueueFailureToast: jest.fn(),
   OfflineQueuedError: class extends Error {},
 }));
 jest.mock('../../../lib/i18n', () => ({
@@ -188,6 +189,7 @@ describe('LiveScan pipeline — two-phase', () => {
     expect(savedId).toBe('garment-123');
     expect(mockedPersist).toHaveBeenCalledWith(
       expect.objectContaining({ enableStudioQuality: true, source: 'live_scan' }),
+      expect.anything(),
     );
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
@@ -205,6 +207,7 @@ describe('LiveScan pipeline — two-phase', () => {
 
     expect(mockedPersist).toHaveBeenCalledWith(
       expect.objectContaining({ enableStudioQuality: false }),
+      expect.anything(),
     );
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
@@ -355,12 +358,15 @@ describe('LiveScan pipeline — two-phase', () => {
       'garment-uuid-fixed',
       'masked',
     );
-    expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
-      garmentId: 'garment-uuid-fixed',
-      storagePath: 'u/g/raw.webp',
-      maskedStoragePath: 'u/g/masked.webp',
-      maskStatus: 'masked',
-    }));
+    expect(mockedPersist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        garmentId: 'garment-uuid-fixed',
+        storagePath: 'u/g/raw.webp',
+        maskedStoragePath: 'u/g/masked.webp',
+        maskStatus: 'masked',
+      }),
+      expect.anything(),
+    );
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
@@ -383,11 +389,14 @@ describe('LiveScan pipeline — two-phase', () => {
     await runFullPipeline('file://photo.jpg', 'session-transcode-fail', 'user-1', events, invalidate);
 
     expect(mockedUpload).toHaveBeenCalledTimes(1);
-    expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
-      storagePath: 'u/g/raw.webp',
-      maskedStoragePath: undefined,
-      maskStatus: 'failed',
-    }));
+    expect(mockedPersist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storagePath: 'u/g/raw.webp',
+        maskedStoragePath: undefined,
+        maskStatus: 'failed',
+      }),
+      expect.anything(),
+    );
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
@@ -435,11 +444,14 @@ describe('LiveScan pipeline — two-phase', () => {
       await scan;
 
       expect(mockedUpload).toHaveBeenCalledTimes(1);
-      expect(mockedPersist).toHaveBeenCalledWith(expect.objectContaining({
-        storagePath: 'u/g/raw.webp',
-        maskedStoragePath: undefined,
-        maskStatus: 'unavailable',
-      }));
+      expect(mockedPersist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          storagePath: 'u/g/raw.webp',
+          maskedStoragePath: undefined,
+          maskStatus: 'unavailable',
+        }),
+        expect.anything(),
+      );
       expect(invalidate).toHaveBeenCalledTimes(1);
     } finally {
       jest.useRealTimers();
