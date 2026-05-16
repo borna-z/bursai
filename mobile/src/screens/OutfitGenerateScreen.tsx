@@ -8,7 +8,7 @@
 // to 90% then held until isLoading flips false).
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -37,16 +37,10 @@ import { applyAnchor } from '../lib/outfitAnchoring';
 import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import { OutfitGenerateLoading } from './OutfitGenerate/OutfitGenerateLoading';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'OutfitGenerate'>;
-
-const LOADING_MESSAGES = [
-  'Reading your wardrobe…',
-  'Checking the weather…',
-  'Finding the right pieces…',
-  'Almost there…',
-] as const;
 
 // Q-B — preview grid slot labels (rendered as a small caption overlay
 // on each tile). The hue ramp that previously backed each cell was
@@ -65,7 +59,6 @@ export function OutfitGenerateScreen() {
   const persistOutfit = usePersistGeneratedOutfit();
   const markWorn = useMarkOutfitWorn();
   const [savedOutfitId, setSavedOutfitId] = useState<string | null>(null);
-  const [messageIdx, setMessageIdx] = useState(0);
   const paywallShownRef = useRef(false);
 
   // Re-arm Save when a fresh result lands (Try again replaces the in-memory
@@ -108,30 +101,6 @@ export function OutfitGenerateScreen() {
     [anchorGarment, anchorId],
   );
 
-  const spinAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
-
-  // Loading-phase predicate — drives both whether to render the spinner
-  // and whether to keep its rotation animation running. Without this gate,
-  // the loop animation kept ticking after the screen flipped to error or
-  // result state. Codex audit P1-2 (audit 2).
-  const isInLoadingPhase = (isLoading || !result) && !error;
-
-  // Spinner rotation — only runs during the loading phase.
-  useEffect(() => {
-    if (!isInLoadingPhase) return;
-    const loop = Animated.loop(
-      Animated.timing(spinAnim, {
-        toValue: 1,
-        duration: 1100,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [isInLoadingPhase, spinAnim]);
-
   // Kick generation on mount + when the anchor garment changes. M13: pass
   // the anchor as `anchorGarmentId` (the legacy `garmentId` field is still
   // accepted by the hook but the new one carries the lock-intent semantics)
@@ -165,34 +134,6 @@ export function OutfitGenerateScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchorId, seedGarmentIdsKey]);
 
-  // Drive the loading affordance off the request lifecycle. Progress climbs
-  // to 90% over 2s then holds; we snap to 100% on completion.
-  useEffect(() => {
-    if (!isLoading) {
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: false,
-      }).start(() => {
-        if (result) hapticSuccess();
-      });
-      return;
-    }
-    progressAnim.setValue(0);
-    setMessageIdx(0);
-    Animated.timing(progressAnim, {
-      toValue: 0.9,
-      duration: 2000,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-    const interval = setInterval(() => {
-      setMessageIdx((i) => (i + 1) % LOADING_MESSAGES.length);
-    }, 600);
-    return () => clearInterval(interval);
-  }, [isLoading, result, progressAnim]);
-
   useEffect(() => {
     // Route to the real PaywallScreen instead of popping an Alert each time
     // the engine returns `subscription_required`. The previous version
@@ -204,9 +145,6 @@ export function OutfitGenerateScreen() {
       nav.navigate('Paywall');
     }
   }, [error, nav]);
-
-  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   const itemCount = result?.items.length ?? 0;
   const subLine = useMemo(() => {
@@ -522,47 +460,11 @@ export function OutfitGenerateScreen() {
   // contract obvious: nothing past here renders without a non-null result.
   if (!result || isLoading) {
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-        <View style={s.header}>
-          <IconBtn ariaLabel="Close" onPress={() => { hapticLight(); nav.goBack(); }}>
-            <CloseIcon color={t.fg} />
-          </IconBtn>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Eyebrow>Generating</Eyebrow>
-            <PageTitle style={{ marginTop: 4 }}>New look</PageTitle>
-          </View>
-          <View style={{ width: 36 }} />
-        </View>
-        <View style={s.loadingShell}>
-          <Animated.View
-            style={[
-              s.spinner,
-              {
-                borderColor: t.border,
-                borderTopColor: t.accent,
-                transform: [{ rotate: spin }],
-              },
-            ]}
-          />
-          <Text
-            style={{
-              marginTop: 28,
-              fontFamily: fonts.displayMedium,
-              fontStyle: 'italic',
-              fontSize: 18,
-              color: t.fg,
-              textAlign: 'center',
-              letterSpacing: -0.18,
-            }}>
-            {LOADING_MESSAGES[messageIdx]}
-          </Text>
-          <View style={[s.progressTrack, { backgroundColor: t.border, marginTop: 24 }]}>
-            <Animated.View
-              style={[s.progressFill, { backgroundColor: t.accent, width: progressWidth }]}
-            />
-          </View>
-        </View>
-      </SafeAreaView>
+      <OutfitGenerateLoading
+        isLoading={isLoading}
+        hasResult={!!result}
+        onClose={() => nav.goBack()}
+      />
     );
   }
 
@@ -853,21 +755,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 40,
-  },
-  spinner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-  },
-  progressTrack: {
-    width: '70%',
-    height: 3,
-    borderRadius: radii.pill,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
   },
   grid: {
     flexDirection: 'row',
