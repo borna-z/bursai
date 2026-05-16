@@ -205,11 +205,33 @@ export function EditGarmentScreen() {
   // guard. Stringified because nested arrays / objects change identity on
   // every state transition but we only care about content. (F-015 in N9.)
   const initialSnapshotRef = React.useRef<string>('');
+  // Raw DB values that hydrated to `''` because they fell outside the shared
+  // picker taxonomy (e.g. material 'polyester'). The form has no way to
+  // surface or preserve them as picker chips, so we cache the raw value here
+  // and write it back on save when the user hasn't touched that field.
+  // Otherwise a user editing only the title would silently erase the
+  // out-of-taxonomy metadata on every save. The ref is invalidated for a
+  // field as soon as its form value moves away from the hydrated `''`, so
+  // a deliberate clear (tap-the-active-chip-to-deselect) still writes null.
+  // (Codex P2 on PR #860.)
+  const unknownRawRef = React.useRef<{
+    material: string | null;
+    fit: string | null;
+    pattern: string | null;
+  }>({ material: null, fit: null, pattern: null });
   React.useEffect(() => {
     if (!garment) return;
     if (lastHydratedIdRef.current === garment.id) return;
     lastHydratedIdRef.current = garment.id;
     const next = buildFormStateFromGarment(garment);
+    // Track raw values that the shared picker can't represent so save doesn't
+    // erase them. A value is "unknown" when the row carries a non-null string
+    // but our normaliser collapsed it to `''` (not in the canonical chip list).
+    unknownRawRef.current = {
+      material: garment.material && next.material === '' ? garment.material : null,
+      fit: garment.fit && next.fit === '' ? garment.fit : null,
+      pattern: garment.pattern && next.pattern === '' ? garment.pattern : null,
+    };
     const initialPrice = garment.purchase_price != null ? String(garment.purchase_price) : '';
     const initialWear = garment.wear_count ?? 0;
     const initialInLaundry = Boolean(garment.in_laundry);
@@ -226,6 +248,23 @@ export function EditGarmentScreen() {
     });
     setHydrated(true);
   }, [garment]);
+
+  // Invalidate each cached raw value the first time the user picks any chip
+  // for that field. From that point on the form value is authoritative — even
+  // if the user later deselects (back to `''`) we'll write null. Without this,
+  // tap-the-active-chip-to-deselect would silently re-write the legacy value.
+  React.useEffect(() => {
+    if (!formState) return;
+    if (unknownRawRef.current.material && formState.material !== '') {
+      unknownRawRef.current.material = null;
+    }
+    if (unknownRawRef.current.fit && formState.fit !== '') {
+      unknownRawRef.current.fit = null;
+    }
+    if (unknownRawRef.current.pattern && formState.pattern !== '') {
+      unknownRawRef.current.pattern = null;
+    }
+  }, [formState]);
 
   const isDirty = React.useMemo(() => {
     if (!hydrated || !formState) return false;
@@ -300,9 +339,22 @@ export function EditGarmentScreen() {
         subcategory: trimmedSub.length > 0 ? trimmedSub : null,
         color_primary: formState.primaryColor || null,
         color_secondary: formState.secondaryColor || null,
-        material: MATERIAL_TO_DB[formState.material] ?? null,
-        fit: FIT_TO_DB[formState.fit] ?? null,
-        pattern: PATTERN_TO_DB[formState.pattern] ?? null,
+        // When the user hasn't picked a chip but the row hydrated from an
+        // out-of-taxonomy value, write the original raw value back so saves
+        // that touched other fields don't silently erase legacy/custom
+        // metadata. Picking any chip overrides the cache as expected.
+        material:
+          formState.material === ''
+            ? unknownRawRef.current.material
+            : (MATERIAL_TO_DB[formState.material] ?? null),
+        fit:
+          formState.fit === ''
+            ? unknownRawRef.current.fit
+            : (FIT_TO_DB[formState.fit] ?? null),
+        pattern:
+          formState.pattern === ''
+            ? unknownRawRef.current.pattern
+            : (PATTERN_TO_DB[formState.pattern] ?? null),
         season_tags: formState.seasons.map((s) => SEASON_TO_DB[s.toLowerCase()] ?? s),
         formality: formState.formality,
         wear_count: wearCount,
