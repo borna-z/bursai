@@ -400,6 +400,18 @@ async function executeTransition(
   switch (transition.kind) {
     case "noop": {
       logStep("Noop event", { reason: transition.reason }, correlationId);
+      // Restore the structured observability signal the original handler emitted
+      // for NON_RENEWING_PURCHASE without an expiration. Without this, an
+      // upstream payload-shape regression in RC's NON_RENEWING_PURCHASE event
+      // would silently degrade to a no-op instead of paging us.
+      if (transition.reason === "non_renewing_missing_expiration") {
+        const userId = typeof event.app_user_id === "string" ? event.app_user_id : null;
+        captureWarning("revenuecat_non_renewing_no_expiration", {
+          function: "revenuecat_webhook",
+          app_user_id: userId,
+          correlation_id: correlationId,
+        });
+      }
       return;
     }
     case "alias_recovery_check": {

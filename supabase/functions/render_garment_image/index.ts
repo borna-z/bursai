@@ -1143,6 +1143,56 @@ serve(async (req) => {
         garment: garmentForPrompt,
         mannequinPresentation,
         maskedInput: maskedRender,
+        onAttemptRejected: ({ variant, attemptIndex, errorCode, errorMessage, outputBytes }) => {
+          // Per-attempt structural-rejection logs — restores the
+          // observability the pre-extraction retry loop emitted for each of
+          // `output_bad_magic` / `output_too_small` / `output_too_large` /
+          // `output_low_resolution`. Keeps the chain itself context-agnostic
+          // (no garmentId / no logger inside `_shared/`).
+          if (errorCode === 'output_bad_magic') {
+            console.warn('render_garment_image attempt rejected: bad magic bytes', {
+              garmentId: garment.id,
+              attempt: attemptIndex + 1,
+              variant,
+              firstBytes: Array.from(outputBytes.slice(0, 8))
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join(' '),
+              bytes: outputBytes.length,
+            });
+          } else if (errorCode === 'output_too_small') {
+            console.warn('render_garment_image attempt rejected: output too small', {
+              garmentId: garment.id,
+              attempt: attemptIndex + 1,
+              variant,
+              bytes: outputBytes.length,
+              errorMessage,
+            });
+          } else if (errorCode === 'output_too_large') {
+            console.warn('render_garment_image attempt rejected: output too large', {
+              garmentId: garment.id,
+              attempt: attemptIndex + 1,
+              variant,
+              bytes: outputBytes.length,
+              errorMessage,
+            });
+          } else if (errorCode === 'output_low_resolution') {
+            console.warn('render_garment_image attempt rejected: output dimensions too low', {
+              garmentId: garment.id,
+              attempt: attemptIndex + 1,
+              variant,
+              dims: extractImageDimensions(outputBytes),
+              errorMessage,
+            });
+          } else {
+            console.warn('render_garment_image attempt rejected: structural', {
+              garmentId: garment.id,
+              attempt: attemptIndex + 1,
+              variant,
+              errorCode,
+              errorMessage,
+            });
+          }
+        },
         generate: async ({ prompt, variant, attemptIndex }) => {
           console.log('render_garment_image Gemini attempt', {
             garmentId: garment.id,

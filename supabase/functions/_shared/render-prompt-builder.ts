@@ -380,6 +380,15 @@ export const defaultStructuralValidator: StructuralValidatorFn = (bytes) => {
   return { ok: false, errorCode: r.code, errorMessage: r.message };
 };
 
+export type RetryRejectionInfo = {
+  variant: PromptVariant;
+  attemptIndex: number;
+  stage: "structural";
+  errorCode: string;
+  errorMessage: string;
+  outputBytes: Uint8Array;
+};
+
 export async function runRenderRetryChain(args: {
   garment: GarmentForPrompt;
   mannequinPresentation: MannequinPresentation;
@@ -387,6 +396,7 @@ export async function runRenderRetryChain(args: {
   generate: GeminiGenerateFn;
   validateContent: ValidatorFn;
   validateStructural?: StructuralValidatorFn;
+  onAttemptRejected?: (info: RetryRejectionInfo) => void;
 }): Promise<RetryAttemptOutcome> {
   const structural = args.validateStructural ?? defaultStructuralValidator;
   let lastFailure: RetryAttemptOutcome & { ok: false } | null = null;
@@ -405,6 +415,18 @@ export async function runRenderRetryChain(args: {
 
     const struct = structural(gen.outputBytes);
     if (!struct.ok) {
+      // Per-attempt structural rejection log — preserves the observability the
+      // original retry loop emitted (`bad magic bytes` / `output too small` /
+      // `output too large` / `output dims too low`). The handler attaches
+      // garmentId via the callback so the chain itself stays context-agnostic.
+      args.onAttemptRejected?.({
+        variant,
+        attemptIndex,
+        stage: "structural",
+        errorCode: struct.errorCode,
+        errorMessage: struct.errorMessage,
+        outputBytes: gen.outputBytes,
+      });
       lastFailure = { ok: false, errorCode: struct.errorCode, errorMessage: struct.errorMessage };
       continue;
     }
