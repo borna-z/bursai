@@ -56,9 +56,9 @@ Every phase MUST:
 
 ## Backlog (post-completion)
 
-Carried over from the completion log; tracked separately from the phase index above.
+Carried over from the completion log; tracked separately from the phase index above. None of these have specs/design notes written yet — they need to be drafted before the next session picks them up.
 
-- **Phase 5d** — `burs_style_engine` swap scoring + AI prompt builder + wear-log preprocessing extraction. Spec drafted in `docs/modularization/`. Closes the remaining 1896 → <1100 line gap left after Phase 5b.
-- **Phase 5e** — `render_garment_image` garment-state DB helpers extraction (~140 lines). Spec drafted in `docs/modularization/`. Closes the remaining 1347 → <1100 line gap left after Phase 5c.
-- **EditGarmentScreen picker visibility** — design note drafted. User decision owed on whether `color_secondary` and `formality` should remain visible after the #860 form reuse.
+- **Phase 5d** — `burs_style_engine` swap scoring + AI prompt builder + wear-log preprocessing extraction. Closes the remaining 1896 → <1100 line gap left after Phase 5b. Spec not yet written.
+- **Phase 5e** — `render_garment_image` garment-state DB helpers extraction (~140 lines). Closes the remaining 1347 → <1100 line gap left after Phase 5c. Spec not yet written.
+- **EditGarmentScreen picker visibility** — user decision owed on whether `color_secondary` and `formality` should remain visible after the #860 form reuse. Design note not yet written.
 - **Architecture doc refresh** — `mobile/CLAUDE.md` and `supabase/functions/CLAUDE.md` entry points to reflect the new barrel structure. TBD.

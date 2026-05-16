@@ -60,9 +60,9 @@ Self-review loop on the four follow-up PRs (#860, #861, #862, #863): no addition
 
 ## Outstanding line-target gaps (documented, accepted)
 
-- `supabase/functions/burs_style_engine/index.ts` — **1896 lines** vs `<1100` target. Phase 5b scope only authorised dedup + confidence extraction. Remaining bulk: swap scoring, AI prompt builder, wear-log preprocessing. **Phase 5d** spec drafted alongside this completion log.
-- `supabase/functions/render_garment_image/index.ts` — **1347 lines** vs `<1100` target. Closing the gap requires extracting the four garment-state DB helpers (~140 lines) which were out of Phase 5c scope. **Phase 5e** spec drafted alongside.
-- `EditGarmentScreen` (post-#860) — now surfaces 2 pickers (`color_secondary`, `formality`) that the legacy edit screen hid behind conditional logic. Behaviour intentional but a visibility decision is owed to the user. **Design note drafted** alongside.
+- `supabase/functions/burs_style_engine/index.ts` — **1896 lines** vs `<1100` target. Phase 5b scope only authorised dedup + confidence extraction. Remaining bulk: swap scoring, AI prompt builder, wear-log preprocessing. A follow-up phase (Phase 5d) is recommended but no spec has been written yet.
+- `supabase/functions/render_garment_image/index.ts` — **1347 lines** vs `<1100` target. Closing the gap requires extracting the four garment-state DB helpers (~140 lines) which were out of Phase 5c scope. A follow-up phase (Phase 5e) is recommended but no spec has been written yet.
+- `EditGarmentScreen` (post-#860) — now surfaces 2 pickers (`color_secondary`, `formality`) that the legacy edit screen hid behind conditional logic. Behaviour intentional but a visibility decision is owed to the user. No design note has been written yet.
 
 ## Operational learnings (pin into runbooks)
 
@@ -72,7 +72,9 @@ Self-review loop on the four follow-up PRs (#860, #861, #862, #863): no addition
 
 ## Next-up backlog
 
-- **Phase 5d** — `burs_style_engine` swap scoring + AI prompt builder + wear-log preprocessing extraction (spec drafted).
-- **Phase 5e** — `render_garment_image` garment-state DB helpers extraction (spec drafted).
-- **Architecture doc refresh** — `mobile/CLAUDE.md` and `supabase/functions/CLAUDE.md` entry points to reflect the new barrel structure (TBD).
-- **EditGarmentScreen picker visibility** — user decision: keep both new pickers visible, or hide `formality` behind an advanced toggle (design note drafted).
+All items below are open work; specs/design notes need to be written before the next session picks them up.
+
+- **Phase 5d** — `burs_style_engine` swap scoring + AI prompt builder + wear-log preprocessing extraction. Spec not yet written.
+- **Phase 5e** — `render_garment_image` garment-state DB helpers extraction (~140 lines). Spec not yet written.
+- **Architecture doc refresh** — `mobile/CLAUDE.md` and `supabase/functions/CLAUDE.md` entry points to reflect the new barrel structure.
+- **EditGarmentScreen picker visibility** — user decision owed: keep both new pickers (`color_secondary`, `formality`) visible, or hide `formality` behind an advanced toggle. Design note not yet written.
