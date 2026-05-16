@@ -134,6 +134,22 @@ describe('isColorSwap', () => {
     ];
     expect(isColorSwap(a, b)).toBe(false);
   });
+
+  it('detects a swap across two same-slot+subcategory items with different fits', () => {
+    // Regression: when two items share slot+subcategory but differ on
+    // fit, sorting by color would pair them across outfits by color and
+    // see fit mismatches. The pair below is a true color swap — slim
+    // stays slim, oversized stays oversized — only the colors trade.
+    const a = [
+      item('top', 't1', 'tee', 'slim', 'red'),
+      item('top', 't2', 'tee', 'oversized', 'blue'),
+    ];
+    const b = [
+      item('top', 't3', 'tee', 'slim', 'blue'),
+      item('top', 't4', 'tee', 'oversized', 'red'),
+    ];
+    expect(isColorSwap(a, b)).toBe(true);
+  });
 });
 
 describe('isSilhouetteSwap', () => {
@@ -163,6 +179,20 @@ describe('isSilhouetteSwap', () => {
     const a = [item('top', 't1', 'shirt', 'fitted', 'navy')];
     const b = [item('top', 't2', 'shirt', 'fitted', 'navy')];
     expect(isSilhouetteSwap(a, b)).toBe(false);
+  });
+
+  it('detects a swap across two same-slot+subcategory items with different colors', () => {
+    // Mirror of the color-swap regression: two items share
+    // slot+subcategory but differ on color; only the fits trade.
+    const a = [
+      item('top', 't1', 'tee', 'slim', 'red'),
+      item('top', 't2', 'tee', 'oversized', 'blue'),
+    ];
+    const b = [
+      item('top', 't3', 'tee', 'oversized', 'red'),
+      item('top', 't4', 'tee', 'slim', 'blue'),
+    ];
+    expect(isSilhouetteSwap(a, b)).toBe(true);
   });
 });
 

@@ -53,11 +53,24 @@ function fingerprint(item: ComboItem): ItemFingerprint {
   };
 }
 
-function sortedFingerprints(items: ComboItem[]): ItemFingerprint[] {
+/**
+ * Sort by the invariant keys for whichever swap we're testing. The
+ * "variable" axis (color for a color swap, fit for a silhouette swap)
+ * must NOT participate in the sort — otherwise two outfits that swap
+ * the variable axis between matching-invariant items get paired by the
+ * variable axis instead of the invariants, and the comparison spuriously
+ * fails. E.g. `slim/red + oversized/blue` vs `slim/blue + oversized/red`
+ * is a true color swap, but sorting by color would pair slim-red with
+ * oversized-red and report a fit mismatch.
+ */
+function sortByInvariants(
+  items: ComboItem[],
+  tiebreaker: "fit" | "color",
+): ItemFingerprint[] {
   return [...items].map(fingerprint).sort((x, y) => {
     if (x.slot !== y.slot) return x.slot.localeCompare(y.slot);
     if (x.subcategory !== y.subcategory) return x.subcategory.localeCompare(y.subcategory);
-    return x.color.localeCompare(y.color);
+    return x[tiebreaker].localeCompare(y[tiebreaker]);
   });
 }
 
@@ -73,8 +86,10 @@ function sameLength<T>(a: T[], b: T[]): boolean {
  */
 export function isColorSwap(a: ComboItem[], b: ComboItem[]): boolean {
   if (!sameLength(a, b) || a.length === 0) return false;
-  const fa = sortedFingerprints(a);
-  const fb = sortedFingerprints(b);
+  // Sort by the invariant keys (slot, subcategory, fit). Color is the
+  // axis allowed to differ, so it must not be a sort key.
+  const fa = sortByInvariants(a, "fit");
+  const fb = sortByInvariants(b, "fit");
   let colorDiff = 0;
   for (let i = 0; i < fa.length; i++) {
     if (fa[i].slot !== fb[i].slot) return false;
@@ -93,8 +108,10 @@ export function isColorSwap(a: ComboItem[], b: ComboItem[]): boolean {
  */
 export function isSilhouetteSwap(a: ComboItem[], b: ComboItem[]): boolean {
   if (!sameLength(a, b) || a.length === 0) return false;
-  const fa = sortedFingerprints(a);
-  const fb = sortedFingerprints(b);
+  // Sort by the invariant keys (slot, subcategory, color). Fit is the
+  // axis allowed to differ, so it must not be a sort key.
+  const fa = sortByInvariants(a, "color");
+  const fb = sortByInvariants(b, "color");
   let fitDiff = 0;
   for (let i = 0; i < fa.length; i++) {
     if (fa[i].slot !== fb[i].slot) return false;
