@@ -22,11 +22,10 @@ import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { Button } from '../components/Button';
 import { IconBtn } from '../components/IconBtn';
-import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon, EditIcon, MoreIcon } from '../components/icons';
 import { useGarment } from '../hooks/useGarments';
@@ -46,6 +45,7 @@ import {
   type InfoField,
 } from './GarmentDetail/GarmentDetailTabs';
 import { useGarmentActions } from './GarmentDetail/GarmentActionSheet';
+import { GarmentDetailHero, type GarmentDetailHeroBadge } from './GarmentDetail/GarmentDetailHero';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'GarmentDetail'>;
@@ -340,6 +340,13 @@ export function GarmentDetailScreen() {
   const heroPath =
     garment.rendered_image_path || garment.original_image_path || garment.image_path || null;
   const showGenerateImageCta = !heroPath && !isStudioRendering;
+  const heroBadge: GarmentDetailHeroBadge = isStudioRendering
+    ? 'rendering'
+    : hasRenderedImage
+      ? 'rendered'
+      : isStudioFailed
+        ? 'failed'
+        : 'none';
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -384,60 +391,7 @@ export function GarmentDetailScreen() {
           gap: 16,
         }}
         showsVerticalScrollIndicator={false}>
-        <View style={[s.hero, { borderColor: t.border }]}>
-          {/* Photo — render_status-aware path selection + faded Tshirt icon
-              fallback live in GarmentImageTile (mirrors web). Studio badge,
-              wear-count badge etc. layer on top below. */}
-          <GarmentImageTile garment={garment} iconSize={64} />
-          {/* Studio badge — four states:
-              • pending render → "Studio render…" with an inline spinner
-              • rendered image present → "Studio"
-              • render_status='failed' → "Render unavailable" (N14/F7)
-              • render_status='none' → hidden, the original photo stands
-                on its own without a misleading label. */}
-          {isStudioRendering ? (
-            <View
-              accessibilityLiveRegion="polite"
-              accessibilityLabel={tr('garmentDetail.badge.studioRendering.a11y')}
-              style={[s.heroBadge, s.heroBadgePending, { backgroundColor: t.accentSoft }]}>
-              <ActivityIndicator size="small" color={t.accent} style={{ marginRight: 6 }} />
-              <Text style={[s.heroBadgeText, { color: t.accent }]}>{tr('garmentDetail.badge.studioRendering')}</Text>
-            </View>
-          ) : hasRenderedImage ? (
-            <View style={[s.heroBadge, { backgroundColor: t.accentSoft }]}>
-              <Text style={[s.heroBadgeText, { color: t.accent }]}>{tr('garmentDetail.badge.studio')}</Text>
-            </View>
-          ) : isStudioFailed ? (
-            <View
-              accessibilityLabel={tr('garment.render.failed.a11y')}
-              style={[s.heroBadge, { backgroundColor: t.destructiveSoft }]}>
-              <Text style={[s.heroBadgeText, { color: t.destructive }]}>{tr('garment.render.failed')}</Text>
-            </View>
-          ) : null}
-          <View style={[s.heroBadgeRight, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Text
-              style={{
-                fontFamily: fonts.displayMedium,
-                fontStyle: 'italic',
-                fontSize: 14,
-                color: t.fg,
-                letterSpacing: -0.14,
-              }}>
-              {garment.wear_count ?? 0}
-            </Text>
-            <Text
-              style={{
-                fontFamily: fonts.uiSemi,
-                fontSize: 8.5,
-                color: t.fg2,
-                letterSpacing: 1.2,
-                textTransform: 'uppercase',
-                marginTop: 1,
-              }}>
-              Wears
-            </Text>
-          </View>
-        </View>
+        <GarmentDetailHero garment={garment} badge={heroBadge} />
 
         <GarmentDetailTabs
           fields={fields}
@@ -503,42 +457,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-  },
-  hero: {
-    width: '100%',
-    aspectRatio: 0.78,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  heroBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
-  },
-  heroBadgePending: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroBadgeText: {
-    fontFamily: fonts.uiSemi,
-    fontSize: 10,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  heroBadgeRight: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    alignItems: 'center',
   },
   stickyBar: {
     position: 'absolute',

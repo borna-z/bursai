@@ -23,39 +23,26 @@
 // land in G5 — paywall routing for `subscription_required` is unchanged.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { PageTitle } from '../components/PageTitle';
 import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
-import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
 import { Spinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
-import { TravelGarmentPicker } from '../components/TravelGarmentPicker';
 import {
   BackIcon,
-  SunIcon,
   TshirtIcon,
   SuitcaseIcon,
   CalendarIcon,
   SparklesIcon,
-  type IconProps,
+  SunIcon,
 } from '../components/icons';
 import { useGenerateOutfit, formatGenerateOutfitError } from '../hooks/useGenerateOutfit';
 import { useWeather, type ManualWeatherInput } from '../hooks/useWeather';
@@ -68,23 +55,25 @@ import { Sentry } from '../lib/sentry';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import { StyleMeWeatherSheet } from './StyleMe/StyleMeWeatherSheet';
 import { StyleMeResultCard } from './StyleMe/StyleMeResultCard';
+import {
+  StyleMeOccasionGrid,
+  type OccasionId,
+  type OccasionOption,
+} from './StyleMe/StyleMeOccasionGrid';
+import { StyleMeAnchorSheet } from './StyleMe/StyleMeAnchorSheet';
+import {
+  StyleMeWeatherRow,
+  StyleMeAnchorRow,
+  StyleMeFormalityRow,
+} from './StyleMe/StyleMeContextRows';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-type OccasionId = 'casual' | 'work' | 'evening' | 'date' | 'workout' | 'travel' | 'custom';
-
-type Occasion = {
-  id: OccasionId;
-  labelKey: string;
-  subKey: string;
-  Icon: React.ComponentType<IconProps>;
-};
 
 // Web parity: `src/components/outfit/OutfitGeneratePicker.tsx` exports
 // 6 canonical occasions. `'evening'` matches web's `'party'` key (label
 // "Evening") — engine consumes the engine-side label, so we send the
 // localised label string for built-ins and the user's typed text for `custom`.
-const OCCASIONS: Occasion[] = [
+const OCCASIONS: OccasionOption[] = [
   { id: 'casual',  labelKey: 'styleMe.occasion.casual',  subKey: 'styleMe.occasion.casual.sub',  Icon: TshirtIcon  },
   { id: 'work',    labelKey: 'styleMe.occasion.work',    subKey: 'styleMe.occasion.work.sub',    Icon: TshirtIcon  },
   { id: 'evening', labelKey: 'styleMe.occasion.evening', subKey: 'styleMe.occasion.evening.sub', Icon: CalendarIcon },
@@ -310,6 +299,12 @@ export function StyleMeScreen() {
     ? `${tr(occ.subKey).toUpperCase()} · ${itemCount} PIECE${itemCount === 1 ? '' : 'S'}`
     : '';
 
+  const anchorTitle = useMemo(() => {
+    if (anchorIds.length === 0) return null;
+    const g = (garmentsQ.data ?? []).find((row) => row.id === anchorIds[0]);
+    return g?.title ?? null;
+  }, [anchorIds, garmentsQ.data]);
+
   const weatherLine = (() => {
     const data = manualOverride
       ? {
@@ -342,187 +337,27 @@ export function StyleMeScreen() {
         keyboardShouldPersistTaps="handled">
 
         {/* ============ OCCASION GRID 2-col ============ */}
-        <View>
-          <Eyebrow style={{ marginBottom: 10 }}>Pick an occasion</Eyebrow>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {OCCASIONS.map((o) => {
-              const Icon = o.Icon;
-              const isActive = o.id === occId;
-              return (
-                <Pressable
-                  key={o.id}
-                  onPress={() => onSelectOccasion(o.id)}
-                  style={({ pressed }) => [
-                    s.occTile,
-                    {
-                      borderColor: isActive ? t.accent : t.border,
-                      borderWidth: isActive ? 2 : 1,
-                      backgroundColor: isActive ? t.accentSoft : t.card,
-                      transform: pressed ? [{ scale: 0.98 }] : [],
-                    },
-                  ]}>
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: radii.md,
-                      backgroundColor: t.accentSoft,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                    <Icon color={t.accent} />
-                  </View>
-                  <View style={{ gap: 1 }}>
-                    <Text style={{ fontFamily: fonts.uiSemi, fontSize: 14, fontWeight: '600', color: t.fg, letterSpacing: -0.14 }}>
-                      {tr(o.labelKey)}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2 }} numberOfLines={1}>
-                      {tr(o.subKey)}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-            {/* Custom… chip — taps a 7th tile to open inline TextInput. */}
-            <Pressable
-              onPress={() => onSelectOccasion('custom')}
-              style={({ pressed }) => [
-                s.occTile,
-                {
-                  borderColor: occId === 'custom' ? t.accent : t.border,
-                  borderWidth: occId === 'custom' ? 2 : 1,
-                  backgroundColor: occId === 'custom' ? t.accentSoft : t.card,
-                  transform: pressed ? [{ scale: 0.98 }] : [],
-                },
-              ]}>
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: radii.md,
-                  backgroundColor: t.accentSoft,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <SparklesIcon color={t.accent} />
-              </View>
-              <View style={{ gap: 1 }}>
-                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 14, fontWeight: '600', color: t.fg, letterSpacing: -0.14 }}>
-                  {tr('styleMe.occasion.custom')}
-                </Text>
-                <Text style={{ fontFamily: fonts.ui, fontSize: 11, color: t.fg2 }} numberOfLines={1}>
-                  {customOccasion.trim().length > 0 ? customOccasion : tr('styleMe.occasion.customPlaceholder')}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-          {occId === 'custom' ? (
-            <View style={[s.customInputRow, { borderColor: t.border, backgroundColor: t.card }]}>
-              <TextInput
-                value={customOccasion}
-                onChangeText={setCustomOccasion}
-                onBlur={() => setCustomOccasion(customOccasion.trim())}
-                placeholder={tr('styleMe.occasion.customPlaceholder')}
-                placeholderTextColor={t.fg3}
-                maxLength={50}
-                style={{
-                  flex: 1,
-                  color: t.fg,
-                  fontFamily: fonts.uiMed,
-                  fontSize: 14,
-                  padding: 0,
-                }}
-                autoFocus
-                autoCapitalize="sentences"
-                returnKeyType="done"
-              />
-            </View>
-          ) : null}
-        </View>
+        <StyleMeOccasionGrid
+          occasions={OCCASIONS}
+          occId={occId}
+          customOccasion={customOccasion}
+          onSelect={onSelectOccasion}
+          onCustomChange={setCustomOccasion}
+        />
 
         {/* ============ WEATHER CONTEXT ============ */}
-        <View
-          style={[
-            s.weatherRow,
-            { borderColor: t.border, backgroundColor: t.card },
-          ]}>
-          <View style={{ width: 36, height: 36, borderRadius: radii.md, backgroundColor: t.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <SunIcon color={t.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Eyebrow style={{ marginBottom: 1 }}>Weather</Eyebrow>
-            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 13, color: t.fg, fontWeight: '600', letterSpacing: -0.13 }}>
-              {weatherLine}
-            </Text>
-          </View>
-          <Pressable
-            onPress={onAdjustWeatherPress}
-            accessibilityRole="button"
-            accessibilityLabel={tr('styleMe.weather.adjust.cta')}
-            style={{ paddingHorizontal: 6, paddingVertical: 6 }}>
-            <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>
-              {tr('styleMe.weather.adjust.cta')}
-            </Text>
-          </Pressable>
-        </View>
+        <StyleMeWeatherRow weatherLine={weatherLine} onAdjustPress={onAdjustWeatherPress} />
 
         {/* ============ ANCHOR PICKER ============ */}
-        <View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <Eyebrow>{tr('styleMe.anchor.title')}</Eyebrow>
-            {anchorIds.length > 0 ? (
-              <Pressable onPress={() => setAnchorIds([])} accessibilityRole="button">
-                <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>
-                  {tr('styleMe.anchor.clear')}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-          <Pressable
-            onPress={() => {
-              hapticLight();
-              setAnchorSheetOpen(true);
-            }}
-            style={({ pressed }) => [
-              s.anchorRow,
-              {
-                borderColor: anchorIds.length > 0 ? t.accent : t.border,
-                backgroundColor: anchorIds.length > 0 ? t.accentSoft : t.card,
-                transform: pressed ? [{ scale: 0.99 }] : [],
-              },
-            ]}
-            accessibilityRole="button">
-            <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.fg }}>
-              {anchorIds.length > 0
-                ? (() => {
-                    const g = (garmentsQ.data ?? []).find((row) => row.id === anchorIds[0]);
-                    return g?.title || anchorIds[0];
-                  })()
-                : tr('styleMe.anchor.empty')}
-            </Text>
-            <Text style={{ fontFamily: fonts.uiMed, fontSize: 12, color: t.accent }}>
-              {tr('styleMe.anchor.cta')}
-            </Text>
-          </Pressable>
-        </View>
+        <StyleMeAnchorRow
+          anchorIds={anchorIds}
+          anchorTitle={anchorTitle}
+          onClear={() => setAnchorIds([])}
+          onOpen={() => setAnchorSheetOpen(true)}
+        />
 
         {/* ============ FORMALITY ============ */}
-        <View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <Eyebrow>Formality</Eyebrow>
-            <Caption style={{ color: t.accent }}>{tr(`styleMe.formality.${formality}`)}</Caption>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {FORMALITY_KEYS.map((key) => (
-              <Chip
-                key={key}
-                label={tr(`styleMe.formality.${key}`)}
-                active={key === formality}
-                onPress={() => onSelectFormality(key)}
-              />
-            ))}
-          </View>
-        </View>
+        <StyleMeFormalityRow keys={FORMALITY_KEYS} active={formality} onSelect={onSelectFormality} />
 
         {/* ============ GENERATE / RESULT ============ */}
         {error && error !== SUBSCRIPTION_SENTINEL ? (
@@ -566,33 +401,14 @@ export function StyleMeScreen() {
       />
 
       {/* ============ ANCHOR PICKER MODAL ============ */}
-      <Modal
-        visible={anchorSheetOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setAnchorSheetOpen(false)}>
-        <View style={s.modalBackdrop}>
-          <View style={[s.modalSheetTall, { backgroundColor: t.bg, borderColor: t.border }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <PageTitle size={20}>{tr('styleMe.anchor.sheetTitle')}</PageTitle>
-              <Pressable onPress={() => setAnchorSheetOpen(false)} accessibilityRole="button">
-                <Text style={{ fontFamily: fonts.uiMed, fontSize: 14, color: t.accent }}>
-                  {tr('styleMe.anchor.sheetClose')}
-                </Text>
-              </Pressable>
-            </View>
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <TravelGarmentPicker
-                garments={garmentsQ.data ?? []}
-                selectedIds={anchorIds}
-                onChange={setAnchorIds}
-                max={1}
-                loading={garmentsQ.isLoading}
-              />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <StyleMeAnchorSheet
+        isOpen={anchorSheetOpen}
+        onClose={() => setAnchorSheetOpen(false)}
+        garments={garmentsQ.data ?? []}
+        loading={garmentsQ.isLoading}
+        selectedIds={anchorIds}
+        onChange={setAnchorIds}
+      />
     </SafeAreaView>
   );
 }
@@ -606,60 +422,9 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
-  occTile: {
-    width: '48%',
-    flexGrow: 1,
-    flexBasis: '48%',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: radii.xl,
-    gap: 10,
-  },
-  customInputRow: {
-    marginTop: 10,
-    height: 44,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  weatherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-  },
-  anchorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-  },
   loadingWrap: {
     paddingVertical: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalSheetTall: {
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    maxHeight: '85%',
   },
 });
