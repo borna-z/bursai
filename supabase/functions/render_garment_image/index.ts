@@ -7,7 +7,16 @@ import { captureWarning, classifyValidatorError } from '../_shared/observability
 import { normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
 import { classifyCategory } from '../_shared/render-category.ts';
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from '../_shared/scale-guard.ts';
-import { getBalance, reserveCredit, consumeCredit, releaseCredit } from '../_shared/render-credits.ts';
+import {
+  buildInsufficientCreditsBody,
+  buildRenderCreditKeys,
+  classifyReplayBranch,
+  consumeRenderCredit,
+  healRenderCreditOnAlreadyReady,
+  releaseRenderCreditOnFailure,
+  reserveRenderCredit,
+  resolveRenderJobId,
+} from '../_shared/render-credit-flow.ts';
 import {
   generateGeminiImage,
   maskApiKey,
@@ -15,7 +24,6 @@ import {
   GEMINI_IMAGE_MODEL,
   GEMINI_IMAGE_API_URL,
 } from '../_shared/gemini-image-client.ts';
-import { deriveRenderJobId } from '../_shared/render-job-id.ts';
 import { timingSafeEqual } from '../_shared/timing-safe.ts';
 import {
   type MannequinPresentation,
@@ -52,20 +60,9 @@ const RENDER_PROMPT_VERSION = 'v2';
 // the extract, the two sides disagreed on unknown-category defaults and
 // systematically rejected valid renders as `reject_wrong_category`.
 
-/** Monthly allowance of 0 → user is not a paying subscriber right now (trialing or canceled). */
-function isTrialFromBalance(monthlyAllowance: number): boolean {
-  return monthlyAllowance === 0;
-}
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
-
-// deriveRenderJobId moved to _shared/render-job-id.ts in P5 Codex round 3
-// so enqueue_render_job uses the same derivation. Previously called
-// `deriveJobId` locally; kept the alias below for minimal diff in callers.
-const deriveJobId = deriveRenderJobId;
-
 
 // ─── Image helpers (unchanged) ───
 
@@ -553,67 +550,37 @@ serve(async (req) => {
         alreadyReadyBody.renderedImagePath = garment.rendered_image_path;
         alreadyReadyBody.renderedAt = garment.rendered_at;
 
-        // Ledger-healing consume for the worker-crash-between-render-and-consume
-        // scenario: garments.render_status was flipped to 'ready' at line ~1190
-        // in a prior attempt, but the Deno isolate crashed before the consume
-        // RPC fired. Stale recovery reset the job, the worker re-claimed, and
-        // we're now here with a rendered garment but (possibly) an un-consumed
-        // reserve. Calling consumeCredit with the operation-prefixed consume
-        // key is idempotent: if the prior attempt did consume, this hits the
-        // idempotency short-circuit (duplicate=true, balance untouched). If
-        // the prior attempt crashed pre-consume, this writes the consume tx
-        // and moves `reserved` → `used_this_period` (or decrements source
-        // counters for trial_gift/topup). Either way the ledger converges.
-        //
         // Only runs on internal (worker) calls — for P4 external callers,
         // this path was a pure no-op and we preserve that behavior.
         if (isInternalInvocation && internalJobId) {
-          try {
-            // Prefer queued values from the render_jobs row (forwarded by
-            // process_render_jobs) so healBaseKey matches the reserve_key
-            // persisted at enqueue even if the user's profile or
-            // RENDER_PROMPT_VERSION changed since. Fall back to profile
-            // only if the worker didn't forward presentation (e.g. older
-            // worker, or a direct internal call predating round 6).
-            let presentationForHeal = internalPresentation;
-            if (!presentationForHeal) {
-              const { data: profileForHealRaw } = await supabase
-                .from('profiles')
-                .select('mannequin_presentation')
-                .eq('id', user.id)
-                .maybeSingle();
-              // Same supabase-js narrowing cast.
-              const profileForHeal = profileForHealRaw as { mannequin_presentation?: string | null } | null;
-              presentationForHeal = normalizeMannequinPresentation(
-                profileForHeal?.mannequin_presentation,
-              );
-            }
-            const promptVersionForHeal = internalPromptVersion ?? RENDER_PROMPT_VERSION;
-            const healBaseKey =
-              `${user.id}_${garment.id}_${presentationForHeal}_${promptVersionForHeal}_${clientNonce}`;
-            const healResult = await consumeCredit(
-              supabase,
-              user.id,
-              internalJobId,
-              `consume:${healBaseKey}`,
+          // Prefer queued values from the render_jobs row (forwarded by
+          // process_render_jobs) so healBaseKey matches the reserve_key
+          // persisted at enqueue even if the user's profile or
+          // RENDER_PROMPT_VERSION changed since. Fall back to profile
+          // only if the worker didn't forward presentation (e.g. older
+          // worker, or a direct internal call predating round 6).
+          let presentationForHeal = internalPresentation;
+          if (!presentationForHeal) {
+            const { data: profileForHealRaw } = await supabase
+              .from('profiles')
+              .select('mannequin_presentation')
+              .eq('id', user.id)
+              .maybeSingle();
+            const profileForHeal = profileForHealRaw as { mannequin_presentation?: string | null } | null;
+            presentationForHeal = normalizeMannequinPresentation(
+              profileForHeal?.mannequin_presentation,
             );
-            console.log('render_garment_image already-ready healing consume', {
-              garmentId: garment.id,
-              jobId: internalJobId,
-              healed: healResult.ok && !healResult.duplicate,
-              duplicate: Boolean(healResult.duplicate),
-              reason: healResult.reason,
-            });
-          } catch (healErr) {
-            // Non-fatal — worst case, orphan-reservation cron eventually
-            // releases. We still report the render as successful to the
-            // worker so it can mark the job succeeded.
-            console.warn('render_garment_image healing consume threw', {
-              garmentId: garment.id,
-              jobId: internalJobId,
-              error: healErr instanceof Error ? healErr.message : String(healErr),
-            });
           }
+          const promptVersionForHeal = internalPromptVersion ?? RENDER_PROMPT_VERSION;
+          const healBaseKey =
+            `${user.id}_${garment.id}_${presentationForHeal}_${promptVersionForHeal}_${clientNonce}`;
+          await healRenderCreditOnAlreadyReady(
+            supabase,
+            user.id,
+            internalJobId,
+            healBaseKey,
+            { garmentId: garment.id },
+          );
         }
       }
       return new Response(
@@ -809,35 +776,30 @@ serve(async (req) => {
     isForceRender = Boolean(force);
 
     // ── Reserve credit AFTER claim ──
-    // Build a base key that uniquely identifies this logical render request:
-    //   user × garment × presentation × prompt_version × clientNonce
-    // Then namespace the three ledger operations with explicit prefixes:
-    //   reserve:<base> / consume:<base> / release:<base>
-    //
-    // The prefixes use ':' (a char that can't appear in UUIDs or the underscored
-    // base segments) so an attacker can't craft a clientNonce like "abc_consume"
-    // that makes their reserve key collide with another request's consume key.
-    //
     // render_job_id is derived from the BASE key (not any prefixed variant)
     // so all three ops share the same job_id — required for the ledger's
     // partial unique index terminal guard to work correctly.
-    const baseKey =
-      `${user.id}_${garment.id}_${mannequinPresentation}_${effectivePromptVersion}_${clientNonce}`;
-    const reserveKey = `reserve:${baseKey}`;
-    const consumeKey = `consume:${baseKey}`;
-    const releaseKey = `release:${baseKey}`;
+    const { baseKey, reserveKey, consumeKey, releaseKey } = buildRenderCreditKeys({
+      userId: user.id,
+      garmentId: garment.id,
+      presentation: mannequinPresentation,
+      promptVersion: effectivePromptVersion,
+      clientNonce,
+    });
 
-    // P5 internal invocations supply the canonical render_jobs.id as
-    // jobId — this is the value reserve_credit_atomic recorded at enqueue,
-    // so consume/release resolve the reserve row by the same ID. External
-    // (legacy P4) callers still fall back to the deterministic SHA-256
-    // derivation from baseKey; reserve's replay flag keeps either path
-    // idempotent against retries.
-    const jobId = isInternalInvocation
-      ? (internalJobId as string)
-      : await deriveJobId(baseKey);
+    const jobId = await resolveRenderJobId({
+      isInternalInvocation,
+      internalJobId,
+      baseKey,
+    });
 
-    const reserveResult = await reserveCredit(supabase, user.id, jobId, reserveKey);
+    const reserveResult = await reserveRenderCredit(
+      supabase,
+      user.id,
+      jobId,
+      reserveKey,
+      { garmentId: garment.id, functionName: 'render_garment_image' },
+    );
 
     if (!reserveResult.ok) {
       // Reserve denied (insufficient credits or RPC transport failure).
@@ -846,15 +808,6 @@ serve(async (req) => {
       await restorePriorState('reserve_denied');
 
       if (reserveResult.reason === 'rpc_error') {
-        // Credit ledger transport/DB failure — this is a system-health
-        // signal, not a user/business issue. Feed the overload counter so
-        // checkOverload() can trip if the ledger stays flaky.
-        recordError('render_garment_image');
-        console.error('render_garment_image credit reservation failed (transport)', {
-          garmentId: garment.id,
-          userId: user.id,
-          error: reserveResult.error,
-        });
         return new Response(
           JSON.stringify({ ok: false, error: 'credit_ledger_unavailable' }),
           { status: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
@@ -862,120 +815,75 @@ serve(async (req) => {
       }
 
       // insufficient / no_credit_row / no_reservation / already_terminal — all boil down to 402
-      const balance = await getBalance(supabase, user.id);
-      const isTrial = isTrialFromBalance(balance.monthly_allowance);
+      const { body } = await buildInsufficientCreditsBody(supabase, user.id);
       return new Response(
-        JSON.stringify({
-          error: isTrial ? 'trial_studio_locked' : 'insufficient_credits',
-          remaining: balance.remaining,
-          is_trial: isTrial,
-          monthly_allowance: balance.monthly_allowance,
-          period_end: balance.period_end,
-        }),
+        JSON.stringify(body),
         { status: 402, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     }
 
     // ── Idempotency replay handling ──
-    // Reserve returned { ok: true, replay: true } — the idempotency key was
-    // already in the ledger, meaning this is a retry of a prior request.
+    // External (P4 legacy) replays short-circuit: a prior attempt already
+    // reached this function, so either there's a cached render, an
+    // in-flight one, or a terminal state we can't safely re-render
+    // (the ledger's terminal-uniqueness guard would block a second
+    // consume → free render).
     //
-    // TWO CLASSES OF REPLAY:
-    //
-    // 1. External (P4 legacy) path: client called render_garment_image
-    //    directly, retried the same clientNonce. The ONLY reason replay
-    //    fires here is that a prior attempt actually reached reserveCredit
-    //    on this function — so either there's a cached render or a prior
-    //    in-flight attempt. Short-circuit: return cached / 202 / 409.
-    //
-    // 2. Internal (P5 queue) path: enqueue_render_job already reserved with
-    //    this exact reserveKey before handing off to the queue, and
-    //    process_render_jobs invokes us with internal:true + the same
-    //    jobId + the same clientNonce. The reserve call above is EXPECTED
-    //    to replay — that's correct by design (the ledger is idempotent on
-    //    the key). Short-circuiting here would break the happy path: the
-    //    worker would never call Gemini, attempts would tick up, and the
-    //    job would eventually flip to 'failed' for a user who did nothing
-    //    wrong.
-    //
-    //    For the internal path, treat replay as "reservation was made at
-    //    enqueue, proceed" and fall through to the render pipeline. The
-    //    consume at the end uses the same jobId — the ledger's
-    //    terminal-uniqueness guard still prevents double-consume because
-    //    consume's own idempotency key (consume:<baseKey>) is independent
-    //    of the reserve replay state.
+    // Internal (P5 worker) replays fall through: enqueue_render_job
+    // already reserved with this exact reserveKey, so the call above is
+    // EXPECTED to replay. Short-circuiting would never call Gemini,
+    // attempts would tick up, and the job would fail for a user who did
+    // nothing wrong. The consume at the end uses the same jobId and the
+    // consume:<baseKey> key is independent of reserve replay state.
     if (reserveResult.replay && !isInternalInvocation) {
-      // CRITICAL: Decide the replay branch from the pre-claim snapshot
-      // (priorState.render_status), NOT a live re-fetch. Our own
-      // claimGarmentRender() just set render_status to 'rendering' a few
-      // lines up; reading it back would falsely report the prior job as
-      // "in progress" on same-nonce retries after a failed/terminal
-      // attempt and strand the client polling a dead request.
-      // The rendered_image_path we captured at initial fetch is reliable
-      // because any concurrent request that finished successfully would
-      // have been short-circuited by the early-return at 'ready' state.
-      const replayStatus = priorState.render_status;
-      const replayPath = garment.rendered_image_path;
-      const replayRenderedAt = garment.rendered_at;
+      const replayBranch = classifyReplayBranch({
+        priorRenderStatus: priorState.render_status,
+        renderedImagePath: garment.rendered_image_path,
+        renderedAt: garment.rendered_at,
+      });
 
       console.log('render_garment_image reserve replay', {
         garmentId: garment.id,
         userId: user.id,
         baseKey,
         reserveSource: reserveResult.source,
-        priorStatus: replayStatus,
-        hasRenderedPath: Boolean(replayPath),
+        priorStatus: priorState.render_status,
+        branch: replayBranch.kind,
       });
 
-      // Release our claim — we are NOT running the render. Restore the
-      // pre-claim snapshot so the garment is back in the state the client
-      // saw before this retry.
       await restorePriorState('replay_unclaim');
 
-      if (replayStatus === 'ready' && replayPath) {
-        // Prior attempt succeeded — return the cached render without
-        // calling Gemini. No consume fires (the original consume already
-        // charged the credit).
+      if (replayBranch.kind === 'cached') {
         return new Response(
           JSON.stringify({
             ok: true,
             rendered: true,
             replay: true,
-            renderedImagePath: replayPath,
-            renderedAt: replayRenderedAt,
+            renderedImagePath: replayBranch.renderedImagePath,
+            renderedAt: replayBranch.renderedAt,
           }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
 
-      if (replayStatus === 'pending' || replayStatus === 'rendering') {
-        // Prior attempt still in flight under a different request. Client
-        // should poll the garment row for completion. Note: 'rendering' is
-        // unreachable in practice because line ~510 early-returns when the
-        // initial fetch sees 'rendering' — kept for defensive correctness
-        // in case that early-return is ever relaxed.
+      if (replayBranch.kind === 'in_progress') {
         return new Response(
           JSON.stringify({
             ok: true,
             rendered: false,
             replay: true,
             inProgress: true,
-            reason: `Render already in progress (status=${replayStatus})`,
+            reason: replayBranch.reason,
           }),
           { status: 202, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
 
-      // failed / skipped / none on replay — the reservation has already
-      // been terminated (via finally's release in the prior attempt, or
-      // by a consume against an already-rendered job). Re-running Gemini
-      // here would render for free because the ledger's terminal-uniqueness
-      // guard blocks a second consume. Ask the client to retry with a
-      // fresh clientNonce so a new reservation can be made.
+      // terminal — fresh clientNonce required to write a new reservation.
       console.warn('render_garment_image replay against non-ready/non-inflight state', {
         garmentId: garment.id,
         userId: user.id,
-        priorStatus: replayStatus,
+        priorStatus: replayBranch.priorStatus,
         baseKey,
       });
       return new Response(
@@ -984,7 +892,7 @@ serve(async (req) => {
           error: 'replay_terminal',
           replay: true,
           message: 'Prior render attempt has completed. Retry with a fresh clientNonce.',
-          render_status: replayStatus,
+          render_status: replayBranch.priorStatus,
         }),
         { status: 409, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
@@ -1376,19 +1284,13 @@ serve(async (req) => {
       }, 'Failed to mark garment render as ready');
 
       // ── Consume credit — the render succeeded end-to-end ──
-      // Using the operation-prefixed consumeKey built above (consume:<base>).
-      const consumeResult = await consumeCredit(supabase, user.id, jobId, consumeKey);
-      if (!consumeResult.ok) {
-        // Extremely unlikely: reserve worked but consume failed. Log loudly and proceed —
-        // the user got a render, the ledger is slightly inconsistent but never over-charged.
-        // The orphaned-reservation cleanup cron will catch this case later.
-        console.error('render_garment_image consume failed after successful render', {
-          garmentId: garment.id,
-          userId: user.id,
-          reason: consumeResult.reason,
-          error: consumeResult.error,
-        });
-      }
+      // Extremely unlikely: reserve worked but consume failed. The shared
+      // wrapper logs that case loudly; we still flip `consumed` so the
+      // finally's release is skipped — the user got a render and the
+      // orphaned-reservation cleanup cron will heal the ledger later.
+      await consumeRenderCredit(supabase, user.id, jobId, consumeKey, {
+        garmentId: garment.id,
+      });
       consumed = true;
 
       console.log(`Rendered garment ${garment.id} → ${renderedPath}`);
@@ -1398,45 +1300,20 @@ serve(async (req) => {
         { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
     } finally {
-      // Release policy:
-      //
-      // External (direct / P4 legacy) callers: any non-consume exit releases
-      // the reservation. Preserves the pre-P5 "release-on-failure" contract
-      // that SwipeableGarmentCard/GarmentConfirmSheet used when there was no
-      // worker queue — a failed single-shot render freed its own credit
-      // because nothing else would.
-      //
-      // Internal (P5 worker) callers: NEVER release here. Reserve-until-
-      // final-failure (Interpretation A) means the reservation outlives
-      // transient failures and is only released when process_render_jobs
-      // terminalizes the row at attempts=max_attempts. If this finally
-      // released on every failed attempt, the next retry would consume_credit
-      // and hit the ledger's terminal-uniqueness guard (already_terminal) →
-      // the render succeeds end-to-end but the user isn't charged → free
-      // render. Codex round 7 Bug 1.
-      //
-      // Skip responses from internal callers also rely on this: the worker
-      // now terminalizes + releases on skip (round 7 Bug 2). Releasing here
-      // would put the release first and break the worker's terminal flow.
-      if (!isInternalInvocation && !consumed) {
-        try {
-          // Using the operation-prefixed releaseKey built above (release:<base>).
-          const releaseResult = await releaseCredit(supabase, user.id, jobId, releaseKey);
-          if (!releaseResult.ok && !releaseResult.duplicate) {
-            console.error('render_garment_image release failed in finally', {
-              garmentId: garmentIdForFailure,
-              userId: user.id,
-              reason: releaseResult.reason,
-              error: releaseResult.error,
-            });
-          }
-        } catch (releaseError) {
-          console.error('render_garment_image release crashed in finally', {
-            garmentId: garmentIdForFailure,
-            error: getErrorMessage(releaseError),
-          });
-        }
-      }
+      // Release policy is owned by releaseRenderCreditOnFailure:
+      //   - External (direct / P4 legacy) callers release on any non-consume
+      //     exit (preserves the pre-P5 single-shot contract).
+      //   - Internal (P5 worker) callers NEVER release here — reserve lives
+      //     until process_render_jobs terminalizes at attempts=max_attempts
+      //     (Codex round 7 Bug 1: releasing per attempt would cause the
+      //     next retry's consume to hit already_terminal and free-render).
+      //   - Skip responses from internal callers similarly rely on the
+      //     worker owning terminal release (round 7 Bug 2).
+      await releaseRenderCreditOnFailure(supabase, user.id, jobId, releaseKey, {
+        isInternalInvocation,
+        consumed,
+        garmentIdForFailure,
+      });
     }
   } catch (error) {
     // Rate-limit rejections are expected back-pressure signals, not
