@@ -100,26 +100,31 @@ import {
 
 import {
   type DeduplicatedCombo,
-  type ConfidenceResult,
   type FamilyLabel,
-  type QualityViolation,
   type GenerationFailureSignal,
   type WardrobeInsight,
-  type ConfidenceLevel,
   buildCombos,
   buildFallbackCombos,
   scoreCombo,
   pickRepresentativeOutfits,
   filterCombosByPreferredGarment,
-  qualityGate,
-  computeConfidence,
-  computeSwapConfidence,
   detectWardrobeGapForRequest,
-  generateLimitationNote,
-  buildBaseGenerationLimitationNote,
   buildGenerationFailureSignal,
   deriveWardrobeInsightsFromGeneration,
 } from "../_shared/outfit-combination.ts";
+
+import {
+  type ConfidenceResult,
+  type QualityViolation,
+  type ConfidenceLevel,
+  qualityGate,
+  computeConfidence,
+  computeSwapConfidence,
+  generateLimitationNote,
+  buildBaseGenerationLimitationNote,
+} from "../_shared/outfit-confidence.ts";
+
+import { hashOutfit } from "../_shared/outfit-deduplication.ts";
 
 const log = logger("burs_style_engine");
 
@@ -1647,7 +1652,7 @@ serve(async (req) => {
       // user hitting the deterministic fallback (AI 5xx) would see the
       // same `activeCombos[0]` returned again on the next tap. Best-effort.
       try {
-        const bestHash = best.items.map(i => i.garment.id).sort().join("|");
+        const bestHash = hashOutfit(best.items.map(i => i.garment.id));
         await serviceSupabase
           .from("style_engine_suggestion_log")
           .insert({ user_id: userId, outfit_hash: bestHash, occasion });
@@ -1736,7 +1741,7 @@ serve(async (req) => {
       // wardrobe is too thin to rotate further. The insert is best-effort:
       // a logging failure must not turn a successful generate into a 500.
       const chosenIds = chosen.items.map((i) => i.garment.id);
-      const outfitHash = [...chosenIds].sort().join("|");
+      const outfitHash = hashOutfit(chosenIds);
       let lowVariety = false;
       if (recencyMap.size > 0 && chosenIds.length > 0) {
         const recentRepeatCount = chosenIds.filter((id) => {
