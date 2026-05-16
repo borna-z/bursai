@@ -72,12 +72,19 @@ type Route = RouteProp<RootStackParamList, 'EditGarment'>;
 // existing rows last touched by the legacy EditGarmentScreen carry these
 // Title-case values; AddPieceStep3 already writes lowercase. We preserve the
 // legacy output here so the persisted DB shape doesn't change for edit users.
+//
+// Outerwear note: the legacy code emitted `'Outer'` here, but the outfit-slot
+// classifier in `lib/outfitRules.ts` only recognises `outerwear` / `coat` /
+// `jacket` / etc. tokens (lowercased). `'outer'` slips through to the `'top'`
+// fallback, which silently breaks outfit validation and suggestion grouping
+// after every edit-save. Write the full canonical `'Outerwear'` token so the
+// classifier picks it up; `matchCanonical` still round-trips it on hydration.
 const CATEGORY_TO_DB: Record<CategoryValue, string | null> = {
   '': null,
   top: 'Top',
   bottom: 'Bottom',
   shoes: 'Shoes',
-  outerwear: 'Outer',
+  outerwear: 'Outerwear',
   dress: 'Dress',
   accessory: 'Accessory',
 };
@@ -467,7 +474,19 @@ export function EditGarmentScreen() {
           {/* Details — shared metadata picker form */}
           <FormCard title={tr('editGarment.section.details')}>
             {initialForm ? (
-              <AddPieceStep3Form initial={initialForm} onChange={setFormState} />
+              // Key by garment.id so a route param change (e.g. user opens
+              // another piece while this screen is already mounted) remounts
+              // the form and re-seeds its internal reducer from the new
+              // `initialForm`. Without this, the inputs would stay on the
+              // previous garment and the next save would write stale metadata
+              // to the new row. The shared form only consumes `initial` in
+              // its lazy useReducer initialiser, so a prop change alone
+              // wouldn't re-seed it.
+              <AddPieceStep3Form
+                key={garment.id}
+                initial={initialForm}
+                onChange={setFormState}
+              />
             ) : null}
           </FormCard>
 
