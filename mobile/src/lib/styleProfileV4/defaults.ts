@@ -1,0 +1,36 @@
+import type { StyleProfileV4 } from './types';
+
+export function defaultStyleProfileV4(): StyleProfileV4 {
+  return {
+    version: 4,
+    gender: 'prefer_not',
+    height_cm: 170,
+    build: 'prefer_not',
+    ageRange: '25-34',
+    lifestyle: { work: 20, social: 20, casual: 20, sport: 20, evening: 20 },
+    homeCity: '',
+    secondaryCity: '',
+    climate: 'temperate',
+    archetypes: [],
+    styleIcons: '',
+    favoriteColors: [],
+    dislikedColors: [],
+    paletteVibe: 'mixed',
+    patternComfort: 'some',
+    fitOverall: 'regular',
+    fitTopVsBottom: 'same',
+    layering: 'some',
+    bodyFocus: 'none',
+    formalityCeiling: 60,
+    formalityFloor: 30,
+    fabricPreferred: [],
+    fabricSensitivities: [],
+    carePreference: 'mixed',
+    occasions: [],
+    shoppingFrequency: 'seasonal',
+    budget: 'mid',
+    shoppingStyle: 'mixed',
+    primaryGoal: 'reduce_decisions',
+    cultural: '',
+  };
+}
