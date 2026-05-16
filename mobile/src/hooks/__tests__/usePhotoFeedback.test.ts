@@ -73,7 +73,7 @@ beforeEach(() => {
 });
 
 describe('usePhotoFeedback', () => {
-  it('removes the selfie blob only after a successful fetch', async () => {
+  it('removes the selfie blob after a successful fetch', async () => {
     client.callEdgeFunction.mockResolvedValueOnce({
       commentary: 'Looks great.',
       overall_score: 90,
@@ -93,7 +93,13 @@ describe('usePhotoFeedback', () => {
     expect(result.current.feedback?.fit_notes).toBe('Looks great.');
   });
 
-  it('surfaces the error from a failed fetch and reports null feedback', async () => {
+  it('surfaces the error from a failed fetch AND removes the orphan selfie blob', async () => {
+    // Audit regression: pre-fix the error branch returned without sweeping
+    // the uploaded selfie, leaving the blob in Supabase storage until the
+    // next submit or unmount. If the user navigated away mid-error the
+    // object survived indefinitely. The fix always sweeps when the upload
+    // succeeded, regardless of analyze outcome — `removeMock` must fire
+    // on the error path now.
     client.callEdgeFunction.mockResolvedValueOnce({ error: 'analysis_failed' });
     const { usePhotoFeedback } = require('../usePhotoFeedback');
     const { result } = renderHook(() => usePhotoFeedback(), { wrapper: makeWrapper() });
@@ -106,5 +112,29 @@ describe('usePhotoFeedback', () => {
     });
     await waitFor(() => expect(result.current.error).toBe('analysis_failed'));
     expect(result.current.feedback).toBeNull();
+    expect(removeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes the orphan selfie blob on the paywall path too', async () => {
+    // Paywall path is the SUBSCRIPTION_SENTINEL error mapping — pre-fix it
+    // shared the leak with the generic error branch. Mock the edge client
+    // to throw the locked-subscription class so useFeedbackFetch maps it
+    // to `result.kind = 'paywall'`.
+    const { EdgeFunctionSubscriptionLockedError } = require('../../lib/edgeFunctionClient');
+    client.callEdgeFunction.mockRejectedValueOnce(
+      new EdgeFunctionSubscriptionLockedError('locked'),
+    );
+    const { usePhotoFeedback } = require('../usePhotoFeedback');
+    const { result } = renderHook(() => usePhotoFeedback(), { wrapper: makeWrapper() });
+
+    await act(async () => {
+      await result.current.submitFeedback({
+        outfitId: 'outfit-1',
+        selfieUri: 'file://selfie.jpg',
+      });
+    });
+    await waitFor(() => expect(result.current.error).toBe('subscription_required'));
+    expect(result.current.feedback).toBeNull();
+    expect(removeMock).toHaveBeenCalledTimes(1);
   });
 });
