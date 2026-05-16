@@ -163,12 +163,29 @@ export interface AddPieceStep3FormProps {
   // fallthrough handles missing fields at save time); EditGarmentScreen can
   // pass `true` when it adopts this form in a follow-up.
   showValidation?: boolean;
+  /** Optional opt-out for individual pickers. Today only `formality` is
+   * gateable — that's the picker EditGarmentScreen hides behind its
+   * "advanced" toggle (pre-#860 the legacy edit screen hid it entirely;
+   * the toggle gives the user the choice without widening the default
+   * edit surface). Adding a new gateable picker requires extending BOTH
+   * `HideablePickerKey` here AND the corresponding `!hidePickers?.includes(...)`
+   * guard in the JSX below — the narrow type makes that intent
+   * explicit. Per
+   * `docs/modularization/2026-05-17-edit-garment-screen-picker-visibility-design.md`
+   * (Option B). */
+  hidePickers?: readonly HideablePickerKey[];
 }
+
+/** Form-state keys for which a `hidePickers` opt-out is currently wired
+ * in the JSX. Keep in sync with the conditional render guards inside
+ * `AddPieceStep3Form` — TypeScript narrows callers to a valid subset. */
+export type HideablePickerKey = 'formality';
 
 export function AddPieceStep3Form({
   initial,
   onChange,
   showValidation = false,
+  hidePickers,
 }: AddPieceStep3FormProps) {
   const t = useTokens();
   // Single reducer for all 11 pickers. The lazy initialiser keeps the seed
@@ -338,21 +355,23 @@ export function AddPieceStep3Form({
       </View>
 
       {/* ============ FORMALITY — 3-stop selector ============ */}
-      <View>
-        <Eyebrow style={{ marginBottom: 8 }}>
-          {tr('addpiece.step3.field.formality')}
-        </Eyebrow>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {FORMALITY_OPTIONS.map((opt) => (
-            <Chip
-              key={opt.value}
-              label={tr(opt.key)}
-              active={state.formality === opt.value}
-              onPress={() => dispatch({ type: 'setFormality', value: opt.value })}
-            />
-          ))}
+      {!hidePickers?.includes('formality') && (
+        <View>
+          <Eyebrow style={{ marginBottom: 8 }}>
+            {tr('addpiece.step3.field.formality')}
+          </Eyebrow>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {FORMALITY_OPTIONS.map((opt) => (
+              <Chip
+                key={opt.value}
+                label={tr(opt.key)}
+                active={state.formality === opt.value}
+                onPress={() => dispatch({ type: 'setFormality', value: opt.value })}
+              />
+            ))}
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }

@@ -233,3 +233,47 @@ describe('EditGarmentScreen — save flow', () => {
     expect(mockNavGoBack).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('EditGarmentScreen — advanced toggle', () => {
+  // Pre-#860 the legacy edit screen hid `formality` entirely; #860's
+  // form refactor exposed it; the user-chosen Option B in the design
+  // note (`2026-05-17-edit-garment-screen-picker-visibility-design.md`)
+  // hides it BY DEFAULT but lets the user opt in. These tests pin the
+  // contract: default-hidden, toggleable to visible, AND saves the
+  // hydrated value even while hidden (so a save while-hidden doesn't
+  // accidentally null out the column).
+
+  it('hides the formality picker by default but reveals it after the toggle is pressed', async () => {
+    const utils = renderScreen();
+    // Eyebrow label string from `addpiece.step3.field.formality`. The
+    // English locale resolves to "Formality". `queryByText` returns null
+    // when absent, so a single call covers both states.
+    expect(utils.queryByText('Formality')).toBeNull();
+    await pressByLabel(utils, 'Show advanced fields');
+    expect(utils.queryByText('Formality')).not.toBeNull();
+    // Re-pressing collapses the section again.
+    await pressByLabel(utils, 'Hide advanced fields');
+    expect(utils.queryByText('Formality')).toBeNull();
+  });
+
+  it('saves the hydrated formality value even when the picker stays hidden', async () => {
+    // Seeded garment has `formality: 3` (line 57). Without the picker
+    // rendered, the reducer still holds 3 from the lazy initialiser; the
+    // save boundary must forward it. A regression that dropped formality
+    // from the save payload would let users silently lose the value.
+    const utils = renderScreen();
+    const titleInput = utils.getByDisplayValue('Linen shirt');
+    act(() => {
+      fireEvent.changeText(titleInput, 'Navy blazer');
+    });
+    expect(utils.queryByText('Formality')).toBeNull();
+    await pressByLabel(utils, 'Save');
+    await waitFor(() => {
+      expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    const call = mockUpdateMutateAsync.mock.calls[0][0];
+    expect(call.updates).toEqual(
+      expect.objectContaining({ formality: 3 }),
+    );
+  });
+});
