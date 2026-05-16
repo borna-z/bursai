@@ -10,6 +10,40 @@ import type {
   V3CompatShape,
 } from './types';
 
+// V3-narrowed enum values produced by the migrate helper. Optional because the
+// `touched` map can omit any of them; absent means "user did not explicitly
+// answer this scalar at upload time". Co-located with the only consumer
+// (`migrateV4ToV3Compat`) instead of `./types.ts` because no other module
+// constructs or narrows these shapes.
+interface V3MirroredEnums {
+  gender?: 'male' | 'female' | 'nonbinary' | 'prefer_not';
+  climate?: 'cold' | 'temperate' | 'warm' | 'tropical' | 'mixed';
+  layering?: 'minimal' | 'moderate' | 'loves';
+  paletteVibe?: 'neutral' | 'muted' | 'bold' | 'monochrome';
+  primaryGoal?: 'save_time' | 'better_style' | 'wardrobe_org' | 'reduce_waste' | 'plan_outfits';
+  /** V3 has `fit`; V4 renamed it `fitOverall`. Mirror keeps the V3 key. */
+  fit?: 'slim' | 'regular' | 'loose' | 'oversized';
+}
+
+/** Public shape of `migrateV4ToV3Compat` — V4 with its enum fields swapped for
+ * the V3-narrowed strings the legacy AI engine readers expect. `V3CompatShape`
+ * is a `Record<string, unknown>` index signature that contributes catch-all
+ * access for the loosely-typed mirror keys (`height`, `weekdayLife`,
+ * `styleWords`, etc.); named keys keep their narrowed types because TS
+ * resolves declared properties before falling back to the index signature.
+ *
+ * NOTE: this shape carries BOTH `fitOverall: FitOverall` (V4 enum, preserved
+ * by the Omit) AND the new `fit?: 'slim' | ...` (V3 mirror key, from
+ * V3MirroredEnums). Same source data, two keys — V3-consuming AI readers
+ * (`burs_style_engine`, `_shared/style-prefs-reader`, `shopping_chat`,
+ * `style_chat`) consume `fit`; V4-native readers consume `fitOverall`. The V3
+ * narrowing is lossy (`'mixed'` collapses into `'regular'`), so do not read
+ * both and assume convergence at runtime. */
+export type V3MirroredProfile =
+  Omit<StyleProfileV4, keyof V3MirroredEnums>
+  & V3MirroredEnums
+  & V3CompatShape;
+
 function v4GenderToV3(gender: Gender): 'male' | 'female' | 'nonbinary' | 'prefer_not' {
   switch (gender) {
     case 'feminine':
@@ -124,7 +158,7 @@ function v4PrimaryGoalToV3(
 export function migrateV4ToV3Compat(
   v4: StyleProfileV4,
   touched?: StyleProfileV4Touched,
-): StyleProfileV4 & V3CompatShape {
+): V3MirroredProfile {
   const {
     gender: _g,
     climate: _c,
@@ -171,7 +205,7 @@ export function migrateV4ToV3Compat(
     freeText: v4.cultural ?? '',
   };
 
-  const merged: StyleProfileV4 & V3CompatShape = {
+  const merged: V3MirroredProfile = {
     ...v3MirrorOnly,
     ...v4OnlyFields,
     favoriteColors: v4.favoriteColors,
@@ -187,7 +221,7 @@ export function migrateV4ToV3Compat(
     paletteVibe: v4PaletteVibeToV3(v4.paletteVibe),
     primaryGoal: v4PrimaryGoalToV3(v4.primaryGoal),
     fit: v4FitToV3(v4.fitOverall),
-  } as unknown as StyleProfileV4 & V3CompatShape;
+  };
 
   if (touched) {
     if (!touched.gender) delete (merged as Record<string, unknown>).gender;

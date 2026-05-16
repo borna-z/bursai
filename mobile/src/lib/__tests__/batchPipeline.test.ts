@@ -41,9 +41,14 @@ import {
   dropBatch,
   getBatchSize,
   getItem,
+  markItemReviewedKeep,
+  markItemSaved,
+  markItemSkipped,
   nextPendingIndex,
+  retryItem,
   startBatch,
 } from '../batchPipeline';
+import { __resetAnalyzeRateWindowForTests } from '../batchPipeline/BatchConcurrencyPool';
 
 jest.mock('../imageUpload', () => ({
   resizeForGarment: jest.fn(),
@@ -172,6 +177,10 @@ describe('BatchStateMachine — pure helpers', () => {
 
     const saved = transitionToSaved(ready!);
     expect(saved?.status).toBe('saved');
+    expect(transitionToSaved({ ...base, status: 'in_flight' } as BatchItemState)).toBeNull();
+    expect(transitionToSaved({ ...base, status: 'failed' } as BatchItemState)).toBeNull();
+    expect(transitionToSaved({ ...base, status: 'pending' } as BatchItemState)).toBeNull();
+    expect(transitionToSaved({ ...base, status: 'needs_review' } as BatchItemState)).toBeNull();
 
     const skipped = transitionToSkipped(ready!);
     expect(skipped?.status).toBe('skipped');
@@ -293,6 +302,11 @@ describe('BatchConcurrencyPool — startBatch + cleanup with mocked I/O', () => 
     mockResize.mockReset();
     mockUpload.mockReset();
     mockDeleteUpload.mockClear();
+    // Reset module-scope analyze rate window so timestamps from prior
+    // specs don't trip `nextAnalyzeSlotMs > 0` and defer `runItem` via
+    // a real `setTimeout`, which would cause `awaitItem` to fall into
+    // its 100 ms polling loop.
+    __resetAnalyzeRateWindowForTests();
   });
 
   it('runs a happy-path single-item batch end-to-end with mocked I/O', async () => {
@@ -354,6 +368,185 @@ describe('BatchConcurrencyPool — startBatch + cleanup with mocked I/O', () => 
     const settled = await awaitItem(id, 0);
     expect(settled?.status).toBe('failed');
     expect(settled?.errorMessage).toBe('Could not analyze photo');
+    dropBatch(id);
+  });
+
+  // Regression guard for the Phase 4 audit finding: prior to this guard, the
+  // pool mutated `item.status` directly so misuse (e.g. markItemSaved on a
+  // non-ready item) silently corrupted state. The transition helpers in
+  // BatchStateMachine.ts gate every status change; these tests exercise the
+  // public pool API to confirm production paths actually go through them.
+  it('markItemSaved is a no-op when the item is not ready', async () => {
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/g' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult>, [unknown]>()
+      .mockResolvedValue(makeAnalysis({ image_contains_multiple_garments: true, confidence: 0.9 }));
+
+    const id = startBatch({ uris: ['photo://g'], userId: 'u', source: 'batch_add', analyzeFn });
+    const settled = await awaitItem(id, 0);
+    expect(settled?.status).toBe('needs_review');
+
+    // Direct save on a needs_review item must NOT advance to saved — the
+    // helper guard rejects the transition.
+    markItemSaved(id, 0);
+    expect(getItem(id, 0)?.status).toBe('needs_review');
+
+    // After the user keeps the review, status moves to ready, then save works.
+    markItemReviewedKeep(id, 0);
+    expect(getItem(id, 0)?.status).toBe('ready');
+    markItemSaved(id, 0);
+    expect(getItem(id, 0)?.status).toBe('saved');
+
+    dropBatch(id);
+  });
+
+  it('markItemSkipped on a ready item nulls storagePath AND deletes the stale blob', async () => {
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/sr' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult>, [unknown]>()
+      .mockResolvedValue(makeAnalysis({ confidence: 0.95 }));
+
+    const id = startBatch({ uris: ['photo://sr'], userId: 'u', source: 'batch_add', analyzeFn });
+    await awaitItem(id, 0);
+    expect(getItem(id, 0)?.status).toBe('ready');
+    expect(getItem(id, 0)?.storagePath).toBe('/up/sr');
+
+    // Skipping a non-terminal item must (a) fire the transition, (b)
+    // null `storagePath` on the item, and (c) call `deleteUpload` with
+    // the PRIOR path — the reorder fix from the 2nd review pins exactly
+    // this ordering invariant. If a future refactor reads `item.storagePath`
+    // after `Object.assign`, both assertions below fail.
+    mockDeleteUpload.mockClear();
+    markItemSkipped(id, 0);
+    expect(getItem(id, 0)?.status).toBe('skipped');
+    expect(getItem(id, 0)?.storagePath).toBeNull();
+    expect(mockDeleteUpload).toHaveBeenCalledWith('/up/sr');
+
+    dropBatch(id);
+  });
+
+  it('markItemSkipped on a saved item is a true no-op (does NOT delete the persisted blob)', async () => {
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/s' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult>, [unknown]>()
+      .mockResolvedValue(makeAnalysis({ confidence: 0.95 }));
+
+    const id = startBatch({ uris: ['photo://s'], userId: 'u', source: 'batch_add', analyzeFn });
+    await awaitItem(id, 0);
+    markItemSaved(id, 0);
+    expect(getItem(id, 0)?.status).toBe('saved');
+    expect(getItem(id, 0)?.storagePath).toBe('/up/s');
+
+    // Skipping a saved item must be a no-op — the helper rejects the
+    // transition AND the side-effectful deleteUpload must not fire,
+    // otherwise we'd orphan the persisted garment's image.
+    mockDeleteUpload.mockClear();
+    markItemSkipped(id, 0);
+    expect(getItem(id, 0)?.status).toBe('saved');
+    expect(getItem(id, 0)?.storagePath).toBe('/up/s');
+    expect(mockDeleteUpload).not.toHaveBeenCalled();
+
+    dropBatch(id);
+  });
+
+  it('markItemReviewedKeep is a no-op when the item is not needs_review', async () => {
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/k' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult>, [unknown]>()
+      .mockResolvedValue(makeAnalysis({ confidence: 0.95 }));
+
+    const id = startBatch({ uris: ['photo://k'], userId: 'u', source: 'batch_add', analyzeFn });
+    await awaitItem(id, 0);
+    expect(getItem(id, 0)?.status).toBe('ready');
+
+    // Keep-review on a ready item must NOT flip status nor trigger any
+    // side effects — the helper guard rejects the transition.
+    markItemReviewedKeep(id, 0);
+    expect(getItem(id, 0)?.status).toBe('ready');
+
+    dropBatch(id);
+  });
+
+  it('retryItem only re-runs failed items and refuses to re-pend ready items', async () => {
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/r' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult>, [unknown]>()
+      .mockResolvedValue(makeAnalysis({ confidence: 0.95 }));
+
+    const id = startBatch({ uris: ['photo://r'], userId: 'u', source: 'batch_add', analyzeFn });
+    await awaitItem(id, 0);
+    expect(getItem(id, 0)?.status).toBe('ready');
+
+    // Calling retry on a non-failed item must return false and leave status alone.
+    expect(retryItem(id, 0)).toBe(false);
+    expect(getItem(id, 0)?.status).toBe('ready');
+
+    dropBatch(id);
+  });
+
+  it('retryItem can recover from a SECOND failure (replaces _settled twice)', async () => {
+    // Pins the `_settled` reset path across multiple retries. The prior
+    // P1 was that Object.assign restamped a stale `_settled` after the
+    // first retry — but a third-pass reviewer flagged that the suite
+    // only proved the FIRST retry replaces the promise. This test drives
+    // failed → retry → failed → retry → ready and confirms the second
+    // retry's awaitItem resolves to ready (not the second failure's
+    // stale snapshot).
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/r3' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult | null>, [unknown]>()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(makeAnalysis({ confidence: 0.95 }));
+
+    const id = startBatch({ uris: ['photo://r3'], userId: 'u', source: 'batch_add', analyzeFn });
+    expect((await awaitItem(id, 0))?.status).toBe('failed');
+
+    expect(retryItem(id, 0)).toBe(true);
+    expect((await awaitItem(id, 0))?.status).toBe('failed');
+
+    expect(retryItem(id, 0)).toBe(true);
+    const finalSettled = await awaitItem(id, 0);
+    expect(finalSettled?.status).toBe('ready');
+    expect(finalSettled?.errorMessage).toBeNull();
+    expect(analyzeFn).toHaveBeenCalledTimes(3);
+
+    dropBatch(id);
+  });
+
+  it('retryItem drives a failed item back through the pipeline to ready', async () => {
+    // Happy-path regression for the helper-wiring fix: production path must
+    // actually re-execute runItem, replace `_settled`, delete the stale
+    // upload, and end up `ready`. Previously the "retryItem just returns
+    // true" assertion above could pass while production silently bricked.
+    mockResize.mockResolvedValue({ uri: 'r.webp', base64: 'AAA', width: 1, height: 1 });
+    mockUpload.mockResolvedValue({ storagePath: '/up/r2' });
+    const analyzeFn = jest
+      .fn<Promise<AnalysisResult | null>, [unknown]>()
+      .mockResolvedValueOnce(null) // first call: simulate analyze failure
+      .mockResolvedValue(makeAnalysis({ confidence: 0.95 }));
+
+    const id = startBatch({ uris: ['photo://r2'], userId: 'u', source: 'batch_add', analyzeFn });
+    const firstSettled = await awaitItem(id, 0);
+    expect(firstSettled?.status).toBe('failed');
+    expect(firstSettled?.storagePath).toBe('/up/r2');
+
+    mockDeleteUpload.mockClear();
+    expect(retryItem(id, 0)).toBe(true);
+
+    const retried = await awaitItem(id, 0);
+    expect(retried?.status).toBe('ready');
+    expect(retried?.storagePath).toBe('/up/r2');
+    expect(retried?.errorMessage).toBeNull();
+    expect(analyzeFn).toHaveBeenCalledTimes(2);
+    expect(mockDeleteUpload).toHaveBeenCalledWith('/up/r2');
+
     dropBatch(id);
   });
 
