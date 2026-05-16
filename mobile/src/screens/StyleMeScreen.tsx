@@ -45,7 +45,6 @@ import { Caption } from '../components/Caption';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { IconBtn } from '../components/IconBtn';
-import { OutfitCard } from '../components/OutfitCard';
 import { Spinner } from '../components/Spinner';
 import { ErrorState } from '../components/ErrorState';
 import { TravelGarmentPicker } from '../components/TravelGarmentPicker';
@@ -67,6 +66,8 @@ import { hapticLight } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
 import { Sentry } from '../lib/sentry';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import { StyleMeWeatherSheet } from './StyleMe/StyleMeWeatherSheet';
+import { StyleMeResultCard } from './StyleMe/StyleMeResultCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -105,9 +106,6 @@ const FORMALITY_ENGINE: Record<FormalityKey, string> = {
   relaxedOffice: 'Relaxed Office',
   baseline: 'Baseline',
 };
-
-type WeatherCondition = ManualWeatherInput['condition'];
-const CONDITIONS: WeatherCondition[] = ['clear', 'cloudy', 'rain', 'snow'];
 
 export function StyleMeScreen() {
   const t = useTokens();
@@ -542,152 +540,30 @@ export function StyleMeScreen() {
           </View>
         ) : !result ? (
           <Button label="Generate outfit" onPress={onGenerate} block />
-        ) : itemCount === 0 ? (
-          // Engine returned a non-error response with no garments — wardrobe
-          // doesn't cover this occasion+formality combo. Surface a soft empty
-          // state instead of rendering a "0 PIECES" OutfitCard. Codex audit
-          // P2-1 (audit 3).
-          <View style={{ gap: 14 }}>
-            <View style={s.emptyResult}>
-              <Eyebrow>No matching pieces</Eyebrow>
-              <Caption style={{ marginTop: 6, textAlign: 'center', maxWidth: 260 }}>
-                {result.description || 'Try a different occasion or formality — your wardrobe doesn’t yet cover this combo.'}
-              </Caption>
-            </View>
-            <Button label="Restyle" variant="outline" onPress={onRestyle} block />
-          </View>
         ) : (
-          <View style={{ gap: 14 }}>
-            <View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                <Eyebrow>Styled for you</Eyebrow>
-                <Text
-                  style={{
-                    fontFamily: fonts.uiSemi,
-                    fontSize: 10,
-                    letterSpacing: 1.4,
-                    color: savedOutfitId ? t.accent : t.fg2,
-                    textTransform: 'uppercase',
-                  }}>
-                  {savedOutfitId ? tr('styleMe.saved.badge') : tr('styleMe.preview.badge')}
-                </Text>
-              </View>
-              <OutfitCard
-                name={result.outfit_name}
-                sub={subLine}
-                garments={resultGarments}
-                onUse={savedOutfitId ? onOpenSavedDetail : onSavePress}
-                onSave={savedOutfitId ? undefined : onSavePress}
-              />
-              {savedOutfitId ? (
-                <Pressable
-                  onPress={onOpenSavedDetail}
-                  accessibilityRole="link"
-                  style={{ marginTop: 8, alignSelf: 'flex-start' }}>
-                  <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.accent }}>
-                    {tr('styleMe.saved.openDetail')}
-                  </Text>
-                </Pressable>
-              ) : null}
-              {result.description ? (
-                <Caption style={{ marginTop: 8, lineHeight: 18 }}>{result.description}</Caption>
-              ) : null}
-            </View>
-            <Button label="Restyle" variant="outline" onPress={onRestyle} block />
-          </View>
+          <StyleMeResultCard
+            name={result.outfit_name}
+            description={result.description}
+            subLine={subLine}
+            garments={resultGarments}
+            itemCount={itemCount}
+            savedOutfitId={savedOutfitId}
+            onSave={onSavePress}
+            onOpenSavedDetail={onOpenSavedDetail}
+            onRestyle={onRestyle}
+          />
         )}
       </ScrollView>
 
       {/* ============ ADJUST WEATHER MODAL ============ */}
-      <Modal
-        visible={adjustOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setAdjustOpen(false)}>
-        <View style={s.modalBackdrop}>
-          <View style={[s.modalSheet, { backgroundColor: t.bg, borderColor: t.border }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <PageTitle size={20}>{tr('styleMe.weather.adjustTitle')}</PageTitle>
-              <Pressable onPress={() => setAdjustOpen(false)} accessibilityRole="button">
-                <Text style={{ fontFamily: fonts.uiMed, fontSize: 14, color: t.accent }}>
-                  {tr('styleMe.weather.adjust.done')}
-                </Text>
-              </Pressable>
-            </View>
-
-            <Eyebrow>{tr('styleMe.weather.tempLabel')}</Eyebrow>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 18 }}>
-              <Pressable
-                onPress={() => {
-                  hapticLight();
-                  const next: ManualWeatherInput = {
-                    tempC: (manualOverride?.tempC ?? weather?.temperature ?? 14) - 1,
-                    condition: manualOverride?.condition ?? 'clear',
-                  };
-                  onApplyManualWeather(next);
-                }}
-                style={[s.stepperBtn, { borderColor: t.border, backgroundColor: t.card }]}
-                accessibilityRole="button"
-                accessibilityLabel="Decrease temperature">
-                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 18, color: t.fg }}>−</Text>
-              </Pressable>
-              <Text style={{ fontFamily: fonts.uiSemi, fontSize: 22, color: t.fg, minWidth: 60, textAlign: 'center' }}>
-                {(manualOverride?.tempC ?? weather?.temperature ?? 14)}°
-              </Text>
-              <Pressable
-                onPress={() => {
-                  hapticLight();
-                  const next: ManualWeatherInput = {
-                    tempC: (manualOverride?.tempC ?? weather?.temperature ?? 14) + 1,
-                    condition: manualOverride?.condition ?? 'clear',
-                  };
-                  onApplyManualWeather(next);
-                }}
-                style={[s.stepperBtn, { borderColor: t.border, backgroundColor: t.card }]}
-                accessibilityRole="button"
-                accessibilityLabel="Increase temperature">
-                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 18, color: t.fg }}>+</Text>
-              </Pressable>
-            </View>
-
-            <Eyebrow>{tr('styleMe.weather.conditionLabel')}</Eyebrow>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-              {CONDITIONS.map((cond) => {
-                const active = (manualOverride?.condition ?? 'clear') === cond;
-                return (
-                  <Chip
-                    key={cond}
-                    label={tr(`styleMe.weather.condition.${cond}`)}
-                    active={active}
-                    onPress={() => {
-                      hapticLight();
-                      const next: ManualWeatherInput = {
-                        tempC: manualOverride?.tempC ?? weather?.temperature ?? 14,
-                        condition: cond,
-                      };
-                      onApplyManualWeather(next);
-                    }}
-                  />
-                );
-              })}
-            </View>
-
-            {manualOverride ? (
-              <Pressable
-                onPress={() => {
-                  hapticLight();
-                  onResetWeather();
-                }}
-                accessibilityRole="button"
-                style={{ marginTop: 18, alignSelf: 'flex-start' }}>
-                <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: t.accent }}>
-                  {tr('styleMe.weather.adjust.reset')}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+      <StyleMeWeatherSheet
+        isOpen={adjustOpen}
+        onClose={() => setAdjustOpen(false)}
+        baseTemperature={weather?.temperature}
+        manualOverride={manualOverride}
+        onApplyManualWeather={onApplyManualWeather}
+        onResetWeather={onResetWeather}
+      />
 
       {/* ============ ANCHOR PICKER MODAL ============ */}
       <Modal
@@ -771,24 +647,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyResult: {
-    paddingVertical: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
   },
   modalSheetTall: {
     paddingHorizontal: 20,
@@ -799,13 +661,5 @@ const s = StyleSheet.create({
     borderLeftWidth: 1,
     borderRightWidth: 1,
     maxHeight: '85%',
-  },
-  stepperBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
