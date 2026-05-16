@@ -4,8 +4,8 @@ import { bursAIErrorResponse } from '../_shared/burs-ai.ts';
 import { CORS_HEADERS } from '../_shared/cors.ts';
 import { assessRenderEligibilityWithGemini, PRODUCT_READY_RENDER_GATE_PROVIDER, validateRenderedGarmentOutputWithGemini } from '../_shared/render-eligibility.ts';
 import { captureWarning, classifyValidatorError } from '../_shared/observability.ts';
-import { mannequinPresentationInstruction, normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
-import { classifyCategory, type CategoryClass } from '../_shared/render-category.ts';
+import { normalizeMannequinPresentation } from '../_shared/mannequin-presentation.ts';
+import { classifyCategory } from '../_shared/render-category.ts';
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, recordError, overloadResponse, enforceSubscription, subscriptionLockedResponse } from '../_shared/scale-guard.ts';
 import { getBalance, reserveCredit, consumeCredit, releaseCredit } from '../_shared/render-credits.ts';
 import {
@@ -17,6 +17,17 @@ import {
 } from '../_shared/gemini-image-client.ts';
 import { deriveRenderJobId } from '../_shared/render-job-id.ts';
 import { timingSafeEqual } from '../_shared/timing-safe.ts';
+import {
+  type MannequinPresentation,
+  RETRY_VARIANTS,
+  runRenderRetryChain,
+  sourceHasBranding,
+} from '../_shared/render-prompt-builder.ts';
+import {
+  extractImageDimensions,
+  isValidImageMagic,
+  validateInputImage,
+} from '../_shared/render-validator.ts';
 
 /**
  * Bump this when the render prompt or Gemini parameters change materially.
@@ -46,8 +57,6 @@ function isTrialFromBalance(monthlyAllowance: number): boolean {
   return monthlyAllowance === 0;
 }
 
-type MannequinPresentation = 'male' | 'female' | 'mixed';
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? 'Unknown error');
 }
@@ -57,435 +66,6 @@ function getErrorMessage(error: unknown): string {
 // `deriveJobId` locally; kept the alias below for minimal diff in callers.
 const deriveJobId = deriveRenderJobId;
 
-// ─── Prompt building (unchanged from prior implementation) ───
-
-type RenderPromptEnrichment = {
-  neckline: string | null;
-  sleeveLength: string | null;
-  garmentLength: string | null;
-  closure: string | null;
-  fabricWeight: string | null;
-  silhouette: string | null;
-  drape: string | null;
-  hemDetail: string | null;
-  rise: string | null;
-  legShape: string | null;
-  textOnGarment: string | null;
-  logoDescription: string | null;
-  graphicDescription: string | null;
-  collarStyle: string | null;
-  constructionDetails: string | null;
-  waistband: string | null;
-  colorDescription: string | null;
-  shoulderStructure: string | null;
-  textureIntensity: string | null;
-  visualWeight: string | null;
-  occasionTags: string[] | null;
-  styleArchetype: string | null;
-};
-
-function normalizeMetadataValue(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const normalized = value.trim();
-  if (!normalized) return null;
-  if (normalized === 'null' || normalized === 'unknown' || normalized === 'n/a') return null;
-  return normalized;
-}
-
-function extractPromptEnrichment(aiRaw: unknown): RenderPromptEnrichment {
-  const raw = aiRaw && typeof aiRaw === 'object' && !Array.isArray(aiRaw)
-    ? aiRaw as Record<string, unknown>
-    : null;
-  const enrichment = raw?.enrichment && typeof raw.enrichment === 'object' && !Array.isArray(raw.enrichment)
-    ? raw.enrichment as Record<string, unknown>
-    : null;
-
-  return {
-    neckline: normalizeMetadataValue(enrichment?.neckline),
-    sleeveLength: normalizeMetadataValue(enrichment?.sleeve_length),
-    garmentLength: normalizeMetadataValue(enrichment?.garment_length),
-    closure: normalizeMetadataValue(enrichment?.closure),
-    fabricWeight: normalizeMetadataValue(enrichment?.fabric_weight),
-    silhouette: normalizeMetadataValue(enrichment?.silhouette),
-    drape: normalizeMetadataValue(enrichment?.drape),
-    hemDetail: normalizeMetadataValue(enrichment?.hem_detail),
-    rise: normalizeMetadataValue(enrichment?.rise),
-    legShape: normalizeMetadataValue(enrichment?.leg_shape),
-    textOnGarment: normalizeMetadataValue(enrichment?.text_on_garment),
-    logoDescription: normalizeMetadataValue(enrichment?.logo_description),
-    graphicDescription: normalizeMetadataValue(enrichment?.graphic_or_print_description),
-    collarStyle: normalizeMetadataValue(enrichment?.collar_style),
-    constructionDetails: normalizeMetadataValue(enrichment?.construction_details),
-    waistband: normalizeMetadataValue(enrichment?.waistband),
-    colorDescription: normalizeMetadataValue(enrichment?.color_description),
-    shoulderStructure: normalizeMetadataValue(enrichment?.shoulder_structure),
-    textureIntensity: normalizeMetadataValue(enrichment?.texture_intensity),
-    visualWeight: normalizeMetadataValue(enrichment?.visual_weight),
-    occasionTags: Array.isArray(enrichment?.occasion_tags)
-      ? (enrichment?.occasion_tags as unknown[]).filter((t): t is string => typeof t === 'string')
-      : null,
-    styleArchetype: normalizeMetadataValue(enrichment?.style_archetype),
-  };
-}
-
-function sanitizeEnrichmentValue(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return value
-    .replace(/[\r\n\t]/g, ' ')
-    .replace(/[^\x20-\x7E]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200);
-}
-
-function formalityLabel(score: number): string {
-  if (score <= 1) return 'very casual';
-  if (score <= 2) return 'casual';
-  if (score <= 3) return 'smart casual';
-  if (score <= 4) return 'semi-formal';
-  return 'formal';
-}
-
-/**
- * Wave 3-B P17 retry variants. Each attempt uses a distinct prompt strategy
- * so a second/third try isn't just a slot-machine re-roll of the first.
- *   - 'primary'   : full-fidelity, all metadata, category-specific framing
- *   - 'tightened' : trims to essentials + doubles down on "garment only, no
- *                   body parts visible" — used after a mannequin/category reject
- *   - 'minimal'   : strips enrichment, uses the reference image as the only
- *                   steering signal — used when earlier prompts may be
- *                   over-constraining Gemini into refusal
- */
-type PromptVariant = 'primary' | 'tightened' | 'minimal';
-
-function buildCategoryFraming(
-  categoryClass: CategoryClass,
-  mannequinPresentation: MannequinPresentation,
-): { hardRequirements: string[]; negativeRequirements: string[] } {
-  switch (categoryClass) {
-    case 'ghost_mannequin':
-      return {
-        hardRequirements: [
-          '- Convert the garment into a garment-only ghost mannequin / shadow mannequin product render',
-          `- ${mannequinPresentationInstruction(mannequinPresentation)}`,
-          '- The final image must show the garment only: no visible mannequin head, no neck, no shoulders, no torso, no hips, no arms, no hands, no legs, no feet',
-          '- Internal shaping must be subtle, driven purely by natural garment volume and gravity',
-        ],
-        negativeRequirements: [
-          '- No visible mannequin anatomy silhouette',
-          '- No person, body parts, or hands',
-        ],
-      };
-    case 'shoes':
-      return {
-        hardRequirements: [
-          '- Photograph the shoe (or pair) at a clean 3/4 angle with the side profile visible',
-          '- Shoes rest on the pure white background — no feet, no legs, no person, no mannequin',
-          '- Laces, straps, and closures should be naturally settled (not squashed, not knotted tightly)',
-        ],
-        negativeRequirements: [
-          '- NEVER place the shoe on a foot, leg, or person',
-          '- No mannequin, no display stand that reads as anatomy',
-        ],
-      };
-    case 'bag':
-      return {
-        hardRequirements: [
-          '- Photograph the bag front-on with the handle or strap naturally positioned',
-          '- Show the front panel clearly; if the bag has a clear front/back asymmetry, favor the more branded side',
-          '- No person, no hand holding it, no shoulder, no torso',
-        ],
-        negativeRequirements: [
-          '- No person or body parts touching or wearing the bag',
-          '- No props, no other garments',
-        ],
-      };
-    case 'flat_lay':
-      return {
-        hardRequirements: [
-          '- Styled flat-lay: the accessory arranged aesthetically against pure white',
-          '- Keep the item unfolded / unrolled enough that its shape is recognizable',
-        ],
-        negativeRequirements: [
-          '- No person, no body parts (no neck, no head, no wrist, no fingers)',
-          '- No mannequin, no display form',
-        ],
-      };
-    case 'jewelry':
-      return {
-        hardRequirements: [
-          '- Close-up product shot against pure white with soft directional studio lighting',
-          '- Frame tight enough to show material and craftsmanship detail; crisp focus',
-          '- No body parts (no ring on finger, no necklace on neck, no watch on wrist, no earring on ear)',
-        ],
-        negativeRequirements: [
-          '- No person, skin, or body parts visible',
-          '- No fabric/model backdrop — only pure white',
-        ],
-      };
-    case 'accessory_generic':
-    default:
-      return {
-        hardRequirements: [
-          '- Clean product-catalog shot against pure white',
-          '- Show the accessory alone in its natural resting shape',
-        ],
-        negativeRequirements: [
-          '- No person, no body parts, no mannequin',
-          '- No other garments or props',
-        ],
-      };
-  }
-}
-
-function buildGarmentRenderPrompt(garment: {
-  title: string;
-  category: string;
-  subcategory: string | null;
-  color_primary: string;
-  color_secondary: string | null;
-  material: string | null;
-  pattern: string | null;
-  fit: string | null;
-  formality: number | null;
-  ai_raw: unknown;
-}, mannequinPresentation: MannequinPresentation, variant: PromptVariant = 'primary', maskedInput: boolean = false): string {
-  const categoryClass = classifyCategory(garment.category, garment.subcategory);
-  const enrichment = extractPromptEnrichment(garment.ai_raw);
-
-  // F2: lead with the category anchor so Gemini's first subject is correct.
-  const garmentLabel = garment.subcategory ?? garment.category ?? garment.title;
-  const leadLine = `Subject: a ${garmentLabel}${garment.color_primary ? ` in ${garment.color_primary}` : ''}${garment.material ? `, ${garment.material}` : ''}.`;
-
-  // Short-path for the 'minimal' retry variant — just describe the subject and
-  // lean heavily on the reference image. Used when the richer prompts may be
-  // over-constraining Gemini into text-only refusals or safety blocks.
-  if (variant === 'minimal') {
-    const { hardRequirements, negativeRequirements } = buildCategoryFraming(categoryClass, mannequinPresentation);
-    return [
-      leadLine,
-      'Premium studio product photography against a pure white background.',
-      // Wave R-B — masked-input branch. The reference is already cut out
-      // onto a transparent background by on-device segmentation; we tell
-      // Gemini so it doesn't waste tokens / risk artifacts redoing
-      // background removal. The non-masked branch keeps today's text.
-      maskedInput
-        ? 'The reference image has been pre-segmented onto a transparent background. Use it as the source of truth and focus on lighting and product framing — do NOT re-remove the background.'
-        : 'Use the reference image as the source of truth.',
-      'Hard requirements:',
-      '- Produce exactly one photorealistic product image',
-      '- FIDELITY FIRST: match the colors, shape, pattern, and material texture of the reference',
-      '- Preserve any logos, printed text, or graphics exactly as they appear',
-      ...hardRequirements,
-      'Negative requirements:',
-      '- No watermarks, captions, or external overlays',
-      '- No additional garments or props',
-      ...negativeRequirements,
-      '- Return only the edited image',
-    ].join('\n');
-  }
-
-  const metadataLines = [
-    garment.subcategory ? `- Subcategory: ${garment.subcategory}` : null,
-    garment.color_primary ? `- Primary color: ${garment.color_primary}` : null,
-    garment.color_secondary ? `- Secondary color: ${garment.color_secondary}` : null,
-    garment.pattern && garment.pattern !== 'solid' ? `- Pattern or print: ${garment.pattern}` : null,
-    garment.material ? `- Material or fabric: ${garment.material}` : null,
-    garment.fit ? `- Fit: ${garment.fit}` : null,
-    enrichment.silhouette ? `- Silhouette: ${enrichment.silhouette}` : null,
-    enrichment.sleeveLength ? `- Sleeve length: ${enrichment.sleeveLength}` : null,
-    enrichment.neckline ? `- Collar or neckline: ${enrichment.neckline}` : null,
-    enrichment.closure ? `- Closure: ${enrichment.closure}` : null,
-    enrichment.fabricWeight ? `- Fabric weight: ${enrichment.fabricWeight}` : null,
-    enrichment.garmentLength ? `- Garment length: ${enrichment.garmentLength}` : null,
-    enrichment.rise ? `- Rise: ${enrichment.rise}` : null,
-    enrichment.legShape ? `- Leg shape: ${enrichment.legShape}` : null,
-    enrichment.drape ? `- Drape: ${enrichment.drape}` : null,
-    enrichment.hemDetail ? `- Hem detail: ${enrichment.hemDetail}` : null,
-    sanitizeEnrichmentValue(enrichment.textOnGarment) ? `- Text on garment (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.textOnGarment)}` : null,
-    sanitizeEnrichmentValue(enrichment.logoDescription) ? `- Logo or brand mark (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.logoDescription)}` : null,
-    sanitizeEnrichmentValue(enrichment.graphicDescription) ? `- Graphic or print (reproduce EXACTLY): ${sanitizeEnrichmentValue(enrichment.graphicDescription)}` : null,
-    enrichment.collarStyle ? `- Collar style: ${enrichment.collarStyle}` : null,
-    sanitizeEnrichmentValue(enrichment.constructionDetails) ? `- Construction details: ${sanitizeEnrichmentValue(enrichment.constructionDetails)}` : null,
-    enrichment.waistband ? `- Waistband: ${enrichment.waistband}` : null,
-    sanitizeEnrichmentValue(enrichment.colorDescription) ? `- Precise color: ${sanitizeEnrichmentValue(enrichment.colorDescription)}` : null,
-    enrichment.shoulderStructure ? `- Shoulder structure: ${enrichment.shoulderStructure}` : null,
-    enrichment.textureIntensity ? `- Texture intensity: ${enrichment.textureIntensity}` : null,
-    enrichment.visualWeight ? `- Visual weight: ${enrichment.visualWeight}` : null,
-    enrichment.styleArchetype ? `- Style archetype: ${enrichment.styleArchetype}` : null,
-    enrichment.occasionTags && enrichment.occasionTags.length > 0
-      ? `- Occasion context: ${enrichment.occasionTags.join(', ')}`
-      : null,
-    garment.formality != null ? `- Formality: ${formalityLabel(garment.formality)} (${garment.formality}/5)` : null,
-  ].filter((value): value is string => Boolean(value));
-
-  const { hardRequirements, negativeRequirements } = buildCategoryFraming(categoryClass, mannequinPresentation);
-
-  const tightenedEmphasis = variant === 'tightened'
-    ? [
-        'CRITICAL CORRECTION FROM PRIOR ATTEMPT:',
-        '- No body part, no anatomy, no mannequin form is allowed under the garment — even faintly.',
-        '- The rendered item must be the same category as the reference; do NOT invent a different product type.',
-        '- Keep the reference image\'s logos, printed text, and graphics completely intact.',
-        '',
-      ]
-    : [];
-
-  // Wave R-B — masked-input swap. When the on-device segmenter has already
-  // stripped the background, the explicit "Remove the person, body..."
-  // instruction is at best wasted tokens, at worst a steering signal that
-  // pushes Gemini to over-process the (already clean) cutout. Replace with
-  // a parallel "input is already segmented" instruction so the model
-  // spends its compute budget on lighting + product framing instead.
-  const backgroundRemovalLine = maskedInput
-    ? '- The reference image is already on a transparent background. Use it as-is; do NOT re-remove background, body, or anatomy.'
-    : '- Remove the person, body, skin, hair, hands, mannequin, hanger, props, and original background completely.';
-
-  return [
-    // F2: anchor category first.
-    leadLine,
-    'Create exactly one premium studio e-commerce product photograph.',
-    maskedInput
-      ? 'The reference image has been pre-segmented onto a transparent background. Use it as the source of truth — its silhouette and color are authoritative. Metadata is only a steering hint when it matches the image.'
-      : 'Use the reference image as the source of truth. Metadata is only a steering hint when it matches the image.',
-    ...tightenedEmphasis,
-    metadataLines.length > 0
-      ? ['Confirmed details (use when visible in the reference):', ...metadataLines].join('\n')
-      : 'No extra metadata is available beyond the reference image.',
-    'Hard requirements:',
-    '- Show one item only',
-    '- FIDELITY IS THE HIGHEST PRIORITY. Reproduce the item EXACTLY as it appears in the reference: color, silhouette, proportion, texture, pattern, construction detail.',
-    '- REPRODUCE ALL LOGOS, TEXT, GRAPHICS, AND BRAND MARKS EXACTLY. Same position, same size, same color, same font. Never remove, alter, or re-style garment branding.',
-    '- Reconstruct hidden or occluded areas only as needed to complete the item naturally.',
-    backgroundRemovalLine,
-    '- Center the subject with clean soft catalog lighting on a pure white background.',
-    '- Make the result commercially usable and photorealistic.',
-    ...hardRequirements,
-    'Negative requirements:',
-    '- No extra garments, no layering, no duplicate pieces',
-    '- No redesign, no embellishment, no color shift, no silhouette change, no invented details',
-    '- No external text overlays, watermarks, photographer credits, or post-production labels NOT part of the item itself',
-    '- No packaging, accessories, or decorative props that are not part of the item',
-    '- Do NOT remove logos, brand names, printed text, or graphics that are part of the item design',
-    '- No color shift — match the exact color from the reference photo, not a generic version of that color name',
-    '- No simplification — do not smooth out distinctive construction details, stitching, or seams',
-    ...negativeRequirements,
-    '- Return only the edited image',
-  ].join('\n');
-}
-
-/**
- * Wave 3-B F9: does the source enrichment suggest the garment carries visible
- * branding or printed text? If so, the output validator checks that the render
- * preserved it. Avoids pinging the validator with a false "logo missing"
- * rejection on plain items.
- *
- * Codex P2 on PR #661: `normalizeMetadataValue` only filters 'null' /
- * 'unknown' / 'n/a' but the analyze_garment model often emits free-form
- * negative strings like "no logo", "none visible", "no branding", "plain",
- * or "not applicable". Those would pass the earlier normalizer as truthy
- * strings and set `expectLogoOrText=true` on plain items — the validator
- * then rejects every render with `reject_logo_missing` and exhausts the
- * retry chain. Explicit negative-marker filter below catches the common
- * phrasings.
- */
-const NEGATIVE_BRANDING_PATTERNS = [
-  /^none$/i,
-  /^no\b/i,          // "no logo", "no text", "no branding", "no graphic"
-  /^not\b/i,         // "not visible", "not present", "not applicable"
-  /^absent$/i,
-  /^n\/?a$/i,
-  /^plain$/i,
-  /^nothing\b/i,
-  /^blank$/i,
-  /^empty$/i,
-];
-
-function isPositiveBrandingValue(value: string | null): boolean {
-  if (!value) return false;
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  return !NEGATIVE_BRANDING_PATTERNS.some((re) => re.test(trimmed));
-}
-
-function sourceHasBranding(aiRaw: unknown): boolean {
-  const enrichment = extractPromptEnrichment(aiRaw);
-  return (
-    isPositiveBrandingValue(sanitizeEnrichmentValue(enrichment.textOnGarment))
-    || isPositiveBrandingValue(sanitizeEnrichmentValue(enrichment.logoDescription))
-    || isPositiveBrandingValue(sanitizeEnrichmentValue(enrichment.graphicDescription))
-  );
-}
-
-// ─── Wave 3-B F13 / F17 / F18: image-byte helpers ──────────
-// Server-side dimension + magic-byte checks so we reject blurry sources
-// before burning a Gemini call and reject corrupt outputs before uploading.
-// Parsers handle PNG + JPEG (the two formats we see in practice). WebP and
-// others return `null` → caller treats as "unknown but not invalid" and
-// falls through to byte-size heuristics.
-
-function isValidImageMagic(bytes: Uint8Array): 'png' | 'jpeg' | 'webp' | null {
-  if (bytes.length < 12) return null;
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
-  // JPEG: FF D8 FF
-  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpeg';
-  // WebP: RIFF....WEBP
-  if (
-    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
-    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
-  ) return 'webp';
-  return null;
-}
-
-function readUint32BE(bytes: Uint8Array, offset: number): number {
-  return (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
-}
-
-function extractImageDimensions(bytes: Uint8Array): { width: number; height: number } | null {
-  const format = isValidImageMagic(bytes);
-  if (!format) return null;
-
-  if (format === 'png') {
-    // PNG IHDR chunk is at offset 8 (length=13, type=IHDR, then 4-byte width + 4-byte height)
-    if (bytes.length < 24) return null;
-    // IHDR header starts at byte 8: [length(4)][IHDR(4)][width(4)][height(4)]...
-    return {
-      width: readUint32BE(bytes, 16),
-      height: readUint32BE(bytes, 20),
-    };
-  }
-
-  if (format === 'jpeg') {
-    // Scan for SOF0/SOF2 markers. Skip APPn/DQT/etc segments by their length field.
-    let offset = 2; // skip initial 0xFF 0xD8
-    while (offset < bytes.length - 8) {
-      if (bytes[offset] !== 0xFF) return null;
-      const marker = bytes[offset + 1];
-      offset += 2;
-      // Skip fill bytes (0xFF 0xFF...)
-      if (marker === 0xFF) continue;
-      // SOF markers (baseline JPEGs: SOF0 = 0xC0; progressive: SOF2 = 0xC2)
-      if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2 || marker === 0xC3) {
-        // segment: [length(2)][precision(1)][height(2)][width(2)]
-        if (offset + 7 > bytes.length) return null;
-        const height = (bytes[offset + 3] << 8) | bytes[offset + 4];
-        const width = (bytes[offset + 5] << 8) | bytes[offset + 6];
-        return { width, height };
-      }
-      // Skip this segment
-      if (offset + 2 > bytes.length) return null;
-      const segmentLength = (bytes[offset] << 8) | bytes[offset + 1];
-      if (segmentLength < 2) return null;
-      offset += segmentLength;
-    }
-    return null;
-  }
-
-  // webp dimension parsing is non-trivial (VP8/VP8L/VP8X branches); skip for
-  // now — output validator via Gemini will still catch garbage WebPs.
-  return null;
-}
 
 // ─── Image helpers (unchanged) ───
 
@@ -1455,36 +1035,27 @@ serve(async (req) => {
       // out" render the user will just regenerate.
       //
       // Min dimensions are set at 400x400 — lower than the ideal 4:5 source
-      // (typically 720x900+) but high enough that a 100x100 thumbnail can't
-      // pass. Format validation is restricted to the 3 formats we actually
-      // handle downstream; unknown formats fall through to Gemini and get
-      // caught there.
-      const INPUT_MIN_DIMENSION = 400;
-      const INPUT_MIN_BYTES = 4096; // 4KB — anything smaller is near-certainly corrupt
-      const INPUT_MAX_BYTES = 20 * 1024 * 1024; // 20MB sanity cap on decode
-
-      // Codex P2 on PR #661: these preflight failure paths run AFTER
-      // `claimGarmentRender` has already moved the garment out of 'ready',
-      // so a force regenerate with a problematic source would leave the
-      // user with no render at all if we just `safeMarkRenderFailed`. Use
-      // `safeRestoreOrFailRender` instead — it restores `priorRenderedPath`
-      // for force calls with an existing good render, and falls through to
-      // safeMarkRenderFailed for first-time / no-prior cases.
-      if (imageBytes.length < INPUT_MIN_BYTES) {
+      const inputValidation = validateInputImage(imageBytes);
+      if (!inputValidation.ok) {
+        const failureContext = inputValidation.code === 'input_too_small'
+          ? 'input_preflight_too_small'
+          : inputValidation.code === 'input_too_large'
+          ? 'input_preflight_too_large'
+          : 'input_preflight_low_resolution';
+        const errorLabel = inputValidation.code === 'input_too_small'
+          ? 'Source image too small'
+          : inputValidation.code === 'input_too_large'
+          ? 'Source image too large'
+          : 'Source resolution too low';
         await safeRestoreOrFailRender(supabase, garment.id, {
-          render_error: `Source image too small (${imageBytes.length} bytes). Re-upload a clearer photo.`,
-        }, 'input_preflight_too_small', priorRenderedPath, isForceRender);
+          render_error: inputValidation.message,
+        }, failureContext, priorRenderedPath, isForceRender);
+        const responseBody: Record<string, unknown> = { ok: true, rendered: false, error: errorLabel };
+        if (inputValidation.code === 'input_low_resolution') {
+          responseBody.dims = { width: inputValidation.width, height: inputValidation.height };
+        }
         return new Response(
-          JSON.stringify({ ok: true, rendered: false, error: 'Source image too small' }),
-          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-        );
-      }
-      if (imageBytes.length > INPUT_MAX_BYTES) {
-        await safeRestoreOrFailRender(supabase, garment.id, {
-          render_error: `Source image too large (${imageBytes.length} bytes).`,
-        }, 'input_preflight_too_large', priorRenderedPath, isForceRender);
-        return new Response(
-          JSON.stringify({ ok: true, rendered: false, error: 'Source image too large' }),
+          JSON.stringify(responseBody),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
@@ -1495,20 +1066,8 @@ serve(async (req) => {
           bytes: imageBytes.length,
           firstBytes: Array.from(imageBytes.slice(0, 8)).map((b) => b.toString(16).padStart(2, '0')).join(' '),
         });
-        // Unknown format is not a hard fail — Gemini sometimes handles
-        // exotic formats — but we log it for diagnostics. The output
-        // validator downstream will catch any garbage Gemini returns.
       }
       const inputDims = extractImageDimensions(imageBytes);
-      if (inputDims && (inputDims.width < INPUT_MIN_DIMENSION || inputDims.height < INPUT_MIN_DIMENSION)) {
-        await safeRestoreOrFailRender(supabase, garment.id, {
-          render_error: `Source image resolution too low (${inputDims.width}×${inputDims.height}). Use a clearer photo (min ${INPUT_MIN_DIMENSION}×${INPUT_MIN_DIMENSION}).`,
-        }, 'input_preflight_low_resolution', priorRenderedPath, isForceRender);
-        return new Response(
-          JSON.stringify({ ok: true, rendered: false, error: 'Source resolution too low', dims: inputDims }),
-          { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-        );
-      }
       console.log('render_garment_image input preflight', {
         garmentId: garment.id,
         format: inputFormat,
@@ -1580,260 +1139,132 @@ serve(async (req) => {
       const expectLogoOrText = sourceHasBranding(garmentForPrompt.ai_raw);
       const categoryClass = classifyCategory(garmentForPrompt.category, garmentForPrompt.subcategory);
 
-      // Wave 3-B F16-F18 output hard-gate thresholds.
-      //   MIN_SIZE_BYTES: raised from 10KB → 30KB. A legitimate 4:5 product
-      //   render at reasonable quality is typically 80-300KB. 10KB was
-      //   low enough that near-blank outputs passed; 30KB still allows
-      //   highly-compressed valid outputs while catching garbage.
-      //   MIN_DIMENSION: Gemini's default aspect is 4:5 so smaller than
-      //   512x640 means it returned something unusable regardless of bytes.
-      const OUTPUT_MIN_BYTES = 30 * 1024;
-      const OUTPUT_MAX_BYTES = 10 * 1024 * 1024;
-      const OUTPUT_MIN_DIMENSION = 512;
-
-      const RETRY_VARIANTS: PromptVariant[] = ['primary', 'tightened', 'minimal'];
-
-      type AttemptResult =
-        | { ok: true; outputBytes: Uint8Array; outputMimeType: string; variant: PromptVariant }
-        | { ok: false; errorMessage: string; errorCode: string; validationDecision?: string };
-
-      let finalOutputBytes: Uint8Array | null = null;
-      let finalOutputMimeType: string | null = null;
-      let finalVariant: PromptVariant | null = null;
-      let lastAttemptError: AttemptResult & { ok: false } | null = null;
-
-      for (let attemptIndex = 0; attemptIndex < RETRY_VARIANTS.length; attemptIndex++) {
-        const variant = RETRY_VARIANTS[attemptIndex];
-        // Wave R-B — `maskedRender` was decided at source-image resolution
-        // (line ~1033). When true, the bytes we hand Gemini are an
-        // on-device-segmented WebP with a transparent background; the
-        // prompt branch below skips the "remove background" instruction.
-        const attemptPrompt = buildGarmentRenderPrompt(garmentForPrompt, mannequinPresentation, variant, maskedRender);
-
-        console.log('render_garment_image Gemini attempt', {
-          garmentId: garment.id,
-          attempt: attemptIndex + 1,
-          totalAttempts: RETRY_VARIANTS.length,
-          variant,
-          provider: 'gemini',
-          model: GEMINI_IMAGE_MODEL,
-          endpoint: GEMINI_IMAGE_API_URL,
-          categoryClass,
-          expectLogoOrText,
-          promptPreview: attemptPrompt.split('\n').slice(0, 4),
-          sourceMimeType: mimeType,
-          sourceBytes: imageBytes.length,
-        });
-
-        let attemptOutputBytes: Uint8Array;
-        let attemptOutputMimeType: string;
-        try {
-          const result = await generateGeminiImage({
-            apiKey: geminiApiKey,
-            prompt: attemptPrompt,
-            dataUrl,
-            garmentId: garment.id,
-          });
-          attemptOutputBytes = result.outputBytes;
-          attemptOutputMimeType = result.mimeType;
-        } catch (providerError) {
-          const errorMessage = getErrorMessage(providerError);
-          const errorCode = providerError instanceof RenderProviderError ? providerError.code : 'gemini_unknown';
-
-          console.error('render_garment_image Gemini attempt failed', {
+      const retryResult = await runRenderRetryChain({
+        garment: garmentForPrompt,
+        mannequinPresentation,
+        maskedInput: maskedRender,
+        generate: async ({ prompt, variant, attemptIndex }) => {
+          console.log('render_garment_image Gemini attempt', {
             garmentId: garment.id,
             attempt: attemptIndex + 1,
+            totalAttempts: RETRY_VARIANTS.length,
             variant,
             provider: 'gemini',
             model: GEMINI_IMAGE_MODEL,
-            geminiApiKeyFingerprint: maskApiKey(geminiApiKey),
-            errorCode,
-            error: errorMessage,
-          });
-
-          // Non-retryable hard failures: bubble out to the outer catch
-          // (which calls recordError + safeRestoreOrFailRender).
-          if (errorCode === 'gemini_auth' || errorCode === 'gemini_model_path') {
-            throw providerError;
-          }
-
-          // Retryable within the outer loop: gemini_no_image (safety/text
-          // response), gemini_timeout, gemini_network, gemini_api 5xx.
-          // Inner client already backed off + retried on transport flakes,
-          // so by the time we see these the failure is real. Try the next
-          // variant.
-          recordError('render_garment_image');
-          lastAttemptError = { ok: false, errorMessage, errorCode };
-          continue;
-        }
-
-        // Structural checks: magic bytes, size, dimensions.
-        const outputFormat = isValidImageMagic(attemptOutputBytes);
-        if (!outputFormat) {
-          console.warn('render_garment_image attempt rejected: bad magic bytes', {
-            garmentId: garment.id,
-            attempt: attemptIndex + 1,
-            variant,
-            firstBytes: Array.from(attemptOutputBytes.slice(0, 8)).map((b) => b.toString(16).padStart(2, '0')).join(' '),
-            bytes: attemptOutputBytes.length,
-          });
-          lastAttemptError = {
-            ok: false,
-            errorCode: 'output_bad_magic',
-            errorMessage: 'Output bytes did not match any known image format.',
-          };
-          continue;
-        }
-
-        if (attemptOutputBytes.length < OUTPUT_MIN_BYTES) {
-          console.warn('render_garment_image attempt rejected: output too small', {
-            garmentId: garment.id,
-            attempt: attemptIndex + 1,
-            variant,
-            bytes: attemptOutputBytes.length,
-            threshold: OUTPUT_MIN_BYTES,
-          });
-          lastAttemptError = {
-            ok: false,
-            errorCode: 'output_too_small',
-            errorMessage: `Output too small (${attemptOutputBytes.length} bytes, min ${OUTPUT_MIN_BYTES}).`,
-          };
-          continue;
-        }
-        if (attemptOutputBytes.length > OUTPUT_MAX_BYTES) {
-          console.warn('render_garment_image attempt rejected: output too large', {
-            garmentId: garment.id,
-            attempt: attemptIndex + 1,
-            variant,
-            bytes: attemptOutputBytes.length,
-          });
-          lastAttemptError = {
-            ok: false,
-            errorCode: 'output_too_large',
-            errorMessage: `Output too large (${attemptOutputBytes.length} bytes).`,
-          };
-          continue;
-        }
-
-        const outputDims = extractImageDimensions(attemptOutputBytes);
-        if (outputDims && (outputDims.width < OUTPUT_MIN_DIMENSION || outputDims.height < OUTPUT_MIN_DIMENSION)) {
-          console.warn('render_garment_image attempt rejected: output dimensions too low', {
-            garmentId: garment.id,
-            attempt: attemptIndex + 1,
-            variant,
-            dims: outputDims,
-            threshold: OUTPUT_MIN_DIMENSION,
-          });
-          lastAttemptError = {
-            ok: false,
-            errorCode: 'output_low_resolution',
-            errorMessage: `Output resolution too low (${outputDims.width}×${outputDims.height}, min ${OUTPUT_MIN_DIMENSION}×${OUTPUT_MIN_DIMENSION}).`,
-          };
-          continue;
-        }
-
-        // Gemini validation gate — now category-aware.
-        const renderedBase64 = uint8ArrayToBase64(attemptOutputBytes);
-        let validationAssessment = null;
-        try {
-          validationAssessment = await validateRenderedGarmentOutputWithGemini({
-            apiKey: geminiApiKey,
-            garmentId: garment.id,
-            mimeType: attemptOutputMimeType,
-            imageBase64: renderedBase64,
-            category: garmentForPrompt.category,
-            subcategory: garmentForPrompt.subcategory,
+            endpoint: GEMINI_IMAGE_API_URL,
+            categoryClass,
             expectLogoOrText,
+            promptPreview: prompt.split('\n').slice(0, 4),
+            sourceMimeType: mimeType,
+            sourceBytes: imageBytes.length,
           });
-        } catch (validationError) {
-          // The validator itself failed (timeout, 5xx). Fail open on the
-          // FIRST attempt — don't burn a retry just because the gate flaked.
-          // On later attempts, we've already seen content-level rejects, so
-          // an unavailable gate means we can't trust accept-by-default;
-          // treat as retryable.
-          if (attemptIndex === 0) {
-            // Wave 4.9-C: emit a structured observability signal so aggregate
-            // validator outages are visible instead of silently degrading.
-            // Fire-and-forget — failures here must never block the render path.
-            captureWarning('render_validator_unavailable', {
-              attempt: attemptIndex + 1,
-              category: categoryClass,
-              reason: classifyValidatorError(validationError),
+          try {
+            const result = await generateGeminiImage({
+              apiKey: geminiApiKey,
+              prompt,
+              dataUrl,
+              garmentId: garment.id,
             });
-            console.warn('render_garment_image validator unavailable — accepting attempt', {
+            return { ok: true, outputBytes: result.outputBytes, outputMimeType: result.mimeType };
+          } catch (providerError) {
+            const errorMessage = getErrorMessage(providerError);
+            const errorCode = providerError instanceof RenderProviderError ? providerError.code : 'gemini_unknown';
+            console.error('render_garment_image Gemini attempt failed', {
               garmentId: garment.id,
               attempt: attemptIndex + 1,
               variant,
-              error: getErrorMessage(validationError),
+              provider: 'gemini',
+              model: GEMINI_IMAGE_MODEL,
+              geminiApiKeyFingerprint: maskApiKey(geminiApiKey),
+              errorCode,
+              error: errorMessage,
             });
-            validationAssessment = null; // fall through to accept
-          } else {
-            console.warn('render_garment_image validator unavailable on retry — skipping variant', {
-              garmentId: garment.id,
-              attempt: attemptIndex + 1,
-              variant,
-              error: getErrorMessage(validationError),
-            });
-            lastAttemptError = {
-              ok: false,
-              errorCode: 'validator_unavailable',
-              errorMessage: `Validator unavailable on retry: ${getErrorMessage(validationError)}`,
-            };
-            continue;
+            if (errorCode === 'gemini_auth' || errorCode === 'gemini_model_path') {
+              return { ok: false, errorCode, errorMessage, bubble: true };
+            }
+            recordError('render_garment_image');
+            return { ok: false, errorCode, errorMessage };
           }
-        }
-
-        if (
-          validationAssessment
-          && validationAssessment.decision !== 'accept'
-        ) {
-          const confidenceLabel = validationAssessment.confidence == null
-            ? 'unknown'
-            : validationAssessment.confidence.toFixed(2);
-          console.warn('render_garment_image attempt rejected by validator', {
+        },
+        validateContent: async ({ outputBytes, outputMimeType, variant, attemptIndex }) => {
+          const renderedBase64 = uint8ArrayToBase64(outputBytes);
+          let validationAssessment = null;
+          try {
+            validationAssessment = await validateRenderedGarmentOutputWithGemini({
+              apiKey: geminiApiKey,
+              garmentId: garment.id,
+              mimeType: outputMimeType,
+              imageBase64: renderedBase64,
+              category: garmentForPrompt.category,
+              subcategory: garmentForPrompt.subcategory,
+              expectLogoOrText,
+            });
+          } catch (validationError) {
+            if (attemptIndex === 0) {
+              captureWarning('render_validator_unavailable', {
+                attempt: attemptIndex + 1,
+                category: categoryClass,
+                reason: classifyValidatorError(validationError),
+              });
+              console.warn('render_garment_image validator unavailable — accepting attempt', {
+                garmentId: garment.id,
+                attempt: attemptIndex + 1,
+                variant,
+                error: getErrorMessage(validationError),
+              });
+              validationAssessment = null;
+            } else {
+              console.warn('render_garment_image validator unavailable on retry — skipping variant', {
+                garmentId: garment.id,
+                attempt: attemptIndex + 1,
+                variant,
+                error: getErrorMessage(validationError),
+              });
+              return {
+                ok: false,
+                errorCode: 'validator_unavailable',
+                errorMessage: `Validator unavailable on retry: ${getErrorMessage(validationError)}`,
+              };
+            }
+          }
+          if (validationAssessment && validationAssessment.decision !== 'accept') {
+            const confidenceLabel = validationAssessment.confidence == null
+              ? 'unknown'
+              : validationAssessment.confidence.toFixed(2);
+            console.warn('render_garment_image attempt rejected by validator', {
+              garmentId: garment.id,
+              attempt: attemptIndex + 1,
+              variant,
+              decision: validationAssessment.decision,
+              reason: validationAssessment.reason,
+              confidence: confidenceLabel,
+              signals: validationAssessment.signals,
+            });
+            return {
+              ok: false,
+              errorCode: validationAssessment.decision,
+              errorMessage: `Validator ${validationAssessment.decision}: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
+              validationDecision: validationAssessment.decision,
+            };
+          }
+          console.log('render_garment_image attempt accepted', {
             garmentId: garment.id,
             attempt: attemptIndex + 1,
             variant,
-            decision: validationAssessment.decision,
-            reason: validationAssessment.reason,
-            confidence: confidenceLabel,
-            signals: validationAssessment.signals,
+            outputBytes: outputBytes.length,
+            outputMimeType,
+            outputDims: extractImageDimensions(outputBytes),
+            validatorDecision: validationAssessment?.decision ?? 'skipped',
           });
-          lastAttemptError = {
-            ok: false,
-            errorCode: validationAssessment.decision,
-            errorMessage: `Validator ${validationAssessment.decision}: ${validationAssessment.reason} (confidence=${confidenceLabel})`,
-            validationDecision: validationAssessment.decision,
-          };
-          continue;
-        }
+          return { ok: true };
+        },
+      });
 
-        // ── Accepted — commit this attempt and break out of the retry loop.
-        finalOutputBytes = attemptOutputBytes;
-        finalOutputMimeType = attemptOutputMimeType;
-        finalVariant = variant;
-        console.log('render_garment_image attempt accepted', {
-          garmentId: garment.id,
-          attempt: attemptIndex + 1,
-          variant,
-          outputBytes: attemptOutputBytes.length,
-          outputMimeType: attemptOutputMimeType,
-          outputDims,
-          validatorDecision: validationAssessment?.decision ?? 'skipped',
-        });
-        break;
-      }
-
-      if (!finalOutputBytes || !finalOutputMimeType) {
-        // All three attempts exhausted without producing an accepted output.
-        // Mark as failed and restore prior render if this was a force-regen
-        // on a garment that already had a good render. The client UI (F22)
-        // surfaces this via a toast + retry button so the user is not left
-        // staring at a silently-reverted image.
-        const finalError = lastAttemptError?.errorMessage ?? 'All render attempts failed without a specific error.';
+      if (!retryResult.ok) {
+        const finalError = retryResult.errorMessage;
         console.error('render_garment_image all retry variants exhausted', {
           garmentId: garment.id,
-          lastErrorCode: lastAttemptError?.errorCode,
+          lastErrorCode: retryResult.errorCode,
           lastError: finalError,
           hadPriorRender: Boolean(priorRenderedPath),
         });
@@ -1848,15 +1279,15 @@ serve(async (req) => {
             ok: true,
             rendered: false,
             error: 'retry_chain_exhausted',
-            lastErrorCode: lastAttemptError?.errorCode,
+            lastErrorCode: retryResult.errorCode,
             lastError: finalError,
           }),
           { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
         );
       }
 
-      const outputBytes = finalOutputBytes;
-      const outputMimeType = finalOutputMimeType;
+      const outputBytes = retryResult.outputBytes;
+      const outputMimeType = retryResult.outputMimeType;
 
       console.log('render_garment_image Gemini response committed', {
         garmentId: garment.id,
@@ -1865,7 +1296,7 @@ serve(async (req) => {
         endpoint: GEMINI_IMAGE_API_URL,
         outputBytes: outputBytes.length,
         outputMimeType,
-        acceptedVariant: finalVariant,
+        acceptedVariant: retryResult.variant,
       });
 
       // ── Upload rendered image ──
