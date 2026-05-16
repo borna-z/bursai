@@ -4,16 +4,17 @@
 // session — the wardrobe tile then exercises its loading-placeholder
 // branch (the only branch reachable without a hydrated garment row).
 
+// `jest.mock` calls are hoisted above the imports below by Jest's
+// Babel plugin, so the lint complaint about import order is a false
+// positive here. We silence the rule for the local mocks block.
+/* eslint-disable import/first */
 import React from 'react';
 import { render } from '@testing-library/react-native';
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Module mocks must precede the SUT import so import-time resolution
-// inside the SUT picks up the mocked symbols. We bypass `useGarment`
-// (Supabase + AuthContext) and the underlying signed-URL fetcher so the
-// wardrobe tile exercises its loading-placeholder branch without
-// touching the network layer.
+// Module mocks bypass `useGarment` (Supabase + AuthContext) and the
+// underlying signed-URL fetcher so the wardrobe tile exercises its
+// loading-placeholder branch without touching the network layer.
 jest.mock('../../../hooks/useGarments', () => ({
   useGarment: () => ({ data: null }),
 }));
@@ -25,6 +26,7 @@ jest.mock('../../../hooks/useSignedUrl', () => ({
 import { ThemeProvider } from '../../../theme/ThemeProvider';
 import { VisualSearchResults } from '../VisualSearchResults';
 import type { VisualSearchResult } from '../../../hooks/useVisualSearch';
+/* eslint-enable import/first */
 
 function wrap(children: React.ReactNode) {
   // React Query is still required transitively by GarmentCard's color
