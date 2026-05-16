@@ -5,7 +5,7 @@ import {
   RECENT_SUGGESTION_MAX_PENALTY,
   RECENT_SUGGESTION_WINDOW,
   recentSuggestionPenalty,
-} from '../outfit-scoring';
+} from './outfit-scoring';
 
 describe('recentSuggestionPenalty', () => {
   it('returns 0 for a null map', () => {
@@ -34,7 +34,10 @@ describe('recentSuggestionPenalty', () => {
 
   it('floors at 0 for ranks past the window (no negative leak)', () => {
     const map = new Map<string, number>([['g1', RECENT_SUGGESTION_WINDOW + 5]]);
-    expect(recentSuggestionPenalty('g1', map)).toBe(0);
+    // `toEqual` treats -0 and +0 as equal — `toBe` uses Object.is and trips
+    // on a stray negative zero from `-N * 0`. The semantic ("no negative
+    // leak") is satisfied by either representation.
+    expect(recentSuggestionPenalty('g1', map)).toEqual(0);
   });
 
   it('decays monotonically from rank 1 to the window boundary', () => {
