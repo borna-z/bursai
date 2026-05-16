@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertStringIncludes } from "https://deno.land/std@0.220.0/assert/mod.ts";
+import { describe, expect, it } from 'vitest';
 
 import {
   buildCategoryFraming,
@@ -11,7 +11,7 @@ import {
   RETRY_VARIANTS,
   sanitizeEnrichmentValue,
   sourceHasBranding,
-} from "../render-prompt-builder.ts";
+} from '../render-prompt-builder';
 
 function baseGarment(overrides: Partial<GarmentForPrompt> = {}): GarmentForPrompt {
   return {
@@ -29,131 +29,131 @@ function baseGarment(overrides: Partial<GarmentForPrompt> = {}): GarmentForPromp
   };
 }
 
-Deno.test("normalizeMetadataValue strips placeholders", () => {
-  assertEquals(normalizeMetadataValue("hello"), "hello");
-  assertEquals(normalizeMetadataValue("  hello  "), "hello");
-  assertEquals(normalizeMetadataValue(""), null);
-  assertEquals(normalizeMetadataValue("null"), null);
-  assertEquals(normalizeMetadataValue("unknown"), null);
-  assertEquals(normalizeMetadataValue("n/a"), null);
-  assertEquals(normalizeMetadataValue(123), null);
-});
-
-Deno.test("sanitizeEnrichmentValue strips control + non-ASCII, truncates to 200", () => {
-  assertEquals(sanitizeEnrichmentValue(null), null);
-  assertEquals(sanitizeEnrichmentValue("hello\nworld"), "hello world");
-  assertEquals(sanitizeEnrichmentValue("helloÿworld"), "helloworld");
-  const long = "a".repeat(300);
-  assertEquals(sanitizeEnrichmentValue(long)?.length, 200);
-});
-
-Deno.test("formalityLabel buckets", () => {
-  assertEquals(formalityLabel(0), "very casual");
-  assertEquals(formalityLabel(1), "very casual");
-  assertEquals(formalityLabel(2), "casual");
-  assertEquals(formalityLabel(3), "smart casual");
-  assertEquals(formalityLabel(4), "semi-formal");
-  assertEquals(formalityLabel(5), "formal");
-});
-
-Deno.test("extractPromptEnrichment reads nested enrichment fields", () => {
-  const e = extractPromptEnrichment({
-    enrichment: {
-      neckline: "crew",
-      sleeve_length: "short",
-      occasion_tags: ["work", "casual"],
-      logo_description: "small embroidered crest",
-      style_archetype: "preppy",
-    },
+describe('render-prompt-builder', () => {
+  it('normalizeMetadataValue strips placeholders', () => {
+    expect(normalizeMetadataValue("hello")).toEqual("hello");
+    expect(normalizeMetadataValue("  hello  ")).toEqual("hello");
+    expect(normalizeMetadataValue("")).toEqual(null);
+    expect(normalizeMetadataValue("null")).toEqual(null);
+    expect(normalizeMetadataValue("unknown")).toEqual(null);
+    expect(normalizeMetadataValue("n/a")).toEqual(null);
+    expect(normalizeMetadataValue(123)).toEqual(null);
   });
-  assertEquals(e.neckline, "crew");
-  assertEquals(e.sleeveLength, "short");
-  assertEquals(e.occasionTags, ["work", "casual"]);
-  assertEquals(e.logoDescription, "small embroidered crest");
-  assertEquals(e.styleArchetype, "preppy");
-});
 
-Deno.test("extractPromptEnrichment handles null/non-object", () => {
-  const e = extractPromptEnrichment(null);
-  assertEquals(e.neckline, null);
-  assertEquals(e.occasionTags, null);
-});
+  it('sanitizeEnrichmentValue strips control + non-ASCII, truncates to 200', () => {
+    expect(sanitizeEnrichmentValue(null)).toEqual(null);
+    expect(sanitizeEnrichmentValue("hello\nworld")).toEqual("hello world");
+    expect(sanitizeEnrichmentValue("helloÿworld")).toEqual("helloworld");
+    const long = "a".repeat(300);
+    expect(sanitizeEnrichmentValue(long)?.length).toEqual(200);
+  });
 
-Deno.test("isPositiveBrandingValue filters negative phrases", () => {
-  assertEquals(isPositiveBrandingValue("Nike swoosh"), true);
-  assertEquals(isPositiveBrandingValue("none"), false);
-  assertEquals(isPositiveBrandingValue("no logo"), false);
-  assertEquals(isPositiveBrandingValue("not visible"), false);
-  assertEquals(isPositiveBrandingValue("plain"), false);
-  assertEquals(isPositiveBrandingValue(""), false);
-  assertEquals(isPositiveBrandingValue(null), false);
-});
+  it('formalityLabel buckets', () => {
+    expect(formalityLabel(0)).toEqual("very casual");
+    expect(formalityLabel(1)).toEqual("very casual");
+    expect(formalityLabel(2)).toEqual("casual");
+    expect(formalityLabel(3)).toEqual("smart casual");
+    expect(formalityLabel(4)).toEqual("semi-formal");
+    expect(formalityLabel(5)).toEqual("formal");
+  });
 
-Deno.test("sourceHasBranding true when logo text is positive", () => {
-  assertEquals(
-    sourceHasBranding({ enrichment: { logo_description: "Adidas stripes" } }),
-    true,
-  );
-  assertEquals(
-    sourceHasBranding({ enrichment: { logo_description: "no branding" } }),
-    false,
-  );
-});
+  it('extractPromptEnrichment reads nested enrichment fields', () => {
+    const e = extractPromptEnrichment({
+      enrichment: {
+        neckline: "crew",
+        sleeve_length: "short",
+        occasion_tags: ["work", "casual"],
+        logo_description: "small embroidered crest",
+        style_archetype: "preppy",
+      },
+    });
+    expect(e.neckline).toEqual("crew");
+    expect(e.sleeveLength).toEqual("short");
+    expect(e.occasionTags).toEqual(["work", "casual"]);
+    expect(e.logoDescription).toEqual("small embroidered crest");
+    expect(e.styleArchetype).toEqual("preppy");
+  });
 
-Deno.test("buildCategoryFraming differs by category", () => {
-  const ghost = buildCategoryFraming("ghost_mannequin", "female");
-  const shoes = buildCategoryFraming("shoes", "female");
-  const bag = buildCategoryFraming("bag", "female");
-  const jewelry = buildCategoryFraming("jewelry", "female");
-  assert(ghost.hardRequirements.some((l) => l.includes("ghost mannequin")));
-  assert(shoes.negativeRequirements.some((l) => l.includes("NEVER place the shoe")));
-  assert(bag.hardRequirements.some((l) => l.includes("bag front-on")));
-  assert(jewelry.hardRequirements.some((l) => l.includes("Close-up product shot")));
-});
+  it('extractPromptEnrichment handles null/non-object', () => {
+    const e = extractPromptEnrichment(null);
+    expect(e.neckline).toEqual(null);
+    expect(e.occasionTags).toEqual(null);
+  });
 
-Deno.test("buildGarmentRenderPrompt primary contains lead line + hard reqs", () => {
-  const out = buildGarmentRenderPrompt(baseGarment(), "female", "primary");
-  assertStringIncludes(out, "Subject: a oxford shirt in blue, cotton.");
-  assertStringIncludes(out, "Hard requirements:");
-  assertStringIncludes(out, "Negative requirements:");
-  assertStringIncludes(out, "Silhouette: fitted");
-  assertStringIncludes(out, "Sleeve length: long");
-});
+  it('isPositiveBrandingValue filters negative phrases', () => {
+    expect(isPositiveBrandingValue("Nike swoosh")).toEqual(true);
+    expect(isPositiveBrandingValue("none")).toEqual(false);
+    expect(isPositiveBrandingValue("no logo")).toEqual(false);
+    expect(isPositiveBrandingValue("not visible")).toEqual(false);
+    expect(isPositiveBrandingValue("plain")).toEqual(false);
+    expect(isPositiveBrandingValue("")).toEqual(false);
+    expect(isPositiveBrandingValue(null)).toEqual(false);
+  });
 
-Deno.test("buildGarmentRenderPrompt tightened includes correction emphasis", () => {
-  const out = buildGarmentRenderPrompt(baseGarment(), "female", "tightened");
-  assertStringIncludes(out, "CRITICAL CORRECTION FROM PRIOR ATTEMPT:");
-});
+  it('sourceHasBranding true when logo text is positive', () => {
+    expect(
+      sourceHasBranding({ enrichment: { logo_description: "Adidas stripes" } }),
+    ).toEqual(true);
+    expect(
+      sourceHasBranding({ enrichment: { logo_description: "no branding" } }),
+    ).toEqual(false);
+  });
 
-Deno.test("buildGarmentRenderPrompt minimal omits metadata block", () => {
-  const out = buildGarmentRenderPrompt(baseGarment(), "female", "minimal");
-  assertStringIncludes(out, "Subject: a oxford shirt");
-  assertEquals(out.includes("CRITICAL CORRECTION"), false);
-  assertEquals(out.includes("Sleeve length"), false);
-});
+  it('buildCategoryFraming differs by category', () => {
+    const ghost = buildCategoryFraming("ghost_mannequin", "female");
+    const shoes = buildCategoryFraming("shoes", "female");
+    const bag = buildCategoryFraming("bag", "female");
+    const jewelry = buildCategoryFraming("jewelry", "female");
+    expect(ghost.hardRequirements.some((l) => l.includes("ghost mannequin"))).toBe(true);
+    expect(shoes.negativeRequirements.some((l) => l.includes("NEVER place the shoe"))).toBe(true);
+    expect(bag.hardRequirements.some((l) => l.includes("bag front-on"))).toBe(true);
+    expect(jewelry.hardRequirements.some((l) => l.includes("Close-up product shot"))).toBe(true);
+  });
 
-Deno.test("buildGarmentRenderPrompt maskedInput swaps background-removal line", () => {
-  const masked = buildGarmentRenderPrompt(baseGarment(), "female", "primary", true);
-  const unmasked = buildGarmentRenderPrompt(baseGarment(), "female", "primary", false);
-  assertStringIncludes(masked, "pre-segmented onto a transparent background");
-  assertStringIncludes(unmasked, "Remove the person, body, skin");
-});
+  it('buildGarmentRenderPrompt primary contains lead line + hard reqs', () => {
+    const out = buildGarmentRenderPrompt(baseGarment(), "female", "primary");
+    expect(out).toContain("Subject: a oxford shirt in blue, cotton.");
+    expect(out).toContain("Hard requirements:");
+    expect(out).toContain("Negative requirements:");
+    expect(out).toContain("Silhouette: fitted");
+    expect(out).toContain("Sleeve length: long");
+  });
 
-Deno.test("buildGarmentRenderPrompt minimal maskedInput uses pre-segmented line", () => {
-  const out = buildGarmentRenderPrompt(baseGarment(), "female", "minimal", true);
-  assertStringIncludes(out, "pre-segmented onto a transparent background");
-});
+  it('buildGarmentRenderPrompt tightened includes correction emphasis', () => {
+    const out = buildGarmentRenderPrompt(baseGarment(), "female", "tightened");
+    expect(out).toContain("CRITICAL CORRECTION FROM PRIOR ATTEMPT:");
+  });
 
-Deno.test("RETRY_VARIANTS order is primary/tightened/minimal", () => {
-  assertEquals([...RETRY_VARIANTS], ["primary", "tightened", "minimal"]);
-});
+  it('buildGarmentRenderPrompt minimal omits metadata block', () => {
+    const out = buildGarmentRenderPrompt(baseGarment(), "female", "minimal");
+    expect(out).toContain("Subject: a oxford shirt");
+    expect(out.includes("CRITICAL CORRECTION")).toEqual(false);
+    expect(out.includes("Sleeve length")).toEqual(false);
+  });
 
-Deno.test("buildGarmentRenderPrompt shoes category omits ghost mannequin lines", () => {
-  const out = buildGarmentRenderPrompt(
-    baseGarment({ category: "shoes", subcategory: "sneakers" }),
-    "female",
-    "primary",
-  );
-  assertStringIncludes(out, "Photograph the shoe");
-  assertEquals(out.includes("ghost mannequin"), false);
+  it('buildGarmentRenderPrompt maskedInput swaps background-removal line', () => {
+    const masked = buildGarmentRenderPrompt(baseGarment(), "female", "primary", true);
+    const unmasked = buildGarmentRenderPrompt(baseGarment(), "female", "primary", false);
+    expect(masked).toContain("pre-segmented onto a transparent background");
+    expect(unmasked).toContain("Remove the person, body, skin");
+  });
+
+  it('buildGarmentRenderPrompt minimal maskedInput uses pre-segmented line', () => {
+    const out = buildGarmentRenderPrompt(baseGarment(), "female", "minimal", true);
+    expect(out).toContain("pre-segmented onto a transparent background");
+  });
+
+  it('RETRY_VARIANTS order is primary/tightened/minimal', () => {
+    expect([...RETRY_VARIANTS]).toEqual(["primary", "tightened", "minimal"]);
+  });
+
+  it('buildGarmentRenderPrompt shoes category omits ghost mannequin lines', () => {
+    const out = buildGarmentRenderPrompt(
+      baseGarment({ category: "shoes", subcategory: "sneakers" }),
+      "female",
+      "primary",
+    );
+    expect(out).toContain("Photograph the shoe");
+    expect(out.includes("ghost mannequin")).toEqual(false);
+  });
 });
