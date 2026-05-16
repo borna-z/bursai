@@ -334,10 +334,14 @@ ${comboDescriptions}`;
       complexity: isStylistMode ? "standard" : "standard",
       max_tokens: mode === "generate" ? (isStylistMode ? 400 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
       functionName: "burs_style_engine",
-      cacheTtlSeconds: 300,
-      cacheNamespace: regenerateToken
-        ? `style_engine_regen_${regenerateToken}`
-        : "style_engine",
+      // Regenerate taps mint a fresh UUID per request, so a regen-scoped
+      // cache row would never be re-hit before its TTL expires — writing
+      // it just pollutes ai_response_cache. Skip the cache entirely
+      // (ttl=0 short-circuits both lookup and store inside callBursAI)
+      // and let ambient calls keep their hit pattern under the default
+      // namespace.
+      cacheTtlSeconds: regenerateToken ? 0 : 300,
+      cacheNamespace: "style_engine",
     }, serviceClient);
     return { data };
   } catch (e: any) {
@@ -1632,6 +1636,18 @@ serve(async (req) => {
         });
       }
       const fallbackLayering = validateLayeringCompleteness(best.items);
+      // Phase 0 — variety. Mirror the AI-path log write so the next
+      // generate's recency map sees this outfit too. Without it, a
+      // user hitting the deterministic fallback (AI 5xx) would see the
+      // same `activeCombos[0]` returned again on the next tap. Best-effort.
+      try {
+        const bestHash = best.items.map(i => i.garment.id).sort().join("|");
+        await serviceSupabase
+          .from("style_engine_suggestion_log")
+          .insert({ user_id: userId, outfit_hash: bestHash, occasion });
+      } catch (logErr) {
+        console.warn("Failed to log fallback style engine suggestion", logErr);
+      }
       return new Response(JSON.stringify({
         // Title enrichment matches the AI-refinement path below — keep
         // mobile's `EngineResponseItem.title` populated even on the

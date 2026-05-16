@@ -1632,8 +1632,9 @@ export function wearPatternScore(garment: GarmentRow, patterns: WearPatternProfi
  * user's recent generate suggestions and slightly boosts garments that have
  * been absent from recent results. Penalty decays linearly with recency
  * rank: rank 1 (most recently shown) takes the full penalty, rank
- * RECENT_SUGGESTION_WINDOW (default 20) takes ~0. Garments missing from the
- * recency map get a small freshness bonus.
+ * RECENT_SUGGESTION_WINDOW (default 20) takes 1/WINDOW of max (~5% of full),
+ * and ranks strictly past the window are floored at 0. Garments missing
+ * from the recency map get a small freshness bonus.
  *
  * The magnitude is intentionally conservative — at most ~15% of a typical
  * `scoreGarment` total — so a wardrobe with few candidates per slot still
