@@ -32,10 +32,10 @@ Lift the four helpers verbatim into a new shared module. Port the existing trans
 
 Four exports, each accepting an injected Supabase client (so tests can stub):
 
-- `updateGarmentRenderState(client, garmentId, patch)` — state transition.
-- `claimGarmentRender(client, garmentId, ...)` — atomic claim. Returns `{ claimed: boolean, row }`.
-- `safeMarkRenderFailed(client, garmentId, errorDetails)` — terminal failure write with error logging.
-- `safeRestoreOrFailRender(client, garmentId, ...)` — idempotent restore-or-fail used by the retry path.
+- `updateGarmentRenderState(client, garmentId, patch, context)` — state transition. Throws on DB error.
+- `claimGarmentRender(client, garmentId, mannequinPresentation, force?)` — atomic claim via `.update(...).in('render_status', allowed).select('id').maybeSingle()`. Returns `Promise<boolean>` (true iff the row was claimed). Preserve this exact contract — the current orchestrator uses the return value directly as a boolean.
+- `safeMarkRenderFailed(client, garmentId, updates, context)` — terminal failure write. Wraps the `garments` update in `try/catch`; only logs to `console.error` when persisting the failure state itself errors or crashes. The normal-path success of marking a render failed produces no log entry — preserve this exactly.
+- `safeRestoreOrFailRender(client, garmentId, ...)` — idempotent restore-or-fail used by the retry path. Falls back to `safeMarkRenderFailed` when there is no prior good render to restore.
 
 All four touch the `garments` table. The module owns the SQL/RPC details; the orchestrator only calls these functions.
 
@@ -59,9 +59,9 @@ All four touch the `garments` table. The module owns the SQL/RPC details; the or
 - `supabase/functions/render_garment_image/index.ts` < 1100 lines.
 - `npx vitest run` clean.
 - Test coverage includes:
-  - Claim contention: two concurrent `claimGarmentRender` calls for the same garment — exactly one wins.
+  - Claim contention: two concurrent `claimGarmentRender` calls for the same garment — exactly one returns `true`, the other returns `false`. (`claimGarmentRender` returns `Promise<boolean>`; do not refactor it into an object return.)
   - `safeRestoreOrFailRender` idempotency: calling twice in succession converges to the same row state.
-  - `safeMarkRenderFailed` writes an error log entry on each invocation.
+  - `safeMarkRenderFailed` writes the `garments` row to `render_status='failed'` on the normal path and emits `console.error` only when the underlying `.update(...)` errors or throws — matching the current behavior.
 - No behavior change — manual smoke: render a single garment end-to-end against staging; verify the same `garments` row state transitions occur.
 - Lint clean.
 
