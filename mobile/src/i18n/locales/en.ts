@@ -1424,6 +1424,8 @@ export const en: Record<string, string> = {
   'editGarment.field.wearCount': 'Wear count',
   'editGarment.field.price': 'Price',
   'editGarment.field.inLaundry': 'In laundry',
+  'editGarment.advanced.show': 'Show advanced fields',
+  'editGarment.advanced.hide': 'Hide advanced fields',
 
   // ─── Settings - Appearance ──────────────────────────────────────────────
   'settings.appearance.theme.light.label': 'Light',

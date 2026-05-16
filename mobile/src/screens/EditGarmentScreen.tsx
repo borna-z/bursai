@@ -52,7 +52,7 @@ import {
   PATTERNS,
   matchCanonical,
 } from '../lib/garmentTaxonomy';
-import { AddPieceStep3Form } from './AddPieceStep3/AddPieceStep3Form';
+import { AddPieceStep3Form, type HideablePickerKey } from './AddPieceStep3/AddPieceStep3Form';
 import type {
   GarmentFormState,
   CategoryValue,
@@ -63,6 +63,12 @@ import type {
 } from './AddPieceStep3/garmentMetadataForm.types';
 import type { Garment, GarmentUpdate } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+
+// Pickers EditGarmentScreen hides by default. Wrapped in a module-level
+// frozen tuple so the `hidePickers` prop's identity is stable across
+// renders — re-creating the array per-render would defeat any future
+// `React.memo` on the form.
+const EDIT_HIDDEN_PICKERS: readonly HideablePickerKey[] = ['formality'] as const;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'EditGarment'>;
@@ -198,6 +204,13 @@ export function EditGarmentScreen() {
   const [price, setPrice] = React.useState('');
   const [inLaundry, setInLaundry] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  // Pre-#860 the legacy edit screen hid the formality picker entirely;
+  // the design note's chosen Option B keeps that default but exposes an
+  // "Advanced" toggle so users who need to correct an auto-detected
+  // formality can opt in. `secondaryColor` stays visible as the form's
+  // default — see
+  // `docs/modularization/2026-05-17-edit-garment-screen-picker-visibility-design.md`.
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   const lastHydratedIdRef = React.useRef<string | null>(null);
   // Snapshot the values pre-fill landed with — compared against the live form
@@ -551,8 +564,31 @@ export function EditGarmentScreen() {
                 key={garment.id}
                 initial={initialForm}
                 onChange={setFormState}
+                hidePickers={showAdvanced ? undefined : EDIT_HIDDEN_PICKERS}
               />
             ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                showAdvanced
+                  ? tr('editGarment.advanced.hide')
+                  : tr('editGarment.advanced.show')
+              }
+              onPress={() => setShowAdvanced((prev) => !prev)}
+              style={({ pressed }) => [
+                {
+                  marginTop: 12,
+                  paddingVertical: 8,
+                  alignSelf: 'flex-start',
+                  opacity: pressed ? 0.6 : 1,
+                },
+              ]}>
+              <Text style={{ color: t.fg2, fontSize: 13, letterSpacing: 0.5 }}>
+                {showAdvanced
+                  ? tr('editGarment.advanced.hide')
+                  : tr('editGarment.advanced.show')}
+              </Text>
+            </Pressable>
           </FormCard>
 
           {/* Usage — wear count + price (edit-only) */}

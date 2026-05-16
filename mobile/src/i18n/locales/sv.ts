@@ -1501,6 +1501,8 @@ export const sv: Record<string, string> = {
   'editGarment.field.wearCount': 'Antal användningar',
   'editGarment.field.price': 'Pris',
   'editGarment.field.inLaundry': 'I tvätten',
+  'editGarment.advanced.show': 'Visa avancerade fält',
+  'editGarment.advanced.hide': 'Dölj avancerade fält',
   'editGarment.action.cancel': 'Avbryt',
   'editGarment.action.save': 'Spara',
   'editGarment.eyebrow': 'Redigera',
