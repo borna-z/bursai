@@ -6,7 +6,7 @@
 // state lives here — every behavioural side-effect flows through the
 // callback arguments.
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Sentry } from '../lib/sentry';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
@@ -143,5 +143,5 @@ export function useStyleChatStreaming(): {
     );
   }, []);
 
-  return { streamTurn };
+  return useMemo(() => ({ streamTurn }), [streamTurn]);
 }

@@ -2,7 +2,7 @@
 // Hydration runs first; streaming gated on `isHydrating`; per-mode buffer
 // cache survives toggles; `subscription_required` routes to paywall.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -54,7 +54,14 @@ export function useStyleChat(): UseStyleChatResult {
   const { user, session } = useAuth();
   const queryClient = useQueryClient();
   const garmentsQuery = useFlatGarments();
-  const wardrobeIds = garmentsQuery.hasNextPage ? [] : (garmentsQuery.data ?? []).map((g) => g.id);
+  // Memoize so a stable reference flows into `sendMessage`'s dep array;
+  // without this, every render churns the callback identity (and triggers
+  // a re-render in every consumer that holds onto `sendMessage`).
+  const wardrobeIds = useMemo(
+    () =>
+      garmentsQuery.hasNextPage ? [] : (garmentsQuery.data ?? []).map((g) => g.id),
+    [garmentsQuery.data, garmentsQuery.hasNextPage],
+  );
 
   const [currentMode, setCurrentMode] = useState<StyleChatMode>('style');
   const history = useStyleChatHistory(user?.id, currentMode);
@@ -80,6 +87,11 @@ export function useStyleChat(): UseStyleChatResult {
   const streamingRef = useRef<boolean>(false);
   const messagesRef = useRef<ChatMessage[]>(history.messages);
   messagesRef.current = history.messages;
+  // Synchronous mirror of `history.isHydrating` so `sendMessage` can gate
+  // on it without taking a render-cycle dep on `history` (which would
+  // make the callback churn identity on every streaming chunk).
+  const isHydratingRef = useRef<boolean>(history.isHydrating);
+  isHydratingRef.current = history.isHydrating;
   const setMessages = history.setMessages;
 
   useEffect(() => {
@@ -117,13 +129,16 @@ export function useStyleChat(): UseStyleChatResult {
       setRefineMode(null);
       return mode;
     });
+    // history methods (snapshotToCache, etc.) are stable useCallback refs;
+    // including `history` here would churn setMode identity every render
+    // because the memoized history object's deps include `messages`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, history]);
+  }, [user?.id]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!session?.access_token || !user?.id || !content.trim()) return;
     if (streamingRef.current || isStreaming) return;
-    if (history.isHydrating) return;
+    if (isHydratingRef.current) return;
     streamingRef.current = true;
 
     const trimmed = content.trim();
@@ -181,8 +196,12 @@ export function useStyleChat(): UseStyleChatResult {
         streamingRef,
       }),
     });
+    // history methods are stable useCallback refs; isHydrating is read via
+    // a synchronous ref (`isHydratingRef`) so we don't need the whole
+    // `history` object in deps (it churns when `messages` updates each
+    // stream chunk).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token, user?.id, isStreaming, queryClient, wardrobeIds, streamTurn, history]);
+  }, [session?.access_token, user?.id, isStreaming, queryClient, wardrobeIds, streamTurn]);
 
   const clearChat = useCallback(async () => {
     abortRef.current?.abort();
@@ -205,8 +224,9 @@ export function useStyleChat(): UseStyleChatResult {
       console.warn('[useStyleChat] clearChat delete failed:', deleteError.message);
     }
     queryClient.invalidateQueries({ queryKey: ['chatHistory', user.id] });
+    // history methods are stable useCallback refs (see sendMessage above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, history, queryClient]);
+  }, [user?.id, queryClient]);
 
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort();

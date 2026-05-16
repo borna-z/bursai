@@ -6,7 +6,10 @@
 // transitions via `setHydratedMessages` so the same cache survives
 // `setMode` -> hydrate -> SELECT-tail across rapid toggles.
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useCallback, useEffect, useMemo, useRef, useState,
+  type Dispatch, type SetStateAction,
+} from 'react';
 
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
@@ -126,15 +129,32 @@ export function useStyleChatHistory(
     };
   }, [userId, currentMode, cacheKey]);
 
-  return {
-    messages,
-    setMessages,
-    isHydrating,
-    cacheKey,
-    snapshotToCache,
-    deleteCacheEntry,
-    clearAllCaches,
-    bumpPendingPersist,
-    releasePendingPersist,
-  };
+  // Memoize so the orchestrator can include `history` in useCallback /
+  // useEffect deps without forcing identity churn (and thereby callback
+  // rebuilds) on every render. `messages` / `isHydrating` change on
+  // state updates as intended; the methods + setMessages are stable.
+  return useMemo(
+    () => ({
+      messages,
+      setMessages,
+      isHydrating,
+      cacheKey,
+      snapshotToCache,
+      deleteCacheEntry,
+      clearAllCaches,
+      bumpPendingPersist,
+      releasePendingPersist,
+    }),
+    [
+      messages,
+      setMessages,
+      isHydrating,
+      cacheKey,
+      snapshotToCache,
+      deleteCacheEntry,
+      clearAllCaches,
+      bumpPendingPersist,
+      releasePendingPersist,
+    ],
+  );
 }

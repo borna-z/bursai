@@ -2,7 +2,7 @@
 // builder, extracted from useWeekGenerator. Reusable across other
 // day-aware features (per Phase 2 design).
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -59,12 +59,22 @@ export function useWeatherAndContext(): {
     staleTime: 60 * 60 * 1000,
   });
 
-  const recentlyWornIds = Array.from(recentlyWornQ.data ?? []);
+  // Memoize the array so a referential-equality consumer (or a stable
+  // ref capture in the orchestrator) doesn't see a fresh array reference
+  // every render — `recentlyWornQ.data` is a Set, so Array.from would
+  // otherwise allocate per render.
+  const recentlyWornIds = useMemo(
+    () => Array.from(recentlyWornQ.data ?? []),
+    [recentlyWornQ.data],
+  );
 
   const resolveWeather = useCallback(async (): Promise<DayWeatherInput> => {
     const fresh = await awaitFreshWeather(queryClient);
     return toDayWeather(fresh);
   }, [queryClient]);
 
-  return { recentlyWornIds, resolveWeather };
+  return useMemo(
+    () => ({ recentlyWornIds, resolveWeather }),
+    [recentlyWornIds, resolveWeather],
+  );
 }

@@ -8,7 +8,7 @@ import {
 
 import { getLatestActiveLook } from '../lib/chatActiveLook';
 import type { StyleChatResponseEnvelope } from '../lib/styleChatContract';
-import type { ChatMessage, StyleChatMode } from './useStyleChat.helpers';
+import type { ChatMessage } from './useStyleChat.helpers';
 
 export interface RefineModeState {
   messageId: string;
@@ -18,9 +18,6 @@ export interface RefineModeState {
 }
 
 export interface StyleChatUIAPI {
-  currentMode: StyleChatMode;
-  currentModeRef: MutableRefObject<StyleChatMode>;
-  setCurrentMode: Dispatch<SetStateAction<StyleChatMode>>;
   suggestionChips: string[];
   setSuggestionChips: Dispatch<SetStateAction<string[]>>;
   anchoredGarmentId: string | null;
@@ -44,10 +41,6 @@ export interface StyleChatUIAPI {
 }
 
 export function useStyleChatUI(messages: ChatMessage[]): StyleChatUIAPI {
-  const [currentMode, setCurrentMode] = useState<StyleChatMode>('style');
-  const currentModeRef = useRef<StyleChatMode>(currentMode);
-  currentModeRef.current = currentMode;
-
   const [suggestionChips, setSuggestionChips] = useState<string[]>([]);
 
   const [anchoredGarmentId, setAnchoredGarmentIdState] = useState<string | null>(null);
@@ -105,25 +98,41 @@ export function useStyleChatUI(messages: ChatMessage[]): StyleChatUIAPI {
     });
   }, []);
 
-  return {
-    currentMode,
-    currentModeRef,
-    setCurrentMode,
-    suggestionChips,
-    setSuggestionChips,
-    anchoredGarmentId,
-    anchorRef,
-    setAnchoredGarmentId,
-    activeLookClearedAt,
-    activeLookClearedAtRef,
-    setActiveLookClearedAt,
-    activeLook,
-    clearActiveLook,
-    refineMode,
-    refineModeRef,
-    setRefineMode,
-    enterRefineMode,
-    exitRefineMode,
-    toggleLockedSlot,
-  };
+  // Memoize so the orchestrator can include `ui` (or any destructured
+  // setters/methods) in deps without churning identity per render.
+  return useMemo(
+    () => ({
+      suggestionChips,
+      setSuggestionChips,
+      anchoredGarmentId,
+      anchorRef,
+      setAnchoredGarmentId,
+      activeLookClearedAt,
+      activeLookClearedAtRef,
+      setActiveLookClearedAt,
+      activeLook,
+      clearActiveLook,
+      refineMode,
+      refineModeRef,
+      setRefineMode,
+      enterRefineMode,
+      exitRefineMode,
+      toggleLockedSlot,
+    }),
+    [
+      suggestionChips,
+      anchoredGarmentId,
+      anchorRef,
+      setAnchoredGarmentId,
+      activeLookClearedAt,
+      activeLookClearedAtRef,
+      activeLook,
+      clearActiveLook,
+      refineMode,
+      refineModeRef,
+      enterRefineMode,
+      exitRefineMode,
+      toggleLockedSlot,
+    ],
+  );
 }

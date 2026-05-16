@@ -164,7 +164,15 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
           if (result.message !== SUBSCRIPTION_SENTINEL) {
             Sentry.withScope((s) => {
               s.setTag('mutation', 'usePhotoFeedback.analyze');
-              Sentry.captureException(new Error(result.message));
+              // Prefer the original Error so the Sentry breadcrumb /
+              // stack is preserved verbatim (matches pre-refactor
+              // behaviour); fall back to a synthesised Error only when
+              // the cause was a non-Error throw.
+              Sentry.captureException(
+                result.cause instanceof Error
+                  ? result.cause
+                  : new Error(result.message),
+              );
             });
           }
           setError(result.message);
@@ -186,6 +194,9 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
         }
       }
     },
+    // `cleanup` is memoized inside `useFeedbackCleanup` so its identity is
+    // stable across renders; same for `fetchFeedback`. Listing the
+    // individual methods would clutter the deps without changing behaviour.
     [user, session?.access_token, queryClient, cleanup, fetchFeedback],
   );
 
@@ -199,6 +210,9 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
     setError(null);
   }, [cleanup]);
 
+  // Mount-lifetime cleanup. `cleanup.sweepTracked` is a stable callback so
+  // the memoized `cleanup` object identity is stable across renders — this
+  // effect now runs exactly once on mount / unmount.
   useEffect(() => {
     return () => {
       abortRef.current?.abort();

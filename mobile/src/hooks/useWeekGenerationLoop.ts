@@ -8,7 +8,7 @@
 // propagation. Stateless — every output flows back through callbacks /
 // the returned `WeekGeneratorEntry`.
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   callEdgeFunction,
@@ -153,5 +153,5 @@ export function useWeekGenerationLoop(): {
     [],
   );
 
-  return { callOneDay };
+  return useMemo(() => ({ callOneDay }), [callOneDay]);
 }

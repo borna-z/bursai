@@ -3,7 +3,7 @@
 // Pure storage / filesystem operations; safe to call with stale paths
 // (no-ops on missing files / already-deleted blobs).
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { File as FsFile } from 'expo-file-system';
 
 import { Sentry } from '../lib/sentry';
@@ -72,11 +72,19 @@ export function useFeedbackCleanup(): FeedbackCleanupAPI {
     }
   }, []);
 
-  return {
-    trackSelfiePath,
-    getTrackedSelfiePath,
-    sweepSelfie,
-    sweepTemp,
-    sweepTracked,
-  };
+  // Memoize the returned object so consumers can include `cleanup` in
+  // useEffect / useCallback deps without churning identity every render.
+  // The fresh-object-each-render shape silently broke the unmount-cleanup
+  // useEffect in `usePhotoFeedback` (it fired on every render, aborting
+  // in-flight uploads) and inflated `submitFeedback` identity churn.
+  return useMemo(
+    () => ({
+      trackSelfiePath,
+      getTrackedSelfiePath,
+      sweepSelfie,
+      sweepTemp,
+      sweepTracked,
+    }),
+    [trackSelfiePath, getTrackedSelfiePath, sweepSelfie, sweepTemp, sweepTracked],
+  );
 }

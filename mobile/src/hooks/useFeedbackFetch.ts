@@ -4,7 +4,7 @@
 // `FeedbackFetchResult` discriminated union so the orchestrator hook can
 // surface the right UX without parsing HTTP details itself.
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   callEdgeFunction,
@@ -18,7 +18,7 @@ export type FeedbackFetchResult =
   | { kind: 'ok'; row: DeployedOutfitFeedbackRow }
   | { kind: 'paywall' }
   | { kind: 'aborted' }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; cause?: unknown };
 
 export function useFeedbackFetch(): {
   fetchFeedback: (params: {
@@ -62,15 +62,21 @@ export function useFeedbackFetch(): {
               return null;
             }
           })();
-          return { kind: 'error', message: parsed?.error ?? `HTTP ${callErr.status}` };
+          return {
+            kind: 'error',
+            message: parsed?.error ?? `HTTP ${callErr.status}`,
+            cause: callErr,
+          };
         }
         const message =
           callErr instanceof Error ? callErr.message : 'Photo feedback failed';
         if (message === SUBSCRIPTION_SENTINEL) return { kind: 'paywall' };
-        return { kind: 'error', message };
+        return { kind: 'error', message, cause: callErr };
       }
     },
     [],
   );
-  return { fetchFeedback };
+  // Memoize so consumers can put the returned object in deps without
+  // churning callback identity every render.
+  return useMemo(() => ({ fetchFeedback }), [fetchFeedback]);
 }
