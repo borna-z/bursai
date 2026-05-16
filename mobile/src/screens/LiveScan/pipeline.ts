@@ -68,6 +68,7 @@ import { callEdgeFunction } from '../../lib/edgeFunctionClient';
 import { getLocale } from '../../lib/i18n';
 import {
   persistGarmentWithOfflineFallback,
+  surfaceRenderEnqueueFailureToast,
   OfflineQueuedError,
 } from '../../lib/garmentSave';
 import type { AnalysisResult } from '../../hooks/useAnalyzeGarment';
@@ -258,19 +259,22 @@ export async function persistAnalyzedScan(
 ): Promise<void> {
   events.emit('stage', { sessionId: payload.sessionId, stage: 'persist' });
   try {
-    const garment = await persistGarmentWithOfflineFallback({
-      // Pre-generated row UUID — must match the folder name we
-      // uploaded raw + masked variants into, otherwise the row's
-      // `image_path` / `original_image_path` would point at files
-      // under a folder whose name nothing else can reconstruct.
-      garmentId: payload.garmentId,
-      storagePath: payload.rawStoragePath,
-      maskedStoragePath: payload.maskedStoragePath ?? undefined,
-      maskStatus: payload.maskStatus,
-      analysis: payload.analysis,
-      source: 'live_scan',
-      enableStudioQuality,
-    });
+    const garment = await persistGarmentWithOfflineFallback(
+      {
+        // Pre-generated row UUID — must match the folder name we
+        // uploaded raw + masked variants into, otherwise the row's
+        // `image_path` / `original_image_path` would point at files
+        // under a folder whose name nothing else can reconstruct.
+        garmentId: payload.garmentId,
+        storagePath: payload.rawStoragePath,
+        maskedStoragePath: payload.maskedStoragePath ?? undefined,
+        maskStatus: payload.maskStatus,
+        analysis: payload.analysis,
+        source: 'live_scan',
+        enableStudioQuality,
+      },
+      { onRenderEnqueueFailure: surfaceRenderEnqueueFailureToast },
+    );
     events.emit('saved', { sessionId: payload.sessionId, garmentId: garment.id });
     invalidate();
   } catch (err) {
