@@ -1,9 +1,11 @@
+import { getLatestActiveLook } from '../lib/chatActiveLook';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import {
   isStyleChatResponseEnvelope,
   type PersistedStyleChatMessage,
   type ShoppingResultCard,
+  type StyleChatActiveLookInput,
   type StyleChatResponseEnvelope,
 } from '../lib/styleChatContract';
 
@@ -147,6 +149,154 @@ export async function persistMessages(
       Sentry.captureException(error);
     });
   }
+}
+
+export interface SendTurnInputs {
+  messages: ChatMessage[];
+  trimmedContent: string;
+  activeLookClearedAt: number | null;
+  anchoredGarmentId: string | null;
+  refineSnapshot: {
+    messageId: string;
+    garmentIds: string[];
+    explanation: string;
+    lockedIds: Set<string>;
+  } | null;
+}
+
+export interface SendTurnPayload {
+  messagesPayload: { role: 'user' | 'assistant'; content: string }[];
+  activeLookPayload: StyleChatActiveLookInput | undefined;
+  lockedSlots: string[] | undefined;
+}
+
+export function buildSendTurnPayload(inputs: SendTurnInputs): SendTurnPayload {
+  const { messages, trimmedContent, activeLookClearedAt, anchoredGarmentId, refineSnapshot } =
+    inputs;
+
+  const priorHistory = messages
+    .filter((m) => !m.isStreaming && !m.isErrored)
+    .slice(-HISTORY_TURNS)
+    .map((m) => ({ role: m.role, content: m.content }));
+  const messagesPayload = [
+    ...priorHistory,
+    { role: 'user' as const, content: trimmedContent },
+  ];
+
+  const lookSourceMessages = (activeLookClearedAt === null
+    ? messages
+    : messages.filter((m) => m.timestamp.getTime() >= activeLookClearedAt)
+  ).filter((m) => !m.isErrored);
+  const latestLook = getLatestActiveLook(lookSourceMessages);
+  const threadActiveLook: StyleChatActiveLookInput | undefined = latestLook
+    ? {
+        garment_ids: latestLook.active_look?.garment_ids?.length
+          ? latestLook.active_look.garment_ids
+          : latestLook.outfit_ids,
+        explanation:
+          latestLook.active_look?.explanation ?? latestLook.outfit_explanation ?? null,
+        source: 'mobile_chat_thread',
+        anchor_garment_id: anchoredGarmentId,
+        anchor_locked: Boolean(anchoredGarmentId),
+      }
+    : undefined;
+
+  const refineActiveLook: StyleChatActiveLookInput | undefined = refineSnapshot
+    ? {
+        garment_ids: refineSnapshot.garmentIds,
+        explanation: refineSnapshot.explanation || null,
+        source: 'mobile_chat_refine',
+        anchor_garment_id: anchoredGarmentId,
+        anchor_locked: Boolean(anchoredGarmentId),
+      }
+    : undefined;
+
+  const lockedSlots =
+    refineSnapshot && refineSnapshot.lockedIds.size > 0
+      ? Array.from(refineSnapshot.lockedIds)
+      : undefined;
+
+  return {
+    messagesPayload,
+    activeLookPayload: refineActiveLook ?? threadActiveLook,
+    lockedSlots,
+  };
+}
+
+// Strip the in-flight streaming bubble and its orphaned user pair from a
+// settled snapshot so the per-mode buffer cache stores a clean history.
+export function pruneStreamingPair(snapshot: ChatMessage[]): ChatMessage[] {
+  const streamingIdx = snapshot.findIndex((m) => m.isStreaming);
+  if (streamingIdx < 0) return snapshot;
+  const prior = streamingIdx > 0 ? snapshot[streamingIdx - 1] : null;
+  const orphanedUser = prior && prior.role === 'user' ? streamingIdx - 1 : -1;
+  return snapshot.filter((_, i) => i !== streamingIdx && i !== orphanedUser);
+}
+
+// Walk a snapshot bottom-up and return the streaming assistant + its
+// closest preceding user message (or nulls when no streaming assistant
+// is found). Used by `stopStreaming` to persist a partial turn pair.
+export function findStreamingAssistantPair(
+  snapshot: ChatMessage[],
+): { assistant: ChatMessage; user: ChatMessage | null } | null {
+  let assistantIdx = -1;
+  for (let i = snapshot.length - 1; i >= 0; i -= 1) {
+    if (snapshot[i].role === 'assistant' && snapshot[i].isStreaming) {
+      assistantIdx = i;
+      break;
+    }
+  }
+  if (assistantIdx < 0) return null;
+  let userMsg: ChatMessage | null = null;
+  for (let i = assistantIdx - 1; i >= 0; i -= 1) {
+    if (snapshot[i].role === 'user') {
+      userMsg = snapshot[i];
+      break;
+    }
+  }
+  return { assistant: snapshot[assistantIdx], user: userMsg };
+}
+
+export function advanceRefineFromEnvelope(
+  refineSnapshot: {
+    messageId: string;
+    garmentIds: string[];
+    explanation: string;
+    lockedIds: Set<string>;
+  } | null,
+  finalMeta: StyleChatResponseEnvelope | null,
+):
+  | { kind: 'clear' }
+  | { kind: 'advance'; next: {
+      messageId: string;
+      garmentIds: string[];
+      explanation: string;
+      lockedIds: Set<string>;
+    } }
+  | { kind: 'noop' } {
+  if (!refineSnapshot || !finalMeta) return { kind: 'noop' };
+  if (finalMeta.clear_active_look) return { kind: 'clear' };
+  const nextIds = (finalMeta.active_look?.garment_ids?.length
+    ? finalMeta.active_look.garment_ids
+    : finalMeta.outfit_ids ?? []) as string[];
+  if (nextIds.length === 0) return { kind: 'noop' };
+  const nextExplanation =
+    (finalMeta.active_look?.explanation as string | undefined)
+    ?? (finalMeta.outfit_explanation as string | undefined)
+    ?? refineSnapshot.explanation;
+  const survivingLocks = new Set<string>();
+  for (const id of refineSnapshot.lockedIds) {
+    if (nextIds.includes(id)) survivingLocks.add(id);
+  }
+  return {
+    kind: 'advance',
+    next: {
+      messageId: refineSnapshot.messageId,
+      garmentIds: nextIds.slice(),
+      explanation: nextExplanation,
+      lockedIds: survivingLocks,
+    },
+  };
 }
 
 // M23 — merges any accumulated shopping_results into a candidate envelope

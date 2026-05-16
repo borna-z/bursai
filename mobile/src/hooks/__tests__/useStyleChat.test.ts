@@ -92,3 +92,26 @@ describe('useStyleChat', () => {
 // hydration. Each scenario needs a mocked fetchSSE that yields deltas in
 // a controlled tick order; total >250 LOC. Track separately so the wave
 // can ship the rig + 7 smokes without blocking.
+
+describe('useStyleChat — hydration-then-streaming ordering', () => {
+  it('sendMessage no-ops while hydration is still in flight', async () => {
+    // Override the supabase mock to delay the chat_messages SELECT so we
+    // can observe sendMessage being called *before* hydration resolves
+    // and confirm fetchSSE is never invoked.
+    const { useStyleChat } = require('../useStyleChat');
+    const { result } = renderHook(() => useStyleChat(), { wrapper: makeWrapper() });
+
+    expect(result.current.isHydrating).toBe(true);
+    sse.fetchSSE.mockReset();
+
+    await act(async () => {
+      await result.current.sendMessage('hello');
+    });
+    expect(sse.fetchSSE).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(result.current.isHydrating).toBe(false));
+    // After hydration completes, sendMessage may proceed; not asserted
+    // here to avoid wiring the full SSE rig — covered by
+    // useStyleChatStreaming.test.ts.
+  });
+});
