@@ -14,7 +14,7 @@ describe('OutfitGenerateLoading', () => {
   it('renders the loading shell with the first cycling message', () => {
     const { getByText, getByLabelText } = render(
       <ThemeProvider initialMode="light">
-        <OutfitGenerateLoading isLoading hasResult={false} onClose={() => {}} />
+        <OutfitGenerateLoading isLoading onClose={() => {}} />
       </ThemeProvider>,
     );
     // Initial LOADING_MESSAGES[0] is "Reading your wardrobe…".
@@ -29,7 +29,7 @@ describe('OutfitGenerateLoading', () => {
     // still legal and must not throw.
     const { toJSON } = render(
       <ThemeProvider initialMode="light">
-        <OutfitGenerateLoading isLoading={false} hasResult onClose={() => {}} />
+        <OutfitGenerateLoading isLoading={false} onClose={() => {}} />
       </ThemeProvider>,
     );
     expect(toJSON()).toBeTruthy();

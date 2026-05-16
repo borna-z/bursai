@@ -29,7 +29,7 @@ import { Eyebrow } from '../../components/Eyebrow';
 import { PageTitle } from '../../components/PageTitle';
 import { IconBtn } from '../../components/IconBtn';
 import { CloseIcon } from '../../components/icons';
-import { hapticLight, hapticSuccess } from '../../lib/haptics';
+import { hapticLight } from '../../lib/haptics';
 
 const LOADING_MESSAGES = [
   'Reading your wardrobe…',
@@ -42,15 +42,11 @@ export interface OutfitGenerateLoadingProps {
   // True while the engine call is in flight. Flipping false snaps the
   // progress bar to 100% and stops the message rotator.
   isLoading: boolean;
-  // True once a result has landed alongside `isLoading=false`. Used to
-  // fire the success haptic at the moment the progress bar completes.
-  hasResult: boolean;
   onClose: () => void;
 }
 
 export function OutfitGenerateLoading({
   isLoading,
-  hasResult,
   onClose,
 }: OutfitGenerateLoadingProps) {
   const t = useTokens();
@@ -78,7 +74,10 @@ export function OutfitGenerateLoading({
 
   // Drive the progress affordance off the lifecycle: climb to 90% over
   // 2s while loading, snap to 100% on completion. Message rotator runs
-  // alongside on a 600ms interval.
+  // alongside on a 600ms interval. The result-landing success haptic is
+  // owned by the orchestrator (the shell unmounts the same render the
+  // parent flips off the loading branch, so emitting it here would never
+  // reach the user).
   useEffect(() => {
     if (!isLoading) {
       Animated.timing(progressAnim, {
@@ -86,9 +85,7 @@ export function OutfitGenerateLoading({
         duration: 240,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
-      }).start(() => {
-        if (hasResult) hapticSuccess();
-      });
+      }).start();
       return;
     }
     progressAnim.setValue(0);
@@ -103,7 +100,7 @@ export function OutfitGenerateLoading({
       setMessageIdx((i) => (i + 1) % LOADING_MESSAGES.length);
     }, 600);
     return () => clearInterval(interval);
-  }, [isLoading, hasResult, progressAnim]);
+  }, [isLoading, progressAnim]);
 
   const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });

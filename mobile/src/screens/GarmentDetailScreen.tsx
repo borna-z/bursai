@@ -40,7 +40,11 @@ import { hapticLight } from '../lib/haptics';
 import { t as tr } from '../lib/i18n';
 import type { Garment } from '../types/garment';
 import type { RootStackParamList } from '../navigation/RootNavigator';
-import { GarmentDetailTabs, type InfoField } from './GarmentDetail/GarmentDetailTabs';
+import {
+  GarmentDetailTabs,
+  type GarmentDetailTab,
+  type InfoField,
+} from './GarmentDetail/GarmentDetailTabs';
 import { useGarmentActions } from './GarmentDetail/GarmentActionSheet';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -113,6 +117,12 @@ export function GarmentDetailScreen() {
   const id = route.params?.id;
 
   const { data: garment, isLoading, isError, refetch } = useGarment(id);
+
+  // Tab selection — owned at the orchestrator per the Phase 3 audit so all
+  // screen-level state (data fetch, paywall latch, condition assessment,
+  // tab) sits in one place. The sub-component renders the active tab and
+  // calls `onTabChange` on the strip's segment presses.
+  const [tab, setTab] = React.useState<GarmentDetailTab>('info');
 
   // Studio-render polling. The hook only ticks while `render_status` is active
   // (`pending` = enqueued, `rendering` = worker claimed). Once the worker
@@ -431,6 +441,8 @@ export function GarmentDetailScreen() {
 
         <GarmentDetailTabs
           fields={fields}
+          tab={tab}
+          onTabChange={setTab}
           showGenerateImageCta={showGenerateImageCta}
           generateImagePending={generateImage.isPending}
           generateImageError={generateImageError}

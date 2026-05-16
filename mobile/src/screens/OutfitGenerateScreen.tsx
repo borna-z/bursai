@@ -66,6 +66,22 @@ export function OutfitGenerateScreen() {
   useEffect(() => {
     if (result?.outfit_name) setSavedOutfitId(null);
   }, [result?.outfit_name]);
+
+  // Behavior-preserving: in main, the success haptic fired from the parent's
+  // `progressAnim` snap-to-100% effect once `isLoading` flipped false with a
+  // non-null `result`. The loading shell is now an extracted sub-component
+  // that unmounts the same render the orchestrator flips off the loading
+  // branch, so its own snap-effect cleanup never reaches the "if (hasResult)
+  // hapticSuccess()" branch. Mirror the haptic here so result-land still
+  // produces the original tactile confirmation.
+  const successHapticFiredRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && result && !successHapticFiredRef.current) {
+      successHapticFiredRef.current = true;
+      hapticSuccess();
+    }
+    if (isLoading) successHapticFiredRef.current = false;
+  }, [isLoading, result]);
   // Tracks whether the screen produced a usable result before unmount. The
   // cleanup `reset()` only fires when this is false — i.e. on real abandon
   // paths (close button, back swipe before result, anchor change). When
@@ -462,7 +478,6 @@ export function OutfitGenerateScreen() {
     return (
       <OutfitGenerateLoading
         isLoading={isLoading}
-        hasResult={!!result}
         onClose={() => nav.goBack()}
       />
     );

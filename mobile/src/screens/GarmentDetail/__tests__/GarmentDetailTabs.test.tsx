@@ -17,6 +17,8 @@ describe('GarmentDetailTabs', () => {
             { label: 'Category', value: 'Top · T-shirt' },
             { label: 'Color', value: 'Sage' },
           ]}
+          tab="info"
+          onTabChange={() => {}}
           showGenerateImageCta={false}
           generateImagePending={false}
           generateImageError={null}
@@ -47,6 +49,8 @@ describe('GarmentDetailTabs', () => {
       <ThemeProvider initialMode="light">
         <GarmentDetailTabs
           fields={[]}
+          tab="info"
+          onTabChange={() => {}}
           showGenerateImageCta
           generateImagePending={false}
           generateImageError={null}

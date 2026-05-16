@@ -42,6 +42,12 @@ export interface InfoField {
 export interface GarmentDetailTabsProps {
   // Header / shape inputs ---------------------------------------------
   fields: InfoField[];
+  // Active tab + setter live in the orchestrator (per the Phase 3 audit
+  // contract — sub-component renders the selected tab; selection state
+  // is parent-owned so it stays alongside the rest of the screen's
+  // top-level state).
+  tab: GarmentDetailTab;
+  onTabChange: (next: GarmentDetailTab) => void;
   // Image-generation rescue (manual-entry garments without a photo).
   showGenerateImageCta: boolean;
   generateImagePending: boolean;
@@ -64,6 +70,8 @@ export interface GarmentDetailTabsProps {
 
 export function GarmentDetailTabs({
   fields,
+  tab,
+  onTabChange,
   showGenerateImageCta,
   generateImagePending,
   generateImageError,
@@ -80,7 +88,6 @@ export function GarmentDetailTabs({
   occasionTags,
 }: GarmentDetailTabsProps) {
   const t = useTokens();
-  const [tab, setTab] = React.useState<GarmentDetailTab>('info');
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   const handleOpenSheet = React.useCallback(() => {
@@ -102,7 +109,7 @@ export function GarmentDetailTabs({
               accessibilityRole="tab"
               accessibilityLabel={label}
               accessibilityState={{ selected: active }}
-              onPress={() => setTab(tabId)}
+              onPress={() => onTabChange(tabId)}
               style={[
                 s.tabBtn,
                 { backgroundColor: active ? t.fg : 'transparent' },
