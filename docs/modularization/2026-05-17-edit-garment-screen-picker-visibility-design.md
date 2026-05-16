@@ -33,7 +33,7 @@ Compare three options on the same axes — UX consistency, reuse cost, form-API 
 | Option | What changes | Tradeoff |
 |---|---|---|
 | **A — Accept (current state)** | Both pickers stay visible in edit. | UX consistency between AddPiece and EditGarment; users can correct values that were auto-detected wrong at upload. Risk: minor UX widening on the edit flow that wasn't reviewed up front. |
-| **B — Hide via prop** | Add `hidePickers?: Array<keyof FormState>` prop to `AddPieceStep3Form`; `EditGarmentScreen` passes `['color_secondary', 'formality']`. | Preserves legacy edit UX exactly; small form-API surface increase. |
+| **B — Hide via prop** | Add `hidePickers?: Array<keyof GarmentFormState>` prop to `AddPieceStep3Form`; `EditGarmentScreen` passes `['secondaryColor', 'formality']` (the form-state keys; the DB columns are `color_secondary` + `formality`). | Preserves legacy edit UX exactly; small form-API surface increase. |
 | **C — Selective reuse** | `EditGarmentScreen` consumes the form sub-components directly instead of the full form. | Highest control, lowest reuse — likely undoes much of PR #860's gain. Not recommended. |
 
 ## Recommendation
@@ -50,8 +50,8 @@ If the decision is revisited and Option B is chosen later, the implementation wo
 
 | Path | Change |
 |---|---|
-| `mobile/src/screens/AddPieceStep3/AddPieceStep3Form.tsx` | Accept `hidePickers?: Array<keyof FormState>`; gate the two pickers on it. |
-| `mobile/src/screens/EditGarmentScreen.tsx` | Pass `hidePickers={['color_secondary', 'formality']}`. |
+| `mobile/src/screens/AddPieceStep3/AddPieceStep3Form.tsx` | Accept `hidePickers?: Array<keyof GarmentFormState>` (imported from `garmentMetadataForm.types`); gate the two pickers on it. |
+| `mobile/src/screens/EditGarmentScreen.tsx` | Pass `hidePickers={['secondaryColor', 'formality']}` (form-state keys, not DB column names). |
 
 ## Acceptance criteria
 
