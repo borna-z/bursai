@@ -1,7 +1,7 @@
 # BURS Modularization — Roadmap
 
 **Date:** 2026-05-16
-**Status:** Specs drafted, awaiting per-phase implementation
+**Status: complete** — see [2026-05-16-modularization-COMPLETION.md](./2026-05-16-modularization-COMPLETION.md)
 **Owner:** rotating (each phase picked up cold in a new Claude Code session)
 
 ## Problem
@@ -14,15 +14,15 @@ Sequence the work in phases so each phase is a single PR a fresh session can pic
 
 ## Phase index
 
-| Phase | Spec | Scope | Estimated PR size |
-|---|---|---|---|
-| 0 | [Style engine variety](./2026-05-16-burs-modularization-phase-0-style-engine-variety-design.md) | Stop returning identical outfits; add recency-aware scoring + cache-bust signal | Small |
-| 1 | [State foundations](./2026-05-16-burs-modularization-phase-1-state-foundations-design.md) | `AuthContext`, `offlineQueue`, `garmentSave` splits | Medium |
-| 2 | [Stylist hooks](./2026-05-16-burs-modularization-phase-2-stylist-hooks-design.md) | `useStyleChat`, `useWeekGenerator`, `usePhotoFeedback` splits | Medium-Large |
-| 3 | [Screen splits](./2026-05-16-burs-modularization-phase-3-screen-splits-design.md) | `GarmentDetail`, `OutfitGenerate`, `StyleMe`, `VisualSearch` | Medium |
-| 4 | [Types & batch pipeline](./2026-05-16-burs-modularization-phase-4-types-and-batch-design.md) | `styleProfileV4` barrel, `batchPipeline` state-machine split | Small-Medium |
-| 5 | [Edge function extractions](./2026-05-16-burs-modularization-phase-5-edge-functions-design.md) | `revenuecat_webhook`, `render_garment_image`, `burs_style_engine` shared modules | Medium |
-| 6 | [AddPiece splits](./2026-05-16-burs-modularization-phase-6-addpiece-design.md) | `AddPieceStep3`, possibly `EditGarmentScreen` | Medium-Large |
+| Phase | Spec | Scope | Estimated PR size | Status |
+|---|---|---|---|---|
+| 0 | [Style engine variety](./2026-05-16-burs-modularization-phase-0-style-engine-variety-design.md) | Stop returning identical outfits; add recency-aware scoring + cache-bust signal | Small | **DONE** — [#852](https://github.com/borna-z/bursai/pull/852) |
+| 1 | [State foundations](./2026-05-16-burs-modularization-phase-1-state-foundations-design.md) | `AuthContext`, `offlineQueue`, `garmentSave` splits | Medium | **DONE** — [#853](https://github.com/borna-z/bursai/pull/853) |
+| 2 | [Stylist hooks](./2026-05-16-burs-modularization-phase-2-stylist-hooks-design.md) | `useStyleChat`, `useWeekGenerator`, `usePhotoFeedback` splits | Medium-Large | **DONE** — [#856](https://github.com/borna-z/bursai/pull/856) |
+| 3 | [Screen splits](./2026-05-16-burs-modularization-phase-3-screen-splits-design.md) | `GarmentDetail`, `OutfitGenerate`, `StyleMe`, `VisualSearch` | Medium | **DONE** — [#857](https://github.com/borna-z/bursai/pull/857) + polish [#863](https://github.com/borna-z/bursai/pull/863) |
+| 4 | [Types & batch pipeline](./2026-05-16-burs-modularization-phase-4-types-and-batch-design.md) | `styleProfileV4` barrel, `batchPipeline` state-machine split | Small-Medium | **DONE** — [#854](https://github.com/borna-z/bursai/pull/854) |
+| 5 | [Edge function extractions](./2026-05-16-burs-modularization-phase-5-edge-functions-design.md) | `revenuecat_webhook`, `render_garment_image`, `burs_style_engine` shared modules | Medium | **DONE** — [#855](https://github.com/borna-z/bursai/pull/855) + [#862](https://github.com/borna-z/bursai/pull/862) (5b) + [#861](https://github.com/borna-z/bursai/pull/861) (5c) |
+| 6 | [AddPiece splits](./2026-05-16-burs-modularization-phase-6-addpiece-design.md) | `AddPieceStep3`, possibly `EditGarmentScreen` | Medium-Large | **DONE** — [#858](https://github.com/borna-z/bursai/pull/858) + EditGarment reuse [#860](https://github.com/borna-z/bursai/pull/860) |
 
 ## How to pick up a phase
 
@@ -52,3 +52,13 @@ Every phase MUST:
 - **2026-05-16** — Wave R is complete and deployed; Phase 6 (AddPiece) is unblocked but stays last because AddPieceStep3 is the most complex screen.
 - **2026-05-16** — Specs live under `docs/superpowers/specs/` (default per brainstorming skill). No project override.
 - **2026-05-16** — One spec per phase, executed sequentially in separate sessions.
+- **2026-05-16** — All seven phases shipped in a single overnight session via 12 PRs (#852–#863, hotfix #859 direct-to-main). See completion log for totals and learnings.
+
+## Backlog (post-completion)
+
+Carried over from the completion log; tracked separately from the phase index above.
+
+- **Phase 5d** — `burs_style_engine` swap scoring + AI prompt builder + wear-log preprocessing extraction. Spec drafted in `docs/modularization/`. Closes the remaining 1896 → <1100 line gap left after Phase 5b.
+- **Phase 5e** — `render_garment_image` garment-state DB helpers extraction (~140 lines). Spec drafted in `docs/modularization/`. Closes the remaining 1347 → <1100 line gap left after Phase 5c.
+- **EditGarmentScreen picker visibility** — design note drafted. User decision owed on whether `color_secondary` and `formality` should remain visible after the #860 form reuse.
+- **Architecture doc refresh** — `mobile/CLAUDE.md` and `supabase/functions/CLAUDE.md` entry points to reflect the new barrel structure. TBD.
