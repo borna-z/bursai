@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
 
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -124,6 +125,16 @@ export type GenerateOutfitParams = {
    */
   preferGarmentIds?: string[];
   mood?: string;
+  /**
+   * Phase 0 — style engine variety. Set true when the user explicitly taps
+   * "Try again" / "Regenerate" so the hook mints a fresh `regenerate_token`
+   * UUID and sends it to the edge function. The token is mixed into the AI
+   * response cache key server-side, so a deliberate retry always picks a
+   * different combo. Initial mount / prefetch calls leave this falsy so the
+   * cache hit pattern stays intact for cost-sensitive distinct (user,
+   * occasion) pairs.
+   */
+  isRegenerate?: boolean;
 };
 
 // burs_style_engine returns items[] + explanation at the top level — there
@@ -361,6 +372,14 @@ export function useGenerateOutfit() {
               weather: effectiveWeather,
               locale: 'en',
               prefer_garment_ids: preferList,
+              // Phase 0 — variety. Only sent on an explicit user retry; the
+              // edge function mixes the value into the AI cache namespace
+              // so identical inputs miss cache and the model picks a
+              // different combo. Ambient calls omit the field and keep
+              // their cache hit.
+              ...(params.isRegenerate
+                ? { regenerate_token: Crypto.randomUUID() }
+                : {}),
             },
             controller.signal,
           );

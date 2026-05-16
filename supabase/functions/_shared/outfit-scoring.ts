@@ -1624,6 +1624,41 @@ export function wearPatternScore(garment: GarmentRow, patterns: WearPatternProfi
 }
 
 // ─────────────────────────────────────────────
+// RECENCY ADJUSTMENT (Phase 0 — style engine variety)
+// ─────────────────────────────────────────────
+
+/**
+ * Returns a soft score adjustment that down-weights garments shown in the
+ * user's recent generate suggestions and slightly boosts garments that have
+ * been absent from recent results. Penalty decays linearly with recency
+ * rank: rank 1 (most recently shown) takes the full penalty, rank
+ * RECENT_SUGGESTION_WINDOW (default 20) takes 1/WINDOW of max (~5% of full),
+ * and ranks strictly past the window are floored at 0. Garments missing
+ * from the recency map get a small freshness bonus.
+ *
+ * The magnitude is intentionally conservative — at most ~15% of a typical
+ * `scoreGarment` total — so a wardrobe with few candidates per slot still
+ * produces a coherent outfit even when every option has been seen recently.
+ *
+ * Pure: no side effects, deterministic given the same inputs.
+ */
+export const RECENT_SUGGESTION_WINDOW = 20;
+export const RECENT_SUGGESTION_MAX_PENALTY = 1.5;
+export const RECENT_SUGGESTION_FRESHNESS_BONUS = 0.3;
+
+export function recentSuggestionPenalty(
+  garmentId: string,
+  recencyMap: Map<string, number> | null,
+): number {
+  if (!recencyMap || recencyMap.size === 0) return 0;
+  const rank = recencyMap.get(garmentId);
+  if (rank === undefined) return RECENT_SUGGESTION_FRESHNESS_BONUS;
+  if (rank < 1) return -RECENT_SUGGESTION_MAX_PENALTY;
+  const decay = Math.max(0, 1 - (rank - 1) / RECENT_SUGGESTION_WINDOW);
+  return -RECENT_SUGGESTION_MAX_PENALTY * decay;
+}
+
+// ─────────────────────────────────────────────
 // COMPOSITE SCORING
 // ─────────────────────────────────────────────
 

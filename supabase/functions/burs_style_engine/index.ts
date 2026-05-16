@@ -94,6 +94,8 @@ import {
   getColorTemperature,
   getMaterialGroup,
   socialContextPenalty,
+  recentSuggestionPenalty,
+  RECENT_SUGGESTION_WINDOW,
 } from "../_shared/outfit-scoring.ts";
 
 import {
@@ -251,6 +253,12 @@ async function aiRefine(
   // parameter exists to eliminate: a future caller could omit it and the
   // analytics_events insert would be skipped without a typecheck error.
   serviceClient: any,
+  // Phase 0 — variety. When mobile passes a regenerate_token (UUID minted on
+  // the explicit "Try again" tap), it is mixed into the AI cache namespace
+  // so identical prompt content misses cache and the model picks a fresh
+  // combo. Ambient calls (initial mount / prefetch) leave the field
+  // undefined and keep the existing cache hit pattern.
+  regenerateToken: string | null = null,
 ): Promise<any> {
   const localeName = LOCALE_NAMES[locale] || "English";
 
@@ -331,7 +339,13 @@ ${comboDescriptions}`;
       complexity: isStylistMode ? "standard" : "standard",
       max_tokens: mode === "generate" ? (isStylistMode ? 400 : 250) : estimateMaxTokens({ outputItems: 3, perItemTokens: 100, baseTokens: 150 }),
       functionName: "burs_style_engine",
-      cacheTtlSeconds: 300,
+      // Regenerate taps mint a fresh UUID per request, so a regen-scoped
+      // cache row would never be re-hit before its TTL expires — writing
+      // it just pollutes ai_response_cache. Skip the cache entirely
+      // (ttl=0 short-circuits both lookup and store inside callBursAI)
+      // and let ambient calls keep their hit pattern under the default
+      // namespace.
+      cacheTtlSeconds: regenerateToken ? 0 : 300,
       cacheNamespace: "style_engine",
     }, serviceClient);
     return { data };
@@ -841,6 +855,13 @@ serve(async (req) => {
     const excludeGarmentIds: Set<string> = new Set(normalizeIdList(body.exclude_garment_ids));
     const activeLookGarmentIds = normalizeIdList(body.active_look_garment_ids);
     const lockedGarmentIds: Set<string> = new Set(normalizeIdList(body.locked_garment_ids));
+    // Phase 0 — variety. Mobile mints a UUID on the explicit "Try again" tap
+    // and sends it as regenerate_token; the field is omitted on initial mount
+    // / prefetch so those calls still hit the AI response cache.
+    const regenerateToken: string | null =
+      typeof body.regenerate_token === "string" && body.regenerate_token.length > 0
+        ? body.regenerate_token
+        : null;
     const requestedEditSlots: Set<string> = new Set(
       normalizeIdList(body.requested_edit_slots).map((slot) => normalizeSignalText(slot)),
     );
@@ -1440,6 +1461,40 @@ serve(async (req) => {
 
     // ── GENERATE / SUGGEST MODE ──
 
+    // Phase 0 — variety. Load the user's last RECENT_SUGGESTION_WINDOW
+    // *shown* outfits (not just saved ones). The recency map maps each
+    // garment_id to the smallest rank it appears at in those entries (rank
+    // 1 = most recent). `recentSuggestionPenalty` then softly down-weights
+    // garments shown in the last few generates, so a repeated tap on
+    // "Generate" rotates the wardrobe instead of returning the same look.
+    // A failure here must not break generation — empty map = no penalty,
+    // same behavior as today.
+    const recencyMap = new Map<string, number>();
+    try {
+      const { data: recentLog } = await serviceSupabase
+        .from("style_engine_suggestion_log")
+        .select("outfit_hash")
+        .eq("user_id", userId)
+        .order("generated_at", { ascending: false })
+        .limit(RECENT_SUGGESTION_WINDOW);
+      if (recentLog) {
+        for (let i = 0; i < recentLog.length; i++) {
+          const hash = (recentLog[i] as { outfit_hash: string }).outfit_hash || "";
+          if (!hash) continue;
+          const rank = i + 1;
+          for (const id of hash.split("|")) {
+            if (!id) continue;
+            const existing = recencyMap.get(id);
+            if (existing === undefined || existing > rank) {
+              recencyMap.set(id, rank);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load recency map; continuing without variety penalty", e);
+    }
+
     // Score all garments per slot
     const slotCandidates: Record<string, ScoredGarment[]> = {};
     for (const garment of garments) {
@@ -1448,6 +1503,11 @@ serve(async (req) => {
       if (!slot) continue;
       if (!slotCandidates[slot]) slotCandidates[slot] = [];
       const scored = scoreGarment(garment, occasion, weather, penalties, preferences, wearPatterns, styleVector, comfortProfile, socialMap, effectiveEventTitle, transInfo, personalUniform);
+      // Phase 0 — variety. Soft adjustment based on how recently this
+      // garment was shown to the user. Magnitude is small (max ~15% of a
+      // typical score) so it rotates the wardrobe without overriding a
+      // clearly-better candidate.
+      scored.score += recentSuggestionPenalty(garment.id, recencyMap);
       // Boost preferred (unused) garments
       if (preferGarmentIds.size > 0 && preferGarmentIds.has(garment.id)) {
         scored.score += 2.5;
@@ -1547,7 +1607,7 @@ serve(async (req) => {
     const aiResult = await aiRefine(
       activeCombos, aiMode, occasion, style, weather, styleContext, locale, isStylistMode,
       occasionSubmode, { needs_base_layer: bestLayering.needs_base_layer }, dayContext,
-      serviceClient,
+      serviceClient, regenerateToken,
     );
 
     if (aiResult.error) {
@@ -1582,6 +1642,18 @@ serve(async (req) => {
         });
       }
       const fallbackLayering = validateLayeringCompleteness(best.items);
+      // Phase 0 — variety. Mirror the AI-path log write so the next
+      // generate's recency map sees this outfit too. Without it, a
+      // user hitting the deterministic fallback (AI 5xx) would see the
+      // same `activeCombos[0]` returned again on the next tap. Best-effort.
+      try {
+        const bestHash = best.items.map(i => i.garment.id).sort().join("|");
+        await serviceSupabase
+          .from("style_engine_suggestion_log")
+          .insert({ user_id: userId, outfit_hash: bestHash, occasion });
+      } catch (logErr) {
+        console.warn("Failed to log fallback style engine suggestion", logErr);
+      }
       return new Response(JSON.stringify({
         // Title enrichment matches the AI-refinement path below — keep
         // mobile's `EngineResponseItem.title` populated even on the
@@ -1655,6 +1727,36 @@ serve(async (req) => {
       const chosenLayering = validateLayeringCompleteness(chosen.items);
       const chosenConf = computeConfidence(chosen, candidateCount, slotCandidates, weather, occasion, gaps, chosenLayering.needs_base_layer);
       const chosenNote = buildBaseGenerationLimitationNote(chosen, weather, gaps, chosenConf);
+
+      // Phase 0 — variety. Log the chosen outfit's item-set hash so the next
+      // generate can dedup against it. Hash is sorted garment ids joined
+      // with `|` so the same set is identical regardless of insertion order.
+      // `low_variety` flips when at least half of the chosen items appeared
+      // in the user's last 3 generates — a signal to the mobile UI that the
+      // wardrobe is too thin to rotate further. The insert is best-effort:
+      // a logging failure must not turn a successful generate into a 500.
+      const chosenIds = chosen.items.map((i) => i.garment.id);
+      const outfitHash = [...chosenIds].sort().join("|");
+      let lowVariety = false;
+      if (recencyMap.size > 0 && chosenIds.length > 0) {
+        const recentRepeatCount = chosenIds.filter((id) => {
+          const rank = recencyMap.get(id);
+          return rank !== undefined && rank <= 3;
+        }).length;
+        lowVariety = recentRepeatCount >= Math.ceil(chosenIds.length / 2);
+      }
+      try {
+        await serviceSupabase
+          .from("style_engine_suggestion_log")
+          .insert({
+            user_id: userId,
+            outfit_hash: outfitHash,
+            occasion,
+          });
+      } catch (logErr) {
+        console.warn("Failed to log style engine suggestion", logErr);
+      }
+
       log.info("request.complete", {
         requestId,
         userId,
@@ -1665,6 +1767,8 @@ serve(async (req) => {
         lockedCount: lockedGarmentIds.size,
         requestedEditSlots: Array.from(requestedEditSlots),
         degraded: Boolean(chosenNote),
+        lowVariety,
+        regenerate: Boolean(regenerateToken),
       });
       return new Response(JSON.stringify({
         // Include `title` so mobile's `EngineResponseItem.title` (and
@@ -1688,6 +1792,7 @@ serve(async (req) => {
         laundry: laundryCount > 0 ? { count: laundryCount, items: laundryItems.slice(0, 5).map(i => ({ id: i.id, title: i.title, category: i.category })) } : undefined,
         wardrobe_insights: wardrobeInsights.length > 0 ? wardrobeInsights : undefined,
         refinement_delta: refinementDelta,
+        low_variety: lowVariety || undefined,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
