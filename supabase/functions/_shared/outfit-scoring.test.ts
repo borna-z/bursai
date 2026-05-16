@@ -5,7 +5,7 @@ import {
   RECENT_SUGGESTION_MAX_PENALTY,
   RECENT_SUGGESTION_WINDOW,
   recentSuggestionPenalty,
-} from '../outfit-scoring';
+} from './outfit-scoring';
 
 describe('recentSuggestionPenalty', () => {
   it('returns 0 for a null map', () => {
