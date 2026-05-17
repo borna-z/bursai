@@ -36,6 +36,12 @@ import {
   isValidImageMagic,
   validateInputImage,
 } from '../_shared/render-validator.ts';
+import {
+  claimGarmentRender,
+  safeMarkRenderFailed,
+  safeRestoreOrFailRender,
+  updateGarmentRenderState,
+} from '../_shared/render-garment-state.ts';
 
 /**
  * Bump this when the render prompt or Gemini parameters change materially.
@@ -111,147 +117,9 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// ─── Garment state helpers (unchanged) ───
-
-async function updateGarmentRenderState(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
-  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
-  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
-  // the caller passes the real service-role client, breaking deno-check on
-  // every write. Runtime behaviour is unchanged.
-  supabase: any,
-  garmentId: string,
-  updates: Record<string, unknown>,
-  context: string,
-) {
-  const { error } = await supabase.from('garments').update(updates).eq('id', garmentId);
-  if (error) {
-    throw new Error(`${context}: ${error.message}`);
-  }
-}
-
-async function claimGarmentRender(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
-  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
-  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
-  // the caller passes the real service-role client, breaking deno-check on
-  // every write. Runtime behaviour is unchanged.
-  supabase: any,
-  garmentId: string,
-  mannequinPresentation: MannequinPresentation,
-  force?: boolean,
-): Promise<boolean> {
-  const allowedStatuses = force
-    ? ['pending', 'failed', 'none', 'skipped', 'ready']
-    : ['pending', 'failed', 'none'];
-
-  const { data, error } = await supabase
-    .from('garments')
-    .update({
-      render_status: 'rendering',
-      render_presentation_used: mannequinPresentation,
-      render_error: null,
-      render_provider: 'gemini',
-    })
-    .eq('id', garmentId)
-    .in('render_status', allowedStatuses)
-    .select('id')
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return Boolean(data?.id);
-}
-
-async function safeMarkRenderFailed(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
-  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
-  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
-  // the caller passes the real service-role client, breaking deno-check on
-  // every write. Runtime behaviour is unchanged.
-  supabase: any,
-  garmentId: string,
-  updates: Record<string, unknown>,
-  context: string,
-) {
-  try {
-    const { error } = await supabase.from('garments').update({
-      render_status: 'failed',
-      render_provider: 'gemini',
-      ...updates,
-    }).eq('id', garmentId);
-
-    if (error) {
-      console.error('render_garment_image failed to persist failure state', {
-        garmentId,
-        context,
-        updateError: error.message,
-        attemptedRenderError: updates.render_error,
-      });
-    }
-  } catch (updateError) {
-    console.error('render_garment_image failure-state update crashed', {
-      garmentId,
-      context,
-      updateError: getErrorMessage(updateError),
-      attemptedRenderError: updates.render_error,
-    });
-  }
-}
-
-/**
- * When a force re-render fails and a prior good render exists, restore it
- * so the user's wardrobe is not left in a degraded state.
- * Falls back to safeMarkRenderFailed when there is no prior image to restore.
- */
-async function safeRestoreOrFailRender(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- supabase-js
-  // generic narrowing (same as calendar.ts + prefetch_suggestions + the inner
-  // `garment` cast above). `.update()` / `.from()` narrow to `never` here when
-  // the caller passes the real service-role client, breaking deno-check on
-  // every write. Runtime behaviour is unchanged.
-  supabase: any,
-  garmentId: string,
-  updates: Record<string, unknown>,
-  context: string,
-  priorRenderedPath: string | null,
-  isForce: boolean,
-) {
-  if (isForce && priorRenderedPath) {
-    console.warn('render_garment_image force-render failed; restoring prior render', {
-      garmentId,
-      context,
-      priorRenderedPath,
-      renderError: updates.render_error,
-    });
-    try {
-      const { error } = await supabase.from('garments').update({
-        render_status: 'ready',
-        render_provider: 'gemini',
-        rendered_image_path: priorRenderedPath,
-        image_path: priorRenderedPath,
-        render_error: null,
-      }).eq('id', garmentId);
-      if (error) {
-        console.error('render_garment_image failed to restore prior render', {
-          garmentId,
-          context,
-          updateError: error.message,
-        });
-      }
-    } catch (restoreError) {
-      console.error('render_garment_image prior-render restore crashed', {
-        garmentId,
-        context,
-        restoreError: getErrorMessage(restoreError),
-      });
-    }
-  } else {
-    await safeMarkRenderFailed(supabase, garmentId, updates, context);
-  }
-}
+// Garment-state helpers extracted to `_shared/render-garment-state.ts` (Phase 5e).
+// Imports above bring `updateGarmentRenderState`, `claimGarmentRender`,
+// `safeMarkRenderFailed`, `safeRestoreOrFailRender` into this file unchanged.
 
 // ─── Handler ───
 
