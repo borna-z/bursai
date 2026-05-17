@@ -787,8 +787,10 @@ export function parseBursAIProviderResponse(aiData: any, hadTools = false): Pars
       try {
         result = JSON.parse(rawContent);
         console.warn("burs-ai: tool_call returned as content, parsed as JSON fallback");
-      } catch (err) {
-        captureError("burs_ai.content_json_parse_failed", err);
+      } catch (_jsonFallbackExpected) {
+        // intentional: provider returned content that LOOKS like JSON but
+        // isn't; we treat it as plain text rather than fail. Codex round-6
+        // pattern (PR #884) — this is a documented fallback, not an error.
         result = message.content;
       }
     } else {

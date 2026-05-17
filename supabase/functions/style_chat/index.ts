@@ -1800,13 +1800,17 @@ OUTFIT SLOT RULES — CRITICAL:
 
 ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
 
+    // Multimodal-content fallback — same shape as shopping_chat: messages
+    // may arrive as a JSON-stringified array (image+text) OR plain text.
+    // The catch is the expected path for plain text. Codex round-6 P2
+    // pattern (PR #884) — stay silent.
     const preparedMessages = (safeMessages as MessageInput[]).map((m) => {
       if (typeof m.content === "string") {
         try {
           const parsed = JSON.parse(m.content);
           if (Array.isArray(parsed)) return { role: m.role, content: parsed };
-        } catch (err) {
-          captureError("style_chat.message_content_parse_failed", err);
+        } catch (_plainContentExpected) {
+          // intentional: plain-text messages are the common case
         }
       }
       return m;

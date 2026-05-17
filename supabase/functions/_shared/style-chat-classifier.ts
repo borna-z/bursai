@@ -98,11 +98,14 @@ function parseClassifierResponse(raw: string): ClassifierResult {
     jsonText = codeBlockMatch[1].trim();
   }
 
+  // Classifier accepts the LLM occasionally emitting non-JSON output —
+  // CLASSIFIER_FALLBACK is the documented "couldn't classify" path the
+  // rest of style_chat handles. Codex round-6 pattern (PR #884) — stay
+  // silent; this fallback is by design, not an error.
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonText);
-  } catch (err) {
-    captureError("style_chat_classifier.json_parse_fallback", err);
+  } catch (_classifierFallbackExpected) {
     return CLASSIFIER_FALLBACK;
   }
 
