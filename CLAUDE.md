@@ -23,8 +23,8 @@ The May 2026 launch sprint plan is at `docs/launch/may-2026-sprint/00-overview.m
 | Field | Value |
 |---|---|
 | **CURRENT** | Plan A — App Store + Play Store submission by 2026-05-31 |
-| **REMAINING WORK** | M46 (trial-start offline-queue), M43 (Apple Developer + first EAS build, external setup), M44 (RevenueCat sandbox + submission, external setup). M45 contrast hotfix ships in this PR. |
-| **CODE-COMPLETE THROUGH** | PR #871 (2026-05-16) — all M0–M42, Waves R / S / T / Q / G / N / modularization Phases 0–6 merged |
+| **REMAINING WORK** | M3 store-asset content drafts (Claude-owned: copy, privacy declarations, reviewer demo). M43 (Apple Developer + first EAS build, external setup). M44 (RevenueCat sandbox + submission, external setup). M45/M46 device verification (Borna). |
+| **CODE-COMPLETE THROUGH** | PR #882 (2026-05-17) — all M0–M46 + Waves R / S / T / Q / G / N (through N21) / modularization Phases 0–6 merged |
 | **AUDIT** | `docs/launch/may-2026-sprint/_audit-2026-05-17.md` |
 
 For per-wave context see `docs/launch/waves/m45-*.md`, `m46-*.md`, `m43-apple-eas.md`, `m44-revenuecat-sandbox-submission.md`.
