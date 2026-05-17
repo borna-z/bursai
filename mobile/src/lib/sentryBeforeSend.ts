@@ -33,15 +33,23 @@ function redactObject<T>(value: T, depth = 0): T {
   return out as unknown as T;
 }
 
+// Header names are case-insensitive per RFC 7230; the Sentry SDK preserves
+// whatever casing the original request used. Match case-insensitively against
+// the forbidden set so AUTHORIZATION / X-Api-Key / COOKIE etc. don't slip
+// through (Codex round-7 P2, PR #884).
+const FORBIDDEN_HEADER_RE = /^(authorization|cookie|x-api-key)$/i;
+
+function stripForbiddenHeaders(headers: Record<string, string>): void {
+  for (const key of Object.keys(headers)) {
+    if (FORBIDDEN_HEADER_RE.test(key)) {
+      delete headers[key];
+    }
+  }
+}
+
 export function beforeSend(event: ErrorEvent): ErrorEvent | null {
   if (event.request?.headers) {
-    const headers = event.request.headers as Record<string, string>;
-    delete headers.Authorization;
-    delete headers.authorization;
-    delete headers.Cookie;
-    delete headers.cookie;
-    delete headers['X-API-Key'];
-    delete headers['x-api-key'];
+    stripForbiddenHeaders(event.request.headers as Record<string, string>);
   }
   if (event.extra) {
     event.extra = redactObject(event.extra);

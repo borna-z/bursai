@@ -10,17 +10,23 @@ function makeEvent(partial: Partial<ErrorEvent>): ErrorEvent {
 }
 
 describe('beforeSend', () => {
-  it('strips Authorization, authorization, Cookie, cookie, and X-API-Key headers', () => {
+  it('strips Authorization / Cookie / X-API-Key in any casing', () => {
+    // Header names are case-insensitive per HTTP spec; the Sentry SDK
+    // preserves the original casing. Verify common variants are all caught
+    // (Codex round-7 P2 — PR #884).
     const ev = beforeSend(
       makeEvent({
         request: {
           headers: {
             Authorization: 'Bearer abc',
             authorization: 'Bearer abc',
+            AUTHORIZATION: 'Bearer abc',
             Cookie: 'sid=1',
             cookie: 'sid=1',
+            COOKIE: 'sid=1',
             'X-API-Key': 'xyz',
             'x-api-key': 'xyz',
+            'X-Api-Key': 'xyz',
             'Content-Type': 'application/json',
           },
         },
@@ -29,10 +35,13 @@ describe('beforeSend', () => {
     const headers = ev?.request?.headers as Record<string, string>;
     expect(headers.Authorization).toBeUndefined();
     expect(headers.authorization).toBeUndefined();
+    expect(headers.AUTHORIZATION).toBeUndefined();
     expect(headers.Cookie).toBeUndefined();
     expect(headers.cookie).toBeUndefined();
+    expect(headers.COOKIE).toBeUndefined();
     expect(headers['X-API-Key']).toBeUndefined();
     expect(headers['x-api-key']).toBeUndefined();
+    expect(headers['X-Api-Key']).toBeUndefined();
     expect(headers['Content-Type']).toBe('application/json');
   });
 

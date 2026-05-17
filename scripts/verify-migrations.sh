@@ -58,8 +58,18 @@ if [[ $diff_exit -ne 0 ]]; then
   exit "$diff_exit"
 fi
 
-# Trim whitespace so "  \n  " counts as empty.
-trimmed="$(echo "$diff_output" | tr -d '[:space:]')"
+# Distinguish "clean diff" (informational stdout) from "real drift" (SQL DDL).
+# `supabase db diff --linked` writes status messages like "No schema changes
+# found" to stdout on clean state — Codex round-7 P2 (PR #884) flagged that
+# treating any non-whitespace as drift would create false drift positives
+# once advisory mode is removed.
+#
+# Real drift always emits SQL: lines starting with CREATE/DROP/ALTER/SET/
+# COMMENT/REVOKE/GRANT, or SQL comments (`--`), or block punctuation
+# (`(`, `)`, `;`). Anything else is informational. We keep only SQL-looking
+# lines and check if THOSE are non-empty.
+sql_lines="$(echo "$diff_output" | grep -E '^[[:space:]]*(create|drop|alter|set|comment|revoke|grant|insert|update|delete|begin|commit|with|select|--|\(|\)|;)' -i || true)"
+trimmed="$(echo "$sql_lines" | tr -d '[:space:]')"
 
 if [[ -n "$trimmed" ]]; then
   if [[ "${MIGRATIONS_DRIFT_ADVISORY:-0}" == "1" ]]; then
