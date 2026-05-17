@@ -133,7 +133,7 @@ Paste this AFTER the demo script in Play Console → App content → Reviewer co
 >
 > Per Google Play account-deletion policy:
 > - In-app: Settings → Account → Delete Account (calls the `delete_user_account` edge function which cascades across 24+ tables and storage paths).
-> - Web: `https://burs.me/delete-account` — **PRE-SUBMISSION BLOCKER FOR BORNA: this page does not yet ship in the repo (`public/` has only the privacy and terms pages).** Play requires the web-accessible deletion path even when in-app deletion exists; the URL must be live and return a working form before Play submission, or this reviewer note must be rewritten to point only at the in-app path with a Play Console "no web deletion offered" attestation.
+> - Web: `https://burs.me/delete-account` — **PRE-SUBMISSION BLOCKER FOR BORNA: this page does not yet ship in the repo (`public/` has only the privacy and terms pages).** Google Play policy requires the web deletion URL for any app that allows account creation (Play Console Help: https://support.google.com/googleplay/android-developer/answer/13327111) — there is no opt-out attestation. The URL must be live and return a working deletion-request form before Play submission, or Play will reject the build.
 
 ---
 
