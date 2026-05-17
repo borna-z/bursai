@@ -159,7 +159,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
-      subData.subscription.unsubscribe();
+      // N17 / Copilot #4 — defensive optional-chain. If onAuthStateChange
+      // returned undefined (Supabase outage at provider mount, mock
+      // returning empty data in test), the original unconditional access
+      // would throw on cleanup and mask the real error in React's
+      // dev-time logs. Optional-chain makes cleanup safe.
+      subData?.subscription?.unsubscribe?.();
     };
   }, [queryClient]);
 
