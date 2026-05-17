@@ -25,11 +25,16 @@ set -euo pipefail
 # masquerade as "no drift". `set +e` is required around the command so we
 # can inspect its exit code explicitly; without that `set -e` would abort
 # before the empty-vs-failure distinction.
+#
+# Auth: supabase CLI v2.x removed the `--password` flag from `db diff` —
+# it now reads `SUPABASE_DB_PASSWORD` from env automatically when `--linked`
+# is set. CLI v1.x accepted the flag; we drop it to stay compatible with
+# both (the env var works for both versions).
 stderr_file="$(mktemp)"
 trap 'rm -f "$stderr_file"' EXIT
 
 set +e
-diff_output="$(npx supabase db diff --linked --password "${SUPABASE_DB_PASSWORD:-}" 2>"$stderr_file")"
+diff_output="$(npx supabase db diff --linked 2>"$stderr_file")"
 diff_exit=$?
 set -e
 
