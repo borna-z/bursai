@@ -65,6 +65,12 @@ export function useOfflineQueueReplay(): void {
     // replay using the server's `retryAfter`. Falling through as a
     // generic failure would let the trial drop after 3 retries with no
     // wake-up between them. (Codex P2 round 2 on PR #876.)
+    //
+    // On success, invalidate `['subscription']` so `useSubscription`
+    // refetches and paywall / premium-gated UI flips from `locked` to
+    // `trialing` immediately, rather than waiting for the 60s stale
+    // time. Same shape as the purchase/restore paths.
+    // (Codex P2 round 3 on PR #876.)
     registerHandler<StartTrialPayload>(START_TRIAL_ACTION, async (payload) => {
       try {
         await dispatchStartTrial(payload);
@@ -75,6 +81,7 @@ export function useOfflineQueueReplay(): void {
         }
         throw err;
       }
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
     });
 
     void (async () => {
