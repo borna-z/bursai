@@ -19,6 +19,11 @@ import {
   MEMORY_EVENT_ACTION,
   type MemoryIngestPayload,
 } from '../lib/memoryIngest';
+import {
+  dispatchStartTrial,
+  START_TRIAL_ACTION,
+  type StartTrialPayload,
+} from '../lib/trialStart';
 
 function invalidateGarmentCaches(queryClient: QueryClient): void {
   queryClient.invalidateQueries({ queryKey: ['garments'] });
@@ -48,6 +53,14 @@ export function useOfflineQueueReplay(): void {
         }
         throw err;
       }
+    });
+
+    // M46 — trial-start queued from AuthContext when the user signs up
+    // offline (or the live call fails with the network dropping). The
+    // handler just redispatches; the offline-queue dispatcher owns
+    // success / fail bookkeeping and Sentry surfacing.
+    registerHandler<StartTrialPayload>(START_TRIAL_ACTION, async (payload) => {
+      await dispatchStartTrial(payload);
     });
 
     void (async () => {
