@@ -64,10 +64,10 @@ export const light: ThemeTokens = {
   fg3:      '#9A938B',
   border:   '#DDD0BB',
   border2:  '#CFC0A8',
-  accent:   '#AD8137',
-  accentDeep: '#7C5A23', // accent darkened ~28% — bottom stop of FAB / "accent → deeper" gradients
+  accent:   '#946C20', // M45 (2026-05-17): darkened from #AD8137 -> #9E7423 (4.29:1, still failed) -> #946C20 (4.75:1) so white-on-accent passes WCAG AA 4.5:1 with margin
+  accentDeep: '#6B4E17', // accent darkened ~28% — bottom stop of FAB / "accent → deeper" gradients
   accentFg: '#FFFFFF',
-  accentSoft: 'rgba(173,129,55,0.12)',
+  accentSoft: 'rgba(148,108,32,0.12)',
   destructive:     '#B5432A', // warm clay-red, in-palette with the gold accent
   destructiveSoft: 'rgba(181,67,42,0.12)',
   scrimBg:         'rgba(17,16,14,0.58)', // bg-dark @ 58% — backdrop behind sheets

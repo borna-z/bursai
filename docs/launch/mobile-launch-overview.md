@@ -1,5 +1,7 @@
 # Mobile Launch — Overview
 
+> **2026-05-17 sprint pointer:** active sprint plan is `docs/launch/may-2026-sprint/00-overview.md` (Plans A / B / C). This file remains the wave tracker; sprint overview is the per-milestone view for the 14-day final push.
+
 **Goal:** Ship `mobile/` (React Native + Expo SDK 54) to App Store + Play Store on **2026-05-31** at 119 SEK/month or 899 SEK/year.
 
 **Branch base:** all PRs target `main`. (The earlier `feat/mobile-rn-app` launch-branch policy was retired 2026-05-06 per user direction.)

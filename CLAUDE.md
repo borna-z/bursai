@@ -1,16 +1,33 @@
 # BURS — Repository context
 
+## LAUNCH MODE — until 2026-05-31
+
+**Ship-only freeze.** Until 2026-05-31, the only acceptable work is whatever moves App Store + Play Store submission forward.
+
+- No refactors, no new features, no non-launch waves.
+- Bug fixes scoped to crash-or-blocker only.
+- The active sprint plan is `docs/launch/may-2026-sprint/00-overview.md`. Read it before picking up work.
+- Plan A (launch) is in-session. Plan B (Meta Ads agent) is owned by co-founders' Claude sessions — out of scope for this session. Plan C (marketing dashboard) execution does not start until 2026-05-31.
+- If asked to do non-A work in this session, decline with a pointer to the sprint overview and ask if the user wants to override the freeze.
+
+Remove this block after 2026-05-31 launch is shipped.
+
+---
+
 Mobile is the primary product. The web `src/` tree exists but is being deleted post-launch — type imports are fine, runtime imports drag web-only code in.
 
-## Current wave
+## Current sprint
+
+The May 2026 launch sprint plan is at `docs/launch/may-2026-sprint/00-overview.md` (Plans A / B / C).
 
 | Field | Value |
 |---|---|
-| **CURRENT WAVE** | R — Android platform parity + on-device background removal (4 themed PRs: R-A Android LiveScan Nitro · R-B BG removal + Gemini · R-C single-photo polish · R-D batch parity) |
-| **CURRENT WAVE FILE** | `docs/launch/waves/r-android-parity-and-on-device-bg.md` |
-| **STATUS** | R-A deferred (2026-05-13, vc-worklets bridgeless conflict — Android auto-detect dropped, iOS shipped via #838); R-B merged (PR #840, 2026-05-13); R-C IN PROGRESS (single-photo polish) |
+| **CURRENT** | Plan A — App Store + Play Store submission by 2026-05-31 |
+| **REMAINING WORK** | M46 (trial-start offline-queue), M43 (Apple Developer + first EAS build, external setup), M44 (RevenueCat sandbox + submission, external setup). M45 contrast hotfix ships in this PR. |
+| **CODE-COMPLETE THROUGH** | PR #871 (2026-05-16) — all M0–M42, Waves R / S / T / Q / G / N / modularization Phases 0–6 merged |
+| **AUDIT** | `docs/launch/may-2026-sprint/_audit-2026-05-17.md` |
 
-The current wave pointer is also tracked in `docs/launch/overview.md` and updated via the tracker step in every wave PR.
+For per-wave context see `docs/launch/waves/m45-*.md`, `m46-*.md`, `m43-apple-eas.md`, `m44-revenuecat-sandbox-submission.md`.
 
 ## How this repo works
 
