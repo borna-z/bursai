@@ -310,12 +310,13 @@ export function HomeScreen({
               <BellIcon size={18} color={t.fg} />
             </IconBtn>
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel={tr('home.profile.aria')}
               onPress={push('Profile')}
               style={s.avatarWrap}>
               <View style={[s.avatar, { backgroundColor: t.accent }]}>
                 <Text style={{ color: t.accentFg, fontWeight: '600', fontSize: 13 }}>
-                  {(profile?.display_name?.trim().charAt(0) ?? 'B').toUpperCase()}
+                  {(profile?.display_name?.trim().charAt(0) || 'B').toUpperCase()}
                 </Text>
               </View>
             </Pressable>

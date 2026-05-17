@@ -24,6 +24,7 @@ import { useStyleDNA } from '../hooks/useStyleDNA';
 import { useSubscription } from '../hooks/useSubscription';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
 import { Button } from '../components/Button';
+import { hapticLight } from '../lib/haptics';
 import { t as tr, useTranslation, type Locale } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import {
@@ -211,7 +212,10 @@ export function SettingsScreen() {
                   <Button
                     label={tr('settings.subscription.upgrade')}
                     variant="accent"
-                    onPress={() => nav.navigate('Paywall')}
+                    onPress={() => {
+                      hapticLight();
+                      nav.navigate('Paywall');
+                    }}
                   />
                 </View>
               ) : subscription.isTrialing ? (
