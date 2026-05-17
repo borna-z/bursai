@@ -31,7 +31,6 @@ import {
   overloadResponse,
 } from "../_shared/scale-guard.ts";
 import { logger } from "../_shared/logger.ts";
-import { captureError } from "../_shared/observability.ts";
 
 const log = logger("process_job_queue");
 
@@ -104,13 +103,16 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Optional: accept specific job_type filter
+    // Optional: accept specific job_type filter. Cron invocations have no
+    // body — `req.json()` throws and that's the expected path. Codex
+    // round-4 P2 (PR #884): silently ignore here so normal cron ticks
+    // don't pollute Sentry.
     let targetJobType: string | null = null;
     try {
       const body = await req.json();
       targetJobType = body?.job_type || null;
-    } catch (err) {
-      captureError("process_job_queue.body_parse_failed", err);
+    } catch (_bodyParseExpected) {
+      // intentional: no-body path for cron is normal
     }
 
     const jobTypes = targetJobType

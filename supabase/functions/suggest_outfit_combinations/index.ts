@@ -5,7 +5,6 @@ import { callBursAI, bursAIErrorResponse, estimateMaxTokens } from "../_shared/b
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
 import { readUnifiedStylePrefs } from "../_shared/style-prefs-reader.ts";
-import { captureError } from "../_shared/observability.ts";
 
 const LOCALE_NAMES: Record<string, string> = {
   sv: "Swedish", en: "English", de: "German", fr: "French",
@@ -24,12 +23,15 @@ serve(async (req) => {
   }
 
   try {
+    // Optional locale override — no-body / empty-body requests fall back to
+    // the default. `req.json()` throws on empty body; that's the expected
+    // path. Codex round-4 P2 (PR #884): silently ignore.
     let locale = "sv";
     try {
       const body = await req.json();
       if (body?.locale && typeof body.locale === "string") locale = body.locale;
-    } catch (err) {
-      captureError("suggest_outfit_combinations.body_parse_failed", err);
+    } catch (_bodyParseExpected) {
+      // intentional: empty body is normal
     }
     const lang = LOCALE_NAMES[locale] || "English";
 

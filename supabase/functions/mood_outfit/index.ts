@@ -440,15 +440,21 @@ serve(async (req) => {
       }
     } finally {
       cleanup(keepaliveId, timeoutId);
+      // SSE shutdown — both sends below race with the client closing the
+      // stream. A reject here is the expected path on disconnect; Codex
+      // round-4 P2 (PR #884) flagged the captureError calls as noisy
+      // false positives. Stay silent in the finally; the genuine failure
+      // case (which would still be a transport-layer issue, not a logic
+      // bug) is already covered by the try-catch above on the generator.
       try {
         await sendChunk("data: [DONE]\n\n");
-      } catch (err) {
-        captureError("mood_outfit.stream_done_send_failed", err);
+      } catch (_streamClosedExpected) {
+        // intentional: client disconnect is normal
       }
       try {
         await writer.close();
-      } catch (err) {
-        captureError("mood_outfit.writer_close_failed", err);
+      } catch (_streamClosedExpected) {
+        // intentional: client disconnect is normal
       }
     }
   })();

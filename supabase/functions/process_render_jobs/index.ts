@@ -130,12 +130,15 @@ serve(async (req) => {
   }
 
   // Optional body.jobId hint from the low-latency client-initiated path.
+  // Cron/safety-net invocations have no body — `req.json()` throws on those
+  // and that's the expected path. Codex round-4 P2 (PR #884): silently
+  // ignore here so normal cron ticks don't pollute Sentry.
   let preferredJobId: string | null = null;
   try {
     const body = await req.json();
     if (typeof body?.jobId === "string") preferredJobId = body.jobId;
-  } catch (err) {
-    captureError("process_render_jobs.body_parse_failed", err);
+  } catch (_bodyParseExpected) {
+    // intentional: no-body path for cron is normal
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
