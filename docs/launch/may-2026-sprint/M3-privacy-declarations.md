@@ -21,7 +21,7 @@
 | Location (city/coordinates) | Yes (only if user grants permission for weather features) | Not stored — passed to weather API in-memory only | Weather-aware outfit suggestions | No (not stored linked to user) | No | Yes |
 | Push notification token | Yes (only if user opts in) | Supabase `push_subscriptions` | Daily outfit reminders | Yes | No | Yes |
 | Subscription status | Yes | Supabase `subscriptions` + RevenueCat | Entitlement gating | Yes | No | No (required if subscribed) |
-| Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | No (anonymized event IDs) | No | No (v1.0.0 has no in-app opt-out — Sentry initializes whenever `EXPO_PUBLIC_SENTRY_DSN` is set in the build, which it is for every production build) |
+| Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | Yes (linked to Supabase user UUID via `Sentry.setUser({ id: nextUser.id })` in `mobile/src/contexts/AuthContext.tsx:110,142` — set on auth-state change and on session hydration; cleared on sign-out, so pre-auth crashes are unlinked but every signed-in crash carries the user ID) | No | No (v1.0.0 has no in-app opt-out — Sentry initializes whenever `EXPO_PUBLIC_SENTRY_DSN` is set in the build, which it is for every production build) |
 | Image processing payloads (transient) | Yes | Gemini API (Google) — not retained by Gemini per their terms; pass-through only | Background removal, garment classification, outfit generation | No (no user identifier sent to Gemini) | No | No (core feature) |
 
 > **Excluded from v1.0.0 declarations:** Meta Pixel + Conversions API events (install, trial, subscribe) and the advertising identifier (IDFA / Android Ad ID). These are part of Plan B (Meta Ads agent), which is co-founder-owned and not in the v1.0.0 build — see `00-overview.md` ("Pixel/CAPI deferred to Plan B"). Declaring them now would misrepresent shipped data behavior and unnecessarily add tracking disclosures. When Plan B ships, add the rows back to this inventory AND update both stores' forms in the same release.
@@ -58,13 +58,13 @@ For each data type below, fields are:
 - **Purposes:** App Functionality
 
 ### 5. Diagnostics → Crash Data
-- **Linked to User:** No
+- **Linked to User:** Yes (Sentry receives the Supabase user UUID via `Sentry.setUser({ id })` from `AuthContext.tsx` whenever a user is signed in — pre-auth crashes are unlinked but post-auth crashes are linked).
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
 - **Opt-out:** Not available in v1.0.0 — declare collected on every install with the DSN configured.
 
 ### 6. Diagnostics → Performance Data
-- **Linked to User:** No
+- **Linked to User:** Yes (same `Sentry.setUser` mechanism as crash data — performance events ship with the user UUID once signed in).
 - **Used for Tracking:** No
 - **Purposes:** Analytics
 
@@ -114,8 +114,8 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | **App activity** ||||||
 | Other user-generated content | Yes | No | No | App functionality, Personalization | Wardrobe metadata, outfit selections, wear log. |
 | **App info and performance** ||||||
-| Crash logs | Yes | No | No | App functionality | Sentry. v1.0.0 has no in-app opt-out — `EXPO_PUBLIC_SENTRY_DSN` is bundled into every production build and Sentry initializes unconditionally. If you want an opt-out shipped before v1.0.0, treat it as a separate wave; do not back-claim "optional" in this form. |
-| Diagnostics | Yes | No | No | App functionality, Analytics | Sentry performance metrics. Same v1.0.0 caveat as crash logs. |
+| Crash logs | Yes | No | No | App functionality | Sentry. Linked to the Supabase user UUID once signed in (`Sentry.setUser` in `AuthContext.tsx`). v1.0.0 has no in-app opt-out — `EXPO_PUBLIC_SENTRY_DSN` is bundled into every production build and Sentry initializes unconditionally. If you want an opt-out shipped before v1.0.0, treat it as a separate wave; do not back-claim "optional" in this form. |
+| Diagnostics | Yes | No | No | App functionality, Analytics | Sentry performance metrics. Linked to user same as crash logs above. Same v1.0.0 caveat. |
 **Data NOT collected (must be explicitly marked):**
 - All "Personal info" except Name / Email / User IDs
 - Health and Fitness

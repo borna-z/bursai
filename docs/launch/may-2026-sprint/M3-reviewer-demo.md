@@ -74,7 +74,7 @@
 >
 > 7. **Calendar (free + Premium).** Tap the calendar tab. Tomorrow has a planned outfit. Tap it to see the planned items. Tap "Plan another day" to drag an outfit to any other date.
 >
-> 8. **Subscription management.** Settings → Subscription. See the active Premium Annual entitlement, renewal date, and cancellation link.
+> 8. **Restore Purchases (subscription affordance).** Settings → Account → Subscription → "Restore Purchases" (this is the only row in this section in v1.0.0). Tap it to confirm the restore flow runs — required by Apple Guideline 3.1.1 to be discoverable outside the paywall. Cancellation and renewal management live in the system subscription manager (iOS: Settings app → your Apple ID → Subscriptions; Android: Play Store → Profile → Payments & subscriptions → Subscriptions). The in-app entitlement summary card (status / renewal date / manage link) is intentionally deferred to a post-launch hardening pass, so do not expect to see it in this build.
 >
 > 9. **Account deletion (required by both stores).** Settings → Account → Delete Account. Tap the row to open the typed confirmation dialog so you can verify the deletion flow exists — then tap **Cancel**. Please do NOT confirm deletion on this account: it is the shared reviewer credential for both stores and any follow-up reviews. If you need to verify the deletion completes end-to-end, sign up a throwaway account first and delete that one instead.
 >
@@ -97,7 +97,7 @@ Paste this AFTER the demo script in App Store Connect → App Review Information
 > - `burs_premium_monthly_119sek` — 119 SEK / month, auto-renew, 3-day free trial
 > - `burs_premium_annual_899sek` — 899 SEK / year, auto-renew, 3-day free trial
 >
-> Both are configured in App Store Connect → In-App Purchases. Restore Purchases is available in Settings → Subscription.
+> Both are configured in App Store Connect → In-App Purchases. Restore Purchases is available at Settings → Account → Subscription → Restore Purchases (the only row in that section in v1.0.0).
 >
 > **About AI-generated content**
 >
@@ -150,7 +150,7 @@ Run these on a real device with the test account immediately before pressing Sub
 - [ ] Wardrobe gaps screen loads with at least one row.
 - [ ] Outfit photo feedback → camera capture returns AI feedback in ≤ 8 seconds. (No "Use sample" shortcut exists in v1.0.0 — reviewer must take an actual photo.)
 - [ ] Calendar shows tomorrow's planned outfit.
-- [ ] Settings → Subscription shows active Premium Annual.
+- [ ] Settings → Account → Subscription shows the "Restore Purchases" row and tapping it runs without error. (There is no entitlement-summary card in v1.0.0 — that ships post-launch.)
 - [ ] Settings → Account → Delete Account opens the confirmation dialog (do not confirm).
 
 If any check fails, fix before submission — the reviewer will hit the same issue.
