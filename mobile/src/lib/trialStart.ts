@@ -18,7 +18,11 @@
 // dispatcher knows what to do when the user comes back online and a
 // `start-trial` job is sitting in the queue.
 
-import { callEdgeFunction } from './edgeFunctionClient';
+import {
+  callEdgeFunction,
+  EdgeFunctionHttpError,
+  EdgeFunctionSubscriptionLockedError,
+} from './edgeFunctionClient';
 import { enqueue as enqueueOffline, isOnlineNow } from './offlineQueue';
 import { Sentry } from './sentry';
 
@@ -30,19 +34,43 @@ export interface StartTrialPayload {
   userId: string;
 }
 
+/** Distinguish failures that won't change on retry (4xx client errors,
+ *  subscription locked) from transient failures that should be queued
+ *  for replay (5xx, network errors, timeouts, rate limits, circuit
+ *  breakers — all of which can recover on their own).
+ *
+ *  Codex review on PR #876 caught the original "Sentry-only when still
+ *  online" branch losing trials during exactly the Supabase 5xx outage
+ *  this wave was meant to recover from. Classifying by error type
+ *  (rather than by current connectivity) is the correct fix. */
+function isPermanentFailure(err: unknown): boolean {
+  if (err instanceof EdgeFunctionSubscriptionLockedError) return true;
+  if (err instanceof EdgeFunctionHttpError) {
+    // 4xx: malformed body, missing auth, forbidden, not found. Retrying
+    // changes nothing. 5xx falls through to the transient branch.
+    return err.status >= 400 && err.status < 500;
+  }
+  // Rate limits (EdgeFunctionRateLimitError), timeouts
+  // (EdgeFunctionTimeoutError), circuit-open
+  // (EdgeFunctionCircuitOpenError), network errors, etc. all return
+  // false here — they're transient and worth a replay.
+  return false;
+}
+
 /** Direct call against the `start_trial` edge function. Used both for the
  *  immediate-online path inside `enqueueStartTrial` and as the replay
  *  handler registered with the offline-queue dispatcher.
  *
  *  `retries: 2` matches the `callEdgeFunction` default for transient
- *  network failures. Permanent 4xx errors throw — the offline-queue
- *  dispatcher will surface them to Sentry through its own error path. */
+ *  network failures. All errors propagate — the caller decides what to
+ *  do with them. */
 export async function dispatchStartTrial(_payload: StartTrialPayload): Promise<void> {
   await callEdgeFunction('start_trial', { body: {}, retries: 2 });
 }
 
 /** Non-blocking trial-start with offline-queue fallback. Never throws to
- *  the caller — failures go to Sentry / the offline queue / both. */
+ *  the caller — failures go to Sentry (permanent) / the offline queue
+ *  (transient or offline). */
 export async function enqueueStartTrial(userId: string): Promise<void> {
   const payload: StartTrialPayload = { userId };
 
@@ -54,18 +82,20 @@ export async function enqueueStartTrial(userId: string): Promise<void> {
   try {
     await dispatchStartTrial(payload);
   } catch (err) {
-    // Connectivity may have dropped between the isOnlineNow check and the
-    // call itself. If we're now offline, queue for replay. Otherwise the
-    // failure is permanent (4xx, malformed response, etc.) — surface to
-    // Sentry but don't block the auth flow.
-    if (!(await isOnlineNow())) {
-      await enqueueOffline(START_TRIAL_ACTION, payload);
+    if (isPermanentFailure(err)) {
+      // 4xx or subscription-locked — retrying won't help. Surface to
+      // Sentry so we can diagnose and don't waste queue capacity.
+      Sentry.withScope((scope) => {
+        scope.setTag('mutation', 'startTrial');
+        scope.setContext('startTrialPayload', { userId });
+        Sentry.captureException(err);
+      });
       return;
     }
-    Sentry.withScope((scope) => {
-      scope.setTag('mutation', 'startTrial');
-      scope.setContext('startTrialPayload', { userId });
-      Sentry.captureException(err);
-    });
+    // Transient (5xx, timeout, network, rate limit, circuit-open) — queue
+    // for replay regardless of whether the connectivity probe still
+    // reports online. The whole point of M46 is that Supabase can be
+    // having a bad minute while NetInfo is happy.
+    await enqueueOffline(START_TRIAL_ACTION, payload);
   }
 }
