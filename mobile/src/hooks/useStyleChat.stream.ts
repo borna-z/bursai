@@ -1,6 +1,5 @@
 import { fetchSSE } from '../lib/sse';
 import { getLocale } from '../lib/i18n';
-import { log } from '../lib/log';
 import {
   isStyleChatResponseEnvelope,
   parseShoppingResultCards,
@@ -146,9 +145,10 @@ export function handleStreamChunk(
   let parsed: StyleChatChunk | null = null;
   try {
     parsed = JSON.parse(raw) as StyleChatChunk;
-  } catch (err) {
-    log.error(err, { context: 'useStyleChat.stream.chunk_parse_failed' });
-    // Plain-text fragment — append directly.
+  } catch {
+    // Plain-text fragment — append directly. This is the expected path for
+    // raw text deltas (the stream interleaves JSON envelopes with plain
+    // text); don't route through log.error or every chunk floods Sentry.
     acc.receivedDeltas = true;
     acc.deltaAccumulated += raw;
     callbacks.scheduleBubbleFlush();

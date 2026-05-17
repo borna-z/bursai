@@ -229,12 +229,12 @@ async function generateOutfitViaSSE(
                 parsed = obj;
               }
             }
-          } catch (err) {
-            log.error(err, { context: 'useGenerateOutfit.chunk_parse_failed' });
+          } catch {
             // Partial JSON or non-JSON keepalive — buffer for end-of-
             // stream fallback parse. The server currently emits a single
             // JSON chunk, but a future multi-frame stream that splits
-            // mid-payload would still recover here.
+            // mid-payload would still recover here. Expected path on every
+            // streaming response, so we don't surface to Sentry.
             textBuffer += raw;
           }
         },

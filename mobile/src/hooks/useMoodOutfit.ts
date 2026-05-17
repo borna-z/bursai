@@ -130,9 +130,10 @@ export function useMoodOutfit() {
                   setResult(adaptResponse(parsed, mood, timeOfDay));
                 }
               }
-            } catch (err) {
-              log.error(err, { context: 'useMoodOutfit.chunk_parse_failed' });
+            } catch {
               // Plain-text fragment — buffer for end-of-stream parse.
+              // Expected on every streaming response; don't surface to
+              // Sentry or every chunk floods telemetry.
               textBuffer += raw;
             }
           },

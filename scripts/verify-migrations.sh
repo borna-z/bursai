@@ -20,11 +20,26 @@ set -euo pipefail
 # `supabase db diff --linked` prints a unified diff of remote-vs-migrations.
 # Empty output = clean. Non-empty = drift.
 #
-# We pipe stderr to /dev/null because the CLI emits informational lines like
-# `Connecting to remote database...` that we don't want polluting the
-# drift signal. Real failures (auth, network) will surface via the non-zero
-# exit code from `set -e`.
-diff_output="$(npx supabase db diff --linked --password "${SUPABASE_DB_PASSWORD:-}" 2>/dev/null || true)"
+# We capture stderr to a tempfile (not /dev/null) so CLI failures (auth,
+# network, npx resolution) don't silently produce empty `diff_output` and
+# masquerade as "no drift". `set +e` is required around the command so we
+# can inspect its exit code explicitly; without that `set -e` would abort
+# before the empty-vs-failure distinction.
+stderr_file="$(mktemp)"
+trap 'rm -f "$stderr_file"' EXIT
+
+set +e
+diff_output="$(npx supabase db diff --linked --password "${SUPABASE_DB_PASSWORD:-}" 2>"$stderr_file")"
+diff_exit=$?
+set -e
+
+if [[ $diff_exit -ne 0 ]]; then
+  echo "::error::supabase db diff failed (exit $diff_exit) — drift check could not run."
+  echo "::group::stderr"
+  cat "$stderr_file"
+  echo "::endgroup::"
+  exit "$diff_exit"
+fi
 
 # Trim whitespace so "  \n  " (which has length but no content) counts as empty.
 trimmed="$(echo "$diff_output" | tr -d '[:space:]')"
