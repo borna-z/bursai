@@ -237,11 +237,24 @@ export function useAddPieceStep3SaveFlow(
         // captured ''. Send `undefined` for any field the user did NOT touch
         // so persistGarment falls back to `analysis.<field>` instead of
         // nulling it.
+        // Audit FIX 7 (2026-05-18) — purchase price. Empty / unparseable
+        // input collapses to `undefined` so persistGarmentRaw falls back to
+        // `purchase_price: null` instead of writing `NaN`. `parseFloat`
+        // matches the decimal-pad keyboard the input declares; a `0` typed
+        // by the user is technically falsy but `parseFloat('0') || undefined`
+        // would drop it — the explicit `Number.isFinite` check preserves a
+        // genuine zero.
+        const parsedPrice = (() => {
+          const n = parseFloat(form.price);
+          return Number.isFinite(n) ? n : undefined;
+        })();
+
         const garment = await addGarment.mutateAsync({
           storagePath: resolvedPath,
           analysis,
           source,
           enableStudioQuality,
+          price: parsedPrice,
           title: trimmedTitle || analysis.title,
           category: form.category || analysis.category || 'top',
           subcategory: aiOverridden.subcategory

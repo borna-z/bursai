@@ -67,8 +67,11 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 // Pickers EditGarmentScreen hides by default. Wrapped in a module-level
 // frozen tuple so the `hidePickers` prop's identity is stable across
 // renders — re-creating the array per-render would defeat any future
-// `React.memo` on the form.
-const EDIT_HIDDEN_PICKERS: readonly HideablePickerKey[] = ['formality'] as const;
+// `React.memo` on the form. `price` is hidden unconditionally (this
+// screen renders its own purchase-price input below the shared form);
+// `formality` is the picker the advanced toggle reveals.
+const EDIT_HIDDEN_PICKERS: readonly HideablePickerKey[] = ['formality', 'price'] as const;
+const EDIT_HIDDEN_PICKERS_ADVANCED: readonly HideablePickerKey[] = ['price'] as const;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'EditGarment'>;
@@ -178,6 +181,13 @@ function buildFormStateFromGarment(garment: Garment): GarmentFormState {
     pattern: dbToPattern(garment.pattern),
     seasons: (garment.season_tags ?? []).map((s) => s.toLowerCase()),
     formality: dbToFormality(garment.formality),
+    // Audit FIX 7 (2026-05-18) — `price` is part of the shared
+    // GarmentFormState but EditGarmentScreen renders its own price input
+    // alongside wear-count and laundry toggles, so the form-level price
+    // field is hidden via `hidePickers={['price']}`. Keeping the seed in
+    // sync with the row keeps the type satisfied even though the value
+    // is unused by the shared form here.
+    price: garment.purchase_price != null ? String(garment.purchase_price) : '',
   };
 }
 
@@ -564,7 +574,7 @@ export function EditGarmentScreen() {
                 key={garment.id}
                 initial={initialForm}
                 onChange={setFormState}
-                hidePickers={showAdvanced ? undefined : EDIT_HIDDEN_PICKERS}
+                hidePickers={showAdvanced ? EDIT_HIDDEN_PICKERS_ADVANCED : EDIT_HIDDEN_PICKERS}
               />
             ) : null}
             <Pressable

@@ -21,7 +21,9 @@ import { TypedConfirmModal } from '../components/TypedConfirmModal';
 import { useAuth } from '../hooks/useAuth';
 import { useResetStyleMemory } from '../hooks/useResetStyleMemory';
 import { useStyleDNA } from '../hooks/useStyleDNA';
+import { useSubscription } from '../hooks/useSubscription';
 import { useWardrobeStats } from '../hooks/useWardrobeStats';
+import { Button } from '../components/Button';
 import { t as tr, useTranslation, type Locale } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import {
@@ -83,6 +85,28 @@ export function SettingsScreen() {
   // hardcoded "Quiet luxe · Earth tones" placeholder. Hides the caption
   // when the DNA hasn't resolved or has no archetype yet.
   const { data: styleDNA } = useStyleDNA();
+  // Subscription card state — three discrete renders (free / trialing /
+  // premium). The mock card pre-M31 hardcoded "Premium · 3-day trial · 2
+  // days remaining" for every user; now we render the real entitlement
+  // state from the `subscriptions` row that RevenueCat's webhook writes.
+  const subscription = useSubscription();
+  const subscriptionPeriodEndLabel = (() => {
+    if (!subscription.currentPeriodEnd) return null;
+    const d = new Date(subscription.currentPeriodEnd);
+    if (Number.isNaN(d.getTime())) return null;
+    // Locale-aware short date (e.g. "May 24" / "24 maj"). `Intl.DateTimeFormat`
+    // on RN reads the active app locale; falling back to en-US keeps the
+    // string non-blank if the runtime ever lacks the intl polyfill.
+    try {
+      return new Intl.DateTimeFormat(locale === 'sv' ? 'sv-SE' : undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(d);
+    } catch {
+      return d.toISOString().slice(0, 10);
+    }
+  })();
   const styleProfileCaption = (() => {
     if (!styleDNA) return undefined;
     const parts = [styleDNA.archetype];
@@ -164,12 +188,75 @@ export function SettingsScreen() {
         </View>
 
         {/* ============ SUBSCRIPTION CARD ============ */}
-        {/* Intentionally not rendered. The mock card hardcoded a "Premium · 3-day
-            trial · 2 days remaining · renews automatically" state regardless of
-            the actual user — actively misleading. The profiles table has no
-            subscription columns yet, so we have nothing honest to show.
-            M31 (RevenueCat) wires real billing; the card returns then with
-            real entitlement state from the RC customer info. */}
+        {/* Real entitlement state from `useSubscription`. Three renders:
+            (1) locked — "Free plan" + Upgrade CTA pushing the Paywall;
+            (2) trialing — "Trial active" + ISO end date when the row
+                carries one;
+            (3) premium — "Premium · Monthly/Annual" + renewal date. */}
+        {!subscription.isLoading ? (
+          <View style={{ gap: 8 }}>
+            <Eyebrow>{tr('settings.subscription.eyebrow')}</Eyebrow>
+            <Card>
+              {subscription.isLocked ? (
+                <View style={{ gap: 12 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.free')}
+                  </Text>
+                  <Button
+                    label={tr('settings.subscription.upgrade')}
+                    variant="accent"
+                    onPress={() => nav.navigate('Paywall')}
+                  />
+                </View>
+              ) : subscription.isTrialing ? (
+                <View style={{ gap: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.trial')}
+                  </Text>
+                  {subscriptionPeriodEndLabel ? (
+                    <Caption>
+                      {tr('settings.subscription.trialEnds', { date: subscriptionPeriodEndLabel })}
+                    </Caption>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={{ gap: 6 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.premium')}
+                    {subscription.plan === 'yearly'
+                      ? ` · ${tr('settings.subscription.yearly')}`
+                      : subscription.plan === 'monthly'
+                        ? ` · ${tr('settings.subscription.monthly')}`
+                        : ''}
+                  </Text>
+                  {subscriptionPeriodEndLabel ? (
+                    <Caption>
+                      {tr('settings.subscription.renews', { date: subscriptionPeriodEndLabel })}
+                    </Caption>
+                  ) : null}
+                </View>
+              )}
+            </Card>
+          </View>
+        ) : null}
 
         {/* ============ PROFILE SECTION ============ */}
         <Section title={tr('settings.section.profile')}>

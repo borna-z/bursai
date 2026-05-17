@@ -23,31 +23,72 @@ import type { RootStackParamList, WardrobeFilters } from '../navigation/RootNavi
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Filters'>;
 
-const CATEGORIES = ['Outerwear', 'Tops', 'Bottoms', 'Shoes', 'Dress', 'Accessories'];
-const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Silk', 'Leather', 'Denim', 'Cashmere', 'Synthetic'];
-const FITS = ['Slim', 'Regular', 'Loose', 'Oversized'];
-const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
-const SORTS = [
-  { id: 'name_asc', label: 'Name A–Z' },
-  { id: 'most_worn', label: 'Most worn' },
-  { id: 'recent_added', label: 'Recently added' },
-  { id: 'least_worn', label: 'Least worn' },
-  { id: 'recent_worn', label: 'Recently worn' },
-];
+// Audit FIX 6 (2026-05-18). The state values below stay English so they
+// match the filter contract `WardrobeFilters` (consumed by the wardrobe
+// query) and round-trip cleanly through navigation params; only the
+// rendered chip / section labels go through `tr()`. Adding a new value to
+// any axis requires (a) appending the ID here AND (b) adding the matching
+// `filters.<axis>.<id>` key to `mobile/src/i18n/locales/{en,sv}.ts`.
+const CATEGORIES = ['Outerwear', 'Tops', 'Bottoms', 'Shoes', 'Dress', 'Accessories'] as const;
+const MATERIALS = ['Cotton', 'Linen', 'Wool', 'Silk', 'Leather', 'Denim', 'Cashmere', 'Synthetic'] as const;
+const FITS = ['Slim', 'Regular', 'Loose', 'Oversized'] as const;
+const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'] as const;
+const SORT_IDS = ['name_asc', 'most_worn', 'recent_added', 'least_worn', 'recent_worn'] as const;
 
-const COLORS: { id: string; label: string; color: string }[] = [
-  { id: 'cream',    label: 'Cream',    color: '#F5EBD8' },
-  { id: 'beige',    label: 'Beige',    color: '#D9C9A6' },
-  { id: 'camel',    label: 'Camel',    color: '#B98E5A' },
-  { id: 'brown',    label: 'Brown',    color: '#5C3F2C' },
-  { id: 'olive',    label: 'Olive',    color: '#6B6B3F' },
-  { id: 'navy',     label: 'Navy',     color: '#1F2D4A' },
-  { id: 'charcoal', label: 'Charcoal', color: '#2A2622' },
-  { id: 'black',    label: 'Black',    color: '#111111' },
-  { id: 'white',    label: 'White',    color: '#F8F4EE' },
-  { id: 'grey',     label: 'Grey',     color: '#8B8B8B' },
-  { id: 'rust',     label: 'Rust',     color: '#A85432' },
-  { id: 'gold',     label: 'Gold',     color: '#C9A445' },
+const CATEGORY_LABEL_KEY: Record<typeof CATEGORIES[number], string> = {
+  Outerwear: 'filters.category.outerwear',
+  Tops: 'filters.category.tops',
+  Bottoms: 'filters.category.bottoms',
+  Shoes: 'filters.category.shoes',
+  Dress: 'filters.category.dress',
+  Accessories: 'filters.category.accessories',
+};
+const MATERIAL_LABEL_KEY: Record<typeof MATERIALS[number], string> = {
+  Cotton: 'filters.material.cotton',
+  Linen: 'filters.material.linen',
+  Wool: 'filters.material.wool',
+  Silk: 'filters.material.silk',
+  Leather: 'filters.material.leather',
+  Denim: 'filters.material.denim',
+  Cashmere: 'filters.material.cashmere',
+  Synthetic: 'filters.material.synthetic',
+};
+const FIT_LABEL_KEY: Record<typeof FITS[number], string> = {
+  Slim: 'filters.fit.slim',
+  Regular: 'filters.fit.regular',
+  Loose: 'filters.fit.loose',
+  Oversized: 'filters.fit.oversized',
+};
+const SEASON_LABEL_KEY: Record<typeof SEASONS[number], string> = {
+  Spring: 'filters.season.spring',
+  Summer: 'filters.season.summer',
+  Autumn: 'filters.season.autumn',
+  Winter: 'filters.season.winter',
+};
+const SORT_LABEL_KEY: Record<typeof SORT_IDS[number], string> = {
+  name_asc: 'filters.sort.nameAsc',
+  most_worn: 'filters.sort.mostWorn',
+  recent_added: 'filters.sort.recentAdded',
+  least_worn: 'filters.sort.leastWorn',
+  recent_worn: 'filters.sort.recentWorn',
+};
+
+// Color id ↔ swatch hex. Labels resolve via `filters.color.<id>` at render
+// time. Keeping ids stable (lowercase English) preserves filter-state round-
+// tripping through navigation params.
+const COLORS: { id: string; color: string }[] = [
+  { id: 'cream',    color: '#F5EBD8' },
+  { id: 'beige',    color: '#D9C9A6' },
+  { id: 'camel',    color: '#B98E5A' },
+  { id: 'brown',    color: '#5C3F2C' },
+  { id: 'olive',    color: '#6B6B3F' },
+  { id: 'navy',     color: '#1F2D4A' },
+  { id: 'charcoal', color: '#2A2622' },
+  { id: 'black',    color: '#111111' },
+  { id: 'white',    color: '#F8F4EE' },
+  { id: 'grey',     color: '#8B8B8B' },
+  { id: 'rust',     color: '#A85432' },
+  { id: 'gold',     color: '#C9A445' },
 ];
 
 export function FiltersScreen() {
@@ -160,12 +201,12 @@ export function FiltersScreen() {
               color: t.fg,
               letterSpacing: -0.18,
             }}>
-            Filters
+            {tr('filters.title')}
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Reset filters"
+          accessibilityLabel={tr('filters.reset.aria')}
           onPress={reset}
           hitSlop={8}>
           <Text
@@ -175,7 +216,7 @@ export function FiltersScreen() {
               color: t.accent,
               fontWeight: '600',
             }}>
-            Reset
+            {tr('filters.reset.label')}
           </Text>
         </Pressable>
       </View>
@@ -188,12 +229,12 @@ export function FiltersScreen() {
         }}
         showsVerticalScrollIndicator={false}>
 
-        <FilterCard title="Category">
+        <FilterCard title={tr('filters.section.category')}>
           <View style={s.chipRow}>
             {CATEGORIES.map((v) => (
               <Chip
                 key={v}
-                label={v}
+                label={tr(CATEGORY_LABEL_KEY[v])}
                 active={categories.includes(v)}
                 onPress={() => togglePick(v, categories, setCategories)}
               />
@@ -201,15 +242,16 @@ export function FiltersScreen() {
           </View>
         </FilterCard>
 
-        <FilterCard title="Color">
+        <FilterCard title={tr('filters.section.color')}>
           <View style={s.colorGrid}>
             {COLORS.map((c) => {
               const active = colors.includes(c.id);
+              const colorLabel = tr(`filters.color.${c.id}`);
               return (
                 <Pressable
                   key={c.id}
                   accessibilityRole="button"
-                  accessibilityLabel={c.label}
+                  accessibilityLabel={colorLabel}
                   accessibilityState={{ selected: active }}
                   onPress={() => togglePick(c.id, colors, setColors)}
                   style={({ pressed }) => [
@@ -231,7 +273,7 @@ export function FiltersScreen() {
                       letterSpacing: 0.4,
                       textAlign: 'center',
                     }}>
-                    {c.label}
+                    {colorLabel}
                   </Text>
                 </Pressable>
               );
@@ -239,12 +281,12 @@ export function FiltersScreen() {
           </View>
         </FilterCard>
 
-        <FilterCard title="Material">
+        <FilterCard title={tr('filters.section.material')}>
           <View style={s.chipRow}>
             {MATERIALS.map((v) => (
               <Chip
                 key={v}
-                label={v}
+                label={tr(MATERIAL_LABEL_KEY[v])}
                 active={materials.includes(v)}
                 onPress={() => togglePick(v, materials, setMaterials)}
               />
@@ -252,12 +294,12 @@ export function FiltersScreen() {
           </View>
         </FilterCard>
 
-        <FilterCard title="Fit">
+        <FilterCard title={tr('filters.section.fit')}>
           <View style={s.chipRow}>
             {FITS.map((v) => (
               <Chip
                 key={v}
-                label={v}
+                label={tr(FIT_LABEL_KEY[v])}
                 active={fits.includes(v)}
                 onPress={() => togglePick(v, fits, setFits)}
               />
@@ -265,12 +307,12 @@ export function FiltersScreen() {
           </View>
         </FilterCard>
 
-        <FilterCard title="Season">
+        <FilterCard title={tr('filters.section.season')}>
           <View style={s.chipRow}>
             {SEASONS.map((v) => (
               <Chip
                 key={v}
-                label={v}
+                label={tr(SEASON_LABEL_KEY[v])}
                 active={seasons.includes(v)}
                 onPress={() => togglePick(v, seasons, setSeasons)}
               />
@@ -278,14 +320,14 @@ export function FiltersScreen() {
           </View>
         </FilterCard>
 
-        <FilterCard title="Sort by">
+        <FilterCard title={tr('filters.section.sort')}>
           <View style={s.chipRow}>
-            {SORTS.map((o) => (
+            {SORT_IDS.map((id) => (
               <Chip
-                key={o.id}
-                label={o.label}
-                active={sort === o.id}
-                onPress={() => setSort(o.id)}
+                key={id}
+                label={tr(SORT_LABEL_KEY[id])}
+                active={sort === id}
+                onPress={() => setSort(id)}
               />
             ))}
           </View>
@@ -302,7 +344,11 @@ export function FiltersScreen() {
           },
         ]}>
         <Button
-          label={activeCount > 0 ? `Apply filters · ${activeCount}` : 'Apply filters'}
+          label={
+            activeCount > 0
+              ? tr('filters.apply.withCount', { count: activeCount })
+              : tr('filters.apply.label')
+          }
           block
           onPress={apply}
         />

@@ -145,6 +145,11 @@ export function useSubscription() {
     isPremium,
     isLocked,
     garmentLimit,
+    // ISO timestamp from `subscriptions.current_period_end` — when the
+    // trial ends (status='trialing') or the next renewal date (status=
+    // 'active'). Surfaced raw so consumers can format with their own
+    // locale-aware date helper.
+    currentPeriodEnd: row?.current_period_end ?? null,
     error: query.error ?? null,
     isLoading: query.isLoading,
     refetch: query.refetch,

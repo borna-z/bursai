@@ -314,7 +314,9 @@ export function HomeScreen({
               onPress={push('Profile')}
               style={s.avatarWrap}>
               <View style={[s.avatar, { backgroundColor: t.accent }]}>
-                <Text style={{ color: t.accentFg, fontWeight: '600', fontSize: 13 }}>B</Text>
+                <Text style={{ color: t.accentFg, fontWeight: '600', fontSize: 13 }}>
+                  {(profile?.display_name?.trim().charAt(0) ?? 'B').toUpperCase()}
+                </Text>
               </View>
             </Pressable>
           </View>

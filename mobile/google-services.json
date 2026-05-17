@@ -1,0 +1,30 @@
+{
+  "_comment": "PLACEHOLDER — replace before Android production build. Download the real file from console.firebase.google.com → Project Settings → Android app (me.burs.app). FCM push notifications will NOT work against this placeholder; it exists so app.json's googleServicesFile reference resolves and EAS / expo prebuild doesn't error on the missing file. Tracked in mobile/app.json _google_services_note.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "burs-mobile-placeholder",
+    "storage_bucket": "burs-mobile-placeholder.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "me.burs.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER_REPLACE_BEFORE_PRODUCTION_BUILD"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
