@@ -24,6 +24,7 @@
 | Subscription status | Yes | Supabase `subscriptions` + RevenueCat | Entitlement gating | Yes | No | No (required if subscribed) |
 | Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | Yes (linked to Supabase user UUID via `Sentry.setUser({ id: nextUser.id })` in `mobile/src/contexts/AuthContext.tsx:110,142` — set on auth-state change and on session hydration; cleared on sign-out, so pre-auth crashes are unlinked but every signed-in crash carries the user ID) | No | No (v1.0.0 has no in-app opt-out — Sentry initializes whenever `EXPO_PUBLIC_SENTRY_DSN` is set in the build, which it is for every production build) |
 | Image processing payloads (transient) | Yes | Gemini API (Google) — not retained by Gemini per their terms; pass-through only | Background removal, garment classification, outfit generation | No (no user identifier sent to Gemini) | No | No (core feature) |
+| Product-interaction telemetry (event name + properties) | Yes | Supabase `public.analytics_events` (RLS sets `user_id` from `auth.uid()` so events are linked to the signed-in user) | First-party product analytics — feature usage frequency, funnel diagnostics. NOT used for advertising attribution. | Yes (when signed in; anonymous pre-auth events are unlinked) | No | No (event firing is unconditional via `trackEvent` in `mobile/src/lib/analytics.ts:34-41` and AI-usage inserts in `supabase/functions/_shared/burs-ai.ts:707-724`) |
 
 > **Excluded from v1.0.0 declarations:** Meta Pixel + Conversions API events (install, trial, subscribe) and the advertising identifier (IDFA / Android Ad ID). These are part of Plan B (Meta Ads agent), which is co-founder-owned and not in the v1.0.0 build — see `00-overview.md` ("Pixel/CAPI deferred to Plan B"). Declaring them now would misrepresent shipped data behavior and unnecessarily add tracking disclosures. When Plan B ships, add the rows back to this inventory AND update both stores' forms in the same release.
 
@@ -74,7 +75,19 @@ For each data type below, fields are:
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
 
-### 8. Location → Coarse Location
+### 8. Identifiers → Device ID
+- **What:** Expo push notification token (a per-device identifier issued by Apple Push Notification service / Firebase Cloud Messaging via Expo). Stored on the user's profile only when the user opts into push notifications (`mobile/src/hooks/usePushNotifications.ts:191-198` writes into `push_subscriptions.expo_token` and mirrors into `endpoint`).
+- **Linked to User:** Yes (the row is keyed by `user_id`).
+- **Used for Tracking:** No
+- **Purposes:** App Functionality
+
+### 9. Usage Data → Product Interaction
+- **What:** First-party analytics events written from the mobile client and from edge functions. Source paths: `mobile/src/lib/analytics.ts:34-41` (`trackEvent`) and `supabase/functions/_shared/burs-ai.ts:707-724` (AI-usage telemetry). All inserts land in `public.analytics_events` and RLS scopes them to the signed-in user.
+- **Linked to User:** Yes (post-sign-in events carry `user_id` from `auth.uid()`).
+- **Used for Tracking:** No (we do NOT use these events for third-party advertising attribution — that work is Plan B and deferred).
+- **Purposes:** Analytics, App Functionality
+
+### 10. Location → Coarse Location
 - **What:** Two distinct paths, both declared under this single Apple category:
   1. **User-entered home / secondary city** (free-text, asked during onboarding's climate step — see `mobile/src/screens/onboarding/StyleQuizV4Step.questions1.tsx:251-281`). Stored linked to the user in `profiles.preferences.style_profile_v4_jsonb` and the legacy `profiles.home_city` column. Used for weather-aware outfit suggestions and climate-aware style scoring.
   2. **Device GPS coordinates** (only when the user grants OS-level location permission). Passed to the weather API in-memory and discarded after the request resolves — never persisted.
@@ -90,9 +103,9 @@ For each data type below, fields are:
 - Browsing History
 - Search History (in-app search uses local state only, not transmitted)
 - Audio Data
-- Identifiers → Device ID (no advertising identifier collection in v1.0.0 — Plan B re-enables this)
-- Usage Data → Product Interaction (no third-party event tracking in v1.0.0 — Plan B re-enables this)
 - Other Data Types (none)
+
+**Tracking note for the Apple form:** the device ID (Section 8) and product-interaction telemetry (Section 9) ARE collected in v1.0.0 but are **not** used for tracking — neither is shared with a third-party advertising network. The "Used for Tracking" flag stays No on both. When Plan B (Meta Ads) ships, IDFA collection and CAPI event sharing get added as NEW data types with Tracking=Yes; the first-party analytics rows above stay as Tracking=No.
 
 **Privacy Choices URL (optional but recommended):** `https://burs.me/privacy#choices`
 
@@ -118,6 +131,9 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | Calendar events | Yes | No | Yes | App functionality | Synced from the user's primary Google Calendar **only when they opt in** via Settings → Calendar Sync. `title`, `description`, `date`, `start_time`, `end_time` are stored in `calendar_events` so outfit suggestions can take upcoming events into account. Not shared with any third party. Cleared on calendar disconnect and on account deletion (see `delete_user_account` cascade). |
 | **App activity** ||||||
 | Other user-generated content | Yes | No | No | App functionality, Personalization | Wardrobe metadata, outfit selections, wear log. Includes in-app `planned_outfits` (core feature, required); does NOT include Google Calendar event content — that is declared under the Calendar row above. |
+| App interactions | Yes | No | No | App functionality, Analytics | First-party product analytics — `trackEvent()` writes `event_name` + `properties` to `public.analytics_events` from `mobile/src/lib/analytics.ts:34-41`; edge functions also insert AI-usage telemetry into the same table via `supabase/functions/_shared/burs-ai.ts:707-724`. Linked to the signed-in user via RLS. Not shared with any third party; not used for advertising attribution. |
+| **Device or other IDs** ||||||
+| Device or other IDs | Yes | No | Yes | App functionality | Expo push notification token, stored only when the user opts into push notifications (`mobile/src/hooks/usePushNotifications.ts:191-198` → `push_subscriptions.expo_token`). Identifies the device for delivery only; not used for advertising or analytics. |
 | **App info and performance** ||||||
 | Crash logs | Yes | No | No | App functionality | Sentry. Linked to the Supabase user UUID once signed in (`Sentry.setUser` in `AuthContext.tsx`). v1.0.0 has no in-app opt-out — `EXPO_PUBLIC_SENTRY_DSN` is bundled into every production build and Sentry initializes unconditionally. If you want an opt-out shipped before v1.0.0, treat it as a separate wave; do not back-claim "optional" in this form. |
 | Diagnostics | Yes | No | No | App functionality, Analytics | Sentry performance metrics. Linked to user same as crash logs above. Same v1.0.0 caveat. |
@@ -129,8 +145,9 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 - Files and docs
 - Contacts
 - Web browsing
-- Other app activity (in-app search history is not transmitted; no third-party event tracking in v1.0.0 — Plan B re-enables `App interactions → advertising`)
-- Device or other IDs (no advertising identifier collection in v1.0.0 — Plan B re-enables `Device or other IDs → advertising`)
+- Other app activity (in-app search history is not transmitted)
+
+**Tracking note for the Play form:** `App interactions` and `Device or other IDs` ARE collected in v1.0.0 (per the rows above) but the **purposes** are App Functionality / Analytics, NOT `Advertising or marketing`. When Plan B (Meta Ads) ships, the `Advertising or marketing` purpose is added to the App interactions row AND a separate "Advertising ID" entry appears for IDFA / Android Ad ID with the advertising purpose.
 
 ### Security practices (Play form mandatory questions)
 
@@ -161,7 +178,7 @@ Both stores' answers must agree on these load-bearing claims:
 | App stores user-content photos linked to user | "User Content → Photos" Yes | "Photos and videos → Photos" Yes |
 | App offers in-app account deletion | App description mentions Settings → Delete | Data Safety: Yes for deletion + web URL |
 | Cards never touch the app | "Financial Info" Not Collected | "Financial info → Purchase history" only |
-| No third-party advertising tracking in v1.0.0 | "Identifiers → Device ID" Not Collected + "Usage Data → Product Interaction" Not Collected | "Device or other IDs" Not Collected + "App activity → App interactions" Not Collected |
+| First-party telemetry IS collected, but NOT used for tracking/advertising in v1.0.0 | "Identifiers → Device ID" Collected, Tracking No + "Usage Data → Product Interaction" Collected, Tracking No | "Device or other IDs" Collected, purposes App functionality only + "App activity → App interactions" Collected, purposes App functionality + Analytics only |
 | Google Calendar event content is collected (opt-in only) | "User Content → Other User Content" covers planned outfits + synced calendar events | "Calendar → Calendar events" Yes / No / Yes (optional) |
 | Coarse location is collected AND linked to user (via user-entered home city, stored on profile) | "Location → Coarse Location" Yes, Linked Yes, optional | "Location → Approximate location" Yes, Optional Yes |
 
@@ -176,4 +193,4 @@ If any row above disagrees between the two stores' actual submitted forms, **sto
 - [ ] Confirm crash-log / diagnostics rows are filed as **not** optional in both stores' forms (v1.0.0 has no in-app opt-out — see the inventory above). A future wave can add the toggle and flip the row to optional, but not in v1.0.0.
 - [ ] Confirm the ATT prompt is NOT triggered in v1.0.0 (no IDFA collection until Plan B ships). If a stray ATT request slips through Info.plist, Apple will reject the build for tracking-purpose mismatch.
 - [ ] Account Deletion URL declared in App Store Connect → App Information section.
-- [ ] When Plan B (Meta Ads agent) lands: re-add the Meta CAPI inventory rows + Apple "Identifiers → Device ID" + "Usage Data → Product Interaction" sections + Play "Device or other IDs" + "App activity → App interactions" rows + the cross-store consistency row. Update both stores' forms in the same release — never let the privacy declarations and the in-app data behavior diverge.
+- [ ] When Plan B (Meta Ads agent) lands: do NOT re-add the Apple/Play rows for `Device or other IDs` or `App interactions` / `Product Interaction` — those rows are already declared in v1.0.0 for first-party use. Instead, add the **advertising purpose** to those existing rows (and flip Apple's `Used for Tracking` from No to Yes for the rows that ship CAPI events), plus add a NEW row for the IDFA / Android Ad ID advertising identifier with Tracking=Yes. Update both stores' forms in the same release — never let the privacy declarations and the in-app data behavior diverge.
