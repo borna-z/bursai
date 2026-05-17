@@ -59,15 +59,15 @@
 
 ## Keywords (100 chars max — comma-separated, no spaces after commas)
 
-> stylist,outfit,wardrobe,closet,fashion,clothing,AI,style,what to wear,ootd,capsule,travel,planner
+> stylist,outfit,wardrobe,closet,fashion,clothing,smart,style,what to wear,ootd,capsule,travel,planner
 
-**Char count:** 99 / 100.
+**Char count:** 100 / 100.
 
 **Rationale:**
 - High-intent search terms first ("stylist", "outfit", "wardrobe").
 - Long-tail discovery: "what to wear" is a top App Store query in fashion.
 - "ootd" captures the daily-outfit content angle without spending a slot on a hashtag.
-- "AI" included because Apple search ranks AI-adjacent fashion apps on this term in 2026.
+- "smart" replaces "AI" — Apple's keyword field requires each token to be **greater than 2 characters** (https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information). "AI" (2 chars) would block the metadata save. "smart" captures the AI-adjacent positioning while staying compliant.
 - "capsule" and "travel" target the Travel Capsule feature directly.
 
 ---
@@ -118,7 +118,7 @@ Questionnaire answers (all NO unless noted):
 | Privacy Policy URL | https://burs.me/privacy |
 
 **Borna action items before submission:**
-- Confirm `burs.me/support` page exists (or substitute `mailto:hello@burs.me` per Apple policy).
+- **`burs.me/support` MUST be a live HTTPS webpage** (not a `mailto:` URL). Apple's App Store Connect reference defines the Support URL as the URL of a support website and requires the full HTTPS protocol — `mailto:` URLs fail metadata validation (https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information). Build a minimal static page on `burs.me/support` with the support email (`hello@burs.me`) plus FAQ / contact form before submission.
 - Confirm `burs.me/privacy` is live with the data declarations matched in `M3-privacy-declarations.md`.
 
 ---
