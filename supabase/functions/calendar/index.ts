@@ -415,12 +415,15 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    let action = 'sync_ics'; // default
+    // Default action is `sync_ics`; empty-body callers (the compat path)
+    // are expected and shouldn't pollute Sentry. Codex round-5 P3 (PR #884):
+    // demote to silent — only malformed bodies would be actionable here.
+    let action = 'sync_ics';
     try {
       const body = await req.json();
       if (body?.action) action = body.action;
-    } catch (err) {
-      captureError("calendar.body_parse_failed", err);
+    } catch (_bodyParseExpected) {
+      // intentional: empty body uses the default action
     }
 
     switch (action) {
