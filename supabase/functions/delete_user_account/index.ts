@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+import { authenticate } from "../_shared/auth.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
@@ -15,7 +16,6 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -24,29 +24,14 @@ Deno.serve(async (req) => {
     // scoped by (functionName, userId), and the userId comes from the
     // verified JWT. Pre-auth idempotency lookups risked replaying another
     // user's cached payload when keys collided.
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
-    }
-
-    // Create anon client with user's token to verify identity
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Get the authenticated user
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
-    }
-
+    //
+    // N20: migrated to the shared `authenticate` helper (#879) — same
+    // 401 envelopes, same userClient construction. Helper additionally
+    // emits `Cache-Control: no-store` on 401s so a stale auth error
+    // can't get CDN-cached and served to a different user.
+    const authResult = await authenticate(req, CORS_HEADERS);
+    if (!authResult.success) return authResult.response;
+    const { user } = authResult.auth;
     const userId = user.id;
 
     // Idempotency BEFORE rate limit — Codex P1 round 3 on PR #658:
