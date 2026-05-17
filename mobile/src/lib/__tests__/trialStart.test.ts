@@ -39,6 +39,7 @@ jest.mock('../offlineQueue', () => ({
   __esModule: true,
   enqueue: jest.fn(async () => undefined),
   isOnlineNow: jest.fn(),
+  scheduleDeferredReplay: jest.fn(),
 }));
 
 jest.mock('../sentry', () => ({
@@ -59,6 +60,7 @@ const edgeFn = require('../edgeFunctionClient') as {
 const queue = require('../offlineQueue') as {
   enqueue: jest.Mock;
   isOnlineNow: jest.Mock;
+  scheduleDeferredReplay: jest.Mock;
 };
 const sentry = require('../sentry') as {
   Sentry: { withScope: jest.Mock; captureException: jest.Mock };
@@ -68,6 +70,7 @@ beforeEach(() => {
   edgeFn.callEdgeFunction.mockReset();
   queue.enqueue.mockReset();
   queue.isOnlineNow.mockReset();
+  queue.scheduleDeferredReplay.mockReset();
   sentry.Sentry.captureException.mockReset();
   sentry.Sentry.withScope.mockClear();
 });
@@ -89,7 +92,7 @@ describe('enqueueStartTrial', () => {
     expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it('offline at gate: enqueues, does not call edge function', async () => {
+  it('offline at gate: enqueues + schedules deferred replay, does not call edge function', async () => {
     queue.isOnlineNow.mockResolvedValue(false);
     const { enqueueStartTrial, START_TRIAL_ACTION } = require('../trialStart');
 
@@ -97,15 +100,16 @@ describe('enqueueStartTrial', () => {
 
     expect(queue.enqueue).toHaveBeenCalledTimes(1);
     expect(queue.enqueue).toHaveBeenCalledWith(START_TRIAL_ACTION, { userId: 'user-1' });
+    expect(queue.scheduleDeferredReplay).toHaveBeenCalledTimes(1);
     expect(edgeFn.callEdgeFunction).not.toHaveBeenCalled();
     expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it('online → transient 5xx (still-online): enqueues, no Sentry — Codex P1 fix', async () => {
-    // The original M46 bug: a Supabase 5xx during fresh signup with
-    // NetInfo still reporting online would only Sentry, losing the trial.
-    // Codex review on PR #876 caught this; the fix is to classify
-    // 5xx/network/timeout as transient regardless of NetInfo state.
+  it('online → transient 5xx: enqueues + schedules deferred replay, no Sentry — Codex P1 round 2', async () => {
+    // Codex review round 2 on PR #876: without scheduleDeferredReplay,
+    // a transient-online failure sits in the queue until app restart
+    // or a NetInfo transition. The deferred replay self-checks NetInfo
+    // before draining, so it's safe to call regardless of connectivity.
     queue.isOnlineNow.mockResolvedValue(true);
     edgeFn.callEdgeFunction.mockRejectedValue(
       new edgeFn.EdgeFunctionHttpError('start_trial', 503, 'service unavailable'),
@@ -115,6 +119,7 @@ describe('enqueueStartTrial', () => {
     await expect(enqueueStartTrial('user-1')).resolves.toBeUndefined();
 
     expect(queue.enqueue).toHaveBeenCalledWith(START_TRIAL_ACTION, { userId: 'user-1' });
+    expect(queue.scheduleDeferredReplay).toHaveBeenCalledTimes(1);
     expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
   });
 
@@ -131,7 +136,7 @@ describe('enqueueStartTrial', () => {
     expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it('online → permanent 4xx: captures to Sentry, no enqueue', async () => {
+  it('online → permanent 4xx: captures to Sentry, no enqueue, no deferred replay', async () => {
     queue.isOnlineNow.mockResolvedValue(true);
     const err = new edgeFn.EdgeFunctionHttpError('start_trial', 400, 'bad request');
     edgeFn.callEdgeFunction.mockRejectedValue(err);
@@ -142,6 +147,7 @@ describe('enqueueStartTrial', () => {
     expect(sentry.Sentry.captureException).toHaveBeenCalledTimes(1);
     expect(sentry.Sentry.captureException).toHaveBeenCalledWith(err);
     expect(queue.enqueue).not.toHaveBeenCalled();
+    expect(queue.scheduleDeferredReplay).not.toHaveBeenCalled();
   });
 
   it('online → subscription locked (402-class): captures to Sentry, no enqueue', async () => {

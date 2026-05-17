@@ -23,7 +23,11 @@ import {
   EdgeFunctionHttpError,
   EdgeFunctionSubscriptionLockedError,
 } from './edgeFunctionClient';
-import { enqueue as enqueueOffline, isOnlineNow } from './offlineQueue';
+import {
+  enqueue as enqueueOffline,
+  isOnlineNow,
+  scheduleDeferredReplay,
+} from './offlineQueue';
 import { Sentry } from './sentry';
 
 export const START_TRIAL_ACTION = 'start-trial';
@@ -76,6 +80,13 @@ export async function enqueueStartTrial(userId: string): Promise<void> {
 
   if (!(await isOnlineNow())) {
     await enqueueOffline(START_TRIAL_ACTION, payload);
+    // Defense in depth: NetInfo *should* fire an `online` event when the
+    // user reconnects and `useOfflineQueueReplay` will drain the queue
+    // then. If that event never fires (NetInfo race, app backgrounded
+    // during reconnect, OS suppressing callbacks), the deferred replay
+    // gives us a second wake-up to catch up. The dispatcher self-checks
+    // connectivity before replaying, so this is a no-op when still offline.
+    scheduleDeferredReplay();
     return;
   }
 
@@ -97,5 +108,11 @@ export async function enqueueStartTrial(userId: string): Promise<void> {
     // reports online. The whole point of M46 is that Supabase can be
     // having a bad minute while NetInfo is happy.
     await enqueueOffline(START_TRIAL_ACTION, payload);
+    // Codex review round 2 on PR #876: without an explicit reschedule,
+    // a transient-online failure leaves the queued trial sitting until
+    // app restart or a NetInfo transition that may never come (if
+    // connectivity stays stable). Kick a deferred replay so the queue
+    // gets a second chance ~30s later regardless of NetInfo state.
+    scheduleDeferredReplay();
   }
 }
