@@ -2,9 +2,10 @@
 // Used inline inside buttons + sticky CTAs while a request is in flight.
 
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing } from 'react-native';
+import { Animated } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useTokens } from '../theme/ThemeProvider';
+import { duration, easing } from '../theme/animation';
 
 export function Spinner({ size = 22 }: { size?: number }) {
   const t = useTokens();
@@ -12,7 +13,7 @@ export function Spinner({ size = 22 }: { size?: number }) {
 
   useEffect(() => {
     const loop = Animated.loop(
-      Animated.timing(rot, { toValue: 1, duration: 900, useNativeDriver: true, easing: Easing.linear })
+      Animated.timing(rot, { toValue: 1, duration: duration.slow, useNativeDriver: true, easing: easing.linear })
     );
     loop.start();
     return () => loop.stop();

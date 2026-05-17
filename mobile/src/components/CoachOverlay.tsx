@@ -97,7 +97,18 @@ export interface CoachOverlayProps {
   total: number;
 }
 
-export function CoachOverlay({
+// N17 / Copilot #5 — Coach overlay mounts inside `useCoachTour` whose
+// host screens (Home, Wardrobe, Plan, Insights) re-render frequently
+// (weather refresh, infinite scroll, react-query refetches). Without
+// React.memo, every host render forced this 18 KB component to
+// reconcile its scrim quadrants, measure layout, and re-evaluate the
+// AccessibilityInfo handlers — visible jank during scroll-while-tour-active.
+// Memo with shallow compare is safe: every prop is a primitive, a ref, or a
+// stable callback from `useCoachTour` (which itself memoizes its onNext/onSkip
+// via useCallback).
+export const CoachOverlay = React.memo(CoachOverlayInner);
+
+function CoachOverlayInner({
   visible,
   targetRef,
   caption,

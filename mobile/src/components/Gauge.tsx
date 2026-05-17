@@ -9,7 +9,8 @@
 // muted fg3 "↓" down, mirroring `.g-delta` / `.g-delta.down`.
 
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
+import { duration, easing } from '../theme/animation';
 import Svg, { Circle } from 'react-native-svg';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
@@ -66,8 +67,8 @@ export function Gauge({
     }
     Animated.timing(offset, {
       toValue: targetOffset,
-      duration: 600,
-      easing: Easing.bezier(0.32, 0.72, 0, 1),
+      duration: duration.standard,
+      easing: easing.smooth,
       // SVG props can't use the native driver — strokeDashoffset isn't a transform/opacity.
       useNativeDriver: false,
     }).start();
