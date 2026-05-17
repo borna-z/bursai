@@ -5,7 +5,7 @@
 **Reference truth:**
 - Privacy policy live at `https://burs.me/privacy` (Borna confirms current version before submission).
 - Account deletion in-app via Settings → Account → Delete Account (calls `delete_user_account` edge function — confirmed deployed 2026-05-17, see N20 PR #881).
-- Web account deletion at `https://burs.me/delete-account` (Borna confirms live).
+- Web account deletion at `https://burs.me/delete-account` — **NOT YET SHIPPED.** The repo's `public/` directory contains only the privacy and terms static pages; no `delete-account` route exists. Play requires a web-accessible deletion URL even when in-app deletion exists, so this page MUST be built before Play submission or the declaration must be reframed to claim no web path.
 
 **Data-handling inventory (single source of truth — both stores derive from this):**
 
@@ -155,14 +155,14 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 |---|---|---|
 | Is data encrypted in transit? | Yes | TLS 1.3 across all Supabase/Sentry/Gemini/RevenueCat endpoints. |
 | Is data encrypted at rest? | Yes | Supabase Postgres + Storage at-rest encryption. Sentry at-rest encryption per their SOC2. |
-| Can users request data deletion? | Yes | In-app: Settings → Account → Delete Account. Web: burs.me/delete-account. |
+| Can users request data deletion? | Yes | In-app: Settings → Account → Delete Account (shipped). Web: `burs.me/delete-account` — **not yet shipped; must be live before Play submission** (see Borna checklist). |
 | Do you follow Google Play's Families Policy? | N/A | App targets 13+. |
 | Has your app been independently security-reviewed? | No | Self-review only for v1.0.0 — note for v1.1+ planning. |
 
 ### Account deletion (Play-specific section)
 
 - **In-app deletion:** Settings → Account → Delete Account. Triggers `delete_user_account` edge function which cascades across 24+ tables and storage paths (see function source for full inventory).
-- **Web deletion URL:** `https://burs.me/delete-account` (must be live at submission — Borna to verify).
+- **Web deletion URL:** `https://burs.me/delete-account` — **does not currently exist in the `public/` tree**, which has only `privacy/` + `terms/`. Borna must either (a) ship the page before Play submission (recommended — a static page that links to the in-app deletion flow plus an email-based deletion request form satisfies Play's policy) or (b) reconfigure the Play declaration to say no web deletion is offered (this is harder to defend — Play has been rejecting apps for this since 2024).
 - **Data deleted:** Account, profile, all garments + photos, all outfits, wear logs, calendar events, subscription state, AI memory tables, push subscriptions, travel capsules, response cache. Cascades complete within seconds.
 - **Data retained after deletion:** None for the user. Aggregated/anonymized analytics may persist but contain no user identifier.
 
@@ -189,7 +189,7 @@ If any row above disagrees between the two stores' actual submitted forms, **sto
 ## Borna pre-submission checklist for this doc
 
 - [ ] `burs.me/privacy` page reflects the inventory above. Specifically: it must NOT claim Meta Pixel / CAPI data collection — that is Plan B and is not part of v1.0.0.
-- [ ] `burs.me/delete-account` page is live and returns a real form (Play requires a web-accessible path even when in-app deletion exists).
+- [ ] **BLOCKER:** Build and deploy `burs.me/delete-account` before Play submission. The page does not yet ship in the repo (`public/` only has `privacy/` and `terms/`). A minimal compliant page is a static HTML form that POSTs to a Supabase edge function which validates an emailed magic link before triggering the same `delete_user_account` cascade. Alternative: an email-driven request flow (e.g., "email hello@burs.me to delete your account, processed within 7 days") also satisfies Play's policy. Whatever ships, the URL declared in Play Console must match the live page.
 - [ ] Confirm crash-log / diagnostics rows are filed as **not** optional in both stores' forms (v1.0.0 has no in-app opt-out — see the inventory above). A future wave can add the toggle and flip the row to optional, but not in v1.0.0.
 - [ ] Confirm the ATT prompt is NOT triggered in v1.0.0 (no IDFA collection until Plan B ships). If a stray ATT request slips through Info.plist, Apple will reject the build for tracking-purpose mismatch.
 - [ ] Account Deletion URL declared in App Store Connect → App Information section.

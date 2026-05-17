@@ -132,9 +132,8 @@ Paste this AFTER the demo script in Play Console → App content → Reviewer co
 > **About account deletion**
 >
 > Per Google Play account-deletion policy:
-> - In-app: Settings → Account → Delete Account
-> - Web: https://burs.me/delete-account
-> Both paths trigger the same server-side cascade.
+> - In-app: Settings → Account → Delete Account (calls the `delete_user_account` edge function which cascades across 24+ tables and storage paths).
+> - Web: `https://burs.me/delete-account` — **PRE-SUBMISSION BLOCKER FOR BORNA: this page does not yet ship in the repo (`public/` has only the privacy and terms pages).** Play requires the web-accessible deletion path even when in-app deletion exists; the URL must be live and return a working form before Play submission, or this reviewer note must be rewritten to point only at the in-app path with a Play Console "no web deletion offered" attestation.
 
 ---
 
