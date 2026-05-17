@@ -30,6 +30,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+import { authenticate } from "../_shared/auth.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import {
   enforceRateLimit,
@@ -78,24 +79,17 @@ Deno.serve(async (req) => {
     return overloadResponse(CORS_HEADERS);
   }
 
-  // ─── Auth: verify the caller's JWT via anon client + getUser ─────────
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return jsonResponse({ error: "Missing authorization header" }, 401);
-  }
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  const anonClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: { user }, error: authErr } = await anonClient.auth.getUser();
-  if (authErr || !user) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
-  }
+  // ─── Auth: verify the caller's JWT via the shared helper ────────────
+  // Replaced the 18-line inline pattern with `authenticate(req, headers)`
+  // from `_shared/auth.ts`. Same 401 envelopes, same anon-client
+  // construction, just centralized. (N18 — Copilot #9.)
+  const authResult = await authenticate(req, CORS_HEADERS);
+  if (!authResult.success) return authResult.response;
+  const { user } = authResult.auth;
   const userId = user.id;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
   // ─── Rate limit ─────────────────────────────────────────────────────
