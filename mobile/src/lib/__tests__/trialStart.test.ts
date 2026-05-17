@@ -11,6 +11,21 @@
 //   (6) subscription-locked (402-class) → Sentry (permanent for this op)
 //   (7) NetInfo gate throws → propagates (documented gap)
 // Plus: dispatchStartTrial forwards / surfaces errors.
+// Plus: iOS/Android short-circuit (post-audit 2026-05-18).
+
+// jest-expo defaults Platform.OS to 'ios', which would trip the
+// post-audit short-circuit on every existing branch test. Mock a mutable
+// Platform object so the queue-logic tests can pin OS to 'web' and the
+// dedicated short-circuit suite can flip it to 'ios' / 'android' per test
+// by mutating `mockPlatform.OS` directly. (jest.isolateModules +
+// jest.doMock won't override the file-level mock, so a mutable reference
+// is the most surgical option.)
+const mockPlatform = { OS: 'web' as 'web' | 'ios' | 'android' };
+jest.mock('react-native', () => ({
+  get Platform() {
+    return mockPlatform;
+  },
+}));
 
 jest.mock('../edgeFunctionClient', () => {
   class EdgeFunctionHttpError extends Error {
@@ -73,6 +88,9 @@ beforeEach(() => {
   queue.scheduleDeferredReplay.mockReset();
   sentry.Sentry.captureException.mockReset();
   sentry.Sentry.withScope.mockClear();
+  // Default platform for the queue-logic branches; the iOS/Android suite
+  // overrides per test.
+  mockPlatform.OS = 'web';
 });
 
 describe('enqueueStartTrial', () => {
@@ -175,6 +193,27 @@ describe('enqueueStartTrial', () => {
     // explicit; flip to `.resolves.toBeUndefined()` once hardened.)
     await expect(enqueueStartTrial('user-1')).rejects.toThrow('NetInfo died');
   });
+});
+
+describe('enqueueStartTrial — iOS/Android short-circuit (audit 2026-05-18)', () => {
+  // start_trial is Stripe-only and was deprecated for mobile when M31 moved
+  // iOS/Android billing onto RevenueCat. Mobile must no-op without touching
+  // the queue or the edge function — otherwise every fresh signup writes a
+  // stuck 503 job that retries forever.
+  for (const platform of ['ios', 'android'] as const) {
+    it(`Platform.OS === '${platform}': returns immediately, no queue, no edge fn, no Sentry`, async () => {
+      mockPlatform.OS = platform;
+      const { enqueueStartTrial } = require('../trialStart');
+
+      await expect(enqueueStartTrial('user-1')).resolves.toBeUndefined();
+
+      expect(queue.enqueue).not.toHaveBeenCalled();
+      expect(queue.isOnlineNow).not.toHaveBeenCalled();
+      expect(queue.scheduleDeferredReplay).not.toHaveBeenCalled();
+      expect(edgeFn.callEdgeFunction).not.toHaveBeenCalled();
+      expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
+    });
+  }
 });
 
 describe('dispatchStartTrial', () => {
