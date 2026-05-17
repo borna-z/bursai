@@ -57,10 +57,24 @@ export function useOfflineQueueReplay(): void {
 
     // M46 — trial-start queued from AuthContext when the user signs up
     // offline (or the live call fails with the network dropping). The
-    // handler just redispatches; the offline-queue dispatcher owns
-    // success / fail bookkeeping and Sentry surfacing.
+    // handler redispatches; the dispatcher owns success/fail bookkeeping.
+    //
+    // Rate-limit handling mirrors the memory handler above: 429 (which
+    // `callEdgeFunction` surfaces as `EdgeFunctionRateLimitError`) must
+    // throw `HaltReplayError` so the dispatcher reschedules a deferred
+    // replay using the server's `retryAfter`. Falling through as a
+    // generic failure would let the trial drop after 3 retries with no
+    // wake-up between them. (Codex P2 round 2 on PR #876.)
     registerHandler<StartTrialPayload>(START_TRIAL_ACTION, async (payload) => {
-      await dispatchStartTrial(payload);
+      try {
+        await dispatchStartTrial(payload);
+      } catch (err) {
+        if (err instanceof EdgeFunctionRateLimitError) {
+          const retryAfterSec = err.retryAfter > 0 ? err.retryAfter : 60;
+          throw new HaltReplayError(retryAfterSec * 1000);
+        }
+        throw err;
+      }
     });
 
     void (async () => {
