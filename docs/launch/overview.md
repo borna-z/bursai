@@ -215,7 +215,7 @@ No exploratory reads. No sibling wave files. If a wave file lacks something, fix
 ### Acceptance gates (V0 CI runs them; same locally)
 ```bash
 cd mobile && npx tsc --noEmit          # 0 errors
-cd mobile && npx eslint src --ext .ts,.tsx --max-warnings 0   # 0 warnings (V0+)
+cd mobile && npx eslint "src/**/*.{ts,tsx}" --max-warnings 0   # 0 warnings (V0+; glob form, not `--ext`)
 cd mobile && npx expo-doctor           # passes (Sentry pinned, excluded)
 cd mobile && npx expo export -p ios -o /tmp/expo-export       # bundle size assertion
 ```

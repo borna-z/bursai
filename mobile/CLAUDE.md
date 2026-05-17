@@ -108,13 +108,33 @@ React Native `Modal` + `Animated`, OR `@gorhom/bottom-sheet` if already in deps 
 
 ```bash
 cd mobile && npx tsc --noEmit          # 0 errors
-cd mobile && npx eslint src --ext .ts,.tsx --max-warnings 0
+cd mobile && npx eslint "src/**/*.{ts,tsx}" --max-warnings 0   # NOT `src --ext .ts,.tsx`
 cd mobile && npx expo-doctor           # passes
 cd mobile && npx expo export -p ios -o /tmp/expo-export    # bundle size assertion
 ```
 
+The eslint glob form matters — `--ext .ts,.tsx` and `"src/**/*.{ts,tsx}"` produce different warning sets, and CI uses the glob. Mismatching forms have bitten before (PR #775: local `--ext` form passed, CI glob caught `react-hooks/exhaustive-deps` warnings that `--max-warnings 0` upgraded to a failure).
+
 For migrations: `npx supabase migration list --linked` clean + `npx supabase db push --linked --dry-run --yes`.
 For edge function changes: `deno check supabase/functions/<name>/index.ts`.
+
+## Module layout (post-Phases 1–6)
+
+The modularization roadmap (2026-05-16) restructured several oversized files into barrel-organized sibling modules. Public import paths stayed stable so consumers didn't need touching — but knowing the internal layout matters when extending or debugging.
+
+| Public import | Barrel directory | Internals |
+|---|---|---|
+| `import { useAuth } from '@/contexts/AuthContext'` | `contexts/AuthContext.tsx` (provider + listeners; < 250 lines) | Auth helpers extracted to `auth/`: `hydrateAuthFromStorage.ts` (storage hydration + `selectProfile` + `loadOrCreateProfile` + `isFreshSignup`), `subscriptionTierFromProfile.ts`, `deriveOnboardingStatus.ts`, `types.ts`. Auth→queue replay effect: `hooks/useOfflineQueueReplay.ts`. |
+| `import { enqueue, replay, ... } from '@/lib/offlineQueue'` | `lib/offlineQueue/index.ts` (barrel) | `persistence.ts` (AsyncStorage + byte/item caps + JSON shape), `dispatcher.ts` (FIFO + retry cap + HaltReplayError + single-flight `replayInFlight`), `subscriber.ts` (observer pattern), `connectivity.ts` (NetInfo + `isOnlineNow`). |
+| `import { persistGarment, persistGarmentWithOfflineFallback } from '@/lib/garmentSave'` | `lib/garmentSave/index.ts` (barrel) | `persistGarmentRaw.ts` (pure insert), `persistGarmentWithMetadata.ts` (+ mask + enrichment trigger), `persistGarmentWithOfflineQueue.ts` (+ NetInfo gate), `renderEnqueueToast.ts` (opt-in toast helper that callers pass via `onRenderEnqueueFailure`). |
+| `import { useStyleChat } from '@/hooks/useStyleChat'` | `hooks/useStyleChat.ts` (orchestrator) | `useStyleChatStreaming.ts` (SSE mechanics), `useStyleChatHistory.ts` (persisted-history fetch + parse), `useStyleChatUI.ts` (mode pills + chips + anchor + refine state machine), `useStyleChat.helpers.ts` + `useStyleChatTurn.helpers.ts` (pure builders). |
+| `import { useWeekGenerator } from '@/hooks/useWeekGenerator'` | `hooks/useWeekGenerator.ts` (orchestrator) | `useWeekGenerationLoop.ts` (7-day loop + per-day error capture), `useWeatherAndContext.ts`. |
+| `import { usePhotoFeedback } from '@/hooks/usePhotoFeedback'` | `hooks/usePhotoFeedback.ts` (orchestrator) | `useFeedbackFetch.ts` (edge-function call + error classification), `useFeedbackCleanup.ts` (selfie + temp blob sweep + tracking refs), `lib/feedbackNormalizer.ts`. |
+| `import * as batch from '@/lib/batchPipeline'` | `lib/batchPipeline/index.ts` (barrel) | `BatchStateMachine.ts` (PURE — `createItems`, `selectStartCandidates`, `transitionTo*` helpers, `shouldNeedReview`), `BatchConcurrencyPool.ts` (I/O glue — resize + upload + analyze, calls helpers via `Object.assign(item, helperResult)` so identity is preserved), `BatchLifecycle.ts` (register/cleanup). Phase 4 audit (#867) wired the pool through the helpers so the state machine isn't dead code. |
+| `import type { StyleProfileV4, ... } from '@/lib/styleProfileV4'` | `lib/styleProfileV4/index.ts` (barrel) | `types.ts`, `defaults.ts`, `parser.ts`, `compat.ts` (`migrateV4ToV3Compat` returns `V3MirroredProfile` — V4 with the enum fields swapped for V3-narrowed strings; the V3CompatShape index signature contributes loosely-typed mirror keys without overriding the narrowed enums). |
+| `import { AddPieceStep3Form } from './AddPieceStep3/AddPieceStep3Form'` | `screens/AddPieceStep3.tsx` (orchestrator) | `AddPieceStep3/AddPieceStep3Form.tsx` (11 metadata pickers + reducer; accepts `hidePickers?: readonly HideablePickerKey[]` so EditGarmentScreen can hide `formality` behind its advanced toggle), `AddPieceStep3/AddPieceStep3SaveFlow.tsx` (save mutation + cleanup refs + batch handling), `AddPieceStep3/garmentMetadataForm.types.ts`. |
+
+Phase 3 screen splits (`GarmentDetail`, `OutfitGenerate`, `StyleMe`, `VisualSearch`) follow the same pattern: orchestrator screen + sibling sub-components under a directory of the screen name. Section components are pure render with no fetch — orchestrator owns the queries.
 
 ## Code-reviewer subagent brief (verbatim — paste before push)
 
