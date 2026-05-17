@@ -9,6 +9,8 @@
 // Deno-only guard so vitest under Node doesn't try to bind a port.
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
+import { callBursAI } from "../_shared/burs-ai.ts";
+import { placeholderSetsMatch } from "./placeholders.ts";
 
 export const SUPPORTED_TARGET_LOCALES = [
   "ar", "da", "de", "es", "fa", "fi", "fr", "it", "nl", "no", "pl", "pt",
@@ -69,13 +71,85 @@ export async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
-  // Translation call lands in Task 3. For now, echo so tests can assert shape.
-  return json(200, {
-    ok: true,
+  // sv_reference acts as a brand-voice anchor — the model sees how the
+  // same keys land in Swedish (hand-curated by a native author) and is
+  // asked to match the register in the target locale. JSON-only output
+  // keeps the parser trivial.
+  const systemPrompt =
+    `You are a senior translator for a fashion/wardrobe app called BURS.
+The Swedish dictionary below is hand-curated and establishes the brand voice (terse, premium, minimal, sentence case).
+Translate the source dictionary to ${body.target_locale}, matching that register.
+Hard rules:
+- Preserve every {placeholder} token EXACTLY (same name, same braces).
+- Preserve sentence case (do not Title Case strings).
+- Never invent keys or omit keys from the source.
+- Output JSON only, no commentary, of shape: {"translations": {"<key>": "<translation>"}}.`;
+
+  const userPrompt = JSON.stringify({
     target_locale: body.target_locale,
-    translations: keys,
+    sv_anchor: body.sv_reference,
+    source: keys,
+  });
+
+  let aiData: unknown;
+  try {
+    const result = await callBursAI({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      complexity: "standard",
+      functionName: "translate_locale",
+    });
+    aiData = result.data;
+  } catch (err) {
+    return json(502, {
+      error: "translate_locale: gemini call failed",
+      detail: String(err),
+    });
+  }
+
+  // Gemini returns the JSON object directly (data: any) or a string. Try
+  // both: if it's already an object, use it; otherwise JSON.parse the string.
+  let parsed: { translations?: Record<string, string> };
+  try {
+    if (typeof aiData === "string") {
+      parsed = JSON.parse(aiData);
+    } else if (aiData && typeof aiData === "object") {
+      parsed = aiData as { translations?: Record<string, string> };
+    } else {
+      return json(502, { error: "translate_locale: empty response from gemini" });
+    }
+  } catch {
+    return json(502, { error: "translate_locale: malformed JSON from gemini" });
+  }
+  const aiTranslations = parsed.translations ?? {};
+
+  // Placeholder guard: any translation whose {xxx} set differs from the
+  // source falls back to the English passthrough. Better than shipping
+  // `Bonjour {nom}` when t('greet', { name: 'X' }) won't substitute.
+  const translations: Record<string, string> = {};
+  const missing: string[] = [];
+  for (const k of Object.keys(keys)) {
+    const src = keys[k];
+    const tgt = aiTranslations[k];
+    if (typeof tgt !== "string" || tgt.length === 0) {
+      missing.push(k);
+      continue;
+    }
+    if (!placeholderSetsMatch(src, tgt)) {
+      translations[k] = src; // passthrough
+      continue;
+    }
+    translations[k] = tgt;
+  }
+
+  return json(200, {
+    ok: missing.length === 0,
+    target_locale: body.target_locale,
+    translations,
     chunk_index: body.chunk_index,
-    missing_keys: [],
+    missing_keys: missing,
   });
 }
 
