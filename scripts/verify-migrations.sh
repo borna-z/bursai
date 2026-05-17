@@ -6,9 +6,25 @@
 # check in the migration-smoke CI job (which only verifies the new migrations
 # apply cleanly on top of remote).
 #
+# CLI: uses the `supabase` binary on PATH. In CI it's provided by
+# `supabase/setup-cli@v1` (pinned to v1.226.4 in mobile-ci.yml). Locally,
+# install the CLI globally (`npm i -g supabase` or `brew install supabase`).
+# Earlier revisions used `npx supabase` which resolves a different CLI
+# version from npm registry — Codex round-3 P2 on PR #884 flagged the
+# mismatch as a fragility source (different CLI versions = different flag
+# semantics, possible npm auth/network failures).
+#
 # Required env:
 #   SUPABASE_ACCESS_TOKEN  — admin PAT for the Supabase project
 #   SUPABASE_DB_PASSWORD   — db password for the linked project
+#
+# Advisory mode:
+#   MIGRATIONS_DRIFT_ADVISORY=1  — log drift but exit 0. Used in CI until
+#   the launch-window pre-existing drift (extensions/functions added via
+#   Supabase Studio, never captured in migrations) is repaired via a
+#   backfill migration (`supabase db pull` + idempotency review per
+#   CLAUDE.md migration discipline). Strict (default) is the post-launch
+#   target.
 #
 # Local usage (one-off check):
 #   SUPABASE_ACCESS_TOKEN=... SUPABASE_DB_PASSWORD=... bash scripts/verify-migrations.sh
@@ -20,21 +36,17 @@ set -euo pipefail
 # `supabase db diff --linked` prints a unified diff of remote-vs-migrations.
 # Empty output = clean. Non-empty = drift.
 #
-# We capture stderr to a tempfile (not /dev/null) so CLI failures (auth,
-# network, npx resolution) don't silently produce empty `diff_output` and
-# masquerade as "no drift". `set +e` is required around the command so we
-# can inspect its exit code explicitly; without that `set -e` would abort
-# before the empty-vs-failure distinction.
+# Stderr → tempfile so CLI failures (auth, network) don't silently produce
+# empty `diff_output` and masquerade as "no drift". `set +e` around the call
+# so we can inspect exit code explicitly.
 #
-# Auth: supabase CLI v2.x removed the `--password` flag from `db diff` —
-# it now reads `SUPABASE_DB_PASSWORD` from env automatically when `--linked`
-# is set. CLI v1.x accepted the flag; we drop it to stay compatible with
-# both (the env var works for both versions).
+# Auth: `--linked` reads SUPABASE_DB_PASSWORD from env automatically (v1.x
+# also accepts `--password` but the env-var path works for both v1 and v2).
 stderr_file="$(mktemp)"
 trap 'rm -f "$stderr_file"' EXIT
 
 set +e
-diff_output="$(npx supabase db diff --linked 2>"$stderr_file")"
+diff_output="$(supabase db diff --linked 2>"$stderr_file")"
 diff_exit=$?
 set -e
 
@@ -46,20 +58,29 @@ if [[ $diff_exit -ne 0 ]]; then
   exit "$diff_exit"
 fi
 
-# Trim whitespace so "  \n  " (which has length but no content) counts as empty.
+# Trim whitespace so "  \n  " counts as empty.
 trimmed="$(echo "$diff_output" | tr -d '[:space:]')"
 
 if [[ -n "$trimmed" ]]; then
-  echo "::error::Migration drift detected — remote schema differs from supabase/migrations/."
+  if [[ "${MIGRATIONS_DRIFT_ADVISORY:-0}" == "1" ]]; then
+    echo "::warning::Migration drift detected (advisory — not failing). See drift dump below."
+  else
+    echo "::error::Migration drift detected — remote schema differs from supabase/migrations/."
+  fi
   echo "::group::Drift diff"
   echo "$diff_output"
   echo "::endgroup::"
   echo ""
   echo "Reproduce locally:"
-  echo "  SUPABASE_DB_PASSWORD=... npx supabase db diff --linked"
+  echo "  SUPABASE_DB_PASSWORD=... supabase db diff --linked"
   echo ""
-  echo "Fix: either commit a new migration capturing the remote-side change,"
-  echo "or revert the remote change so it matches migrations."
+  echo "Fix: capture the remote-side change with a backfill migration"
+  echo "(supabase db pull → review → commit), or revert the remote change."
+  if [[ "${MIGRATIONS_DRIFT_ADVISORY:-0}" == "1" ]]; then
+    echo ""
+    echo "Advisory mode — exiting 0. Remove MIGRATIONS_DRIFT_ADVISORY=1 once drift is captured."
+    exit 0
+  fi
   exit 1
 fi
 
