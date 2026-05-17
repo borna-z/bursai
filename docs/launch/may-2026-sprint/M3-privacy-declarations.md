@@ -23,9 +23,8 @@
 | Subscription status | Yes | Supabase `subscriptions` + RevenueCat | Entitlement gating | Yes | No | No (required if subscribed) |
 | Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | No (anonymized event IDs) | No | No (v1.0.0 has no in-app opt-out — Sentry initializes whenever `EXPO_PUBLIC_SENTRY_DSN` is set in the build, which it is for every production build) |
 | Image processing payloads (transient) | Yes | Gemini API (Google) — not retained by Gemini per their terms; pass-through only | Background removal, garment classification, outfit generation | No (no user identifier sent to Gemini) | No | No (core feature) |
-| Advertising identifier (IDFA / Android Ad ID) | Yes (only if user grants ATT / Ads ID permission) | Sent to Meta Pixel + Conversions API | Attribution for Meta Ads campaigns | No (hashed before send) | Yes | Yes (denying ATT disables Meta tracking — no app impact) |
-| Install + first-launch event | Yes | Meta Conversions API (server-side) | Install attribution | No | Yes | No (anonymized, no user PII) |
-| `StartTrial` and `Subscribe` events | Yes | Meta Conversions API (server-side via revenuecat_webhook) | Conversion attribution | Yes (hashed email per Meta's spec) | Yes | No |
+
+> **Excluded from v1.0.0 declarations:** Meta Pixel + Conversions API events (install, trial, subscribe) and the advertising identifier (IDFA / Android Ad ID). These are part of Plan B (Meta Ads agent), which is co-founder-owned and not in the v1.0.0 build — see `00-overview.md` ("Pixel/CAPI deferred to Plan B"). Declaring them now would misrepresent shipped data behavior and unnecessarily add tracking disclosures. When Plan B ships, add the rows back to this inventory AND update both stores' forms in the same release.
 
 ---
 
@@ -58,35 +57,23 @@ For each data type below, fields are:
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
 
-### 5. Identifiers → Device ID
-- **What:** Advertising identifier sent to Meta when user has granted ATT permission.
-- **Linked to User:** No
-- **Used for Tracking:** Yes
-- **Purposes:** Third-Party Advertising
-
-### 6. Diagnostics → Crash Data
+### 5. Diagnostics → Crash Data
 - **Linked to User:** No
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
 - **Opt-out:** Not available in v1.0.0 — declare collected on every install with the DSN configured.
 
-### 7. Diagnostics → Performance Data
+### 6. Diagnostics → Performance Data
 - **Linked to User:** No
 - **Used for Tracking:** No
 - **Purposes:** Analytics
 
-### 8. Usage Data → Product Interaction
-- **What:** Anonymized event names sent to Meta CAPI (install, trial start, subscribe). No screen-level analytics in v1.0.0.
-- **Linked to User:** Yes (hashed email per Meta CAPI spec)
-- **Used for Tracking:** Yes
-- **Purposes:** Third-Party Advertising
-
-### 9. Purchases → Purchase History
+### 7. Purchases → Purchase History
 - **Linked to User:** Yes
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
 
-### 10. Location → Coarse Location
+### 8. Location → Coarse Location
 - **What:** City-level for weather suggestions, only with user permission. Not stored linked to user — passed to weather API in-memory and discarded.
 - **Linked to User:** No
 - **Used for Tracking:** No
@@ -100,6 +87,8 @@ For each data type below, fields are:
 - Browsing History
 - Search History (in-app search uses local state only, not transmitted)
 - Audio Data
+- Identifiers → Device ID (no advertising identifier collection in v1.0.0 — Plan B re-enables this)
+- Usage Data → Product Interaction (no third-party event tracking in v1.0.0 — Plan B re-enables this)
 - Other Data Types (none)
 
 **Privacy Choices URL (optional but recommended):** `https://burs.me/privacy#choices`
@@ -115,7 +104,7 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | **Personal info** ||||||
 | Name | Yes | No | Yes | Account management, App functionality | Display name only; required only if user sets one. |
 | Email address | Yes | No | No | Account management, App functionality | Required for account. |
-| User IDs | Yes | Yes | No | Account management, App functionality, Analytics, Advertising or marketing | Supabase UUID (collected). Hashed email to Meta CAPI (shared). |
+| User IDs | Yes | No | No | Account management, App functionality | Supabase UUID. Not shared with any third party in v1.0.0 (Plan B's hashed-email-to-Meta-CAPI flow is deferred). |
 | **Financial info** ||||||
 | Purchase history | Yes | No | No | App functionality, Account management | Subscription state only. App never sees card details (Google Play + RevenueCat handles payment). |
 | **Location** ||||||
@@ -124,13 +113,9 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | Photos | Yes | No | No | App functionality, Personalization | Garment photos required for core feature. Outfit-feedback photos optional. |
 | **App activity** ||||||
 | Other user-generated content | Yes | No | No | App functionality, Personalization | Wardrobe metadata, outfit selections, wear log. |
-| App interactions | Yes | Yes | No | Advertising or marketing, Analytics | Install + trial + subscribe events to Meta CAPI. |
 | **App info and performance** ||||||
 | Crash logs | Yes | No | No | App functionality | Sentry. v1.0.0 has no in-app opt-out — `EXPO_PUBLIC_SENTRY_DSN` is bundled into every production build and Sentry initializes unconditionally. If you want an opt-out shipped before v1.0.0, treat it as a separate wave; do not back-claim "optional" in this form. |
 | Diagnostics | Yes | No | No | App functionality, Analytics | Sentry performance metrics. Same v1.0.0 caveat as crash logs. |
-| **Device or other IDs** ||||||
-| Device or other IDs | Yes | Yes | Yes | Advertising or marketing | Android Ad ID to Meta when user has not opted out of personalized ads at the OS level. |
-
 **Data NOT collected (must be explicitly marked):**
 - All "Personal info" except Name / Email / User IDs
 - Health and Fitness
@@ -140,13 +125,14 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 - Calendar
 - Contacts
 - Web browsing
-- Other app activity (in-app search history is not transmitted)
+- Other app activity (in-app search history is not transmitted; no third-party event tracking in v1.0.0 — Plan B re-enables `App interactions → advertising`)
+- Device or other IDs (no advertising identifier collection in v1.0.0 — Plan B re-enables `Device or other IDs → advertising`)
 
 ### Security practices (Play form mandatory questions)
 
 | Question | Answer | Notes |
 |---|---|---|
-| Is data encrypted in transit? | Yes | TLS 1.3 across all Supabase/Sentry/Gemini/Meta/RevenueCat endpoints. |
+| Is data encrypted in transit? | Yes | TLS 1.3 across all Supabase/Sentry/Gemini/RevenueCat endpoints. |
 | Is data encrypted at rest? | Yes | Supabase Postgres + Storage at-rest encryption. Sentry at-rest encryption per their SOC2. |
 | Can users request data deletion? | Yes | In-app: Settings → Account → Delete Account. Web: burs.me/delete-account. |
 | Do you follow Google Play's Families Policy? | N/A | App targets 13+. |
@@ -169,9 +155,9 @@ Both stores' answers must agree on these load-bearing claims:
 |---|---|---|
 | App collects email and links to user | "Contact Info → Email" Yes/Yes | "Personal info → Email" Yes |
 | App stores user-content photos linked to user | "User Content → Photos" Yes | "Photos and videos → Photos" Yes |
-| App sends anonymized install/trial events to Meta for ads attribution | "Usage Data → Product Interaction" + tracking flag | "App activity → App interactions" + advertising purpose |
 | App offers in-app account deletion | App description mentions Settings → Delete | Data Safety: Yes for deletion + web URL |
 | Cards never touch the app | "Financial Info" Not Collected | "Financial info → Purchase history" only |
+| No third-party advertising tracking in v1.0.0 | "Identifiers → Device ID" Not Collected + "Usage Data → Product Interaction" Not Collected | "Device or other IDs" Not Collected + "App activity → App interactions" Not Collected |
 
 If any row above disagrees between the two stores' actual submitted forms, **stop and reconcile** — that's a guaranteed rejection vector.
 
@@ -179,8 +165,9 @@ If any row above disagrees between the two stores' actual submitted forms, **sto
 
 ## Borna pre-submission checklist for this doc
 
-- [ ] `burs.me/privacy` page reflects the inventory above (especially the Meta CAPI disclosure, which is new for v1.0).
+- [ ] `burs.me/privacy` page reflects the inventory above. Specifically: it must NOT claim Meta Pixel / CAPI data collection — that is Plan B and is not part of v1.0.0.
 - [ ] `burs.me/delete-account` page is live and returns a real form (Play requires a web-accessible path even when in-app deletion exists).
 - [ ] Confirm crash-log / diagnostics rows are filed as **not** optional in both stores' forms (v1.0.0 has no in-app opt-out — see the inventory above). A future wave can add the toggle and flip the row to optional, but not in v1.0.0.
-- [ ] ATT prompt copy on iOS reads something like "BURS uses this to measure which ads helped people discover the app. It does not enable any in-app advertising." (Apple rejects vague ATT explanations.)
+- [ ] Confirm the ATT prompt is NOT triggered in v1.0.0 (no IDFA collection until Plan B ships). If a stray ATT request slips through Info.plist, Apple will reject the build for tracking-purpose mismatch.
 - [ ] Account Deletion URL declared in App Store Connect → App Information section.
+- [ ] When Plan B (Meta Ads agent) lands: re-add the Meta CAPI inventory rows + Apple "Identifiers → Device ID" + "Usage Data → Product Interaction" sections + Play "Device or other IDs" + "App activity → App interactions" rows + the cross-store consistency row. Update both stores' forms in the same release — never let the privacy declarations and the in-app data behavior diverge.

@@ -185,7 +185,7 @@ Each screenshot should include the localized UI in English (UK).
 
 | Policy | Risk | Mitigation in v1.0.0 |
 |---|---|---|
-| User Data | Data Safety form must match in-app behavior. | See `M3-privacy-declarations.md` — declarations match `delete_user_account` + Sentry/Supabase/Gemini/RevenueCat/Meta inventory. |
+| User Data | Data Safety form must match in-app behavior. | See `M3-privacy-declarations.md` — declarations match `delete_user_account` + Sentry/Supabase/Gemini/RevenueCat inventory. Meta Pixel / CAPI is deferred to Plan B and not declared in v1.0.0. |
 | Subscriptions and Cancellation | Must disclose price, period, renewal cadence, cancellation path. | Disclosure block in full description + deep link to Google Play subs management. |
 | Account Deletion | Apps that allow account creation must allow in-app deletion AND offer a web-accessible deletion path. | In-app: Settings → Account → Delete Account (calls `delete_user_account`). Web: burs.me/delete-account (Borna to confirm live). |
 | Permissions | Each runtime permission must have a clear in-app rationale. | Camera (snap garments), Photos (import), Notifications (daily outfit reminders if user opts in), Location (weather-aware suggestions, opt-in). |

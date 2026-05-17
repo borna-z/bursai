@@ -20,7 +20,7 @@
 **Borna provisioning steps (one-time, before submission):**
 
 1. Sign up `test@burs.me` from the production app build that will be submitted (same RC).
-2. Run the wardrobe seed: import the 24 garments from `docs/launch/may-2026-sprint/assets/reviewer-wardrobe/` (Borna to capture this set — recommend a neutral, photographable batch from Borna's own closet).
+2. Seed the wardrobe with 24 garments. No pre-captured asset set ships in this repo — Borna captures fresh photos at provisioning time. Recommended set: a neutral, photographable batch from Borna's own closet (6 tops, 5 bottoms, 3 outerwear, 4 footwear, 3 accessories, 3 basics). Import via the in-app camera or batch-import flow that ships in the v1.0 build. Goal is realistic outfit-generation material, not a specific scripted set.
 3. Plan one outfit for the next day in-app.
 4. Log 8 wear entries spread across 14 days.
 5. From Supabase SQL editor, grant a 1-year Premium entitlement so the reviewer skips the sandbox purchase. The `grant_trial_gift` edge function does NOT do this (it grants render credits) — use a direct upsert on `subscriptions` instead:
@@ -76,7 +76,7 @@
 >
 > 8. **Subscription management.** Settings → Subscription. See the active Premium Annual entitlement, renewal date, and cancellation link.
 >
-> 9. **Account deletion (required by both stores).** Settings → Account → Delete Account. Tap and confirm. The account, wardrobe, and all associated data are deleted within seconds. (Don't actually delete this account during review — the confirmation dialog has a clear cancel button.)
+> 9. **Account deletion (required by both stores).** Settings → Account → Delete Account. Tap the row to open the typed confirmation dialog so you can verify the deletion flow exists — then tap **Cancel**. Please do NOT confirm deletion on this account: it is the shared reviewer credential for both stores and any follow-up reviews. If you need to verify the deletion completes end-to-end, sign up a throwaway account first and delete that one instead.
 >
 > **If anything in the flow fails to load**, please contact `hello@burs.me` and we'll respond within 4 hours.
 
