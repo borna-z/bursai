@@ -17,7 +17,7 @@
 | Garment metadata (category, color, warmth) | Yes (derived from photos) | Supabase `garments` table | Wardrobe management, outfit generation | Yes | No | No (core feature) |
 | Outfit photos (user-uploaded for feedback) | Yes | Supabase Storage | Outfit photo feedback feature | Yes | No | Yes (per-feature opt-in) |
 | Wear log | Yes | Supabase `wear_logs` | Track what user actually wears, personalize suggestions | Yes | No | Yes |
-| Calendar events (planned outfits) | Yes | Supabase `planned_outfits`, `calendar_events` | Outfit planning, calendar sync | Yes | No | Yes |
+| Calendar events (planned outfits + synced Google Calendar events) | Yes | Supabase `planned_outfits`, `calendar_events` | Outfit planning, calendar sync. When user opts into Google Calendar sync (Settings → Calendar Sync), the `calendar` edge function fetches `title`, `description`, `date`, `start_time`, `end_time` from the primary Google Calendar and writes them to `calendar_events` (`supabase/functions/calendar/index.ts:274-314`) so suggestions can take upcoming events into account. | Yes | No | Yes (sync is opt-in; in-app `planned_outfits` always required as a core feature) |
 | Location (city/coordinates) | Yes (only if user grants permission for weather features) | Not stored — passed to weather API in-memory only | Weather-aware outfit suggestions | No (not stored linked to user) | No | Yes |
 | Push notification token | Yes (only if user opts in) | Supabase `push_subscriptions` | Daily outfit reminders | Yes | No | Yes |
 | Subscription status | Yes | Supabase `subscriptions` + RevenueCat | Entitlement gating | Yes | No | No (required if subscribed) |
@@ -46,7 +46,7 @@ For each data type below, fields are:
 - **Purposes:** App Functionality, Product Personalization
 
 ### 3. User Content → Other User Content
-- **What:** Garment metadata, outfit selections, wear log, planned outfits.
+- **What:** Garment metadata, outfit selections, wear log, planned outfits, and — when the user opts into Google Calendar sync (Settings → Calendar Sync) — synced calendar events (title, description, date, start/end time) from the primary calendar, written to `calendar_events` so suggestions can take upcoming events into account (`supabase/functions/calendar/index.ts:274-314`).
 - **Linked to User:** Yes
 - **Used for Tracking:** No
 - **Purposes:** App Functionality, Product Personalization
@@ -111,8 +111,10 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | Approximate location | Yes | No | Yes | App functionality | Only when user grants permission. City-level for weather. Not retained. |
 | **Photos and videos** ||||||
 | Photos | Yes | No | No | App functionality, Personalization | Garment photos required for core feature. Outfit-feedback photos optional. |
+| **Calendar** ||||||
+| Calendar events | Yes | No | Yes | App functionality | Synced from the user's primary Google Calendar **only when they opt in** via Settings → Calendar Sync. `title`, `description`, `date`, `start_time`, `end_time` are stored in `calendar_events` so outfit suggestions can take upcoming events into account. Not shared with any third party. Cleared on calendar disconnect and on account deletion (see `delete_user_account` cascade). |
 | **App activity** ||||||
-| Other user-generated content | Yes | No | No | App functionality, Personalization | Wardrobe metadata, outfit selections, wear log. |
+| Other user-generated content | Yes | No | No | App functionality, Personalization | Wardrobe metadata, outfit selections, wear log. Includes in-app `planned_outfits` (core feature, required); does NOT include Google Calendar event content — that is declared under the Calendar row above. |
 | **App info and performance** ||||||
 | Crash logs | Yes | No | No | App functionality | Sentry. Linked to the Supabase user UUID once signed in (`Sentry.setUser` in `AuthContext.tsx`). v1.0.0 has no in-app opt-out — `EXPO_PUBLIC_SENTRY_DSN` is bundled into every production build and Sentry initializes unconditionally. If you want an opt-out shipped before v1.0.0, treat it as a separate wave; do not back-claim "optional" in this form. |
 | Diagnostics | Yes | No | No | App functionality, Analytics | Sentry performance metrics. Linked to user same as crash logs above. Same v1.0.0 caveat. |
@@ -122,7 +124,6 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 - Messages
 - Audio files
 - Files and docs
-- Calendar
 - Contacts
 - Web browsing
 - Other app activity (in-app search history is not transmitted; no third-party event tracking in v1.0.0 — Plan B re-enables `App interactions → advertising`)
@@ -158,6 +159,7 @@ Both stores' answers must agree on these load-bearing claims:
 | App offers in-app account deletion | App description mentions Settings → Delete | Data Safety: Yes for deletion + web URL |
 | Cards never touch the app | "Financial Info" Not Collected | "Financial info → Purchase history" only |
 | No third-party advertising tracking in v1.0.0 | "Identifiers → Device ID" Not Collected + "Usage Data → Product Interaction" Not Collected | "Device or other IDs" Not Collected + "App activity → App interactions" Not Collected |
+| Google Calendar event content is collected (opt-in only) | "User Content → Other User Content" covers planned outfits + synced calendar events | "Calendar → Calendar events" Yes / No / Yes (optional) |
 
 If any row above disagrees between the two stores' actual submitted forms, **stop and reconcile** — that's a guaranteed rejection vector.
 
