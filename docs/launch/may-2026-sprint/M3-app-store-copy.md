@@ -47,7 +47,7 @@
 > • Monthly: 119 SEK / month
 > • Annual: 899 SEK / year (37% off monthly)
 >
-> Free trial available. Subscriptions auto-renew unless cancelled at least 24 hours before the renewal date. Manage in Settings → Subscriptions on your Apple ID.
+> 3-day free trial on first subscription. Subscriptions auto-renew unless cancelled at least 24 hours before the renewal date. Manage in Settings → Subscriptions on your Apple ID.
 >
 > Privacy: burs.me/privacy
 > Terms: burs.me/terms

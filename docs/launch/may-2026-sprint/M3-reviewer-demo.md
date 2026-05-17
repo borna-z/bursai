@@ -12,7 +12,7 @@
 |---|---|
 | Email | `test@burs.me` |
 | Password | (Borna to set — strong, 16+ chars, share via secure note in store reviewer field) |
-| Account state at submission | Premium Annual entitlement pre-granted via `grant_trial_gift` (server-side) so the reviewer never has to attempt a sandbox purchase |
+| Account state at submission | Premium Annual entitlement pre-granted via direct write to the `subscriptions` table (server-side) so the reviewer never has to attempt a sandbox purchase. The `grant_trial_gift` edge function grants 3 render credits, NOT subscription entitlement — do not use it for this purpose. |
 | Wardrobe state | Pre-seeded with 24 garments across 6 categories (tops, bottoms, outerwear, footwear, accessories, basics) so outfit generation has real material to work with |
 | Calendar state | One outfit planned for "tomorrow" so the calendar surface isn't empty |
 | Wear log state | 8 wear entries across the previous two weeks so the "what you actually wear" analytics screen has data |
@@ -23,16 +23,29 @@
 2. Run the wardrobe seed: import the 24 garments from `docs/launch/may-2026-sprint/assets/reviewer-wardrobe/` (Borna to capture this set — recommend a neutral, photographable batch from Borna's own closet).
 3. Plan one outfit for the next day in-app.
 4. Log 8 wear entries spread across 14 days.
-5. From Supabase SQL editor, run:
+5. From Supabase SQL editor, grant a 1-year Premium entitlement so the reviewer skips the sandbox purchase. The `grant_trial_gift` edge function does NOT do this (it grants render credits) — use a direct upsert on `subscriptions` instead:
    ```sql
-   -- Grant 1-year Premium gift entitlement so reviewer skips sandbox purchase.
-   select grant_trial_gift(
-     p_user_id := (select id from auth.users where email = 'test@burs.me'),
-     p_duration := interval '365 days',
-     p_reason := 'app-store-reviewer-account'
-   );
+   -- Grant Premium Annual to the reviewer account.
+   -- Borna: confirm column names against `supabase/migrations/*subscriptions*.sql`
+   -- before running — the table schema has evolved over multiple waves.
+   insert into public.subscriptions (
+     user_id, plan, status, current_period_end, created_at, updated_at
+   )
+   values (
+     (select id from auth.users where email = 'test@burs.me'),
+     'premium',
+     'active',
+     now() + interval '365 days',
+     now(),
+     now()
+   )
+   on conflict (user_id) do update
+     set plan = 'premium',
+         status = 'active',
+         current_period_end = now() + interval '365 days',
+         updated_at = now();
    ```
-   (Borna: confirm the actual `grant_trial_gift` RPC signature before running — function exists per CLAUDE.md hard rule on edge function inventory; double-check param names against `supabase/functions/grant_trial_gift/index.ts`.)
+   Borna should sanity-check the actual columns the app reads (`useSubscription` hook reads `plan` + `status` + `current_period_end` at minimum) before pasting — if the column names have shifted, adjust accordingly.
 6. Sign out of the test account on Borna's device before submitting.
 
 ---
@@ -81,8 +94,8 @@ Paste this AFTER the demo script in App Store Connect → App Review Information
 >
 > **Two subscription products**
 >
-> - `burs_premium_monthly_119sek` — 119 SEK / month, auto-renew, 1-week free trial
-> - `burs_premium_annual_899sek` — 899 SEK / year, auto-renew, 1-week free trial
+> - `burs_premium_monthly_119sek` — 119 SEK / month, auto-renew, 3-day free trial
+> - `burs_premium_annual_899sek` — 899 SEK / year, auto-renew, 3-day free trial
 >
 > Both are configured in App Store Connect → In-App Purchases. Restore Purchases is available in Settings → Subscription.
 >
@@ -148,4 +161,4 @@ If any check fails, fix before submission — the reviewer will hit the same iss
 
 - Reviewer accounts persist; do not delete `test@burs.me` until the app has been live for 90 days (Apple sometimes re-uses the account during routine re-reviews after updates).
 - After v1.0.0 is approved, re-seed the wardrobe + re-grant the gift entitlement so the account stays demo-ready for v1.0.1's submission.
-- If the gift entitlement expires before the next submission, run the `grant_trial_gift` SQL above to refresh.
+- If the entitlement expires before the next submission, re-run the `subscriptions` upsert SQL above to refresh.
