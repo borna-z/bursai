@@ -28,11 +28,12 @@
 
 | Milestone | Plan | Target | Status |
 |---|---|---|---|
-| M45 — Accent contrast hotfix | A (M2) | 2026-05-18 | IN PR #875 |
-| M46 — Trial-start offline-queue | A (M2) | 2026-05-19 | IN PR #876 (stacked on #875) |
+| M45 — Accent contrast hotfix | A (M2) | 2026-05-18 | DONE (#875, 2026-05-17) — device verification pending |
+| M46 — Trial-start offline-queue | A (M2) | 2026-05-19 | DONE (#877, 2026-05-17) — airplane-mode E2E pending |
+| N17–N21 — Post-launch audit cleanup + shared JWT helper | A (M2 adjunct) | 2026-05-17 | DONE (#878–#882) — 3 edge functions migrated + redeployed |
 | M1 — Audit + Wave R close | A | 2026-05-20 | DONE (audit 2026-05-17 — R-wave already merged 2026-05-15) |
-| M2 — Submission-track waves + Pixel/CAPI | A | 2026-05-24 | TODO |
-| M3 — Store assets + QA pass | A | 2026-05-27 | TODO |
+| M2 — Submission-track waves (Pixel/CAPI deferred to Plan B) | A | 2026-05-24 | DONE (code) — external setup M43/M44 remain with Borna |
+| M3 — Store assets + QA pass | A | 2026-05-27 | IN PROGRESS (Claude-owned content drafts in flight; Borna captures screenshots) |
 | M4 — Submitted | A | 2026-05-29 | TODO |
 | M5 — Approved | A | 2026-05-31 | TODO |
 | MB1 — Read-only insights | B | 2026-06-07 | NOT STARTED |
