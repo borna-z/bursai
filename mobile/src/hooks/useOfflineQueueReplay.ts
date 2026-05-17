@@ -9,6 +9,8 @@ import {
   HaltReplayError,
   isOnlineNow,
 } from '../lib/offlineQueue';
+import { supabase } from '../lib/supabase';
+import { Sentry } from '../lib/sentry';
 import {
   persistGarment,
   surfaceRenderEnqueueFailureToast,
@@ -72,6 +74,33 @@ export function useOfflineQueueReplay(): void {
     // time. Same shape as the purchase/restore paths.
     // (Codex P2 round 3 on PR #876.)
     registerHandler<StartTrialPayload>(START_TRIAL_ACTION, async (payload) => {
+      // Guard against account-switch race (Codex P1 on PR #877). The
+      // `start_trial` edge function derives the target user from the
+      // bearer JWT in the current Supabase session — it does NOT read
+      // the `userId` we queued. So if the session changed between
+      // enqueue and replay (account switch via token refresh, or any
+      // path that bypasses the `SIGNED_OUT` queue-clear), naively
+      // dispatching would credit the trial to the wrong account.
+      //
+      //   - No session → throw so the dispatcher retries later when
+      //     the user is signed in again (subject to the 3-attempt cap).
+      //   - Different user → return so the item is removed (retrying
+      //     can't help; we never want the trial to go to a wrong
+      //     account). Log a breadcrumb so the drop is auditable.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('start_trial replay deferred: no active session');
+      }
+      if (session.user.id !== payload.userId) {
+        Sentry.addBreadcrumb({
+          category: 'offline_queue',
+          level: 'info',
+          message: 'start_trial_skipped_user_mismatch',
+          data: { queued: payload.userId, current: session.user.id },
+        });
+        return;
+      }
+
       try {
         await dispatchStartTrial(payload);
       } catch (err) {
