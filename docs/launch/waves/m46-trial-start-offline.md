@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Goal | Wrap `callStartTrial` in the existing offline-queue retry pattern so a momentary Supabase outage during sign-up doesn't leave a paying user without their trial. |
-| Status | TODO — created from Day 0 audit 2026-05-17 (Copilot escalation #2, Medium severity) |
+| Status | IN PR #876 (stacked on M45 PR #875) — created from Day 0 audit 2026-05-17 (Copilot escalation #2, Medium severity) |
 | Branch | `mobile-m46-trial-offline` |
 | PR count | 1 |
 | Depends on | nothing |

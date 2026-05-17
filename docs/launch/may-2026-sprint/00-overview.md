@@ -28,8 +28,8 @@
 
 | Milestone | Plan | Target | Status |
 |---|---|---|---|
-| M45 — Accent contrast hotfix | A (M2) | 2026-05-18 | IN PR |
-| M46 — Trial-start offline-queue | A (M2) | 2026-05-19 | IN PR |
+| M45 — Accent contrast hotfix | A (M2) | 2026-05-18 | IN PR #875 |
+| M46 — Trial-start offline-queue | A (M2) | 2026-05-19 | IN PR #876 (stacked on #875) |
 | M1 — Audit + Wave R close | A | 2026-05-20 | DONE (audit 2026-05-17 — R-wave already merged 2026-05-15) |
 | M2 — Submission-track waves + Pixel/CAPI | A | 2026-05-24 | TODO |
 | M3 — Store assets + QA pass | A | 2026-05-27 | TODO |
