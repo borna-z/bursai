@@ -6,6 +6,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 
 export const BUCKET = 'garments';
@@ -366,7 +367,8 @@ export async function fetchAndCacheSignedUrl(path: string): Promise<string | nul
   // this derived promise we'd get an "unhandled promise rejection"
   // warning every time `fetchAndCacheSignedUrl` throws.
   void promise
-    .catch(() => {
+    .catch((err) => {
+      log.error(err, { context: 'useSignedUrl.helpers.inflight_cleanup_rejection' });
       /* rejection consumed by the caller's await; ignored here */
     })
     .finally(() => {

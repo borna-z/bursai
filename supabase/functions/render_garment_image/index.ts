@@ -38,10 +38,18 @@ import {
 } from '../_shared/render-validator.ts';
 import {
   claimGarmentRender,
+  restorePriorRenderState,
   safeMarkRenderFailed,
   safeRestoreOrFailRender,
   updateGarmentRenderState,
 } from '../_shared/render-garment-state.ts';
+import {
+  extensionForMimeType,
+  getErrorMessage,
+  logRenderAttemptRejected,
+  normalizeImageMimeType,
+  uint8ArrayToBase64,
+} from '../_shared/render-garment-helpers.ts';
 
 /**
  * Bump this when the render prompt or Gemini parameters change materially.
@@ -66,57 +74,7 @@ const RENDER_PROMPT_VERSION = 'v2';
 // the extract, the two sides disagreed on unknown-category defaults and
 // systematically rejected valid renders as `reject_wrong_category`.
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error ?? 'Unknown error');
-}
-
-// ─── Image helpers (unchanged) ───
-
-function extensionForMimeType(mimeType: string): string {
-  switch (mimeType.toLowerCase()) {
-    case 'image/png':
-      return 'png';
-    case 'image/webp':
-      return 'webp';
-    case 'image/jpeg':
-    case 'image/jpg':
-    default:
-      return 'jpg';
-  }
-}
-
-function normalizeImageMimeType(contentType: string | null, sourceImagePath: string): string {
-  const normalizedHeader = contentType?.split(';')[0]?.trim().toLowerCase();
-  if (normalizedHeader && normalizedHeader.startsWith('image/')) {
-    return normalizedHeader;
-  }
-
-  const extension = sourceImagePath.split('.').pop()?.toLowerCase();
-  switch (extension) {
-    case 'png':
-      return 'image/png';
-    case 'webp':
-      return 'image/webp';
-    case 'gif':
-      return 'image/gif';
-    case 'jpg':
-    case 'jpeg':
-    default:
-      return 'image/jpeg';
-  }
-}
-
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 8192) {
-    const chunk = bytes.subarray(i, i + 8192);
-    for (let j = 0; j < chunk.length; j++) {
-      binary += String.fromCharCode(chunk[j]);
-    }
-  }
-  return btoa(binary);
-}
-
+// Image helpers + getErrorMessage extracted to `_shared/render-garment-helpers.ts`.
 // Garment-state helpers extracted to `_shared/render-garment-state.ts` (Phase 5e).
 // Imports above bring `updateGarmentRenderState`, `claimGarmentRender`,
 // `safeMarkRenderFailed`, `safeRestoreOrFailRender` into this file unchanged.
@@ -563,41 +521,8 @@ serve(async (req) => {
       render_provider: garment.render_provider as string | null,
     };
 
-    const restorePriorState = async (reason: string) => {
-      // Preserve prior state verbatim when it was:
-      //   - 'ready'   : successful prior render the client still sees
-      //   - 'skipped' : eligibility gate decided no render was needed
-      //   - 'pending' : a queued render intent kicked off elsewhere that
-      //                 we haven't yet executed — resetting to 'none' would
-      //                 silently drop the queue entry for that garment
-      // All other prior states (failed, none, rendering) get reset to 'none'
-      // so the user (or a retry) can re-attempt cleanly.
-      const restoredStatus = (
-        priorState.render_status === 'ready'
-        || priorState.render_status === 'skipped'
-        || priorState.render_status === 'pending'
-      )
-        ? priorState.render_status
-        : 'none';
-      const { error: unclaimError } = await supabase!
-        .from('garments')
-        .update({
-          render_status: restoredStatus,
-          render_error: priorState.render_error,
-          render_presentation_used: priorState.render_presentation_used,
-          render_provider: priorState.render_provider,
-        })
-        .eq('id', garment.id);
-      if (unclaimError) {
-        console.error('render_garment_image prior-state restore failed', {
-          garmentId: garment.id,
-          reason,
-          restoredStatus,
-          priorStatus: priorState.render_status,
-          error: unclaimError.message,
-        });
-      }
-    };
+    const restorePriorState = (reason: string) =>
+      restorePriorRenderState(supabase!, garment.id, priorState, reason);
 
     // ── Claim render atomically before expensive prep ──
     const claimed = await claimGarmentRender(supabase, garment.id, mannequinPresentation, force);
@@ -920,54 +845,14 @@ serve(async (req) => {
         mannequinPresentation,
         maskedInput: maskedRender,
         onAttemptRejected: ({ variant, attemptIndex, errorCode, errorMessage, outputBytes }) => {
-          // Per-attempt structural-rejection logs — restores the
-          // observability the pre-extraction retry loop emitted for each of
-          // `output_bad_magic` / `output_too_small` / `output_too_large` /
-          // `output_low_resolution`. Keeps the chain itself context-agnostic
-          // (no garmentId / no logger inside `_shared/`).
-          if (errorCode === 'output_bad_magic') {
-            console.warn('render_garment_image attempt rejected: bad magic bytes', {
-              garmentId: garment.id,
-              attempt: attemptIndex + 1,
-              variant,
-              firstBytes: Array.from(outputBytes.slice(0, 8))
-                .map((b) => b.toString(16).padStart(2, '0'))
-                .join(' '),
-              bytes: outputBytes.length,
-            });
-          } else if (errorCode === 'output_too_small') {
-            console.warn('render_garment_image attempt rejected: output too small', {
-              garmentId: garment.id,
-              attempt: attemptIndex + 1,
-              variant,
-              bytes: outputBytes.length,
-              errorMessage,
-            });
-          } else if (errorCode === 'output_too_large') {
-            console.warn('render_garment_image attempt rejected: output too large', {
-              garmentId: garment.id,
-              attempt: attemptIndex + 1,
-              variant,
-              bytes: outputBytes.length,
-              errorMessage,
-            });
-          } else if (errorCode === 'output_low_resolution') {
-            console.warn('render_garment_image attempt rejected: output dimensions too low', {
-              garmentId: garment.id,
-              attempt: attemptIndex + 1,
-              variant,
-              dims: extractImageDimensions(outputBytes),
-              errorMessage,
-            });
-          } else {
-            console.warn('render_garment_image attempt rejected: structural', {
-              garmentId: garment.id,
-              attempt: attemptIndex + 1,
-              variant,
-              errorCode,
-              errorMessage,
-            });
-          }
+          logRenderAttemptRejected({
+            garmentId: garment.id,
+            variant,
+            attemptIndex,
+            errorCode,
+            errorMessage,
+            outputBytes,
+          });
         },
         generate: async ({ prompt, variant, attemptIndex }) => {
           console.log('render_garment_image Gemini attempt', {

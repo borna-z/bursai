@@ -15,6 +15,7 @@ import { classifySlot } from "../_shared/burs-slots.ts";
 import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { logger } from "../_shared/logger.ts";
 import { MOOD_MAP, rankGarmentsForMood, formalityLabel } from "../_shared/retrieval.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("mood_outfit");
 
@@ -140,7 +141,8 @@ async function responseToPayload(response: Response): Promise<Record<string, unk
   if (!text) return {};
   try {
     return JSON.parse(text) as Record<string, unknown>;
-  } catch {
+  } catch (err) {
+    captureError("mood_outfit.response_json_parse_failed", err);
     return { error: text };
   }
 }
@@ -440,13 +442,13 @@ serve(async (req) => {
       cleanup(keepaliveId, timeoutId);
       try {
         await sendChunk("data: [DONE]\n\n");
-      } catch {
-        // Ignore shutdown failures.
+      } catch (err) {
+        captureError("mood_outfit.stream_done_send_failed", err);
       }
       try {
         await writer.close();
-      } catch {
-        // Ignore double-close and disconnect errors.
+      } catch (err) {
+        captureError("mood_outfit.writer_close_failed", err);
       }
     }
   })();

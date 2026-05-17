@@ -25,6 +25,7 @@ import {
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { Sentry } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 type GenerateGarmentImageResult = {
   id: string;
@@ -81,7 +82,7 @@ export function useGenerateGarmentImage() {
       // fresh query key and the previous null-path cache entry is
       // unreachable. No explicit signed-url invalidate needed.
       queryClient.invalidateQueries({ queryKey: ['garments'] });
-      queryClient.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.garment(user?.id, garmentId) });
     },
     onError: (err: unknown) => {
       // Don't ship the paywall sentinel to Sentry — it's a controlled flow

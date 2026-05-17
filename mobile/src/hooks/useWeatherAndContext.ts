@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { DayWeatherInput } from '../lib/dayIntelligence';
 import { awaitFreshWeather, useWeather, type WeatherData } from './useWeather';
+import { CACHE_KEYS } from './cacheKeys';
 
 const RECENTLY_WORN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -44,7 +45,7 @@ export function useWeatherAndContext(): {
 
   const recentlyWornCutoffIso = new Date(Date.now() - RECENTLY_WORN_WINDOW_MS).toISOString();
   const recentlyWornQ = useQuery({
-    queryKey: ['recentlyWornGarmentIds', user?.id, recentlyWornCutoffIso.slice(0, 10)],
+    queryKey: CACHE_KEYS.recentlyWornGarmentIds(user?.id, recentlyWornCutoffIso.slice(0, 10)),
     enabled: !!user,
     queryFn: async () => {
       if (!user) return new Set<string>();

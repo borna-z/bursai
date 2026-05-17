@@ -30,6 +30,7 @@ import { ingestMemoryEvent } from "../_shared/style-memory-ingest.ts";
 import { buildStyleChatFallbackOutfitIds, isCompleteStyleChatOutfitIds, normalizeStyleChatAssistantReply } from "../_shared/style-chat-normalizer.ts";
 import { resolveCompleteOutfitIds } from "../_shared/complete-outfit-ids.ts";
 import { logger } from "../_shared/logger.ts";
+import { captureError } from "../_shared/observability.ts";
 
 
 // Split module imports
@@ -86,7 +87,8 @@ const log = logger("style_chat");
 function createRequestId(): string {
   try {
     return crypto.randomUUID();
-  } catch {
+  } catch (err) {
+    captureError("style_chat.request_id_uuid_failed", err);
     return `style-chat-${Date.now()}`;
   }
 }
@@ -1803,7 +1805,9 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
         try {
           const parsed = JSON.parse(m.content);
           if (Array.isArray(parsed)) return { role: m.role, content: parsed };
-        } catch { /* keep as string */ }
+        } catch (err) {
+          captureError("style_chat.message_content_parse_failed", err);
+        }
       }
       return m;
     });
@@ -1858,7 +1862,8 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
         rawAssistantText = typeof clarifierResponse.data === "string" && clarifierResponse.data.trim()
           ? clarifierResponse.data
           : buildStyleClarifierText(locale, latestUser);
-      } catch {
+      } catch (err) {
+        captureError("style_chat.clarifier_call_failed", err);
         rawAssistantText = buildStyleClarifierText(locale, latestUser);
       }
     } else if (!shouldUseStructuredStylistText || !rawAssistantText.trim()) {

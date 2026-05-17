@@ -10,6 +10,8 @@
 
 import * as Sentry from '@sentry/react-native';
 
+import { beforeSend } from './sentryBeforeSend';
+
 let initialized = false;
 
 export function initSentry(): void {
@@ -32,6 +34,9 @@ export function initSentry(): void {
     // The native Sentry SDK only ships in EAS dev/prod builds. Inside Expo Go
     // it's not available, so we keep the JS bridge active and skip native init.
     enableNative: !__DEV__,
+    // Audit issue #5 — PII scrubbing. Removes auth/cookie headers and redacts
+    // sensitive keys before events leave the device.
+    beforeSend,
   });
   initialized = true;
 }
@@ -57,6 +62,59 @@ export function captureMutationError(scope: string) {
       Sentry.captureException(error);
     });
   };
+}
+
+/**
+ * Centralized error reporting. Logs to console (dev) and forwards to Sentry
+ * with a `context` tag. Non-throwing — a Sentry transport failure must never
+ * propagate into call sites.
+ *
+ * Audit issue #1 — every silent catch in mobile/ should route through this
+ * helper (or `captureMutationError` for useMutation onError).
+ *
+ * Safe to call before init — short-circuits when uninitialized.
+ */
+export type Severity = 'fatal' | 'error' | 'warning' | 'info' | 'debug';
+
+export function captureError(
+  context: string,
+  error: unknown,
+  severity: Severity = 'error',
+): void {
+  const err =
+    error instanceof Error
+      ? error
+      : new Error(
+          typeof error === 'string'
+            ? error
+            : (() => {
+                try {
+                  return JSON.stringify(error);
+                } catch (_serErr) {
+                  return String(error);
+                }
+              })(),
+        );
+
+  if (__DEV__) {
+    const tag = `[${context}]`;
+    if (severity === 'warning' || severity === 'info' || severity === 'debug') {
+      console.warn(tag, err);
+    } else {
+      console.error(tag, err);
+    }
+  }
+
+  if (!initialized) return;
+  try {
+    Sentry.withScope((scope) => {
+      scope.setTag('context', context);
+      scope.setLevel(severity);
+      Sentry.captureException(err);
+    });
+  } catch (_sentryErr) {
+    // Sentry transport failure — already logged above in dev; never propagate.
+  }
 }
 
 export { Sentry };

@@ -19,6 +19,7 @@ import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { getLocale } from '../lib/i18n';
 import { localISODate } from '../lib/outfitDisplay';
 import type { DayEventInput, DayWeatherInput } from '../lib/dayIntelligence';
+import { CACHE_KEYS } from './cacheKeys';
 
 interface SummarizeDayResponse {
   summary: string | null;
@@ -86,7 +87,7 @@ export function useDaySummary(args?: UseDaySummaryArgs): UseDaySummaryResult {
   const locale = getLocale();
 
   const query = useQuery<SummarizeDayResponse, Error>({
-    queryKey: ['daySummary', user?.id, dayKey, locale, eventsHash, weatherHash],
+    queryKey: CACHE_KEYS.daySummary(user?.id, dayKey, locale, eventsHash, weatherHash),
     queryFn: async () => {
       const result = await callEdgeFunction<SummarizeDayResponse>('summarize_day', {
         body: { events, weather, locale },

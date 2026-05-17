@@ -49,6 +49,7 @@ import { CloseIcon } from '../components/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyzeGarment } from '../hooks/useAnalyzeGarment';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import {
   resizeForGarment,
   uploadManipulatedImage,
@@ -231,7 +232,8 @@ export function AddPieceStep2() {
       if (prefetched) {
         try {
           resized = await prefetched.resized;
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'AddPieceStep2.prefetched_resize_failed' });
           clearAnalyzePrefetch(photoUri);
           resized = await resizeForGarment(photoUri, { wantBase64: true });
         }
@@ -334,7 +336,8 @@ export function AddPieceStep2() {
       if (prefetched) {
         try {
           analysis = await prefetched.promise;
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'AddPieceStep2.prefetched_analysis_failed' });
           analysis = null;
         }
         clearAnalyzePrefetch(photoUri);

@@ -27,6 +27,7 @@ import Constants from 'expo-constants';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 // ─── Notification preferences ───────────────────────────────────────────
 
@@ -220,7 +221,7 @@ export function useNotificationPrefs() {
   const { user } = useAuth();
 
   return useQuery<NotificationPrefs, Error>({
-    queryKey: ['notificationPrefs', user?.id],
+    queryKey: CACHE_KEYS.notificationPrefs(user?.id),
     enabled: !!user,
     queryFn: async (): Promise<NotificationPrefs> => {
       if (!user) return { ...DEFAULT_NOTIFICATION_PREFS };
@@ -272,30 +273,29 @@ export function useUpdateNotificationPrefs() {
       return parseNotificationPrefs(merged);
     },
     onMutate: async ({ key, value }) => {
-      await queryClient.cancelQueries({ queryKey: ['notificationPrefs', user?.id] });
-      const previous = queryClient.getQueryData<NotificationPrefs>([
-        'notificationPrefs',
-        user?.id,
-      ]);
+      await queryClient.cancelQueries({ queryKey: CACHE_KEYS.notificationPrefs(user?.id) });
+      const previous = queryClient.getQueryData<NotificationPrefs>(
+        CACHE_KEYS.notificationPrefs(user?.id),
+      );
       const base = previous ?? { ...DEFAULT_NOTIFICATION_PREFS };
       const optimistic: NotificationPrefs = { ...base, [key]: value };
-      queryClient.setQueryData(['notificationPrefs', user?.id], optimistic);
+      queryClient.setQueryData(CACHE_KEYS.notificationPrefs(user?.id), optimistic);
       return { previous };
     },
     onError: (err, _vars, context) => {
       if (context?.previous !== undefined) {
         queryClient.setQueryData(
-          ['notificationPrefs', user?.id],
+          CACHE_KEYS.notificationPrefs(user?.id),
           context.previous,
         );
       }
       captureMutationError('useUpdateNotificationPrefs')(err);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['notificationPrefs', user?.id], data);
+      queryClient.setQueryData(CACHE_KEYS.notificationPrefs(user?.id), data);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['notificationPrefs', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.notificationPrefs(user?.id) });
     },
   });
 }

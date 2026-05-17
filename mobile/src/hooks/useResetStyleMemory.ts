@@ -29,6 +29,7 @@ import {
 } from '../lib/offlineQueue';
 import { MEMORY_EVENT_ACTION } from '../lib/memoryIngest';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 export function useResetStyleMemory() {
   const queryClient = useQueryClient();
@@ -74,7 +75,7 @@ export function useResetStyleMemory() {
       // the server-side reset_style_memory_atomic RPC clears. Without
       // this invalidation Profile + SettingsStyle would keep showing
       // the pre-reset DNA up to staleTime (5min).
-      queryClient.invalidateQueries({ queryKey: ['styleDNA', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.styleDNA(user?.id) });
       // Insights derives utilisation + palette + most-worn — none directly
       // depend on Style Memory today, but `delta` text on a few cards
       // mentions "based on recent saves" so keep this fresh.

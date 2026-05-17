@@ -61,6 +61,7 @@ import {
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { getLocale } from '../lib/i18n';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 /** Per-batch ceiling. Server enforces the same limit (`urls.length > 30`
  * → 400) at `import_garments_from_links/index.ts:316`. We surface a
@@ -155,7 +156,8 @@ type DeployedResultRow = {
 function deriveDisplayHost(url: string): string {
   try {
     return new URL(url).hostname;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useImportFromLinks.derive_host_failed' });
     return url;
   }
 }
@@ -177,7 +179,8 @@ function validateAndDedupeUrls(input: readonly string[]): string[] {
     let parsed: URL;
     try {
       parsed = new URL(trimmed);
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'useImportFromLinks.url_validation_failed' });
       continue;
     }
     if (parsed.protocol !== 'https:') continue;
@@ -354,7 +357,8 @@ export function useImportFromLinks(): UseImportFromLinksResult {
               const parsed = (() => {
                 try {
                   return JSON.parse(callErr.bodyText) as { error?: string };
-                } catch {
+                } catch (parseErr) {
+                  log.error(parseErr, { context: 'useImportFromLinks.error_body_parse_failed' });
                   return null;
                 }
               })();

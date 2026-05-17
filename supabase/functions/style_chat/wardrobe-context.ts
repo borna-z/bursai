@@ -28,6 +28,7 @@ import { formatGarmentLine } from "./prompt-builder.ts";
 // Wave S-A.2 (2026-05-15): wrap user-supplied garment titles in the
 // unworn / most-worn insight lines that flow into the chat system prompt.
 import { quoteUserField } from "../_shared/prompt-sanitizer.ts";
+import { captureError } from "../_shared/observability.ts";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,8 @@ async function fetchJsonWithTimeout<T>(input: string, init: RequestInit = {}, ti
     const response = await fetch(input, { ...init, signal: controller.signal });
     if (!response.ok) return null;
     return await response.json() as T;
-  } catch {
+  } catch (err) {
+    captureError("style_chat.wardrobe_context_fetch_failed", err);
     return null;
   } finally {
     clearTimeout(timeout);

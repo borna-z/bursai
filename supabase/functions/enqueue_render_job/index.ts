@@ -39,6 +39,7 @@ import { reserveCredit } from "../_shared/render-credits.ts";
 import { normalizeMannequinPresentation } from "../_shared/mannequin-presentation.ts";
 import { deriveRenderJobId } from "../_shared/render-job-id.ts";
 import { logger } from "../_shared/logger.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("enqueue_render_job");
 
@@ -113,8 +114,8 @@ function isRetryableProcessorStatus(status: number): boolean {
 async function drainBody(res: Response): Promise<void> {
   try {
     await res.body?.cancel();
-  } catch {
-    // ignore — cancel on already-consumed/cancelled streams is harmless
+  } catch (err) {
+    captureError("enqueue_render_job.drain_body_failed", err);
   }
 }
 

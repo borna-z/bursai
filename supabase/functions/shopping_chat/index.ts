@@ -10,6 +10,7 @@ import { isNonEmptyObject, readUnifiedStylePrefs } from "../_shared/style-prefs-
 // before interpolation into the wardrobe-context block of the shopping
 // advisor system prompt. See `_shared/prompt-sanitizer.ts`.
 import { quoteUserField } from "../_shared/prompt-sanitizer.ts";
+import { captureError } from "../_shared/observability.ts";
 
 // ---------- i18n ----------
 
@@ -44,7 +45,9 @@ async function geocodeCity(city: string): Promise<{ lat: number; lon: number } |
     );
     const data = await res.json();
     if (data?.[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-  } catch { /* ignore */ }
+  } catch (err) {
+    captureError("shopping_chat.geocode_failed", err);
+  }
   return null;
 }
 
@@ -57,7 +60,10 @@ async function fetchWeather(lat: number, lon: number, lang: typeof LANG_CONFIG[s
     const c = d?.current;
     if (!c) return "";
     return `${lang.weatherLabel}: ${c.temperature_2m}°C, wind ${c.wind_speed_10m} km/h, precipitation ${c.precipitation} mm, code ${c.weather_code}.`;
-  } catch { return ""; }
+  } catch (err) {
+    captureError("shopping_chat.weather_fetch_failed", err);
+    return "";
+  }
 }
 
 async function getWardrobeContext(supabase: ReturnType<typeof createClient>, userId: string): Promise<{ summary: string; garments: Array<{ id: string; title: string; category: string; color_primary: string; formality: number | null; season_tags: string[] | null }> }> {
@@ -265,7 +271,9 @@ Rules:
         try {
           const parsed = JSON.parse(m.content);
           if (Array.isArray(parsed)) return { role: m.role, content: parsed };
-        } catch { /* keep as string */ }
+        } catch (err) {
+          captureError("shopping_chat.message_content_parse_failed", err);
+        }
       }
       return m;
     });

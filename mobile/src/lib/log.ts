@@ -23,7 +23,7 @@ function toError(err: unknown): Error {
   if (typeof err === 'string') return new Error(err);
   try {
     return new Error(JSON.stringify(err));
-  } catch {
+  } catch (_serErr) {
     return new Error(String(err));
   }
 }

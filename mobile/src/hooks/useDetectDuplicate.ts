@@ -25,6 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface DuplicateMatch {
   garment_id: string;
@@ -58,7 +59,7 @@ export function useDetectDuplicate(input: DetectDuplicateInput | null) {
   const enabled = !!user && !!session?.access_token && !!input?.category;
 
   return useQuery<DetectDuplicateResponse>({
-    queryKey: ['detect-duplicate', user?.id, input],
+    queryKey: CACHE_KEYS.detectDuplicate(user?.id, input),
     queryFn: async () => {
       if (!input || !session?.access_token) return { duplicates: [] };
 

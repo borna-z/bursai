@@ -41,7 +41,9 @@ import {
   EdgeFunctionSubscriptionLockedError,
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 /** Public assessment shape exposed to consumers.
  *  - `condition_score`: 0-100 (the server's 1-10 multiplied by 10).
@@ -171,7 +173,8 @@ export function useAssessCondition(): UseAssessConditionResult {
             const parsed = (() => {
               try {
                 return JSON.parse(callErr.bodyText) as { error?: string };
-              } catch {
+              } catch (parseErr) {
+                log.error(parseErr, { context: 'useAssessCondition.error_body_parse_failed' });
                 return null;
               }
             })();
@@ -226,7 +229,7 @@ export function useAssessCondition(): UseAssessConditionResult {
         // cache so `useGarment` refetches and the GarmentDetail header
         // can light up the persisted badge on next render. Scoped by
         // user.id to match the cache key shape `useGarment` writes.
-        queryClient.invalidateQueries({ queryKey: ['garment', user.id, trimmed] });
+        queryClient.invalidateQueries({ queryKey: CACHE_KEYS.garment(user.id, trimmed) });
       } catch (err) {
         if (controller.signal.aborted) return;
         const message = err instanceof Error ? err.message : 'Condition check failed';

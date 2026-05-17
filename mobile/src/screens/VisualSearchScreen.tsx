@@ -135,7 +135,8 @@ export function VisualSearchScreen() {
       // Reset any prior result so the screen flips back to the pre-search
       // state when the user picks a new reference.
       reset();
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'VisualSearchScreen.open_camera_failed' });
       Alert.alert(
         tr('visualSearch.cameraUnavailableTitle'),
         tr('visualSearch.cameraUnavailableBody'),
@@ -181,7 +182,8 @@ export function VisualSearchScreen() {
       if (result.canceled || !result.assets[0]) return;
       setReferenceUri(result.assets[0].uri);
       reset();
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'VisualSearchScreen.choose_from_library_failed' });
       Alert.alert(
         tr('visualSearch.galleryUnavailableTitle'),
         tr('visualSearch.galleryUnavailableBody'),

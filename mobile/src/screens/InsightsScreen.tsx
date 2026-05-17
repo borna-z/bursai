@@ -51,6 +51,7 @@ import {
 import { useSignedUrls } from '../hooks/useSignedUrl';
 import { useNow } from '../hooks/useNow';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import {
   useWardrobeAging,
   WardrobeAgingSubscriptionError,
@@ -232,7 +233,8 @@ export function InsightsScreen({ active = true }: { active?: boolean } = {}) {
           currency: code,
           maximumFractionDigits: 2,
         }).format(value);
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'InsightsScreen.format_money_failed' });
         return value.toFixed(2);
       }
     },

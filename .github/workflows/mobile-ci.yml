@@ -313,3 +313,12 @@ jobs:
           echo "::group::supabase db push --linked --dry-run"
           supabase db push --linked --dry-run --password "$SUPABASE_DB_PASSWORD"
           echo "::endgroup::"
+          # Audit issue #12 — drift detection between remote DB and
+          # supabase/migrations/. Catches scenarios where remote schema was
+          # modified directly (Supabase Studio, hotfix SQL) without a
+          # matching committed migration. The dry-run above only verifies
+          # NEW migrations apply cleanly — it does not surface pre-existing
+          # drift the way `db diff` does.
+          echo "::group::scripts/verify-migrations.sh (drift detection)"
+          bash scripts/verify-migrations.sh
+          echo "::endgroup::"

@@ -12,6 +12,8 @@
 // If you change these, bump GEMINI_IMAGE_PROMPT_VERSION in render_garment_image
 // so stale reservations don't short-circuit the new pipeline.
 
+import { captureError } from "./observability.ts";
+
 export const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
 // `GEMINI_IMAGE_URL_OVERRIDE` lets smoke-test mock servers intercept image-gen
 // calls without touching prod behavior. Unset → identical to the original
@@ -382,7 +384,8 @@ export async function generateGeminiImage(
   let aiData: GeminiGenerateContentResponse | null = null;
   try {
     aiData = responseText ? JSON.parse(responseText) : null;
-  } catch {
+  } catch (err) {
+    captureError("gemini_image_client.response_json_parse_failed", err);
     aiData = null;
   }
 

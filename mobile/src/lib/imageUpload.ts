@@ -27,6 +27,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { File as FsFile, Paths } from 'expo-file-system';
 
+import { log } from './log';
 import { supabase } from './supabase';
 import {
   MASK_SAVE_TIMEOUT_MS,
@@ -143,7 +144,9 @@ async function awaitMaskWithSaveCap(maskP: Promise<MaskResult>, rawUri: string):
     return await Promise.race([maskP, timeoutP]);
   } finally {
     if (timer) clearTimeout(timer);
-    maskP.catch(() => {});
+    maskP.catch((err) =>
+      log.error(err, { context: 'imageUpload.await_mask_late_rejection' }),
+    );
   }
 }
 
@@ -174,7 +177,8 @@ async function transcodeHeicIfNeeded(uri: string): Promise<string> {
       },
     );
     return transcoded.uri;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'imageUpload.heic_transcode_failed' });
     // Transcode failure leaves the resize step to take its own crack at the
     // source URI — manipulateAsync handles most HEIC variants directly, and
     // the small remainder that doesn't bubble up as a normal resize error
@@ -241,7 +245,8 @@ async function safeReadBytes(uri: string): Promise<Uint8Array> {
     try {
       new FsFile(uri).copy(dest);
       return await dest.bytes();
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'imageUpload.safe_read_bytes_fallback_failed' });
       throw firstErr;
     }
   }
@@ -258,7 +263,9 @@ export async function uploadManipulatedImage(
   userId: string,
 ): Promise<UploadResult> {
   const maskP = removeBackground(resized.uri);
-  maskP.catch(() => {});
+  maskP.catch((err) =>
+    log.error(err, { context: 'imageUpload.upload_manipulated_mask_failed' }),
+  );
   const bytes = await safeReadBytes(resized.uri);
 
   const timestamp = Date.now();
@@ -283,7 +290,8 @@ export async function uploadManipulatedImage(
     const metadata = { maskedStoragePath, maskStatus: 'masked' as const };
     rememberUploadMaskMetadata(storagePath, metadata);
     return { storagePath, ...metadata };
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'imageUpload.masked_sidecar_upload_failed' });
     rememberUploadMaskMetadata(storagePath, { maskStatus: 'failed' });
     return { storagePath, maskStatus: 'failed' };
   }

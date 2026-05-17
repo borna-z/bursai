@@ -10,6 +10,7 @@ import {
   isOnlineNow,
 } from '../lib/offlineQueue';
 import { supabase } from '../lib/supabase';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import {
   persistGarment,
@@ -115,7 +116,9 @@ export function useOfflineQueueReplay(): void {
 
     void (async () => {
       if (await isOnlineNow()) {
-        void replayOfflineQueue().catch(() => {});
+        void replayOfflineQueue().catch((err) =>
+          log.error(err, { context: 'useOfflineQueueReplay.initial_replay_failed' }),
+        );
       }
     })();
 
@@ -123,7 +126,9 @@ export function useOfflineQueueReplay(): void {
       const online =
         state.isConnected !== false && state.isInternetReachable !== false;
       if (online) {
-        void replayOfflineQueue().catch(() => {});
+        void replayOfflineQueue().catch((err) =>
+          log.error(err, { context: 'useOfflineQueueReplay.netinfo_replay_failed' }),
+        );
       }
     });
     return () => {

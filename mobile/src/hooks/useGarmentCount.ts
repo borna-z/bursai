@@ -13,12 +13,13 @@ import { useQuery } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { CACHE_KEYS } from './cacheKeys';
 
 export function useGarmentCount() {
   const { user } = useAuth();
 
   return useQuery<number>({
-    queryKey: ['garments-count', user?.id],
+    queryKey: CACHE_KEYS.garmentsCount(user?.id),
     queryFn: async () => {
       if (!user) return 0;
       const { count, error } = await supabase

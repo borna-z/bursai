@@ -1,5 +1,6 @@
 import { fetchSSE } from '../lib/sse';
 import { getLocale } from '../lib/i18n';
+import { log } from '../lib/log';
 import {
   isStyleChatResponseEnvelope,
   parseShoppingResultCards,
@@ -145,7 +146,8 @@ export function handleStreamChunk(
   let parsed: StyleChatChunk | null = null;
   try {
     parsed = JSON.parse(raw) as StyleChatChunk;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useStyleChat.stream.chunk_parse_failed' });
     // Plain-text fragment — append directly.
     acc.receivedDeltas = true;
     acc.deltaAccumulated += raw;

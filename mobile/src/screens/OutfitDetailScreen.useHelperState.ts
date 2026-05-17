@@ -20,6 +20,7 @@ import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
 import type { OutfitWithItems } from '../types/outfit';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import { CACHE_KEYS } from '../hooks/cacheKeys';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -68,7 +69,7 @@ export function useOutfitDetailHelperState({
     [filteredAccessoryIds],
   );
   const accessoryRowsQ = useQuery({
-    queryKey: ['m17AccessoryRows', user?.id, accessoryIdsKey],
+    queryKey: CACHE_KEYS.m17AccessoryRows(user?.id, accessoryIdsKey),
     enabled: !!user && filteredAccessoryIds.length > 0,
     queryFn: async () => {
       if (!user || filteredAccessoryIds.length === 0) return [];
@@ -197,7 +198,7 @@ export function useOutfitDetailHelperState({
           next.add(accessoryGarmentId);
           return next;
         });
-        queryClient.invalidateQueries({ queryKey: ['outfit', user.id, outfit.id] });
+        queryClient.invalidateQueries({ queryKey: CACHE_KEYS.outfit(user.id, outfit.id) });
         queryClient.invalidateQueries({ queryKey: ['outfits'] });
       } catch (err) {
         Sentry.withScope((scope) => {

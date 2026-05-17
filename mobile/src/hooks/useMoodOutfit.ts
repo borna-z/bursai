@@ -23,6 +23,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
+import { log } from '../lib/log';
 import { fetchSSE } from '../lib/sse';
 import { Sentry } from '../lib/sentry';
 
@@ -129,7 +130,8 @@ export function useMoodOutfit() {
                   setResult(adaptResponse(parsed, mood, timeOfDay));
                 }
               }
-            } catch {
+            } catch (err) {
+              log.error(err, { context: 'useMoodOutfit.chunk_parse_failed' });
               // Plain-text fragment — buffer for end-of-stream parse.
               textBuffer += raw;
             }
@@ -148,7 +150,8 @@ export function useMoodOutfit() {
                 } else if (parsed.items) {
                   setResult(adaptResponse(parsed, mood, timeOfDay));
                 }
-              } catch {
+              } catch (err) {
+                log.error(err, { context: 'useMoodOutfit.text_buffer_parse_failed' });
                 // Couldn't parse — fall back to a description-only result so
                 // the screen has something to render.
                 setResult({

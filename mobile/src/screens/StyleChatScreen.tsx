@@ -43,6 +43,7 @@ import { GarmentImageTile } from '../components/GarmentImageTile';
 import { ChatHistorySheet } from '../components/chat/ChatHistorySheet';
 import { useStyleChat, type ChatMessage, type StyleChatMode } from '../hooks/useStyleChat';
 import { useChatHistory, useDeleteChatThread } from '../hooks/useChatHistory';
+import { CACHE_KEYS } from '../hooks/cacheKeys';
 import { useGarmentCount } from '../hooks/useGarmentCount';
 import { usePersistGeneratedOutfit } from '../hooks/useOutfits';
 import { showToast } from '../lib/toast';
@@ -344,7 +345,7 @@ export function StyleChatScreen() {
     [titleLookupIds],
   );
   const { data: garmentTitleRows, isFetching: garmentTitlesFetching } = useQuery({
-    queryKey: ['styleChatGarmentTitles', user?.id, titleLookupCacheKey],
+    queryKey: CACHE_KEYS.styleChatGarmentTitles(user?.id, titleLookupCacheKey),
     enabled: !!user && titleLookupIds.length > 0,
     queryFn: async () => {
       if (!user || titleLookupIds.length === 0) return [];

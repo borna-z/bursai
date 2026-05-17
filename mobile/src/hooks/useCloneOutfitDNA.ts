@@ -22,6 +22,7 @@ import {
   EdgeFunctionSubscriptionLockedError,
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import { getLocale } from '../lib/i18n';
 import type { ScoredOutfitDraft } from './useOutfitPool';
@@ -130,7 +131,8 @@ export function useCloneOutfitDNA(): UseCloneOutfitDNAResult {
             const parsed = (() => {
               try {
                 return JSON.parse(callErr.bodyText) as { error?: string };
-              } catch {
+              } catch (parseErr) {
+                log.error(parseErr, { context: 'useCloneOutfitDNA.error_body_parse_failed' });
                 return null;
               }
             })();

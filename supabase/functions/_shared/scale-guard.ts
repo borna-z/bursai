@@ -10,6 +10,8 @@
  * 6. Concurrency control for batch operations
  */
 
+import { captureError } from "./observability.ts";
+
 // ─── Rate Limit Policy ──────────────────────────────────────────
 /**
  * Tiered rate limits per function. Expensive AI functions get
@@ -192,7 +194,8 @@ export async function resolveUserPlan(supabaseAdmin: any, userId: string): Promi
     const plan: SubscriptionPlan = isPremium ? "premium" : "free";
     subscriptionCache.set(userId, { plan, fetchedAt: Date.now() });
     return plan;
-  } catch {
+  } catch (err) {
+    captureError("scale_guard.subscription_lookup_failed", err, { userId });
     // Fail open — treat as free (tighter limits are safer default)
     return "free";
   }
@@ -610,8 +613,8 @@ export function logTelemetry(supabase: any | null, event: TelemetryEvent): void 
         },
       })
       .then(() => {});
-  } catch {
-    // Never block on telemetry
+  } catch (err) {
+    captureError("scale_guard.log_telemetry_failed", err);
   }
 }
 

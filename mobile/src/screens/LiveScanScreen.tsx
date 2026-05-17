@@ -51,11 +51,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
 
 import { useAuth } from '../contexts/AuthContext';
+import { CACHE_KEYS } from '../hooks/cacheKeys';
 import { fonts, radii } from '../theme/tokens';
 import { CloseIcon } from '../components/icons';
 import { hapticLight, hapticMedium } from '../lib/haptics';
 import { showToast } from '../lib/toast';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 import { BracketOverlay } from './LiveScan/BracketOverlay';
@@ -224,7 +226,7 @@ export function LiveScanScreen() {
     queryClient.invalidateQueries({ queryKey: ['garments'] });
     queryClient.invalidateQueries({ queryKey: ['garments-count'] });
     queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
-    queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+    queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
     queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
   }, [queryClient, user?.id]);
 
@@ -349,7 +351,8 @@ export function LiveScanScreen() {
       // review-card tap. The pipeline emits 'analyzed' which the screen's
       // event listener catches to surface the card.
       void queue.enqueue(() => analyzeFromCapture(uri, sessionId, user.id, events));
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'LiveScanScreen.capture_loop_failed' });
       // Capture-loop errors must never crash the screen. The next stable
       // window will retry automatically.
     }
@@ -533,7 +536,8 @@ export function LiveScanScreen() {
       // Same two-phase flow as auto-capture — analyze only; the review
       // card handles persist after the user's quality choice.
       void queue.enqueue(() => analyzeFromCapture(asset.uri, sessionId, user.id, events));
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'LiveScanScreen.gallery_fallback_failed' });
       // Gallery fallback errors are non-fatal — user can retry.
     }
   }, [user, queue, events]);

@@ -25,6 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { CACHE_KEYS } from './cacheKeys';
 
 /** Rolling window cutoff for the Rarely Worn count. 30 days mirrors
  *  web; widen here if the product team decides "rarely" means quarterly. */
@@ -64,7 +65,7 @@ const ZERO: SmartFilterCounts = {
 export function useSmartFilterCounts() {
   const { user } = useAuth();
   return useQuery<SmartFilterCounts>({
-    queryKey: ['garments-smart-counts', user?.id],
+    queryKey: CACHE_KEYS.garmentsSmartCounts(user?.id),
     queryFn: async () => {
       if (!user) return ZERO;
       const cutoff = new Date(Date.now() - RARELY_WORN_CUTOFF_MS).toISOString();

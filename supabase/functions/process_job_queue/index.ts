@@ -31,6 +31,7 @@ import {
   overloadResponse,
 } from "../_shared/scale-guard.ts";
 import { logger } from "../_shared/logger.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("process_job_queue");
 
@@ -108,8 +109,8 @@ serve(async (req) => {
     try {
       const body = await req.json();
       targetJobType = body?.job_type || null;
-    } catch {
-      // No body = process all types
+    } catch (err) {
+      captureError("process_job_queue.body_parse_failed", err);
     }
 
     const jobTypes = targetJobType

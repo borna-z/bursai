@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS } from "./cors.ts";
 import { classifySlot } from "./burs-slots.ts";
+import { captureError } from "./observability.ts";
 
 export type UnifiedStylistMode = "generate" | "suggest" | "swap" | "refine";
 
@@ -158,7 +159,8 @@ export async function invokeUnifiedStylistEngine(params: {
   let data: any;
   try {
     data = await response.json();
-  } catch {
+  } catch (err) {
+    captureError("unified_stylist_engine.response_json_parse_failed", err, { status: response.status });
     throw new Error(`Unified stylist request returned malformed JSON (${response.status})`);
   }
   if (!response.ok || data?.error) {

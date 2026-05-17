@@ -36,10 +36,24 @@ module.exports = [
       'no-unused-vars': 'off', // handled by @typescript-eslint/no-unused-vars
       '@typescript-eslint/no-unused-vars': [
         'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          // Audit issue #1 pivot: silent-catch instrumentation sometimes
+          // intentionally leaves an inner-catch unused (e.g. guarding the
+          // Sentry transport itself — logging would loop). Allow underscore-
+          // prefixed catch bindings to mark those intentional sinks.
+          caughtErrorsIgnorePattern: '^_',
+        },
       ],
       'no-undef': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      // Audit Issue #7 — expo-config-expo/flat defaults exhaustive-deps to
+      // 'warn', which under `--max-warnings 0` is still a CI failure but
+      // surfaces in IDE noise differently from 'error'. Pinning to 'error'
+      // makes the gate explicit at this layer and survives any future expo
+      // config change that drops the default.
+      'react-hooks/exhaustive-deps': 'error',
       // N3b — no bare `console.log` in src/. Use `log.debug()` from
       // `src/lib/log.ts` so the call is __DEV__-stripped in production
       // (Hermes still serialises the args). `console.warn`/`console.error`

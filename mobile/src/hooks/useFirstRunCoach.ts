@@ -54,7 +54,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { log } from '../lib/log';
 import { captureMutationError, Sentry } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 /** Total number of coach overlay steps. Used by both the gating logic and
  * the "1 of 4" progress indicator inside CoachOverlay. */
@@ -68,8 +70,11 @@ export const COACH_TOUR_TOTAL = 4;
  */
 export type CoachStep = 0 | 1 | 2 | 3;
 
-const STEP_QUERY_KEY = (userId: string | undefined) => ['coachTour:step', userId];
-const STATUS_QUERY_KEY = (userId: string | undefined) => ['coachTour:status', userId];
+// Audit Issue #2 — local key factories kept as thin wrappers around the
+// shared `CACHE_KEYS` factory so the rest of this hook (which references
+// them in many places) doesn't need to change shape.
+const STEP_QUERY_KEY = (userId: string | undefined) => CACHE_KEYS.coachTourStep(userId);
+const STATUS_QUERY_KEY = (userId: string | undefined) => CACHE_KEYS.coachTourStatus(userId);
 
 // AsyncStorage key prefix — per-user so a sign-out / sign-in to a different
 // account on the same device doesn't resurrect a stale step value.
@@ -237,7 +242,8 @@ export function useFirstRunCoach(): {
             parsed as CoachStep,
           );
         }
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'useFirstRunCoach.hydrate_step_failed' });
         // Best-effort: failure to hydrate just falls through to step 0.
       }
     })();
@@ -343,7 +349,9 @@ export function useFirstRunCoach(): {
       // (e.g. a hypothetical Settings → Replay) wouldn't carry over stale
       // state. Best-effort: failure to remove the key is non-blocking.
       if (user) {
-        AsyncStorage.removeItem(STEP_STORAGE_KEY(user.id)).catch(() => {});
+        AsyncStorage.removeItem(STEP_STORAGE_KEY(user.id)).catch((err) =>
+          log.error(err, { context: 'useFirstRunCoach.clear_step_storage_failed' }),
+        );
       }
     },
     onError: (err, _vars, context) => {
@@ -360,7 +368,9 @@ export function useFirstRunCoach(): {
       // straight back into the same failing mutation on the next Next tap.
       queryClient.setQueryData<CoachStep>(STEP_QUERY_KEY(user?.id), 0 as CoachStep);
       if (user) {
-        AsyncStorage.setItem(STEP_STORAGE_KEY(user.id), '0').catch(() => {});
+        AsyncStorage.setItem(STEP_STORAGE_KEY(user.id), '0').catch((storageErr) =>
+          log.error(storageErr, { context: 'useFirstRunCoach.reset_step_storage_failed' }),
+        );
       }
       captureMutationError('useFirstRunCoach.complete')(err);
     },
@@ -376,7 +386,9 @@ export function useFirstRunCoach(): {
     }
     queryClient.setQueryData<CoachStep>(STEP_QUERY_KEY(user?.id), next as CoachStep);
     if (user) {
-      AsyncStorage.setItem(STEP_STORAGE_KEY(user.id), String(next)).catch(() => {});
+      AsyncStorage.setItem(STEP_STORAGE_KEY(user.id), String(next)).catch((err) =>
+        log.error(err, { context: 'useFirstRunCoach.advance_step_storage_failed' }),
+      );
     }
   }, [currentStep, completeMutation, queryClient, user]);
 

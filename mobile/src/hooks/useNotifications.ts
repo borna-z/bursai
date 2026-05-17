@@ -19,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 // Local row shape. We deliberately don't reach into the auto-generated web
 // `Database` types here — mobile reads `Database` for type imports only,
@@ -50,7 +51,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['notifications', user?.id, limit],
+    queryKey: CACHE_KEYS.notifications(user?.id, limit),
     queryFn: async (): Promise<NotificationRow[]> => {
       if (!user) return [];
       const { data, error } = await supabase
@@ -95,7 +96,7 @@ export function useMarkNotificationRead() {
       return id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.notificationsAll(user?.id) });
     },
     onError: captureMutationError('useMarkNotificationRead'),
   });
@@ -120,7 +121,7 @@ export function useMarkAllNotificationsRead() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.notificationsAll(user?.id) });
     },
     onError: captureMutationError('useMarkAllNotificationsRead'),
   });

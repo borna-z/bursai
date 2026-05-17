@@ -10,9 +10,11 @@ const Sentry = {
   captureException: jest.fn(),
   captureMessage: jest.fn(),
   addBreadcrumb: jest.fn(),
-  withScope: jest.fn((fn: (scope: { setTag: jest.Mock }) => void) => {
-    fn({ setTag: jest.fn() });
-  }),
+  withScope: jest.fn(
+    (fn: (scope: { setTag: jest.Mock; setContext: jest.Mock }) => void) => {
+      fn({ setTag: jest.fn(), setContext: jest.fn() });
+    },
+  ),
   setUser: jest.fn(),
   setTag: jest.fn(),
   setContext: jest.fn(),

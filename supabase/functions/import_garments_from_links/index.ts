@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse, enforceSubscription, subscriptionLockedResponse } from "../_shared/scale-guard.ts";
+import { captureError } from "../_shared/observability.ts";
 
 // ============ TYPES ============
 interface ImportRequest {
@@ -93,7 +94,8 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
     }
     
     return { blocked: false };
-  } catch {
+  } catch (err) {
+    captureError("import_garments_from_links.url_parse_failed", err);
     return { blocked: true, reason: 'Invalid URL' };
   }
 }
@@ -126,8 +128,8 @@ function extractMetadata(html: string, baseUrl: string): ExtractedMetadata {
           if (title && imageUrl) break;
         }
       }
-    } catch {
-      // Invalid JSON-LD, continue
+    } catch (err) {
+      captureError("import_garments_from_links.jsonld_parse_failed", err);
     }
   }
   
@@ -170,7 +172,8 @@ function extractMetadata(html: string, baseUrl: string): ExtractedMetadata {
   if (imageUrl && !imageUrl.startsWith('http')) {
     try {
       imageUrl = new URL(imageUrl, baseUrl).href;
-    } catch {
+    } catch (err) {
+      captureError("import_garments_from_links.image_url_resolve_failed", err);
       imageUrl = null;
     }
   }

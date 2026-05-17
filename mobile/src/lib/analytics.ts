@@ -19,6 +19,7 @@
 //   - No offline queue. A dropped event under offline / signed-out conditions
 //     is fine for product-perf metrics — we're sampling, not auditing.
 
+import { log } from './log';
 import { supabase } from './supabase';
 
 export type AnalyticsProperties = Record<string, unknown>;
@@ -44,7 +45,8 @@ export function trackEvent(eventName: string, properties: AnalyticsProperties = 
         // resolves with { data, error }; both are dropped. Sentry would
         // dominate this surface if we logged here.
       });
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'analytics.track_event_failed' });
     // Telemetry path must never throw to the caller. Even client constructor
     // errors during early-boot get swallowed here.
   }

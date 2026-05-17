@@ -26,6 +26,8 @@
 
 import { NativeModules, Platform } from 'react-native';
 
+import { log } from './log';
+
 /** Mean alpha confidence threshold below which the native side returns the
  * raw URI with `status='failed'`. Tunable from device tests. */
 export const MASK_CONFIDENCE_THRESHOLD = 0.5;
@@ -79,7 +81,8 @@ export async function prepare(): Promise<void> {
   if (!native) return;
   try {
     await native.prepare();
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'backgroundRemoval.prepare_failed' });
     // Warm-up failure is non-fatal — first real call will retry.
   }
 }
@@ -115,7 +118,8 @@ export function removeBackground(uri: string): Promise<MaskResult> {
         confidence: typeof result?.confidence === 'number' ? result.confidence : 0,
         durationMs: typeof result?.durationMs === 'number' ? result.durationMs : 0,
       };
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'backgroundRemoval.mask_image_failed' });
       return failedResult(uri);
     } finally {
       inFlight.delete(uri);

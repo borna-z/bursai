@@ -17,6 +17,7 @@ import {
 import type { RefineModeState } from './useStyleChatUI';
 import type { StyleChatHistoryAPI } from './useStyleChatHistory';
 import type { StreamTurnArgs } from './useStyleChatStreaming';
+import { CACHE_KEYS } from './cacheKeys';
 
 export function applyAssistantPatch(
   messages: ChatMessage[],
@@ -119,7 +120,7 @@ export function buildTurnCallbacks(deps: BuildTurnCallbacksDeps): StreamTurnArgs
           { role: 'user', content: trimmedContent },
           { role: 'assistant', content: finalContent, stylistMeta: finalMeta },
         ])
-          .then(() => queryClient.invalidateQueries({ queryKey: ['chatHistory', userId] }))
+          .then(() => queryClient.invalidateQueries({ queryKey: CACHE_KEYS.chatHistory(userId) }))
           .finally(() => history.releasePendingPersist(persistKey));
       }
       queueMicrotask(() => {

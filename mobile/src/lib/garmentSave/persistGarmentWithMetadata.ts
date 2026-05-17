@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { callEdgeFunction } from '../edgeFunctionClient';
+import { log } from '../log';
 import { triggerGarmentEnrichment } from '../../hooks/useAnalyzeGarment';
 import type { Garment } from '../../types/garment';
 import type { AddGarmentParams, AddGarmentSource } from './types';
@@ -73,7 +74,9 @@ export async function persistGarmentWithMetadata(
   if (resolvedParams.enableStudioQuality) {
     void queueRender(garment.id, resolvedParams.source, options?.onRenderEnqueueFailure);
   }
-  void triggerGarmentEnrichment(resolvedParams.storagePath, garment.id, userId).catch(() => {});
+  void triggerGarmentEnrichment(resolvedParams.storagePath, garment.id, userId).catch((err) =>
+    log.error(err, { context: 'persistGarmentWithMetadata.enrichment_trigger_failed' }),
+  );
 
   return garment;
 }

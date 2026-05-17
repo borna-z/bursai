@@ -37,6 +37,7 @@ import { checkOverload, overloadResponse, recordError, withConcurrencyLimit, log
 import { releaseCredit } from "../_shared/render-credits.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { logger } from "../_shared/logger.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("process_render_jobs");
 
@@ -133,8 +134,8 @@ serve(async (req) => {
   try {
     const body = await req.json();
     if (typeof body?.jobId === "string") preferredJobId = body.jobId;
-  } catch {
-    // Empty / malformed body is fine (cron case).
+  } catch (err) {
+    captureError("process_render_jobs.body_parse_failed", err);
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -886,7 +887,9 @@ async function invokeRender(
     });
 
     let body: any = null;
-    try { body = await res.json(); } catch { /* non-JSON */ }
+    try { body = await res.json(); } catch (err) {
+      captureError("process_render_jobs.render_response_json_parse_failed", err);
+    }
 
     if (!res.ok) {
       return {

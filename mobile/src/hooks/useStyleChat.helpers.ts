@@ -1,4 +1,5 @@
 import { getLatestActiveLook } from '../lib/chatActiveLook';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 import {
@@ -113,7 +114,8 @@ export function parseStoredMessage(row: StoredRow, index: number): ChatMessage {
             : null,
         };
       }
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'useStyleChat.helpers.legacy_row_parse_failed' });
       // Fall through — legacy plain-text row.
     }
   }

@@ -41,7 +41,9 @@ import {
 } from '../hooks/useOutfits';
 import { useShareOutfit } from '../hooks/useShareOutfit';
 import { useAuth } from '../contexts/AuthContext';
+import { CACHE_KEYS } from '../hooks/cacheKeys';
 import { supabase } from '../lib/supabase';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
 import { showToast } from '../lib/toast';
@@ -295,7 +297,7 @@ export function OutfitDetailScreen() {
                   await persistAnchor(null);
                 }
                 queryClient.invalidateQueries({
-                  queryKey: ['outfit', user.id, outfit.id],
+                  queryKey: CACHE_KEYS.outfit(user.id, outfit.id),
                 });
                 queryClient.invalidateQueries({ queryKey: ['outfits'] });
               } catch (err) {
@@ -468,7 +470,8 @@ export function OutfitDetailScreen() {
     const displayName = outfitDisplayName(outfit);
     try {
       await shareOutfit({ outfitId: outfit.id, name: displayName });
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'OutfitDetailScreen.share_outfit_failed' });
       showToast('error', tr('share.outfit.error.title'), tr('share.outfit.error.body'));
     }
   }, [outfit, shareOutfit]);

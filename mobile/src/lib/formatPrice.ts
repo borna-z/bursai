@@ -16,6 +16,7 @@
 // helps the user evaluate the suggestion.
 
 import type { Locale } from './i18n';
+import { log } from './log';
 
 // Intl uses BCP-47 language tags. Map our ISO-639 codes to the closest
 // matching tag with a region hint where the region influences formatting
@@ -54,7 +55,8 @@ export function formatPrice(amount: number, currency: string, locale: Locale): s
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(amount);
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'formatPrice.intl_format_failed' });
     // Hermes-without-ICU or a bad currency code — fall back to the legacy
     // template so the card still renders something parseable.
     return `${amount} ${currency}`;

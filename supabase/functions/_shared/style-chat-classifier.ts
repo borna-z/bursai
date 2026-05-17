@@ -4,6 +4,7 @@ import {
   type ClassifierIntent,
   type RefinementHint,
 } from "./style-chat-contract.ts";
+import { captureError } from "./observability.ts";
 
 const VALID_INTENTS: Set<string> = new Set([
   "conversation",
@@ -100,7 +101,8 @@ function parseClassifierResponse(raw: string): ClassifierResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonText);
-  } catch {
+  } catch (err) {
+    captureError("style_chat_classifier.json_parse_fallback", err);
     return CLASSIFIER_FALLBACK;
   }
 
@@ -642,7 +644,8 @@ export async function classifyIntent(
       "trivial",
     );
     return applyActiveLookRefinementOverride(parseClassifierResponse(raw), input);
-  } catch {
+  } catch (err) {
+    captureError("style_chat_classifier.classify_call_failed", err);
     // Codex P2 round 3: apply the override in the transport/exception path
     // too, so a provider hiccup during "make it warmer" on an active look
     // still promotes to refine_outfit + clears needs_more_context — same as

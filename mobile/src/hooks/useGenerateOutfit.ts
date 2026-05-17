@@ -30,6 +30,7 @@ import {
 } from '../lib/edgeFunctionClient';
 import { isAnchorPresent, type LockedSlots } from '../lib/outfitAnchoring';
 import { validateOutfitItems } from '../lib/outfitRules';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import { fetchSSE } from '../lib/sse';
 import { t as tr } from '../lib/i18n';
@@ -228,7 +229,8 @@ async function generateOutfitViaSSE(
                 parsed = obj;
               }
             }
-          } catch {
+          } catch (err) {
+            log.error(err, { context: 'useGenerateOutfit.chunk_parse_failed' });
             // Partial JSON or non-JSON keepalive — buffer for end-of-
             // stream fallback parse. The server currently emits a single
             // JSON chunk, but a future multi-frame stream that splits
@@ -246,7 +248,8 @@ async function generateOutfitViaSSE(
               try {
                 resolve(JSON.parse(textBuffer) as EngineResponse);
                 return;
-              } catch {
+              } catch (err) {
+                log.error(err, { context: 'useGenerateOutfit.text_buffer_parse_failed' });
                 // fall through to the empty-stream rejection
               }
             }
@@ -426,7 +429,8 @@ export function useGenerateOutfit() {
                 if (parsed && typeof parsed.error === 'string' && parsed.error.length > 0) {
                   parsedMessage = parsed.error;
                 }
-              } catch {
+              } catch (err) {
+                log.error(err, { context: 'useGenerateOutfit.error_body_parse_failed' });
                 // Body wasn't JSON — fall back to the wrapper message below.
               }
             }

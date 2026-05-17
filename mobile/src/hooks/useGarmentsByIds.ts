@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface GarmentBasic {
   id: string;
@@ -45,7 +46,7 @@ export function useGarmentsByIds(ids: readonly string[] | null | undefined) {
   const cacheKey = safeIds.join(',');
 
   return useQuery<GarmentBasic[]>({
-    queryKey: ['garmentsByIds', user?.id, cacheKey],
+    queryKey: CACHE_KEYS.garmentsByIds(user?.id, cacheKey),
     enabled: !!user?.id && safeIds.length > 0,
     queryFn: async () => {
       if (!user?.id || safeIds.length === 0) return [];

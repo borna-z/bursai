@@ -6,6 +6,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { File as FsFile } from 'expo-file-system';
 
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import { supabase } from '../lib/supabase';
 
@@ -35,7 +36,8 @@ export function bestEffortDeleteTemp(uri: string | null): void {
   try {
     const f = new FsFile(uri);
     if (f.exists) f.delete();
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useFeedbackCleanup.delete_temp_failed' });
     /* swallow — cleanup is best-effort */
   }
 }

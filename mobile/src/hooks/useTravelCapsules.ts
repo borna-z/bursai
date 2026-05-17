@@ -37,6 +37,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 import {
   parseRow,
   SELECT_COLUMNS,
@@ -63,7 +64,7 @@ export function useTravelCapsules() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['travelCapsules', user?.id],
+    queryKey: CACHE_KEYS.travelCapsules(user?.id),
     queryFn: async (): Promise<TravelCapsuleRow[]> => {
       if (!user) return [];
       const { data, error } = await supabase

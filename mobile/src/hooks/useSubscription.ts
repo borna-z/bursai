@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth, type Profile } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type SubscriptionState = 'trialing' | 'premium' | 'locked';
 
@@ -102,7 +103,7 @@ export function useSubscription() {
   const { user, profile } = useAuth();
 
   const query = useQuery<SubscriptionRow | null>({
-    queryKey: ['subscription', user?.id],
+    queryKey: CACHE_KEYS.subscription(user?.id),
     queryFn: async () => {
       if (!user) return null;
       const { data, error } = await supabase
