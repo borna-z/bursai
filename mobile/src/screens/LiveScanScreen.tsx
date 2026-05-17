@@ -22,6 +22,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -111,6 +112,11 @@ export function LiveScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = useRef<CameraRef>(null);
+  // Camera is "ready" once permission is granted AND a device is available
+  // — at which point the JSX below mounts `<Camera>` and the
+  // CameraPhotoOutput attaches. Used to gate the Android polling loop so
+  // it doesn't try to capture against an unattached output.
+  const cameraReady = Boolean(hasPermission && device);
 
   // Auto-request once on first mount; the fallback UI handles hard-deny.
   useEffect(() => {
@@ -248,12 +254,6 @@ export function LiveScanScreen() {
   // no React render dependency.
   const lowScoreSinceRef = useRef<number>(Date.now());
 
-  const { output: detectorOutput, markStaleIfNoRecentScan } =
-    useLiveScanFrameProcessor({
-      score,
-      quality,
-      hasDetectorPlugin,
-    });
   // `qualityPrioritization: 'speed'` throws on devices that don't support
   // it (older iPhones and many mid-tier Androids). Gate on the device flag
   // and fall back to 'balanced' when unsupported.
@@ -263,6 +263,23 @@ export function LiveScanScreen() {
       : 'balanced',
     quality: 0.85,
   });
+  // Android passes `photoOutput` + `cameraReady` through to the polling
+  // loop so it can capture per-tick keepalive frames against the attached
+  // CameraPhotoOutput. iOS ignores both args.
+  const {
+    output: detectorOutput,
+    markStaleIfNoRecentScan,
+    setCaptureCallback,
+    resetLock,
+  } = useLiveScanFrameProcessor(
+    {
+      score,
+      quality,
+      hasDetectorPlugin,
+    },
+    photoOutput,
+    cameraReady,
+  );
   const outputs = useMemo(
     () => (detectorOutput ? [photoOutput, detectorOutput] : [photoOutput]),
     [photoOutput, detectorOutput],
@@ -283,23 +300,33 @@ export function LiveScanScreen() {
     runOnJS(setShutterVisible)(shutterOpacity.value > 0.3);
   }, [shutterOpacity]);
 
-  // Mirror `hasDetectorPlugin` into React state. On platforms / builds where
-  // the native object output is unavailable (e.g. Android v5 today, or a
-  // failed `CameraObjectOutput` init), the frame processor pins `score` to 0
-  // and never publishes again. The shutter-reveal timer downstream is driven
-  // by score changes via `useDerivedValue`, so without this signal the
-  // manual shutter would never fade in and the user would be stuck with a
-  // camera preview and no way to capture.
+  // Mirror `hasDetectorPlugin` into React state. The frame processor
+  // sets this to `false` when the native object output can't be created
+  // (failed `CameraObjectOutput` init on iOS, or any other detector
+  // failure path) — at which point it also pins `score` to 0. The
+  // shutter-reveal timer downstream is driven by score changes via
+  // `useDerivedValue`, so without this signal the manual shutter would
+  // never fade in and the user would be stuck with a camera preview
+  // and no way to capture. On Android the polling loop pins
+  // `hasDetectorPlugin = true` while it's running, so `detectorAvailable`
+  // stays true and the shutter-reveal effect below uses the Android
+  // branch instead.
   const [detectorAvailable, setDetectorAvailable] = useState(true);
   useDerivedValue(() => {
     runOnJS(setDetectorAvailable)(hasDetectorPlugin.value);
   }, [hasDetectorPlugin]);
 
-  // When the detector is unavailable, reveal the manual shutter immediately
-  // (no 3 s wait — that timer never fires without score updates) and keep
-  // any in-flight progress animation parked at 0.
+  // Reveal the manual shutter when:
+  //   - iOS detector is unavailable (failed init / unsupported build), OR
+  //   - we're on Android — the polling loop pins `hasDetectorPlugin =
+  //     true`, so the detector-unavailable path doesn't trigger; but
+  //     the byte gate can legitimately stall (empty viewfinder, dim
+  //     lighting, capture or manipulate errors) and the user must
+  //     always have a manual capture path. Auto-snap still drives via
+  //     the polling loop; the manual shutter is just an always-
+  //     available escape hatch.
   useEffect(() => {
-    if (detectorAvailable) return;
+    if (detectorAvailable && Platform.OS !== 'android') return;
     shutterOpacity.value = withTiming(1, { duration: 240 });
     lockProgress.value = withTiming(0, { duration: 120 });
   }, [detectorAvailable, shutterOpacity, lockProgress]);
@@ -310,6 +337,10 @@ export function LiveScanScreen() {
   const capture = useCallback(async () => {
     const cam = cameraRef.current;
     if (!cam || !user) return;
+    // Mint the sessionId before the try so the catch can emit a
+    // matching 'failed' event for downstream listeners (Android lock
+    // re-arm needs to know capture failed pre-pipeline).
+    const sessionId = Crypto.randomUUID();
     try {
       const photo = await photoOutput.capturePhotoToFile(
         { flashMode: 'off', enableShutterSound: false },
@@ -346,7 +377,6 @@ export function LiveScanScreen() {
       );
 
       setScanCount((c) => c + 1);
-      const sessionId = Crypto.randomUUID();
       // Wave R-D Bug C — analyze only. Persist runs after the user's
       // review-card tap. The pipeline emits 'analyzed' which the screen's
       // event listener catches to surface the card.
@@ -354,13 +384,60 @@ export function LiveScanScreen() {
     } catch (err) {
       log.error(err, { context: 'LiveScanScreen.capture_loop_failed' });
       // Capture-loop errors must never crash the screen. The next stable
-      // window will retry automatically.
+      // window will retry automatically. Emit `failed` so the Android
+      // lock-recovery listener can re-arm — without this, a thrown
+      // `capturePhotoToFile` before `queue.enqueue` would leave Android
+      // auto-snap stuck disarmed (no pipeline ran → no 'failed' from
+      // the pipeline) until the user moved to an empty scene.
+      events.emit('failed', { sessionId, errorClass: 'unknown' });
     }
   }, [user, photoOutput, flashOpacity, capturedOpacity, queue, events]);
+
+  // Android — register the screen's full-quality `capture()` with the
+  // frame-processor's JS polling loop. The loop calls this on
+  // stability-lock fire (instead of the iOS-only screen-side `tickLock`
+  // path). Re-runs when `capture`'s identity churns so the loop always
+  // sees the latest closure.
+  //
+  // The wrapper short-circuits while the review card is up. The iOS
+  // `tickLock` and manual shutter already gate on `reviewPayloadRef`;
+  // the Android polling loop has no equivalent guard upstream, so we
+  // add it here at the registration site to keep the loop from firing
+  // capture every buffer refill while the user is reviewing.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    setCaptureCallback?.(async () => {
+      if (reviewPayloadRef.current) return;
+      await capture();
+    });
+  }, [capture, setCaptureCallback]);
+
+  // Android — re-arm the stability lock on any pipeline failure. After
+  // auto-snap fires, the lock disarms and only re-arms on a below-floor
+  // sample (which the byte gate doesn't produce while the user holds
+  // the same garment in frame) or via the `handleNext` reset on
+  // review-card dismiss. If the pipeline fails BEFORE 'analyzed' (or
+  // capture itself throws — see `events.emit('failed')` in `capture`
+  // above), no review card opens and `handleNext` never runs. Without
+  // this listener the lock would stay disarmed and Android auto-snap
+  // would appear permanently broken until the user pointed at empty
+  // space.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const off = events.on('failed', () => {
+      resetLock?.();
+    });
+    return off;
+  }, [events, resetLock]);
 
   // JS-thread tick driven by the worklet `score` shared value. Drives the
   // stability-lock fire, the shutter reveal timer, and the lock-progress
   // animation that BracketOverlay reads.
+  //
+  // iOS only — the Android branch owns its own stability lock + auto-snap
+  // inside the frame processor's polling loop and writes `score.value`
+  // directly from there, so running `tickLock` on Android would double-fire
+  // the lock state machine.
   //
   // No-op when the detector is unavailable: without object callbacks the
   // score is pinned to 0 and the score-driven timer below would incorrectly
@@ -368,6 +445,7 @@ export function LiveScanScreen() {
   // the shutter reveal directly in that case.
   const tickLock = useCallback(
     (s: number) => {
+      if (Platform.OS !== 'ios') return;
       if (!detectorAvailable) return;
       // Pause auto-snap while the review card is showing. The lock's
       // internal disarmed-until-reset state re-arms on the next below-
@@ -413,14 +491,17 @@ export function LiveScanScreen() {
   //      requires a below-floor sample before re-arming, so the next
   //      well-framed garment never auto-snaps.
   //
-  // Heartbeat the lock with the current shared value every 250 ms while the
-  // detector is available. Each tick first calls `markStaleIfNoRecentScan`,
-  // which resets `score.value` (and `quality`) when the detector has been
-  // silent for >500 ms — that synthesises the empty-frame state the lock
-  // needs to re-arm. Reading `.value` afterwards picks up the latest
-  // worklet write (no stale-closure risk) and `tickLock` is stable via
-  // useCallback.
+  // Heartbeat the lock with the current shared value every 250 ms while
+  // the detector is available. Each tick first calls
+  // `markStaleIfNoRecentScan`, which resets `score.value` (and
+  // `quality`) when the detector has been silent for >500 ms — that
+  // synthesises the empty-frame state the lock needs to re-arm. Reading
+  // `.value` afterwards picks up the latest worklet write (no stale-
+  // closure risk) and `tickLock` is stable via useCallback. iOS only —
+  // on Android the polling loop owns lock-update + staleness internally,
+  // and both `tickLock` and `markStaleIfNoRecentScan` are no-ops there.
   useEffect(() => {
+    if (Platform.OS !== 'ios') return;
     if (!detectorAvailable) return;
     const id = setInterval(() => {
       markStaleIfNoRecentScan();
@@ -467,9 +548,14 @@ export function LiveScanScreen() {
     hapticLight();
     reviewPayloadRef.current = null;
     setReviewState(null);
-    // The next sub-floor frame re-arms the stability lock automatically
-    // via the 250 ms tickLock heartbeat. No manual reset needed.
-  }, []);
+    // iOS: the next sub-floor frame re-arms the stability lock
+    // automatically via the 250 ms tickLock heartbeat.
+    // Android: synthetic high scores never produce a below-floor sample
+    // on a textured-to-textured garment transition, so we explicitly
+    // recreate the lock via `resetLock` (undefined on iOS — the
+    // optional chain is a no-op there).
+    resetLock?.();
+  }, [resetLock]);
 
   const handleTilePress = useCallback(
     (tile: ScanTileState) => {
@@ -554,8 +640,6 @@ export function LiveScanScreen() {
     transform: [{ translateY: 8 * (1 - capturedOpacity.value) }],
   }));
 
-  const cameraReady = Boolean(hasPermission && device);
-
   return (
     <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: VF_BG }}>
       {/* Header */}
@@ -605,14 +689,23 @@ export function LiveScanScreen() {
         </Animated.View>
       </View>
 
-      {/* Manual shutter — fades in after 3 s of low score. `pointerEvents`
-          is 'auto' only when the shutter is actually visible (opacity > 0.3)
-          AND not in the 'ready' state (auto-snap about to fire). This prevents
-          the invisible wrapper from intercepting taps during the detector
-          warm-up window. */}
+      {/* Manual shutter — fades in after 3 s of low score on iOS, and
+          is always visible on Android (the polling loop pins
+          `hasDetectorPlugin = true`). `pointerEvents` is 'auto' only
+          when the shutter is actually visible (opacity > 0.3); on iOS
+          we additionally suppress it during the 'ready' state to avoid
+          a double-tap during auto-snap. On Android the polling loop
+          drives `quality = 'ready'` continuously for any framed garment,
+          so applying the same suppression would lock the user out of
+          the manual shutter for the entire ~4 s lock-fill window —
+          keep it tappable on Android. */}
       <Animated.View
         style={[s.shutterWrap, shutterStyle]}
-        pointerEvents={shutterVisible && qualityState !== 'ready' ? 'auto' : 'none'}>
+        pointerEvents={
+          shutterVisible && (Platform.OS === 'android' || qualityState !== 'ready')
+            ? 'auto'
+            : 'none'
+        }>
         <Pressable
           onPress={handleManualShutter}
           accessibilityRole="button"
