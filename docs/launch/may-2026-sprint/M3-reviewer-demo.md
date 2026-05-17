@@ -70,9 +70,9 @@
 >
 > 5. **Wardrobe gap analysis (Premium).** Tap menu → "Wardrobe Gaps." See a list of under-served categories with concrete examples ("you have 9 tops but only 1 pair of trousers that pairs with them").
 >
-> 6. **Outfit photo feedback (Premium).** Tap menu → "Outfit Feedback." This feature uses the device camera — there is no sample-photo bypass in the submitted build. Point the camera at any item of clothing (your own shirt, a piece of fabric, a folded garment on the desk) and tap the capture button, then tap "Use this selfie" on the confirm screen. The AI returns a short outfit critique within a few seconds. (We mention this explicitly because reviewers sometimes expect a sample-photo button and there is none.)
+> 6. **Outfit photo feedback (Premium).** This feature is reached from an outfit, not from a top-level menu. From the outfit you just generated in step 3 (or from the planned outfit in step 7), tap the outfit to open its detail screen and tap **Try it on**. The camera opens — point it at any item of clothing (your own shirt, a piece of fabric, a folded garment on the desk) and tap the capture button, then tap **Use this selfie** on the confirm screen. The AI returns a short outfit critique within a few seconds. There is no sample-photo bypass in the submitted build — a real camera capture is required.
 >
-> 7. **Calendar (free + Premium).** Tap the calendar tab. Tomorrow has a planned outfit. Tap it to see the planned items. Tap "Plan another day" to drag an outfit to any other date.
+> 7. **Calendar (free + Premium).** Tap the calendar tab. Tomorrow shows a planned outfit. Tap the date to reveal the planned-outfit card, which has two buttons: **View outfit** (opens the outfit detail with all four planned items) and **Change** (opens the outfit generator to swap in a different outfit for that day). There is no drag interaction — planning happens via the generator's save-to-calendar action.
 >
 > 8. **Restore Purchases (subscription affordance).** Settings → Account → Subscription → "Restore Purchases" (this is the only row in this section in v1.0.0). Tap it to confirm the restore flow runs — required by Apple Guideline 3.1.1 to be discoverable outside the paywall. Cancellation and renewal management live in the system subscription manager (iOS: Settings app → your Apple ID → Subscriptions; Android: Play Store → Profile → Payments & subscriptions → Subscriptions). The in-app entitlement summary card (status / renewal date / manage link) is intentionally deferred to a post-launch hardening pass, so do not expect to see it in this build.
 >
@@ -123,11 +123,11 @@ Paste this AFTER the demo script in Play Console → App content → Reviewer co
 >
 > **About permissions**
 >
-> Each runtime permission has an in-app rationale before the system dialog:
-> - Camera — required to photograph garments for the wardrobe
-> - Photos — required to import existing garment photos
-> - Notifications — optional, for daily outfit reminders
-> - Location — optional, for weather-aware outfit suggestions (city-level, not stored)
+> Runtime permission behavior:
+> - **Camera** — in-app rationale before the system dialog. Required to photograph garments for the wardrobe.
+> - **Photos** — in-app rationale before the system dialog. Required to import existing garment photos.
+> - **Notifications** — in-app rationale before the system dialog. Optional, for daily outfit reminders.
+> - **Location** — in v1.0.0 the OS location prompt may surface directly from the Home screen's weather widget without a preceding rationale screen (the weather hook calls `requestForegroundPermissionsAsync` when no city is configured). Optional — denying it falls back to the user-entered home city from onboarding. A dedicated pre-prompt rationale is planned for a post-launch hardening pass.
 >
 > **About account deletion**
 >
@@ -148,8 +148,8 @@ Run these on a real device with the test account immediately before pressing Sub
 - [ ] "Generate" with the rainy 12°C prompt returns an outfit in ≤ 5 seconds.
 - [ ] Travel capsule with the Lisbon prompt returns a result in ≤ 8 seconds.
 - [ ] Wardrobe gaps screen loads with at least one row.
-- [ ] Outfit photo feedback → camera capture returns AI feedback in ≤ 8 seconds. (No "Use sample" shortcut exists in v1.0.0 — reviewer must take an actual photo.)
-- [ ] Calendar shows tomorrow's planned outfit.
+- [ ] From the generated outfit's detail screen, tap **Try it on** → camera capture returns AI feedback in ≤ 8 seconds. (There is no top-level "Outfit Feedback" menu entry and no "Use sample" shortcut in v1.0.0 — the only entry point is `Try it on` from an outfit detail, and a real camera capture is required.)
+- [ ] Calendar shows tomorrow's planned outfit. Tapping the date reveals **View outfit** and **Change** buttons (no drag-to-plan interaction in v1.0.0).
 - [ ] Settings → Account → Subscription shows the "Restore Purchases" row and tapping it runs without error. (There is no entitlement-summary card in v1.0.0 — that ships post-launch.)
 - [ ] Settings → Account → Delete Account opens the confirmation dialog (do not confirm).
 
