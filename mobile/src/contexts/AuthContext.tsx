@@ -13,9 +13,9 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { Sentry } from '../lib/sentry';
-import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { clearSignedUrlCache } from '../hooks/useSignedUrl';
 import { clearQueue as clearOfflineQueue } from '../lib/offlineQueue';
+import { enqueueStartTrial } from '../lib/trialStart';
 import { useV3CompatBackfill } from '../hooks/useV3CompatBackfill';
 import { useOfflineQueueReplay } from '../hooks/useOfflineQueueReplay';
 import {
@@ -38,14 +38,6 @@ export type {
 } from '../auth/types';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-async function callStartTrial(): Promise<void> {
-  try {
-    await callEdgeFunction('start_trial', { body: {}, retries: 0 });
-  } catch {
-    // Fire-and-forget — trial failure must never block the auth flow.
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -99,8 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const key = u.id;
       if (triggeredTrialKeys.current.has(key)) return;
       triggeredTrialKeys.current.add(key);
+      // M46: route through offline-queue-aware helper so a transient
+      // Supabase blip during signup doesn't lose the trial silently.
+      // `enqueueStartTrial` never throws — it surfaces failures via
+      // Sentry / the offline queue, preserving the non-blocking contract.
       setTimeout(() => {
-        void callStartTrial();
+        void enqueueStartTrial(u.id);
       }, 0);
     };
 
