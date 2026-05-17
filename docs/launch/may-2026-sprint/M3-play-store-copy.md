@@ -36,9 +36,9 @@
 >
 > 👕 **Build your wardrobe in seconds.** Snap a photo, or batch-import several at once. BURS handles backgrounds, names, and categories.
 >
-> 🎨 **Get outfit ideas on demand.** "What works for 12°C and rainy?" "Something for a job interview." "What can I do with these new boots?" BURS answers with outfits from your actual closet.
+> 🎨 **Get outfit ideas on demand.** Daily suggestions on open, plus a Style Me screen where you pick an occasion (Work, Date, Travel, Workout…) or type your own, nudge the weather slider, and let BURS build a look from your actual closet.
 >
-> 📅 **Plan your week.** Drag outfits onto your calendar. Weather data folds into the suggestion when you've connected location.
+> 📅 **Plan your week.** Save any generated outfit to a date from the outfit screen. The day's forecast folds into the next day's suggestion when you've enabled location.
 >
 > ✈️ **Travel capsules.** Tell BURS the trip ("5 days, Lisbon, casual") and get the smallest set of garments that mixes into the most outfits.
 >

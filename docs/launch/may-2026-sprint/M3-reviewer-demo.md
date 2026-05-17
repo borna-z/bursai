@@ -64,7 +64,7 @@
 >
 > 2. **Browse the wardrobe (free feature).** Tap the wardrobe tab. You'll see 24 garments with backgrounds removed, grouped by category. Tap any garment to see its detail screen (color, warmth rating, last worn).
 >
-> 3. **Generate an outfit (free; first 3/day are free, this account has unlimited).** Tap the "Generate" button. Type "something for 12°C and rainy" and tap submit. Within ~3 seconds you'll see an outfit built from items in this wardrobe. Tap "Try another" to regenerate.
+> 3. **Generate an outfit (free; first 3/day are free, this account has unlimited).** Open the Generate tab — an outfit auto-generates on mount from this account's wardrobe within ~3 seconds. To request something specific, open **Style Me** instead: pick an occasion chip (Work, Date, Evening, Workout, Travel, or tap **Custom…** and type your own e.g. "brunch with friends"), nudge the weather slider, and tap **Generate outfit**. There is no free-form chat prompt in v1.0.0 — generation is driven by the occasion chips + weather slider + (optional) anchor item lock.
 >
 > 4. **Travel capsule (Premium).** Tap the menu icon → "Travel Capsule." Type "5 days in Lisbon, casual" and tap submit. The result shows the smallest set of garments that produces the most outfit combinations for that brief.
 >

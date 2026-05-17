@@ -29,8 +29,8 @@
 > **What you can do**
 >
 > • Build your wardrobe — Photograph or batch-import garments. BURS removes backgrounds, names them, and groups by category, color, and warmth.
-> • Generate outfits — Daily picks, occasion-specific looks ("brunch," "long flight," "first date"), or mood-based requests ("something a bit bolder").
-> • Plan ahead — Drag outfits onto your calendar. BURS can pull weather into the suggestion ("rainy 8°C tomorrow — these three would work").
+> • Generate outfits — Daily picks based on weather and what's clean. Or open Style Me to pick an occasion (Work, Date, Travel…), nudge the weather slider, and let BURS build a look from your closet. There's a Custom occasion field if you want to type your own ("brunch with my in-laws," "long flight").
+> • Plan ahead — Save any generated outfit to a date from the outfit screen. BURS uses the day's forecast when it suggests what to wear.
 > • Travel capsules — Tell BURS "5 days, Lisbon, casual." It picks the smallest set of garments that mixes into the most outfits.
 > • Wear log — One tap to mark what you wore. Over time, BURS notices what you actually reach for and what's gathering dust.
 > • Wardrobe gaps — See where you're under-served (e.g., "you have nine tops and one pair of trousers that work with them").
