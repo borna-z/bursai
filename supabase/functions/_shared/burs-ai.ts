@@ -1179,8 +1179,9 @@ export async function streamBursAI(
       keepaliveInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
-        } catch (err) {
-          captureError("burs_ai.stream_keepalive_enqueue_failed", err);
+        } catch (_streamClosedExpected) {
+          // intentional silent: client disconnect during keepalive is normal
+          // (PR #884 self-review — matches Codex rounds 4/5/6 pattern).
           aborted = true;
           clearInterval(keepaliveInterval);
         }
@@ -1200,8 +1201,8 @@ export async function streamBursAI(
           clearInterval(keepaliveInterval);
           try {
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          } catch (err) {
-            captureError("burs_ai.stream_done_enqueue_failed", err);
+          } catch (_streamClosedExpected) {
+            // intentional silent: client disconnect before [DONE] is normal
           }
           controller.close();
           await reader.cancel();
@@ -1209,16 +1210,17 @@ export async function streamBursAI(
         }
         controller.enqueue(value);
       } catch (err) {
+        // Upstream Gemini failure / read error — this IS the actionable path.
         captureError("burs_ai.stream_pull_failed", err);
         clearInterval(keepaliveInterval);
         try {
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        } catch (innerErr) {
-          captureError("burs_ai.stream_done_enqueue_failed", innerErr);
+        } catch (_streamClosedExpected) {
+          // intentional silent: client disconnect during error-recovery [DONE]
         }
         controller.close();
-        try { await reader.cancel(); } catch (cancelErr) {
-          captureError("burs_ai.stream_reader_cancel_failed", cancelErr);
+        try { await reader.cancel(); } catch (_streamClosedExpected) {
+          // intentional silent: reader.cancel() race during teardown
         }
       }
     },
