@@ -5,7 +5,7 @@
 **Reference truth:**
 - Privacy policy live at `https://burs.me/privacy` (Borna confirms current version before submission).
 - Account deletion in-app via Settings → Account → Delete Account (calls `delete_user_account` edge function — confirmed deployed 2026-05-17, see N20 PR #881).
-- Web account deletion at `https://burs.me/delete-account` — **NOT YET SHIPPED.** The repo's `public/` directory contains only the privacy and terms static pages; no `delete-account` route exists. Play requires a web-accessible deletion URL even when in-app deletion exists, so this page MUST be built before Play submission or the declaration must be reframed to claim no web path.
+- Web account deletion at `https://burs.me/delete-account` — **NOT YET SHIPPED.** The repo's `public/` directory contains only the privacy and terms static pages; no `delete-account` route exists. Google Play policy makes this URL **mandatory** for any app that allows account creation (https://support.google.com/googleplay/android-developer/answer/13327111) — there is no "no-web-path" reframing that satisfies the policy. The page MUST be built and live before Play submission. See the Borna pre-submission checklist for the minimal compliant implementation.
 
 **Data-handling inventory (single source of truth — both stores derive from this):**
 
