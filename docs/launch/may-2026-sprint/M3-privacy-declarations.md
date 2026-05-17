@@ -18,7 +18,8 @@
 | Outfit photos (user-uploaded for feedback) | Yes | Supabase Storage | Outfit photo feedback feature | Yes | No | Yes (per-feature opt-in) |
 | Wear log | Yes | Supabase `wear_logs` | Track what user actually wears, personalize suggestions | Yes | No | Yes |
 | Calendar events (planned outfits + synced Google Calendar events) | Yes | Supabase `planned_outfits`, `calendar_events` | Outfit planning, calendar sync. When user opts into Google Calendar sync (Settings → Calendar Sync), the `calendar` edge function fetches `title`, `description`, `date`, `start_time`, `end_time` from the primary Google Calendar and writes them to `calendar_events` (`supabase/functions/calendar/index.ts:274-314`) so suggestions can take upcoming events into account. | Yes | No | Yes (sync is opt-in; in-app `planned_outfits` always required as a core feature) |
-| Location (city/coordinates) | Yes (only if user grants permission for weather features) | Not stored — passed to weather API in-memory only | Weather-aware outfit suggestions | No (not stored linked to user) | No | Yes |
+| Home / secondary city (free-text, user-entered in onboarding) | Yes | Supabase `profiles.preferences.style_profile_v4_jsonb` (homeCity, secondaryCity) + legacy `profiles.home_city` column | Weather-aware outfit suggestions, climate-aware style scoring | Yes (stored on the user's profile row) | No | Yes (user can leave the field empty; suggestions still work without it) |
+| Device GPS coordinates | Yes (only if user grants OS-level location permission) | Not stored — passed to weather API in-memory only and discarded after the request resolves | Real-time weather forecast for the current location | No | No | Yes |
 | Push notification token | Yes (only if user opts in) | Supabase `push_subscriptions` | Daily outfit reminders | Yes | No | Yes |
 | Subscription status | Yes | Supabase `subscriptions` + RevenueCat | Entitlement gating | Yes | No | No (required if subscribed) |
 | Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | Yes (linked to Supabase user UUID via `Sentry.setUser({ id: nextUser.id })` in `mobile/src/contexts/AuthContext.tsx:110,142` — set on auth-state change and on session hydration; cleared on sign-out, so pre-auth crashes are unlinked but every signed-in crash carries the user ID) | No | No (v1.0.0 has no in-app opt-out — Sentry initializes whenever `EXPO_PUBLIC_SENTRY_DSN` is set in the build, which it is for every production build) |
@@ -74,8 +75,10 @@ For each data type below, fields are:
 - **Purposes:** App Functionality
 
 ### 8. Location → Coarse Location
-- **What:** City-level for weather suggestions, only with user permission. Not stored linked to user — passed to weather API in-memory and discarded.
-- **Linked to User:** No
+- **What:** Two distinct paths, both declared under this single Apple category:
+  1. **User-entered home / secondary city** (free-text, asked during onboarding's climate step — see `mobile/src/screens/onboarding/StyleQuizV4Step.questions1.tsx:251-281`). Stored linked to the user in `profiles.preferences.style_profile_v4_jsonb` and the legacy `profiles.home_city` column. Used for weather-aware outfit suggestions and climate-aware style scoring.
+  2. **Device GPS coordinates** (only when the user grants OS-level location permission). Passed to the weather API in-memory and discarded after the request resolves — never persisted.
+- **Linked to User:** Yes (the user-entered city is stored on the profile row; the in-memory GPS path is unlinked, but Apple requires the whole category to be declared at the broadest applicable scope, so the row must be linked).
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
 
@@ -108,7 +111,7 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | **Financial info** ||||||
 | Purchase history | Yes | No | No | App functionality, Account management | Subscription state only. App never sees card details (Google Play + RevenueCat handles payment). |
 | **Location** ||||||
-| Approximate location | Yes | No | Yes | App functionality | Only when user grants permission. City-level for weather. Not retained. |
+| Approximate location | Yes | No | Yes | App functionality | Two paths declared together under this row: (1) user-entered home / secondary city from onboarding, stored on the user's profile in `profiles.preferences.style_profile_v4_jsonb` + `profiles.home_city` — linked to the account, optional (field can be left blank); (2) device GPS coordinates, only when user grants OS-level permission, used in-memory for weather and not retained. The stored path is what makes this row "Collected" and linked; the in-memory GPS path alone would not be. |
 | **Photos and videos** ||||||
 | Photos | Yes | No | No | App functionality, Personalization | Garment photos required for core feature. Outfit-feedback photos optional. |
 | **Calendar** ||||||
@@ -160,6 +163,7 @@ Both stores' answers must agree on these load-bearing claims:
 | Cards never touch the app | "Financial Info" Not Collected | "Financial info → Purchase history" only |
 | No third-party advertising tracking in v1.0.0 | "Identifiers → Device ID" Not Collected + "Usage Data → Product Interaction" Not Collected | "Device or other IDs" Not Collected + "App activity → App interactions" Not Collected |
 | Google Calendar event content is collected (opt-in only) | "User Content → Other User Content" covers planned outfits + synced calendar events | "Calendar → Calendar events" Yes / No / Yes (optional) |
+| Coarse location is collected AND linked to user (via user-entered home city, stored on profile) | "Location → Coarse Location" Yes, Linked Yes, optional | "Location → Approximate location" Yes, Optional Yes |
 
 If any row above disagrees between the two stores' actual submitted forms, **stop and reconcile** — that's a guaranteed rejection vector.
 
