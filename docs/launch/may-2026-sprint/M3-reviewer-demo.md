@@ -70,7 +70,7 @@
 >
 > 5. **Wardrobe gap analysis (Premium).** Tap menu → "Wardrobe Gaps." See a list of under-served categories with concrete examples ("you have 9 tops but only 1 pair of trousers that pairs with them").
 >
-> 6. **Outfit photo feedback (Premium).** Tap menu → "Outfit Feedback." Skip the camera step by tapping "Use sample" — a pre-loaded photo appears with the AI's feedback already generated. (We pre-loaded one so the reviewer doesn't need to take a photo of themselves.)
+> 6. **Outfit photo feedback (Premium).** Tap menu → "Outfit Feedback." This feature uses the device camera — there is no sample-photo bypass in the submitted build. Point the camera at any item of clothing (your own shirt, a piece of fabric, a folded garment on the desk) and tap the capture button, then tap "Use this selfie" on the confirm screen. The AI returns a short outfit critique within a few seconds. (We mention this explicitly because reviewers sometimes expect a sample-photo button and there is none.)
 >
 > 7. **Calendar (free + Premium).** Tap the calendar tab. Tomorrow has a planned outfit. Tap it to see the planned items. Tap "Plan another day" to drag an outfit to any other date.
 >
@@ -148,7 +148,7 @@ Run these on a real device with the test account immediately before pressing Sub
 - [ ] "Generate" with the rainy 12°C prompt returns an outfit in ≤ 5 seconds.
 - [ ] Travel capsule with the Lisbon prompt returns a result in ≤ 8 seconds.
 - [ ] Wardrobe gaps screen loads with at least one row.
-- [ ] Outfit photo feedback → "Use sample" returns pre-loaded feedback.
+- [ ] Outfit photo feedback → camera capture returns AI feedback in ≤ 8 seconds. (No "Use sample" shortcut exists in v1.0.0 — reviewer must take an actual photo.)
 - [ ] Calendar shows tomorrow's planned outfit.
 - [ ] Settings → Subscription shows active Premium Annual.
 - [ ] Settings → Account → Delete Account opens the confirmation dialog (do not confirm).

@@ -21,7 +21,7 @@
 | Location (city/coordinates) | Yes (only if user grants permission for weather features) | Not stored — passed to weather API in-memory only | Weather-aware outfit suggestions | No (not stored linked to user) | No | Yes |
 | Push notification token | Yes (only if user opts in) | Supabase `push_subscriptions` | Daily outfit reminders | Yes | No | Yes |
 | Subscription status | Yes | Supabase `subscriptions` + RevenueCat | Entitlement gating | Yes | No | No (required if subscribed) |
-| Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | No (anonymized event IDs) | No | Yes (Settings → Privacy → Send Crash Reports) |
+| Crash logs and performance data | Yes | Sentry (sentry.io, EU region) | Diagnostics, crash fixing | No (anonymized event IDs) | No | No (v1.0.0 has no in-app opt-out — Sentry initializes whenever `EXPO_PUBLIC_SENTRY_DSN` is set in the build, which it is for every production build) |
 | Image processing payloads (transient) | Yes | Gemini API (Google) — not retained by Gemini per their terms; pass-through only | Background removal, garment classification, outfit generation | No (no user identifier sent to Gemini) | No | No (core feature) |
 | Advertising identifier (IDFA / Android Ad ID) | Yes (only if user grants ATT / Ads ID permission) | Sent to Meta Pixel + Conversions API | Attribution for Meta Ads campaigns | No (hashed before send) | Yes | Yes (denying ATT disables Meta tracking — no app impact) |
 | Install + first-launch event | Yes | Meta Conversions API (server-side) | Install attribution | No | Yes | No (anonymized, no user PII) |
@@ -68,6 +68,7 @@ For each data type below, fields are:
 - **Linked to User:** No
 - **Used for Tracking:** No
 - **Purposes:** App Functionality
+- **Opt-out:** Not available in v1.0.0 — declare collected on every install with the DSN configured.
 
 ### 7. Diagnostics → Performance Data
 - **Linked to User:** No
@@ -125,8 +126,8 @@ Play's form asks two parallel questions for each data type: **Collected** and **
 | Other user-generated content | Yes | No | No | App functionality, Personalization | Wardrobe metadata, outfit selections, wear log. |
 | App interactions | Yes | Yes | No | Advertising or marketing, Analytics | Install + trial + subscribe events to Meta CAPI. |
 | **App info and performance** ||||||
-| Crash logs | Yes | No | Yes | App functionality | Sentry. Opt-out available in Settings. |
-| Diagnostics | Yes | No | Yes | App functionality, Analytics | Sentry performance metrics. |
+| Crash logs | Yes | No | No | App functionality | Sentry. v1.0.0 has no in-app opt-out — `EXPO_PUBLIC_SENTRY_DSN` is bundled into every production build and Sentry initializes unconditionally. If you want an opt-out shipped before v1.0.0, treat it as a separate wave; do not back-claim "optional" in this form. |
+| Diagnostics | Yes | No | No | App functionality, Analytics | Sentry performance metrics. Same v1.0.0 caveat as crash logs. |
 | **Device or other IDs** ||||||
 | Device or other IDs | Yes | Yes | Yes | Advertising or marketing | Android Ad ID to Meta when user has not opted out of personalized ads at the OS level. |
 
@@ -180,6 +181,6 @@ If any row above disagrees between the two stores' actual submitted forms, **sto
 
 - [ ] `burs.me/privacy` page reflects the inventory above (especially the Meta CAPI disclosure, which is new for v1.0).
 - [ ] `burs.me/delete-account` page is live and returns a real form (Play requires a web-accessible path even when in-app deletion exists).
-- [ ] Settings → Privacy → "Send Crash Reports" toggle exists and disables Sentry init on opt-out.
+- [ ] Confirm crash-log / diagnostics rows are filed as **not** optional in both stores' forms (v1.0.0 has no in-app opt-out — see the inventory above). A future wave can add the toggle and flip the row to optional, but not in v1.0.0.
 - [ ] ATT prompt copy on iOS reads something like "BURS uses this to measure which ads helped people discover the app. It does not enable any in-app advertising." (Apple rejects vague ATT explanations.)
 - [ ] Account Deletion URL declared in App Store Connect → App Information section.
