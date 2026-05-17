@@ -21,7 +21,7 @@
 
 1. Sign up `test@burs.me` from the production app build that will be submitted (same RC).
 2. Seed the wardrobe with 24 garments. No pre-captured asset set ships in this repo — Borna captures fresh photos at provisioning time. Recommended set: a neutral, photographable batch from Borna's own closet (6 tops, 5 bottoms, 3 outerwear, 4 footwear, 3 accessories, 3 basics). Import via the in-app camera or batch-import flow that ships in the v1.0 build. Goal is realistic outfit-generation material, not a specific scripted set.
-3. Plan one outfit for the next day in-app.
+3. Plan **two** outfits in-app: one for **today** (so the Home/Today hero card has something to render — the hero is driven by `useTodayPlannedOutfit()`, so an empty today slot shows the CTA hero instead of the promised outfit) and one for **tomorrow** (so step 7 of the reviewer script demonstrates the Plan screen with a future planned outfit).
 4. Log 8 wear entries spread across 14 days.
 5. From Supabase SQL editor, grant a 1-year Premium entitlement so the reviewer skips the sandbox purchase. The `grant_trial_gift` edge function does NOT do this (it grants render credits) — use a direct upsert on `subscriptions` instead:
    ```sql
@@ -60,11 +60,11 @@
 >
 > **4-minute walkthrough**
 >
-> 1. **Sign in.** Use the credentials above. The home screen loads with today's suggested outfit at the top.
+> 1. **Sign in.** Use the credentials above. The Today tab loads with today's planned outfit in the hero card at the top (seeded during account provisioning — the hero is driven by `useTodayPlannedOutfit()` so an empty today slot would show a CTA instead).
 >
 > 2. **Browse the wardrobe (free feature).** Tap the wardrobe tab. You'll see 24 garments with backgrounds removed, grouped by category. Tap any garment to see its detail screen (color, warmth rating, last worn).
 >
-> 3. **Generate an outfit (free; first 3/day are free, this account has unlimited).** Open the Generate tab — an outfit auto-generates on mount from this account's wardrobe within ~3 seconds. To request something specific, open **Style Me** instead: pick an occasion chip (Work, Date, Evening, Workout, Travel, or tap **Custom…** and type your own e.g. "brunch with friends"), nudge the weather slider, and tap **Generate outfit**. There is no free-form chat prompt in v1.0.0 — generation is driven by the occasion chips + weather slider + (optional) anchor item lock.
+> 3. **Generate an outfit (Premium — pre-granted on this account; no free generation tier in v1.0.0, `enforceSubscription` gates the edge function).** There is no Generate tab in the bottom nav (the bottom nav is Today / Wardrobe / Plan / Insights; the gold + FAB between Wardrobe and Plan adds garments, not outfits). Reach generation one of two ways: (a) from **Today**, tap the hero card — if no outfit is planned for today, this opens OutfitGenerate which auto-generates within ~3 seconds; or (b) from the **Outfits** screen tap **Style me** to open Style Me, then pick an occasion chip (Work, Date, Evening, Workout, Travel, or tap **Custom…** and type your own e.g. "brunch with friends"), nudge the weather slider, and tap **Generate outfit**. There is no free-form chat prompt in v1.0.0 — generation is driven by the occasion chips + weather slider + (optional) anchor item lock.
 >
 > 4. **Travel capsule (Premium).** Tap the menu icon → "Travel Capsule." Type "5 days in Lisbon, casual" and tap submit. The result shows the smallest set of garments that produces the most outfit combinations for that brief.
 >
@@ -142,9 +142,9 @@ Paste this AFTER the demo script in Play Console → App content → Reviewer co
 Run these on a real device with the test account immediately before pressing Submit on each store:
 
 - [ ] Sign in with `test@burs.me` and password from the secure field.
-- [ ] Home screen loads with a suggested outfit (not an error or empty state).
+- [ ] Today tab hero card shows today's planned outfit (not the empty CTA hero). If you see the CTA, the today plan seed was missed during account provisioning — re-seed before submission.
 - [ ] Wardrobe shows 24 garments.
-- [ ] "Generate" with the rainy 12°C prompt returns an outfit in ≤ 5 seconds.
+- [ ] From Today, tap the hero → opens OutfitDetail for today's planned outfit. From Outfits → "Style me" → pick any occasion chip → tap "Generate outfit" → result returns in ≤ 5 seconds. (Generation is Premium-only; the demo account has Premium pre-granted via the `subscriptions` upsert in step 5.)
 - [ ] Travel capsule with the Lisbon prompt returns a result in ≤ 8 seconds.
 - [ ] Wardrobe gaps screen loads with at least one row.
 - [ ] From the generated outfit's detail screen, tap **Try it on** → camera capture returns AI feedback in ≤ 8 seconds. (There is no top-level "Outfit Feedback" menu entry and no "Use sample" shortcut in v1.0.0 — the only entry point is `Try it on` from an outfit detail, and a real camera capture is required.)
