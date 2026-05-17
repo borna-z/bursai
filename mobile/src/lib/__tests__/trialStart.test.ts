@@ -1,16 +1,39 @@
 // M46 — trialStart smoke tests.
 //
-// Three branches to cover: (1) online + call succeeds → no enqueue, no
-// Sentry; (2) offline at the gate → enqueue, no call; (3) online at the
-// gate but the call throws and connectivity has since dropped → enqueue
-// as fallback; (4) online + call throws permanently → Sentry capture,
-// no enqueue. The helper never throws to its caller — that's the
-// non-blocking contract AuthContext relies on.
+// Branches covered after Codex P1 review (PR #876):
+//   (1) online + call succeeds → no enqueue, no Sentry
+//   (2) offline at the gate → enqueue, no call
+//   (3) online at gate, call throws transient (5xx) → enqueue (NOT Sentry)
+//       — Codex's escalation: this was the original bug. Supabase 5xx
+//       during fresh signup while NetInfo says online must still queue.
+//   (4) online at gate, call throws permanent (4xx) → Sentry, no enqueue
+//   (5) online at gate, call throws network error (no http status) → enqueue
+//   (6) subscription-locked (402-class) → Sentry (permanent for this op)
+//   (7) NetInfo gate throws → propagates (documented gap)
+// Plus: dispatchStartTrial forwards / surfaces errors.
 
-jest.mock('../edgeFunctionClient', () => ({
-  __esModule: true,
-  callEdgeFunction: jest.fn(),
-}));
+jest.mock('../edgeFunctionClient', () => {
+  class EdgeFunctionHttpError extends Error {
+    status: number;
+    constructor(fnName: string, status: number, bodyText = '') {
+      super(`Edge function "${fnName}" failed: ${status} ${bodyText}`);
+      this.name = 'EdgeFunctionHttpError';
+      this.status = status;
+    }
+  }
+  class EdgeFunctionSubscriptionLockedError extends Error {
+    constructor() {
+      super('subscription locked');
+      this.name = 'EdgeFunctionSubscriptionLockedError';
+    }
+  }
+  return {
+    __esModule: true,
+    callEdgeFunction: jest.fn(),
+    EdgeFunctionHttpError,
+    EdgeFunctionSubscriptionLockedError,
+  };
+});
 
 jest.mock('../offlineQueue', () => ({
   __esModule: true,
@@ -28,7 +51,11 @@ jest.mock('../sentry', () => ({
   },
 }));
 
-const edgeFn = require('../edgeFunctionClient') as { callEdgeFunction: jest.Mock };
+const edgeFn = require('../edgeFunctionClient') as {
+  callEdgeFunction: jest.Mock;
+  EdgeFunctionHttpError: new (fn: string, status: number, body?: string) => Error;
+  EdgeFunctionSubscriptionLockedError: new () => Error;
+};
 const queue = require('../offlineQueue') as {
   enqueue: jest.Mock;
   isOnlineNow: jest.Mock;
@@ -74,23 +101,52 @@ describe('enqueueStartTrial', () => {
     expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it('online → call throws → now offline: falls back to enqueue', async () => {
-    // First isOnlineNow (gate) → true. Call throws. Second isOnlineNow → false.
-    queue.isOnlineNow.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  it('online → transient 5xx (still-online): enqueues, no Sentry — Codex P1 fix', async () => {
+    // The original M46 bug: a Supabase 5xx during fresh signup with
+    // NetInfo still reporting online would only Sentry, losing the trial.
+    // Codex review on PR #876 caught this; the fix is to classify
+    // 5xx/network/timeout as transient regardless of NetInfo state.
+    queue.isOnlineNow.mockResolvedValue(true);
+    edgeFn.callEdgeFunction.mockRejectedValue(
+      new edgeFn.EdgeFunctionHttpError('start_trial', 503, 'service unavailable'),
+    );
+    const { enqueueStartTrial, START_TRIAL_ACTION } = require('../trialStart');
+
+    await expect(enqueueStartTrial('user-1')).resolves.toBeUndefined();
+
+    expect(queue.enqueue).toHaveBeenCalledWith(START_TRIAL_ACTION, { userId: 'user-1' });
+    expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('online → network error (no status, no http class): enqueues, no Sentry', async () => {
+    // Bare Error — could be a fetch failure that the edge client didn't
+    // wrap. Treated as transient (the safer default for trial reliability).
+    queue.isOnlineNow.mockResolvedValue(true);
     edgeFn.callEdgeFunction.mockRejectedValue(new Error('network'));
     const { enqueueStartTrial, START_TRIAL_ACTION } = require('../trialStart');
 
     await expect(enqueueStartTrial('user-1')).resolves.toBeUndefined();
 
-    expect(edgeFn.callEdgeFunction).toHaveBeenCalledTimes(1);
     expect(queue.enqueue).toHaveBeenCalledWith(START_TRIAL_ACTION, { userId: 'user-1' });
     expect(sentry.Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it('online → permanent failure → still online: captures to Sentry, no enqueue', async () => {
-    // Gate true, call throws, second check still online (permanent error).
-    queue.isOnlineNow.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
-    const err = new Error('4xx');
+  it('online → permanent 4xx: captures to Sentry, no enqueue', async () => {
+    queue.isOnlineNow.mockResolvedValue(true);
+    const err = new edgeFn.EdgeFunctionHttpError('start_trial', 400, 'bad request');
+    edgeFn.callEdgeFunction.mockRejectedValue(err);
+    const { enqueueStartTrial } = require('../trialStart');
+
+    await expect(enqueueStartTrial('user-1')).resolves.toBeUndefined();
+
+    expect(sentry.Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(sentry.Sentry.captureException).toHaveBeenCalledWith(err);
+    expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('online → subscription locked (402-class): captures to Sentry, no enqueue', async () => {
+    queue.isOnlineNow.mockResolvedValue(true);
+    const err = new edgeFn.EdgeFunctionSubscriptionLockedError();
     edgeFn.callEdgeFunction.mockRejectedValue(err);
     const { enqueueStartTrial } = require('../trialStart');
 
