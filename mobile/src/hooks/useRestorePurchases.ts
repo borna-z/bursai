@@ -43,9 +43,11 @@ import { useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../lib/log';
 import { captureMutationError, Sentry } from '../lib/sentry';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { restorePurchases } from '../lib/revenuecat';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type RestorePurchasesResult =
   | { status: 'restored' }
@@ -182,7 +184,8 @@ async function syncSubscriptionWithRevenueCat(
     let data: SyncResponseBody | null = null;
     try {
       data = (await response.json()) as SyncResponseBody;
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'useRestorePurchases.sync_response_parse_failed' });
       return 'pending';
     }
     if (data && data.ok === true && data.state) {
@@ -413,7 +416,7 @@ export function useRestorePurchases() {
       // re-target the new user's cache key, which is incorrect.
       const userId = context?.startUserId;
       if (!userId) return;
-      queryClient.invalidateQueries({ queryKey: ['subscription', userId] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.subscription(userId) });
       // Prefix-invalidate so sibling caches keyed by ['subscription', …]
       // (gating helpers, profile-stats bundles) re-derive against the
       // refreshed row. Mirrors usePurchaseSubscription.onSuccess.

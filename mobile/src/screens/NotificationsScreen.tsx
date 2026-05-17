@@ -44,6 +44,7 @@ import {
   type NotificationRow,
 } from '../hooks/useNotifications';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -83,7 +84,8 @@ function formatRelativeTime(iso: string, now: number): string {
   // Beyond a week — locale-formatted date.
   try {
     return new Date(iso).toLocaleDateString();
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'NotificationsScreen.format_date_failed' });
     return '';
   }
 }

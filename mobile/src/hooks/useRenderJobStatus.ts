@@ -74,6 +74,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { bustSignedUrlCache } from './useSignedUrl';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type RenderJobTerminalStatus = 'succeeded' | 'failed';
 export type RenderJobStatus = 'pending' | 'in_progress' | RenderJobTerminalStatus;
@@ -110,7 +111,7 @@ function patchGarmentToEnqueueLost(
     render_error: 'enqueue_lost',
   };
   qc.setQueryData(
-    ['garment', userId, garmentId],
+    CACHE_KEYS.garment(userId, garmentId),
     (prev: unknown) =>
       prev && typeof prev === 'object'
         ? { ...(prev as Record<string, unknown>), ...patch }
@@ -120,7 +121,7 @@ function patchGarmentToEnqueueLost(
   // currently-cached page so the badge flips on remount. Structure mirrors
   // useGarments.patchGarmentInCaches.
   qc.setQueriesData<unknown>(
-    { queryKey: ['garments', userId] },
+    { queryKey: CACHE_KEYS.garments(userId) },
     (prev: unknown) => {
       if (!prev || typeof prev !== 'object') return prev;
       const root = prev as { pages?: { items?: { id?: string }[] }[] };
@@ -235,7 +236,7 @@ export function useRenderJobStatus(
     // N14/F6 — user-scoped key for consistency with the rest of the mobile
     // cache (`['garment', user?.id, id]`). No callers read this key directly,
     // so the rename is internal-only.
-    queryKey: ['render_job', user?.id, garmentId],
+    queryKey: CACHE_KEYS.renderJob(user?.id, garmentId),
     queryFn: async () => {
       if (!garmentId) return null;
 
@@ -295,7 +296,7 @@ export function useRenderJobStatus(
           // hook on its own. (Codex round 7.)
           qc.invalidateQueries({ queryKey: ['garments'] });
           if (garmentId) {
-            qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+            qc.invalidateQueries({ queryKey: CACHE_KEYS.garment(user?.id, garmentId) });
           }
         }
         return null;
@@ -363,7 +364,7 @@ export function useRenderJobStatus(
     if (query.data?.errorClass !== SYNTHETIC_ENQUEUE_LOST) {
       qc.invalidateQueries({ queryKey: ['garments'] });
       if (garmentId) {
-        qc.invalidateQueries({ queryKey: ['garment', user?.id, garmentId] });
+        qc.invalidateQueries({ queryKey: CACHE_KEYS.garment(user?.id, garmentId) });
       }
     }
   }, [

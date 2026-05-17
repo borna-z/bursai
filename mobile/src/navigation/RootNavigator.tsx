@@ -29,6 +29,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { exchangeCalendarCode, triggerGoogleSync } from '../hooks/useCalendarSync';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 
 // Acquisition flow
 import { SplashScreen as SplashRouteScreen } from '../screens/SplashScreen';
@@ -413,7 +414,8 @@ function isCalendarCallbackUrl(url: string): boolean {
     if (host === 'calendar' && (path === '/callback' || path === '/callback/')) return true;
     if (host === '' && (path === '/calendar/callback' || path === '/calendar/callback/')) return true;
     return false;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'RootNavigator.is_calendar_callback_url_parse_failed' });
     return false;
   }
 }
@@ -430,7 +432,8 @@ function isOAuthCallbackUrl(url: string): boolean {
     if (host === 'auth' && (path === '/callback' || path === '/callback/')) return true;
     if (host === '' && (path === '/auth/callback' || path === '/auth/callback/')) return true;
     return false;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'RootNavigator.is_oauth_callback_url_parse_failed' });
     return false;
   }
 }
@@ -452,7 +455,8 @@ async function handleOAuthDeepLink(
   let code: string | null = null;
   try {
     code = new URL(url).searchParams.get('code');
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'RootNavigator.oauth_url_parse_failed' });
     code = null;
   }
   if (!code) {
@@ -485,7 +489,8 @@ async function handleCalendarOAuthDeepLink(
     code = parsed.searchParams.get('code');
     state = parsed.searchParams.get('state');
     oauthError = parsed.searchParams.get('error');
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'RootNavigator.calendar_url_parse_failed' });
     code = null;
     state = null;
   }
@@ -530,7 +535,8 @@ async function handleCalendarOAuthDeepLink(
   try {
     await triggerGoogleSync();
     await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'RootNavigator.calendar_first_sync_failed' });
     // Silent — connection is the load-bearing state, sync can retry.
   }
   Alert.alert(tr('settings.calendar.connected.title'), tr('settings.calendar.connected.body'));

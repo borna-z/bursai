@@ -25,8 +25,10 @@ import { useMemo, useRef } from 'react';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../lib/log';
 import { captureMutationError } from '../lib/sentry';
 import type { Garment, GarmentFilters, GarmentUpdate } from '../types/garment';
+import { CACHE_KEYS } from './cacheKeys';
 
 const PAGE_SIZE = 30;
 const RARELY_WORN_CUTOFF_MS = 30 * 24 * 60 * 60 * 1000;
@@ -100,7 +102,7 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
   );
 
   return useInfiniteQuery<GarmentPage, Error, InfiniteData<GarmentPage>, readonly unknown[], number>({
-    queryKey: ['garments', user?.id, filters],
+    queryKey: CACHE_KEYS.garmentsWithFilters(user?.id, filters),
     queryFn: async ({ pageParam = 0 }) => {
       if (!user) return { items: [], nextPage: undefined };
 
@@ -162,7 +164,8 @@ export function useGarments(filters?: GarmentFilters, enabled = true) {
         rlsRetryCountRef.current += 1;
         try {
           await supabase.auth.refreshSession();
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'useGarments.refresh_session_failed' });
           // refreshSession may throw if the refresh token is invalid — the
           // retry below will surface the same empty result, the hook tops out,
           // and the user sees the empty state. AuthContext's onAuthStateChange
@@ -229,7 +232,7 @@ export function useGarment(id: string | undefined) {
     // serves user A's cached garment row to user B. Without the user.id
     // segment, the (id, _) cache key would collide across accounts on the
     // same device.
-    queryKey: ['garment', user?.id, id],
+    queryKey: CACHE_KEYS.garment(user?.id, id),
     queryFn: async () => {
       if (!id || !user) return null;
       const { data, error } = await supabase
@@ -263,7 +266,7 @@ function patchGarmentInCaches(
   //    laundry / search). React Query's setQueriesData walks the cache by
   //    key prefix and applies the updater to each match.
   queryClient.setQueriesData<InfiniteData<GarmentPage> | undefined>(
-    { queryKey: ['garments', userId] },
+    { queryKey: CACHE_KEYS.garments(userId) },
     (prev) => {
       if (!prev) return prev;
       let mutated = false;
@@ -304,9 +307,9 @@ export function useUpdateGarment() {
     onMutate: async ({ id, updates }) => {
       // Optimistic — patch every cached row + the single garment, snapshot
       // the prior state so onError can roll back.
-      await queryClient.cancelQueries({ queryKey: ['garment', user?.id, id] });
+      await queryClient.cancelQueries({ queryKey: CACHE_KEYS.garment(user?.id, id) });
       const previousSnapshot = queryClient.getQueryData<Garment | null>(
-        ['garment', user?.id, id],
+        CACHE_KEYS.garment(user?.id, id),
       );
       patchGarmentInCaches(queryClient, user?.id, id, updates as Partial<Garment>);
       return { previousSnapshot };
@@ -314,7 +317,7 @@ export function useUpdateGarment() {
     onError: (err, { id }, context) => {
       captureMutationError('useUpdateGarment')(err);
       if (context?.previousSnapshot !== undefined) {
-        queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
+        queryClient.setQueryData(CACHE_KEYS.garment(user?.id, id), context.previousSnapshot);
       }
       // Lists will resync from the invalidate-and-refetch on settle.
     },
@@ -327,7 +330,7 @@ export function useUpdateGarment() {
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['garment', user?.id, data.id], data);
+      queryClient.setQueryData(CACHE_KEYS.garment(user?.id, data.id), data);
     },
   });
 }
@@ -356,8 +359,8 @@ export function useDeleteGarment() {
       // Profile stats bundle (M29) — Profile + SettingsScreen counters
       // both read this key; without the explicit invalidation the badge
       // stays stale up to staleTime (60s).
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
-      queryClient.removeQueries({ queryKey: ['garment', user?.id, id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
+      queryClient.removeQueries({ queryKey: CACHE_KEYS.garment(user?.id, id) });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
     },
     onError: captureMutationError('useDeleteGarment'),
@@ -381,9 +384,9 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
       if (error) throw error;
     },
     onMutate: async ({ id, inLaundry }) => {
-      await queryClient.cancelQueries({ queryKey: ['garment', user?.id, id] });
+      await queryClient.cancelQueries({ queryKey: CACHE_KEYS.garment(user?.id, id) });
       const previousSnapshot = queryClient.getQueryData<Garment | null>(
-        ['garment', user?.id, id],
+        CACHE_KEYS.garment(user?.id, id),
       );
       patchGarmentInCaches(queryClient, user?.id, id, { in_laundry: inLaundry });
       return { previousSnapshot };
@@ -391,12 +394,12 @@ export function useMarkLaundry(): UseMutationResult<void, Error, MarkLaundryArgs
     onError: (err, { id }, context) => {
       captureMutationError('useMarkLaundry')(err);
       if (context?.previousSnapshot !== undefined) {
-        queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
+        queryClient.setQueryData(CACHE_KEYS.garment(user?.id, id), context.previousSnapshot);
       }
     },
     onSettled: (_data, _err, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
-      queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.garment(user?.id, id) });
       // Q-C1 — `in_laundry` doesn't feed the smart-count predicates today
       // (they read `wear_count` + `last_worn_at`), but invalidate anyway
       // so a future predicate addition (e.g. "Available to wear" tile)
@@ -459,9 +462,9 @@ export function useMarkWorn() {
       // Optimistic +1 to wear_count and last_worn_at = now. The detail
       // screen + every list page sees the bump immediately; the server
       // confirms it on settle.
-      await queryClient.cancelQueries({ queryKey: ['garment', user?.id, id] });
+      await queryClient.cancelQueries({ queryKey: CACHE_KEYS.garment(user?.id, id) });
       const previousSnapshot = queryClient.getQueryData<Garment | null>(
-        ['garment', user?.id, id],
+        CACHE_KEYS.garment(user?.id, id),
       );
       const optimistic = previousSnapshot
         ? {
@@ -477,12 +480,12 @@ export function useMarkWorn() {
     onError: (err, id, context) => {
       captureMutationError('useMarkWorn')(err);
       if (context?.previousSnapshot !== undefined) {
-        queryClient.setQueryData(['garment', user?.id, id], context.previousSnapshot);
+        queryClient.setQueryData(CACHE_KEYS.garment(user?.id, id), context.previousSnapshot);
       }
     },
     onSettled: (_data, _err, id) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
-      queryClient.invalidateQueries({ queryKey: ['garment', user?.id, id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.garment(user?.id, id) });
       // Q-C1 — wear bumps `wear_count` (crossing 0→1 flips a garment
       // from rarely_worn → most_worn) AND `last_worn_at` (removes it
       // from rarely_worn entirely), so both Smart Access tile counts
@@ -493,7 +496,7 @@ export function useMarkWorn() {
       // wear_logs today (that's the per-outfit wear path), but listing
       // it here keeps the invalidation contract uniform — when the
       // per-garment wear_logs path lands it'll already be wired.
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
       // Insights derives every metric from garments + wear_logs — refetch so
       // the gauges, palette, weekly bars, and most-worn list don't lie for up
       // to staleTime (5min) after a wear / laundry / update.

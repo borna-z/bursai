@@ -15,6 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError, rateLimitResponse, checkOverload, overloadResponse } from "../_shared/scale-guard.ts";
+import { captureError } from "../_shared/observability.ts";
 
 // ─── SSRF protection ──────────────────────────────────────────
 const BLOCKED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
@@ -52,7 +53,8 @@ function isBlockedUrl(urlString: string): { blocked: boolean; reason?: string } 
       }
     }
     return { blocked: false };
-  } catch {
+  } catch (err) {
+    captureError("calendar.url_parse_failed", err);
     return { blocked: true, reason: 'Invalid URL' };
   }
 }
@@ -413,12 +415,15 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    let action = 'sync_ics'; // default
+    // Default action is `sync_ics`; empty-body callers (the compat path)
+    // are expected and shouldn't pollute Sentry. Codex round-5 P3 (PR #884):
+    // demote to silent — only malformed bodies would be actionable here.
+    let action = 'sync_ics';
     try {
       const body = await req.json();
       if (body?.action) action = body.action;
-    } catch {
-      // no body — default to sync_ics
+    } catch (_bodyParseExpected) {
+      // intentional: empty body uses the default action
     }
 
     switch (action) {

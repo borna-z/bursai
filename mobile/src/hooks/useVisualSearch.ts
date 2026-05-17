@@ -53,6 +53,7 @@ import {
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { getLocale, t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 const MAX_DIMENSION = 1200;
 const JPEG_QUALITY = 0.85;
@@ -123,7 +124,8 @@ function bestEffortDeleteTemp(uri: string | null): void {
   try {
     const f = new FsFile(uri);
     if (f.exists) f.delete();
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useVisualSearch.delete_temp_failed' });
     /* swallow — cleanup is best-effort */
   }
 }
@@ -350,7 +352,8 @@ export function useVisualSearch(): UseVisualSearchResult {
             const parsed = (() => {
               try {
                 return JSON.parse(callErr.bodyText) as { error?: string };
-              } catch {
+              } catch (parseErr) {
+                log.error(parseErr, { context: 'useVisualSearch.error_body_parse_failed' });
                 return null;
               }
             })();

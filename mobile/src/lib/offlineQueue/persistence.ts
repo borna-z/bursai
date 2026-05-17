@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { log } from '../log';
 import { Sentry } from '../sentry';
 import { emitChange } from './subscriber';
 
@@ -23,7 +24,8 @@ let hydrating: Promise<void> | null = null;
 async function persist(): Promise<void> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'offlineQueue.persistence.persist_failed' });
     // AsyncStorage write can fail on full disk / OS pressure.
   }
 }
@@ -42,7 +44,8 @@ export async function hydrate(): Promise<void> {
           );
         }
       }
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'offlineQueue.persistence.hydrate_failed' });
       queue = [];
     } finally {
       hydrated = true;

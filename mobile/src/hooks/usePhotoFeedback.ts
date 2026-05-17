@@ -26,6 +26,7 @@ import {
 } from '../lib/feedbackNormalizer';
 import { useFeedbackCleanup } from './useFeedbackCleanup';
 import { useFeedbackFetch } from './useFeedbackFetch';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type { PhotoFeedback } from '../lib/feedbackNormalizer';
 
@@ -179,7 +180,7 @@ export function usePhotoFeedback(): UsePhotoFeedbackResult {
         }
         setFeedback(adaptFeedback(result.row));
         queryClient.invalidateQueries({
-          queryKey: ['outfit_feedback', user.id, trimmedOutfitId],
+          queryKey: CACHE_KEYS.outfitFeedback(user.id, trimmedOutfitId),
         });
         queryClient.invalidateQueries({ queryKey: ['outfit_feedback'] });
       } finally {

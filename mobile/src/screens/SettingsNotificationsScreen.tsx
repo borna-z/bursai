@@ -17,6 +17,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 
+import { log } from '../lib/log';
+
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
@@ -84,7 +86,8 @@ export function SettingsNotificationsScreen() {
       try {
         const result = await Notifications.getPermissionsAsync();
         if (!cancelled) setPermission(result.status);
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'SettingsNotificationsScreen.get_permissions_failed' });
         // Ignore — surface as undetermined.
       }
     };

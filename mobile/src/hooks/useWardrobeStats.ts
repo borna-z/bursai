@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface WardrobeStats {
   garmentCount: number;
@@ -54,7 +55,7 @@ export function useWardrobeStats() {
   const { user } = useAuth();
 
   return useQuery<WardrobeStats>({
-    queryKey: ['wardrobeStats', user?.id],
+    queryKey: CACHE_KEYS.wardrobeStats(user?.id),
     queryFn: async (): Promise<WardrobeStats> => {
       if (!user) return { garmentCount: 0, outfitCount: 0, wearLogCount: 0 };
       const [garmentCount, outfitCount, wearLogCount] = await Promise.all([

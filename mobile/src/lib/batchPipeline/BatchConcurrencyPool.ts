@@ -299,7 +299,8 @@ function runItem(batch: Batch, item: BatchItem): void {
       if (prefetched) {
         try {
           resized = await prefetched.resized;
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'BatchConcurrencyPool.prefetched_resize_failed' });
           clearAnalyzePrefetch(item.uri);
           resized = await resizeForGarment(item.uri, { wantBase64: true });
         }
@@ -311,7 +312,9 @@ function runItem(batch: Batch, item: BatchItem): void {
         item.storagePath = res.storagePath;
         return res;
       });
-      uploadP.catch(() => {});
+      uploadP.catch((err) =>
+        log.error(err, { context: 'BatchConcurrencyPool.upload_failed' }),
+      );
 
       const base64 = resized.base64
         ? `data:${GARMENT_IMAGE_MIME};base64,${resized.base64}`
@@ -322,7 +325,8 @@ function runItem(batch: Batch, item: BatchItem): void {
       if (prefetched) {
         try {
           analysis = await prefetched.promise;
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'BatchConcurrencyPool.prefetched_analysis_failed' });
           analysis = null;
         }
         if (prefetched.outcome === 'failed') {
@@ -368,7 +372,8 @@ function runItem(batch: Batch, item: BatchItem): void {
           } else {
             void deleteUpload(upRes.storagePath);
           }
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'BatchConcurrencyPool.cleanup_upload_failed' });
           // upload also failed — nothing to clean up
         }
       }

@@ -29,6 +29,8 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 
+import { log } from '../lib/log';
+
 import {
   getConditionFromCode,
   getPrecipitationFromCode,
@@ -149,7 +151,8 @@ export async function getCoordinatesFromCity(
     const lon = parseFloat(first.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return { lat, lon };
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useWeather.geocode_city_failed' });
     return null;
   }
 }
@@ -173,7 +176,8 @@ async function getCurrentDeviceCoords(): Promise<{ lat: number; lon: number } | 
     const { latitude, longitude } = position.coords;
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
     return { lat: latitude, lon: longitude };
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useWeather.device_coords_failed' });
     return null;
   }
 }

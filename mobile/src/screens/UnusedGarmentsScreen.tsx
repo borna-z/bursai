@@ -40,6 +40,7 @@ import { GarmentCard } from '../components/GarmentCard';
 import { GarmentGridSkeleton } from '../components/skeletons';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
+import { CACHE_KEYS } from '../hooks/cacheKeys';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { t as tr } from '../lib/i18n';
@@ -114,7 +115,7 @@ export function UnusedGarmentsScreen() {
   // result back into the AI's order so the most-urgent prediction
   // stays at the top of the list. `enabled` gates on user + ids.
   const hydrate = useQuery<Garment[], Error>({
-    queryKey: ['wardrobeAging.garments', user?.id, bucketId, ids.join(',')],
+    queryKey: CACHE_KEYS.wardrobeAgingGarments(user?.id, bucketId, ids.join(',')),
     queryFn: async () => {
       if (!user || ids.length === 0) return [];
       const { data, error } = await supabase

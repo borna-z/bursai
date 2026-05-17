@@ -36,6 +36,7 @@ import { setAnalyzePrefetch } from '../lib/analyzePrefetch';
 import { trackEvent, markAddPieceCheckpoint } from '../lib/analytics';
 import { resizeForGarment, GARMENT_IMAGE_MIME } from '../lib/imageUpload';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import type { AddPiecePhoto, RootStackParamList } from '../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -89,7 +90,9 @@ function kickSinglePhotoPrefetch(
   // Swallow rejections so the unobserved-promise warning doesn't fire — the
   // cached promise itself still rejects when Step 2 awaits it, surfacing
   // the error there.
-  promise.catch(() => {});
+  promise.catch((err) =>
+    log.error(err, { context: 'AddPieceStep1.prefetch_analyze_failed' }),
+  );
   setAnalyzePrefetch(uri, { promise, resized, createdAt: Date.now() });
 }
 
@@ -138,7 +141,8 @@ export function AddPieceStep1() {
         const uri = newPhotos[0]?.uri;
         if (uri) kickSinglePhotoPrefetch(uri, analyze);
       }
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'AddPieceStep1.pick_from_gallery_failed' });
       Alert.alert(tr('addpiece.step1.galleryError.title'), tr('addpiece.step1.galleryError.body'));
     }
   }, [analyze, photos.length]);
@@ -196,7 +200,8 @@ export function AddPieceStep1() {
         source: 'add_photo',
         batch: { batchId, index: 0, total: 1 },
       });
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'AddPieceStep1.open_camera_single_failed' });
       Alert.alert(
         tr('addpiece.step1.cameraError.title'),
         tr('addpiece.step1.cameraError.body'),

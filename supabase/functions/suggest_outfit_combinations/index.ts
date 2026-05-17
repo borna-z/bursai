@@ -23,11 +23,16 @@ serve(async (req) => {
   }
 
   try {
+    // Optional locale override — no-body / empty-body requests fall back to
+    // the default. `req.json()` throws on empty body; that's the expected
+    // path. Codex round-4 P2 (PR #884): silently ignore.
     let locale = "sv";
     try {
       const body = await req.json();
       if (body?.locale && typeof body.locale === "string") locale = body.locale;
-    } catch { /* use default */ }
+    } catch (_bodyParseExpected) {
+      // intentional: empty body is normal
+    }
     const lang = LOCALE_NAMES[locale] || "English";
 
     const authHeader = req.headers.get("authorization");

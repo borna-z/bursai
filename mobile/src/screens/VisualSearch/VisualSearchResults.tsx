@@ -27,6 +27,7 @@ import type {
 } from '../../hooks/useVisualSearch';
 import { hapticLight } from '../../lib/haptics';
 import { t as tr } from '../../lib/i18n';
+import { log } from '../../lib/log';
 
 export interface VisualSearchResultsProps {
   result: VisualSearchResult;
@@ -46,7 +47,8 @@ export function VisualSearchResults({ result, onGarmentPress }: VisualSearchResu
       if (parsed.protocol === 'https:') {
         safeUrl = parsed.toString();
       }
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'VisualSearchResults.product_url_parse_failed' });
       safeUrl = null;
     }
     if (!safeUrl) {

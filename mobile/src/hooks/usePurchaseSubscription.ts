@@ -28,6 +28,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError, Sentry } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 import { supabase } from '../lib/supabase';
 import {
   getOfferings,
@@ -211,7 +212,7 @@ export function usePurchaseSubscription() {
       // Refetch the row regardless — `'pending'` still benefits from a
       // background refresh (the webhook may land between our last poll
       // and the next screen mount).
-      queryClient.invalidateQueries({ queryKey: ['subscription', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.subscription(user?.id) });
       if (result.status === 'success') {
         // Ensure dependent queries (gating helpers, profile stats) pick
         // up the new entitlement.

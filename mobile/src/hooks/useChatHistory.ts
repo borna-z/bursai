@@ -16,8 +16,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { log } from '../lib/log';
 import { captureMutationError } from '../lib/sentry';
 import type { StyleChatMode } from './useStyleChat';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface ChatHistoryThreadSummary {
   mode: StyleChatMode;
@@ -74,7 +76,8 @@ function extractPreview(content: string): string {
         );
         if (first) return first.text;
       }
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'useChatHistory.parse_content_failed' });
       // Fall through — return raw content.
     }
   }
@@ -84,7 +87,7 @@ function extractPreview(content: string): string {
 export function useChatHistory() {
   const { user } = useAuth();
   return useQuery<ChatHistoryThreadSummary[]>({
-    queryKey: ['chatHistory', user?.id],
+    queryKey: CACHE_KEYS.chatHistory(user?.id),
     enabled: !!user?.id,
     queryFn: async () => {
       if (!user?.id) return [];
@@ -153,7 +156,7 @@ export function useDeleteChatThread() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chatHistory', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.chatHistory(user?.id) });
     },
     onError: captureMutationError('useDeleteChatThread'),
   });

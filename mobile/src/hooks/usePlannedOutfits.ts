@@ -26,6 +26,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { captureMutationError } from '../lib/sentry';
 import { localISODate } from '../lib/outfitDisplay';
 import type { PlannedOutfitWithOutfit } from '../types/outfit';
+import { CACHE_KEYS } from './cacheKeys';
 
 const PLANNED_WITH_OUTFIT_SELECT = `
   *,
@@ -42,7 +43,7 @@ export function usePlannedOutfitsForRange(startDate: string, endDate: string) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['planned_outfits', user?.id, startDate, endDate],
+    queryKey: CACHE_KEYS.plannedOutfits(user?.id, startDate, endDate),
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
@@ -73,7 +74,7 @@ export function usePlannedOutfitForDate(date: string) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['planned_outfit', user?.id, date],
+    queryKey: CACHE_KEYS.plannedOutfit(user?.id, date),
     queryFn: async () => {
       if (!user || !date) return null;
       const { data, error } = await supabase

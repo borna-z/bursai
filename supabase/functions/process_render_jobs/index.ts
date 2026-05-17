@@ -37,6 +37,7 @@ import { checkOverload, overloadResponse, recordError, withConcurrencyLimit, log
 import { releaseCredit } from "../_shared/render-credits.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { logger } from "../_shared/logger.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("process_render_jobs");
 
@@ -129,12 +130,15 @@ serve(async (req) => {
   }
 
   // Optional body.jobId hint from the low-latency client-initiated path.
+  // Cron/safety-net invocations have no body — `req.json()` throws on those
+  // and that's the expected path. Codex round-4 P2 (PR #884): silently
+  // ignore here so normal cron ticks don't pollute Sentry.
   let preferredJobId: string | null = null;
   try {
     const body = await req.json();
     if (typeof body?.jobId === "string") preferredJobId = body.jobId;
-  } catch {
-    // Empty / malformed body is fine (cron case).
+  } catch (_bodyParseExpected) {
+    // intentional: no-body path for cron is normal
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -886,7 +890,9 @@ async function invokeRender(
     });
 
     let body: any = null;
-    try { body = await res.json(); } catch { /* non-JSON */ }
+    try { body = await res.json(); } catch (err) {
+      captureError("process_render_jobs.render_response_json_parse_failed", err);
+    }
 
     if (!res.ok) {
       return {

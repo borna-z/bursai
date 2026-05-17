@@ -29,6 +29,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { CACHE_KEYS } from './cacheKeys';
+
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { parseStyleProfileV4, type StyleProfileV4 } from '../lib/styleProfileV4';
@@ -258,7 +260,7 @@ export function useStyleDNA() {
   const { user, profile } = useAuth();
 
   return useQuery<StyleDNA>({
-    queryKey: ['styleDNA', user?.id],
+    queryKey: CACHE_KEYS.styleDNA(user?.id),
     queryFn: async (): Promise<StyleDNA> => {
       if (!user) return emptyDNA();
 

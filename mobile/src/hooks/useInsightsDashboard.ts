@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Garment } from '../types/garment';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface InsightsGauge {
   label: string;
@@ -71,7 +72,7 @@ export function useInsightsDashboard() {
   const { user } = useAuth();
 
   return useQuery<InsightsData, Error>({
-    queryKey: ['insights_dashboard', user?.id],
+    queryKey: CACHE_KEYS.insightsDashboard(user?.id),
     queryFn: () => computeFromRawData(user!.id),
     enabled: !!user,
     staleTime: 5 * 60_000,

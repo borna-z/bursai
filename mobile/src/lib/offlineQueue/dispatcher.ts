@@ -1,5 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 
+import { log } from '../log';
 import {
   hydrate,
   snapshot as getQueueSnapshot,
@@ -55,7 +56,8 @@ export async function pauseReplaysAndWaitSettled(): Promise<void> {
   if (replayInFlight) {
     try {
       await replayInFlight;
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'offlineQueue.dispatcher.pause_wait_failed' });
       // replay() owns its own error surface.
     }
   }
@@ -144,10 +146,13 @@ export function scheduleDeferredReplay(retryAfterMs?: number): void {
         if (state.isConnected === false || state.isInternetReachable === false) {
           return;
         }
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'offlineQueue.dispatcher.deferred_netinfo_failed' });
         // NetInfo probe failure — fall through.
       }
-      void replay().catch(() => {});
+      void replay().catch((err) =>
+        log.error(err, { context: 'offlineQueue.dispatcher.deferred_replay_failed' }),
+      );
     })();
   }, delay);
 }

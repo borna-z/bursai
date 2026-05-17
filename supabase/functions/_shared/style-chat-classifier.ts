@@ -4,6 +4,7 @@ import {
   type ClassifierIntent,
   type RefinementHint,
 } from "./style-chat-contract.ts";
+import { captureError } from "./observability.ts";
 
 const VALID_INTENTS: Set<string> = new Set([
   "conversation",
@@ -97,10 +98,14 @@ function parseClassifierResponse(raw: string): ClassifierResult {
     jsonText = codeBlockMatch[1].trim();
   }
 
+  // Classifier accepts the LLM occasionally emitting non-JSON output —
+  // CLASSIFIER_FALLBACK is the documented "couldn't classify" path the
+  // rest of style_chat handles. Codex round-6 pattern (PR #884) — stay
+  // silent; this fallback is by design, not an error.
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonText);
-  } catch {
+  } catch (_classifierFallbackExpected) {
     return CLASSIFIER_FALLBACK;
   }
 
@@ -642,7 +647,8 @@ export async function classifyIntent(
       "trivial",
     );
     return applyActiveLookRefinementOverride(parseClassifierResponse(raw), input);
-  } catch {
+  } catch (err) {
+    captureError("style_chat_classifier.classify_call_failed", err);
     // Codex P2 round 3: apply the override in the transport/exception path
     // too, so a provider hiccup during "make it warmer" on an active look
     // still promotes to refine_outfit + clears needs_more_context — same as

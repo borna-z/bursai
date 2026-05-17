@@ -13,6 +13,7 @@
  */
 
 import { logger } from "./logger.ts";
+import { captureError } from "./observability.ts";
 
 // GEMINI_URL is the OpenAI-compatible endpoint for Gemini. Default points at
 // Google's production endpoint. The `GEMINI_URL_OVERRIDE` env var exists so a
@@ -375,8 +376,8 @@ function recordTokenUsage(
         cost_micros: Math.max(0, Math.floor(costMicros)),
       })
       .then(() => {});
-  } catch {
-    // Never block on observability.
+  } catch (err) {
+    captureError("burs_ai.record_token_usage_failed", err);
   }
 }
 
@@ -637,7 +638,8 @@ async function checkCache(
       update.then(() => {});
     }
     return data;
-  } catch {
+  } catch (err) {
+    captureError("burs_ai.cache_lookup_failed", err);
     return null;
   }
 }
@@ -723,8 +725,8 @@ function logUsage(
         },
       })
       .then(() => {});
-  } catch {
-    // Never block on observability
+  } catch (err) {
+    captureError("burs_ai.log_usage_failed", err);
   }
 }
 
@@ -775,7 +777,8 @@ export function parseBursAIProviderResponse(aiData: any, hadTools = false): Pars
   if (toolCall?.function?.arguments) {
     try {
       result = JSON.parse(toolCall.function.arguments);
-    } catch {
+    } catch (err) {
+      captureError("burs_ai.tool_call_json_parse_failed", err);
       return { ok: false, error: "Malformed provider response: invalid tool call JSON" };
     }
   } else if (message.content !== undefined) {
@@ -784,7 +787,10 @@ export function parseBursAIProviderResponse(aiData: any, hadTools = false): Pars
       try {
         result = JSON.parse(rawContent);
         console.warn("burs-ai: tool_call returned as content, parsed as JSON fallback");
-      } catch {
+      } catch (_jsonFallbackExpected) {
+        // intentional: provider returned content that LOOKS like JSON but
+        // isn't; we treat it as plain text rather than fail. Codex round-6
+        // pattern (PR #884) — this is a documented fallback, not an error.
         result = message.content;
       }
     } else {
@@ -1032,7 +1038,8 @@ export async function callBursAI(
         let aiData: any;
         try {
           aiData = await resp.json();
-        } catch {
+        } catch (err) {
+          captureError("burs_ai.provider_response_json_parse_failed", err, { model });
           lastError = new Error("Malformed provider response: invalid JSON body");
           break;
         }
@@ -1067,8 +1074,8 @@ export async function callBursAI(
                 parsed = retryParsed;
                 aiData = retryData;
               }
-            } catch {
-              // Use original parsed result
+            } catch (err) {
+              captureError("burs_ai.retry_response_parse_failed", err, { model });
             }
           }
         }
@@ -1172,7 +1179,9 @@ export async function streamBursAI(
       keepaliveInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
-        } catch {
+        } catch (_streamClosedExpected) {
+          // intentional silent: client disconnect during keepalive is normal
+          // (PR #884 self-review — matches Codex rounds 4/5/6 pattern).
           aborted = true;
           clearInterval(keepaliveInterval);
         }
@@ -1192,23 +1201,27 @@ export async function streamBursAI(
           clearInterval(keepaliveInterval);
           try {
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          } catch {
-            // ignore enqueue failures during shutdown
+          } catch (_streamClosedExpected) {
+            // intentional silent: client disconnect before [DONE] is normal
           }
           controller.close();
           await reader.cancel();
           return;
         }
         controller.enqueue(value);
-      } catch {
+      } catch (err) {
+        // Upstream Gemini failure / read error — this IS the actionable path.
+        captureError("burs_ai.stream_pull_failed", err);
         clearInterval(keepaliveInterval);
         try {
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        } catch {
-          // ignore enqueue failures during shutdown
+        } catch (_streamClosedExpected) {
+          // intentional silent: client disconnect during error-recovery [DONE]
         }
         controller.close();
-        try { await reader.cancel(); } catch { /* ignore */ }
+        try { await reader.cancel(); } catch (_streamClosedExpected) {
+          // intentional silent: reader.cancel() race during teardown
+        }
       }
     },
     async cancel() {

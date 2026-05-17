@@ -21,6 +21,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { log } from '../lib/log';
 import { useTokens } from '../theme/ThemeProvider';
 import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
@@ -82,7 +83,8 @@ function formatPrice(value: number | null | undefined, currency: string | null |
   const code = currency ?? 'EUR';
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(value);
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'GarmentDetailScreen.format_price_failed' });
     return `${value} ${code}`;
   }
 }

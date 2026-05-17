@@ -13,6 +13,7 @@ import {
   type WardrobeGapIntent,
   type WardrobeCoverage,
 } from "../_shared/retrieval.ts";
+import { captureError } from "../_shared/observability.ts";
 
 function normalizeLocale(locale: unknown): string {
   return typeof locale === "string" && locale.trim() ? locale.trim() : "en";
@@ -293,7 +294,9 @@ serve(async (req) => {
       if (body?.intent && typeof body.intent === "object") {
         intent = body.intent as WardrobeGapIntent;
       }
-    } catch { /* empty body is fine */ }
+    } catch (err) {
+      captureError("wardrobe_gap_analysis.body_parse_failed", err);
+    }
 
     // Event description hints: if upcoming_events contain keywords like
     // "black tie" or "summer wedding", lift those into the structured

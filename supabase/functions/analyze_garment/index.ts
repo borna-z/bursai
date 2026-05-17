@@ -12,6 +12,7 @@ import {
   type SupportedLocale,
 } from "./schemas.ts";
 import { ensureCachedContent } from "../_shared/gemini-cache.ts";
+import { captureError } from "../_shared/observability.ts";
 
 interface AnalyzeRequest {
   storagePath?: string;
@@ -287,7 +288,8 @@ function validateBase64Image(input: string): { ok: true } | { ok: false; reason:
     const decoded = atob(sample);
     bytes = new Uint8Array(decoded.length);
     for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-  } catch {
+  } catch (err) {
+    captureError("analyze_garment.base64_decode_failed", err);
     return { ok: false, reason: 'invalid_base64' };
   }
   if (bytes.length < 4) {

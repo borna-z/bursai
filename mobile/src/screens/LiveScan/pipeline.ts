@@ -66,6 +66,7 @@ import {
 } from '../../lib/backgroundRemoval';
 import { callEdgeFunction } from '../../lib/edgeFunctionClient';
 import { getLocale } from '../../lib/i18n';
+import { log } from '../../lib/log';
 import {
   persistGarmentWithOfflineFallback,
   surfaceRenderEnqueueFailureToast,
@@ -145,7 +146,7 @@ export async function analyzeFromCapture(
     // Defensive: swallow late rejections from the loser of the race so
     // the JS engine doesn't log unhandled-promise-rejection warnings
     // when the timeout wins and the mask later throws.
-    maskP.catch(() => {});
+    maskP.catch((err) => log.error(err, { context: 'LiveScan.pipeline.late_mask_rejection' }));
 
     // R-B — when the native segmenter produced a usable cutout, transcode
     // it through expo-image-manipulator to WebP (matching the storage
@@ -178,7 +179,8 @@ export async function analyzeFromCapture(
           garmentId,
           'masked',
         );
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'LiveScan.pipeline.masked_upload_failed' });
         maskStatus = 'failed';
         maskedUpload = null;
       }
@@ -203,9 +205,13 @@ export async function analyzeFromCapture(
     // up the orphan upload and surface the amber tile state so the user can
     // retake. The filmstrip's AMBER_CLASSES set handles the visual.
     if (analysis.image_contains_multiple_garments) {
-      await deleteUpload(rawUpload.storagePath).catch(() => {});
+      await deleteUpload(rawUpload.storagePath).catch((err) =>
+        log.error(err, { context: 'LiveScan.pipeline.multi_garment_raw_cleanup_failed' }),
+      );
       if (maskedUpload?.storagePath) {
-        await deleteUpload(maskedUpload.storagePath).catch(() => {});
+        await deleteUpload(maskedUpload.storagePath).catch((err) =>
+          log.error(err, { context: 'LiveScan.pipeline.multi_garment_masked_cleanup_failed' }),
+        );
       }
       events.emit('failed', { sessionId, errorClass: 'multi_garment' });
       return;
@@ -231,10 +237,14 @@ export async function analyzeFromCapture(
     // Best-effort; we never want cleanup to mask the original error or
     // block the 'failed' event.
     if (rawUpload?.storagePath) {
-      void deleteUpload(rawUpload.storagePath).catch(() => {});
+      void deleteUpload(rawUpload.storagePath).catch((cleanupErr) =>
+        log.error(cleanupErr, { context: 'LiveScan.pipeline.error_raw_cleanup_failed' }),
+      );
     }
     if (maskedUpload?.storagePath) {
-      void deleteUpload(maskedUpload.storagePath).catch(() => {});
+      void deleteUpload(maskedUpload.storagePath).catch((cleanupErr) =>
+        log.error(cleanupErr, { context: 'LiveScan.pipeline.error_masked_cleanup_failed' }),
+      );
     }
     events.emit('failed', {
       sessionId,
@@ -288,9 +298,13 @@ export async function persistAnalyzedScan(
     // Persist failed for a non-offline reason (RLS, validation, server
     // 5xx). Clean up the storage objects so a retry doesn't accumulate
     // orphans — the user can re-capture if they want to try again.
-    void deleteUpload(payload.rawStoragePath).catch(() => {});
+    void deleteUpload(payload.rawStoragePath).catch((cleanupErr) =>
+      log.error(cleanupErr, { context: 'LiveScan.pipeline.persist_raw_cleanup_failed' }),
+    );
     if (payload.maskedStoragePath) {
-      void deleteUpload(payload.maskedStoragePath).catch(() => {});
+      void deleteUpload(payload.maskedStoragePath).catch((cleanupErr) =>
+        log.error(cleanupErr, { context: 'LiveScan.pipeline.persist_masked_cleanup_failed' }),
+      );
     }
     events.emit('failed', {
       sessionId: payload.sessionId,
@@ -308,9 +322,13 @@ export async function discardAnalyzedScan(
   payload: AnalyzedScan,
   events: LiveScanEvents,
 ): Promise<void> {
-  void deleteUpload(payload.rawStoragePath).catch(() => {});
+  void deleteUpload(payload.rawStoragePath).catch((err) =>
+    log.error(err, { context: 'LiveScan.pipeline.discard_raw_cleanup_failed' }),
+  );
   if (payload.maskedStoragePath) {
-    void deleteUpload(payload.maskedStoragePath).catch(() => {});
+    void deleteUpload(payload.maskedStoragePath).catch((err) =>
+      log.error(err, { context: 'LiveScan.pipeline.discard_masked_cleanup_failed' }),
+    );
   }
   events.emit('discard', { sessionId: payload.sessionId });
 }

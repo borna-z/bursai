@@ -7,6 +7,7 @@
 // per mount, garbage-collected on unmount.
 
 import type { MaskStatus } from '../../lib/backgroundRemoval';
+import { log } from '../../lib/log';
 import type { AnalysisResult } from '../../hooks/useAnalyzeGarment';
 import type { PipelineErrorClass, PipelineStage, ScanSessionId } from './types';
 
@@ -73,7 +74,8 @@ export class LiveScanEvents {
     set.forEach((listener) => {
       try {
         (listener as Listener<ScanLifecycleEvents[K]>)(payload);
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'LiveScan.events.listener_failed' });
         // Listener errors must never disrupt the pipeline. Swallow silently —
         // a misbehaving consumer should not cascade into a failed save.
       }

@@ -179,3 +179,63 @@ export async function safeRestoreOrFailRender(
     await safeMarkRenderFailed(supabase, garmentId, updates, context);
   }
 }
+
+export interface PriorRenderState {
+  render_status: string | null;
+  render_error: string | null;
+  render_presentation_used: string | null;
+  render_provider: string | null;
+}
+
+/**
+ * Best-effort restore of the pre-claim render-state snapshot. Used on paths
+ * where claim succeeded but a subsequent step (reserve, replay) failed and
+ * we need to release the row without destroying the user's prior 'ready'
+ * render or a queued 'pending'/'skipped' intent.
+ *
+ * Preserves prior state verbatim when it was:
+ *   - 'ready'   : successful prior render the client still sees
+ *   - 'skipped' : eligibility gate decided no render was needed
+ *   - 'pending' : a queued render intent kicked off elsewhere that
+ *                 we haven't yet executed — resetting to 'none' would
+ *                 silently drop the queue entry for that garment
+ * All other prior states (failed, none, rendering) get reset to 'none'
+ * so the user (or a retry) can re-attempt cleanly.
+ *
+ * Errors are logged but never thrown — this runs on unhappy paths where the
+ * caller's primary failure mode has already produced the user-visible
+ * response.
+ */
+export async function restorePriorRenderState(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  garmentId: string,
+  priorState: PriorRenderState,
+  reason: string,
+): Promise<void> {
+  const restoredStatus = (
+    priorState.render_status === 'ready'
+    || priorState.render_status === 'skipped'
+    || priorState.render_status === 'pending'
+  )
+    ? priorState.render_status
+    : 'none';
+  const { error: unclaimError } = await supabase
+    .from('garments')
+    .update({
+      render_status: restoredStatus,
+      render_error: priorState.render_error,
+      render_presentation_used: priorState.render_presentation_used,
+      render_provider: priorState.render_provider,
+    })
+    .eq('id', garmentId);
+  if (unclaimError) {
+    console.error('render_garment_image prior-state restore failed', {
+      garmentId,
+      reason,
+      restoredStatus,
+      priorStatus: priorState.render_status,
+      error: unclaimError.message,
+    });
+  }
+}

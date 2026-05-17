@@ -15,6 +15,7 @@ import { classifySlot } from "../_shared/burs-slots.ts";
 import { canBuildCompleteOutfitPath, validateCompleteOutfit } from "../_shared/outfit-validation.ts";
 import { logger } from "../_shared/logger.ts";
 import { MOOD_MAP, rankGarmentsForMood, formalityLabel } from "../_shared/retrieval.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("mood_outfit");
 
@@ -140,7 +141,8 @@ async function responseToPayload(response: Response): Promise<Record<string, unk
   if (!text) return {};
   try {
     return JSON.parse(text) as Record<string, unknown>;
-  } catch {
+  } catch (err) {
+    captureError("mood_outfit.response_json_parse_failed", err);
     return { error: text };
   }
 }
@@ -438,15 +440,21 @@ serve(async (req) => {
       }
     } finally {
       cleanup(keepaliveId, timeoutId);
+      // SSE shutdown — both sends below race with the client closing the
+      // stream. A reject here is the expected path on disconnect; Codex
+      // round-4 P2 (PR #884) flagged the captureError calls as noisy
+      // false positives. Stay silent in the finally; the genuine failure
+      // case (which would still be a transport-layer issue, not a logic
+      // bug) is already covered by the try-catch above on the generator.
       try {
         await sendChunk("data: [DONE]\n\n");
-      } catch {
-        // Ignore shutdown failures.
+      } catch (_streamClosedExpected) {
+        // intentional: client disconnect is normal
       }
       try {
         await writer.close();
-      } catch {
-        // Ignore double-close and disconnect errors.
+      } catch (_streamClosedExpected) {
+        // intentional: client disconnect is normal
       }
     }
   })();

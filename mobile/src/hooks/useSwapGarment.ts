@@ -17,6 +17,7 @@ import { captureMutationError } from '../lib/sentry';
 import { inferOutfitSlotFromGarment } from '../lib/outfitValidation';
 import type { CanonicalOutfitSlot } from '../lib/outfitRules';
 import type { Garment } from '../types/garment';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface SwapCandidate {
   garment: Garment;
@@ -72,7 +73,7 @@ export function useSwapGarment({
   const exclusionKey = [...excludeGarmentIds].sort().join(',');
 
   const candidatesQ = useQuery({
-    queryKey: ['m37SwapCandidates', user?.id, outfitId, slot, exclusionKey],
+    queryKey: CACHE_KEYS.m37SwapCandidates(user?.id, outfitId, slot, exclusionKey),
     enabled: enabled && !!user && !!slot,
     queryFn: async (): Promise<SwapCandidate[]> => {
       if (!user || !slot) return [];
@@ -172,7 +173,7 @@ export function useSwapGarment({
       // surfaces immediately. `useOutfit` is keyed `['outfit', userId, id]`
       // (mobile/src/hooks/useOutfits.ts:77).
       if (user && outfitId) {
-        queryClient.invalidateQueries({ queryKey: ['outfit', user.id, outfitId] });
+        queryClient.invalidateQueries({ queryKey: CACHE_KEYS.outfit(user.id, outfitId) });
       }
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
     },

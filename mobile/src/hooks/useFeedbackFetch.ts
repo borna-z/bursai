@@ -13,6 +13,7 @@ import {
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import type { DeployedOutfitFeedbackRow } from '../lib/feedbackNormalizer';
+import { log } from '../lib/log';
 
 export type FeedbackFetchResult =
   | { kind: 'ok'; row: DeployedOutfitFeedbackRow }
@@ -58,7 +59,8 @@ export function useFeedbackFetch(): {
           const parsed = (() => {
             try {
               return JSON.parse(callErr.bodyText) as { error?: string };
-            } catch {
+            } catch (parseErr) {
+              log.error(parseErr, { context: 'useFeedbackFetch.error_body_parse_failed' });
               return null;
             }
           })();

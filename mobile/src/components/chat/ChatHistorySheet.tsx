@@ -35,6 +35,7 @@ import { useTokens } from '../../theme/ThemeProvider';
 import { fonts, radii } from '../../theme/tokens';
 import type { StyleChatMode } from '../../hooks/useStyleChat';
 import { t as tr } from '../../lib/i18n';
+import { log } from '../../lib/log';
 import { showToast } from '../../lib/toast';
 
 export interface ChatHistoryThread {
@@ -87,7 +88,8 @@ function formatThreadDate(value: string): string {
       month: 'short',
       day: 'numeric',
     }).format(date);
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'ChatHistorySheet.format_date_failed' });
     // Hermes fall-through (older builds without Intl): use a tiny
     // locale-agnostic fallback.
     return date.toISOString().slice(0, 10);

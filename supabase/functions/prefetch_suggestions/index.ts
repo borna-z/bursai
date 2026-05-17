@@ -6,6 +6,7 @@ import { CORS_HEADERS } from "../_shared/cors.ts";
 import { withConcurrencyLimit, logTelemetry } from "../_shared/scale-guard.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { logger } from "../_shared/logger.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const log = logger("prefetch_suggestions");
 
@@ -127,7 +128,9 @@ serve(async (req) => {
           triggeredUserId = body.user_id;
         }
       }
-    } catch { /* fall through to cron mode */ }
+    } catch (err) {
+      captureError("prefetch_suggestions.trigger_body_parse_failed", err);
+    }
 
     if (triggeredUserId) {
       // Verify caller's JWT matches body.user_id — prevents one authenticated

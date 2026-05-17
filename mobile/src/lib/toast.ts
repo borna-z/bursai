@@ -51,9 +51,11 @@ export function showToast(
       position: 'bottom',
       bottomOffset: 80,
     });
-  } catch {
-    // silent: toast presentation failures must never propagate. The host
-    // not being mounted yet (cold-launch race) is the only realistic case.
+  } catch (_toastHostNotMounted) {
+    // intentional silent: the documented cold-launch race where the toast
+    // host isn't mounted yet is the only realistic failure path here, and
+    // it is not user-impacting. Codex round-8 P3 (PR #884) — instrumenting
+    // would pollute the production error dashboard with non-actionable noise.
   }
 }
 
@@ -61,7 +63,7 @@ export function showToast(
 export function hideToast(): void {
   try {
     Toast.hide();
-  } catch {
-    // silent: same reasoning as showToast — never crash the host.
+  } catch (_toastHostNotMounted) {
+    // intentional silent: same reasoning as showToast — never crash the host.
   }
 }

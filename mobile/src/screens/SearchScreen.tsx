@@ -22,6 +22,8 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { log } from '../lib/log';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -77,7 +79,8 @@ async function loadRecents(): Promise<string[]> {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((v): v is string => typeof v === 'string').slice(0, MAX_RECENTS);
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'SearchScreen.load_recents_failed' });
     return [];
   }
 }
@@ -85,7 +88,8 @@ async function loadRecents(): Promise<string[]> {
 async function saveRecents(values: string[]): Promise<void> {
   try {
     await AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(values.slice(0, MAX_RECENTS)));
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'SearchScreen.save_recents_failed' });
     // best-effort
   }
 }

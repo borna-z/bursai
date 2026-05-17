@@ -24,6 +24,7 @@ import { fonts, radii } from '../theme/tokens';
 import { BackIcon } from '../components/icons';
 import { FadeUp } from '../components/FadeUp';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import { hapticLight } from '../lib/haptics';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -98,7 +99,8 @@ async function loadDraft(): Promise<PersistedState | null> {
     const parsed = JSON.parse(raw) as PersistedState;
     if (parsed.v !== 2 || typeof parsed.step !== 'number') return null;
     return parsed;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'OnboardingScreen.load_draft_failed' });
     return null;
   }
 }
@@ -106,7 +108,8 @@ async function loadDraft(): Promise<PersistedState | null> {
 async function saveDraft(state: PersistedState): Promise<void> {
   try {
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(state));
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'OnboardingScreen.save_draft_failed' });
     // Best-effort: persistence failure isn't user-blocking.
   }
 }
@@ -114,7 +117,8 @@ async function saveDraft(state: PersistedState): Promise<void> {
 async function clearDraft(): Promise<void> {
   try {
     await AsyncStorage.removeItem(DRAFT_KEY);
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'OnboardingScreen.clear_draft_failed' });
     // ignore
   }
 }

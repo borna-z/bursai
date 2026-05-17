@@ -364,10 +364,14 @@ export async function fetchAndCacheSignedUrl(path: string): Promise<string | nul
   // returned to the caller (React Query's queryFn) which awaits it and
   // routes rejections into its own retry policy. Without the catch on
   // this derived promise we'd get an "unhandled promise rejection"
-  // warning every time `fetchAndCacheSignedUrl` throws.
+  // warning every time `fetchAndCacheSignedUrl` throws. Codex round-8
+  // P2 (PR #884) — logging here would double-report failures that the
+  // React Query consumer already handles via its retry/error policy.
   void promise
-    .catch(() => {
-      /* rejection consumed by the caller's await; ignored here */
+    .catch((_doubleReportSuppressed) => {
+      // intentional: original promise's rejection is consumed by the
+      // caller's await + RQ retry/error policy; logging here would create
+      // duplicate Sentry events.
     })
     .finally(() => {
       if (inflight.get(key) === promise) {

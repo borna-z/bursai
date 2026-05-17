@@ -41,6 +41,7 @@ import {
   callEdgeFunction,
   EdgeFunctionSubscriptionLockedError,
 } from '../lib/edgeFunctionClient';
+import { log } from '../lib/log';
 import { captureMutationError, Sentry } from '../lib/sentry';
 import type {
   TravelCapsuleOutfit,
@@ -54,6 +55,7 @@ import {
   type GenerateTravelCapsuleParams,
   type GenerateTravelCapsuleResult,
 } from './useGenerateTravelCapsule.helpers';
+import { CACHE_KEYS } from './cacheKeys';
 
 export {
   TRAVEL_CAPSULE_SUBSCRIPTION_SENTINEL,
@@ -295,7 +297,7 @@ export function useGenerateTravelCapsule() {
       };
       const MAX_CAPSULES_FOR_CACHE = 10;
       queryClient.setQueryData<TravelCapsuleRow[]>(
-        ['travelCapsules', user.id],
+        CACHE_KEYS.travelCapsules(user.id),
         (old) => {
           const filtered = (old ?? []).filter((r) => r.id !== optimisticRow.id);
           return [optimisticRow, ...filtered].slice(0, MAX_CAPSULES_FOR_CACHE);
@@ -327,7 +329,8 @@ export function useGenerateTravelCapsule() {
               .eq('user_id', user.id);
           }
         }
-      } catch {
+      } catch (err) {
+        log.error(err, { context: 'useGenerateTravelCapsule.cap_overflow_cleanup_failed' });
         // Non-fatal — capsule list cap is best-effort hygiene.
       }
 
@@ -340,7 +343,7 @@ export function useGenerateTravelCapsule() {
       };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['travelCapsules', user?.id] });
+      void queryClient.invalidateQueries({ queryKey: CACHE_KEYS.travelCapsules(user?.id) });
     },
     onError: (err) => {
       // Skip the expected paywall sentinel — those are gating, not failures.

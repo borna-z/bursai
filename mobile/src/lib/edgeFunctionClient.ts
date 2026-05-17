@@ -23,6 +23,7 @@
 // mobile baseline (M0–M8) is all raw fetch — porting via fetch keeps the
 // migration drop-in for every existing hook.
 
+import { log } from './log';
 import { supabase, supabaseUrl } from './supabase';
 
 const DEFAULT_TIMEOUT_MS = 90_000;
@@ -141,7 +142,8 @@ async function ensureFreshSession(): Promise<string | null> {
     try {
       const { data: refreshed } = await supabase.auth.refreshSession();
       return refreshed.session?.access_token ?? session.access_token;
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'edgeFunctionClient.refresh_near_expiry_failed' });
       // Fall through with stale token — request will surface a 401 we
       // recover from inline.
     }
@@ -244,7 +246,8 @@ export async function callEdgeFunction<T>(
   let accessToken: string | null;
   try {
     accessToken = await ensureFreshSession();
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'edgeFunctionClient.preflight_session_failed' });
     accessToken = null;
   }
 
@@ -369,7 +372,8 @@ export async function callEdgeFunction<T>(
         try {
           const { data: refreshed } = await supabase.auth.refreshSession();
           accessToken = refreshed.session?.access_token ?? accessToken;
-        } catch {
+        } catch (err) {
+          log.error(err, { context: 'edgeFunctionClient.401_refresh_failed' });
           // Refresh failed — continue with the next attempt; if the next
           // call also 401s we'll surface it.
         }

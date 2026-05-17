@@ -103,13 +103,16 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Optional: accept specific job_type filter
+    // Optional: accept specific job_type filter. Cron invocations have no
+    // body — `req.json()` throws and that's the expected path. Codex
+    // round-4 P2 (PR #884): silently ignore here so normal cron ticks
+    // don't pollute Sentry.
     let targetJobType: string | null = null;
     try {
       const body = await req.json();
       targetJobType = body?.job_type || null;
-    } catch {
-      // No body = process all types
+    } catch (_bodyParseExpected) {
+      // intentional: no-body path for cron is normal
     }
 
     const jobTypes = targetJobType

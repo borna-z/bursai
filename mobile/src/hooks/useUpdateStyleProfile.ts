@@ -29,6 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 import {
   defaultStyleProfileV4,
   migrateV4ToV3Compat,
@@ -91,7 +92,7 @@ export function useUpdateStyleProfile() {
       // so the preview card on this screen + ProfileScreen re-renders with
       // the new values. The summary-row path uses staleTime: 5min and is
       // not affected by direct V4 edits anyway.
-      queryClient.invalidateQueries({ queryKey: ['styleDNA', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.styleDNA(user?.id) });
     },
     onError: captureMutationError('useUpdateStyleProfile'),
   });

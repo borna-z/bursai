@@ -29,6 +29,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { CACHE_KEYS } from './cacheKeys';
 
 export interface StyleMemoryFact {
   /** Stable key for FlatList — never collides across rows. */
@@ -137,7 +138,7 @@ export function useStyleMemoryFacts(): {
   const { user } = useAuth();
 
   const query = useQuery<StyleMemoryFact[], Error>({
-    queryKey: ['styleMemoryFacts', user?.id],
+    queryKey: CACHE_KEYS.styleMemoryFacts(user?.id),
     enabled: !!user,
     queryFn: async () => {
       if (!user) return [];

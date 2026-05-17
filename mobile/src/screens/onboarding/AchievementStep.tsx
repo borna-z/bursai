@@ -16,6 +16,7 @@ import { t as tr } from '../../lib/i18n';
 import { hapticLight, hapticSuccess } from '../../lib/haptics';
 import { useAuth } from '../../hooks/useAuth';
 import { callEdgeFunction } from '../../lib/edgeFunctionClient';
+import { CACHE_KEYS } from '../../hooks/cacheKeys';
 
 const FEATURE_KEYS = [
   'achievement.feature.unlimited',
@@ -95,7 +96,7 @@ export function AchievementStep({
           console.warn('grant_trial_gift returned ok:false', data.reason);
           return;
         }
-        queryClient.invalidateQueries({ queryKey: ['render_credits', userId] });
+        queryClient.invalidateQueries({ queryKey: CACHE_KEYS.renderCredits(userId) });
       } catch (err) {
         if (cancelled) return;
         console.warn('grant_trial_gift failed', err);

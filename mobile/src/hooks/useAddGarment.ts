@@ -6,6 +6,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../lib/log';
 import { captureMutationError } from '../lib/sentry';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
 import { supabase } from '../lib/supabase';
@@ -16,6 +17,7 @@ import {
   type AddGarmentParams,
   type AddGarmentSource,
 } from '../lib/garmentSave';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type { AddGarmentParams, AddGarmentSource };
 export { OfflineQueuedError };
@@ -45,7 +47,7 @@ export function useAddGarment() {
       queryClient.invalidateQueries({ queryKey: ['garments-smart-counts'] });
       // Profile stats bundle (M29) — sibling key, not covered by the
       // ['garments'] prefix invalidation above.
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
       // Insights derives totals + palette + utilisation from garments — refresh
       // so the new piece is reflected next time the user opens the tab.
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
@@ -71,9 +73,12 @@ export function useAddGarment() {
             if (count === 5) {
               callEdgeFunction('prefetch_suggestions', {
                 body: { user_id: user.id, trigger: 'first_5_garments' },
-              }).catch(() => {});
+              }).catch((err) =>
+                log.error(err, { context: 'useAddGarment.prefetch_suggestions_failed' }),
+              );
             }
-          } catch {
+          } catch (err) {
+            log.error(err, { context: 'useAddGarment.count_probe_failed' });
             // Count probe failure is non-critical; the prefetch is a
             // performance warm-up, not a correctness gate.
           }

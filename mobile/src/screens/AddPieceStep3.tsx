@@ -42,6 +42,7 @@ import { BackIcon } from '../components/icons';
 import { useDetectDuplicate, topDuplicate } from '../hooks/useDetectDuplicate';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { t as tr } from '../lib/i18n';
+import { log } from '../lib/log';
 import { hapticLight } from '../lib/haptics';
 import { deleteUpload, peekUploadMaskMetadata } from '../lib/imageUpload';
 import {
@@ -217,7 +218,9 @@ export function AddPieceStep3() {
         setResolvedStoragePath(res.storagePath);
         setMaskedStoragePath(res.maskedStoragePath ?? null);
       })
-      .catch(() => {});
+      .catch((err) =>
+        log.error(err, { context: 'AddPieceStep3.upload_promise_failed' }),
+      );
     return () => {
       cancelled = true;
     };
@@ -257,7 +260,9 @@ export function AddPieceStep3() {
           dropPendingUpload(uploadId);
         }
         if (promise) {
-          promise.then((res) => deleteUpload(res.storagePath)).catch(() => {});
+          promise.then((res) => deleteUpload(res.storagePath)).catch((err) =>
+            log.error(err, { context: 'AddPieceStep3.cleanup_delete_upload_failed' }),
+          );
         } else if (directStoragePath) {
           void deleteUpload(directStoragePath);
         }

@@ -30,6 +30,7 @@ import {
   SUBSCRIPTION_SENTINEL,
 } from '../lib/edgeFunctionClient';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../lib/log';
 import { Sentry } from '../lib/sentry';
 import { trackEvent } from '../lib/analytics';
 
@@ -156,7 +157,8 @@ export function useAnalyzeGarment() {
             const parsed = (() => {
               try {
                 return JSON.parse(callErr.bodyText) as { error?: string };
-              } catch {
+              } catch (parseErr) {
+                log.error(parseErr, { context: 'useAnalyzeGarment.error_body_parse_failed' });
                 return null;
               }
             })();
@@ -300,7 +302,8 @@ export async function triggerGarmentEnrichment(
         'analyze_garment',
         { body: { storagePath, mode: 'enrich' } },
       );
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'useAnalyzeGarment.enrichment_call_failed' });
       await writeStatus('failed');
       return;
     }

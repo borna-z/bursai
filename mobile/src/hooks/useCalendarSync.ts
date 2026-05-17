@@ -26,8 +26,10 @@ import * as Crypto from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { callEdgeFunction } from '../lib/edgeFunctionClient';
+import { log } from '../lib/log';
 import { Sentry, captureMutationError } from '../lib/sentry';
 import { t as tr } from '../lib/i18n';
+import { CACHE_KEYS } from './cacheKeys';
 
 /** Mobile redirect URI — must be present in the edge function's allowlist
  *  AND registered in the Google OAuth Console as an authorized redirect URI.
@@ -165,7 +167,8 @@ export async function consumeStoredVerifier(userId: string): Promise<string | nu
     }
     if (Date.now() - parsed.createdAt > VERIFIER_TTL_MS) return null;
     return parsed.verifier;
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'useCalendarSync.read_verifier_failed' });
     return null;
   }
 }
@@ -178,7 +181,7 @@ export function useCalendarSync() {
   const queryClient = useQueryClient();
 
   const connectionQ = useQuery({
-    queryKey: ['calendar-connection', user?.id],
+    queryKey: CACHE_KEYS.calendarConnection(user?.id),
     queryFn: async () => {
       if (!user) return null;
       const { data, error } = await supabase
@@ -249,7 +252,7 @@ export function useCalendarSync() {
       if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-connection', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.calendarConnection(user?.id) });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
     },
     onError: captureMutationError('useCalendarSync.disconnectGoogle'),
@@ -274,7 +277,7 @@ export function useCalendarSync() {
 export function useCalendarEvents(date: string | null | undefined) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['calendar-events', date, user?.id],
+    queryKey: CACHE_KEYS.calendarEvents(user?.id, date),
     queryFn: async () => {
       if (!user || !date) return [];
       const { data, error } = await supabase

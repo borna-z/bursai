@@ -32,6 +32,7 @@ import {
   upsertOutfitFeedbackRow,
   type MarkOutfitWornResult,
 } from './useOutfits.helpers';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type { MarkOutfitWornResult } from './useOutfits.helpers';
 
@@ -39,7 +40,7 @@ export function useOutfits(savedOnly = true) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['outfits', user?.id, savedOnly],
+    queryKey: CACHE_KEYS.outfitsScoped(user?.id, savedOnly),
     queryFn: async () => {
       if (!user) return [];
 
@@ -65,7 +66,7 @@ export function useOutfit(id: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['outfit', user?.id, id],
+    queryKey: CACHE_KEYS.outfit(user?.id, id),
     queryFn: async () => {
       if (!id || !user) return null;
       const { data, error } = await supabase
@@ -146,7 +147,7 @@ export function useMarkOutfitWorn() {
       // Profile stats bundle (M29) — wear_logs row count moves on every
       // non-deduped wear, and outfits.worn_at flips affect the saved
       // outfit count over time when filtered by saved=true.
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
       queryClient.invalidateQueries({ queryKey: ['insights_dashboard'] });
       void recordMemoryEvent(
         wearOutfitEvent(outfitId, garmentIds, 'mobile/useMarkOutfitWorn'),
@@ -175,7 +176,7 @@ export function useSaveOutfit() {
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
       // Profile stats bundle (M29) — flipping `saved` from false→true
       // moves the outfit into the saved-only count on Profile.
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
       // Style Memory signal — fire-and-forget; queue-aware so a network
       // drop doesn't lose the save signal. The `ingest_memory_event` RPC
       // only updates positive pair-memory weight when garment_ids has ≥2
@@ -251,7 +252,7 @@ export function usePersistGeneratedOutfit() {
     onSuccess: ({ outfitId }, { items }) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       queryClient.invalidateQueries({ queryKey: ['outfit'] });
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
       // Style Memory — same signal `useSaveOutfit` fires for the existing
       // toggle path, so a freshly-saved generated outfit produces the same
       // pair-memory bump as one saved from OutfitDetail.
@@ -280,18 +281,18 @@ export function useDeleteOutfit() {
     },
     onSuccess: (_data, outfitId) => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
-      queryClient.removeQueries({ queryKey: ['outfit', user?.id, outfitId] });
+      queryClient.removeQueries({ queryKey: CACHE_KEYS.outfit(user?.id, outfitId) });
       // Drop the cached feedback row too — without this, a subsequent
       // outfit save that happens to mint the same id (cosmic chance, but
       // also true after manual DB cleanup in dev) would surface the prior
       // user's rating/note. Codex P2 round on PR #738.
-      queryClient.removeQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
+      queryClient.removeQueries({ queryKey: CACHE_KEYS.outfitFeedback(user?.id, outfitId) });
       queryClient.invalidateQueries({ queryKey: ['planned_outfits'] });
       queryClient.invalidateQueries({ queryKey: ['planned_outfit'] });
       // Profile stats bundle (M29). Deleting a saved outfit drops the
       // count by one; the per-table HEAD count would otherwise stay
       // stale up to 60s.
-      queryClient.invalidateQueries({ queryKey: ['wardrobeStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.wardrobeStats(user?.id) });
     },
     onError: captureMutationError('useDeleteOutfit'),
   });
@@ -327,9 +328,9 @@ export function useRateOutfit() {
       if (outfitError) throw outfitError;
     },
     onSuccess: (_data, { outfitId }) => {
-      queryClient.invalidateQueries({ queryKey: ['outfit', user?.id, outfitId] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.outfit(user?.id, outfitId) });
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
-      queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.outfitFeedback(user?.id, outfitId) });
     },
     onError: captureMutationError('useRateOutfit'),
   });
@@ -345,7 +346,7 @@ export function useOutfitFeedback(outfitId: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['outfit_feedback', user?.id, outfitId],
+    queryKey: CACHE_KEYS.outfitFeedback(user?.id, outfitId),
     queryFn: async () => {
       if (!user || !outfitId) return null;
       // `.order(desc).limit(1)` is defense-in-depth: post-theme-2 the
@@ -388,7 +389,7 @@ export function useSaveOutfitNote() {
       await upsertOutfitFeedbackRow(user.id, outfitId, { commentary });
     },
     onSuccess: (_data, { outfitId }) => {
-      queryClient.invalidateQueries({ queryKey: ['outfit_feedback', user?.id, outfitId] });
+      queryClient.invalidateQueries({ queryKey: CACHE_KEYS.outfitFeedback(user?.id, outfitId) });
     },
     onError: captureMutationError('useSaveOutfitNote'),
   });

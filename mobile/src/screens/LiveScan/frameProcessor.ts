@@ -29,6 +29,7 @@ import type {
   ScannedObject,
 } from 'react-native-vision-camera';
 
+import { log } from '../../lib/log';
 import { scoreFrame } from './scoring';
 import type { DetectedObject, FrameMetrics, Quality } from './types';
 
@@ -131,7 +132,8 @@ function useIOSFrameProcessor(
       const { score, quality } = scoreFrame(boxes, metrics);
       s.score.value = score;
       s.quality.value = quality;
-    } catch {
+    } catch (err) {
+      log.error(err, { context: 'LiveScan.frameProcessor.score_frame_failed' });
       // Never propagate detector errors into the render loop — the screen
       // must keep working even if a single frame's payload is malformed.
       s.score.value = 0;
@@ -160,7 +162,8 @@ function useIOSFrameProcessor(
       types: ['salient-object'],
       onObjectsScanned,
     });
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'LiveScan.frameProcessor.use_object_output_failed' });
     objectOutput = null;
   }
 

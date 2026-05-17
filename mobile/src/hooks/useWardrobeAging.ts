@@ -41,6 +41,8 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../lib/log';
+import { CACHE_KEYS } from './cacheKeys';
 import {
   callEdgeFunction,
   EdgeFunctionHttpError,
@@ -243,7 +245,8 @@ async function runAgingAnalysis(userId: string): Promise<WardrobeAgingResult> {
           const parsed = (() => {
             try {
               return JSON.parse(err.bodyText) as { error?: string };
-            } catch {
+            } catch (parseErr) {
+              log.error(parseErr, { context: 'useWardrobeAging.error_body_parse_failed' });
               return null;
             }
           })();
@@ -279,7 +282,7 @@ async function runAgingAnalysis(userId: string): Promise<WardrobeAgingResult> {
 export function useWardrobeAging(): UseQueryResult<WardrobeAgingResult, Error> {
   const { user } = useAuth();
   return useQuery<WardrobeAgingResult, Error>({
-    queryKey: ['wardrobeAging', user?.id],
+    queryKey: CACHE_KEYS.wardrobeAging(user?.id),
     queryFn: async () => {
       if (!user) throw new WardrobeAgingError('Not authenticated');
       return runAgingAnalysis(user.id);

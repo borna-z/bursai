@@ -22,7 +22,9 @@ import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../lib/log';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 import {
   callEdgeFunction,
   EdgeFunctionHttpError,
@@ -110,7 +112,8 @@ async function runAnalysis(): Promise<WardrobeGap[]> {
       const parsed = (() => {
         try {
           return JSON.parse(callErr.bodyText) as { error?: string };
-        } catch {
+        } catch (parseErr) {
+          log.error(parseErr, { context: 'useWardrobeGaps.error_body_parse_failed' });
           return null;
         }
       })();
@@ -131,7 +134,7 @@ export function useWardrobeGaps() {
   // Lazy query — disabled until `analyze()` triggers it via mutation, OR
   // until React Query already has cached gaps from a prior session.
   const query = useQuery<WardrobeGap[], GapAnalysisError>({
-    queryKey: ['wardrobe_gaps', user?.id],
+    queryKey: CACHE_KEYS.wardrobeGaps(user?.id),
     // queryFn is unused when `enabled: false` + manual refetch — but RQ v5
     // still requires it to be a function.
     queryFn: async () => {
@@ -154,7 +157,7 @@ export function useWardrobeGaps() {
     onSuccess: (data) => {
       // Land the freshly-fetched gaps in the cache so re-mounts read from
       // memory instead of triggering another (rate-limited) call.
-      queryClient.setQueryData(['wardrobe_gaps', user?.id], data);
+      queryClient.setQueryData(CACHE_KEYS.wardrobeGaps(user?.id), data);
     },
     onError: captureMutationError('useWardrobeGaps'),
   });
@@ -165,7 +168,7 @@ export function useWardrobeGaps() {
   }, [accessToken, mutation]);
 
   const reset = useCallback(() => {
-    queryClient.removeQueries({ queryKey: ['wardrobe_gaps', user?.id] });
+    queryClient.removeQueries({ queryKey: CACHE_KEYS.wardrobeGaps(user?.id) });
     mutation.reset();
   }, [queryClient, user?.id, mutation]);
 

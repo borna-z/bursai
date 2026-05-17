@@ -16,6 +16,7 @@ import * as Localization from 'expo-localization';
 
 import { en } from '../i18n/locales/en';
 import { sv } from '../i18n/locales/sv';
+import { log } from './log';
 
 export type Locale =
   | 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
@@ -34,7 +35,8 @@ function detectInitialLocale(): Locale {
       const tag = (entry.languageCode ?? '').toLowerCase() as Locale;
       if (SUPPORTED_LOCALES.includes(tag)) return tag;
     }
-  } catch {
+  } catch (err) {
+    log.error(err, { context: 'i18n.detect_initial_locale_failed' });
     // Localization API can throw on web in obscure browsers — fall through to en.
   }
   return 'en';

@@ -22,6 +22,7 @@ import { buildTurnCallbacks } from './useStyleChatTurn.helpers';
 import { useStyleChatHistory } from './useStyleChatHistory';
 import { useStyleChatStreaming } from './useStyleChatStreaming';
 import { useStyleChatUI } from './useStyleChatUI';
+import { CACHE_KEYS } from './cacheKeys';
 
 export { persistedModeFor, type ChatMessage, type StyleChatMode } from './useStyleChat.helpers';
 
@@ -230,7 +231,7 @@ export function useStyleChat(): UseStyleChatResult {
     if (deleteError) {
       console.warn('[useStyleChat] clearChat delete failed:', deleteError.message);
     }
-    queryClient.invalidateQueries({ queryKey: ['chatHistory', user.id] });
+    queryClient.invalidateQueries({ queryKey: CACHE_KEYS.chatHistory(user.id) });
     // history methods are stable useCallback refs (see sendMessage above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, queryClient]);

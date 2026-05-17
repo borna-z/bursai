@@ -62,6 +62,7 @@ import {
 } from "../_shared/outfit-confidence.ts";
 
 import { hashOutfit } from "../_shared/outfit-deduplication.ts";
+import { captureError } from "../_shared/observability.ts";
 
 // Phase 5d (2026-05-17): swap scoring, AI prompt assembly, and wear-context
 // preprocessing all live in shared modules now. The orchestrator delegates
@@ -75,7 +76,8 @@ const log = logger("burs_style_engine");
 function createRequestId(): string {
   try {
     return crypto.randomUUID();
-  } catch {
+  } catch (err) {
+    captureError("burs_style_engine.request_id_uuid_failed", err);
     return `burs-style-engine-${Date.now()}`;
   }
 }

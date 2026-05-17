@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { captureMutationError } from '../lib/sentry';
+import { CACHE_KEYS } from './cacheKeys';
 
 export type ShoppingListPriority = 1 | 2 | 3;
 
@@ -98,7 +99,7 @@ export function useShoppingList(): {
   const { user } = useAuth();
 
   const query = useQuery<ShoppingList, Error>({
-    queryKey: ['shoppingList', user?.id],
+    queryKey: CACHE_KEYS.shoppingList(user?.id),
     enabled: !!user,
     queryFn: async () => {
       if (!user) return EMPTY_LIST;
@@ -173,23 +174,22 @@ export function useSaveShoppingList() {
       // Optimistic — patch the cached shopping list immediately so the
       // screen reflects the save before the round-trip lands.
       await queryClient.cancelQueries({
-        queryKey: ['shoppingList', user?.id],
+        queryKey: CACHE_KEYS.shoppingList(user?.id),
       });
-      const previous = queryClient.getQueryData<ShoppingList>([
-        'shoppingList',
-        user?.id,
-      ]);
+      const previous = queryClient.getQueryData<ShoppingList>(
+        CACHE_KEYS.shoppingList(user?.id),
+      );
       const optimistic: ShoppingList = {
         entries,
         updated_at: new Date().toISOString(),
       };
-      queryClient.setQueryData(['shoppingList', user?.id], optimistic);
+      queryClient.setQueryData(CACHE_KEYS.shoppingList(user?.id), optimistic);
       return { previous };
     },
     onError: (err, _entries, context) => {
       if (context?.previous !== undefined) {
         queryClient.setQueryData(
-          ['shoppingList', user?.id],
+          CACHE_KEYS.shoppingList(user?.id),
           context.previous,
         );
       }
@@ -198,7 +198,7 @@ export function useSaveShoppingList() {
     onSuccess: (data) => {
       // Land the freshly-written list in cache so a navigation away +
       // back doesn't reset to the optimistic snapshot.
-      queryClient.setQueryData(['shoppingList', user?.id], data);
+      queryClient.setQueryData(CACHE_KEYS.shoppingList(user?.id), data);
     },
     onSettled: () => {
       // Refresh from server so the canonical updated_at + any concurrent
@@ -206,7 +206,7 @@ export function useSaveShoppingList() {
       // `AuthContext.profile` is plain React state, not a React-Query
       // cache entry — the invalidation would be a no-op.
       queryClient.invalidateQueries({
-        queryKey: ['shoppingList', user?.id],
+        queryKey: CACHE_KEYS.shoppingList(user?.id),
       });
     },
   });

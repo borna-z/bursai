@@ -38,7 +38,7 @@ function parseDsn(dsn: string): ParsedDsn | null {
     const projectId = pathParts.pop() as string;
     const pathPrefix = pathParts.length ? "/" + pathParts.join("/") : "";
     return { publicKey, projectId, host: url.host, pathPrefix };
-  } catch {
+  } catch (_parseErr) {
     return null;
   }
 }
@@ -141,6 +141,64 @@ export function logStep(prefix: string, step: string, details?: unknown): void {
  */
 export function makeLogStep(prefix: string): (step: string, details?: unknown) => void {
   return (step: string, details?: unknown) => logStep(prefix, step, details);
+}
+
+/**
+ * Capture an error event. Fire-and-forget like `captureWarning` but emits
+ * a `console.error` + `level: "error"` to Sentry. Use for caught exceptions
+ * that previously went into a silent `.catch(() => {})`. Pre-launch audit
+ * issue #1: every catch must observe through this (or `captureWarning` for
+ * intentionally non-fatal paths).
+ */
+export function captureError(
+  event: string,
+  error: unknown,
+  tags: Record<string, TagValue> = {},
+): void {
+  const normalizedTags = normalizeTags(tags);
+  const errMessage = error instanceof Error ? error.message : String(error);
+
+  console.error(
+    JSON.stringify({
+      level: "error",
+      observability_event: event,
+      error: errMessage,
+      tags: normalizedTags,
+      ts: new Date().toISOString(),
+    }),
+  );
+
+  if (!PARSED_DSN) return;
+
+  const url =
+    `https://${PARSED_DSN.host}${PARSED_DSN.pathPrefix}/api/${PARSED_DSN.projectId}/store/` +
+    `?sentry_version=7&sentry_client=burs-edge-fn/0.0.1&sentry_key=${PARSED_DSN.publicKey}`;
+
+  const body = JSON.stringify({
+    message: `${event}: ${errMessage}`,
+    level: "error",
+    platform: "javascript",
+    environment: ENVIRONMENT,
+    tags: normalizedTags,
+    timestamp: Date.now() / 1000,
+  });
+
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  }).catch((err) => {
+    // Structured local log only — transport already failed; do not loop.
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        observability_event: "sentry_transport_failed",
+        original_event: event,
+        error: err instanceof Error ? err.message : String(err),
+        ts: new Date().toISOString(),
+      }),
+    );
+  });
 }
 
 /**

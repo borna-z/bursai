@@ -61,6 +61,8 @@ const GEMINI_CACHE_URL =
 // Reserved row prefix in `ai_response_cache`. The leading `__` is invalid
 // in our SHA-256 hex cache keys, so this can never collide with a real
 // AI-response cache row.
+import { captureError } from "./observability.ts";
+
 const ROW_KEY_PREFIX = "__gemini_cache:";
 
 // Default cache TTL (24h). Gemini accepts a duration string ending in `s`.
@@ -121,7 +123,8 @@ async function readPersistedCache(
     const model = (data as { model_used?: string }).model_used;
     if (!resp?.name || !expiresAt || !model) return null;
     return { name: resp.name, model, expiresAt };
-  } catch {
+  } catch (err) {
+    captureError("gemini_cache.read_persisted_failed", err, { purpose });
     return null;
   }
 }
@@ -154,8 +157,8 @@ async function deletePersistedCache(supabase: any, purpose: string): Promise<voi
   if (!supabase) return;
   try {
     await supabase.from("ai_response_cache").delete().eq("cache_key", rowKey(purpose));
-  } catch {
-    // Best effort; an orphaned row will be overwritten on next create.
+  } catch (err) {
+    captureError("gemini_cache.delete_persisted_failed", err, { purpose });
   }
 }
 
@@ -263,15 +266,15 @@ function refreshGeminiCacheTtl(
             .from("ai_response_cache")
             .update({ expires_at: newExpiry })
             .eq("cache_key", rowKey(purpose));
-        } catch {
-          // Non-fatal.
+        } catch (err) {
+          captureError("gemini_cache.refresh_expiry_update_failed", err, { purpose });
         }
       })
-      .catch(() => {
-        // Non-fatal.
+      .catch((err) => {
+        captureError("gemini_cache.refresh_ttl_fetch_failed", err, { purpose });
       });
-  } catch {
-    // Best-effort.
+  } catch (err) {
+    captureError("gemini_cache.refresh_ttl_setup_failed", err, { purpose });
   }
 }
 
