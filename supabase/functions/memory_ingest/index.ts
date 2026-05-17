@@ -67,6 +67,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+import { authenticate } from "../_shared/auth.ts";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import {
   enforceRateLimit,
@@ -201,39 +202,19 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // ── 1. Auth ────────────────────────────────────────────────────────
     // JWT verification before anything else. user.id comes from the
     // verified token — never trust client-supplied user_id.
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
-        },
-      );
-    }
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await userClient.auth
-      .getUser(token);
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
-        },
-      );
-    }
-
+    //
+    // N21: migrated to shared `authenticate` helper (#879). Same 401
+    // envelopes (`Missing authorization header` / `Unauthorized`), same
+    // `Cache-Control: no-store` on failures (helper sets it for every
+    // function automatically, removing the per-function duplication).
+    const authResult = await authenticate(req, CORS_HEADERS);
+    if (!authResult.success) return authResult.response;
+    const { user } = authResult.auth;
     const userId = user.id;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
