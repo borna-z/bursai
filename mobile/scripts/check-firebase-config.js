@@ -37,25 +37,47 @@ const REPO_REL = 'mobile/google-services.json';
 const isStagedMode = process.argv.includes('--staged');
 
 if (isStagedMode) {
-  // Pre-commit context. Check whether the staged blob still carries
-  // the placeholder marker — if it doesn't, the dev edited the
-  // committed file in place with real credentials and is about to
-  // publish them. Reject the commit. Bypass with `git commit
-  // --no-verify` if you genuinely mean to commit the change.
-  let stagedFiles = '';
+  // Pre-commit context. Reject:
+  //   1. Staged content that no longer carries the placeholder marker
+  //      (in-place edit with real credentials).
+  //   2. Staged DELETION of the file — app.json's `googleServicesFile`
+  //      points at it, so removing it breaks fresh checkouts and dev
+  //      builds. `git rm --cached` followed by commit is the natural
+  //      path here; untracking is fine (placeholder vanishes from
+  //      future commits), removing the file entirely is not.
+  // `git commit --no-verify` bypasses either check for deliberate
+  // restructures (e.g. moving to EAS file secrets).
+  let stagedStatus = '';
   try {
-    stagedFiles = execFileSync(
+    stagedStatus = execFileSync(
       'git',
-      ['diff', '--cached', '--name-only', '--', REPO_REL],
+      ['diff', '--cached', '--name-status', '--', REPO_REL],
       { encoding: 'utf8' },
     ).trim();
   } catch {
     // Not in a git working tree, or git unavailable — skip silently.
     process.exit(0);
   }
-  if (!stagedFiles) {
+  if (!stagedStatus) {
     // File not staged → nothing to check.
     process.exit(0);
+  }
+  // Output format: "<status>\t<path>" — e.g. "M\tmobile/google-services.json"
+  // or "D\tmobile/google-services.json".
+  const statusChar = stagedStatus.charAt(0);
+  if (statusChar === 'D') {
+    console.error(
+      `ERROR: ${REPO_REL} is staged for deletion, but app.json's ` +
+        '`googleServicesFile` references it. Removing the committed ' +
+        'placeholder would break fresh checkouts and EAS / dev Android ' +
+        'builds (missing-file error during prebuild).\n' +
+        '\n' +
+        'If you genuinely mean to switch off the committed placeholder ' +
+        '(e.g. moving entirely to EAS file secrets), drop the ' +
+        '`googleServicesFile` reference from `app.json` in the same ' +
+        'commit and use `git commit --no-verify` to bypass this hook.',
+    );
+    process.exit(1);
   }
   let stagedContent = '';
   try {
@@ -63,8 +85,8 @@ if (isStagedMode) {
       encoding: 'utf8',
     });
   } catch {
-    // Staged blob unreadable (deletion in the index) — let git
-    // report the regular delete; not our concern.
+    // Defensive: A/M status but blob unreadable. Don't block on
+    // ambiguous state; let git surface the real error.
     process.exit(0);
   }
   if (!stagedContent.includes(PLACEHOLDER_MARKER)) {
