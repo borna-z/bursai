@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // Two-mode guard for `mobile/google-services.json`:
 //
-//   - Default (build-time): protects production EAS Android builds
+//   - Default (build-time): protects EAS Android PRODUCTION builds
 //     from shipping the placeholder. Behaviour depends on context:
-//       · EAS Android build (EAS_BUILD_PLATFORM=android): HARD FAIL
-//         when the placeholder marker is present — shipping would
-//         silently break FCM push notifications.
-//       · EAS iOS build (EAS_BUILD_PLATFORM=ios): skip (iOS doesn't
-//         consume google-services.json — Codex P1 PR #885 round 2).
+//       · EAS Android + production profile (EAS_BUILD_PLATFORM=android
+//         + EAS_BUILD_PROFILE=production): HARD FAIL on placeholder —
+//         shipping would silently break FCM push notifications.
+//       · EAS Android + development/preview profile: WARN and proceed
+//         (the placeholder is the documented dev-baseline; failing
+//         internal builds would break the dev/preview loop).
+//       · EAS iOS: skip (iOS doesn't consume google-services.json).
 //       · No EAS context (local `npm run android`, dev sessions):
-//         WARN and proceed — the placeholder is the documented
-//         dev-baseline, hard-failing fresh checkouts would break
-//         dev workflow (Codex P2 PR #885 round 8).
+//         WARN and proceed.
 //
 //   - `--staged` (pre-commit hook): the staged content MUST still be
 //     the placeholder. A `git add` of a swap-in-place real config
@@ -94,14 +94,18 @@ if (easPlatform && easPlatform !== 'android') {
   process.exit(0);
 }
 
-// Production-build strictness only kicks in for EAS Android builds.
-// Codex P2 PR #885 round 8: hard-failing local dev (`npm run android`)
-// would block fresh-checkout dev builds because the committed placeholder
-// is the documented dev-baseline — the placeholder exists precisely so
-// dev environments don't need real Firebase credentials. Outside EAS we
-// emit a warning and proceed; the EAS pre-install hook still fails the
-// remote build if the swap step didn't happen.
-const isEasAndroid = easPlatform === 'android';
+// Production-build strictness only kicks in for the EAS Android
+// PRODUCTION profile. The placeholder exists precisely so dev / preview
+// builds don't need real Firebase credentials — hard-failing them
+// would block fresh-checkout `npm run android`, `eas build -p android
+// --profile development`, and `--profile preview`. Outside the
+// production profile we emit a warning and proceed; the production
+// EAS pre-install still fails the build if the swap step didn't
+// happen. EAS sets `EAS_BUILD_PROFILE` to the profile name from
+// `eas.json`; locally it's unset.
+const isEasProduction =
+  easPlatform === 'android' &&
+  process.env.EAS_BUILD_PROFILE === 'production';
 
 if (!fs.existsSync(CONFIG_PATH)) {
   console.error(
@@ -114,7 +118,7 @@ if (!fs.existsSync(CONFIG_PATH)) {
 
 const contents = fs.readFileSync(CONFIG_PATH, 'utf8');
 if (contents.includes(PLACEHOLDER_MARKER)) {
-  if (!isEasAndroid) {
+  if (!isEasProduction) {
     console.warn(
       `WARNING: ${CONFIG_PATH} contains the placeholder marker. FCM ` +
         'push notifications will not work in this build. This is the ' +
@@ -126,13 +130,13 @@ if (contents.includes(PLACEHOLDER_MARKER)) {
   }
   console.error(
     `ERROR: ${CONFIG_PATH} still contains the placeholder marker ` +
-      `"${PLACEHOLDER_MARKER}". This is an EAS Android build — shipping ` +
-      'with the placeholder would mean broken FCM (push notifications ' +
-      'silently fail). Swap in the real google-services.json from ' +
-      'console.firebase.google.com (or wire the EAS file-secret) before ' +
-      'building. If you genuinely need to push an EAS Android build ' +
-      'without FCM, set ALLOW_PLACEHOLDER_FIREBASE=1 in the build ' +
-      'environment.',
+      `"${PLACEHOLDER_MARKER}". This is an EAS Android production ` +
+      'build — shipping with the placeholder would mean broken FCM ' +
+      '(push notifications silently fail). Swap in the real ' +
+      'google-services.json from console.firebase.google.com (or wire ' +
+      'the EAS file-secret) before building. If you genuinely need to ' +
+      'push an EAS Android production build without FCM, set ' +
+      'ALLOW_PLACEHOLDER_FIREBASE=1 in the build environment.',
   );
   if (process.env.ALLOW_PLACEHOLDER_FIREBASE !== '1') {
     process.exit(1);
