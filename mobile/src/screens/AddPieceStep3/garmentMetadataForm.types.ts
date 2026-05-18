@@ -20,7 +20,9 @@ export type PatternValue = typeof PATTERNS[number] | '';
 export type FormalityValue = 1 | 2 | 3 | 4 | 5 | null;
 
 // Full picker snapshot. Mirrors the 11 pieces of state that lived inline in
-// AddPieceStep3 before the split.
+// AddPieceStep3 before the split, plus the user-entered purchase price
+// (Audit FIX 7, 2026-05-18) — kept as a string for input ergonomics; the
+// save flow parses to a number before persistGarmentRaw.
 export interface GarmentFormState {
   title: string;
   category: CategoryValue;
@@ -32,6 +34,7 @@ export interface GarmentFormState {
   pattern: PatternValue;
   seasons: string[];
   formality: FormalityValue;
+  price: string;
 }
 
 // Validation result. The orchestrator's save handler reads `isValid`; when the

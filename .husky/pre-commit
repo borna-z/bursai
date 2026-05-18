@@ -3,3 +3,8 @@
 npx tsc --noEmit --skipLibCheck
 npx eslint . --max-warnings 0
 npm run build
+
+# Block accidental commits of real Firebase credentials over the
+# placeholder mobile/google-services.json (Codex P2 PR #885 round 7).
+# Bypass with `git commit --no-verify` for intentional edits.
+node mobile/scripts/check-firebase-config.js --staged

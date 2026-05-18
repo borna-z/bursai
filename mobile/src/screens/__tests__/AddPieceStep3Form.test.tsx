@@ -28,6 +28,7 @@ const baseInitial: GarmentFormState = {
   pattern: '',
   seasons: [],
   formality: null,
+  price: '',
 };
 
 function renderForm(initial: GarmentFormState = baseInitial) {

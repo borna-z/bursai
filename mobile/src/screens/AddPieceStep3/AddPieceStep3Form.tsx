@@ -85,7 +85,8 @@ type FormAction =
   | { type: 'setFit'; value: FitValue }
   | { type: 'setPattern'; value: PatternValue }
   | { type: 'toggleSeason'; value: string }
-  | { type: 'setFormality'; value: FormalityValue };
+  | { type: 'setFormality'; value: FormalityValue }
+  | { type: 'setPrice'; value: string };
 
 function reducer(state: GarmentFormState, action: FormAction): GarmentFormState {
   switch (action.type) {
@@ -129,6 +130,8 @@ function reducer(state: GarmentFormState, action: FormAction): GarmentFormState 
       return state.formality === action.value
         ? state
         : { ...state, formality: action.value };
+    case 'setPrice':
+      return { ...state, price: action.value };
     default:
       return state;
   }
@@ -178,8 +181,12 @@ export interface AddPieceStep3FormProps {
 
 /** Form-state keys for which a `hidePickers` opt-out is currently wired
  * in the JSX. Keep in sync with the conditional render guards inside
- * `AddPieceStep3Form` — TypeScript narrows callers to a valid subset. */
-export type HideablePickerKey = 'formality';
+ * `AddPieceStep3Form` — TypeScript narrows callers to a valid subset.
+ *
+ * `price` is hideable because EditGarmentScreen already renders its own
+ * purchase-price input alongside wear-count and laundry toggles; showing
+ * a second price field via the shared form there would duplicate the UI. */
+export type HideablePickerKey = 'formality' | 'price';
 
 export function AddPieceStep3Form({
   initial,
@@ -370,6 +377,34 @@ export function AddPieceStep3Form({
               />
             ))}
           </View>
+        </View>
+      )}
+
+      {/* ============ PRICE — optional numeric input ============ */}
+      {/* Audit FIX 7 (2026-05-18). The DB column `garments.purchase_price`
+          already exists and persistGarmentRaw accepts `params.price`, but
+          AddPiece never offered a place to enter it — so every new garment
+          shipped with `purchase_price: null` and downstream wardrobe-value
+          analytics had no data to render. Hidden in EditGarmentScreen via
+          `hidePickers={['price']}` since that screen has its own price
+          input alongside wear-count + laundry toggle. */}
+      {!hidePickers?.includes('price') && (
+        <View style={{ gap: 6 }}>
+          <Eyebrow>{tr('addpiece.step3.field.price')}</Eyebrow>
+          <TextInput
+            value={state.price}
+            onChangeText={(value) => dispatch({ type: 'setPrice', value })}
+            placeholder={tr('addpiece.step3.field.price.placeholder')}
+            placeholderTextColor={t.fg3}
+            keyboardType="decimal-pad"
+            style={[
+              s.titleInput,
+              { borderColor: t.border, backgroundColor: t.card, color: t.fg },
+            ]}
+            maxLength={12}
+            returnKeyType="done"
+            accessibilityLabel={tr('addpiece.step3.field.price')}
+          />
         </View>
       )}
     </View>

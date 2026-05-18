@@ -133,6 +133,10 @@ function buildInitialFormState(
     pattern,
     seasons: analysis?.season_tags ?? [],
     formality,
+    // Purchase price — user-entered, never inferred from the analyzer. The
+    // empty-string seed lets `parseFloat('') → NaN → undefined` in the save
+    // flow so persistGarmentRaw falls back to `purchase_price: null`.
+    price: '',
   };
 }
 
