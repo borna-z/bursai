@@ -1,17 +1,26 @@
 #!/usr/bin/env node
 // Build-time guard against shipping the committed placeholder
 // `google-services.json`. Codex P1 on PR #885: EAS / prebuild packages
-// the file unconditionally, so a build that skipped the swap step would
-// produce an app with broken FCM and no warning until users notice push
-// notifications never arrive. This script fails loudly instead.
+// the file unconditionally, so an Android build that skipped the swap
+// step would produce an app with broken FCM and no warning until users
+// notice push notifications never arrive. This script fails loudly
+// instead.
 //
 // Wired into `mobile/package.json` via the `eas-build-pre-install` hook
 // (EAS auto-runs that script before installing deps) and prepended to
-// the local `android` script. iOS builds don't read `google-services.json`
-// so they're unaffected.
+// the local `android` script. EAS sets `EAS_BUILD_PLATFORM` to `android`
+// or `ios`; iOS builds don't consume google-services.json (Codex P1
+// round 2 on PR #885), so we skip the check there.
 
 const fs = require('fs');
 const path = require('path');
+
+const easPlatform = process.env.EAS_BUILD_PLATFORM;
+if (easPlatform && easPlatform !== 'android') {
+  // iOS EAS build — google-services.json is irrelevant, skip the check
+  // so a clean iOS build doesn't fail on the Android placeholder.
+  process.exit(0);
+}
 
 const PLACEHOLDER_MARKER = 'PLACEHOLDER_REPLACE_BEFORE_PRODUCTION_BUILD';
 const CONFIG_PATH = path.resolve(__dirname, '..', 'google-services.json');

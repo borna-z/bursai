@@ -193,8 +193,12 @@ export function SettingsScreen() {
             (1) locked — "Free plan" + Upgrade CTA pushing the Paywall;
             (2) trialing — "Trial active" + ISO end date when the row
                 carries one;
-            (3) premium — "Premium · Monthly/Annual" + renewal date. */}
-        {!subscription.isLoading ? (
+            (3) premium — "Premium · Monthly/Annual" + renewal date.
+            When the query errors we hide the card entirely instead of
+            falling through to the `locked` branch (Codex P2 PR #885
+            round 2). Showing "Free plan + Upgrade" to a premium user on
+            a transient Supabase blip would misrepresent their state. */}
+        {subscription.error ? null : !subscription.isLoading ? (
           <View style={{ gap: 8 }}>
             <Eyebrow>{tr('settings.subscription.eyebrow')}</Eyebrow>
             <Card>
