@@ -11,7 +11,7 @@
  * Outputs (under mobile/assets/):
  *   icon.png           1024x1024  cream    #FBF7EF  black mark
  *   icon-dark.png      1024x1024  charcoal #0F172A  white mark
- *   icon-tinted.png    1024x1024  transparent       white mark (iOS18 tint)
+ *   icon-tinted.png    1024x1024  white    #FFFFFF  black mark (iOS18 tint)
  *   adaptive-icon.png  1024x1024  transparent       black mark (Android)
  *   splash-icon.png    1024x1024  transparent       black mark (40% canvas)
  *   favicon.png        196x196    cream    #FBF7EF  black mark
@@ -152,9 +152,13 @@ async function composeIcon({ outPath, canvas, bg, markColor, mark, scale, optica
     outPath: path.join(OUT_DIR, 'icon-dark.png'),
     canvas: 1024, bg: CHARCOAL, markColor: WHITE, mark, scale: IOS_SCALE, opticalYShift: IOS_Y_SHIFT,
   });
+  // iOS 18 tinted: Expo's prebuild flattens transparency onto a solid white
+  // background and the system applies the user's chosen tint via multiply.
+  // The asset must be opaque grayscale with a DARK glyph on a LIGHT background —
+  // a white-on-transparent source flattens to white-on-white (invisible glyph).
   await composeIcon({
     outPath: path.join(OUT_DIR, 'icon-tinted.png'),
-    canvas: 1024, bg: null, markColor: WHITE, mark, scale: IOS_SCALE, opticalYShift: IOS_Y_SHIFT,
+    canvas: 1024, bg: WHITE, markColor: BLACK, mark, scale: IOS_SCALE, opticalYShift: IOS_Y_SHIFT,
   });
 
   // Android adaptive foreground: mark constrained to 660x660 safe zone (~64% of 1024)

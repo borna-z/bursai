@@ -118,7 +118,7 @@
       "eas": {
         "projectId": "00d9bb65-ab97-499d-9ee6-2db4a3725ed8"
       },
-      "_iconNote": "Generated from src/assets/burs-logo.png via mobile/scripts/generate-app-icons.js. Cream #FBF7EF surface + black B-hanger mark for iOS light / Android / web; charcoal #0F172A + white mark for iOS dark; transparent + white mark for iOS tinted.",
+      "_iconNote": "Generated from src/assets/burs-logo.png via mobile/scripts/generate-app-icons.js. Cream #FBF7EF surface + black B-hanger mark for iOS light / Android / web; charcoal #0F172A + white mark for iOS dark; opaque white + black mark for iOS tinted (Expo flattens tinted onto #FFF and iOS applies user tint via multiply, so the glyph must be dark on light).",
       "_googleServicesNote": "TODO: replace google-services.json with the real Firebase config (downloaded from console.firebase.google.com → Project Settings → Android app) before Android production build. The committed file is a placeholder so dev builds and EAS bundling don't fail on the missing reference, but FCM push will not work against it."
     }
   }
