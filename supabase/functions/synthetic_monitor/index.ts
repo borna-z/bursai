@@ -114,18 +114,14 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const expected = `Bearer ${RENDER_WORKER_BEARER}`;
   if (!timingSafeEqual(authHeader, expected)) {
-    // Don't write to synthetic_failures here — verify_jwt = false makes this
-    // endpoint publicly reachable, and any random probe could poison the alert
-    // table (PR 2 keys alerts off recent rows). Bearer drift will still
-    // surface via pg_net cron logs (non-2xx response) + Sentry below.
+    // Don't write to synthetic_failures or Sentry here — verify_jwt = false
+    // makes this endpoint publicly reachable, and any random scanner would
+    // poison the alert table (PR 2 keys off recent rows) or generate
+    // unbounded Sentry noise. Bearer drift still surfaces via pg_net cron
+    // logs (non-2xx response) and the structured warn log below.
     log.warn("synthetic_monitor unauthorized request", {
       has_auth_header: authHeader.length > 0,
     });
-    captureError(
-      "synthetic_monitor_unauthorized",
-      new Error("worker bearer mismatch"),
-      { has_auth_header: authHeader.length > 0 },
-    );
     return jsonResponse({ error: "unauthorized" }, 401);
   }
 
