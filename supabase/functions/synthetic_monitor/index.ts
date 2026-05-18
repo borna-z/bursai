@@ -114,12 +114,15 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const expected = `Bearer ${RENDER_WORKER_BEARER}`;
   if (!timingSafeEqual(authHeader, expected)) {
-    // Surface bearer drift via the alert table so PR 2's alerting picks it up.
-    // Without this row, a vault-vs-env mismatch leaves the monitor silently
-    // 401-ing while cron looks healthy.
-    await recordFailure(
-      supabase,
-      "auth",
+    // Don't write to synthetic_failures here — verify_jwt = false makes this
+    // endpoint publicly reachable, and any random probe could poison the alert
+    // table (PR 2 keys alerts off recent rows). Bearer drift will still
+    // surface via pg_net cron logs (non-2xx response) + Sentry below.
+    log.warn("synthetic_monitor unauthorized request", {
+      has_auth_header: authHeader.length > 0,
+    });
+    captureError(
+      "synthetic_monitor_unauthorized",
       new Error("worker bearer mismatch"),
       { has_auth_header: authHeader.length > 0 },
     );
