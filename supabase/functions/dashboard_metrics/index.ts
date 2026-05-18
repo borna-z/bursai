@@ -71,15 +71,25 @@ serve(async (req: Request) => {
       supabase.from("view_queue_depth_5min").select("*"),
       supabase.from("view_function_health_recent").select("*"),
       supabase.from("view_subscription_distribution").select("*"),
+      // view_ai_cost_per_day lives in PR #893's migration (alongside the
+      // ai_call_log table it reads). If PR #893 hasn't landed yet, the
+      // view doesn't exist and PostgREST returns a 42P01 / PGRST relation
+      // error — degrade gracefully so the rest of the dashboard renders.
       supabase.from("view_ai_cost_per_day").select("*"),
     ]);
 
     if (queueRes.error) throw new Error(`view_queue_depth_5min: ${queueRes.error.message}`);
     if (healthRes.error) throw new Error(`view_function_health_recent: ${healthRes.error.message}`);
     if (subsRes.error) throw new Error(`view_subscription_distribution: ${subsRes.error.message}`);
-    if (aiCostRes.error) throw new Error(`view_ai_cost_per_day: ${aiCostRes.error.message}`);
 
-    const aiCost = aiCostRes.data;
+    let aiCost: unknown = null;
+    if (aiCostRes.error) {
+      log.info("view_ai_cost_per_day unavailable (PR #893 ai_call_log not yet merged)", {
+        message: aiCostRes.error.message,
+      });
+    } else {
+      aiCost = aiCostRes.data;
+    }
 
     return jsonResponse(
       {

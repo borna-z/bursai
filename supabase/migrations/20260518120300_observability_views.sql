@@ -11,12 +11,12 @@
 --     anon/authenticated access; views inherit table RLS, but service_role
 --     bypasses it anyway, so the GRANT is what actually gates reads.
 --
--- Migration order dependency:
---   * view_ai_cost_per_day requires `public.ai_call_log` from
---     20260518120200_ai_call_log.sql (sprint PR #893). Timestamp ordering
---     enforces that this migration runs second. If PR #893 has not landed
---     yet, this migration will fail with a clear "relation does not exist"
---     error — that's the intended behavior (fail loud, not silently skip).
+-- Self-contained: this migration creates only views that depend on tables
+-- already on `main`. The `view_ai_cost_per_day` view depends on
+-- `public.ai_call_log` which lands in sprint PR #893 — that view is created
+-- inside PR #893's migration (alongside the table) so the two land
+-- atomically. dashboard_metrics gracefully handles the view not existing
+-- until PR #893 is merged.
 
 -- 1. Render queue depth in 5-min buckets, last 24 h.
 --    Joined on (bucket, status) so the dashboard can render a stacked bar
@@ -88,29 +88,12 @@ FROM normalized
 GROUP BY plan, status
 ORDER BY users DESC;
 
--- 4. AI cost per day.
---    Hard dependency on `public.ai_call_log` from 20260518120200_ai_call_log.sql
---    (sprint PR #893). Timestamp ordering means that migration runs first.
---    Unconditional CREATE — if PR #893 hasn't landed, this migration fails
---    loud with "relation ai_call_log does not exist". That's intentional:
---    an IF EXISTS guard would silently skip the view and leave it un-created
---    forever once PR #894 was marked applied.
-CREATE OR REPLACE VIEW public.view_ai_cost_per_day AS
-SELECT
-  date_trunc('day', created_at)::date AS day,
-  function_name,
-  provider,
-  COUNT(*) AS calls,
-  SUM(input_tokens) AS input_tokens,
-  SUM(output_tokens) AS output_tokens,
-  ROUND(SUM(estimated_cost_usd)::numeric, 4) AS cost_usd
-FROM public.ai_call_log
-WHERE created_at > NOW() - INTERVAL '30 days'
-GROUP BY day, function_name, provider
-ORDER BY day DESC, cost_usd DESC;
+-- (view_ai_cost_per_day lives in 20260518120200_ai_call_log.sql alongside
+-- the table it reads — see sprint PR #893. Splitting it across migrations
+-- would mean a clean-env apply of PR #894 fails until PR #893 lands,
+-- breaking CI's migration-smoke job and forcing serialized merges.)
 
 -- Grants. service_role only — RLS on underlying tables stays in place.
 GRANT SELECT ON public.view_queue_depth_5min TO service_role;
 GRANT SELECT ON public.view_function_health_recent TO service_role;
 GRANT SELECT ON public.view_subscription_distribution TO service_role;
-GRANT SELECT ON public.view_ai_cost_per_day TO service_role;
