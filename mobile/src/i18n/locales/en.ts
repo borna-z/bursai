@@ -2180,4 +2180,11 @@ export const en: Record<string, string> = {
   // ─── Audit FIX 7 (2026-05-18) — AddPieceStep3 purchase price input. ─
   'addpiece.step3.field.price': 'Purchase price',
   'addpiece.step3.field.price.placeholder': 'Optional',
+
+  // ─── Garment detail — studio render retry (2026-05-18) ─────────────────
+  'garmentDetail.retryRender.labelFailed': 'Re-try studio render',
+  'garmentDetail.retryRender.labelReady': 'Re-render',
+  'garmentDetail.retryRender.labelNever': 'Make studio quality',
+  'garmentDetail.retryRender.errorRateLimit': 'Too many renders right now — try again in {seconds}s.',
+  'garmentDetail.retryRender.errorGeneric': "Couldn't start render. Tap to try again.",
 };
