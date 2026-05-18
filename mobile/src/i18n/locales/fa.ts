@@ -1630,4 +1630,5 @@ export const fa: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "ایجاد کیفیت استودیو",
   "garmentDetail.retryRender.errorRateLimit": "رندرهای بیش از حد — {seconds} ثانیه دیگر امتحان کنید.",
   "garmentDetail.retryRender.errorGeneric": "رندر آغاز نشد. برای تلاش مجدد ضربه بزنید.",
+  "garmentDetail.retryRender.labelPending": "Working…",
 };

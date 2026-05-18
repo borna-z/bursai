@@ -2187,4 +2187,5 @@ export const en: Record<string, string> = {
   'garmentDetail.retryRender.labelNever': 'Make studio quality',
   'garmentDetail.retryRender.errorRateLimit': 'Too many renders right now — try again in {seconds}s.',
   'garmentDetail.retryRender.errorGeneric': "Couldn't start render. Tap to try again.",
+  'garmentDetail.retryRender.labelPending': 'Working…',
 };

@@ -1630,4 +1630,5 @@ export const pt: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "Criar qualidade de estúdio",
   "garmentDetail.retryRender.errorRateLimit": "Muitas renderizações agora — tente novamente em {seconds}s.",
   "garmentDetail.retryRender.errorGeneric": "Não foi possível iniciar a renderização. Toque para tentar novamente.",
+  "garmentDetail.retryRender.labelPending": "Working…",
 };

@@ -1630,4 +1630,5 @@ export const de: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "Studiorendering erstellen",
   "garmentDetail.retryRender.errorRateLimit": "Aktuell zu viele Renderings – in {seconds} s. erneut versuchen.",
   "garmentDetail.retryRender.errorGeneric": "Rendering konnte nicht gestartet werden. Tippen für erneuten Versuch.",
+  "garmentDetail.retryRender.labelPending": "Working…",
 };

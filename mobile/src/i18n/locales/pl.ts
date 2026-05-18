@@ -1630,4 +1630,5 @@ export const pl: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "stwórz jakość studyjną",
   "garmentDetail.retryRender.errorRateLimit": "zbyt wiele renderowań w tej chwili — spróbuj ponownie za {seconds} s.",
   "garmentDetail.retryRender.errorGeneric": "nie można rozpocząć renderowania. dotknij, aby spróbować ponownie.",
+  "garmentDetail.retryRender.labelPending": "Working…",
 };

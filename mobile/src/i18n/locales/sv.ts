@@ -2060,4 +2060,5 @@ export const sv: Record<string, string> = {
   'garmentDetail.retryRender.labelNever': 'Gör studiokvalitet',
   'garmentDetail.retryRender.errorRateLimit': 'För många renderingar just nu — försök igen om {seconds} s.',
   'garmentDetail.retryRender.errorGeneric': 'Kunde inte starta renderingen. Tryck för att försöka igen.',
+  'garmentDetail.retryRender.labelPending': 'Arbetar…',
 };

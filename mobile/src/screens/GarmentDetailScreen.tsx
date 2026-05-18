@@ -455,7 +455,7 @@ export function GarmentDetailScreen() {
         {retryRenderLabel ? (
           <View style={{ gap: 6 }}>
             <Button
-              label={retryRender.isPending ? 'Working…' : retryRenderLabel}
+              label={retryRender.isPending ? tr('garmentDetail.retryRender.labelPending') : retryRenderLabel}
               disabled={retryRender.isPending}
               onPress={handleRetryRender}
             />

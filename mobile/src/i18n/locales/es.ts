@@ -1630,4 +1630,5 @@ export const es: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "Crear calidad de estudio",
   "garmentDetail.retryRender.errorRateLimit": "Demasiados renders ahora mismo — intenta de nuevo en {seconds} s.",
   "garmentDetail.retryRender.errorGeneric": "No se pudo iniciar el render. Toca para intentar de nuevo.",
+  "garmentDetail.retryRender.labelPending": "Working…",
 };
