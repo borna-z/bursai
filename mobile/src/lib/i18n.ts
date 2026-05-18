@@ -39,6 +39,16 @@ const SUPPORTED_LOCALES: readonly Locale[] = [
   'fr', 'it', 'nl', 'no', 'pl', 'pt',
 ];
 
+// ISO 639 aliases — codes Expo may return that don't match SUPPORTED_LOCALES
+// 1:1. Norwegian splits into Bokmål (`nb`) and Nynorsk (`nn`) on iOS/Android
+// even though we ship a single combined `no` dictionary; without the alias
+// step Norwegian-system users fell back to English even after the locale
+// landed (Codex P2 on PR #887). Add other 1:N collapses here as they surface.
+const LOCALE_ALIASES: Record<string, Locale> = {
+  nb: 'no',
+  nn: 'no',
+};
+
 // Pick the closest supported locale from the device's preferred-language list.
 // `getLocales()` returns a ranked array — if the user's first preference is fr-CA
 // we strip the region tag and match against `fr`. Falls back to en.
@@ -46,7 +56,8 @@ function detectInitialLocale(): Locale {
   try {
     const ranked = Localization.getLocales?.() ?? [];
     for (const entry of ranked) {
-      const tag = (entry.languageCode ?? '').toLowerCase() as Locale;
+      const raw = (entry.languageCode ?? '').toLowerCase();
+      const tag = (LOCALE_ALIASES[raw] ?? raw) as Locale;
       if (SUPPORTED_LOCALES.includes(tag)) return tag;
     }
   } catch (err) {
