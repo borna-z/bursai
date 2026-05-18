@@ -68,16 +68,23 @@ async function recordFailure(
   log.error("synthetic step failed", { step, error: errorMessage, error_class: errorClass });
   captureError("synthetic_monitor_step_failed", err, { step, error_class: errorClass });
   try {
-    await supabase.from("synthetic_failures").insert({
+    const { error: insertError } = await supabase.from("synthetic_failures").insert({
       step,
       error_message: errorMessage,
       error_class: errorClass,
       payload,
     });
+    // PostgREST errors resolve as { error } rather than throwing, so an RLS/grant
+    // drift or missing migration would silently swallow the alert signal.
+    if (insertError) {
+      log.exception("synthetic_failures insert returned error", insertError, { step });
+      captureError("synthetic_monitor_alert_insert_failed", insertError, { step });
+    }
   } catch (insertErr) {
     // Last-resort: if we can't even write to synthetic_failures, log loudly.
     // The Supabase Logs query will still catch this via the structured line.
     log.exception("failed to insert synthetic_failures row", insertErr, { step });
+    captureError("synthetic_monitor_alert_insert_failed", insertErr, { step });
   }
 }
 
@@ -100,15 +107,24 @@ serve(async (req) => {
     return jsonResponse({ error: "supabase url not configured" }, 503);
   }
 
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const expected = `Bearer ${RENDER_WORKER_BEARER}`;
-  if (!timingSafeEqual(authHeader, expected)) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
-
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const expected = `Bearer ${RENDER_WORKER_BEARER}`;
+  if (!timingSafeEqual(authHeader, expected)) {
+    // Surface bearer drift via the alert table so PR 2's alerting picks it up.
+    // Without this row, a vault-vs-env mismatch leaves the monitor silently
+    // 401-ing while cron looks healthy.
+    await recordFailure(
+      supabase,
+      "auth",
+      new Error("worker bearer mismatch"),
+      { has_auth_header: authHeader.length > 0 },
+    );
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
 
   const runId = crypto.randomUUID();
   const syntheticEmail = `synthetic+${runId}@burs.app`;
