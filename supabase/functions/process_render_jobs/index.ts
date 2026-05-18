@@ -60,6 +60,12 @@ type ClaimedJob = {
   // non-force and the regenerate button silently no-op'd through the
   // product-ready gate. See render-state-machine.md I9.
   force: boolean;
+  // Sprint PR 7 + Codex round 2 P2: persisted enqueue-time request_id so
+  // the cron / batch-fill paths can forward the ORIGINAL correlation id
+  // to render_garment_image instead of the worker invocation's own id.
+  // Null for legacy rows enqueued before the column existed; the worker
+  // falls back to the worker requestId in that case.
+  request_id: string | null;
 };
 
 type RenderResult =
@@ -192,12 +198,19 @@ serve(async (req) => {
     await withConcurrencyLimit(jobs, JOB_CONCURRENCY, async (job) => {
       const startTime = Date.now();
       try {
+        // Prefer the enqueue-time correlation id persisted on the row so
+        // cron / batch-fill claims (which carry the worker's own requestId,
+        // unrelated to the user-initiated trace) stamp the downstream
+        // render with the original trace. Falls back to the worker's
+        // requestId for legacy rows (request_id NULL) and for the kickoff
+        // path where they're already equal anyway. Codex round 2 P2.
+        const jobRequestId = job.request_id ?? requestId;
         const renderResult = await invokeRender(
           supabase,
           job,
           SUPABASE_URL,
           RENDER_WORKER_BEARER,
-          requestId,
+          jobRequestId,
         );
 
         if (renderResult.ok && "deferred" in renderResult && renderResult.deferred) {
