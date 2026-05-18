@@ -67,7 +67,7 @@ beforeEach(() => {
 });
 
 describe('useRetryGarmentRender', () => {
-  it('calls enqueue_render_job with source=retry and a client_nonce', async () => {
+  it('calls enqueue_render_job with camelCase fields and force=true', async () => {
     edge.callEdgeFunction.mockResolvedValue({ ok: true });
     const { useRetryGarmentRender } = require('../useRetryGarmentRender');
     const { result } = renderHook(() => useRetryGarmentRender(), {
@@ -79,10 +79,11 @@ describe('useRetryGarmentRender', () => {
     expect(edge.callEdgeFunction).toHaveBeenCalledTimes(1);
     const [fnName, opts] = edge.callEdgeFunction.mock.calls[0];
     expect(fnName).toBe('enqueue_render_job');
-    expect(opts.body.garment_id).toBe('garment-1');
+    expect(opts.body.garmentId).toBe('garment-1');
     expect(opts.body.source).toBe('retry');
-    expect(typeof opts.body.client_nonce).toBe('string');
-    expect(opts.body.client_nonce.length).toBeGreaterThan(0);
+    expect(typeof opts.body.clientNonce).toBe('string');
+    expect(opts.body.clientNonce.length).toBeGreaterThanOrEqual(8);
+    expect(opts.body.force).toBe(true);
   });
 
   it('throws SUBSCRIPTION_SENTINEL on 402', async () => {

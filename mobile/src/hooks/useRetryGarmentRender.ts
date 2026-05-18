@@ -41,9 +41,10 @@ export function useRetryGarmentRender() {
           'enqueue_render_job',
           {
             body: {
-              garment_id: garmentId,
+              garmentId,
               source: 'retry',
-              client_nonce: clientNonce,
+              clientNonce,
+              force: true,
             },
           },
         );
