@@ -74,7 +74,7 @@ export const CORS_HEADERS: Record<string, string> = {
   "Vary": "Origin",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, " +
-    "x-idempotency-key, stripe-signature, " +
+    "x-idempotency-key, stripe-signature, x-request-id, " +
     "x-supabase-client-platform, x-supabase-client-platform-version, " +
     "x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
