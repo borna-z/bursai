@@ -253,35 +253,22 @@ async function rule3StripeWebhookFailures(
   };
   const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-  // Codex PR #891 round 2 P2: the prior draft queried
-  // `stripe_events.processed_ok` / `.error`, but those columns DO NOT EXIST
-  // in the table — schema is `(id, stripe_event_id, type, data, processed_at)`
-  // (see initial_schema.sql:1197). stripe_webhook's local `processed_ok` /
-  // `error` writes silently fail server-side (PostgREST rejects unknown
-  // columns). The rule was returning PostgREST column errors instead of a
-  // rate, so it could never fire.
+  // Codex PR #891 round 3 P2: previous attempt switched the denominator to
+  // `stripe_events` row count, but that table is currently never populated.
+  // stripe_webhook's insert writes columns that don't exist in the schema
+  // (writes `id/event_type/stripe_mode/processed_ok`; real schema is
+  // `(id, stripe_event_id, type, data, processed_at)`) so every insert
+  // returns a PostgREST 400 and `stripe_events.count = 0` on every tick.
+  // Result: `total === 0`, rule returns early, alert never fires even on
+  // a real Stripe outage. Fixing the stripe_webhook insert is out of scope
+  // for this PR (separate function, separate behavior surface).
   //
-  // Replacement source: denominator is `stripe_events` row count (every
-  // webhook receipt creates one row at line 87-99 of stripe_webhook), and
-  // numerator is `edge_function_errors` rows with
-  // `function_name = 'stripe_webhook'`. Stripe_webhook now mirrors its inner
-  // and outer catches through `captureError("stripe_webhook.*", ...)` in
-  // this same PR (see stripe_webhook/index.ts:248-258, 268-275) so the
-  // numerator is populated on real processing failures.
-  //
-  // `processed_at > cutoff` on stripe_events catches all rows touched in the
-  // last 5 minutes (the column defaults to now() on upsert and stays close
-  // to receipt time).
-  const { count: total, error: totalErr } = await supabase
-    .from("stripe_events")
-    .select("id", { count: "exact", head: true })
-    .gt("processed_at", cutoff);
-  if (totalErr) {
-    r.error = totalErr.message;
-    return r;
-  }
-  if (!total || total === 0) return r;
-
+  // Replacement: alert on ABSOLUTE error count, not rate. We don't have a
+  // reliable denominator within this PR's scope, but we DO have a reliable
+  // numerator (edge_function_errors with function_name='stripe_webhook').
+  // Threshold: >= 3 errors in 5 min. Conservative pre-launch: stripe_webhook
+  // gets very low traffic outside of test/upgrade flows, so 3 errors in 5
+  // min is a strong outage signal. Re-tune after launch-day data.
   const { count: errs, error: errsErr } = await supabase
     .from("edge_function_errors")
     .select("id", { count: "exact", head: true })
@@ -292,11 +279,10 @@ async function rule3StripeWebhookFailures(
     return r;
   }
   const errCount = errs ?? 0;
-  const rate = errCount / total;
-  if (rate >= 0.05) {
+  if (errCount >= 3) {
     r._shouldFire = true;
-    r.metric = `${errCount}/${total} (${(rate * 100).toFixed(1)}%)`;
-    r.description = `Stripe webhook error rate is ${(rate * 100).toFixed(1)}% over the last 5 min (threshold 5%).`;
+    r.metric = `${errCount} errors / 5 min`;
+    r.description = `stripe_webhook produced ${errCount} captureError() events in the last 5 min (threshold ≥ 3).`;
   }
   return r;
 }
@@ -320,9 +306,16 @@ async function rule4AiErrorRate(
     "travel_capsule",
   ];
 
+  // Codex PR #891 round 3 P2: the denominator must be filtered to the same
+  // population as the numerator. Without `.in("function_name", aiFns)`,
+  // ai_rate_limits also counts non-AI rate-limited calls (start_trial and
+  // other endpoints that call enforceRateLimit), so 2 AI errors out of 10
+  // AI calls + 90 non-AI calls report as 2/100 (below threshold) instead
+  // of the actual 2/10 (above threshold).
   const { count: total, error: totalErr } = await supabase
     .from("ai_rate_limits")
     .select("id", { count: "exact", head: true })
+    .in("function_name", aiFns)
     .gt("called_at", cutoffISO);
   if (totalErr) {
     r.error = totalErr.message;
