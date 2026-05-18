@@ -63,7 +63,6 @@ import {
 } from "../_shared/outfit-confidence.ts";
 
 import { hashOutfit } from "../_shared/outfit-deduplication.ts";
-import { captureError } from "../_shared/observability.ts";
 
 // Phase 5d (2026-05-17): swap scoring, AI prompt assembly, and wear-context
 // preprocessing all live in shared modules now. The orchestrator delegates
@@ -73,15 +72,6 @@ import { aiRefine } from "../_shared/outfit-ai-prompts.ts";
 import { buildWearContext } from "../_shared/wear-context.ts";
 
 const log = logger("burs_style_engine");
-
-function createRequestId(): string {
-  try {
-    return crypto.randomUUID();
-  } catch (err) {
-    captureError("burs_style_engine.request_id_uuid_failed", err);
-    return `burs-style-engine-${Date.now()}`;
-  }
-}
 
 function normalizeIdList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -163,7 +153,10 @@ serve(async (req) => {
     // Honor inbound `x-request-id` from mobile so the full
     // generate-flow trace correlates with the caller's log line.
     // Falls back to a fresh uuid for cron / internal hops.
-    const requestId = getOrCreateRequestId(req) || createRequestId();
+    // `getOrCreateRequestId` now always returns a validated UUID
+    // (header-supplied or freshly minted), so no second fallback is
+    // needed — see Codex round 1 P2 (UUID validation in request-id.ts).
+    const requestId = getOrCreateRequestId(req);
     // Shadow the module-level logger with one bound to this request — every
     // `log.info(...)` / `log.warn(...)` / `log.exception(...)` below carries
     // the same `request_id` for end-to-end correlation.
