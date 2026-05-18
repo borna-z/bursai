@@ -181,15 +181,25 @@ export function GarmentDetailScreen() {
   // render_jobs row and invalidates the garment cache on completion.
   const retryRender = useRetryGarmentRender();
   const retryRenderInFlightRef = React.useRef(false);
+  // Release the synchronous in-flight lock only when either:
+  //   - the worker has claimed the job (render_status becomes active — the
+  //     visibility check below hides the button anyway, so clearing here is
+  //     safe and doesn't open a double-tap window), OR
+  //   - the mutation errored (the button stays visible — user may retry).
+  // Clearing in `onSettled` (the prior shape) raced the cache-invalidation
+  // refetch: enqueue could return before useGarment refetched render_status,
+  // briefly re-enabling the button while the screen still showed idle state
+  // and allowing a duplicate credit consumption. (Codex P1 round 2 on PR #900.)
+  React.useEffect(() => {
+    if (isStudioRendering || retryRender.isError) {
+      retryRenderInFlightRef.current = false;
+    }
+  }, [isStudioRendering, retryRender.isError]);
   const handleRetryRender = React.useCallback(() => {
     if (retryRenderInFlightRef.current || !garment) return;
     retryRenderInFlightRef.current = true;
     hapticLight();
-    retryRender.mutate(garment.id, {
-      onSettled: () => {
-        retryRenderInFlightRef.current = false;
-      },
-    });
+    retryRender.mutate(garment.id);
   }, [garment, retryRender]);
 
   // M21 — paywall sticky-ref. Routes to PaywallScreen once per screen
