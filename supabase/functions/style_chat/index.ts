@@ -2053,6 +2053,28 @@ ${refinementContract}${lockedSlotsInfo}${emptyWardrobeHint}`;
       clear_active_look: classifierResult.clear_active_look,
     };
 
+    // Empty-envelope guard. When the AI emits an outfit token whose IDs
+    // fail `isCompleteStyleChatOutfitIds()` validation (missing slot
+    // combo, unknown garment id, duplicate slot), the normalizer strips
+    // the token from the prose and leaves `assistant_text` empty AND
+    // `renderOutfitCard` evaluates false (because `outfitIds` zeroed
+    // out). Combined with empty `garment_mentions`, the mobile bubble
+    // at `mobile/src/screens/StyleChatScreen.messageItem.tsx:237-291`
+    // renders an invisible `<View>` — the user scrolls past nothing.
+    // Backfill a localized fallback so the failure surfaces instead of
+    // silently producing a blank chat row. Mirrors the pre-normalization
+    // empty-text fallback at lines 1898-1901 above.
+    if (
+      envelope.assistant_text.trim() === "" &&
+      envelope.outfit_ids.length === 0 &&
+      (envelope.garment_mentions ?? []).length === 0
+    ) {
+      envelope.assistant_text = locale === "sv"
+        ? "Jag kunde inte sätta ihop en komplett outfit ur din garderob. Försök igen eller berätta lite mer om tillfället."
+        : "I couldn't put together a complete outfit from your wardrobe. Try again or tell me more about the occasion.";
+      envelope.degraded_reason = envelope.degraded_reason ?? "empty_response_blocked";
+    }
+
     log.info("request.complete", {
       requestId,
       userId: user.id,
