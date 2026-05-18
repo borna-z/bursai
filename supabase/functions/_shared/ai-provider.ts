@@ -49,12 +49,26 @@ export interface AIProviderOptions {
   max_tokens?: number;
   /** Per-attempt Gemini timeout (forwarded to callBursAI.timeout). */
   timeout?: number;
+  /** Anthropic per-call timeout. Independent of `timeout` (which targets
+   * Gemini). Default 25000ms — Anthropic is sometimes slower than Gemini
+   * on cold paths, and the fallback should not inherit Gemini's tighter
+   * per-attempt budget. */
+  anthropicTimeoutMs?: number;
   /** Function name for observability & ai_call_log.function_name. */
   functionName: string;
   messages: Array<{ role: "system" | "user" | "assistant"; content: any }>;
   extraBody?: Record<string, any>;
   responseFormat?: BursAIOptions["responseFormat"];
   cachedContent?: string;
+  /**
+   * System prompt to send to Anthropic on fallback. Required when the
+   * Gemini call uses `cachedContent` (the system prompt lives in Gemini's
+   * cache and is NOT in `messages`); without this, Anthropic gets an empty
+   * system prompt and produces unprompted output. When `messages` already
+   * contains a `role: 'system'` entry, that takes precedence and this
+   * field is appended after it.
+   */
+  systemForFallback?: string;
   /** When false, primary failures throw (no Anthropic fallback). Default true. */
   fallbackEnabled?: boolean;
   /** Race timeout against the primary before falling back. Default 8000ms. */
@@ -75,13 +89,32 @@ export interface AIProviderResponse {
 
 // ─── Internal helpers ─────────────────────────────────────────
 function shouldFallback(err: unknown): boolean {
-  if (err instanceof AIQuotaExceededError) return true;
+  // Do NOT fall back on BURS-level quota exhaustion. Routing past the rate
+  // limiter to Anthropic would make the limiter effectively optional —
+  // users could trigger fallback by hitting their cap. Codex P1 on PR #893.
+  if (err instanceof AIQuotaExceededError) return false;
+  // Don't fall back on Stripe credit exhaustion either (402 from callBursAI).
+  if (err instanceof BursAIError && err.status === 402) return false;
   if (err instanceof BursAIError) {
     return err.status === 429 || (err.status >= 500 && err.status <= 504);
   }
-  // Race timer message (see callPrimaryWithTimeout below).
-  if (err instanceof Error && err.message === "ai_provider_primary_timeout") {
-    return true;
+  // Race timer (see callPrimaryWithTimeout below).
+  if (err instanceof PrimaryTimeoutError) return true;
+  // Network / fetch errors come back as TypeError with messages like
+  // 'fetch failed' / 'ECONNRESET' / 'network request failed'. Treat them as
+  // retryable via fallback — Gemini being unreachable is exactly the case
+  // Anthropic is supposed to cover. Codex (would-have-flagged) on PR #893.
+  if (err instanceof TypeError) {
+    const msg = (err.message ?? "").toLowerCase();
+    if (
+      msg.includes("fetch failed") ||
+      msg.includes("network") ||
+      msg.includes("econnreset") ||
+      msg.includes("etimedout") ||
+      msg.includes("socket")
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -98,6 +131,17 @@ async function callPrimaryWithTimeout(
   supabaseServiceClient: any,
   timeoutMs: number,
 ): Promise<Awaited<ReturnType<typeof callBursAI>>> {
+  // Promise.race leak note (Codex P2 on PR #893): when the timer wins, the
+  // underlying callBursAI fetch keeps running in the background — BursAIOptions
+  // does not currently expose an external AbortSignal, so we can't cancel
+  // it without modifying burs-ai.ts (out of scope for this PR). The leaked
+  // call's effects are bounded and benign: it has its own 30s internal
+  // timeout via callBursAI's own AbortController, doesn't block the user
+  // (we've already returned via Anthropic), and its side effects
+  // (ai_token_usage row, optional ai_response_cache write) are user-keyed
+  // and accurate — tokens were genuinely spent on Gemini's side regardless
+  // of whether the user saw the response. Tracked for post-launch: thread
+  // an external signal through BursAIOptions so the leak goes away.
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -234,7 +278,16 @@ async function callAnthropic(
   options: AIProviderOptions,
   apiKey: string,
 ): Promise<{ data: any; inputTokens: number; outputTokens: number }> {
-  const { system, messages } = convertMessagesForAnthropic(options.messages);
+  const { system: systemFromMessages, messages } = convertMessagesForAnthropic(options.messages);
+
+  // When the primary used Gemini cachedContent, the system prompt was
+  // resolved from Gemini's cache and is NOT present in `options.messages`.
+  // Callers pass it explicitly via `systemForFallback` for that case;
+  // otherwise the fallback talks to Anthropic with an empty system prompt
+  // and produces wrong-shape output. Codex P1 on PR #893.
+  const composedSystem = [systemFromMessages, options.systemForFallback ?? ""]
+    .filter((s) => s && s.length > 0)
+    .join("\n\n");
 
   // Encourage JSON-shaped output when the original call asked for a schema —
   // Anthropic doesn't honor Gemini's `response_format`, so we append a
@@ -242,8 +295,8 @@ async function callAnthropic(
   // they parse Gemini's string content (`JSON.parse(data)`).
   const schema = options.responseFormat?.json_schema?.schema;
   const systemWithJsonHint = schema
-    ? `${system}\n\nRespond with valid JSON only — no prose, no markdown fences — matching this JSON Schema: ${JSON.stringify(schema)}`
-    : system;
+    ? `${composedSystem}\n\nRespond with valid JSON only — no prose, no markdown fences — matching this JSON Schema: ${JSON.stringify(schema)}`
+    : composedSystem;
 
   const body: Record<string, unknown> = {
     model: ANTHROPIC_MODEL,
@@ -257,8 +310,10 @@ async function callAnthropic(
     body.temperature = options.extraBody.temperature;
   }
 
+  // Anthropic timeout is separate from `options.timeout` (which targets
+  // Gemini's per-attempt budget — often tight). Codex P2 on PR #893.
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeout ?? 30000);
+  const timer = setTimeout(() => controller.abort(), options.anthropicTimeoutMs ?? 25000);
   let resp: Response;
   try {
     resp = await fetch(ANTHROPIC_API_URL, {

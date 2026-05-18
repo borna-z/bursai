@@ -505,6 +505,11 @@ serve(async (req) => {
           responseFormat: ENRICH_SCHEMA,
           ...(cacheName ? { cachedContent: cacheName } : {}),
           fallbackEnabled: true,
+          // When Gemini cachedContent is in use, the system prompt lives in
+          // Gemini's cache and is NOT in `messages`. callAI needs it
+          // explicitly for the Anthropic fallback path or the fallback
+          // would produce wrong-shape enrichment output. Codex P1 on PR #893.
+          systemForFallback: ENRICH_SYSTEM_PROMPT,
           userId,
         }, serviceClient);
 
