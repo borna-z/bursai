@@ -287,9 +287,26 @@ function mirrorErrorToDb(
   errMessage: string,
   tags: Record<string, string>,
 ): void {
+  // Resolve function_name from (in order):
+  //   1. explicit tag keys callers pass: fn_name / functionName / fn
+  //   2. the event-string prefix before the first `.` — every captureError
+  //      site in the codebase uses the convention `"<fn_name>.<sub_event>"`
+  //      (e.g. `"style_chat.clarifier_call_failed"`,
+  //       `"analyze_garment.base64_decode_failed"`). Without this fallback,
+  //      `edge_function_errors.function_name` stores the full event string
+  //      and alert_check's exact-match `.in("function_name", ["style_chat", ...])`
+  //      filter never matches — making the AI error-rate rule blind.
+  //   3. last resort: the raw event string.
+  const fnTag = (tags.fn_name && tags.fn_name !== "unknown" && tags.fn_name)
+    || (tags.functionName && tags.functionName !== "unknown" && tags.functionName)
+    || (tags.fn && tags.fn !== "unknown" && tags.fn)
+    || null;
+  const eventPrefix = event.includes(".") ? event.split(".", 1)[0] : null;
+  const resolvedFn = fnTag ?? eventPrefix ?? event;
+
   // Build the row.
   const row: Record<string, unknown> = {
-    function_name: tags.fn_name && tags.fn_name !== "unknown" ? tags.fn_name : event,
+    function_name: resolvedFn,
     error_class: tags.error_class && tags.error_class !== "unknown"
       ? tags.error_class
       : event,

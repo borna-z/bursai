@@ -15,12 +15,16 @@
  * The 6 rules:
  *   1. negative_balance      — any render_credits row with a negative balance
  *   2. orphan_render_jobs    — > 5 pending jobs older than 10 min
- *   3. stripe_webhook_errors — >= 5% non-2xx on request_idempotency keys
- *                              prefixed `stripe_` in the last 5 min
+ *   3. stripe_webhook_errors — >= 5% rows in `stripe_events` with
+ *                              processed_ok=false AND error is not null,
+ *                              processed in the last 5 min (the table
+ *                              stripe_webhook actually writes to)
  *   4. ai_error_rate         — >= 20% AI function errors vs ai_rate_limits
  *                              calls, min volume 10, last 5 min
- *   5. start_trial_failures  — >= 2% start_trial errors vs request_idempotency
- *                              start_trial_ keys, min 5, last 5 min
+ *   5. start_trial_failures  — >= 2% start_trial errors vs new profiles
+ *                              created in the last 5 min (proxy for
+ *                              start_trial attempts — AuthContext fires
+ *                              start_trial on every signup); min 5 signups
  *   6. signup_drop_to_zero   — 0 signups this hour AND >0 signups prev hour
  */
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
@@ -247,11 +251,26 @@ async function rule3StripeWebhookFailures(
   };
   const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
+  // Codex PR #891 round 2 P1: query the table `stripe_webhook` actually
+  // writes to. The earlier draft used `request_idempotency` with key prefix
+  // `stripe_%`, but stripe_webhook does NOT use request_idempotency — it
+  // writes events into `public.stripe_events` and updates `processed_ok`
+  // (boolean) + `error` (text) once processing completes. See
+  // supabase/functions/stripe_webhook/index.ts:87-99 (upsert) and lines
+  // 253-261 (update with processed_ok / error). With the old source, total
+  // stayed 0 and the rule never alerted on a Stripe webhook outage.
+  //
+  // We use `processed_at > cutoff` (not `created_at`) because the row is
+  // INSERTed with `processed_at = now()` at receipt and then UPDATEd with
+  // the final `processed_at` at completion — either way the timestamp
+  // tracks the last touch within our 5-min window. Failures are rows where
+  // `processed_ok = false` AND `error IS NOT NULL` (signature-verification
+  // failures don't reach the insert path; only post-insert processing
+  // failures do).
   const { count: total, error: totalErr } = await supabase
-    .from("request_idempotency")
-    .select("key", { count: "exact", head: true })
-    .gt("created_at", cutoff)
-    .like("key", "stripe_%");
+    .from("stripe_events")
+    .select("id", { count: "exact", head: true })
+    .gt("processed_at", cutoff);
   if (totalErr) {
     r.error = totalErr.message;
     return r;
@@ -259,11 +278,11 @@ async function rule3StripeWebhookFailures(
   if (!total || total === 0) return r;
 
   const { count: errs, error: errsErr } = await supabase
-    .from("request_idempotency")
-    .select("key", { count: "exact", head: true })
-    .gt("created_at", cutoff)
-    .like("key", "stripe_%")
-    .gte("status", 400);
+    .from("stripe_events")
+    .select("id", { count: "exact", head: true })
+    .gt("processed_at", cutoff)
+    .eq("processed_ok", false)
+    .not("error", "is", null);
   if (errsErr) {
     r.error = errsErr.message;
     return r;
@@ -337,11 +356,22 @@ async function rule5StartTrialFailures(
   };
   const cutoffISO = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
+  // Codex PR #891 round 2 P1: the earlier draft counted attempts from
+  // `request_idempotency` with key prefix `start_trial_%`. That table only
+  // populates when the client passes `x-idempotency-key`, and AuthContext
+  // (the only caller of start_trial) does NOT pass that header (per the
+  // comment in start_trial/index.ts:166-169). So the denominator was
+  // always 0 and the rule never alerted.
+  //
+  // Replacement source: `profiles.created_at` in the last 5 min. The
+  // `handle_new_user` AFTER INSERT trigger creates a profile row for every
+  // auth.users insert (email + OAuth + magic link), and AuthContext fires
+  // start_trial fire-and-forget on the resulting SIGNED_IN — so the count
+  // of new profiles is a faithful proxy for start_trial attempts.
   const { count: total, error: totalErr } = await supabase
-    .from("request_idempotency")
-    .select("key", { count: "exact", head: true })
-    .gt("created_at", cutoffISO)
-    .like("key", "start_trial_%");
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .gt("created_at", cutoffISO);
   if (totalErr) {
     r.error = totalErr.message;
     return r;
@@ -363,7 +393,7 @@ async function rule5StartTrialFailures(
   if (rate >= 0.02) {
     r._shouldFire = true;
     r.metric = `${errN}/${totalN} (${(rate * 100).toFixed(1)}%)`;
-    r.description = `start_trial error rate is ${(rate * 100).toFixed(1)}% over the last 5 min (threshold 2%, min 5 attempts).`;
+    r.description = `start_trial error rate is ${(rate * 100).toFixed(1)}% over the last 5 min (threshold 2%, min 5 signups).`;
   }
   return r;
 }
