@@ -205,10 +205,16 @@ export function GarmentDetailScreen() {
     if (isStudioRendering) {
       retryRenderInFlightRef.current = false;
       retryRenderNonceRef.current = null;
-    } else if (retryRender.isError) {
+    } else if (retryRender.isError || retryRender.isSuccess) {
+      // isSuccess path covers terminal-replay: tap-1 reached the server,
+      // server reached terminal state, client saw a transport error. Tap-2
+      // reuses the nonce, server returns the replayed terminal row without
+      // moving render_status back to `pending`. isStudioRendering never
+      // ticks true and the lock would otherwise stay stuck forever.
+      // (Codex P2 on PR #900.)
       retryRenderInFlightRef.current = false;
     }
-  }, [isStudioRendering, retryRender.isError]);
+  }, [isStudioRendering, retryRender.isError, retryRender.isSuccess]);
   const handleRetryRender = React.useCallback(() => {
     if (retryRenderInFlightRef.current || !garment) return;
     retryRenderInFlightRef.current = true;
