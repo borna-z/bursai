@@ -62,18 +62,35 @@ const CHUNK_SIZE = 80;
 
 async function callEdge(envUrl, secret, payload) {
   const url = `${envUrl}/functions/v1/translate_locale`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-translate-secret': secret,
-    },
-    body: JSON.stringify(payload),
-  });
-  const text = await res.text();
-  let body;
-  try { body = JSON.parse(text); } catch { body = { error: 'non-json response', raw: text }; }
-  return { status: res.status, body };
+  // Retry on transport-level errors (ECONNRESET, ETIMEDOUT, etc.). HTTP
+  // status errors (502, 413, …) flow through to the caller; only thrown
+  // failures hit this retry loop. 3 attempts with linear 2s backoff.
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-translate-secret': secret,
+        },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      let body;
+      try { body = JSON.parse(text); } catch { body = { error: 'non-json response', raw: text }; }
+      return { status: res.status, body };
+    } catch (err) {
+      lastErr = err;
+      const backoffMs = 2000 * (attempt + 1);
+      console.log(`    fetch failed (attempt ${attempt + 1}/3): ${err?.cause?.code || err?.code || err?.message || err}; retrying in ${backoffMs}ms`);
+      await new Promise((r) => setTimeout(r, backoffMs));
+    }
+  }
+  // Exhausted retries — return a synthetic 599 so the split-retry layer
+  // sees it as a transient and splits the chunk further (eventually
+  // falling back to English passthrough at min chunk size).
+  return { status: 599, body: { error: `fetch failed after retries: ${lastErr?.cause?.code || lastErr?.message || lastErr}` } };
 }
 
 export function renderLocaleFile(locale, dict, opts = {}) {
@@ -104,6 +121,48 @@ export const ${locale}: Record<string, string> = {
   return header + lines.join('\n') + '\n};\n';
 }
 
+/**
+ * Translate one chunk. On 502 (typically Gemini truncation on long-string
+ * locales like ar/fa), recursively splits the chunk into halves and retries.
+ * Stops splitting at MIN_CHUNK_SIZE — any chunk still failing at that size
+ * fills its keys with English passthrough so the locale completes instead
+ * of crashing the whole orchestrator run.
+ */
+const MIN_CHUNK_SIZE = 10;
+async function translateChunkWithSplit({
+  targetLocale, chunk, sv, envUrl, secret, edgeCall, log, depth = 0, chunkLabel,
+}) {
+  const svRef = {};
+  for (const k of Object.keys(chunk)) if (sv[k] !== undefined) svRef[k] = sv[k];
+  const { status, body } = await edgeCall(envUrl, secret, {
+    target_locale: targetLocale,
+    source_keys: chunk,
+    sv_reference: svRef,
+    chunk_index: 0,
+    total_chunks: 1,
+  });
+  if (status === 200) {
+    return { translations: body.translations || {}, missing: body.missing_keys || [] };
+  }
+  const keys = Object.keys(chunk);
+  if (keys.length <= MIN_CHUNK_SIZE) {
+    log(`  ${' '.repeat(depth * 2)}[${targetLocale}] ${chunkLabel} (${keys.length} keys) failed at min split — falling back to en for these keys: HTTP ${status}`);
+    const passthrough = {};
+    for (const k of keys) passthrough[k] = chunk[k];
+    return { translations: passthrough, missing: keys };
+  }
+  const half = Math.ceil(keys.length / 2);
+  const left = {}; const right = {};
+  for (let i = 0; i < keys.length; i++) (i < half ? left : right)[keys[i]] = chunk[keys[i]];
+  log(`  ${' '.repeat(depth * 2)}[${targetLocale}] ${chunkLabel} split: ${keys.length} → ${half} + ${keys.length - half} (HTTP ${status})`);
+  const a = await translateChunkWithSplit({ targetLocale, chunk: left, sv, envUrl, secret, edgeCall, log, depth: depth + 1, chunkLabel: chunkLabel + '.L' });
+  const b = await translateChunkWithSplit({ targetLocale, chunk: right, sv, envUrl, secret, edgeCall, log, depth: depth + 1, chunkLabel: chunkLabel + '.R' });
+  return {
+    translations: { ...a.translations, ...b.translations },
+    missing: [...a.missing, ...b.missing],
+  };
+}
+
 export async function translateOneLocale({
   targetLocale,
   source,
@@ -118,21 +177,20 @@ export async function translateOneLocale({
   const allMissing = [];
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const svRef = {};
-    for (const k of Object.keys(chunk)) if (sv[k] !== undefined) svRef[k] = sv[k];
     log(`  [${targetLocale}] chunk ${i + 1}/${chunks.length} (${Object.keys(chunk).length} keys)`);
-    const { status, body } = await edgeCall(envUrl, secret, {
-      target_locale: targetLocale,
-      source_keys: chunk,
-      sv_reference: svRef,
-      chunk_index: i,
-      total_chunks: chunks.length,
+    const { translations, missing } = await translateChunkWithSplit({
+      targetLocale, chunk, sv, envUrl, secret, edgeCall, log,
+      chunkLabel: `chunk ${i + 1}/${chunks.length}`,
     });
-    if (status !== 200) {
-      throw new Error(`[${targetLocale}] chunk ${i}: HTTP ${status} ${JSON.stringify(body).slice(0, 200)}`);
-    }
-    for (const k of Object.keys(body.translations || {})) merged[k] = body.translations[k];
-    if (Array.isArray(body.missing_keys)) allMissing.push(...body.missing_keys);
+    for (const k of Object.keys(translations)) merged[k] = translations[k];
+    allMissing.push(...missing);
+  }
+  // Backfill any source key the model dropped (returned in missing_keys or
+  // simply absent) with the English passthrough. Without this, the renderer
+  // emits a smaller file than en.ts and the i18n-diff CI gate flags drift.
+  // Empty-string values trigger this path most often: Gemini skips them.
+  for (const k of Object.keys(source)) {
+    if (!(k in merged)) merged[k] = source[k];
   }
   return { translations: merged, missing: allMissing };
 }
