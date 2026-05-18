@@ -238,6 +238,16 @@ export const MessageItem = React.memo(
       <View
         style={{
           alignSelf: isUser ? 'flex-end' : 'flex-start',
+          // Bubble shrinks to text content by default (chat-bubble aesthetic),
+          // but attached structured children (outfit card, shopping cards,
+          // inline garment chips) use `flex: 1` tiles that collapse to 0 width
+          // when the parent is content-sized. Force the bubble to 92% width
+          // when any of those children render so the cards get the cross-axis
+          // dimension they need.
+          width:
+            !isUser && (showOutfitCard || shoppingCards || inlineGarmentIds.length > 0)
+              ? '92%'
+              : undefined,
           maxWidth: '92%',
           gap: 8,
         }}>

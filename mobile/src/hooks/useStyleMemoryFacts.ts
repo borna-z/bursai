@@ -3,12 +3,20 @@
 //
 // Two sources are merged into a single chip-friendly list:
 //
-//   1. `user_style_summaries.summary_json` — the rolling daily-built blob
-//      that captures the user's current preferences. We surface three
-//      documented top-level paths (each optional, defaults to `[]`):
-//        - `style_keywords: string[]`   → reject_outfit-style chips
-//        - `palette: string[]`          → reject_outfit-style chips
-//        - `disliked_garments: { id, title }[]` → never_suggest chips
+//   1. `user_style_summaries.summary_json` — the rolling builder blob
+//      (`supabase/functions/_shared/summary-builder.ts`). Each entry in
+//      the value-arrays is `{value: string, confidence: number}`; the
+//      builder ranks by confidence and we surface the top items as
+//      chips. Documented paths (each optional, defaults to `[]`):
+//        - `style_archetypes: {value, confidence}[]`     → archetype chips
+//        - `preferred_colors: {value, confidence}[]`     → color chips
+//        - `preferred_fits: {value, confidence}[]`       → fit chips
+//        - `frequent_occasions: {value, confidence}[]`   → occasion chips
+//        - `never_suggest_garments: { id, title }[]`     → never_suggest chips
+//      Note: pre-2026-05 the hook read `style_keywords / palette /
+//      disliked_garments` which never existed in the persisted shape, so
+//      the panel always rendered as "still learning". Aligning the keys
+//      surfaces the data the summary builder has been writing all along.
 //
 //   2. `feedback_signals` rows of type `never_suggest_garment` — the
 //      live, user-confirmed "never suggest this piece" surface. We
@@ -53,16 +61,27 @@ interface FeedbackSignalRow {
   id: string;
   signal_type: string;
   garment_id: string | null;
-  feedback_text: string | null;
   created_at: string;
 }
 
 const MAX_FACTS = 12;
 const FEEDBACK_LIMIT = 8;
 
-function coerceStringArray(value: unknown): string[] {
+// Coerce a builder value-array (`[{value, confidence}, ...]`) into a list
+// of display strings, dropping malformed entries and the placeholder
+// `"null"` literal the builder emits when a category has no signal.
+function coerceValueObjects(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+  const out: string[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue;
+    const v = (entry as { value?: unknown }).value;
+    if (typeof v !== 'string') continue;
+    const trimmed = v.trim();
+    if (!trimmed || trimmed === 'null') continue;
+    out.push(trimmed);
+  }
+  return out;
 }
 
 interface DislikedGarment {
@@ -91,26 +110,52 @@ function factsFromSummary(summary: SummaryRow | null): StyleMemoryFact[] {
   }
   const json = summary.summary_json as Record<string, unknown>;
 
-  const keywords = coerceStringArray(json.style_keywords);
-  const palette = coerceStringArray(json.palette);
-  const disliked = coerceDislikedGarments(json.disliked_garments);
+  // Frequent occasions are stored as `mood:<name>` slugs — surface just
+  // the human-readable suffix so the chip reads "creative" not
+  // "mood:creative".
+  const stripMoodPrefix = (s: string) =>
+    s.startsWith('mood:') ? s.slice(5) : s;
+
+  const archetypes = coerceValueObjects(json.style_archetypes);
+  const colors = coerceValueObjects(json.preferred_colors);
+  const fits = coerceValueObjects(json.preferred_fits);
+  const occasions = coerceValueObjects(json.frequent_occasions).map(stripMoodPrefix);
+  const disliked = coerceDislikedGarments(json.never_suggest_garments);
 
   const out: StyleMemoryFact[] = [];
   let idx = 0;
 
-  for (const kw of keywords) {
+  for (const value of archetypes) {
     out.push({
-      id: `summary:reject_outfit:${idx}-${kw}`,
-      label: kw,
+      id: `summary:archetype:${idx}-${value}`,
+      label: value,
       signalKind: 'reject_outfit',
       source: 'summary_json',
     });
     idx += 1;
   }
-  for (const color of palette) {
+  for (const value of colors) {
     out.push({
-      id: `summary:reject_outfit:${idx}-${color}`,
-      label: color,
+      id: `summary:color:${idx}-${value}`,
+      label: value,
+      signalKind: 'reject_outfit',
+      source: 'summary_json',
+    });
+    idx += 1;
+  }
+  for (const value of fits) {
+    out.push({
+      id: `summary:fit:${idx}-${value}`,
+      label: value,
+      signalKind: 'reject_outfit',
+      source: 'summary_json',
+    });
+    idx += 1;
+  }
+  for (const value of occasions) {
+    out.push({
+      id: `summary:occasion:${idx}-${value}`,
+      label: value,
       signalKind: 'reject_outfit',
       source: 'summary_json',
     });
@@ -156,7 +201,7 @@ export function useStyleMemoryFacts(): {
       //    dedup pass below keeps the user's most recent declaration.
       const { data: signalsData, error: signalsError } = await supabase
         .from('feedback_signals')
-        .select('id, signal_type, garment_id, feedback_text, created_at')
+        .select('id, signal_type, garment_id, created_at')
         .eq('user_id', user.id)
         .eq('signal_type', 'never_suggest_garment')
         .order('created_at', { ascending: false })
