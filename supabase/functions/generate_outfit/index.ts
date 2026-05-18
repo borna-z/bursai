@@ -67,6 +67,10 @@ serve(async (req) => {
         generator_mode: body.mode === "stylist" ? "stylist" : "standard",
         occasion: body.occasion,
         style: body.style,
+        // Client-picked formality label (StyleMe 6-level ladder). When set,
+        // it overrides the engine's profile-derived occasion sub-mode so
+        // the AI prompt reflects what the user actually picked.
+        formality: typeof body.formality === "string" && body.formality.length > 0 ? body.formality : undefined,
         weather: body.weather,
         locale: body.locale,
         event_title: body.event_title,
