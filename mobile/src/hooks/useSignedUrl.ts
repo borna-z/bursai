@@ -46,6 +46,7 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { rewriteSignedUrlForCDN } from '../lib/cdn';
 import { supabase } from '../lib/supabase';
 import { Sentry } from '../lib/sentry';
 import {
@@ -165,9 +166,13 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
         if (url) {
           const pathStillValid = isPathStillValid(p, startedAtPathGens);
           if (sessionStillValid && pathStillValid) {
-            commitBulkCacheEntry(p, url, expiresAt);
+            out[p] = commitBulkCacheEntry(p, url, expiresAt);
+          } else {
+            // Skipped the cache write (session/path bust) but the consumer
+            // still needs the same CDN-rewritten URL so the network image
+            // request hits Cloudflare like every other read in this session.
+            out[p] = rewriteSignedUrlForCDN(url);
           }
-          out[p] = url;
         } else {
           out[p] = null;
         }

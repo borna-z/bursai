@@ -5,6 +5,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 
+import { rewriteSignedUrlForCDN } from '../lib/cdn';
 import { supabase } from '../lib/supabase';
 import { Sentry } from '../lib/sentry';
 
@@ -341,11 +342,12 @@ export async function fetchAndCacheSignedUrl(path: string): Promise<string | nul
       // implicit cancellation, not a transport failure.
       return null;
     }
+    const cdnUrl = rewriteSignedUrlForCDN(data.signedUrl);
     setCacheEntry(key, {
-      url: data.signedUrl,
+      url: cdnUrl,
       expiresAt: Date.now() + TTL_MS,
     });
-    return data.signedUrl;
+    return cdnUrl;
   })();
 
   // The synchronous `inflight.set(key, promise)` below is guaranteed to
@@ -441,6 +443,12 @@ export function isPathStillValid(
   return pathGenerationFor(cacheKey(BUCKET, path)) === startedAtPathGens.get(path);
 }
 
-export function commitBulkCacheEntry(path: string, url: string, expiresAt: number): void {
-  setCacheEntry(cacheKey(BUCKET, path), { url, expiresAt });
+// Returns the CDN-rewritten URL that was actually written into the cache so
+// the bulk caller can hand the same value back to consumers (otherwise the
+// returned record would carry the raw Supabase host while the cache served
+// the CDN host on the next read).
+export function commitBulkCacheEntry(path: string, url: string, expiresAt: number): string {
+  const cdnUrl = rewriteSignedUrlForCDN(url);
+  setCacheEntry(cacheKey(BUCKET, path), { url: cdnUrl, expiresAt });
+  return cdnUrl;
 }
