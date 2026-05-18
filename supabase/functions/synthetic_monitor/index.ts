@@ -126,7 +126,10 @@ serve(async (req) => {
   }
 
   const runId = crypto.randomUUID();
-  const syntheticEmail = `synthetic+${runId}@burs.app`;
+  // RFC 2606 reserves `.invalid` TLD as guaranteed-unroutable — picks the
+  // safer domain in case Supabase ever fires an out-of-band email for these
+  // users (we don't own burs.app and burs.me is the production domain).
+  const syntheticEmail = `synthetic+${runId}@synthetic.invalid`;
   // 32-char random hex — exceeds Supabase's 6-char min and won't collide.
   const syntheticPassword = crypto.randomUUID().replace(/-/g, "") +
     crypto.randomUUID().replace(/-/g, "");

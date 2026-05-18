@@ -57,6 +57,18 @@ GRANT ALL ON TABLE public.synthetic_failures TO service_role;
 -- Bearer + base URL come from vault.secrets (NOT custom GUCs — per
 -- CLAUDE.md, any authenticated user can read GUCs). Both secrets already
 -- exist on the project (render_worker_bearer, functions_base_url).
+
+-- Idempotent: unschedule first so re-apply against a DB that already has
+-- the job doesn't raise "job already exists". Matches the pattern used by
+-- 20260511153200_n15_cleanup_old_rate_limits.sql.
+DO $$
+BEGIN
+  PERFORM cron.unschedule('synthetic_happy_path');
+EXCEPTION WHEN OTHERS THEN
+  -- Job did not exist — fine.
+  NULL;
+END $$;
+
 SELECT cron.schedule(
   'synthetic_happy_path',
   '*/15 * * * *',
