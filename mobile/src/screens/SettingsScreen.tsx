@@ -189,20 +189,25 @@ export function SettingsScreen() {
         </View>
 
         {/* ============ SUBSCRIPTION CARD ============ */}
-        {/* Real entitlement state from `useSubscription`. Three renders:
-            (1) locked — "Free plan" + Upgrade CTA pushing the Paywall;
-            (2) trialing — "Trial active" + ISO end date when the row
-                carries one;
-            (3) premium — "Premium · Monthly/Annual" + renewal date.
+        {/* Real entitlement state from `useSubscription`. Branches off
+            the RAW `subscription.status` (not the gating-derived
+            `isTrialing` / `isLocked`) — Codex P2 PR #885 round 3.
+            `useSubscription` overrides `state` to `trialing` during the
+            24 h onboarding boost so feature gating is permissive, but
+            for display we want the user's real subscription posture:
+              (1) status === 'active'  → "Premium · plan" + renewal
+              (2) status === 'trialing' → "Trial active" + end date
+              (3) anything else (incl. null / 'cancelled' / boost user
+                  with no row) → "Free plan" + Upgrade CTA.
             When the query errors we hide the card entirely instead of
-            falling through to the `locked` branch (Codex P2 PR #885
-            round 2). Showing "Free plan + Upgrade" to a premium user on
-            a transient Supabase blip would misrepresent their state. */}
+            misrepresenting paid state on a transient Supabase blip
+            (Codex P2 PR #885 round 2). */}
         {subscription.error ? null : !subscription.isLoading ? (
           <View style={{ gap: 8 }}>
             <Eyebrow>{tr('settings.subscription.eyebrow')}</Eyebrow>
             <Card>
-              {subscription.isLocked ? (
+              {subscription.status !== 'trialing' &&
+              subscription.status !== 'active' ? (
                 <View style={{ gap: 12 }}>
                   <Text
                     style={{
@@ -222,7 +227,7 @@ export function SettingsScreen() {
                     }}
                   />
                 </View>
-              ) : subscription.isTrialing ? (
+              ) : subscription.status === 'trialing' ? (
                 <View style={{ gap: 6 }}>
                   <Text
                     style={{
