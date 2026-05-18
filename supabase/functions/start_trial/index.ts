@@ -83,6 +83,7 @@ import { getStripeConfig } from "../_shared/stripe-config.ts";
 import { checkIdempotency, storeIdempotencyResult } from "../_shared/idempotency.ts";
 import { logger } from "../_shared/logger.ts";
 import { getOrCreateRequestId } from "../_shared/request-id.ts";
+import { captureError } from "../_shared/observability.ts";
 
 const TRIAL_DAYS = 3;
 
@@ -231,6 +232,7 @@ serve(async (req) => {
       // a stale 503.
       slog.error("subscriptions pre-check failed (failing closed)", { error: existingError.message });
       recordError("start_trial");
+      captureError("start_trial.precheck_failed", existingError);
       return new Response(
         JSON.stringify({
           ok: false,
@@ -301,6 +303,7 @@ serve(async (req) => {
       // re-fires next SIGNED_IN.
       slog.error("auth.admin.getUserById failed (failing closed)", { error: freshUserError?.message });
       recordError("start_trial");
+      captureError("start_trial.user_lookup_failed", freshUserError ?? new Error("user not found"));
       return new Response(
         JSON.stringify({
           ok: false,
@@ -443,6 +446,7 @@ serve(async (req) => {
       // profiles.stripe_customer_id is also skipped — same recovery path.
       slog.error("subscriptions upsert failed (Stripe ahead of DB)", { error: upsertError.message });
       recordError("start_trial");
+      captureError("start_trial.db_upsert_failed", upsertError);
       return new Response(
         JSON.stringify({
           ok: false,
@@ -543,6 +547,15 @@ serve(async (req) => {
 
     recordError("start_trial");
     slog.error("unexpected error", { errorMessage, errorType });
+    // captureError mirrors to edge_function_errors so alert_check rule 5
+    // (start_trial_failures) can see this in its 5-min window.
+    captureError(
+      typeof errorType === "string" && errorType.startsWith("Stripe")
+        ? "start_trial.stripe_error"
+        : "start_trial.unexpected_error",
+      err,
+      { fn_name: "start_trial", errorType: errorType ?? "unknown" },
+    );
 
     // Stripe API failures (rate-limited, idempotency-key-conflict, etc.)
     // surface as 502 so the client can distinguish them from our own infra

@@ -10,7 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { setMonthlyAllowance } from "../_shared/render-credits.ts";
 import { PREMIUM_MONTHLY_ALLOWANCE } from "../_shared/revenuecat-constants.ts";
-import { makeLogStep } from "../_shared/observability.ts";
+import { captureError, makeLogStep } from "../_shared/observability.ts";
 import {
   getStripeConfig as getSharedStripeConfig,
   type StripeWebhookConfig,
@@ -248,6 +248,15 @@ serve(async (req) => {
     } catch (err) {
       processingError = err instanceof Error ? err.message : String(err);
       logStep("Processing error", { error: processingError });
+      // Mirror to edge_function_errors so alert_check rule 3 can read a real
+      // failure rate. The `fn_name` tag is load-bearing — observability.ts
+      // uses it to populate `function_name`, which rule 3 filters on with
+      // exact match (`function_name = 'stripe_webhook'`).
+      captureError("stripe_webhook.processing_failed", err, {
+        fn_name: "stripe_webhook",
+        event_type: event.type,
+        event_id: event.id,
+      });
     }
 
     // Update event log
@@ -267,6 +276,9 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
+    captureError("stripe_webhook.unhandled", error, {
+      fn_name: "stripe_webhook",
+    });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       status: 500,
