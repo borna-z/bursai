@@ -45,8 +45,12 @@ SCENARIO=load k6 run tests/load/k6-edge-functions.js
 Stages: ramp 0 → 100 VUs over 2 min, hold 100 VUs for 8 min, spike to 500 VUs
 for 5 min. Total run: ~15 min wall time.
 
-Pool size for `load` defaults to 50 synthetic users (~2 VUs per user at 100
-VU hold, ~10 VUs per user at 500 VU spike). Override with `POOL_SIZE=<N>`.
+Pool size for `load` defaults to 200 synthetic users (~0.5 VU per user at
+100 VU hold, ~2.5 VUs per user at 500 VU spike). At that ratio every
+endpoint's per-user-per-minute request rate stays under its premium
+rate-limit cap (generate_outfit is the tightest at 10/min/user premium).
+Override with `POOL_SIZE=<N>` if you want to deliberately stress the
+limiter or run on a budget.
 
 ## Pass / fail criteria (per sprint brief)
 
@@ -55,6 +59,13 @@ VU hold, ~10 VUs per user at 500 VU spike). Override with `POOL_SIZE=<N>`.
 | Error rate < 5% at 100 VU | ok — proceed to submission |
 | Error rate > 5% at 100 VU | BLOCKS LAUNCH — file finding immediately |
 | Error rate > 5% at 500 VU | File finding, not blocking |
+
+The script encodes these as scenario-tagged thresholds so the 100 VU and
+500 VU phases are evaluated independently:
+- `http_req_failed{scenario:ramp_100}: rate<0.05` (launch-blocking)
+- `http_req_failed{scenario:spike_500}: rate<0.15` (non-blocking ceiling;
+  total-collapse alarm, not the >5% sprint criterion which is informational
+  for the spike phase)
 
 Per-endpoint p95 latency thresholds are encoded in the script:
 

@@ -47,7 +47,15 @@ const SCENARIO = __ENV.SCENARIO || "smoke";
 const POOL_SIZE_OVERRIDE = __ENV.POOL_SIZE
   ? parseInt(__ENV.POOL_SIZE, 10)
   : null;
-const DEFAULT_POOL_SIZE = SCENARIO === "load" ? 50 : 5;
+// Default pool sized to keep per-user request rate under each endpoint's
+// premium rate-limit cap (2x base in scale-guard.ts TIER_MULTIPLIERS):
+//   generate_outfit 5/min base * 2 = 10/min/user (tightest cap)
+// At 500 VU spike with 0.5s sleep + ~3s avg latency, each VU hits each
+// endpoint ~3.4/min. 200 users keeps that at ~8.5/min/user (under 10/min).
+// Override with POOL_SIZE=<N> if you want to deliberately stress the
+// limiter or run on a budget. Codex P1 on PR #896 caught that 50 users
+// at peak spike still tripped the limiter and skewed the load measurement.
+const DEFAULT_POOL_SIZE = SCENARIO === "load" ? 200 : 5;
 const POOL_SIZE = POOL_SIZE_OVERRIDE && POOL_SIZE_OVERRIDE > 0
   ? POOL_SIZE_OVERRIDE
   : DEFAULT_POOL_SIZE;
@@ -61,12 +69,14 @@ if (!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY) {
 export const options =
   SCENARIO === "load"
     ? {
-        // 50-user pool seed = ~250 sequential HTTP calls in setup (admin
-        // create + sign-in + subscriptions upsert + render_credits upsert
-        // + garments bulk-insert per user). k6's default setupTimeout is
-        // 60s, which is tight at p95 latencies — bump to 5 min so a flaky
-        // preview branch doesn't kill the run during provisioning.
-        setupTimeout: "5m",
+        // 200-user pool seed = ~1000 sequential HTTP calls in setup
+        // (admin create + sign-in + subscriptions upsert + render_credits
+        // upsert + garments bulk-insert per user). k6's default
+        // setupTimeout is 60s, which is way too tight. 10min headroom
+        // covers latency p99 + a few transient retries on a flaky preview
+        // branch without killing the run during provisioning. Teardown is
+        // 200 admin DELETEs, much faster; 5min is ample.
+        setupTimeout: "10m",
         teardownTimeout: "5m",
         scenarios: {
           ramp_100: {
@@ -88,7 +98,16 @@ export const options =
           },
         },
         thresholds: {
-          http_req_failed: ["rate<0.05"],
+          // Split error-rate threshold by scenario tag so the 100 VU
+          // ramp phase (launch-blocking per sprint brief at >5%) is
+          // evaluated independently of the 500 VU spike (file-finding-
+          // only at >5%, with a 15% ceiling here so we still flag total
+          // collapse). Codex P2 on PR #896 flagged the aggregated
+          // threshold: the 500 VU phase contributes most samples, so a
+          // shared http_req_failed either masked a real 100 VU blocker
+          // or false-failed on a non-blocking 500 VU spike.
+          "http_req_failed{scenario:ramp_100}": ["rate<0.05"],
+          "http_req_failed{scenario:spike_500}": ["rate<0.15"],
           "http_req_duration{endpoint:analyze_garment}": ["p(95)<8000"],
           "http_req_duration{endpoint:enqueue_render_job}": ["p(95)<2000"],
           "http_req_duration{endpoint:style_chat}": ["p(95)<5000"],
