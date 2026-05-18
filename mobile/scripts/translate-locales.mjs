@@ -137,13 +137,22 @@ export const ${locale}: Record<string, string> = {
 }
 
 /**
- * Translate one chunk. On 502 (typically Gemini truncation on long-string
- * locales like ar/fa), recursively splits the chunk into halves and retries.
- * Stops splitting at MIN_CHUNK_SIZE — any chunk still failing at that size
- * fills its keys with English passthrough so the locale completes instead
- * of crashing the whole orchestrator run.
+ * Translate one chunk. On TRANSIENT non-200 (typically Gemini truncation at
+ * 502 on long-string locales like ar/fa, or 599 from the network-retry
+ * synthetic-status), recursively splits the chunk in halves. Stops splitting
+ * at MIN_CHUNK_SIZE — any chunk still failing at that size falls back to
+ * English passthrough so the locale completes instead of crashing the run.
+ *
+ * NON-TRANSIENT statuses (401/403/400/404/405/413/422) throw immediately:
+ * those mean the operator has a config problem (bad secret, stale function,
+ * unsupported locale, cost-cap mismatch), and splitting silently fills the
+ * locale file with English overwriting prior real translations. Loud failure
+ * is the correct outcome.
+ * — Codex P2 on PR #887.
  */
 const MIN_CHUNK_SIZE = 10;
+const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504, 599]);
+
 async function translateChunkWithSplit({
   targetLocale, chunk, sv, envUrl, secret, edgeCall, log, depth = 0, chunkLabel,
 }) {
@@ -158,6 +167,12 @@ async function translateChunkWithSplit({
   });
   if (status === 200) {
     return { translations: body.translations || {}, missing: body.missing_keys || [] };
+  }
+  if (!TRANSIENT_STATUSES.has(status)) {
+    throw new Error(
+      `[${targetLocale}] ${chunkLabel}: non-transient HTTP ${status} — aborting to avoid overwriting prior translations with English passthrough. ` +
+      `Body: ${JSON.stringify(body).slice(0, 300)}`,
+    );
   }
   const keys = Object.keys(chunk);
   if (keys.length <= MIN_CHUNK_SIZE) {

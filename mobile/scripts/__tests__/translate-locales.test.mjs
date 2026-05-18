@@ -91,6 +91,36 @@ test('translateOneLocale walks chunks sequentially and merges results', async ()
   assert.equal(out.translations.k4, 'fr_v4');
 });
 
+test('translateOneLocale throws on non-transient 401 instead of writing English passthrough (Codex P2)', async () => {
+  const source = { a: 'A', b: 'B' };
+  const fakeEdge = async () => ({ status: 401, body: { error: 'unauthorized' } });
+  const { translateOneLocale } = await import('../translate-locales.mjs');
+  await assert.rejects(
+    () => translateOneLocale({
+      targetLocale: 'fr', source, sv: {},
+      envUrl: 'http://x', secret: 'bad', log: () => {}, edgeCall: fakeEdge,
+    }),
+    /non-transient HTTP 401/,
+  );
+});
+
+test('translateOneLocale splits on transient 502, eventually falling back at min size', async () => {
+  const source = {};
+  for (let i = 0; i < 20; i++) source['k' + i] = 'v' + i;
+  // Always-fail 502: forces split all the way down to MIN_CHUNK_SIZE (10),
+  // then passthrough fires. No throw.
+  const fakeEdge = async () => ({ status: 502, body: { error: 'truncation' } });
+  const { translateOneLocale } = await import('../translate-locales.mjs');
+  const out = await translateOneLocale({
+    targetLocale: 'fr', source, sv: {},
+    envUrl: 'http://x', secret: 's', log: () => {}, edgeCall: fakeEdge,
+  });
+  // All 20 keys passthrough to English values, all reported missing.
+  assert.equal(Object.keys(out.translations).length, 20);
+  assert.equal(out.translations.k0, 'v0');
+  assert.equal(out.missing.length, 20);
+});
+
 import { renderLocaleFile } from '../translate-locales.mjs';
 
 test('renderLocaleFile emits valid TS module with header + insertion-order keys', () => {
