@@ -27,6 +27,7 @@ import { OutfitCard } from '../components/OutfitCard';
 import { ErrorState } from '../components/ErrorState';
 import { BackIcon } from '../components/icons';
 import { useMoodOutfit } from '../hooks/useMoodOutfit';
+import { useGarmentsByIds } from '../hooks/useGarmentsByIds';
 import { useMarkOutfitWorn, usePersistGeneratedOutfit } from '../hooks/useOutfits';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 import { SUBSCRIPTION_SENTINEL } from '../lib/edgeFunctionClient';
@@ -39,11 +40,6 @@ type Route = RouteProp<RootStackParamList, 'MoodFlow'>;
 
 const DEFAULT_MOOD = 'Confident';
 const DEFAULT_TIME = 'Day';
-
-// Visual hue ramp for the OutfitCard placeholder thumbs — the engine
-// returns garment_ids but no images yet (W9 wires real photos), so we
-// pick a stable neutral palette and let the slot count drive width.
-const PLACEHOLDER_HUES: number[] = [32, 28, 200, 18];
 
 export function MoodFlowScreen() {
   const t = useTokens();
@@ -80,6 +76,20 @@ export function MoodFlowScreen() {
   const canSaveOrWear = result !== null && persistableItems.length > 0 && !savedOutfitId;
   const persistPending = persistOutfit.isPending;
   const wearPending = markWorn.isPending;
+
+  // Hydrate the result's garment ids so the OutfitCard preview tiles
+  // surface real signed-URL photos instead of neutral placeholders.
+  // Mirrors `OutfitGenerateScreen` (`OutfitGenerateScreen.tsx:203-215`)
+  // and `OutfitSuggestionCard` — pass the raw ids to `useGarmentsByIds`,
+  // then feed the resolved rows into `OutfitCard.garments`. Before
+  // hydration resolves, `previewGarments` is undefined → empty array →
+  // OutfitCard falls back to its default 4 neutral tiles, so the
+  // loading-to-result transition stays visually stable.
+  const previewIds = useMemo(
+    () => persistableItems.map((it) => it.garment_id),
+    [persistableItems],
+  );
+  const { data: previewGarments } = useGarmentsByIds(previewIds);
 
   const persistArgs = result
     ? {
@@ -332,7 +342,12 @@ export function MoodFlowScreen() {
           <OutfitCard
             name={result.outfit_name}
             sub={subLine}
-            hues={PLACEHOLDER_HUES}
+            garments={(previewGarments ?? []).map((g) => ({
+              id: g.id,
+              rendered_image_path: g.rendered_image_path,
+              original_image_path: g.original_image_path,
+              image_path: g.image_path,
+            }))}
           />
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
