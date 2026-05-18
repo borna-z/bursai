@@ -17,6 +17,7 @@
 
 import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -181,17 +182,30 @@ export function GarmentDetailScreen() {
   // render_jobs row and invalidates the garment cache on completion.
   const retryRender = useRetryGarmentRender();
   const retryRenderInFlightRef = React.useRef(false);
-  // Release the synchronous in-flight lock only when either:
-  //   - the worker has claimed the job (render_status becomes active — the
-  //     visibility check below hides the button anyway, so clearing here is
-  //     safe and doesn't open a double-tap window), OR
-  //   - the mutation errored (the button stays visible — user may retry).
-  // Clearing in `onSettled` (the prior shape) raced the cache-invalidation
-  // refetch: enqueue could return before useGarment refetched render_status,
-  // briefly re-enabling the button while the screen still showed idle state
-  // and allowing a duplicate credit consumption. (Codex P1 round 2 on PR #900.)
+  // Nonce ownership lives on the screen, not the hook. The hook used to
+  // mint a fresh UUID inside its mutationFn — but after a transient
+  // network failure where the server-side reservation was already minted,
+  // a user re-tap would mint nonce B → new reserve_key → second
+  // reservation. The reserve-key idempotency on enqueue_render_job
+  // (supabase/functions/enqueue_render_job/index.ts:444-446) hits the
+  // replay path when the same nonce repeats, so we keep ONE nonce per
+  // logical attempt and rotate it only after the worker has claimed
+  // the job. (Codex P1 round 3 on PR #900.)
+  const retryRenderNonceRef = React.useRef<string | null>(null);
+  // Release the synchronous in-flight lock + the nonce only when either:
+  //   - the worker has claimed the job (render_status becomes active —
+  //     the visibility check below hides the button anyway, and a fresh
+  //     logical attempt next time gets a new nonce), OR
+  //   - the mutation errored (button stays visible — user may re-tap and
+  //     the SAME nonce must be reused to dedupe at the server). Lock
+  //     clears so the re-tap is allowed; nonce stays.
+  // The prior shape cleared the ref inside mutate's onSettled, which
+  // raced the cache-invalidation refetch (Codex P1 round 2 on PR #900).
   React.useEffect(() => {
-    if (isStudioRendering || retryRender.isError) {
+    if (isStudioRendering) {
+      retryRenderInFlightRef.current = false;
+      retryRenderNonceRef.current = null;
+    } else if (retryRender.isError) {
       retryRenderInFlightRef.current = false;
     }
   }, [isStudioRendering, retryRender.isError]);
@@ -199,7 +213,13 @@ export function GarmentDetailScreen() {
     if (retryRenderInFlightRef.current || !garment) return;
     retryRenderInFlightRef.current = true;
     hapticLight();
-    retryRender.mutate(garment.id);
+    if (!retryRenderNonceRef.current) {
+      retryRenderNonceRef.current = Crypto.randomUUID();
+    }
+    retryRender.mutate({
+      garmentId: garment.id,
+      clientNonce: retryRenderNonceRef.current,
+    });
   }, [garment, retryRender]);
 
   // M21 — paywall sticky-ref. Routes to PaywallScreen once per screen

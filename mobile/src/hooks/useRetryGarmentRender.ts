@@ -1,16 +1,19 @@
 // useRetryGarmentRender — manual studio-render trigger from GarmentDetailScreen.
 //
 // Calls the existing `enqueue_render_job` edge function with `source: 'retry'`
-// and a fresh `client_nonce` per tap cycle. The edge function's reserve-key
-// idempotency dedupes a retried network call, while a distinct nonce forces
-// a fresh reservation for an intentional re-render.
+// + `force: true` (user-initiated → bypass eligibility and already-ready
+// short-circuit). The caller (GarmentDetailScreen) owns the `clientNonce`
+// lifecycle: a single nonce is reused across user re-taps for the same
+// logical attempt so the server-side reserve_key idempotency (which keys on
+// nonce) returns `replay:true` instead of minting a second reservation.
+// The screen rotates the nonce only after the worker has claimed the job
+// (i.e., once `render_status` becomes active).
 //
 // The worker writes `rendered_image_path` + flips `render_status`; the
 // existing `useRenderJobStatus` poller wired in GarmentDetailScreen picks
 // up the new render_jobs row and invalidates the garment cache on
 // completion. No writes from this hook to garment rows directly.
 
-import * as Crypto from 'expo-crypto';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -28,14 +31,18 @@ type EnqueueRenderJobResponse = {
   error?: string;
 };
 
+type RetryRenderInput = {
+  garmentId: string;
+  clientNonce: string;
+};
+
 export function useRetryGarmentRender() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (garmentId: string) => {
+    mutationFn: async ({ garmentId, clientNonce }: RetryRenderInput) => {
       if (!user) throw new Error('Not authenticated');
-      const clientNonce = Crypto.randomUUID();
       try {
         const data = await callEdgeFunction<EnqueueRenderJobResponse>(
           'enqueue_render_job',
@@ -56,7 +63,7 @@ export function useRetryGarmentRender() {
         throw err;
       }
     },
-    onSuccess: (_data, garmentId) => {
+    onSuccess: (_data, { garmentId }) => {
       queryClient.invalidateQueries({ queryKey: ['garments'] });
       queryClient.invalidateQueries({ queryKey: CACHE_KEYS.garment(user?.id, garmentId) });
     },

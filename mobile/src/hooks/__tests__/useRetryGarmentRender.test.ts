@@ -37,11 +37,6 @@ jest.mock('../../lib/edgeFunctionClient', () => {
   };
 });
 
-jest.mock('expo-crypto', () => ({
-  __esModule: true,
-  randomUUID: jest.fn(() => 'test-nonce-uuid'),
-}));
-
 jest.mock('../../lib/sentry', () => ({
   __esModule: true,
   Sentry: {
@@ -74,15 +69,17 @@ describe('useRetryGarmentRender', () => {
       wrapper: makeWrapper(),
     });
     await act(async () => {
-      await result.current.mutateAsync('garment-1');
+      await result.current.mutateAsync({
+        garmentId: 'garment-1',
+        clientNonce: 'nonce-aaaaaaaaaaaaaaaa',
+      });
     });
     expect(edge.callEdgeFunction).toHaveBeenCalledTimes(1);
     const [fnName, opts] = edge.callEdgeFunction.mock.calls[0];
     expect(fnName).toBe('enqueue_render_job');
     expect(opts.body.garmentId).toBe('garment-1');
     expect(opts.body.source).toBe('retry');
-    expect(typeof opts.body.clientNonce).toBe('string');
-    expect(opts.body.clientNonce.length).toBeGreaterThanOrEqual(8);
+    expect(opts.body.clientNonce).toBe('nonce-aaaaaaaaaaaaaaaa');
     expect(opts.body.force).toBe(true);
   });
 
@@ -95,7 +92,7 @@ describe('useRetryGarmentRender', () => {
       wrapper: makeWrapper(),
     });
     await act(async () => {
-      await expect(result.current.mutateAsync('garment-1')).rejects.toThrow(
+      await expect(result.current.mutateAsync({ garmentId: 'garment-1', clientNonce: 'nonce-aaaaaaaaaaaaaaaa' })).rejects.toThrow(
         edge.SUBSCRIPTION_SENTINEL,
       );
     });
@@ -110,7 +107,7 @@ describe('useRetryGarmentRender', () => {
       wrapper: makeWrapper(),
     });
     await act(async () => {
-      await expect(result.current.mutateAsync('garment-1')).rejects.toBe(rateErr);
+      await expect(result.current.mutateAsync({ garmentId: 'garment-1', clientNonce: 'nonce-aaaaaaaaaaaaaaaa' })).rejects.toBe(rateErr);
     });
   });
 
@@ -121,7 +118,7 @@ describe('useRetryGarmentRender', () => {
       wrapper: makeWrapper(),
     });
     await act(async () => {
-      await expect(result.current.mutateAsync('garment-1')).rejects.toThrow('boom');
+      await expect(result.current.mutateAsync({ garmentId: 'garment-1', clientNonce: 'nonce-aaaaaaaaaaaaaaaa' })).rejects.toThrow('boom');
     });
     expect(sentryMod.Sentry.captureException).toHaveBeenCalledTimes(1);
   });
@@ -134,7 +131,7 @@ describe('useRetryGarmentRender', () => {
       wrapper: makeWrapper(),
     });
     await act(async () => {
-      await expect(result.current.mutateAsync('garment-1')).rejects.toThrow(
+      await expect(result.current.mutateAsync({ garmentId: 'garment-1', clientNonce: 'nonce-aaaaaaaaaaaaaaaa' })).rejects.toThrow(
         'Not authenticated',
       );
     });
