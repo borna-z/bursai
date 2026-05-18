@@ -16,10 +16,40 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
+
+/**
+ * Tiny .env.local loader. The docstring at the top of this script says
+ * "load from mobile/.env.local or process.env" — historically that meant
+ * `set -a; source mobile/.env.local; set +a` from bash, which silently
+ * does nothing in PowerShell on Windows (the documented dev environment).
+ * Auto-loading the file here removes the platform-specific incantation
+ * from the per-developer workflow. Lines starting with `#` and blank
+ * lines are skipped; values are NOT shell-expanded (so `$FOO` stays
+ * literal). Only sets variables not already present in process.env so
+ * caller-supplied env wins.
+ */
+function loadEnvLocal() {
+  const envPath = resolve(REPO_ROOT, 'mobile/.env.local');
+  if (!existsSync(envPath)) return;
+  const txt = readFileSync(envPath, 'utf8');
+  for (const rawLine of txt.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const k = line.slice(0, eq).trim();
+    let v = line.slice(eq + 1).trim();
+    // Strip a single layer of surrounding quotes (env files often quote).
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
+    }
+    if (!(k in process.env)) process.env[k] = v;
+  }
+}
 
 export const TARGET_LOCALES = [
   'ar', 'da', 'de', 'es', 'fa', 'fi', 'fr', 'it', 'nl', 'no', 'pl', 'pt',
@@ -166,7 +196,11 @@ async function translateChunkWithSplit({
     total_chunks: 1,
   });
   if (status === 200) {
-    return { translations: body.translations || {}, missing: body.missing_keys || [] };
+    return {
+      translations: body.translations || {},
+      missing: body.missing_keys || [],
+      passthrough: body.passthrough_keys || [],
+    };
   }
   if (!TRANSIENT_STATUSES.has(status)) {
     throw new Error(
@@ -177,9 +211,9 @@ async function translateChunkWithSplit({
   const keys = Object.keys(chunk);
   if (keys.length <= MIN_CHUNK_SIZE) {
     log(`  ${' '.repeat(depth * 2)}[${targetLocale}] ${chunkLabel} (${keys.length} keys) failed at min split — falling back to en for these keys: HTTP ${status}`);
-    const passthrough = {};
-    for (const k of keys) passthrough[k] = chunk[k];
-    return { translations: passthrough, missing: keys };
+    const passthroughDict = {};
+    for (const k of keys) passthroughDict[k] = chunk[k];
+    return { translations: passthroughDict, missing: keys, passthrough: [] };
   }
   const half = Math.ceil(keys.length / 2);
   const left = {}; const right = {};
@@ -190,6 +224,7 @@ async function translateChunkWithSplit({
   return {
     translations: { ...a.translations, ...b.translations },
     missing: [...a.missing, ...b.missing],
+    passthrough: [...(a.passthrough || []), ...(b.passthrough || [])],
   };
 }
 
@@ -205,15 +240,17 @@ export async function translateOneLocale({
   const chunks = chunkObject(source, CHUNK_SIZE);
   const merged = {};
   const allMissing = [];
+  const allPassthrough = [];
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     log(`  [${targetLocale}] chunk ${i + 1}/${chunks.length} (${Object.keys(chunk).length} keys)`);
-    const { translations, missing } = await translateChunkWithSplit({
+    const { translations, missing, passthrough } = await translateChunkWithSplit({
       targetLocale, chunk, sv, envUrl, secret, edgeCall, log,
       chunkLabel: `chunk ${i + 1}/${chunks.length}`,
     });
     for (const k of Object.keys(translations)) merged[k] = translations[k];
     allMissing.push(...missing);
+    allPassthrough.push(...(passthrough || []));
   }
   // Backfill any source key the model dropped (returned in missing_keys or
   // simply absent) with the English passthrough. Without this, the renderer
@@ -222,10 +259,11 @@ export async function translateOneLocale({
   for (const k of Object.keys(source)) {
     if (!(k in merged)) merged[k] = source[k];
   }
-  return { translations: merged, missing: allMissing };
+  return { translations: merged, missing: allMissing, passthrough: allPassthrough };
 }
 
 async function main() {
+  loadEnvLocal();
   const argv = process.argv.slice(2);
   const dryRun = argv.includes('--dry-run');
   const onlyMissing = argv.includes('--only-missing');
@@ -276,7 +314,7 @@ async function main() {
         continue;
       }
     }
-    const { translations, missing } = await translateOneLocale({
+    const { translations, missing, passthrough } = await translateOneLocale({
       targetLocale: target,
       source,
       sv,
@@ -290,17 +328,31 @@ async function main() {
       final = { ...prev, ...translations };
     }
     writeFileSync(outPath, renderLocaleFile(target, final, { sourceSha }), 'utf8');
-    console.log(`  wrote ${outPath} (${Object.keys(final).length} keys, ${missing.length} fell back to en)`);
+    // missing = keys the model dropped (filled with en passthrough by
+    //           the orchestrator's backfill loop).
+    // passthrough = keys the model translated but mangled placeholders;
+    //               the edge function substituted en for these.
+    // Both end up as English in the final file — surface separately so
+    // a regression in placeholder preservation doesn't hide behind
+    // the existing "fell back to en" count.
+    console.log(
+      `  wrote ${outPath} (${Object.keys(final).length} keys, ${missing.length} dropped by model, ${passthrough.length} placeholder-mismatched — all filled with en)`,
+    );
   }
 }
 
-// Run main when executed directly, not when imported by tests.
-// On Windows, process.argv[1] uses backslashes; import.meta.url uses
-// file:// + forward slashes. Compare normalized paths.
+// Run main when executed directly, not when imported by tests. Node's
+// documented idiom for "is this module the entrypoint" is comparing
+// import.meta.url with pathToFileURL(process.argv[1]).href — handles
+// Windows backslashes, OneDrive paths, symlinks, and relative argv all
+// correctly. The older suffix-match version was fragile on each of those.
 const runDirectly = (() => {
   if (!process.argv[1]) return false;
-  const argvUrl = 'file://' + process.argv[1].replace(/\\/g, '/');
-  return import.meta.url === argvUrl || import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+  try {
+    return import.meta.url === pathToFileURL(process.argv[1]).href;
+  } catch {
+    return false;
+  }
 })();
 if (runDirectly) {
   main().catch((err) => { console.error(err); process.exit(1); });

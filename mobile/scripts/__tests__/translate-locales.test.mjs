@@ -7,7 +7,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseLocaleFile } from '../translate-locales.mjs';
+import {
+  parseLocaleFile,
+  chunkObject,
+  translateOneLocale,
+  renderLocaleFile,
+} from '../translate-locales.mjs';
 
 test('parseLocaleFile extracts keys + values', () => {
   const src = `export const en = {
@@ -39,7 +44,21 @@ test('parseLocaleFile handles escaped single quotes', () => {
   assert.deepEqual(parseLocaleFile(src), { k: "don't" });
 });
 
-import { chunkObject, translateOneLocale } from '../translate-locales.mjs';
+test('parseLocaleFile round-trips JSON-style escapes (\\n, \\", \\\\)', () => {
+  const src = `export const fr = {
+  "k1": "line1\\nline2",
+  "k2": "say \\"hi\\"",
+  "k3": "back\\\\slash",
+};`;
+  const out = parseLocaleFile(src);
+  assert.equal(out.k1, 'line1\nline2');
+  assert.equal(out.k2, 'say "hi"');
+  assert.equal(out.k3, 'back\\slash');
+});
+
+test('chunkObject handles empty input', () => {
+  assert.deepEqual(chunkObject({}, 80), []);
+});
 
 test('chunkObject splits at the requested boundary, preserves order', () => {
   const obj = {};
@@ -89,6 +108,41 @@ test('translateOneLocale walks chunks sequentially and merges results', async ()
   assert.equal(calls[0].sv_reference.k0, 'V_0');
   assert.equal(out.translations.k0, 'fr_v0');
   assert.equal(out.translations.k4, 'fr_v4');
+  assert.deepEqual(out.passthrough, []);
+});
+
+test('translateOneLocale surfaces passthrough_keys from edge function', async () => {
+  // Simulates edge reporting one key as placeholder-mismatched.
+  const fakeEdge = async (_url, _secret, payload) => {
+    const translations = {};
+    for (const k of Object.keys(payload.source_keys)) {
+      // Pass the source value through for keyA, model-translated for keyB.
+      translations[k] = k === 'keyA' ? payload.source_keys[k] : 'fr_' + payload.source_keys[k];
+    }
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        target_locale: 'fr',
+        translations,
+        chunk_index: payload.chunk_index,
+        missing_keys: [],
+        passthrough_keys: ['keyA'],
+      },
+    };
+  };
+  const out = await translateOneLocale({
+    targetLocale: 'fr',
+    source: { keyA: 'A {name}', keyB: 'B' },
+    sv: {},
+    envUrl: 'http://x',
+    secret: 's',
+    log: () => {},
+    edgeCall: fakeEdge,
+  });
+  assert.deepEqual(out.passthrough, ['keyA']);
+  assert.equal(out.translations.keyA, 'A {name}');
+  assert.equal(out.translations.keyB, 'fr_B');
 });
 
 test('translateOneLocale throws on non-transient 401 instead of writing English passthrough (Codex P2)', async () => {
@@ -121,8 +175,6 @@ test('translateOneLocale splits on transient 502, eventually falling back at min
   assert.equal(out.missing.length, 20);
 });
 
-import { renderLocaleFile } from '../translate-locales.mjs';
-
 test('renderLocaleFile emits valid TS module with header + insertion-order keys', () => {
   const out = renderLocaleFile('fr', {
     'nav.today': "Aujourd'hui",
@@ -147,6 +199,13 @@ test('renderLocaleFile escapes embedded newlines (the bug that broke it.ts/pt.ts
 test('renderLocaleFile escapes double quotes in values', () => {
   const out = renderLocaleFile('fr', { greet: 'say "hi"' });
   assert.match(out, /"greet": "say \\"hi\\"",/);
+});
+
+test('renderLocaleFile header includes locale-specific --only-missing regen command', () => {
+  const out = renderLocaleFile('de', { a: 'A' });
+  // The regenerate hint must name the same locale we just rendered, otherwise
+  // a future operator following it would clobber the wrong file.
+  assert.match(out, /--locales de --only-missing/);
 });
 
 test('parses real mobile/src/i18n/locales/en.ts', async () => {

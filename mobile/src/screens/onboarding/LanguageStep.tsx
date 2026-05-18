@@ -121,9 +121,8 @@ export function LanguageStep({
           onPress={() => {
             hapticLight();
             // Activate the selected locale immediately so the rest of onboarding
-            // renders in it. (i18n shim today returns English regardless of
-            // setLocale; once dictionaries land per locale this becomes a real
-            // language flip.)
+            // renders in it. The dispatcher in lib/i18n.ts swaps the active
+            // dictionary; the `useTranslation` hook subscribers re-render.
             setLocale(selected);
             onComplete(selected);
           }}

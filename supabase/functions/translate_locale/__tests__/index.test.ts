@@ -55,6 +55,45 @@ describe('translate_locale — request gating', () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it('non-string target_locale (e.g. {}) → 400 (type-narrow guard)', async () => {
+    const res = await handleRequest(
+      makeReq({ target_locale: {}, source_keys: { a: 'A' }, sv_reference: {}, chunk_index: 0, total_chunks: 1 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('non-object source_keys (e.g. array) → 400', async () => {
+    const res = await handleRequest(
+      makeReq({ target_locale: 'fr', source_keys: ['a', 'b'], sv_reference: {}, chunk_index: 0, total_chunks: 1 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('non-string value in source_keys → 400', async () => {
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A', b: 42 } as unknown as Record<string, string>,
+        sv_reference: {},
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('length-mismatched secret → 401 (constant-time path exercised)', async () => {
+    // Constant-time compare must reject both same-length-wrong-bytes AND
+    // shorter-or-longer guesses without leaking length via early return.
+    const res = await handleRequest(
+      makeReq(
+        { target_locale: 'fr', source_keys: { a: 'A' }, sv_reference: {}, chunk_index: 0, total_chunks: 1 },
+        { headers: { 'x-translate-secret': 'short' } },
+      ),
+    );
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('translate_locale — Gemini call', () => {
@@ -117,7 +156,7 @@ describe('translate_locale — Gemini call', () => {
     expect(body.translations).toEqual({ a: 'A_fr' });
   });
 
-  it('falls back to English passthrough when placeholders mangled', async () => {
+  it('falls back to English passthrough when placeholders mangled + reports key in passthrough_keys', async () => {
     vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
       data: JSON.stringify({ translations: { greet: 'Bonjour {nom}' } }),
       model_used: 'gemini-2.5-flash',
@@ -136,6 +175,30 @@ describe('translate_locale — Gemini call', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.translations.greet).toBe('Hello {name}');
+    expect(body.passthrough_keys).toEqual(['greet']);
+    expect(body.missing_keys).toEqual([]);
+  });
+
+  it('uses LOCALE_DISPLAY_NAMES in the prompt (defense vs prompt-injection)', async () => {
+    const callSpy = vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: JSON.stringify({ translations: { a: 'A_de' } }),
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+    await handleRequest(
+      makeReq({
+        target_locale: 'de',
+        source_keys: { a: 'A' },
+        sv_reference: {},
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    const callArgs = callSpy.mock.calls[0]?.[0];
+    const systemMsg = callArgs?.messages?.find((m) => m.role === 'system');
+    // Prompt names the language by display name, never the raw 'de' code.
+    expect(systemMsg?.content).toMatch(/Translate the source dictionary to German/);
+    expect(systemMsg?.content).not.toMatch(/Translate the source dictionary to de,/);
   });
 
   it('strips ```json fences before parsing', async () => {

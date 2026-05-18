@@ -1,15 +1,19 @@
-// Minimal translation shim. The web app has 14 locales via i18next; mobile
-// will eventually port that or use expo-localization + i18n-js. Until then,
-// this file is the single indirection point so every screen calls `t('...')`
-// instead of holding hardcoded English. When i18n is wired for real, only
-// the implementation of `t` and `setLocale` need to change — every call-site
-// already speaks the contract.
+// Minimal in-app translation dispatcher. Ships 14 locale dictionaries
+// (en/sv/ar/da/de/es/fa/fi/fr/it/nl/no/pl/pt — see ../i18n/locales/*.ts),
+// hand-curated for en+sv, Gemini-generated for the rest (regenerated via
+// mobile/scripts/translate-locales.mjs when en.ts grows). The dispatcher
+// is intentionally tiny — no async loading, no remote fetch, no react-intl
+// — because the per-locale bundle (~1.7k keys × 14 locales) is well under
+// any size budget and the cost of an i18n library here would dwarf the
+// benefit.
 //
-// Conventions copied from the web's `t()` (see src/i18n/locales/en.ts):
+// Conventions:
 //   - keys are dot-namespaced ("auth.signIn.cta")
-//   - missing keys return the key itself (so a misspelled key is loud, not
-//     a silent humanization fallback)
+//   - missing keys fall back through the active locale → English → the key
+//     string itself (loud-fail for misspellings)
 //   - placeholders use {name} syntax: t('paywall.trial', { price: '119 SEK' })
+//   - the scripts/i18n-diff.mjs CI gate fails the PR when en.ts adds a key
+//     that any other locale doesn't have — prevents silent drift
 
 import React from 'react';
 import * as Localization from 'expo-localization';
@@ -114,9 +118,9 @@ export function t(key: string, params?: TranslationParams): string {
   return interpolate(raw, params);
 }
 
-// React hook so a screen re-renders when `setLocale` flips. Today this is
-// purely an indirection — the dictionary is always English — but the contract
-// is what callers depend on.
+// React hook so a screen re-renders when `setLocale` flips. The
+// subscriber set is module-local so every mounted screen using
+// `useTranslation` flips in lockstep when the active locale changes.
 export function useTranslation(): { t: typeof t; locale: Locale } {
   const [, force] = React.useReducer((x: number) => x + 1, 0);
   React.useEffect(() => {

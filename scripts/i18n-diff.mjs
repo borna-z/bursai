@@ -27,6 +27,10 @@ const EN_PATH = resolve(LOCALES_DIR, 'en.ts');
 // phantom `{name}` key.
 function extractKeys(filePath) {
   let src = readFileSync(filePath, 'utf8');
+  // Strip UTF-8 BOM if present (some Windows editors prepend it on save);
+  // otherwise the first key on a BOM'd file would be preceded by
+  // and the line-anchored regex wouldn't match it.
+  if (src.charCodeAt(0) === 0xFEFF) src = src.slice(1);
   src = src.replace(/\/\*[\s\S]*?\*\//g, '');
   src = src.replace(/^\s*\/\/.*$/gm, '');
   const keys = new Set();
