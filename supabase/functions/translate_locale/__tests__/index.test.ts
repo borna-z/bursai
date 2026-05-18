@@ -1,0 +1,262 @@
+import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { handleRequest } from '../index';
+import * as bursAi from '../../_shared/burs-ai';
+
+const okSecret = 'test-secret';
+
+beforeEach(() => {
+  (globalThis as Record<string, unknown>).__TRANSLATE_LOCALE_SECRET__ = okSecret;
+});
+
+function makeReq(body: unknown, init: RequestInit = {}): Request {
+  const headers = new Headers(init.headers);
+  if (!headers.has('x-translate-secret')) headers.set('x-translate-secret', okSecret);
+  if (!headers.has('content-type')) headers.set('content-type', 'application/json');
+  return new Request('https://example/translate_locale', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    ...init,
+    headers,
+  });
+}
+
+describe('translate_locale — request gating', () => {
+  it('OPTIONS preflight returns CORS headers', async () => {
+    const res = await handleRequest(new Request('https://example', { method: 'OPTIONS' }));
+    expect(res.status).toBe(204);
+    // Header lookup is case-insensitive; the shared CORS_HEADERS uses title case.
+    expect(res.headers.get('access-control-allow-origin')).toBeTruthy();
+  });
+
+  it('missing secret → 401', async () => {
+    const res = await handleRequest(
+      makeReq(
+        { target_locale: 'fr', source_keys: { a: 'A' }, sv_reference: { a: 'A' }, chunk_index: 0, total_chunks: 1 },
+        { headers: { 'x-translate-secret': 'wrong' } },
+      ),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('>200 keys per request → 413 with cost-cap error', async () => {
+    const tooMany: Record<string, string> = {};
+    for (let i = 0; i < 201; i++) tooMany['k' + i] = 'v' + i;
+    const res = await handleRequest(
+      makeReq({ target_locale: 'fr', source_keys: tooMany, sv_reference: {}, chunk_index: 0, total_chunks: 1 }),
+    );
+    expect(res.status).toBe(413);
+    const body = await res.json();
+    expect(body.error).toMatch(/cost cap/i);
+  });
+
+  it('unknown target_locale → 400', async () => {
+    const res = await handleRequest(
+      makeReq({ target_locale: 'xx', source_keys: { a: 'A' }, sv_reference: {}, chunk_index: 0, total_chunks: 1 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('non-string target_locale (e.g. {}) → 400 (type-narrow guard)', async () => {
+    const res = await handleRequest(
+      makeReq({ target_locale: {}, source_keys: { a: 'A' }, sv_reference: {}, chunk_index: 0, total_chunks: 1 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('non-object source_keys (e.g. array) → 400', async () => {
+    const res = await handleRequest(
+      makeReq({ target_locale: 'fr', source_keys: ['a', 'b'], sv_reference: {}, chunk_index: 0, total_chunks: 1 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('non-string value in source_keys → 400', async () => {
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A', b: 42 } as unknown as Record<string, string>,
+        sv_reference: {},
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('length-mismatched secret → 401 (constant-time path exercised)', async () => {
+    // Constant-time compare must reject both same-length-wrong-bytes AND
+    // shorter-or-longer guesses without leaking length via early return.
+    const res = await handleRequest(
+      makeReq(
+        { target_locale: 'fr', source_keys: { a: 'A' }, sv_reference: {}, chunk_index: 0, total_chunks: 1 },
+        { headers: { 'x-translate-secret': 'short' } },
+      ),
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('translate_locale — Gemini call', () => {
+  beforeEach(() => {
+    (globalThis as Record<string, unknown>).__TRANSLATE_LOCALE_SECRET__ = okSecret;
+    vi.restoreAllMocks();
+  });
+
+  it('returns translated keys when Gemini responds well', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: JSON.stringify({
+        translations: {
+          'auth.signIn.cta': 'Se connecter',
+          'auth.signUp.cta': "S'inscrire",
+        },
+      }),
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { 'auth.signIn.cta': 'Sign in', 'auth.signUp.cta': 'Sign up' },
+        sv_reference: { 'auth.signIn.cta': 'Logga in', 'auth.signUp.cta': 'Registrera' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.target_locale).toBe('fr');
+    expect(body.translations['auth.signIn.cta']).toBe('Se connecter');
+    expect(body.translations['auth.signUp.cta']).toBe("S'inscrire");
+    expect(body.missing_keys).toEqual([]);
+  });
+
+  it('flags dropped keys as missing without failing the whole chunk', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: JSON.stringify({ translations: { a: 'A_fr' } }),
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A', b: 'B' },
+        sv_reference: { a: 'A_sv', b: 'B_sv' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.missing_keys).toEqual(['b']);
+    expect(body.translations).toEqual({ a: 'A_fr' });
+  });
+
+  it('falls back to English passthrough when placeholders mangled + reports key in passthrough_keys', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: JSON.stringify({ translations: { greet: 'Bonjour {nom}' } }),
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { greet: 'Hello {name}' },
+        sv_reference: { greet: 'Hej {name}' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.translations.greet).toBe('Hello {name}');
+    expect(body.passthrough_keys).toEqual(['greet']);
+    expect(body.missing_keys).toEqual([]);
+  });
+
+  it('uses LOCALE_DISPLAY_NAMES in the prompt (defense vs prompt-injection)', async () => {
+    const callSpy = vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: JSON.stringify({ translations: { a: 'A_de' } }),
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+    await handleRequest(
+      makeReq({
+        target_locale: 'de',
+        source_keys: { a: 'A' },
+        sv_reference: {},
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    const callArgs = callSpy.mock.calls[0]?.[0];
+    const systemMsg = callArgs?.messages?.find((m) => m.role === 'system');
+    // Prompt names the language by display name, never the raw 'de' code.
+    expect(systemMsg?.content).toMatch(/Translate the source dictionary to German/);
+    expect(systemMsg?.content).not.toMatch(/Translate the source dictionary to de,/);
+  });
+
+  it('strips ```json fences before parsing', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: '```json\n{"translations":{"a":"A_fr"}}\n```',
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A' },
+        sv_reference: { a: 'A_sv' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.translations.a).toBe('A_fr');
+  });
+
+  it('extracts JSON when wrapped in leading prose', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: 'Sure! Here you go:\n{"translations":{"a":"A_fr"}}',
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A' },
+        sv_reference: { a: 'A_sv' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.translations.a).toBe('A_fr');
+  });
+
+  it('returns 502 when Gemini emits unparseable JSON', async () => {
+    vi.spyOn(bursAi, 'callBursAI').mockResolvedValue({
+      data: 'not json at all',
+      model_used: 'gemini-2.5-flash',
+      from_cache: false,
+    });
+
+    const res = await handleRequest(
+      makeReq({
+        target_locale: 'fr',
+        source_keys: { a: 'A' },
+        sv_reference: { a: 'A_sv' },
+        chunk_index: 0,
+        total_chunks: 1,
+      }),
+    );
+    expect(res.status).toBe(502);
+  });
+});

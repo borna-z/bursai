@@ -1,29 +1,57 @@
-// Minimal translation shim. The web app has 14 locales via i18next; mobile
-// will eventually port that or use expo-localization + i18n-js. Until then,
-// this file is the single indirection point so every screen calls `t('...')`
-// instead of holding hardcoded English. When i18n is wired for real, only
-// the implementation of `t` and `setLocale` need to change — every call-site
-// already speaks the contract.
+// Minimal in-app translation dispatcher. Ships 14 locale dictionaries
+// (en/sv/ar/da/de/es/fa/fi/fr/it/nl/no/pl/pt — see ../i18n/locales/*.ts),
+// hand-curated for en+sv, Gemini-generated for the rest (regenerated via
+// mobile/scripts/translate-locales.mjs when en.ts grows). The dispatcher
+// is intentionally tiny — no async loading, no remote fetch, no react-intl
+// — because the per-locale bundle (~1.7k keys × 14 locales) is well under
+// any size budget and the cost of an i18n library here would dwarf the
+// benefit.
 //
-// Conventions copied from the web's `t()` (see src/i18n/locales/en.ts):
+// Conventions:
 //   - keys are dot-namespaced ("auth.signIn.cta")
-//   - missing keys return the key itself (so a misspelled key is loud, not
-//     a silent humanization fallback)
+//   - missing keys fall back through the active locale → English → the key
+//     string itself (loud-fail for misspellings)
 //   - placeholders use {name} syntax: t('paywall.trial', { price: '119 SEK' })
+//   - the scripts/i18n-diff.mjs CI gate fails the PR when en.ts adds a key
+//     that any other locale doesn't have — prevents silent drift
 
 import React from 'react';
 import * as Localization from 'expo-localization';
 
 import { en } from '../i18n/locales/en';
 import { sv } from '../i18n/locales/sv';
+import { ar } from '../i18n/locales/ar';
+import { da } from '../i18n/locales/da';
+import { de } from '../i18n/locales/de';
+import { es } from '../i18n/locales/es';
+import { fa } from '../i18n/locales/fa';
+import { fi } from '../i18n/locales/fi';
+import { fr } from '../i18n/locales/fr';
+import { it } from '../i18n/locales/it';
+import { nl } from '../i18n/locales/nl';
+import { no } from '../i18n/locales/no';
+import { pl } from '../i18n/locales/pl';
+import { pt } from '../i18n/locales/pt';
 import { log } from './log';
 
 export type Locale =
-  | 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
+  | 'en' | 'sv' | 'ar' | 'da' | 'de' | 'es' | 'fa' | 'fi'
+  | 'fr' | 'it' | 'nl' | 'no' | 'pl' | 'pt';
 
 const SUPPORTED_LOCALES: readonly Locale[] = [
-  'en', 'sv', 'fr', 'de', 'es', 'it', 'ar', 'fa', 'pl', 'pt',
+  'en', 'sv', 'ar', 'da', 'de', 'es', 'fa', 'fi',
+  'fr', 'it', 'nl', 'no', 'pl', 'pt',
 ];
+
+// ISO 639 aliases — codes Expo may return that don't match SUPPORTED_LOCALES
+// 1:1. Norwegian splits into Bokmål (`nb`) and Nynorsk (`nn`) on iOS/Android
+// even though we ship a single combined `no` dictionary; without the alias
+// step Norwegian-system users fell back to English even after the locale
+// landed (Codex P2 on PR #887). Add other 1:N collapses here as they surface.
+const LOCALE_ALIASES: Record<string, Locale> = {
+  nb: 'no',
+  nn: 'no',
+};
 
 // Pick the closest supported locale from the device's preferred-language list.
 // `getLocales()` returns a ranked array — if the user's first preference is fr-CA
@@ -32,7 +60,8 @@ function detectInitialLocale(): Locale {
   try {
     const ranked = Localization.getLocales?.() ?? [];
     for (const entry of ranked) {
-      const tag = (entry.languageCode ?? '').toLowerCase() as Locale;
+      const raw = (entry.languageCode ?? '').toLowerCase();
+      const tag = (LOCALE_ALIASES[raw] ?? raw) as Locale;
       if (SUPPORTED_LOCALES.includes(tag)) return tag;
     }
   } catch (err) {
@@ -72,12 +101,7 @@ function interpolate(template: string, params?: TranslationParams): string {
 }
 
 const DICTIONARIES: Record<Locale, Record<string, string>> = {
-  en,
-  sv,
-  // Other locales fall back to English until their dictionaries land.
-  // The resolver `dict[key] ?? en[key] ?? key` means partial dictionaries
-  // are safe — any unset Swedish key resolves to its English value.
-  fr: en, de: en, es: en, it: en, ar: en, fa: en, pl: en, pt: en,
+  en, sv, ar, da, de, es, fa, fi, fr, it, nl, no, pl, pt,
 };
 
 export function t(key: string, params?: TranslationParams): string {
@@ -94,9 +118,9 @@ export function t(key: string, params?: TranslationParams): string {
   return interpolate(raw, params);
 }
 
-// React hook so a screen re-renders when `setLocale` flips. Today this is
-// purely an indirection — the dictionary is always English — but the contract
-// is what callers depend on.
+// React hook so a screen re-renders when `setLocale` flips. The
+// subscriber set is module-local so every mounted screen using
+// `useTranslation` flips in lockstep when the active locale changes.
 export function useTranslation(): { t: typeof t; locale: Locale } {
   const [, force] = React.useReducer((x: number) => x + 1, 0);
   React.useEffect(() => {

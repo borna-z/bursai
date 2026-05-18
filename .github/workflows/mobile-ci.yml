@@ -329,3 +329,18 @@ jobs:
           echo "::group::scripts/verify-migrations.sh (drift detection — advisory)"
           MIGRATIONS_DRIFT_ADVISORY=1 bash scripts/verify-migrations.sh
           echo "::endgroup::"
+
+  # i18n drift guard — fails when any locale in mobile/src/i18n/locales/
+  # lacks a key that en.ts has. Forces dev to re-run translate-locales.mjs
+  # whenever en.ts grows. Also catches duplicate keys (manual edit error).
+  # ~5s job — bundled here rather than a standalone workflow so branch
+  # protection lists it alongside the other mobile gates.
+  i18n-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run i18n-diff across all 14 mobile locales
+        run: node scripts/i18n-diff.mjs
