@@ -189,45 +189,27 @@ export function SettingsScreen() {
         </View>
 
         {/* ============ SUBSCRIPTION CARD ============ */}
-        {/* Real entitlement state from `useSubscription`. Branches off
-            the RAW `subscription.status` (not the gating-derived
-            `isTrialing` / `isLocked`) — Codex P2 PR #885 round 3.
-            `useSubscription` overrides `state` to `trialing` during the
-            24 h onboarding boost so feature gating is permissive, but
-            for display we want the user's real subscription posture:
-              (1) status === 'active'  → "Premium · plan" + renewal
-              (2) status === 'trialing' → "Trial active" + end date
-              (3) anything else (incl. null / 'cancelled' / boost user
-                  with no row) → "Free plan" + Upgrade CTA.
-            When the query errors we hide the card entirely instead of
-            misrepresenting paid state on a transient Supabase blip
-            (Codex P2 PR #885 round 2). */}
+        {/* Real entitlement state from `useSubscription`. Three renders:
+              (1) Trial    — real trial row that hasn't expired.
+              (2) Premium  — paid plan recognised by `deriveState`
+                             (status=active AND plan ∈ premium-set).
+              (3) Free     — everything else (no row, locked, default
+                             status=active/plan=free, expired trial, or
+                             a boost user whose `state` is overridden to
+                             `trialing` but `status` is not).
+            We branch off `subscription.state` for premium (so we honour
+            `deriveState`'s plan whitelist — Codex P2 PR #885 round 4)
+            and require BOTH `state === 'trialing'` AND raw
+            `status === 'trialing'` for trial (so the onboarding-boost
+            state override doesn't mislabel free users — Codex P2 round
+            3). When the query errors we hide the card entirely
+            (Codex P2 round 2). */}
         {subscription.error ? null : !subscription.isLoading ? (
           <View style={{ gap: 8 }}>
             <Eyebrow>{tr('settings.subscription.eyebrow')}</Eyebrow>
             <Card>
-              {subscription.status !== 'trialing' &&
-              subscription.status !== 'active' ? (
-                <View style={{ gap: 12 }}>
-                  <Text
-                    style={{
-                      fontFamily: fonts.uiSemi,
-                      fontSize: 16,
-                      color: t.fg,
-                      letterSpacing: -0.16,
-                    }}>
-                    {tr('settings.subscription.free')}
-                  </Text>
-                  <Button
-                    label={tr('settings.subscription.upgrade')}
-                    variant="accent"
-                    onPress={() => {
-                      hapticLight();
-                      nav.navigate('Paywall');
-                    }}
-                  />
-                </View>
-              ) : subscription.status === 'trialing' ? (
+              {subscription.state === 'trialing' &&
+              subscription.status === 'trialing' ? (
                 <View style={{ gap: 6 }}>
                   <Text
                     style={{
@@ -244,7 +226,7 @@ export function SettingsScreen() {
                     </Caption>
                   ) : null}
                 </View>
-              ) : (
+              ) : subscription.state === 'premium' ? (
                 <View style={{ gap: 6 }}>
                   <Text
                     style={{
@@ -265,6 +247,26 @@ export function SettingsScreen() {
                       {tr('settings.subscription.renews', { date: subscriptionPeriodEndLabel })}
                     </Caption>
                   ) : null}
+                </View>
+              ) : (
+                <View style={{ gap: 12 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.uiSemi,
+                      fontSize: 16,
+                      color: t.fg,
+                      letterSpacing: -0.16,
+                    }}>
+                    {tr('settings.subscription.free')}
+                  </Text>
+                  <Button
+                    label={tr('settings.subscription.upgrade')}
+                    variant="accent"
+                    onPress={() => {
+                      hapticLight();
+                      nav.navigate('Paywall');
+                    }}
+                  />
                 </View>
               )}
             </Card>
