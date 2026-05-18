@@ -157,6 +157,14 @@ export function makeLogStep(prefix: string): (step: string, details?: unknown) =
  * that previously went into a silent `.catch(() => {})`. Pre-launch audit
  * issue #1: every catch must observe through this (or `captureWarning` for
  * intentionally non-fatal paths).
+ *
+ * Also mirrors the event into `public.edge_function_errors` using a
+ * service-role client built from SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.
+ * The insert is fire-and-forget and double-wrapped in try/catch — a DB
+ * outage or row-level rejection must NEVER break the caller. The
+ * `tags.fn_name` field is the canonical function name per existing
+ * captureError call sites; `tags.user_id` / `tags.request_id` are also
+ * propagated when present.
  */
 export function captureError(
   event: string,
@@ -175,6 +183,15 @@ export function captureError(
       ts: new Date().toISOString(),
     }),
   );
+
+  // ─── Mirror into edge_function_errors (fire-and-forget) ───
+  // We intentionally swallow ALL errors here. The user-facing request is
+  // what matters; an observability outage must not propagate.
+  try {
+    mirrorErrorToDb(event, errMessage, normalizedTags);
+  } catch {
+    // swallowed
+  }
 
   if (!PARSED_DSN) return;
 
@@ -207,6 +224,103 @@ export function captureError(
       }),
     );
   });
+}
+
+// ─── edge_function_errors mirror ────────────────────────────────────────────
+// Implemented as a lazy module-cached supabase-js client. Bare-fetch as a
+// fallback when supabase-js isn't already on the import map (vitest etc.)
+// would require duplicating PostgREST URL construction; we instead use the
+// supabase-js client when available (production Deno) and fall back to a
+// raw fetch() against the PostgREST /rest/v1/ endpoint otherwise. Both
+// paths fire-and-forget.
+
+let _mirrorClient: { insert: (row: Record<string, unknown>) => Promise<unknown> } | null = null;
+let _mirrorClientResolved = false;
+
+async function getMirrorInsert(): Promise<((row: Record<string, unknown>) => Promise<unknown>) | null> {
+  if (_mirrorClientResolved) {
+    return _mirrorClient ? _mirrorClient.insert.bind(_mirrorClient) : null;
+  }
+  _mirrorClientResolved = true;
+
+  const url = typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_URL") : undefined;
+  const key = typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") : undefined;
+  if (!url || !key) return null;
+
+  try {
+    // Dynamic import — only attempted under Deno (production). Under Node
+    // tests this throws on the URL specifier and we fall through to null.
+    const mod = await import("https://esm.sh/@supabase/supabase-js@2");
+    // deno-lint-ignore no-explicit-any
+    const client: any = mod.createClient(url, key);
+    const table = client.from("edge_function_errors");
+    _mirrorClient = {
+      insert: (row: Record<string, unknown>) => table.insert(row),
+    };
+    return _mirrorClient.insert.bind(_mirrorClient);
+  } catch {
+    // Fallback: raw PostgREST POST. Service-role key in the Authorization
+    // header. Bypasses RLS.
+    _mirrorClient = {
+      insert: async (row: Record<string, unknown>) => {
+        const res = await fetch(`${url}/rest/v1/edge_function_errors`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": key,
+            "Authorization": `Bearer ${key}`,
+            "Prefer": "return=minimal",
+          },
+          body: JSON.stringify(row),
+        });
+        if (!res.ok) {
+          throw new Error(`postgrest ${res.status}`);
+        }
+      },
+    };
+    return _mirrorClient.insert.bind(_mirrorClient);
+  }
+}
+
+function mirrorErrorToDb(
+  event: string,
+  errMessage: string,
+  tags: Record<string, string>,
+): void {
+  // Build the row.
+  const row: Record<string, unknown> = {
+    function_name: tags.fn_name && tags.fn_name !== "unknown" ? tags.fn_name : event,
+    error_class: tags.error_class && tags.error_class !== "unknown"
+      ? tags.error_class
+      : event,
+    error_message: errMessage.slice(0, 2000),
+    metadata: tags,
+  };
+  if (tags.user_id && tags.user_id !== "unknown" && isUuid(tags.user_id)) {
+    row.user_id = tags.user_id;
+  }
+  if (tags.request_id && tags.request_id !== "unknown" && isUuid(tags.request_id)) {
+    row.request_id = tags.request_id;
+  }
+
+  // Fire-and-forget; swallow ALL failures.
+  getMirrorInsert()
+    .then((insertFn) => {
+      if (!insertFn) return;
+      // .insert() returns a thenable; chain a .then/.catch (PostgrestBuilder
+      // is then-able). Wrap in Promise.resolve to be safe.
+      Promise.resolve(insertFn(row)).catch(() => {
+        // swallowed — DB outage must not break the user request
+      });
+    })
+    .catch(() => {
+      // swallowed
+    });
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(v: string): boolean {
+  return UUID_RE.test(v);
 }
 
 /**
