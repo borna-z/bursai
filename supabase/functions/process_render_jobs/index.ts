@@ -38,8 +38,7 @@ import { releaseCredit } from "../_shared/render-credits.ts";
 import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import { logger } from "../_shared/logger.ts";
 import { captureError } from "../_shared/observability.ts";
-
-const log = logger("process_render_jobs");
+import { getOrCreateRequestId } from "../_shared/request-id.ts";
 
 const MAX_JOBS_PER_RUN = 5;
 const JOB_CONCURRENCY = 2;
@@ -95,6 +94,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
+
+  // Worker invocations come from two paths:
+  //   1. enqueue_render_job's kickoff POST (forwards user's `x-request-id`)
+  //   2. pg_cron safety-net tick (no header → mint a fresh uuid so cron
+  //      cycles are still individually traceable in Supabase Logs)
+  const requestId = getOrCreateRequestId(req);
+  const log = logger("process_render_jobs", requestId);
 
   if (checkOverload("process_render_jobs")) {
     return overloadResponse(CORS_HEADERS);
@@ -186,7 +192,13 @@ serve(async (req) => {
     await withConcurrencyLimit(jobs, JOB_CONCURRENCY, async (job) => {
       const startTime = Date.now();
       try {
-        const renderResult = await invokeRender(supabase, job, SUPABASE_URL, RENDER_WORKER_BEARER);
+        const renderResult = await invokeRender(
+          supabase,
+          job,
+          SUPABASE_URL,
+          RENDER_WORKER_BEARER,
+          requestId,
+        );
 
         if (renderResult.ok && "deferred" in renderResult && renderResult.deferred) {
           // Concurrent in-flight render detected (`garments.render_status`
@@ -829,6 +841,7 @@ async function invokeRender(
   job: ClaimedJob,
   supabaseUrl: string,
   workerBearer: string,
+  requestId: string,
 ): Promise<RenderResult> {
   const url = `${supabaseUrl}/functions/v1/render_garment_image`;
   const controller = new AbortController();
@@ -861,6 +874,9 @@ async function invokeRender(
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${workerBearer}`,
+        // Forward the worker's correlation id so render_garment_image's
+        // own logs/Sentry events collate against the same request.
+        "x-request-id": requestId,
       },
       body: JSON.stringify({
         internal: true,
@@ -891,7 +907,7 @@ async function invokeRender(
 
     let body: any = null;
     try { body = await res.json(); } catch (err) {
-      captureError("process_render_jobs.render_response_json_parse_failed", err);
+      captureError("process_render_jobs.render_response_json_parse_failed", err, { request_id: requestId });
     }
 
     if (!res.ok) {
