@@ -16,13 +16,27 @@ import * as Localization from 'expo-localization';
 
 import { en } from '../i18n/locales/en';
 import { sv } from '../i18n/locales/sv';
+import { ar } from '../i18n/locales/ar';
+import { da } from '../i18n/locales/da';
+import { de } from '../i18n/locales/de';
+import { es } from '../i18n/locales/es';
+import { fa } from '../i18n/locales/fa';
+import { fi } from '../i18n/locales/fi';
+import { fr } from '../i18n/locales/fr';
+import { it } from '../i18n/locales/it';
+import { nl } from '../i18n/locales/nl';
+import { no } from '../i18n/locales/no';
+import { pl } from '../i18n/locales/pl';
+import { pt } from '../i18n/locales/pt';
 import { log } from './log';
 
 export type Locale =
-  | 'en' | 'sv' | 'fr' | 'de' | 'es' | 'it' | 'ar' | 'fa' | 'pl' | 'pt';
+  | 'en' | 'sv' | 'ar' | 'da' | 'de' | 'es' | 'fa' | 'fi'
+  | 'fr' | 'it' | 'nl' | 'no' | 'pl' | 'pt';
 
 const SUPPORTED_LOCALES: readonly Locale[] = [
-  'en', 'sv', 'fr', 'de', 'es', 'it', 'ar', 'fa', 'pl', 'pt',
+  'en', 'sv', 'ar', 'da', 'de', 'es', 'fa', 'fi',
+  'fr', 'it', 'nl', 'no', 'pl', 'pt',
 ];
 
 // Pick the closest supported locale from the device's preferred-language list.
@@ -72,12 +86,7 @@ function interpolate(template: string, params?: TranslationParams): string {
 }
 
 const DICTIONARIES: Record<Locale, Record<string, string>> = {
-  en,
-  sv,
-  // Other locales fall back to English until their dictionaries land.
-  // The resolver `dict[key] ?? en[key] ?? key` means partial dictionaries
-  // are safe — any unset Swedish key resolves to its English value.
-  fr: en, de: en, es: en, it: en, ar: en, fa: en, pl: en, pt: en,
+  en, sv, ar, da, de, es, fa, fi, fr, it, nl, no, pl, pt,
 };
 
 export function t(key: string, params?: TranslationParams): string {

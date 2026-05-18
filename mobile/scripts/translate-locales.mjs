@@ -40,11 +40,23 @@ export function parseLocaleFile(src) {
   const re = /(['"])((?:\\.|(?!\1)[^\\])*)\1\s*:\s*(['"])((?:\\.|(?!\3)[^\\])*)\3\s*,?/g;
   let m;
   while ((m = re.exec(s)) !== null) {
-    const key = m[2].replace(/\\(['"\\])/g, '$1');
-    const val = m[4].replace(/\\(['"\\])/g, '$1');
-    out[key] = val;
+    out[m[2]] = unescapeStr(m[4]);
   }
   return out;
+}
+
+// Unescape the JS string-literal escapes we emit via JSON.stringify:
+// \n, \r, \t, \", \\, \\u00XX, etc. Use JSON.parse with a forced
+// double-quote wrap; falls back to a basic single-quote replacement
+// for keys/values from the older hand-rolled renderer (single-quote
+// wrap with \' escaped).
+function unescapeStr(raw) {
+  try {
+    return JSON.parse('"' + raw.replace(/\\'/g, "'") + '"');
+  } catch {
+    // Last-resort: handle the legacy \' \" \\ escapes only.
+    return raw.replace(/\\(['"\\])/g, '$1');
+  }
 }
 
 export function chunkObject(obj, size) {
@@ -109,14 +121,17 @@ export const ${locale}: Record<string, string> = {
   const lines = [];
   for (const k of Object.keys(dict)) {
     const v = dict[k];
-    // Pick the wrapping quote that doesn't require escaping the value.
-    let wrap = "'";
-    if (v.includes("'") && !v.includes('"')) wrap = '"';
-    let escaped = v;
-    if (wrap === "'") escaped = v.replace(/'/g, "\\'");
-    else escaped = v.replace(/"/g, '\\"');
-    const safeKey = k.replace(/'/g, "\\'");
-    lines.push(`  '${safeKey}': ${wrap}${escaped}${wrap},`);
+    // JSON.stringify produces a fully-escaped JS string literal in double
+    // quotes (escapes \\, \", \n, \r, \t, control chars). For TS this is
+    // valid as-is, so we can use it verbatim for the value. Picking the
+    // wrap quote conditionally would mean re-escaping by hand; JSON's
+    // canonical form is simpler and correct under every input including
+    // newlines (which the old hand-rolled escaper missed — broke it.ts +
+    // pt.ts on the first generation run when Gemini returned a literal
+    // newline inside an importFromLink.placeholder translation).
+    const safeKey = JSON.stringify(k);
+    const safeVal = JSON.stringify(v);
+    lines.push(`  ${safeKey}: ${safeVal},`);
   }
   return header + lines.join('\n') + '\n};\n';
 }
