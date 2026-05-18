@@ -31,11 +31,12 @@ k6 run tests/load/k6-edge-functions.js
 ```
 
 The smoke run is safe against any environment (5 VUs / 60 sec / ~600 total
-requests). It exercises every endpoint at least 10× per VU.
+requests). It provisions a pool of 5 synthetic users (one per VU) so per-user
+rate limits don't dominate.
 
 ## Run full load scenario
 
-NOT against prod casually — burns ~30 USD in AI tokens per full run.
+NOT against prod casually — see "Cost estimate" below.
 
 ```bash
 SCENARIO=load k6 run tests/load/k6-edge-functions.js
@@ -43,6 +44,9 @@ SCENARIO=load k6 run tests/load/k6-edge-functions.js
 
 Stages: ramp 0 → 100 VUs over 2 min, hold 100 VUs for 8 min, spike to 500 VUs
 for 5 min. Total run: ~15 min wall time.
+
+Pool size for `load` defaults to 50 synthetic users (~2 VUs per user at 100
+VU hold, ~10 VUs per user at 500 VU spike). Override with `POOL_SIZE=<N>`.
 
 ## Pass / fail criteria (per sprint brief)
 
@@ -62,10 +66,22 @@ Per-endpoint p95 latency thresholds are encoded in the script:
 | generate_outfit | 6000 ms |
 | start_trial | 3000 ms |
 
-## Synthetic user lifecycle
+## Synthetic user pool
 
-- `setup()` creates one `loadtest+<uuid>@burs.app` user + 1 garment row.
-- `teardown()` deletes the user (cascades to garments).
+Each pool user is seeded by `setup()` with:
+
+- `subscriptions` row (`plan='premium'`, `status='active'`, fake
+  `stripe_subscription_id`) so `enforceSubscription` doesn't 402 every
+  AI-gated call.
+- `render_credits` row (`monthly_allowance=100`) so `enqueue_render_job`
+  doesn't 402 `trial_studio_locked`.
+- 4 mixed-slot garments (top / bottom / shoes / outerwear) so
+  `generate_outfit`'s engine can compose a real outfit.
+- A fake `stripe_subscription_id` triggers `start_trial`'s pre-check
+  short-circuit (`already_started:true`, 200) so we never hit live Stripe.
+
+`teardown()` deletes every pool user, which cascades the subscriptions,
+render_credits and garments rows via FK.
 
 If a teardown is skipped (e.g. k6 killed mid-run), clean up manually:
 
@@ -73,16 +89,49 @@ If a teardown is skipped (e.g. k6 killed mid-run), clean up manually:
 delete from auth.users where email like 'loadtest+%@burs.app';
 ```
 
-## Costs to expect (full run, rough)
+## Why a user pool
+
+Each edge function applies per-user rate limits in
+`supabase/functions/_shared/scale-guard.ts`:
+
+- `style_chat` — 15/min
+- `enqueue_render_job` — 10/min
+- `generate_outfit` — 5/min
+- `analyze_garment` — 30/min
+- `start_trial` — 2/min
+
+A single shared user would saturate these in seconds and the load run would
+mostly measure the rate limiter, not the endpoints. The pool spreads VUs
+across users so the per-minute caps stay above the per-user request rate.
+
+## Throughput math
+
+At 500 VUs each iterating with a 0.5s sleep plus the per-call latency
+(typically 2-5 s for AI endpoints), the *effective* request rate is roughly
+`VUs / (sleep + avg_latency)` ≈ 100-200 RPS aggregate, not the
+arithmetically-implied 1000 RPS. Per-user per-minute throughput at 50 users
+sits well inside the rate-limit ceilings above.
+
+## Cost estimate (full run, rough)
+
+The earlier "~$30" estimate undercounted. Realistic full-run AI spend
+(100 VU × 8 min + 500 VU × 5 min) against a paid Gemini key:
 
 | Bucket | Estimate |
 |---|---|
-| `analyze_garment` (Gemini vision) | ~$5 |
-| `generate_outfit` (Gemini text) | ~$8 |
-| `style_chat` (Gemini text) | ~$10 |
+| `analyze_garment` (Gemini vision, fast) | $30–80 |
+| `generate_outfit` (Gemini text + engine retries) | $80–150 |
+| `style_chat` (Gemini text + wardrobe context) | $40–80 |
 | `enqueue_render_job` + `start_trial` | negligible |
 | Supabase compute | negligible |
-| **Total full run** | **~$30** |
+| **Total full run (rough range)** | **$150–300** |
+
+The wide band accounts for: (a) how many AI calls actually succeed past
+auth + paywall, (b) prompt caching hit-rate during the run, and (c) whether
+the Gemini key is on the free tier (which would shave most of this but
+likely 429 long before the load test completes).
+
+Smoke runs cost <$1 — safe to run repeatedly.
 
 ## Don't run during launch window
 
@@ -91,8 +140,9 @@ App Store / Play Store review windows. Smoke is safe anytime.
 
 ## Body schemas
 
-The body shapes in the script are best-effort, derived from a brief read of
-each edge function's `await req.json()` destructure as of 2026-05-18. If a
-function's request schema drifts, the load test will return 400s — that is
-fine for smoke (we'll see it in the summary) and the bodies should be
-refreshed in a follow-up PR.
+Body shapes were verified against the edge function `await req.json()`
+destructures on 2026-05-18 (Codex P1 on PR #896 caught earlier drift on
+`enqueue_render_job.source` and the missing NOT-NULL columns on the
+`garments` seed insert). If a function's request schema drifts in a future
+PR, smoke will surface 4xx in the per-endpoint check rate and the bodies
+should be refreshed.
