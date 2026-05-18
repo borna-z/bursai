@@ -39,6 +39,58 @@ test('parseLocaleFile handles escaped single quotes', () => {
   assert.deepEqual(parseLocaleFile(src), { k: "don't" });
 });
 
+import { chunkObject, translateOneLocale } from '../translate-locales.mjs';
+
+test('chunkObject splits at the requested boundary, preserves order', () => {
+  const obj = {};
+  for (let i = 0; i < 250; i++) obj['k' + i] = 'v' + i;
+  const chunks = chunkObject(obj, 80);
+  assert.equal(chunks.length, 4);
+  assert.equal(Object.keys(chunks[0]).length, 80);
+  assert.equal(Object.keys(chunks[1]).length, 80);
+  assert.equal(Object.keys(chunks[2]).length, 80);
+  assert.equal(Object.keys(chunks[3]).length, 10);
+  assert.equal(chunks[0]['k0'], 'v0');
+  assert.equal(chunks[3]['k249'], 'v249');
+});
+
+test('translateOneLocale walks chunks sequentially and merges results', async () => {
+  const source = {};
+  for (let i = 0; i < 5; i++) source['k' + i] = 'v' + i;
+  const sv = { k0: 'V_0' };
+  const calls = [];
+  const fakeEdge = async (_url, _secret, payload) => {
+    calls.push(payload);
+    const translations = {};
+    for (const k of Object.keys(payload.source_keys)) {
+      translations[k] = 'fr_' + payload.source_keys[k];
+    }
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        target_locale: 'fr',
+        translations,
+        chunk_index: payload.chunk_index,
+        missing_keys: [],
+      },
+    };
+  };
+  const out = await translateOneLocale({
+    targetLocale: 'fr',
+    source,
+    sv,
+    envUrl: 'http://x',
+    secret: 's',
+    log: () => {},
+    edgeCall: fakeEdge,
+  });
+  assert.equal(calls.length, 1); // 5 keys, chunk size 80 → one chunk
+  assert.equal(calls[0].sv_reference.k0, 'V_0');
+  assert.equal(out.translations.k0, 'fr_v0');
+  assert.equal(out.translations.k4, 'fr_v4');
+});
+
 test('parses real mobile/src/i18n/locales/en.ts', async () => {
   const { readFileSync } = await import('node:fs');
   const path = new URL('../../src/i18n/locales/en.ts', import.meta.url);
