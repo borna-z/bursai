@@ -1,24 +1,20 @@
 // StyleChatScreen — top header bar.
 //
-// Back + Eyebrow/Title + a single hamburger menu. The menu opens a Modal
-// sheet with "Open history" + "Start new chat" actions; deleting individual
-// past threads is handled inside ChatHistorySheet itself (per-row trash).
-//
-// Pre-parity-C this header carried TWO icons (history glyph + hamburger),
-// where the hamburger doubled as "clear chat". User feedback called this
-// confusing — both icons looked similar and the meaning of each wasn't
-// discoverable. Consolidating mirrors web (`src/pages/AIChat.tsx:1250-1294`)
-// which uses one dropdown for History + New chat + Clear.
+// Back + Eyebrow/Title + History glyph + Plus (new chat) button. Two
+// dedicated buttons replaced the prior history-glyph + hamburger-with-
+// dropdown pattern (Codex-style menu was confusing — two near-identical
+// glyphs both led to History). Per direct user request 2026-05-19: keep
+// the history glyph for history, surface "new chat" as a top-right "+"
+// so users find it without first opening a hidden dropdown.
 
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { useTokens } from '../theme/ThemeProvider';
-import { fonts, radii } from '../theme/tokens';
+import { fonts } from '../theme/tokens';
 import { Eyebrow } from '../components/Eyebrow';
 import { IconBtn } from '../components/IconBtn';
-import { BackIcon } from '../components/icons';
+import { BackIcon, PlusIcon } from '../components/icons';
 import { t as tr } from '../lib/i18n';
 
 export function ChatHeader({
@@ -34,9 +30,6 @@ export function ChatHeader({
   onNewChat: () => void;
 }) {
   const t = useTokens();
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const closeMenu = () => setMenuOpen(false);
 
   return (
     <View style={[s.header, { borderBottomColor: t.border }]}>
@@ -57,10 +50,6 @@ export function ChatHeader({
           {tr('chat.title')}
         </Text>
       </View>
-      {/* Web parity — surface History as its own glyph next to the
-          hamburger menu so users find their past chats without first
-          opening a hidden dropdown. The hamburger keeps "New chat" so
-          the destructive action stays one tap deeper. */}
       <IconBtn
         variant="ghost"
         onPress={onOpenHistory}
@@ -82,82 +71,11 @@ export function ChatHeader({
       </IconBtn>
       <IconBtn
         variant="ghost"
-        onPress={() => setMenuOpen(true)}
-        ariaLabel={tr('chat.menu.openLabel')}>
-        <View style={{ width: 18, height: 14, justifyContent: 'space-between' }}>
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={{ height: 1.6, backgroundColor: t.fg, borderRadius: 1 }}
-            />
-          ))}
-        </View>
+        onPress={onNewChat}
+        ariaLabel={tr('chat.menu.newChat')}>
+        <PlusIcon size={20} color={t.fg} />
       </IconBtn>
-
-      <Modal
-        visible={menuOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closeMenu}>
-        <Pressable
-          style={s.menuBackdrop}
-          onPress={closeMenu}
-          accessible={false}>
-          <View />
-        </Pressable>
-        {/* Include the top edge so the menu sits below the status-bar/notch inset
-            on every device. Without 'top' the absolute-positioned anchor measured
-            marginTop:56 from the physical top of the window, which on notched
-            devices put the menu under the status bar (Codex P2). */}
-        <SafeAreaView edges={['top', 'bottom']} style={s.menuAnchor} pointerEvents="box-none">
-          <View
-            style={[
-              s.menuCard,
-              { backgroundColor: t.card, borderColor: t.border },
-            ]}
-            pointerEvents="auto">
-            <ChatMenuItem
-              label={tr('chat.menu.history')}
-              onPress={() => {
-                closeMenu();
-                onOpenHistory();
-              }}
-            />
-            <View style={[s.menuSep, { backgroundColor: t.border }]} />
-            <ChatMenuItem
-              label={tr('chat.menu.newChat')}
-              onPress={() => {
-                closeMenu();
-                onNewChat();
-              }}
-            />
-          </View>
-        </SafeAreaView>
-      </Modal>
     </View>
-  );
-}
-
-function ChatMenuItem({ label, onPress }: { label: string; onPress: () => void }) {
-  const t = useTokens();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.menuItem,
-        { opacity: pressed ? 0.7 : 1 },
-      ]}>
-      <Text
-        style={{
-          fontFamily: fonts.uiSemi,
-          fontSize: 14,
-          color: t.fg,
-          letterSpacing: -0.14,
-        }}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -169,35 +87,5 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-  },
-  menuBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  menuAnchor: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  menuCard: {
-    marginTop: 56,
-    marginRight: 12,
-    alignSelf: 'flex-end',
-    minWidth: 200,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  menuSep: {
-    height: 1,
   },
 });
