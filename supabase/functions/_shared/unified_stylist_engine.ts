@@ -10,6 +10,13 @@ export interface UnifiedStylistRequest {
   generator_mode?: "standard" | "stylist";
   occasion?: string;
   style?: string | null;
+  /**
+   * Client-picked formality label (e.g. "Smart Casual", "Loungewear").
+   * When non-empty, burs_style_engine uses it as the `occasion_submode`
+   * for the AI prompt, overriding its profile-derived submode so the
+   * user's StyleMe chip actually shapes the outfit.
+   */
+  formality?: string;
   weather?: {
     temperature?: number;
     precipitation?: string;
@@ -123,6 +130,7 @@ export async function invokeUnifiedStylistEngine(params: {
     generator_mode: request.generator_mode || "stylist",
     occasion: request.occasion || "everyday",
     style: request.style || null,
+    formality: typeof request.formality === "string" && request.formality.length > 0 ? request.formality : null,
     weather: normalizeWeather(request.weather),
     locale: request.locale || "en",
     event_title: request.event_title || null,

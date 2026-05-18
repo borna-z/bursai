@@ -6,8 +6,9 @@
 //     pipes through `useWeather.setManual`.
 //   • 6 web-parity occasions + a `Custom…` chip with inline TextInput; the
 //     typed string becomes the occasion sent to the engine.
-//   • 4 engine-aligned formality submodes (`Formal Office`,
-//     `Business Casual`, `Relaxed Office`, `Baseline`).
+//   • 6-level formality ladder (`Loungewear` → `Formal`) that is now
+//     actually forwarded to the engine and overrides the computed
+//     occasion sub-mode that shapes the AI prompt.
 //   • Anchor garment picker (re-uses `TravelGarmentPicker` with `max=1`)
 //     above the Generate CTA. Selected garment IDs flow into
 //     `useGenerateOutfit({ preferGarmentIds })` — the M13 anchor lock channel.
@@ -82,18 +83,35 @@ const OCCASIONS: OccasionOption[] = [
   { id: 'travel',  labelKey: 'styleMe.occasion.travel',  subKey: 'styleMe.occasion.travel.sub',  Icon: SuitcaseIcon },
 ];
 
-// Engine submodes: see `supabase/functions/_shared/outfit-scoring.ts`
-// (cited in the wave plan — lines 1123–1127). Sending these strings as
-// the `formality` parameter lets the engine route the correct scoring
-// preset; the prior list (`Casual`, `Smart casual`, `Business`, `Formal`)
-// did not match any submode and silently fell back to `Baseline`.
-type FormalityKey = 'formalOffice' | 'businessCasual' | 'relaxedOffice' | 'baseline';
-const FORMALITY_KEYS: FormalityKey[] = ['formalOffice', 'businessCasual', 'relaxedOffice', 'baseline'];
+// 6-level formality ladder. The selected label is sent verbatim to
+// `generate_outfit` as `formality`, forwarded into burs_style_engine,
+// and overrides the engine's computed `occasionSubmode` so the AI prompt
+// reflects what the user picked. Previously the screen only offered four
+// work-skewed submodes (`Formal Office`, `Business Casual`, `Relaxed
+// Office`, `Baseline`) AND the field wasn't sent over the wire at all —
+// the picked chip was a no-op against the outfit.
+type FormalityKey =
+  | 'loungewear'
+  | 'casual'
+  | 'smartCasual'
+  | 'businessCasual'
+  | 'business'
+  | 'formal';
+const FORMALITY_KEYS: FormalityKey[] = [
+  'loungewear',
+  'casual',
+  'smartCasual',
+  'businessCasual',
+  'business',
+  'formal',
+];
 const FORMALITY_ENGINE: Record<FormalityKey, string> = {
-  formalOffice: 'Formal Office',
+  loungewear: 'Loungewear',
+  casual: 'Casual',
+  smartCasual: 'Smart Casual',
   businessCasual: 'Business Casual',
-  relaxedOffice: 'Relaxed Office',
-  baseline: 'Baseline',
+  business: 'Business',
+  formal: 'Formal',
 };
 
 export function StyleMeScreen() {
