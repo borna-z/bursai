@@ -169,7 +169,11 @@ function convertMessagesForAnthropic(
             const commaIdx = u.indexOf(",");
             if (commaIdx > 5) {
               const header = u.slice(5, commaIdx); // strip "data:" prefix
-              const media_type = header.split(";")[0].trim().toLowerCase();
+              let media_type = header.split(";")[0].trim().toLowerCase();
+              // Anthropic accepts image/jpeg, image/png, image/gif, image/webp.
+              // `image/jpg` is a common CDN alias for jpeg that Anthropic
+              // rejects — normalize here so the fallback path doesn't 400.
+              if (media_type === "image/jpg") media_type = "image/jpeg";
               const data = u.slice(commaIdx + 1);
               blocks.push({
                 type: "image",
