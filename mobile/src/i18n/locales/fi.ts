@@ -1635,5 +1635,5 @@ export const fi: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "Tee studiolaatu",
   "garmentDetail.retryRender.errorRateLimit": "Liian monta renderöintiä juuri nyt — yritä uudelleen {seconds} s kuluttua.",
   "garmentDetail.retryRender.errorGeneric": "Renderöintiä ei voitu aloittaa. Napauta yrittääksesi uudelleen.",
-  "garmentDetail.retryRender.labelPending": "Working…",
+  "garmentDetail.retryRender.labelPending": "Käsittelee…",
 };

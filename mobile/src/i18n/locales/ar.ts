@@ -1635,5 +1635,5 @@ export const ar: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "اجعل بجودة استوديو",
   "garmentDetail.retryRender.errorRateLimit": "عروض كثيرة جدًا حاليًا — حاول مرة أخرى بعد {seconds} ث.",
   "garmentDetail.retryRender.errorGeneric": "تعذر بدء العرض. انقر للمحاولة مرة أخرى.",
-  "garmentDetail.retryRender.labelPending": "Working…",
+  "garmentDetail.retryRender.labelPending": "جارٍ العمل…",
 };

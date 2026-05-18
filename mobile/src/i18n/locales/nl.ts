@@ -1635,5 +1635,5 @@ export const nl: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "Maak studiokwaliteit",
   "garmentDetail.retryRender.errorRateLimit": "Te veel renders nu — probeer opnieuw over {seconds}s.",
   "garmentDetail.retryRender.errorGeneric": "Kon render niet starten. Tik om opnieuw te proberen.",
-  "garmentDetail.retryRender.labelPending": "Working…",
+  "garmentDetail.retryRender.labelPending": "Bezig…",
 };

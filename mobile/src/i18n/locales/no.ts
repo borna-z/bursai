@@ -1635,5 +1635,5 @@ export const no: Record<string, string> = {
   "garmentDetail.retryRender.labelNever": "Lag studiokvalitet",
   "garmentDetail.retryRender.errorRateLimit": "For mange renderinger akkurat nå — prøv igjen om {seconds} sek.",
   "garmentDetail.retryRender.errorGeneric": "Kunne ikke starte renderingen. Trykk for å prøve igjen.",
-  "garmentDetail.retryRender.labelPending": "Working…",
+  "garmentDetail.retryRender.labelPending": "Jobber…",
 };
