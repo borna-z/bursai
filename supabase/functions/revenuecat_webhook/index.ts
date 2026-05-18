@@ -2,7 +2,8 @@
  * M31 PR B — RevenueCat webhook.
  *
  * Mirrors `stripe_webhook` semantics for the RevenueCat path:
- *   1. Verify the request originated from RevenueCat (HMAC + timestamp).
+ *   1. Verify the request originated from RevenueCat (static Bearer
+ *      Authorization header + event-timestamp freshness check).
  *   2. De-duplicate by event id (PRIMARY KEY race wins → idempotent).
  *   3. Route by event type → upsert / patch the `subscriptions` row that
  *      matches `app_user_id` to `user_id` (PR A configures Purchases with
@@ -12,10 +13,12 @@
  *      processing. Pending rows (transient failure on the first attempt)
  *      are reprocessed on retry — see migration 20260507120300 for why.
  *
- * Signature scheme (per the M31 wave file):
- *   The wave authoritatively specifies HMAC SHA256 over the raw body,
- *   delivered via the `X-RevenueCat-Signature` header. Validator lives in
- *   `_shared/revenuecat-signature.ts`.
+ * Auth scheme:
+ *   RevenueCat's dashboard only exposes a static "Authorization header
+ *   value" for webhook auth — no HMAC signing option exists today. We
+ *   require `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>` and
+ *   constant-time compare the token (the M31 wave originally specified
+ *   HMAC; that path was unbuildable in the RC dashboard).
  *
  *   Replay protection: events older than 5 minutes are rejected unless
  *   they match a pending row in `revenuecat_events` (legitimate RC retry).
@@ -58,10 +61,7 @@ import {
   RateLimitError,
   rateLimitResponse,
 } from "../_shared/scale-guard.ts";
-import {
-  SIGNATURE_HEADER,
-  verifyRevenueCatSignature,
-} from "../_shared/revenuecat-signature.ts";
+import { timingSafeEqual } from "../_shared/timing-safe.ts";
 import {
   classifyRevenueCatEvent,
   deriveEventId,
@@ -875,26 +875,24 @@ serve(async (req) => {
     return jsonResponse({ error: "Webhook secret not configured" }, 500);
   }
 
-  const headerSig = req.headers.get(SIGNATURE_HEADER);
-  if (!headerSig) {
-    logStep("Missing signature header", undefined, correlationId);
-    return jsonResponse({ error: "Missing signature" }, 401);
+  // RevenueCat's webhook delivery uses a static Authorization header value
+  // configured in the RC dashboard (no HMAC signing option exists today).
+  // We match the dashboard's "Bearer <secret>" convention and compare the
+  // token portion to REVENUECAT_WEBHOOK_SECRET via timingSafeEqual.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const BEARER_PREFIX = "Bearer ";
+  if (!authHeader.startsWith(BEARER_PREFIX)) {
+    logStep("Missing or malformed Authorization header", undefined, correlationId);
+    return jsonResponse({ error: "Missing authorization" }, 401);
   }
-
-  let validSig: boolean;
-  try {
-    validSig = await verifyRevenueCatSignature(secret, body, headerSig);
-  } catch (err) {
-    logStep("HMAC compute failed", { message: err instanceof Error ? err.message : String(err) }, correlationId);
-    return jsonResponse({ error: "Signature verification failure" }, 500);
-  }
-  if (!validSig) {
-    logStep("Signature mismatch", undefined, correlationId);
-    captureWarning("revenuecat_signature_mismatch", {
+  const providedToken = authHeader.slice(BEARER_PREFIX.length).trim();
+  if (!providedToken || !timingSafeEqual(providedToken, secret)) {
+    logStep("Authorization mismatch", undefined, correlationId);
+    captureWarning("revenuecat_auth_mismatch", {
       function: "revenuecat_webhook",
       correlation_id: correlationId,
     });
-    return jsonResponse({ error: "Invalid signature" }, 401);
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
   let parsed: unknown;
