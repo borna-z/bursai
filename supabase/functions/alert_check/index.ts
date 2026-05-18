@@ -55,21 +55,21 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-/** Look up the Discord webhook URL from vault. Returns null if absent. */
+/** Look up the Discord webhook URL from vault via the SECURITY DEFINER RPC.
+ * supabase-js `.schema('vault')` goes through PostgREST which only sees
+ * schemas in supabase/config.toml's exposed list — vault is intentionally
+ * excluded. The `get_vault_secret` RPC narrows access to service_role only. */
 async function loadWebhookUrl(supabase: SupabaseClient): Promise<string | null> {
-  const { data, error } = await supabase
-    .schema("vault")
-    .from("decrypted_secrets")
-    .select("decrypted_secret")
-    .eq("name", "alert_webhook_url")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("get_vault_secret", {
+    secret_name: "alert_webhook_url",
+  });
   if (error) {
     log.warn("vault lookup failed for alert_webhook_url (treating as absent)", {
       error: error.message,
     });
     return null;
   }
-  const url = (data as { decrypted_secret?: string } | null)?.decrypted_secret ?? null;
+  const url = (data as string | null) ?? null;
   return url && url.length > 0 ? url : null;
 }
 
