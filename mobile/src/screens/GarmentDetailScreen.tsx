@@ -203,15 +203,31 @@ export function GarmentDetailScreen() {
   // raced the cache-invalidation refetch (Codex P1 round 2 on PR #900).
   React.useEffect(() => {
     if (isStudioRendering) {
+      // Worker has claimed the job — fresh logical attempt next time.
       retryRenderInFlightRef.current = false;
       retryRenderNonceRef.current = null;
-    } else if (retryRender.isError || retryRender.isSuccess) {
-      // isSuccess path covers terminal-replay: tap-1 reached the server,
-      // server reached terminal state, client saw a transport error. Tap-2
-      // reuses the nonce, server returns the replayed terminal row without
-      // moving render_status back to `pending`. isStudioRendering never
-      // ticks true and the lock would otherwise stay stuck forever.
-      // (Codex P2 on PR #900.)
+    } else if (retryRender.isSuccess) {
+      // Success path: rotate BOTH lock and nonce. If the success was a
+      // terminal-replay (server returned an existing terminal job row
+      // because the same nonce already produced a completed render),
+      // isStudioRendering will never tick true — keeping the nonce
+      // cached here would re-hit the same replay on every subsequent
+      // tap and the user could never actually trigger a fresh render.
+      // (Codex P2 round 5 on PR #900.) Tiny race window: between
+      // mutate succeeding and useRenderJobStatus / useGarment refetch
+      // landing render_status='pending', a perfectly-timed user
+      // double-tap would mint a second reservation. The synchronous
+      // retryRenderInFlightRef catches same-render double-taps; only
+      // a tap that lands AFTER React commits with isPending=false but
+      // BEFORE the refetch lands would slip through. Acceptable for a
+      // manual feature — getting stuck on a replay forever is strictly
+      // worse than the rare double-mint.
+      retryRenderInFlightRef.current = false;
+      retryRenderNonceRef.current = null;
+    } else if (retryRender.isError) {
+      // Error path: release the lock so the user can re-tap. KEEP the
+      // nonce — server-side reserve_key idempotency dedupes a real
+      // retry of the same attempt.
       retryRenderInFlightRef.current = false;
     }
   }, [isStudioRendering, retryRender.isError, retryRender.isSuccess]);
