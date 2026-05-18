@@ -70,6 +70,13 @@ export function buildAuthoritativeOutfitTag(garmentIds: string[], explanation: s
 export async function invokeUnifiedStylistEngine(params: {
   authToken: string;
   request: UnifiedStylistRequest;
+  /**
+   * Inbound correlation id forwarded to `burs_style_engine` so the shim's
+   * own log lines and the engine's nested `request.*` log lines share one
+   * id end-to-end. Optional — when omitted the engine's
+   * `getOrCreateRequestId` will mint its own. Codex round 5 on PR #895.
+   */
+  requestId?: string;
 }): Promise<UnifiedStylistResponse> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -136,14 +143,21 @@ export async function invokeUnifiedStylistEngine(params: {
   const timeout = setTimeout(() => controller.abort(), 20000);
   let response: Response;
   try {
+    const fetchHeaders: Record<string, string> = {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.authToken}`,
+      apikey: serviceRoleKey,
+    };
+    if (params.requestId) {
+      // Propagate the shim's correlation id; burs_style_engine's
+      // `getOrCreateRequestId` will honor the header so its own
+      // `request.*` log lines share the upstream id.
+      fetchHeaders["x-request-id"] = params.requestId;
+    }
     response = await fetch(`${supabaseUrl}/functions/v1/burs_style_engine`, {
       method: "POST",
-      headers: {
-        ...CORS_HEADERS,
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${params.authToken}`,
-        apikey: serviceRoleKey,
-      },
+      headers: fetchHeaders,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });

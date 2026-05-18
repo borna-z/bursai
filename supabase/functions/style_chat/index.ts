@@ -1627,6 +1627,13 @@ serve(async (req) => {
       try {
         unified = await invokeUnifiedStylistEngine({
           authToken: token,
+          // Forward style_chat's correlation id to burs_style_engine so
+          // the chat→engine hop shares one trace. Engine's
+          // getOrCreateRequestId rejects non-UUID values (Codex round 1)
+          // — style_chat's local createRequestId falls back to a
+          // `style-chat-${ts}` string on the unreachable crypto.randomUUID
+          // failure path; in that case the engine just mints its own.
+          requestId,
           request: {
             mode: unifiedRequestMode,
             generator_mode: "stylist",

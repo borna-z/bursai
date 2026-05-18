@@ -58,6 +58,10 @@ serve(async (req) => {
     const body = await req.json();
     const unified = await invokeUnifiedStylistEngine({
       authToken: token,
+      // Forward the inbound correlation id to burs_style_engine so the
+      // shim's logs and the engine's nested `request.*` lines share one
+      // trace end-to-end. Codex round 5 on PR #895.
+      requestId,
       request: {
         mode: "generate",
         generator_mode: body.mode === "stylist" ? "stylist" : "standard",
