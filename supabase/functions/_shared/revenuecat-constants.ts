@@ -5,7 +5,7 @@
  * of truth.
  */
 
-export const PREMIUM_MONTHLY_ALLOWANCE = 20;
+export const PREMIUM_MONTHLY_ALLOWANCE = 100;
 
 export const RC_STRIPE_MODE_MARKER = "revenuecat";
 

@@ -27,7 +27,8 @@
  *   - INITIAL_PURCHASE / RENEWAL / UNCANCELLATION / PRODUCT_CHANGE /
  *     NON_RENEWING_PURCHASE → upsert `subscriptions` with status='active',
  *     plan='premium', current_period_end = expiration_at_ms; render
- *     allowance set to 20/month.
+ *     allowance set to PREMIUM_MONTHLY_ALLOWANCE (see
+ *     `_shared/revenuecat-constants.ts`).
  *   - TRANSFER → activate the new app_user_id AND end every origin id.
  *   - CANCELLATION → keep status='active' until expiration (Apple grace
  *     period).

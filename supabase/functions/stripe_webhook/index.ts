@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { CORS_HEADERS } from "../_shared/cors.ts";
 import { setMonthlyAllowance } from "../_shared/render-credits.ts";
+import { PREMIUM_MONTHLY_ALLOWANCE } from "../_shared/revenuecat-constants.ts";
 import { makeLogStep } from "../_shared/observability.ts";
 import {
   getStripeConfig as getSharedStripeConfig,
@@ -314,11 +315,14 @@ async function updateSubscription(
     .update({ plan, updated_at: new Date().toISOString() })
     .eq('user_id', userId);
 
-  // Update render credit ledger — 20 monthly renders for active subscribers, 0 otherwise.
+  // Update render credit ledger — PREMIUM_MONTHLY_ALLOWANCE renders for active
+  // subscribers, 0 otherwise. Source of truth lives in
+  // `_shared/revenuecat-constants.ts` so the Stripe + RevenueCat paths can't
+  // drift on the allowance value.
   // Key on event.id (not subscription.id + status) so status transitions like
   // active → past_due → active each trigger their own allowance update instead of
   // being short-circuited as duplicates of the first "active" event.
-  const creditAllowance = isPremium ? 20 : 0;
+  const creditAllowance = isPremium ? PREMIUM_MONTHLY_ALLOWANCE : 0;
   const creditIdempotencyKey = `stripe_allowance_${eventId}`;
   const creditResult = await setMonthlyAllowance(client, userId, creditAllowance, creditIdempotencyKey);
   if (!creditResult.ok && !creditResult.duplicate) {
